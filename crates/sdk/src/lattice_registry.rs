@@ -794,8 +794,11 @@ per_subject_lattice!(
     &["ck.cross_signing.reset"]
 );
 
-pub struct MemberIdentity;
-impl LatticeKind for MemberIdentity {
+/// Lattice marker for the `ck.component.member.identity.v1` cell family.
+/// Named `MemberIdentityLattice` (not `MemberIdentity`) to avoid colliding
+/// with the wire object `model::MemberIdentity`.
+pub struct MemberIdentityLattice;
+impl LatticeKind for MemberIdentityLattice {
     fn cell_family(&self) -> &'static str {
         "ck.component.member.identity.v1"
     }
@@ -1286,7 +1289,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(AccountStatus);
     registry.register(PolicyRule);
     registry.register(CrossSigningReset);
-    registry.register(MemberIdentity);
+    registry.register(MemberIdentityLattice);
     registry.register(ContactFactLog);
     registry.register(DirectConversationBinding);
 

@@ -145,7 +145,12 @@ impl ApprovalFlowManager {
         });
 
         self.evaluate_proposal_status(proposal_id);
-        Ok(self.proposals.get(proposal_id).cloned().unwrap())
+        // Looked up successfully above; re-fetch after status evaluation
+        // without assuming the map is unchanged.
+        self.proposals
+            .get(proposal_id)
+            .cloned()
+            .ok_or_else(|| Error::Protocol("proposal not found".to_owned()))
     }
 
     /// Check if a proposal is approved.

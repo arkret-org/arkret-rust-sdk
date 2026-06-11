@@ -25,7 +25,7 @@
 //! SHOULD additionally check that `public_key_b64` matches the
 //! `verificationMethod` published in the agent's DID document.
 
-use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use serde_json::Value;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -134,7 +134,7 @@ pub fn verify_ed25519_audit_binding(
     let mut sig_arr = [0u8; 64];
     sig_arr.copy_from_slice(&sig_bytes);
     let signature = Signature::from_bytes(&sig_arr);
-    match verifying_key.verify(expected_subject.as_bytes(), &signature) {
+    match verifying_key.verify_strict(expected_subject.as_bytes(), &signature) {
         Ok(_) => Ed25519AuditBindingVerifyOutcome::Valid,
         Err(_) => Ed25519AuditBindingVerifyOutcome::SignatureMismatch,
     }

@@ -132,8 +132,8 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
     (did, body.into_bytes())
 }
 
-fn vector_log_response(did: &Did, body: Vec<u8>) -> DidWebvhLogResBody {
-    DidWebvhLogResBody {
+fn vector_log_response(did: &Did, body: Vec<u8>) -> DidWebvhLogOutcome {
+    DidWebvhLogOutcome {
         url: DidWebvhResolver::log_url(did).unwrap(),
         content_type: "application/jsonl".to_owned(),
         body,
@@ -404,7 +404,7 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
     web_https_resolver
         .insert_from_https_response(
             &web,
-            DidWebDocumentResBody {
+            DidWebDocumentOutcome {
                 url: DidWebResolver::document_url(&web).unwrap(),
                 content_type: "application/did+json; charset=utf-8".to_owned(),
                 body: web_body,
@@ -415,7 +415,7 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
         web_https_resolver
             .insert_from_https_response(
                 &web,
-                DidWebDocumentResBody {
+                DidWebDocumentOutcome {
                     url: DidWebResolver::document_url(&web).unwrap(),
                     content_type: "text/plain".to_owned(),
                     body: b"{}".to_vec(),
@@ -427,7 +427,7 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
         web_https_resolver
             .insert_from_https_response(
                 &web,
-                DidWebDocumentResBody {
+                DidWebDocumentOutcome {
                     url: DidWebResolver::document_url(&web).unwrap(),
                     content_type: "application/json".to_owned(),
                     body: vec![b' '; DID_WEB_MAX_DOCUMENT_BYTES + 1],
@@ -535,142 +535,216 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
 }
 
 #[test]
-fn did_key_log_verifies_rotate_recover_and_deactivate_without_changing_did() {
+fn did_key_log_verifies_schema_shaped_chain() {
+    let signing_key = SigningKey::from_bytes(&[21u8; 32]);
     let alice = did("alice");
-    let inception_keys = BTreeMap::from([("key-1".to_owned(), "pub-1".to_owned())]);
-    let recovery_keys = BTreeMap::from([("recovery-1".to_owned(), "recover-pub-1".to_owned())]);
-    let inception = DidKeyLogEntry::signed(
+    let verification_method = format!("{alice}#key-1");
+    let mut resolver = DidWebResolver::new();
+    resolver
+        .insert(DidDocument::new(
+            alice.clone(),
+            verification_method.clone(),
+            vector_update_key(&signing_key),
+        ))
+        .unwrap();
+
+    let mut body = serde_json::Map::new();
+    body.insert("update_keys".to_owned(), json!([vector_update_key(&signing_key)]));
+
+    let mut inception = DidKeyLogEntry::build(
+        alice.clone(),
         0,
-        alice.clone(),
+        DidKeyLogOperation::Inception,
         None,
-        DidKeyLogOperation::Inception { verification_keys: inception_keys, recovery_keys },
-        "key-1",
-        "pub-1",
-    );
+        body.clone(),
+        Utc::now(),
+    )
+    .unwrap();
+    inception.attach_controller_proof(&signing_key, &verification_method).unwrap();
 
-    let rotated_keys = BTreeMap::from([("key-2".to_owned(), "pub-2".to_owned())]);
-    let rotate = DidKeyLogEntry::signed(
+    let mut rotate = DidKeyLogEntry::build(
+        alice.clone(),
         1,
-        alice.clone(),
-        Some(inception.entry_hash()),
-        DidKeyLogOperation::Rotate { verification_keys: rotated_keys },
-        "key-1",
-        "pub-1",
-    );
+        DidKeyLogOperation::Rotate,
+        Some(inception.head_event_digest.clone()),
+        body.clone(),
+        Utc::now(),
+    )
+    .unwrap();
+    rotate.attach_controller_proof(&signing_key, &verification_method).unwrap();
 
-    let recovered_keys = BTreeMap::from([("key-3".to_owned(), "pub-3".to_owned())]);
-    let new_recovery_keys = BTreeMap::from([("recovery-2".to_owned(), "recover-pub-2".to_owned())]);
-    let recover = DidKeyLogEntry::signed(
+    let mut deactivate = DidKeyLogEntry::build(
+        alice.clone(),
         2,
-        alice.clone(),
-        Some(rotate.entry_hash()),
-        DidKeyLogOperation::Recover {
-            verification_keys: recovered_keys,
-            recovery_keys: new_recovery_keys,
-        },
-        "recovery-1",
-        "recover-pub-1",
-    );
-
-    let deactivate = DidKeyLogEntry::signed(
-        3,
-        alice.clone(),
-        Some(recover.entry_hash()),
         DidKeyLogOperation::Deactivate,
-        "key-3",
-        "pub-3",
-    );
+        Some(rotate.head_event_digest.clone()),
+        body.clone(),
+        Utc::now(),
+    )
+    .unwrap();
+    deactivate.attach_controller_proof(&signing_key, &verification_method).unwrap();
 
-    let state =
-        verify_did_key_log(&[inception.clone(), rotate.clone(), recover.clone(), deactivate])
-            .unwrap();
-    assert_eq!(state.did, alice);
-    assert!(state.deactivated);
-    assert_eq!(state.verification_keys["key-3"], "pub-3");
-    assert!(state.to_document().is_err());
-
-    let active = verify_did_key_log(&[inception, rotate, recover]).unwrap();
+    let active = verify_did_key_log(&[inception.clone(), rotate.clone()], &resolver).unwrap();
+    assert_eq!(active.did, alice);
+    assert_eq!(active.seq, 1);
+    assert_eq!(active.head, rotate.head_event_digest);
     assert!(!active.deactivated);
-    assert_eq!(active.to_document().unwrap().verification_methods["key-3"], "pub-3");
+
+    let state = verify_did_key_log(&[inception, rotate, deactivate], &resolver).unwrap();
+    assert!(state.deactivated);
+    assert_eq!(state.seq, 2);
 }
 
 #[test]
-fn did_key_log_rejects_did_change_and_bad_proof() {
+fn did_key_log_rejects_drift_tampering_and_schema_violations() {
+    let signing_key = SigningKey::from_bytes(&[23u8; 32]);
     let alice = did("alice");
     let bob = did("bob");
-    let inception_keys = BTreeMap::from([("key-1".to_owned(), "pub-1".to_owned())]);
-    let inception = DidKeyLogEntry::signed(
+    let verification_method = format!("{alice}#key-1");
+    let mut resolver = DidWebResolver::new();
+    resolver
+        .insert(DidDocument::new(
+            alice.clone(),
+            verification_method.clone(),
+            vector_update_key(&signing_key),
+        ))
+        .unwrap();
+
+    let mut body = serde_json::Map::new();
+    body.insert("update_keys".to_owned(), json!([vector_update_key(&signing_key)]));
+
+    let mut inception = DidKeyLogEntry::build(
+        alice.clone(),
         0,
-        alice,
+        DidKeyLogOperation::Inception,
         None,
-        DidKeyLogOperation::Inception {
-            verification_keys: inception_keys,
-            recovery_keys: BTreeMap::new(),
-        },
-        "key-1",
-        "pub-1",
-    );
+        body.clone(),
+        Utc::now(),
+    )
+    .unwrap();
+    inception.attach_controller_proof(&signing_key, &verification_method).unwrap();
 
-    let rotate = DidKeyLogEntry::signed(
-        1,
+    // DID change mid-chain is rejected.
+    let mut rotate_other_did = DidKeyLogEntry::build(
         bob,
-        Some(inception.entry_hash()),
-        DidKeyLogOperation::Rotate {
-            verification_keys: BTreeMap::from([("key-2".to_owned(), "pub-2".to_owned())]),
-        },
-        "key-1",
-        "pub-1",
-    );
-    assert!(verify_did_key_log(&[inception.clone(), rotate]).is_err());
+        1,
+        DidKeyLogOperation::Rotate,
+        Some(inception.head_event_digest.clone()),
+        body.clone(),
+        Utc::now(),
+    )
+    .unwrap();
+    rotate_other_did.attach_controller_proof(&signing_key, &verification_method).unwrap();
+    assert!(verify_did_key_log(&[inception.clone(), rotate_other_did], &resolver).is_err());
 
-    let mut tampered = inception;
-    tampered.proof = "bad-proof".to_owned();
-    assert!(verify_did_key_log(&[tampered]).is_err());
+    // Tampering with the body after signing breaks the self digest.
+    let mut tampered = inception.clone();
+    tampered.operation_body.insert("evil".to_owned(), json!(true));
+    assert!(verify_did_key_log(&[tampered], &resolver).is_err());
+
+    // Tampering with the JWS itself fails Ed25519 verification.
+    let mut bad_jws = inception.clone();
+    bad_jws.proofs[0].jws = format!("{}A", &bad_jws.proofs[0].jws[..bad_jws.proofs[0].jws.len() - 1]);
+    assert!(verify_did_key_log(&[bad_jws], &resolver).is_err());
+
+    // seq=0 must not carry prev_event_digest (schema allOf rule).
+    let mut bad_inception = inception.clone();
+    bad_inception.prev_event_digest = Some(inception.head_event_digest.clone());
+    assert!(bad_inception.validate().is_err());
+
+    // Hash-chain mismatch is rejected.
+    let mut rotate = DidKeyLogEntry::build(
+        alice.clone(),
+        1,
+        DidKeyLogOperation::Rotate,
+        Some(crate::Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap()),
+        body,
+        Utc::now(),
+    )
+    .unwrap();
+    rotate.attach_controller_proof(&signing_key, &verification_method).unwrap();
+    assert!(verify_did_key_log(&[inception, rotate], &resolver).is_err());
 }
 
 #[test]
-fn did_registry_receipt_verifies_signature_binding() {
-    let alice = did("alice");
+fn did_registry_receipt_verifies_detached_jws_binding() {
+    let registry_key = SigningKey::from_bytes(&[24u8; 32]);
     let registry = did("registry");
+    let verification_method = format!("{registry}#key-1");
+    let mut resolver = DidWebResolver::new();
+    resolver
+        .insert(DidDocument::new(
+            registry.clone(),
+            verification_method.clone(),
+            vector_update_key(&registry_key),
+        ))
+        .unwrap();
+
+    let alice = did("alice");
     let receipt = DidRegistryReceipt::signed(
+        cokret_core::ReceiptId::new("ck:receipt:01904100-0000-7000-8000-000000000001").unwrap(),
         alice.clone(),
+        7,
+        crate::Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
         registry,
-        "sha256:abc",
-        "did:web:registry.example#key-1",
-        "registry-public-key",
-    );
+        IdentityReceiptWitnessRole::Writer,
+        &registry_key,
+        &verification_method,
+    )
+    .unwrap();
+    assert_eq!(receipt.schema, DidRegistryReceipt::SCHEMA);
+    receipt.verify(&resolver).unwrap();
 
-    receipt.verify("registry-public-key").unwrap();
-    assert!(receipt.verify("wrong-key").is_err());
+    // Any field tamper breaks the payload digest binding.
+    let mut tampered = receipt.clone();
+    tampered.seq = 8;
+    assert!(tampered.verify(&resolver).is_err());
 
-    let expected = did_registry_receipt_signature(
-        &alice,
-        &receipt.registry_did,
-        &receipt.operation_hash,
-        &receipt.verification_method,
-        receipt.issued_at,
-        "registry-public-key",
-    );
-    assert_eq!(receipt.signature, expected);
+    // A wrong registry key fails Ed25519 verification.
+    let mut wrong_resolver = DidWebResolver::new();
+    wrong_resolver
+        .insert(DidDocument::new(
+            did("registry"),
+            format!("{}#key-1", did("registry")),
+            vector_update_key(&SigningKey::from_bytes(&[25u8; 32])),
+        ))
+        .unwrap();
+    assert!(receipt.verify(&wrong_resolver).is_err());
 }
 
 #[test]
 fn starid_registry_adapter_resolves_records_and_control_proofs() {
-    let alice = Did::new("did:webvh:zabc:starid.example:users:alice").unwrap();
+    let registry_key = SigningKey::from_bytes(&[26u8; 32]);
     let registry = did("registry");
+    let registry_vm = format!("{registry}#key-1");
+    let mut registry_resolver = DidWebResolver::new();
+    registry_resolver
+        .insert(DidDocument::new(
+            registry.clone(),
+            registry_vm.clone(),
+            vector_update_key(&registry_key),
+        ))
+        .unwrap();
+
+    let alice = Did::new("did:webvh:zabc:starid.example:users:alice").unwrap();
+    let head = crate::Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
     let document = DidDocument::new(alice.clone(), "root", "alice-public-key");
     let receipt = DidRegistryReceipt::signed(
+        cokret_core::ReceiptId::new("ck:receipt:01904100-0000-7000-8000-000000000002").unwrap(),
         alice.clone(),
+        0,
+        head.clone(),
         registry.clone(),
-        "sha256:abc",
-        "did:web:registry.example#key-1",
-        "registry-public-key",
-    );
+        IdentityReceiptWitnessRole::Writer,
+        &registry_key,
+        &registry_vm,
+    )
+    .unwrap();
     let record = StaridRegistryRecord {
         did: alice.clone(),
         registry_did: registry.clone(),
         document,
-        key_log_head: "sha256:abc".to_owned(),
+        key_log_head: head.as_str().to_owned(),
         current_control_key: "root".to_owned(),
         receipt: Some(receipt),
         resolved_at: Utc::now(),
@@ -679,14 +753,14 @@ fn starid_registry_adapter_resolves_records_and_control_proofs() {
     let mut adapter = InMemoryStaridRegistryAdapter::new(registry);
     adapter.insert(record).unwrap();
     assert_eq!(adapter.resolve_did(&alice).unwrap().primary_key().unwrap().0, "root");
-    assert_eq!(adapter.current_key_log_head(&alice).unwrap(), "sha256:abc");
+    assert_eq!(adapter.current_key_log_head(&alice).unwrap(), head.as_str());
     assert_eq!(adapter.current_control_key(&alice).unwrap(), "root");
-    adapter.verify_registry_receipt(&alice, "registry-public-key").unwrap();
+    adapter.verify_registry_receipt(&alice, &registry_resolver).unwrap();
 
     let challenge = "challenge-1";
     let proof = starid_control_proof(&alice, "root", challenge, "alice-public-key");
     let verified = adapter
-        .verify_control_proof(&StaridControlProofReqBody {
+        .verify_control_proof(&StaridControlProofRequestBody {
             did: alice.clone(),
             verification_method: "root".to_owned(),
             challenge: challenge.to_owned(),
@@ -697,7 +771,7 @@ fn starid_registry_adapter_resolves_records_and_control_proofs() {
 
     assert!(
         adapter
-            .verify_control_proof(&StaridControlProofReqBody {
+            .verify_control_proof(&StaridControlProofRequestBody {
                 did: verified.did,
                 verification_method: "root".to_owned(),
                 challenge: challenge.to_owned(),

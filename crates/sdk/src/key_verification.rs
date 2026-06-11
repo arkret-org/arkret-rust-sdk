@@ -17,14 +17,31 @@
 //! and a [`KeyVerificationFlow`] state machine that consumes them in
 //! strict order. Every transition is validated and an out-of-order
 //! call returns `Error::Protocol(...)` rather than silently accepting it.
+//!
+//! Beyond step ordering the flow enforces the two cryptographic binding
+//! points of `device-lifecycle.md` §10.3:
+//!
+//! - **Commitment** — `accept.commitment` is a SHA-256 commitment over the
+//!   responder's ephemeral public key and the canonical `start` message
+//!   (see [`compute_key_commitment`]). When the responder's `key` envelope
+//!   arrives, [`KeyVerificationFlow::on_key`] recomputes the commitment
+//!   and cancels with `code=mismatched_commitment` on mismatch.
+//! - **MAC** — [`KeyVerificationFlow::on_mac`] verifies the sender's MAC
+//!   envelope against the full negotiated transcript (both parties,
+//!   transaction id, method, algorithm selection, both ephemeral keys and
+//!   the verified key ids/values) using an HKDF-derived MAC key, and
+//!   cancels with `code=mismatched_mac` on any mismatch. Producers build
+//!   matching envelopes with [`KeyVerificationFlow::build_mac`].
 
 use std::collections::BTreeMap;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use chrono::{DateTime, Utc};
+use cokret_core::canonical::canonical_json_bytes;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use subtle::ConstantTimeEq as _;
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
 
 use crate::{DeviceId, Did, Error, Result};
@@ -331,6 +348,41 @@ fn hkdf_expand_sha256(prk: &[u8; 32], info: &[u8], output: &mut [u8]) {
     }
 }
 
+/// SHA-256 commitment over the responder's ephemeral public key and the
+/// canonical `start` message (`device-lifecycle.md` §10.3:
+/// "`accept.commitment` MUST 是对本端 ephemeral public key 与 canonical
+/// `start` 消息的哈希承诺"). The responder calls this when building the
+/// `accept` envelope; the initiator recomputes it in
+/// [`KeyVerificationFlow::on_key`] once the responder reveals its key.
+///
+/// Construction: `"sha256:" + hex(SHA256(key_b64 || canonical_json(start)))`.
+pub fn compute_key_commitment(
+    ephemeral_public_b64: &str,
+    start: &KeyVerificationStart,
+) -> Result<String> {
+    let start_value = serde_json::to_value(start)
+        .map_err(|err| Error::Protocol(format!("serialize start for commitment: {err}")))?;
+    let canonical_start = canonical_json_bytes(&start_value)
+        .map_err(|err| Error::Protocol(format!("canonicalize start for commitment: {err}")))?;
+    let mut hasher = Sha256::new();
+    hasher.update(ephemeral_public_b64.as_bytes());
+    hasher.update(&canonical_start);
+    Ok(format!("sha256:{}", hex_lower(&hasher.finalize())))
+}
+
+fn hex_lower(bytes: &[u8]) -> String {
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        s.push_str(&format!("{b:02x}"));
+    }
+    s
+}
+
+/// Constant-time string equality for MAC / commitment comparisons.
+fn ct_eq(a: &str, b: &str) -> bool {
+    bool::from(a.as_bytes().ct_eq(b.as_bytes()))
+}
+
 /// Initiator's first message: agree on protocols + commit to a SAS code.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeyVerificationStart {
@@ -454,6 +506,13 @@ pub struct KeyVerificationFlow {
     transaction_id: Option<String>,
     initiator: Option<(Did, DeviceId)>,
     responder: Option<(Did, DeviceId)>,
+    /// The accepted `start` envelope — retained because the canonical
+    /// `start` message is an input to the commitment (§10.3) and the
+    /// MAC transcript.
+    start: Option<KeyVerificationStart>,
+    /// The accepted `accept` envelope — retained for the commitment
+    /// check in `on_key` and the algorithm selection in the transcript.
+    accept: Option<KeyVerificationAccept>,
     keys_exchanged: BTreeMap<DeviceId, String>,
     macs_received: BTreeMap<DeviceId, KeyVerificationMac>,
     done_received: BTreeMap<DeviceId, KeyVerificationDone>,
@@ -475,6 +534,8 @@ impl Default for KeyVerificationFlow {
             transaction_id: None,
             initiator: None,
             responder: None,
+            start: None,
+            accept: None,
             keys_exchanged: BTreeMap::new(),
             macs_received: BTreeMap::new(),
             done_received: BTreeMap::new(),
@@ -575,11 +636,15 @@ impl KeyVerificationFlow {
         }
         self.transaction_id = Some(msg.transaction_id.clone());
         self.initiator = Some((msg.from_user.clone(), msg.from_device.clone()));
+        self.start = Some(msg.clone());
         self.state = KeyVerificationState::Started;
         Ok(())
     }
 
     /// Step 2: accept `accept`. Only legal in `Started`.
+    ///
+    /// The commitment itself can only be checked once the responder
+    /// reveals its ephemeral key — see [`Self::on_key`].
     pub fn on_accept(&mut self, msg: &KeyVerificationAccept) -> Result<()> {
         if self.state != KeyVerificationState::Started {
             return self.fail("invalid_transition", "accept only legal in Started");
@@ -594,11 +659,17 @@ impl KeyVerificationFlow {
             return self.fail("invalid_param", "accept must come from responder, not initiator");
         }
         self.responder = Some((msg.from_user.clone(), msg.from_device.clone()));
+        self.accept = Some(msg.clone());
         self.state = KeyVerificationState::Accepted;
         Ok(())
     }
 
     /// Step 3: accept `key` envelopes (one per side, in any order).
+    ///
+    /// When the responder's key arrives, the commitment from the
+    /// `accept` envelope is recomputed over the revealed key + canonical
+    /// `start` message and compared fail-closed; a mismatch cancels the
+    /// flow with `code=mismatched_commitment` (§10.3).
     pub fn on_key(&mut self, msg: &KeyVerificationKey) -> Result<()> {
         let next = match self.state {
             KeyVerificationState::Accepted => KeyVerificationState::KeyHalfExchanged,
@@ -615,13 +686,160 @@ impl KeyVerificationFlow {
         if self.keys_exchanged.contains_key(&msg.from_device) {
             return self.fail("invalid_transition", "key already received from this device");
         }
+        // §10.3: the responder committed to its ephemeral key in
+        // `accept.commitment` before seeing the initiator's key. Now
+        // that the key is revealed, recompute and compare.
+        let from_responder =
+            self.responder.as_ref().is_some_and(|(_, device)| device == &msg.from_device);
+        if from_responder {
+            let Some(start) = self.start.clone() else {
+                return self.fail("unexpected_message", "key received without a recorded start");
+            };
+            let Some(expected) = self.accept.as_ref().map(|a| a.commitment.clone()) else {
+                return self.fail("unexpected_message", "key received without a recorded accept");
+            };
+            let computed = match compute_key_commitment(&msg.key, &start) {
+                Ok(commitment) => commitment,
+                Err(err) => {
+                    return self.fail(
+                        "mismatched_commitment",
+                        &format!("cannot recompute commitment: {err}"),
+                    );
+                }
+            };
+            if !ct_eq(&computed, &expected) {
+                return self.fail(
+                    "mismatched_commitment",
+                    "accept.commitment does not match the responder's revealed ephemeral key",
+                );
+            }
+        }
         self.keys_exchanged.insert(msg.from_device.clone(), msg.key.clone());
         self.state = next;
         Ok(())
     }
 
-    /// Step 4: accept `mac` envelopes (one per side).
-    pub fn on_mac(&mut self, msg: &KeyVerificationMac) -> Result<()> {
+    /// The canonical SAS transcript both sides MUST derive identically
+    /// (§10.3): transaction id, both parties, method, the algorithm
+    /// selection fixed by `accept`, and both ephemeral public keys.
+    fn sas_transcript(&self) -> Result<String> {
+        let (init_did, init_device) = self
+            .initiator
+            .as_ref()
+            .ok_or_else(|| Error::Protocol("transcript requires an initiator".to_owned()))?;
+        let (resp_did, resp_device) = self
+            .responder
+            .as_ref()
+            .ok_or_else(|| Error::Protocol("transcript requires a responder".to_owned()))?;
+        let start = self
+            .start
+            .as_ref()
+            .ok_or_else(|| Error::Protocol("transcript requires the start envelope".to_owned()))?;
+        let accept = self
+            .accept
+            .as_ref()
+            .ok_or_else(|| Error::Protocol("transcript requires the accept envelope".to_owned()))?;
+        let txn = self
+            .transaction_id
+            .as_deref()
+            .ok_or_else(|| Error::Protocol("transcript requires a transaction id".to_owned()))?;
+        let init_key = self.keys_exchanged.get(init_device).ok_or_else(|| {
+            Error::Protocol("transcript requires the initiator's ephemeral key".to_owned())
+        })?;
+        let resp_key = self.keys_exchanged.get(resp_device).ok_or_else(|| {
+            Error::Protocol("transcript requires the responder's ephemeral key".to_owned())
+        })?;
+        Ok([
+            txn,
+            init_did.as_str(),
+            init_device.as_str(),
+            resp_did.as_str(),
+            resp_device.as_str(),
+            start.method.as_str(),
+            accept.key_agreement_protocol.as_str(),
+            accept.message_authentication_code.as_str(),
+            &accept.short_authentication_string.join(","),
+            init_key.as_str(),
+            resp_key.as_str(),
+        ]
+        .join("|"))
+    }
+
+    /// HKDF-derived MAC key for `sender_device`, bound to the full SAS
+    /// transcript: `HKDF-Expand(HMAC(0, shared_secret),
+    /// "cokret-sas-mac-v1|<transcript>|<sender_device>", 32)`.
+    fn mac_key_for(&self, sender_device: &DeviceId) -> Result<[u8; 32]> {
+        let ephemeral = self
+            .ephemeral
+            .as_ref()
+            .ok_or_else(|| Error::Protocol("ephemeral keypair not installed".to_owned()))?;
+        let own_public = ephemeral.public_base64();
+        let peer_public = self
+            .keys_exchanged
+            .values()
+            .find(|key| key.as_str() != own_public)
+            .ok_or_else(|| Error::Protocol("peer public key not received yet".to_owned()))?;
+        let shared = ephemeral.compute_shared_secret(peer_public)?;
+        let prk = hmac_sha256(&[0u8; 32], &shared);
+        let transcript = self.sas_transcript()?;
+        let info = format!("cokret-sas-mac-v1|{transcript}|{}", sender_device.as_str());
+        let mut mac_key = [0u8; 32];
+        hkdf_expand_sha256(&prk, info.as_bytes(), &mut mac_key);
+        Ok(mac_key)
+    }
+
+    /// Build this side's `mac` envelope over the verified keys
+    /// (`key_id -> public key`, e.g. `"ed25519:<device_id>" ->
+    /// base64(device verify key)`). Per §10.3 each per-key MAC covers the
+    /// key id and key value, and `keys` covers the sorted key-id list;
+    /// the MAC key binds the full negotiated transcript.
+    ///
+    /// Requires both `key` envelopes and this side's ephemeral keypair,
+    /// i.e. legal from `KeysExchanged` onwards.
+    pub fn build_mac(
+        &self,
+        from_user: &Did,
+        from_device: &DeviceId,
+        verify_keys: &BTreeMap<String, String>,
+    ) -> Result<KeyVerificationMac> {
+        if verify_keys.is_empty() {
+            return Err(Error::Protocol("mac requires at least one key to verify".to_owned()));
+        }
+        let txn = self
+            .transaction_id
+            .clone()
+            .ok_or_else(|| Error::Protocol("mac requires an active transaction".to_owned()))?;
+        let mac_key = self.mac_key_for(from_device)?;
+        let mut mac = BTreeMap::new();
+        for (key_id, key_value) in verify_keys {
+            let tag = hmac_sha256(&mac_key, format!("{key_id}|{key_value}").as_bytes());
+            mac.insert(key_id.clone(), STANDARD_NO_PAD.encode(tag));
+        }
+        let key_ids = verify_keys.keys().cloned().collect::<Vec<_>>().join(",");
+        let keys = STANDARD_NO_PAD.encode(hmac_sha256(&mac_key, key_ids.as_bytes()));
+        Ok(KeyVerificationMac {
+            transaction_id: txn,
+            from_user: from_user.clone(),
+            from_device: from_device.clone(),
+            keys,
+            mac,
+            sent_at: Utc::now(),
+        })
+    }
+
+    /// Step 4: accept `mac` envelopes (one per side) and verify them.
+    ///
+    /// `expected_verify_keys` is the receiver's own view of the keys the
+    /// sender claims to MAC (`key_id -> public key`); each per-key MAC
+    /// and the key-id list MAC are recomputed with the transcript-bound
+    /// MAC key and compared fail-closed. Any mismatch (including an
+    /// unknown key id or a missing ephemeral keypair) cancels the flow
+    /// with `code=mismatched_mac` (§10.3).
+    pub fn on_mac(
+        &mut self,
+        msg: &KeyVerificationMac,
+        expected_verify_keys: &BTreeMap<String, String>,
+    ) -> Result<()> {
         let next = match self.state {
             KeyVerificationState::KeysExchanged => KeyVerificationState::MacHalfReceived,
             KeyVerificationState::MacHalfReceived => KeyVerificationState::MacsReceived,
@@ -638,6 +856,31 @@ impl KeyVerificationFlow {
         }
         if self.macs_received.contains_key(&msg.from_device) {
             return self.fail("invalid_transition", "mac already received from this device");
+        }
+        // §10.3: the MAC MUST be verified against the transcript-bound
+        // MAC key; an unverifiable MAC is a mismatch, not a pass.
+        let mac_key = match self.mac_key_for(&msg.from_device) {
+            Ok(key) => key,
+            Err(err) => {
+                return self.fail("mismatched_mac", &format!("cannot verify mac: {err}"));
+            }
+        };
+        let key_ids = msg.mac.keys().cloned().collect::<Vec<_>>().join(",");
+        let expected_keys_mac = STANDARD_NO_PAD.encode(hmac_sha256(&mac_key, key_ids.as_bytes()));
+        if !ct_eq(&expected_keys_mac, &msg.keys) {
+            return self.fail("mismatched_mac", "mac.keys does not match the transcript");
+        }
+        for (key_id, mac_value) in &msg.mac {
+            let Some(key_value) = expected_verify_keys.get(key_id) else {
+                return self
+                    .fail("mismatched_mac", &format!("mac covers unknown key id {key_id:?}"));
+            };
+            let expected =
+                STANDARD_NO_PAD.encode(hmac_sha256(&mac_key, format!("{key_id}|{key_value}").as_bytes()));
+            if !ct_eq(&expected, mac_value) {
+                return self
+                    .fail("mismatched_mac", &format!("mac for key id {key_id:?} does not match"));
+            }
         }
         self.macs_received.insert(msg.from_device.clone(), msg.clone());
         self.state = next;
@@ -863,7 +1106,9 @@ mod tests {
             key_agreement_protocol: "curve25519-hkdf-sha256".to_owned(),
             message_authentication_code: "hkdf-hmac-sha256".to_owned(),
             short_authentication_string: vec!["decimal".to_owned(), "emoji".to_owned()],
-            commitment: "sha256-commit".to_owned(),
+            // Real §10.3 commitment: responder (bob) commits to its
+            // ephemeral public key + the canonical start message.
+            commitment: compute_key_commitment(&bob_public_b64, &start).unwrap(),
             sent_at: now(),
         };
         alice.on_accept(&accept).unwrap();
@@ -992,17 +1237,6 @@ mod tests {
         }
     }
 
-    fn mac(txn: &str, who: &Did, dvc: &DeviceId) -> KeyVerificationMac {
-        KeyVerificationMac {
-            transaction_id: txn.to_owned(),
-            from_user: who.clone(),
-            from_device: dvc.clone(),
-            keys: "MAC_keys".to_owned(),
-            mac: BTreeMap::from([("ed25519:k1".to_owned(), "MAC_k1".to_owned())]),
-            sent_at: now(),
-        }
-    }
-
     fn done(txn: &str, who: &Did, dvc: &DeviceId) -> KeyVerificationDone {
         KeyVerificationDone {
             transaction_id: txn.to_owned(),
@@ -1012,24 +1246,121 @@ mod tests {
         }
     }
 
+    fn verify_keys() -> BTreeMap<String, String> {
+        BTreeMap::from([
+            ("ed25519:alice_phone".to_owned(), "alice-device-verify-key".to_owned()),
+            ("ed25519:bob_laptop".to_owned(), "bob-device-verify-key".to_owned()),
+        ])
+    }
+
+    /// Drive a flow (holding alice's ephemeral keypair) through
+    /// start -> accept -> key/key with a real commitment, ending in
+    /// `KeysExchanged`. Returns the flow plus bob's public key.
+    fn flow_at_keys_exchanged(txn: &str) -> (KeyVerificationFlow, String) {
+        let alice_kp = EphemeralX25519Keypair::generate();
+        let bob_kp = EphemeralX25519Keypair::generate();
+        let alice_pub = alice_kp.public_base64();
+        let bob_pub = bob_kp.public_base64();
+        let start_msg = start(txn);
+        let mut accept_msg = accept(txn);
+        accept_msg.commitment = compute_key_commitment(&bob_pub, &start_msg).unwrap();
+        let mut flow = KeyVerificationFlow::new().with_ephemeral_key(alice_kp);
+        flow.on_start(&start_msg).unwrap();
+        flow.on_accept(&accept_msg).unwrap();
+        flow.on_key(&key(txn, &did("alice"), &dev("alice_phone"), &alice_pub)).unwrap();
+        flow.on_key(&key(txn, &did("bob"), &dev("bob_laptop"), &bob_pub)).unwrap();
+        assert_eq!(flow.state(), KeyVerificationState::KeysExchanged);
+        (flow, bob_pub)
+    }
+
     #[test]
     fn full_flow_runs_to_done() {
         let txn = "txn-1";
-        let mut flow = KeyVerificationFlow::new();
-        flow.on_start(&start(txn)).unwrap();
-        assert_eq!(flow.state(), KeyVerificationState::Started);
-        flow.on_accept(&accept(txn)).unwrap();
-        assert_eq!(flow.state(), KeyVerificationState::Accepted);
-        flow.on_key(&key(txn, &did("alice"), &dev("alice_phone"), "AKEY")).unwrap();
-        flow.on_key(&key(txn, &did("bob"), &dev("bob_laptop"), "BKEY")).unwrap();
-        assert_eq!(flow.state(), KeyVerificationState::KeysExchanged);
-        flow.on_mac(&mac(txn, &did("alice"), &dev("alice_phone"))).unwrap();
-        flow.on_mac(&mac(txn, &did("bob"), &dev("bob_laptop"))).unwrap();
+        let (mut flow, _) = flow_at_keys_exchanged(txn);
+        let keys = verify_keys();
+        // The shared secret is symmetric, so one flow can produce both
+        // sides' MAC envelopes for the round trip.
+        let alice_mac = flow.build_mac(&did("alice"), &dev("alice_phone"), &keys).unwrap();
+        let bob_mac = flow.build_mac(&did("bob"), &dev("bob_laptop"), &keys).unwrap();
+        flow.on_mac(&alice_mac, &keys).unwrap();
+        flow.on_mac(&bob_mac, &keys).unwrap();
         assert_eq!(flow.state(), KeyVerificationState::MacsReceived);
         flow.on_done(&done(txn, &did("alice"), &dev("alice_phone"))).unwrap();
         flow.on_done(&done(txn, &did("bob"), &dev("bob_laptop"))).unwrap();
         assert_eq!(flow.state(), KeyVerificationState::Done);
         assert!(flow.state().is_terminal());
+    }
+
+    /// §10.3: a responder key that does not match `accept.commitment`
+    /// MUST cancel with `code=mismatched_commitment`.
+    #[test]
+    fn on_key_rejects_mismatched_commitment() {
+        let txn = "txn-commit";
+        let mut flow = KeyVerificationFlow::new();
+        flow.on_start(&start(txn)).unwrap();
+        // accept() carries a bogus commitment ("sha256:cafe").
+        flow.on_accept(&accept(txn)).unwrap();
+        flow.on_key(&key(txn, &did("alice"), &dev("alice_phone"), "AKEY")).unwrap();
+        let bob_kp = EphemeralX25519Keypair::generate();
+        let err = flow
+            .on_key(&key(txn, &did("bob"), &dev("bob_laptop"), &bob_kp.public_base64()))
+            .unwrap_err();
+        assert!(format!("{err}").contains("mismatched_commitment"));
+        assert_eq!(flow.state(), KeyVerificationState::Cancelled);
+        assert_eq!(flow.cancel_record().unwrap().code, "mismatched_commitment");
+    }
+
+    /// §10.3: a tampered MAC MUST cancel with `code=mismatched_mac`.
+    #[test]
+    fn on_mac_rejects_tampered_mac() {
+        let txn = "txn-mac";
+        let (mut flow, _) = flow_at_keys_exchanged(txn);
+        let keys = verify_keys();
+        let mut tampered = flow.build_mac(&did("alice"), &dev("alice_phone"), &keys).unwrap();
+        tampered.keys = STANDARD_NO_PAD.encode([0u8; 32]);
+        let err = flow.on_mac(&tampered, &keys).unwrap_err();
+        assert!(format!("{err}").contains("mismatched_mac"));
+        assert_eq!(flow.state(), KeyVerificationState::Cancelled);
+        assert_eq!(flow.cancel_record().unwrap().code, "mismatched_mac");
+    }
+
+    /// §10.3: a per-key MAC over a key value the receiver does not
+    /// expect MUST cancel with `code=mismatched_mac`.
+    #[test]
+    fn on_mac_rejects_unexpected_key_value() {
+        let txn = "txn-mac-key";
+        let (mut flow, _) = flow_at_keys_exchanged(txn);
+        let mut forged_keys = verify_keys();
+        forged_keys
+            .insert("ed25519:bob_laptop".to_owned(), "attacker-substituted-key".to_owned());
+        // Sender MACs the forged key; receiver checks against its own view.
+        let mac = flow.build_mac(&did("bob"), &dev("bob_laptop"), &forged_keys).unwrap();
+        let err = flow.on_mac(&mac, &verify_keys()).unwrap_err();
+        assert!(format!("{err}").contains("mismatched_mac"));
+        assert_eq!(flow.state(), KeyVerificationState::Cancelled);
+    }
+
+    /// Without an ephemeral keypair the MAC cannot be verified — the
+    /// flow MUST fail closed instead of passing unverified MACs.
+    #[test]
+    fn on_mac_fails_closed_without_ephemeral_keypair() {
+        let txn = "txn-mac-eph";
+        let (reference_flow, bob_pub) = flow_at_keys_exchanged(txn);
+        let keys = verify_keys();
+        let mac = reference_flow.build_mac(&did("bob"), &dev("bob_laptop"), &keys).unwrap();
+        // Rebuild the same transcript in a flow with no keypair installed.
+        let alice_pub = reference_flow.keys_exchanged.get(&dev("alice_phone")).unwrap().clone();
+        let start_msg = start(txn);
+        let mut accept_msg = accept(txn);
+        accept_msg.commitment = compute_key_commitment(&bob_pub, &start_msg).unwrap();
+        let mut observer = KeyVerificationFlow::new();
+        observer.on_start(&start_msg).unwrap();
+        observer.on_accept(&accept_msg).unwrap();
+        observer.on_key(&key(txn, &did("alice"), &dev("alice_phone"), &alice_pub)).unwrap();
+        observer.on_key(&key(txn, &did("bob"), &dev("bob_laptop"), &bob_pub)).unwrap();
+        let err = observer.on_mac(&mac, &keys).unwrap_err();
+        assert!(format!("{err}").contains("mismatched_mac"));
+        assert_eq!(observer.state(), KeyVerificationState::Cancelled);
     }
 
     #[test]

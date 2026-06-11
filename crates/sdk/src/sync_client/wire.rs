@@ -215,7 +215,7 @@ pub enum EventsQueryOrder {
 /// query string with [`Self::to_query_pairs`] (delegated to the inner
 /// [`EventsQuerySelector`]).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EventsQueryReqBody {
+pub struct EventsQueryRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub realms: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -230,7 +230,7 @@ pub struct EventsQueryReqBody {
     pub limit: Option<u32>,
 }
 
-impl EventsQueryReqBody {
+impl EventsQueryRequestBody {
     /// Construct an empty request. Caller MUST add at least one Realm or
     /// actor before issuing or [`Self::validate_non_empty`] will fail.
     pub fn new() -> Self {

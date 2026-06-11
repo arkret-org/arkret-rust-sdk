@@ -471,7 +471,7 @@ impl<V: EventVerifier> EventVerifier for ProductionVerifier<V> {
 #[cfg(feature = "signer")]
 mod ed25519_jws {
     use chrono::Utc;
-    use ed25519_dalek::{Signer as _, SigningKey, Verifier as _, VerifyingKey};
+    use ed25519_dalek::{Signer as _, SigningKey, VerifyingKey};
     use serde::Deserialize;
 
     use cokret_core::{

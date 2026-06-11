@@ -490,32 +490,48 @@ impl PolicyRule {
     }
 }
 
+/// Invite object. Mirrors `invite.schema.json` (required: `id`, `schema`,
+/// `realm_id`, `inviter`, `join_rule_snapshot`, `state`, `expires_at`,
+/// `created_at`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Invite {
-    pub schema: String,
     pub id: InviteId,
+    pub schema: String,
     pub realm_id: RealmId,
     pub inviter: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub invitee: Option<Did>,
+    /// Public durable target for private invite delivery (required by the
+    /// schema `allOf` when `invitee` is set without `third_party_id`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invite_delivery_target: Option<InviteDeliveryTarget>,
+    /// Digest of the private invite delivery `introduction_evidence`. Raw
+    /// locator tokens MUST NOT appear in durable Realm events.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub introduction_evidence_digest: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub third_party_id: Option<Value>,
     pub join_rule_snapshot: Value,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capability_grant_refs: Vec<GrantId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
     pub state: InviteState,
+    /// Required by `invite.schema.json` — every invite carries a hard expiry.
+    pub expires_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
+    /// Reducer-derived actor that produced the most recent state update.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ReadCursor {
-    pub schema: String,
     pub id: ReadCursorId,
+    pub schema: String,
     pub actor_id: Did,
     pub device_id: DeviceId,
     pub realm_id: RealmId,
@@ -549,10 +565,10 @@ pub struct ReadReceipt {
     pub schema: String,
     pub realm_id: RealmId,
     pub actor_id: Did,
-    pub read_scope: ReadScope,
     pub event_id: EventId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hlc: Option<Hlc>,
+    pub read_scope: ReadScope,
     pub created_at: DateTime<Utc>,
 }
 

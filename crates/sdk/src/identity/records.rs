@@ -1,80 +1,240 @@
 use super::*;
 
-/// DID key-log operation.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+use cokret_core::DetachedPayloadProof;
+
+/// Normalized DID key-log operation kind
+/// (`did-key-log-entry.schema.json` `operation` enum). The DID
+/// method-specific raw operation object travels in
+/// [`DidKeyLogEntry::operation_body`]; this discriminator is what the
+/// reducer / verifier dispatches on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DidKeyLogOperation {
-    /// Create a DID with initial verification and recovery keys.
-    Inception {
-        verification_keys: BTreeMap<String, String>,
-        recovery_keys: BTreeMap<String, String>,
-    },
-    /// Rotate verification keys without changing the DID.
-    Rotate { verification_keys: BTreeMap<String, String> },
-    /// Recover the DID using a recovery key and replace active keys.
-    Recover { verification_keys: BTreeMap<String, String>, recovery_keys: BTreeMap<String, String> },
-    /// Deactivate the DID.
+    Inception,
+    Rotate,
+    Recover,
     Deactivate,
+    ServiceUpdate,
 }
 
-/// Append-only DID key-log entry.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+fn serialize_canonical_timestamp<S>(
+    value: &DateTime<Utc>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(&cokret_core::canonical::format_timestamp_canonical(*value))
+}
+
+fn deserialize_canonical_timestamp<'de, D>(
+    deserializer: D,
+) -> std::result::Result<DateTime<Utc>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    cokret_core::canonical::validate_timestamp_canonical(&raw)
+        .map_err(serde::de::Error::custom)?;
+    DateTime::parse_from_rfc3339(&raw)
+        .map(|value| value.with_timezone(&Utc))
+        .map_err(serde::de::Error::custom)
+}
+
+/// Length-guarded constant-time digest string comparison (service-surface.md
+/// §3.1.3 requires constant-time comparison of recomputed digests).
+fn constant_time_digest_eq(a: &crate::Hash, b: &crate::Hash) -> bool {
+    let a = a.as_str().as_bytes();
+    let b = b.as_str().as_bytes();
+    a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+}
+
+fn placeholder_digest() -> crate::Hash {
+    crate::Hash::new(format!("sha256:{}", "0".repeat(64))).expect("static digest literal is valid")
+}
+
+/// Append-only DID key-log entry. Mirrors
+/// `did-key-log-entry.schema.json` (closed schema): `seq=0` is the
+/// inception entry and MUST NOT carry `prev_event_digest`; every
+/// `seq>0` entry MUST carry `prev_event_digest` equal to the previous
+/// accepted entry's `head_event_digest`. Digest / proof byte semantics
+/// are normative in `zh/sync/service-surface.md` §3.1.3.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DidKeyLogEntry {
-    /// Zero-based sequence number.
-    pub sequence: u64,
     /// DID controlled by this entry.
     pub did: Did,
-    /// Previous entry hash, absent for inception.
-    pub previous_hash: Option<String>,
-    /// Operation payload.
+    /// Monotonic DID method log sequence (zero-based).
+    pub seq: u64,
+    /// Normalized operation kind.
     pub operation: DidKeyLogOperation,
-    /// Verification or recovery key ID that authorizes this entry.
-    pub signer: String,
-    /// Temporary deterministic test proof.
-    pub proof: String,
-    /// Entry creation time.
+    /// Digest of the previous accepted entry. Required for `seq>0`,
+    /// forbidden for `seq=0`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prev_event_digest: Option<crate::Hash>,
+    /// Self digest of this entry: canonical digest of the entry with
+    /// `proofs` and `head_event_digest` removed (§3.1.3).
+    pub head_event_digest: crate::Hash,
+    /// DID method-specific raw operation object (`minProperties: 1`).
+    pub operation_body: serde_json::Map<String, Value>,
+    /// Entry creation time (canonical UTC `Z` form on wire).
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
+    /// Controller proofs over this entry
+    /// (`event-envelope.schema.json#/$defs/proof`).
+    /// `payload_digest = canonical_digest(entry_without_proofs)`; the
+    /// detached JWS signs the canonical binding object of §3.1.3. The
+    /// `verification_method` MUST be a controller key authorized for
+    /// this operation at the previous accepted entry's state — the
+    /// registry host MUST NOT substitute its own key.
+    pub proofs: Vec<DetachedPayloadProof>,
 }
 
 impl DidKeyLogEntry {
-    /// Build an entry and attach a deterministic test proof with the signer public key.
-    pub fn signed(
-        sequence: u64,
+    /// Build an unsigned entry and seal its `head_event_digest`
+    /// (§3.1.3: canonical digest of the entry without `proofs` /
+    /// `head_event_digest`). Attach controller proofs afterwards via
+    /// [`DidKeyLogEntry::attach_controller_proof`].
+    pub fn build(
         did: Did,
-        previous_hash: Option<String>,
+        seq: u64,
         operation: DidKeyLogOperation,
-        signer: impl Into<String>,
-        signer_public_key: &str,
-    ) -> Self {
-        let signer = signer.into();
-        let created_at = Utc::now();
-        let proof = did_key_log_proof(
-            sequence,
-            &did,
-            previous_hash.as_deref(),
-            &operation,
-            &signer,
+        prev_event_digest: Option<crate::Hash>,
+        operation_body: serde_json::Map<String, Value>,
+        created_at: DateTime<Utc>,
+    ) -> Result<Self> {
+        let mut entry = Self {
+            did,
+            seq,
+            operation,
+            prev_event_digest,
+            head_event_digest: placeholder_digest(),
+            operation_body,
             created_at,
-            signer_public_key,
+            proofs: Vec::new(),
+        };
+        entry.head_event_digest = entry.compute_head_event_digest()?;
+        Ok(entry)
+    }
+
+    /// JSON view used for digest derivation. `include_head=false` is the
+    /// `head_event_digest` transcript (drop `proofs` + `head_event_digest`);
+    /// `include_head=true` is the proof `payload_digest` transcript (drop
+    /// only `proofs`).
+    fn digest_view(&self, include_head: bool) -> Result<Value> {
+        let mut value = serde_json::to_value(self)?;
+        let object = value.as_object_mut().expect("DidKeyLogEntry serializes to an object");
+        object.remove("proofs");
+        if !include_head {
+            object.remove("head_event_digest");
+        }
+        Ok(value)
+    }
+
+    /// Recompute `head_event_digest` per §3.1.3.
+    pub fn compute_head_event_digest(&self) -> Result<crate::Hash> {
+        let bytes = cokret_core::canonical::canonical_json_bytes(&self.digest_view(false)?)?;
+        Ok(crate::Hash::new(cokret_core::canonical::sha256_digest(&bytes))?)
+    }
+
+    /// Recompute the proof `payload_digest`
+    /// (`canonical_digest(entry_without_proofs)`, §3.1.3).
+    pub fn proof_payload_digest(&self) -> Result<crate::Hash> {
+        let bytes = cokret_core::canonical::canonical_json_bytes(&self.digest_view(true)?)?;
+        Ok(crate::Hash::new(cokret_core::canonical::sha256_digest(&bytes))?)
+    }
+
+    /// Canonical proof binding object bytes per §3.1.3:
+    /// `{payload_digest, did, verification_method, created_at, domain?,
+    /// audience?}` in canonical JSON (JCS key order). This is the exact
+    /// detached-JWS payload — field-concatenation strings or bare hex
+    /// MUST NOT replace this transcript.
+    pub fn proof_binding_bytes(&self, proof: &DetachedPayloadProof) -> Result<Vec<u8>> {
+        let mut object = serde_json::Map::new();
+        object.insert(
+            "payload_digest".to_owned(),
+            Value::String(proof.payload_digest.as_str().to_owned()),
         );
-        Self { sequence, did, previous_hash, operation, signer, proof, created_at }
+        object.insert("did".to_owned(), Value::String(self.did.as_str().to_owned()));
+        object.insert(
+            "verification_method".to_owned(),
+            Value::String(proof.verification_method.clone()),
+        );
+        object.insert(
+            "created_at".to_owned(),
+            Value::String(cokret_core::canonical::format_timestamp_canonical(proof.created_at)),
+        );
+        if let Some(domain) = &proof.domain {
+            object.insert("domain".to_owned(), Value::String(domain.clone()));
+        }
+        if let Some(audience) = &proof.audience {
+            object.insert("audience".to_owned(), serde_json::to_value(audience)?);
+        }
+        Ok(cokret_core::canonical::canonical_json_bytes(&Value::Object(object))?)
     }
 
-    /// Stable hash used for chaining entries.
-    pub fn entry_hash(&self) -> String {
-        sha256_hex(self.signing_payload().as_bytes())
+    /// Structural validation against `did-key-log-entry.schema.json` +
+    /// the §3.1.3 self-digest rule.
+    pub fn validate(&self) -> Result<()> {
+        if self.seq == 0 && self.prev_event_digest.is_some() {
+            return Err(Error::Protocol(
+                "DID key log inception (seq=0) must not carry prev_event_digest".to_owned(),
+            ));
+        }
+        if self.seq > 0 && self.prev_event_digest.is_none() {
+            return Err(Error::Protocol(
+                "DID key log entry with seq>0 must carry prev_event_digest".to_owned(),
+            ));
+        }
+        if self.operation_body.is_empty() {
+            return Err(Error::Protocol(
+                "DID key log operation_body must carry at least one property".to_owned(),
+            ));
+        }
+        if self.proofs.is_empty() {
+            return Err(Error::Protocol(
+                "DID key log entry must carry at least one controller proof".to_owned(),
+            ));
+        }
+        let recomputed = self.compute_head_event_digest()?;
+        if !constant_time_digest_eq(&recomputed, &self.head_event_digest) {
+            return Err(Error::Protocol(
+                "DID key log head_event_digest does not match the canonical entry bytes".to_owned(),
+            ));
+        }
+        Ok(())
     }
 
-    fn signing_payload(&self) -> String {
-        format!(
-            "{}|{}|{}|{}|{}|{}",
-            self.sequence,
-            self.did,
-            self.previous_hash.as_deref().unwrap_or(""),
-            operation_payload(&self.operation),
-            self.signer,
-            self.created_at.to_rfc3339()
-        )
+    /// Sign this entry with the **controller's** Ed25519 key and append
+    /// the resulting detached-JWS proof. The SDK never mints
+    /// placeholder proofs and never signs with its own or a server key
+    /// — `signing_key` MUST be the controller key identified by
+    /// `verification_method`, authorized for this operation at the
+    /// previous accepted entry's state.
+    pub fn attach_controller_proof(
+        &mut self,
+        signing_key: &ed25519_dalek::SigningKey,
+        verification_method: &str,
+    ) -> Result<()> {
+        self.head_event_digest = self.compute_head_event_digest()?;
+        let mut proof = DetachedPayloadProof {
+            kind: "detached_jws".to_owned(),
+            verification_method: verification_method.to_owned(),
+            alg: "EdDSA".to_owned(),
+            payload_digest: self.proof_payload_digest()?,
+            created_at: Utc::now(),
+            domain: None,
+            audience: None,
+            jws: String::new(),
+        };
+        let binding_bytes = self.proof_binding_bytes(&proof)?;
+        proof.jws =
+            crate::jws::sign_jws_ed25519(&binding_bytes, signing_key).map_err(Error::Protocol)?;
+        self.proofs.push(proof);
+        Ok(())
     }
 }
 
@@ -83,211 +243,272 @@ impl DidKeyLogEntry {
 pub struct VerifiedDidKeyLog {
     /// DID controlled by the log.
     pub did: Did,
-    /// Current verification keys.
-    pub verification_keys: BTreeMap<String, String>,
-    /// Current recovery keys.
-    pub recovery_keys: BTreeMap<String, String>,
-    /// Latest entry hash.
-    pub head: String,
+    /// Sequence number of the latest accepted entry.
+    pub seq: u64,
+    /// `head_event_digest` of the latest accepted entry.
+    pub head: crate::Hash,
     /// Whether the DID is deactivated.
     pub deactivated: bool,
 }
 
-impl VerifiedDidKeyLog {
-    /// Convert active state to a DID document.
-    pub fn to_document(&self) -> Result<DidDocument> {
-        if self.deactivated {
-            return Err(Error::Protocol("DID is deactivated".to_owned()));
-        }
-        let document = DidDocument {
-            id: self.did.clone(),
-            verification_methods: self.verification_keys.clone(),
-            also_known_as: Vec::new(),
-            updated_at: Utc::now(),
-        };
-        document.validate()?;
-        Ok(document)
-    }
-}
-
-/// Verify a DID key-log and return the final state.
-pub fn verify_did_key_log(entries: &[DidKeyLogEntry]) -> Result<VerifiedDidKeyLog> {
+/// Verify a DID key-log per `did-key-log-entry.schema.json` and the
+/// §3.1.3 verifier order: for each entry, first recompute and
+/// constant-time-compare `head_event_digest` / `proof.payload_digest`,
+/// then rebuild the canonical binding object and verify the Ed25519
+/// detached JWS via `resolver`. Any failure rejects the entry and the
+/// remainder of the chain.
+///
+/// Method-specific signer authorization (the proof
+/// `verification_method` being a controller key valid for the
+/// operation at the *previous* accepted entry's state) is dispatched
+/// by DID method and `operation_body`; callers MUST enforce it in the
+/// supplied resolver / method layer — this generic verifier checks
+/// chain shape and proof cryptography only.
+pub fn verify_did_key_log(
+    entries: &[DidKeyLogEntry],
+    resolver: &dyn DidResolver,
+) -> Result<VerifiedDidKeyLog> {
     let first = entries.first().ok_or_else(|| Error::Protocol("empty DID key log".to_owned()))?;
-    let mut state: Option<VerifiedDidKeyLog> = None;
-    let mut previous_hash: Option<String> = None;
+    if first.operation != DidKeyLogOperation::Inception {
+        return Err(Error::Protocol("DID key log must start with inception".to_owned()));
+    }
+
+    let mut prev_head: Option<crate::Hash> = None;
+    let mut deactivated = false;
 
     for (index, entry) in entries.iter().enumerate() {
-        if entry.sequence != index as u64 {
+        if entry.seq != index as u64 {
             return Err(Error::Protocol("DID key log sequence gap".to_owned()));
         }
         if entry.did != first.did {
             return Err(Error::Protocol("DID key log changed DID".to_owned()));
         }
-        if entry.previous_hash != previous_hash {
-            return Err(Error::Protocol("DID key log hash chain mismatch".to_owned()));
+        if deactivated {
+            return Err(Error::Protocol("DID key log continues after deactivate".to_owned()));
+        }
+        if index > 0 && entry.operation == DidKeyLogOperation::Inception {
+            return Err(Error::Protocol("DID key log has duplicate inception".to_owned()));
         }
 
-        match (&mut state, &entry.operation) {
-            (None, DidKeyLogOperation::Inception { verification_keys, recovery_keys }) => {
-                ensure_key_set("verification", verification_keys)?;
-                let signer_key = verification_keys.get(&entry.signer).ok_or_else(|| {
-                    Error::Protocol("inception signer is not a verification key".to_owned())
-                })?;
-                verify_did_key_log_proof(entry, signer_key)?;
-                state = Some(VerifiedDidKeyLog {
-                    did: entry.did.clone(),
-                    verification_keys: verification_keys.clone(),
-                    recovery_keys: recovery_keys.clone(),
-                    head: entry.entry_hash(),
-                    deactivated: false,
-                });
-            }
-            (None, _) => {
-                return Err(Error::Protocol("DID key log must start with inception".to_owned()));
-            }
-            (Some(_), DidKeyLogOperation::Inception { .. }) => {
-                return Err(Error::Protocol("DID key log has duplicate inception".to_owned()));
-            }
-            (Some(current), DidKeyLogOperation::Rotate { verification_keys }) => {
-                ensure_active(current)?;
-                ensure_key_set("verification", verification_keys)?;
-                let signer_key = current.verification_keys.get(&entry.signer).ok_or_else(|| {
-                    Error::Protocol("rotate signer is not an active verification key".to_owned())
-                })?;
-                verify_did_key_log_proof(entry, signer_key)?;
-                current.verification_keys = verification_keys.clone();
-                current.head = entry.entry_hash();
-            }
-            (Some(current), DidKeyLogOperation::Recover { verification_keys, recovery_keys }) => {
-                ensure_active(current)?;
-                ensure_key_set("verification", verification_keys)?;
-                let signer_key = current.recovery_keys.get(&entry.signer).ok_or_else(|| {
-                    Error::Protocol("recover signer is not an active recovery key".to_owned())
-                })?;
-                verify_did_key_log_proof(entry, signer_key)?;
-                current.verification_keys = verification_keys.clone();
-                current.recovery_keys = recovery_keys.clone();
-                current.head = entry.entry_hash();
-            }
-            (Some(current), DidKeyLogOperation::Deactivate) => {
-                ensure_active(current)?;
-                let signer_key = current
-                    .verification_keys
-                    .get(&entry.signer)
-                    .or_else(|| current.recovery_keys.get(&entry.signer))
-                    .ok_or_else(|| {
-                        Error::Protocol("deactivate signer is not an active key".to_owned())
-                    })?;
-                verify_did_key_log_proof(entry, signer_key)?;
-                current.deactivated = true;
-                current.head = entry.entry_hash();
-            }
+        entry.validate()?;
+
+        match (&entry.prev_event_digest, &prev_head) {
+            (None, None) => {}
+            (Some(prev), Some(head)) if constant_time_digest_eq(prev, head) => {}
+            _ => return Err(Error::Protocol("DID key log hash chain mismatch".to_owned())),
         }
 
-        previous_hash = Some(entry.entry_hash());
+        let payload_digest = entry.proof_payload_digest()?;
+        for proof in &entry.proofs {
+            if proof.kind != "detached_jws" {
+                return Err(Error::Protocol(format!(
+                    "DID key log proof kind '{}' is not detached_jws",
+                    proof.kind
+                )));
+            }
+            if proof.alg != "EdDSA" {
+                // Fail closed: this verifier implements Ed25519 only.
+                return Err(Error::Protocol(format!(
+                    "DID key log proof alg '{}' is not supported by this verifier",
+                    proof.alg
+                )));
+            }
+            if !constant_time_digest_eq(&payload_digest, &proof.payload_digest) {
+                return Err(Error::Protocol(
+                    "DID key log proof payload_digest does not match the canonical entry bytes"
+                        .to_owned(),
+                ));
+            }
+            let binding_bytes = entry.proof_binding_bytes(proof)?;
+            crate::jws::verify_jws_ed25519(
+                &binding_bytes,
+                &proof.jws,
+                &proof.verification_method,
+                entry.did.as_str(),
+                resolver,
+            )
+            .map_err(Error::Protocol)?;
+        }
+
+        if entry.operation == DidKeyLogOperation::Deactivate {
+            deactivated = true;
+        }
+        prev_head = Some(entry.head_event_digest.clone());
     }
 
-    state.ok_or_else(|| Error::Protocol("DID key log has no state".to_owned()))
+    Ok(VerifiedDidKeyLog {
+        did: first.did.clone(),
+        seq: entries.len() as u64 - 1,
+        head: prev_head.expect("non-empty chain has a head"),
+        deactivated,
+    })
 }
 
-/// Compute the temporary deterministic proof for a DID key-log entry.
-pub fn did_key_log_proof(
-    sequence: u64,
-    did: &Did,
-    previous_hash: Option<&str>,
-    operation: &DidKeyLogOperation,
-    signer: &str,
-    created_at: DateTime<Utc>,
-    signer_public_key: &str,
-) -> String {
-    let payload = format!(
-        "{}|{}|{}|{}|{}|{}",
-        sequence,
-        did,
-        previous_hash.unwrap_or(""),
-        operation_payload(operation),
-        signer,
-        created_at.to_rfc3339()
-    );
-    sha256_hex(format!("{payload}|{signer_public_key}").as_bytes())
+/// Issuer role inside the DID registry consensus group
+/// (`identity-receipt.schema.json` `witness_role` enum).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityReceiptWitnessRole {
+    Writer,
+    Witness,
+    Replica,
 }
 
-/// Signed receipt from an external DID registry.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Signed identity receipt from a DID registry
+/// (`ck.schema.identity_receipt.v1`, `identity-receipt.schema.json`).
+/// The registry / witness endorsement of a key-log head travels here —
+/// never inside the key-log entry's `proofs[]`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DidRegistryReceipt {
+    /// Canonical schema discriminator (`ck.schema.identity_receipt.v1`).
+    pub schema: String,
+    pub receipt_id: cokret_core::ReceiptId,
+    /// DID whose key-log head this receipt witnesses.
     pub did: Did,
-    pub registry_did: Did,
-    pub operation_hash: String,
-    pub verification_method: String,
-    pub issued_at: DateTime<Utc>,
-    pub signature: String,
+    /// Key-log sequence number of the witnessed head.
+    pub seq: u64,
+    /// Witnessed `head_event_digest` (§3.1.3 self-digest rule).
+    pub head_event_digest: crate::Hash,
+    /// Issuing registry service DID.
+    pub registry_service_did: Did,
+    pub witness_role: IdentityReceiptWitnessRole,
+    /// Optional audience binding; verifiers MUST reject the receipt
+    /// outside this audience context when present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audience: Option<String>,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
+    pub created_at: DateTime<Utc>,
+    /// Generic detached-JWS proof
+    /// (`event-envelope.schema.json#/$defs/proof`) by the registry
+    /// service key. `payload_digest = canonical_digest(receipt without
+    /// signature)`; the JWS signs the canonical binding object built
+    /// like service-surface.md §3.1.3 with `did =
+    /// registry_service_did` (the issuer).
+    pub signature: DetachedPayloadProof,
 }
 
 impl DidRegistryReceipt {
-    /// Build a deterministic signed receipt for tests and local adapters.
+    pub const SCHEMA: &'static str = "ck.schema.identity_receipt.v1";
+
+    /// Build and sign a receipt with the **registry's** Ed25519 key.
+    #[allow(clippy::too_many_arguments)]
     pub fn signed(
+        receipt_id: cokret_core::ReceiptId,
         did: Did,
-        registry_did: Did,
-        operation_hash: impl Into<String>,
-        verification_method: impl Into<String>,
-        registry_public_key: &str,
-    ) -> Self {
-        let operation_hash = operation_hash.into();
-        let verification_method = verification_method.into();
-        let issued_at = Utc::now();
-        let signature = did_registry_receipt_signature(
-            &did,
-            &registry_did,
-            &operation_hash,
-            &verification_method,
-            issued_at,
-            registry_public_key,
-        );
-        Self { did, registry_did, operation_hash, verification_method, issued_at, signature }
+        seq: u64,
+        head_event_digest: crate::Hash,
+        registry_service_did: Did,
+        witness_role: IdentityReceiptWitnessRole,
+        signing_key: &ed25519_dalek::SigningKey,
+        verification_method: &str,
+    ) -> Result<Self> {
+        let mut receipt = Self {
+            schema: Self::SCHEMA.to_owned(),
+            receipt_id,
+            did,
+            seq,
+            head_event_digest,
+            registry_service_did,
+            witness_role,
+            audience: None,
+            created_at: Utc::now(),
+            signature: DetachedPayloadProof {
+                kind: "detached_jws".to_owned(),
+                verification_method: verification_method.to_owned(),
+                alg: "EdDSA".to_owned(),
+                payload_digest: placeholder_digest(),
+                created_at: Utc::now(),
+                domain: None,
+                audience: None,
+                jws: String::new(),
+            },
+        };
+        receipt.signature.payload_digest = receipt.payload_digest()?;
+        let binding_bytes = receipt.binding_bytes()?;
+        receipt.signature.jws =
+            crate::jws::sign_jws_ed25519(&binding_bytes, signing_key).map_err(Error::Protocol)?;
+        Ok(receipt)
     }
 
-    /// Verify this receipt against the registry's public key material.
-    pub fn verify(&self, registry_public_key: &str) -> Result<()> {
-        if self.operation_hash.trim().is_empty() {
-            return Err(Error::Protocol("registry receipt operation hash is empty".to_owned()));
-        }
-        let expected = did_registry_receipt_signature(
-            &self.did,
-            &self.registry_did,
-            &self.operation_hash,
-            &self.verification_method,
-            self.issued_at,
-            registry_public_key,
-        );
-        if self.signature != expected {
-            return Err(Error::Protocol("invalid registry receipt signature".to_owned()));
-        }
-        Ok(())
+    /// `canonical_digest(receipt without signature)`.
+    pub fn payload_digest(&self) -> Result<crate::Hash> {
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("DidRegistryReceipt serializes to an object")
+            .remove("signature");
+        let bytes = cokret_core::canonical::canonical_json_bytes(&value)?;
+        Ok(crate::Hash::new(cokret_core::canonical::sha256_digest(&bytes))?)
     }
-}
 
-/// Compute the deterministic signature binding for a DID registry receipt.
-pub fn did_registry_receipt_signature(
-    did: &Did,
-    registry_did: &Did,
-    operation_hash: &str,
-    verification_method: &str,
-    issued_at: DateTime<Utc>,
-    registry_public_key: &str,
-) -> String {
-    let payload = format!(
-        "{}|{}|{}|{}|{}",
-        did,
-        registry_did,
-        operation_hash,
-        verification_method,
-        issued_at.to_rfc3339()
-    );
-    sha256_hex(format!("{payload}|{registry_public_key}").as_bytes())
+    fn binding_bytes(&self) -> Result<Vec<u8>> {
+        let mut object = serde_json::Map::new();
+        object.insert(
+            "payload_digest".to_owned(),
+            Value::String(self.signature.payload_digest.as_str().to_owned()),
+        );
+        object.insert(
+            "did".to_owned(),
+            Value::String(self.registry_service_did.as_str().to_owned()),
+        );
+        object.insert(
+            "verification_method".to_owned(),
+            Value::String(self.signature.verification_method.clone()),
+        );
+        object.insert(
+            "created_at".to_owned(),
+            Value::String(cokret_core::canonical::format_timestamp_canonical(
+                self.signature.created_at,
+            )),
+        );
+        if let Some(domain) = &self.signature.domain {
+            object.insert("domain".to_owned(), Value::String(domain.clone()));
+        }
+        if let Some(audience) = &self.signature.audience {
+            object.insert("audience".to_owned(), serde_json::to_value(audience)?);
+        }
+        Ok(cokret_core::canonical::canonical_json_bytes(&Value::Object(object))?)
+    }
+
+    /// Verify the receipt: digest recompute (constant-time compare) then
+    /// detached-JWS verification with the registry key resolved via
+    /// `resolver`.
+    pub fn verify(&self, resolver: &dyn DidResolver) -> Result<()> {
+        if self.schema != Self::SCHEMA {
+            return Err(Error::Protocol(format!(
+                "identity receipt schema '{}' is not {}",
+                self.schema,
+                Self::SCHEMA
+            )));
+        }
+        if self.signature.kind != "detached_jws" {
+            return Err(Error::Protocol("identity receipt proof kind must be detached_jws".to_owned()));
+        }
+        let recomputed = self.payload_digest()?;
+        if !constant_time_digest_eq(&recomputed, &self.signature.payload_digest) {
+            return Err(Error::Protocol(
+                "identity receipt payload_digest does not match the canonical receipt bytes"
+                    .to_owned(),
+            ));
+        }
+        let binding_bytes = self.binding_bytes()?;
+        crate::jws::verify_jws_ed25519(
+            &binding_bytes,
+            &self.signature.jws,
+            &self.signature.verification_method,
+            self.registry_service_did.as_str(),
+            resolver,
+        )
+        .map_err(Error::Protocol)
+    }
 }
 
 /// Resolved StarID/DID registry record.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StaridRegistryRecord {
     pub did: Did,
     pub registry_did: Did,
@@ -316,7 +537,7 @@ impl StaridRegistryRecord {
 
 /// Request to prove control of a DID resolved from a StarID registry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StaridControlProofReqBody {
+pub struct StaridControlProofRequestBody {
     pub did: Did,
     pub verification_method: String,
     pub challenge: String,
@@ -365,17 +586,17 @@ pub trait StaridRegistryAdapter: DidResolver {
 
     fn verify_control_proof(
         &self,
-        request: &StaridControlProofReqBody,
+        request: &StaridControlProofRequestBody,
     ) -> Result<StaridControlProofVerification>;
 
     fn verify_registry_receipt(
         &self,
         did: &Did,
-        registry_public_key: &str,
+        resolver: &dyn DidResolver,
     ) -> Result<Option<DidRegistryReceipt>> {
         let record = self.resolve_registry_record(did)?;
         if let Some(receipt) = &record.receipt {
-            receipt.verify(registry_public_key)?;
+            receipt.verify(resolver)?;
         }
         Ok(record.receipt)
     }
@@ -427,7 +648,7 @@ impl StaridRegistryAdapter for InMemoryStaridRegistryAdapter {
 
     fn verify_control_proof(
         &self,
-        request: &StaridControlProofReqBody,
+        request: &StaridControlProofRequestBody,
     ) -> Result<StaridControlProofVerification> {
         let record = self.resolve_registry_record(&request.did)?;
         let public_key =

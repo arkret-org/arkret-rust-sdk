@@ -178,30 +178,30 @@ impl AccountDataManager {
 
     /// Get account data by type.
     pub fn get(&self, data_type: &str) -> Option<AccountData> {
-        self.account_data.read().unwrap().get(data_type).cloned()
+        self.account_data.read().unwrap_or_else(std::sync::PoisonError::into_inner).get(data_type).cloned()
     }
 
     /// Set account data.
     pub fn set(&self, data_type: String, content: Value) -> Result<()> {
         let account_data = AccountData { data_type: data_type.clone(), content };
-        self.account_data.write().unwrap().insert(data_type, account_data);
+        self.account_data.write().unwrap_or_else(std::sync::PoisonError::into_inner).insert(data_type, account_data);
         Ok(())
     }
 
     /// Remove account data.
     pub fn remove(&self, data_type: &str) -> Result<()> {
-        self.account_data.write().unwrap().remove(data_type);
+        self.account_data.write().unwrap_or_else(std::sync::PoisonError::into_inner).remove(data_type);
         Ok(())
     }
 
     /// Get all account data.
     pub fn all(&self) -> BTreeMap<String, AccountData> {
-        self.account_data.read().unwrap().clone()
+        self.account_data.read().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
     }
 
     /// Clear all account data.
     pub fn clear(&self) -> Result<()> {
-        self.account_data.write().unwrap().clear();
+        self.account_data.write().unwrap_or_else(std::sync::PoisonError::into_inner).clear();
         Ok(())
     }
 }

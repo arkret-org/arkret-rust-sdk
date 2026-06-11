@@ -15,7 +15,7 @@ use crate::{
     Result,
     base::BaseClient,
     model::{DeviceId, Did, Event, EventId, RealmId},
-    receipts::{ReadReceipt, ReceiptVisibility},
+    receipts::{ReadReceipt, ReadScope},
     sync::{
         BackfillDirection, BackfillFrom, BackfillRequestBody, SyncGapReason, SyncTimeline,
         TimelineOrderKey,
@@ -129,16 +129,14 @@ pub struct TimelineReactionSummary {
 /// Read receipt summary attached to one item.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimelineReadReceipt {
-    /// User who sent the receipt.
-    pub user_id: Did,
+    /// Actor who sent the receipt.
+    pub actor_id: Did,
     /// Event the receipt targets.
     pub event_id: EventId,
-    /// Public/private visibility.
-    pub visibility: ReceiptVisibility,
-    /// Optional thread.
-    pub thread_id: Option<String>,
+    /// Read scope of the receipt (`read-receipt.schema.json`).
+    pub read_scope: ReadScope,
     /// Receipt time.
-    pub received_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Typing state attached to a timeline.
@@ -718,17 +716,16 @@ impl Timeline {
             .unwrap_or_else(|| receipt.event_id.to_string());
         if let Some(item) = self.items.get_mut(&item_id) {
             let summary = TimelineReadReceipt {
-                user_id: receipt.user_id,
+                actor_id: receipt.actor_id,
                 event_id: receipt.event_id,
-                visibility: receipt.visibility,
-                thread_id: receipt.thread_id,
-                received_at: receipt.received_at,
+                read_scope: receipt.read_scope,
+                created_at: receipt.created_at,
             };
             item.read_receipts.retain(|existing| {
-                existing.user_id != summary.user_id || existing.thread_id != summary.thread_id
+                existing.actor_id != summary.actor_id || existing.read_scope != summary.read_scope
             });
             item.read_receipts.push(summary);
-            item.read_receipts.sort_by(|left, right| left.user_id.cmp(&right.user_id));
+            item.read_receipts.sort_by(|left, right| left.actor_id.cmp(&right.actor_id));
         }
     }
 
@@ -807,17 +804,24 @@ impl Timeline {
             .collect();
         let needs_backfill = index < before || index + after + 1 > self.item_order.len();
 
+        // `item_id` came from `event_to_item`, so the item should also be
+        // in `items` — but fall back to the requested event id instead of
+        // panicking if the two maps ever drift.
+        let target = self.items.get(&item_id).cloned();
+        let backfill_from_event_id = target
+            .as_ref()
+            .map(|item| item.event_id.clone())
+            .unwrap_or_else(|| target_event_id.clone());
+
         FocusedTimeline {
             target_event_id,
             before: before_items,
-            target: self.items.get(&item_id).cloned(),
+            target,
             after: after_items,
             gaps: self.gaps.clone(),
             backfill_request: needs_backfill.then(|| BackfillRequestBody {
                 realm_id: self.realm_id.clone(),
-                from: BackfillFrom::EventId {
-                    event_id: self.items.get(&item_id).unwrap().event_id.clone(),
-                },
+                from: BackfillFrom::EventId { event_id: backfill_from_event_id },
                 direction: BackfillDirection::Both,
                 limit: Some((before + after + 1) as u32),
             }),
@@ -1281,12 +1285,14 @@ mod tests {
 
         timeline.append_events(vec![message]).unwrap();
         timeline.apply_read_receipt(ReadReceipt {
+            receipt_type: cokret_core::READ_RECEIPT_TYPE.to_owned(),
+            schema: cokret_core::READ_RECEIPT_SCHEMA.to_owned(),
             realm_id: realm_id.clone(),
-            user_id: actor.clone(),
+            actor_id: actor.clone(),
             event_id: event_id.clone(),
-            visibility: ReceiptVisibility::Public,
-            thread_id: None,
-            received_at: Utc::now(),
+            hlc: None,
+            read_scope: ReadScope::realm(),
+            created_at: Utc::now(),
         });
         timeline.apply_typing(TypingNotification {
             realm_id,

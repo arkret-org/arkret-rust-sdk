@@ -157,9 +157,11 @@ pub fn verify_ed25519_move_signature(
     sig_arr.copy_from_slice(&sig_bytes);
     let signature = ed25519_dalek::Signature::from_bytes(&sig_arr);
     let signing_input = format!("{header_b64}.{}", base64url_encode(canonical_bytes));
-    use ed25519_dalek::Verifier as _;
+    // `verify_strict` (ed25519-dalek's protocol-recommended path): rejects
+    // malleable / small-order / non-canonical signatures so every verifier
+    // in the SDK reaches the same accept/reject verdict.
     verifying_key
-        .verify(signing_input.as_bytes(), &signature)
+        .verify_strict(signing_input.as_bytes(), &signature)
         .map_err(|err| Error::Protocol(format!("Ed25519 signature verification failed: {err}")))?;
     Ok(())
 }

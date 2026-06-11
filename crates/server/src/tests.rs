@@ -19,44 +19,97 @@ fn service_route_operation_ids_are_unique() {
     }
 }
 
+/// Bidirectional drift guard: `SERVICE_ROUTES` must be exactly equal — by
+/// operation_id, method, and path — to the `http` bindings of the canonical
+/// spec operation registry (same discipline as the
+/// `core_registry_matches_spec_operation_registry_when_available` test in
+/// cokret-contracts).
 #[test]
-fn service_route_registry_matches_required_spec_operations() {
-    let actual = service_routes()
+fn service_routes_match_spec_operation_registry() {
+    let registry = read_spec_artifact("registry/operation-registry.json");
+    let spec_routes = registry
+        .get("operations")
+        .and_then(Value::as_array)
+        .expect("operation registry has an operations array")
         .iter()
-        .map(|route| (route.operation_id, route.path))
+        .map(|operation| {
+            let operation_id = operation
+                .get("operation_id")
+                .and_then(Value::as_str)
+                .expect("operation without operation_id");
+            let http = operation
+                .get("http")
+                .and_then(Value::as_str)
+                .unwrap_or_else(|| panic!("operation {operation_id} without http binding"));
+            let (method, path) =
+                http.split_once(' ').unwrap_or_else(|| panic!("malformed http binding {http}"));
+            (operation_id, (method.to_ascii_lowercase(), path))
+        })
         .collect::<BTreeMap<_, _>>();
-    for (operation_id, path) in [
-        ("ck.root.identity.resolve", "/_cokret/root/identity/resolve"),
-        ("ck.self.account.subscribe", "/_cokret/self/account/subscribe"),
-        ("ck.self.account.describe", "/_cokret/self/account/describe"),
-        ("ck.self.events.describe", "/_cokret/self/events/describe"),
-        ("ck.self.events.submit", "/_cokret/self/events"),
-        ("ck.self.events.get", "/_cokret/self/events/{event_id}"),
-        ("ck.self.events.resolve", "/_cokret/self/events/resolve"),
-        ("ck.self.events.frontier", "/_cokret/self/events/frontier"),
-        ("ck.self.events.subscribe", "/_cokret/self/events/subscribe"),
-        ("ck.self.events.query", "/_cokret/self/events"),
-        ("ck.self.events.query_post", "/_cokret/self/events/query"),
-        ("ck.self.contact.request", "/_cokret/self/contacts/request"),
-        ("ck.self.contact.respond", "/_cokret/self/contacts/respond"),
-        ("ck.self.contact.list", "/_cokret/self/contacts"),
-        ("ck.self.contact.tombstone", "/_cokret/self/contacts/tombstone"),
-        ("ck.self.direct_conversation.resolve", "/_cokret/self/direct-conversations/resolve"),
-        (
-            "ck.find.directory.private_contact_discovery",
-            "/_cokret/find/directory/private-contact-discovery",
-        ),
-        ("ck.self.blob.upload", "/_cokret/self/blob/upload"),
-        ("ck.edge.push.register_device", "/_cokret/edge/push/register-device"),
-        ("ck.self.keys.keypackages.claim", "/_cokret/self/keys/keypackages/claim"),
-        ("ck.self.authz.check", "/_cokret/self/authz/check"),
-        ("ck.self.policy.check", "/_cokret/self/policy/check"),
-        ("ck.open.mimi.room_update", "/_cokret/open/mimi/flows/{flow_id}/update"),
-        ("ck.gate.account.issue_session_grant", "/_cokret/gate/account/session-grants"),
-        ("ck.edge.applet.transaction", "/_cokret/edge/applet/transactions"),
-    ] {
-        assert_eq!(actual.get(operation_id), Some(&path), "{operation_id}");
+    let sdk_routes = service_routes()
+        .iter()
+        .map(|route| (route.operation_id, (route.method.to_owned(), route.path)))
+        .collect::<BTreeMap<_, _>>();
+
+    let missing_from_sdk = spec_routes
+        .keys()
+        .filter(|operation_id| !sdk_routes.contains_key(*operation_id))
+        .collect::<Vec<_>>();
+    let extra_in_sdk = sdk_routes
+        .keys()
+        .filter(|operation_id| !spec_routes.contains_key(*operation_id))
+        .collect::<Vec<_>>();
+    assert!(missing_from_sdk.is_empty(), "service routes missing spec ops {missing_from_sdk:?}");
+    assert!(extra_in_sdk.is_empty(), "service routes outside spec registry {extra_in_sdk:?}");
+
+    for (operation_id, spec_binding) in &spec_routes {
+        assert_eq!(
+            sdk_routes.get(operation_id),
+            Some(spec_binding),
+            "http binding drift for {operation_id}"
+        );
     }
+}
+
+/// Negative drift guard: operation ids removed from the canonical registry
+/// (`hard_reject` and friends) must never reappear in the route table.
+#[test]
+fn service_routes_exclude_removed_operation_ids() {
+    let removed = read_spec_artifact("../migration/removed-operation-ids.json");
+    let removed_ids = removed
+        .get("entries")
+        .and_then(Value::as_array)
+        .expect("removed-operation-ids has an entries array")
+        .iter()
+        .map(|entry| entry.get("id").and_then(Value::as_str).expect("entry without id"))
+        .collect::<BTreeSet<_>>();
+    for route in service_routes() {
+        assert!(
+            !removed_ids.contains(route.operation_id),
+            "removed operation id {} is still advertised in service routes",
+            route.operation_id
+        );
+    }
+}
+
+fn read_spec_artifact(relative: &str) -> Value {
+    let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = [
+        manifest_dir.join("../../../cokret-spec/spec/v1/artifacts/registry").join(relative),
+        std::path::PathBuf::from("../cokret-spec/spec/v1/artifacts/registry").join(relative),
+    ]
+    .into_iter()
+    .find(|path| path.exists())
+    .unwrap_or_else(|| {
+        panic!(
+            "spec artifact {relative} is required for drift tests; looked next to {}",
+            manifest_dir.display()
+        )
+    });
+    let raw = std::fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+    serde_json::from_str(&raw)
+        .unwrap_or_else(|error| panic!("failed to parse {}: {error}", path.display()))
 }
 
 #[test]
@@ -71,6 +124,25 @@ fn query_auth_and_wire_negative_vectors_are_available() {
 
     let golden = protocol_golden_vectors();
     assert!(golden.iter().any(|vector| vector.profile == "ck.conformance.digest.v1"));
+}
+
+#[test]
+fn protocol_golden_vectors_pass_real_validators() {
+    for vector in protocol_golden_vectors() {
+        match vector.profile.as_str() {
+            "ck.conformance.cursor.v1" => {
+                let token = vector.input["cursor"].as_str().expect("cursor vector input");
+                cokret_core::Cursor::decode(token)
+                    .unwrap_or_else(|err| panic!("golden cursor vector must decode: {err}"));
+            }
+            "ck.conformance.hlc.v1" => {
+                let hlc = vector.input["hlc"].as_str().expect("hlc vector input");
+                cokret_core::Hlc::new(hlc)
+                    .unwrap_or_else(|err| panic!("golden HLC vector must validate: {err}"));
+            }
+            _ => {}
+        }
+    }
 }
 
 #[test]
@@ -108,10 +180,10 @@ fn framework_independent_handler_shape_can_be_mocked() {
     struct MockHandler;
 
     impl EndpointHandler for MockHandler {
-        fn handle(&mut self, request: ServerReqBody) -> Result<ServerResBody> {
+        fn handle(&mut self, request: ServerRequestBody) -> Result<ServerOutcome> {
             match request {
-                ServerReqBody::ServerDescribe => {
-                    Ok(ServerResBody::ServerDescription(Box::new(ServerDescription {
+                ServerRequestBody::ServerDescribe => {
+                    Ok(ServerOutcome::ServerDescription(Box::new(ServerDescription {
                         service_did: cokret_core::Did::new("did:web:svc.example").unwrap(),
                         trust_domain: cokret_core::TypedTrustDomainId::new(
                             "ck:trust_domain:example.net",
@@ -153,8 +225,8 @@ fn framework_independent_handler_shape_can_be_mocked() {
     }
 
     let mut handler = MockHandler;
-    let response = handler.handle(ServerReqBody::ServerDescribe).unwrap();
-    let ServerResBody::ServerDescription(description) = response else {
+    let response = handler.handle(ServerRequestBody::ServerDescribe).unwrap();
+    let ServerOutcome::ServerDescription(description) = response else {
         panic!("unexpected response");
     };
     assert!(description.supported_operations.contains(&"ck.self.account.subscribe".to_owned()));

@@ -44,7 +44,7 @@ pub struct AuthManager {
     revoked_sessions: BTreeMap<String, SessionRevocation>,
     passkey_challenges: BTreeMap<Did, PasskeyChallenge>,
     mfa_challenges: BTreeMap<Did, MfaChallenge>,
-    recovery_requests: BTreeMap<String, AccountRecoveryReqBody>,
+    recovery_requests: BTreeMap<String, AccountRecoveryRequestBody>,
     rate_limit_hook: Option<AuthRateLimitHook>,
     session_limit: usize,
 }
@@ -176,7 +176,7 @@ impl AuthManager {
             .password_users
             .get(username)
             .ok_or_else(|| Error::Protocol("user not found".to_owned()))?;
-        let verification = verifier.verify_password(&PasswordVerificationReqBody {
+        let verification = verifier.verify_password(&PasswordVerificationRequestBody {
             username: user.username.clone(),
             user_id: user.user_id.clone(),
             password: password.to_owned(),
@@ -205,7 +205,7 @@ impl AuthManager {
         client_id: impl Into<String>,
         redirect_uri: impl Into<String>,
         state: impl Into<String>,
-    ) -> OidcAuthReqBody {
+    ) -> OidcAuthRequestBody {
         let issuer = issuer.into();
         let client_id = client_id.into();
         let redirect_uri = redirect_uri.into();
@@ -213,7 +213,7 @@ impl AuthManager {
         let authorization_url = format!(
             "{issuer}/authorize?client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&state={state}"
         );
-        OidcAuthReqBody { issuer, client_id, redirect_uri, state, authorization_url }
+        OidcAuthRequestBody { issuer, client_id, redirect_uri, state, authorization_url }
     }
 
     /// Complete an OIDC/OAuth2 login after upstream verification.
@@ -231,7 +231,7 @@ impl AuthManager {
     /// Complete an OIDC/OAuth2 login using an application-supplied verifier.
     pub fn complete_oidc_with_verifier<V>(
         &mut self,
-        request: OidcVerificationReqBody,
+        request: OidcVerificationRequestBody,
         device_id: DeviceId,
         verifier: &V,
     ) -> Result<AuthSession>
@@ -299,7 +299,7 @@ impl AuthManager {
     pub fn verify_passkey_with_verifier<V>(
         &mut self,
         user_id: &Did,
-        response: WebAuthnPasskeyResBody,
+        response: WebAuthnPasskeyOutcome,
         origin: impl Into<String>,
         relying_party_id: impl Into<String>,
         device_id: DeviceId,
@@ -324,7 +324,7 @@ impl AuthManager {
         if challenge.expires_at <= now {
             return Err(Error::Protocol("passkey challenge expired".to_owned()));
         }
-        let verified = verifier.verify_passkey(&PasskeyVerificationReqBody {
+        let verified = verifier.verify_passkey(&PasskeyVerificationRequestBody {
             user_id: user_id.clone(),
             challenge,
             response,
@@ -654,7 +654,7 @@ impl AuthManager {
         &mut self,
         user_id: Did,
         method: AccountRecoveryMethod,
-    ) -> Result<AccountRecoveryReqBody> {
+    ) -> Result<AccountRecoveryRequestBody> {
         self.check_rate_limit(AuthRateLimitContext {
             action: AuthRateLimitAction::RecoveryStart,
             subject: None,
@@ -662,7 +662,7 @@ impl AuthManager {
             device_id: None,
             now: Utc::now(),
         })?;
-        let request = AccountRecoveryReqBody {
+        let request = AccountRecoveryRequestBody {
             request_id: format!("recovery_{}", uuid::Uuid::now_v7()),
             user_id,
             method,
@@ -678,7 +678,7 @@ impl AuthManager {
         &mut self,
         request_id: &str,
         proof: &str,
-    ) -> Result<AccountRecoveryReqBody> {
+    ) -> Result<AccountRecoveryRequestBody> {
         let request = self
             .recovery_requests
             .get(request_id)
@@ -728,7 +728,7 @@ impl AuthManager {
         did_document: DidDocument,
         proof: Proof,
         verifier: &V,
-    ) -> Result<AccountRecoveryReqBody>
+    ) -> Result<AccountRecoveryRequestBody>
     where
         V: DidProofVerifier + ?Sized,
     {
@@ -764,7 +764,7 @@ impl AuthManager {
         if proof.verification_method != *verification_method {
             return Err(Error::Protocol("proof verification method mismatch".to_owned()));
         }
-        let verification = verifier.verify_did_proof(&DidProofVerificationReqBody {
+        let verification = verifier.verify_did_proof(&DidProofVerificationRequestBody {
             subject: request.user_id.clone(),
             did_document,
             verification_method: verification_method.clone(),
@@ -803,101 +803,92 @@ impl AuthManager {
     }
 }
 
-/// S-2 (savfox SDK gap): one-shot DID-proof login flow that drives
-/// `POST /_cokret/gate/account/session-grants` end-to-end.
+/// One-shot DID-proof login flow that drives the single registered
+/// `POST /_cokret/gate/account/session-grants`
+/// (`ck.gate.account.issue_session_grant`) operation.
 ///
 /// The helper is split off into its own impl block (gated on `client`
 /// and `signer`) so the in-process `AuthManager` core surface stays
 /// transport-free.
 #[cfg(all(feature = "client", feature = "signer"))]
 impl AuthManager {
-    /// One-shot DID-proof login. Performs the challenge round-trip
-    /// internally using the supplied signer, then maps the wire
-    /// `AuthSessionWire` into the SDK's [`AuthSession`].
-    ///
-    /// Spec: `identity-did.md` §5.1 (`ck.did.proof` purpose
-    /// `ck.session.grant`).
+    /// Maximum `expires_at - issued_at` freshness window for a
+    /// `ck.did.proof` (`identity-did.md` §5.1: window upper bound MUST
+    /// be ≤ 300s).
+    const DID_PROOF_FRESHNESS_WINDOW_SECS: i64 = 300;
+
+    /// One-shot DID-proof login. Builds the `ck.did.proof` signing
+    /// payload (`identity-did.md` §5.1), signs it with `signer`, and
+    /// submits the spec-shaped `SessionGrantRequestBody` to the single
+    /// registered issuance operation. The `challenge` is the
+    /// server-issued one-time challenge obtained through the
+    /// deployment-local channel (the protocol HTTP binding registers
+    /// no challenge sub-path under `/_cokret/`).
     pub async fn login_did_proof<S>(
         &mut self,
         client: &cokret_http_client::Client,
         principal_id: Did,
         device_id: DeviceId,
         signer: &S,
-        verification_method: &str,
+        challenge: &str,
         audience: &str,
-    ) -> Result<AuthSession>
+    ) -> Result<cokret_core::SessionGrantOutcome>
     where
         S: cokret_core::MoveSigner + ?Sized,
     {
-        // Step 1: request the challenge.
-        let challenge = client
-            .auth_session_grant_challenge(&crate::model::SessionGrantChallengeReq {
-                principal_id: principal_id.clone(),
-                device_id: device_id.clone(),
-                audience: audience.to_owned(),
-                origin: None,
-            })
-            .await?;
-
-        // Fail-closed on expired / mismatched challenges before signing.
-        if !challenge.is_session_grant_purpose() {
-            return Err(Error::Protocol(format!(
-                "challenge purpose must be ck.session.grant, got '{}'",
-                challenge.purpose
-            )));
-        }
-        if challenge.audience != audience {
-            return Err(Error::Protocol(format!(
-                "challenge audience '{}' does not match requested '{}'",
-                challenge.audience, audience
-            )));
-        }
-        if challenge.expires_at <= Utc::now() {
-            return Err(Error::Protocol("session grant challenge expired".to_owned()));
+        if challenge.len() < 16 {
+            return Err(Error::Protocol(
+                "session grant challenge must be at least 16 characters".to_owned(),
+            ));
         }
 
-        // Step 2: build the ck.did.proof payload, sign it, and submit.
-        let proof_payload = crate::model::SessionGrantDidProof::from_challenge(
-            &challenge,
-            principal_id.clone(),
-            device_id.clone(),
-        );
-        let payload_bytes = cokret_core::canonical::canonical_json_bytes(&proof_payload)?;
+        let issued_at = Utc::now();
+        let expires_at = issued_at + chrono::Duration::seconds(Self::DID_PROOF_FRESHNESS_WINDOW_SECS);
+
+        // Digest of the canonical request binding (request body without
+        // the proof object) — bound into both the wire proof and the
+        // signed payload so the proof cannot be replayed against a
+        // different request body.
+        let request_binding = serde_json::json!({
+            "principal_id": principal_id.as_str(),
+            "device_id": device_id.as_str(),
+        });
+        let request_canonical_digest = crate::Hash::new(cokret_core::canonical::sha256_digest(
+            &cokret_core::canonical::canonical_json_bytes(&request_binding)?,
+        ))?;
+
+        // `ck.did.proof` structured canonical-JSON signing payload per
+        // `identity-did.md` §5.1 (device_id is signed-over for
+        // multi-device principals; the SDK always supplies it).
+        let signing_payload = serde_json::json!({
+            "kind": "ck.did.proof",
+            "purpose": "ck.session.grant",
+            "did": principal_id.as_str(),
+            "device_id": device_id.as_str(),
+            "audience": audience,
+            "challenge": challenge,
+            "request_canonical_digest": request_canonical_digest.as_str(),
+            "issued_at": cokret_core::canonical::format_timestamp_canonical(issued_at),
+            "expires_at": cokret_core::canonical::format_timestamp_canonical(expires_at),
+        });
+        let payload_bytes = cokret_core::canonical::canonical_json_bytes(&signing_payload)?;
         let move_sig = signer.sign_payload(&payload_bytes)?;
-        let payload_digest =
-            crate::Hash::new(cokret_core::canonical::sha256_digest(&payload_bytes))?;
-        let proof = Proof {
-            kind: cokret_core::proof_kind::DETACHED_JWS.to_owned(),
-            alg: move_sig.alg,
-            verification_method: verification_method.to_owned(),
-            event_digest: payload_digest,
-            created_at: Utc::now(),
-            domain: None,
-            audience: Some(cokret_core::Audience::Single(audience.to_owned())),
-            jws: move_sig.jws,
-        };
 
-        let wire = client
-            .auth_session_grant_submit(&crate::model::SessionGrantSubmitReq {
-                challenge_id: challenge.challenge_id.clone(),
-                principal_id: principal_id.clone(),
-                device_id: device_id.clone(),
-                proof_payload,
-                proof,
+        client
+            .auth_issue_session_grant(&cokret_core::SessionGrantRequestBody {
+                principal_id,
+                device_id: Some(device_id),
+                requested_scope: Vec::new(),
+                proof: cokret_core::SessionGrantRequestProof {
+                    proof_kind: cokret_core::SessionGrantProofKind::DidBoundSignature,
+                    challenge: challenge.to_owned(),
+                    request_canonical_digest,
+                    audience: Some(audience.to_owned()),
+                    expires_at: Some(expires_at),
+                    signature: move_sig.jws,
+                },
             })
-            .await?;
-
-        Ok(AuthSession {
-            session_id: wire.session_id,
-            user_id: wire.user_id,
-            principal_id: wire.principal_id,
-            device_id: wire.device_id,
-            access_token: wire.access_token,
-            refresh_token: wire.refresh_token,
-            expires_at: wire.expires_at,
-            revoked: wire.revoked,
-            created_at: wire.created_at,
-        })
+            .await
     }
 }
 

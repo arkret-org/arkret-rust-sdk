@@ -5,7 +5,7 @@
 //! and `OKP` / `Ed25519` JWKs. RSA and ECDSA JWTs must be verified by a host
 //! adapter until the SDK owns those algorithm implementations.
 
-use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
@@ -127,10 +127,10 @@ pub fn verify_eddsa_jwt_with_jwks(
         base64url_decode(parts[0]).map_err(|_| JwtVerificationError::MalformedJson)?;
     let claims_bytes =
         base64url_decode(parts[1]).map_err(|_| JwtVerificationError::MalformedJson)?;
-    let header: JwtHeader =
-        serde_json::from_slice(&header_bytes).map_err(|_| JwtVerificationError::MalformedJson)?;
     let header_value: Value =
         serde_json::from_slice(&header_bytes).map_err(|_| JwtVerificationError::MalformedJson)?;
+    let header: JwtHeader = serde_json::from_value(header_value.clone())
+        .map_err(|_| JwtVerificationError::MalformedJson)?;
     let claims: Value =
         serde_json::from_slice(&claims_bytes).map_err(|_| JwtVerificationError::MalformedJson)?;
 
@@ -157,7 +157,7 @@ pub fn verify_eddsa_jwt_with_jwks(
     let signature = Signature::from_bytes(&signature_array);
     let signing_input = format!("{}.{}", parts[0], parts[1]);
     key.public_key
-        .verify(signing_input.as_bytes(), &signature)
+        .verify_strict(signing_input.as_bytes(), &signature)
         .map_err(|_| JwtVerificationError::InvalidSignature)?;
 
     validate_claims(&claims, policy)?;

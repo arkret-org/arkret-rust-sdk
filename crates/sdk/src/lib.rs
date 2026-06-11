@@ -254,7 +254,7 @@ pub use applet::{
     InstallCommitOutcome, InstallCommitRequestBody, InstallE2eePolicy,
     InstallPlan, InstallPreviewRequestBody, InstallRevokeRequestBody, PortalMode,
     PortalRealmMapping, RemoteRealmMapping, RemoteUserMapping, ThirdPartyLookupKind,
-    ThirdPartyLookupReqBody, ThirdPartyLookupResBody, VirtualActor, WebhookAuth, WidgetPolicy,
+    ThirdPartyLookupRequestBody, ThirdPartyLookupOutcome, VirtualActor, WebhookAuth, WidgetPolicy,
     WireAppletRegistration, namespace_pattern_matches, sign_registration,
 };
 #[cfg(all(feature = "full-surface", feature = "applet-runtime", feature = "salvo"))]
@@ -263,29 +263,30 @@ pub use applet_server::router as applet_router;
 pub use applet_server::{AppletHandler, AppletService};
 #[cfg(feature = "full-surface")]
 pub use auth::{
-    AccountAuthState, AccountRecoveryMethod, AccountRecoveryReqBody, AuthClaimKind, AuthManager,
+    AccountAuthState, AccountRecoveryMethod, AccountRecoveryRequestBody, AuthClaimKind, AuthManager,
     AuthRateLimitAction, AuthRateLimitContext, AuthRateLimitHook, AuthSession, AuthStateSnapshot,
-    COKRET_DEVICE_SCOPE_PREFIX, ClaimDisclosureRequirement, DidProofVerification,
-    DidProofVerificationReqBody, DidProofVerifier, DisclosurePolicy,
+    COKRET_DEVICE_SCOPE_PREFIX, ClaimDisclosurePolicy, ClaimDisclosureRequirement,
+    DidProofVerification, DidProofVerificationRequestBody, DidProofVerifier,
     DisclosureProofAdapterBoundary, DisclosureProofFormat, MemorySessionGrantOutbox, MfaChallenge,
-    OidcAuthReqBody, OidcCredential, OidcIssuerMetadata, OidcJwks, OidcVerificationReqBody,
+    OidcAuthRequestBody, OidcCredential, OidcIssuerMetadata, OidcJwks, OidcVerificationRequestBody,
     OidcVerifiedIdentity, OidcVerifier, PasskeyChallenge, PasskeyVerification,
-    PasskeyVerificationReqBody, PasskeyVerifier, PasswordHashAlgorithm, PasswordHashVerifier,
-    PasswordUser, PasswordVerification, PasswordVerificationReqBody, PersistedAuthSession,
-    PresentationReqBody, PresentationValidation, PresentedClaim, PrincipalSessionGrantNotification,
-    PrincipalSessionGrantNotificationResBody, PrincipalSessionGrantNotifier, RefreshTokenMetadata,
+    PasskeyVerificationRequestBody, PasskeyVerifier, PasswordHashAlgorithm, PasswordHashVerifier,
+    PasswordUser, PasswordVerification, PasswordVerificationRequestBody, PersistedAuthSession,
+    PresentationRequestBody, PresentationValidation, PresentedClaim, PrincipalSessionGrantNotification,
+    PrincipalSessionGrantNotificationOutcome, PrincipalSessionGrantNotifier, RefreshTokenMetadata,
     RejectedClaim, SessionGrant, SessionGrantNotificationKind, SessionGrantOutboxEntry,
     SessionGrantOutboxState, SessionGrantPayload, SessionGrantRecord, SessionGrantRetryPolicy,
     SessionGrantSigner, SessionGrantVerification, SessionGrantVerifier, SessionPrincipalBinding,
-    SessionRevocation, WebAuthnPasskeyResBody, cokret_device_scope, device_id_from_scope_token,
+    SessionRevocation, WebAuthnPasskeyOutcome, cokret_device_scope, device_id_from_scope_token,
     issue_session_grant_with_signer, primary_device_id_from_scopes, validate_presentation,
     verify_presentation_with_adapter, verify_session_grant_with_verifier,
 };
 #[cfg(feature = "full-surface")]
 pub use authz::{
-    ApprovalFlowManager, ApprovalMode, AuthzContext, AuthzDecision, AuthzEngine,
+    ApprovalFlowManager, ApprovalMode, AuthzContext, AuthzEngine,
     CapabilityFrontierValidation, CapabilityGrant, CapabilityGrantBuilder, ClaimRequirement,
-    Constraint, ConstraintDuration, ConstraintEffect, ConstraintEntry, FieldScope, GrantProposal,
+    Constraint, ConstraintDuration, ConstraintEffect, ConstraintEntry, EngineDecision, FieldScope,
+    GrantProposal,
     ModerationReport, PolicyEvaluationRequest, PolicyEvaluationResult, PolicyServerEffect,
     ProposalApproval, ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
     ProtocolGrantConstraint, ProtocolGrantConstraintEffect, ProtocolGrantConstraintTrack,
@@ -329,7 +330,7 @@ pub use devices::{
     CrossSigningResetContent, CrossSigningResetProof, Device, DeviceBootstrapBinding, DeviceChange,
     DeviceManager, DeviceMetadata, DeviceQuorumSignature, DeviceTrustBinding,
     DeviceTrustChainOutcome, DeviceVerificationChallenge, DeviceVerificationMessageContent,
-    DeviceVerificationMessageKind, KeyBackup, KeyBackupClass, KeyBackupContentItem,
+    DeviceVerificationMessageKind, KeyBackupClass, KeyBackupContentItem,
     KeyBackupEncryption, ProtocolDeviceMessageEnvelope, ProtocolKeyBackup, QrVerificationPayload,
     SignedCrossSigningKey, ToDeviceEnvelope, cross_signing_publish_cell_subject,
     device_verification_commitment,
@@ -345,12 +346,11 @@ pub use e2ee::{
 pub use federation::{
     FederationBackfillAuthorization, FederationManager, FederationQuarantineKind,
     FederationQuarantineRecord, FederationReplayDecision, FederationReplayRecord,
-    FederationReplayStore, FederationReqBody, FederationTransaction, FederationTransactionEnvelope,
-    HttpMessageSignature, ServerInfo, ServiceEndpointDescriptor, SovereignDeployment, TrustAnchor,
-    VerifyActorChallenge, VerifyActorChallengeSignature, WellKnownCokretServer,
-    content_digest_sha256, did_document_service_endpoint_matches, duplicate_transaction_quarantine,
-    fork_quarantine_record, rfc9530_content_digest_sha256, sign_verify_actor_challenge,
-    verify_actor_challenge_signature, verify_rfc9530_content_digest,
+    FederationReplayStore, FederationTransactionEnvelope, HttpMessageSignature, ServerInfo,
+    ServiceEndpointDescriptor, SovereignDeployment, VerifyActorChallenge,
+    VerifyActorChallengeSignature, WellKnownCokretServer, content_digest_sha256,
+    did_document_service_endpoint_matches, duplicate_transaction_quarantine,
+    fork_quarantine_record, rfc9530_content_digest_sha256, verify_rfc9530_content_digest,
 };
 #[cfg(feature = "full-surface")]
 pub use hlc::{
@@ -369,11 +369,12 @@ pub use identity::{
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument,
     DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyLogEntry, DidKeyLogOperation,
     DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver, DidVisibility,
-    DidWebDocumentResBody, DidWebResolver, ExternalHandleProof, HandleAttestation, HandleClaim,
-    HandleProofProfile, IdentityManager, InMemoryStaridRegistryAdapter, PairwiseDidBinding,
-    PairwiseDidResolutionProof, PairwiseDidStore, ResolvedVerificationMethodKey,
-    StaridControlProofReqBody, StaridControlProofVerification, StaridRegistryAdapter,
-    StaridRegistryRecord, VerifiedDidKeyLog, did_key_log_proof, did_registry_receipt_signature,
+    DidWebDocumentOutcome, DidWebResolver, ExternalHandleProof, HandleAttestation, HandleClaim,
+    HandleProofProfile, IdentityManager, IdentityReceiptWitnessRole,
+    InMemoryStaridRegistryAdapter, PairwiseDidBinding, PairwiseDidResolutionProof,
+    PairwiseDidStore, ResolvedVerificationMethodKey, StaridControlProofRequestBody,
+    StaridControlProofVerification, StaridRegistryAdapter, StaridRegistryRecord,
+    VerifiedDidKeyLog,
     handle_claim_proof, handle_dns_txt_name, handle_well_known_url, pairwise_resolution_proof,
     resolve_verification_method_key, resolve_verification_method_key_from_document,
     starid_control_proof, verification_method_did, verify_canonical_proof_with_did_resolver,
@@ -383,12 +384,13 @@ pub use identity::{
 pub use identity_link::{IdentityLinkCache, IdentityLinkCacheEntry};
 #[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
 pub use key_backup_client::{
-    KeyBackupClient, KeyBackupListResBody, KeysBackupsDeleteOutcome, KeysBackupsPutOutcome,
+    KeyBackupClient, KeyBackupListOutcome, KeysBackupsDeleteOutcome, KeysBackupsPutOutcome,
 };
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use key_verification::{
     KeyVerificationAccept, KeyVerificationCancel, KeyVerificationDone, KeyVerificationFlow,
     KeyVerificationKey, KeyVerificationMac, KeyVerificationStart, KeyVerificationState,
+    compute_key_commitment,
 };
 #[cfg(feature = "full-surface")]
 pub use media::{
@@ -436,8 +438,7 @@ pub use realm::{
 #[cfg(feature = "full-surface")]
 pub use receipts::{
     ReadMarker, ReadReceipt, ReadReceiptDisclosure, ReadReceiptPolicy, ReadReceiptPreferences,
-    ReadReceiptVisibility, ReceiptDecision, ReceiptManager, ReceiptVisibility, ScopePref,
-    should_send_receipt,
+    ReadReceiptVisibility, ReceiptDecision, ReceiptManager, ScopePref, should_send_receipt,
 };
 #[cfg(feature = "full-surface")]
 pub use resolver::{
@@ -456,7 +457,7 @@ pub use secret_share::{
 #[cfg(all(feature = "full-surface", feature = "server"))]
 pub use server::{
     EndpointHandler, ProtocolFixtureFlow, ProtocolFixtureReport, ProtocolFixtureStep,
-    ProtocolGoldenVector, ProtocolServerFixture, ServerReqBody, ServerResBody,
+    ProtocolGoldenVector, ProtocolServerFixture, ServerRequestBody, ServerOutcome,
     WireConformanceVector, protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
 };
 #[cfg(feature = "full-surface")]
@@ -472,7 +473,7 @@ pub use store::{
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{
     AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
-    EventsQueryOrder, EventsQueryOutcome, EventsQueryReqBody, EventsQuerySelector,
+    EventsQueryOrder, EventsQueryOutcome, EventsQueryRequestBody, EventsQuerySelector,
     EventsSubscribeFrame, EventsSubscribeTransport, ExponentialBackoff, LocalEcho, ProcessedRealm,
     RealmListChange, RealmListEntry, RealmListFilter, RealmListService, RealmListSnapshot,
     RealmListSort, SendQueue, SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus,
@@ -489,7 +490,7 @@ pub use timeline::{
 pub use typing::{TypingManager, TypingNotification};
 #[cfg(feature = "full-surface")]
 pub use webrtc::{
-    CallState, ConferenceMode, ConferenceSession, IceCandidate, IceServer, IceServerKind,
-    MediaTrack, MediaTrackKind, SdpType, SessionDescription, WebRtcCall, WebRtcManager,
+    CallSessionDescription, CallState, ConferenceMode, ConferenceSession, IceCandidate, IceServer,
+    IceServerKind, MediaTrack, MediaTrackKind, SdpType, WebRtcCall, WebRtcManager,
     WebRtcSignalKind, WebRtcSignalMessage,
 };

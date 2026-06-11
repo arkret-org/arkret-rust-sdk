@@ -10,14 +10,14 @@ use salvo::oapi::{
 };
 
 use crate::{
-    AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentInteropSessionId, AgentKeyId,
-    AnchorId, AnnounceId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId,
-    CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId,
-    Did, EventId, FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId,
-    KeyEventId, MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId,
-    PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId,
-    ReportId, RequestId, SidecarCircleId, SnapshotId, SpaceId, TransactionId, TypedAppealId,
-    TypedTrustDomainId, ViewId,
+    ActorProfileId, AgentInteropSessionId, AnchorId, AnnounceId, AppletId, AttestationId,
+    AuditBindingId, AuditReleaseId, AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId,
+    BlobRef, BlockId, CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId,
+    DeviceMessageId, Did, EventId, FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc,
+    InviteId, KeyEventId, MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId,
+    OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId,
+    RelationId, ReportId, RequestId, RtcParticipantId, SnapshotId, SpaceId, TransactionId,
+    TypedAppealId, TypedTrustDomainId, ViewId,
 };
 
 fn string_schema(pattern: &str) -> RefOr<Schema> {
@@ -55,24 +55,25 @@ impl_string_schema!(
     AgentInteropSessionId,
     r"^ck:agent_interop_session:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
-// CKP-0008 / CKP-0009 (spec head 37ce729) — personal agent auxiliary
-// typed ids + key-backup hardening typed ids. `agent_principal_id` uses
-// the DID schema above.
 impl_string_schema!(
-    AgentKeyId,
-    r"^ck:agent_key:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    AttestationId,
+    r"^ck:attestation:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
-    AgentDraftId,
-    r"^ck:agent_draft:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    AuditBindingId,
+    r"^ck:audit_binding:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
-    AccountabilityGrantId,
-    r"^ck:accountability_grant:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    AuditReleaseId,
+    r"^ck:audit_release:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
-    SidecarCircleId,
-    r"^ck:sidecar_circle:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    AuditSessionId,
+    r"^ck:audit_session:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
+impl_string_schema!(
+    RtcParticipantId,
+    r"^ck:rtc_participant:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
     BackupSeriesId,
@@ -172,7 +173,7 @@ impl_string_schema!(
 );
 impl_string_schema!(
     OperationId,
-    r"^(ck:operation:.+|(?:sha256|sha3_256|blake3):[0-9a-f]{64}|sha512:[0-9a-f]{128})$"
+    r"^(ck:operation:.+|(?:sha256|blake3):[0-9a-f]{64})$"
 );
 impl_string_schema!(
     GrantId,
@@ -232,20 +233,20 @@ impl_string_schema!(
 );
 impl_string_schema!(
     BlobRef,
-    r"^(?:ck:blob:(?:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|(?:sha256|sha3_256|blake3):[0-9a-f]{64}|sha512:[0-9a-f]{128})|(?:sha256|sha3_256|blake3):[0-9a-f]{64}|sha512:[0-9a-f]{128})$"
+    r"^(?:ck:blob:(?:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|(?:sha256|blake3):[0-9a-f]{64})|(?:sha256|blake3):[0-9a-f]{64})$"
 );
 impl_string_schema!(
     ViewId,
     r"^ck:view:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
-impl_string_schema!(Hash, r"^(?:sha256|sha3_256|blake3):[0-9a-f]{64}$|^sha512:[0-9a-f]{128}$");
+impl_string_schema!(Hash, r"^(?:sha256|blake3):[0-9a-f]{64}$");
 impl_string_schema!(Cursor, r"^ck:cursor:.+$");
 // Anchor frontier event_digest: bare `<algo>:<hex>` hash (spec e10b6ad
 // dropped the `ck:move:` typed-id prefix). Same hex shape as `Hash` above.
-impl_string_schema!(MoveId, r"^(?:sha256|sha3_256|blake3):[0-9a-f]{64}$|^sha512:[0-9a-f]{128}$");
+impl_string_schema!(MoveId, r"^(?:sha256|blake3):[0-9a-f]{64}$");
 impl_string_schema!(
     AnchorId,
-    r"^ck:anchor:(?:(?:sha256|sha3_256|blake3):[0-9a-f]{64}|sha512:[0-9a-f]{128})$"
+    r"^ck:anchor:(?:sha256|blake3):[0-9a-f]{64}$"
 );
 impl_string_schema!(CellRef, r"^ck:cell:[A-Za-z0-9._~=-]+(?::[A-Za-z0-9._~=-]+)*$");
 impl_string_schema!(

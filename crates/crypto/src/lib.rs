@@ -832,7 +832,7 @@ pub struct WithheldKeyRecord {
 
 /// Inbound device-to-device secret-gossip request body.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SecretGossipReqBody {
+pub struct SecretGossipRequestBody {
     pub request_id: String,
     pub name: String,
     pub requesting_device: DeviceId,
@@ -842,7 +842,7 @@ pub struct SecretGossipReqBody {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-impl SecretGossipReqBody {
+impl SecretGossipRequestBody {
     pub fn validate(&self) -> Result<()> {
         validate_nonempty_key("secret gossip request_id", &self.request_id)?;
         validate_max_length("secret gossip request_id", &self.request_id, MAX_IDENTIFIER_LEN)?;

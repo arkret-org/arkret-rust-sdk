@@ -47,7 +47,7 @@
 //! and adapters that need to extract the raw 32-byte key from a
 //! multibase string.
 
-use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -196,7 +196,7 @@ fn verify_ed25519_v1(proof: &BindingProof, expected_subject: &str) -> Result<(),
     sig_arr.copy_from_slice(&proof.signature);
     let signature = Signature::from_bytes(&sig_arr);
     verifying_key
-        .verify(&proof.payload, &signature)
+        .verify_strict(&proof.payload, &signature)
         .map_err(|e| BindingError::SignatureMismatch(format!("{e}")))
 }
 
@@ -395,7 +395,7 @@ mod tests {
     /// Tampered signature must be rejected even though every other
     /// byte (payload, kind, public_key) is untouched. Catches a
     /// regression where the verifier accidentally short-circuits the
-    /// `Verifier::verify` call.
+    /// `verify_strict` call.
     #[test]
     fn tampered_signature_is_rejected() {
         let seed = [0x22u8; 32];

@@ -184,7 +184,7 @@ pub struct ThirdPartyIdentifierBinding {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct IdentityInvitationLookupReqBody {
+pub struct IdentityInvitationLookupRequestBody {
     pub medium: ThirdPartyIdentifierKind,
     pub address: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -192,7 +192,7 @@ pub struct IdentityInvitationLookupReqBody {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct IdentityInvitationLookupResBody {
+pub struct IdentityInvitationLookupOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn invitation_lookup_can_return_privacy_preserving_empty_result() {
-        let response = IdentityInvitationLookupResBody {
+        let response = IdentityInvitationLookupOutcome {
             did: None,
             invite_token: None,
             privacy_preserving: true,

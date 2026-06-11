@@ -188,7 +188,7 @@ pub fn validate_selection_within_ceiling(
 /// (`PUT /_cokret/self/agents/{agent_principal_id}/participation`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AgentParticipationSetReqBody {
+pub struct AgentParticipationSetRequestBody {
     #[serde(rename = "participation_scope")]
     pub scope: AgentParticipationScope,
     pub selection: AgentParticipation,
@@ -209,7 +209,7 @@ pub struct AgentParticipationEntry {
 /// Response for `ck.self.agent.participation.{set,get}`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AgentParticipationResBody {
+pub struct AgentParticipationOutcome {
     pub ok: bool,
     pub agent_principal_id: String,
     pub entries: Vec<AgentParticipationEntry>,

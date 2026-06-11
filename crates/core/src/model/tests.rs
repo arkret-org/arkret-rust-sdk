@@ -758,7 +758,7 @@ fn relation_requires_exact_wire_endpoints() {
 
 #[test]
 fn query_request_uses_protocol_filters_array() {
-    let request = QueryReqBody {
+    let request = ViewQuery {
         realm_ids: vec![RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
         object_types: vec!["morph".to_owned()],
         morph_types: vec!["task".to_owned()],
@@ -804,7 +804,7 @@ fn facets_accept_name_lists_and_config_maps() {
 
 #[test]
 fn view_supports_renderer_and_facet_config_facades() {
-    let request = QueryReqBody {
+    let request = ViewQuery {
         realm_ids: vec![RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
         object_types: Vec::new(),
         morph_types: Vec::new(),
@@ -1343,7 +1343,7 @@ fn realm_anchor_fields_omitted_when_none() {
     assert!(!obj.contains_key("co_write_policy"));
 }
 
-/// T20 — CollectionProjectionResBody round-trips through serde with
+/// T20 — CollectionProjectionOutcome round-trips through serde with
 /// the exact wire shape from `models/views.md` §6.3, including the
 /// nested groups -> items -> position / discussion structure.
 #[test]
@@ -1379,7 +1379,7 @@ fn collection_projection_response_serde_round_trip() {
             }
         ]
     });
-    let resp: CollectionProjectionResBody =
+    let resp: CollectionProjectionOutcome =
         serde_json::from_value(payload.clone()).expect("deserialize");
     assert!(matches!(resp.kind, ViewKind::Collection));
     assert!(matches!(resp.renderer, ViewRenderer::Board));

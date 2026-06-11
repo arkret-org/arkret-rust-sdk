@@ -1,8 +1,13 @@
 use super::*;
 
-/// Authorization decision result.
+/// Authorization decision result produced by the runtime `AuthzEngine`.
+///
+/// Named `EngineDecision` (not `AuthzDecision`) to avoid colliding with
+/// the wire enum `model::AuthzDecision` re-exported at the umbrella crate
+/// root; this runtime type additionally carries a human-readable `reason`
+/// and is never serialized.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum AuthzDecision {
+pub enum EngineDecision {
     /// Operation is allowed
     Allow,
     /// Operation is denied
@@ -13,7 +18,7 @@ pub enum AuthzDecision {
     Quarantine { reason: String },
 }
 
-impl AuthzDecision {
+impl EngineDecision {
     /// Check if the decision allows the operation.
     pub fn is_allowed(&self) -> bool {
         matches!(self, Self::Allow)

@@ -9,8 +9,8 @@
 //!
 //! * `XxxParams`  — URL path parameters (`#[derive(ToParameters)]`).
 //! * `XxxArgs`    — query-string parameters (`#[derive(ToParameters)]`).
-//! * `XxxReqBody`  — request body payloads (`#[derive(ToSchema)]`).
-//! * `XxxResBody`  — response body payloads (`#[derive(ToSchema)]`).
+//! * `XxxRequestBody`  — request body payloads (`#[derive(ToSchema)]`).
+//! * `XxxOutcome`  — response body payloads (`#[derive(ToSchema)]`).
 //!
 //! The previous untyped `ClientApiEndpoint` catalogue (and the
 //! `CLIENT_API_ENDPOINTS` constant) has been removed; the HTTP surface is
@@ -22,7 +22,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::push::{PushPriority, PushRule, PushRuleSet, Pusher};
 use chrono::{DateTime, Utc};
 use cokret_core::{
-    BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId, RealmId, Result,
+    BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId, Notification,
+    RealmId, Result,
 };
 use cokret_crypto::MediaEncryptionInfo;
 use cokret_html::RichTextDocument;
@@ -31,7 +32,7 @@ use serde_json::Value;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AccountRegisterReqBody {
+pub struct AccountRegisterRequestBody {
     pub username: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
@@ -40,7 +41,7 @@ pub struct AccountRegisterReqBody {
     pub initial_device_display_name: Option<String>,
 }
 
-impl AccountRegisterReqBody {
+impl AccountRegisterRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.username.trim().is_empty() {
             return Err(Error::Protocol("account username must not be empty".to_owned()));
@@ -61,7 +62,7 @@ pub enum LoginIdentifier {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct LoginReqBody {
+pub struct LoginRequestBody {
     pub identifier: LoginIdentifier,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
@@ -72,13 +73,13 @@ pub struct LoginReqBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct TokenRefreshReqBody {
+pub struct TokenRefreshRequestBody {
     pub refresh_token: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct LogoutReqBody {
+pub struct LogoutRequestBody {
     pub device_id: DeviceId,
     #[serde(default)]
     pub all_devices: bool,
@@ -86,7 +87,7 @@ pub struct LogoutReqBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SessionResBody {
+pub struct SessionOutcome {
     pub user_id: Did,
     pub device_id: DeviceId,
     pub access_token: String,
@@ -96,7 +97,7 @@ pub struct SessionResBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct WhoamiResBody {
+pub struct WhoamiOutcome {
     pub user_id: Did,
     pub device_id: DeviceId,
     pub scopes: Vec<String>,
@@ -104,7 +105,7 @@ pub struct WhoamiResBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AccountDataReqBody {
+pub struct AccountDataRequestBody {
     pub data_type: String,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub content: Value,
@@ -112,7 +113,7 @@ pub struct AccountDataReqBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AccountDataResBody {
+pub struct AccountDataOutcome {
     pub user_id: Did,
     pub data_type: String,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
@@ -122,7 +123,7 @@ pub struct AccountDataResBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DeactivateAccountReqBody {
+pub struct DeactivateAccountRequestBody {
     pub auth_session: String,
     #[serde(default)]
     pub erase: bool,
@@ -167,7 +168,7 @@ impl InteractiveAuthFlow {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct InteractiveAuthChallengeResBody {
+pub struct InteractiveAuthChallengeOutcome {
     pub session: String,
     pub flows: Vec<InteractiveAuthFlow>,
     pub completed: BTreeSet<InteractiveAuthStageKind>,
@@ -176,7 +177,7 @@ pub struct InteractiveAuthChallengeResBody {
     pub params: BTreeMap<String, Value>,
 }
 
-impl InteractiveAuthChallengeResBody {
+impl InteractiveAuthChallengeOutcome {
     pub fn select_satisfied_flow(&self) -> Option<&InteractiveAuthFlow> {
         self.flows.iter().find(|flow| flow.is_satisfied_by(&self.completed))
     }
@@ -184,7 +185,7 @@ impl InteractiveAuthChallengeResBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct InteractiveAuthSubmitReqBody {
+pub struct InteractiveAuthSubmitRequestBody {
     pub session: String,
     pub stage: InteractiveAuthStageKind,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
@@ -215,7 +216,7 @@ pub struct DeviceInfo {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DeviceListResBody {
+pub struct DeviceListOutcome {
     pub devices: Vec<DeviceInfo>,
 }
 
@@ -228,14 +229,14 @@ pub struct UpdateDeviceParams {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct UpdateDeviceReqBody {
+pub struct UpdateDeviceRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DeleteDevicesReqBody {
+pub struct DeleteDevicesRequestBody {
     pub devices: Vec<DeviceId>,
     pub auth_session: String,
 }
@@ -288,7 +289,7 @@ pub struct ProfileParams {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ProfileResBody {
+pub struct ProfileOutcome {
     pub user_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
@@ -301,7 +302,7 @@ pub struct ProfileResBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ProfileUpdateReqBody {
+pub struct ProfileUpdateRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -312,11 +313,11 @@ pub struct ProfileUpdateReqBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PresenceSubscriptionReqBody {
+pub struct PresenceSubscriptionRequestBody {
     pub users: Vec<Did>,
 }
 
-impl PresenceSubscriptionReqBody {
+impl PresenceSubscriptionRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.users.is_empty() {
             Err(Error::Protocol("presence subscription must include users".to_owned()))
@@ -337,7 +338,7 @@ pub enum RealmVisibility {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct RealmCreateReqBody {
+pub struct RealmCreateRequestBody {
     pub name: String,
     pub visibility: RealmVisibility,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -347,7 +348,7 @@ pub struct RealmCreateReqBody {
     pub initial_state: BTreeMap<String, Value>,
 }
 
-impl RealmCreateReqBody {
+impl RealmCreateRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.name.trim().is_empty() {
             return Err(Error::Protocol("realm name must not be empty".to_owned()));
@@ -358,7 +359,7 @@ impl RealmCreateReqBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct RealmResBody {
+pub struct RealmOutcome {
     pub realm_id: RealmId,
     pub name: String,
     pub visibility: RealmVisibility,
@@ -375,7 +376,7 @@ pub struct RealmPreviewParams {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct RealmPreviewResBody {
+pub struct RealmPreviewOutcome {
     pub realm_id: RealmId,
     pub name: String,
     pub visibility: RealmVisibility,
@@ -406,7 +407,7 @@ pub struct MembershipActionParams {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MembershipActionReqBody {
+pub struct MembershipActionRequestBody {
     pub action: MembershipAction,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_user: Option<Did>,
@@ -414,7 +415,7 @@ pub struct MembershipActionReqBody {
     pub reason: Option<String>,
 }
 
-impl MembershipActionReqBody {
+impl MembershipActionRequestBody {
     pub fn validate(&self) -> Result<()> {
         if matches!(
             self.action,
@@ -432,14 +433,14 @@ impl MembershipActionReqBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MembershipActionResBody {
+pub struct MembershipActionOutcome {
     pub event_id: EventId,
     pub membership: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SubmitEventReqBody {
+pub struct SubmitEventRequestBody {
     pub realm_id: RealmId,
     pub event_kind: String,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
@@ -448,7 +449,7 @@ pub struct SubmitEventReqBody {
     pub transaction_id: Option<String>,
 }
 
-impl SubmitEventReqBody {
+impl SubmitEventRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.event_kind.trim().is_empty() {
             return Err(Error::Protocol("event kind must not be empty".to_owned()));
@@ -470,7 +471,7 @@ pub struct EventSubmitReceipt {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EditMessageReqBody {
+pub struct EditMessageRequestBody {
     pub target_event_id: EventId,
     pub body: String,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = Option<serde_json::Value>)))]
@@ -479,21 +480,21 @@ pub struct EditMessageReqBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct RedactEventReqBody {
+pub struct RedactEventRequestBody {
     pub target_event_id: EventId,
     pub reason: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ReactionReqBody {
+pub struct ReactionRequestBody {
     pub target_event_id: EventId,
     pub key: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ThreadReplyReqBody {
+pub struct ThreadReplyRequestBody {
     pub root_event_id: EventId,
     pub body: String,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = Option<serde_json::Value>)))]
@@ -502,14 +503,14 @@ pub struct ThreadReplyReqBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PollStartReqBody {
+pub struct PollStartRequestBody {
     pub question: String,
     pub options: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub closes_at: Option<DateTime<Utc>>,
 }
 
-impl PollStartReqBody {
+impl PollStartRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.question.trim().is_empty() || self.options.len() < 2 {
             return Err(Error::Protocol(
@@ -522,7 +523,7 @@ impl PollStartReqBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ReceiptReqBody {
+pub struct ReceiptRequestBody {
     pub event_id: EventId,
     #[serde(default)]
     pub private: bool,
@@ -530,7 +531,7 @@ pub struct ReceiptReqBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ReadMarkerReqBody {
+pub struct ReadMarkerRequestBody {
     pub fully_read: EventId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub read_receipt: Option<EventId>,
@@ -538,7 +539,7 @@ pub struct ReadMarkerReqBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MessageSearchReqBody {
+pub struct MessageSearchRequestBody {
     pub query: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub realms: Vec<RealmId>,
@@ -546,7 +547,7 @@ pub struct MessageSearchReqBody {
     pub limit: Option<u32>,
 }
 
-impl MessageSearchReqBody {
+impl MessageSearchRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.query.trim().is_empty() {
             Err(Error::Protocol("message search query must not be empty".to_owned()))
@@ -556,19 +557,25 @@ impl MessageSearchReqBody {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MessageSearchHit {
     pub event_id: EventId,
     pub realm_id: RealmId,
-    pub sender: Did,
+    /// Sender identity. Bare `sender` is a hard-reject renamed wire field
+    /// (`renames.json`): sender identity fields must carry the role + id
+    /// suffix explicitly.
+    pub sender_actor_id: Did,
     pub snippet: String,
-    pub score: f32,
+    /// Relevance score in basis points (0–10000). Wire floats are
+    /// forbidden in v1 (`encoding.md` §2 number profile: ratios MUST be
+    /// integer + scale).
+    pub score_basis_points: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MessageSearchResBody {
+pub struct MessageSearchOutcome {
     pub hits: Vec<MessageSearchHit>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -592,7 +599,7 @@ pub struct EventContextArgs {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EventContextResBody {
+pub struct EventContextOutcome {
     pub event_id: EventId,
     pub before: Vec<EventId>,
     pub after: Vec<EventId>,
@@ -600,14 +607,14 @@ pub struct EventContextResBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct NearestTimestampReqBody {
+pub struct NearestTimestampRequestBody {
     pub realm_id: RealmId,
     pub timestamp: DateTime<Utc>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DirectorySearchReqBody {
+pub struct DirectorySearchRequestBody {
     pub query: String,
     pub visibility: Option<RealmVisibility>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -625,7 +632,7 @@ pub struct DirectorySearchResult {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DirectorySearchResBody {
+pub struct DirectorySearchOutcome {
     pub results: Vec<DirectorySearchResult>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -640,7 +647,7 @@ pub struct DirectoryAliasParams {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DirectoryAliasResBody {
+pub struct DirectoryAliasOutcome {
     pub alias: String,
     pub realm_id: RealmId,
     pub servers: Vec<String>,
@@ -648,7 +655,7 @@ pub struct DirectoryAliasResBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct TimelineGapRepairReqBody {
+pub struct TimelineGapRepairRequestBody {
     pub realm_id: RealmId,
     pub from_event: EventId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -657,7 +664,7 @@ pub struct TimelineGapRepairReqBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MediaUploadReqBody {
+pub struct MediaUploadRequestBody {
     pub filename: Option<String>,
     pub content_type: String,
     /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
@@ -667,7 +674,7 @@ pub struct MediaUploadReqBody {
     pub encrypted: bool,
 }
 
-impl MediaUploadReqBody {
+impl MediaUploadRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.content_type.trim().is_empty() {
             return Err(Error::Protocol("media content type must not be empty".to_owned()));
@@ -714,7 +721,7 @@ pub struct MediaDownloadArgs {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MediaDownloadResBody {
+pub struct MediaDownloadOutcome {
     pub blob_ref: BlobRef,
     pub content_type: String,
     /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
@@ -776,7 +783,7 @@ pub struct EncryptedMediaDescriptor {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PusherListResBody {
+pub struct PusherListOutcome {
     pub pushers: Vec<Pusher>,
 }
 
@@ -789,11 +796,11 @@ pub struct SetPusherParams {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SetPusherReqBody {
+pub struct SetPusherRequestBody {
     pub pusher: Pusher,
 }
 
-impl SetPusherReqBody {
+impl SetPusherRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.pusher.push_gateway.trim().is_empty() {
             return Err(Error::Protocol("pusher gateway must not be empty".to_owned()));
@@ -814,7 +821,7 @@ pub struct DeletePusherParams {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DeletePusherReqBody {
+pub struct DeletePusherRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub push_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -823,7 +830,7 @@ pub struct DeletePusherReqBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PushRuleListResBody {
+pub struct PushRuleListOutcome {
     pub rules: PushRuleSet,
 }
 
@@ -836,11 +843,11 @@ pub struct PushRuleParams {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PushRuleUpdateReqBody {
+pub struct PushRuleUpdateRequestBody {
     pub rule: PushRule,
 }
 
-impl PushRuleUpdateReqBody {
+impl PushRuleUpdateRequestBody {
     pub fn validate(&self, params: &PushRuleParams) -> Result<()> {
         if params.rule_id.trim().is_empty() {
             return Err(Error::Protocol("push rule id must not be empty".to_owned()));
@@ -930,14 +937,14 @@ pub struct NotificationCounts {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct NotificationCountsReqBody {
+pub struct NotificationCountsRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub realms: Vec<RealmId>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct NotificationCountsResBody {
+pub struct NotificationCountsOutcome {
     pub global: NotificationCounts,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub realms: BTreeMap<RealmId, NotificationCounts>,
@@ -945,7 +952,7 @@ pub struct NotificationCountsResBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct NotificationListReqBody {
+pub struct NotificationListRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -956,7 +963,7 @@ pub struct NotificationListReqBody {
     pub realms: Vec<RealmId>,
 }
 
-impl NotificationListReqBody {
+impl NotificationListRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.limit == Some(0) {
             Err(Error::Protocol("notification list limit must be non-zero".to_owned()))
@@ -966,35 +973,22 @@ impl NotificationListReqBody {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ClientNotification {
-    pub notification_id: String,
-    pub event_id: EventId,
-    pub realm_id: RealmId,
-    pub sender: Did,
-    pub event_kind: String,
-    pub received_at: DateTime<Utc>,
-    #[serde(default)]
-    pub read: bool,
-    #[serde(default)]
-    pub highlighted: bool,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub content: Value,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct NotificationListResBody {
-    pub notifications: Vec<ClientNotification>,
+pub struct NotificationListOutcome {
+    /// Spec-shaped notification objects (`notification.schema.json`,
+    /// mirrored by `cokret_core::Notification`). The former parallel
+    /// `ClientNotification` shape (notification_id / sender / read /
+    /// highlighted / content) drifted from the closed authoritative
+    /// schema and has been removed.
+    pub notifications: Vec<Notification>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MarkNotificationsReadReqBody {
+pub struct MarkNotificationsReadRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1015,7 +1009,7 @@ pub enum AbuseCategory {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ReportReqBody {
+pub struct ReportRequestBody {
     pub category: AbuseCategory,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_id: Option<EventId>,
@@ -1026,7 +1020,7 @@ pub struct ReportReqBody {
     pub reason: String,
 }
 
-impl ReportReqBody {
+impl ReportRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.event_id.is_none() && self.user_id.is_none() && self.realm_id.is_none() {
             return Err(Error::Protocol("moderation report needs a target".to_owned()));
@@ -1040,15 +1034,24 @@ impl ReportReqBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ReportResBody {
+pub struct ReportOutcome {
     pub report_id: String,
     pub accepted: bool,
+}
+
+/// SDP description type.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum SdpType {
+    Offer,
+    Answer,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CallSessionDescription {
-    pub sdp_type: String,
+    pub sdp_type: SdpType,
     pub sdp: String,
 }
 
@@ -1072,14 +1075,14 @@ pub struct CallSignalParams {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case", tag = "type")]
-pub enum CallSignalReqBody {
+pub enum CallSignalRequestBody {
     Invite { call_id: String, offer: CallSessionDescription },
     Answer { call_id: String, answer: CallSessionDescription },
     Candidates { call_id: String, candidates: Vec<IceCandidate> },
     Hangup { call_id: String, reason: Option<String> },
 }
 
-impl CallSignalReqBody {
+impl CallSignalRequestBody {
     pub fn call_id(&self) -> &str {
         match self {
             Self::Invite { call_id, .. }
@@ -1108,7 +1111,7 @@ pub mod protocol {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ThirdPartyInviteReqBody {
+pub struct ThirdPartyInviteRequestBody {
     pub invite_id: InviteId,
     pub medium: String,
     pub address: String,
@@ -1133,7 +1136,7 @@ pub struct ExtensionDescriptor {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ExtensionDiscoveryResBody {
+pub struct ExtensionDiscoveryOutcome {
     pub protocol_version: String,
     pub extensions: Vec<ExtensionDescriptor>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1154,7 +1157,7 @@ mod tests {
 
     #[test]
     fn interactive_auth_selects_satisfied_flow() {
-        let challenge = InteractiveAuthChallengeResBody {
+        let challenge = InteractiveAuthChallengeOutcome {
             session: "sess".to_owned(),
             flows: vec![InteractiveAuthFlow {
                 flow_id: "password-passkey".to_owned(),
@@ -1180,7 +1183,7 @@ mod tests {
 
     #[test]
     fn media_and_moderation_contracts_validate_fail_closed() {
-        let upload = MediaUploadReqBody {
+        let upload = MediaUploadRequestBody {
             filename: Some("a.txt".to_owned()),
             content_type: "text/plain".to_owned(),
             size_bytes: 12,
@@ -1193,7 +1196,7 @@ mod tests {
         upload.validate().unwrap();
         assert_eq!(MediaProgress { transferred: 6, total: 12 }.percent(), 50);
 
-        let report = ReportReqBody {
+        let report = ReportRequestBody {
             category: AbuseCategory::Spam,
             event_id: None,
             user_id: Some(did("bad")),
@@ -1205,7 +1208,7 @@ mod tests {
 
     #[test]
     fn push_and_notification_contracts_validate_fail_closed() {
-        SetPusherReqBody {
+        SetPusherRequestBody {
             pusher: Pusher {
                 user_id: did("alice"),
                 device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
@@ -1220,7 +1223,7 @@ mod tests {
         .unwrap();
 
         let push_params = PushRuleParams { rule_id: "mention".to_owned() };
-        PushRuleUpdateReqBody {
+        PushRuleUpdateRequestBody {
             rule: PushRule {
                 rule_id: "mention".to_owned(),
                 enabled: true,
@@ -1244,7 +1247,7 @@ mod tests {
         .unwrap();
 
         assert!(matches!(
-            NotificationListReqBody {
+            NotificationListRequestBody {
                 cursor: None,
                 limit: Some(0),
                 only_highlight: false,
@@ -1257,13 +1260,13 @@ mod tests {
 
     #[test]
     fn call_signal_requires_call_id() {
-        let signal = CallSignalReqBody::Hangup { call_id: String::new(), reason: None };
+        let signal = CallSignalRequestBody::Hangup { call_id: String::new(), reason: None };
         assert!(matches!(signal.validate(), Err(Error::Protocol(_))));
     }
 
     #[test]
     fn space_membership_and_search_contracts_validate() {
-        RealmCreateReqBody {
+        RealmCreateRequestBody {
             name: "Project".to_owned(),
             visibility: RealmVisibility::Private,
             aliases: vec!["project".to_owned()],
@@ -1272,7 +1275,7 @@ mod tests {
         .validate()
         .unwrap();
 
-        MembershipActionReqBody {
+        MembershipActionRequestBody {
             action: MembershipAction::Invite,
             target_user: Some(did("bob")),
             reason: Some("join".to_owned()),
@@ -1280,10 +1283,10 @@ mod tests {
         .validate()
         .unwrap();
 
-        MessageSearchReqBody { query: "hello".to_owned(), realms: vec![Realm()], limit: Some(10) }
+        MessageSearchRequestBody { query: "hello".to_owned(), realms: vec![Realm()], limit: Some(10) }
             .validate()
             .unwrap();
 
-        PresenceSubscriptionReqBody { users: vec![did("alice")] }.validate().unwrap();
+        PresenceSubscriptionRequestBody { users: vec![did("alice")] }.validate().unwrap();
     }
 }

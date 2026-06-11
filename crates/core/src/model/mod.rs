@@ -10,14 +10,14 @@ use sha2::{Digest, Sha256};
 
 use crate::{Error, Result, canonical};
 pub use cokret_identifiers::{
-    AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentInteropSessionId, AgentKeyId,
-    AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId, CapabilityId,
-    ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId, Did, EventId, FilterId, FlowId,
-    FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId, MessageId,
-    ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId, PresentationId,
-    ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId,
-    SidecarCircleId, SnapshotId, SpaceId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId,
-    new_prefixed_uuid7,
+    ActorProfileId, AgentInteropSessionId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
+    AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
+    CapabilityId, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId, Did, EventId,
+    FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
+    MessageId, ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId,
+    PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
+    RequestId, RtcParticipantId, SnapshotId, SpaceId, TransactionId, TypedAppealId,
+    TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
 
 mod agent_participation;

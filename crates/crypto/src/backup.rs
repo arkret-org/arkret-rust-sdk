@@ -45,7 +45,7 @@ use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use serde_json::json;
 use sha2::{Digest, Sha256};
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use cokret_core::{
     BackupClass, BackupId, DeviceId, Did, KeyBackup, KeyBackupAead, KeyBackupContentItem,
@@ -339,6 +339,10 @@ pub fn encrypt_vault(
 /// (§7.2), then AEAD-decrypts with the same binding as AAD. Returns an
 /// error if the passphrase is wrong (AEAD tag mismatch) or any input is
 /// malformed.
+///
+/// The recovered plaintext is key material (§7.5: destroy reconstruction
+/// context immediately), so it is returned wrapped in [`Zeroizing`] and
+/// erased from memory on drop.
 pub fn decrypt_vault(
     passphrase: &[u8],
     binding: &VaultBinding,
@@ -346,7 +350,7 @@ pub fn decrypt_vault(
     nonce_b64: &str,
     nonce_salt_b64: &str,
     ciphertext_b64: &str,
-) -> Result<Vec<u8>> {
+) -> Result<Zeroizing<Vec<u8>>> {
     let salt_bytes = B64.decode(salt_b64.trim_end_matches('=')).context("salt base64")?;
     let salt: [u8; VAULT_SALT_LEN] =
         salt_bytes.try_into().map_err(|_| anyhow!("salt must be {VAULT_SALT_LEN} bytes"))?;
@@ -371,6 +375,7 @@ pub fn decrypt_vault(
             XNonce::from_slice(&nonce_array),
             Payload { msg: ciphertext.as_slice(), aad: &aad },
         )
+        .map(Zeroizing::new)
         .map_err(|_| anyhow!("vault decrypt failed: wrong passphrase or corrupt ciphertext"));
     aead_key.zeroize();
     plaintext
@@ -688,7 +693,7 @@ mod tests {
             &ct.ciphertext_b64,
         )
         .unwrap();
-        assert_eq!(recovered, plaintext);
+        assert_eq!(*recovered, plaintext);
     }
 
     #[test]
@@ -882,7 +887,7 @@ mod tests {
             envelope.ciphertext.as_str(),
         )
         .unwrap();
-        assert_eq!(recovered, plaintext);
+        assert_eq!(*recovered, plaintext);
     }
 
     #[test]

@@ -37,7 +37,7 @@
 //! URL-safe.
 
 use cokret_core::{base64_standard_decode, base64_standard_encode};
-use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256, Sha512};
 use std::collections::BTreeSet;
 use thiserror::Error;
@@ -705,7 +705,7 @@ where
     signature_array.copy_from_slice(&signature_bytes);
     let signature = Signature::from_bytes(&signature_array);
     public_key
-        .verify(&canonical_message, &signature)
+        .verify_strict(&canonical_message, &signature)
         .map_err(|_| SignatureError::InvalidSignature)?;
 
     Ok(VerifiedHttpMessageSignature { signature_input, content_digest, canonical_message })
@@ -786,7 +786,7 @@ pub fn verify_signature(
     let mut arr = [0u8; 64];
     arr.copy_from_slice(&bytes);
     let signature = Signature::from_bytes(&arr);
-    public_key.verify(message, &signature).map_err(|_| SignatureError::InvalidSignature)
+    public_key.verify_strict(message, &signature).map_err(|_| SignatureError::InvalidSignature)
 }
 
 /// Construct an Ed25519 public key from raw 32 bytes. Helper for

@@ -361,7 +361,7 @@ pub enum AuthzDecision {
 
 pub type Decision = AuthzDecision;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum InviteState {

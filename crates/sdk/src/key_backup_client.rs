@@ -16,7 +16,7 @@ pub struct KeysBackupsPutOutcome {
 
 /// Response for `ck.self.keys.backups.list`.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub struct KeyBackupListResBody {
+pub struct KeyBackupListOutcome {
     pub backups: Vec<ProtocolKeyBackup>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -63,7 +63,7 @@ impl KeyBackupClient {
 
     /// `GET /_cokret/self/keys/backups` (list current backups for the
     /// authenticated principal).
-    pub async fn list_key_backups(&self) -> SdkResult<KeyBackupListResBody> {
+    pub async fn list_key_backups(&self) -> SdkResult<KeyBackupListOutcome> {
         self.client.get("/_cokret/self/keys/backups").await
     }
 

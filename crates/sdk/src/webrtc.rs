@@ -7,30 +7,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Did, RealmId, Result};
 
-/// SDP description type.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SdpType {
-    Offer,
-    Answer,
-}
-
-/// Session description.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SessionDescription {
-    pub sdp_type: SdpType,
-    pub sdp: String,
-}
-
-/// ICE candidate.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct IceCandidate {
-    pub candidate: String,
-    pub sdp_mid: Option<String>,
-    /// Per `webrtc-signaling.md` §(L313/L320) the browser-native
-    /// `sdpMLineIndex` MUST map to wire field `sdp_m_line_index`.
-    pub sdp_m_line_index: Option<u32>,
-}
+// Signaling DTOs are owned by `cokret-contracts`; re-export the authoritative
+// definitions instead of keeping a parallel copy here.
+pub use cokret_contracts::client::{CallSessionDescription, IceCandidate, SdpType};
 
 /// To-device WebRTC signaling message kind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -51,7 +30,7 @@ pub struct WebRtcSignalMessage {
     pub recipient: Did,
     pub kind: WebRtcSignalKind,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_description: Option<SessionDescription>,
+    pub session_description: Option<CallSessionDescription>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ice_candidate: Option<IceCandidate>,
     pub created_at: DateTime<Utc>,
@@ -71,7 +50,7 @@ impl WebRtcSignalMessage {
             call_id,
             sender,
             recipient,
-            SessionDescription { sdp_type: SdpType::Offer, sdp: sdp.into() },
+            CallSessionDescription { sdp_type: SdpType::Offer, sdp: sdp.into() },
         )
     }
 
@@ -88,7 +67,7 @@ impl WebRtcSignalMessage {
             call_id,
             sender,
             recipient,
-            SessionDescription { sdp_type: SdpType::Answer, sdp: sdp.into() },
+            CallSessionDescription { sdp_type: SdpType::Answer, sdp: sdp.into() },
         )
     }
 
@@ -118,7 +97,7 @@ impl WebRtcSignalMessage {
         call_id: impl Into<String>,
         sender: Did,
         recipient: Did,
-        session_description: SessionDescription,
+        session_description: CallSessionDescription,
     ) -> Self {
         let kind = match session_description.sdp_type {
             SdpType::Offer => WebRtcSignalKind::Offer,
@@ -236,8 +215,8 @@ pub struct WebRtcCall {
     pub caller: Did,
     pub callees: BTreeSet<Did>,
     pub state: CallState,
-    pub offer: Option<SessionDescription>,
-    pub answer: Option<SessionDescription>,
+    pub offer: Option<CallSessionDescription>,
+    pub answer: Option<CallSessionDescription>,
     pub ice_candidates: Vec<IceCandidate>,
     pub tracks: BTreeMap<String, MediaTrack>,
     pub screen_sharing: bool,
@@ -272,7 +251,7 @@ impl WebRtcManager {
             caller,
             callees,
             state: CallState::Offering,
-            offer: Some(SessionDescription { sdp_type: SdpType::Offer, sdp: sdp.into() }),
+            offer: Some(CallSessionDescription { sdp_type: SdpType::Offer, sdp: sdp.into() }),
             answer: None,
             ice_candidates: Vec::new(),
             tracks: BTreeMap::new(),
@@ -286,7 +265,7 @@ impl WebRtcManager {
     /// Store an answer.
     pub fn receive_answer(&mut self, call_id: &str, sdp: impl Into<String>) -> Option<&WebRtcCall> {
         let call = self.calls.get_mut(call_id)?;
-        call.answer = Some(SessionDescription { sdp_type: SdpType::Answer, sdp: sdp.into() });
+        call.answer = Some(CallSessionDescription { sdp_type: SdpType::Answer, sdp: sdp.into() });
         call.state = CallState::Answered;
         Some(call)
     }

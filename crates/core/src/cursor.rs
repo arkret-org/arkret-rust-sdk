@@ -300,6 +300,7 @@ impl Cursor {
     /// # Errors
     ///
     /// Returns an error if:
+    /// - Token exceeds the encoded form of [`Self::MAX_ENCODED_SIZE`]
     /// - Base64URL decoding fails
     /// - JSON parsing fails
     /// - Cursor structure is invalid
@@ -310,9 +311,31 @@ impl Cursor {
             .strip_prefix("ck:cursor:")
             .ok_or_else(|| Error::Protocol("cursor token must start with ck:cursor:".to_owned()))?;
 
+        // Receivers MUST enforce the same 4KB body cap that `encode`
+        // enforces — reject oversized tokens before spending any base64 /
+        // JSON parsing work on them. Unpadded base64url emits
+        // ceil(4n/3) characters for n payload bytes.
+        let max_token_len = Self::MAX_ENCODED_SIZE.div_ceil(3) * 4;
+        if encoded.len() > max_token_len {
+            return Err(Error::Protocol(format!(
+                "cursor token too large: {} chars (max {max_token_len})",
+                encoded.len()
+            )));
+        }
+
         // Decode from unpadded Base64URL, the only v1 cursor transport form.
         let json = crate::base64url::base64url_decode(encoded)
             .map_err(|_| Error::Protocol("invalid Base64URL encoding".to_owned()))?;
+
+        // Exact symmetric bound: the pre-decode character check is a
+        // ceiling, this is the byte-precise cap `encode` enforces.
+        if json.len() > Self::MAX_ENCODED_SIZE {
+            return Err(Error::Protocol(format!(
+                "cursor too large: {} bytes (max {})",
+                json.len(),
+                Self::MAX_ENCODED_SIZE
+            )));
+        }
 
         let cursor: Cursor = crate::canonical::from_canonical_json_slice(&json)
             .map_err(|_| Error::Protocol("invalid cursor JSON".to_owned()))?;
@@ -347,9 +370,12 @@ impl Cursor {
             Self::validate_realm_position(pos)?;
         }
 
-        // Validate device positions
+        // Validate device positions — keys are typed device ids
+        // (`ck:device:<uuidv7>`, see encoding.md §8.2 stream example),
+        // values are device-message ids.
         if let Some(devices) = &self.d {
-            for message_id in devices.values() {
+            for (device_id, message_id) in devices {
+                Self::validate_device_id(device_id)?;
                 Self::validate_device_message_id(message_id)?;
             }
         }
@@ -455,6 +481,14 @@ impl Cursor {
             Ok(())
         } else {
             Err(Error::InvalidId(message_id.to_owned()))
+        }
+    }
+
+    fn validate_device_id(device_id: &str) -> Result<()> {
+        if has_prefixed_uuid7(device_id, "ck:device:") {
+            Ok(())
+        } else {
+            Err(Error::InvalidId(device_id.to_owned()))
         }
     }
 
@@ -695,7 +729,7 @@ mod tests {
         let cursor = Cursor {
             v: "2".to_owned(),
             purpose: CursorPurpose::Stream,
-            t: chrono::Utc::now().to_rfc3339(),
+            t: crate::canonical::format_timestamp_canonical(chrono::Utc::now()),
             s: BTreeMap::new(),
             d: None,
             target: None,
@@ -716,6 +750,14 @@ mod tests {
         let json = "{\"v\":\"1\",\"purpose\":\"stream\",\"t\":\"cafe\u{301}\",\"s\":{},\"x\":4102444800000,\"h\":\"ABCDEFGHIJKLMNOPQRSTUV\"}";
         let encoded = format!("ck:cursor:{}", crate::base64url_encode(json.as_bytes()));
         assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
+    }
+
+    #[test]
+    fn cursor_decode_rejects_oversized_token() {
+        // 6000 chars of valid base64url alphabet — over the encoded form
+        // of MAX_ENCODED_SIZE, must be rejected before any decode work.
+        let oversized = format!("ck:cursor:{}", "A".repeat(6000));
+        assert!(matches!(Cursor::decode(&oversized), Err(Error::Protocol(_))));
     }
 
     #[test]

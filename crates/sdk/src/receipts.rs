@@ -20,48 +20,29 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{Did, EventId, FlowId, RealmId};
+use crate::{DeviceId, Did, EventId, FlowId, Hlc, RealmId, Result};
 
-/// Read receipt visibility.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ReceiptVisibility {
-    /// Visible to other members.
-    Public,
-    /// Private to this user/account.
-    Private,
+// Wire-shaped read receipt / read cursor types are owned by `cokret-core`
+// (mirroring `read-receipt.schema.json` / `read-cursor.schema.json`); the
+// manager reuses them instead of keeping `user_id`-shaped local copies.
+pub use cokret_core::{
+    READ_CURSOR_SCHEMA, READ_RECEIPT_SCHEMA, READ_RECEIPT_TYPE, ReadCursor, ReadCursorPosition,
+    ReadMarker, ReadReceipt, ReadScope, ReadScopeKind,
+};
+
+use cokret_core::ReadCursorId;
+
+/// Build the [`ReadScope`] for an optional thread position.
+fn scope_for_thread(thread_id: Option<&str>) -> ReadScope {
+    match thread_id {
+        Some(thread_id) => ReadScope::thread(thread_id),
+        None => ReadScope::realm(),
+    }
 }
 
-/// Read marker for one user in one Realm/thread.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReadMarker {
-    /// Realm ID.
-    pub realm_id: RealmId,
-    /// User DID.
-    pub user_id: Did,
-    /// Event ID considered read.
-    pub event_id: EventId,
-    /// Optional thread ID.
-    pub thread_id: Option<String>,
-    /// Update time.
-    pub updated_at: DateTime<Utc>,
-}
-
-/// Read receipt event.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReadReceipt {
-    /// Realm ID.
-    pub realm_id: RealmId,
-    /// User DID.
-    pub user_id: Did,
-    /// Event ID.
-    pub event_id: EventId,
-    /// Public or private receipt.
-    pub visibility: ReceiptVisibility,
-    /// Optional thread ID.
-    pub thread_id: Option<String>,
-    /// Receipt time.
-    pub received_at: DateTime<Utc>,
+/// Extract the manager thread key from a [`ReadScope`].
+fn scope_thread_id(read_scope: &ReadScope) -> Option<String> {
+    if read_scope.kind == ReadScopeKind::Thread { read_scope.object_ref.clone() } else { None }
 }
 
 /// Read receipt manager.
@@ -105,53 +86,58 @@ impl ReceiptManager {
         self
     }
 
-    /// Set a read marker.
+    /// Set a read marker (a `ck.schema.read_cursor.v1` value).
     pub fn set_read_marker(
         &mut self,
         realm_id: RealmId,
-        user_id: Did,
+        actor_id: Did,
+        device_id: DeviceId,
         event_id: EventId,
+        hlc: Hlc,
         thread_id: Option<String>,
-    ) -> ReadMarker {
-        let marker = ReadMarker {
+    ) -> Result<ReadMarker> {
+        let marker = ReadCursor {
+            id: ReadCursorId::new(format!("ck:read_cursor:{}", uuid::Uuid::now_v7()))?,
+            schema: READ_CURSOR_SCHEMA.to_owned(),
+            actor_id: actor_id.clone(),
+            device_id,
             realm_id: realm_id.clone(),
-            user_id: user_id.clone(),
-            event_id,
-            thread_id: thread_id.clone(),
+            read_scope: scope_for_thread(thread_id.as_deref()),
+            position: ReadCursorPosition { event_id, hlc },
             updated_at: Utc::now(),
         };
         self.thread_index.insert((realm_id.clone(), thread_id.clone()));
-        self.markers.insert((realm_id, user_id, thread_id), marker.clone());
-        marker
+        self.markers.insert((realm_id, actor_id, thread_id), marker.clone());
+        Ok(marker)
     }
 
     /// Get a read marker.
     pub fn read_marker(
         &self,
         realm_id: &RealmId,
-        user_id: &Did,
+        actor_id: &Did,
         thread_id: Option<&str>,
     ) -> Option<&ReadMarker> {
-        self.markers.get(&(realm_id.clone(), user_id.clone(), thread_id.map(str::to_owned)))
+        self.markers.get(&(realm_id.clone(), actor_id.clone(), thread_id.map(str::to_owned)))
     }
 
-    /// Send/store a read receipt.
+    /// Send/store a read receipt (a `ck.schema.read_receipt.v1` value).
     ///
     /// Honors the active de-duplication window: when a receipt for the
-    /// same `(realm_id, user_id, thread_id)` was issued within the
+    /// same `(realm_id, actor_id, thread_id)` was issued within the
     /// configured window, the new send is treated as a no-op and the
     /// existing latest receipt is returned. Set `dedup_window_ms = 0`
     /// to disable.
     pub fn send_receipt(
         &mut self,
         realm_id: RealmId,
-        user_id: Did,
+        actor_id: Did,
         event_id: EventId,
-        visibility: ReceiptVisibility,
+        hlc: Option<Hlc>,
         thread_id: Option<String>,
     ) -> ReadReceipt {
         let now = Utc::now();
-        let dedup_key = (realm_id.clone(), user_id.clone(), thread_id.clone());
+        let dedup_key = (realm_id.clone(), actor_id.clone(), thread_id.clone());
         if self.dedup_window_ms > 0
             && let Some(prev) = self.last_send_at.get(&dedup_key)
             && now.signed_duration_since(*prev).num_milliseconds() < self.dedup_window_ms
@@ -163,12 +149,14 @@ impl ReceiptManager {
             return latest.clone();
         }
         let receipt = ReadReceipt {
+            receipt_type: READ_RECEIPT_TYPE.to_owned(),
+            schema: READ_RECEIPT_SCHEMA.to_owned(),
             realm_id: realm_id.clone(),
-            user_id,
+            actor_id,
             event_id: event_id.clone(),
-            visibility,
-            thread_id: thread_id.clone(),
-            received_at: now,
+            hlc,
+            read_scope: scope_for_thread(thread_id.as_deref()),
+            created_at: now,
         };
         self.thread_index.insert((realm_id.clone(), thread_id.clone()));
         self.last_send_at.insert(dedup_key, now);
@@ -178,9 +166,10 @@ impl ReceiptManager {
 
     /// Process a receipt received from sync.
     pub fn process_receipt(&mut self, receipt: ReadReceipt) {
-        self.thread_index.insert((receipt.realm_id.clone(), receipt.thread_id.clone()));
+        let thread_id = scope_thread_id(&receipt.read_scope);
+        self.thread_index.insert((receipt.realm_id.clone(), thread_id.clone()));
         self.receipts
-            .entry((receipt.realm_id.clone(), receipt.event_id.clone(), receipt.thread_id.clone()))
+            .entry((receipt.realm_id.clone(), receipt.event_id.clone(), thread_id))
             .or_default()
             .push(receipt);
     }
@@ -373,32 +362,42 @@ mod tests {
     }
 
     #[test]
-    fn receipts_manage_markers_public_private_and_threads() {
+    fn receipts_manage_markers_and_threads() {
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
+        let device = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap();
         let event = EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap();
+        let hlc = Hlc::new("01970e589d21-0004-a13f9c2e").unwrap();
         let mut manager = ReceiptManager::new();
 
-        manager.set_read_marker(
-            realm_id.clone(),
-            alice.clone(),
-            event.clone(),
-            Some("t1".to_owned()),
-        );
+        let marker = manager
+            .set_read_marker(
+                realm_id.clone(),
+                alice.clone(),
+                device,
+                event.clone(),
+                hlc.clone(),
+                Some("t1".to_owned()),
+            )
+            .unwrap();
+        assert_eq!(marker.schema, READ_CURSOR_SCHEMA);
+        assert_eq!(marker.read_scope.kind, ReadScopeKind::Thread);
         assert!(manager.read_marker(&realm_id, &alice, Some("t1")).is_some());
 
-        manager.send_receipt(
+        let receipt = manager.send_receipt(
             realm_id.clone(),
             alice,
             event.clone(),
-            ReceiptVisibility::Private,
+            Some(hlc.clone()),
             Some("t1".to_owned()),
         );
+        assert_eq!(receipt.receipt_type, READ_RECEIPT_TYPE);
+        assert_eq!(receipt.schema, READ_RECEIPT_SCHEMA);
         manager.send_receipt(
             realm_id.clone(),
             did("bob"),
             event.clone(),
-            ReceiptVisibility::Public,
+            Some(hlc),
             Some("t1".to_owned()),
         );
 

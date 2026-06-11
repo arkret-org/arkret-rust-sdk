@@ -132,7 +132,7 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | OP_KEYS_KEYPACKAGES_REVOKE
         | OP_KEYS_BACKUPS_PUT
         | OP_KEYS_BACKUPS_LIST
-        | OP_KEYS_BACKUPS_GET
+        | OP_KEYS_BACKUPS_UNLOCK
         | OP_KEYS_BACKUPS_DELETE => OperationSurface::Keys,
         OP_MEDIA_ICE_CONFIG => OperationSurface::Media,
         OP_MIMI_GROUP_INFO
@@ -494,7 +494,10 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
         | OP_AUTHZ_GET_INVITES
         | OP_OPEN_INVITE_LOCATOR_RESOLVE
         | OP_KEYS_BACKUPS_LIST
-        | OP_KEYS_BACKUPS_GET
+        // `unlock` is the proof-gated retrieval of a backup (POST wire shape,
+        // read semantics — it returns the stored ck.schema.key_backup.v1
+        // envelope without mutating it).
+        | OP_KEYS_BACKUPS_UNLOCK
         | OP_KEYS_QUERY
         | OP_AUTHZ_CHECK => OperationMutation::Read,
         OP_EVENTS_SUBMIT
@@ -532,7 +535,7 @@ fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
         | OP_IDENTITY_GET_LOG
         | OP_IDENTITY_GET_RECEIPTS
         | OP_IDENTITY_SUBMIT_DID_OPERATION => &["did"],
-        OP_KEYS_BACKUPS_PUT | OP_KEYS_BACKUPS_GET | OP_KEYS_BACKUPS_DELETE => &["backup_id"],
+        OP_KEYS_BACKUPS_PUT | OP_KEYS_BACKUPS_UNLOCK | OP_KEYS_BACKUPS_DELETE => &["backup_id"],
         OP_KEYS_KEYPACKAGES_CLAIM => &["target_principal_id"],
         OP_KEYS_KEYPACKAGES_CONSUME => &["claim_id"],
         OP_KEYS_KEYPACKAGES_REVOKE => &["principal_id", "keypackage_ref"],

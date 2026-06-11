@@ -107,7 +107,6 @@ pub const ERROR_CODE_RESET_EVENT_ID_MISMATCH: &str = "reset_event_id_mismatch";
 pub const ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT: &str = "appeal_overturn_missing_lift";
 pub const ERROR_CODE_APPEAL_SELF_REVIEW_FORBIDDEN: &str = "appeal_self_review_forbidden";
 pub const ERROR_CODE_REALM_TERMINAL_STATE: &str = "realm_terminal_state";
-pub const ERROR_CODE_AUDIT_AGENT_ATTESTATION_MISMATCH: &str = "audit_agent_attestation_mismatch";
 pub const ERROR_CODE_AUDIT_PURPOSE_MISMATCH: &str = "audit_purpose_mismatch";
 pub const ERROR_CODE_LEGAL_HOLD_ACTIVE: &str = "legal_hold_active";
 pub const ERROR_CODE_BLOB_REDACTED: &str = "blob_redacted";
@@ -170,7 +169,6 @@ pub const ERROR_CODE_RECOVERY_POLICY_MISMATCH: &str = "recovery_policy_mismatch"
 pub const ERROR_CODE_SHARE_COMMITMENT_MISMATCH: &str = "share_commitment_mismatch";
 pub const ERROR_CODE_BACKUP_FRONTIER_STALE: &str = "backup_frontier_stale";
 pub const ERROR_CODE_BACKUP_POST_RESET_STALE: &str = "backup_post_reset_stale";
-pub const ERROR_CODE_LEGACY_SECRET_STORAGE_WIRE_FORM: &str = "legacy_secret_storage_wire_form";
 pub const ERROR_CODE_RECOVERY_EVIDENCE_UNBOUND: &str = "recovery_evidence_unbound";
 pub const ERROR_CODE_UNSUPPORTED_AEAD_PROFILE: &str = "unsupported_aead_profile";
 pub const ERROR_CODE_ATTESTATION_MISSING: &str = "attestation_missing";
@@ -198,23 +196,9 @@ pub const ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED: &str = "session_focus_alre
 pub const ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED: &str = "e2ee_key_source_unauthorised";
 pub const ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED: &str =
     "recording_artifact_pipeline_bypassed";
-pub const ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE: &str =
-    "legacy_single_endpoint_media_service";
 pub const ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT: &str = "focus_unavailable_for_client";
 pub const ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING: &str = "recovery_witness_revoke_lagging";
 pub const ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN: &str = "handle_homograph_forbidden";
-
-// ── R3.1 spec-sync (cokret-spec @ 7157ee8, 2026-05-27) — 4 new error
-// codes for the MemberIdentity append-only replacement pipeline.
-//
-// Spec source:
-//   * member-identity.schema.json
-//   * event-payload.schema.json#/$defs/member_identity_update_payload
-pub const ERROR_CODE_MEMBER_IDENTITY_STATE_MISMATCH: &str = "member_identity_state_mismatch";
-pub const ERROR_CODE_MEMBER_IDENTITY_PROOF_INVALID: &str = "member_identity_proof_invalid";
-pub const ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH: &str =
-    "member_identity_replacement_digest_mismatch";
-pub const ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT: &str = "member_identity_unknown_segment";
 
 // ── Registry backfill (2026-06-08) — top-level wire codes present in
 // `error-code-registry.json` with HTTP bindings, previously missing from the
@@ -353,7 +337,6 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT,
     ERROR_CODE_APPEAL_SELF_REVIEW_FORBIDDEN,
     ERROR_CODE_REALM_TERMINAL_STATE,
-    ERROR_CODE_AUDIT_AGENT_ATTESTATION_MISMATCH,
     ERROR_CODE_AUDIT_PURPOSE_MISMATCH,
     ERROR_CODE_LEGAL_HOLD_ACTIVE,
     ERROR_CODE_BLOB_REDACTED,
@@ -392,7 +375,6 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_SHARE_COMMITMENT_MISMATCH,
     ERROR_CODE_BACKUP_FRONTIER_STALE,
     ERROR_CODE_BACKUP_POST_RESET_STALE,
-    ERROR_CODE_LEGACY_SECRET_STORAGE_WIRE_FORM,
     ERROR_CODE_RECOVERY_EVIDENCE_UNBOUND,
     ERROR_CODE_UNSUPPORTED_AEAD_PROFILE,
     ERROR_CODE_ATTESTATION_MISSING,
@@ -413,15 +395,9 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED,
     ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED,
     ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED,
-    ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE,
     ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT,
     ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING,
     ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN,
-    // R3.1 spec-sync (2026-05-27) — 4 MemberIdentity codes.
-    ERROR_CODE_MEMBER_IDENTITY_STATE_MISMATCH,
-    ERROR_CODE_MEMBER_IDENTITY_PROOF_INVALID,
-    ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH,
-    ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT,
     // Registry backfill (2026-06-08).
     ERROR_CODE_POLICY_DENIED,
     ERROR_CODE_CURSOR_UNRECOGNIZED,
@@ -514,27 +490,10 @@ pub const REASON_INCEPTION_UPGRADE_EVIDENCE_INSUFFICIENT: &str =
 /// (key-management.md §5). `applies_to`: event_envelope / auth_decision.
 pub const REASON_INCEPTION_KEY_WINDOW_EXCEEDED: &str = "inception_key_window_exceeded";
 
-// Tier-0 S6 — `attested_hardware` Audit Agent removal must be paired with
-// `ck.audit.epoch_key_destruction` (round C45 drops the `.v1` kind suffix;
-// wire schema versioning now flows through `requirements.features`).
-pub const REASON_AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING: &str =
-    "audit_agent_key_destruction_attestation_missing";
-pub const REASON_AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION: &str =
-    "audit_agent_remove_requires_paired_destruction_attestation";
-pub const REASON_AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE: &str =
-    "audit_agent_destruction_not_paired_with_remove";
-pub const REASON_AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED: &str =
-    "audit_agent_destruction_proof_not_enclave_signed";
-pub const REASON_AUDIT_AGENT_EPOCH_RANGE_INCOMPLETE: &str = "audit_agent_epoch_range_incomplete";
-pub const REASON_AUDIT_AGENT_ATTESTATION_MISMATCH: &str = "audit_agent_attestation_mismatch";
-
 // P-D4 — `ck.profile.e2ee_relaxed.v1` profile interactions.
 pub const REASON_MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE: &str =
     "mls_send_pause_advisory_requires_e2ee_relaxed_profile";
 pub const REASON_CONFLICTING_E2EE_PROFILES: &str = "conflicting_e2ee_profiles";
-
-pub const REASON_LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND: &str =
-    "lite_profile_writes_disallowed_event_kind";
 
 // Misc.
 pub const REASON_CARDINALITY_VIOLATION: &str = "cardinality_violation";
@@ -618,9 +577,6 @@ pub const REASON_RECOVERY_CAPABILITY_NOT_ANCHORED: &str = "recovery_capability_n
 // Policy server runtime challenge (zh/authz/policy-server.md §4).
 pub const REASON_CHALLENGE_PROOF_INVALID: &str = "challenge_proof_invalid";
 
-// Agent task FSM.
-pub const REASON_INVALID_TASK_FSM_TRANSITION: &str = "invalid_task_fsm_transition";
-
 // Watch state capabilities (zh/models/flow-and-message.md §8.4–8.5).
 //
 // `mixed_secret_storage_disallowed_by_profile` was dropped from the registry
@@ -632,10 +588,7 @@ pub const REASON_AUDIT_CAPABILITY_INCOMPLETE: &str = "audit_capability_incomplet
 pub const REASON_WATCH_MUST_BE_SELF: &str = "watch_must_be_self";
 pub const REASON_WATCH_MUTED_MUST_BE_SELF: &str = "watch_muted_must_be_self";
 pub const REASON_WATCH_LEVEL_PUBLIC_MUST_BE_SELF: &str = "watch_level_public_must_be_self";
-pub const REASON_MANAGE_OTHERS_AUDIT_MISSING: &str = "manage_others_audit_missing";
-
-// Cross-space structural relation guard (zh/models/relation.md §4).
-pub const REASON_CROSS_SPACE_STRUCTURAL_RELATION: &str = "cross_space_structural_relation";
+pub const REASON_WATCH_SET_OTHERS_AUDIT_MISSING: &str = "watch_set_others_audit_missing";
 
 // Join policy (zh/governance/join-policy.md §4 / §6).
 pub const REASON_JOIN_AUTHORISATION_INVALID: &str = "join_authorisation_invalid";
@@ -655,14 +608,6 @@ pub const REASON_MORPH_SCHEMA_REFS_TRANSFORMATION_UNSUPPORTED: &str =
     "morph_schema_refs_transformation_unsupported";
 pub const REASON_MORPH_SCHEMA_VERSION_BINDING_MISSING: &str =
     "morph_schema_version_binding_missing";
-
-// Sender commitment opt-in profile (zh/governance/content-moderation.md §3.4.2).
-pub const REASON_SENDER_COMMITMENT_INVALID: &str = "sender_commitment_invalid";
-pub const REASON_SENDER_COMMITMENT_MISSING: &str = "sender_commitment_missing";
-pub const REASON_SENDER_COMMITMENT_SEQ_REPLAY: &str = "sender_commitment_seq_replay";
-pub const REASON_SENDER_COMMITMENT_CIPHERTEXT_MISMATCH: &str =
-    "sender_commitment_ciphertext_mismatch";
-pub const REASON_SENDER_COMMITMENT_EPOCH_MISMATCH: &str = "sender_commitment_epoch_mismatch";
 
 // Range-completeness attestation (zh/sync/operations-sync.md §4.2.4).
 pub const REASON_RANGE_COMPLETENESS_ROOT_MISMATCH: &str = "range_completeness_root_mismatch";
@@ -711,13 +656,11 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_RECOVERY_WITNESS_POST_CONFLICT,
     REASON_RECOVERY_CAPABILITY_NOT_ANCHORED,
     REASON_CHALLENGE_PROOF_INVALID,
-    REASON_INVALID_TASK_FSM_TRANSITION,
     REASON_AUDIT_CAPABILITY_INCOMPLETE,
     REASON_WATCH_MUST_BE_SELF,
     REASON_WATCH_MUTED_MUST_BE_SELF,
     REASON_WATCH_LEVEL_PUBLIC_MUST_BE_SELF,
-    REASON_MANAGE_OTHERS_AUDIT_MISSING,
-    REASON_CROSS_SPACE_STRUCTURAL_RELATION,
+    REASON_WATCH_SET_OTHERS_AUDIT_MISSING,
     REASON_JOIN_AUTHORISATION_INVALID,
     REASON_JOIN_RULE_POLICY_MISMATCH,
     REASON_CROSS_SIGNING_RESET,
@@ -726,11 +669,6 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_MORPH_SCHEMA_REFS_EVOLUTION_UNAUTHORIZED,
     REASON_MORPH_SCHEMA_REFS_TRANSFORMATION_UNSUPPORTED,
     REASON_MORPH_SCHEMA_VERSION_BINDING_MISSING,
-    REASON_SENDER_COMMITMENT_INVALID,
-    REASON_SENDER_COMMITMENT_MISSING,
-    REASON_SENDER_COMMITMENT_SEQ_REPLAY,
-    REASON_SENDER_COMMITMENT_CIPHERTEXT_MISMATCH,
-    REASON_SENDER_COMMITMENT_EPOCH_MISMATCH,
     REASON_RANGE_COMPLETENESS_ROOT_MISMATCH,
     REASON_RANGE_COMPLETENESS_ACTOR_SEQ_GAP,
     REASON_WITNESS_DISAGREEMENT,
@@ -806,15 +744,8 @@ pub const KNOWN_REASON_CODES_ROUND_C44: &[&str] = &[
     REASON_INCEPTION_UPGRADE_OLD_DOCUMENT_HASH_MISMATCH,
     REASON_INCEPTION_UPGRADE_EVIDENCE_INSUFFICIENT,
     REASON_INCEPTION_KEY_WINDOW_EXCEEDED,
-    REASON_AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING,
-    REASON_AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION,
-    REASON_AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE,
-    REASON_AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED,
-    REASON_AUDIT_AGENT_EPOCH_RANGE_INCOMPLETE,
-    REASON_AUDIT_AGENT_ATTESTATION_MISMATCH,
     REASON_MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE,
     REASON_CONFLICTING_E2EE_PROFILES,
-    REASON_LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND,
     REASON_CARDINALITY_VIOLATION,
     REASON_CLAIM_FAILED,
 ];
@@ -882,8 +813,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_DID_PROOF_REQUIRED
         | ERROR_CODE_PROOF_INVALID
         | ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH
-        | ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED
-        | ERROR_CODE_MEMBER_IDENTITY_PROOF_INVALID => 401,
+        | ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED => 401,
         ERROR_CODE_CAPABILITY_DENIED
         | ERROR_CODE_DIRECTORY_NOT_AUTHORIZED
         | ERROR_CODE_ACCEPT_POLICY_DENIED
@@ -952,7 +882,6 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_CROSS_DOMAIN_REPLAY_REJECTED
         | ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT
         | ERROR_CODE_REALM_TERMINAL_STATE
-        | ERROR_CODE_AUDIT_AGENT_ATTESTATION_MISMATCH
         | ERROR_CODE_AUDIT_PURPOSE_MISMATCH
         | ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE
         | ERROR_CODE_DELIVERY_BINDING_STALE
@@ -971,11 +900,8 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_ACTOR_KIND_REDUCER_MANAGED
         | ERROR_CODE_FOCUS_MISMATCH
         | ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED
-        | ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE
         | ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT
         | ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING
-        | ERROR_CODE_MEMBER_IDENTITY_STATE_MISMATCH
-        | ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH
         | ERROR_CODE_ACTOR_SEQ_INVALID
         | ERROR_CODE_ANCHOR_REF_STALE
         | ERROR_CODE_DID_ALREADY_EXISTS
@@ -1011,14 +937,12 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_UNSUPPORTED_LATTICE_TYPE
         | ERROR_CODE_UNSUPPORTED_HASH
         | ERROR_CODE_SHARE_COMMITMENT_MISMATCH
-        | ERROR_CODE_LEGACY_SECRET_STORAGE_WIRE_FORM
         | ERROR_CODE_RECOVERY_EVIDENCE_UNBOUND
         | ERROR_CODE_READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED
         | ERROR_CODE_PAIRING_REQUEST_EXPIRED
         | ERROR_CODE_UNKNOWN_FOCUS_TYPE
         | ERROR_CODE_PARTICIPANT_BINDING_INVALID
         | ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED
-        | ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT
         | ERROR_CODE_PROFILE_UNSUPPORTED
         | ERROR_CODE_BLOB_DIGEST_MISMATCH
         | ERROR_CODE_UNSUPPORTED_DID_METHOD
@@ -1095,9 +1019,14 @@ pub enum Error {
     #[error("insecure service URL is not allowed by default: {0}")]
     InsecureUrl(String),
 
+    // Transport-agnostic HTTP failure. cokret-core is the wire-model /
+    // canonical layer and deliberately has no dependency on a concrete HTTP
+    // stack; transport adapters (cokret-http-client and any alternative
+    // binding) wrap their stack-specific errors into this variant at the
+    // boundary.
     #[cfg(feature = "client")]
     #[error("HTTP request failed: {0}")]
-    Http(#[from] reqwest::Error),
+    Http(String),
 
     #[cfg(feature = "mls")]
     #[error("MLS operation failed: {0}")]
@@ -1210,7 +1139,6 @@ pub enum ErrorCode {
     AppealOverturnMissingLift,
     AppealSelfReviewForbidden,
     RealmTerminalState,
-    AuditAgentAttestationMismatch,
     AuditPurposeMismatch,
     LegalHoldActive,
     BlobRedacted,
@@ -1249,7 +1177,6 @@ pub enum ErrorCode {
     ShareCommitmentMismatch,
     BackupFrontierStale,
     BackupPostResetStale,
-    LegacySecretStorageWireForm,
     RecoveryEvidenceUnbound,
     UnsupportedAeadProfile,
     AttestationMissing,
@@ -1270,15 +1197,9 @@ pub enum ErrorCode {
     SessionFocusAlreadyCommitted,
     E2eeKeySourceUnauthorised,
     RecordingArtifactPipelineBypassed,
-    LegacySingleEndpointMediaService,
     FocusUnavailableForClient,
     RecoveryWitnessRevokeLagging,
     HandleHomographForbidden,
-    // ── R3.1 spec-sync (2026-05-27, cokret-spec 7157ee8).
-    MemberIdentityStateMismatch,
-    MemberIdentityProofInvalid,
-    MemberIdentityReplacementDigestMismatch,
-    MemberIdentityUnknownSegment,
     // ── Registry backfill (2026-06-08).
     PolicyDenied,
     CursorUnrecognized,
@@ -1413,7 +1334,6 @@ impl ErrorCode {
         Self::AppealOverturnMissingLift,
         Self::AppealSelfReviewForbidden,
         Self::RealmTerminalState,
-        Self::AuditAgentAttestationMismatch,
         Self::AuditPurposeMismatch,
         Self::LegalHoldActive,
         Self::BlobRedacted,
@@ -1448,7 +1368,6 @@ impl ErrorCode {
         Self::ShareCommitmentMismatch,
         Self::BackupFrontierStale,
         Self::BackupPostResetStale,
-        Self::LegacySecretStorageWireForm,
         Self::RecoveryEvidenceUnbound,
         Self::UnsupportedAeadProfile,
         Self::AttestationMissing,
@@ -1469,15 +1388,9 @@ impl ErrorCode {
         Self::SessionFocusAlreadyCommitted,
         Self::E2eeKeySourceUnauthorised,
         Self::RecordingArtifactPipelineBypassed,
-        Self::LegacySingleEndpointMediaService,
         Self::FocusUnavailableForClient,
         Self::RecoveryWitnessRevokeLagging,
         Self::HandleHomographForbidden,
-        // ── R3.1 spec-sync (2026-05-27).
-        Self::MemberIdentityStateMismatch,
-        Self::MemberIdentityProofInvalid,
-        Self::MemberIdentityReplacementDigestMismatch,
-        Self::MemberIdentityUnknownSegment,
         // ── Registry backfill (2026-06-08).
         Self::PolicyDenied,
         Self::CursorUnrecognized,
@@ -1614,7 +1527,6 @@ impl ErrorCode {
             Self::AppealOverturnMissingLift => ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT,
             Self::AppealSelfReviewForbidden => ERROR_CODE_APPEAL_SELF_REVIEW_FORBIDDEN,
             Self::RealmTerminalState => ERROR_CODE_REALM_TERMINAL_STATE,
-            Self::AuditAgentAttestationMismatch => ERROR_CODE_AUDIT_AGENT_ATTESTATION_MISMATCH,
             Self::AuditPurposeMismatch => ERROR_CODE_AUDIT_PURPOSE_MISMATCH,
             Self::LegalHoldActive => ERROR_CODE_LEGAL_HOLD_ACTIVE,
             Self::BlobRedacted => ERROR_CODE_BLOB_REDACTED,
@@ -1655,7 +1567,6 @@ impl ErrorCode {
             Self::ShareCommitmentMismatch => ERROR_CODE_SHARE_COMMITMENT_MISMATCH,
             Self::BackupFrontierStale => ERROR_CODE_BACKUP_FRONTIER_STALE,
             Self::BackupPostResetStale => ERROR_CODE_BACKUP_POST_RESET_STALE,
-            Self::LegacySecretStorageWireForm => ERROR_CODE_LEGACY_SECRET_STORAGE_WIRE_FORM,
             Self::RecoveryEvidenceUnbound => ERROR_CODE_RECOVERY_EVIDENCE_UNBOUND,
             Self::UnsupportedAeadProfile => ERROR_CODE_UNSUPPORTED_AEAD_PROFILE,
             Self::AttestationMissing => ERROR_CODE_ATTESTATION_MISSING,
@@ -1680,19 +1591,9 @@ impl ErrorCode {
             Self::RecordingArtifactPipelineBypassed => {
                 ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED
             }
-            Self::LegacySingleEndpointMediaService => {
-                ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE
-            }
             Self::FocusUnavailableForClient => ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT,
             Self::RecoveryWitnessRevokeLagging => ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING,
             Self::HandleHomographForbidden => ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN,
-            // ── R3.1 spec-sync (2026-05-27).
-            Self::MemberIdentityStateMismatch => ERROR_CODE_MEMBER_IDENTITY_STATE_MISMATCH,
-            Self::MemberIdentityProofInvalid => ERROR_CODE_MEMBER_IDENTITY_PROOF_INVALID,
-            Self::MemberIdentityReplacementDigestMismatch => {
-                ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH
-            }
-            Self::MemberIdentityUnknownSegment => ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT,
             // ── Registry backfill (2026-06-08).
             Self::PolicyDenied => ERROR_CODE_POLICY_DENIED,
             Self::CursorUnrecognized => ERROR_CODE_CURSOR_UNRECOGNIZED,

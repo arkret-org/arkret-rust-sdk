@@ -4,7 +4,7 @@
 //! - Strict format validation: `^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$`
 //! - Fixed-width hex encoding for correct lexicographic ordering
 //! - Clock skew handling up to ±5 minutes
-//! - Node ID calculation from DIDs
+//! - Realm-scoped pseudonymous node id derivation (`encoding.md` §7)
 //! - Monotonic HLC generation
 
 use crate::{Error, Hlc as HlcType, Result};
@@ -47,6 +47,9 @@ pub struct HlcComponents {
     pub node_id: String,
 }
 
+/// Domain separator for the §7 `node_id_hash` derivation.
+const NODE_ID_DOMAIN_SEPARATOR: &str = "cokret-hlc-v1";
+
 /// Hybrid Logical Clock generator.
 ///
 /// Generates monotonic HLC values with proper format encoding.
@@ -62,12 +65,17 @@ pub struct HlcGenerator {
 }
 
 impl HlcGenerator {
-    /// Create a new HLC generator with the given node identifier.
+    /// Create a new HLC generator with a Realm-scoped pseudonymous node id.
     ///
-    /// The node identifier is typically a principal DID or service DID.
-    /// It will be hashed to produce the 8-character node ID.
-    pub fn new(node_identifier: &str) -> Self {
-        let node_id = Self::compute_node_id(node_identifier);
+    /// Per `encoding.md` §7 the `node_id_hash` MUST be derived from a
+    /// Realm-scoped (or deployment-scoped) local node secret:
+    /// `SHA256("cokret-hlc-v1" || realm_id || device_id ||
+    /// local_node_secret)[0:8]`. Principal DIDs, public handles, long-term
+    /// device ids, or any cross-Realm stable identifier MUST NOT be used
+    /// directly as the hash input — doing so would make the node id
+    /// linkable across Realms.
+    pub fn new(realm_id: &str, device_id: &str, local_node_secret: &[u8]) -> Self {
+        let node_id = Self::compute_node_id(realm_id, device_id, local_node_secret);
         let physical = Self::current_time_ms();
 
         Self { physical, logical: 0, node_id }
@@ -75,9 +83,15 @@ impl HlcGenerator {
 
     /// Create a new HLC generator with a custom initial time.
     ///
-    /// Useful for testing or reproducible HLC generation.
-    pub fn with_initial_time(node_identifier: &str, initial_time_ms: u64) -> Self {
-        let node_id = Self::compute_node_id(node_identifier);
+    /// Useful for testing or reproducible HLC generation. The node id is
+    /// derived exactly as in [`HlcGenerator::new`].
+    pub fn with_initial_time(
+        realm_id: &str,
+        device_id: &str,
+        local_node_secret: &[u8],
+        initial_time_ms: u64,
+    ) -> Self {
+        let node_id = Self::compute_node_id(realm_id, device_id, local_node_secret);
 
         Self { physical: initial_time_ms, logical: 0, node_id }
     }
@@ -171,17 +185,29 @@ impl HlcGenerator {
         HlcType::new(self.format()).expect("HLC format is valid")
     }
 
-    /// Compute node ID from identifier (DID or similar).
-    ///
-    /// Takes first 8 hex chars (32 bits) of SHA256 hash.
-    fn compute_node_id(identifier: &str) -> String {
-        let hash = Sha256::digest(identifier.as_bytes());
+    /// Derive the 8-hex-char `node_id_hash` per `encoding.md` §7:
+    /// `SHA256("cokret-hlc-v1" || realm_id || device_id ||
+    /// local_node_secret)[0:8]`.
+    fn compute_node_id(realm_id: &str, device_id: &str, local_node_secret: &[u8]) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(NODE_ID_DOMAIN_SEPARATOR.as_bytes());
+        hasher.update(realm_id.as_bytes());
+        hasher.update(device_id.as_bytes());
+        hasher.update(local_node_secret);
+        let hash = hasher.finalize();
         hash[0..4].iter().map(|b| format!("{:02x}", b)).collect()
     }
 
     /// Get current physical time in milliseconds since Unix epoch.
+    ///
+    /// A system clock set before the Unix epoch (VM snapshot restore,
+    /// deliberate tampering) maps to 0 instead of panicking — the
+    /// generator's monotonicity logic then treats it like any other
+    /// clock rollback.
     fn current_time_ms() -> u64 {
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |duration| duration.as_millis() as u64)
     }
 
     /// Format current HLC as string.
@@ -189,11 +215,28 @@ impl HlcGenerator {
         format!("{:012x}-{:04x}-{}", self.physical, self.logical, self.node_id)
     }
 
+    /// Spin iterations before falling back to 1 ms sleeps in
+    /// [`Self::advance_logical_or_wait`]. The common trigger is >65,536
+    /// HLCs inside one millisecond, where the next millisecond tick is
+    /// imminent and a short spin wins; the rare trigger is a clock
+    /// rollback, where sleeping avoids burning a full core for the whole
+    /// rollback window.
+    const OVERFLOW_SPIN_LIMIT: u32 = 1_000;
+
     fn advance_logical_or_wait(&mut self) {
         if self.logical < MAX_LOGICAL {
             self.logical += 1;
             return;
         }
+        // Logical counter saturated. encoding.md's HLC overflow rule
+        // forbids wrapping; the two permitted strategies are waiting for
+        // a larger unix_ms or returning `hlc_logical_overflow`
+        // ([`Self::generate_with_remote`] takes the error path). This
+        // sync API waits — spin briefly, then back off with 1 ms sleeps
+        // so a clock rollback does not busy-burn a core. wasm32 has no
+        // blocking sleep, so it stays on yield (single-threaded hosts
+        // would not benefit from sleeping anyway).
+        let mut spins = 0u32;
         loop {
             let now = Self::current_time_ms();
             if now > self.physical {
@@ -201,7 +244,15 @@ impl HlcGenerator {
                 self.logical = 0;
                 return;
             }
-            std::thread::yield_now();
+            spins = spins.saturating_add(1);
+            if spins < Self::OVERFLOW_SPIN_LIMIT {
+                std::thread::yield_now();
+            } else {
+                #[cfg(not(target_arch = "wasm32"))]
+                std::thread::sleep(Duration::from_millis(1));
+                #[cfg(target_arch = "wasm32")]
+                std::thread::yield_now();
+            }
         }
     }
 
@@ -340,7 +391,7 @@ mod tests {
 
     #[test]
     fn hlc_generator_creates_monotonic_sequence() {
-        let mut hlc_gen = HlcGenerator::with_initial_time("test", 0x01970e589d21);
+        let mut hlc_gen = HlcGenerator::with_initial_time("ck:realm:01904100-0000-7000-8000-9b64700c6ee8", "device-1", b"test-secret", 0x01970e589d21);
 
         let hlc1 = hlc_gen.generate();
         let hlc2 = hlc_gen.generate();
@@ -352,7 +403,7 @@ mod tests {
 
     #[test]
     fn hlc_generator_handles_clock_rollback() {
-        let mut hlc_gen = HlcGenerator::with_initial_time("test", 0x01970e589d21);
+        let mut hlc_gen = HlcGenerator::with_initial_time("ck:realm:01904100-0000-7000-8000-9b64700c6ee8", "device-1", b"test-secret", 0x01970e589d21);
 
         // Generate several HLCs - they should be monotonically increasing
         let hlc1 = hlc_gen.generate();
@@ -365,7 +416,7 @@ mod tests {
 
     #[test]
     fn hlc_generator_advances_with_remote() {
-        let mut hlc_gen = HlcGenerator::with_initial_time("test", 0x01970e589d21);
+        let mut hlc_gen = HlcGenerator::with_initial_time("ck:realm:01904100-0000-7000-8000-9b64700c6ee8", "device-1", b"test-secret", 0x01970e589d21);
 
         let remote = HlcType::new("01970e589d22-0005-a13f9c2e").unwrap();
         let hlc = hlc_gen.generate_with_remote(&remote).unwrap();
@@ -376,7 +427,7 @@ mod tests {
 
     #[test]
     fn hlc_generator_rejects_future_hlc_beyond_skew() {
-        let hlc_gen = HlcGenerator::new("test");
+        let hlc_gen = HlcGenerator::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8", "device-1", b"test-secret");
 
         // Create HLC far in the future (> 5 minutes)
         // MAX_SKEW_MS is 5 minutes in milliseconds, so we add more than that
@@ -387,14 +438,19 @@ mod tests {
     }
 
     #[test]
-    fn node_id_computation_is_deterministic() {
-        let id1 = HlcGenerator::compute_node_id("did:web:alice.example.com");
-        let id2 = HlcGenerator::compute_node_id("did:web:alice.example.com");
-        let id3 = HlcGenerator::compute_node_id("did:web:bob.example.com");
+    fn node_id_computation_is_deterministic_and_realm_scoped() {
+        let realm_a = "ck:realm:01904100-0000-7000-8000-9b64700c6ee8";
+        let realm_b = "ck:realm:01904100-0000-7000-8000-65c7feb295d7";
+        let id1 = HlcGenerator::compute_node_id(realm_a, "device-1", b"secret");
+        let id2 = HlcGenerator::compute_node_id(realm_a, "device-1", b"secret");
+        // Same device + secret in another Realm must yield an unlinkable id.
+        let id3 = HlcGenerator::compute_node_id(realm_b, "device-1", b"secret");
+        let id4 = HlcGenerator::compute_node_id(realm_a, "device-1", b"other-secret");
 
         assert_eq!(id1, id2);
         assert_eq!(id1.len(), 8);
         assert_ne!(id1, id3);
+        assert_ne!(id1, id4);
     }
 
     #[test]
@@ -420,7 +476,7 @@ mod tests {
 
     #[test]
     fn hlc_formats_with_fixed_width() {
-        let mut hlc_gen = HlcGenerator::with_initial_time("test", 1);
+        let mut hlc_gen = HlcGenerator::with_initial_time("ck:realm:01904100-0000-7000-8000-9b64700c6ee8", "device-1", b"test-secret", 1);
 
         let hlc = hlc_gen.generate();
         assert_eq!(hlc.as_str().len(), 26); // 12 + 1 + 4 + 1 + 8

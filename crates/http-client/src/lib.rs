@@ -41,32 +41,36 @@ use cokret_core::{
     PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, PolicyCheckOutcome,
     PolicyCheckRequestBody, PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
     PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, Result, ServerDescription,
-    ServiceRequirements, SessionGrantChallenge, SessionGrantChallengeReq, SessionGrantSubmitReq,
-    SnapshotHeadState, SyncBackfillOutcome, SyncDescription, SyncOutcome, SyncRequestBody,
+    ServiceRequirements, SessionGrantOutcome, SessionGrantRequestBody, SnapshotHeadState,
+    SyncBackfillOutcome, SyncDescription, SyncOutcome, SyncRequestBody,
 };
 
 pub const HEADER_REQUEST_ID: &str = "X-Cokret-Request-Id";
 pub const HEADER_WAIT_FOR: &str = "X-Cokret-Wait-For";
 pub const HEADER_IDEMPOTENCY_KEY: &str = "Idempotency-Key";
 
-/// S-2 (savfox SDK gap): wire-shape session returned by
-/// `POST /_cokret/gate/account/session-grants/submit`. Matches the SDK
-/// `AuthSession` struct field-for-field but lives here so the
-/// transport crate doesn't depend on `cokret` (the SDK reuses this
-/// or maps it to its own type).
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct AuthSessionWire {
-    pub session_id: String,
-    pub user_id: cokret_core::Did,
-    pub principal_id: cokret_core::Did,
-    pub device_id: cokret_core::DeviceId,
-    pub access_token: String,
-    pub refresh_token: String,
-    pub expires_at: chrono::DateTime<chrono::Utc>,
-    #[serde(default)]
-    pub revoked: bool,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-}
+/// Default total request timeout applied per request when
+/// [`ClientBuilder::timeout`] is not called. reqwest itself defaults to
+/// *no* timeout, which would let a hung server (SYN black hole,
+/// never-ending body) suspend the caller forever; this crate is the
+/// shared transport for all Cokret services, so the default must be
+/// bounded. The long-lived NDJSON subscribe streams
+/// (`account_subscribe`, `events_subscribe_stream`) are exempt — they
+/// stay open by design. Override with [`ClientBuilder::timeout`] (an
+/// explicit value applies client-wide, including streams).
+/// Native-only — the browser owns timeouts on wasm32.
+pub const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Default connection-establishment (TCP + TLS) timeout applied when
+/// [`ClientBuilder::connect_timeout`] is not called. Bounds the connect
+/// phase for every request including subscribe streams. See
+/// [`DEFAULT_REQUEST_TIMEOUT`] for rationale.
+pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Maximum bytes a single NDJSON subscribe frame (one line) may occupy
+/// before [`Client::account_subscribe_once`] aborts. Bounds memory while
+/// waiting for the first newline on a hostile / misbehaving stream.
+const MAX_SUBSCRIBE_FRAME_BYTES: usize = 8 * 1024 * 1024;
 
 const QUERY_AUTH_KEYS: &[&str] = &[
     "access_token",
@@ -79,6 +83,15 @@ const QUERY_AUTH_KEYS: &[&str] = &[
     "session_token",
     "token",
 ];
+
+/// Wrap a reqwest transport error into the transport-agnostic
+/// `cokret_core::Error::Http` variant at the crate boundary. cokret-core
+/// deliberately carries no reqwest dependency (ARCHITECTURE.md: core is the
+/// wire-model layer; the HTTP stack lives in this crate), so the conversion
+/// is explicit here instead of a `#[from]` impl on the core error type.
+fn transport_error(error: reqwest::Error) -> Error {
+    Error::Http(error.to_string())
+}
 
 fn trim_ascii(mut bytes: &[u8]) -> &[u8] {
     while bytes.first().is_some_and(u8::is_ascii_whitespace) {
@@ -218,6 +231,12 @@ pub struct Client {
     auth: Option<Auth>,
     retry: RetryConfig,
     user_agent: Option<String>,
+    /// Per-request total timeout applied by [`Client::request`] when the
+    /// builder did not set an explicit client-wide timeout and did not
+    /// inject a pre-built `reqwest::Client`. `None` means the transport
+    /// configuration is caller-owned. Subscribe streams skip this.
+    #[cfg(not(target_arch = "wasm32"))]
+    default_timeout: Option<Duration>,
 }
 
 /// Named redirect policies. `reqwest::redirect::Policy` is not `Clone`, so
@@ -297,12 +316,17 @@ impl TransportConfig {
     }
 
     fn apply(self, mut builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
+        // An explicit total timeout applies client-wide (including the
+        // subscribe streams — the caller asked for it). When unset, the
+        // bounded [`DEFAULT_REQUEST_TIMEOUT`] is applied *per request*
+        // in `Client::request` instead, so long-lived streams stay open.
         if let Some(timeout) = self.timeout {
             builder = builder.timeout(timeout);
         }
-        if let Some(connect_timeout) = self.connect_timeout {
-            builder = builder.connect_timeout(connect_timeout);
-        }
+        // reqwest's own default is *no* connect timeout at all; always
+        // bound the connection-establishment phase so a SYN black hole
+        // can never suspend a caller forever.
+        builder = builder.connect_timeout(self.connect_timeout.unwrap_or(DEFAULT_CONNECT_TIMEOUT));
         if let Some(pool_idle_timeout) = self.pool_idle_timeout {
             builder = builder.pool_idle_timeout(pool_idle_timeout);
         }
@@ -557,6 +581,15 @@ impl ClientBuilder {
         if let Some(user_agent) = &self.user_agent {
             validate_header_value("user agent", user_agent)?;
         }
+        // Pre-built clients own their transport configuration end to end;
+        // the per-request default timeout only kicks in when this builder
+        // owns the transport and no explicit timeout was configured.
+        #[cfg(not(target_arch = "wasm32"))]
+        let default_timeout = if self.http.is_none() && self.transport.timeout.is_none() {
+            Some(DEFAULT_REQUEST_TIMEOUT)
+        } else {
+            None
+        };
         let http = match self.http {
             Some(http) => {
                 if !self.transport.is_default() {
@@ -567,7 +600,7 @@ impl ClientBuilder {
                 }
                 http
             }
-            None => self.transport.apply(reqwest::Client::builder()).build()?,
+            None => self.transport.apply(reqwest::Client::builder()).build().map_err(transport_error)?,
         };
         Ok(Client {
             base_url: self.base_url,
@@ -575,6 +608,8 @@ impl ClientBuilder {
             auth: self.auth,
             retry: self.retry,
             user_agent: self.user_agent,
+            #[cfg(not(target_arch = "wasm32"))]
+            default_timeout,
         })
     }
 }
@@ -668,30 +703,24 @@ impl Client {
         self.send_json(builder).await
     }
 
-    /// S-2 (savfox SDK gap): `POST /_cokret/gate/account/session-grants` step 1 —
-    /// request a `ck.did.proof` challenge bound to `(principal_id,
-    /// device_id, audience)`. Spec `identity-did.md` §5.1.
-    pub async fn auth_session_grant_challenge(
+    /// `POST /_cokret/gate/account/session-grants`
+    /// (`ck.gate.account.issue_session_grant`): exchange a body-borne
+    /// passkey / OIDC / device / DID proof for a session grant. This is
+    /// the only session-grant issuance path registered in the spec HTTP
+    /// binding (`x-cokret-auth.proof_in_body: true`); challenge
+    /// acquisition is deployment-local per `identity-did.md` §5.1.
+    pub async fn auth_issue_session_grant(
         &self,
-        req: &SessionGrantChallengeReq,
-    ) -> Result<SessionGrantChallenge> {
-        self.post("/_cokret/gate/account/session-grants/challenge", req).await
-    }
-
-    /// S-2 (savfox SDK gap): `POST /_cokret/gate/account/session-grants` step 2 —
-    /// submit the signed `ck.did.proof` and exchange it for a session
-    /// grant. The returned [`AuthSession`] is opaque-token-shaped; the
-    /// SDK never inspects the tokens.
-    pub async fn auth_session_grant_submit(
-        &self,
-        req: &SessionGrantSubmitReq,
-    ) -> Result<AuthSessionWire> {
-        self.post("/_cokret/gate/account/session-grants/submit", req).await
+        req: &SessionGrantRequestBody,
+    ) -> Result<SessionGrantOutcome> {
+        self.post("/_cokret/gate/account/session-grants", req).await
     }
 
     pub async fn account_subscribe(&self, request: &SyncRequestBody) -> Result<Response> {
+        // Long-lived NDJSON stream — exempt from the per-request default
+        // total timeout (see `DEFAULT_REQUEST_TIMEOUT`).
         let mut builder = self
-            .request(Method::GET, "/_cokret/self/account/subscribe")?
+            .request_unbounded(Method::GET, "/_cokret/self/account/subscribe")?
             .header("accept", "application/x-ndjson");
         if let Some(after) = request.after.as_deref() {
             builder = builder.query(&[("after", after)]);
@@ -705,19 +734,57 @@ impl Client {
         self.send_response(builder).await
     }
 
+    /// Subscribe and return the first delta frame, then drop the
+    /// connection.
+    ///
+    /// `/_cokret/self/account/subscribe` is a long-lived NDJSON stream:
+    /// the server keeps pushing frames and does not close the response
+    /// on its own, so reading the whole body up front would never
+    /// return (and would buffer the stream without bound). The body is
+    /// therefore read incrementally, one chunk at a time, and the
+    /// connection is dropped as soon as the first delta frame decodes.
     pub async fn account_subscribe_once(&self, request: &SyncRequestBody) -> Result<SyncOutcome> {
-        let response = self.account_subscribe(request).await?;
-        let bytes = response.bytes().await.map_err(Error::Http)?;
-        for line in bytes.split(|byte| *byte == b'\n') {
+        use futures_util::StreamExt;
+
+        fn first_delta_in(buffer: &mut Vec<u8>) -> Result<Option<SyncOutcome>> {
+            while let Some(newline) = buffer.iter().position(|byte| *byte == b'\n') {
+                let line: Vec<u8> = buffer.drain(..=newline).collect();
+                if let Some(sync) = decode_subscribe_line(&line)? {
+                    return Ok(Some(sync));
+                }
+            }
+            Ok(None)
+        }
+
+        fn decode_subscribe_line(line: &[u8]) -> Result<Option<SyncOutcome>> {
             let trimmed = trim_ascii(line);
             if trimmed.is_empty() {
-                continue;
+                return Ok(None);
             }
             let frame: AccountSubscribeFrame = serde_json::from_slice(trimmed)
                 .map_err(|error| Error::Protocol(error.to_string()))?;
-            if let Some(sync) = SyncOutcome::from_account_subscribe_frame(frame) {
+            Ok(SyncOutcome::from_account_subscribe_frame(frame))
+        }
+
+        let response = self.account_subscribe(request).await?;
+        let mut stream = response.bytes_stream();
+        let mut buffer: Vec<u8> = Vec::new();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(transport_error)?;
+            buffer.extend_from_slice(&chunk);
+            if let Some(sync) = first_delta_in(&mut buffer)? {
                 return Ok(sync);
             }
+            if buffer.len() > MAX_SUBSCRIBE_FRAME_BYTES {
+                return Err(Error::Protocol(
+                    "account subscribe frame exceeds maximum line size".to_owned(),
+                ));
+            }
+        }
+        // Stream ended; the trailing bytes may hold one last unterminated
+        // frame.
+        if let Some(sync) = decode_subscribe_line(&buffer)? {
+            return Ok(sync);
         }
         Err(Error::Protocol("account subscribe stream ended before a delta frame".to_owned()))
     }
@@ -817,8 +884,10 @@ impl Client {
         realm_id: &str,
         after: Option<&str>,
     ) -> Result<Response> {
+        // Long-lived NDJSON stream — exempt from the per-request default
+        // total timeout (see `DEFAULT_REQUEST_TIMEOUT`).
         let mut builder = self
-            .request(Method::GET, "/_cokret/self/events/subscribe")?
+            .request_unbounded(Method::GET, "/_cokret/self/events/subscribe")?
             .header("accept", "application/x-ndjson")
             .query(&[("realms", realm_id)]);
         if let Some(after) = after {
@@ -963,7 +1032,7 @@ impl Client {
             builder = builder.header("Range", range);
         }
         let response = self.send_response(builder).await?;
-        Ok(response.bytes().await?.to_vec())
+        Ok(response.bytes().await.map_err(transport_error)?.to_vec())
     }
 
     pub async fn keys_upload(&self, request: &KeysUploadRequestBody) -> Result<KeysUploadOutcome> {
@@ -1326,6 +1395,22 @@ impl Client {
     }
 
     fn request(&self, method: Method, path: &str) -> Result<RequestBuilder> {
+        let builder = self.request_unbounded(method, path)?;
+        // Bound every regular request when the caller did not configure
+        // an explicit client-wide timeout (reqwest's own default is no
+        // timeout at all). Streaming endpoints use `request_unbounded`.
+        #[cfg(not(target_arch = "wasm32"))]
+        let builder = match self.default_timeout {
+            Some(timeout) => builder.timeout(timeout),
+            None => builder,
+        };
+        Ok(builder)
+    }
+
+    /// Build a request without the per-request default total timeout —
+    /// for long-lived NDJSON subscribe streams that stay open by design.
+    /// The connect-phase timeout still applies at the transport level.
+    fn request_unbounded(&self, method: Method, path: &str) -> Result<RequestBuilder> {
         reject_absolute_path(path)?;
         let url = self.base_url.join(path.trim_start_matches('/'))?;
         reject_query_auth_in_url(&url)?;
@@ -1375,7 +1460,7 @@ impl Client {
             return Err(Error::Api { status: status.as_u16(), error: Box::new(error) });
         }
 
-        Ok(response.json().await?)
+        Ok(response.json().await.map_err(transport_error)?)
     }
 
     async fn send_empty(&self, builder: RequestBuilder) -> Result<HeaderMap> {
@@ -1398,12 +1483,34 @@ impl Client {
     async fn execute(&self, builder: RequestBuilder) -> Result<Response> {
         validate_request_builder(&builder)?;
         if self.retry.max_retries == 0 {
-            return Ok(builder.send().await?);
+            return builder.send().await.map_err(transport_error);
         }
 
         let Some(template) = builder.try_clone() else {
-            return Ok(builder.send().await?);
+            return builder.send().await.map_err(transport_error);
         };
+
+        // Blind resends of a non-idempotent request can duplicate a write
+        // the server already executed (a 5xx or timeout does not prove the
+        // request had no effect). Safe/idempotent HTTP methods are always
+        // retryable; POST/PATCH only when the caller attached an
+        // `Idempotency-Key`. Everything else only retries connect-level
+        // failures, where the request provably never reached the server.
+        let idempotent = template
+            .try_clone()
+            .and_then(|clone| clone.build().ok())
+            .map(|request| {
+                matches!(
+                    *request.method(),
+                    Method::GET
+                        | Method::HEAD
+                        | Method::OPTIONS
+                        | Method::TRACE
+                        | Method::PUT
+                        | Method::DELETE
+                ) || request.headers().contains_key(HEADER_IDEMPOTENCY_KEY)
+            })
+            .unwrap_or(false);
 
         let mut attempts = 0usize;
         loop {
@@ -1412,7 +1519,8 @@ impl Client {
             })?;
             match attempt_builder.send().await {
                 Ok(response)
-                    if attempts < self.retry.max_retries
+                    if idempotent
+                        && attempts < self.retry.max_retries
                         && self.retry.should_retry_status(response.status()) =>
                 {
                     attempts += 1;
@@ -1423,12 +1531,16 @@ impl Client {
                     if attempts < self.retry.max_retries && self.retry.retry_network_errors =>
                 {
                     attempts += 1;
-                    if !error.is_connect() && !error.is_timeout() {
-                        return Err(error.into());
+                    // Timeouts may fire after the server received the
+                    // request; only idempotent requests may resend then.
+                    let retryable =
+                        error.is_connect() || (idempotent && error.is_timeout());
+                    if !retryable {
+                        return Err(transport_error(error));
                     }
                     sleep(self.retry.retry_delay(attempts)).await;
                 }
-                Err(error) => return Err(error.into()),
+                Err(error) => return Err(transport_error(error)),
             }
         }
     }
@@ -1443,7 +1555,7 @@ impl Client {
     #[cfg(target_arch = "wasm32")]
     async fn execute(&self, builder: RequestBuilder) -> Result<Response> {
         validate_request_builder(&builder)?;
-        Ok(builder.send().await?)
+        builder.send().await.map_err(transport_error)
     }
 }
 
@@ -1500,7 +1612,7 @@ fn reject_query_auth_in_url(url: &Url) -> Result<()> {
 
 fn validate_request_builder(builder: &RequestBuilder) -> Result<()> {
     if let Some(clone) = builder.try_clone() {
-        let request = clone.build()?;
+        let request = clone.build().map_err(transport_error)?;
         reject_query_auth_in_url(request.url())?;
     }
     Ok(())

@@ -1,10 +1,13 @@
-//! Cokret-native event taxonomy, typed content models, and rich text helpers.
+//! Cokret-native event taxonomy, typed content models, and reaction helpers.
+//!
+//! Rich text parsing/sanitizing lives in the `cokret-html` crate, which is
+//! the single authoritative implementation.
 
 pub mod content;
 pub mod kinds;
-pub mod rich_text;
+pub mod reaction;
 
 pub use crate::model::Event as RawEvent;
 pub use content::*;
 pub use kinds::*;
-pub use rich_text::*;
+pub use reaction::*;

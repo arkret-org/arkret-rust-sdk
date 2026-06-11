@@ -558,20 +558,20 @@ fn frame_frontier_advance_round_trip() {
     assert!(!frame.requires_resubscribe());
 }
 
-// ─── EventsQueryReqBody / EventsQueryOutcome tests ─────────────
+// ─── EventsQueryRequestBody / EventsQueryOutcome tests ─────────────
 
 #[test]
 fn events_query_request_validates_non_empty() {
-    let empty = EventsQueryReqBody::new();
+    let empty = EventsQueryRequestBody::new();
     assert!(empty.validate_non_empty().is_err());
-    let with_space = EventsQueryReqBody::new()
+    let with_space = EventsQueryRequestBody::new()
         .with_realms(vec![RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()]);
     with_space.validate_non_empty().unwrap();
 }
 
 #[test]
 fn events_query_request_renders_query_pairs() {
-    let req = EventsQueryReqBody::new()
+    let req = EventsQueryRequestBody::new()
         .with_realms(vec![
             RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             RealmId::new("ck:realm:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
@@ -612,6 +612,6 @@ fn events_query_response_round_trips_with_sync_backfill() {
 
 #[test]
 fn events_query_request_default_order_is_default() {
-    let req = EventsQueryReqBody::new();
+    let req = EventsQueryRequestBody::new();
     assert_eq!(req.order, EventsQueryOrder::Default);
 }

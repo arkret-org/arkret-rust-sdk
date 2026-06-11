@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Clone, Debug)]
-pub enum ServerReqBody {
+pub enum ServerRequestBody {
     ServerDescribe,
     IdentityDescribe,
     IdentityResolve(IdentityResolveRequestBody),
@@ -55,7 +55,7 @@ pub enum ServerReqBody {
 }
 
 #[derive(Clone, Debug)]
-pub enum ServerResBody {
+pub enum ServerOutcome {
     ServerDescription(Box<ServerDescription>),
     IdentityDescription(IdentityDescription),
     IdentityResolve(IdentityResolveOutcome),
@@ -109,5 +109,5 @@ pub enum ServerResBody {
 }
 
 pub trait EndpointHandler {
-    fn handle(&mut self, request: ServerReqBody) -> Result<ServerResBody>;
+    fn handle(&mut self, request: ServerRequestBody) -> Result<ServerOutcome>;
 }

@@ -255,7 +255,7 @@ pub struct AuthzEngine {
 
 #[derive(Clone, Debug)]
 struct CachedDecision {
-    decision: AuthzDecision,
+    decision: EngineDecision,
     _cached_at: DateTime<Utc>,
     expires_at: Option<DateTime<Utc>>,
 }
@@ -271,7 +271,7 @@ impl AuthzEngine {
         &mut self,
         ctx: &AuthzContext,
         grants: &[CapabilityGrant],
-    ) -> AuthzDecision {
+    ) -> EngineDecision {
         // Check cache first
         let cache_key = self.cache_key(ctx, grants);
         if let Some(cached) = self.cache.get(&cache_key)
@@ -294,11 +294,11 @@ impl AuthzEngine {
         &mut self,
         ctx: &AuthzContext,
         state: &crate::RealmState,
-    ) -> AuthzDecision {
+    ) -> EngineDecision {
         match capability_grants_from_realm_state(state) {
             Ok(grants) => self.check_authorization(ctx, &grants),
             Err(err) => {
-                AuthzDecision::Deny { reason: format!("invalid capability state: {}", err) }
+                EngineDecision::Deny { reason: format!("invalid capability state: {}", err) }
             }
         }
     }
@@ -312,7 +312,7 @@ impl AuthzEngine {
         ctx: &AuthzContext,
         grants: &[CapabilityGrant],
         policy: &PolicyEvaluationResult,
-    ) -> AuthzDecision {
+    ) -> EngineDecision {
         apply_policy_response(self.check_authorization(ctx, grants), policy)
     }
 
@@ -328,7 +328,7 @@ impl AuthzEngine {
         ctx: &AuthzContext,
         grants: &[CapabilityGrant],
         approvals: &ApprovalFlowManager,
-    ) -> AuthzDecision {
+    ) -> EngineDecision {
         let eligible_grants: Vec<CapabilityGrant> = grants
             .iter()
             .filter_map(|grant| {
@@ -355,7 +355,7 @@ impl AuthzEngine {
     }
 
     /// Evaluate all grants and return the combined decision.
-    fn evaluate_grants(&self, ctx: &AuthzContext, grants: &[CapabilityGrant]) -> AuthzDecision {
+    fn evaluate_grants(&self, ctx: &AuthzContext, grants: &[CapabilityGrant]) -> EngineDecision {
         let mut matching_grants = Vec::new();
 
         // Find grants that match the resource
@@ -370,7 +370,7 @@ impl AuthzEngine {
 
         // If no matching grants, deny
         if matching_grants.is_empty() {
-            return AuthzDecision::Deny { reason: "no matching grant".to_owned() };
+            return EngineDecision::Deny { reason: "no matching grant".to_owned() };
         }
 
         // Check action match
@@ -380,33 +380,33 @@ impl AuthzEngine {
             .collect();
 
         if action_grants.is_empty() {
-            return AuthzDecision::Deny { reason: format!("action '{}' not granted", ctx.action) };
+            return EngineDecision::Deny { reason: format!("action '{}' not granted", ctx.action) };
         }
 
         // Evaluate constraints for all matching grants
         for grant in &action_grants {
             match self.evaluate_constraints(ctx, grant) {
-                AuthzDecision::Deny { reason } => {
-                    return AuthzDecision::Deny {
+                EngineDecision::Deny { reason } => {
+                    return EngineDecision::Deny {
                         reason: format!("grant '{}': {}", grant.id, reason),
                     };
                 }
-                AuthzDecision::Quarantine { reason } => {
-                    return AuthzDecision::Quarantine {
+                EngineDecision::Quarantine { reason } => {
+                    return EngineDecision::Quarantine {
                         reason: format!("grant '{}': {}", grant.id, reason),
                     };
                 }
-                AuthzDecision::RequireReview { reason } => {
-                    return AuthzDecision::RequireReview {
+                EngineDecision::RequireReview { reason } => {
+                    return EngineDecision::RequireReview {
                         reason: format!("grant '{}': {}", grant.id, reason),
                     };
                 }
-                AuthzDecision::Allow => continue,
+                EngineDecision::Allow => continue,
             }
         }
 
         // All checks passed
-        AuthzDecision::Allow
+        EngineDecision::Allow
     }
 
     /// Check if a grant matches the resource.
@@ -443,7 +443,7 @@ impl AuthzEngine {
     }
 
     /// Evaluate all constraints for a grant.
-    fn evaluate_constraints(&self, ctx: &AuthzContext, grant: &CapabilityGrant) -> AuthzDecision {
+    fn evaluate_constraints(&self, ctx: &AuthzContext, grant: &CapabilityGrant) -> EngineDecision {
         // Sort constraints by effect priority, then by entry priority within same effect.
         // deny (0) > quarantine (1) > require_review (2) > allow (3)
         // Higher priority number = evaluated first within the same effect group.
@@ -466,29 +466,29 @@ impl AuthzEngine {
 
         for entry in &constraints {
             match self.evaluate_constraint(ctx, entry) {
-                AuthzDecision::Allow => continue,
+                EngineDecision::Allow => continue,
                 decision => return decision,
             }
         }
 
-        AuthzDecision::Allow
+        EngineDecision::Allow
     }
 
     /// Evaluate a single constraint.
-    fn evaluate_constraint(&self, ctx: &AuthzContext, entry: &ConstraintEntry) -> AuthzDecision {
+    fn evaluate_constraint(&self, ctx: &AuthzContext, entry: &ConstraintEntry) -> EngineDecision {
         match &entry.constraint {
             Constraint::Temporal { not_before, expires_at, recurrence } => {
                 if let Some(not_before) = not_before
                     && ctx.now < *not_before
                 {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: format!("before not_before: {}", not_before),
                     };
                 }
                 if let Some(expires_at) = expires_at
                     && ctx.now > *expires_at
                 {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: format!("after expires_at: {}", expires_at),
                     };
                 }
@@ -497,9 +497,9 @@ impl AuthzEngine {
                 {
                     // Render structured ConstraintParseError via Display so the
                     // public deny reason stays byte-equivalent with v0.
-                    return AuthzDecision::Deny { reason: err.to_string() };
+                    return EngineDecision::Deny { reason: err.to_string() };
                 }
-                AuthzDecision::Allow
+                EngineDecision::Allow
             }
             Constraint::FieldAccess { effect, scope, fields } => {
                 let target_fields = match scope {
@@ -512,7 +512,7 @@ impl AuthzEngine {
                         if let Some(field) =
                             target_fields.iter().find(|field| !fields.contains(*field))
                         {
-                            return AuthzDecision::Deny {
+                            return EngineDecision::Deny {
                                 reason: format!("field access not allowed: {}", field),
                             };
                         }
@@ -521,7 +521,7 @@ impl AuthzEngine {
                         if let Some(field) =
                             target_fields.iter().find(|field| fields.contains(*field))
                         {
-                            return AuthzDecision::Deny {
+                            return EngineDecision::Deny {
                                 reason: format!("field access denied: {}", field),
                             };
                         }
@@ -530,7 +530,7 @@ impl AuthzEngine {
                         if let Some(field) =
                             target_fields.iter().find(|field| fields.contains(*field))
                         {
-                            return AuthzDecision::Quarantine {
+                            return EngineDecision::Quarantine {
                                 reason: format!("field access quarantined: {}", field),
                             };
                         }
@@ -539,13 +539,13 @@ impl AuthzEngine {
                         if let Some(field) =
                             target_fields.iter().find(|field| fields.contains(*field))
                         {
-                            return AuthzDecision::RequireReview {
+                            return EngineDecision::RequireReview {
                                 reason: format!("field access requires review: {}", field),
                             };
                         }
                     }
                 }
-                AuthzDecision::Allow
+                EngineDecision::Allow
             }
             Constraint::TypeRestriction {
                 allowed_object_types,
@@ -569,7 +569,7 @@ impl AuthzEngine {
                             | (ScopeLimitation::Circle, Resource::Circle { .. })
                     );
                     if !scope_matches {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!(
                                 "resource does not match scope limitation: {:?}",
                                 scope_limitation
@@ -594,14 +594,14 @@ impl AuthzEngine {
                     if let Some(deny_list) = denied_object_types
                         && deny_list.iter().any(|item| item == object_type)
                     {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!("object type denied: {}", object_type),
                         };
                     }
                     if let Some(allow_list) = allowed_object_types
                         && !allow_list.iter().any(|item| item == object_type)
                     {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!("object type not allowed: {}", object_type),
                         };
                     }
@@ -611,14 +611,14 @@ impl AuthzEngine {
                     if let Some(deny_list) = denied_morph_types
                         && deny_list.iter().any(|item| item == morph_type)
                     {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!("morph type denied: {}", morph_type),
                         };
                     }
                     if let Some(allow_list) = allowed_morph_types
                         && !allow_list.iter().any(|item| item == morph_type)
                     {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!("morph type not allowed: {}", morph_type),
                         };
                     }
@@ -628,49 +628,49 @@ impl AuthzEngine {
                     && let Some(facet) =
                         denied_facets.iter().find(|facet| ctx.facets.contains(facet))
                 {
-                    return AuthzDecision::Deny { reason: format!("facet denied: {:?}", facet) };
+                    return EngineDecision::Deny { reason: format!("facet denied: {:?}", facet) };
                 }
                 if !allowed_facets.is_empty() {
                     let missing = allowed_facets.iter().find(|facet| !ctx.facets.contains(facet));
                     if let Some(facet) = missing {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!("facet not allowed or unavailable: {:?}", facet),
                         };
                     }
                 }
-                AuthzDecision::Allow
+                EngineDecision::Allow
             }
             Constraint::DelegationControl { max_delegation_depth, prohibit_subdelegation } => {
                 if *prohibit_subdelegation && ctx.delegation_depth > 0 {
-                    return AuthzDecision::Deny { reason: "subdelegation prohibited".to_owned() };
+                    return EngineDecision::Deny { reason: "subdelegation prohibited".to_owned() };
                 }
                 if let Some(max_depth) = max_delegation_depth
                     && ctx.delegation_depth > *max_depth
                 {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: format!(
                             "delegation depth {} exceeds max {}",
                             ctx.delegation_depth, max_depth
                         ),
                     };
                 }
-                AuthzDecision::Allow
+                EngineDecision::Allow
             }
             Constraint::RateLimiting { max_operations, period, scope } => {
                 if *max_operations == 0 {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: "rate limit: max_operations is 0".to_owned(),
                     };
                 }
                 match ctx.rate_limit_count {
-                    Some(count) if count >= *max_operations => AuthzDecision::Deny {
+                    Some(count) if count >= *max_operations => EngineDecision::Deny {
                         reason: format!(
                             "rate limit exceeded: {}/{} operations in {}{} {:?} scope",
                             count, max_operations, period.value, period.unit, scope
                         ),
                     },
-                    Some(_) => AuthzDecision::Allow,
-                    None => AuthzDecision::RequireReview {
+                    Some(_) => EngineDecision::Allow,
+                    None => EngineDecision::RequireReview {
                         reason: "rate limit counter unavailable".to_owned(),
                     },
                 }
@@ -700,9 +700,9 @@ impl AuthzEngine {
                         guardian_approval_required,
                         controller_approval_required,
                     );
-                    AuthzDecision::RequireReview { reason }
+                    EngineDecision::RequireReview { reason }
                 } else {
-                    AuthzDecision::Allow
+                    EngineDecision::Allow
                 }
             }
             Constraint::ClaimBased {
@@ -712,10 +712,10 @@ impl AuthzEngine {
                 claim_max_age,
             } => {
                 if requires_claims.is_empty() {
-                    return AuthzDecision::Allow;
+                    return EngineDecision::Allow;
                 }
                 if trusted_issuers.is_empty() {
-                    return AuthzDecision::RequireReview {
+                    return EngineDecision::RequireReview {
                         reason: format!(
                             "claims required ({}) but no trusted issuers specified",
                             requires_claims
@@ -761,7 +761,7 @@ impl AuthzEngine {
                             })
                     });
                     if !satisfied {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!(
                                 "required claim not satisfied: {}",
                                 requirement.claim_kind
@@ -769,14 +769,14 @@ impl AuthzEngine {
                         };
                     }
                 }
-                AuthzDecision::Allow
+                EngineDecision::Allow
             }
             Constraint::Accountability { accountability_required, responsible_actor } => {
                 if *accountability_required {
                     if let Some(responsible) = responsible_actor
                         && ctx.actor_id != *responsible
                     {
-                        return AuthzDecision::RequireReview {
+                        return EngineDecision::RequireReview {
                             reason: format!(
                                 "accountability: actor {} is not responsible actor {}",
                                 ctx.actor_id, responsible
@@ -784,14 +784,14 @@ impl AuthzEngine {
                         };
                     }
                     if ctx.accountability_logged {
-                        AuthzDecision::Allow
+                        EngineDecision::Allow
                     } else {
-                        AuthzDecision::RequireReview {
+                        EngineDecision::RequireReview {
                             reason: "accountability log missing".to_owned(),
                         }
                     }
                 } else {
-                    AuthzDecision::Allow
+                    EngineDecision::Allow
                 }
             }
             Constraint::EncryptionRequirement { encryption_required, min_encryption_level } => {
@@ -799,20 +799,20 @@ impl AuthzEngine {
                     let level = min_encryption_level.as_deref().unwrap_or("mls_rfc9420");
                     match ctx.encryption_level.as_deref() {
                         Some(actual) if actual == level || actual == "stronger" => {
-                            AuthzDecision::Allow
+                            EngineDecision::Allow
                         }
-                        Some(actual) => AuthzDecision::Deny {
+                        Some(actual) => EngineDecision::Deny {
                             reason: format!(
                                 "encryption level '{}' does not satisfy '{}'",
                                 actual, level
                             ),
                         },
-                        None => AuthzDecision::Deny {
+                        None => EngineDecision::Deny {
                             reason: format!("encryption required: {}", level),
                         },
                     }
                 } else {
-                    AuthzDecision::Allow
+                    EngineDecision::Allow
                 }
             }
             Constraint::VisibilityControl {
@@ -822,19 +822,19 @@ impl AuthzEngine {
             } => {
                 if let Some(level) = ctx.history_visibility.as_deref() {
                     if denied_history_visibility_values.iter().any(|v| v == level) {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!("visibility level '{}' is denied", level),
                         };
                     }
                     if !allowed_history_visibility_values.is_empty()
                         && !allowed_history_visibility_values.iter().any(|v| v == level)
                     {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!("visibility level '{}' not in allow list", level),
                         };
                     }
                 }
-                AuthzDecision::Allow
+                EngineDecision::Allow
             }
             Constraint::ResourceLimit {
                 blob_max_bytes,
@@ -846,7 +846,7 @@ impl AuthzEngine {
                     && let Some(actual) = ctx.blob_byte_count
                     && actual > *max
                 {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: format!("blob size {} exceeds max {}", actual, max),
                     };
                 }
@@ -854,7 +854,7 @@ impl AuthzEngine {
                     && let Some(total) = ctx.scope_blob_total_bytes
                     && total > *max
                 {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: format!(
                             "scope blob total {} exceeds max_total_blob_bytes {}",
                             total, max
@@ -865,11 +865,11 @@ impl AuthzEngine {
                     && let Some(count) = ctx.scope_resource_count
                     && count > *max
                 {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: format!("resource count {} exceeds max {}", count, max),
                     };
                 }
-                AuthzDecision::Allow
+                EngineDecision::Allow
             }
             Constraint::EditWindow {
                 applies_to_actions,
@@ -880,10 +880,10 @@ impl AuthzEngine {
                 let action_match = applies_to_actions.is_empty()
                     || applies_to_actions.iter().any(|a| a == &ctx.action);
                 if !action_match {
-                    return AuthzDecision::Allow;
+                    return EngineDecision::Allow;
                 }
                 let Some(origin) = ctx.target_created_at else {
-                    return AuthzDecision::Allow;
+                    return EngineDecision::Allow;
                 };
                 let age = ctx.now - origin;
                 // constraint-schema.md §14.2.
@@ -900,9 +900,9 @@ impl AuthzEngine {
                 if ctx.action.contains("redact") {
                     if let Some(window) = message_redact_window.as_ref() {
                         if max_age_contains(age, window) {
-                            return AuthzDecision::Allow;
+                            return EngineDecision::Allow;
                         }
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!(
                                 "redact window {}{} elapsed",
                                 window.value, window.unit
@@ -913,28 +913,28 @@ impl AuthzEngine {
                     // window unless the grant opts out via
                     // `allow_redact_after_window`.
                     if *allow_redact_after_window {
-                        return AuthzDecision::Allow;
+                        return EngineDecision::Allow;
                     }
                     if let Some(window) = message_edit_window.as_ref()
                         && !max_age_contains(age, window)
                     {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!(
                                 "redact shares edit window {}{}, which elapsed",
                                 window.value, window.unit
                             ),
                         };
                     }
-                    return AuthzDecision::Allow;
+                    return EngineDecision::Allow;
                 }
                 if let Some(window) = message_edit_window.as_ref()
                     && !max_age_contains(age, window)
                 {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: format!("edit window {}{} elapsed", window.value, window.unit),
                     };
                 }
-                AuthzDecision::Allow
+                EngineDecision::Allow
             }
             Constraint::ContainerMove {
                 allowed_relation_kinds,
@@ -947,7 +947,7 @@ impl AuthzEngine {
                     && let Some(rk) = ctx.relation_kind.as_deref()
                     && !allowed_relation_kinds.iter().any(|k| k == rk)
                 {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: format!("relation_kind '{}' not in allow list", rk),
                     };
                 }
@@ -955,7 +955,7 @@ impl AuthzEngine {
                     && let Some(view_id) = ctx.view_id.as_deref()
                     && !allowed_view_ids.iter().any(|v| v == view_id)
                 {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: format!("view '{}' not allowed for container move", view_id),
                     };
                 }
@@ -963,7 +963,7 @@ impl AuthzEngine {
                     && let Some(from_id) = ctx.from_container_id.as_deref()
                     && !allowed_from_container_refs.iter().any(|v| v == from_id)
                 {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: format!("from container '{}' not allowed", from_id),
                     };
                 }
@@ -971,7 +971,7 @@ impl AuthzEngine {
                     && let Some(to_id) = ctx.to_container_id.as_deref()
                     && !allowed_to_container_refs.iter().any(|v| v == to_id)
                 {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: format!("to container '{}' not allowed", to_id),
                     };
                 }
@@ -979,11 +979,11 @@ impl AuthzEngine {
                     && let Some(over) = ctx.wip_over_limit
                     && over
                 {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: "WIP limit exceeded and override not granted".to_owned(),
                     };
                 }
-                AuthzDecision::Allow
+                EngineDecision::Allow
             }
             Constraint::ScopeLimitation {
                 allowed_flow_ids,
@@ -997,26 +997,26 @@ impl AuthzEngine {
             } => {
                 if let Resource::Flow { flow_id, .. } = &ctx.resource {
                     if denied_flow_ids.iter().any(|v| v == flow_id) {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!("flow '{}' is denied", flow_id),
                         };
                     }
                     if !allowed_flow_ids.is_empty()
                         && !allowed_flow_ids.iter().any(|v| v == flow_id)
                     {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!("flow '{}' not in allow list", flow_id),
                         };
                     }
                 }
                 if let Some(track) = ctx.flow_track.as_deref() {
                     if denied_tracks.iter().any(|b| b == track) {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!("track '{}' is denied", track),
                         };
                     }
                     if !allowed_tracks.is_empty() && !allowed_tracks.iter().any(|b| b == track) {
-                        return AuthzDecision::Deny {
+                        return EngineDecision::Deny {
                             reason: format!("track '{}' not in allow list", track),
                         };
                     }
@@ -1024,34 +1024,34 @@ impl AuthzEngine {
                 if let Resource::View { .. } = &ctx.resource {
                     if let Some(kind) = ctx.view_kind.as_deref() {
                         if denied_view_kinds.iter().any(|k| k == kind) {
-                            return AuthzDecision::Deny {
+                            return EngineDecision::Deny {
                                 reason: format!("view kind '{}' is denied", kind),
                             };
                         }
                         if !allowed_view_kinds.is_empty()
                             && !allowed_view_kinds.iter().any(|k| k == kind)
                         {
-                            return AuthzDecision::Deny {
+                            return EngineDecision::Deny {
                                 reason: format!("view kind '{}' not in allow list", kind),
                             };
                         }
                     }
                     if let Some(renderer) = ctx.view_renderer.as_deref() {
                         if denied_view_renderers.iter().any(|r| r == renderer) {
-                            return AuthzDecision::Deny {
+                            return EngineDecision::Deny {
                                 reason: format!("view renderer '{}' is denied", renderer),
                             };
                         }
                         if !allowed_view_renderers.is_empty()
                             && !allowed_view_renderers.iter().any(|r| r == renderer)
                         {
-                            return AuthzDecision::Deny {
+                            return EngineDecision::Deny {
                                 reason: format!("view renderer '{}' not in allow list", renderer),
                             };
                         }
                     }
                 }
-                AuthzDecision::Allow
+                EngineDecision::Allow
             }
             // CKP-0007: gate Circle-management actions on a static
             // allow-list of Circle ids baked into the grant body. The
@@ -1063,7 +1063,7 @@ impl AuthzEngine {
             // does not apply and silently passes.
             Constraint::AllowedCircleIds { allowed_circle_ids } => {
                 if allowed_circle_ids.is_empty() {
-                    return AuthzDecision::Deny {
+                    return EngineDecision::Deny {
                         reason: "allowed_circle_ids constraint requires a \
                                 non-empty allow list"
                             .to_owned(),
@@ -1072,9 +1072,9 @@ impl AuthzEngine {
                 match &ctx.circle_id {
                     Some(circle_id) => {
                         if allowed_circle_ids.contains(circle_id) {
-                            AuthzDecision::Allow
+                            EngineDecision::Allow
                         } else {
-                            AuthzDecision::Deny {
+                            EngineDecision::Deny {
                                 reason: format!(
                                     "circle '{}' not in allowed_circle_ids allow list",
                                     circle_id.as_ref()
@@ -1084,7 +1084,7 @@ impl AuthzEngine {
                     }
                     // Constraint is Circle-scoped — non-Circle-targeted
                     // operations are out of scope; pass through.
-                    None => AuthzDecision::Allow,
+                    None => EngineDecision::Allow,
                 }
             }
         }
@@ -1126,7 +1126,7 @@ impl AuthzEngine {
     fn cache_decision(
         &mut self,
         key: String,
-        decision: &AuthzDecision,
+        decision: &EngineDecision,
         ctx: &AuthzContext,
         grants: &[CapabilityGrant],
     ) {
@@ -1185,17 +1185,17 @@ impl Default for AuthzEngine {
 }
 
 pub fn apply_policy_response(
-    capability_decision: AuthzDecision,
+    capability_decision: EngineDecision,
     policy: &PolicyEvaluationResult,
-) -> AuthzDecision {
+) -> EngineDecision {
     match policy.effect {
         PolicyServerEffect::NoAction => capability_decision,
-        PolicyServerEffect::Deny => AuthzDecision::Deny { reason: policy.reason.clone() },
+        PolicyServerEffect::Deny => EngineDecision::Deny { reason: policy.reason.clone() },
         PolicyServerEffect::Quarantine => {
-            AuthzDecision::Quarantine { reason: policy.reason.clone() }
+            EngineDecision::Quarantine { reason: policy.reason.clone() }
         }
         PolicyServerEffect::RequireReview => {
-            AuthzDecision::RequireReview { reason: policy.reason.clone() }
+            EngineDecision::RequireReview { reason: policy.reason.clone() }
         }
     }
 }

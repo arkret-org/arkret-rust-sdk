@@ -44,19 +44,19 @@ impl PresenceManager {
 
     /// Get presence for a user.
     pub fn get(&self, user_id: &Did) -> Option<Presence> {
-        self.presence.read().unwrap().get(user_id.as_str()).cloned()
+        self.presence.read().unwrap_or_else(std::sync::PoisonError::into_inner).get(user_id.as_str()).cloned()
     }
 
     /// Set presence for a user.
     pub fn set(&self, presence: Presence) -> Result<()> {
         let user_id = presence.user_id.as_str().to_owned();
-        self.presence.write().unwrap().insert(user_id, presence);
+        self.presence.write().unwrap_or_else(std::sync::PoisonError::into_inner).insert(user_id, presence);
         Ok(())
     }
 
     /// Update presence status for a user.
     pub fn update_status(&self, user_id: &Did, status: PresenceStatus) -> Result<()> {
-        let mut presence_map = self.presence.write().unwrap();
+        let mut presence_map = self.presence.write().unwrap_or_else(std::sync::PoisonError::into_inner);
         let entry = presence_map.entry(user_id.as_str().to_owned()).or_insert_with(|| Presence {
             user_id: user_id.clone(),
             status: PresenceStatus::Offline,
@@ -84,7 +84,7 @@ impl PresenceManager {
     pub fn online_users(&self) -> Vec<Presence> {
         self.presence
             .read()
-            .unwrap()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .values()
             .filter(|p| p.status == PresenceStatus::Online)
             .cloned()
@@ -108,7 +108,7 @@ impl PresenceManager {
     /// Callers SHOULD invoke this on a tick (e.g. every 60 s) — the
     /// SDK does not spawn its own background task.
     pub fn expire_idle_presence(&self, now: DateTime<Utc>, ttl: chrono::Duration) -> usize {
-        let mut map = self.presence.write().unwrap();
+        let mut map = self.presence.write().unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut flipped = 0;
         for entry in map.values_mut() {
             if entry.status == PresenceStatus::Offline {
@@ -128,17 +128,17 @@ impl PresenceManager {
 
     /// Get all users with a specific status.
     pub fn users_with_status(&self, status: PresenceStatus) -> Vec<Presence> {
-        self.presence.read().unwrap().values().filter(|p| p.status == status).cloned().collect()
+        self.presence.read().unwrap_or_else(std::sync::PoisonError::into_inner).values().filter(|p| p.status == status).cloned().collect()
     }
 
     /// Get all presence data.
     pub fn all(&self) -> BTreeMap<String, Presence> {
-        self.presence.read().unwrap().clone()
+        self.presence.read().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
     }
 
     /// Clear all presence data.
     pub fn clear(&self) -> Result<()> {
-        self.presence.write().unwrap().clear();
+        self.presence.write().unwrap_or_else(std::sync::PoisonError::into_inner).clear();
         Ok(())
     }
 }

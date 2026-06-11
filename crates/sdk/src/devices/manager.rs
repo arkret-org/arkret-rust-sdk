@@ -1,4 +1,3 @@
-use super::backup::validate_key_backup_payload;
 use super::*;
 
 /// In-memory device manager.
@@ -7,7 +6,6 @@ pub struct DeviceManager {
     devices: BTreeMap<Did, BTreeMap<DeviceId, Device>>,
     changes: Vec<DeviceChange>,
     to_device_queue: VecDeque<ToDeviceEnvelope>,
-    key_backups: BTreeMap<String, KeyBackup>,
     protocol_device_messages: VecDeque<ProtocolDeviceMessageEnvelope>,
     protocol_key_backups: BTreeMap<String, ProtocolKeyBackup>,
     verification_challenges: BTreeMap<String, DeviceVerificationChallenge>,
@@ -436,72 +434,6 @@ impl DeviceManager {
             ));
         }
         self.verify_device(user_id, target_device_id, Some(target_binding))
-    }
-
-    /// Upload or replace a key backup.
-    pub fn upload_key_backup(
-        &mut self,
-        version: impl Into<String>,
-        algorithm: impl Into<String>,
-        payload: Value,
-    ) -> KeyBackup {
-        self.upload_authenticated_key_backup(version, algorithm, payload, None, None)
-    }
-
-    /// Upload a key backup with sender identity and optional rotation link.
-    pub fn upload_authenticated_key_backup(
-        &mut self,
-        version: impl Into<String>,
-        algorithm: impl Into<String>,
-        payload: Value,
-        sender: Option<Did>,
-        previous_version: Option<String>,
-    ) -> KeyBackup {
-        let payload_sha256 = canonical::canonical_sha256(&payload)
-            .unwrap_or_else(|_| format!("sha256:{:x}", Sha256::digest(payload.to_string())));
-        let backup = KeyBackup {
-            version: version.into(),
-            algorithm: algorithm.into(),
-            sender,
-            previous_version,
-            payload_sha256,
-            payload,
-            uploaded_at: Utc::now(),
-        };
-        self.key_backups.insert(backup.version.clone(), backup.clone());
-        backup
-    }
-
-    /// Download a key backup by version.
-    pub fn download_key_backup(&self, version: &str) -> Option<&KeyBackup> {
-        self.key_backups.get(version)
-    }
-
-    /// Restore a key backup payload.
-    pub fn restore_key_backup(&self, version: &str) -> Result<Value> {
-        let backup = self
-            .key_backups
-            .get(version)
-            .ok_or_else(|| Error::Protocol("key backup not found".to_owned()))?;
-        validate_key_backup_payload(backup)?;
-        Ok(backup.payload.clone())
-    }
-
-    /// Restore a key backup only if it was uploaded by the expected sender.
-    pub fn restore_key_backup_from_sender(
-        &self,
-        version: &str,
-        expected_sender: &Did,
-    ) -> Result<Value> {
-        let backup = self
-            .key_backups
-            .get(version)
-            .ok_or_else(|| Error::Protocol("key backup not found".to_owned()))?;
-        validate_key_backup_payload(backup)?;
-        if backup.sender.as_ref() != Some(expected_sender) {
-            return Err(Error::Protocol("key backup sender mismatch".to_owned()));
-        }
-        Ok(backup.payload.clone())
     }
 
     /// Store a schema-aligned encrypted key backup scaffold.

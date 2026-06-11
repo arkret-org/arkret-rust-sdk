@@ -66,7 +66,7 @@ impl IdempotencyWindow {
     ) -> IdempotencyDecision {
         let key = (source_service_did.to_owned(), idempotency_key.to_owned());
         let now = Instant::now();
-        let inner = self.inner.lock().expect("idempotency window poisoned");
+        let inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         match inner.get(&key) {
             None => IdempotencyDecision::Fresh,
             Some(entry) if now.saturating_duration_since(entry.first_seen) > self.window => {
@@ -90,7 +90,7 @@ impl IdempotencyWindow {
         body_canonical_hash: Hash,
     ) {
         let key = (source_service_did.to_owned(), idempotency_key.to_owned());
-        let mut inner = self.inner.lock().expect("idempotency window poisoned");
+        let mut inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         inner.entry(key).or_insert(IdempotencyEntry {
             body_hash: body_canonical_hash,
             first_seen: Instant::now(),
@@ -101,14 +101,14 @@ impl IdempotencyWindow {
     /// background timer; safe to skip in test scenarios.
     pub fn gc(&self) {
         let now = Instant::now();
-        let mut inner = self.inner.lock().expect("idempotency window poisoned");
+        let mut inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         inner.retain(|_, entry| now.saturating_duration_since(entry.first_seen) <= self.window);
     }
 
     /// Current entry count. Test-only helper.
     #[cfg(test)]
     pub fn len(&self) -> usize {
-        self.inner.lock().expect("idempotency window poisoned").len()
+        self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner).len()
     }
 
     /// Whether the window has zero recorded entries. Test-only
@@ -116,7 +116,7 @@ impl IdempotencyWindow {
     /// `clippy::len_without_is_empty`.
     #[cfg(test)]
     pub fn is_empty(&self) -> bool {
-        self.inner.lock().expect("idempotency window poisoned").is_empty()
+        self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty()
     }
 }
 

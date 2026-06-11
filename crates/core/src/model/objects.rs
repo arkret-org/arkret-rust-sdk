@@ -6,10 +6,17 @@ use super::*;
 // `parent_space_id` / `rank`; spec space.schema.json).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+// Field declaration order mirrors `realm.schema.json` properties order
+// (`id, schema, title, summary, security_class, trust_domain, …`); local
+// non-schema fields (`labels` / `metadata` / `extra`) trail the cluster.
 pub struct Realm {
-    pub schema: String,
     pub id: RealmId,
+    pub schema: String,
     pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub security_class: Option<SecurityClass>,
     /// Round 4 (2026-05-20, spec a77b995) — REQUIRED trust domain binding.
     /// Captured at create time (`ck.realm.create`) and immutable; any
     /// later event whose `trust_domain` mismatches MUST be rejected with
@@ -19,13 +26,13 @@ pub struct Realm {
     /// `Realm` is the security-boundary type; the container surface is
     /// `Space`.
     pub trust_domain: TypedTrustDomainId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub summary: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub security_class: Option<SecurityClass>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub owning_organizations: Vec<Did>,
     pub schema_refs: Vec<String>,
+    /// Per-relation_kind cardinality declarations enforced by the resolver.
+    /// Empty means every relation kind is many-to-many.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub relation_profiles: Vec<RelationProfile>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub policy_id: Option<PolicyId>,
     pub default_discoverability: Discoverability,
@@ -38,27 +45,6 @@ pub struct Realm {
     pub metadata_encryption_floor: Option<EncryptionFloor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retention_policy_id: Option<PolicyId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub avatar_blob_ref: Option<BlobRef>,
-    /// Spec rename (head 37ce729): `created_by_principal` → `created_by`.
-    ///
-    /// Declaration order mirrors `spec/v1/artifacts/schemas/realm.schema.json`
-    /// (common-fields §3.2): `created_by` lives in the trailing audit cluster
-    /// `… avatar_blob_ref, created_by, created_at, updated_by, updated_at`.
-    pub created_by: Did,
-    pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub labels: Vec<String>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub metadata: BTreeMap<String, Value>,
-    /// Per-relation_kind cardinality declarations enforced by the resolver.
-    /// Empty means every relation kind is many-to-many.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub relation_profiles: Vec<RelationProfile>,
     /// Anchor profile (data-structures.md §4 — Move/Anchor/Lattice). Hub /
     /// threshold / open-set / mixed deployment shape. `None` means "use the
     /// `anchorer` cell value's runtime shape" (recommended default; the
@@ -91,6 +77,23 @@ pub struct Realm {
     /// `deterministic_order` for hub, `causal_only` for threshold).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub co_write_policy: Option<CoWritePolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retention_policy_id: Option<PolicyId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+    /// Spec rename (head 37ce729): `created_by_principal` → `created_by`.
+    ///
+    /// Declaration order mirrors `spec/v1/artifacts/schemas/realm.schema.json`
+    /// (common-fields §3.2): `created_by` lives in the trailing audit cluster
+    /// `… avatar_blob_ref, created_by, created_at, updated_by, updated_at`.
+    pub created_by: Did,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, Value>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
@@ -162,16 +165,17 @@ impl Realm {
         trust_domain: TypedTrustDomainId,
     ) -> Self {
         Self {
+            id,
             // `Realm` is the security-boundary type, so it serializes the
             // Realm schema id, not the container Space id.
             schema: REALM_SCHEMA_ID.to_owned(),
-            id,
             title: title.into(),
-            trust_domain,
             summary: None,
             security_class: None,
+            trust_domain,
             owning_organizations: Vec::new(),
             schema_refs: vec![CORE_SCHEMA_PROFILE.to_owned()],
+            relation_profiles: Vec::new(),
             policy_id: None,
             default_discoverability: Discoverability::InviteOnly,
             default_join_rule: JoinRule::Invite,
@@ -180,6 +184,11 @@ impl Realm {
             content_encryption_floor: Some(EncryptionFloor::AllowPlaintext),
             metadata_encryption_floor: Some(EncryptionFloor::AllowPlaintext),
             federation_policy: None,
+            anchor_profile: None,
+            anchorer: None,
+            max_anchor_staleness_ms: None,
+            cell_lattices: Vec::new(),
+            co_write_policy: None,
             retention_policy_id: None,
             avatar_blob_ref: None,
             created_by,
@@ -187,12 +196,6 @@ impl Realm {
             updated_at: None,
             labels: Vec::new(),
             metadata: BTreeMap::new(),
-            relation_profiles: Vec::new(),
-            anchor_profile: None,
-            anchorer: None,
-            max_anchor_staleness_ms: None,
-            cell_lattices: Vec::new(),
-            co_write_policy: None,
             extra: BTreeMap::new(),
         }
     }

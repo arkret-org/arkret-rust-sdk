@@ -55,8 +55,9 @@ tracing = { version = "0.1.41", default-features = false, features = ["std", "at
 unicode-normalization = { version = "0.1.24", default-features = false, features = ["std"] }
 url = { version = "2.5.7", default-features = false }
 # Platform KeyStore native backends. Each is brought in only by its target
-# OS via per-target [target.<cfg>.dependencies] in `crates/core/Cargo.toml`,
-# behind the matching `keystore-*` feature gate. They appear here so the
+# OS via per-target [target.<cfg>.dependencies] in `crates/keystore/Cargo.toml`,
+# behind the matching `keystore-*` feature gate (cokret-core only carries the
+# platform-free KeyStore trait + InMemoryKeyStore). They appear here so the
 # version pin lives in one place.
 security-framework = { version = "3.5.0", default-features = false }
 secret-service = { version = "5.0.1", default-features = false, features = ["rt-tokio-crypto-rust"] }

@@ -57,7 +57,7 @@ pub use cursor::{Cursor, CursorPurpose, CursorTarget, RealmPosition, SyncPositio
 pub use error::{
     ERROR_CODE_AAD_DIGEST_MISMATCH, ERROR_CODE_ACCEPT_POLICY_DENIED,
     ERROR_CODE_ANCHORER_RECOVERY_MISSING, ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT,
-    ERROR_CODE_APPEAL_SELF_REVIEW_FORBIDDEN, ERROR_CODE_AUDIT_AGENT_ATTESTATION_MISMATCH,
+    ERROR_CODE_APPEAL_SELF_REVIEW_FORBIDDEN,
     ERROR_CODE_AUDIT_PURPOSE_MISMATCH, ERROR_CODE_AUDIT_RECEIPT_INVALIDATED,
     ERROR_CODE_AUTH_EXPIRED, ERROR_CODE_AUTHORIZED_GRANT_REVOKED, ERROR_CODE_BAD_JSON,
     ERROR_CODE_BAD_QUERY, ERROR_CODE_BLOB_REDACTED, ERROR_CODE_CAPABILITY_DENIED,
@@ -103,14 +103,14 @@ pub use forbidden_wire_fields::{
 pub use generated::profiles::{PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role};
 pub use http::*;
 pub use identifiers::{
-    AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentInteropSessionId, AgentKeyId,
-    AnchorId, AnnounceId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId,
-    CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, DeviceId, DeviceMessageId, Did,
-    EventId, FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
-    MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId, PolicyId,
-    PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
-    RequestId, SidecarCircleId, SnapshotId, SpaceId, TransactionId, TypedAppealId,
-    TypedTrustDomainId, ViewId,
+    ActorProfileId, AgentInteropSessionId, AnchorId, AnnounceId, AppletId, AttestationId,
+    AuditBindingId, AuditReleaseId, AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId,
+    BlobRef, BlockId, CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, DeviceId,
+    DeviceMessageId, Did, EventId, FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc,
+    InviteId, KeyEventId, MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId,
+    OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId,
+    RelationId, ReportId, RequestId, RtcParticipantId, SnapshotId, SpaceId, TransactionId,
+    TypedAppealId, TypedTrustDomainId, ViewId,
 };
 pub use keystore::{InMemoryKeyStore, KeyStore, KeyStoreError};
 pub use model::*;

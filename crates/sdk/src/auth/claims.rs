@@ -193,8 +193,12 @@ pub struct ClaimDisclosureRequirement {
 }
 
 /// Policy describing the minimum claims to disclose for a flow.
+///
+/// Named `ClaimDisclosurePolicy` (not `DisclosurePolicy`) to avoid
+/// colliding with the unrelated invite tiered-disclosure
+/// `model::DisclosurePolicy` re-exported at the umbrella crate root.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DisclosurePolicy {
+pub struct ClaimDisclosurePolicy {
     pub policy_id: String,
     pub requirements: Vec<ClaimDisclosureRequirement>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -205,12 +209,12 @@ pub struct DisclosurePolicy {
 
 /// Presentation request sent to a wallet or identity provider.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PresentationReqBody {
+pub struct PresentationRequestBody {
     pub request_id: String,
     pub subject: Did,
     pub audience: String,
     pub nonce: String,
-    pub policy: DisclosurePolicy,
+    pub policy: ClaimDisclosurePolicy,
     pub created_at: DateTime<Utc>,
     /// Verifier DID requesting the disclosure
     /// (`progressive-disclosure.md` §4). Wallets MUST authenticate this
@@ -245,7 +249,7 @@ pub struct VerifierAuthorityLink {
     pub expires_at: DateTime<Utc>,
 }
 
-impl PresentationReqBody {
+impl PresentationRequestBody {
     /// Validate the verifier authority chain per
     /// `progressive-disclosure.md` §4.
     ///
@@ -339,7 +343,7 @@ impl DisclosureProofAdapterBoundary {
     /// Validate request binding before delegating to a format-specific verifier.
     pub fn validate_request_binding(
         &self,
-        request: &PresentationReqBody,
+        request: &PresentationRequestBody,
         expected_domain: Option<&str>,
     ) -> Result<()> {
         if self.holder != request.subject {
@@ -380,7 +384,7 @@ pub struct PresentationValidation {
 
 /// Validate claims against issuer trust, subject, expiry, revocation and disclosure policy.
 pub fn validate_presentation(
-    request: &PresentationReqBody,
+    request: &PresentationRequestBody,
     claims: &[PresentedClaim],
     revoked_claim_ids: &BTreeSet<String>,
     now: DateTime<Utc>,
@@ -442,7 +446,7 @@ pub fn validate_presentation(
 /// supplies the format-specific cryptographic verifier for SD-JWT, BBS, or a
 /// deployment-specific proof format.
 pub fn verify_presentation_with_adapter<F>(
-    request: &PresentationReqBody,
+    request: &PresentationRequestBody,
     proof: &DisclosureProofAdapterBoundary,
     claims: &[PresentedClaim],
     revoked_claim_ids: &BTreeSet<String>,

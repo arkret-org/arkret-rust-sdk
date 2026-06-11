@@ -51,7 +51,7 @@ impl fmt::Debug for PasswordUser {
 
 /// OIDC authorization request metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OidcAuthReqBody {
+pub struct OidcAuthRequestBody {
     pub issuer: String,
     pub client_id: String,
     pub redirect_uri: String,
@@ -116,7 +116,7 @@ impl fmt::Debug for AccountRecoveryMethod {
 
 /// Account recovery request tracked by the auth layer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AccountRecoveryReqBody {
+pub struct AccountRecoveryRequestBody {
     pub request_id: String,
     pub user_id: Did,
     pub method: AccountRecoveryMethod,
@@ -187,7 +187,7 @@ pub struct AuthStateSnapshot {
     pub account_states: BTreeMap<Did, AccountAuthState>,
     pub refresh_tokens: BTreeMap<String, RefreshTokenMetadata>,
     pub revoked_sessions: BTreeMap<String, SessionRevocation>,
-    pub recovery_requests: BTreeMap<String, AccountRecoveryReqBody>,
+    pub recovery_requests: BTreeMap<String, AccountRecoveryRequestBody>,
 }
 
 /// Session-to-DID principal binding.

@@ -294,7 +294,7 @@ pub struct DidWebResolver {
 
 /// Host-fetched `did:web` document response validated by the SDK.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DidWebDocumentResBody {
+pub struct DidWebDocumentOutcome {
     pub url: String,
     pub content_type: String,
     pub body: Vec<u8>,
@@ -326,7 +326,7 @@ impl DidWebResolver {
     pub fn insert_from_https_response(
         &mut self,
         did: &Did,
-        response: DidWebDocumentResBody,
+        response: DidWebDocumentOutcome,
     ) -> Result<DidDocument> {
         let expected_url = Self::document_url(did)?;
         if response.url != expected_url {
@@ -400,9 +400,9 @@ pub struct DidWebvhLogEntry {
 }
 
 /// Bytes returned from fetching `did.json` over HTTPS, mirroring
-/// [`DidWebDocumentResBody`].
+/// [`DidWebDocumentOutcome`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DidWebvhDocumentResBody {
+pub struct DidWebvhDocumentOutcome {
     pub url: String,
     pub content_type: String,
     pub body: Vec<u8>,
@@ -410,7 +410,7 @@ pub struct DidWebvhDocumentResBody {
 
 /// Bytes returned from fetching `did.jsonl` over HTTPS.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DidWebvhLogResBody {
+pub struct DidWebvhLogOutcome {
     pub url: String,
     pub content_type: String,
     pub body: Vec<u8>,
@@ -437,7 +437,7 @@ impl DidWebvhResolver {
     pub fn insert_from_https_response(
         &mut self,
         did: &Did,
-        response: DidWebvhDocumentResBody,
+        response: DidWebvhDocumentOutcome,
     ) -> Result<DidDocument> {
         let expected_url = Self::document_url(did)?;
         if response.url != expected_url {
@@ -463,7 +463,7 @@ impl DidWebvhResolver {
     pub fn ingest_log(
         &mut self,
         did: &Did,
-        response: DidWebvhLogResBody,
+        response: DidWebvhLogOutcome,
     ) -> Result<Vec<DidWebvhLogEntry>> {
         let expected_url = Self::log_url(did)?;
         if response.url != expected_url {
@@ -1080,7 +1080,7 @@ impl<R: DidResolver> CachingDidResolver<R> {
 
     /// 当前缓存条目数(惰性逐出之外的即时计数)。
     pub fn len(&self) -> usize {
-        self.state.lock().expect("cache mutex poisoned").entries.len()
+        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).entries.len()
     }
 
     /// 缓存是否为空。
@@ -1090,12 +1090,12 @@ impl<R: DidResolver> CachingDidResolver<R> {
 
     /// 丢弃某个 DID 的缓存(例如收到吊销 / 轮换事件时)。
     pub fn invalidate(&self, did: &Did) {
-        self.state.lock().expect("cache mutex poisoned").entries.remove(did.as_str());
+        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).entries.remove(did.as_str());
     }
 
     /// 清空全部缓存。
     pub fn clear(&self) {
-        self.state.lock().expect("cache mutex poisoned").entries.clear();
+        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).entries.clear();
     }
 
     /// 依据 `policy.ttl` 计算 `expires_at`。`ttl == None` 表示禁用缓存,
@@ -1124,7 +1124,7 @@ impl<R: DidResolver> CachingDidResolver<R> {
 
         // 1. 命中且新鲜(此处用 peek,不删除过期项,以便步骤 2 的
         //    stale 回退仍能读到过期条目)。
-        if let Some(entry) = self.state.lock().expect("cache mutex poisoned").peek_fresh(&key, now)
+        if let Some(entry) = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).peek_fresh(&key, now)
         {
             return Ok((entry.document, Freshness::Fresh));
         }
@@ -1134,14 +1134,14 @@ impl<R: DidResolver> CachingDidResolver<R> {
             Ok(document) => {
                 let expires_at = self.expires_at(now);
                 let entry = CachedResolution::new(document.clone(), now, expires_at)?;
-                self.state.lock().expect("cache mutex poisoned").insert(key, entry);
+                self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(key, entry);
                 Ok((document, Freshness::Missing))
             }
             Err(err) => {
                 // 仅在 AllowCachedOnError 下回退到过期缓存。
                 if self.policy.fail_mode == ResolverFailMode::AllowCachedOnError {
                     let stale =
-                        self.state.lock().expect("cache mutex poisoned").entries.get(&key).cloned();
+                        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).entries.get(&key).cloned();
                     if let Some(entry) = stale {
                         let freshness = entry.freshness_at(now);
                         return Ok((entry.document, freshness));
@@ -1162,14 +1162,14 @@ impl<R: DidResolver> DidResolver for CachingDidResolver<R> {
         let now = Utc::now();
         let key = did.as_str().to_owned();
 
-        if let Some(entry) = self.state.lock().expect("cache mutex poisoned").get_fresh(&key, now) {
+        if let Some(entry) = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get_fresh(&key, now) {
             return Ok(entry.document);
         }
 
         let document = self.inner.resolve_did(did)?;
         let expires_at = self.expires_at(now);
         let entry = CachedResolution::new(document.clone(), now, expires_at)?;
-        self.state.lock().expect("cache mutex poisoned").insert(key, entry);
+        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(key, entry);
         Ok(document)
     }
 }

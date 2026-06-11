@@ -255,7 +255,13 @@ where
     if controller != &context.actor_id {
         return Err(Error::Protocol("proof verification method controller mismatch".to_owned()));
     }
-    Ok(SignatureVerification { valid: verify_jws(&method, proof)?, warnings: Vec::new() })
+    // Fail closed: an invalid JWS is an `Err`, never `Ok(valid: false)`.
+    // A `verify_proof_with_resolver(...)?` call site therefore cannot
+    // silently accept a proof whose signature did not verify.
+    if !verify_jws(&method, proof)? {
+        return Err(Error::Protocol("proof signature verification failed".to_owned()));
+    }
+    Ok(SignatureVerification { valid: true, warnings: Vec::new() })
 }
 
 fn audience_contains_service(audience: Option<&Audience>, service_did: &Did) -> bool {
@@ -268,6 +274,11 @@ fn audience_contains_service(audience: Option<&Audience>, service_did: &Did) -> 
     }
 }
 
+/// Success-shaped verification outcome. [`verify_proof_with_resolver`]
+/// only ever returns this with `valid == true` — every failed check
+/// (binding, replay window, resolver, JWS) surfaces as `Err` so callers
+/// cannot fail open by ignoring the `valid` field.
+#[must_use = "check `valid` (and `warnings`) — dropping the result silently accepts the proof"]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignatureVerification {
     pub valid: bool,
@@ -371,6 +382,12 @@ mod tests {
         })
         .unwrap();
         assert!(verified.valid);
+
+        // Fail closed: an invalid JWS surfaces as Err, never Ok(valid: false).
+        assert!(matches!(
+            verify_proof_with_resolver(&proof, &context, &resolver, |_, _| Ok(false)),
+            Err(Error::Protocol(_))
+        ));
 
         let mut stale = context;
         stale.now = proof.created_at + Duration::minutes(10);

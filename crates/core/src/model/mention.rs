@@ -19,15 +19,15 @@ pub struct Mention {
     /// participates in actor attribution, authorization, resolution and
     /// render lookup.
     pub subject_id: Did,
+    /// Snapshot of the subject's display name at compose time. Persistent
+    /// snapshot semantics (anti-impersonation guard).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name_at_time: Option<String>,
     /// Snapshot of the canonical `<localpart>:<domain>` handle at compose
     /// time. Audit / search / fallback metadata only; MUST NOT be used as
     /// the current display handle.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handle_at_time: Option<Handle>,
-    /// Snapshot of the subject's display name at compose time. Persistent
-    /// snapshot semantics (anti-impersonation guard).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name_at_time: Option<String>,
     /// Original string the user typed (e.g. `@alice:acme.com`). Audit /
     /// search-index use only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -138,8 +138,8 @@ impl Mention {
     pub fn new(subject_id: Did) -> Self {
         Self {
             subject_id,
-            handle_at_time: None,
             display_name_at_time: None,
+            handle_at_time: None,
             mention_text_original: None,
             resolved_at: None,
         }

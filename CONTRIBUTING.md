@@ -63,6 +63,24 @@ Wire shape ownership is strict:
   `RelationKind`, `ViewKind`, `Facet`, `EncryptionProfile`, `SecurityClass`,
   or `HistoryVisibility`; add local behavior with traits or newtypes.
 
+## Naming Conventions
+
+Request/response DTO suffixes are unified workspace-wide (no legacy aliases):
+
+- Endpoint request bodies use `*RequestBody` (e.g. `SyncRequestBody`,
+  `AccountRegisterRequestBody`). Do not introduce new `*ReqBody` names.
+- Endpoint success responses use `*Outcome` (e.g. `EventsQueryOutcome`,
+  `NotificationCountsOutcome`). Do not introduce new `*ResBody` or
+  `*Response` names.
+- Path/query/header parameter groups use `*Params` / `*Args`.
+- Struct field declaration order for wire objects follows the matching spec
+  schema `properties` order (`spec/v1/artifacts/schemas/*.schema.json`,
+  typically `id, schema, …`); local non-schema fields trail the
+  schema-ordered cluster.
+- Avoid reusing a core wire type name for an unrelated SDK-internal concept;
+  qualify the narrower type (e.g. `ClaimDisclosurePolicy`,
+  `MemberIdentityLattice`, `EngineDecision`).
+
 ## Commit Messages
 
 Use Conventional Commits:

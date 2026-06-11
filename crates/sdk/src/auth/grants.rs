@@ -236,7 +236,7 @@ impl PrincipalSessionGrantNotification {
 
 /// Principal Server response for a session grant notification.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PrincipalSessionGrantNotificationResBody {
+pub struct PrincipalSessionGrantNotificationOutcome {
     pub accepted: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audit_id: Option<String>,
@@ -507,17 +507,17 @@ pub trait PrincipalSessionGrantNotifier {
     fn notify_session_grant(
         &self,
         notification: &PrincipalSessionGrantNotification,
-    ) -> Result<PrincipalSessionGrantNotificationResBody>;
+    ) -> Result<PrincipalSessionGrantNotificationOutcome>;
 }
 
 impl<F> PrincipalSessionGrantNotifier for F
 where
-    F: Fn(&PrincipalSessionGrantNotification) -> Result<PrincipalSessionGrantNotificationResBody>,
+    F: Fn(&PrincipalSessionGrantNotification) -> Result<PrincipalSessionGrantNotificationOutcome>,
 {
     fn notify_session_grant(
         &self,
         notification: &PrincipalSessionGrantNotification,
-    ) -> Result<PrincipalSessionGrantNotificationResBody> {
+    ) -> Result<PrincipalSessionGrantNotificationOutcome> {
         self(notification)
     }
 }

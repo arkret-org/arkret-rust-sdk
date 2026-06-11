@@ -47,14 +47,17 @@ pub struct EndpointCoverageRow {
     pub response_schema: String,
 }
 
+/// Catalog coverage report over endpoints / event vectors / state vectors.
+/// Named `EndpointCoverageReport` (not `ConformanceReport`) to avoid
+/// colliding with the wire object `cokret_core::model::ConformanceReport`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ConformanceReport {
+pub struct EndpointCoverageReport {
     pub rows: Vec<EndpointCoverageRow>,
     pub event_vectors: Vec<EventTaxonomyVector>,
     pub state_vectors: Vec<StateResolutionVector>,
 }
 
-impl ConformanceReport {
+impl EndpointCoverageReport {
     pub fn covers_domain(&self, domain: ConformanceDomain) -> bool {
         self.rows.iter().any(|row| row.domain == domain)
             || self.event_vectors.iter().any(|_| domain == ConformanceDomain::Events)
@@ -134,8 +137,8 @@ pub struct SyncVector {
     pub expects_filter_digest_mismatch: bool,
 }
 
-pub fn conformance_report() -> Result<ConformanceReport> {
-    Ok(ConformanceReport {
+pub fn conformance_report() -> Result<EndpointCoverageReport> {
+    Ok(EndpointCoverageReport {
         rows: endpoint_coverage_rows(),
         event_vectors: event_taxonomy_vectors()?,
         state_vectors: state_resolution_vectors()?,
@@ -264,7 +267,7 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
             method: "CONTRACT".to_owned(),
             path: format!("cokret-core://operations/{operation_id}"),
             request_schema: "OperationInput".to_owned(),
-            response_schema: "OperationResBody".to_owned(),
+            response_schema: "OperationOutcome".to_owned(),
         }
     }));
     // Product client-API coverage rows were previously derived from the
@@ -647,7 +650,7 @@ fn build_anchor(
     Ok(a)
 }
 
-pub fn domain_counts(report: &ConformanceReport) -> BTreeMap<ConformanceDomain, usize> {
+pub fn domain_counts(report: &EndpointCoverageReport) -> BTreeMap<ConformanceDomain, usize> {
     let mut counts = BTreeMap::new();
     for row in &report.rows {
         *counts.entry(row.domain.clone()).or_default() += 1;

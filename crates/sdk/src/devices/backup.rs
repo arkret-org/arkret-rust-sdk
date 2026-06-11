@@ -4,27 +4,6 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
-/// Key backup record.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct KeyBackup {
-    /// Backup version.
-    pub version: String,
-    /// Backup algorithm.
-    pub algorithm: String,
-    /// Sender that uploaded the backup.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sender: Option<Did>,
-    /// Previous version, if this backup rotates a prior one.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub previous_version: Option<String>,
-    /// Opaque encrypted backup payload.
-    pub payload: Value,
-    /// Canonical payload digest.
-    pub payload_sha256: String,
-    /// Upload time.
-    pub uploaded_at: DateTime<Utc>,
-}
-
 /// Schema-aligned encrypted key backup class
 /// (`key-management.md` §7.1–§7.2).
 ///
@@ -257,14 +236,4 @@ pub struct ProtocolKeyBackup {
     pub auth_data: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retention: Option<Value>,
-}
-
-pub(super) fn validate_key_backup_payload(backup: &KeyBackup) -> Result<()> {
-    let actual = canonical::canonical_sha256(&backup.payload)
-        .unwrap_or_else(|_| format!("sha256:{:x}", Sha256::digest(backup.payload.to_string())));
-    if actual == backup.payload_sha256 {
-        Ok(())
-    } else {
-        Err(Error::Protocol("key backup payload digest mismatch".to_owned()))
-    }
 }

@@ -95,8 +95,19 @@ mod salvo_router {
             .push(Router::with_path("protocols/{protocol}").get(protocol_handler)))
     }
 
-    fn service() -> &'static AppletService {
-        SERVICE.get().expect("applet_server::router not installed before request dispatch")
+    /// Read the installed service. Returns `None` (rendered as 503 by
+    /// the handlers) instead of panicking when a request is dispatched
+    /// before [`router`] ran — a library must not turn a wiring race
+    /// into a process abort.
+    fn service(res: &mut Response) -> Option<&'static AppletService> {
+        let service = SERVICE.get();
+        if service.is_none() {
+            res.render(
+                StatusError::service_unavailable()
+                    .brief("applet_server::router not installed before request dispatch"),
+            );
+        }
+        service
     }
 
     fn into_status_error(err: crate::Error) -> StatusError {
@@ -105,7 +116,8 @@ mod salvo_router {
 
     #[handler]
     async fn ping_handler(res: &mut Response) {
-        match service().handler.ping() {
+        let Some(service) = service(res) else { return };
+        match service.handler.ping() {
             Ok(body) => res.render(Json(body)),
             Err(err) => res.render(into_status_error(err)),
         }
@@ -113,7 +125,8 @@ mod salvo_router {
 
     #[handler]
     async fn describe_handler(res: &mut Response) {
-        match service().handler.describe() {
+        let Some(service) = service(res) else { return };
+        match service.handler.describe() {
             Ok(body) => res.render(Json(body)),
             Err(err) => res.render(into_status_error(err)),
         }
@@ -132,7 +145,8 @@ mod salvo_router {
                 return;
             }
         };
-        match service().handler.handle_transaction(idempotency_key.as_deref(), body) {
+        let Some(service) = service(res) else { return };
+        match service.handler.handle_transaction(idempotency_key.as_deref(), body) {
             Ok(body) => res.render(Json(body)),
             Err(err) => res.render(into_status_error(err)),
         }
@@ -141,7 +155,8 @@ mod salvo_router {
     #[handler]
     async fn actor_handler(req: &mut Request, res: &mut Response) {
         let actor_id = req.param::<String>("actor_id").unwrap_or_default();
-        match service().handler.resolve_actor(&actor_id) {
+        let Some(service) = service(res) else { return };
+        match service.handler.resolve_actor(&actor_id) {
             Ok(body) => res.render(Json(body)),
             Err(err) => res.render(into_status_error(err)),
         }
@@ -150,7 +165,8 @@ mod salvo_router {
     #[handler]
     async fn realm_handler(req: &mut Request, res: &mut Response) {
         let realm = req.param::<String>("realm_id_or_alias").unwrap_or_default();
-        match service().handler.resolve_realm(&realm) {
+        let Some(service) = service(res) else { return };
+        match service.handler.resolve_realm(&realm) {
             Ok(body) => res.render(Json(body)),
             Err(err) => res.render(into_status_error(err)),
         }
@@ -159,7 +175,8 @@ mod salvo_router {
     #[handler]
     async fn protocol_handler(req: &mut Request, res: &mut Response) {
         let protocol = req.param::<String>("protocol").unwrap_or_default();
-        match service().handler.resolve_protocol(&protocol) {
+        let Some(service) = service(res) else { return };
+        match service.handler.resolve_protocol(&protocol) {
             Ok(body) => res.render(Json(body)),
             Err(err) => res.render(into_status_error(err)),
         }

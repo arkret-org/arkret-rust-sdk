@@ -20,6 +20,9 @@ pub const POLICY_SCHEMA: &str = "ck.schema.policy.v1";
 pub const CAPABILITY_SCHEMA: &str = "ck.schema.capability.v1";
 pub const INVITE_SCHEMA: &str = "ck.schema.invite.v1";
 pub const READ_CURSOR_SCHEMA: &str = "ck.schema.read_cursor.v1";
+pub const READ_RECEIPT_SCHEMA: &str = "ck.schema.read_receipt.v1";
+/// `receipt_type` const value of `read-receipt.schema.json`.
+pub const READ_RECEIPT_TYPE: &str = "read";
 pub const NOTIFICATION_SCHEMA: &str = "ck.schema.notification.v1";
 /// SDK-local operation draft schema marker.
 ///
@@ -444,7 +447,11 @@ pub const OP_KEYS_KEYPACKAGES_CONSUME: &str = "ck.self.keys.keypackages.consume"
 pub const OP_KEYS_KEYPACKAGES_REVOKE: &str = "ck.self.keys.keypackages.revoke";
 pub const OP_KEYS_BACKUPS_PUT: &str = "ck.self.keys.backups.put";
 pub const OP_KEYS_BACKUPS_LIST: &str = "ck.self.keys.backups.list";
-pub const OP_KEYS_BACKUPS_GET: &str = "ck.self.keys.backups.get";
+// Renamed from `ck.self.keys.backups.get` on 2026-06-11
+// (artifacts/migration/renames.json): backup retrieval is rebound to
+// `POST /_cokret/self/keys/backups/{backup_id}/unlock` with a body-borne
+// unlock proof.
+pub const OP_KEYS_BACKUPS_UNLOCK: &str = "ck.self.keys.backups.unlock";
 pub const OP_KEYS_BACKUPS_DELETE: &str = "ck.self.keys.backups.delete";
 
 /// Authorization check.
@@ -813,9 +820,9 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_IDENTITY_RESOLVE,
     OP_IDENTITY_SUBMIT_DID_OPERATION,
     OP_KEYS_BACKUPS_DELETE,
-    OP_KEYS_BACKUPS_GET,
     OP_KEYS_BACKUPS_LIST,
     OP_KEYS_BACKUPS_PUT,
+    OP_KEYS_BACKUPS_UNLOCK,
     OP_KEYS_CLAIM,
     OP_KEYS_KEYPACKAGES_CLAIM,
     OP_KEYS_KEYPACKAGES_CONSUME,

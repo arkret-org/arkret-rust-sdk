@@ -46,7 +46,7 @@
 
 use chrono::{DateTime, Duration, Utc};
 use cokret_core::{base64url_decode, base64url_encode, canonical};
-use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 
 use crate::identity::DidResolver;
 use crate::{Did, Hlc};
@@ -160,7 +160,7 @@ pub fn verify_jws_ed25519(
 
     // Step 6: verify.
     public_key
-        .verify(signing_input.as_bytes(), &signature)
+        .verify_strict(signing_input.as_bytes(), &signature)
         .map_err(|e| format!("Ed25519 verify failed: {e}"))
 }
 

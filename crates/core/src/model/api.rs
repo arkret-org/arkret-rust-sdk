@@ -714,19 +714,6 @@ pub struct IdentityReceiptsOutcome {
     pub threshold_met: Option<bool>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncRequestBody {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub after: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub catchup: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub filter: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub set_presence: Option<String>,
-}
-
 /// Folded account-aggregate delta used by SDK internals.
 ///
 /// Current wire delivery is `ck.self.account.subscribe`: an NDJSON stream of
@@ -3552,107 +3539,16 @@ pub struct RecoveryReceipt {
     pub extra: BTreeMap<String, Value>,
 }
 
-// ─── S-2 (savfox SDK gap): DID-proof session grant flow ────────────────────
+// ─── DID-proof session grant flow ──────────────────────────────────────────
 //
-// Wire shapes for `POST /_cokret/gate/account/session-grants` per spec
-// `identity-did.md` §5.1. Step 1 returns a `SessionGrantChallenge`; step 2
-// submits a signed `ck.did.proof` (envelope inside `SessionGrantSubmitReq`).
-
-/// Step 1 request: client asks for a challenge bound to a `(principal_id,
-/// device_id, audience)` tuple. Spec `identity-did.md` §5.1.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SessionGrantChallengeReq {
-    pub principal_id: Did,
-    pub device_id: DeviceId,
-    /// DID of the Principal Server / service the grant is for. Bound
-    /// into the `ck.did.proof` audience.
-    pub audience: String,
-    /// Optional origin hint (per spec §5.1 the proof carries `origin`).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub origin: Option<String>,
-}
-
-/// Step 1 response: server-issued challenge for `ck.did.proof`.
-///
-/// `purpose` is always `ck.session.grant` (only purpose the SDK helper
-/// drives today). `expires_at` bounds the challenge's freshness window.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SessionGrantChallenge {
-    pub challenge_id: String,
-    pub purpose: String,
-    pub audience: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub origin: Option<String>,
-    pub challenge: String,
-    pub expires_at: DateTime<Utc>,
-}
-
-impl SessionGrantChallenge {
-    pub const PURPOSE_SESSION_GRANT: &'static str = "ck.session.grant";
-
-    /// True iff `purpose == ck.session.grant`. Receivers MUST refuse
-    /// any other purpose for the session-grant exchange.
-    pub fn is_session_grant_purpose(&self) -> bool {
-        self.purpose == Self::PURPOSE_SESSION_GRANT
-    }
-}
-
-/// Step 2 request: client submits the signed `ck.did.proof` body.
-///
-/// The proof payload (`SessionGrantDidProof`) is what the controller
-/// actually signed; `proof` is the detached-JWS `Proof` envelope
-/// produced by the SDK signer.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SessionGrantSubmitReq {
-    pub challenge_id: String,
-    pub principal_id: Did,
-    pub device_id: DeviceId,
-    pub proof_payload: SessionGrantDidProof,
-    pub proof: Proof,
-}
-
-/// Canonical body of the `ck.did.proof` payload spec
-/// `identity-did.md` §5.1. The signer commits to this object; the
-/// receiver re-derives canonical bytes and verifies.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SessionGrantDidProof {
-    pub kind: String,
-    pub purpose: String,
-    pub audience: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub origin: Option<String>,
-    pub challenge: String,
-    pub principal_id: Did,
-    pub device_id: DeviceId,
-    pub expires_at: DateTime<Utc>,
-}
-
-impl SessionGrantDidProof {
-    pub const KIND: &'static str = "ck.did.proof";
-
-    /// Build the canonical proof payload for a given challenge. Stamps
-    /// `kind=ck.did.proof` so callers don't have to.
-    pub fn from_challenge(
-        challenge: &SessionGrantChallenge,
-        principal_id: Did,
-        device_id: DeviceId,
-    ) -> Self {
-        Self {
-            kind: Self::KIND.to_owned(),
-            purpose: challenge.purpose.clone(),
-            audience: challenge.audience.clone(),
-            origin: challenge.origin.clone(),
-            challenge: challenge.challenge.clone(),
-            principal_id,
-            device_id,
-            expires_at: challenge.expires_at,
-        }
-    }
-}
+// The wire shapes for `POST /_cokret/gate/account/session-grants`
+// (`ck.gate.account.issue_session_grant`) live in `crate::http` as
+// `SessionGrantRequestBody` / `SessionGrantOutcome`, mirroring
+// `service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody`.
+// The spec HTTP binding registers exactly one operation (proof in body,
+// `x-cokret-auth.proof_in_body: true`); challenge acquisition is a
+// deployment-local concern per `identity-did.md` §5.1 and has no
+// dedicated `/_cokret/` sub-path.
 
 #[cfg(test)]
 mod tests {

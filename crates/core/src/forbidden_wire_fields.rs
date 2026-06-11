@@ -144,6 +144,60 @@ pub enum WireContext {
     KeyBackupKdfParams,
     /// PolicyCheck `bound_to` binding object property.
     PolicyCheckBoundTo,
+    // 2026-06 registry sync — contexts the spec registry names that the
+    // mirror previously collapsed away or lacked entirely (SDK-06-003).
+    /// Flow track key field (registry `flow_track_key_field`).
+    FlowTrackKeyField,
+    /// Content carrier that has an encrypted-content counterpart
+    /// (registry `content_carrier_with_content_counterpart`).
+    ContentCarrierWithContentCounterpart,
+    /// Flow or Morph payload top-level property
+    /// (registry `flow_or_morph_payload_top_level`).
+    FlowOrMorphPayloadTopLevel,
+    /// Flow or Message payload top-level property
+    /// (registry `flow_or_message_payload_top_level`).
+    FlowOrMessagePayloadTopLevel,
+    /// Composite content block container property
+    /// (registry `content_block_composite`).
+    ContentBlockComposite,
+    /// Notification projection property (registry `notification_projection`).
+    NotificationProjection,
+    /// MIMI consent request body (`ck.open.mimi.request_consent`).
+    MimiRequestConsentRequestBody,
+    /// MIMI consent update body (`ck.open.mimi.update_consent`).
+    MimiUpdateConsentRequestBody,
+    /// Service describe `verified_profiles[]` entry property.
+    ServiceDescribeVerifiedProfiles,
+    /// Federation verification payload property.
+    FederationVerificationPayload,
+    /// Key backup `recovery_auth_data` property.
+    KeyBackupRecoveryAuthData,
+    /// Device authorize payload property.
+    DeviceAuthorizePayload,
+    /// Agent key payload property.
+    AgentKeyPayload,
+    /// Attestation evidence property.
+    AttestationEvidence,
+    /// Agent lifecycle payload property.
+    AgentLifecyclePayload,
+    /// Anchor object property.
+    Anchor,
+    /// DID continuity proof `transfer_evidence` property.
+    DidContinuityProofTransferEvidence,
+    /// DID continuity proof `signature_chain[]` entry property.
+    DidContinuityProofSignatureChain,
+    /// Recovery policy `share_commitment` property.
+    RecoveryPolicyShareCommitment,
+    /// Actor profile top-level property.
+    ActorProfile,
+    /// Reviewer quorum object property (registry `reviewer_quorum`).
+    ReviewerQuorum,
+    /// Membership payload property (registry `membership_payload`).
+    MembershipPayload,
+    /// Wire duration string format rule (registry `wire_duration_string`;
+    /// the entry token names the rejected compact mini-DSL format, not a
+    /// field name).
+    WireDurationString,
 }
 
 /// Spec `forbidden-wire-fields.json` entries that name a single
@@ -468,7 +522,7 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     ForbiddenEntry { field: "commitment_b64", context: WireContext::WireSchemaOrPayload },
     ForbiddenEntry { field: "changed_at", context: WireContext::WireSchemaOrPayload },
     ForbiddenEntry { field: "via", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "of", context: WireContext::JoinPolicyPayload },
+    ForbiddenEntry { field: "of", context: WireContext::ReviewerQuorum },
     ForbiddenEntry { field: "actor_kind=ghost", context: WireContext::ActorKindValue },
     ForbiddenEntry { field: "actor_kind=agent_native", context: WireContext::ActorKindValue },
     ForbiddenEntry { field: "actor_kind=agent_ghost", context: WireContext::ActorKindValue },
@@ -478,6 +532,55 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     // path — the bare token `actor` remains a legitimate enum value and
     // prose noun, so it MUST NOT enter the coarse flat list.
     ForbiddenEntry { field: "bound_to.actor", context: WireContext::PolicyCheckBoundTo },
+    // 2026-06 registry sync (SDK-06-003): entries the mirror previously
+    // lacked or carried under a collapsed context. Pinned against the JSON
+    // registry by `mirror_covers_spec_registry_hard_rejects` below.
+    ForbiddenEntry { field: "track", context: WireContext::FlowTrackKeyField },
+    ForbiddenEntry {
+        field: "encrypted_payload",
+        context: WireContext::ContentCarrierWithContentCounterpart,
+    },
+    ForbiddenEntry { field: "title", context: WireContext::FlowOrMorphPayloadTopLevel },
+    ForbiddenEntry { field: "summary", context: WireContext::FlowOrMorphPayloadTopLevel },
+    ForbiddenEntry { field: "fields", context: WireContext::FlowOrMessagePayloadTopLevel },
+    ForbiddenEntry { field: "blocks", context: WireContext::ContentBlockComposite },
+    ForbiddenEntry { field: "sender_display_name", context: WireContext::NotificationProjection },
+    ForbiddenEntry { field: "actor", context: WireContext::MimiUpdateConsentRequestBody },
+    ForbiddenEntry { field: "requester", context: WireContext::MimiRequestConsentRequestBody },
+    ForbiddenEntry {
+        field: "cotest_run_id",
+        context: WireContext::ServiceDescribeVerifiedProfiles,
+    },
+    ForbiddenEntry {
+        field: "cotest_issuer_did",
+        context: WireContext::ServiceDescribeVerifiedProfiles,
+    },
+    ForbiddenEntry {
+        field: "signed_payload_hash",
+        context: WireContext::FederationVerificationPayload,
+    },
+    ForbiddenEntry { field: "signature_alg", context: WireContext::KeyBackupRecoveryAuthData },
+    ForbiddenEntry { field: "device_key_alg", context: WireContext::DeviceAuthorizePayload },
+    ForbiddenEntry { field: "agent_did", context: WireContext::AgentKeyPayload },
+    ForbiddenEntry { field: "accountable_actor", context: WireContext::AgentKeyPayload },
+    ForbiddenEntry { field: "audit_agent_did", context: WireContext::AttestationEvidence },
+    ForbiddenEntry { field: "changed_at", context: WireContext::AgentLifecyclePayload },
+    ForbiddenEntry { field: "anchorer_sig", context: WireContext::Anchor },
+    ForbiddenEntry {
+        field: "inception_pubkey_fingerprint",
+        context: WireContext::DidContinuityProofTransferEvidence,
+    },
+    ForbiddenEntry { field: "by", context: WireContext::DidContinuityProofSignatureChain },
+    ForbiddenEntry {
+        field: "commitment_b64",
+        context: WireContext::RecoveryPolicyShareCommitment,
+    },
+    ForbiddenEntry { field: "accountable_to", context: WireContext::ActorProfile },
+    ForbiddenEntry { field: "via", context: WireContext::MembershipPayload },
+    ForbiddenEntry {
+        field: "duration_compact_mini_dsl",
+        context: WireContext::WireDurationString,
+    },
 ];
 
 /// Returns `true` when `field` is forbidden in the given `context` per the
@@ -573,6 +676,222 @@ mod tests {
         // snake_case canonical spellings pass.
         for value in ["or_set", "mv_register", "lww_register"] {
             assert!(!is_forbidden_in_context(value, WireContext::CrdtLatticeEnumValue));
+        }
+    }
+
+    /// Map a spec registry `context` string onto the [`WireContext`]
+    /// variants the SDK mirror uses. A registry context that maps to more
+    /// than one variant requires the field to be forbidden in *each* of
+    /// them.
+    fn registry_contexts(context: &str) -> Option<&'static [WireContext]> {
+        use WireContext::*;
+        Some(match context {
+            "timeline_event_top_level" => &[TimelineEventTopLevel],
+            "flow_track_key_field" => &[FlowTrackKeyField],
+            "content_carrier_with_content_counterpart" => &[ContentCarrierWithContentCounterpart],
+            "flow_or_morph_payload_top_level" => &[FlowOrMorphPayloadTopLevel],
+            "flow_or_message_payload_top_level" => &[FlowOrMessagePayloadTopLevel],
+            "event_envelope_or_payload" => &[EventEnvelopeOrPayloadTopLevel],
+            // `kind=room` is checked against the Flow payload context by the
+            // Event wire-surface validator.
+            "flow_payload.kind" | "flow_payload" => &[FlowPayload],
+            "morph_payload" => &[MorphPayload],
+            "space_payload" => &[SpacePayload],
+            "relation_payload" => &[RelationPayload],
+            "message_create_payload" => &[MessageCreatePayload],
+            "content_block_composite" => &[ContentBlockComposite],
+            "encrypted_envelope" => &[EncryptedEnvelope],
+            "flow_patch_payload" => &[FlowPatchPath],
+            "morph_patch_payload" => &[MorphPatchPath],
+            "wire_schema_or_payload" => &[WireSchemaOrPayload],
+            "proof_or_cross_signing_payload" => &[ProofOrCrossSigningPayload],
+            "event_payload_or_projection" => &[EventPayloadOrProjection],
+            "notification_projection" => &[NotificationProjection],
+            "notification_payload" => &[NotificationPayload],
+            "event_proof" => &[EventProof],
+            "generic_proof" => &[GenericProof],
+            "event_kind" => &[EventKind],
+            "event_kind_or_capability_action" => &[EventKind, CapabilityAction],
+            "schema_id" => &[SchemaId],
+            "join_policy_payload" => &[JoinPolicyPayload],
+            "capability_delegate_payload" => &[CapabilityDelegatePayload],
+            "directory_search_request" => &[DirectorySearchRequest],
+            "directory_projection" => &[DirectoryProjection],
+            "account_subscribe_frame_schema_def" => &[AccountSubscribeFrameSchemaDef],
+            "account_subscribe_device_message_container" => {
+                &[AccountSubscribeDeviceMessageContainer]
+            }
+            "member_delivery_binding" => &[MemberDeliveryBinding],
+            "member_delivery_binding_candidate" => &[MemberDeliveryBindingCandidate],
+            "moderation_report_payload" => &[ModerationReportPayload],
+            "moderation_franking_proof_payload" => &[ModerationFrankingProofPayload],
+            "moderation_queue_item" => &[ModerationQueueItem],
+            "moderation_queue_item.visibility" => &[ModerationQueueItemVisibility],
+            "moderation_queue_item.evidence_policy" => &[ModerationQueueItemEvidencePolicy],
+            "error_code" => &[ErrorCode],
+            "handle_claim_top_level" => &[HandleClaimTopLevel],
+            "protocol_subject_field" => &[ProtocolSubjectField],
+            "policy_check_bound_to" => &[PolicyCheckBoundTo],
+            "mimi_update_consent_request_body" => &[MimiUpdateConsentRequestBody],
+            "mimi_request_consent_request_body" => &[MimiRequestConsentRequestBody],
+            "service_describe_verified_profiles" => &[ServiceDescribeVerifiedProfiles],
+            "crdt_lattice_enum" => &[CrdtLatticeEnumValue],
+            "realm_freeze_payload" => &[RealmFreezePayload],
+            "agent.audit_binding" => &[AgentAuditBinding],
+            "snapshot.chunks[]" => &[SnapshotChunk],
+            "object_patch_payload" => &[ObjectPatchPayload],
+            "object_lifecycle_payload" => &[ObjectLifecyclePayload],
+            "federation_verification_payload" => &[FederationVerificationPayload],
+            "member_identity.display_profile" => &[MemberIdentityDisplayProfile],
+            "applet_protocol_metadata" => &[AppletProtocolMetadata],
+            "media_metadata.visibility" => &[MediaMetadataVisibility],
+            "blob_metadata" => &[BlobMetadata],
+            "blob_upload_metadata" => &[BlobUploadMetadata],
+            "key_backup.encryption.kdf.params" => &[KeyBackupKdfParams],
+            "key_backup_recovery_auth_data" => &[KeyBackupRecoveryAuthData],
+            "device_authorize_payload" => &[DeviceAuthorizePayload],
+            "agent_key_payload" => &[AgentKeyPayload],
+            "attestation_evidence" => &[AttestationEvidence],
+            "agent_lifecycle_payload" => &[AgentLifecyclePayload],
+            "anchor" => &[Anchor],
+            "did_continuity_proof.transfer_evidence" => &[DidContinuityProofTransferEvidence],
+            "did_continuity_proof.signature_chain" => &[DidContinuityProofSignatureChain],
+            "recovery_policy.share_commitment" => &[RecoveryPolicyShareCommitment],
+            "actor_profile.actor_kind" => &[ActorKindValue],
+            "actor_profile" => &[ActorProfile],
+            "reviewer_quorum" => &[ReviewerQuorum],
+            "membership_payload" => &[MembershipPayload],
+            "wire_duration_string" => &[WireDurationString],
+            "frontier_object_property" => &[FrontierObjectProperty],
+            "child_scope_policy.kind" => &[ChildScopePolicyKind],
+            _ => return None,
+        })
+    }
+
+    /// Drift guard (SDK-06-003): every `hard_reject` entry in the spec
+    /// registry `forbidden-wire-fields.json` must be representable and
+    /// rejected by this in-Rust mirror — same lockstep discipline as the
+    /// generated event-kind / profile tables. Direction is registry ⊆
+    /// mirror: the mirror may keep extra collapsed-context entries, but a
+    /// spec entry the mirror does not reject is a drift failure.
+    #[test]
+    fn mirror_covers_spec_registry_hard_rejects() {
+        let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let path = [
+            manifest_dir.join(
+                "../../../cokret-spec/spec/v1/artifacts/registry/forbidden-wire-fields.json",
+            ),
+            std::path::PathBuf::from(
+                "../cokret-spec/spec/v1/artifacts/registry/forbidden-wire-fields.json",
+            ),
+        ]
+        .into_iter()
+        .find(|path| path.exists())
+        .unwrap_or_else(|| {
+            panic!(
+                "spec forbidden-wire-fields registry is required for drift tests; \
+                 looked next to {}",
+                manifest_dir.display()
+            )
+        });
+        let raw = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+        let registry: serde_json::Value = serde_json::from_str(&raw)
+            .unwrap_or_else(|error| panic!("failed to parse {}: {error}", path.display()));
+        let entries = registry
+            .get("entries")
+            .and_then(serde_json::Value::as_array)
+            .expect("registry has an entries array");
+        assert!(!entries.is_empty());
+
+        for entry in entries {
+            let id = entry.get("id").and_then(serde_json::Value::as_str).expect("entry id");
+            let context =
+                entry.get("context").and_then(serde_json::Value::as_str).expect("entry context");
+            let level = entry
+                .get("rejection_level")
+                .and_then(serde_json::Value::as_str)
+                .expect("entry rejection_level");
+            if level != "hard_reject" {
+                // The mirror intentionally enumerates only the hard_reject
+                // set (`migration_only` / `docs_only` are not receiver-side
+                // concerns).
+                continue;
+            }
+
+            // Typed-id prefixes live in their own table.
+            if context == "typed_id_prefix" {
+                assert!(
+                    FORBIDDEN_ID_PREFIXES.contains(&id),
+                    "registry typed-id prefix {id:?} is missing from FORBIDDEN_ID_PREFIXES"
+                );
+                continue;
+            }
+
+            // Batch entries expand to the concrete field names the mirror
+            // enumerates one by one.
+            if id == "identifier_suffix_ref_to_id_batch" {
+                for field in [
+                    "parent_ref",
+                    "default_realm_ref",
+                    "scope_ref",
+                    "default_scope_ref",
+                    "retention_policy_ref",
+                    "disclosure_policy_ref",
+                    "rate_limit_policy_ref",
+                ] {
+                    assert!(
+                        is_forbidden_in_context(
+                            field,
+                            WireContext::EventEnvelopeOrPayloadTopLevel
+                        ),
+                        "batch identifier rename field {field:?} is missing from the mirror"
+                    );
+                }
+                // policy_ref stays canonical on a Policy object itself; the
+                // mirror pins its two forbidden scopes explicitly.
+                assert!(is_forbidden_in_context("policy_ref", WireContext::HandleClaimTopLevel));
+                assert!(is_forbidden_in_context(
+                    "policy_ref",
+                    WireContext::MemberDeliveryBinding
+                ));
+                continue;
+            }
+            if id == "grant_constraint_single_kind_refs_to_ids" {
+                for field in [
+                    "allowed_view_refs",
+                    "allowed_flow_refs",
+                    "allowed_circle_refs",
+                    "denied_flow_refs",
+                    "allowed_space_refs",
+                    "denied_space_refs",
+                    "realm_refs",
+                    "approval_actor_refs",
+                ] {
+                    assert!(
+                        is_forbidden_in_context(field, WireContext::GrantConstraint),
+                        "grant constraint rename field {field:?} is missing from the mirror"
+                    );
+                }
+                continue;
+            }
+
+            // `patch:` ids are JSON-Patch op paths; the checker takes the
+            // bare path and re-prefixes internally. `#`-suffixed ids carry a
+            // registry-side disambiguator after the field name.
+            let field = id.strip_prefix("patch:").unwrap_or(id);
+            let field = field.split_once('#').map_or(field, |(field, _)| field);
+
+            let contexts = registry_contexts(context).unwrap_or_else(|| {
+                panic!("registry context {context:?} (id {id:?}) has no mirror mapping")
+            });
+            for mapped in contexts {
+                assert!(
+                    is_forbidden_in_context(field, *mapped),
+                    "registry entry {id:?} (context {context:?}) is not rejected by the mirror \
+                     in {mapped:?}"
+                );
+            }
         }
     }
 }

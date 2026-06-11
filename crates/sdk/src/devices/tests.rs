@@ -401,16 +401,6 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
 }
 
 #[test]
-fn devices_uploads_downloads_and_restores_key_backup() {
-    let mut manager = DeviceManager::new();
-    manager.upload_key_backup("1", "m.megolm_backup.v1", json!({"ciphertext":"abc"}));
-
-    assert!(manager.download_key_backup("1").is_some());
-    assert_eq!(manager.restore_key_backup("1").unwrap(), json!({"ciphertext":"abc"}));
-    assert!(manager.restore_key_backup("missing").is_err());
-}
-
-#[test]
 fn devices_revoke_and_fail_closed() {
     let alice = did("alice");
     let device_id = device("phone");
@@ -425,31 +415,4 @@ fn devices_revoke_and_fail_closed() {
     manager.revoke_device(&alice, &device_id);
     assert!(manager.is_device_revoked(&alice, &device_id));
     assert_eq!(manager.revoked_devices_for_user(&alice).len(), 1);
-}
-
-#[test]
-fn devices_rotate_and_validate_authenticated_key_backups() {
-    let alice = did("alice");
-    let mut manager = DeviceManager::new();
-    manager.upload_authenticated_key_backup(
-        "1",
-        "m.megolm_backup.v1",
-        json!({"ciphertext":"abc"}),
-        Some(alice.clone()),
-        None,
-    );
-    let rotated = manager.upload_authenticated_key_backup(
-        "2",
-        "m.megolm_backup.v1",
-        json!({"ciphertext":"def"}),
-        Some(alice.clone()),
-        Some("1".to_owned()),
-    );
-
-    assert_eq!(rotated.previous_version.as_deref(), Some("1"));
-    assert_eq!(
-        manager.restore_key_backup_from_sender("2", &alice).unwrap(),
-        json!({"ciphertext":"def"})
-    );
-    assert!(manager.restore_key_backup_from_sender("2", &did("bob")).is_err());
 }

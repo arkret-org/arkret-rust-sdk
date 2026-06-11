@@ -8,6 +8,11 @@ use serde_json::Value;
 
 use crate::{Did, EventId, RealmId};
 
+// Authoritative wire shape for notification counters lives in
+// `cokret-contracts`; the manager reuses it instead of keeping a
+// field-subset copy.
+pub use cokret_contracts::client::NotificationCounts;
+
 /// Notification action.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -56,15 +61,6 @@ pub struct NotificationItem {
     pub cleared: bool,
     /// Creation time.
     pub created_at: DateTime<Utc>,
-}
-
-/// Notification counts.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct NotificationCounts {
-    /// Unread notification count.
-    pub notification_count: u64,
-    /// Highlight notification count.
-    pub highlight_count: u64,
 }
 
 /// Notification manager.
@@ -142,8 +138,11 @@ impl NotificationManager {
     }
 
     /// Get counts for one Realm or global notifications.
+    ///
+    /// The in-memory manager treats every un-cleared notification as
+    /// unread, so `unread_count` tracks `notification_count`.
     pub fn counts(&self, realm_id: Option<&RealmId>) -> NotificationCounts {
-        self.counts.get(&realm_id.cloned()).copied().unwrap_or_default()
+        self.counts.get(&realm_id.cloned()).cloned().unwrap_or_default()
     }
 
     /// Clear one notification and decrement counts.
@@ -179,6 +178,7 @@ impl NotificationManager {
     fn increment(&mut self, realm_id: Option<RealmId>, highlight: bool) {
         let counts = self.counts.entry(realm_id).or_default();
         counts.notification_count += 1;
+        counts.unread_count += 1;
         if highlight {
             counts.highlight_count += 1;
         }
@@ -187,6 +187,7 @@ impl NotificationManager {
     fn decrement(&mut self, realm_id: Option<RealmId>, highlight: bool) {
         let counts = self.counts.entry(realm_id).or_default();
         counts.notification_count = counts.notification_count.saturating_sub(1);
+        counts.unread_count = counts.unread_count.saturating_sub(1);
         if highlight {
             counts.highlight_count = counts.highlight_count.saturating_sub(1);
         }

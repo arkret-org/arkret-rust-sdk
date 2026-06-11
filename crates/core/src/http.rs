@@ -2,8 +2,8 @@
 //!
 //! These types model endpoint transport roles explicitly:
 //! - path, query-string and header inputs are grouped as `<Operation>Params`;
-//! - JSON request bodies are `<Operation>ReqBody`;
-//! - successful responses are `<Operation>ResBody`.
+//! - JSON request bodies are `<Operation>RequestBody`;
+//! - successful responses are `<Operation>Outcome`.
 
 use std::collections::BTreeMap;
 

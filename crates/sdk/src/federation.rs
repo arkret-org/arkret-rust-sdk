@@ -1,4 +1,13 @@
-//! Federation transactions, discovery and sovereign deployment helpers.
+//! Federation discovery, replay/fork quarantine, and content-digest
+//! helpers.
+//!
+//! The protocol federation surface is the registered `ck.peer.*`
+//! operation family (`/_cokret/peer/*`) with Event proofs / HTTP
+//! message signatures via the `cokret-signatures` pipeline. A former
+//! SDK-local "federation transaction/request" layer (concatenation
+//! SHA-256 pseudo-signatures, free-form `txn_*` ids, unregistered
+//! `/_cokret/federation/*` paths) was removed as non-spec — do not
+//! reintroduce it.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -15,36 +24,6 @@ pub use cokret_contracts::federation::{
 };
 
 use crate::{Did, Error, Hash, RealmId, Result};
-
-/// Trust anchor for a federated domain.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TrustAnchor {
-    /// Domain name.
-    pub domain: String,
-    /// Verification key material.
-    pub public_key: String,
-}
-
-/// Signed federation transaction.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FederationTransaction {
-    pub transaction_id: String,
-    pub origin: String,
-    pub destination: String,
-    pub events: Vec<Value>,
-    pub signature: String,
-}
-
-/// Signed cross-domain request.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FederationReqBody {
-    pub request_id: String,
-    pub origin: String,
-    pub destination: String,
-    pub path: String,
-    pub payload: Value,
-    pub signature: String,
-}
 
 /// Server discovery info.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,7 +51,6 @@ pub trait FederationReplayStore {
 /// Federation manager.
 #[derive(Clone, Debug, Default)]
 pub struct FederationManager {
-    trust_anchors: BTreeMap<String, TrustAnchor>,
     servers: BTreeMap<String, ServerInfo>,
     events: BTreeMap<RealmId, Vec<Value>>,
     deployment: Option<SovereignDeployment>,
@@ -83,93 +61,6 @@ impl FederationManager {
     /// Create an empty manager.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Add or replace a trust anchor.
-    pub fn add_trust_anchor(&mut self, anchor: TrustAnchor) {
-        self.trust_anchors.insert(anchor.domain.clone(), anchor);
-    }
-
-    /// Create and sign a transaction.
-    pub fn create_transaction(
-        &self,
-        origin: impl Into<String>,
-        destination: impl Into<String>,
-        events: Vec<Value>,
-        signing_key: &str,
-    ) -> FederationTransaction {
-        let transaction_id = format!("txn_{}", uuid::Uuid::now_v7());
-        let origin = origin.into();
-        let destination = destination.into();
-        let signature = federation_signature(
-            &transaction_id,
-            &origin,
-            &destination,
-            &serde_json::to_string(&events).unwrap_or_default(),
-            signing_key,
-        );
-        FederationTransaction { transaction_id, origin, destination, events, signature }
-    }
-
-    /// Verify a transaction using the origin trust anchor.
-    pub fn verify_transaction(&self, transaction: &FederationTransaction) -> bool {
-        self.trust_anchors
-            .get(&transaction.origin)
-            .map(|anchor| {
-                transaction.signature
-                    == federation_signature(
-                        &transaction.transaction_id,
-                        &transaction.origin,
-                        &transaction.destination,
-                        &serde_json::to_string(&transaction.events).unwrap_or_default(),
-                        &anchor.public_key,
-                    )
-            })
-            .unwrap_or(false)
-    }
-
-    /// Create a signed cross-domain request.
-    pub fn create_request(
-        &self,
-        origin: impl Into<String>,
-        destination: impl Into<String>,
-        path: impl Into<String>,
-        payload: Value,
-        signing_key: &str,
-    ) -> FederationReqBody {
-        let request_id = format!("req_{}", uuid::Uuid::now_v7());
-        let origin = origin.into();
-        let destination = destination.into();
-        let path = path.into();
-        let signature = federation_signature(
-            &request_id,
-            &origin,
-            &destination,
-            &format!("{path}:{}", serde_json::to_string(&payload).unwrap_or_default()),
-            signing_key,
-        );
-        FederationReqBody { request_id, origin, destination, path, payload, signature }
-    }
-
-    /// Verify a signed cross-domain request using the origin trust anchor.
-    pub fn verify_request(&self, request: &FederationReqBody) -> bool {
-        self.trust_anchors
-            .get(&request.origin)
-            .map(|anchor| {
-                request.signature
-                    == federation_signature(
-                        &request.request_id,
-                        &request.origin,
-                        &request.destination,
-                        &format!(
-                            "{}:{}",
-                            request.path,
-                            serde_json::to_string(&request.payload).unwrap_or_default()
-                        ),
-                        &anchor.public_key,
-                    )
-            })
-            .unwrap_or(false)
     }
 
     /// Register server discovery information.
@@ -447,64 +338,6 @@ impl ActorSeqLedger {
     }
 }
 
-pub fn verify_actor_challenge_payload(challenge: &VerifyActorChallenge) -> String {
-    format!(
-        "verify-actor|actor:{}|origin:{}|destination:{}|challenge:{}|purpose:{}|expires:{}|payload-hash:{}",
-        challenge.actor_id,
-        challenge.origin_service_did,
-        challenge.destination_service_did,
-        challenge.challenge,
-        challenge.purpose,
-        challenge.expires_at.to_rfc3339(),
-        challenge.payload_digest.as_deref().unwrap_or("")
-    )
-}
-
-pub fn sign_verify_actor_challenge(
-    challenge: &VerifyActorChallenge,
-    key_id: impl Into<String>,
-    signing_key: &str,
-) -> VerifyActorChallengeSignature {
-    VerifyActorChallengeSignature {
-        key_id: key_id.into(),
-        signature: signature_digest(&verify_actor_challenge_payload(challenge), signing_key),
-    }
-}
-
-pub fn verify_actor_challenge_signature(
-    challenge: &VerifyActorChallenge,
-    signature: &VerifyActorChallengeSignature,
-    verification_key: &str,
-    now: DateTime<Utc>,
-) -> bool {
-    now <= challenge.expires_at
-        && signature.signature
-            == signature_digest(&verify_actor_challenge_payload(challenge), verification_key)
-}
-
-fn federation_signature(
-    id: &str,
-    origin: &str,
-    destination: &str,
-    payload: &str,
-    key: &str,
-) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(id.as_bytes());
-    hasher.update(origin.as_bytes());
-    hasher.update(destination.as_bytes());
-    hasher.update(payload.as_bytes());
-    hasher.update(key.as_bytes());
-    format!("{:x}", hasher.finalize())
-}
-
-fn signature_digest(payload: &str, key: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(payload.as_bytes());
-    hasher.update(key.as_bytes());
-    format!("{:x}", hasher.finalize())
-}
-
 fn service_endpoint_matches(service: &Value, service_type: &str, endpoint: &str) -> bool {
     service.get("type").and_then(Value::as_str) == Some(service_type)
         && match service.get("serviceEndpoint") {
@@ -521,33 +354,6 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-
-    #[test]
-    fn federation_signs_and_verifies_transactions_and_requests() {
-        let mut manager = FederationManager::new();
-        manager.add_trust_anchor(TrustAnchor {
-            domain: "a.example".to_owned(),
-            public_key: "shared-key".to_owned(),
-        });
-
-        let transaction = manager.create_transaction(
-            "a.example",
-            "b.example",
-            vec![json!({"event":"one"})],
-            "shared-key",
-        );
-        assert!(manager.verify_transaction(&transaction));
-
-        let request = manager.create_request(
-            "a.example",
-            "b.example",
-            "/_cokret/federation/state",
-            json!({"realm":"ck:realm:01904100-0000-7000-8000-fd3637e8361f"}),
-            "shared-key",
-        );
-        assert_eq!(request.origin, "a.example");
-        assert!(manager.verify_request(&request));
-    }
 
     #[test]
     fn federation_discovers_versions_and_capabilities() {
@@ -671,7 +477,7 @@ mod tests {
     }
 
     #[test]
-    fn backfill_and_verify_actor_helpers_fail_closed() {
+    fn backfill_authorization_fails_closed() {
         let authorization = FederationBackfillAuthorization {
             requester_service_did: Did::new("did:web:b.example").unwrap(),
             realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
@@ -686,23 +492,5 @@ mod tests {
             ..authorization
         };
         assert!(!blocked.allows_pull());
-
-        let now = Utc::now();
-        let challenge = VerifyActorChallenge {
-            actor_id: Did::new("did:web:actor.example").unwrap(),
-            origin_service_did: Did::new("did:web:a.example").unwrap(),
-            destination_service_did: Did::new("did:web:b.example").unwrap(),
-            challenge: "chal_123".to_owned(),
-            purpose: "federation.verify_actor".to_owned(),
-            expires_at: now + chrono::Duration::minutes(5),
-            payload_digest: Some(content_digest_sha256(b"actor-proof")),
-        };
-        let signature =
-            sign_verify_actor_challenge(&challenge, "did:web:actor.example#key", "actor-key");
-        assert!(verify_actor_challenge_signature(&challenge, &signature, "actor-key", now));
-
-        let mut tampered = challenge;
-        tampered.challenge = "public-oracle-probe".to_owned();
-        assert!(!verify_actor_challenge_signature(&tampered, &signature, "actor-key", now));
     }
 }

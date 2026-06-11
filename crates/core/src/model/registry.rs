@@ -228,7 +228,7 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .into_iter()
         .map(str::to_owned)
         .collect(),
-        OP_KEYS_BACKUPS_LIST | OP_KEYS_BACKUPS_GET | OP_KEYS_BACKUPS_DELETE => {
+        OP_KEYS_BACKUPS_LIST | OP_KEYS_BACKUPS_UNLOCK | OP_KEYS_BACKUPS_DELETE => {
             vec!["backup_id".to_owned()]
         }
         OP_KEYS_KEYPACKAGES_UPLOAD => {

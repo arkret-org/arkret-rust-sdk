@@ -18,7 +18,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-client = ["dep:reqwest", "dep:url"]
+# Client-side URL handling + the transport-agnostic `Error::Http`/`Error::Url`
+# variants. Deliberately does NOT pull in a concrete HTTP stack — reqwest
+# lives in cokret-http-client (ARCHITECTURE.md: core is the wire-model layer).
+client = ["dep:url"]
 mls = []
 salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "cokret-identifiers/salvo"]
 
@@ -28,7 +31,6 @@ bs58.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 cokret-identifiers.workspace = true
 getrandom.workspace = true
-reqwest = { workspace = true, optional = true }
 regex.workspace = true
 salvo = { workspace = true, optional = true, features = ["oapi"] }
 salvo-oapi = { workspace = true, optional = true }

@@ -300,10 +300,14 @@ uuid_id_type!(ActorProfileId, "ck:actor_profile:");
 // CKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
 // `agent_principal_id` is a DID scalar, represented by `Did`.
 uuid_id_type!(AgentInteropSessionId, "ck:agent_interop_session:");
-uuid_id_type!(AgentKeyId, "ck:agent_key:");
-uuid_id_type!(AgentDraftId, "ck:agent_draft:");
-uuid_id_type!(AccountabilityGrantId, "ck:accountability_grant:");
-uuid_id_type!(SidecarCircleId, "ck:sidecar_circle:");
+// Audit release-session + attestation typed ids (id-kind-registry kinds
+// `attestation` / `audit_binding` / `audit_release` / `audit_session`).
+uuid_id_type!(AttestationId, "ck:attestation:");
+uuid_id_type!(AuditBindingId, "ck:audit_binding:");
+uuid_id_type!(AuditReleaseId, "ck:audit_release:");
+uuid_id_type!(AuditSessionId, "ck:audit_session:");
+// RTC call participant id (id-kind-registry kind `rtc_participant`).
+uuid_id_type!(RtcParticipantId, "ck:rtc_participant:");
 // Key-backup hardening (B-C) typed ids.
 uuid_id_type!(BackupSeriesId, "ck:backup_series:");
 uuid_id_type!(RecoverySessionId, "ck:recovery_session:");
@@ -559,10 +563,11 @@ mod tests {
 
         assert_id!(ActorProfileId, "ck:actor_profile:");
         assert_id!(AgentInteropSessionId, "ck:agent_interop_session:");
-        assert_id!(AgentKeyId, "ck:agent_key:");
-        assert_id!(AgentDraftId, "ck:agent_draft:");
-        assert_id!(AccountabilityGrantId, "ck:accountability_grant:");
-        assert_id!(SidecarCircleId, "ck:sidecar_circle:");
+        assert_id!(AttestationId, "ck:attestation:");
+        assert_id!(AuditBindingId, "ck:audit_binding:");
+        assert_id!(AuditReleaseId, "ck:audit_release:");
+        assert_id!(AuditSessionId, "ck:audit_session:");
+        assert_id!(RtcParticipantId, "ck:rtc_participant:");
         assert_id!(BackupSeriesId, "ck:backup_series:");
         assert_id!(RecoverySessionId, "ck:recovery_session:");
         assert_id!(AnnounceId, "ck:announce:");

@@ -1056,7 +1056,7 @@ pub enum ThirdPartyLookupKind {
 
 /// Third-party user or location lookup request.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ThirdPartyLookupReqBody {
+pub struct ThirdPartyLookupRequestBody {
     pub kind: ThirdPartyLookupKind,
     pub protocol: String,
     #[serde(default)]
@@ -1065,7 +1065,7 @@ pub struct ThirdPartyLookupReqBody {
 
 /// Third-party lookup response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ThirdPartyLookupResBody {
+pub enum ThirdPartyLookupOutcome {
     User(AppletActorView),
     Location(AppletRealmView),
 }

@@ -117,8 +117,11 @@ impl SnapshotChunker {
 /// Construction:
 /// - Leaves are chunk digests in `chunk_id` order.
 /// - Internal nodes are `sha256(left || right)` (raw 32-byte concat).
-/// - Odd levels duplicate the last node (RFC 6962-style "promote single
-///   child up").
+/// - Odd levels promote the last node to the next level **unchanged**
+///   (RFC 6962-style; never duplicate — see spec
+///   `event-auth-state-resolution.md` §4.2.2 for the house odd-layer
+///   rule). Duplication would make `[A,B,C]` and `[A,B,C,C]` share a
+///   root (CVE-2012-2459-shaped ambiguity).
 /// - Single-leaf tree returns the leaf as root.
 #[derive(Clone, Debug)]
 pub struct SnapshotMerkleTree {
@@ -164,7 +167,9 @@ impl SnapshotMerkleTree {
     }
 
     /// RFC 6962-style audit path: siblings from leaf up to root,
-    /// bottom-up. Returns `None` when `leaf_index >= tree_size`.
+    /// bottom-up. Promoted nodes (last node of an odd-sized level)
+    /// contribute no sibling, so path lengths vary per leaf. Returns
+    /// `None` when `leaf_index >= tree_size`.
     pub fn audit_path(&self, leaf_index: usize) -> Option<Vec<Hash>> {
         if leaf_index >= self.tree_size() {
             return None;
@@ -172,12 +177,12 @@ impl SnapshotMerkleTree {
         let mut path = Vec::new();
         let mut idx = leaf_index;
         for level in &self.levels[..self.levels.len() - 1] {
-            let sibling_idx = if idx.is_multiple_of(2) {
-                if idx + 1 < level.len() { idx + 1 } else { idx } // promoted: same node
+            if idx == level.len() - 1 && level.len() % 2 == 1 {
+                // Promoted node: no sibling at this level.
             } else {
-                idx - 1
-            };
-            path.push(level[sibling_idx].clone());
+                let sibling_idx = if idx.is_multiple_of(2) { idx + 1 } else { idx - 1 };
+                path.push(level[sibling_idx].clone());
+            }
             idx /= 2;
         }
         Some(path)
@@ -185,7 +190,9 @@ impl SnapshotMerkleTree {
 
     /// Verify that `leaf` at `leaf_index` reconstructs to `root` given
     /// `audit_path`. Stateless — receivers can call this without
-    /// rebuilding the tree.
+    /// rebuilding the tree. `tree_size` drives the layer walk, so a
+    /// proof is only accepted when `audit_path` has exactly the length
+    /// the claimed `(leaf_index, tree_size)` pair implies.
     pub fn verify(
         root: &Hash,
         leaf: &Hash,
@@ -193,7 +200,7 @@ impl SnapshotMerkleTree {
         audit_path: &[Hash],
         tree_size: usize,
     ) -> bool {
-        if leaf_index >= tree_size {
+        if tree_size == 0 || leaf_index >= tree_size {
             return false;
         }
         let Some(mut current) = parse_sha256(leaf) else {
@@ -201,22 +208,32 @@ impl SnapshotMerkleTree {
         };
         let mut idx = leaf_index;
         let mut layer_size = tree_size;
-        for sibling in audit_path {
-            let Some(sib_bytes) = parse_sha256(sibling) else {
-                return false;
-            };
-            let (left, right) = if idx.is_multiple_of(2) {
-                // We're left, sibling is right (or promoted self).
-                (current, sib_bytes)
+        let mut siblings = audit_path.iter();
+        while layer_size > 1 {
+            if idx == layer_size - 1 && layer_size % 2 == 1 {
+                // Promoted node: consumes no sibling at this level.
             } else {
-                (sib_bytes, current)
-            };
-            current = hash_pair(&left, &right);
+                let Some(sibling) = siblings.next() else {
+                    return false; // path too short for the claimed tree_size
+                };
+                let Some(sib_bytes) = parse_sha256(sibling) else {
+                    return false;
+                };
+                let (left, right) = if idx.is_multiple_of(2) {
+                    // We're left, sibling is right.
+                    (current, sib_bytes)
+                } else {
+                    (sib_bytes, current)
+                };
+                current = hash_pair(&left, &right);
+            }
             idx /= 2;
             // Layer-size for the next layer up.
             layer_size = layer_size.div_ceil(2);
         }
-        let _ = layer_size;
+        if siblings.next().is_some() {
+            return false; // path longer than the claimed tree_size implies
+        }
         let Some(root_bytes) = parse_sha256(root) else {
             return false;
         };
@@ -231,20 +248,26 @@ fn build_levels(leaves: &[Hash]) -> Result<Vec<Vec<Hash>>> {
         let mut next = Vec::with_capacity(current.len().div_ceil(2));
         let mut i = 0;
         while i < current.len() {
-            let left = parse_sha256(&current[i]).ok_or_else(|| {
-                Error::Protocol(format!("Merkle leaf {i} not sha256: {}", current[i]))
-            })?;
-            // Promote single child up when odd.
-            let right_idx = if i + 1 < current.len() { i + 1 } else { i };
-            let right = parse_sha256(&current[right_idx]).ok_or_else(|| {
-                Error::Protocol(format!(
-                    "Merkle leaf {right_idx} not sha256: {}",
-                    current[right_idx]
-                ))
-            })?;
-            let combined = hash_pair(&left, &right);
-            next.push(format_hash(&combined));
-            i += 2;
+            if i + 1 < current.len() {
+                let left = parse_sha256(&current[i]).ok_or_else(|| {
+                    Error::Protocol(format!("Merkle leaf {i} not sha256: {}", current[i]))
+                })?;
+                let right = parse_sha256(&current[i + 1]).ok_or_else(|| {
+                    Error::Protocol(format!(
+                        "Merkle leaf {} not sha256: {}",
+                        i + 1,
+                        current[i + 1]
+                    ))
+                })?;
+                next.push(format_hash(&hash_pair(&left, &right)));
+                i += 2;
+            } else {
+                // Odd node count: promote the single trailing node to the
+                // next level unchanged (RFC 6962-style; never duplicate,
+                // so [A,B,C] and [A,B,C,C] cannot share a root).
+                next.push(current[i].clone());
+                i += 1;
+            }
         }
         levels.push(next);
     }
@@ -541,6 +564,33 @@ mod tests {
         let cs = chunks(2);
         let tree = SnapshotMerkleTree::build(&cs).unwrap();
         assert!(tree.audit_path(2).is_none());
+    }
+
+    #[test]
+    fn merkle_duplicate_tail_leaf_changes_root() {
+        // Promote-without-duplication: [A,B,C] and [A,B,C,C] MUST NOT
+        // share a root (CVE-2012-2459-shaped ambiguity).
+        let cs3 = chunks(3);
+        let tree3 = SnapshotMerkleTree::build(&cs3).unwrap();
+        let mut cs4 = cs3.clone();
+        cs4.push(SnapshotChunk {
+            chunk_id: 3,
+            bytes: cs3[2].bytes.clone(),
+            digest: cs3[2].digest.clone(),
+        });
+        let tree4 = SnapshotMerkleTree::build(&cs4).unwrap();
+        assert_ne!(tree3.root(), tree4.root());
+    }
+
+    #[test]
+    fn merkle_verify_rejects_mismatched_tree_size() {
+        let cs = chunks(3);
+        let tree = SnapshotMerkleTree::build(&cs).unwrap();
+        let path = tree.audit_path(2).unwrap();
+        assert!(SnapshotMerkleTree::verify(tree.root(), &cs[2].digest, 2, &path, 3));
+        // The same proof under a different claimed tree_size MUST fail.
+        assert!(!SnapshotMerkleTree::verify(tree.root(), &cs[2].digest, 3, &path, 4));
+        assert!(!SnapshotMerkleTree::verify(tree.root(), &cs[2].digest, 2, &path, 4));
     }
 
     // ── GeneratorProof ─────────────────────────────────────────────────

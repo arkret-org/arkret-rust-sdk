@@ -126,6 +126,13 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
                     "expiry",
                 ],
             )?;
+            // `message_create_payload` top-level `not` — `metadata` and
+            // `encrypted_metadata` are mutually exclusive.
+            if object.contains_key("metadata") && object.contains_key("encrypted_metadata") {
+                return Err(Error::Protocol(format!(
+                    "event kind '{event_kind}' payload must not carry both metadata and encrypted_metadata"
+                )));
+            }
             let has_content = object.contains_key("content");
             let has_encrypted_content = object.contains_key("encrypted_content");
             match (has_content, has_encrypted_content) {

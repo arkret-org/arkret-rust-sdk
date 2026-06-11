@@ -496,7 +496,6 @@ dependencies = [
  "getrandom 0.3.4",
  "proptest",
  "regex",
- "reqwest",
  "salvo",
  "salvo-oapi",
  "serde",

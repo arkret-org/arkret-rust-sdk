@@ -16,5 +16,6 @@ dependency.
 When the `salvo` feature is enabled, the DTO types in `cokret-core` and
 `cokret-identifiers` carry feature-gated Salvo OAPI derives. Endpoint
 path/query/header inputs are grouped as `<Operation>Params`, JSON request
-bodies as `<Operation>ReqBody`, and successful outputs as `<Operation>Output`.
+bodies as `<Operation>RequestBody`, and successful outputs as
+`<Operation>Outcome`.
 Host applications wire these types into their own framework handlers.
