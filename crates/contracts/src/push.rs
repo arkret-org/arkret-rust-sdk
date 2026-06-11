@@ -228,7 +228,7 @@ impl PushRuleSet {
 /// gateway responses pinned to a different revision.
 pub const EXPECTED_SPEC_VERSION: &str = "cokret-spec@2026-05-26";
 
-/// Response body for `GET /_cokret/edge/push/bridge/describe`.
+/// Response body for `GET /_floria/push/bridge/describe`.
 ///
 /// This is a product-local push-gateway contract shared by the gateway
 /// implementation and clients that probe it before registration / notify
@@ -479,7 +479,7 @@ pub struct PushBridgeDescribeExamples {
     pub plaintext_visible_service_request: Value,
 }
 
-/// Response body for `GET /_cokret/edge/integration/describe` on a push gateway.
+/// Response body for `GET /_floria/integration/describe` on a push gateway.
 ///
 /// Compatibility alias for the generic integration manifest contract.
 pub type PushGatewayIntegrationDescribeOutcome = crate::integration::IntegrationDescribeOutcome;
@@ -496,9 +496,9 @@ pub type PushGatewayIntegrationSurface = crate::integration::IntegrationSurfaceD
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[non_exhaustive]
 pub struct IntegrationView {
-    /// Service-level integration manifest (`/_cokret/edge/integration/describe`).
+    /// Service-level integration manifest (`/_floria/integration/describe`).
     pub manifest: PushGatewayIntegrationDescribeOutcome,
-    /// Active bridge contract (`/_cokret/edge/push/bridge/describe`).
+    /// Active bridge contract (`/_floria/push/bridge/describe`).
     pub bridge: PushBridgeDescribeOutcome,
 }
 
@@ -722,8 +722,8 @@ mod tests {
             version: "1.0.0".to_owned(),
             service: "push-gateway".to_owned(),
             service_kind: "push-gateway".to_owned(),
-            api_base_path: "/_cokret/edge".to_owned(),
-            describe_path: "/_cokret/edge/integration/describe".to_owned(),
+            api_base_path: "/_floria".to_owned(),
+            describe_path: "/_floria/integration/describe".to_owned(),
             dependencies: vec![PushGatewayIntegrationDependency {
                 service: "soland".to_owned(),
                 purpose: "register-device".to_owned(),

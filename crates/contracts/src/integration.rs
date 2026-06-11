@@ -1,4 +1,4 @@
-//! Shared `/_cokret/edge/integration/describe` contract.
+//! Shared integration describe contract.
 //!
 //! This manifest shape is emitted by multiple services (for example floria,
 //! soland, and coauth) and consumed by SDKs/admin UIs to discover dependent
@@ -78,19 +78,19 @@ mod tests {
             "version": "2026-05-07",
             "service": "floria",
             "service_kind": "push_gateway",
-            "api_base_path": "/_cokret/edge",
-            "describe_path": "/_cokret/edge/integration/describe",
+            "api_base_path": "/_floria",
+            "describe_path": "/_floria/integration/describe",
             "dependencies": [{
                 "service": "soland",
                 "purpose": "principal_outbound_push_delivery",
                 "required_contract": "cokret.rest.outbound_push_bridge.v1",
-                "discovery_path": "/_cokret/edge/push/outbound/bridge/describe",
+                "discovery_path": "/_soland/edge/push/outbound/bridge/describe",
                 "mode": "remote_principal_contract"
             }],
             "surfaces": [{
                 "name": "push_bridge",
                 "method": "GET",
-                "path": "/_cokret/edge/push/bridge/describe",
+                "path": "/_floria/push/bridge/describe",
                 "contract": "ck.push.bridge.describe",
                 "stability": "active",
                 "todo": "pin provider_capabilities_version"
