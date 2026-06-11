@@ -15,9 +15,9 @@ version.workspace = true
 default = []
 
 [dependencies]
-cokret-core.workspace = true
-serde.workspace = true
-serde_json.workspace = true
+cokret-core = {workspace = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
 
 [lints]
 workspace = true

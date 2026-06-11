@@ -16,23 +16,23 @@ default = []
 signer = []
 
 [dependencies]
-base64.workspace = true
-chrono = { workspace = true, features = ["serde"] }
-cokret-core.workspace = true
 # RFC 9421 HTTP Message Signatures + detached-JWS Ed25519 verify are always
 # available (the federation / push / teabay ingest verifiers need them
 # unconditionally); the `signer` feature is retained for API compatibility but
 # no longer gates these crypto deps.
-ed25519-dalek.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-sha2.workspace = true
-subtle.workspace = true
-thiserror.workspace = true
+base64 = {workspace = true}
+chrono = {workspace = true,features = ["serde"]}
+cokret-core = {workspace = true}
+ed25519-dalek = {workspace = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+sha2 = {workspace = true}
+subtle = {workspace = true}
+thiserror = {workspace = true}
 
 [dev-dependencies]
-cokret-core = { workspace = true }
-serde_json.workspace = true
+cokret-core = {workspace = true}
+serde_json = {workspace = true}
 
 [lints]
 workspace = true

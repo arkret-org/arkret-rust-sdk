@@ -26,19 +26,19 @@ keystore-linux = ["dep:secret-service"]
 keystore-windows = ["dep:windows"]
 
 [dependencies]
-cokret-core.workspace = true
+cokret-core = {workspace = true}
 
 [target.'cfg(target_os = "macos")'.dependencies]
-security-framework = { workspace = true, optional = true }
+security-framework = {workspace = true,optional = true}
 
 [target.'cfg(target_os = "linux")'.dependencies]
-secret-service = { workspace = true, optional = true }
+secret-service = {workspace = true,optional = true}
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true, optional = true, features = [
+windows = {workspace = true,features = [
     "Win32_Foundation",
     "Win32_Security_Credentials",
-] }
+],optional = true}
 
 [lints]
 workspace = true

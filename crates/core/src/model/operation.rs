@@ -674,7 +674,7 @@ impl EncryptedPayload {
         };
         let mut input = canonical::canonical_json_bytes(&metadata)?;
         input.extend_from_slice(ciphertext_bytes);
-        Ok(Hash::new(format!("sha256:{:x}", Sha256::digest(&input)))?)
+        Ok(Hash::new(format!("sha256:{}", hex::encode(Sha256::digest(&input))))?)
     }
 
     pub fn verify_mls_payload_digest(&self, ciphertext_bytes: &[u8]) -> Result<()> {

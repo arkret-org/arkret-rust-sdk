@@ -202,7 +202,7 @@ impl Anchor {
 
     pub fn id_from_canonical_bytes(bytes: &[u8]) -> Result<AnchorId> {
         let digest = Sha256::digest(bytes);
-        let id = format!("ck:anchor:sha256:{digest:x}");
+        let id = format!("ck:anchor:sha256:{}", hex::encode(digest));
         AnchorId::new(id).map_err(|err| Error::Protocol(format!("invalid Anchor id: {err}")))
     }
 

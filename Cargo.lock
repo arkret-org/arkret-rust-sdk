@@ -447,6 +447,7 @@ dependencies = [
  "cokret-testing",
  "ed25519-dalek",
  "getrandom 0.4.2",
+ "hex",
  "hkdf 0.13.0",
  "openmls",
  "openmls_basic_credential",
@@ -494,6 +495,7 @@ dependencies = [
  "chrono",
  "cokret-identifiers",
  "getrandom 0.4.2",
+ "hex",
  "proptest",
  "regex",
  "salvo",
@@ -567,6 +569,7 @@ dependencies = [
  "diesel",
  "getrandom 0.2.17",
  "getrandom 0.4.2",
+ "hex",
  "salvo",
  "salvo-oapi",
  "serde",
@@ -2911,6 +2914,7 @@ dependencies = [
  "pin-project-lite",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "sync_wrapper",
  "tokio",
  "tokio-util",
@@ -3393,6 +3397,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "serde_urlencoded"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3491c14715ca2294c4d6a88f15e84739788c1d030eed8c110436aafdaa2f3fd"
+dependencies = [
+ "form_urlencoded",
+ "itoa",
+ "ryu",
+ "serde",
 ]
 
 [[package]]

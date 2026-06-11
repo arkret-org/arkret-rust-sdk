@@ -213,7 +213,7 @@ impl Move {
     /// Compute a Move id from already-canonicalized bytes.
     pub fn id_from_canonical_bytes(bytes: &[u8]) -> Result<MoveId> {
         let digest = Sha256::digest(bytes);
-        let id = format!("sha256:{digest:x}");
+        let id = format!("sha256:{}", hex::encode(digest));
         MoveId::new(id).map_err(|err| Error::Protocol(format!("invalid Move id: {err}")))
     }
 
@@ -319,7 +319,7 @@ mod tests {
         let payload_digest = sha256_digest(&body_bytes);
         let move_id_hex = {
             let digest = Sha256::digest(&body_bytes);
-            format!("sha256:{digest:x}")
+            format!("sha256:{}", hex::encode(digest))
         };
         let mut full = body.as_object().unwrap().clone();
         full.insert("id".to_owned(), Value::String(move_id_hex));

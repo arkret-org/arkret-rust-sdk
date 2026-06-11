@@ -628,7 +628,7 @@ impl IdentityLink {
     pub fn canonical_payload_digest(&self) -> Result<Hash> {
         let input = self.canonical_proof_input()?;
         let digest = Sha256::digest(&input);
-        Hash::new(format!("sha256:{digest:x}")).map_err(|error| {
+        Hash::new(format!("sha256:{}", hex::encode(digest))).map_err(|error| {
             Error::Protocol(format!("identity_link payload hash invalid: {error}"))
         })
     }

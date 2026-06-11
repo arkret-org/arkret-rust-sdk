@@ -261,7 +261,7 @@ impl<'de> serde::de::Visitor<'de> for CanonicalValueVisitor {
 /// 原始 hash 原语的下游直接使用。[`sha256_digest`] 在此之上加前缀。
 pub fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
-    format!("{digest:x}")
+    hex::encode(digest)
 }
 
 pub fn sha256_digest(bytes: impl AsRef<[u8]>) -> String {

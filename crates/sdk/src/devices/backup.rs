@@ -92,7 +92,7 @@ pub fn key_backup_commitment(derived_key: &[u8]) -> String {
     let prk = hmac_sha256(&[0u8; 32], derived_key);
     let commitment_key = hkdf_expand_32(&prk, b"cokret-key-backup-commitment-v1");
     let digest = Sha256::digest(commitment_key);
-    format!("sha256:{:x}", digest)
+    format!("sha256:{}", hex::encode(digest))
 }
 
 /// HKDF subdomain key derivation per `key-management.md` §7.2.

@@ -26,25 +26,26 @@ mls = []
 salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "cokret-identifiers/salvo"]
 
 [dependencies]
-base64.workspace = true
-bs58.workspace = true
-chrono = { workspace = true, features = ["serde"] }
-cokret-identifiers.workspace = true
-getrandom.workspace = true
-regex.workspace = true
-salvo = { workspace = true, optional = true, features = ["oapi"] }
-salvo-oapi = { workspace = true, optional = true }
-serde.workspace = true
-serde_json.workspace = true
-sha2.workspace = true
-thiserror.workspace = true
-unicode-normalization.workspace = true
-url = { workspace = true, optional = true }
+base64 = {workspace = true}
+bs58 = {workspace = true}
+chrono = {workspace = true,features = ["serde"]}
+cokret-identifiers = {workspace = true}
+getrandom = {workspace = true}
+hex = {workspace = true}
+regex = {workspace = true}
+salvo = {workspace = true,features = ["oapi"],optional = true}
+salvo-oapi = {workspace = true,optional = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+sha2 = {workspace = true}
+thiserror = {workspace = true}
+unicode-normalization = {workspace = true}
+url = {workspace = true,optional = true}
 
 [dev-dependencies]
-serde_json.workspace = true
 # T8.2 § property tests for blind payload sanitizer / canonical JSON.
-proptest = { version = "1", default-features = false, features = ["std"] }
+proptest = {workspace = true,default-features = false,features = ["std"]}
+serde_json = {workspace = true}
 
 [lints]
 workspace = true

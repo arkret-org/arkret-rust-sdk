@@ -22,16 +22,16 @@ salvo = [
 ]
 
 [dependencies]
-chrono.workspace = true
-cokret-core.workspace = true
-cokret-crypto.workspace = true
-cokret-html.workspace = true
-cokret-signatures.workspace = true
-salvo = { workspace = true, optional = true, features = ["oapi"] }
-salvo-oapi = { workspace = true, optional = true }
-serde.workspace = true
-serde_json.workspace = true
-tracing.workspace = true
+chrono = {workspace = true}
+cokret-core = {workspace = true}
+cokret-crypto = {workspace = true}
+cokret-html = {workspace = true}
+cokret-signatures = {workspace = true}
+salvo = {workspace = true,features = ["oapi"],optional = true}
+salvo-oapi = {workspace = true,optional = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+tracing = {workspace = true}
 
 [lints]
 workspace = true

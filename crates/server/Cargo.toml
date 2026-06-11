@@ -21,11 +21,11 @@ default = []
 salvo = ["cokret-core/salvo"]
 
 [dependencies]
-cokret-contracts.workspace = true
-cokret-core.workspace = true
-cokret-signatures.workspace = true
-serde.workspace = true
-serde_json.workspace = true
+cokret-contracts = {workspace = true}
+cokret-core = {workspace = true}
+cokret-signatures = {workspace = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
 
 [lints]
 workspace = true

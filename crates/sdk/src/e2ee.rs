@@ -634,7 +634,7 @@ fn message_digest(
     hasher.update(epoch.to_le_bytes());
     hasher.update(sender_actor_id.as_str().as_bytes());
     hasher.update(ciphertext);
-    format!("{:x}", hasher.finalize())
+    hex::encode(hasher.finalize())
 }
 
 #[cfg(test)]

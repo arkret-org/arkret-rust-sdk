@@ -17,9 +17,9 @@ client = ["cokret-core/client"]
 mls = ["cokret-core/mls"]
 
 [dependencies]
-cokret-core.workspace = true
-serde.workspace = true
-serde_json.workspace = true
+cokret-core = {workspace = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
 
 [lints]
 workspace = true
