@@ -253,11 +253,7 @@ fn build_levels(leaves: &[Hash]) -> Result<Vec<Vec<Hash>>> {
                     Error::Protocol(format!("Merkle leaf {i} not sha256: {}", current[i]))
                 })?;
                 let right = parse_sha256(&current[i + 1]).ok_or_else(|| {
-                    Error::Protocol(format!(
-                        "Merkle leaf {} not sha256: {}",
-                        i + 1,
-                        current[i + 1]
-                    ))
+                    Error::Protocol(format!("Merkle leaf {} not sha256: {}", i + 1, current[i + 1]))
                 })?;
                 next.push(format_hash(&hash_pair(&left, &right)));
                 i += 2;
@@ -284,10 +280,7 @@ fn parse_sha256(hash: &Hash) -> Option<[u8; 32]> {
         return None;
     }
     let mut out = [0u8; 32];
-    for i in 0..32 {
-        let byte = u8::from_str_radix(&suffix[i * 2..i * 2 + 2], 16).ok()?;
-        out[i] = byte;
-    }
+    hex::decode_to_slice(suffix, &mut out).ok()?;
     Some(out)
 }
 
@@ -299,7 +292,7 @@ fn hash_pair(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
 }
 
 fn format_hash(bytes: &[u8; 32]) -> Hash {
-    let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+    let hex = hex::encode(bytes);
     Hash::new(format!("sha256:{hex}")).expect("sha256 wire form")
 }
 

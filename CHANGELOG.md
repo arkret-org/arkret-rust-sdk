@@ -5,23 +5,38 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Starting with the local `1.0.0` freeze, breaking public API changes require a
-major-version bump.
+The workspace currently remains on the local `0.3.x` development line. The
+historical local `1.0.0` freeze below was not published as a crates.io release,
+GitHub release, or release tag.
 
-## R4.2 — Policy check `actor` → `actor_id` 2026-06-10 (cokret-spec @ fb4c970)
+## [Unreleased]
+
+### Tooling
+
+- **MSRV bump 1.92 → 1.96.** The workspace `Cargo.toml` already declared
+  `rust-version = "1.96"`, but every CI job pinned `dtolnay/rust-toolchain`
+  to `1.92`, which made `cargo check/test/clippy` fail the built-in
+  `rust-version` gate. All seven CI toolchain pins are now `1.96`, matching
+  the declared MSRV.
+- **Formatting config cleanup.** Removed the stale Dioxus-copied
+  `typos.toml` and the duplicate nightly-only `rustfmt.toml`; the repository
+  now keeps one `typos` config and one `.rustfmt.toml`, with CI running
+  `cargo +nightly fmt --all -- --check`.
+
+### R4.2 — Policy check `actor` → `actor_id` 2026-06-10 (cokret-spec @ fb4c970)
 
 - **Wire-breaking rename**: `PolicyCheckRequestBody.actor` → `actor_id` and `PolicyCheckOutcome.bound_to.actor` → `actor_id` (spec `did_id_suffix` rule: responsibility subjects use the `_id` suffix even when the value is a DID). No compatibility shim — payloads carrying the bare `actor` field no longer deserialize.
 - **Forbidden-wire-fields mirror**: new `WireContext::PolicyCheckBoundTo` + hard-reject entry `bound_to.actor`. The bare token `actor` stays a legitimate enum value / prose noun and is NOT added to the coarse flat list.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-## R4.1 — Encryption floor binarization & `EncryptionFloor` merge 2026-06-08
+### R4.1 — Encryption floor binarization & `EncryptionFloor` merge 2026-06-08
 
 - **`metadata_encryption_profile` → `metadata_encryption_floor`**: the Realm-side field is renamed to match the Circle field. The same concept previously carried two names (`_profile` on Realm, `_floor` on Circle).
 - **Metadata floor collapsed from three tiers to binary**: `metadata_encryption_floor` is now `allow_plaintext` / `e2ee_required` (was `content_only` / `minimal_encrypted` / `full_encrypted`), fully symmetric with `content_encryption_floor`. The server-visibility axis that `minimal` vs `full` used to express now lives solely in `plaintext_visible_services`. Supersedes the three-tier form introduced in R4.0.
 - **`ContentEncryptionFloor` + `CircleMetadataEncryptionFloor` merged into `cokret_core::EncryptionFloor`**: identical value sets and semantics (`AllowPlaintext` / `E2eeRequired`); the content and metadata floors now share one type. The `CircleMetadataEncryptionFloor` name referenced under R4.0 no longer exists. The `ContentEncryptionFloorViolation` error variant name is retained (content-side semantics).
 
-## R3.5 — Applet protocol sync 2026-06-04 (cokret-spec @ 653ffb2)
+### R3.5 — Applet protocol sync 2026-06-04 (cokret-spec @ 653ffb2)
 
 - **New `applet` feature** (`applet-runtime` + `client` + `server` + `salvo`): one-flag umbrella so `cargo add cokret --features applet` pulls the full Applet developer surface.
 - **`registration_epoch` now required** on `ck.applet.registration`: `WireAppletRegistration` gained `registration_epoch: Hash`; `WireAppletRegistration::new(..)` takes it as the final argument. Registrations minted before this release are non-conformant.
@@ -34,13 +49,13 @@ major-version bump.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-## R3.4 — Spec sync 2026-05-31 (cokret-spec @ c2848a4)
+### R3.4 — Spec sync 2026-05-31 (cokret-spec @ c2848a4)
 
 - Synced protocol-facing names and fixtures to `c2848a4`: event envelope schema naming, `_ids` grant constraints, accountability principal vocabulary, `ck:rtc_participant:` media participants, agent session start fields, and key-backup signature algorithm naming where applicable.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-## R3.3 — Spec sync 2026-05-28 (cokret-spec @ cced4b8, CKP-0011)
+### R3.3 — Spec sync 2026-05-28 (cokret-spec @ cced4b8, CKP-0011)
 
 - **New operation**: `ck.directory.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `ck.directory.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `ck.schema.*`, or wire/reducer changes.
 - **Wire types**: `DirectoryResolveTargetRequestBody { address, requester, proofs, token }` + `DirectoryTargetResolutionOutcome { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Flow, Message }`. http-client method `directory_resolve_target`.
@@ -49,7 +64,7 @@ major-version bump.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-## R3.2 — Spec sync 2026-05-28 (cokret-spec @ b56cab1)
+### R3.2 — Spec sync 2026-05-28 (cokret-spec @ b56cab1)
 
 - **MemberIdentity wire-breaking**: `MemberIdentity` no longer carries `primary_handle` / `handles[]`; `VerifiedHandle` removed. Handle lifecycle is governed solely by `ck.schema.handle_claim.v1`. This object discloses `subject_id` + `display_profile` only.
 - **Digest renames**: payload `identity_state_digest` → `identity_payload_digest`; roster `identity_state_digest` → `member_display_state_digest` (now folds the visible handle-claim digest set). New `member_identity_effective_set_digest` helper backs `expected_state_digest`.
@@ -61,7 +76,7 @@ major-version bump.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-## R3 — Spec sync 2026-05-27 (cokret-spec @ b47ff6ec)
+### R3 — Spec sync 2026-05-27 (cokret-spec @ b47ff6ec)
 
 - Call / media (CKP-0010): client helper `call_media_token_exchange`, `MediaTokenResponse` / `ParticipantBinding` / `MediaBackendType` types, TTL gate `<=600s`, five new capability actions, op registry mirror at `ck.call.media.token_exchange`.
 - Agent (CKP-0008 / 0009): `ck.agent.deactivate` HTTP path canonicalised (no `/revoke`), draft / action_request / approve / reject event kinds wired, `pause/resume/deactivate` FSM lattice metadata, agent_runtime surface tier definition.
@@ -70,16 +85,6 @@ major-version bump.
 - Profiles / cursor / selector / data: media-service-binding + `accountable_principals.strict_reject` profile entries, stateful core cursor enforcement, `ResourceSelector::Circle(CircleId)`, `AccountDataSet` / `AccountBlocklist` payloads, handle NFC + confusable skeleton helper.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
-
-## [Unreleased]
-
-### Tooling
-
-- **MSRV bump 1.92 → 1.96.** The workspace `Cargo.toml` already declared
-  `rust-version = "1.96"`, but every CI job pinned `dtolnay/rust-toolchain`
-  to `1.92`, which made `cargo check/test/clippy` fail the built-in
-  `rust-version` gate. All seven CI toolchain pins are now `1.96`, matching
-  the declared MSRV.
 
 ### R3 — Spec sync 2026-05-27 (cokret-spec b47ff6ec, no release)
 
@@ -302,7 +307,7 @@ section will roll into the next published release.
 
 ### Release Engineering
 
-- Bumped all 11 workspace crates to `1.0.0` for the local freeze.
+- Bumped the then-current workspace crates to `1.0.0` for the local freeze.
 - Recorded local interop evidence in `docs/release-evidence-1.0.0.md` using
   cotest release-gate run `artifacts/runs/20260525-055932` from the sibling
   `cotest` checkout.

@@ -1,10 +1,10 @@
 # Cokret Rust SDK
 
-> **Spec target**: [cokret-spec @ c2848a4](../cokret-spec) (R3.4 sync 2026-05-31)
+> **Spec target**: [cokret-spec @ 8a9c32a](../cokret-spec) (v1 artifacts 2026-06-11)
 
 [![codecov](https://codecov.io/gh/cokret/cokret-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/cokret/cokret-rust-sdk)
 
-Release status: local Cokret v1 SDK `1.0.0` freeze candidate. The SDK includes
+Release status: local Cokret v1 SDK `0.3.x` development line. The SDK includes
 authenticated local encryption helpers based on XChaCha20-Poly1305, OpenMLS MLS
 group encryption, framework-independent server contracts, HTTP client bindings
 and conformance-oriented tests. The local security-review packet and cotest
@@ -48,9 +48,15 @@ re-exports the public SDK surface:
 
 - `cokret-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types and service metadata
 - `cokret-contracts`: shared wire-contract DTOs for product-local client APIs, identity, federation and push gateway integration
+- `cokret-crypto`: local encryption, backup and key-management helpers
+- `cokret-ffi`: C ABI surface for core identifiers, canonical helpers and runtime bridges
+- `cokret-html`: rich-text sanitization helpers and conformance fixtures
 - `cokret-identifiers`: validated DIDs, typed IDs, hashes, cursors and HLC values
 - `cokret-http-client`: HTTP transport bindings
+- `cokret-keystore`: platform KeyStore backends behind target-specific feature gates
 - `cokret-server`: framework-independent server handler contracts, service route metadata and endpoint fixture coverage
+- `cokret-signatures`: HTTP signatures, JWS/JWT and proof verification helpers
+- `cokret-testing`: conformance vectors and test-fixture helpers
 - `cokret`: umbrella SDK crate with high-level state managers and feature forwarding
 
 The workspace default members include all crates:
@@ -116,7 +122,7 @@ Headline additions:
   for the normative source.
 - [Security policy](SECURITY.md) — supported versions and how to report
   vulnerabilities responsibly.
-- [Releasing](RELEASING.md) — local package checks for the 11-crate workspace
+- [Releasing](RELEASING.md) — local package checks for the 12-crate workspace
   in topological order.
 - [Contributing](CONTRIBUTING.md) — development checks, API rules, commit
   style.

@@ -10,8 +10,15 @@ application
 cokret (umbrella SDK)
     |-- cokret-identifiers: validated DIDs, typed IDs, hashes, cursors and HLC values
     |-- cokret-core: wire models, canonical JSON, sync/cursor and service metadata
+    |-- cokret-crypto: local encryption, backup and key-management helpers
+    |-- cokret-ffi: C ABI bindings and runtime bridge helpers
+    |-- cokret-html: rich-text sanitization and conformance helpers
     |-- cokret-http-client: HTTP transport for Cokret service endpoints
+    |-- cokret-keystore: platform KeyStore backends behind target feature gates
     |-- cokret-server: endpoint registry, routed dispatch, server middleware, adapter contracts, OpenAPI helpers and optional Salvo router
+    |-- cokret-signatures: HTTP signatures, JWS/JWT and proof verification
+    |-- cokret-contracts: protocol-adjacent service DTOs and product bridge contracts
+    |-- cokret-testing: conformance vectors and fixture helpers
     |-- base/sync_client: local client state, response processing and account subscribe
     |-- membership/devices/receipts/notifications: client business state
     |-- content/media/profile/settings/search/discovery: feature helpers
@@ -30,7 +37,7 @@ Cokret IDs, hashes, cursor tokens and HLC values. Serde decoding validates
 the same invariants as constructors so malformed wire identifiers fail at the
 edge.
 
-`crates/core/src/model.rs` owns object state enums, Realm /
+`crates/core/src/model/` owns object state enums, Realm /
 ActorProfile / Flow / Message / Morph / Relation / View objects, signed
 Events, canonical Operations, signed Operation envelopes, Commits, capability
 grants, policies, invites, read markers, notifications, blob metadata and
