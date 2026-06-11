@@ -2974,9 +2974,9 @@ pub struct SessionGrantOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountDevicePairRequestBody {
-    pub principal_id: Did,
-    pub new_device_key: Value,
-    pub pairing_proof: Proof,
+    pub pairing_code: String,
+    pub new_device_pubkey: Value,
+    pub challenge_signature: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -2987,6 +2987,8 @@ pub struct AccountDevicePairRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountDevicePairOutcome {
     pub device_id: DeviceId,
+    pub authorized_event_ref: EventId,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
     pub device_grant: Value,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub key_backup_hint: Value,
