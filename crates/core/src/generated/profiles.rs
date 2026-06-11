@@ -59,8 +59,6 @@ pub const PROFILE_IDS: &[&str] = &[
     "ck.profile.franking.v1",
     "ck.profile.full_client.v1",
     "ck.profile.hash.blake3.v1",
-    "ck.profile.hash.sha3.v1",
-    "ck.profile.hash.sha512.v1",
     "ck.profile.hash_transition.v1",
     "ck.profile.high_security_organization.v1",
     "ck.profile.identity_registry.v1",
@@ -249,8 +247,6 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
     ("ck.profile.franking.v1", ProfileRole::Server),
     ("ck.profile.full_client.v1", ProfileRole::Client),
     ("ck.profile.hash.blake3.v1", ProfileRole::Interop),
-    ("ck.profile.hash.sha3.v1", ProfileRole::Interop),
-    ("ck.profile.hash.sha512.v1", ProfileRole::Interop),
     ("ck.profile.hash_transition.v1", ProfileRole::Interop),
     (
         "ck.profile.high_security_organization.v1",

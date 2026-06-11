@@ -534,6 +534,7 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "ck.schema.account_operations.v1",
     "ck.schema.agent_operations.v1",
     "ck.schema.applet_edge_operations.v1",
+    "ck.schema.applet_ghost_operations.v1",
     "ck.schema.applet_install_operations.v1",
     "ck.schema.applet_install_plan.v1",
     "ck.schema.applet_package.v1",

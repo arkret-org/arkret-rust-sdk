@@ -1081,6 +1081,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.blob.get",
                     "ck.self.blob.head",
                     "ck.self.blob.upload",
+                    "ck.self.device_messages.ack",
                     "ck.self.device_messages.get",
                     "ck.self.device_messages.put",
                     "ck.self.events.submit",
@@ -1338,6 +1339,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 inherits: &[],
                 required_operations: &[
                     "ck.edge.push.notify",
+                    "ck.self.device_messages.ack",
                     "ck.self.device_messages.get",
                     "ck.self.device_messages.put",
                     "ck.self.keys.claim",

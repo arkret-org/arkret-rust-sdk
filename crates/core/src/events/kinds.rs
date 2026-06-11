@@ -161,11 +161,13 @@ pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[
     KEY_VERIFICATION_READY,
     KEY_VERIFICATION_REQUEST,
     KEY_VERIFICATION_START,
+    SECRET_REQUEST,
+    SECRET_SEND,
 ];
 
-/// True for the 12 wire-scope-ephemeral kinds — broadcast ephemerals
+/// True for the wire-scope-ephemeral kinds — broadcast ephemerals
 /// (`ck.call.signal`, `ck.presence`, `ck.typing`, `ck.receipt.read`) plus
-/// the `ck.key.verification.*` to-device family. These MUST be rejected by
+/// the to-device key-verification and secret-share families. These MUST be rejected by
 /// reducers if delivered as a durable Event (event-envelope.schema.json `not` branch).
 pub fn is_ephemeral_kind(kind: &str) -> bool {
     if kind.starts_with("ck.key.verification.") {
@@ -291,6 +293,8 @@ pub const RELATION_UPDATE: &str = "ck.relation.update";
 pub const RSVP_SET: &str = "ck.rsvp.set";
 pub const SCHEMA_DEFINE: &str = "ck.schema.define";
 pub const SCHEMA_UPDATE: &str = "ck.schema.update";
+pub const SECRET_REQUEST: &str = "ck.secret.request";
+pub const SECRET_SEND: &str = "ck.secret.send";
 pub const SESSION_GRANT: &str = "ck.session.grant";
 pub const SOVEREIGN_DID_POLICY: &str = "ck.sovereign.did_policy";
 // Space event kinds (product container).
@@ -476,6 +480,8 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     RSVP_SET,
     SCHEMA_DEFINE,
     SCHEMA_UPDATE,
+    SECRET_REQUEST,
+    SECRET_SEND,
     AGENT_DEACTIVATE,
     AGENT_PAUSE,
     AGENT_RESUME,
@@ -520,6 +526,8 @@ pub const NON_REDUCER_EVENT_KINDS: &[&str] = &[
     PRESENCE,
     READ_MARKER,
     RECEIPT_READ,
+    SECRET_REQUEST,
+    SECRET_SEND,
     TYPING,
 ];
 
@@ -666,7 +674,9 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | KEY_VERIFICATION_MAC
         | KEY_VERIFICATION_READY
         | KEY_VERIFICATION_REQUEST
-        | KEY_VERIFICATION_START => EventClass::Device,
+        | KEY_VERIFICATION_START
+        | SECRET_REQUEST
+        | SECRET_SEND => EventClass::Device,
         MLS_COMMIT
         | MLS_COMMIT_FAILED
         | MLS_GENESIS

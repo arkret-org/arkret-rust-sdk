@@ -49,6 +49,7 @@ pub const ERROR_CODE_STATE_MISMATCH: &str = "state_mismatch";
 pub const ERROR_CODE_AUDIT_RECEIPT_INVALIDATED: &str = "audit_receipt_invalidated";
 pub const ERROR_CODE_UNKNOWN_DID: &str = "unknown_did";
 pub const ERROR_CODE_QUOTA_EXCEEDED: &str = "quota_exceeded";
+pub const ERROR_CODE_LIMIT_EXCEEDED: &str = "limit_exceeded";
 pub const ERROR_CODE_RATE_LIMITED: &str = "rate_limited";
 pub const ERROR_CODE_TIMEOUT: &str = "timeout";
 pub const ERROR_CODE_STALE_FRONTIER: &str = "stale_frontier";
@@ -245,6 +246,8 @@ pub const ERROR_CODE_SERVICE_UNAVAILABLE: &str = "service_unavailable";
 pub const ERROR_CODE_UNSUPPORTED_JOIN_RULE: &str = "unsupported_join_rule";
 pub const ERROR_CODE_CONTACT_NOT_ACCEPTED: &str = "contact_not_accepted";
 pub const ERROR_CODE_CONTACT_CONSENT_MISSING: &str = "contact_consent_missing";
+pub const ERROR_CODE_CONTACT_REQUEST_NOT_PENDING: &str = "contact_request_not_pending";
+pub const ERROR_CODE_CONTACT_REQUEST_EXPIRED: &str = "contact_request_expired";
 pub const ERROR_CODE_DELIVERY_BINDING_UNRESOLVABLE: &str = "delivery_binding_unresolvable";
 pub const ERROR_CODE_APPLET_REGISTRATION_UNAUTHORIZED: &str = "applet_registration_unauthorized";
 pub const ERROR_CODE_APPLET_INSTALL_PLAN_MISMATCH: &str = "applet_install_plan_mismatch";
@@ -306,6 +309,7 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_AUDIT_RECEIPT_INVALIDATED,
     ERROR_CODE_UNKNOWN_DID,
     ERROR_CODE_QUOTA_EXCEEDED,
+    ERROR_CODE_LIMIT_EXCEEDED,
     ERROR_CODE_RATE_LIMITED,
     ERROR_CODE_TIMEOUT,
     ERROR_CODE_STALE_FRONTIER,
@@ -441,6 +445,8 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_UNSUPPORTED_JOIN_RULE,
     ERROR_CODE_CONTACT_NOT_ACCEPTED,
     ERROR_CODE_CONTACT_CONSENT_MISSING,
+    ERROR_CODE_CONTACT_REQUEST_NOT_PENDING,
+    ERROR_CODE_CONTACT_REQUEST_EXPIRED,
     ERROR_CODE_DELIVERY_BINDING_UNRESOLVABLE,
     ERROR_CODE_APPLET_REGISTRATION_UNAUTHORIZED,
     ERROR_CODE_APPLET_INSTALL_PLAN_MISMATCH,
@@ -919,6 +925,8 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_STREAM_RESYNC_REQUIRED
         | ERROR_CODE_CONTACT_NOT_ACCEPTED
         | ERROR_CODE_CONTACT_CONSENT_MISSING
+        | ERROR_CODE_CONTACT_REQUEST_NOT_PENDING
+        | ERROR_CODE_CONTACT_REQUEST_EXPIRED
         | ERROR_CODE_DELIVERY_BINDING_UNRESOLVABLE
         | ERROR_CODE_APPLET_INSTALL_PLAN_MISMATCH
         | ERROR_CODE_CALL_ALREADY_ANSWERED => 409,
@@ -928,9 +936,10 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_BLOB_EXPIRED
         | ERROR_CODE_DID_REVOKED
         | ERROR_CODE_CALL_EXPIRED => 410,
-        ERROR_CODE_PAYLOAD_TOO_LARGE | ERROR_CODE_PUSH_PAYLOAD_TOO_LARGE | ERROR_CODE_TOO_LARGE => {
-            413
-        }
+        ERROR_CODE_PAYLOAD_TOO_LARGE
+        | ERROR_CODE_PUSH_PAYLOAD_TOO_LARGE
+        | ERROR_CODE_TOO_LARGE
+        | ERROR_CODE_LIMIT_EXCEEDED => 413,
         ERROR_CODE_SCHEMA_VIOLATION
         | ERROR_CODE_DIGEST_MISMATCH
         | ERROR_CODE_AAD_DIGEST_MISMATCH
@@ -1116,6 +1125,7 @@ pub enum ErrorCode {
     AuditReceiptInvalidated,
     UnknownDid,
     QuotaExceeded,
+    LimitExceeded,
     RateLimited,
     Timeout,
     StaleFrontier,
@@ -1251,6 +1261,8 @@ pub enum ErrorCode {
     UnsupportedJoinRule,
     ContactNotAccepted,
     ContactConsentMissing,
+    ContactRequestNotPending,
+    ContactRequestExpired,
     DeliveryBindingUnresolvable,
     AppletRegistrationUnauthorized,
     AppletInstallPlanMismatch,
@@ -1312,6 +1324,7 @@ impl ErrorCode {
         Self::AuditReceiptInvalidated,
         Self::UnknownDid,
         Self::QuotaExceeded,
+        Self::LimitExceeded,
         Self::RateLimited,
         Self::Timeout,
         Self::StaleFrontier,
@@ -1442,6 +1455,8 @@ impl ErrorCode {
         Self::UnsupportedJoinRule,
         Self::ContactNotAccepted,
         Self::ContactConsentMissing,
+        Self::ContactRequestNotPending,
+        Self::ContactRequestExpired,
         Self::DeliveryBindingUnresolvable,
         Self::AppletRegistrationUnauthorized,
         Self::AppletInstallPlanMismatch,
@@ -1503,6 +1518,7 @@ impl ErrorCode {
             Self::AuditReceiptInvalidated => ERROR_CODE_AUDIT_RECEIPT_INVALIDATED,
             Self::UnknownDid => ERROR_CODE_UNKNOWN_DID,
             Self::QuotaExceeded => ERROR_CODE_QUOTA_EXCEEDED,
+            Self::LimitExceeded => ERROR_CODE_LIMIT_EXCEEDED,
             Self::RateLimited => ERROR_CODE_RATE_LIMITED,
             Self::Timeout => ERROR_CODE_TIMEOUT,
             Self::StaleFrontier => ERROR_CODE_STALE_FRONTIER,
@@ -1645,6 +1661,8 @@ impl ErrorCode {
             Self::UnsupportedJoinRule => ERROR_CODE_UNSUPPORTED_JOIN_RULE,
             Self::ContactNotAccepted => ERROR_CODE_CONTACT_NOT_ACCEPTED,
             Self::ContactConsentMissing => ERROR_CODE_CONTACT_CONSENT_MISSING,
+            Self::ContactRequestNotPending => ERROR_CODE_CONTACT_REQUEST_NOT_PENDING,
+            Self::ContactRequestExpired => ERROR_CODE_CONTACT_REQUEST_EXPIRED,
             Self::DeliveryBindingUnresolvable => ERROR_CODE_DELIVERY_BINDING_UNRESOLVABLE,
             Self::AppletRegistrationUnauthorized => ERROR_CODE_APPLET_REGISTRATION_UNAUTHORIZED,
             Self::AppletInstallPlanMismatch => ERROR_CODE_APPLET_INSTALL_PLAN_MISMATCH,

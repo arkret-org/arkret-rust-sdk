@@ -30,7 +30,7 @@ fn service_route_operation_ids_are_unique() {
 /// cokret-contracts).
 #[test]
 fn service_routes_match_spec_operation_registry() {
-    let registry = read_spec_artifact("registry/operation-registry.json");
+    let registry = read_spec_artifact("operation-registry.json");
     let spec_routes = registry
         .get("operations")
         .and_then(Value::as_array)

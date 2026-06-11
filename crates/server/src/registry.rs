@@ -140,6 +140,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         Post,
         "/_cokret/self/applets/install"
     ),
+    endpoint!(
+        "ck.self.applet.ghost.provision",
+        Post,
+        "/_cokret/self/applets/{applet_id}/ghosts/provision"
+    ),
     endpoint!("ck.edge.applet.ping", Get, "/_cokret/edge/applet/ping"),
     endpoint!(
         "ck.edge.applet.protocol_metadata",
@@ -200,6 +205,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "ck.self.device_messages.put",
         Post,
         "/_cokret/self/device_messages"
+    ),
+    endpoint!(
+        "ck.self.device_messages.ack",
+        Post,
+        "/_cokret/self/device_messages/ack"
     ),
     endpoint!(
         "ck.self.contact.request",
@@ -382,6 +392,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/root/identity/receipts"
     ),
     endpoint!(
+        "ck.root.identity.recovery_policy.get",
+        Get,
+        "/_cokret/root/identity/recovery-policy"
+    ),
+    endpoint!(
         "ck.root.identity.resolve",
         Post,
         "/_cokret/root/identity/resolve"
@@ -536,9 +551,19 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/self/projection/morphs"
     ),
     endpoint!(
+        "ck.self.projection.document",
+        Get,
+        "/_cokret/self/projection/documents/{morph_id}"
+    ),
+    endpoint!(
         "ck.self.projection.spaces",
         Get,
         "/_cokret/self/projection/spaces"
+    ),
+    endpoint!(
+        "ck.self.views.collection_projection",
+        Post,
+        "/_cokret/self/views/{view_id}/projection"
     ),
     endpoint!("ck.edge.push.notify", Post, "/_cokret/edge/push/notify"),
     endpoint!(
