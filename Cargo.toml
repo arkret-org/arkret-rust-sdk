@@ -1,4 +1,4 @@
-﻿[workspace]
+[workspace]
 members = ["crates/*"]
 default-members = ["crates/*"]
 resolver = "3"
@@ -22,45 +22,45 @@ cokret-testing = { version = "0.3.0", path = "crates/testing", default-features 
 base64 = { version = "0.22.1", default-features = false, features = ["std"] }
 bs58 = { version = "0.5.1", default-features = false, features = ["std"] }
 chacha20poly1305 = { version = "0.10.1", default-features = false, features = ["alloc"] }
-chrono = { version = "0.4.42", default-features = false, features = ["clock", "std", "serde"] }
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std", "serde"] }
 diesel = { version = "2.3", default-features = false }
 ed25519-dalek = { version = "2.2.0", default-features = false, features = ["std", "rand_core"] }
 x25519-dalek = { version = "2.0.1", default-features = false, features = ["static_secrets", "getrandom"] }
 chrono-tz = { version = "0.10.4", default-features = false }
-getrandom = { version = "0.3.4", default-features = false, features = ["std"] }
+getrandom = { version = "0.4.2", default-features = false, features = ["std"] }
 # Pinned to a specific commit (not a mutable `branch = "main"`) so E2EE/MLS
 # core builds are reproducible and upstream `main` churn can't silently change
 # crypto behavior. Bump deliberately under review when adopting a new openmls.
 openmls = { git = "https://github.com/openmls/openmls.git", rev = "d5a3aa7b595cb445614aa04b38f3d3aa42cf4911", default-features = false }
 openmls_basic_credential = { git = "https://github.com/openmls/openmls.git", rev = "d5a3aa7b595cb445614aa04b38f3d3aa42cf4911", default-features = false }
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls.git", rev = "d5a3aa7b595cb445614aa04b38f3d3aa42cf4911", default-features = false }
-regex = { version = "1.11.1", default-features = false, features = ["std", "unicode-perl"] }
-reqwest = { version = "0.12.24", default-features = false }
+regex = { version = "1.12.4", default-features = false, features = ["std", "unicode-perl"] }
+reqwest = { version = "0.13.4", default-features = false }
 salvo = { version = "0.93.0", default-features = false }
 salvo-oapi = { version = "0.93.0", default-features = false }
 serde = { version = "1.0.228", default-features = false, features = ["std", "derive"] }
-serde_json = { version = "1.0.145", default-features = false, features = ["std"] }
-sha2 = { version = "0.10.9", default-features = false }
-hkdf = { version = "0.12.4", default-features = false }
-hmac = { version = "0.12.1", default-features = false }
+serde_json = { version = "1.0.150", default-features = false, features = ["std"] }
+sha2 = { version = "0.11.0", default-features = false }
+hkdf = { version = "0.13.0", default-features = false }
+hmac = { version = "0.13.0", default-features = false }
 zeroize = { version = "1.8.2", default-features = false, features = ["derive"] }
 subtle = { version = "2.6.1", default-features = false }
 parking_lot = { version = "0.12.5", default-features = false }
 argon2 = { version = "0.5.3", default-features = false, features = ["alloc", "password-hash"] }
-thiserror = { version = "2.0.17", default-features = false }
+thiserror = { version = "2.0.18", default-features = false }
 tls_codec = { version = "0.4.2", default-features = false, features = ["mls", "serde", "std"] }
-uuid = { version = "1.10", default-features = false, features = ["std", "v7", "serde"] }
-tokio = { version = "1.48.0", default-features = false, features = ["sync"] }
-tracing = { version = "0.1.41", default-features = false, features = ["std", "attributes"] }
-unicode-normalization = { version = "0.1.24", default-features = false, features = ["std"] }
-url = { version = "2.5.7", default-features = false }
+uuid = { version = "1.23", default-features = false, features = ["std", "v7", "serde"] }
+tokio = { version = "1.52.3", default-features = false, features = ["sync"] }
+tracing = { version = "0.1.44", default-features = false, features = ["std", "attributes"] }
+unicode-normalization = { version = "0.1.25", default-features = false, features = ["std"] }
+url = { version = "2.5.8", default-features = false }
 # Platform KeyStore native backends. Each is brought in only by its target
 # OS via per-target [target.<cfg>.dependencies] in `crates/keystore/Cargo.toml`,
 # behind the matching `keystore-*` feature gate (cokret-core only carries the
 # platform-free KeyStore trait + InMemoryKeyStore). They appear here so the
 # version pin lives in one place.
-security-framework = { version = "3.5.0", default-features = false }
-secret-service = { version = "5.0.1", default-features = false, features = ["rt-tokio-crypto-rust"] }
+security-framework = { version = "3.7.0", default-features = false }
+secret-service = { version = "5.1.0", default-features = false, features = ["rt-tokio-crypto-rust"] }
 windows = { version = "0.62.2", default-features = false }
 
 [workspace.lints.rust]

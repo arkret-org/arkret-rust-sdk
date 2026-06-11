@@ -46,7 +46,7 @@ uuid.workspace = true
 # activates the JS-backed RNG backends whenever the workspace is built
 # for `wasm32-unknown-unknown`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.3.4", features = ["wasm_js"] }
+getrandom = { version = "0.4.2", features = ["wasm_js"] }
 getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
 uuid = { version = "1", default-features = false, features = [
     "std",
