@@ -7,7 +7,8 @@ pub mod content;
 pub mod kinds;
 pub mod reaction;
 
-pub use crate::model::Event as RawEvent;
 pub use content::*;
 pub use kinds::*;
 pub use reaction::*;
+
+pub use crate::model::Event as RawEvent;

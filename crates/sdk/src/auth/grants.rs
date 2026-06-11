@@ -26,16 +26,24 @@ impl SessionGrantPayload {
     /// Validate the payload before it is signed or persisted.
     pub fn validate(&self) -> Result<()> {
         if self.audience.is_empty() {
-            return Err(Error::Protocol("session grant audience must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "session grant audience must not be empty".to_owned(),
+            ));
         }
         if self.scopes.is_empty() {
-            return Err(Error::Protocol("session grant scopes must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "session grant scopes must not be empty".to_owned(),
+            ));
         }
         if self.session_id.trim().is_empty() {
-            return Err(Error::Protocol("session grant session_id must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "session grant session_id must not be empty".to_owned(),
+            ));
         }
         if self.grant_jti.trim().is_empty() {
-            return Err(Error::Protocol("session grant grant_jti must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "session grant grant_jti must not be empty".to_owned(),
+            ));
         }
         if self.revocation_ref.trim().is_empty() {
             return Err(Error::Protocol(
@@ -86,10 +94,16 @@ impl SessionGrant {
         payload.validate()?;
         let grant_jwt = grant_jwt.into();
         if grant_jwt.trim().is_empty() {
-            return Err(Error::Protocol("session grant JWT must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "session grant JWT must not be empty".to_owned(),
+            ));
         }
         let grant_hash = sha256_hex(grant_jwt.as_bytes());
-        Ok(Self { payload, grant_jwt, grant_hash })
+        Ok(Self {
+            payload,
+            grant_jwt,
+            grant_hash,
+        })
     }
 
     /// Convert this issued grant into a durable record without token material.
@@ -130,10 +144,14 @@ impl SessionGrantVerification {
     pub fn validate(&self) -> Result<()> {
         self.payload.validate()?;
         if !self.verified {
-            return Err(Error::Protocol("session grant JWS was not verified".to_owned()));
+            return Err(Error::Protocol(
+                "session grant JWS was not verified".to_owned(),
+            ));
         }
         if self.grant_hash.trim().is_empty() {
-            return Err(Error::Protocol("session grant hash must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "session grant hash must not be empty".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -264,7 +282,11 @@ pub struct SessionGrantRetryPolicy {
 
 impl Default for SessionGrantRetryPolicy {
     fn default() -> Self {
-        Self { initial_backoff_ms: 1_000, max_backoff_ms: 60_000, max_attempts: 8 }
+        Self {
+            initial_backoff_ms: 1_000,
+            max_backoff_ms: 60_000,
+            max_attempts: 8,
+        }
     }
 }
 
@@ -274,7 +296,11 @@ impl SessionGrantRetryPolicy {
             return None;
         }
         let shift = attempts.min(31);
-        Some(self.initial_backoff_ms.saturating_mul(1u64 << shift).min(self.max_backoff_ms))
+        Some(
+            self.initial_backoff_ms
+                .saturating_mul(1u64 << shift)
+                .min(self.max_backoff_ms),
+        )
     }
 }
 
@@ -305,8 +331,10 @@ impl SessionGrantOutboxEntry {
     }
 
     pub fn due(&self, now: DateTime<Utc>) -> bool {
-        matches!(self.state, SessionGrantOutboxState::Pending | SessionGrantOutboxState::Failed)
-            && self.next_attempt_at <= now
+        matches!(
+            self.state,
+            SessionGrantOutboxState::Pending | SessionGrantOutboxState::Failed
+        ) && self.next_attempt_at <= now
     }
 
     pub fn record_delivery(&mut self) {
@@ -366,7 +394,8 @@ pub struct SessionGrantOutboxSlot {
 
 impl fmt::Debug for SessionGrantOutboxSlot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SessionGrantOutboxSlot").finish_non_exhaustive()
+        f.debug_struct("SessionGrantOutboxSlot")
+            .finish_non_exhaustive()
     }
 }
 
@@ -412,7 +441,8 @@ impl SessionGrantOutboxSlot {
         now: DateTime<Utc>,
         policy: SessionGrantRetryPolicy,
     ) -> Result<bool> {
-        self.inner.record_failure(request_id, error.into(), now, policy)
+        self.inner
+            .record_failure(request_id, error.into(), now, policy)
     }
 }
 
@@ -428,7 +458,8 @@ impl MemorySessionGrantOutbox {
         notification: PrincipalSessionGrantNotification,
         now: DateTime<Utc>,
     ) -> Result<()> {
-        self.entries.push_back(SessionGrantOutboxEntry::new(notification, now)?);
+        self.entries
+            .push_back(SessionGrantOutboxEntry::new(notification, now)?);
         Ok(())
     }
 
@@ -441,8 +472,10 @@ impl MemorySessionGrantOutbox {
     }
 
     pub fn record_delivery(&mut self, request_id: &str) -> bool {
-        let Some(entry) =
-            self.entries.iter_mut().find(|entry| entry.notification.request_id == request_id)
+        let Some(entry) = self
+            .entries
+            .iter_mut()
+            .find(|entry| entry.notification.request_id == request_id)
         else {
             return false;
         };
@@ -457,8 +490,10 @@ impl MemorySessionGrantOutbox {
         now: DateTime<Utc>,
         policy: SessionGrantRetryPolicy,
     ) -> bool {
-        let Some(entry) =
-            self.entries.iter_mut().find(|entry| entry.notification.request_id == request_id)
+        let Some(entry) = self
+            .entries
+            .iter_mut()
+            .find(|entry| entry.notification.request_id == request_id)
         else {
             return false;
         };
@@ -477,7 +512,10 @@ impl SessionGrantOutbox for MemorySessionGrantOutbox {
     }
 
     fn due(&self, now: DateTime<Utc>) -> Result<Vec<SessionGrantOutboxEntry>> {
-        Ok(MemorySessionGrantOutbox::due(self, now).into_iter().cloned().collect())
+        Ok(MemorySessionGrantOutbox::due(self, now)
+            .into_iter()
+            .cloned()
+            .collect())
     }
 
     fn entries(&self) -> Result<Vec<SessionGrantOutboxEntry>> {
@@ -495,7 +533,9 @@ impl SessionGrantOutbox for MemorySessionGrantOutbox {
         now: DateTime<Utc>,
         policy: SessionGrantRetryPolicy,
     ) -> Result<bool> {
-        Ok(MemorySessionGrantOutbox::record_failure(self, request_id, error, now, policy))
+        Ok(MemorySessionGrantOutbox::record_failure(
+            self, request_id, error, now, policy,
+        ))
     }
 }
 

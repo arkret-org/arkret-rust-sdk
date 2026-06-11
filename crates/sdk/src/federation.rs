@@ -12,16 +12,15 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use sha2::{Digest, Sha256};
-
 pub use cokret_contracts::federation::{
     FederationBackfillAuthorization, FederationQuarantineKind, FederationQuarantineRecord,
     FederationReplayDecision, FederationReplayRecord, FederationTransactionEnvelope,
     HttpMessageSignature, ServiceEndpointDescriptor, VerifyActorChallenge,
     VerifyActorChallengeSignature, WellKnownCokretServer,
 };
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use crate::{Did, Error, Hash, RealmId, Result};
 
@@ -76,7 +75,10 @@ impl FederationManager {
     /// Negotiate the first locally supported version also supported by the server.
     pub fn negotiate_version(&self, domain: &str, local_versions: &[String]) -> Option<String> {
         let server = self.servers.get(domain)?;
-        local_versions.iter().find(|version| server.versions.contains(*version)).cloned()
+        local_versions
+            .iter()
+            .find(|version| server.versions.contains(*version))
+            .cloned()
     }
 
     /// Query discovered capabilities.
@@ -94,7 +96,10 @@ impl FederationManager {
 
     /// Query known state/events for a Realm.
     pub fn query_state(&self, realm_id: &RealmId) -> Vec<&Value> {
-        self.events.get(realm_id).map(|events| events.iter().collect()).unwrap_or_default()
+        self.events
+            .get(realm_id)
+            .map(|events| events.iter().collect())
+            .unwrap_or_default()
     }
 
     /// Backfill events from a starting offset.
@@ -179,19 +184,25 @@ pub fn rfc9530_content_digest_sha256(bytes: &[u8]) -> String {
 /// `Error::Protocol` carrying `digest_mismatch`.
 pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> Result<()> {
     let trimmed = header_value.trim();
-    let body =
-        trimmed.strip_prefix("sha-256=:").and_then(|s| s.strip_suffix(':')).ok_or_else(|| {
+    let body = trimmed
+        .strip_prefix("sha-256=:")
+        .and_then(|s| s.strip_suffix(':'))
+        .ok_or_else(|| {
             Error::Protocol(format!(
                 "digest_mismatch: unsupported Content-Digest format: {trimmed}"
             ))
         })?;
     let provided = cokret_core::base64_standard_decode(body).map_err(|err| {
-        Error::Protocol(format!("digest_mismatch: bad base64 in Content-Digest: {err}"))
+        Error::Protocol(format!(
+            "digest_mismatch: bad base64 in Content-Digest: {err}"
+        ))
     })?;
     if sha256_raw(bytes) == provided.as_slice() {
         Ok(())
     } else {
-        Err(Error::Protocol("digest_mismatch: Content-Digest does not match body".to_owned()))
+        Err(Error::Protocol(
+            "digest_mismatch: Content-Digest does not match body".to_owned(),
+        ))
     }
 }
 
@@ -309,11 +320,10 @@ impl ActorSeqLedger {
     /// Record an `(actor, actor_seq, event_id)` triple. Returns:
     ///
     /// - `Ok(None)` for first-seen or idempotent duplicates;
-    /// - `Ok(Some(record))` when the same `actor_seq` is replayed with a
-    ///   different `event_id` (the caller MUST refuse to apply the new
-    ///   event and SHOULD persist the returned `FederationQuarantineRecord`);
-    /// - `Err` is reserved for future structural validation; currently
-    ///   never returned.
+    /// - `Ok(Some(record))` when the same `actor_seq` is replayed with a different `event_id` (the
+    ///   caller MUST refuse to apply the new event and SHOULD persist the returned
+    ///   `FederationQuarantineRecord`);
+    /// - `Err` is reserved for future structural validation; currently never returned.
     pub fn observe(
         &mut self,
         actor_id: Did,
@@ -381,7 +391,10 @@ mod tests {
         manager.forward_event(realm_id.clone(), json!({"event": 2}));
 
         assert_eq!(manager.query_state(&realm_id).len(), 2);
-        assert_eq!(manager.backfill(&realm_id, 1, 10), vec![&json!({"event": 2})]);
+        assert_eq!(
+            manager.backfill(&realm_id, 1, 10),
+            vec![&json!({"event": 2})]
+        );
     }
 
     #[test]
@@ -406,7 +419,10 @@ mod tests {
     fn rfc9530_content_digest_round_trips_and_reuses_core_helper() {
         let body = br#"{"ok":true}"#;
         // Wire-form digest reuses the single core helper.
-        assert_eq!(content_digest_sha256(body), cokret_core::canonical::sha256_digest(body));
+        assert_eq!(
+            content_digest_sha256(body),
+            cokret_core::canonical::sha256_digest(body)
+        );
         // RFC 9530 header verifies against the same body and rejects tamper.
         let header = rfc9530_content_digest_sha256(body);
         assert!(header.starts_with("sha-256=:") && header.ends_with(':'));
@@ -465,7 +481,10 @@ mod tests {
         );
 
         let record = duplicate_transaction_quarantine("txn-1", first_digest, second_digest);
-        assert_eq!(record.kind, FederationQuarantineKind::DuplicateTransactionConflict);
+        assert_eq!(
+            record.kind,
+            FederationQuarantineKind::DuplicateTransactionConflict
+        );
         let fork = fork_quarantine_record(
             FederationQuarantineKind::OperationFork,
             "ck:operation:01904100-0000-7000-8000-b24c1b0f1a32",

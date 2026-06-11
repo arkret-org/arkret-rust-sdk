@@ -6,19 +6,15 @@
 //! provides the SDK primitives that let principal servers move to a
 //! **per-admin** signing model:
 //!
-//! 1. [`AdminKeyStore`] addresses signing keys by `(application_id,
-//!    admin_did)` pair via [`AdminKeyStore::key_id`]. Backed by any
-//!    [`KeyStore`] impl — `InMemoryKeyStore` for tests,
-//!    `PlatformDefault` for production. The store itself doesn't know
-//!    about DIDs; the helper just builds canonical key ids so different
-//!    admins' keys can never collide.
+//! 1. [`AdminKeyStore`] addresses signing keys by `(application_id, admin_did)` pair via
+//!    [`AdminKeyStore::key_id`]. Backed by any [`KeyStore`] impl — `InMemoryKeyStore` for tests,
+//!    `PlatformDefault` for production. The store itself doesn't know about DIDs; the helper just
+//!    builds canonical key ids so different admins' keys can never collide.
 //!
-//! 2. [`SessionGrantIntrospection`] is the typed form of an OAuth-style
-//!    introspection response carrying admin context (the operator's
-//!    principal DID, the granted admin scopes, the expiry). Principal
-//!    servers receive this as an HTTP response from coauth (or another
-//!    upstream IdP) and use it to bind a signed admin operation to the
-//!    operator's identity.
+//! 2. [`SessionGrantIntrospection`] is the typed form of an OAuth-style introspection response
+//!    carrying admin context (the operator's principal DID, the granted admin scopes, the expiry).
+//!    Principal servers receive this as an HTTP response from coauth (or another upstream IdP) and
+//!    use it to bind a signed admin operation to the operator's identity.
 //!
 //! Together: the principal server receives a session grant, introspects
 //! it to learn `(admin_did, admin_scopes)`, loads the per-admin signing
@@ -29,7 +25,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Did, KeyStore, Result, keystore::KeyStoreError};
+use crate::keystore::KeyStoreError;
+use crate::{Did, KeyStore, Result};
 
 /// Conventional admin-scope identifiers. These mirror the operations
 /// soland already gates on `require_admin_principal`. Servers MAY add
@@ -66,7 +63,10 @@ impl AdminKeyStore {
     /// `inner`, otherwise key ids will reference a different namespace
     /// than the backend's service-name suffix.
     pub fn new(application_id: impl Into<String>, inner: Box<dyn KeyStore>) -> Self {
-        Self { application_id: application_id.into(), inner }
+        Self {
+            application_id: application_id.into(),
+            inner,
+        }
     }
 
     /// Canonical key id for a given admin DID. Format:
@@ -74,7 +74,10 @@ impl AdminKeyStore {
     /// processes so a key written by one server boot is readable by the
     /// next.
     pub fn key_id(application_id: &str, admin_did: &Did) -> String {
-        format!("cokret:signer:admin:{application_id}:{}", admin_did.as_str())
+        format!(
+            "cokret:signer:admin:{application_id}:{}",
+            admin_did.as_str()
+        )
     }
 
     /// Load the raw signing seed for `admin_did`. Returns
@@ -187,7 +190,9 @@ impl SessionGrantIntrospection {
         if self.has_admin_scope(scope) {
             Ok(())
         } else {
-            Err(crate::Error::Protocol(format!("session grant lacks admin scope {scope}")))
+            Err(crate::Error::Protocol(format!(
+                "session grant lacks admin scope {scope}"
+            )))
         }
     }
 }
@@ -259,7 +264,9 @@ mod tests {
     #[test]
     fn admin_key_load_missing_returns_not_found() {
         let store = AdminKeyStore::new("soland.demo", Box::new(InMemoryKeyStore::new()));
-        let err = store.load_admin_key(&admin("did:web:nobody.example")).unwrap_err();
+        let err = store
+            .load_admin_key(&admin("did:web:nobody.example"))
+            .unwrap_err();
         assert!(format!("{err}").contains("key not found"));
     }
 
@@ -308,14 +315,17 @@ mod tests {
     #[test]
     fn require_admin_scope_rejects_missing() {
         let g = grant_active(&[admin_scopes::ADMIN_READ]);
-        let err = g.require_admin_scope(admin_scopes::ANCHOR_PRUNE).unwrap_err();
+        let err = g
+            .require_admin_scope(admin_scopes::ANCHOR_PRUNE)
+            .unwrap_err();
         assert!(format!("{err}").contains("anchor.prune"));
     }
 
     #[test]
     fn require_admin_scope_ok_when_present() {
         let g = grant_active(&[admin_scopes::ANCHORER_RECONFIGURE]);
-        g.require_admin_scope(admin_scopes::ANCHORER_RECONFIGURE).unwrap();
+        g.require_admin_scope(admin_scopes::ANCHORER_RECONFIGURE)
+            .unwrap();
     }
 
     #[test]

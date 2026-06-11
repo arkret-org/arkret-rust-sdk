@@ -24,6 +24,10 @@ pub struct StateSnapshot {
     pub manifest: Option<ReducerSnapshotManifest>,
 }
 
+/// Dev-only legacy reducer snapshot container.
+///
+/// Current production snapshot bootstrap uses
+/// `ck.schema.snapshot.v1` [`cokret_core::SnapshotManifest`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReducerSnapshotManifest {
     pub schema: String,
@@ -40,6 +44,7 @@ pub struct ReducerSnapshotManifest {
     pub signatures: Vec<SnapshotSignature>,
 }
 
+/// Dev-only legacy reducer snapshot chunk descriptor.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SnapshotChunkManifest {
     pub index: u32,
@@ -296,23 +301,33 @@ impl ReducerSnapshotManifest {
         actual_merkle_root: &str,
     ) -> Result<()> {
         if self.schema != REDUCER_SNAPSHOT_SCHEMA {
-            return Err(Error::Protocol("snapshot manifest schema mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "snapshot manifest schema mismatch".to_owned(),
+            ));
         }
         if self.reducer_profile != REDUCER_SNAPSHOT_PROFILE {
-            return Err(Error::Protocol("snapshot manifest reducer profile mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "snapshot manifest reducer profile mismatch".to_owned(),
+            ));
         }
         if self.realm_id != snapshot.realm_id
             || self.reducer_profile != snapshot.reducer_profile
             || self.frontier != snapshot.frontier
             || self.state_digest != snapshot.state_digest
         {
-            return Err(Error::Protocol("snapshot manifest does not match snapshot".to_owned()));
+            return Err(Error::Protocol(
+                "snapshot manifest does not match snapshot".to_owned(),
+            ));
         }
         if self.merkle_root != actual_merkle_root {
-            return Err(Error::Protocol("snapshot manifest merkle root mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "snapshot manifest merkle root mismatch".to_owned(),
+            ));
         }
         if self.chunk_count as usize != self.chunks.len() {
-            return Err(Error::Protocol("snapshot manifest chunk count mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "snapshot manifest chunk count mismatch".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -410,7 +425,9 @@ pub fn verify_snapshot_inclusion(
 
 pub fn state_merkle_root(payload: &Value) -> Result<String> {
     let Value::Object(map) = payload else {
-        return Err(Error::Protocol("state merkle payload must be an object".to_owned()));
+        return Err(Error::Protocol(
+            "state merkle payload must be an object".to_owned(),
+        ));
     };
     let leaves = map
         .iter()

@@ -15,8 +15,8 @@
 //! this passphrase builder.
 //!
 //! ```no_run
-//! use cokret_crypto::backup::{derive_vault_kek, build_key_backup_envelope};
 //! use cokret_core::BackupClass;
+//! use cokret_crypto::backup::{build_key_backup_envelope, derive_vault_kek};
 //!
 //! let kek = derive_vault_kek(b"correct horse battery staple")?;
 //! let envelope = build_key_backup_envelope(
@@ -34,24 +34,22 @@
 
 use anyhow::{Context, Result, anyhow};
 use argon2::{Algorithm, Argon2, Params, Version};
-use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as B64};
-use chacha20poly1305::{
-    XChaCha20Poly1305, XNonce,
-    aead::{Aead, KeyInit, Payload},
-};
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD_NO_PAD as B64;
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
+use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use chrono::{SubsecRound, Utc};
+use cokret_core::canonical::{canonical_json_bytes, format_timestamp_canonical};
+use cokret_core::{
+    BackupClass, BackupId, DeviceId, Did, KeyBackup, KeyBackupAead, KeyBackupContentItem,
+    KeyBackupEncryption, KeyBackupKdf, KeyBackupRecipientMethod,
+};
 use getrandom::fill;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
-
-use cokret_core::{
-    BackupClass, BackupId, DeviceId, Did, KeyBackup, KeyBackupAead, KeyBackupContentItem,
-    KeyBackupEncryption, KeyBackupKdf, KeyBackupRecipientMethod,
-    canonical::{canonical_json_bytes, format_timestamp_canonical},
-};
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -316,7 +314,13 @@ pub fn encrypt_vault(
     let nonce = XNonce::from_slice(&nonce_bytes);
     let aad = binding.aad()?;
     let ciphertext = cipher
-        .encrypt(nonce, Payload { msg: plaintext, aad: &aad })
+        .encrypt(
+            nonce,
+            Payload {
+                msg: plaintext,
+                aad: &aad,
+            },
+        )
         .map_err(|err| anyhow!("xchacha20poly1305 encrypt: {err}"))?;
     aead_key.zeroize();
     let digest = Sha256::digest(&ciphertext);
@@ -351,20 +355,29 @@ pub fn decrypt_vault(
     nonce_salt_b64: &str,
     ciphertext_b64: &str,
 ) -> Result<Zeroizing<Vec<u8>>> {
-    let salt_bytes = B64.decode(salt_b64.trim_end_matches('=')).context("salt base64")?;
-    let salt: [u8; VAULT_SALT_LEN] =
-        salt_bytes.try_into().map_err(|_| anyhow!("salt must be {VAULT_SALT_LEN} bytes"))?;
-    let nonce_bytes = B64.decode(nonce_b64.trim_end_matches('=')).context("nonce base64")?;
-    let nonce_array: [u8; VAULT_NONCE_LEN] =
-        nonce_bytes.try_into().map_err(|_| anyhow!("nonce must be {VAULT_NONCE_LEN} bytes"))?;
-    let ciphertext =
-        B64.decode(ciphertext_b64.trim_end_matches('=')).context("ciphertext base64")?;
+    let salt_bytes = B64
+        .decode(salt_b64.trim_end_matches('='))
+        .context("salt base64")?;
+    let salt: [u8; VAULT_SALT_LEN] = salt_bytes
+        .try_into()
+        .map_err(|_| anyhow!("salt must be {VAULT_SALT_LEN} bytes"))?;
+    let nonce_bytes = B64
+        .decode(nonce_b64.trim_end_matches('='))
+        .context("nonce base64")?;
+    let nonce_array: [u8; VAULT_NONCE_LEN] = nonce_bytes
+        .try_into()
+        .map_err(|_| anyhow!("nonce must be {VAULT_NONCE_LEN} bytes"))?;
+    let ciphertext = B64
+        .decode(ciphertext_b64.trim_end_matches('='))
+        .context("ciphertext base64")?;
     let kek = derive_vault_kek_with_salt(passphrase, &salt)?;
 
     // §7.2: receiver MUST recompute the nonce and reject a mismatch.
     let expected_nonce = binding.derive_nonce(&kek.key, nonce_salt_b64)?;
     if expected_nonce != nonce_array {
-        return Err(anyhow!("vault decrypt failed: nonce derivation mismatch (schema_violation)"));
+        return Err(anyhow!(
+            "vault decrypt failed: nonce derivation mismatch (schema_violation)"
+        ));
     }
 
     let mut aead_key = binding.subkey(&kek.key, "aead");
@@ -373,7 +386,10 @@ pub fn decrypt_vault(
     let plaintext = cipher
         .decrypt(
             XNonce::from_slice(&nonce_array),
-            Payload { msg: ciphertext.as_slice(), aad: &aad },
+            Payload {
+                msg: ciphertext.as_slice(),
+                aad: &aad,
+            },
         )
         .map(Zeroizing::new)
         .map_err(|_| anyhow!("vault decrypt failed: wrong passphrase or corrupt ciphertext"));
@@ -500,7 +516,10 @@ pub fn build_key_backup_envelope(
         backup_class,
         backup_version: backup_version.to_owned(),
         created_at,
-        item_types: contents.iter().map(|(item_type, _)| (*item_type).to_owned()).collect(),
+        item_types: contents
+            .iter()
+            .map(|(item_type, _)| (*item_type).to_owned())
+            .collect(),
     };
     let ciphertext = encrypt_vault(kek, &binding, plaintext)?;
 
@@ -668,7 +687,9 @@ mod tests {
 
     fn test_binding(class: BackupClass, item: &str) -> VaultBinding {
         VaultBinding {
-            backup_id: "ck:backup:01964137-0000-7000-8000-000000000000".parse().unwrap(),
+            backup_id: "ck:backup:01964137-0000-7000-8000-000000000000"
+                .parse()
+                .unwrap(),
             actor_id: "did:webvh:alice.example".parse().unwrap(),
             device_id: None,
             backup_class: class,
@@ -799,8 +820,15 @@ mod tests {
         let fp = fingerprint_recovery_key("EAGLE-HARP-SUNDAY-ROOK-9F2C-Q1A0");
         assert!(fp.starts_with("sha256:"));
         assert_eq!(fp.len(), "sha256:".len() + 64);
-        assert!(fp.chars().skip("sha256:".len()).all(|c| c.is_ascii_hexdigit()));
-        assert_eq!(fp, fingerprint_recovery_key("EAGLE-HARP-SUNDAY-ROOK-9F2C-Q1A0"));
+        assert!(
+            fp.chars()
+                .skip("sha256:".len())
+                .all(|c| c.is_ascii_hexdigit())
+        );
+        assert_eq!(
+            fp,
+            fingerprint_recovery_key("EAGLE-HARP-SUNDAY-ROOK-9F2C-Q1A0")
+        );
     }
 
     #[test]
@@ -814,14 +842,19 @@ mod tests {
             estimate_passphrase_strength("alllowercaseonly")
                 < estimate_passphrase_strength("Alllowercaseonly1!")
         );
-        assert_eq!(estimate_passphrase_strength("Correct horse battery staple 9!"), 5);
+        assert_eq!(
+            estimate_passphrase_strength("Correct horse battery staple 9!"),
+            5
+        );
     }
 
     #[test]
     fn envelope_carries_kdf_aead_and_commitment() {
         let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
         let envelope = build_key_backup_envelope(
-            "ck:backup:01964137-0000-7000-8000-000000000000".parse().unwrap(),
+            "ck:backup:01964137-0000-7000-8000-000000000000"
+                .parse()
+                .unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
             None,
             BackupClass::SecretStorage,
@@ -845,7 +878,10 @@ mod tests {
         assert_eq!(kdf.params["memory_kib"], VAULT_ARGON2_M_KIB);
         assert_eq!(kdf.params["iterations"], VAULT_ARGON2_T);
         assert_eq!(kdf.params["parallelism"], VAULT_ARGON2_P);
-        assert_eq!(kdf.params["hkdf_info"], "cokret-key-backup/secret_storage/aead/v1");
+        assert_eq!(
+            kdf.params["hkdf_info"],
+            "cokret-key-backup/secret_storage/aead/v1"
+        );
         assert!(envelope.encryption.key_commitment.is_some());
         assert_eq!(envelope.contents.len(), 1);
         assert_eq!(envelope.contents[0].item_type, "recovery_secret");
@@ -858,7 +894,9 @@ mod tests {
         let kek = derive_vault_kek_with_salt(b"sesame", &[6u8; VAULT_SALT_LEN]).unwrap();
         let plaintext = br#"{"self_signing_key":"opaque"}"#;
         let envelope = build_key_backup_envelope(
-            "ck:backup:01964137-0000-7000-8000-000000000003".parse().unwrap(),
+            "ck:backup:01964137-0000-7000-8000-000000000003"
+                .parse()
+                .unwrap(),
             "did:webvh:bob.example".parse().unwrap(),
             None,
             BackupClass::SecretStorage,
@@ -876,7 +914,11 @@ mod tests {
             backup_class: envelope.backup_class,
             backup_version: envelope.backup_version.clone(),
             created_at: envelope.created_at,
-            item_types: envelope.contents.iter().map(|c| c.item_type.clone()).collect(),
+            item_types: envelope
+                .contents
+                .iter()
+                .map(|c| c.item_type.clone())
+                .collect(),
         };
         let recovered = decrypt_vault(
             b"sesame",
@@ -894,7 +936,9 @@ mod tests {
     fn successor_envelope_binds_predecessor_and_frontier() {
         let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
         let genesis = build_key_backup_envelope(
-            "ck:backup:01964137-0000-7000-8000-000000000001".parse().unwrap(),
+            "ck:backup:01964137-0000-7000-8000-000000000001"
+                .parse()
+                .unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
             None,
             BackupClass::SecretStorage,
@@ -905,7 +949,9 @@ mod tests {
         )
         .unwrap();
         let successor = build_key_backup_successor_envelope(
-            "ck:backup:01964137-0000-7000-8000-000000000002".parse().unwrap(),
+            "ck:backup:01964137-0000-7000-8000-000000000002"
+                .parse()
+                .unwrap(),
             &genesis,
             "kb_2",
             &kek,
@@ -921,14 +967,19 @@ mod tests {
             successor.supersedes_digest.as_deref(),
             Some(genesis.ciphertext_digest.as_str())
         );
-        assert_eq!(successor.frontier_ref.as_deref(), Some("ck:frontier:recovery:2"));
+        assert_eq!(
+            successor.frontier_ref.as_deref(),
+            Some("ck:frontier:recovery:2")
+        );
     }
 
     #[test]
     fn envelope_rejects_bad_version_tag() {
         let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
         let err = build_key_backup_envelope(
-            "ck:backup:01964137-0000-7000-8000-000000000000".parse().unwrap(),
+            "ck:backup:01964137-0000-7000-8000-000000000000"
+                .parse()
+                .unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
             None,
             BackupClass::SecretStorage,
@@ -945,7 +996,9 @@ mod tests {
     fn passphrase_envelope_builder_rejects_mls_history() {
         let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
         let err = build_key_backup_envelope(
-            "ck:backup:01964137-0000-7000-8000-000000000000".parse().unwrap(),
+            "ck:backup:01964137-0000-7000-8000-000000000000"
+                .parse()
+                .unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
             None,
             BackupClass::MlsHistory,

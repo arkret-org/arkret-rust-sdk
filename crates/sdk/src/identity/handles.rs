@@ -54,7 +54,14 @@ pub struct PairwiseDidResolutionProof {
 impl PairwiseDidBinding {
     /// Create a new pairwise DID binding.
     pub fn new(pairwise_did: Did, parent_did: Did, peer_did: Did, scope: Option<String>) -> Self {
-        Self { pairwise_did, parent_did, peer_did, scope, created_at: Utc::now(), expires_at: None }
+        Self {
+            pairwise_did,
+            parent_did,
+            peer_did,
+            scope,
+            created_at: Utc::now(),
+            expires_at: None,
+        }
     }
 
     /// Set an expiration time for this pairwise binding.
@@ -160,7 +167,9 @@ impl PairwiseDidStore {
             return Err(Error::Protocol("pairwise DID binding expired".to_owned()));
         }
         if &proof.pairwise_did != pairwise_did {
-            return Err(Error::Protocol("pairwise DID proof target mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "pairwise DID proof target mismatch".to_owned(),
+            ));
         }
         if proof.requester != binding.peer_did && proof.requester != binding.parent_did {
             return Err(Error::Protocol(
@@ -168,7 +177,9 @@ impl PairwiseDidStore {
             ));
         }
         if proof.peer_did != binding.peer_did || proof.scope != binding.scope {
-            return Err(Error::Protocol("pairwise DID proof scope mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "pairwise DID proof scope mismatch".to_owned(),
+            ));
         }
         let expected = pairwise_resolution_proof(
             pairwise_did,
@@ -178,21 +189,29 @@ impl PairwiseDidStore {
             &proof.challenge,
         );
         if proof.proof != expected {
-            return Err(Error::Protocol("invalid pairwise DID resolution proof".to_owned()));
+            return Err(Error::Protocol(
+                "invalid pairwise DID resolution proof".to_owned(),
+            ));
         }
         Ok(&binding.parent_did)
     }
 
     /// Check if a pairwise DID is valid (exists and not expired).
     pub fn is_valid(&self, pairwise_did: &Did) -> bool {
-        self.by_pairwise.get(pairwise_did).is_some_and(|b| !b.is_expired())
+        self.by_pairwise
+            .get(pairwise_did)
+            .is_some_and(|b| !b.is_expired())
     }
 
     /// List all pairwise DIDs for a parent DID.
     pub fn pairwise_dids_for(&self, parent: &Did) -> Vec<&PairwiseDidBinding> {
         self.by_parent
             .get(parent)
-            .map(|ids| ids.iter().filter_map(|id| self.by_pairwise.get(id)).collect())
+            .map(|ids| {
+                ids.iter()
+                    .filter_map(|id| self.by_pairwise.get(id))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -288,8 +307,7 @@ impl ExternalHandleProof {
 /// A binding is only valid when **both** directions agree:
 ///
 /// - The DID's resolved document lists the handle in `alsoKnownAs`, and
-/// - The handle's external proof (DNS TXT, well-known, etc.) names the
-///   same DID.
+/// - The handle's external proof (DNS TXT, well-known, etc.) names the same DID.
 ///
 /// The cache key MUST cover everything that could shift the binding —
 /// `handle`, `did`, `document_hash`, `also_known_as_proof`, `expires_at`,
@@ -416,14 +434,21 @@ impl IdentityManager {
             .documents
             .get_mut(did)
             .ok_or_else(|| Error::Protocol("did document not found".to_owned()))?;
-        document.verification_methods.insert(key_id.into(), public_key.into());
+        document
+            .verification_methods
+            .insert(key_id.into(), public_key.into());
         document.updated_at = Utc::now();
         Ok(())
     }
 
     /// Migrate one DID to another.
     pub fn migrate_did(&mut self, from: Did, to: Did, proof: impl Into<String>) -> DidMigration {
-        let migration = DidMigration { from, to, proof: proof.into(), migrated_at: Utc::now() };
+        let migration = DidMigration {
+            from,
+            to,
+            proof: proof.into(),
+            migrated_at: Utc::now(),
+        };
         self.migrations.push(migration.clone());
         migration
     }
@@ -473,8 +498,11 @@ impl IdentityManager {
         if !claim.verified {
             return Err(Error::Protocol("handle claim is not verified".to_owned()));
         }
-        claim.attestation =
-            Some(HandleAttestation { issuer, proof: proof.into(), created_at: Utc::now() });
+        claim.attestation = Some(HandleAttestation {
+            issuer,
+            proof: proof.into(),
+            created_at: Utc::now(),
+        });
         Ok(())
     }
 
@@ -574,5 +602,7 @@ pub fn handle_dns_txt_name(handle: &str) -> Result<String> {
 /// HTTPS well-known URL that should return the Cokret handle proof.
 pub fn handle_well_known_url(handle: &str) -> Result<String> {
     let (local, domain) = split_domain_handle(handle)?;
-    Ok(format!("https://{domain}/.well-known/cokret/handle/{local}.json"))
+    Ok(format!(
+        "https://{domain}/.well-known/cokret/handle/{local}.json"
+    ))
 }

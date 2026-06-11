@@ -162,7 +162,10 @@ impl std::str::FromStr for ProfileRole {
 /// `conformance-profiles.json#/profile_roles`. The order matches Rust's
 /// byte-ordered `str::cmp` so binary search is valid.
 pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
-    ("ck.profile.accountable_principals.strict_reject.v1", ProfileRole::Admin),
+    (
+        "ck.profile.accountable_principals.strict_reject.v1",
+        ProfileRole::Admin,
+    ),
     ("ck.profile.agent_runtime.v1", ProfileRole::Server),
     ("ck.profile.anchor.mixed_recovery.v1", ProfileRole::Admin),
     ("ck.profile.anchor.open_set.v1", ProfileRole::Admin),
@@ -180,17 +183,35 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
     ("ck.profile.candidate.join_policy.v1", ProfileRole::Admin),
     ("ck.profile.capability_vectors.v1", ProfileRole::Interop),
     ("ck.profile.chat_mvp.v1", ProfileRole::Client),
-    ("ck.profile.circle_anchor_cadence.fixed_5m.v1", ProfileRole::Admin),
+    (
+        "ck.profile.circle_anchor_cadence.fixed_5m.v1",
+        ProfileRole::Admin,
+    ),
     ("ck.profile.circle_conformance.v1", ProfileRole::Interop),
     ("ck.profile.collaborative_text.v1", ProfileRole::Client),
-    ("ck.profile.constraint.approval_workflow.v1", ProfileRole::Admin),
+    (
+        "ck.profile.constraint.approval_workflow.v1",
+        ProfileRole::Admin,
+    ),
     ("ck.profile.constraint.claim_based.v1", ProfileRole::Admin),
-    ("ck.profile.constraint.encryption_requirement.v1", ProfileRole::Admin),
-    ("ck.profile.constraint.resource_limit.v1", ProfileRole::Admin),
-    ("ck.profile.constraint.visibility_control.v1", ProfileRole::Admin),
+    (
+        "ck.profile.constraint.encryption_requirement.v1",
+        ProfileRole::Admin,
+    ),
+    (
+        "ck.profile.constraint.resource_limit.v1",
+        ProfileRole::Admin,
+    ),
+    (
+        "ck.profile.constraint.visibility_control.v1",
+        ProfileRole::Admin,
+    ),
     ("ck.profile.core_event_store.v1", ProfileRole::Server),
     ("ck.profile.cross_signing.reset.v1", ProfileRole::Admin),
-    ("ck.profile.crypto_signature_vectors.v1", ProfileRole::Interop),
+    (
+        "ck.profile.crypto_signature_vectors.v1",
+        ProfileRole::Interop,
+    ),
     ("ck.profile.directory_service.v1", ProfileRole::Directory),
     ("ck.profile.disappearing.v1", ProfileRole::Client),
     ("ck.profile.disclosed_audit.e2ee.v1", ProfileRole::Admin),
@@ -202,11 +223,26 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
     ("ck.profile.encoding.multihash.v1", ProfileRole::Interop),
     ("ck.profile.encoding_vectors.v1", ProfileRole::Interop),
     ("ck.profile.enterprise_client.v1", ProfileRole::Client),
-    ("ck.profile.error_code_registry_coverage_vectors.v1", ProfileRole::Interop),
-    ("ck.profile.event_envelope_negative_vectors.v1", ProfileRole::Interop),
-    ("ck.profile.event_kind_lattice_dispatch_vectors.v1", ProfileRole::Interop),
-    ("ck.profile.event_kind_payload_coverage_vectors.v1", ProfileRole::Interop),
-    ("ck.profile.federation.high_assurance.v1", ProfileRole::Server),
+    (
+        "ck.profile.error_code_registry_coverage_vectors.v1",
+        ProfileRole::Interop,
+    ),
+    (
+        "ck.profile.event_envelope_negative_vectors.v1",
+        ProfileRole::Interop,
+    ),
+    (
+        "ck.profile.event_kind_lattice_dispatch_vectors.v1",
+        ProfileRole::Interop,
+    ),
+    (
+        "ck.profile.event_kind_payload_coverage_vectors.v1",
+        ProfileRole::Interop,
+    ),
+    (
+        "ck.profile.federation.high_assurance.v1",
+        ProfileRole::Server,
+    ),
     ("ck.profile.federation_minimal.v1", ProfileRole::Server),
     ("ck.profile.federation_vectors.v1", ProfileRole::Interop),
     ("ck.profile.file_transfer.v1", ProfileRole::Client),
@@ -216,37 +252,85 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
     ("ck.profile.hash.sha3.v1", ProfileRole::Interop),
     ("ck.profile.hash.sha512.v1", ProfileRole::Interop),
     ("ck.profile.hash_transition.v1", ProfileRole::Interop),
-    ("ck.profile.high_security_organization.v1", ProfileRole::Admin),
+    (
+        "ck.profile.high_security_organization.v1",
+        ProfileRole::Admin,
+    ),
     ("ck.profile.identity_registry.v1", ProfileRole::Directory),
-    ("ck.profile.isolated_sovereign_network.v1", ProfileRole::Admin),
+    (
+        "ck.profile.isolated_sovereign_network.v1",
+        ProfileRole::Admin,
+    ),
     ("ck.profile.kanban_mvp.v1", ProfileRole::Client),
     ("ck.profile.key_backup.memory_hard.v1", ProfileRole::Admin),
     ("ck.profile.matrix_compat.v1", ProfileRole::Interop),
-    ("ck.profile.media_service_binding.cokret_native.v1", ProfileRole::Server),
-    ("ck.profile.media_service_binding.livekit.v1", ProfileRole::Server),
+    (
+        "ck.profile.media_service_binding.cokret_native.v1",
+        ProfileRole::Server,
+    ),
+    (
+        "ck.profile.media_service_binding.livekit.v1",
+        ProfileRole::Server,
+    ),
     ("ck.profile.media_service_binding.v1", ProfileRole::Server),
     ("ck.profile.mimi_interop.v1", ProfileRole::Interop),
     ("ck.profile.mimi_interop_vectors.v1", ProfileRole::Interop),
     ("ck.profile.minimal_client.v1", ProfileRole::Client),
-    ("ck.profile.mls.minimal_metadata_realm.v1", ProfileRole::Admin),
-    ("ck.profile.mls_governance_binding.full.v1", ProfileRole::Admin),
-    ("ck.profile.morph.schema_migration_transformations.v1", ProfileRole::Server),
-    ("ck.profile.move_anchor_lattice_vectors.v1", ProfileRole::Interop),
-    ("ck.profile.operation_registry_coverage_vectors.v1", ProfileRole::Interop),
-    ("ck.profile.org_high_assurance_identity.v1", ProfileRole::Directory),
+    (
+        "ck.profile.mls.minimal_metadata_realm.v1",
+        ProfileRole::Admin,
+    ),
+    (
+        "ck.profile.mls_governance_binding.full.v1",
+        ProfileRole::Admin,
+    ),
+    (
+        "ck.profile.morph.schema_migration_transformations.v1",
+        ProfileRole::Server,
+    ),
+    (
+        "ck.profile.move_anchor_lattice_vectors.v1",
+        ProfileRole::Interop,
+    ),
+    (
+        "ck.profile.operation_registry_coverage_vectors.v1",
+        ProfileRole::Interop,
+    ),
+    (
+        "ck.profile.org_high_assurance_identity.v1",
+        ProfileRole::Directory,
+    ),
     ("ck.profile.organization.v1", ProfileRole::Admin),
     ("ck.profile.personal_node.v1", ProfileRole::Admin),
     ("ck.profile.personal_productivity.v1", ProfileRole::Client),
     ("ck.profile.pinned_items.v1", ProfileRole::Client),
     ("ck.profile.principal_control_realm.v1", ProfileRole::Admin),
     ("ck.profile.principal_server.v1", ProfileRole::Server),
-    ("ck.profile.principal_server_events_api.v1", ProfileRole::Server),
-    ("ck.profile.privacy_security_vectors.v1", ProfileRole::Interop),
-    ("ck.profile.public_network_identity.v1", ProfileRole::Directory),
-    ("ck.profile.push_gateway.blind_wakeup.v1", ProfileRole::Gateway),
-    ("ck.profile.push_gateway.matrix_passthrough.v1", ProfileRole::Interop),
+    (
+        "ck.profile.principal_server_events_api.v1",
+        ProfileRole::Server,
+    ),
+    (
+        "ck.profile.privacy_security_vectors.v1",
+        ProfileRole::Interop,
+    ),
+    (
+        "ck.profile.public_network_identity.v1",
+        ProfileRole::Directory,
+    ),
+    (
+        "ck.profile.push_gateway.blind_wakeup.v1",
+        ProfileRole::Gateway,
+    ),
+    (
+        "ck.profile.push_gateway.matrix_passthrough.v1",
+        ProfileRole::Interop,
+    ),
     ("ck.profile.push_gateway.v1", ProfileRole::Gateway),
-    ("ck.profile.push_gateway.visible_notification.v1", ProfileRole::Gateway),
+    (
+        "ck.profile.push_gateway.visible_notification.v1",
+        ProfileRole::Gateway,
+    ),
     ("ck.profile.reaction_vectors.v1", ProfileRole::Interop),
     ("ck.profile.redaction_vectors.v1", ProfileRole::Interop),
     ("ck.profile.search.blind_index.v1", ProfileRole::Server),
@@ -257,7 +341,10 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
     ("ck.profile.sovereign_enclave.v1", ProfileRole::Admin),
     ("ck.profile.stateless_cursor.v1", ProfileRole::Server),
     ("ck.profile.sync_vectors.v1", ProfileRole::Interop),
-    ("ck.profile.traffic_metadata_hardened.v1", ProfileRole::Admin),
+    (
+        "ck.profile.traffic_metadata_hardened.v1",
+        ProfileRole::Admin,
+    ),
     ("ck.profile.webrtc_media.v1", ProfileRole::Gateway),
 ];
 
@@ -271,5 +358,9 @@ pub fn profile_role(profile_id: &str) -> Option<ProfileRole> {
 
 /// Returns every profile id whose spec role is `role`, in sorted order.
 pub fn profile_ids_with_role(role: ProfileRole) -> Vec<&'static str> {
-    PROFILE_ROLES.iter().filter(|(_, r)| *r == role).map(|(id, _)| *id).collect()
+    PROFILE_ROLES
+        .iter()
+        .filter(|(_, r)| *r == role)
+        .map(|(id, _)| *id)
+        .collect()
 }

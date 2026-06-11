@@ -24,26 +24,22 @@ pub use event_signer::{SignEventOptions, sign_event};
 pub mod http_signature;
 pub mod jwt;
 
+use std::collections::BTreeMap;
+
+use chrono::{DateTime, Duration, Utc};
+pub use cokret_core::Proof as ProtocolProof;
+use cokret_core::{Audience, Did, Error, Hash, Proof, Result, SignatureBindingPayload, canonical};
 pub use jwt::{
     JwtVerificationError, JwtVerificationPolicy, VerifiedJwt, verify_eddsa_jwt_with_jwks,
 };
-
+#[cfg(feature = "signer")]
+pub use proof::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier};
 pub use proof::{
     EventProofBuilder, EventSigner, EventVerifier, ProductionVerifier, ProofType,
     PublicKeyMaterial, SignedPayload, SignerError, VerifierError, build_proof_envelope,
     detached_jws_kind, verify_eddsa_detached_jws_proof,
 };
-
-#[cfg(feature = "signer")]
-pub use proof::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier};
-
-use std::collections::BTreeMap;
-
-use chrono::{DateTime, Duration, Utc};
-use cokret_core::{Audience, Did, Error, Hash, Proof, Result, SignatureBindingPayload, canonical};
 use serde::{Deserialize, Serialize};
-
-pub use cokret_core::Proof as ProtocolProof;
 
 /// Production-grade proof algorithms, mirroring the `active` rows of
 /// `artifacts/registry/signature-alg-registry.json` (`proof_alg` values) per
@@ -134,7 +130,9 @@ impl DetachedSignature {
     }
 
     pub fn validate_against(&self, binding: &DetachedSignatureBinding) -> Result<()> {
-        self.clone().into_proof().validate_binding(&binding.proof_binding_payload())
+        self.clone()
+            .into_proof()
+            .validate_binding(&binding.proof_binding_payload())
     }
 }
 
@@ -173,7 +171,8 @@ pub struct StaticDidVerificationMethodResolver {
 
 impl StaticDidVerificationMethodResolver {
     pub fn insert(&mut self, document: VerificationMethodDocument) {
-        self.methods.insert(document.verification_method.clone(), document);
+        self.methods
+            .insert(document.verification_method.clone(), document);
     }
 }
 
@@ -182,9 +181,14 @@ impl DidVerificationMethodResolver for StaticDidVerificationMethodResolver {
         &self,
         verification_method: &str,
     ) -> Result<VerificationMethodDocument> {
-        self.methods.get(verification_method).cloned().ok_or_else(|| {
-            Error::Protocol(format!("unknown verification method '{verification_method}'"))
-        })
+        self.methods
+            .get(verification_method)
+            .cloned()
+            .ok_or_else(|| {
+                Error::Protocol(format!(
+                    "unknown verification method '{verification_method}'"
+                ))
+            })
     }
 }
 
@@ -239,7 +243,9 @@ where
         return Err(Error::Protocol("proof audience mismatch".to_owned()));
     }
     if proof.created_at > context.now + Duration::minutes(5) {
-        return Err(Error::Protocol("proof created_at is too far in the future".to_owned()));
+        return Err(Error::Protocol(
+            "proof created_at is too far in the future".to_owned(),
+        ));
     }
     if context.now - proof.created_at > context.replay_window {
         return Err(Error::Protocol("proof replay window expired".to_owned()));
@@ -247,21 +253,30 @@ where
     if let Some(service_did) = &context.service_did
         && !audience_contains_service(proof.audience.as_ref(), service_did)
     {
-        return Err(Error::Protocol("proof audience does not bind service DID".to_owned()));
+        return Err(Error::Protocol(
+            "proof audience does not bind service DID".to_owned(),
+        ));
     }
 
     let method = resolver.resolve_verification_method(&proof.verification_method)?;
     let controller = method.controller.as_ref().unwrap_or(&method.did);
     if controller != &context.actor_id {
-        return Err(Error::Protocol("proof verification method controller mismatch".to_owned()));
+        return Err(Error::Protocol(
+            "proof verification method controller mismatch".to_owned(),
+        ));
     }
     // Fail closed: an invalid JWS is an `Err`, never `Ok(valid: false)`.
     // A `verify_proof_with_resolver(...)?` call site therefore cannot
     // silently accept a proof whose signature did not verify.
     if !verify_jws(&method, proof)? {
-        return Err(Error::Protocol("proof signature verification failed".to_owned()));
+        return Err(Error::Protocol(
+            "proof signature verification failed".to_owned(),
+        ));
     }
-    Ok(SignatureVerification { valid: true, warnings: Vec::new() })
+    Ok(SignatureVerification {
+        valid: true,
+        warnings: Vec::new(),
+    })
 }
 
 fn audience_contains_service(audience: Option<&Audience>, service_did: &Did) -> bool {

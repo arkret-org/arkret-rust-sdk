@@ -3,13 +3,12 @@
 //! Per [cokret-spec event-auth-state-resolution.md §4.2](
 //! ../../cokret-spec/spec/v1/zh/authz/event-auth-state-resolution.md):
 //!
-//! 1. For each cell with at least one effect under the current Anchor view,
-//!    build a leaf:
-//!    `leaf_input = canonical_json({"cell": "<wire>", "state": <state_object>})`
-//!    `leaf_hash = sha256(leaf_input)`.
+//! 1. For each cell with at least one effect under the current Anchor view, build a leaf:
+//!    `leaf_input = canonical_json({"cell": "<wire>", "state": <state_object>})` `leaf_hash =
+//!    sha256(leaf_input)`.
 //! 2. Sort `(cell_wire, leaf_hash)` by `cell_wire` ascending.
-//! 3. Combine leaf_hash list via RFC 6962-style binary Merkle tree
-//!    (odd leaf promotes, no duplication). Empty list → `sha256("")`.
+//! 3. Combine leaf_hash list via RFC 6962-style binary Merkle tree (odd leaf promotes, no
+//!    duplication). Empty list → `sha256("")`.
 //! 4. Wire form: `state_root = "sha256:" + lower_hex(root)`.
 //!
 //! `bottom.anchor_view` MUST be omitted from `<state_object>` — that's
@@ -19,9 +18,11 @@
 
 use std::collections::BTreeMap;
 
-use crate::{Bottom, CellRef, Hash, canonical, lattice::CellState};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+
+use crate::lattice::CellState;
+use crate::{Bottom, CellRef, Hash, canonical};
 
 /// Empty-list root: `sha256("")` per spec §4.2.2.
 pub const EMPTY_STATE_ROOT: &str =
@@ -101,9 +102,10 @@ fn encode_hex(bytes: &[u8; 32]) -> String {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
     use crate::{AnchorView, BottomKind};
-    use serde_json::json;
 
     fn cell(s: &str) -> CellRef {
         CellRef::new(s.to_owned()).unwrap()
@@ -144,7 +146,10 @@ mod tests {
         let mut b = BTreeMap::new();
         b.insert(cell("ck:cell:ck.y:2"), CellState::Value(json!(2)));
         b.insert(cell("ck:cell:ck.x:1"), CellState::Value(json!(1)));
-        assert_eq!(compute_state_root(&a).unwrap(), compute_state_root(&b).unwrap());
+        assert_eq!(
+            compute_state_root(&a).unwrap(),
+            compute_state_root(&b).unwrap()
+        );
     }
 
     #[test]
@@ -153,14 +158,20 @@ mod tests {
         a.insert(cell("ck:cell:ck.x:1"), CellState::Value(json!("a")));
         let mut b = BTreeMap::new();
         b.insert(cell("ck:cell:ck.x:1"), CellState::Value(json!("b")));
-        assert_ne!(compute_state_root(&a).unwrap(), compute_state_root(&b).unwrap());
+        assert_ne!(
+            compute_state_root(&a).unwrap(),
+            compute_state_root(&b).unwrap()
+        );
     }
 
     #[test]
     fn bottom_state_serializes_without_anchor_view() {
         // Two Bottoms differing only in anchor_view MUST yield the same leaf.
         let mut bottom_a = Bottom::new(BottomKind::Conflict, vec![cell("ck:cell:ck.x:1")]);
-        bottom_a.anchor_view = Some(AnchorView { leaves: vec![], state_root: None });
+        bottom_a.anchor_view = Some(AnchorView {
+            leaves: vec![],
+            state_root: None,
+        });
         let mut bottom_b = bottom_a.clone();
         bottom_b.anchor_view = None;
 
@@ -171,8 +182,9 @@ mod tests {
 
     #[test]
     fn three_leaf_tree_uses_odd_promotion() {
-        // 3 leaves: layer 0 = [A, B, C], layer 1 = [sha256(A||B), C], layer 2 = sha256(layer1[0]||C).
-        // Verify the root is computable and not equal to any single leaf.
+        // 3 leaves: layer 0 = [A, B, C], layer 1 = [sha256(A||B), C], layer 2 =
+        // sha256(layer1[0]||C). Verify the root is computable and not equal to any single
+        // leaf.
         let mut m = BTreeMap::new();
         m.insert(cell("ck:cell:a:1"), CellState::Value(json!("a")));
         m.insert(cell("ck:cell:b:2"), CellState::Value(json!("b")));

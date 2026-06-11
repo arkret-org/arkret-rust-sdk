@@ -61,8 +61,10 @@ where
             let mut out = BTreeMap::new();
             for method in methods {
                 if let Value::Object(object) = method {
-                    let Some(key_id) =
-                        object.get("id").and_then(|value| value.as_str()).map(ToOwned::to_owned)
+                    let Some(key_id) = object
+                        .get("id")
+                        .and_then(|value| value.as_str())
+                        .map(ToOwned::to_owned)
                     else {
                         continue;
                     };
@@ -216,7 +218,9 @@ pub fn resolve_response_from_document(
 ) -> IdentityResolveOutcome {
     IdentityResolveOutcome {
         did_document: document.to_ref(),
-        key_log_head: key_log_head.as_ref().map(|head| head.head_event_digest.clone()),
+        key_log_head: key_log_head
+            .as_ref()
+            .map(|head| head.head_event_digest.clone()),
         seq: key_log_head.as_ref().map(|head| head.seq),
         receipts: key_log_head.map(|head| head.receipts).unwrap_or_default(),
         method_evidence: Value::Null,
@@ -243,11 +247,29 @@ mod tests {
 
         let response = resolve_response_from_document(document.clone(), None);
         assert_eq!(response.did_document.did, document.id);
-        assert!(response.did_document.document.get("verificationMethod").is_some());
+        assert!(
+            response
+                .did_document
+                .document
+                .get("verificationMethod")
+                .is_some()
+        );
         assert!(response.did_document.document.get("alsoKnownAs").is_some());
         assert!(response.did_document.document.get("updated").is_some());
-        assert!(response.did_document.document.get("verification_methods").is_none());
-        assert!(response.did_document.document.get("also_known_as").is_none());
+        assert!(
+            response
+                .did_document
+                .document
+                .get("verification_methods")
+                .is_none()
+        );
+        assert!(
+            response
+                .did_document
+                .document
+                .get("also_known_as")
+                .is_none()
+        );
     }
 
     #[test]
@@ -263,13 +285,21 @@ mod tests {
     #[test]
     fn did_document_helpers_cover_sdk_usage() {
         let mut document = DidDocument::new(did("alice"), "key-1", "pub");
-        document.also_known_as =
-            vec!["@alice:example".to_owned(), "https://example.test/users/alice".to_owned()];
+        document.also_known_as = vec![
+            "@alice:example".to_owned(),
+            "https://example.test/users/alice".to_owned(),
+        ];
 
         assert_eq!(document.method(), "web");
-        assert_eq!(document.control_keys().get("key-1"), Some(&"pub".to_owned()));
+        assert_eq!(
+            document.control_keys().get("key-1"),
+            Some(&"pub".to_owned())
+        );
         assert_eq!(document.primary_key(), Some(("key-1", "pub")));
         assert_eq!(document.handles(), vec!["@alice:example"]);
-        assert_eq!(document.service_urls(), vec!["https://example.test/users/alice"]);
+        assert_eq!(
+            document.service_urls(),
+            vec!["https://example.test/users/alice"]
+        );
     }
 }

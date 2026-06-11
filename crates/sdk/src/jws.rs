@@ -19,26 +19,22 @@
 //!
 //! # API surface
 //!
-//! - `sign_jws_ed25519` — produce a detached JWS over `canonical_bytes`
-//!   with an `ed25519_dalek::SigningKey`. Symmetric counterpart of
-//!   `verify_jws_ed25519`: a `verify` after a `sign` over the same
-//!   bytes round-trips, given the matching public key resolves through
-//!   the supplied `DidResolver`.
-//! - `verify_jws_ed25519` — full detached-JWS verify pipeline (shape +
-//!   alg + DID resolve + Ed25519 verify). Takes a `&dyn DidResolver` so
-//!   callers control which DID methods are reachable.
-//! - `resolve_ed25519_pubkey` — resolve a `did[#frag]` URL to a
-//!   `VerifyingKey` via the supplied resolver.
-//! - `verify_replay_window` / `verify_replay_window_at` — bound the
-//!   freshness of an [`Hlc`] against wall-clock now (or an injected time
-//!   for tests).
-//! - `verify_replay_window_for_move` / `verify_replay_window_for_move_at`
-//!   — same, but with per-cell-family overrides so authority-cell Moves
-//!   (e.g. `ck.component.anchorer.v1`) can have tighter freshness windows
-//!   than ordinary message Moves.
+//! - `sign_jws_ed25519` — produce a detached JWS over `canonical_bytes` with an
+//!   `ed25519_dalek::SigningKey`. Symmetric counterpart of `verify_jws_ed25519`: a `verify` after a
+//!   `sign` over the same bytes round-trips, given the matching public key resolves through the
+//!   supplied `DidResolver`.
+//! - `verify_jws_ed25519` — full detached-JWS verify pipeline (shape + alg + DID resolve + Ed25519
+//!   verify). Takes a `&dyn DidResolver` so callers control which DID methods are reachable.
+//! - `resolve_ed25519_pubkey` — resolve a `did[#frag]` URL to a `VerifyingKey` via the supplied
+//!   resolver.
+//! - `verify_replay_window` / `verify_replay_window_at` — bound the freshness of an [`Hlc`] against
+//!   wall-clock now (or an injected time for tests).
+//! - `verify_replay_window_for_move` / `verify_replay_window_for_move_at` — same, but with
+//!   per-cell-family overrides so authority-cell Moves (e.g. `ck.component.anchorer.v1`) can have
+//!   tighter freshness windows than ordinary message Moves.
 //! - `effective_window_for_move` — exposed for inspection / tests.
-//! - `physical_millis_from_hlc` — extract the physical-ms prefix of an
-//!   HLC string for low-level freshness telemetry.
+//! - `physical_millis_from_hlc` — extract the physical-ms prefix of an HLC string for low-level
+//!   freshness telemetry.
 //!
 //! All error paths return `Result<_, String>` with descriptive reasons;
 //! callers typically map these to wire `schema_violation` / `invalid_signature`
@@ -130,7 +126,10 @@ pub fn verify_jws_ed25519(
         base64url_decode(protected_b64).map_err(|e| format!("JWS header is not base64url: {e}"))?;
     let header: serde_json::Value = canonical::from_canonical_json_slice(&header_bytes)
         .map_err(|e| format!("JWS header is not JSON: {e}"))?;
-    let alg = header.get("alg").and_then(serde_json::Value::as_str).unwrap_or("");
+    let alg = header
+        .get("alg")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("");
     if alg != "EdDSA" {
         return Err(format!("JWS alg `{alg}` is not EdDSA"));
     }
@@ -145,7 +144,10 @@ pub fn verify_jws_ed25519(
     let signature_bytes = base64url_decode(signature_b64)
         .map_err(|e| format!("JWS signature is not base64url: {e}"))?;
     if signature_bytes.len() != 64 {
-        return Err(format!("Ed25519 signature must be 64 bytes, got {}", signature_bytes.len()));
+        return Err(format!(
+            "Ed25519 signature must be 64 bytes, got {}",
+            signature_bytes.len()
+        ));
     }
     let signature_array: [u8; 64] = signature_bytes.try_into().expect("len checked above");
     let signature = Signature::from_bytes(&signature_array);
@@ -300,7 +302,11 @@ pub fn effective_window_for_move(
             // can be tighter than default. Special case: if default is 0
             // (disabled) and override is non-zero, the override wins (it
             // tightens an otherwise-disabled check).
-            effective = if effective == 0 { override_secs } else { effective.min(override_secs) };
+            effective = if effective == 0 {
+                override_secs
+            } else {
+                effective.min(override_secs)
+            };
         }
     }
     effective
@@ -363,7 +369,10 @@ fn parse_detached_jws(jws: &str) -> Result<(&str, &str), String> {
     }
     let parts: Vec<&str> = jws.split('.').collect();
     if parts.len() != 3 {
-        return Err(format!("JWS must have 3 dot-separated segments, got {}", parts.len()));
+        return Err(format!(
+            "JWS must have 3 dot-separated segments, got {}",
+            parts.len()
+        ));
     }
     let (header_b64u, payload_b64u, signature_b64u) = (parts[0], parts[1], parts[2]);
     if !payload_b64u.is_empty() {
@@ -402,7 +411,9 @@ mod tests {
 
         fn resolve_did(&self, did: &Did) -> crate::Result<DidDocument> {
             if did.as_str() != self.did.as_str() {
-                return Err(SdkError::Protocol(format!("stub resolver does not handle {did}")));
+                return Err(SdkError::Protocol(format!(
+                    "stub resolver does not handle {did}"
+                )));
             }
             let mut verification_methods = BTreeMap::new();
             verification_methods.insert(format!("{}#k1", self.did), self.multibase.clone());
@@ -588,8 +599,10 @@ mod tests {
     fn anchorer_cell_with_60s_override_rejects_2min_old_hlc() {
         let now = Utc::now();
         let two_min_ago_ms = (now - Duration::minutes(2)).timestamp_millis() as u64;
-        let m =
-            build_test_move_touching("ck:cell:ck.component.anchorer.v1:ck.realm.x", two_min_ago_ms);
+        let m = build_test_move_touching(
+            "ck:cell:ck.component.anchorer.v1:ck.realm.x",
+            two_min_ago_ms,
+        );
         let mut overrides = BTreeMap::new();
         overrides.insert("ck.component.anchorer.v1", 60u64);
         let err = verify_replay_window_for_move_at(&m, 300, &overrides, now).unwrap_err();
@@ -652,7 +665,10 @@ mod tests {
 
         let err = verify_jws_ed25519(b"{}", &jws, &format!("{did}#k1"), did.as_str(), &resolver)
             .unwrap_err();
-        assert!(err.contains("duplicate key") || err.contains("canonical JSON"), "got `{err}`");
+        assert!(
+            err.contains("duplicate key") || err.contains("canonical JSON"),
+            "got `{err}`"
+        );
     }
 
     #[test]
@@ -671,12 +687,21 @@ mod tests {
         let verifying = signing.verifying_key();
         let multibase = encode_ed25519_multibase(&verifying);
         let did = Did::new("did:web:roundtrip.example".to_owned()).unwrap();
-        let resolver = StubResolver { did: did.clone(), multibase };
+        let resolver = StubResolver {
+            did: did.clone(),
+            multibase,
+        };
 
         let canonical = br#"{"hello":"world","n":42}"#;
         let jws = sign_jws_ed25519(canonical, &signing).expect("sign");
-        verify_jws_ed25519(canonical, &jws, &format!("{did}#k1"), did.as_str(), &resolver)
-            .expect("verify");
+        verify_jws_ed25519(
+            canonical,
+            &jws,
+            &format!("{did}#k1"),
+            did.as_str(),
+            &resolver,
+        )
+        .expect("verify");
     }
 
     #[test]
@@ -685,15 +710,24 @@ mod tests {
         let verifying = signing.verifying_key();
         let multibase = encode_ed25519_multibase(&verifying);
         let did = Did::new("did:web:tamper.example".to_owned()).unwrap();
-        let resolver = StubResolver { did: did.clone(), multibase };
+        let resolver = StubResolver {
+            did: did.clone(),
+            multibase,
+        };
 
         let canonical = b"original-bytes";
         let jws = sign_jws_ed25519(canonical, &signing).expect("sign");
         // Flip a byte in the canonical input the verifier reconstructs the
         // signing string from — signature MUST fail.
         let tampered = b"tampered-bytes";
-        let err = verify_jws_ed25519(tampered, &jws, &format!("{did}#k1"), did.as_str(), &resolver)
-            .unwrap_err();
+        let err = verify_jws_ed25519(
+            tampered,
+            &jws,
+            &format!("{did}#k1"),
+            did.as_str(),
+            &resolver,
+        )
+        .unwrap_err();
         assert!(err.contains("verify failed"), "got `{err}`");
     }
 

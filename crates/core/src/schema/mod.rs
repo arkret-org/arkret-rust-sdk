@@ -1,10 +1,11 @@
 //! Schema registry and spec-drift helpers.
 
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fs,
-    path::{Path, PathBuf},
-};
+use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 
 use crate::{
     ACCOUNT_SUBSCRIBE_FRAME_SCHEMA, ANCHOR_SCHEMA, BOTTOM_SCHEMA, CALENDAR_EVENT_SCHEMA,
@@ -14,9 +15,6 @@ use crate::{
     REALM_JOIN_CANDIDATE_SCHEMA, Result, SEARCH_SERVICE_SCHEMA, SNAPSHOT_SCHEMA, SPACE_SCHEMA,
     VIEW_SCHEMA,
 };
-use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
-
 pub use crate::{
     GeneratedSchemaField, GeneratedSchemaValueType, ProtocolSchemaRegistry as Registry,
 };

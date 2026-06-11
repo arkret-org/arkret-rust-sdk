@@ -12,11 +12,10 @@ pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
 /// principals, and personal agent runtimes.
 ///
 /// Reducer rules:
-/// - This field is reducer-stamped. Clients MUST NOT supply it; reducers
-///   MUST reject envelopes that arrive with a client-supplied value
-///   (return `actor_kind_self_stamped`).
-/// - The serialized wire form on the Envelope is the field name
-///   `actor_kind`, distinct from the `ActorProfile.actor_kind` slot.
+/// - This field is reducer-stamped. Clients MUST NOT supply it; reducers MUST reject envelopes that
+///   arrive with a client-supplied value (return `actor_kind_self_stamped`).
+/// - The serialized wire form on the Envelope is the field name `actor_kind`, distinct from the
+///   `ActorProfile.actor_kind` slot.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -46,7 +45,12 @@ pub struct EventRef {
 
 impl EventRef {
     pub fn new(id: impl Into<String>, role: impl Into<String>) -> Self {
-        Self { id: id.into(), role: role.into(), critical: true, proof: None }
+        Self {
+            id: id.into(),
+            role: role.into(),
+            critical: true,
+            proof: None,
+        }
     }
 
     pub fn authorized_by_grant(grant_id: GrantId) -> Self {
@@ -121,7 +125,6 @@ pub struct Event {
     /// present, the reducer MUST verify that the DID resolved from
     /// `proof.verification_method` equals `executed_by`. Signed; nested
     /// into the canonical signing transcript when set.
-    ///
     // TODO(P1): reducer MUST stamp `actor_kind` and reject client-supplied;
     // reducer MUST verify `executed_by` == proof verification_method DID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -135,7 +138,6 @@ pub struct Event {
     /// CKP-0008 / CKP-0009 â€” runtime-origin classifier. Reducer-stamped
     /// projection; clients MUST NOT supply it. See
     /// [`EnvelopeActorKind`] for invariants.
-    ///
     // TODO(P1): reducer MUST stamp this and reject client-supplied values;
     // wire-form rejection code `actor_kind_self_stamped`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -212,7 +214,9 @@ impl TryFrom<EventWire> for Event {
             unsigned: wire.unsigned,
             proofs: wire.proofs,
         };
-        event.validate_forbidden_wire_surface().map_err(|err| err.to_string())?;
+        event
+            .validate_forbidden_wire_surface()
+            .map_err(|err| err.to_string())?;
         Ok(event)
     }
 }
@@ -231,7 +235,10 @@ pub enum EffectiveScope {
     /// Event was emitted under Realm-default encryption scope.
     Realm { realm_id: RealmId },
     /// Event was emitted under the named Circle's encryption scope.
-    Circle { realm_id: RealmId, circle_id: CircleId },
+    Circle {
+        realm_id: RealmId,
+        circle_id: CircleId,
+    },
 }
 
 impl EffectiveScope {
@@ -279,12 +286,21 @@ impl Event {
             ));
         }
         if self.proofs.is_empty() {
-            return Err(Error::Protocol("event proofs must contain at least one proof".to_owned()));
+            return Err(Error::Protocol(
+                "event proofs must contain at least one proof".to_owned(),
+            ));
         }
         if !self.content.is_object() {
-            return Err(Error::Protocol("event content must be a JSON object".to_owned()));
+            return Err(Error::Protocol(
+                "event content must be a JSON object".to_owned(),
+            ));
         }
-        if self.requirements.critical_extensions.iter().any(|extension| !extension.fail_closed) {
+        if self
+            .requirements
+            .critical_extensions
+            .iter()
+            .any(|extension| !extension.fail_closed)
+        {
             return Err(Error::Protocol(
                 "event critical extensions must declare fail_closed=true".to_owned(),
             ));
@@ -472,8 +488,10 @@ fn validate_forbidden_patch_value(
     patch_op: &Value,
     context: crate::WireContext,
 ) -> Result<()> {
-    let patch_value =
-        patch_op.get("value").filter(|_| patch_op.get("$op").is_some()).unwrap_or(patch_op);
+    let patch_value = patch_op
+        .get("value")
+        .filter(|_| patch_op.get("$op").is_some())
+        .unwrap_or(patch_op);
     match context {
         crate::WireContext::FlowPatchPath => {
             validate_flow_patch_parent_value(label, path, patch_value)?;
@@ -630,8 +648,9 @@ pub type EventEnvelope = Event;
 mod event_wire_surface_tests {
     //! Guard the Event Envelope wire surface against legacy non-spec fields.
 
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     fn realm() -> RealmId {
         RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
@@ -688,10 +707,10 @@ mod event_wire_surface_tests {
         assert!(applet_err.to_string().contains("unknown field"));
 
         let mut external_ref_value = value;
-        external_ref_value
-            .as_object_mut()
-            .unwrap()
-            .insert("external_ref".to_owned(), json!({"slack_msg_id": "1234567890.0001"}));
+        external_ref_value.as_object_mut().unwrap().insert(
+            "external_ref".to_owned(),
+            json!({"slack_msg_id": "1234567890.0001"}),
+        );
         let external_ref_err = serde_json::from_value::<Event>(external_ref_value).unwrap_err();
         assert!(external_ref_err.to_string().contains("unknown field"));
     }
@@ -700,11 +719,14 @@ mod event_wire_surface_tests {
     fn event_deserialize_rejects_forbidden_payload_fields() {
         let event = base_event();
         let mut value = serde_json::to_value(&event).unwrap();
-        value.as_object_mut().unwrap().insert("kind".to_owned(), json!("ck.flow.create"));
         value
             .as_object_mut()
             .unwrap()
-            .insert("payload".to_owned(), json!({"discussion_space_ref": "ck:space:old"}));
+            .insert("kind".to_owned(), json!("ck.flow.create"));
+        value.as_object_mut().unwrap().insert(
+            "payload".to_owned(),
+            json!({"discussion_space_ref": "ck:space:old"}),
+        );
 
         let err = serde_json::from_value::<Event>(value).unwrap_err();
         assert!(err.to_string().contains("forbidden wire field"));
@@ -721,7 +743,10 @@ mod event_wire_surface_tests {
             let mut event = base_event();
             event.kind = "ck.flow.update".into();
             let mut patch = serde_json::Map::new();
-            patch.insert(path.to_owned(), json!({ "$op": "set", "value": "did:web:bob.example" }));
+            patch.insert(
+                path.to_owned(),
+                json!({ "$op": "set", "value": "did:web:bob.example" }),
+            );
             event.content = json!({
                 "target_ref": "ck:flow:01904100-0000-7000-8000-000000000001",
                 "patch": Value::Object(patch)
@@ -736,8 +761,14 @@ mod event_wire_surface_tests {
         }
 
         for (path, value) in [
-            ("metadata.fields", json!({"assignee": "did:web:bob.example"})),
-            ("metadata", json!({"fields": {"assignee": "did:web:bob.example"}})),
+            (
+                "metadata.fields",
+                json!({"assignee": "did:web:bob.example"}),
+            ),
+            (
+                "metadata",
+                json!({"fields": {"assignee": "did:web:bob.example"}}),
+            ),
             ("fields", json!({"assignee": "did:web:bob.example"})),
         ] {
             let mut event = base_event();

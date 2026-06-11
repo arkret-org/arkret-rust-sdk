@@ -3,9 +3,9 @@
 //! Per spec §5.3:
 //! - `inc(value)` adds a non-negative integer increment.
 //! - `dec(value)` subtracts a non-negative integer.
-//! - Optional `tag` partitions the counter into named per-counter
-//!   dimensions (returned as a JSON object). Without tag, the cell is a
-//!   single global counter and the return value is a JSON integer.
+//! - Optional `tag` partitions the counter into named per-counter dimensions (returned as a JSON
+//!   object). Without tag, the cell is a single global counter and the return value is a JSON
+//!   integer.
 //!
 //! Negative increments / decrements are validation errors; the counter
 //! sum may go negative if dec exceeds inc on a tag, which the runtime
@@ -15,10 +15,10 @@
 
 use std::collections::BTreeMap;
 
-use crate::{CellRef, LatticeOp, LatticeOpType};
 use serde_json::{Number, Value, json};
 
 use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use crate::{CellRef, LatticeOp, LatticeOpType};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Counter;
@@ -31,10 +31,10 @@ impl Lattice for Counter {
     fn validate_op(&self, op: &LatticeOp) -> Result<(), OpError> {
         match op.op_type {
             LatticeOpType::Inc | LatticeOpType::Dec => {
-                let value = op
-                    .value
-                    .as_ref()
-                    .ok_or(OpError::MissingField { kind: "counter", field: "value" })?;
+                let value = op.value.as_ref().ok_or(OpError::MissingField {
+                    kind: "counter",
+                    field: "value",
+                })?;
                 let n = value.as_i64().ok_or(OpError::InvalidValue {
                     kind: "counter",
                     field: "value",
@@ -83,7 +83,11 @@ impl Lattice for Counter {
         if any_tagged {
             let mut obj = serde_json::Map::new();
             for (tag, total) in totals {
-                let key = if tag.is_empty() { "_default".to_owned() } else { tag };
+                let key = if tag.is_empty() {
+                    "_default".to_owned()
+                } else {
+                    tag
+                };
                 obj.insert(key, Value::Number(Number::from(total)));
             }
             CellState::Value(Value::Object(obj))
@@ -160,7 +164,9 @@ mod tests {
             reason: None,
             issuer_seq: None,
         };
-        Counter.validate_op(&op).expect_err("missing value must fail");
+        Counter
+            .validate_op(&op)
+            .expect_err("missing value must fail");
     }
 
     #[test]
@@ -243,7 +249,9 @@ mod tests {
             reason: None,
             issuer_seq: None,
         };
-        Counter.validate_op(&op).expect_err("non-inc/dec op must fail");
+        Counter
+            .validate_op(&op)
+            .expect_err("non-inc/dec op must fail");
     }
 
     #[test]

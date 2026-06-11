@@ -9,13 +9,13 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::events::kinds::IDENTITY_ACCOUNTABILITY_GRANT;
 #[cfg(test)]
 use crate::model::AppletTransactionOutcome;
+use crate::model::{AppletActorView, AppletRealmView, AppletTransactionRequestBody};
 use crate::{
     ACTOR_PROFILE_SCHEMA, ActorKind, ActorProfile, ActorProfileId, AppletId, BlobRef, Did, Error,
     Event, Hlc, ObjectCreatePayload, Proof, RealmId, Result, canonical,
-    events::kinds::IDENTITY_ACCOUNTABILITY_GRANT,
-    model::{AppletActorView, AppletRealmView, AppletTransactionRequestBody},
 };
 
 /// Which namespace bucket a claim lives in. The wire model
@@ -72,12 +72,18 @@ pub struct AppletNamespaceEntry {
 impl AppletNamespaceEntry {
     /// An exclusive claim over `pattern`.
     pub fn exclusive(pattern: impl Into<String>) -> Self {
-        Self { exclusive: true, pattern: pattern.into() }
+        Self {
+            exclusive: true,
+            pattern: pattern.into(),
+        }
     }
 
     /// A shared (non-exclusive) claim over `pattern`.
     pub fn shared(pattern: impl Into<String>) -> Self {
-        Self { exclusive: false, pattern: pattern.into() }
+        Self {
+            exclusive: false,
+            pattern: pattern.into(),
+        }
     }
 }
 
@@ -106,7 +112,11 @@ impl AppletWireNamespaces {
         for (domain, mine, theirs) in [
             (AppletNamespaceDomain::Actors, &self.actors, &other.actors),
             (AppletNamespaceDomain::Realms, &self.realms, &other.realms),
-            (AppletNamespaceDomain::Handles, &self.handles, &other.handles),
+            (
+                AppletNamespaceDomain::Handles,
+                &self.handles,
+                &other.handles,
+            ),
         ] {
             for a in mine {
                 for b in theirs {
@@ -419,18 +429,28 @@ impl AppletPackage {
             return Err(Error::Protocol("applet package schema mismatch".to_owned()));
         }
         if self.package_id.is_empty() || self.applet_id.is_empty() || self.base_url.is_empty() {
-            return Err(Error::Protocol("applet package missing required fields".to_owned()));
+            return Err(Error::Protocol(
+                "applet package missing required fields".to_owned(),
+            ));
         }
-        if !self.claimed_profiles.iter().any(|profile| profile == Self::BASE_PROFILE) {
+        if !self
+            .claimed_profiles
+            .iter()
+            .any(|profile| profile == Self::BASE_PROFILE)
+        {
             return Err(Error::Protocol(
                 "applet package MUST claim ck.profile.applet_service.v1".to_owned(),
             ));
         }
         if self.protocols.is_empty() {
-            return Err(Error::Protocol("applet package protocols are empty".to_owned()));
+            return Err(Error::Protocol(
+                "applet package protocols are empty".to_owned(),
+            ));
         }
         if self.requested_scopes.is_empty() {
-            return Err(Error::Protocol("applet package requested_scopes are empty".to_owned()));
+            return Err(Error::Protocol(
+                "applet package requested_scopes are empty".to_owned(),
+            ));
         }
         if self.package_digest.is_none() {
             return Err(Error::Protocol("applet package is not sealed".to_owned()));
@@ -447,11 +467,20 @@ impl AppletPackage {
         let mut manifest = serde_json::Map::new();
         manifest.insert(
             "claimed_profiles".to_owned(),
-            Value::Array(self.claimed_profiles.iter().cloned().map(Value::String).collect()),
+            Value::Array(
+                self.claimed_profiles
+                    .iter()
+                    .cloned()
+                    .map(Value::String)
+                    .collect(),
+            ),
         );
         manifest.insert("limits".to_owned(), self.limits.clone());
         manifest.insert("ghost_policy".to_owned(), self.ghost_policy.clone());
-        manifest.insert("delegation_policy".to_owned(), self.delegation_policy.clone());
+        manifest.insert(
+            "delegation_policy".to_owned(),
+            self.delegation_policy.clone(),
+        );
         manifest.insert("e2ee_policy".to_owned(), self.e2ee_policy.clone());
         if let Some(widget) = &self.widget {
             manifest.insert("widget".to_owned(), widget.clone());
@@ -493,8 +522,13 @@ impl AppletPackage {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum EffectiveScope {
-    Realm { realm_id: RealmId },
-    Circle { realm_id: RealmId, circle_id: crate::CircleId },
+    Realm {
+        realm_id: RealmId,
+    },
+    Circle {
+        realm_id: RealmId,
+        circle_id: crate::CircleId,
+    },
 }
 
 impl EffectiveScope {
@@ -846,14 +880,26 @@ impl AppletBridgeErrorBuilder {
 
     pub fn build(self, actor_seq: u64, hlc: Hlc) -> Result<Event> {
         let mut content = serde_json::Map::new();
-        content.insert("applet_id".to_owned(), Value::String(self.applet_id.clone()));
-        content.insert("realm_id".to_owned(), Value::String(self.realm_id.as_str().to_owned()));
+        content.insert(
+            "applet_id".to_owned(),
+            Value::String(self.applet_id.clone()),
+        );
+        content.insert(
+            "realm_id".to_owned(),
+            Value::String(self.realm_id.as_str().to_owned()),
+        );
         content.insert(
             "failed_transaction_ref".to_owned(),
             Value::String(self.failed_transaction_ref.clone()),
         );
-        content.insert("error_class".to_owned(), Value::String(self.error_class.clone()));
-        content.insert("error_code".to_owned(), Value::String(self.error_code.clone()));
+        content.insert(
+            "error_class".to_owned(),
+            Value::String(self.error_class.clone()),
+        );
+        content.insert(
+            "error_code".to_owned(),
+            Value::String(self.error_code.clone()),
+        );
         content.insert("retriable".to_owned(), Value::Bool(self.retriable));
         content.insert(
             "visibility_scope".to_owned(),
@@ -992,12 +1038,19 @@ impl AppletServiceTransactionStore {
             self.transactions.get(&transaction.idempotency_key)
         {
             if existing_digest == &digest {
-                return Ok(AppletServiceTransactionRecord::Duplicate(existing_response.clone()));
+                return Ok(AppletServiceTransactionRecord::Duplicate(
+                    existing_response.clone(),
+                ));
             }
-            return Err(Error::IdempotencyConflict(transaction.idempotency_key.clone()));
+            return Err(Error::IdempotencyConflict(
+                transaction.idempotency_key.clone(),
+            ));
         }
 
-        self.transactions.insert(transaction.idempotency_key.clone(), (digest, response.clone()));
+        self.transactions.insert(
+            transaction.idempotency_key.clone(),
+            (digest, response.clone()),
+        );
         Ok(AppletServiceTransactionRecord::New(response))
     }
 }
@@ -1026,7 +1079,11 @@ pub struct AppletServiceIntent {
 impl AppletServiceIntent {
     /// Create a virtual actor intent.
     pub fn new(service_did: Did, actor_id: Did) -> Self {
-        Self { service_did, actor_id, idempotency_prefix: "applet_txn".to_owned() }
+        Self {
+            service_did,
+            actor_id,
+            idempotency_prefix: "applet_txn".to_owned(),
+        }
     }
 
     /// Build an idempotent transaction envelope for events produced by this intent.
@@ -1111,12 +1168,18 @@ impl BridgeMappingStore {
 
     /// Store or replace a remote user mapping.
     pub fn upsert_user(&mut self, mapping: RemoteUserMapping) {
-        self.users.insert(remote_key(&mapping.protocol, &mapping.remote_user_id), mapping);
+        self.users.insert(
+            remote_key(&mapping.protocol, &mapping.remote_user_id),
+            mapping,
+        );
     }
 
     /// Store or replace a remote location mapping.
     pub fn upsert_realm(&mut self, mapping: RemoteRealmMapping) {
-        self.realms.insert(remote_key(&mapping.protocol, &mapping.remote_realm_id), mapping);
+        self.realms.insert(
+            remote_key(&mapping.protocol, &mapping.remote_realm_id),
+            mapping,
+        );
     }
 
     /// Resolve a remote user mapping.
@@ -1146,12 +1209,18 @@ impl AppletDelegatedEventAuthorization {
         authorization_ref: impl Into<String>,
         applet_id: AppletId,
     ) -> Self {
-        Self { executed_by, authorization_ref: authorization_ref.into(), applet_id }
+        Self {
+            executed_by,
+            authorization_ref: authorization_ref.into(),
+            applet_id,
+        }
     }
 
     pub fn validate(&self) -> Result<()> {
         if self.authorization_ref.trim().is_empty() {
-            return Err(Error::Protocol("authorization_ref must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "authorization_ref must not be empty".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -1175,7 +1244,10 @@ pub struct GhostActorProfileFields {
 
 impl GhostActorProfileFields {
     pub fn new(managed_by_applet: AppletId) -> Self {
-        Self { managed_by_applet, external_ref: Value::Null }
+        Self {
+            managed_by_applet,
+            external_ref: Value::Null,
+        }
     }
 }
 
@@ -1259,7 +1331,9 @@ impl GhostActorProfileRequest {
             ));
         }
         if self.display_name.trim().is_empty() {
-            return Err(Error::Protocol("ghost actor display_name must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "ghost actor display_name must not be empty".to_owned(),
+            ));
         }
         if self.display_name.chars().count() > 128 {
             return Err(Error::Protocol(
@@ -1281,8 +1355,10 @@ impl GhostActorProfileRequest {
             Value::String(self.profile_fields.managed_by_applet.to_string()),
         )]);
         if !self.profile_fields.external_ref.is_null() {
-            profile_fields
-                .insert("external_ref".to_owned(), self.profile_fields.external_ref.clone());
+            profile_fields.insert(
+                "external_ref".to_owned(),
+                self.profile_fields.external_ref.clone(),
+            );
         }
         Ok(ActorProfile {
             id: self.id.clone(),
@@ -1384,13 +1460,19 @@ impl AccountabilityGrantPayload {
             ));
         }
         if self.grant_status != AccountabilityGrantStatus::Active {
-            return Err(Error::Protocol("accountability_grant is not active".to_owned()));
+            return Err(Error::Protocol(
+                "accountability_grant is not active".to_owned(),
+            ));
         }
         if now < self.not_before {
-            return Err(Error::Protocol("accountability_grant is not yet active".to_owned()));
+            return Err(Error::Protocol(
+                "accountability_grant is not yet active".to_owned(),
+            ));
         }
         if now > self.expires_at {
-            return Err(Error::Protocol("accountability_grant has expired".to_owned()));
+            return Err(Error::Protocol(
+                "accountability_grant has expired".to_owned(),
+            ));
         }
         self.proof.validate_production()
     }
@@ -1402,7 +1484,11 @@ impl AccountabilityGrantPayload {
                 "accountability_grant subject does not match actor profile principal_id".to_owned(),
             ));
         }
-        if !profile.accountable_principal_ids.iter().any(|did| did == &self.issuer) {
+        if !profile
+            .accountable_principal_ids
+            .iter()
+            .any(|did| did == &self.issuer)
+        {
             return Err(Error::Protocol(
                 "accountability_grant issuer is not in actor profile accountable_principal_ids"
                     .to_owned(),
@@ -1483,7 +1569,8 @@ impl AppletPortalManager {
             applets: BTreeSet::new(),
             ghost_actor: None,
         };
-        self.portals.insert(portal.portal_id.clone(), portal.clone());
+        self.portals
+            .insert(portal.portal_id.clone(), portal.clone());
         portal
     }
 
@@ -1552,11 +1639,11 @@ fn namespace_patterns_overlap(domain: AppletNamespaceDomain, left: &str, right: 
 /// `domain`.
 ///
 /// Grammar (spec `applet-schema.md` §2):
-/// - `*` matches exactly one segment: one or more chars that are not a
-///   separator for `domain` (actor: `:`; realm / handle: `:` and `/`). It
-///   never crosses a separator and never matches an empty segment.
-/// - `**` matches one or more path-like segments: one or more chars that
-///   may include `/` but never `:`. It never matches empty.
+/// - `*` matches exactly one segment: one or more chars that are not a separator for `domain`
+///   (actor: `:`; realm / handle: `:` and `/`). It never crosses a separator and never matches an
+///   empty segment.
+/// - `**` matches one or more path-like segments: one or more chars that may include `/` but never
+///   `:`. It never matches empty.
 /// - Literal `*` is escaped as `\*`.
 /// - For the actor domain a DID `#fragment` is ignored on both sides.
 /// - An empty pattern matches only an empty candidate.
@@ -1567,7 +1654,11 @@ pub fn namespace_pattern_matches(
 ) -> bool {
     let pattern = strip_fragment(domain, pattern);
     let candidate = strip_fragment(domain, candidate);
-    namespace_pattern_match_bytes(domain.separators(), pattern.as_bytes(), candidate.as_bytes())
+    namespace_pattern_match_bytes(
+        domain.separators(),
+        pattern.as_bytes(),
+        candidate.as_bytes(),
+    )
 }
 
 fn namespace_pattern_match_bytes(separators: &[u8], pattern: &[u8], candidate: &[u8]) -> bool {
@@ -1728,7 +1819,12 @@ mod tests {
         );
 
         let event = request
-            .profile_create_event(ghost_test_realm(), 1, ghost_test_hlc(), Some(&authorization))
+            .profile_create_event(
+                ghost_test_realm(),
+                1,
+                ghost_test_hlc(),
+                Some(&authorization),
+            )
             .unwrap();
         assert_eq!(event.kind, "ck.profile.create");
         assert_eq!(event.executed_by.as_ref().unwrap(), &did("bridge"));
@@ -1766,7 +1862,9 @@ mod tests {
         );
 
         grant.validate_for_profile(&profile, now).unwrap();
-        let event = grant.to_event(ghost_test_realm(), 2, ghost_test_hlc(), None).unwrap();
+        let event = grant
+            .to_event(ghost_test_realm(), 2, ghost_test_hlc(), None)
+            .unwrap();
         assert_eq!(event.kind, IDENTITY_ACCOUNTABILITY_GRANT);
         assert_eq!(event.actor_id, owner);
         assert_eq!(event.content["grant_status"], "active");
@@ -1779,7 +1877,9 @@ mod tests {
         let portal = manager.create_portal(ghost_test_realm());
         manager.install_applet(&portal.portal_id, "todo").unwrap();
         manager.enable_bridge(&portal.portal_id).unwrap();
-        manager.set_ghost_actor(&portal.portal_id, did("ghost")).unwrap();
+        manager
+            .set_ghost_actor(&portal.portal_id, did("ghost"))
+            .unwrap();
 
         let portal = manager.portal(&portal.portal_id).unwrap();
         assert_eq!(portal.mode, PortalMode::Bridge);
@@ -1790,12 +1890,16 @@ mod tests {
     #[test]
     fn applet_wire_namespaces_detect_exclusive_conflicts() {
         let a = AppletWireNamespaces {
-            actors: vec![AppletNamespaceEntry::exclusive("did:web:slack-bridge.example:ghost:*")],
+            actors: vec![AppletNamespaceEntry::exclusive(
+                "did:web:slack-bridge.example:ghost:*",
+            )],
             ..Default::default()
         };
         // Exclusive vs overlapping concrete claim in the same domain conflicts.
         let b = AppletWireNamespaces {
-            actors: vec![AppletNamespaceEntry::exclusive("did:web:slack-bridge.example:ghost:u1")],
+            actors: vec![AppletNamespaceEntry::exclusive(
+                "did:web:slack-bridge.example:ghost:u1",
+            )],
             ..Default::default()
         };
         let conflicts = a.conflicts_with(&b);
@@ -1804,11 +1908,15 @@ mod tests {
 
         // Two non-exclusive claims may coexist.
         let c = AppletWireNamespaces {
-            actors: vec![AppletNamespaceEntry::shared("did:web:slack-bridge.example:ghost:*")],
+            actors: vec![AppletNamespaceEntry::shared(
+                "did:web:slack-bridge.example:ghost:*",
+            )],
             ..Default::default()
         };
         let d = AppletWireNamespaces {
-            actors: vec![AppletNamespaceEntry::shared("did:web:slack-bridge.example:ghost:u1")],
+            actors: vec![AppletNamespaceEntry::shared(
+                "did:web:slack-bridge.example:ghost:u1",
+            )],
             ..Default::default()
         };
         assert!(c.conflicts_with(&d).is_empty());
@@ -1825,8 +1933,11 @@ mod tests {
     fn applet_service_transactions_are_idempotent() {
         let intent = AppletServiceIntent::new(did("svc"), did("ghost"));
         let transaction = intent.transaction("k1", Vec::new());
-        let response =
-            AppletTransactionOutcome { ok: true, rejected: Vec::new(), retry_after_ms: None };
+        let response = AppletTransactionOutcome {
+            ok: true,
+            rejected: Vec::new(),
+            retry_after_ms: None,
+        };
         let mut store = AppletServiceTransactionStore::new();
 
         assert!(matches!(
@@ -1843,7 +1954,11 @@ mod tests {
         assert!(matches!(
             store.record(
                 &changed,
-                AppletTransactionOutcome { ok: true, rejected: Vec::new(), retry_after_ms: None },
+                AppletTransactionOutcome {
+                    ok: true,
+                    rejected: Vec::new(),
+                    retry_after_ms: None
+                },
             ),
             Err(Error::IdempotencyConflict(_))
         ));
@@ -1871,7 +1986,10 @@ mod tests {
             external_ref: Value::Null,
         });
 
-        assert_eq!(mappings.user("slack", "U1").unwrap().display_name, Some("User One".to_owned()));
+        assert_eq!(
+            mappings.user("slack", "U1").unwrap().display_name,
+            Some("User One".to_owned())
+        );
         assert!(mappings.realm("slack", "C1").is_some());
     }
 
@@ -1947,22 +2065,38 @@ mod tests {
             "slack:team:T123:channel:C456"
         ));
         // ...and never matches an empty segment.
-        assert!(!namespace_pattern_matches(Realms, "slack.acme.example/**", "slack.acme.example/"));
+        assert!(!namespace_pattern_matches(
+            Realms,
+            "slack.acme.example/**",
+            "slack.acme.example/"
+        ));
     }
 
     #[test]
     fn namespace_pattern_escaped_star_matches_literal() {
-        assert!(namespace_pattern_matches(Realms, "literal\\*pattern", "literal*pattern"));
+        assert!(namespace_pattern_matches(
+            Realms,
+            "literal\\*pattern",
+            "literal*pattern"
+        ));
     }
 
     #[test]
     fn namespace_pattern_escaped_star_rejects_non_star() {
-        assert!(!namespace_pattern_matches(Realms, "literal\\*pattern", "literalXpattern"));
+        assert!(!namespace_pattern_matches(
+            Realms,
+            "literal\\*pattern",
+            "literalXpattern"
+        ));
     }
 
     #[test]
     fn namespace_pattern_empty_pattern_rejects_non_empty_candidate() {
-        assert!(!namespace_pattern_matches(Actors, "", "did:web:anything.example"));
+        assert!(!namespace_pattern_matches(
+            Actors,
+            "",
+            "did:web:anything.example"
+        ));
     }
 
     // ─── S-4 (savfox SDK gap) tests ──────────────────────────────────
@@ -2065,9 +2199,15 @@ mod tests {
         assert_eq!(event.content["error_code"], "external_rate_limited");
         assert_eq!(event.content["retriable"], true);
         assert_eq!(event.content["visibility_scope"], "realm_admins");
-        assert_eq!(event.content["message"], "external network rejected the message");
+        assert_eq!(
+            event.content["message"],
+            "external network rejected the message"
+        );
         assert_eq!(event.content["retry_after_ms"], 1000);
-        assert_eq!(event.content["applet_id"], "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa");
+        assert_eq!(
+            event.content["applet_id"],
+            "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"
+        );
         assert_eq!(event.content["external_ref"]["slack_response_code"], 429);
     }
 
@@ -2189,9 +2329,10 @@ mod tests {
     fn sign_registration_attaches_proof_with_matching_digest() {
         use std::collections::BTreeMap;
 
+        use cokret_core::move_event::Move;
         use cokret_core::{
             Did as CoreDid, Hash as CoreHash, MoveSignature, MoveSigner, Result as CoreResult,
-            UnsignedMove, canonical, move_event::Move,
+            UnsignedMove, canonical,
         };
 
         struct StubSigner {
@@ -2221,8 +2362,10 @@ mod tests {
             }
         }
 
-        let signer =
-            StubSigner { did: did("alice"), kid: "did:web:alice.example#key-1".to_owned() };
+        let signer = StubSigner {
+            did: did("alice"),
+            kid: "did:web:alice.example#key-1".to_owned(),
+        };
         let mut reg = sample_wire_registration();
         sign_registration(&mut reg, &signer, "did:web:alice.example#key-1").unwrap();
 

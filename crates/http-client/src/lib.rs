@@ -1,15 +1,5 @@
 use std::time::Duration;
 
-use reqwest::{
-    Method, RequestBuilder, Response, StatusCode,
-    header::{HeaderMap, HeaderValue, RETRY_AFTER, USER_AGENT},
-};
-use serde::{Serialize, de::DeserializeOwned};
-use serde_json::Value;
-#[cfg(not(target_arch = "wasm32"))]
-use tokio::time::sleep;
-use url::Url;
-
 use cokret_core::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountSubscribeFrame,
     AppletActorView, AppletDescription, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
@@ -44,6 +34,14 @@ use cokret_core::{
     ServiceRequirements, SessionGrantOutcome, SessionGrantRequestBody, SnapshotHeadState,
     SyncBackfillOutcome, SyncDescription, SyncOutcome, SyncRequestBody,
 };
+use reqwest::header::{HeaderMap, HeaderValue, RETRY_AFTER, USER_AGENT};
+use reqwest::{Method, RequestBuilder, Response, StatusCode};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+use serde_json::Value;
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::time::sleep;
+use url::Url;
 
 pub const HEADER_REQUEST_ID: &str = "X-Cokret-Request-Id";
 pub const HEADER_WAIT_FOR: &str = "X-Cokret-Wait-For";
@@ -199,7 +197,11 @@ impl RetryConfig {
         let shift = attempt.saturating_sub(1).min(31) as u32;
         let factor = 1u32.checked_shl(shift).unwrap_or(u32::MAX);
         let delay = self.base_delay.saturating_mul(factor);
-        if self.max_delay.is_zero() { delay } else { std::cmp::min(delay, self.max_delay) }
+        if self.max_delay.is_zero() {
+            delay
+        } else {
+            std::cmp::min(delay, self.max_delay)
+        }
     }
 
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
@@ -600,7 +602,11 @@ impl ClientBuilder {
                 }
                 http
             }
-            None => self.transport.apply(reqwest::Client::builder()).build().map_err(transport_error)?,
+            None => self
+                .transport
+                .apply(reqwest::Client::builder())
+                .build()
+                .map_err(transport_error)?,
         };
         Ok(Client {
             base_url: self.base_url,
@@ -660,8 +666,9 @@ impl Client {
         did: &str,
         version: Option<&str>,
     ) -> Result<IdentityDocumentView> {
-        let mut builder =
-            self.request(Method::GET, "/_cokret/root/identity/document")?.query(&[("did", did)]);
+        let mut builder = self
+            .request(Method::GET, "/_cokret/root/identity/document")?
+            .query(&[("did", did)]);
         if let Some(version) = version {
             builder = builder.query(&[("version", version)]);
         }
@@ -674,8 +681,9 @@ impl Client {
         cursor: Option<&str>,
         limit: Option<u32>,
     ) -> Result<IdentityLogOutcome> {
-        let mut builder =
-            self.request(Method::GET, "/_cokret/root/identity/log")?.query(&[("did", did)]);
+        let mut builder = self
+            .request(Method::GET, "/_cokret/root/identity/log")?
+            .query(&[("did", did)]);
         if let Some(cursor) = cursor {
             builder = builder.query(&[("cursor", cursor)]);
         }
@@ -689,7 +697,8 @@ impl Client {
         &self,
         request: &DidOperationSubmitRequestBody,
     ) -> Result<DidOperationSubmitOutcome> {
-        self.post("/_cokret/root/identity/submit-did-operation", request).await
+        self.post("/_cokret/root/identity/submit-did-operation", request)
+            .await
     }
 
     pub async fn identity_receipts(
@@ -786,7 +795,9 @@ impl Client {
         if let Some(sync) = decode_subscribe_line(&buffer)? {
             return Ok(sync);
         }
-        Err(Error::Protocol("account subscribe stream ended before a delta frame".to_owned()))
+        Err(Error::Protocol(
+            "account subscribe stream ended before a delta frame".to_owned(),
+        ))
     }
 
     /// S-6 (savfox SDK gap): NDJSON-streamed account subscribe. Yields
@@ -809,7 +820,9 @@ impl Client {
         use tokio_util::io::StreamReader;
 
         let response = self.account_subscribe(request).await?;
-        let byte_stream = response.bytes_stream().map(|chunk| chunk.map_err(std::io::Error::other));
+        let byte_stream = response
+            .bytes_stream()
+            .map(|chunk| chunk.map_err(std::io::Error::other));
         let reader = StreamReader::new(byte_stream);
         let lines = FramedRead::new(reader, LinesCodec::new());
         let stream = lines.filter_map(|line_res| async move {
@@ -819,9 +832,9 @@ impl Client {
                     Ok(None) => None,
                     Err(err) => Some(Err(err)),
                 },
-                Err(err) => {
-                    Some(Err(Error::Protocol(format!("account subscribe line read failed: {err}"))))
-                }
+                Err(err) => Some(Err(Error::Protocol(format!(
+                    "account subscribe line read failed: {err}"
+                )))),
             }
         });
         Ok(Box::pin(stream))
@@ -835,7 +848,8 @@ impl Client {
         &self,
         request: &AccountCursorRevokeRequestBody,
     ) -> Result<AccountCursorRevokeOutcome> {
-        self.post("/_cokret/self/account/cursor/revoke", request).await
+        self.post("/_cokret/self/account/cursor/revoke", request)
+            .await
     }
 
     pub async fn contacts_request(
@@ -867,7 +881,8 @@ impl Client {
         &self,
         request: &DirectConversationResolveRequestBody,
     ) -> Result<DirectConversationResolveOutcome> {
-        self.post(PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, request).await
+        self.post(PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, request)
+            .await
     }
 
     /// Subscribe to the Event stream for one or more Realms / actors via
@@ -907,8 +922,9 @@ impl Client {
         order: Option<&str>,
         limit: Option<u32>,
     ) -> Result<SyncBackfillOutcome> {
-        let mut builder =
-            self.request(Method::GET, "/_cokret/self/events")?.query(&[("realms", realm_id)]);
+        let mut builder = self
+            .request(Method::GET, "/_cokret/self/events")?
+            .query(&[("realms", realm_id)]);
         if let Some(before) = before {
             builder = builder.query(&[("before", before)]);
         }
@@ -1015,8 +1031,10 @@ impl Client {
             builder = builder.header("Content-Type", media_type);
         }
         if let Some(filename) = &metadata.filename {
-            builder = builder
-                .header("Content-Disposition", format!("attachment; filename=\"{filename}\""));
+            builder = builder.header(
+                "Content-Disposition",
+                format!("attachment; filename=\"{filename}\""),
+            );
         }
         if let Some(content_digest) = &metadata.content_digest {
             builder = builder.header("Digest", content_digest.as_str());
@@ -1127,7 +1145,8 @@ impl Client {
         request: &DeviceMessagesPutRequestBody,
     ) -> Result<DeviceMessagesPutOutcome> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.post_with_options("/_cokret/self/device_messages", request, &options).await
+        self.post_with_options("/_cokret/self/device_messages", request, &options)
+            .await
     }
 
     pub async fn receive_device_messages(
@@ -1153,14 +1172,16 @@ impl Client {
         &self,
         request: &DirectorySearchRealmsRequestBody,
     ) -> Result<DirectoryRealmSearchOutcome> {
-        self.post("/_cokret/find/directory/search-realms", request).await
+        self.post("/_cokret/find/directory/search-realms", request)
+            .await
     }
 
     pub async fn directory_resolve_realm(
         &self,
         request: &DirectoryResolveRealmRequestBody,
     ) -> Result<DirectoryRealmResolutionOutcome> {
-        self.post("/_cokret/find/directory/resolve-realm", request).await
+        self.post("/_cokret/find/directory/resolve-realm", request)
+            .await
     }
 
     /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — `ck.find.directory.resolve_target`.
@@ -1173,28 +1194,32 @@ impl Client {
         &self,
         request: &DirectoryResolveTargetRequestBody,
     ) -> Result<DirectoryTargetResolutionOutcome> {
-        self.post("/_cokret/find/directory/resolve-target", request).await
+        self.post("/_cokret/find/directory/resolve-target", request)
+            .await
     }
 
     pub async fn directory_search_organizations(
         &self,
         request: &DirectorySearchOrganizationsRequestBody,
     ) -> Result<DirectoryOrganizationSearchOutcome> {
-        self.post("/_cokret/find/directory/search-organizations", request).await
+        self.post("/_cokret/find/directory/search-organizations", request)
+            .await
     }
 
     pub async fn directory_resolve_organization(
         &self,
         request: &DirectoryResolveOrganizationRequestBody,
     ) -> Result<DirectoryOrganizationResolutionOutcome> {
-        self.post("/_cokret/find/directory/resolve-organization", request).await
+        self.post("/_cokret/find/directory/resolve-organization", request)
+            .await
     }
 
     pub async fn directory_search_actors(
         &self,
         request: &DirectorySearchActorsRequestBody,
     ) -> Result<DirectoryActorSearchOutcome> {
-        self.post("/_cokret/find/directory/search-actors", request).await
+        self.post("/_cokret/find/directory/search-actors", request)
+            .await
     }
 
     pub async fn directory_search_users(
@@ -1208,14 +1233,16 @@ impl Client {
             realm_id: realm_id.map(str::parse).transpose()?,
             limit,
         };
-        self.post("/_cokret/find/directory/search-users", &request).await
+        self.post("/_cokret/find/directory/search-users", &request)
+            .await
     }
 
     pub async fn directory_resolve_handle(
         &self,
         request: &DirectoryResolveHandleRequestBody,
     ) -> Result<DirectoryHandleResolutionOutcome> {
-        self.post("/_cokret/find/directory/resolve-handle", request).await
+        self.post("/_cokret/find/directory/resolve-handle", request)
+            .await
     }
 
     /// R3.2 (cokret-spec @ b56cab1) — `ck.find.directory.list_handles_for_subject`.
@@ -1226,8 +1253,9 @@ impl Client {
         &self,
         request: &DirectoryListHandlesForSubjectRequestBody,
     ) -> Result<DirectorySubjectHandleList> {
-        let body: DirectorySubjectHandleList =
-            self.post("/_cokret/find/directory/list-handles-for-subject", request).await?;
+        let body: DirectorySubjectHandleList = self
+            .post("/_cokret/find/directory/list-handles-for-subject", request)
+            .await?;
         body.validate()?;
         Ok(body)
     }
@@ -1236,21 +1264,24 @@ impl Client {
         &self,
         request: &DirectoryPrivateContactDiscoveryRequestBody,
     ) -> Result<DirectoryPrivateContactDiscoveryOutcome> {
-        self.post("/_cokret/find/directory/private-contact-discovery", request).await
+        self.post("/_cokret/find/directory/private-contact-discovery", request)
+            .await
     }
 
     pub async fn push_register_device(
         &self,
         request: &PushRegisterDeviceRequestBody,
     ) -> Result<PushRegisterDeviceOutcome> {
-        self.post("/_cokret/edge/push/register-device", request).await
+        self.post("/_cokret/edge/push/register-device", request)
+            .await
     }
 
     pub async fn push_unregister_device(
         &self,
         request: &PushUnregisterDeviceRequestBody,
     ) -> Result<OkOutcome> {
-        self.post("/_cokret/edge/push/unregister-device", request).await
+        self.post("/_cokret/edge/push/unregister-device", request)
+            .await
     }
 
     pub async fn push_notify(&self, request: &PushNotifyRequestBody) -> Result<PushNotifyOutcome> {
@@ -1314,7 +1345,8 @@ impl Client {
         request: &AppletTransactionRequestBody,
     ) -> Result<AppletTransactionOutcome> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.post_with_options("/_cokret/edge/applet/transactions", request, &options).await
+        self.post_with_options("/_cokret/edge/applet/transactions", request, &options)
+            .await
     }
 
     pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorView> {
@@ -1414,7 +1446,10 @@ impl Client {
         reject_absolute_path(path)?;
         let url = self.base_url.join(path.trim_start_matches('/'))?;
         reject_query_auth_in_url(&url)?;
-        let mut builder = self.http.request(method, url).header("Accept", "application/json");
+        let mut builder = self
+            .http
+            .request(method, url)
+            .header("Accept", "application/json");
         if let Some(user_agent) = &self.user_agent {
             builder = builder.header(USER_AGENT, user_agent);
         }
@@ -1425,9 +1460,9 @@ impl Client {
         match &self.auth {
             Some(Auth::Bearer(token)) => builder.bearer_auth(token),
             Some(Auth::DeviceProof(proof)) => builder.header("X-Cokret-Device-Proof", proof),
-            Some(Auth::ServiceSignature(signature)) => {
-                builder.header("Signature", signature).header("X-Cokret-Service-Signature", "1")
-            }
+            Some(Auth::ServiceSignature(signature)) => builder
+                .header("Signature", signature)
+                .header("X-Cokret-Service-Signature", "1"),
             None => builder,
         }
     }
@@ -1457,7 +1492,10 @@ impl Client {
         let status = response.status();
         if !status.is_success() {
             let error = error_envelope_from_response(response).await;
-            return Err(Error::Api { status: status.as_u16(), error: Box::new(error) });
+            return Err(Error::Api {
+                status: status.as_u16(),
+                error: Box::new(error),
+            });
         }
 
         Ok(response.json().await.map_err(transport_error)?)
@@ -1473,7 +1511,10 @@ impl Client {
         let status = response.status();
         if !status.is_success() {
             let error = error_envelope_from_response(response).await;
-            return Err(Error::Api { status: status.as_u16(), error: Box::new(error) });
+            return Err(Error::Api {
+                status: status.as_u16(),
+                error: Box::new(error),
+            });
         }
 
         Ok(response)
@@ -1524,7 +1565,11 @@ impl Client {
                         && self.retry.should_retry_status(response.status()) =>
                 {
                     attempts += 1;
-                    sleep(self.retry.retry_delay_from_headers(response.headers(), attempts)).await;
+                    sleep(
+                        self.retry
+                            .retry_delay_from_headers(response.headers(), attempts),
+                    )
+                    .await;
                 }
                 Ok(response) => return Ok(response),
                 Err(error)
@@ -1533,8 +1578,7 @@ impl Client {
                     attempts += 1;
                     // Timeouts may fire after the server received the
                     // request; only idempotent requests may resend then.
-                    let retryable =
-                        error.is_connect() || (idempotent && error.is_timeout());
+                    let retryable = error.is_connect() || (idempotent && error.is_timeout());
                     if !retryable {
                         return Err(transport_error(error));
                     }
@@ -1581,7 +1625,9 @@ fn validate_auth(auth: &Auth) -> Result<()> {
 
 fn validate_header_value(name: &str, value: &str) -> Result<()> {
     if value.trim().is_empty() || HeaderValue::from_str(value).is_err() {
-        return Err(Error::Protocol(format!("{name} must be non-empty and header-safe")));
+        return Err(Error::Protocol(format!(
+            "{name} must be non-empty and header-safe"
+        )));
     }
     Ok(())
 }
@@ -1622,9 +1668,16 @@ async fn error_envelope_from_response(response: Response) -> ErrorEnvelope {
     let status = response.status();
     let retry_after_ms = retry_after_ms(response.headers());
     let error = response.json::<ErrorEnvelope>().await.unwrap_or_else(|_| {
-        ErrorEnvelope::new("internal_error", format!("HTTP request failed with status {status}"))
+        ErrorEnvelope::new(
+            "internal_error",
+            format!("HTTP request failed with status {status}"),
+        )
     });
-    if error.retry_after_ms().is_none() { error.with_retry_after_ms(retry_after_ms) } else { error }
+    if error.retry_after_ms().is_none() {
+        error.with_retry_after_ms(retry_after_ms)
+    } else {
+        error
+    }
 }
 
 fn retry_after_ms(headers: &HeaderMap) -> Option<u64> {
@@ -1652,7 +1705,9 @@ fn reject_path_segment(segment: &str) -> Result<()> {
         || segment == "."
         || segment == ".."
     {
-        return Err(Error::Protocol("path segment contains reserved characters".to_owned()));
+        return Err(Error::Protocol(
+            "path segment contains reserved characters".to_owned(),
+        ));
     }
     Ok(())
 }
@@ -1664,8 +1719,15 @@ mod tests {
     #[test]
     fn builds_relative_api_url() {
         let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
-        let request = client.request(Method::GET, "/_cokret/describe").unwrap().build().unwrap();
-        assert_eq!(request.url().as_str(), "https://alice.example/cokret/_cokret/describe");
+        let request = client
+            .request(Method::GET, "/_cokret/describe")
+            .unwrap()
+            .build()
+            .unwrap();
+        assert_eq!(
+            request.url().as_str(),
+            "https://alice.example/cokret/_cokret/describe"
+        );
     }
 
     #[test]
@@ -1688,7 +1750,9 @@ mod tests {
     #[test]
     fn rejects_absolute_request_paths() {
         let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
-        let error = client.request(Method::GET, "https://evil.example/api").unwrap_err();
+        let error = client
+            .request(Method::GET, "https://evil.example/api")
+            .unwrap_err();
         assert!(matches!(error, Error::Protocol(_)));
     }
 
@@ -1798,9 +1862,14 @@ mod tests {
         headers.insert(RETRY_AFTER, HeaderValue::from_static("3"));
         let retry = RetryConfig::standard(2).with_max_delay(Duration::from_secs(2));
 
-        assert_eq!(retry.retry_delay_from_headers(&headers, 1), Duration::from_secs(2));
         assert_eq!(
-            retry.respect_retry_after(false).retry_delay_from_headers(&headers, 1),
+            retry.retry_delay_from_headers(&headers, 1),
+            Duration::from_secs(2)
+        );
+        assert_eq!(
+            retry
+                .respect_retry_after(false)
+                .retry_delay_from_headers(&headers, 1),
             Duration::from_millis(100)
         );
     }
@@ -1862,12 +1931,14 @@ mod tests {
 
     #[cfg(not(target_arch = "wasm32"))]
     mod events_submit_tests {
-        use super::*;
+        use std::collections::BTreeMap;
+
         use cokret_core::{Did, EventId, EventRequirements, FlowId, Hlc, RealmId};
         use serde_json::json;
-        use std::collections::BTreeMap;
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         use tokio::net::TcpListener;
+
+        use super::*;
 
         /// Build an `Event` suitable for wire-shape tests. The fixture is not
         /// signed and would fail `validate_for_submit`, but the SDK methods
@@ -1963,13 +2034,19 @@ mod tests {
             });
 
             let base = Url::parse(&format!("http://{addr}/")).unwrap();
-            let client = Client::builder(base).allow_insecure_localhost().build().unwrap();
+            let client = Client::builder(base)
+                .allow_insecure_localhost()
+                .build()
+                .unwrap();
             (client, rx)
         }
 
         /// Split a raw HTTP/1.1 request capture into (request-line, headers, body).
         fn split_request(raw: &[u8]) -> (String, String, Vec<u8>) {
-            let idx = raw.windows(4).position(|window| window == b"\r\n\r\n").unwrap();
+            let idx = raw
+                .windows(4)
+                .position(|window| window == b"\r\n\r\n")
+                .unwrap();
             let head = std::str::from_utf8(&raw[..idx]).unwrap();
             let body = raw[idx + 4..].to_vec();
             let mut lines = head.splitn(2, "\r\n");
@@ -1986,7 +2063,10 @@ mod tests {
             let event = fixture_event("hello");
             let response = client.events_submit(&event).await.unwrap();
 
-            assert!(matches!(response.status, cokret_core::EventsSubmitStatus::Accepted));
+            assert!(matches!(
+                response.status,
+                cokret_core::EventsSubmitStatus::Accepted
+            ));
             assert_eq!(response.accepted.len(), 1);
 
             let raw = capture.await.unwrap();
@@ -2014,13 +2094,18 @@ mod tests {
 
             let events = vec![fixture_event("first"), fixture_event("second")];
             let response = client.events_submit_batch(&events).await.unwrap();
-            assert!(matches!(response.status, cokret_core::EventsSubmitStatus::Accepted));
+            assert!(matches!(
+                response.status,
+                cokret_core::EventsSubmitStatus::Accepted
+            ));
 
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
             assert!(request_line.starts_with("POST /_cokret/self/events "));
             let parsed: Value = serde_json::from_slice(&body).unwrap();
-            let events_value = parsed.get("events").expect("batch body must carry events[]");
+            let events_value = parsed
+                .get("events")
+                .expect("batch body must carry events[]");
             let arr = events_value.as_array().expect("events must be an array");
             assert_eq!(arr.len(), 2);
             assert_eq!(arr[0]["payload"]["body"], "first");
@@ -2069,7 +2154,10 @@ mod tests {
                 padding: Value::Null,
             };
 
-            let response = client.directory_private_contact_discovery(&request).await.unwrap();
+            let response = client
+                .directory_private_contact_discovery(&request)
+                .await
+                .unwrap();
             assert!(response.matches.is_empty());
 
             let raw = capture.await.unwrap();
@@ -2117,7 +2205,10 @@ mod tests {
             };
 
             let response = client.direct_conversation_resolve(&request).await.unwrap();
-            assert_eq!(response.state, cokret_core::DirectConversationResolveState::Found);
+            assert_eq!(
+                response.state,
+                cokret_core::DirectConversationResolveState::Found
+            );
             assert_eq!(
                 response.binding_event_ref.as_ref().map(|id| id.as_str()),
                 Some("ck:event:01904100-0000-7000-8000-d10000000003")
@@ -2141,8 +2232,10 @@ mod tests {
             let (client, capture) = spawn_capture_server(r#"{"providers":[]}"#).await;
             let features = vec!["blind_wakeup".to_owned(), "mimi_v1".to_owned()];
 
-            let response =
-                client.mimi_provider_directory(Some("provider-a"), &features).await.unwrap();
+            let response = client
+                .mimi_provider_directory(Some("provider-a"), &features)
+                .await
+                .unwrap();
             assert!(response.providers.is_empty());
 
             let raw = capture.await.unwrap();
@@ -2249,7 +2342,10 @@ mod tests {
             });
 
             let base = Url::parse(&format!("http://{addr}/")).unwrap();
-            Client::builder(base).allow_insecure_localhost().build().unwrap()
+            Client::builder(base)
+                .allow_insecure_localhost()
+                .build()
+                .unwrap()
         }
 
         #[tokio::test]

@@ -69,16 +69,22 @@ pub struct PrimaryHandleSelectInput<'a> {
 /// MUST then follow the §3.8.2 unresolved fallback path).
 pub fn select_primary_handle(input: &PrimaryHandleSelectInput<'_>) -> Option<HandleClaim> {
     // Step 0 — candidate pre-filter.
-    let candidates: Vec<&HandleClaim> =
-        input.claim_set_snapshot.iter().filter(|c| candidate_passes_step0(c, input)).collect();
+    let candidates: Vec<&HandleClaim> = input
+        .claim_set_snapshot
+        .iter()
+        .filter(|c| candidate_passes_step0(c, input))
+        .collect();
     if candidates.is_empty() {
         return None;
     }
 
     // Step 1 — priority layers.
     let layer: Vec<&HandleClaim> = {
-        let audience_matched: Vec<&HandleClaim> =
-            candidates.iter().copied().filter(|c| matches_audience(c, input.context)).collect();
+        let audience_matched: Vec<&HandleClaim> = candidates
+            .iter()
+            .copied()
+            .filter(|c| matches_audience(c, input.context))
+            .collect();
         if !audience_matched.is_empty() {
             audience_matched
         } else {
@@ -98,7 +104,11 @@ pub fn select_primary_handle(input: &PrimaryHandleSelectInput<'_>) -> Option<Han
 
     // Step 2 — deterministic tie-breaker.
     let winner = layer.into_iter().reduce(|best, candidate| {
-        if tie_break_prefers(candidate, best, input.accepted_issuers) { candidate } else { best }
+        if tie_break_prefers(candidate, best, input.accepted_issuers) {
+            candidate
+        } else {
+            best
+        }
     })?;
     Some(winner.clone())
 }
@@ -170,7 +180,10 @@ fn tie_break_prefers(
 
 fn issuer_position(c: &HandleClaim, accepted_issuers: &[String]) -> usize {
     match &c.issuer {
-        Some(issuer) => accepted_issuers.iter().position(|i| i == issuer).unwrap_or(usize::MAX),
+        Some(issuer) => accepted_issuers
+            .iter()
+            .position(|i| i == issuer)
+            .unwrap_or(usize::MAX),
         None => usize::MAX,
     }
 }
@@ -193,7 +206,10 @@ pub fn claim_digest(claim: &HandleClaim) -> Result<String> {
         // Sort unordered-collection arrays.
         sort_string_array(obj.get_mut("handle_aliases"));
         sort_string_array(obj.get_mut("source_refs"));
-        if let Some(mdb) = obj.get_mut("member_delivery_binding").and_then(|v| v.as_object_mut()) {
+        if let Some(mdb) = obj
+            .get_mut("member_delivery_binding")
+            .and_then(|v| v.as_object_mut())
+        {
             sort_string_array(mdb.get_mut("delivery_modes"));
         }
     }
@@ -204,7 +220,11 @@ pub fn claim_digest(claim: &HandleClaim) -> Result<String> {
 
 fn sort_string_array(slot: Option<&mut serde_json::Value>) {
     if let Some(serde_json::Value::Array(items)) = slot {
-        items.sort_by(|a, b| a.as_str().unwrap_or_default().cmp(b.as_str().unwrap_or_default()));
+        items.sort_by(|a, b| {
+            a.as_str()
+                .unwrap_or_default()
+                .cmp(b.as_str().unwrap_or_default())
+        });
     }
 }
 
@@ -242,12 +262,18 @@ pub fn render_mention(
         return MentionRender::Verified { handle };
     }
     if let Some(handle) = cached_handle {
-        return MentionRender::Cached { handle: handle.clone() };
+        return MentionRender::Cached {
+            handle: handle.clone(),
+        };
     }
     if let Some(name) = display_name_at_time {
-        return MentionRender::NameOnly { name: name.to_owned() };
+        return MentionRender::NameOnly {
+            name: name.to_owned(),
+        };
     }
-    MentionRender::Unresolved { truncated_did: truncate_did(subject_id.as_str()) }
+    MentionRender::Unresolved {
+        truncated_did: truncate_did(subject_id.as_str()),
+    }
 }
 
 fn truncate_did(did: &str) -> String {
@@ -261,8 +287,9 @@ fn truncate_did(did: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use cokret_core::model::Handle;
+
+    use super::*;
 
     fn issuer(s: &str) -> String {
         s.to_owned()
@@ -311,7 +338,10 @@ mod tests {
         let earlier = now - chrono::Duration::hours(2);
         let later = now - chrono::Duration::hours(1);
         let expires = now + chrono::Duration::days(30);
-        let acc = vec![issuer("did:web:acme.example"), issuer("did:web:other.example")];
+        let acc = vec![
+            issuer("did:web:acme.example"),
+            issuer("did:web:other.example"),
+        ];
         let s = subject();
         // older claim with matching audience vs newer claim without.
         let matching = verified_claim(
@@ -321,8 +351,13 @@ mod tests {
             expires,
             Some("ck:realm:r1"),
         );
-        let newer =
-            verified_claim("alice:other.example", "did:web:other.example", later, expires, None);
+        let newer = verified_claim(
+            "alice:other.example",
+            "did:web:other.example",
+            later,
+            expires,
+            None,
+        );
         let snapshot = vec![newer, matching];
         let input = PrimaryHandleSelectInput {
             subject_id: &s,
@@ -364,8 +399,13 @@ mod tests {
     fn claim_digest_stable_under_hint_mutation() {
         let now = Utc::now();
         let expires = now + chrono::Duration::days(30);
-        let mut a =
-            verified_claim("alice:acme.example", "did:web:acme.example", now, expires, None);
+        let mut a = verified_claim(
+            "alice:acme.example",
+            "did:web:acme.example",
+            now,
+            expires,
+            None,
+        );
         let mut b = a.clone();
         // Mutating non-semantic hint fields MUST NOT change the digest.
         a.verified_at = Some(now);
@@ -390,7 +430,12 @@ mod tests {
         };
         // No claims, no cache → NameOnly when display name present.
         let r = render_mention(&s, &input, None, Some("Alice Zhang"));
-        assert_eq!(r, MentionRender::NameOnly { name: "Alice Zhang".to_owned() });
+        assert_eq!(
+            r,
+            MentionRender::NameOnly {
+                name: "Alice Zhang".to_owned()
+            }
+        );
         // Nothing at all → Unresolved.
         let r2 = render_mention(&s, &input, None, None);
         assert!(matches!(r2, MentionRender::Unresolved { .. }));

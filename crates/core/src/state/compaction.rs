@@ -2,16 +2,13 @@
 //!
 //! Compaction is a two-step process:
 //!
-//! 1. The anchorer publishes a [`crate::AnchorKind::Compaction`] anchor
-//!    whose `frontier` equals the predecessor-frontier union (no new
-//!    Moves). The compaction Anchor is signed and indexed in the DAG
-//!    just like a normal Anchor; receivers MUST validate its id and
-//!    signature.
+//! 1. The anchorer publishes a [`crate::AnchorKind::Compaction`] anchor whose `frontier` equals the
+//!    predecessor-frontier union (no new Moves). The compaction Anchor is signed and indexed in the
+//!    DAG just like a normal Anchor; receivers MUST validate its id and signature.
 //!
-//! 2. After a compaction Anchor has finalized (depth + age sufficient),
-//!    the store may [`crate::AnchorStore::prune_predecessor`] historical
-//!    Anchors that the compaction Anchor witnesses. The
-//!    [`CompactionPolicy`] decides which predecessors are eligible.
+//! 2. After a compaction Anchor has finalized (depth + age sufficient), the store may
+//!    [`crate::AnchorStore::prune_predecessor`] historical Anchors that the compaction Anchor
+//!    witnesses. The [`CompactionPolicy`] decides which predecessors are eligible.
 //!
 //! This module is **policy only** — it doesn't touch the store. The
 //! caller (typically the principal-server) drives the prune walk after
@@ -135,7 +132,9 @@ impl CompactionPolicy {
             return PruneEligibility::PreservedGenesis;
         }
         if self.prune_only_singleton_successors && candidate.successor_count != 1 {
-            return PruneEligibility::ForkPoint { successor_count: candidate.successor_count };
+            return PruneEligibility::ForkPoint {
+                successor_count: candidate.successor_count,
+            };
         }
         if candidate.age_seconds < self.min_anchor_age_seconds {
             return PruneEligibility::TooYoung {
@@ -239,7 +238,10 @@ mod tests {
         }
         // Zero successors (leaf) also gets ForkPoint per policy.
         let c0 = candidate(&a, u64::MAX, u32::MAX, 0, false);
-        assert!(matches!(p.is_eligible(&c0), PruneEligibility::ForkPoint { .. }));
+        assert!(matches!(
+            p.is_eligible(&c0),
+            PruneEligibility::ForkPoint { .. }
+        ));
     }
 
     #[test]
@@ -248,7 +250,10 @@ mod tests {
         let p = CompactionPolicy::default();
         let c = candidate(&a, 60, 5, 1, false); // 1 minute old
         match p.is_eligible(&c) {
-            PruneEligibility::TooYoung { age_seconds, required } => {
+            PruneEligibility::TooYoung {
+                age_seconds,
+                required,
+            } => {
                 assert_eq!(age_seconds, 60);
                 assert_eq!(required, 604_800);
             }
@@ -263,7 +268,10 @@ mod tests {
         // Old enough, but zero compaction witnesses.
         let c = candidate(&a, u64::MAX, 0, 1, false);
         match p.is_eligible(&c) {
-            PruneEligibility::InsufficientWitnesses { witnesses, required } => {
+            PruneEligibility::InsufficientWitnesses {
+                witnesses,
+                required,
+            } => {
                 assert_eq!(witnesses, 0);
                 assert_eq!(required, 1);
             }

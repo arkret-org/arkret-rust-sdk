@@ -1,8 +1,7 @@
 //! Typed key-backup HTTP client for `ck.keys.backups.*`.
 
-use serde::{Deserialize, Serialize};
-
 use cokret_http_client::Client;
+use serde::{Deserialize, Serialize};
 
 use crate::{ProtocolKeyBackup, Result as SdkResult};
 
@@ -81,9 +80,10 @@ pub struct KeysBackupsDeleteOutcome {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::Utc;
     use serde_json::json;
+
+    use super::*;
 
     fn backup_record() -> ProtocolKeyBackup {
         ProtocolKeyBackup {

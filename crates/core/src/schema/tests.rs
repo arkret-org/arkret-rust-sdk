@@ -5,7 +5,12 @@ use super::*;
 fn schema_catalog_reports_all_registered_schemas() {
     let catalog = schema_catalog();
     catalog.validate().unwrap();
-    assert!(catalog.entries.iter().any(|entry| entry.schema_id == EVENT_SCHEMA));
+    assert!(
+        catalog
+            .entries
+            .iter()
+            .any(|entry| entry.schema_id == EVENT_SCHEMA)
+    );
 }
 
 #[test]
@@ -51,7 +56,9 @@ fn relation_create_payload_strong_type_passes_spec_validator() {
         "ck:flow:01904100-0000-7000-8000-222222222222",
     )
     .with_rank("U");
-    catalog.validate_payload("ck.relation.create", &payload.to_value().unwrap()).unwrap();
+    catalog
+        .validate_payload("ck.relation.create", &payload.to_value().unwrap())
+        .unwrap();
 
     // deny_unknown_fields: the legacy illegal keys (relation_id / fields /
     // scope_circle_id) are not representable and would be rejected by the
@@ -75,7 +82,9 @@ fn membership_payload_strong_type_passes_spec_validator() {
         crate::model::Did::new("did:web:bob.example").unwrap(),
         "space_create",
     );
-    catalog.validate_payload("ck.member.state", &invite.to_value().unwrap()).unwrap();
+    catalog
+        .validate_payload("ck.member.state", &invite.to_value().unwrap())
+        .unwrap();
 
     // join transition (unroutable): realm_id + actor_id + delivery_status
     // required, but delivery_binding only when routable.
@@ -86,7 +95,9 @@ fn membership_payload_strong_type_passes_spec_validator() {
         "invite_accept",
     )
     .with_invite_ref("ck:event:01904100-0000-7000-8000-222222222222");
-    catalog.validate_payload("ck.member.state", &join.to_value().unwrap()).unwrap();
+    catalog
+        .validate_payload("ck.member.state", &join.to_value().unwrap())
+        .unwrap();
 
     // join missing delivery_status is rejected by to_value (conditional req).
     let mut bad = join.clone();
@@ -97,7 +108,10 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // by the spec validator (membership_payload is additionalProperties:false).
     let mut leaky = invite.to_value().unwrap();
     leaky["handle"] = json!("bob:example.com");
-    assert!(matches!(catalog.validate_payload("ck.member.state", &leaky), Err(Error::Protocol(_))));
+    assert!(matches!(
+        catalog.validate_payload("ck.member.state", &leaky),
+        Err(Error::Protocol(_))
+    ));
 }
 
 #[test]
@@ -119,14 +133,18 @@ fn invite_payload_strong_types_pass_spec_validator() {
     .with_extension("role", json!("member"));
     let create_value = create.to_value().unwrap();
     assert_eq!(create_value["x_role"], "member");
-    catalog.validate_payload("ck.invite.create", &create_value).unwrap();
+    catalog
+        .validate_payload("ck.invite.create", &create_value)
+        .unwrap();
 
     // invite_id ref form (accept / cancel).
     let cancel = InviteRefPayload::new(
         InviteId::new("ck:invite:01904100-0000-7000-8000-222222222222").unwrap(),
     )
     .with_reason("withdrawn");
-    catalog.validate_payload("ck.invite.cancel", &cancel.to_value().unwrap()).unwrap();
+    catalog
+        .validate_payload("ck.invite.cancel", &cancel.to_value().unwrap())
+        .unwrap();
 }
 
 #[test]
@@ -136,9 +154,14 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // ck.realm.archive: reversible boolean register; `archived:false` un-archives.
     let archive = RealmArchivePayload::new(true).with_reason("retiring legacy realm");
-    catalog.validate_payload("ck.realm.archive", &archive.to_value().unwrap()).unwrap();
     catalog
-        .validate_payload("ck.realm.archive", &RealmArchivePayload::new(false).to_value().unwrap())
+        .validate_payload("ck.realm.archive", &archive.to_value().unwrap())
+        .unwrap();
+    catalog
+        .validate_payload(
+            "ck.realm.archive",
+            &RealmArchivePayload::new(false).to_value().unwrap(),
+        )
         .unwrap();
 
     // ck.realm.tombstone: reason + successor_realm_id both required by spec.
@@ -146,12 +169,16 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
         RealmId::new("ck:realm:01904100-0000-7000-8000-333333333333").unwrap(),
         "migrated to successor",
     );
-    catalog.validate_payload("ck.realm.tombstone", &tombstone.to_value().unwrap()).unwrap();
+    catalog
+        .validate_payload("ck.realm.tombstone", &tombstone.to_value().unwrap())
+        .unwrap();
 
     // ck.realm.destroy: reason required; verification_stub_required omitted so
     // the reducer applies its default (true).
     let destroy = RealmDestroyPayload::new("permanent retirement");
-    catalog.validate_payload("ck.realm.destroy", &destroy.to_value().unwrap()).unwrap();
+    catalog
+        .validate_payload("ck.realm.destroy", &destroy.to_value().unwrap())
+        .unwrap();
 
     // deny_unknown_fields: an illegal key on any of these is rejected by the
     // spec validator (all three defs are additionalProperties:false).
@@ -186,42 +213,59 @@ fn flow_lifecycle_payloads_strong_types_pass_spec_validator() {
             rank: Some("T".to_owned()),
             relation_id: None,
         });
-    catalog.validate_payload("ck.flow.move", &mv.to_value().unwrap()).unwrap();
+    catalog
+        .validate_payload("ck.flow.move", &mv.to_value().unwrap())
+        .unwrap();
 
     // ck.flow.reorder — single List Space (`space_id`); no destination field.
     let reorder = FlowReorderPayload::new(board(), flow(), target(), "V").with_expected_position(
-        FlowReorderExpectedPosition { rank: Some("U".to_owned()), relation_id: None },
+        FlowReorderExpectedPosition {
+            rank: Some("U".to_owned()),
+            relation_id: None,
+        },
     );
-    catalog.validate_payload("ck.flow.reorder", &reorder.to_value().unwrap()).unwrap();
+    catalog
+        .validate_payload("ck.flow.reorder", &reorder.to_value().unwrap())
+        .unwrap();
 
     // ck.flow.watch.set — concrete level + clear (level:null) + CAS guard.
     let set = FlowWatchSetPayload::set(flow(), actor(), FlowWatchLevel::All, Some(true));
-    catalog.validate_payload("ck.flow.watch.set", &set.to_value().unwrap()).unwrap();
+    catalog
+        .validate_payload("ck.flow.watch.set", &set.to_value().unwrap())
+        .unwrap();
     let cleared = FlowWatchSetPayload::clear(flow(), actor());
     let cleared_value = cleared.to_value().unwrap();
     assert!(cleared_value["level"].is_null());
     // allOf: level_public MUST be omitted when level is null.
     assert!(cleared_value.get("level_public").is_none());
-    catalog.validate_payload("ck.flow.watch.set", &cleared_value).unwrap();
+    catalog
+        .validate_payload("ck.flow.watch.set", &cleared_value)
+        .unwrap();
     let guarded = FlowWatchSetPayload::set(flow(), actor(), FlowWatchLevel::Participating, None)
         .with_expected_value(Some(FlowWatchExpectedValue {
             level: FlowWatchLevel::Muted,
             level_public: None,
         }));
-    catalog.validate_payload("ck.flow.watch.set", &guarded.to_value().unwrap()).unwrap();
+    catalog
+        .validate_payload("ck.flow.watch.set", &guarded.to_value().unwrap())
+        .unwrap();
     // expected_value may also assert "no prior cell" via null.
     let guarded_null = FlowWatchSetPayload::set(flow(), actor(), FlowWatchLevel::All, None)
         .with_expected_value(None);
     let guarded_null_value = guarded_null.to_value().unwrap();
     assert!(guarded_null_value["expected_value"].is_null());
-    catalog.validate_payload("ck.flow.watch.set", &guarded_null_value).unwrap();
+    catalog
+        .validate_payload("ck.flow.watch.set", &guarded_null_value)
+        .unwrap();
 
     // ck.flow.archive / ck.flow.restore — object_lifecycle_payload, single
     // truth source `target_ref`.
     let archive = ObjectLifecyclePayload::new("ck:flow:01904100-0000-7000-8000-6c663fa0205f")
         .with_target_state("archived")
         .with_reason("season closed");
-    catalog.validate_payload("ck.flow.archive", &archive.to_value().unwrap()).unwrap();
+    catalog
+        .validate_payload("ck.flow.archive", &archive.to_value().unwrap())
+        .unwrap();
     catalog
         .validate_payload(
             "ck.flow.restore",
@@ -235,7 +279,10 @@ fn flow_lifecycle_payloads_strong_types_pass_spec_validator() {
     // (additionalProperties:false on flow_move_payload).
     let mut leaky = mv.to_value().unwrap();
     leaky["list_space_id"] = json!("ck:space:01904100-0000-7000-8000-222222222222");
-    assert!(matches!(catalog.validate_payload("ck.flow.move", &leaky), Err(Error::Protocol(_))));
+    assert!(matches!(
+        catalog.validate_payload("ck.flow.move", &leaky),
+        Err(Error::Protocol(_))
+    ));
 }
 
 #[test]
@@ -257,12 +304,20 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
 
     // history_visibility: non-restricted value carries just `{value}`.
     let shared = HistoryVisibilityPayload::new(HistoryVisibility::Shared);
-    registry.validate_value(&history_ref, &shared.to_value().unwrap()).unwrap();
+    registry
+        .validate_value(&history_ref, &shared.to_value().unwrap())
+        .unwrap();
     // restricted requires restricted_policy_digest (schema allOf); to_value
     // refuses to emit a non-conformant restricted payload.
-    assert!(HistoryVisibilityPayload::new(HistoryVisibility::Restricted).to_value().is_err());
+    assert!(
+        HistoryVisibilityPayload::new(HistoryVisibility::Restricted)
+            .to_value()
+            .is_err()
+    );
     let restricted = HistoryVisibilityPayload::restricted("sha256:".to_owned() + &"a".repeat(64));
-    registry.validate_value(&history_ref, &restricted.to_value().unwrap()).unwrap();
+    registry
+        .validate_value(&history_ref, &restricted.to_value().unwrap())
+        .unwrap();
     // deny_unknown_fields: an unknown key is rejected by the named def
     // (additionalProperties:false).
     let mut leaky = shared.to_value().unwrap();
@@ -282,11 +337,17 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
         vec!["message_index".to_owned(), "notification_fanout".to_owned()],
         PlaintextServiceVisibility::PrivatePlaintext,
     )]);
-    registry.validate_value(&services_ref, &services.to_value().unwrap()).unwrap();
+    registry
+        .validate_value(&services_ref, &services.to_value().unwrap())
+        .unwrap();
     // top-level additionalProperties:false on the payload.
     let mut leaky_services = services.to_value().unwrap();
     leaky_services["unexpected"] = json!(true);
-    assert!(registry.validate_value(&services_ref, &leaky_services).is_err());
+    assert!(
+        registry
+            .validate_value(&services_ref, &leaky_services)
+            .is_err()
+    );
 }
 
 #[test]
@@ -306,7 +367,10 @@ fn artifact_payload_catalog_covers_active_durable_event_kinds() {
         .filter(|event_kind| crate::events::is_standard_event_kind(event_kind))
         .collect::<Vec<_>>();
     let missing = catalog.missing_payload_validators_for(durable_event_kinds.iter().copied());
-    assert!(missing.is_empty(), "missing payload validators: {missing:?}");
+    assert!(
+        missing.is_empty(),
+        "missing payload validators: {missing:?}"
+    );
     assert!(
         catalog.rules.len() > 7,
         "artifact-derived payload catalog should not collapse to old hand-written rules"
@@ -390,7 +454,11 @@ fn artifact_payload_catalog_prefers_registered_specialized_defs_over_name_matche
             }),
         )
         .unwrap();
-    assert!(catalog.validate_payload("ck.space.archive", &json!({ "archived": true })).is_err());
+    assert!(
+        catalog
+            .validate_payload("ck.space.archive", &json!({ "archived": true }))
+            .is_err()
+    );
 }
 
 #[test]
@@ -512,16 +580,26 @@ fn artifact_payload_catalog_enforces_invite_create_payload_shape() {
         .unwrap_or_else(|err| panic!("ck.invite.create should accept directed invite: {err}"));
 
     let mut missing_invite_id = payload.clone();
-    missing_invite_id.as_object_mut().unwrap().remove("invite_id");
+    missing_invite_id
+        .as_object_mut()
+        .unwrap()
+        .remove("invite_id");
     assert!(
-        catalog.validate_payload(crate::events::INVITE_CREATE, &missing_invite_id).is_err(),
+        catalog
+            .validate_payload(crate::events::INVITE_CREATE, &missing_invite_id)
+            .is_err(),
         "ck.invite.create must reject directed invite payloads without invite_id"
     );
 
     let mut missing_expires_at = payload;
-    missing_expires_at.as_object_mut().unwrap().remove("expires_at");
+    missing_expires_at
+        .as_object_mut()
+        .unwrap()
+        .remove("expires_at");
     assert!(
-        catalog.validate_payload(crate::events::INVITE_CREATE, &missing_expires_at).is_err(),
+        catalog
+            .validate_payload(crate::events::INVITE_CREATE, &missing_expires_at)
+            .is_err(),
         "ck.invite.create must reject directed invite payloads without expires_at"
     );
 }
@@ -663,8 +741,10 @@ fn generated_profile_constants_match_artifact_profile_ids() {
     };
     let bundle = SpecArtifactBundle::load(artifacts_dir).unwrap();
     let artifact_ids = bundle.profile_ids();
-    let generated_ids =
-        crate::generated::profiles::PROFILE_IDS.iter().copied().collect::<BTreeSet<_>>();
+    let generated_ids = crate::generated::profiles::PROFILE_IDS
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
     assert_eq!(
         generated_ids.len(),
         crate::generated::profiles::PROFILE_IDS.len(),
@@ -777,16 +857,23 @@ fn spec_artifact_registry_covers_key_local_schema_and_event_contracts() {
         .filter(|entry| entry["status"].as_str() == Some("active"))
         .filter_map(|entry| entry["event_kind"].as_str())
         .collect::<BTreeSet<_>>();
-    let sdk_event_kinds = ARTIFACT_BACKED_EVENT_KINDS.iter().copied().collect::<BTreeSet<_>>();
+    let sdk_event_kinds = ARTIFACT_BACKED_EVENT_KINDS
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
     assert_eq!(
         sdk_event_kinds.len(),
         ARTIFACT_BACKED_EVENT_KINDS.len(),
         "SDK event constants contain duplicates"
     );
-    let missing_event_kinds =
-        spec_active_event_kinds.difference(&sdk_event_kinds).copied().collect::<Vec<_>>();
-    let extra_event_kinds =
-        sdk_event_kinds.difference(&spec_active_event_kinds).copied().collect::<Vec<_>>();
+    let missing_event_kinds = spec_active_event_kinds
+        .difference(&sdk_event_kinds)
+        .copied()
+        .collect::<Vec<_>>();
+    let extra_event_kinds = sdk_event_kinds
+        .difference(&spec_active_event_kinds)
+        .copied()
+        .collect::<Vec<_>>();
     assert!(
         missing_event_kinds.is_empty(),
         "SDK event constants missing active spec event kinds {missing_event_kinds:?}"
@@ -802,17 +889,23 @@ fn spec_artifact_registry_covers_key_local_schema_and_event_contracts() {
         .iter()
         .filter_map(|entry| entry["operation_id"].as_str())
         .collect::<BTreeSet<_>>();
-    let sdk_operation_ids =
-        ARTIFACT_BACKED_SERVICE_OPERATIONS.iter().copied().collect::<BTreeSet<_>>();
+    let sdk_operation_ids = ARTIFACT_BACKED_SERVICE_OPERATIONS
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
     assert_eq!(
         sdk_operation_ids.len(),
         ARTIFACT_BACKED_SERVICE_OPERATIONS.len(),
         "SDK built-in operation constants contain duplicates"
     );
-    let missing_operation_ids =
-        spec_operation_ids.difference(&sdk_operation_ids).copied().collect::<Vec<_>>();
-    let extra_operation_ids =
-        sdk_operation_ids.difference(&spec_operation_ids).copied().collect::<Vec<_>>();
+    let missing_operation_ids = spec_operation_ids
+        .difference(&sdk_operation_ids)
+        .copied()
+        .collect::<Vec<_>>();
+    let extra_operation_ids = sdk_operation_ids
+        .difference(&spec_operation_ids)
+        .copied()
+        .collect::<Vec<_>>();
     assert!(
         missing_operation_ids.is_empty(),
         "SDK built-in operations missing spec operations {missing_operation_ids:?}"
@@ -822,42 +915,64 @@ fn spec_artifact_registry_covers_key_local_schema_and_event_contracts() {
         "SDK built-in operations include operations outside spec {extra_operation_ids:?}"
     );
 
-    let schemas = bundle.schema_registry["schemas"].as_array().expect("schemas array");
-    let schema_ids =
-        schemas.iter().filter_map(|schema| schema["schema_id"].as_str()).collect::<BTreeSet<_>>();
+    let schemas = bundle.schema_registry["schemas"]
+        .as_array()
+        .expect("schemas array");
+    let schema_ids = schemas
+        .iter()
+        .filter_map(|schema| schema["schema_id"].as_str())
+        .collect::<BTreeSet<_>>();
     assert_eq!(
         ARTIFACT_BACKED_SCHEMA_IDS.len(),
         schema_ids.len(),
         "SDK artifact-backed schema coverage should cover the full schema registry"
     );
     for schema_id in ARTIFACT_BACKED_SCHEMA_IDS {
-        assert!(schema_ids.contains(*schema_id), "missing schema artifact for {schema_id}");
+        assert!(
+            schema_ids.contains(*schema_id),
+            "missing schema artifact for {schema_id}"
+        );
     }
     let event_schema = schemas
         .iter()
         .find(|schema| schema["schema_id"] == EVENT_SCHEMA)
         .expect("event envelope schema registry entry");
-    assert_eq!(event_schema["file"].as_str(), Some("schemas/event-envelope.schema.json"));
+    assert_eq!(
+        event_schema["file"].as_str(),
+        Some("schemas/event-envelope.schema.json")
+    );
 
     for event_kind in ARTIFACT_BACKED_EVENT_KINDS {
-        let entry =
-            registry_entry(&bundle.event_kind_registry, "event_kinds", "event_kind", event_kind)
-                .unwrap_or_else(|| panic!("missing event kind {event_kind}"));
+        let entry = registry_entry(
+            &bundle.event_kind_registry,
+            "event_kinds",
+            "event_kind",
+            event_kind,
+        )
+        .unwrap_or_else(|| panic!("missing event kind {event_kind}"));
         assert_eq!(entry["status"].as_str(), Some("active"), "{event_kind}");
         assert!(entry["wire_scope"].as_str().is_some(), "{event_kind}");
     }
 
     for operation_id in ARTIFACT_BACKED_SERVICE_OPERATIONS {
         assert!(
-            registry_entry(&bundle.operation_registry, "operations", "operation_id", operation_id)
-                .is_some(),
+            registry_entry(
+                &bundle.operation_registry,
+                "operations",
+                "operation_id",
+                operation_id
+            )
+            .is_some(),
             "missing service operation {operation_id}"
         );
     }
 
     let profile_ids = bundle.profile_ids();
     for profile_id in ARTIFACT_BACKED_PROFILE_IDS {
-        assert!(profile_ids.contains(*profile_id), "missing profile artifact for {profile_id}");
+        assert!(
+            profile_ids.contains(*profile_id),
+            "missing profile artifact for {profile_id}"
+        );
         let requirement = bundle
             .profile_requirement(profile_id)
             .unwrap_or_else(|error| panic!("invalid profile requirement {profile_id}: {error}"))
@@ -870,9 +985,11 @@ fn spec_artifact_registry_covers_key_local_schema_and_event_contracts() {
         );
     }
 
-    for (kind, wire_form) in
-        [("event", "ck:event:<uuid>"), ("space", "ck:space:<uuid>"), ("flow", "ck:flow:<uuid>")]
-    {
+    for (kind, wire_form) in [
+        ("event", "ck:event:<uuid>"),
+        ("space", "ck:space:<uuid>"),
+        ("flow", "ck:flow:<uuid>"),
+    ] {
         let entry = registry_entry(&bundle.id_kind_registry, "id_kinds", "kind", kind)
             .unwrap_or_else(|| panic!("missing id kind {kind}"));
         assert_eq!(entry["wire_form"].as_str(), Some(wire_form), "{kind}");
@@ -923,5 +1040,8 @@ fn evolution_plan_rejects_breaking_release_candidate() {
         affected_schemas: vec![EVENT_SCHEMA.to_owned()],
         breaking_changes,
     };
-    assert!(matches!(plan.validate_release_candidate(), Err(Error::Protocol(_))));
+    assert!(matches!(
+        plan.validate_release_candidate(),
+        Err(Error::Protocol(_))
+    ));
 }

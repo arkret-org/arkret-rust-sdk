@@ -104,8 +104,9 @@ impl Bottom {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     fn cell(s: &str) -> CellRef {
         CellRef::new(s.to_owned()).unwrap()
@@ -137,8 +138,10 @@ mod tests {
 
     #[test]
     fn minimal_bottom_serializes_only_required_fields() {
-        let b =
-            Bottom::new(BottomKind::Conflict, vec![cell("ck:cell:ck.component.realm.policy.v1:x")]);
+        let b = Bottom::new(
+            BottomKind::Conflict,
+            vec![cell("ck:cell:ck.component.realm.policy.v1:x")],
+        );
         let s = serde_json::to_string(&b).unwrap();
         assert!(s.contains("\"kind\":\"conflict\""));
         assert!(s.contains("\"cells\""));
@@ -178,7 +181,9 @@ mod tests {
     fn invalid_transition_with_details() {
         let b = Bottom {
             kind: BottomKind::InvalidTransition,
-            cells: vec![cell("ck:cell:ck.component.member.state.v1:did.web.alice.example")],
+            cells: vec![cell(
+                "ck:cell:ck.component.member.state.v1:did.web.alice.example",
+            )],
             move_ids: vec![],
             anchor_view: None,
             heads: vec![],
@@ -198,7 +203,9 @@ mod tests {
     fn anchorer_split_kind_carries_no_move_ids() {
         let b = Bottom::new(
             BottomKind::AnchorerSplit,
-            vec![cell("ck:cell:ck.component.anchorer.v1:ck.space.01js0sp00000000000000000aa")],
+            vec![cell(
+                "ck:cell:ck.component.anchorer.v1:ck.space.01js0sp00000000000000000aa",
+            )],
         );
         assert!(b.move_ids.is_empty());
         let r: Bottom = serde_json::from_str(&serde_json::to_string(&b).unwrap()).unwrap();

@@ -5,7 +5,11 @@ use crate::registry::service_routes;
 fn service_route_operation_ids_are_unique() {
     let mut ids = BTreeSet::new();
     for route in service_routes() {
-        assert!(ids.insert(route.operation_id), "duplicate {}", route.operation_id);
+        assert!(
+            ids.insert(route.operation_id),
+            "duplicate {}",
+            route.operation_id
+        );
         assert!(
             // All HTTP/JSON binding paths live under the negative-space root
             // `/_cokret/` with no version segment; the first segment is a
@@ -41,8 +45,9 @@ fn service_routes_match_spec_operation_registry() {
                 .get("http")
                 .and_then(Value::as_str)
                 .unwrap_or_else(|| panic!("operation {operation_id} without http binding"));
-            let (method, path) =
-                http.split_once(' ').unwrap_or_else(|| panic!("malformed http binding {http}"));
+            let (method, path) = http
+                .split_once(' ')
+                .unwrap_or_else(|| panic!("malformed http binding {http}"));
             (operation_id, (method.to_ascii_lowercase(), path))
         })
         .collect::<BTreeMap<_, _>>();
@@ -59,8 +64,14 @@ fn service_routes_match_spec_operation_registry() {
         .keys()
         .filter(|operation_id| !spec_routes.contains_key(*operation_id))
         .collect::<Vec<_>>();
-    assert!(missing_from_sdk.is_empty(), "service routes missing spec ops {missing_from_sdk:?}");
-    assert!(extra_in_sdk.is_empty(), "service routes outside spec registry {extra_in_sdk:?}");
+    assert!(
+        missing_from_sdk.is_empty(),
+        "service routes missing spec ops {missing_from_sdk:?}"
+    );
+    assert!(
+        extra_in_sdk.is_empty(),
+        "service routes outside spec registry {extra_in_sdk:?}"
+    );
 
     for (operation_id, spec_binding) in &spec_routes {
         assert_eq!(
@@ -81,7 +92,12 @@ fn service_routes_exclude_removed_operation_ids() {
         .and_then(Value::as_array)
         .expect("removed-operation-ids has an entries array")
         .iter()
-        .map(|entry| entry.get("id").and_then(Value::as_str).expect("entry without id"))
+        .map(|entry| {
+            entry
+                .get("id")
+                .and_then(Value::as_str)
+                .expect("entry without id")
+        })
         .collect::<BTreeSet<_>>();
     for route in service_routes() {
         assert!(
@@ -95,7 +111,9 @@ fn service_routes_exclude_removed_operation_ids() {
 fn read_spec_artifact(relative: &str) -> Value {
     let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let path = [
-        manifest_dir.join("../../../cokret-spec/spec/v1/artifacts/registry").join(relative),
+        manifest_dir
+            .join("../../../cokret-spec/spec/v1/artifacts/registry")
+            .join(relative),
         std::path::PathBuf::from("../cokret-spec/spec/v1/artifacts/registry").join(relative),
     ]
     .into_iter()
@@ -118,12 +136,28 @@ fn query_auth_and_wire_negative_vectors_are_available() {
     assert!(reject_query_auth(&query).is_err());
 
     let vectors = wire_negative_vectors();
-    assert!(vectors.iter().any(|vector| vector.name == "query_auth_rejected"));
-    assert!(vectors.iter().any(|vector| vector.expected_error_code == "digest_mismatch"));
-    assert!(vectors.iter().any(|vector| vector.expected_error_code == "missing_param"));
+    assert!(
+        vectors
+            .iter()
+            .any(|vector| vector.name == "query_auth_rejected")
+    );
+    assert!(
+        vectors
+            .iter()
+            .any(|vector| vector.expected_error_code == "digest_mismatch")
+    );
+    assert!(
+        vectors
+            .iter()
+            .any(|vector| vector.expected_error_code == "missing_param")
+    );
 
     let golden = protocol_golden_vectors();
-    assert!(golden.iter().any(|vector| vector.profile == "ck.conformance.digest.v1"));
+    assert!(
+        golden
+            .iter()
+            .any(|vector| vector.profile == "ck.conformance.digest.v1")
+    );
 }
 
 #[test]
@@ -131,7 +165,9 @@ fn protocol_golden_vectors_pass_real_validators() {
     for vector in protocol_golden_vectors() {
         match vector.profile.as_str() {
             "ck.conformance.cursor.v1" => {
-                let token = vector.input["cursor"].as_str().expect("cursor vector input");
+                let token = vector.input["cursor"]
+                    .as_str()
+                    .expect("cursor vector input");
                 cokret_core::Cursor::decode(token)
                     .unwrap_or_else(|err| panic!("golden cursor vector must decode: {err}"));
             }
@@ -167,8 +203,11 @@ fn protocol_server_fixture_covers_core_flow_groups() {
         assert!(report.covers(flow));
     }
     assert!(
-        report.steps.iter().any(|step| step.flow == ProtocolFixtureFlow::Blob
-            && step.operation_id == "ck.self.blob.get")
+        report
+            .steps
+            .iter()
+            .any(|step| step.flow == ProtocolFixtureFlow::Blob
+                && step.operation_id == "ck.self.blob.get")
     );
     assert!(report.steps.iter().any(|step| {
         step.flow == ProtocolFixtureFlow::Sync && step.operation_id == "ck.self.events.submit"
@@ -182,8 +221,8 @@ fn framework_independent_handler_shape_can_be_mocked() {
     impl EndpointHandler for MockHandler {
         fn handle(&mut self, request: ServerRequestBody) -> Result<ServerOutcome> {
             match request {
-                ServerRequestBody::ServerDescribe => {
-                    Ok(ServerOutcome::ServerDescription(Box::new(ServerDescription {
+                ServerRequestBody::ServerDescribe => Ok(ServerOutcome::ServerDescription(
+                    Box::new(ServerDescription {
                         service_did: cokret_core::Did::new("did:web:svc.example").unwrap(),
                         trust_domain: cokret_core::TypedTrustDomainId::new(
                             "ck:trust_domain:example.net",
@@ -217,9 +256,11 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         snapshot_frontier: Vec::new(),
                         reducer_profile: None,
                         last_materialized_at: None,
-                    })))
-                }
-                _ => Err(cokret_core::Error::Protocol("mock endpoint not implemented".to_owned())),
+                    }),
+                )),
+                _ => Err(cokret_core::Error::Protocol(
+                    "mock endpoint not implemented".to_owned(),
+                )),
             }
         }
     }
@@ -229,5 +270,9 @@ fn framework_independent_handler_shape_can_be_mocked() {
     let ServerOutcome::ServerDescription(description) = response else {
         panic!("unexpected response");
     };
-    assert!(description.supported_operations.contains(&"ck.self.account.subscribe".to_owned()));
+    assert!(
+        description
+            .supported_operations
+            .contains(&"ck.self.account.subscribe".to_owned())
+    );
 }

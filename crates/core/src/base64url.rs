@@ -5,11 +5,11 @@
 //! 历史上 9+ 个文件各自内联 `URL_SAFE_NO_PAD` 引擎与各自的错误映射,极易
 //! 在 padding / alphabet 规则上漂移。本模块把这两个原语收敛到一处:
 //!
-//! - [`base64url_encode`] / [`base64url_decode`] —— URL-safe、无 padding,
-//!   是协议默认编码。所有 wire / 签名输入 base64 都 MUST 走这一对。
-//! - [`base64_standard_encode`] / [`base64_standard_decode`] —— **仅**
-//!   RFC 9421 HTTP Message Signature 的 `Signature` header 与 RFC 9530
-//!   `Content-Digest` 用标准字母表(带 `=` padding),其余场景禁止使用。
+//! - [`base64url_encode`] / [`base64url_decode`] —— URL-safe、无 padding, 是协议默认编码。所有 wire
+//!   / 签名输入 base64 都 MUST 走这一对。
+//! - [`base64_standard_encode`] / [`base64_standard_decode`] —— **仅** RFC 9421 HTTP Message
+//!   Signature 的 `Signature` header 与 RFC 9530 `Content-Digest` 用标准字母表(带 `=`
+//!   padding),其余场景禁止使用。
 //!
 //! 解码错误统一映射为 [`Error::Protocol`],携带原始 base64 错误文本。
 
@@ -64,13 +64,19 @@ mod tests {
         let data = b"\x00\x01\xfe\xff hello";
         let encoded = base64url_encode(data);
         assert!(!encoded.contains('='), "base64url is unpadded");
-        assert!(!encoded.contains('+') && !encoded.contains('/'), "URL-safe alphabet");
+        assert!(
+            !encoded.contains('+') && !encoded.contains('/'),
+            "URL-safe alphabet"
+        );
         assert_eq!(base64url_decode(&encoded).unwrap(), data);
     }
 
     #[test]
     fn base64url_decode_rejects_garbage() {
-        assert!(matches!(base64url_decode("not valid!!!"), Err(Error::Protocol(_))));
+        assert!(matches!(
+            base64url_decode("not valid!!!"),
+            Err(Error::Protocol(_))
+        ));
     }
 
     #[test]

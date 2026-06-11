@@ -6,8 +6,7 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::events::kinds::{
-    EventClass, EventWireScope, classify_event_kind, event_wire_scope,
-    is_reducer_input_event_kind,
+    EventClass, EventWireScope, classify_event_kind, event_wire_scope, is_reducer_input_event_kind,
 };
 
 /// Count of standard ck.* event kinds the registry declares active.

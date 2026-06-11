@@ -68,7 +68,9 @@ pub struct ProtocolServerFixture {
 
 impl ProtocolServerFixture {
     pub fn new(flows: impl IntoIterator<Item = ProtocolFixtureFlow>) -> Self {
-        Self { flows: flows.into_iter().collect() }
+        Self {
+            flows: flows.into_iter().collect(),
+        }
     }
 
     pub fn all_flows() -> Self {
@@ -90,8 +92,10 @@ impl ProtocolServerFixture {
     }
 
     pub fn run(&self) -> Result<ProtocolFixtureReport> {
-        let routes_by_operation: BTreeMap<_, _> =
-            service_routes().iter().map(|route| (route.operation_id, route)).collect();
+        let routes_by_operation: BTreeMap<_, _> = service_routes()
+            .iter()
+            .map(|route| (route.operation_id, route))
+            .collect();
         let mut steps = Vec::new();
         for flow in &self.flows {
             for operation_id in fixture_operations(*flow) {
@@ -142,9 +146,11 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             "ck.self.events.query",
             "ck.self.snapshot.head",
         ],
-        ProtocolFixtureFlow::Blob => {
-            &["ck.self.blob.upload", "ck.self.blob.head", "ck.self.blob.get"]
-        }
+        ProtocolFixtureFlow::Blob => &[
+            "ck.self.blob.upload",
+            "ck.self.blob.head",
+            "ck.self.blob.get",
+        ],
         ProtocolFixtureFlow::Authz => &[
             "ck.self.authz.get_effective_grants",
             "ck.self.authz.get_invites",
@@ -169,9 +175,11 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
         ProtocolFixtureFlow::DeviceMessages => {
             &["ck.self.device_messages.put", "ck.self.device_messages.get"]
         }
-        ProtocolFixtureFlow::Keys => {
-            &["ck.self.keys.upload", "ck.self.keys.query", "ck.self.keys.claim"]
-        }
+        ProtocolFixtureFlow::Keys => &[
+            "ck.self.keys.upload",
+            "ck.self.keys.query",
+            "ck.self.keys.claim",
+        ],
         ProtocolFixtureFlow::Policy => &["ck.self.policy.check"],
         ProtocolFixtureFlow::Media => &["ck.self.media.ice_config"],
         ProtocolFixtureFlow::Moderation => &["ck.self.moderation.report"],

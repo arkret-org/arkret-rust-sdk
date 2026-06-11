@@ -6,9 +6,10 @@
 
 use std::collections::BTreeMap;
 
-use crate::Did;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::Did;
 
 /// Reaction entry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,22 +61,34 @@ impl ReactionManager {
             shortcode: shortcode.clone(),
             created_at: Utc::now(),
         };
-        self.reactions.insert((target_id, user_id, shortcode), reaction.clone());
+        self.reactions
+            .insert((target_id, user_id, shortcode), reaction.clone());
         reaction
     }
 
     /// Remove a user reaction.
     pub fn remove_reaction(&mut self, target_id: &str, user_id: &Did, shortcode: &str) -> bool {
         self.reactions
-            .remove(&(target_id.to_owned(), user_id.clone(), normalize_shortcode(shortcode)))
+            .remove(&(
+                target_id.to_owned(),
+                user_id.clone(),
+                normalize_shortcode(shortcode),
+            ))
             .is_some()
     }
 
     /// Aggregate reactions by shortcode for a target.
     pub fn aggregate(&self, target_id: &str) -> ReactionSummary {
         let mut summary = ReactionSummary::default();
-        for reaction in self.reactions.values().filter(|reaction| reaction.target_id == target_id) {
-            *summary.counts.entry(reaction.shortcode.clone()).or_default() += 1;
+        for reaction in self
+            .reactions
+            .values()
+            .filter(|reaction| reaction.target_id == target_id)
+        {
+            *summary
+                .counts
+                .entry(reaction.shortcode.clone())
+                .or_default() += 1;
         }
         summary
     }

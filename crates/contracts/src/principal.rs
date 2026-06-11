@@ -103,7 +103,10 @@ mod tests {
             describe.session_grant_exchange_path(),
             "/_cokret/gate/auth/session-grant/exchange"
         );
-        assert_eq!(describe.register_device_path(), "/_cokret/edge/push/register-device");
+        assert_eq!(
+            describe.register_device_path(),
+            "/_cokret/edge/push/register-device"
+        );
 
         let encoded = serde_json::to_value(describe).expect("principal bridge encodes");
         assert!(encoded.get("todos").is_none());

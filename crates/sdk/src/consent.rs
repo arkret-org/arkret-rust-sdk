@@ -4,13 +4,11 @@
 //! §3, consent is a Move on the holder's principal-control-Space cell
 //! `ck:cell:ck.component.consent.grant.v1:<consent_id>` (or-set lattice).
 //!
-//! - `grant` = `add(tag, value)`, where
-//!   `tag = "grant:<consent_id>:<peer>:<scope>"` (deterministic so identical
-//!   intents idempotently dedupe), and `value` carries the typed
+//! - `grant` = `add(tag, value)`, where `tag = "grant:<consent_id>:<peer>:<scope>"` (deterministic
+//!   so identical intents idempotently dedupe), and `value` carries the typed
 //!   [`ConsentGrantValue`].
-//! - `revoke` = `remove(tag, reason)` on the same tag. Spec §3.3 also
-//!   requires a `contains` precondition on the cell's current join — the
-//!   builder produces it for you.
+//! - `revoke` = `remove(tag, reason)` on the same tag. Spec §3.3 also requires a `contains`
+//!   precondition on the cell's current join — the builder produces it for you.
 //!
 //! Effective consent is derived by walking the cell's join value (a JSON
 //! array of `{tag, value}` items) and asking whether any tag's value
@@ -23,9 +21,9 @@
 //! accept this kind of contact from that peer".
 
 use chrono::{DateTime, Utc};
+use cokret_core::lattice::CellState;
 use cokret_core::{
     CellRef, Did, Effect, LatticeOp, LatticeOpType, Precondition, Predicate, PredicateOp,
-    lattice::CellState,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -81,7 +79,9 @@ impl Scope {
 /// `ck:cell:ck.component.consent.grant.v1:<consent_id>`.
 pub fn consent_cell_id(consent_id: &str) -> Result<CellRef, cokret_core::Error> {
     if consent_id.is_empty() {
-        return Err(cokret_core::Error::Protocol("consent_id must not be empty".to_owned()));
+        return Err(cokret_core::Error::Protocol(
+            "consent_id must not be empty".to_owned(),
+        ));
     }
     CellRef::new(format!("ck:cell:{CONSENT_CELL_FAMILY}:{consent_id}"))
         .map_err(|e| cokret_core::Error::Protocol(format!("invalid consent cell id: {e}")))
@@ -228,10 +228,16 @@ pub fn evaluate_consent(
     requested: Scope,
     now: DateTime<Utc>,
 ) -> bool {
-    let CellState::Value(value) = cell_state else { return false };
-    let Some(arr) = value.as_array() else { return false };
+    let CellState::Value(value) = cell_state else {
+        return false;
+    };
+    let Some(arr) = value.as_array() else {
+        return false;
+    };
     arr.iter().any(|item| {
-        let Some(value_obj) = item.get("value") else { return false };
+        let Some(value_obj) = item.get("value") else {
+            return false;
+        };
         let Ok(grant) = serde_json::from_value::<ConsentGrantValue>(value_obj.clone()) else {
             return false;
         };
@@ -278,9 +284,10 @@ pub fn require_consent_precondition(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::TimeZone;
     use cokret_core::lattice::{AnchoredOp, Lattice, OrSet};
+
+    use super::*;
 
     fn ts(year: i32, month: u32, day: u32) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap()
@@ -301,7 +308,10 @@ mod tests {
     #[test]
     fn cell_id_is_canonical() {
         let cell = consent_cell_id("cs-001").unwrap();
-        assert_eq!(cell.as_str(), "ck:cell:ck.component.consent.grant.v1:cs-001");
+        assert_eq!(
+            cell.as_str(),
+            "ck:cell:ck.component.consent.grant.v1:cs-001"
+        );
     }
 
     #[test]
@@ -334,7 +344,10 @@ mod tests {
         };
         let eff = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
         assert_eq!(eff.op.op_type, LatticeOpType::Add);
-        assert_eq!(eff.op.tag.as_deref(), Some("grant:cs-001:did:web:bob.example:invite"));
+        assert_eq!(
+            eff.op.tag.as_deref(),
+            Some("grant:cs-001:did:web:bob.example:invite")
+        );
         let value = eff.op.value.as_ref().unwrap();
         assert_eq!(value.get("consent_id").unwrap(), "cs-001");
         assert_eq!(value.get("scope").unwrap(), "invite");
@@ -356,7 +369,10 @@ mod tests {
             "grant:cs-001:did:web:bob.example:invite"
         );
         assert_eq!(eff.op.op_type, LatticeOpType::Remove);
-        assert_eq!(eff.op.tag.as_deref(), Some("grant:cs-001:did:web:bob.example:invite"));
+        assert_eq!(
+            eff.op.tag.as_deref(),
+            Some("grant:cs-001:did:web:bob.example:invite")
+        );
         assert_eq!(eff.op.reason.as_deref(), Some("incident"));
     }
 
@@ -367,11 +383,26 @@ mod tests {
         let grant = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
         let aop = AnchoredOp::new(move_id(0x11), grant.op);
         let state = OrSet.join(&consent_cell_id("cs-001").unwrap(), &[aop]);
-        assert!(evaluate_consent(&state, &bob(), Scope::Invite, ts(2026, 6, 1)));
+        assert!(evaluate_consent(
+            &state,
+            &bob(),
+            Scope::Invite,
+            ts(2026, 6, 1)
+        ));
         // Wrong peer.
-        assert!(!evaluate_consent(&state, &alice(), Scope::Invite, ts(2026, 6, 1)));
+        assert!(!evaluate_consent(
+            &state,
+            &alice(),
+            Scope::Invite,
+            ts(2026, 6, 1)
+        ));
         // Wrong scope.
-        assert!(!evaluate_consent(&state, &bob(), Scope::VoiceCall, ts(2026, 6, 1)));
+        assert!(!evaluate_consent(
+            &state,
+            &bob(),
+            Scope::VoiceCall,
+            ts(2026, 6, 1)
+        ));
     }
 
     #[test]
@@ -384,11 +415,26 @@ mod tests {
         let grant = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
         let aop = AnchoredOp::new(move_id(0x11), grant.op);
         let state = OrSet.join(&consent_cell_id("cs-001").unwrap(), &[aop]);
-        assert!(evaluate_consent(&state, &bob(), Scope::Invite, ts(2026, 6, 1)));
+        assert!(evaluate_consent(
+            &state,
+            &bob(),
+            Scope::Invite,
+            ts(2026, 6, 1)
+        ));
         // Before window.
-        assert!(!evaluate_consent(&state, &bob(), Scope::Invite, ts(2025, 12, 31)));
+        assert!(!evaluate_consent(
+            &state,
+            &bob(),
+            Scope::Invite,
+            ts(2025, 12, 31)
+        ));
         // After window.
-        assert!(!evaluate_consent(&state, &bob(), Scope::Invite, ts(2027, 1, 1)));
+        assert!(!evaluate_consent(
+            &state,
+            &bob(),
+            Scope::Invite,
+            ts(2027, 1, 1)
+        ));
     }
 
     #[test]
@@ -408,7 +454,12 @@ mod tests {
             AnchoredOp::new(move_id(0x22), revoke.op),
         ];
         let state = OrSet.join(&cell, &aops);
-        assert!(!evaluate_consent(&state, &bob(), Scope::Invite, ts(2026, 6, 1)));
+        assert!(!evaluate_consent(
+            &state,
+            &bob(),
+            Scope::Invite,
+            ts(2026, 6, 1)
+        ));
     }
 
     #[test]
@@ -417,9 +468,24 @@ mod tests {
         let grant = grant_effect("cs-any", bob(), Scope::Any, &opts).unwrap();
         let aop = AnchoredOp::new(move_id(0x11), grant.op);
         let state = OrSet.join(&consent_cell_id("cs-any").unwrap(), &[aop]);
-        assert!(evaluate_consent(&state, &bob(), Scope::Invite, ts(2026, 6, 1)));
-        assert!(evaluate_consent(&state, &bob(), Scope::VoiceCall, ts(2026, 6, 1)));
-        assert!(evaluate_consent(&state, &bob(), Scope::DirectMessage, ts(2026, 6, 1)));
+        assert!(evaluate_consent(
+            &state,
+            &bob(),
+            Scope::Invite,
+            ts(2026, 6, 1)
+        ));
+        assert!(evaluate_consent(
+            &state,
+            &bob(),
+            Scope::VoiceCall,
+            ts(2026, 6, 1)
+        ));
+        assert!(evaluate_consent(
+            &state,
+            &bob(),
+            Scope::DirectMessage,
+            ts(2026, 6, 1)
+        ));
     }
 
     #[test]
@@ -431,11 +497,15 @@ mod tests {
         let g2 = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
         assert_eq!(g1.op.tag, g2.op.tag);
         let cell = consent_cell_id("cs-001").unwrap();
-        let aops =
-            vec![AnchoredOp::new(move_id(0x11), g1.op), AnchoredOp::new(move_id(0x22), g2.op)];
+        let aops = vec![
+            AnchoredOp::new(move_id(0x11), g1.op),
+            AnchoredOp::new(move_id(0x22), g2.op),
+        ];
         let state = OrSet.join(&cell, &aops);
         // Join produced exactly one tag.
-        let CellState::Value(v) = state else { panic!("expected value") };
+        let CellState::Value(v) = state else {
+            panic!("expected value")
+        };
         let arr = v.as_array().unwrap();
         assert_eq!(arr.len(), 1);
     }
@@ -443,7 +513,10 @@ mod tests {
     #[test]
     fn require_consent_precondition_round_trip() {
         let pre = require_consent_precondition("cs-001", &bob(), Scope::Invite).unwrap();
-        assert_eq!(pre.cell.as_str(), "ck:cell:ck.component.consent.grant.v1:cs-001");
+        assert_eq!(
+            pre.cell.as_str(),
+            "ck:cell:ck.component.consent.grant.v1:cs-001"
+        );
         assert_eq!(pre.predicate.op, PredicateOp::Contains);
         assert_eq!(
             pre.predicate.value.as_ref().unwrap(),
@@ -455,7 +528,12 @@ mod tests {
     fn empty_cell_state_denies_consent() {
         let cell = consent_cell_id("cs-empty").unwrap();
         let state = OrSet.join(&cell, &[]);
-        assert!(!evaluate_consent(&state, &bob(), Scope::Invite, ts(2026, 6, 1)));
+        assert!(!evaluate_consent(
+            &state,
+            &bob(),
+            Scope::Invite,
+            ts(2026, 6, 1)
+        ));
     }
 
     #[test]

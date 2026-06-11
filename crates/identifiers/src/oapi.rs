@@ -21,7 +21,10 @@ use crate::{
 };
 
 fn string_schema(pattern: &str) -> RefOr<Schema> {
-    Object::new().schema_type(BasicType::String).pattern(pattern).into()
+    Object::new()
+        .schema_type(BasicType::String)
+        .pattern(pattern)
+        .into()
 }
 
 macro_rules! impl_string_schema {
@@ -244,16 +247,19 @@ impl_string_schema!(Cursor, r"^ck:cursor:.+$");
 // Anchor frontier event_digest: bare `<algo>:<hex>` hash (spec e10b6ad
 // dropped the `ck:move:` typed-id prefix). Same hex shape as `Hash` above.
 impl_string_schema!(MoveId, r"^(?:sha256|blake3):[0-9a-f]{64}$");
+impl_string_schema!(AnchorId, r"^ck:anchor:(?:sha256|blake3):[0-9a-f]{64}$");
 impl_string_schema!(
-    AnchorId,
-    r"^ck:anchor:(?:sha256|blake3):[0-9a-f]{64}$"
+    CellRef,
+    r"^ck:cell:[A-Za-z0-9._~=-]+(?::[A-Za-z0-9._~=-]+)*$"
 );
-impl_string_schema!(CellRef, r"^ck:cell:[A-Za-z0-9._~=-]+(?::[A-Za-z0-9._~=-]+)*$");
 impl_string_schema!(
     TypedAppealId,
     r"^ck:appeal:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
-impl_string_schema!(TypedTrustDomainId, r"^ck:trust_domain:[a-z0-9][a-z0-9._\-:]{0,127}$");
+impl_string_schema!(
+    TypedTrustDomainId,
+    r"^ck:trust_domain:[a-z0-9][a-z0-9._\-:]{0,127}$"
+);
 
 impl ToSchema for Hlc {
     fn to_schema(_components: &mut Components) -> RefOr<Schema> {

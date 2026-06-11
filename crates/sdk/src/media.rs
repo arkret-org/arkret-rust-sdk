@@ -204,7 +204,9 @@ impl AuthenticatedDownloadGrant {
         uses: u32,
     ) -> Result<()> {
         if &self.subject != subject {
-            return Err(Error::Protocol("download grant subject mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "download grant subject mismatch".to_owned(),
+            ));
         }
         if &self.blob_ref != blob_ref {
             return Err(Error::Protocol("download grant blob mismatch".to_owned()));
@@ -215,7 +217,9 @@ impl AuthenticatedDownloadGrant {
         if let Some(max_uses) = self.max_uses
             && uses >= max_uses
         {
-            return Err(Error::Protocol("download grant use limit exceeded".to_owned()));
+            return Err(Error::Protocol(
+                "download grant use limit exceeded".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -314,7 +318,8 @@ impl MemoryBlobStore {
             height,
             size_bytes: preview.len() as u64,
         };
-        self.thumbnails.insert(source_blob_ref.clone(), thumbnail.clone());
+        self.thumbnails
+            .insert(source_blob_ref.clone(), thumbnail.clone());
         Ok(thumbnail)
     }
 
@@ -334,8 +339,12 @@ impl MemoryBlobStore {
     ) -> Result<Attachment> {
         let filename = filename.into();
         let media_type = media_type.into();
-        let metadata =
-            self.upload(bytes.as_ref(), media_type.clone(), Some(filename.clone()), uploaded_by)?;
+        let metadata = self.upload(
+            bytes.as_ref(),
+            media_type.clone(),
+            Some(filename.clone()),
+            uploaded_by,
+        )?;
         let attachment = Attachment {
             id: id.into(),
             blob_ref: metadata.blob_ref,
@@ -344,13 +353,16 @@ impl MemoryBlobStore {
             size_bytes: metadata.size_bytes,
             encryption: None,
         };
-        self.attachments.insert(attachment.id.clone(), attachment.clone());
+        self.attachments
+            .insert(attachment.id.clone(), attachment.clone());
         Ok(attachment)
     }
 
     /// Download attachment bytes.
     pub fn download_attachment(&self, id: &str) -> Option<&[u8]> {
-        self.attachments.get(id).and_then(|attachment| self.download(&attachment.blob_ref))
+        self.attachments
+            .get(id)
+            .and_then(|attachment| self.download(&attachment.blob_ref))
     }
 
     /// Upload an encrypted attachment using authenticated encryption.
@@ -385,7 +397,8 @@ impl MemoryBlobStore {
                 plaintext_sha256: sha256_hex(plaintext),
             }),
         };
-        self.attachments.insert(attachment.id.clone(), attachment.clone());
+        self.attachments
+            .insert(attachment.id.clone(), attachment.clone());
         Ok(attachment)
     }
 
@@ -406,7 +419,9 @@ impl MemoryBlobStore {
             .download(&attachment.blob_ref)
             .ok_or_else(|| Error::Protocol("attachment blob not found".to_owned()))?;
         if encryption.algorithm != AEAD_ALGORITHM {
-            return Err(Error::Protocol("unsupported attachment encryption algorithm".to_owned()));
+            return Err(Error::Protocol(
+                "unsupported attachment encryption algorithm".to_owned(),
+            ));
         }
         let plaintext = crypto::open(ciphertext, key, b"cokret-media-attachment-v1")?;
         if encryption.plaintext_sha256 != sha256_hex(&plaintext) {
@@ -446,10 +461,14 @@ impl MemoryBlobStore {
         max_uses: Option<u32>,
     ) -> Result<AuthenticatedDownloadGrant> {
         if !self.blobs.contains_key(&blob_ref) {
-            return Err(Error::Protocol("download grant target blob not found".to_owned()));
+            return Err(Error::Protocol(
+                "download grant target blob not found".to_owned(),
+            ));
         }
         if expires_at <= Utc::now() {
-            return Err(Error::Protocol("download grant expires in the past".to_owned()));
+            return Err(Error::Protocol(
+                "download grant expires in the past".to_owned(),
+            ));
         }
         let grant = AuthenticatedDownloadGrant {
             grant_id: grant_id.into(),
@@ -463,7 +482,8 @@ impl MemoryBlobStore {
             proof: None,
         };
         self.download_grant_uses.insert(grant.grant_id.clone(), 0);
-        self.download_grants.insert(grant.grant_id.clone(), grant.clone());
+        self.download_grants
+            .insert(grant.grant_id.clone(), grant.clone());
         Ok(grant)
     }
 
@@ -479,9 +499,16 @@ impl MemoryBlobStore {
             .get(grant_id)
             .cloned()
             .ok_or_else(|| Error::Protocol("download grant not found".to_owned()))?;
-        let uses = self.download_grant_uses.get(grant_id).copied().unwrap_or_default();
+        let uses = self
+            .download_grant_uses
+            .get(grant_id)
+            .copied()
+            .unwrap_or_default();
         grant.validate(subject, &grant.blob_ref, at, uses)?;
-        *self.download_grant_uses.entry(grant_id.to_owned()).or_default() += 1;
+        *self
+            .download_grant_uses
+            .entry(grant_id.to_owned())
+            .or_default() += 1;
         self.download(&grant.blob_ref)
             .ok_or_else(|| Error::Protocol("download grant target blob not found".to_owned()))
     }
@@ -497,17 +524,28 @@ impl MemoryBlobStore {
 /// Strips parameters, validates the `type/subtype` form, and lowercases.
 /// Returns `None` for obviously invalid or injection-prone values.
 pub fn safe_content_type(media_type: &str) -> Option<String> {
-    let trimmed = media_type.trim().split(';').next()?.trim().to_ascii_lowercase();
+    let trimmed = media_type
+        .trim()
+        .split(';')
+        .next()?
+        .trim()
+        .to_ascii_lowercase();
     let (type_part, subtype_part) = trimmed.split_once('/')?;
     if type_part.is_empty()
         || subtype_part.is_empty()
         || !type_part.bytes().all(|b| {
             b.is_ascii_alphanumeric()
-                || matches!(b, b'!' | b'#' | b'$' | b'&' | b'.' | b'+' | b'-' | b'^' | b'_')
+                || matches!(
+                    b,
+                    b'!' | b'#' | b'$' | b'&' | b'.' | b'+' | b'-' | b'^' | b'_'
+                )
         })
         || !subtype_part.bytes().all(|b| {
             b.is_ascii_alphanumeric()
-                || matches!(b, b'!' | b'#' | b'$' | b'&' | b'.' | b'+' | b'-' | b'^' | b'_')
+                || matches!(
+                    b,
+                    b'!' | b'#' | b'$' | b'&' | b'.' | b'+' | b'-' | b'^' | b'_'
+                )
         })
         || trimmed.contains('\n')
         || trimmed.contains('\r')
@@ -523,8 +561,10 @@ pub fn safe_content_type(media_type: &str) -> Option<String> {
 /// The filename is percent-encoded to prevent header injection. Falls back to
 /// `file.bin` if the name is empty or contains only unsafe characters.
 pub fn safe_content_disposition(filename: &str) -> String {
-    let sanitized: String =
-        filename.chars().filter(|c| !matches!(c, '\n' | '\r' | '\0' | '"' | '\\')).collect();
+    let sanitized: String = filename
+        .chars()
+        .filter(|c| !matches!(c, '\n' | '\r' | '\0' | '"' | '\\'))
+        .collect();
     let sanitized = sanitized.trim();
     if sanitized.is_empty() {
         return "attachment; filename=\"file.bin\"".to_owned();
@@ -558,13 +598,26 @@ mod tests {
     fn media_uploads_downloads_metadata_and_thumbnail() {
         let mut store = MemoryBlobStore::new();
         let metadata = store
-            .upload(b"image-bytes", "image/png", Some("a.png".to_owned()), did("alice"))
+            .upload(
+                b"image-bytes",
+                "image/png",
+                Some("a.png".to_owned()),
+                did("alice"),
+            )
             .unwrap();
 
-        assert_eq!(store.download(&metadata.blob_ref), Some(&b"image-bytes"[..]));
-        assert_eq!(store.metadata(&metadata.blob_ref).unwrap().media_type, "image/png");
+        assert_eq!(
+            store.download(&metadata.blob_ref),
+            Some(&b"image-bytes"[..])
+        );
+        assert_eq!(
+            store.metadata(&metadata.blob_ref).unwrap().media_type,
+            "image/png"
+        );
 
-        let thumbnail = store.generate_thumbnail(&metadata.blob_ref, 64, 64).unwrap();
+        let thumbnail = store
+            .generate_thumbnail(&metadata.blob_ref, 64, 64)
+            .unwrap();
         assert_eq!(thumbnail.source_blob_ref, metadata.blob_ref);
         assert!(store.thumbnail(&thumbnail.source_blob_ref).is_some());
     }
@@ -590,15 +643,22 @@ mod tests {
             .unwrap();
         assert!(encrypted.encryption.is_some());
         assert_ne!(store.download_attachment("a2"), Some(&b"secret"[..]));
-        assert_eq!(store.download_decrypted_attachment("a2", b"key").unwrap(), b"secret");
+        assert_eq!(
+            store.download_decrypted_attachment("a2", b"key").unwrap(),
+            b"secret"
+        );
         assert!(store.download_decrypted_attachment("a2", b"wrong").is_err());
     }
 
     #[test]
     fn media_remove_attachment_and_count() {
         let mut store = MemoryBlobStore::new();
-        store.upload_attachment("a1", "file.txt", "text/plain", b"data", did("alice")).unwrap();
-        store.upload_attachment("a2", "img.png", "image/png", b"png", did("bob")).unwrap();
+        store
+            .upload_attachment("a1", "file.txt", "text/plain", b"data", did("alice"))
+            .unwrap();
+        store
+            .upload_attachment("a2", "img.png", "image/png", b"png", did("bob"))
+            .unwrap();
         assert_eq!(store.attachment_count(), 2);
 
         assert!(store.remove_attachment("a1"));
@@ -614,7 +674,12 @@ mod tests {
     fn media_download_grants_validate_subject_expiry_and_use_limit() {
         let mut store = MemoryBlobStore::new();
         let metadata = store
-            .upload(b"download", "text/plain", Some("d.txt".to_owned()), did("alice"))
+            .upload(
+                b"download",
+                "text/plain",
+                Some("d.txt".to_owned()),
+                did("alice"),
+            )
             .unwrap();
         let expires_at = Utc::now() + chrono::Duration::minutes(5);
         let subject = did("bob");
@@ -631,11 +696,21 @@ mod tests {
 
         assert_eq!(store.download_grant("grant1"), Some(&grant));
         assert_eq!(
-            store.download_with_grant("grant1", &subject, Utc::now()).unwrap(),
+            store
+                .download_with_grant("grant1", &subject, Utc::now())
+                .unwrap(),
             &b"download"[..]
         );
-        assert!(store.download_with_grant("grant1", &subject, Utc::now()).is_err());
-        assert!(grant.validate(&did("mallory"), &metadata.blob_ref, Utc::now(), 0).is_err());
+        assert!(
+            store
+                .download_with_grant("grant1", &subject, Utc::now())
+                .is_err()
+        );
+        assert!(
+            grant
+                .validate(&did("mallory"), &metadata.blob_ref, Utc::now(), 0)
+                .is_err()
+        );
         assert!(
             grant
                 .validate(
@@ -650,9 +725,18 @@ mod tests {
 
     #[test]
     fn safe_content_type_validates_and_lowercases() {
-        assert_eq!(safe_content_type("text/plain"), Some("text/plain".to_owned()));
-        assert_eq!(safe_content_type("Image/PNG; charset=utf-8"), Some("image/png".to_owned()));
-        assert_eq!(safe_content_type("  application/json  "), Some("application/json".to_owned()));
+        assert_eq!(
+            safe_content_type("text/plain"),
+            Some("text/plain".to_owned())
+        );
+        assert_eq!(
+            safe_content_type("Image/PNG; charset=utf-8"),
+            Some("image/png".to_owned())
+        );
+        assert_eq!(
+            safe_content_type("  application/json  "),
+            Some("application/json".to_owned())
+        );
         assert!(safe_content_type("not-a-mime-type").is_none());
         assert!(safe_content_type("").is_none());
         assert!(safe_content_type("text/").is_none());
@@ -662,12 +746,18 @@ mod tests {
 
     #[test]
     fn safe_content_disposition_encodes_unsafe_chars() {
-        assert_eq!(safe_content_disposition("report.pdf"), "attachment; filename=\"report.pdf\"");
+        assert_eq!(
+            safe_content_disposition("report.pdf"),
+            "attachment; filename=\"report.pdf\""
+        );
         assert_eq!(
             safe_content_disposition("my file (1).txt"),
             "attachment; filename=\"my%20file%20%281%29.txt\""
         );
-        assert_eq!(safe_content_disposition(""), "attachment; filename=\"file.bin\"");
+        assert_eq!(
+            safe_content_disposition(""),
+            "attachment; filename=\"file.bin\""
+        );
         assert!(safe_content_disposition("file\nname.txt").contains("file"));
     }
 }

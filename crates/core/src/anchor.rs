@@ -8,8 +8,8 @@
 //!
 //! - **Single** — single DID anchorer (typical for principal control Realms).
 //! - **Multi** — explicit multi-sig (every listed signer must sign).
-//! - **Threshold** — `k`-of-`n` threshold; the `proof` field carries the
-//!   threshold-scheme-specific aggregated proof bytes.
+//! - **Threshold** — `k`-of-`n` threshold; the `proof` field carries the threshold-scheme-specific
+//!   aggregated proof bytes.
 //!
 //! `Anchor.id` is `ck:anchor:sha256:<hex>` derived from canonical bytes
 //! that exclude both `id` and `anchorer_signature` (sig is over the same bytes).
@@ -18,14 +18,12 @@
 //! it requires the lattice runtime so it is a hash field here that the
 //! producer fills in (and the receiver recomputes after `apply_anchor`).
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use chrono::{DateTime, Utc};
-
-use crate::canonical;
 use crate::move_event::MoveSignature;
-use crate::{AnchorId, Did, Error, Hash, Hlc, MoveId, RealmId, Result};
+use crate::{AnchorId, Did, Error, Hash, Hlc, MoveId, RealmId, Result, canonical};
 
 /// Allowed Anchor signature algorithms (see `anchor.schema.json` `signature.alg`).
 pub const ANCHOR_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
@@ -220,10 +218,9 @@ impl Anchor {
     /// Lightweight structural validation independent of the lattice runtime.
     ///
     /// Per spec §4:
-    /// 1. `predecessor_refs=[]` is allowed only for the Genesis Anchor.
-    ///    The Genesis Anchor itself MUST have `frontier=[]` and an empty
-    ///    state root; a no-predecessor Anchor with a non-empty frontier is a
-    ///    schema violation because it would cover Moves without a baseline.
+    /// 1. `predecessor_refs=[]` is allowed only for the Genesis Anchor. The Genesis Anchor itself
+    ///    MUST have `frontier=[]` and an empty state root; a no-predecessor Anchor with a non-empty
+    ///    frontier is a schema violation because it would cover Moves without a baseline.
     /// 2. Threshold signatures: `threshold >= 1`, `threshold <= signers.len()`.
     /// 3. Multi-sig: `signatures.len() >= 1`, alg in allowlist.
     /// 4. Single sig alg in allowlist.
@@ -316,9 +313,10 @@ impl Anchor {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::TimeZone;
     use serde_json::{Value, json};
+
+    use super::*;
 
     fn space() -> RealmId {
         RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
@@ -409,7 +407,8 @@ mod tests {
     fn anchor_id_mismatch_rejected() {
         let mut a = build_anchor(AnchorerSig::Single(signature()));
         a.id = anchor_id(0xee); // wrong
-        a.validate_id().expect_err("declared id ≠ canonical hash must reject");
+        a.validate_id()
+            .expect_err("declared id ≠ canonical hash must reject");
     }
 
     #[test]
@@ -417,12 +416,18 @@ mod tests {
         let a = build_anchor(AnchorerSig::Single(signature()));
         let bytes = a.canonical_bytes_for_id().unwrap();
         let s = std::str::from_utf8(&bytes).unwrap();
-        assert!(!s.contains("\"id\":"), "canonical bytes must not contain id");
+        assert!(
+            !s.contains("\"id\":"),
+            "canonical bytes must not contain id"
+        );
         assert!(
             !s.contains("\"anchorer_signature\""),
             "canonical bytes must not contain anchorer_signature"
         );
-        assert!(!s.contains("\"jws\""), "canonical bytes must not leak signature internals");
+        assert!(
+            !s.contains("\"jws\""),
+            "canonical bytes must not leak signature internals"
+        );
     }
 
     #[test]
@@ -432,7 +437,8 @@ mod tests {
         a.frontier.clear();
         a.state_root = Hash::new(crate::state::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap();
         a.id = a.derive_id().unwrap();
-        a.validate_structural().expect("Genesis Anchor is the empty-frontier root");
+        a.validate_structural()
+            .expect("Genesis Anchor is the empty-frontier root");
     }
 
     #[test]
@@ -482,7 +488,10 @@ mod tests {
 
     #[test]
     fn empty_multi_sig_rejected() {
-        let multi = MultiSignature { kind: MultiSigKind::MultiSig, signatures: vec![] };
+        let multi = MultiSignature {
+            kind: MultiSigKind::MultiSig,
+            signatures: vec![],
+        };
         let a = build_anchor(AnchorerSig::Multi(multi));
         let err = a.validate_structural().unwrap_err();
         assert!(format!("{err}").contains("at least one signature"));
@@ -499,7 +508,10 @@ mod tests {
 
     #[test]
     fn anchorer_signature_serializes_with_kind_discriminator_for_multi_and_threshold() {
-        let multi = MultiSignature { kind: MultiSigKind::MultiSig, signatures: vec![signature()] };
+        let multi = MultiSignature {
+            kind: MultiSigKind::MultiSig,
+            signatures: vec![signature()],
+        };
         let s = serde_json::to_string(&AnchorerSig::Multi(multi)).unwrap();
         assert!(s.contains("\"kind\":\"multi_sig\""), "got {s}");
 

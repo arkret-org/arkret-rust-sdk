@@ -3,19 +3,18 @@
 //! Per spec §5.3:
 //! - `add(tag, value?)` adds a tagged element.
 //! - `remove(tag, reason?)` removes the element bearing that tag.
-//! - Remove of a tag added in the **same join** wins iff the remove op
-//!   is causally later (its anchored order is later). Removing a
-//!   never-added tag is a no-op (this lattice is monotonic).
+//! - Remove of a tag added in the **same join** wins iff the remove op is causally later (its
+//!   anchored order is later). Removing a never-added tag is a no-op (this lattice is monotonic).
 //!
 //! Output value is a JSON array of `{tag, value?}` objects sorted by
 //! `tag` ascending so the resolved state is canonical.
 
 use std::collections::BTreeMap;
 
-use crate::{CellRef, LatticeOp, LatticeOpType};
 use serde_json::{Value, json};
 
 use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use crate::{CellRef, LatticeOp, LatticeOpType};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct OrSet;
@@ -29,13 +28,19 @@ impl Lattice for OrSet {
         match op.op_type {
             LatticeOpType::Add => {
                 if op.tag.as_deref().unwrap_or("").is_empty() {
-                    return Err(OpError::MissingField { kind: "or_set", field: "tag" });
+                    return Err(OpError::MissingField {
+                        kind: "or_set",
+                        field: "tag",
+                    });
                 }
                 Ok(())
             }
             LatticeOpType::Remove => {
                 if op.tag.as_deref().unwrap_or("").is_empty() {
-                    return Err(OpError::MissingField { kind: "or_set", field: "tag" });
+                    return Err(OpError::MissingField {
+                        kind: "or_set",
+                        field: "tag",
+                    });
                 }
                 Ok(())
             }
@@ -57,7 +62,9 @@ impl Lattice for OrSet {
             if self.validate_op(&entry.op).is_err() {
                 continue;
             }
-            let Some(tag) = entry.op.tag.clone() else { continue };
+            let Some(tag) = entry.op.tag.clone() else {
+                continue;
+            };
             match entry.op.op_type {
                 LatticeOpType::Add => {
                     state.insert(tag, entry.op.value.clone());
@@ -149,7 +156,9 @@ mod tests {
             reason: None,
             issuer_seq: None,
         };
-        OrSet.validate_op(&op).expect_err("add without tag must fail");
+        OrSet
+            .validate_op(&op)
+            .expect_err("add without tag must fail");
     }
 
     #[test]
@@ -175,7 +184,10 @@ mod tests {
             AnchoredOp::new(move_id(2), add_op("t1", Some(json!("v1")))),
         ];
         let state = OrSet.join(&cell(), &ops);
-        assert_eq!(state, CellState::Value(json!([{"tag": "t1", "value": "v1"}])));
+        assert_eq!(
+            state,
+            CellState::Value(json!([{"tag": "t1", "value": "v1"}]))
+        );
     }
 
     #[test]
@@ -189,8 +201,10 @@ mod tests {
         match state {
             CellState::Value(v) => {
                 let arr = v.as_array().unwrap();
-                let tags: Vec<&str> =
-                    arr.iter().map(|x| x.get("tag").unwrap().as_str().unwrap()).collect();
+                let tags: Vec<&str> = arr
+                    .iter()
+                    .map(|x| x.get("tag").unwrap().as_str().unwrap())
+                    .collect();
                 assert_eq!(tags, vec!["alpha", "middle", "zeta"]);
             }
             _ => panic!("expected value"),
@@ -204,11 +218,19 @@ mod tests {
             AnchoredOp::new(move_id(2), add_op("with-val", Some(json!(42)))),
         ];
         let state = OrSet.join(&cell(), &ops);
-        let CellState::Value(v) = state else { panic!("expected value") };
+        let CellState::Value(v) = state else {
+            panic!("expected value")
+        };
         let arr = v.as_array().unwrap();
-        let plain = arr.iter().find(|x| x.get("tag").unwrap() == "plain").unwrap();
+        let plain = arr
+            .iter()
+            .find(|x| x.get("tag").unwrap() == "plain")
+            .unwrap();
         assert!(plain.get("value").is_none());
-        let with_val = arr.iter().find(|x| x.get("tag").unwrap() == "with-val").unwrap();
+        let with_val = arr
+            .iter()
+            .find(|x| x.get("tag").unwrap() == "with-val")
+            .unwrap();
         assert_eq!(with_val.get("value").unwrap(), &json!(42));
     }
 
@@ -226,7 +248,10 @@ mod tests {
             AnchoredOp::new(move_id(2), add_op("t1", Some(json!("v2")))),
         ];
         let state = OrSet.join(&cell(), &ops);
-        assert_eq!(state, CellState::Value(json!([{"tag": "t1", "value": "v2"}])));
+        assert_eq!(
+            state,
+            CellState::Value(json!([{"tag": "t1", "value": "v2"}]))
+        );
     }
 
     #[test]
@@ -248,7 +273,10 @@ mod tests {
             AnchoredOp::new(move_id(2), add_op("valid", Some(json!("v")))),
         ];
         let state = OrSet.join(&cell(), &ops);
-        assert_eq!(state, CellState::Value(json!([{"tag": "valid", "value": "v"}])));
+        assert_eq!(
+            state,
+            CellState::Value(json!([{"tag": "valid", "value": "v"}]))
+        );
     }
 
     #[test]

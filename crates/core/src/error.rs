@@ -613,6 +613,8 @@ pub const REASON_MORPH_SCHEMA_VERSION_BINDING_MISSING: &str =
 pub const REASON_RANGE_COMPLETENESS_ROOT_MISMATCH: &str = "range_completeness_root_mismatch";
 pub const REASON_RANGE_COMPLETENESS_ACTOR_SEQ_GAP: &str = "range_completeness_actor_seq_gap";
 pub const REASON_WITNESS_DISAGREEMENT: &str = "witness_disagreement";
+pub const REASON_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE: &str =
+    "legacy_single_endpoint_media_service";
 
 /// Known `failed_precondition` reason codes registered in round C45.
 pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
@@ -672,6 +674,7 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_RANGE_COMPLETENESS_ROOT_MISMATCH,
     REASON_RANGE_COMPLETENESS_ACTOR_SEQ_GAP,
     REASON_WITNESS_DISAGREEMENT,
+    REASON_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE,
 ];
 
 // ── CKP-0007 (spec b7d35be) — Circle primitive reason codes.
@@ -768,8 +771,10 @@ pub const REASON_REACTION_TARGET_UNSUPPORTED: &str = "reaction_target_unsupporte
 pub const REASON_REACTION_SCOPE_MISMATCH: &str = "reaction_scope_mismatch";
 
 /// Reaction reason codes registered for the §9.8 Reaction model.
-pub const KNOWN_REASON_CODES_REACTION: &[&str] =
-    &[REASON_REACTION_TARGET_UNSUPPORTED, REASON_REACTION_SCOPE_MISMATCH];
+pub const KNOWN_REASON_CODES_REACTION: &[&str] = &[
+    REASON_REACTION_TARGET_UNSUPPORTED,
+    REASON_REACTION_SCOPE_MISMATCH,
+];
 
 pub const REASON_CONTACT_NOT_ACCEPTED: &str = "contact_not_accepted";
 pub const REASON_CONTACT_CONSENT_MISSING: &str = "contact_consent_missing";
@@ -1033,7 +1038,10 @@ pub enum Error {
     Mls(String),
 
     #[error("Cokret API returned {status}: {error}")]
-    Api { status: u16, error: Box<ErrorEnvelope> },
+    Api {
+        status: u16,
+        error: Box<ErrorEnvelope>,
+    },
 
     #[error("protocol error: {0}")]
     Protocol(String),
@@ -1063,12 +1071,12 @@ impl From<cokret_identifiers::IdentifierError> for Error {
 /// Every variant corresponds to one entry in [`KNOWN_ERROR_CODES`].
 /// Round-trip helpers:
 ///
-/// - [`ErrorCode::as_str`] → wire-form snake_case string (same value as
-///   the matching `ERROR_CODE_*` constant).
-/// - [`ErrorCode::from_wire`] → parse a wire string back into the typed
-///   variant. Returns `None` for any code not in the registry.
-/// - [`ErrorCode::http_status`] → registered HTTP status, identical to
-///   what [`error_code_http_status`] returns for the same wire string.
+/// - [`ErrorCode::as_str`] → wire-form snake_case string (same value as the matching `ERROR_CODE_*`
+///   constant).
+/// - [`ErrorCode::from_wire`] → parse a wire string back into the typed variant. Returns `None` for
+///   any code not in the registry.
+/// - [`ErrorCode::http_status`] → registered HTTP status, identical to what
+///   [`error_code_http_status`] returns for the same wire string.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ErrorCode {
     BadJson,
@@ -1684,8 +1692,9 @@ impl std::fmt::Display for ErrorCode {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::{BTreeMap, BTreeSet};
+
+    use super::*;
 
     fn spec_registry_error_codes() -> BTreeMap<String, u16> {
         let raw = include_str!(concat!(

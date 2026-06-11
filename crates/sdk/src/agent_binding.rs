@@ -182,8 +182,8 @@ pub enum AuditBindingVerifyOutcome {
 /// `result.agent_principal_id`, `result.echo`, `audit_binding.actor_id`) and
 /// routes to the scheme-specific verifier:
 ///
-///   * `ed25519_v1` → [`verify_ed25519_audit_binding`] using the
-///     `public_key_b64` carried in the envelope.
+///   * `ed25519_v1` → [`verify_ed25519_audit_binding`] using the `public_key_b64` carried in the
+///     envelope.
 ///   * anything else → [`AuditBindingVerifyOutcome::Unsupported`].
 ///
 /// Deployments wanting an alternative scheme ship their own
@@ -194,7 +194,10 @@ pub fn verify_audit_binding_by_kind(payload: &Value) -> AuditBindingVerifyOutcom
     let Some(binding) = payload.get("audit_binding") else {
         return AuditBindingVerifyOutcome::Absent;
     };
-    let kind = binding.get("binding_kind").and_then(Value::as_str).unwrap_or("");
+    let kind = binding
+        .get("binding_kind")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     match kind {
         "ed25519_v1" => verify_ed25519_audit_binding_from_payload(payload, binding),
         _ => AuditBindingVerifyOutcome::Unsupported,
@@ -216,10 +219,23 @@ fn verify_ed25519_audit_binding_from_payload(
         .and_then(|r| r.get("agent_principal_id"))
         .and_then(Value::as_str)
         .unwrap_or("");
-    let echo = payload.get("result").and_then(|r| r.get("echo")).cloned().unwrap_or(Value::Null);
-    let actor = binding.get("actor_id").and_then(Value::as_str).unwrap_or("");
-    let canonical_subject = binding.get("canonical_subject").and_then(Value::as_str).unwrap_or("");
-    let signature = binding.get("signature").and_then(Value::as_str).unwrap_or("");
+    let echo = payload
+        .get("result")
+        .and_then(|r| r.get("echo"))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let actor = binding
+        .get("actor_id")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let canonical_subject = binding
+        .get("canonical_subject")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let signature = binding
+        .get("signature")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let Some(public_key_b64) = binding.get("public_key_b64").and_then(Value::as_str) else {
         return AuditBindingVerifyOutcome::Malformed;
     };
@@ -261,8 +277,9 @@ fn base64_url_no_pad_decode(s: &str) -> Option<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     /// Fixed 32-byte test seed so every run computes the same
     /// `public_key_b64` — useful for diffing wire fixtures.
@@ -381,7 +398,10 @@ mod tests {
             "!!!not-base64!!!",
             &signed.canonical_subject,
         );
-        assert_eq!(outcome, Ed25519AuditBindingVerifyOutcome::MalformedSignature);
+        assert_eq!(
+            outcome,
+            Ed25519AuditBindingVerifyOutcome::MalformedSignature
+        );
     }
 
     #[test]
@@ -403,7 +423,10 @@ mod tests {
             &signed.signature_b64,
             &signed.canonical_subject,
         );
-        assert_eq!(outcome, Ed25519AuditBindingVerifyOutcome::MalformedPublicKey);
+        assert_eq!(
+            outcome,
+            Ed25519AuditBindingVerifyOutcome::MalformedPublicKey
+        );
     }
 
     fn build_signed_payload(session_id: &str, actor: &str, echo: Value) -> Value {
@@ -435,7 +458,10 @@ mod tests {
             "did:web:alice.example",
             json!({"op": "ping"}),
         );
-        assert_eq!(verify_audit_binding_by_kind(&payload), AuditBindingVerifyOutcome::Valid);
+        assert_eq!(
+            verify_audit_binding_by_kind(&payload),
+            AuditBindingVerifyOutcome::Valid
+        );
     }
 
     #[test]
@@ -444,7 +470,10 @@ mod tests {
             "session_id": "ck:session:no-binding",
             "result": { "agent_principal_id": "did:web:agent.example", "echo": {} },
         });
-        assert_eq!(verify_audit_binding_by_kind(&payload), AuditBindingVerifyOutcome::Absent);
+        assert_eq!(
+            verify_audit_binding_by_kind(&payload),
+            AuditBindingVerifyOutcome::Absent
+        );
     }
 
     #[test]
@@ -460,7 +489,10 @@ mod tests {
                 "canonical_subject": "subject"
             }
         });
-        assert_eq!(verify_audit_binding_by_kind(&payload), AuditBindingVerifyOutcome::Unsupported);
+        assert_eq!(
+            verify_audit_binding_by_kind(&payload),
+            AuditBindingVerifyOutcome::Unsupported
+        );
     }
 
     #[test]
@@ -476,7 +508,10 @@ mod tests {
                 "signature": "sig"
             }
         });
-        assert_eq!(verify_audit_binding_by_kind(&payload), AuditBindingVerifyOutcome::Unsupported);
+        assert_eq!(
+            verify_audit_binding_by_kind(&payload),
+            AuditBindingVerifyOutcome::Unsupported
+        );
     }
 
     #[test]
@@ -487,7 +522,10 @@ mod tests {
             json!({"op": "ping"}),
         );
         payload["audit_binding"]["signature"] = json!("!!!not-base64!!!");
-        assert_eq!(verify_audit_binding_by_kind(&payload), AuditBindingVerifyOutcome::Malformed);
+        assert_eq!(
+            verify_audit_binding_by_kind(&payload),
+            AuditBindingVerifyOutcome::Malformed
+        );
     }
 
     #[test]

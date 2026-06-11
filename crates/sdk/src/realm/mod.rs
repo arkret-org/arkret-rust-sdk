@@ -5,25 +5,25 @@
 //! Spaces, including Morph management, relations, timeline operations, and
 //! membership.
 
-use std::{cmp::Ordering, collections::BTreeMap, sync::Arc};
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 
-use crate::{
-    FlowId, RealmId, Result, SpaceId,
-    base::{BaseClient, RealmMembershipState},
-    media::{Attachment, MediaMetadata},
-    model::{
-        BlobRef, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, Flow,
-        MemberDeliveryBinding, MessageId, Morph, MorphId, NullsOrder, OP_INVITE_CREATE,
-        OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE,
-        OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_TOMBSTONE, ObjectState,
-        Operation, OperationId, OperationType, Relation, RelationId, RelationKind, RelationState,
-        SortDirection, SortSpec, Space,
-    },
-    resolver::RealmState,
+use crate::base::{BaseClient, RealmMembershipState};
+use crate::media::{Attachment, MediaMetadata};
+use crate::model::{
+    BlobRef, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, Flow,
+    MemberDeliveryBinding, MessageId, Morph, MorphId, NullsOrder, OP_INVITE_CREATE,
+    OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE,
+    OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_TOMBSTONE, ObjectState,
+    Operation, OperationId, OperationType, Relation, RelationId, RelationKind, RelationState,
+    SortDirection, SortSpec, Space,
 };
+use crate::resolver::RealmState;
+use crate::{FlowId, RealmId, Result, SpaceId};
 
 /// Generate a new UUIDv7-based wire ID with the given Cokret typed prefix.
 mod flow;
@@ -37,10 +37,9 @@ mod space;
 mod tests;
 
 pub use flow::{FlowCreateMetadata, FlowUpdateMetadata};
+use helpers::*;
 pub use relation::RelationOperationInput;
 pub use space::{SpaceCreateMetadata, SpaceUpdateMetadata};
-
-use helpers::*;
 
 fn generate_id(prefix: &str) -> String {
     format!("{prefix}{}", uuid::Uuid::now_v7())
@@ -159,7 +158,11 @@ impl Realm {
             Arc::new(RealmState::new(realm_id.clone()))
         };
 
-        Self { realm_id, base_client, state }
+        Self {
+            realm_id,
+            base_client,
+            state,
+        }
     }
 
     /// Get the Realm ID.
@@ -257,7 +260,12 @@ impl Realm {
 
     /// Find Spaces (containers) by kind.
     pub fn find_spaces_by_kind(&self, kind: &str) -> Vec<Space> {
-        self.state.spaces.values().filter(|space| space.kind == kind).cloned().collect()
+        self.state
+            .spaces
+            .values()
+            .filter(|space| space.kind == kind)
+            .cloned()
+            .collect()
     }
 
     /// Get all flows in this space.
@@ -276,7 +284,9 @@ impl Realm {
             .subjects
             .values()
             .filter(|flow| {
-                flow.tracks.values().any(|track| track.profile.as_deref() == Some(track_profile))
+                flow.tracks
+                    .values()
+                    .any(|track| track.profile.as_deref() == Some(track_profile))
             })
             .cloned()
             .collect()
@@ -303,7 +313,12 @@ impl Realm {
 
     /// Find Morph objects by type.
     pub fn find_morphs_by_type(&self, morph_type: &str) -> Vec<Morph> {
-        self.state.morphs.values().filter(|morph| morph.morph_type == morph_type).cloned().collect()
+        self.state
+            .morphs
+            .values()
+            .filter(|morph| morph.morph_type == morph_type)
+            .cloned()
+            .collect()
     }
 
     /// Find Morph objects by field value.
@@ -311,7 +326,13 @@ impl Realm {
         self.state
             .morphs
             .values()
-            .filter(|morph| morph.fields.get(field_key).map(|v| v == field_value).unwrap_or(false))
+            .filter(|morph| {
+                morph
+                    .fields
+                    .get(field_key)
+                    .map(|v| v == field_value)
+                    .unwrap_or(false)
+            })
             .cloned()
             .collect()
     }
@@ -338,12 +359,22 @@ impl Realm {
 
     /// Find relations from a typed object reference.
     pub fn find_relations_from_ref(&self, object_ref: &str) -> Vec<Relation> {
-        self.state.relations.values().filter(|r| r.from_ref == object_ref).cloned().collect()
+        self.state
+            .relations
+            .values()
+            .filter(|r| r.from_ref == object_ref)
+            .cloned()
+            .collect()
     }
 
     /// Find relations to a typed object reference.
     pub fn find_relations_to_ref(&self, object_ref: &str) -> Vec<Relation> {
-        self.state.relations.values().filter(|r| r.to_ref == object_ref).cloned().collect()
+        self.state
+            .relations
+            .values()
+            .filter(|r| r.to_ref == object_ref)
+            .cloned()
+            .collect()
     }
 
     /// Get the causal frontier (most recent event IDs).
@@ -371,7 +402,12 @@ impl Realm {
             "track_name": "discussion",
             "content": content,
         });
-        Ok(Operation::create(operation_id, self.realm_id()?, OP_MESSAGE_CREATE, payload))
+        Ok(Operation::create(
+            operation_id,
+            self.realm_id()?,
+            OP_MESSAGE_CREATE,
+            payload,
+        ))
     }
 
     /// Create a local plain-text message send operation.
@@ -443,7 +479,8 @@ impl Realm {
         media_type: impl Into<String>,
         bytes: impl AsRef<[u8]>,
     ) -> Result<Attachment> {
-        self.base_client.upload_attachment(id, filename, media_type, bytes)
+        self.base_client
+            .upload_attachment(id, filename, media_type, bytes)
     }
 
     /// Upload an encrypted attachment into the base client's local in-memory media store.
@@ -455,7 +492,8 @@ impl Realm {
         plaintext: impl AsRef<[u8]>,
         key: &[u8],
     ) -> Result<Attachment> {
-        self.base_client.upload_encrypted_attachment(id, filename, media_type, plaintext, key)
+        self.base_client
+            .upload_encrypted_attachment(id, filename, media_type, plaintext, key)
     }
 
     /// Download and decrypt an encrypted attachment from the base client.

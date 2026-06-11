@@ -107,7 +107,12 @@ impl DidContinuityProof {
                 )));
             }
         }
-        if self.transfer_evidence.user_oob_confirmation_id.trim().is_empty() {
+        if self
+            .transfer_evidence
+            .user_oob_confirmation_id
+            .trim()
+            .is_empty()
+        {
             return Err(Error::Protocol(format!(
                 "DID continuity proof user_oob_confirmation_id is required \
                  ({ERROR_CODE_SCHEMA_VIOLATION})"
@@ -258,7 +263,10 @@ mod tests {
     #[test]
     fn inception_key_max_online_window_is_24h_hard_cap() {
         assert_eq!(INCEPTION_KEY_MAX_ONLINE_WINDOW_SECS, 24 * 60 * 60);
-        assert_eq!(inception_key_max_online_window(), chrono::Duration::hours(24));
+        assert_eq!(
+            inception_key_max_online_window(),
+            chrono::Duration::hours(24)
+        );
     }
 
     #[test]
@@ -282,7 +290,10 @@ mod tests {
         // Exactly at the cap is not "exceeded" (strict `>`); one second past is.
         let at_cap = bootstrap + chrono::Duration::hours(24);
         assert!(!inception_key_age_exceeded(bootstrap, at_cap));
-        assert!(inception_key_age_exceeded(bootstrap, at_cap + chrono::Duration::seconds(1)));
+        assert!(inception_key_age_exceeded(
+            bootstrap,
+            at_cap + chrono::Duration::seconds(1)
+        ));
     }
 
     #[test]

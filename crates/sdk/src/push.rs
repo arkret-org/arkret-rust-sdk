@@ -52,10 +52,14 @@ impl ChimePushRegistration {
 
     pub fn validate(&self) -> Result<()> {
         if self.version != CHIME_PUSH_REGISTRATION_VERSION {
-            return Err(Error::Protocol("unsupported chime push registration version".to_owned()));
+            return Err(Error::Protocol(
+                "unsupported chime push registration version".to_owned(),
+            ));
         }
         if self.token.trim().is_empty() {
-            return Err(Error::Protocol("chime push token must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "chime push token must not be empty".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -123,7 +127,10 @@ pub struct PushPrivacyPolicy {
 
 impl PushPrivacyPolicy {
     pub fn strict() -> Self {
-        Self { allow_plaintext_for_services: BTreeSet::new(), forbid_raw_did_in_payload: true }
+        Self {
+            allow_plaintext_for_services: BTreeSet::new(),
+            forbid_raw_did_in_payload: true,
+        }
     }
 
     pub fn allow(mut self, service_did: Did) -> Self {
@@ -170,7 +177,10 @@ impl PushPrivacyPolicy {
         payload: &PushPayload,
         destination_service: &Did,
     ) -> Result<()> {
-        if self.allow_plaintext_for_services.contains(destination_service) {
+        if self
+            .allow_plaintext_for_services
+            .contains(destination_service)
+        {
             return Ok(());
         }
         self.assert_payload_safe(payload)
@@ -179,8 +189,14 @@ impl PushPrivacyPolicy {
 
 fn contains_did_substring(s: &str) -> bool {
     // Match the canonical DID prefixes documented in identity-did.md §3.
-    const PREFIXES: &[&str] =
-        &["did:web:", "did:plc:", "did:key:", "did:webvh:", "did:webs:", "did:keri:"];
+    const PREFIXES: &[&str] = &[
+        "did:web:",
+        "did:plc:",
+        "did:key:",
+        "did:webvh:",
+        "did:webs:",
+        "did:keri:",
+    ];
     PREFIXES.iter().any(|p| s.contains(p))
 }
 
@@ -253,7 +269,10 @@ impl PushGateway {
 
         let mut payloads = Vec::new();
         for token in tokens {
-            if !self.delivered.insert((event.event_id.clone(), token.token.clone())) {
+            if !self
+                .delivered
+                .insert((event.event_id.clone(), token.token.clone()))
+            {
                 continue;
             }
             payloads.push(self.format_payload(event, &token, &rule));
@@ -273,7 +292,11 @@ impl PushGateway {
             "Encrypted message".to_owned()
         } else {
             truncate(
-                event.content.get("body").and_then(Value::as_str).unwrap_or("New activity"),
+                event
+                    .content
+                    .get("body")
+                    .and_then(Value::as_str)
+                    .unwrap_or("New activity"),
                 120,
             )
         };
@@ -322,13 +345,21 @@ impl PushGateway {
     fn match_rule(&self, event_kind: &str) -> Option<&PushRule> {
         self.rules.values().find(|rule| {
             rule.enabled
-                && rule.event_kind.as_deref().map(|kind| kind == event_kind).unwrap_or(true)
+                && rule
+                    .event_kind
+                    .as_deref()
+                    .map(|kind| kind == event_kind)
+                    .unwrap_or(true)
         })
     }
 }
 
 fn truncate(value: &str, max: usize) -> String {
-    if value.chars().count() <= max { value.to_owned() } else { value.chars().take(max).collect() }
+    if value.chars().count() <= max {
+        value.to_owned()
+    } else {
+        value.chars().take(max).collect()
+    }
 }
 
 #[cfg(test)]

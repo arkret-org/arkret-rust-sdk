@@ -12,7 +12,6 @@
 //! intentionally tolerant of unknown fields (`extra: BTreeMap<String, Value>`)
 //! so forward-compatible non-critical extensions round-trip.
 
-use super::*;
 pub use cokret_identifiers::CircleId;
 
 /// Canonical schema id for `Circle`.
@@ -20,6 +19,7 @@ pub use cokret_identifiers::CircleId;
 /// Re-export of [`crate::model::CIRCLE_SCHEMA_ID`] for code that imports
 /// types from this module.
 pub use super::CIRCLE_SCHEMA_ID as CIRCLE_SCHEMA;
+use super::*;
 
 /// Top-level Circle directory visibility (spec circle.schema.json
 /// `directory_visibility` enum).
@@ -197,12 +197,12 @@ pub struct Circle {
 /// | [`CircleState`] | `active`, `archived`, `tombstoned`    | `tombstoned`   |
 /// | [`ObjectState`] | `active`, `archived`, `redacted`      | `redacted`     |
 ///
-/// * `CircleState::Tombstoned` is the Circle-container terminal state
-///   (CKP-0007 §3.5): the Circle directory entry remains, but its MLS group
-///   is sealed and no further writes (or member changes) are accepted.
-/// * `ObjectState::Redacted` is the object-payload terminal state
-///   (round C47, spec e10b6ad): the object's content is wiped via a
-///   `ck.redaction` event, but the object id and lifecycle history remain.
+/// * `CircleState::Tombstoned` is the Circle-container terminal state (CKP-0007 §3.5): the Circle
+///   directory entry remains, but its MLS group is sealed and no further writes (or member changes)
+///   are accepted.
+/// * `ObjectState::Redacted` is the object-payload terminal state (round C47, spec e10b6ad): the
+///   object's content is wiped via a `ck.redaction` event, but the object id and lifecycle history
+///   remain.
 ///
 /// Reducers MUST keep these enums separate. In particular: never silently
 /// translate `Tombstoned ↔ Redacted` — Circle lifecycle events
@@ -363,12 +363,14 @@ pub fn validate_no_scope_rebind(
     match (prev, next) {
         (None, None) => Ok(()),
         (Some(a), Some(b)) if a.as_str() == b.as_str() => Ok(()),
-        (None, Some(b)) => {
-            Err(CircleScopeError::ScopeRebindForbidden { from: None, to: Some(b.clone()) })
-        }
-        (Some(a), None) => {
-            Err(CircleScopeError::ScopeRebindForbidden { from: Some(a.clone()), to: None })
-        }
+        (None, Some(b)) => Err(CircleScopeError::ScopeRebindForbidden {
+            from: None,
+            to: Some(b.clone()),
+        }),
+        (Some(a), None) => Err(CircleScopeError::ScopeRebindForbidden {
+            from: Some(a.clone()),
+            to: None,
+        }),
         (Some(a), Some(b)) => Err(CircleScopeError::ScopeRebindForbidden {
             from: Some(a.clone()),
             to: Some(b.clone()),
@@ -400,10 +402,16 @@ pub fn compute_effective_history_visibility(
     realm_floor: HistoryVisibility,
     circle_setting: HistoryVisibility,
 ) -> std::result::Result<HistoryVisibility, CircleScopeError> {
-    let r = history_visibility_rank(&realm_floor)
-        .ok_or(CircleScopeError::RestrictedNotInLinearFloor { side: "realm_floor" })?;
-    let c = history_visibility_rank(&circle_setting)
-        .ok_or(CircleScopeError::RestrictedNotInLinearFloor { side: "circle_setting" })?;
+    let r = history_visibility_rank(&realm_floor).ok_or(
+        CircleScopeError::RestrictedNotInLinearFloor {
+            side: "realm_floor",
+        },
+    )?;
+    let c = history_visibility_rank(&circle_setting).ok_or(
+        CircleScopeError::RestrictedNotInLinearFloor {
+            side: "circle_setting",
+        },
+    )?;
     Ok(if r >= c { realm_floor } else { circle_setting })
 }
 
@@ -429,7 +437,10 @@ pub fn validate_metadata_floor_tightens(
     if metadata_floor_rank(circle_floor) >= metadata_floor_rank(realm_floor) {
         Ok(())
     } else {
-        Err(CircleScopeError::MetadataEncryptionFloorViolation { realm_floor, circle_floor })
+        Err(CircleScopeError::MetadataEncryptionFloorViolation {
+            realm_floor,
+            circle_floor,
+        })
     }
 }
 
@@ -467,19 +478,22 @@ pub fn validate_content_encryption_floor(
         Some(profile) => matches!(profile, EncryptionProfile::MlsRfc9420),
         None => matches!(realm_encryption_profile, EncryptionProfile::MlsRfc9420),
     };
-    if mls_backed { Ok(()) } else { Err(CircleScopeError::ContentEncryptionFloorViolation) }
+    if mls_backed {
+        Ok(())
+    } else {
+        Err(CircleScopeError::ContentEncryptionFloorViolation)
+    }
 }
 
 /// Reducer-pure predicate for `Space.child_scope_policy` enforcement
 /// (CKP-0007 §3.4.2).
 ///
 /// * `AllowAny` — accepts any scope.
-/// * `RequireE2ee` — child MUST live in an MLS-backed scope: a Circle scope,
-///   or the Realm-default scope when `realm_encryption_profile = MlsRfc9420`.
-/// * `RequireSameScope` — child's `scope_circle_id` MUST equal the parent
-///   Space's `scope_circle_id` (both `None` counts as "same").
-/// * `RequireScopeCircleId` — child's `scope_circle_id` MUST equal the named
-///   Circle.
+/// * `RequireE2ee` — child MUST live in an MLS-backed scope: a Circle scope, or the Realm-default
+///   scope when `realm_encryption_profile = MlsRfc9420`.
+/// * `RequireSameScope` — child's `scope_circle_id` MUST equal the parent Space's `scope_circle_id`
+///   (both `None` counts as "same").
+/// * `RequireScopeCircleId` — child's `scope_circle_id` MUST equal the named Circle.
 pub fn enforce_child_scope_policy(
     policy: &ChildScopePolicy,
     child_scope: Option<&CircleId>,
@@ -540,7 +554,9 @@ pub fn enforce_child_scope_policy_with_circle_profile(
                 })
             }
         }
-        ChildScopePolicy::RequireScopeCircleId { scope_circle_id, .. } => match child_scope {
+        ChildScopePolicy::RequireScopeCircleId {
+            scope_circle_id, ..
+        } => match child_scope {
             Some(child) if child.as_str() == scope_circle_id.as_str() => Ok(()),
             _ => Err(CircleScopeError::ChildScopePolicyViolated {
                 policy_kind: "require_scope_circle_id",
@@ -581,7 +597,10 @@ pub enum CircleScopeError {
         "reason=scope_rebind_forbidden: scope_circle_id rebind from {from:?} to \
          {to:?} forbidden (CKP-0007 §3.4)"
     )]
-    ScopeRebindForbidden { from: Option<CircleId>, to: Option<CircleId> },
+    ScopeRebindForbidden {
+        from: Option<CircleId>,
+        to: Option<CircleId>,
+    },
     /// `Restricted` history visibility cannot participate in the linear
     /// floor lattice (CKP-0007 §3.4).
     #[error(
@@ -596,7 +615,10 @@ pub enum CircleScopeError {
         "reason=metadata_encryption_floor_violation: circle_floor={circle_floor:?} is \
          laxer than realm_floor={realm_floor:?} (CKP-0007 §3.4.1)"
     )]
-    MetadataEncryptionFloorViolation { realm_floor: EncryptionFloor, circle_floor: EncryptionFloor },
+    MetadataEncryptionFloorViolation {
+        realm_floor: EncryptionFloor,
+        circle_floor: EncryptionFloor,
+    },
     /// Circle encryption profile would be weaker than the Realm content floor.
     #[error(
         "reason=circle_encryption_below_realm_floor: circle_encryption_profile={circle_encryption_profile:?} is below realm_encryption_profile={realm_encryption_profile:?} / content_encryption_floor={content_encryption_floor:?}"
@@ -611,7 +633,10 @@ pub enum CircleScopeError {
     ContentEncryptionFloorViolation,
     /// `Space.child_scope_policy` rejected the child's scope.
     #[error("child_scope_policy={policy_kind} violated: {detail} (CKP-0007 §3.4.2)")]
-    ChildScopePolicyViolated { policy_kind: &'static str, detail: &'static str },
+    ChildScopePolicyViolated {
+        policy_kind: &'static str,
+        detail: &'static str,
+    },
 }
 
 impl Circle {
@@ -668,7 +693,9 @@ impl Circle {
         let realm: BTreeSet<&Did> = realm_members.iter().collect();
         for member in circle_members {
             if !realm.contains(member) {
-                return Err(CircleScopeError::MemberNotInRealm { circle_member: member.clone() });
+                return Err(CircleScopeError::MemberNotInRealm {
+                    circle_member: member.clone(),
+                });
             }
         }
         Ok(())
@@ -683,7 +710,9 @@ mod tests {
         CircleDisplay {
             short_name: "Ops".to_owned(),
             color_token: CircleColorToken::Indigo,
-            symbol: CircleSymbol::Glyph { glyph: CircleGlyph::Shield },
+            symbol: CircleSymbol::Glyph {
+                glyph: CircleGlyph::Shield,
+            },
         }
     }
 
@@ -760,7 +789,11 @@ mod tests {
     #[test]
     fn member_transition_banned_to_active_is_hard_wall() {
         use CircleMemberState::*;
-        for jr in [CircleJoinRule::Invite, CircleJoinRule::Open, CircleJoinRule::Request] {
+        for jr in [
+            CircleJoinRule::Invite,
+            CircleJoinRule::Open,
+            CircleJoinRule::Request,
+        ] {
             assert!(validate_member_transition(Some(Banned), Active, jr).is_err());
         }
     }
@@ -822,11 +855,20 @@ mod tests {
     fn effective_history_visibility_takes_stricter() {
         use HistoryVisibility::*;
         // Realm stricter than Circle.
-        assert_eq!(compute_effective_history_visibility(Joined, WorldReadable).unwrap(), Joined);
+        assert_eq!(
+            compute_effective_history_visibility(Joined, WorldReadable).unwrap(),
+            Joined
+        );
         // Circle stricter than Realm.
-        assert_eq!(compute_effective_history_visibility(WorldReadable, Invited).unwrap(), Invited);
+        assert_eq!(
+            compute_effective_history_visibility(WorldReadable, Invited).unwrap(),
+            Invited
+        );
         // Equal levels.
-        assert_eq!(compute_effective_history_visibility(Shared, Shared).unwrap(), Shared);
+        assert_eq!(
+            compute_effective_history_visibility(Shared, Shared).unwrap(),
+            Shared
+        );
     }
 
     #[test]
@@ -834,11 +876,15 @@ mod tests {
         use HistoryVisibility::*;
         assert!(matches!(
             compute_effective_history_visibility(Restricted, Joined),
-            Err(CircleScopeError::RestrictedNotInLinearFloor { side: "realm_floor" })
+            Err(CircleScopeError::RestrictedNotInLinearFloor {
+                side: "realm_floor"
+            })
         ));
         assert!(matches!(
             compute_effective_history_visibility(Joined, Restricted),
-            Err(CircleScopeError::RestrictedNotInLinearFloor { side: "circle_setting" })
+            Err(CircleScopeError::RestrictedNotInLinearFloor {
+                side: "circle_setting"
+            })
         ));
     }
 
@@ -865,7 +911,9 @@ mod tests {
 
     #[test]
     fn child_scope_allow_any_accepts_everything() {
-        let policy = ChildScopePolicy::AllowAny { metadata_encryption_floor: None };
+        let policy = ChildScopePolicy::AllowAny {
+            metadata_encryption_floor: None,
+        };
         enforce_child_scope_policy(&policy, None, None, &EncryptionProfile::None).unwrap();
         enforce_child_scope_policy(&policy, Some(&circle_a()), None, &EncryptionProfile::None)
             .unwrap();
@@ -873,7 +921,9 @@ mod tests {
 
     #[test]
     fn child_scope_require_e2ee_needs_circle_or_mls_realm() {
-        let policy = ChildScopePolicy::RequireE2ee { metadata_encryption_floor: None };
+        let policy = ChildScopePolicy::RequireE2ee {
+            metadata_encryption_floor: None,
+        };
         // Circle-scoped child requires the reducer to resolve the Circle's
         // encryption profile; plaintext delivery-only Circles do not satisfy
         // require_e2ee.
@@ -893,20 +943,28 @@ mod tests {
                 &EncryptionProfile::None,
                 Some(&EncryptionProfile::None),
             ),
-            Err(CircleScopeError::ChildScopePolicyViolated { policy_kind: "require_e2ee", .. })
+            Err(CircleScopeError::ChildScopePolicyViolated {
+                policy_kind: "require_e2ee",
+                ..
+            })
         ));
         // Realm-default child + MLS realm → accept.
         enforce_child_scope_policy(&policy, None, None, &EncryptionProfile::MlsRfc9420).unwrap();
         // Realm-default child + non-MLS realm → reject.
         assert!(matches!(
             enforce_child_scope_policy(&policy, None, None, &EncryptionProfile::None),
-            Err(CircleScopeError::ChildScopePolicyViolated { policy_kind: "require_e2ee", .. })
+            Err(CircleScopeError::ChildScopePolicyViolated {
+                policy_kind: "require_e2ee",
+                ..
+            })
         ));
     }
 
     #[test]
     fn child_scope_require_same_scope_matches_parent() {
-        let policy = ChildScopePolicy::RequireSameScope { metadata_encryption_floor: None };
+        let policy = ChildScopePolicy::RequireSameScope {
+            metadata_encryption_floor: None,
+        };
         let a = circle_a();
         enforce_child_scope_policy(&policy, Some(&a), Some(&a), &EncryptionProfile::None).unwrap();
         enforce_child_scope_policy(&policy, None, None, &EncryptionProfile::None).unwrap();

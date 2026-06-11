@@ -65,7 +65,8 @@ pub struct IdentityLinkCacheEntry {
 
 mod serde_bytes_32_hex {
 
-    use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
+    use serde::de::Error as _;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn serialize<S: Serializer>(value: &[u8; 32], s: S) -> Result<S::Ok, S::Error> {
         let hex: String = value.iter().map(|b| format!("{b:02x}")).collect();
@@ -77,7 +78,9 @@ mod serde_bytes_32_hex {
         let s = String::deserialize(d)?;
 
         if s.len() != 64 {
-            return Err(D::Error::custom("policy_frontier_digest hex must be 64 chars"));
+            return Err(D::Error::custom(
+                "policy_frontier_digest hex must be 64 chars",
+            ));
         }
 
         let mut out = [0u8; 32];

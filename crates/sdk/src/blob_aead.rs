@@ -3,7 +3,8 @@
 //! (whole-file AEAD).
 //!
 //! Implements `crypto-media/media-and-blob.md` §3.2 / §3.3 against the wire
-//! shape in [`blob.schema.json#/$defs/encrypted_attachment`](../../artifacts/schemas/blob.schema.json).
+//! shape in [`blob.schema.json#/$defs/encrypted_attachment`](../../artifacts/schemas/blob.schema.
+//! json).
 //!
 //! This module is security-sensitive. Every §3.3.6 decrypt MUST is mapped to
 //! a dedicated reject path with the spec `reason_code` surfaced via
@@ -35,14 +36,11 @@
 
 use std::collections::BTreeMap;
 
-use chacha20poly1305::{
-    XChaCha20Poly1305,
-    aead::{Aead, KeyInit, Payload},
-};
+use chacha20poly1305::XChaCha20Poly1305;
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
+use cokret_core::KeyRefObject;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-
-use cokret_core::KeyRefObject;
 
 use crate::base64url::{base64url_decode, base64url_encode};
 use crate::canonical::{canonical_json_bytes, sha256_hex};
@@ -157,7 +155,11 @@ fn cipher_from_key(content_key: &[u8; 32]) -> Result<XChaCha20Poly1305> {
 }
 
 /// `nonce = nonce_prefix(19) || u32_be(segment_index) || last_segment_flag` (§3.3.2).
-fn segment_nonce(nonce_prefix: &[u8; NONCE_PREFIX_LEN], segment_index: u32, last: bool) -> [u8; N_AEAD] {
+fn segment_nonce(
+    nonce_prefix: &[u8; NONCE_PREFIX_LEN],
+    segment_index: u32,
+    last: bool,
+) -> [u8; N_AEAD] {
     let mut nonce = [0u8; N_AEAD];
     nonce[..NONCE_PREFIX_LEN].copy_from_slice(nonce_prefix);
     nonce[NONCE_PREFIX_LEN..NONCE_PREFIX_LEN + 4].copy_from_slice(&segment_index.to_be_bytes());
@@ -180,7 +182,10 @@ fn stream_segment_aad(
         ("key_ref", json!(key_ref)),
         ("nonce_prefix", json!(nonce_prefix_b64)),
         ("segment_index", json!(segment_index)),
-        ("last_segment_flag", json!(if last { FLAG_LAST } else { FLAG_NORMAL })),
+        (
+            "last_segment_flag",
+            json!(if last { FLAG_LAST } else { FLAG_NORMAL }),
+        ),
         ("segment_count", json!(segment_count)),
         ("media_type", json!(media_type)),
         ("size_bytes", json!(size_bytes)),
@@ -228,7 +233,10 @@ pub fn encrypt_stream(
     params: &StreamEncryptParams,
 ) -> Result<(Vec<u8>, EncryptedAttachmentEnvelope)> {
     if params.segment_size == 0 {
-        return Err(protocol("segment_bounds_invalid", "segment_size must be non-zero"));
+        return Err(protocol(
+            "segment_bounds_invalid",
+            "segment_size must be non-zero",
+        ));
     }
     let cipher = cipher_from_key(content_key)?;
 
@@ -264,7 +272,13 @@ pub fn encrypt_stream(
             size_bytes,
         )?;
         let segment_ct = cipher
-            .encrypt(&nonce.into(), Payload { msg: chunk, aad: &aad })
+            .encrypt(
+                &nonce.into(),
+                Payload {
+                    msg: chunk,
+                    aad: &aad,
+                },
+            )
             .map_err(|_| Error::Crypto("segment AEAD encryption failed".to_owned()))?;
         ciphertext.extend_from_slice(&segment_ct);
     }
@@ -310,7 +324,10 @@ impl StreamContext {
         if env.scheme != SCHEME_STREAM || env.alg != ALG_STREAM_XCHACHA {
             return Err(protocol(
                 "unsupported_attachment_scheme",
-                &format!("scheme={} alg={} not stream XChaCha20-Poly1305", env.scheme, env.alg),
+                &format!(
+                    "scheme={} alg={} not stream XChaCha20-Poly1305",
+                    env.scheme, env.alg
+                ),
             ));
         }
         let nonce_prefix_b64 = env
@@ -325,10 +342,16 @@ impl StreamContext {
             .ok_or_else(|| protocol("unsupported_attachment_scheme", "missing segment_count"))?;
 
         if segment_size == 0 {
-            return Err(protocol("segment_bounds_invalid", "segment_size must be non-zero"));
+            return Err(protocol(
+                "segment_bounds_invalid",
+                "segment_size must be non-zero",
+            ));
         }
         if segment_count == 0 {
-            return Err(protocol("segment_bounds_invalid", "segment_count must be >= 1"));
+            return Err(protocol(
+                "segment_bounds_invalid",
+                "segment_count must be >= 1",
+            ));
         }
         // Declared segment_count MUST equal ceil(size/segment_size) (§3.3.1).
         // A mismatch is treated as a truncation/forgery of the count.
@@ -405,7 +428,11 @@ impl StreamDecryptor {
     /// Push one segment ciphertext (plaintext + 16-byte tag) and return its
     /// AEAD-verified plaintext. The plaintext is only returned after the tag
     /// verifies — §3.3.6 (2).
-    pub fn push_segment(&mut self, segment_index: u32, segment_ciphertext: &[u8]) -> Result<Vec<u8>> {
+    pub fn push_segment(
+        &mut self,
+        segment_index: u32,
+        segment_ciphertext: &[u8],
+    ) -> Result<Vec<u8>> {
         // §3.3.6 (3)/(4): once the last segment was accepted, no further pushes.
         if self.seen_last {
             return Err(protocol(
@@ -475,9 +502,18 @@ impl StreamDecryptor {
         let plaintext = self
             .ctx
             .cipher
-            .decrypt(&nonce.into(), Payload { msg: segment_ciphertext, aad: &aad })
+            .decrypt(
+                &nonce.into(),
+                Payload {
+                    msg: segment_ciphertext,
+                    aad: &aad,
+                },
+            )
             .map_err(|_| {
-                protocol("segment_aead_failed", &format!("segment_index={segment_index} tag check failed"))
+                protocol(
+                    "segment_aead_failed",
+                    &format!("segment_index={segment_index} tag check failed"),
+                )
             })?;
 
         // Only after AEAD success do we advance state / accumulate digest input.
@@ -514,7 +550,10 @@ impl StreamDecryptor {
         if actual != self.ctx.expected_digest {
             return Err(protocol(
                 "digest_mismatch",
-                &format!("recomputed {actual} != envelope {}", self.ctx.expected_digest),
+                &format!(
+                    "recomputed {actual} != envelope {}",
+                    self.ctx.expected_digest
+                ),
             ));
         }
         Ok(())
@@ -551,7 +590,10 @@ pub fn decrypt_stream(
     if ciphertext.len() != total {
         return Err(protocol(
             "segment_bounds_invalid",
-            &format!("ciphertext len={} != expected total {total}", ciphertext.len()),
+            &format!(
+                "ciphertext len={} != expected total {total}",
+                ciphertext.len()
+            ),
         ));
     }
 
@@ -587,7 +629,13 @@ pub fn encrypt_whole_file(
     let size_bytes = plaintext.len() as u64;
     let aad = whole_file_aad(&key_ref, &nonce_b64, &media_type, size_bytes)?;
     let ciphertext = cipher
-        .encrypt(&nonce.into(), Payload { msg: plaintext, aad: &aad })
+        .encrypt(
+            &nonce.into(),
+            Payload {
+                msg: plaintext,
+                aad: &aad,
+            },
+        )
         .map_err(|_| Error::Crypto("whole-file AEAD encryption failed".to_owned()))?;
 
     let envelope = EncryptedAttachmentEnvelope {
@@ -619,7 +667,10 @@ pub fn decrypt_whole_file(
     if env.scheme != SCHEME_WHOLE_FILE || env.alg != ALG_WHOLE_FILE_XCHACHA {
         return Err(protocol(
             "unsupported_attachment_scheme",
-            &format!("scheme={} alg={} not whole-file XChaCha20-Poly1305", env.scheme, env.alg),
+            &format!(
+                "scheme={} alg={} not whole-file XChaCha20-Poly1305",
+                env.scheme, env.alg
+            ),
         ));
     }
     let nonce_b64 = env
@@ -632,7 +683,10 @@ pub fn decrypt_whole_file(
     if actual_digest != env.ciphertext_digest {
         return Err(protocol(
             "digest_mismatch",
-            &format!("recomputed {actual_digest} != envelope {}", env.ciphertext_digest),
+            &format!(
+                "recomputed {actual_digest} != envelope {}",
+                env.ciphertext_digest
+            ),
         ));
     }
 
@@ -644,7 +698,13 @@ pub fn decrypt_whole_file(
     let cipher = cipher_from_key(content_key)?;
     let aad = whole_file_aad(&env.key_ref, nonce_b64, &env.media_type, env.size_bytes)?;
     cipher
-        .decrypt(&nonce.into(), Payload { msg: ciphertext, aad: &aad })
+        .decrypt(
+            &nonce.into(),
+            Payload {
+                msg: ciphertext,
+                aad: &aad,
+            },
+        )
         .map_err(|_| protocol("segment_aead_failed", "whole-file AEAD tag check failed"))
 }
 
@@ -894,14 +954,8 @@ mod tests {
     fn whole_file_roundtrip_and_closure() {
         let key = key();
         let p = b"the quick brown fox".to_vec();
-        let (ct, env) = encrypt_whole_file(
-            &p,
-            &key,
-            test_key_ref(),
-            7,
-            "text/plain".to_owned(),
-        )
-        .unwrap();
+        let (ct, env) =
+            encrypt_whole_file(&p, &key, test_key_ref(), 7, "text/plain".to_owned()).unwrap();
         assert_eq!(env.scheme, SCHEME_WHOLE_FILE);
         assert_eq!(env.alg, ALG_WHOLE_FILE_XCHACHA);
         assert!(env.nonce.is_some());
@@ -911,7 +965,10 @@ mod tests {
         let mut bad = env.clone();
         bad.ciphertext_digest =
             "sha256:1111111111111111111111111111111111111111111111111111111111111111".to_owned();
-        assert_eq!(reason(&decrypt_whole_file(&ct, &bad, &key).unwrap_err()), "digest_mismatch");
+        assert_eq!(
+            reason(&decrypt_whole_file(&ct, &bad, &key).unwrap_err()),
+            "digest_mismatch"
+        );
 
         // AES alg closure
         let mut bad = env.clone();
@@ -964,14 +1021,8 @@ mod tests {
         assert_eq!(value["encrypted"], true);
 
         // Whole-file envelope skips stream-only fields.
-        let (_ct, wf) = encrypt_whole_file(
-            b"x",
-            &key(),
-            test_key_ref(),
-            1,
-            "text/plain".to_owned(),
-        )
-        .unwrap();
+        let (_ct, wf) =
+            encrypt_whole_file(b"x", &key(), test_key_ref(), 1, "text/plain".to_owned()).unwrap();
         let value = serde_json::to_value(&wf).unwrap();
         assert!(value.get("nonce_prefix").is_none());
         assert!(value.get("segment_size").is_none());

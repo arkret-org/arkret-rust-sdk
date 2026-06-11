@@ -19,15 +19,13 @@
 
 use std::collections::BTreeMap;
 
-use crate::{
-    BottomKind, CellRef, LatticeOp, Move, MoveId, Predicate, PredicateOp, canonical,
-    lattice::CellState,
-};
 use serde::Deserialize;
 use serde_json::Value;
 use thiserror::Error;
 
 use super::store::{BottomMode, CellRegistry, StoreError};
+use crate::lattice::CellState;
+use crate::{BottomKind, CellRef, LatticeOp, Move, MoveId, Predicate, PredicateOp, canonical};
 
 #[derive(Debug, Error)]
 pub enum MoveReject {
@@ -90,8 +88,10 @@ where
     F: Fn(&[u8], &str, &str, &str) -> Result<(), String>,
 {
     // Step 1: structural
-    m.validate_id().map_err(|e| MoveReject::SchemaViolation(format!("id mismatch: {e}")))?;
-    m.validate_structural().map_err(|e| MoveReject::SchemaViolation(e.to_string()))?;
+    m.validate_id()
+        .map_err(|e| MoveReject::SchemaViolation(format!("id mismatch: {e}")))?;
+    m.validate_structural()
+        .map_err(|e| MoveReject::SchemaViolation(e.to_string()))?;
 
     // Step 2: signature
     let canonical_bytes = m
@@ -104,18 +104,28 @@ where
             m.sig.payload_digest, observed_hash
         )));
     }
-    verify_jws(&canonical_bytes, &m.sig.jws, &m.sig.verification_method, m.issuer.as_str())
-        .map_err(MoveReject::InvalidSignature)?;
+    verify_jws(
+        &canonical_bytes,
+        &m.sig.jws,
+        &m.sig.verification_method,
+        m.issuer.as_str(),
+    )
+    .map_err(MoveReject::InvalidSignature)?;
 
     // Step 3: capability.
     if m.issuer.as_str().is_empty() {
-        return Err(MoveReject::CapabilityDenied("issuer DID is empty".to_owned()));
+        return Err(MoveReject::CapabilityDenied(
+            "issuer DID is empty".to_owned(),
+        ));
     }
     verify_capability_refs(m, pre_state)?;
 
     // Step 4: preconditions
     for pre in &m.preconditions {
-        let cell_state = pre_state.get(&pre.cell).cloned().unwrap_or(CellState::Value(Value::Null));
+        let cell_state = pre_state
+            .get(&pre.cell)
+            .cloned()
+            .unwrap_or(CellState::Value(Value::Null));
         // bottom=reject cells fail closed.
         if let CellState::Bottom(b) = &cell_state {
             let binding = registry
@@ -172,9 +182,13 @@ struct CapabilityGrantCellValue {
 
 impl CapabilityGrantCellValue {
     fn grant_ids(&self) -> impl Iterator<Item = &str> {
-        [self.id.as_deref(), self.grant_id.as_deref(), self.capability_id.as_deref()]
-            .into_iter()
-            .flatten()
+        [
+            self.id.as_deref(),
+            self.grant_id.as_deref(),
+            self.capability_id.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
     }
 
     fn subject(&self) -> Option<&str> {
@@ -194,7 +208,11 @@ fn verify_capability_refs(
     m: &Move,
     pre_state: &BTreeMap<CellRef, CellState>,
 ) -> Result<(), MoveReject> {
-    for reference in m.refs.iter().filter(|reference| reference.role == AUTHORIZED_BY_ROLE) {
+    for reference in m
+        .refs
+        .iter()
+        .filter(|reference| reference.role == AUTHORIZED_BY_ROLE)
+    {
         let grant = find_capability_grant(reference.id.as_str(), pre_state)?;
         if grant.is_revoked() {
             return Err(MoveReject::CapabilityDenied(format!(
@@ -276,7 +294,9 @@ fn grant_from_cell_value(
     };
     for item in items {
         let tag_matches = item.get("tag").and_then(Value::as_str) == Some(grant_id);
-        let Some(raw_grant) = item.get("value").or(if tag_matches { Some(item) } else { None })
+        let Some(raw_grant) = item
+            .get("value")
+            .or(if tag_matches { Some(item) } else { None })
         else {
             continue;
         };
@@ -351,10 +371,12 @@ fn evaluate_predicate(
                 ));
             };
             let observed_arr =
-                observed.as_array().ok_or_else(|| MoveReject::FailedPrecondition {
-                    cell: cell.as_str().to_owned(),
-                    reason: format!("contains: observed value is not an array: {observed}"),
-                })?;
+                observed
+                    .as_array()
+                    .ok_or_else(|| MoveReject::FailedPrecondition {
+                        cell: cell.as_str().to_owned(),
+                        reason: format!("contains: observed value is not an array: {observed}"),
+                    })?;
             for needle in needles {
                 if !observed_arr.iter().any(|item| {
                     item == needle
@@ -390,14 +412,14 @@ pub type MoveRejectMap = BTreeMap<MoveId, MoveReject>;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        CellRef, Effect, LatticeOp, LatticeOpType, Precondition, PredicateOp, RealmId, SemanticRef,
-        lattice::CellState,
-    };
     use serde_json::json;
 
+    use super::*;
+    use crate::lattice::CellState;
     use crate::state::store::memory::MemoryCellRegistry;
+    use crate::{
+        CellRef, Effect, LatticeOp, LatticeOpType, Precondition, PredicateOp, RealmId, SemanticRef,
+    };
 
     fn Realm() -> RealmId {
         RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
@@ -460,7 +482,11 @@ mod tests {
     }
 
     fn authorized_ref(id: &str) -> SemanticRef {
-        SemanticRef { id: id.to_owned(), role: AUTHORIZED_BY_ROLE.to_owned(), critical: true }
+        SemanticRef {
+            id: id.to_owned(),
+            role: AUTHORIZED_BY_ROLE.to_owned(),
+            critical: true,
+        }
     }
 
     fn grant_cell_state(grant_id: &str, subject: &str) -> CellState {
@@ -552,7 +578,10 @@ mod tests {
         };
         let m = build_move_with_refs(vec![], vec![eff], vec![authorized_ref(grant_id)]);
         let mut pre_state = BTreeMap::new();
-        pre_state.insert(cell_capability_grant(), grant_cell_state(grant_id, m.issuer.as_str()));
+        pre_state.insert(
+            cell_capability_grant(),
+            grant_cell_state(grant_id, m.issuer.as_str()),
+        );
 
         verify_move(&m, &pre_state, &MemoryCellRegistry::new(), ok_jws).unwrap();
     }
@@ -576,7 +605,10 @@ mod tests {
         let err =
             verify_move(&m, &BTreeMap::new(), &MemoryCellRegistry::new(), ok_jws).unwrap_err();
         assert!(matches!(err, MoveReject::CapabilityDenied(_)));
-        assert_eq!(reject_to_error_code(&err), crate::ERROR_CODE_CAPABILITY_DENIED);
+        assert_eq!(
+            reject_to_error_code(&err),
+            crate::ERROR_CODE_CAPABILITY_DENIED
+        );
     }
 
     #[test]
@@ -596,8 +628,10 @@ mod tests {
         };
         let m = build_move_with_refs(vec![], vec![eff], vec![authorized_ref(grant_id)]);
         let mut pre_state = BTreeMap::new();
-        pre_state
-            .insert(cell_capability_grant(), grant_cell_state(grant_id, "did:web:bob.example"));
+        pre_state.insert(
+            cell_capability_grant(),
+            grant_cell_state(grant_id, "did:web:bob.example"),
+        );
 
         let err = verify_move(&m, &pre_state, &MemoryCellRegistry::new(), ok_jws).unwrap_err();
         assert!(matches!(err, MoveReject::CapabilityDenied(_)));
@@ -668,7 +702,8 @@ mod tests {
 
     #[test]
     fn effect_shape_failure_rejects() {
-        // FSM cell with disallowed transition: invited -> ban (not in MemoryCellRegistry's allowed set).
+        // FSM cell with disallowed transition: invited -> ban (not in MemoryCellRegistry's allowed
+        // set).
         let eff = Effect {
             cell: cell_member(),
             op: LatticeOp {
@@ -693,7 +728,10 @@ mod tests {
         // by going through serde_json::from_value with a hand-built Move.id).
         // Easier: just test reject_to_error_code mapping.
         let r = MoveReject::CapabilityDenied("test".into());
-        assert_eq!(reject_to_error_code(&r), crate::ERROR_CODE_CAPABILITY_DENIED);
+        assert_eq!(
+            reject_to_error_code(&r),
+            crate::ERROR_CODE_CAPABILITY_DENIED
+        );
     }
 
     #[test]

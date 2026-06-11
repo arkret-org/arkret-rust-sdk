@@ -7,9 +7,11 @@
 //! - Realm-scoped pseudonymous node id derivation (`encoding.md` §7)
 //! - Monotonic HLC generation
 
-use crate::{Error, Hlc as HlcType, Result};
-use sha2::{Digest, Sha256};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use sha2::{Digest, Sha256};
+
+use crate::{Error, Hlc as HlcType, Result};
 
 /// Validate HLC format according to Cokret v1 spec.
 ///
@@ -78,7 +80,11 @@ impl HlcGenerator {
         let node_id = Self::compute_node_id(realm_id, device_id, local_node_secret);
         let physical = Self::current_time_ms();
 
-        Self { physical, logical: 0, node_id }
+        Self {
+            physical,
+            logical: 0,
+            node_id,
+        }
     }
 
     /// Create a new HLC generator with a custom initial time.
@@ -93,7 +99,11 @@ impl HlcGenerator {
     ) -> Self {
         let node_id = Self::compute_node_id(realm_id, device_id, local_node_secret);
 
-        Self { physical: initial_time_ms, logical: 0, node_id }
+        Self {
+            physical: initial_time_ms,
+            logical: 0,
+            node_id,
+        }
     }
 
     /// Generate the next HLC value.
@@ -212,7 +222,10 @@ impl HlcGenerator {
 
     /// Format current HLC as string.
     fn format(&self) -> String {
-        format!("{:012x}-{:04x}-{}", self.physical, self.logical, self.node_id)
+        format!(
+            "{:012x}-{:04x}-{}",
+            self.physical, self.logical, self.node_id
+        )
     }
 
     /// Spin iterations before falling back to 1 ms sleeps in
@@ -274,7 +287,10 @@ pub fn parse_hlc(hlc: &str) -> Result<HlcComponents> {
 
     let parts: Vec<&str> = hlc.split('-').collect();
     if parts.len() != 3 {
-        return Err(Error::InvalidId(format!("invalid HLC: wrong number of parts: {}", hlc)));
+        return Err(Error::InvalidId(format!(
+            "invalid HLC: wrong number of parts: {}",
+            hlc
+        )));
     }
 
     let physical_ms = u64::from_str_radix(parts[0], 16)
@@ -285,7 +301,11 @@ pub fn parse_hlc(hlc: &str) -> Result<HlcComponents> {
 
     let node_id = parts[2].to_owned();
 
-    Ok(HlcComponents { physical_ms, logical, node_id })
+    Ok(HlcComponents {
+        physical_ms,
+        logical,
+        node_id,
+    })
 }
 
 /// Compare two HLC values.
@@ -391,7 +411,12 @@ mod tests {
 
     #[test]
     fn hlc_generator_creates_monotonic_sequence() {
-        let mut hlc_gen = HlcGenerator::with_initial_time("ck:realm:01904100-0000-7000-8000-9b64700c6ee8", "device-1", b"test-secret", 0x01970e589d21);
+        let mut hlc_gen = HlcGenerator::with_initial_time(
+            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "device-1",
+            b"test-secret",
+            0x01970e589d21,
+        );
 
         let hlc1 = hlc_gen.generate();
         let hlc2 = hlc_gen.generate();
@@ -403,7 +428,12 @@ mod tests {
 
     #[test]
     fn hlc_generator_handles_clock_rollback() {
-        let mut hlc_gen = HlcGenerator::with_initial_time("ck:realm:01904100-0000-7000-8000-9b64700c6ee8", "device-1", b"test-secret", 0x01970e589d21);
+        let mut hlc_gen = HlcGenerator::with_initial_time(
+            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "device-1",
+            b"test-secret",
+            0x01970e589d21,
+        );
 
         // Generate several HLCs - they should be monotonically increasing
         let hlc1 = hlc_gen.generate();
@@ -416,7 +446,12 @@ mod tests {
 
     #[test]
     fn hlc_generator_advances_with_remote() {
-        let mut hlc_gen = HlcGenerator::with_initial_time("ck:realm:01904100-0000-7000-8000-9b64700c6ee8", "device-1", b"test-secret", 0x01970e589d21);
+        let mut hlc_gen = HlcGenerator::with_initial_time(
+            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "device-1",
+            b"test-secret",
+            0x01970e589d21,
+        );
 
         let remote = HlcType::new("01970e589d22-0005-a13f9c2e").unwrap();
         let hlc = hlc_gen.generate_with_remote(&remote).unwrap();
@@ -427,7 +462,11 @@ mod tests {
 
     #[test]
     fn hlc_generator_rejects_future_hlc_beyond_skew() {
-        let hlc_gen = HlcGenerator::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8", "device-1", b"test-secret");
+        let hlc_gen = HlcGenerator::new(
+            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "device-1",
+            b"test-secret",
+        );
 
         // Create HLC far in the future (> 5 minutes)
         // MAX_SKEW_MS is 5 minutes in milliseconds, so we add more than that
@@ -470,21 +509,35 @@ mod tests {
         let past = format!("{:012x}-0001-a13f9c2e", current - 60000); // 1 minute ago
 
         assert!(time_until_hlc(&future, current).is_some());
-        assert_eq!(time_until_hlc(&future, current).unwrap(), Duration::from_secs(60));
+        assert_eq!(
+            time_until_hlc(&future, current).unwrap(),
+            Duration::from_secs(60)
+        );
         assert!(time_until_hlc(&past, current).is_none());
     }
 
     #[test]
     fn hlc_formats_with_fixed_width() {
-        let mut hlc_gen = HlcGenerator::with_initial_time("ck:realm:01904100-0000-7000-8000-9b64700c6ee8", "device-1", b"test-secret", 1);
+        let mut hlc_gen = HlcGenerator::with_initial_time(
+            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "device-1",
+            b"test-secret",
+            1,
+        );
 
         let hlc = hlc_gen.generate();
         assert_eq!(hlc.as_str().len(), 26); // 12 + 1 + 4 + 1 + 8
         // All characters should be hex digits (0-9, a-f) or dash (-)
-        assert!(hlc.as_str().chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
+        assert!(
+            hlc.as_str()
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() || c == '-')
+        );
         // And specifically lowercase (no uppercase A-F)
         assert!(
-            hlc.as_str().chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+            hlc.as_str()
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
         );
     }
 

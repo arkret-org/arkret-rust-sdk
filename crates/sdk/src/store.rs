@@ -12,14 +12,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::{
-    BlobRef, Did, Error, Event, EventId, RealmId, Result,
-    auth::AuthSession,
-    crypto,
-    e2ee::AuditEntry,
-    model::BlobMetadata,
-    resolver::{RealmState, SnapshotRestore, StateSnapshot},
-};
+use crate::auth::AuthSession;
+use crate::e2ee::AuditEntry;
+use crate::model::BlobMetadata;
+use crate::resolver::{RealmState, SnapshotRestore, StateSnapshot};
+use crate::{BlobRef, Did, Error, Event, EventId, RealmId, Result, crypto};
 
 pub trait StateSnapshotStore: Send + Sync {
     fn put_state_snapshot(&mut self, snapshot: StateSnapshot) -> Result<()>;
@@ -156,8 +153,12 @@ impl EventCacheStore for MemoryPersistenceStore {
         }
 
         let realm_scope = RealmId::new(event.realm_id.to_string())?;
-        self.event_index.insert(event.event_id.clone(), realm_scope.clone());
-        self.events.entry(realm_scope).or_default().insert(event.event_id.clone(), (digest, event));
+        self.event_index
+            .insert(event.event_id.clone(), realm_scope.clone());
+        self.events
+            .entry(realm_scope)
+            .or_default()
+            .insert(event.event_id.clone(), (digest, event));
         Ok(())
     }
 
@@ -219,12 +220,14 @@ impl AccountSessionStore for MemoryPersistenceStore {
     }
 
     fn put_account_data(&mut self, data: StoredAccountData) -> Result<()> {
-        self.account_data.insert((data.principal_id.clone(), data.data_type.clone()), data);
+        self.account_data
+            .insert((data.principal_id.clone(), data.data_type.clone()), data);
         Ok(())
     }
 
     fn account_data(&self, principal_id: &Did, data_type: &str) -> Option<&StoredAccountData> {
-        self.account_data.get(&(principal_id.clone(), data_type.to_owned()))
+        self.account_data
+            .get(&(principal_id.clone(), data_type.to_owned()))
     }
 }
 
@@ -235,14 +238,17 @@ impl BlobMetadataStore for MemoryPersistenceStore {
             Some((existing_digest, _)) if existing_digest == &digest => Ok(()),
             Some(_) => Err(Error::IdempotencyConflict(metadata.blob_ref.to_string())),
             None => {
-                self.blob_metadata.insert(metadata.blob_ref.clone(), (digest, metadata));
+                self.blob_metadata
+                    .insert(metadata.blob_ref.clone(), (digest, metadata));
                 Ok(())
             }
         }
     }
 
     fn blob_metadata(&self, blob_ref: &BlobRef) -> Option<&BlobMetadata> {
-        self.blob_metadata.get(blob_ref).map(|(_, metadata)| metadata)
+        self.blob_metadata
+            .get(blob_ref)
+            .map(|(_, metadata)| metadata)
     }
 }
 
@@ -263,7 +269,8 @@ impl FederationReplayStore for MemoryPersistenceStore {
             Some(existing) if existing == &record => Ok(()),
             Some(_) => Err(Error::IdempotencyConflict(record.transaction_id)),
             None => {
-                self.federation_replay.insert(record.transaction_id.clone(), record);
+                self.federation_replay
+                    .insert(record.transaction_id.clone(), record);
                 Ok(())
             }
         }
@@ -278,7 +285,11 @@ pub fn rebuild_realm_state_from_events<S>(store: &S, realm_id: &RealmId) -> Resu
 where
     S: EventCacheStore,
 {
-    let events: Vec<Event> = store.events_for_realm(realm_id).into_iter().cloned().collect();
+    let events: Vec<Event> = store
+        .events_for_realm(realm_id)
+        .into_iter()
+        .cloned()
+        .collect();
     let mut state = RealmState::new(realm_id.clone());
     state.apply_events(&events)?;
     Ok(state)
@@ -291,7 +302,11 @@ pub fn restore_realm_state_from_persistence<S>(
 where
     S: EventCacheStore + StateSnapshotStore,
 {
-    let events: Vec<Event> = store.events_for_realm(realm_id).into_iter().cloned().collect();
+    let events: Vec<Event> = store
+        .events_for_realm(realm_id)
+        .into_iter()
+        .cloned()
+        .collect();
     RealmState::restore_snapshot_or_replay(
         store.state_snapshot(realm_id).cloned(),
         realm_id.clone(),
@@ -318,7 +333,11 @@ where
 {
     /// Create a cache with a fixed capacity.
     pub fn new(capacity: usize) -> Self {
-        Self { capacity, entries: BTreeMap::new(), order: VecDeque::new() }
+        Self {
+            capacity,
+            entries: BTreeMap::new(),
+            order: VecDeque::new(),
+        }
     }
 
     /// Insert a value.
@@ -357,9 +376,9 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use crate::resolver::SnapshotRestoreSource;
     use crate::{
         AuditAction, BLOB_SCHEMA, BlobRef, DeviceId, Did, EventId, Hlc, ObjectState, RealmId,
-        resolver::SnapshotRestoreSource,
     };
 
     fn morph_event(event_id: &str, title: &str) -> Event {
@@ -420,7 +439,10 @@ mod tests {
     #[test]
     fn projection_rebuild_helpers_replay_event_cache_and_use_valid_snapshot() {
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-        let event = morph_event("ck:event:01904100-0000-7000-8000-ec26a4d295c0", "Stored task");
+        let event = morph_event(
+            "ck:event:01904100-0000-7000-8000-ec26a4d295c0",
+            "Stored task",
+        );
         let mut store = MemoryPersistenceStore::new();
         store.put_event(event.clone()).unwrap();
         store.put_event(event.clone()).unwrap();
@@ -438,12 +460,19 @@ mod tests {
                 "created_at": "2026-05-02T00:00:00.000Z"
             }
         });
-        assert!(matches!(store.put_event(conflicting), Err(Error::IdempotencyConflict(_))));
+        assert!(matches!(
+            store.put_event(conflicting),
+            Err(Error::IdempotencyConflict(_))
+        ));
 
         let state = rebuild_realm_state_from_events(&store, &realm_id).unwrap();
         assert_eq!(state.morphs.len(), 1);
         assert_eq!(
-            state.morphs.get("ck:morph:01904100-0000-7000-8000-b7a4e10c8c77").unwrap().state,
+            state
+                .morphs
+                .get("ck:morph:01904100-0000-7000-8000-b7a4e10c8c77")
+                .unwrap()
+                .state,
             Some(ObjectState::Active)
         );
 
@@ -484,7 +513,10 @@ mod tests {
             })
             .unwrap();
         assert_eq!(
-            store.account_data(&principal_id, "settings").unwrap().content,
+            store
+                .account_data(&principal_id, "settings")
+                .unwrap()
+                .content,
             json!({"theme": "dark"})
         );
 

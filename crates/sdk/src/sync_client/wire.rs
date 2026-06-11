@@ -25,7 +25,11 @@ pub enum EventsSubscribeFrame {
     /// Carrying one Event Envelope. `seq` is monotonic per stream; `cursor`
     /// is the resume token for this exact event.
     #[serde(rename = "event")]
-    Event { seq: u64, cursor: String, payload: Value },
+    Event {
+        seq: u64,
+        cursor: String,
+        payload: Value,
+    },
     /// Server fell behind; client MUST reset its cursor and re-issue
     /// `events.query` (or fresh `events.subscribe`) starting at
     /// `recovery_from`. Optional `reason` is human-readable.
@@ -310,6 +314,8 @@ pub struct EventsQueryOutcome {
     #[serde(default)]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snapshot_bootstrap: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prev_cursor: Option<String>,
@@ -325,6 +331,7 @@ impl From<cokret_core::SyncBackfillOutcome> for EventsQueryOutcome {
     fn from(r: cokret_core::SyncBackfillOutcome) -> Self {
         Self {
             events: r.events,
+            snapshot_bootstrap: r.snapshot_bootstrap,
             next_cursor: r.next_cursor,
             prev_cursor: r.prev_cursor,
             limited: r.limited,
@@ -336,6 +343,7 @@ impl From<EventsQueryOutcome> for cokret_core::SyncBackfillOutcome {
     fn from(r: EventsQueryOutcome) -> Self {
         Self {
             events: r.events,
+            snapshot_bootstrap: r.snapshot_bootstrap,
             next_cursor: r.next_cursor,
             prev_cursor: r.prev_cursor,
             limited: r.limited,

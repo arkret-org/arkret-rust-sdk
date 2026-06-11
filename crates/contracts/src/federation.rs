@@ -108,7 +108,9 @@ where
         if expected == self.content_digest {
             Ok(())
         } else {
-            Err(Error::Protocol("federation envelope content digest mismatch".to_owned()))
+            Err(Error::Protocol(
+                "federation envelope content digest mismatch".to_owned(),
+            ))
         }
     }
 }
@@ -234,10 +236,14 @@ pub struct FederationBackfillQuery {
 impl FederationBackfillQuery {
     pub fn validate(&self) -> Result<()> {
         if self.limit == 0 {
-            return Err(Error::Protocol("federation backfill limit must be non-zero".to_owned()));
+            return Err(Error::Protocol(
+                "federation backfill limit must be non-zero".to_owned(),
+            ));
         }
         if !self.authorization.is_authorized() {
-            return Err(Error::Protocol("federation backfill is not authorized".to_owned()));
+            return Err(Error::Protocol(
+                "federation backfill is not authorized".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -294,7 +300,9 @@ pub struct FederationKeyQuery {
 impl FederationKeyQuery {
     pub fn validate(&self) -> Result<()> {
         if self.services.is_empty() && self.users.is_empty() {
-            Err(Error::Protocol("federation key query requires service or user ids".to_owned()))
+            Err(Error::Protocol(
+                "federation key query requires service or user ids".to_owned(),
+            ))
         } else {
             Ok(())
         }
@@ -393,9 +401,18 @@ mod tests {
             Hash::new("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
                 .unwrap();
         let mut store = MemoryFederationReplayStore::default();
-        assert_eq!(store.remember("txn", digest.clone()), FederationReplayDecision::AcceptedNew);
-        assert_eq!(store.remember("txn", digest), FederationReplayDecision::AcceptedDuplicate);
-        assert_eq!(store.remember("txn", other), FederationReplayDecision::QuarantinedConflict);
+        assert_eq!(
+            store.remember("txn", digest.clone()),
+            FederationReplayDecision::AcceptedNew
+        );
+        assert_eq!(
+            store.remember("txn", digest),
+            FederationReplayDecision::AcceptedDuplicate
+        );
+        assert_eq!(
+            store.remember("txn", other),
+            FederationReplayDecision::QuarantinedConflict
+        );
     }
 
     #[test]
@@ -431,10 +448,19 @@ mod tests {
         .unwrap();
 
         assert!(matches!(
-            FederationKeyQuery { services: Vec::new(), users: Vec::new() }.validate(),
+            FederationKeyQuery {
+                services: Vec::new(),
+                users: Vec::new()
+            }
+            .validate(),
             Err(Error::Protocol(_))
         ));
-        FederationKeyQuery { services: vec![did("server")], users: Vec::new() }.validate().unwrap();
+        FederationKeyQuery {
+            services: vec![did("server")],
+            users: Vec::new(),
+        }
+        .validate()
+        .unwrap();
 
         FederationMediaOutcome {
             blob_ref: BlobRef::from_bytes(b"media"),
@@ -458,6 +484,9 @@ mod tests {
             accepted: Vec::new(),
             rejected: vec![json!({"reason": "bad_signature"})],
         };
-        assert_eq!(serde_json::to_value(batch).unwrap()["rejected"][0]["reason"], "bad_signature");
+        assert_eq!(
+            serde_json::to_value(batch).unwrap()["rejected"][0]["reason"],
+            "bad_signature"
+        );
     }
 }

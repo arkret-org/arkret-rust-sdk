@@ -75,8 +75,14 @@ fn vector_sign_entry(mut entry: Value, signing_key: &SigningKey) -> Value {
     let signature = signing_key.sign(&signing_input).to_bytes();
     let proof_value = format!("z{}", encode_base58btc(&signature));
     let mut proof = proof_config;
-    proof.as_object_mut().unwrap().insert("proofValue".to_owned(), json!(proof_value));
-    entry.as_object_mut().unwrap().insert("proof".to_owned(), json!([proof]));
+    proof
+        .as_object_mut()
+        .unwrap()
+        .insert("proofValue".to_owned(), json!(proof_value));
+    entry
+        .as_object_mut()
+        .unwrap()
+        .insert("proof".to_owned(), json!([proof]));
     entry
 }
 
@@ -108,7 +114,10 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
     });
     let hash1 = vector_multihash(&entry1_body);
     let version1 = format!("1-{hash1}");
-    entry1_body.as_object_mut().unwrap().insert("versionId".to_owned(), json!(version1));
+    entry1_body
+        .as_object_mut()
+        .unwrap()
+        .insert("versionId".to_owned(), json!(version1));
     let entry1 = vector_sign_entry(entry1_body, key1);
 
     // --- entry 2: rotates updateKeys to key2, signed by key1 (authorized
@@ -121,7 +130,10 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
     });
     let hash2 = vector_multihash(&entry2_body);
     let version2 = format!("2-{hash2}");
-    entry2_body.as_object_mut().unwrap().insert("versionId".to_owned(), json!(version2));
+    entry2_body
+        .as_object_mut()
+        .unwrap()
+        .insert("versionId".to_owned(), json!(version2));
     let entry2 = vector_sign_entry(entry2_body, key1);
 
     let body = format!(
@@ -159,9 +171,17 @@ fn webvh_accepts_valid_signed_log_with_key_rotation() {
     let key2 = SigningKey::from_bytes(&[9u8; 32]);
     let (did, body) = vector_valid_log(&key1, &key2);
     let mut resolver = DidWebvhResolver::new();
-    let log = resolver.ingest_log(&did, vector_log_response(&did, body)).unwrap();
+    let log = resolver
+        .ingest_log(&did, vector_log_response(&did, body))
+        .unwrap();
     assert_eq!(log.len(), 2);
-    assert!(resolver.latest_entry(&did).unwrap().version_id.starts_with("2-"));
+    assert!(
+        resolver
+            .latest_entry(&did)
+            .unwrap()
+            .version_id
+            .starts_with("2-")
+    );
 }
 
 #[test]
@@ -181,10 +201,17 @@ fn webvh_rejects_forged_proof_signature() {
     lines[0].as_object_mut().unwrap()["proof"][0]
         .as_object_mut()
         .unwrap()
-        .insert("proofValue".to_owned(), json!(format!("z{}", encode_base58btc(&bad_sig))));
+        .insert(
+            "proofValue".to_owned(),
+            json!(format!("z{}", encode_base58btc(&bad_sig))),
+        );
     let tampered = format!("{}\n{}\n", lines[0], lines[1]).into_bytes();
     let mut resolver = DidWebvhResolver::new();
-    assert!(resolver.ingest_log(&did, vector_log_response(&did, tampered)).is_err());
+    assert!(
+        resolver
+            .ingest_log(&did, vector_log_response(&did, tampered))
+            .is_err()
+    );
 }
 
 #[test]
@@ -198,11 +225,20 @@ fn webvh_rejects_proof_value_tampering() {
         .map(|l| serde_json::from_slice(l).unwrap())
         .collect();
     // Mutate one base58 character of the proofValue (bit-flip in signature).
-    let pv = lines[0]["proof"][0]["proofValue"].as_str().unwrap().to_owned();
+    let pv = lines[0]["proof"][0]["proofValue"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     let mutated: String = pv
         .chars()
         .enumerate()
-        .map(|(i, c)| if i == pv.len() - 1 { if c == 'a' { 'b' } else { 'a' } } else { c })
+        .map(|(i, c)| {
+            if i == pv.len() - 1 {
+                if c == 'a' { 'b' } else { 'a' }
+            } else {
+                c
+            }
+        })
         .collect();
     lines[0].as_object_mut().unwrap()["proof"][0]
         .as_object_mut()
@@ -210,7 +246,11 @@ fn webvh_rejects_proof_value_tampering() {
         .insert("proofValue".to_owned(), json!(mutated));
     let tampered = format!("{}\n{}\n", lines[0], lines[1]).into_bytes();
     let mut resolver = DidWebvhResolver::new();
-    assert!(resolver.ingest_log(&did, vector_log_response(&did, tampered)).is_err());
+    assert!(
+        resolver
+            .ingest_log(&did, vector_log_response(&did, tampered))
+            .is_err()
+    );
 }
 
 #[test]
@@ -224,10 +264,17 @@ fn webvh_rejects_state_tampering_breaks_entry_hash() {
         .map(|l| serde_json::from_slice(l).unwrap())
         .collect();
     // Tamper the document state — versionId hash no longer commits to it.
-    lines[0].as_object_mut().unwrap().insert("state".to_owned(), json!({ "id": "did:evil" }));
+    lines[0]
+        .as_object_mut()
+        .unwrap()
+        .insert("state".to_owned(), json!({ "id": "did:evil" }));
     let tampered = format!("{}\n{}\n", lines[0], lines[1]).into_bytes();
     let mut resolver = DidWebvhResolver::new();
-    assert!(resolver.ingest_log(&did, vector_log_response(&did, tampered)).is_err());
+    assert!(
+        resolver
+            .ingest_log(&did, vector_log_response(&did, tampered))
+            .is_err()
+    );
 }
 
 #[test]
@@ -238,7 +285,11 @@ fn webvh_rejects_wrong_scid_in_did() {
     // Resolve against a DID whose SCID does not derive from the log.
     let wrong = Did::new("did:webvh:zNOTtheRealScid:starid.local:users:alice").unwrap();
     let mut resolver = DidWebvhResolver::new();
-    assert!(resolver.ingest_log(&wrong, vector_log_response(&wrong, body)).is_err());
+    assert!(
+        resolver
+            .ingest_log(&wrong, vector_log_response(&wrong, body))
+            .is_err()
+    );
 }
 
 #[test]
@@ -269,7 +320,9 @@ fn webvh_rejects_unauthorized_key_rotation() {
         "state": state.clone(),
     });
     let v1 = format!("1-{}", vector_multihash(&e1));
-    e1.as_object_mut().unwrap().insert("versionId".to_owned(), json!(v1));
+    e1.as_object_mut()
+        .unwrap()
+        .insert("versionId".to_owned(), json!(v1));
     let entry1 = vector_sign_entry(e1, &key1);
 
     let mut e2 = json!({
@@ -279,7 +332,9 @@ fn webvh_rejects_unauthorized_key_rotation() {
         "state": state,
     });
     let v2 = format!("2-{}", vector_multihash(&e2));
-    e2.as_object_mut().unwrap().insert("versionId".to_owned(), json!(v2));
+    e2.as_object_mut()
+        .unwrap()
+        .insert("versionId".to_owned(), json!(v2));
     // Signed by attacker, NOT authorized by entry 1's updateKeys.
     let entry2 = vector_sign_entry(e2, &attacker);
 
@@ -290,7 +345,11 @@ fn webvh_rejects_unauthorized_key_rotation() {
     )
     .into_bytes();
     let mut resolver = DidWebvhResolver::new();
-    assert!(resolver.ingest_log(&did, vector_log_response(&did, body)).is_err());
+    assert!(
+        resolver
+            .ingest_log(&did, vector_log_response(&did, body))
+            .is_err()
+    );
 }
 
 #[test]
@@ -303,10 +362,17 @@ fn webvh_rejects_missing_proof() {
         .filter(|c| !c.is_empty())
         .map(|l| serde_json::from_slice(l).unwrap())
         .collect();
-    lines[1].as_object_mut().unwrap().insert("proof".to_owned(), json!([]));
+    lines[1]
+        .as_object_mut()
+        .unwrap()
+        .insert("proof".to_owned(), json!([]));
     let tampered = format!("{}\n{}\n", lines[0], lines[1]).into_bytes();
     let mut resolver = DidWebvhResolver::new();
-    assert!(resolver.ingest_log(&did, vector_log_response(&did, tampered)).is_err());
+    assert!(
+        resolver
+            .ingest_log(&did, vector_log_response(&did, tampered))
+            .is_err()
+    );
 }
 
 #[test]
@@ -314,11 +380,19 @@ fn identity_resolves_validates_rotates_and_migrates_dids() {
     let alice = did("alice");
     let alice_v2 = did("alice-v2");
     let mut manager = IdentityManager::new();
-    manager.upsert_document(DidDocument::new(alice.clone(), "key-1", "pubkey-1")).unwrap();
+    manager
+        .upsert_document(DidDocument::new(alice.clone(), "key-1", "pubkey-1"))
+        .unwrap();
 
     assert!(manager.resolve(&alice).unwrap().validate().is_ok());
     manager.rotate_key(&alice, "key-2", "pubkey-2").unwrap();
-    assert!(manager.resolve(&alice).unwrap().verification_methods.contains_key("key-2"));
+    assert!(
+        manager
+            .resolve(&alice)
+            .unwrap()
+            .verification_methods
+            .contains_key("key-2")
+    );
 
     manager.migrate_did(alice, alice_v2, "proof");
     assert_eq!(manager.migrations().len(), 1);
@@ -333,7 +407,9 @@ fn identity_binds_validates_and_attests_handles() {
     let claim = manager.bind_handle("@Alice", alice.clone());
     let proof = handle_claim_proof("alice", &alice, &claim.challenge);
     manager.validate_handle_claim("alice", &proof).unwrap();
-    manager.attest_handle("alice", issuer, "attestation").unwrap();
+    manager
+        .attest_handle("alice", issuer, "attestation")
+        .unwrap();
 
     let claim = manager.handle_claim("@alice").unwrap();
     assert!(claim.verified);
@@ -347,7 +423,10 @@ fn handle_external_proof_profiles_validate_dns_and_well_known_shapes() {
     let handle = "alice@example.com";
     let proof = handle_claim_proof(handle, &alice, challenge);
 
-    assert_eq!(handle_dns_txt_name(handle).unwrap(), "_cokret-handle.alice.example.com");
+    assert_eq!(
+        handle_dns_txt_name(handle).unwrap(),
+        "_cokret-handle.alice.example.com"
+    );
     assert_eq!(
         handle_well_known_url(handle).unwrap(),
         "https://example.com/.well-known/cokret/handle/alice.json"
@@ -382,9 +461,13 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
     let key = Did::new("did:key:z6MkeTG3bFFSLYVU7VqhgZxqr6YzpaGrQtFMh1uvqGy1vDnP").unwrap();
 
     let mut web_resolver = DidWebResolver::new();
-    web_resolver.insert(DidDocument::new(web.clone(), "owner", "web-key")).unwrap();
+    web_resolver
+        .insert(DidDocument::new(web.clone(), "owner", "web-key"))
+        .unwrap();
     let mut keri_resolver = DidKeriResolver::new();
-    keri_resolver.insert(DidDocument::new(keri.clone(), "inception", "keri-key")).unwrap();
+    keri_resolver
+        .insert(DidDocument::new(keri.clone(), "inception", "keri-key"))
+        .unwrap();
 
     assert_eq!(
         DidWebResolver::document_url(&web).unwrap(),
@@ -441,8 +524,14 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
     resolver.push(keri_resolver);
     resolver.push(DidKeyResolver::new());
 
-    assert_eq!(resolver.resolve_did(&web).unwrap().verification_methods["owner"], "web-key");
-    assert_eq!(resolver.resolve_did(&keri).unwrap().verification_methods["inception"], "keri-key");
+    assert_eq!(
+        resolver.resolve_did(&web).unwrap().verification_methods["owner"],
+        "web-key"
+    );
+    assert_eq!(
+        resolver.resolve_did(&keri).unwrap().verification_methods["inception"],
+        "keri-key"
+    );
 
     let key_doc = resolver.resolve_did(&key).unwrap();
     assert_eq!(key_doc.id, key);
@@ -451,7 +540,11 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
             .verification_methods
             .contains_key("did:key:z6MkeTG3bFFSLYVU7VqhgZxqr6YzpaGrQtFMh1uvqGy1vDnP#z6MkeTG3bFFSLYVU7VqhgZxqr6YzpaGrQtFMh1uvqGy1vDnP")
     );
-    assert!(DidKeyResolver::new().resolve_did(&Did::new("did:key:z1111").unwrap()).is_err());
+    assert!(
+        DidKeyResolver::new()
+            .resolve_did(&Did::new("did:key:z1111").unwrap())
+            .is_err()
+    );
 }
 
 #[test]
@@ -468,8 +561,15 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
         ))
         .unwrap();
 
-    let event =
-        crate::Event::new("ck.test.event", realm(), actor, 1, hlc(), json!({"ok": true})).unwrap();
+    let event = crate::Event::new(
+        "ck.test.event",
+        realm(),
+        actor,
+        1,
+        hlc(),
+        json!({"ok": true}),
+    )
+    .unwrap();
     let builder = cokret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(&event).unwrap();
     let mut proof = crate::Proof {
@@ -507,9 +607,15 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
         ))
         .unwrap();
 
-    let mut event =
-        crate::Event::new("ck.test.event", realm(), controller, 1, hlc(), json!({"ok": true}))
-            .unwrap();
+    let mut event = crate::Event::new(
+        "ck.test.event",
+        realm(),
+        controller,
+        1,
+        hlc(),
+        json!({"ok": true}),
+    )
+    .unwrap();
     event.executed_by = Some(bridge);
     event.authorization_ref = Some("ck:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
     let builder = cokret_signatures::EventProofBuilder::new();
@@ -549,7 +655,10 @@ fn did_key_log_verifies_schema_shaped_chain() {
         .unwrap();
 
     let mut body = serde_json::Map::new();
-    body.insert("update_keys".to_owned(), json!([vector_update_key(&signing_key)]));
+    body.insert(
+        "update_keys".to_owned(),
+        json!([vector_update_key(&signing_key)]),
+    );
 
     let mut inception = DidKeyLogEntry::build(
         alice.clone(),
@@ -560,7 +669,9 @@ fn did_key_log_verifies_schema_shaped_chain() {
         Utc::now(),
     )
     .unwrap();
-    inception.attach_controller_proof(&signing_key, &verification_method).unwrap();
+    inception
+        .attach_controller_proof(&signing_key, &verification_method)
+        .unwrap();
 
     let mut rotate = DidKeyLogEntry::build(
         alice.clone(),
@@ -571,7 +682,9 @@ fn did_key_log_verifies_schema_shaped_chain() {
         Utc::now(),
     )
     .unwrap();
-    rotate.attach_controller_proof(&signing_key, &verification_method).unwrap();
+    rotate
+        .attach_controller_proof(&signing_key, &verification_method)
+        .unwrap();
 
     let mut deactivate = DidKeyLogEntry::build(
         alice.clone(),
@@ -582,7 +695,9 @@ fn did_key_log_verifies_schema_shaped_chain() {
         Utc::now(),
     )
     .unwrap();
-    deactivate.attach_controller_proof(&signing_key, &verification_method).unwrap();
+    deactivate
+        .attach_controller_proof(&signing_key, &verification_method)
+        .unwrap();
 
     let active = verify_did_key_log(&[inception.clone(), rotate.clone()], &resolver).unwrap();
     assert_eq!(active.did, alice);
@@ -611,7 +726,10 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
         .unwrap();
 
     let mut body = serde_json::Map::new();
-    body.insert("update_keys".to_owned(), json!([vector_update_key(&signing_key)]));
+    body.insert(
+        "update_keys".to_owned(),
+        json!([vector_update_key(&signing_key)]),
+    );
 
     let mut inception = DidKeyLogEntry::build(
         alice.clone(),
@@ -622,7 +740,9 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
         Utc::now(),
     )
     .unwrap();
-    inception.attach_controller_proof(&signing_key, &verification_method).unwrap();
+    inception
+        .attach_controller_proof(&signing_key, &verification_method)
+        .unwrap();
 
     // DID change mid-chain is rejected.
     let mut rotate_other_did = DidKeyLogEntry::build(
@@ -634,17 +754,24 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
         Utc::now(),
     )
     .unwrap();
-    rotate_other_did.attach_controller_proof(&signing_key, &verification_method).unwrap();
+    rotate_other_did
+        .attach_controller_proof(&signing_key, &verification_method)
+        .unwrap();
     assert!(verify_did_key_log(&[inception.clone(), rotate_other_did], &resolver).is_err());
 
     // Tampering with the body after signing breaks the self digest.
     let mut tampered = inception.clone();
-    tampered.operation_body.insert("evil".to_owned(), json!(true));
+    tampered
+        .operation_body
+        .insert("evil".to_owned(), json!(true));
     assert!(verify_did_key_log(&[tampered], &resolver).is_err());
 
     // Tampering with the JWS itself fails Ed25519 verification.
     let mut bad_jws = inception.clone();
-    bad_jws.proofs[0].jws = format!("{}A", &bad_jws.proofs[0].jws[..bad_jws.proofs[0].jws.len() - 1]);
+    bad_jws.proofs[0].jws = format!(
+        "{}A",
+        &bad_jws.proofs[0].jws[..bad_jws.proofs[0].jws.len() - 1]
+    );
     assert!(verify_did_key_log(&[bad_jws], &resolver).is_err());
 
     // seq=0 must not carry prev_event_digest (schema allOf rule).
@@ -662,7 +789,9 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
         Utc::now(),
     )
     .unwrap();
-    rotate.attach_controller_proof(&signing_key, &verification_method).unwrap();
+    rotate
+        .attach_controller_proof(&signing_key, &verification_method)
+        .unwrap();
     assert!(verify_did_key_log(&[inception, rotate], &resolver).is_err());
 }
 
@@ -752,10 +881,20 @@ fn starid_registry_adapter_resolves_records_and_control_proofs() {
 
     let mut adapter = InMemoryStaridRegistryAdapter::new(registry);
     adapter.insert(record).unwrap();
-    assert_eq!(adapter.resolve_did(&alice).unwrap().primary_key().unwrap().0, "root");
+    assert_eq!(
+        adapter
+            .resolve_did(&alice)
+            .unwrap()
+            .primary_key()
+            .unwrap()
+            .0,
+        "root"
+    );
     assert_eq!(adapter.current_key_log_head(&alice).unwrap(), head.as_str());
     assert_eq!(adapter.current_control_key(&alice).unwrap(), "root");
-    adapter.verify_registry_receipt(&alice, &registry_resolver).unwrap();
+    adapter
+        .verify_registry_receipt(&alice, &registry_resolver)
+        .unwrap();
 
     let challenge = "challenge-1";
     let proof = starid_control_proof(&alice, "root", challenge, "alice-public-key");
@@ -806,14 +945,20 @@ fn handle_bidirectional_verification_fails_without_also_known_as() {
     let mut manager = IdentityManager::new();
 
     // DID document without also_known_as
-    manager.upsert_document(DidDocument::new(alice.clone(), "key-1", "pubkey-1")).unwrap();
+    manager
+        .upsert_document(DidDocument::new(alice.clone(), "key-1", "pubkey-1"))
+        .unwrap();
 
     let claim = manager.bind_handle("@alice", alice.clone());
     let proof = handle_claim_proof("alice", &alice, &claim.challenge);
     manager.validate_handle_claim("alice", &proof).unwrap();
 
     // Should fail because handle is not in also_known_as
-    assert!(manager.verify_handle_bidirectional("alice", &alice).is_err());
+    assert!(
+        manager
+            .verify_handle_bidirectional("alice", &alice)
+            .is_err()
+    );
 }
 
 #[test]
@@ -829,7 +974,11 @@ fn handle_bidirectional_verification_fails_when_claim_not_verified() {
     manager.bind_handle("@alice", alice.clone());
 
     // Should fail because claim is not verified
-    assert!(manager.verify_handle_bidirectional("alice", &alice).is_err());
+    assert!(
+        manager
+            .verify_handle_bidirectional("alice", &alice)
+            .is_err()
+    );
 }
 
 #[test]
@@ -896,7 +1045,11 @@ fn handle_bidirectional_with_case_insensitive_matching() {
     manager.validate_handle_claim("alice", &proof).unwrap();
 
     // Should succeed despite case difference
-    assert!(manager.verify_handle_bidirectional("@Alice", &alice).is_ok());
+    assert!(
+        manager
+            .verify_handle_bidirectional("@Alice", &alice)
+            .is_ok()
+    );
 }
 
 #[test]
@@ -941,15 +1094,26 @@ fn pairwise_did_resolution_requires_valid_proof() {
     let mut store = PairwiseDidStore::new();
     store.insert(binding).unwrap();
 
-    assert_eq!(store.resolve_parent_with_proof(&pairwise, &proof).unwrap(), &alice);
+    assert_eq!(
+        store.resolve_parent_with_proof(&pairwise, &proof).unwrap(),
+        &alice
+    );
 
     let mut bad_proof = proof.clone();
     bad_proof.requester = mallory;
-    assert!(store.resolve_parent_with_proof(&pairwise, &bad_proof).is_err());
+    assert!(
+        store
+            .resolve_parent_with_proof(&pairwise, &bad_proof)
+            .is_err()
+    );
 
     let mut tampered = proof;
     tampered.proof = "bad".to_owned();
-    assert!(store.resolve_parent_with_proof(&pairwise, &tampered).is_err());
+    assert!(
+        store
+            .resolve_parent_with_proof(&pairwise, &tampered)
+            .is_err()
+    );
 }
 
 #[test]

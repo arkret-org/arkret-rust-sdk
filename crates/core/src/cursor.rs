@@ -4,11 +4,10 @@
 //! opaque `ck:cursor:<base64url(canonical_json)>` tokens used for stream
 //! continuation and read-your-writes barriers.
 
+use std::collections::{BTreeMap, HashMap};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{BTreeMap, HashMap},
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
 
 use crate::{Error, Hlc, Result};
 
@@ -23,7 +22,6 @@ pub const CURSOR_HANDLE_MIN_LEN: usize = 22;
 /// Output uses only `[A-Za-z0-9_-]` with no padding, satisfying schema
 /// `cursor.schema.json` `h` constraints (minLength 22, pattern
 /// `^[A-Za-z0-9_-]+$`).
-///
 pub fn generate_cursor_handle() -> Result<String> {
     let mut handle = [0u8; 16];
     getrandom::fill(&mut handle)
@@ -74,7 +72,11 @@ pub struct Cursor {
     #[serde(default, rename = "_sig", skip_serializing_if = "Option::is_none")]
     pub sig: Option<String>,
     /// Server-private filter digest binding.
-    #[serde(default, rename = "_filter_digest", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        rename = "_filter_digest",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub filter_digest: Option<String>,
 }
 
@@ -200,14 +202,17 @@ impl Cursor {
         device_id: impl Into<String>,
         message_id: impl Into<String>,
     ) -> Self {
-        self.d.get_or_insert_with(BTreeMap::new).insert(device_id.into(), message_id.into());
+        self.d
+            .get_or_insert_with(BTreeMap::new)
+            .insert(device_id.into(), message_id.into());
         self
     }
 
     /// Replace the stateless integrity MAC on this cursor.
     pub fn with_mac(mut self, mac: impl Into<String>) -> Self {
         self.h = None;
-        self.issuer_kid.get_or_insert_with(|| Self::DEV_TEST_ISSUER_KID.to_owned());
+        self.issuer_kid
+            .get_or_insert_with(|| Self::DEV_TEST_ISSUER_KID.to_owned());
         self.mac = Some(mac.into());
         self.sig = None;
         self
@@ -216,7 +221,8 @@ impl Cursor {
     /// Replace the stateless integrity signature on this cursor.
     pub fn with_signature(mut self, signature: impl Into<String>) -> Self {
         self.h = None;
-        self.issuer_kid.get_or_insert_with(|| Self::DEV_TEST_ISSUER_KID.to_owned());
+        self.issuer_kid
+            .get_or_insert_with(|| Self::DEV_TEST_ISSUER_KID.to_owned());
         self.mac = None;
         self.sig = Some(signature.into());
         self
@@ -253,7 +259,8 @@ impl Cursor {
         realm_id: Option<String>,
     ) -> Self {
         self.purpose = CursorPurpose::Barrier;
-        if let Ok(t_ms) = chrono::DateTime::parse_from_rfc3339(&self.t).map(|t| t.timestamp_millis())
+        if let Ok(t_ms) =
+            chrono::DateTime::parse_from_rfc3339(&self.t).map(|t| t.timestamp_millis())
         {
             let max_x = t_ms + Self::BARRIER_TTL_MAX_MS;
             if self.x > max_x {
@@ -349,7 +356,10 @@ impl Cursor {
     fn validate(&self) -> Result<()> {
         // Check version
         if self.v != "1" {
-            return Err(Error::Protocol(format!("unsupported cursor version: {}", self.v)));
+            return Err(Error::Protocol(format!(
+                "unsupported cursor version: {}",
+                self.v
+            )));
         }
 
         self.validate_core_wire_shape()?;
@@ -413,7 +423,10 @@ impl Cursor {
     /// or future-stamped `t`.
     fn validate_ttl_bound(&self, now_ms: i64) -> Result<()> {
         crate::canonical::validate_timestamp_canonical(&self.t).map_err(|_| {
-            Error::Protocol(format!("cursor `t` is not a canonical UTC `Z` timestamp: {}", self.t))
+            Error::Protocol(format!(
+                "cursor `t` is not a canonical UTC `Z` timestamp: {}",
+                self.t
+            ))
         })?;
         let t_ms = chrono::DateTime::parse_from_rfc3339(&self.t)
             .map_err(|err| Error::Protocol(format!("cursor `t` is unparseable: {err}")))?
@@ -497,7 +510,9 @@ impl Cursor {
         // base64url-decoded handle has ≥128 bits of entropy (128/6 = 21.33).
         let len = handle.len();
         if !(CURSOR_HANDLE_MIN_LEN..=256).contains(&len)
-            || !handle.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+            || !handle
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
         {
             return Err(Error::Protocol("invalid cursor handle".to_owned()));
         }
@@ -506,7 +521,9 @@ impl Cursor {
 
     fn validate_core_wire_shape(&self) -> Result<()> {
         let Some(handle) = &self.h else {
-            return Err(Error::Protocol("core cursor missing stateful handle h".to_owned()));
+            return Err(Error::Protocol(
+                "core cursor missing stateful handle h".to_owned(),
+            ));
         };
         Self::validate_cursor_handle(handle)?;
         if self.mac.is_some() || self.sig.is_some() {
@@ -529,10 +546,14 @@ impl Cursor {
 
     fn validate_cursor_mac(mac: &str) -> Result<()> {
         let Some(digest) = mac.strip_prefix("hmac-sha256:") else {
-            return Err(Error::Protocol("cursor _mac must use hmac-sha256".to_owned()));
+            return Err(Error::Protocol(
+                "cursor _mac must use hmac-sha256".to_owned(),
+            ));
         };
         if digest.len() != 64
-            || !digest.bytes().all(|b| b.is_ascii_digit() || matches!(b, b'a'..=b'f'))
+            || !digest
+                .bytes()
+                .all(|b| b.is_ascii_digit() || matches!(b, b'a'..=b'f'))
         {
             return Err(Error::Protocol("invalid cursor _mac digest".to_owned()));
         }
@@ -581,7 +602,11 @@ impl Cursor {
     pub fn time_until_expiration(&self) -> Option<Duration> {
         let now_ms = unix_time_millis().ok()?;
 
-        if self.x > now_ms { Some(Duration::from_millis((self.x - now_ms) as u64)) } else { None }
+        if self.x > now_ms {
+            Some(Duration::from_millis((self.x - now_ms) as u64))
+        } else {
+            None
+        }
     }
 }
 
@@ -642,7 +667,9 @@ fn is_digest(value: &str) -> bool {
         _ => return false,
     };
     digest.len() == expected_len
-        && digest.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        && digest
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
 /// Sync positions extracted from a cursor.
@@ -678,7 +705,10 @@ impl SyncTracker {
     /// Create a new sync tracker.
     pub fn new() -> Self {
         Self {
-            positions: SyncPositions { realms: BTreeMap::new(), devices: None },
+            positions: SyncPositions {
+                realms: BTreeMap::new(),
+                devices: None,
+            },
             sync_tokens: HashMap::new(),
         }
     }
@@ -686,7 +716,8 @@ impl SyncTracker {
     /// Update the tracker with a sync response.
     pub fn update(&mut self, response: &crate::SyncOutcome) -> Result<()> {
         // Update the sync token
-        self.sync_tokens.insert("default".to_owned(), response.cursor.clone());
+        self.sync_tokens
+            .insert("default".to_owned(), response.cursor.clone());
 
         // Update positions from the response
         // (Implementation would parse the response and update realms/devices)
@@ -757,7 +788,10 @@ mod tests {
         // 6000 chars of valid base64url alphabet — over the encoded form
         // of MAX_ENCODED_SIZE, must be rejected before any decode work.
         let oversized = format!("ck:cursor:{}", "A".repeat(6000));
-        assert!(matches!(Cursor::decode(&oversized), Err(Error::Protocol(_))));
+        assert!(matches!(
+            Cursor::decode(&oversized),
+            Err(Error::Protocol(_))
+        ));
     }
 
     #[test]
@@ -820,7 +854,9 @@ mod tests {
 
     #[test]
     fn stateful_handle_cursor_excludes_inline_state() {
-        let cursor = Cursor::new().unwrap().with_stateful_handle("cursor_handle_12345678");
+        let cursor = Cursor::new()
+            .unwrap()
+            .with_stateful_handle("cursor_handle_12345678");
         let encoded = cursor.encode().unwrap();
         let decoded = Cursor::decode(&encoded).unwrap();
 

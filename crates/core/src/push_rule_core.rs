@@ -124,7 +124,10 @@ pub fn evaluate_watch_level(level: WatchLevel, ctx: &EventContext) -> (ShouldNot
     }
 
     if ctx.is_e2ee && !ctx.local_decrypted {
-        return (ShouldNotify::BlindWakeup, reason_code::BLIND_WAKEUP_REQUIRED);
+        return (
+            ShouldNotify::BlindWakeup,
+            reason_code::BLIND_WAKEUP_REQUIRED,
+        );
     }
 
     match level {
@@ -218,7 +221,11 @@ mod tests {
 
     #[test]
     fn e2ee_requires_blind_wakeup_until_decrypted() {
-        for level in [WatchLevel::MentionsOnly, WatchLevel::Participating, WatchLevel::All] {
+        for level in [
+            WatchLevel::MentionsOnly,
+            WatchLevel::Participating,
+            WatchLevel::All,
+        ] {
             let mut c = ctx();
             c.is_e2ee = true;
 

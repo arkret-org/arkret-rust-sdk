@@ -1,6 +1,7 @@
+use unicode_normalization::UnicodeNormalization;
+
 use super::*;
 use crate::base64url_encode;
-use unicode_normalization::UnicodeNormalization;
 
 pub const PROFILE_CALENDAR_EVENT: &str = "ck.profile.calendar_event.v1";
 pub const PROFILE_PERSONAL_PRODUCTIVITY: &str = "ck.profile.personal_productivity.v1";
@@ -42,8 +43,11 @@ pub struct ScheduledSendValue {
 
 impl ScheduledSendValue {
     pub fn validate_message_id_and_digest(&self) -> Result<()> {
-        let payload_message_id =
-            self.message_payload.get("message_id").and_then(Value::as_str).ok_or_else(|| {
+        let payload_message_id = self
+            .message_payload
+            .get("message_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
                 Error::Protocol("scheduled_send.message_payload.message_id required".to_owned())
             })?;
         if payload_message_id != self.planned_message_id.as_str() {
@@ -372,7 +376,10 @@ impl RealmRemark {
     pub fn new(realm_id: RealmId, saved_at: DateTime<Utc>) -> Self {
         Self {
             version: 1,
-            subject: RealmRemarkSubject { kind: "realm".to_owned(), id: realm_id },
+            subject: RealmRemarkSubject {
+                kind: "realm".to_owned(),
+                id: realm_id,
+            },
             local_name: String::new(),
             note: String::new(),
             tags: Vec::new(),
@@ -390,9 +397,14 @@ impl RealmRemark {
         pinned: bool,
         updated_at: DateTime<Utc>,
     ) -> Self {
-        let mut next = existing.cloned().unwrap_or_else(|| Self::new(realm_id.clone(), updated_at));
+        let mut next = existing
+            .cloned()
+            .unwrap_or_else(|| Self::new(realm_id.clone(), updated_at));
         next.version = 1;
-        next.subject = RealmRemarkSubject { kind: "realm".to_owned(), id: realm_id };
+        next.subject = RealmRemarkSubject {
+            kind: "realm".to_owned(),
+            id: realm_id,
+        };
         next.pinned = pinned;
         next.updated_at = Some(updated_at);
         next
@@ -407,7 +419,11 @@ impl RealmRemark {
 
     pub fn display_name<'a>(&'a self, fallback: &'a str) -> &'a str {
         let trimmed = self.local_name.trim();
-        if trimmed.is_empty() { fallback } else { trimmed }
+        if trimmed.is_empty() {
+            fallback
+        } else {
+            trimmed
+        }
     }
 
     pub fn validate_for_account_data_key(&self, key: &str) -> Result<()> {
@@ -420,7 +436,9 @@ impl RealmRemark {
             return Err(Error::Protocol("realm remark version must be 1".to_owned()));
         }
         if self.subject.kind != "realm" {
-            return Err(Error::Protocol("realm remark subject.kind must be realm".to_owned()));
+            return Err(Error::Protocol(
+                "realm remark subject.kind must be realm".to_owned(),
+            ));
         }
         if &self.subject.id != realm_id {
             return Err(Error::Protocol(
@@ -428,14 +446,20 @@ impl RealmRemark {
             ));
         }
         if self.local_name.chars().count() > 128 {
-            return Err(Error::Protocol("realm remark local_name exceeds 128 chars".to_owned()));
+            return Err(Error::Protocol(
+                "realm remark local_name exceeds 128 chars".to_owned(),
+            ));
         }
         if self.note.chars().count() > 4096 {
-            return Err(Error::Protocol("realm remark note exceeds 4096 chars".to_owned()));
+            return Err(Error::Protocol(
+                "realm remark note exceeds 4096 chars".to_owned(),
+            ));
         }
         for tag in &self.tags {
             if tag.trim().is_empty() {
-                return Err(Error::Protocol("realm remark tags must not be empty".to_owned()));
+                return Err(Error::Protocol(
+                    "realm remark tags must not be empty".to_owned(),
+                ));
             }
         }
         Ok(())
@@ -468,7 +492,9 @@ pub fn validate_realm_remark_account_data_value(key: &str, value: &Value) -> Res
         return Ok(());
     }
     let remark: RealmRemark = serde_json::from_value(value.clone()).map_err(|error| {
-        Error::Protocol(format!("realm remark account-data value is invalid: {error}"))
+        Error::Protocol(format!(
+            "realm remark account-data value is invalid: {error}"
+        ))
     })?;
     remark.validate_for_account_data_key(key)
 }
@@ -484,8 +510,10 @@ pub fn validate_no_realm_remark_private_fields_in_shared_payload(payload: &Value
                         )));
                     }
                 }
-                let realm_subject =
-                    object.get("subject").and_then(Value::as_object).is_some_and(|subject| {
+                let realm_subject = object
+                    .get("subject")
+                    .and_then(Value::as_object)
+                    .is_some_and(|subject| {
                         subject.get("kind").and_then(Value::as_str) == Some("realm")
                     });
                 if realm_subject
@@ -536,7 +564,10 @@ pub fn set_realm_pinned(
         })?
     };
     validate_realm_remark_account_data_value(&key, &encrypted_payload)?;
-    Ok(RealmRemarkAccountDataUpdate { key, encrypted_payload })
+    Ok(RealmRemarkAccountDataUpdate {
+        key,
+        encrypted_payload,
+    })
 }
 
 pub fn scheduled_send_message_payload_digest(message_payload: &Value) -> Result<String> {
@@ -553,7 +584,10 @@ pub fn scheduled_send_account_data_key(planned_message_id: &MessageId) -> String
 }
 
 pub fn snooze_account_data_key(namespace_key: &[u8], target_ref: &str) -> Result<String> {
-    Ok(format!("{ACCOUNT_DATA_TYPE_SNOOZE}:{}", target_key(namespace_key, target_ref)?))
+    Ok(format!(
+        "{ACCOUNT_DATA_TYPE_SNOOZE}:{}",
+        target_key(namespace_key, target_ref)?
+    ))
 }
 
 pub fn saved_account_data_key(
@@ -563,7 +597,9 @@ pub fn saved_account_data_key(
 ) -> Result<String> {
     let collection_key = collection_key(namespace_key, collection_title)?;
     let target_key = saved_target_key(namespace_key, &collection_key, target_ref)?;
-    Ok(format!("{ACCOUNT_DATA_TYPE_SAVED}:{collection_key}:{target_key}"))
+    Ok(format!(
+        "{ACCOUNT_DATA_TYPE_SAVED}:{collection_key}:{target_key}"
+    ))
 }
 
 pub fn draft_account_data_key(
@@ -603,12 +639,18 @@ pub fn file_transfer_account_data_key(namespace_key: &[u8], transfer_id: &str) -
 
 pub fn target_key(namespace_key: &[u8], target_ref: &str) -> Result<String> {
     validate_object_ref_string("target_ref", target_ref)?;
-    Ok(base64url_encode(hmac_sha256(namespace_key, &canonical::canonical_json_bytes(&target_ref)?)))
+    Ok(base64url_encode(hmac_sha256(
+        namespace_key,
+        &canonical::canonical_json_bytes(&target_ref)?,
+    )))
 }
 
 pub fn collection_key(namespace_key: &[u8], collection_title: &str) -> Result<String> {
     let normalized = normalize_collection_title(collection_title)?;
-    Ok(base64url_encode(hmac_sha256(namespace_key, normalized.as_bytes())))
+    Ok(base64url_encode(hmac_sha256(
+        namespace_key,
+        normalized.as_bytes(),
+    )))
 }
 
 pub fn saved_target_key(
@@ -625,9 +667,14 @@ pub fn saved_target_key(
 
 pub fn realm_key(namespace_key: &[u8], realm_id: &str) -> Result<String> {
     if !realm_id.starts_with("ck:realm:") {
-        return Err(Error::Protocol("realm_key input must be ck:realm typed id".to_owned()));
+        return Err(Error::Protocol(
+            "realm_key input must be ck:realm typed id".to_owned(),
+        ));
     }
-    Ok(base64url_encode(hmac_sha256(namespace_key, &canonical::canonical_json_bytes(&realm_id)?)))
+    Ok(base64url_encode(hmac_sha256(
+        namespace_key,
+        &canonical::canonical_json_bytes(&realm_id)?,
+    )))
 }
 
 pub fn validate_private_account_data_key(key: &str) -> Result<()> {
@@ -649,12 +696,18 @@ pub fn validate_private_account_data_key(key: &str) -> Result<()> {
         };
     }
     if let Some(planned_message_id) = key.strip_prefix("ck.scheduled_send.v1:") {
-        return MessageId::new(planned_message_id.to_owned()).map(|_| ()).map_err(|_| {
-            Error::Protocol("scheduled-send key must end with planned_message_id".to_owned())
-        });
+        return MessageId::new(planned_message_id.to_owned())
+            .map(|_| ())
+            .map_err(|_| {
+                Error::Protocol("scheduled-send key must end with planned_message_id".to_owned())
+            });
     }
     if let Some(target_key) = key.strip_prefix("ck.snooze.v1:") {
-        return if looks_derived_key(target_key) { Ok(()) } else { private_key_error() };
+        return if looks_derived_key(target_key) {
+            Ok(())
+        } else {
+            private_key_error()
+        };
     }
     if let Some(rest) = key.strip_prefix("ck.saved.v1:") {
         let parts = rest.split(':').collect::<Vec<_>>();
@@ -675,7 +728,11 @@ pub fn validate_private_account_data_key(key: &str) -> Result<()> {
         };
     }
     if let Some(realm_key) = key.strip_prefix("ck.search.index_manifest.v1:") {
-        return if looks_derived_key(realm_key) { Ok(()) } else { private_key_error() };
+        return if looks_derived_key(realm_key) {
+            Ok(())
+        } else {
+            private_key_error()
+        };
     }
     if let Some(transfer_key) = key.strip_prefix("ck.file_transfer.v1:") {
         return if looks_derived_key(transfer_key) && !contains_raw_object_ref(transfer_key) {
@@ -713,7 +770,9 @@ fn contains_raw_object_ref(value: &str) -> bool {
 fn normalize_collection_title(collection_title: &str) -> Result<String> {
     let normalized = collection_title.trim().nfc().collect::<String>();
     if normalized.is_empty() {
-        return Err(Error::Protocol("collection_title must not be empty".to_owned()));
+        return Err(Error::Protocol(
+            "collection_title must not be empty".to_owned(),
+        ));
     }
     Ok(normalized)
 }
@@ -735,13 +794,17 @@ fn validate_object_ref_string(field: &str, value: &str) -> Result<()> {
     if valid {
         Ok(())
     } else {
-        Err(Error::Protocol(format!("{field} must be a canonical object_ref typed id")))
+        Err(Error::Protocol(format!(
+            "{field} must be a canonical object_ref typed id"
+        )))
     }
 }
 
 fn validate_key_segment(field: &str, value: &str) -> Result<()> {
     if value.is_empty() || value.contains(':') || value.contains('/') || value.contains('\\') {
-        Err(Error::Protocol(format!("{field} must be an opaque key segment")))
+        Err(Error::Protocol(format!(
+            "{field} must be an opaque key segment"
+        )))
     } else {
         Ok(())
     }
@@ -763,7 +826,9 @@ fn validate_file_transfer_id(value: &str) -> Result<()> {
 
 fn looks_derived_key(value: &str) -> bool {
     value.len() >= 16
-        && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
 fn is_false(value: &bool) -> bool {
@@ -796,8 +861,9 @@ fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     fn test_realm_id(seed: &str) -> RealmId {
         RealmId::new(format!("ck:realm:01904100-0000-7000-8000-{seed}")).unwrap()
@@ -870,7 +936,10 @@ mod tests {
         let key = realm_remark_account_data_key(&realm_id);
         let remark = RealmRemark {
             version: 1,
-            subject: RealmRemarkSubject { kind: "realm".to_owned(), id: realm_id.clone() },
+            subject: RealmRemarkSubject {
+                kind: "realm".to_owned(),
+                id: realm_id.clone(),
+            },
             local_name: "Acme Engineering".to_owned(),
             note: "private reminder".to_owned(),
             tags: vec!["work".to_owned(), "high_signal".to_owned()],

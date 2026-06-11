@@ -1,6 +1,7 @@
 //! Ephemeral signal wire models and realtime call helpers.
 //!
-//! These are protocol-level types grouped by runtime surface rather than by the review batch that introduced them.
+//! These are protocol-level types grouped by runtime surface rather than by the review batch that
+//! introduced them.
 
 use super::*;
 use crate::ERROR_CODE_INVALID_PARAM;
@@ -78,7 +79,16 @@ impl EphemeralEnvelope {
                  {EPHEMERAL_ABSOLUTE_HARD_CEILING_MS}ms ({ERROR_CODE_INVALID_PARAM})"
             )));
         }
-        Ok(Self { kind, realm_id, actor_id, device_id, sent_at, expires_at, payload, proof })
+        Ok(Self {
+            kind,
+            realm_id,
+            actor_id,
+            device_id,
+            sent_at,
+            expires_at,
+            payload,
+            proof,
+        })
     }
 }
 
@@ -139,7 +149,12 @@ pub struct CallSignalSeqKey {
 
 impl CallSignalSeqKey {
     pub fn new(realm_id: RealmId, call_id: CallId, actor_id: Did, device_id: DeviceId) -> Self {
-        Self { realm_id, call_id, actor_id, device_id }
+        Self {
+            realm_id,
+            call_id,
+            actor_id,
+            device_id,
+        }
     }
 }
 
@@ -195,7 +210,10 @@ impl CallSignalState {
 /// canonical `signal_type`.
 pub fn validate_call_signal_envelope(env: &EphemeralEnvelope) -> Result<CallSignalPayload> {
     if env.kind != "ck.call.signal" {
-        return Err(Error::Protocol(format!("envelope kind {:?} is not ck.call.signal", env.kind)));
+        return Err(Error::Protocol(format!(
+            "envelope kind {:?} is not ck.call.signal",
+            env.kind
+        )));
     }
     if env.device_id.is_none() {
         return Err(Error::Protocol(format!(

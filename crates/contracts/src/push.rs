@@ -11,7 +11,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
-    haystack.iter().any(|entry| entry.eq_ignore_ascii_case(needle))
+    haystack
+        .iter()
+        .any(|entry| entry.eq_ignore_ascii_case(needle))
 }
 
 pub mod protocol {
@@ -207,9 +209,17 @@ impl PushRuleSet {
         self.rules
             .values()
             .find(|rule| {
-                rule.enabled && rule.event_kind.as_deref().is_some_and(|kind| kind == event_kind)
+                rule.enabled
+                    && rule
+                        .event_kind
+                        .as_deref()
+                        .is_some_and(|kind| kind == event_kind)
             })
-            .or_else(|| self.rules.values().find(|rule| rule.enabled && rule.event_kind.is_none()))
+            .or_else(|| {
+                self.rules
+                    .values()
+                    .find(|rule| rule.enabled && rule.event_kind.is_none())
+            })
     }
 }
 
@@ -274,13 +284,17 @@ impl PushBridgeDescribeOutcome {
     /// Look up a per-app provider capability descriptor by configured app
     /// name (case-insensitive).
     pub fn provider_capability(&self, name: &str) -> Option<&ProviderCapabilityDescriptor> {
-        self.provider_capabilities.iter().find(|cap| cap.name.eq_ignore_ascii_case(name))
+        self.provider_capabilities
+            .iter()
+            .find(|cap| cap.name.eq_ignore_ascii_case(name))
     }
 
     /// Look up the first capability descriptor whose stable provider `kind`
     /// matches (case-insensitive).
     pub fn provider_capability_by_kind(&self, kind: &str) -> Option<&ProviderCapabilityDescriptor> {
-        self.provider_capabilities.iter().find(|cap| cap.kind.eq_ignore_ascii_case(kind))
+        self.provider_capabilities
+            .iter()
+            .find(|cap| cap.kind.eq_ignore_ascii_case(kind))
     }
 }
 
@@ -340,7 +354,9 @@ pub struct PushBridgeDescribeNotifyDescriptor {
 impl PushBridgeDescribeNotifyDescriptor {
     /// Whether the gateway has any deduplication backend configured.
     pub fn supports_dedup(&self) -> bool {
-        self.dedup_backend.as_deref().is_some_and(|backend| !backend.trim().is_empty())
+        self.dedup_backend
+            .as_deref()
+            .is_some_and(|backend| !backend.trim().is_empty())
     }
 
     /// Deduplication retention window, when advertised.
@@ -440,7 +456,12 @@ impl PushBridgeFailureCodeDescriptor {
         retryable: bool,
         description: impl Into<String>,
     ) -> Self {
-        Self { code: code.into(), http_status, retryable, description: description.into() }
+        Self {
+            code: code.into(),
+            http_status,
+            retryable,
+            description: description.into(),
+        }
     }
 }
 
@@ -613,7 +634,10 @@ mod tests {
 
         assert!(descriptor.supports_dedup());
         assert_eq!(descriptor.dedup_window(), Some(Duration::from_secs(300)));
-        assert_eq!(descriptor.rate_limit_window(), Some(Duration::from_secs(60)));
+        assert_eq!(
+            descriptor.rate_limit_window(),
+            Some(Duration::from_secs(60))
+        );
         assert!(descriptor.rate_limits_by("per-app"));
         assert!(!descriptor.rate_limits_by("per-actor"));
         assert_eq!(descriptor.max_request_size(), 16 * 1024);

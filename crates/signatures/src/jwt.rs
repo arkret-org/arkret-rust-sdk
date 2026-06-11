@@ -5,12 +5,11 @@
 //! and `OKP` / `Ed25519` JWKs. RSA and ECDSA JWTs must be verified by a host
 //! adapter until the SDK owns those algorithm implementations.
 
+use cokret_core::base64url_decode;
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
-
-use cokret_core::base64url_decode;
 
 /// Verification policy for a compact JWT.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -30,7 +29,11 @@ pub struct JwtVerificationPolicy {
 
 impl JwtVerificationPolicy {
     pub fn new(now_unix_seconds: i64) -> Self {
-        Self { now_unix_seconds, max_clock_skew_seconds: 60, ..Self::default() }
+        Self {
+            now_unix_seconds,
+            max_clock_skew_seconds: 60,
+            ..Self::default()
+        }
     }
 
     pub fn issuer(mut self, issuer: impl Into<String>) -> Self {
@@ -162,12 +165,18 @@ pub fn verify_eddsa_jwt_with_jwks(
 
     validate_claims(&claims, policy)?;
 
-    Ok(VerifiedJwt { header: header_value, claims, key_id: key.kid })
+    Ok(VerifiedJwt {
+        header: header_value,
+        claims,
+        key_id: key.kid,
+    })
 }
 
 fn select_jwks_key(jwks: &Value, kid: Option<&str>) -> Result<JwksKey, JwtVerificationError> {
-    let keys =
-        jwks.get("keys").and_then(Value::as_array).ok_or(JwtVerificationError::MalformedJwks)?;
+    let keys = jwks
+        .get("keys")
+        .and_then(Value::as_array)
+        .ok_or(JwtVerificationError::MalformedJwks)?;
     let mut candidates = Vec::new();
     for key in keys {
         let Some(candidate) = decode_jwks_ed25519_key(key)? else {
@@ -192,7 +201,10 @@ fn decode_jwks_ed25519_key(key: &Value) -> Result<Option<JwksKey>, JwtVerificati
     {
         return Ok(None);
     }
-    let x = key.get("x").and_then(Value::as_str).ok_or(JwtVerificationError::MalformedJwks)?;
+    let x = key
+        .get("x")
+        .and_then(Value::as_str)
+        .ok_or(JwtVerificationError::MalformedJwks)?;
     let raw = base64url_decode(x).map_err(|_| JwtVerificationError::MalformedJwks)?;
     if raw.len() != 32 {
         return Err(JwtVerificationError::MalformedJwks);
@@ -201,7 +213,10 @@ fn decode_jwks_ed25519_key(key: &Value) -> Result<Option<JwksKey>, JwtVerificati
     key_bytes.copy_from_slice(&raw);
     let public_key =
         VerifyingKey::from_bytes(&key_bytes).map_err(|_| JwtVerificationError::MalformedJwks)?;
-    let kid = key.get("kid").and_then(Value::as_str).map(ToOwned::to_owned);
+    let kid = key
+        .get("kid")
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned);
     Ok(Some(JwksKey { kid, public_key }))
 }
 
@@ -250,11 +265,11 @@ fn claim_audience_contains(claim: Option<&Value>, expected: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use cokret_core::base64url_encode;
     use ed25519_dalek::{Signer, SigningKey};
     use serde_json::json;
 
     use super::*;
-    use cokret_core::base64url_encode;
 
     fn jwt_fixture(now: i64, kid: Option<&str>) -> (String, Value) {
         let signing_key = SigningKey::from_bytes(&[7u8; 32]);

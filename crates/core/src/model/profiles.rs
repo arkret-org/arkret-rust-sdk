@@ -72,12 +72,18 @@ impl FlowTrackConfig {
 
     /// Standard `discussion` track config.
     pub fn discussion() -> Self {
-        Self { profile: Some("discussion".to_owned()), ..Self::default() }
+        Self {
+            profile: Some("discussion".to_owned()),
+            ..Self::default()
+        }
     }
 
     /// Standard `discussion` track config marked as the Flow's primary entry point.
     pub fn discussion_primary() -> Self {
-        Self { is_primary: Some(true), ..Self::discussion() }
+        Self {
+            is_primary: Some(true),
+            ..Self::discussion()
+        }
     }
 
     /// Set the track as the Flow's primary entry point.
@@ -102,14 +108,18 @@ impl FlowTrackConfig {
 /// Validate a `FlowTrack` map key against `^[a-z][a-z0-9_]{0,63}$`.
 pub fn validate_flow_track_name(name: &str) -> Result<()> {
     if name.is_empty() || name.len() > 64 {
-        return Err(Error::Protocol("FlowTrack name must be 1..=64 chars".to_owned()));
+        return Err(Error::Protocol(
+            "FlowTrack name must be 1..=64 chars".to_owned(),
+        ));
     }
     let mut chars = name.chars();
     let first = chars
         .next()
         .ok_or_else(|| Error::Protocol("FlowTrack name must not be empty".to_owned()))?;
     if !first.is_ascii_lowercase() {
-        return Err(Error::Protocol("FlowTrack name must start with [a-z]".to_owned()));
+        return Err(Error::Protocol(
+            "FlowTrack name must start with [a-z]".to_owned(),
+        ));
     }
     for c in chars {
         if !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
@@ -126,8 +136,10 @@ pub fn resolve_primary_track<'a>(
     tracks: &'a BTreeMap<String, FlowTrackConfig>,
     profile_default: Option<&str>,
 ) -> Result<Option<(&'a String, &'a FlowTrackConfig)>> {
-    let explicit: Vec<(&String, &FlowTrackConfig)> =
-        tracks.iter().filter(|(_, cfg)| cfg.is_primary == Some(true)).collect();
+    let explicit: Vec<(&String, &FlowTrackConfig)> = tracks
+        .iter()
+        .filter(|(_, cfg)| cfg.is_primary == Some(true))
+        .collect();
     match explicit.len() {
         0 => {}
         1 => return Ok(Some(explicit[0])),
@@ -295,16 +307,22 @@ impl Morph {
     }
 
     pub fn with_metadata_title(mut self, title: impl Into<String>) -> Self {
-        self.metadata.get_or_insert_with(MorphMetadata::default).title = Some(title.into());
+        self.metadata
+            .get_or_insert_with(MorphMetadata::default)
+            .title = Some(title.into());
         self
     }
 
     pub fn metadata_title(&self) -> Option<&str> {
-        self.metadata.as_ref().and_then(|metadata| metadata.title.as_deref())
+        self.metadata
+            .as_ref()
+            .and_then(|metadata| metadata.title.as_deref())
     }
 
     pub fn metadata_summary(&self) -> Option<&str> {
-        self.metadata.as_ref().and_then(|metadata| metadata.summary.as_deref())
+        self.metadata
+            .as_ref()
+            .and_then(|metadata| metadata.summary.as_deref())
     }
 
     /// Validate that `morph_type` does not use the reserved `ck.` prefix
@@ -427,9 +445,12 @@ impl AuditAssurance {
     pub fn forbidden_marketing_terms(self) -> &'static [&'static str] {
         match self {
             AuditAssurance::AttestedHardware => &[],
-            AuditAssurance::DisclosedPolicy => {
-                &["cryptographically enforced", "tee-equivalent", "attested", "hardware-enforced"]
-            }
+            AuditAssurance::DisclosedPolicy => &[
+                "cryptographically enforced",
+                "tee-equivalent",
+                "attested",
+                "hardware-enforced",
+            ],
         }
     }
 }
@@ -563,7 +584,11 @@ pub struct IdentityLink {
     pub trust_domain: TypedTrustDomainId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flow_id: Option<FlowId>,
-    #[serde(rename = "track_name", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "track_name",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub track: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
@@ -587,7 +612,9 @@ impl IdentityLink {
             ));
         }
         if self.flow_id.is_some() && self.track.as_deref().is_none_or(str::is_empty) {
-            return Err(Error::Protocol("identity_link flow_id requires track_name".to_owned()));
+            return Err(Error::Protocol(
+                "identity_link flow_id requires track_name".to_owned(),
+            ));
         }
         if let Some(track_name) = self.track.as_deref() {
             validate_flow_track_name(track_name)?;
@@ -603,7 +630,9 @@ impl IdentityLink {
         }
         let expected = self.canonical_payload_digest()?;
         if self.proof.payload_digest != expected {
-            return Err(Error::Protocol("identity_link proof payload_digest mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "identity_link proof payload_digest mismatch".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -802,10 +831,14 @@ impl ErasureReceipt {
 
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {
-            return Err(Error::Protocol("erasure receipt schema mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "erasure receipt schema mismatch".to_owned(),
+            ));
         }
         if self.proofs.is_empty() {
-            return Err(Error::Protocol("erasure receipt proofs must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "erasure receipt proofs must not be empty".to_owned(),
+            ));
         }
         if matches!(self.outcome, ErasureOutcome::BlockedByLegalHold)
             && self.legal_hold_ref.is_none()

@@ -57,20 +57,27 @@ pub struct AppletService {
 
 impl AppletService {
     pub fn new<H: AppletHandler>(handler: H, idempotency: IdempotencyWindow) -> Self {
-        Self { handler: Arc::new(handler), idempotency: Arc::new(idempotency) }
+        Self {
+            handler: Arc::new(handler),
+            idempotency: Arc::new(idempotency),
+        }
     }
 
     pub fn from_arcs(handler: Arc<dyn AppletHandler>, idempotency: Arc<IdempotencyWindow>) -> Self {
-        Self { handler, idempotency }
+        Self {
+            handler,
+            idempotency,
+        }
     }
 }
 
 #[cfg(feature = "salvo")]
 mod salvo_router {
-    use super::*;
+    use std::sync::OnceLock;
 
     use salvo::prelude::*;
-    use std::sync::OnceLock;
+
+    use super::*;
 
     /// Process-wide handle to the wired-up [`AppletService`]. Salvo's
     /// `#[handler]` macro can't see generics, so we stash the handler
@@ -146,7 +153,10 @@ mod salvo_router {
             }
         };
         let Some(service) = service(res) else { return };
-        match service.handler.handle_transaction(idempotency_key.as_deref(), body) {
+        match service
+            .handler
+            .handle_transaction(idempotency_key.as_deref(), body)
+        {
             Ok(body) => res.render(Json(body)),
             Err(err) => res.render(into_status_error(err)),
         }
@@ -188,9 +198,10 @@ pub use salvo_router::router;
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
     use crate::model::AppletPingOutcome;
-    use std::time::Duration;
 
     struct StubHandler;
 
@@ -218,7 +229,11 @@ mod tests {
             _idempotency_key: Option<&str>,
             _req: AppletTransactionRequestBody,
         ) -> Result<AppletTransactionOutcome> {
-            Ok(AppletTransactionOutcome { ok: true, rejected: vec![], retry_after_ms: None })
+            Ok(AppletTransactionOutcome {
+                ok: true,
+                rejected: vec![],
+                retry_after_ms: None,
+            })
         }
         fn resolve_actor(&self, _actor_id: &str) -> Result<AppletActorView> {
             Ok(AppletActorView {
@@ -249,8 +264,10 @@ mod tests {
 
     #[test]
     fn applet_service_constructs_with_handler_and_idempotency_window() {
-        let svc =
-            AppletService::new(StubHandler, IdempotencyWindow::new(Duration::from_secs(5 * 60)));
+        let svc = AppletService::new(
+            StubHandler,
+            IdempotencyWindow::new(Duration::from_secs(5 * 60)),
+        );
         let body = svc.handler.ping().unwrap();
         assert!(body.ok);
     }

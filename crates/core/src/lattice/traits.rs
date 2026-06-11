@@ -1,10 +1,10 @@
 //! Lattice trait + closed kind enum.
 
-use crate::{CellRef, LatticeOp};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{AnchoredOp, CellState};
+use crate::{CellRef, LatticeOp};
 
 /// Closed set of normative Lattice kinds.
 ///
@@ -95,9 +95,12 @@ impl LatticeKind {
                 "ck.self.agent.deactivate",
             ],
             Self::Counter => &[],
-            Self::OrderedLog => {
-                &["ck.space.create", "ck.space.child", "ck.policy.rule", "ck.account.status"]
-            }
+            Self::OrderedLog => &[
+                "ck.space.create",
+                "ck.space.child",
+                "ck.policy.rule",
+                "ck.account.status",
+            ],
         }
     }
 }
@@ -111,13 +114,23 @@ impl LatticeKind {
 #[derive(Clone, Debug, Error)]
 pub enum OpError {
     #[error("lattice op type {got} is not allowed for {expected_kind}")]
-    UnsupportedOpType { got: String, expected_kind: &'static str },
+    UnsupportedOpType {
+        got: String,
+        expected_kind: &'static str,
+    },
 
     #[error("lattice op for {kind} requires field {field}")]
-    MissingField { kind: &'static str, field: &'static str },
+    MissingField {
+        kind: &'static str,
+        field: &'static str,
+    },
 
     #[error("lattice op for {kind} field {field} has invalid value: {reason}")]
-    InvalidValue { kind: &'static str, field: &'static str, reason: String },
+    InvalidValue {
+        kind: &'static str,
+        field: &'static str,
+        reason: String,
+    },
 }
 
 /// Per-cell Lattice trait.
@@ -149,8 +162,9 @@ pub trait Lattice {
 
 #[cfg(test)]
 mod kind_tests {
-    use super::*;
     use std::collections::BTreeSet;
+
+    use super::*;
 
     #[test]
     fn declared_event_kinds_are_canonical() {
@@ -185,7 +199,10 @@ mod kind_tests {
             LatticeKind::OrderedLog,
         ] {
             for ek in kind.event_kinds() {
-                assert!(seen.insert(ek), "event kind {ek} appears in more than one LatticeKind");
+                assert!(
+                    seen.insert(ek),
+                    "event kind {ek} appears in more than one LatticeKind"
+                );
             }
         }
     }

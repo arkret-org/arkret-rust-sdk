@@ -12,19 +12,17 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-use crate::{
-    Anchor, AnchorId, CellRef, Hash, Move, MoveId, RealmId,
-    lattice::{
-        AnchoredOp, CasRegister, CellState, Counter, Fsm, Lattice, LatticeKind, MvRegister, OrSet,
-        OrderedLog,
-    },
-};
 use serde_json::{Value, json};
 
 use super::{
     AnchorStore, AnchoredMoveRecord, BottomMode, CellLatticeBinding, CellRegistry, CellStore,
     MoveStore, StoreError, StoreResult,
 };
+use crate::lattice::{
+    AnchoredOp, CasRegister, CellState, Counter, Fsm, Lattice, LatticeKind, MvRegister, OrSet,
+    OrderedLog,
+};
+use crate::{Anchor, AnchorId, CellRef, Hash, Move, MoveId, RealmId};
 
 /// In-memory `MoveStore`.
 #[derive(Default)]
@@ -44,7 +42,10 @@ struct MemoryMoveStoreInner {
 
 impl MoveStore for MemoryMoveStore {
     fn put_pending(&self, m: &Move) -> StoreResult<()> {
-        let mut inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let id = m.id.as_str().to_owned();
         if !inner.moves.contains_key(&id) {
             inner.insertion_order.push(id.clone());
@@ -54,16 +55,27 @@ impl MoveStore for MemoryMoveStore {
     }
 
     fn mark_anchored(&self, id: &MoveId, anchor: &AnchorId) -> StoreResult<()> {
-        let mut inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if !inner.moves.contains_key(id.as_str()) {
             return Err(StoreError::NotFound(format!("Move {id} not in store")));
         }
-        inner.anchored.insert(id.as_str().to_owned(), anchor.clone());
+        inner
+            .anchored
+            .insert(id.as_str().to_owned(), anchor.clone());
         Ok(())
     }
 
     fn get(&self, id: &MoveId) -> StoreResult<Option<Move>> {
-        Ok(self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner).moves.get(id.as_str()).cloned())
+        Ok(self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .moves
+            .get(id.as_str())
+            .cloned())
     }
 
     fn list_pending_for_anchorer(
@@ -72,7 +84,10 @@ impl MoveStore for MemoryMoveStore {
         cursor: Option<&MoveId>,
         limit: usize,
     ) -> StoreResult<Vec<Move>> {
-        let inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let cursor_str = cursor.map(|c| c.as_str().to_owned());
         let mut started = cursor_str.is_none();
         let mut out = Vec::new();
@@ -102,7 +117,10 @@ impl MoveStore for MemoryMoveStore {
         cursor: Option<&MoveId>,
         limit: usize,
     ) -> StoreResult<Vec<AnchoredMoveRecord>> {
-        let inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let cursor_str = cursor.map(|c| c.as_str().to_owned());
         let mut started = cursor_str.is_none();
         let mut out = Vec::new();
@@ -116,7 +134,10 @@ impl MoveStore for MemoryMoveStore {
             if let (Some(m), Some(a)) = (inner.moves.get(id), inner.anchored.get(id))
                 && m.realm_id == *realm_id
             {
-                out.push(AnchoredMoveRecord { move_value: m.clone(), anchor: a.clone() });
+                out.push(AnchoredMoveRecord {
+                    move_value: m.clone(),
+                    anchor: a.clone(),
+                });
                 if out.len() >= limit {
                     break;
                 }
@@ -143,14 +164,20 @@ struct MemoryAnchorStoreInner {
 
 impl AnchorStore for MemoryAnchorStore {
     fn put(&self, a: &Anchor) -> StoreResult<()> {
-        let mut inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let realm = a.realm_id.as_str().to_owned();
         let id_str = a.id.as_str().to_owned();
         inner.anchors.insert(id_str, a.clone());
 
         // Genesis: first anchor with empty predecessors.
         if a.predecessor_refs.is_empty() {
-            inner.genesis.entry(realm.clone()).or_insert_with(|| a.id.clone());
+            inner
+                .genesis
+                .entry(realm.clone())
+                .or_insert_with(|| a.id.clone());
         }
 
         // Leaf set: remove all of `a.predecessor_refs` from leaves; add `a` as a new leaf.
@@ -163,24 +190,49 @@ impl AnchorStore for MemoryAnchorStore {
     }
 
     fn get(&self, id: &AnchorId) -> StoreResult<Option<Anchor>> {
-        Ok(self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner).anchors.get(id.as_str()).cloned())
+        Ok(self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .anchors
+            .get(id.as_str())
+            .cloned())
     }
 
     fn list_leaves(&self, realm_id: &RealmId) -> StoreResult<Vec<AnchorId>> {
-        Ok(self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner).leaves.get(realm_id.as_str()).cloned().unwrap_or_default())
+        Ok(self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .leaves
+            .get(realm_id.as_str())
+            .cloned()
+            .unwrap_or_default())
     }
 
     fn predecessors_known(&self, refs: &[AnchorId]) -> StoreResult<bool> {
-        let inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         Ok(refs.iter().all(|r| inner.anchors.contains_key(r.as_str())))
     }
 
     fn genesis(&self, realm_id: &RealmId) -> StoreResult<Option<AnchorId>> {
-        Ok(self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner).genesis.get(realm_id.as_str()).cloned())
+        Ok(self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .genesis
+            .get(realm_id.as_str())
+            .cloned())
     }
 
     fn successors(&self, realm_id: &RealmId, anchor_id: &AnchorId) -> StoreResult<Vec<AnchorId>> {
-        let inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut out = Vec::new();
         for anchor in inner.anchors.values() {
             if anchor.realm_id.as_str() != realm_id.as_str() {
@@ -199,7 +251,10 @@ impl AnchorStore for MemoryAnchorStore {
         realm_id: &RealmId,
         anchor_id: &AnchorId,
     ) -> StoreResult<Vec<AnchorId>> {
-        let mut inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Snapshot the parents of the pruned anchor before removing it.
         let parents: Vec<AnchorId> = inner
             .anchors
@@ -229,8 +284,12 @@ impl AnchorStore for MemoryAnchorStore {
         // a grandparent doesn't end up with the same predecessor twice.
         for sid in &successor_ids {
             if let Some(succ) = inner.anchors.get_mut(sid) {
-                let mut new_refs: Vec<AnchorId> =
-                    succ.predecessor_refs.iter().filter(|p| *p != anchor_id).cloned().collect();
+                let mut new_refs: Vec<AnchorId> = succ
+                    .predecessor_refs
+                    .iter()
+                    .filter(|p| *p != anchor_id)
+                    .cloned()
+                    .collect();
                 for parent in &parents {
                     if !new_refs.iter().any(|p| p == parent) {
                         new_refs.push(parent.clone());
@@ -253,12 +312,18 @@ impl AnchorStore for MemoryAnchorStore {
         // child compaction replaces it), forget the genesis pointer — the
         // caller MUST set a new one explicitly when relevant.
         let realm = realm_id.as_str();
-        if inner.genesis.get(realm).is_some_and(|g| g.as_str() == anchor_id.as_str()) {
+        if inner
+            .genesis
+            .get(realm)
+            .is_some_and(|g| g.as_str() == anchor_id.as_str())
+        {
             inner.genesis.remove(realm);
         }
 
-        let rewired: Vec<AnchorId> =
-            successor_ids.into_iter().filter_map(|s| AnchorId::new(s).ok()).collect();
+        let rewired: Vec<AnchorId> = successor_ids
+            .into_iter()
+            .filter_map(|s| AnchorId::new(s).ok())
+            .collect();
         Ok(rewired)
     }
 }
@@ -281,7 +346,10 @@ struct MemoryCellStoreInner {
 
 impl CellStore for MemoryCellStore {
     fn list_cells(&self, realm_id: &RealmId) -> StoreResult<Vec<CellRef>> {
-        let inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut cells = Vec::new();
         for (realm, cell) in inner.cell_log.keys() {
             if realm == realm_id.as_str() {
@@ -298,7 +366,10 @@ impl CellStore for MemoryCellStore {
         realm_id: &RealmId,
         cell: &CellRef,
     ) -> StoreResult<Vec<AnchoredOp>> {
-        let inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         Ok(inner
             .cell_log
             .get(&(realm_id.as_str().to_owned(), cell.as_str().to_owned()))
@@ -312,7 +383,10 @@ impl CellStore for MemoryCellStore {
         cell: &CellRef,
         view_hash: &Hash,
     ) -> StoreResult<Option<CellState>> {
-        let inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         Ok(inner
             .cache
             .get(&(
@@ -330,9 +404,16 @@ impl CellStore for MemoryCellStore {
         view_hash: &Hash,
         state: &CellState,
     ) -> StoreResult<()> {
-        let mut inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         inner.cache.insert(
-            (realm_id.as_str().to_owned(), cell.as_str().to_owned(), view_hash.as_str().to_owned()),
+            (
+                realm_id.as_str().to_owned(),
+                cell.as_str().to_owned(),
+                view_hash.as_str().to_owned(),
+            ),
             state.clone(),
         );
         Ok(())
@@ -344,11 +425,18 @@ impl CellStore for MemoryCellStore {
         anchor: &AnchorId,
         new_ops: &[(CellRef, AnchoredOp)],
     ) -> StoreResult<()> {
-        let mut inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut applied: Vec<(String, AnchoredOp)> = Vec::with_capacity(new_ops.len());
         for (cell, op) in new_ops {
             let key = (realm_id.as_str().to_owned(), cell.as_str().to_owned());
-            inner.cell_log.entry(key.clone()).or_default().push(op.clone());
+            inner
+                .cell_log
+                .entry(key.clone())
+                .or_default()
+                .push(op.clone());
             applied.push((cell.as_str().to_owned(), op.clone()));
         }
         inner.anchor_ops.insert(anchor.as_str().to_owned(), applied);
@@ -357,12 +445,17 @@ impl CellStore for MemoryCellStore {
             .iter()
             .map(|(c, _)| (realm_id.as_str().to_owned(), c.as_str().to_owned()))
             .collect();
-        inner.cache.retain(|(s, c, _), _| !touched.contains(&(s.clone(), c.clone())));
+        inner
+            .cache
+            .retain(|(s, c, _), _| !touched.contains(&(s.clone(), c.clone())));
         Ok(())
     }
 
     fn rollback_anchor(&self, realm_id: &RealmId, anchor: &AnchorId) -> StoreResult<()> {
-        let mut inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let Some(applied) = inner.anchor_ops.remove(anchor.as_str()) else {
             return Ok(()); // no-op if nothing to roll back
         };
@@ -551,7 +644,12 @@ impl MemoryCellRegistry {
     ) {
         self.bindings.insert(
             cell_family.into(),
-            BindingDescriptor { kind, bottom_mode, fsm_initial: None, fsm_transitions: vec![] },
+            BindingDescriptor {
+                kind,
+                bottom_mode,
+                fsm_initial: None,
+                fsm_transitions: vec![],
+            },
         );
     }
 
@@ -598,15 +696,19 @@ impl CellRegistry for MemoryCellRegistry {
             LatticeKind::Counter => Box::new(Counter),
             LatticeKind::OrderedLog => Box::new(OrderedLog),
         };
-        Ok(CellLatticeBinding { lattice, bottom_mode: descriptor.bottom_mode })
+        Ok(CellLatticeBinding {
+            lattice,
+            bottom_mode: descriptor.bottom_mode,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use chrono::{TimeZone, Utc};
+
     use super::*;
     use crate::{AnchorerSig, Hlc, LatticeOp, LatticeOpType, MoveSignature};
-    use chrono::{TimeZone, Utc};
 
     fn Realm() -> RealmId {
         RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
@@ -617,7 +719,11 @@ mod tests {
     }
 
     fn anchor_id(byte: u8) -> AnchorId {
-        AnchorId::new(format!("ck:anchor:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+        AnchorId::new(format!(
+            "ck:anchor:sha256:{}",
+            format!("{byte:02x}").repeat(32)
+        ))
+        .unwrap()
     }
 
     fn hash(byte: u8) -> Hash {
@@ -736,7 +842,11 @@ mod tests {
         let g = dummy_anchor(anchor_id(0xa0), vec![], vec![move_id(0x01)]);
         let child_a = dummy_anchor(anchor_id(0xa1), vec![g.id.clone()], vec![move_id(0x02)]);
         let child_b = dummy_anchor(anchor_id(0xa2), vec![g.id.clone()], vec![move_id(0x03)]);
-        let leaf_x = dummy_anchor(anchor_id(0xa3), vec![child_a.id.clone()], vec![move_id(0x04)]);
+        let leaf_x = dummy_anchor(
+            anchor_id(0xa3),
+            vec![child_a.id.clone()],
+            vec![move_id(0x04)],
+        );
         store.put(&g).unwrap();
         store.put(&child_a).unwrap();
         store.put(&child_b).unwrap();
@@ -789,8 +899,11 @@ mod tests {
         let store = MemoryAnchorStore::default();
         let g = dummy_anchor(anchor_id(0xd0), vec![], vec![move_id(0x01)]);
         let a = dummy_anchor(anchor_id(0xd1), vec![g.id.clone()], vec![move_id(0x02)]);
-        let c =
-            dummy_anchor(anchor_id(0xd2), vec![g.id.clone(), a.id.clone()], vec![move_id(0x03)]);
+        let c = dummy_anchor(
+            anchor_id(0xd2),
+            vec![g.id.clone(), a.id.clone()],
+            vec![move_id(0x03)],
+        );
         store.put(&g).unwrap();
         store.put(&a).unwrap();
         store.put(&c).unwrap();
@@ -832,7 +945,9 @@ mod tests {
 
         let cells = store.list_cells(&Realm()).unwrap();
         assert_eq!(cells.len(), 1);
-        let ops = store.anchored_ops_for_cell(&Realm(), &cell_member()).unwrap();
+        let ops = store
+            .anchored_ops_for_cell(&Realm(), &cell_member())
+            .unwrap();
         assert_eq!(ops.len(), 1);
         assert_eq!(ops[0], op);
     }
@@ -853,9 +968,16 @@ mod tests {
             },
         );
         let anchor = anchor_id(0xaa);
-        store.append_anchored_effects(&Realm(), &anchor, &[(cell_member(), op)]).unwrap();
+        store
+            .append_anchored_effects(&Realm(), &anchor, &[(cell_member(), op)])
+            .unwrap();
         store.rollback_anchor(&Realm(), &anchor).unwrap();
-        assert!(store.anchored_ops_for_cell(&Realm(), &cell_member()).unwrap().is_empty());
+        assert!(
+            store
+                .anchored_ops_for_cell(&Realm(), &cell_member())
+                .unwrap()
+                .is_empty()
+        );
         assert!(store.list_cells(&Realm()).unwrap().is_empty());
     }
 
@@ -864,7 +986,12 @@ mod tests {
         let store = MemoryCellStore::default();
         let view = hash(0x33);
         store
-            .put_cached_state(&Realm(), &cell_member(), &view, &CellState::Value(json!("x")))
+            .put_cached_state(
+                &Realm(),
+                &cell_member(),
+                &view,
+                &CellState::Value(json!("x")),
+            )
             .unwrap();
         assert_eq!(
             store.cached_state(&Realm(), &cell_member(), &view).unwrap(),
@@ -883,8 +1010,15 @@ mod tests {
                 issuer_seq: None,
             },
         );
-        store.append_anchored_effects(&Realm(), &anchor_id(0xab), &[(cell_member(), op)]).unwrap();
-        assert!(store.cached_state(&Realm(), &cell_member(), &view).unwrap().is_none());
+        store
+            .append_anchored_effects(&Realm(), &anchor_id(0xab), &[(cell_member(), op)])
+            .unwrap();
+        assert!(
+            store
+                .cached_state(&Realm(), &cell_member(), &view)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
@@ -908,7 +1042,10 @@ mod tests {
         let reg = MemoryCellRegistry::new();
         let consent =
             CellRef::new("ck:cell:ck.component.consent.grant.v1:ck.consent.x".to_owned()).unwrap();
-        assert_eq!(reg.resolve(&Realm(), &consent).unwrap().lattice.kind(), LatticeKind::OrSet);
+        assert_eq!(
+            reg.resolve(&Realm(), &consent).unwrap().lattice.kind(),
+            LatticeKind::OrSet
+        );
 
         let policy =
             CellRef::new("ck:cell:ck.component.realm.policy.v1:ck.realm.x".to_owned()).unwrap();

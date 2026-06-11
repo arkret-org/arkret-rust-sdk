@@ -51,8 +51,14 @@ fn sync_loop_recovers_after_failure() {
     };
     let mut sync_loop = SyncLoop::new();
 
-    assert!(matches!(sync_loop.step(&mut transport), SyncLoopStep::Retry { .. }));
-    assert!(matches!(sync_loop.step(&mut transport), SyncLoopStep::Updates(_)));
+    assert!(matches!(
+        sync_loop.step(&mut transport),
+        SyncLoopStep::Retry { .. }
+    ));
+    assert!(matches!(
+        sync_loop.step(&mut transport),
+        SyncLoopStep::Updates(_)
+    ));
     assert_eq!(sync_loop.token(), Some("s1"));
 }
 
@@ -65,7 +71,10 @@ async fn async_sync_loop_uses_transport_and_persists_token() {
     };
     let mut sync_loop = SyncLoop::new().with_timeout(Duration::from_millis(15));
 
-    assert!(matches!(sync_loop.step_async(&transport).await, SyncLoopStep::Updates(_)));
+    assert!(matches!(
+        sync_loop.step_async(&transport).await,
+        SyncLoopStep::Updates(_)
+    ));
     let snapshot = sync_loop.snapshot();
     assert_eq!(snapshot.token.as_deref(), Some("async1"));
 
@@ -82,7 +91,9 @@ async fn async_sync_loop_honors_cancellation() {
     let mut sync_loop = SyncLoop::new();
 
     assert!(matches!(
-        sync_loop.step_async_with_control(&transport, &control).await,
+        sync_loop
+            .step_async_with_control(&transport, &control)
+            .await,
         SyncLoopStep::Cancelled
     ));
     assert!(sync_loop.token().is_none());
@@ -97,7 +108,10 @@ fn sync_loop_control_applies_backpressure() {
     let permit = control.try_acquire().unwrap();
 
     assert!(control.try_acquire().is_none());
-    assert_eq!(control.backpressure_retry_after(), Duration::from_millis(25));
+    assert_eq!(
+        control.backpressure_retry_after(),
+        Duration::from_millis(25)
+    );
 
     drop(permit);
     assert!(control.try_acquire().is_some());
@@ -119,12 +133,18 @@ fn sync_loop_can_reset_token_on_limited_timeline_gap() {
         unread: UnreadCounts::default(),
         ..Default::default()
     };
-    response.realms.insert(realm_id.to_owned(), serde_json::to_value(sync_realm).unwrap());
+    response.realms.insert(
+        realm_id.to_owned(),
+        serde_json::to_value(sync_realm).unwrap(),
+    );
     let mut transport = |_request: SyncRequestBody| Ok(response.clone());
     let mut sync_loop =
         SyncLoop::new().with_gap_strategy(SyncGapStrategy::ResetTokenOnLimitedTimeline);
 
-    assert!(matches!(sync_loop.step(&mut transport), SyncLoopStep::Updates(_)));
+    assert!(matches!(
+        sync_loop.step(&mut transport),
+        SyncLoopStep::Updates(_)
+    ));
     assert!(sync_loop.token().is_none());
 }
 
@@ -142,7 +162,9 @@ fn sync_loop_includes_wait_for_frontier() {
         timeout_ms: 5000,
     };
 
-    let request = SyncLoop::new().with_wait_for(wait_for.clone()).next_request();
+    let request = SyncLoop::new()
+        .with_wait_for(wait_for.clone())
+        .next_request();
 
     assert_eq!(request.wait_for, Some(wait_for));
 }
@@ -156,10 +178,16 @@ fn processor_dispatches_all_update_categories() {
         state: vec![json!({"kind":"state"})],
         summary: json!({"name":"realm"}),
         ephemeral: Vec::new(),
-        unread: UnreadCounts { notification_count: 3, highlight_count: 1 },
+        unread: UnreadCounts {
+            notification_count: 3,
+            highlight_count: 1,
+        },
         ..Default::default()
     };
-    response.realms.insert(realm_id.to_owned(), serde_json::to_value(sync_realm).unwrap());
+    response.realms.insert(
+        realm_id.to_owned(),
+        serde_json::to_value(sync_realm).unwrap(),
+    );
     response.to_device.push(
         serde_json::to_value(ToDeviceMessage {
             message_type: "m.test".to_owned(),
@@ -208,7 +236,13 @@ fn processor_dispatches_all_update_categories() {
     let parsed_realm_id = RealmId::new(realm_id).unwrap();
 
     assert_eq!(updates.realm_updates.len(), 1);
-    assert_eq!(processor.realm(&parsed_realm_id).unwrap().notification_count, 3);
+    assert_eq!(
+        processor
+            .realm(&parsed_realm_id)
+            .unwrap()
+            .notification_count,
+        3
+    );
     assert_eq!(processor.drain_to_device().len(), 1);
     assert!(processor.presence("did:web:alice.example").is_some());
     assert!(processor.account_data("ck.settings").is_some());
@@ -242,7 +276,10 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
         unread: UnreadCounts::default(),
         ..Default::default()
     };
-    response.realms.insert(realm_id.to_owned(), serde_json::to_value(sync_realm).unwrap());
+    response.realms.insert(
+        realm_id.to_owned(),
+        serde_json::to_value(sync_realm).unwrap(),
+    );
 
     let mut processor = SyncResponseProcessor::new();
     processor.process(response).unwrap();
@@ -252,7 +289,13 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
         ToDeviceAckStatus::Processed,
     );
 
-    assert_eq!(processor.realm(&parsed_realm_id).unwrap().limited_timeline_count, 1);
+    assert_eq!(
+        processor
+            .realm(&parsed_realm_id)
+            .unwrap()
+            .limited_timeline_count,
+        1
+    );
     assert_eq!(processor.limited_timelines().len(), 1);
     assert_eq!(processor.to_device_ack("devmsg1"), Some(&ack));
 }
@@ -262,10 +305,18 @@ fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let mut queue = SendQueue::new();
     let message = queue
-        .enqueue_message(Some("txn1".to_owned()), realm_id.clone(), json!({"body":"hello"}))
+        .enqueue_message(
+            Some("txn1".to_owned()),
+            realm_id.clone(),
+            json!({"body":"hello"}),
+        )
         .unwrap();
     let duplicate = queue
-        .enqueue_message(Some("txn1".to_owned()), realm_id.clone(), json!({"body":"hello"}))
+        .enqueue_message(
+            Some("txn1".to_owned()),
+            realm_id.clone(),
+            json!({"body":"hello"}),
+        )
         .unwrap();
     let edit = queue
         .enqueue_edit(
@@ -282,7 +333,10 @@ fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
 
     queue.mark_sending("txn1").unwrap();
     queue
-        .mark_sent("txn1", EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap())
+        .mark_sent(
+            "txn1",
+            EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap(),
+        )
         .unwrap();
     assert_eq!(queue.ready_batch(Utc::now(), 10), vec![edit]);
 
@@ -297,7 +351,11 @@ fn send_queue_cancels_dependent_edit_redaction_and_reaction() {
     let event_id = EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
     let mut queue = SendQueue::new();
     queue
-        .enqueue_message(Some("txn1".to_owned()), realm_id.clone(), json!({"body":"hello"}))
+        .enqueue_message(
+            Some("txn1".to_owned()),
+            realm_id.clone(),
+            json!({"body":"hello"}),
+        )
         .unwrap();
     queue
         .enqueue_redaction(
@@ -321,9 +379,18 @@ fn send_queue_cancels_dependent_edit_redaction_and_reaction() {
 
     queue.cancel("txn1", true).unwrap();
 
-    assert_eq!(queue.get("txn1").unwrap().status, SendQueueStatus::Cancelled);
-    assert_eq!(queue.get("txn2").unwrap().status, SendQueueStatus::Cancelled);
-    assert_eq!(queue.get("txn3").unwrap().status, SendQueueStatus::Cancelled);
+    assert_eq!(
+        queue.get("txn1").unwrap().status,
+        SendQueueStatus::Cancelled
+    );
+    assert_eq!(
+        queue.get("txn2").unwrap().status,
+        SendQueueStatus::Cancelled
+    );
+    assert_eq!(
+        queue.get("txn3").unwrap().status,
+        SendQueueStatus::Cancelled
+    );
 }
 
 #[test]
@@ -362,11 +429,18 @@ fn realm_list_sorts_filters_and_reports_incremental_changes() {
     let first = list.upsert(alpha);
     let second = list.upsert(beta);
     let sorted = list.set_sort(RealmListSort::Unread);
-    let filtered =
-        list.set_filter(RealmListFilter { unread_only: true, ..RealmListFilter::default() });
+    let filtered = list.set_filter(RealmListFilter {
+        unread_only: true,
+        ..RealmListFilter::default()
+    });
 
     assert!(matches!(first.changes[0], RealmListChange::Inserted { .. }));
-    assert!(second.changes.iter().any(|change| matches!(change, RealmListChange::Inserted { .. })));
+    assert!(
+        second
+            .changes
+            .iter()
+            .any(|change| matches!(change, RealmListChange::Inserted { .. }))
+    );
     assert_eq!(sorted.ordered[0], s2);
     assert_eq!(filtered.ordered.len(), 2);
 
@@ -381,12 +455,21 @@ fn realm_list_sorts_filters_and_reports_incremental_changes() {
 #[test]
 fn frame_event_round_trip() {
     let line = r#"{"kind":"event","seq":42,"cursor":"sx:e2e:42","payload":{"event_id":"ck:event:01904100-0000-7000-8000-834e21b98552"}}"#;
-    let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+    let frame = EventsSubscribeFrame::from_ndjson_line(line)
+        .unwrap()
+        .unwrap();
     match &frame {
-        EventsSubscribeFrame::Event { seq, cursor, payload } => {
+        EventsSubscribeFrame::Event {
+            seq,
+            cursor,
+            payload,
+        } => {
             assert_eq!(*seq, 42);
             assert_eq!(cursor, "sx:e2e:42");
-            assert_eq!(payload["event_id"], "ck:event:01904100-0000-7000-8000-834e21b98552");
+            assert_eq!(
+                payload["event_id"],
+                "ck:event:01904100-0000-7000-8000-834e21b98552"
+            );
         }
         other => panic!("expected Event, got {other:?}"),
     }
@@ -398,10 +481,16 @@ fn frame_event_round_trip() {
 #[test]
 fn frame_dropped_requires_resubscribe() {
     let line = r#"{"kind":"dropped","recovery_from":"sx:resume:9","reason":"buffer overflow","reconnect_after_ms":10000}"#;
-    let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+    let frame = EventsSubscribeFrame::from_ndjson_line(line)
+        .unwrap()
+        .unwrap();
     assert!(frame.requires_resubscribe());
     match &frame {
-        EventsSubscribeFrame::Dropped { recovery_from: Some(rf), reconnect_after_ms, .. } => {
+        EventsSubscribeFrame::Dropped {
+            recovery_from: Some(rf),
+            reconnect_after_ms,
+            ..
+        } => {
             assert_eq!(rf, "sx:resume:9");
             assert_eq!(*reconnect_after_ms, Some(10_000));
         }
@@ -413,10 +502,16 @@ fn frame_dropped_requires_resubscribe() {
 fn frame_resync_required_carries_frontier() {
     let line =
         r#"{"kind":"resync_required","last_frontier":["sx:f1","sx:f2"],"reconnect_after_ms":7500}"#;
-    let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+    let frame = EventsSubscribeFrame::from_ndjson_line(line)
+        .unwrap()
+        .unwrap();
     assert!(frame.requires_resubscribe());
     match &frame {
-        EventsSubscribeFrame::ResyncRequired { last_frontier, reason, reconnect_after_ms } => {
+        EventsSubscribeFrame::ResyncRequired {
+            last_frontier,
+            reason,
+            reconnect_after_ms,
+        } => {
             assert_eq!(last_frontier, &["sx:f1".to_owned(), "sx:f2".to_owned()]);
             assert!(reason.is_none());
             assert_eq!(*reconnect_after_ms, Some(7_500));
@@ -428,10 +523,19 @@ fn frame_resync_required_carries_frontier() {
 #[test]
 fn frame_epoch_rotation_parses_realm_and_epoch() {
     let line = r#"{"kind":"epoch_rotation","realm_id":"ck:realm:01904100-0000-7000-8000-9b64700c6ee8","new_epoch":7,"previous_epoch":6}"#;
-    let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+    let frame = EventsSubscribeFrame::from_ndjson_line(line)
+        .unwrap()
+        .unwrap();
     match &frame {
-        EventsSubscribeFrame::EpochRotation { realm_id, new_epoch, previous_epoch } => {
-            assert_eq!(realm_id.as_str(), "ck:realm:01904100-0000-7000-8000-9b64700c6ee8");
+        EventsSubscribeFrame::EpochRotation {
+            realm_id,
+            new_epoch,
+            previous_epoch,
+        } => {
+            assert_eq!(
+                realm_id.as_str(),
+                "ck:realm:01904100-0000-7000-8000-9b64700c6ee8"
+            );
             assert_eq!(*new_epoch, 7);
             assert_eq!(*previous_epoch, Some(6));
         }
@@ -442,7 +546,9 @@ fn frame_epoch_rotation_parses_realm_and_epoch() {
 #[test]
 fn frame_catchup_complete_signals_live_handover() {
     let line = r#"{"kind":"catchup_complete","cursor":"sx:live:0"}"#;
-    let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+    let frame = EventsSubscribeFrame::from_ndjson_line(line)
+        .unwrap()
+        .unwrap();
     assert!(frame.is_catchup_complete());
     assert!(!frame.requires_resubscribe());
 }
@@ -450,7 +556,9 @@ fn frame_catchup_complete_signals_live_handover() {
 #[test]
 fn frame_heartbeat_minimal() {
     let line = r#"{"kind":"heartbeat"}"#;
-    let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+    let frame = EventsSubscribeFrame::from_ndjson_line(line)
+        .unwrap()
+        .unwrap();
     assert!(matches!(frame, EventsSubscribeFrame::Heartbeat { .. }));
 }
 
@@ -459,7 +567,9 @@ fn frame_unknown_kind_falls_back() {
     // Future spec additions land here; clients log + continue rather
     // than treat the unknown frame as an event.
     let line = r#"{"kind":"future_kind_42","extra":"data"}"#;
-    let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+    let frame = EventsSubscribeFrame::from_ndjson_line(line)
+        .unwrap()
+        .unwrap();
     assert!(matches!(frame, EventsSubscribeFrame::Unknown));
     assert!(!frame.is_event());
     assert!(!frame.requires_resubscribe());
@@ -467,8 +577,16 @@ fn frame_unknown_kind_falls_back() {
 
 #[test]
 fn frame_blank_line_returns_none() {
-    assert!(EventsSubscribeFrame::from_ndjson_line("").unwrap().is_none());
-    assert!(EventsSubscribeFrame::from_ndjson_line("   \n").unwrap().is_none());
+    assert!(
+        EventsSubscribeFrame::from_ndjson_line("")
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        EventsSubscribeFrame::from_ndjson_line("   \n")
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]
@@ -486,9 +604,15 @@ fn frame_rejects_duplicate_key() {
 #[test]
 fn frame_unauthorized_with_actor_only() {
     let line = r#"{"kind":"unauthorized","actor_id":"did:web:alice.example","reason":"revoked"}"#;
-    let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+    let frame = EventsSubscribeFrame::from_ndjson_line(line)
+        .unwrap()
+        .unwrap();
     match &frame {
-        EventsSubscribeFrame::Unauthorized { realm_id, actor_id, reason } => {
+        EventsSubscribeFrame::Unauthorized {
+            realm_id,
+            actor_id,
+            reason,
+        } => {
             assert!(realm_id.is_none());
             assert_eq!(actor_id.as_deref(), Some("did:web:alice.example"));
             assert_eq!(reason.as_deref(), Some("revoked"));
@@ -531,9 +655,17 @@ fn events_query_selector_renders_repeated_query_args() {
     let pairs = selector.to_query_pairs();
     assert_eq!(pairs.iter().filter(|(k, _)| *k == "realms").count(), 2);
     assert_eq!(pairs.iter().filter(|(k, _)| *k == "actors").count(), 1);
-    assert!(pairs.iter().any(|(k, v)| *k == "order" && v == "descending"));
+    assert!(
+        pairs
+            .iter()
+            .any(|(k, v)| *k == "order" && v == "descending")
+    );
     assert!(pairs.iter().any(|(k, v)| *k == "limit" && v == "50"));
-    assert!(pairs.iter().any(|(k, v)| *k == "before" && v == "ck:cursor:1"));
+    assert!(
+        pairs
+            .iter()
+            .any(|(k, v)| *k == "before" && v == "ck:cursor:1")
+    );
 }
 
 #[test]
@@ -549,7 +681,9 @@ fn events_query_order_serde_round_trip() {
 #[test]
 fn frame_frontier_advance_round_trip() {
     let line = r#"{"kind":"frontier","cursor":"sx:advance:7"}"#;
-    let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+    let frame = EventsSubscribeFrame::from_ndjson_line(line)
+        .unwrap()
+        .unwrap();
     match &frame {
         EventsSubscribeFrame::Frontier { cursor } => assert_eq!(cursor, "sx:advance:7"),
         other => panic!("expected Frontier, got {other:?}"),
@@ -564,8 +698,9 @@ fn frame_frontier_advance_round_trip() {
 fn events_query_request_validates_non_empty() {
     let empty = EventsQueryRequestBody::new();
     assert!(empty.validate_non_empty().is_err());
-    let with_space = EventsQueryRequestBody::new()
-        .with_realms(vec![RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()]);
+    let with_space = EventsQueryRequestBody::new().with_realms(vec![
+        RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+    ]);
     with_space.validate_non_empty().unwrap();
 }
 
@@ -584,10 +719,22 @@ fn events_query_request_renders_query_pairs() {
     let pairs = req.to_query_pairs();
     assert_eq!(pairs.iter().filter(|(k, _)| *k == "realms").count(), 2);
     assert_eq!(pairs.iter().filter(|(k, _)| *k == "actors").count(), 1);
-    assert!(pairs.iter().any(|(k, v)| *k == "order" && v == "descending"));
+    assert!(
+        pairs
+            .iter()
+            .any(|(k, v)| *k == "order" && v == "descending")
+    );
     assert!(pairs.iter().any(|(k, v)| *k == "limit" && v == "50"));
-    assert!(pairs.iter().any(|(k, v)| *k == "before" && v == "ck:cursor:older"));
-    assert!(pairs.iter().any(|(k, v)| *k == "after" && v == "ck:cursor:newer"));
+    assert!(
+        pairs
+            .iter()
+            .any(|(k, v)| *k == "before" && v == "ck:cursor:older")
+    );
+    assert!(
+        pairs
+            .iter()
+            .any(|(k, v)| *k == "after" && v == "ck:cursor:newer")
+    );
 }
 
 #[test]

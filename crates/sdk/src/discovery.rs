@@ -5,10 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    Did, RealmId,
-    search::{RealmSearchEntry, RealmSearchIndex, RealmSearchQuery},
-};
+use crate::search::{RealmSearchEntry, RealmSearchIndex, RealmSearchQuery};
+use crate::{Did, RealmId};
 
 /// Public user directory entry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -28,7 +26,13 @@ pub struct DirectoryUser {
 impl DirectoryUser {
     /// Create a discoverable user entry.
     pub fn new(user_id: Did) -> Self {
-        Self { user_id, display_name: None, handle: None, bio: None, discoverable: true }
+        Self {
+            user_id,
+            display_name: None,
+            handle: None,
+            bio: None,
+            discoverable: true,
+        }
     }
 }
 
@@ -70,7 +74,10 @@ impl DirectoryService {
     pub fn publish_realm(&mut self, mut entry: RealmSearchEntry) {
         entry.public = true;
         if let Some(category) = &entry.category {
-            self.categories.entry(category.clone()).or_default().insert(entry.realm_id.clone());
+            self.categories
+                .entry(category.clone())
+                .or_default()
+                .insert(entry.realm_id.clone());
         }
         self.realms.upsert(entry);
     }
@@ -82,7 +89,10 @@ impl DirectoryService {
 
     /// List public realms.
     pub fn public_realms(&self) -> Vec<&RealmSearchEntry> {
-        self.realms.search(RealmSearchQuery { public_only: true, ..RealmSearchQuery::default() })
+        self.realms.search(RealmSearchQuery {
+            public_only: true,
+            ..RealmSearchQuery::default()
+        })
     }
 
     /// List realms in a category.
@@ -90,7 +100,10 @@ impl DirectoryService {
         self.categories
             .get(category)
             .map(|realm_ids| {
-                realm_ids.iter().filter_map(|realm_id| self.realms.get(realm_id)).collect()
+                realm_ids
+                    .iter()
+                    .filter_map(|realm_id| self.realms.get(realm_id))
+                    .collect()
             })
             .unwrap_or_default()
     }
@@ -107,15 +120,25 @@ impl DirectoryService {
             .into_iter()
             .filter(|entry| !already_joined.contains(&entry.realm_id))
             .map(|entry| {
-                let score = entry.tags.iter().filter(|tag| preferred_tags.contains(*tag)).count();
+                let score = entry
+                    .tags
+                    .iter()
+                    .filter(|tag| preferred_tags.contains(*tag))
+                    .count();
                 (score, entry)
             })
             .filter(|(score, _)| *score > 0)
             .collect();
         results.sort_by(|(left_score, left), (right_score, right)| {
-            right_score.cmp(left_score).then_with(|| left.name.cmp(&right.name))
+            right_score
+                .cmp(left_score)
+                .then_with(|| left.name.cmp(&right.name))
         });
-        results.into_iter().take(limit).map(|(_, entry)| entry).collect()
+        results
+            .into_iter()
+            .take(limit)
+            .map(|(_, entry)| entry)
+            .collect()
     }
 }
 

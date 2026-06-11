@@ -1,24 +1,22 @@
 //! Finite-state-machine Lattice.
 //!
 //! Per spec §5.3:
-//! - Each cell instance carries an `allowed_transitions: Vec<(from, to)>`
-//!   declaration loaded from its schema.
-//! - `transition(from, to)` op is valid only if `(from, to)` is in
-//!   `allowed_transitions`. The op also requires that the cell's current
-//!   value equals `from` at the moment the op is applied (this is checked
-//!   per Anchor batch by the runtime; the join here just walks anchored
-//!   ops in order and surfaces ⊥ on illegal transitions).
-//! - Concurrent valid transitions from the same `from` to different `to`
-//!   produce a `kind=invalid_transition` Bottom (the cell's safety
-//!   contract — e.g. membership state machine — requires a single
-//!   resolved next state).
+//! - Each cell instance carries an `allowed_transitions: Vec<(from, to)>` declaration loaded from
+//!   its schema.
+//! - `transition(from, to)` op is valid only if `(from, to)` is in `allowed_transitions`. The op
+//!   also requires that the cell's current value equals `from` at the moment the op is applied
+//!   (this is checked per Anchor batch by the runtime; the join here just walks anchored ops in
+//!   order and surfaces ⊥ on illegal transitions).
+//! - Concurrent valid transitions from the same `from` to different `to` produce a
+//!   `kind=invalid_transition` Bottom (the cell's safety contract — e.g. membership state machine —
+//!   requires a single resolved next state).
 //!
 //! `from` / `to` values are JSON; equality is by JSON canonical form.
 
-use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
 use serde_json::{Value, json};
 
 use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
 
 /// FSM Lattice instance with declared `allowed_transitions` and an
 /// optional `initial_state` for empty cells.
@@ -30,7 +28,10 @@ pub struct Fsm {
 
 impl Fsm {
     pub fn new(allowed_transitions: Vec<(Value, Value)>) -> Self {
-        Self { allowed_transitions, initial_state: None }
+        Self {
+            allowed_transitions,
+            initial_state: None,
+        }
     }
 
     pub fn with_initial(mut self, initial: Value) -> Self {
@@ -39,7 +40,9 @@ impl Fsm {
     }
 
     fn is_allowed(&self, from: &Value, to: &Value) -> bool {
-        self.allowed_transitions.iter().any(|(f, t)| f == from && t == to)
+        self.allowed_transitions
+            .iter()
+            .any(|(f, t)| f == from && t == to)
     }
 }
 
@@ -52,10 +55,16 @@ impl Lattice for Fsm {
         match op.op_type {
             LatticeOpType::Transition => {
                 if op.from.is_none() {
-                    return Err(OpError::MissingField { kind: "fsm", field: "from" });
+                    return Err(OpError::MissingField {
+                        kind: "fsm",
+                        field: "from",
+                    });
                 }
                 if op.to.is_none() {
-                    return Err(OpError::MissingField { kind: "fsm", field: "to" });
+                    return Err(OpError::MissingField {
+                        kind: "fsm",
+                        field: "to",
+                    });
                 }
                 let from = op.from.as_ref().unwrap();
                 let to = op.to.as_ref().unwrap();
@@ -160,13 +169,16 @@ mod tests {
     #[test]
     fn validate_accepts_declared_transition() {
         let f = membership_fsm();
-        f.validate_op(&transition(json!("invited"), json!("join"))).unwrap();
+        f.validate_op(&transition(json!("invited"), json!("join")))
+            .unwrap();
     }
 
     #[test]
     fn validate_rejects_undeclared_transition() {
         let f = membership_fsm();
-        let err = f.validate_op(&transition(json!("invited"), json!("ban"))).unwrap_err();
+        let err = f
+            .validate_op(&transition(json!("invited"), json!("ban")))
+            .unwrap_err();
         assert!(format!("{err}").contains("not in allowed_transitions"));
     }
 
@@ -203,7 +215,10 @@ mod tests {
     fn join_with_undeclared_transition_yields_bottom() {
         let f = membership_fsm();
         // invited -> ban is not declared.
-        let ops = vec![AnchoredOp::new(move_id(1), transition(json!("invited"), json!("ban")))];
+        let ops = vec![AnchoredOp::new(
+            move_id(1),
+            transition(json!("invited"), json!("ban")),
+        )];
         let state = f.join(&cell(), &ops);
         assert!(state.is_bottom());
     }

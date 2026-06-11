@@ -6,10 +6,8 @@ use super::*;
 /// Round 4 — discriminator for the 3PID invite OOB mode.
 ///
 /// `ck.schema.invite.v1` carries a `oneOf` of:
-/// - `offline_token`: token_commitment + token_salt_id +
-///   token_entropy_bits (>= 128).
-/// - `lookup`: lookup_table_ref + pepper_id, rate-limited (3 errors
-///   invalidates the entry).
+/// - `offline_token`: token_commitment + token_salt_id + token_entropy_bits (>= 128).
+/// - `lookup`: lookup_table_ref + pepper_id, rate-limited (3 errors invalidates the entry).
 ///
 /// The plaintext 3PID (email / SMS) MUST NEVER appear on the wire.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -23,8 +21,7 @@ pub enum ThirdPartyInviteOobKind {
 /// Round 4 — `ck.schema.invite.v1` third_party_invite (3PID) carrier.
 ///
 /// Two-mode `oneOf`:
-/// - `offline_token` requires `token_commitment` + `token_salt_id` +
-///   `token_entropy_bits >= 128`.
+/// - `offline_token` requires `token_commitment` + `token_salt_id` + `token_entropy_bits >= 128`.
 /// - `lookup` requires `lookup_table_ref` + `pepper_id`.
 ///
 /// Both modes ALWAYS carry `max_claims`,

@@ -137,7 +137,10 @@ impl RealmState {
         // Check causal dependencies
         for prev_ref in &event.prev_refs {
             if !self.is_processed(prev_ref) {
-                return Err(Error::Protocol(format!("missing causal dependency: {}", prev_ref)));
+                return Err(Error::Protocol(format!(
+                    "missing causal dependency: {}",
+                    prev_ref
+                )));
             }
         }
 
@@ -161,7 +164,8 @@ impl RealmState {
             stored_event.unsigned.clear();
         }
         self.state_events.push(stored_event.clone());
-        self.processed_events.insert(stored_event.event_id.clone(), stored_event);
+        self.processed_events
+            .insert(stored_event.event_id.clone(), stored_event);
 
         // Update frontier
         self.update_frontier(event);
@@ -351,10 +355,18 @@ impl RealmState {
             .or_else(|| patch_metadata_string(&patch, "summary"));
         let content = self
             .extract_optional_field::<Value>(&event.content, "content")
-            .or_else(|| patch.as_ref().and_then(|patch| patch.get("content").cloned()));
+            .or_else(|| {
+                patch
+                    .as_ref()
+                    .and_then(|patch| patch.get("content").cloned())
+            });
         let encrypted_content = self
             .extract_optional_field::<Value>(&event.content, "encrypted_content")
-            .or_else(|| patch.as_ref().and_then(|patch| patch.get("encrypted_content").cloned()));
+            .or_else(|| {
+                patch
+                    .as_ref()
+                    .and_then(|patch| patch.get("encrypted_content").cloned())
+            });
         let fields = self
             .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields")
             .or_else(|| patch_fields(&patch));
@@ -362,7 +374,9 @@ impl RealmState {
             .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "facets")
             .or_else(|| {
                 patch.as_ref().and_then(|patch| {
-                    patch.get("facets").and_then(|value| serde_json::from_value(value.clone()).ok())
+                    patch
+                        .get("facets")
+                        .and_then(|value| serde_json::from_value(value.clone()).ok())
                 })
             });
         let state = self
@@ -379,11 +393,16 @@ impl RealmState {
             morph.metadata = Some(metadata);
         }
         if let Some(title) = title {
-            morph.metadata.get_or_insert_with(crate::MorphMetadata::default).title = Some(title);
+            morph
+                .metadata
+                .get_or_insert_with(crate::MorphMetadata::default)
+                .title = Some(title);
         }
         if let Some(summary) = summary {
-            morph.metadata.get_or_insert_with(crate::MorphMetadata::default).summary =
-                Some(summary);
+            morph
+                .metadata
+                .get_or_insert_with(crate::MorphMetadata::default)
+                .summary = Some(summary);
         }
         if let Some(encrypted_metadata) = encrypted_metadata {
             morph.encrypted_metadata = Some(encrypted_metadata);
@@ -478,9 +497,13 @@ impl RealmState {
             title,
             summary: self.extract_optional_field(object, "summary"),
             rank: self.extract_optional_field(object, "rank"),
-            schema_refs: self.extract_optional_field(object, "schema_refs").unwrap_or_default(),
+            schema_refs: self
+                .extract_optional_field(object, "schema_refs")
+                .unwrap_or_default(),
             fields: self.extract_fields(object)?,
-            labels: self.extract_optional_field(object, "labels").unwrap_or_default(),
+            labels: self
+                .extract_optional_field(object, "labels")
+                .unwrap_or_default(),
             avatar_blob_ref: self.extract_optional_field(object, "avatar_blob_ref"),
             state: Some(state),
             state_changed_at: self.extract_optional_field(object, "state_changed_at"),
@@ -539,8 +562,9 @@ impl RealmState {
                         .and_then(|value| serde_json::from_value(value).ok())
                 })
             });
-        let labels =
-            self.extract_optional_field::<Vec<String>>(&event.content, "labels").or_else(|| {
+        let labels = self
+            .extract_optional_field::<Vec<String>>(&event.content, "labels")
+            .or_else(|| {
                 patch.as_ref().and_then(|patch| {
                     patch
                         .get("labels")
@@ -548,8 +572,9 @@ impl RealmState {
                         .and_then(|value| serde_json::from_value(value).ok())
                 })
             });
-        let avatar_blob_ref =
-            self.extract_optional_field(&event.content, "avatar_blob_ref").or_else(|| {
+        let avatar_blob_ref = self
+            .extract_optional_field(&event.content, "avatar_blob_ref")
+            .or_else(|| {
                 patch.as_ref().and_then(|patch| {
                     patch
                         .get("avatar_blob_ref")
@@ -603,10 +628,11 @@ impl RealmState {
 
     fn set_space_parent(&mut self, event: &Event) -> Result<()> {
         let space_id = self.extract_space_id(&event.content)?;
-        let parent_space_id_str =
-            self.extract_optional_field::<String>(&event.content, "parent_space_id").ok_or_else(
-                || Error::Protocol("space parent event requires parent_space_id".to_owned()),
-            )?;
+        let parent_space_id_str = self
+            .extract_optional_field::<String>(&event.content, "parent_space_id")
+            .ok_or_else(|| {
+                Error::Protocol("space parent event requires parent_space_id".to_owned())
+            })?;
         let parent_space_id = SpaceId::new(parent_space_id_str)?;
         let space = self
             .spaces
@@ -828,9 +854,12 @@ impl RealmState {
                         .ok()
                 })
             });
-        let patched_body = patch.as_ref().and_then(|patch| patch.get("content").cloned());
-        let patched_encrypted_content =
-            patch.as_ref().and_then(|patch| patch.get("encrypted_content").cloned());
+        let patched_body = patch
+            .as_ref()
+            .and_then(|patch| patch.get("content").cloned());
+        let patched_encrypted_content = patch
+            .as_ref()
+            .and_then(|patch| patch.get("encrypted_content").cloned());
 
         let subject = self
             .subjects
@@ -841,14 +870,22 @@ impl RealmState {
             subject.metadata = Some(metadata);
         }
         if let Some(title) = patch_metadata_string(&patch, "title") {
-            subject.metadata.get_or_insert_with(crate::FlowMetadata::default).title = Some(title);
+            subject
+                .metadata
+                .get_or_insert_with(crate::FlowMetadata::default)
+                .title = Some(title);
         }
         if let Some(summary) = patch_metadata_string(&patch, "summary") {
-            subject.metadata.get_or_insert_with(crate::FlowMetadata::default).summary =
-                Some(summary);
+            subject
+                .metadata
+                .get_or_insert_with(crate::FlowMetadata::default)
+                .summary = Some(summary);
         }
         if let Some(fields) = fields.or_else(|| patch_metadata_fields(&patch)) {
-            subject.metadata.get_or_insert_with(crate::FlowMetadata::default).fields = fields;
+            subject
+                .metadata
+                .get_or_insert_with(crate::FlowMetadata::default)
+                .fields = fields;
         }
         if let Some(encrypted_metadata) = encrypted_metadata {
             subject.encrypted_metadata = Some(encrypted_metadata);
@@ -951,7 +988,9 @@ impl RealmState {
         }
 
         if tracks.is_empty() {
-            return Err(Error::Protocol("flow tracks update requires tracks".to_owned()));
+            return Err(Error::Protocol(
+                "flow tracks update requires tracks".to_owned(),
+            ));
         }
         for track_id in tracks.keys() {
             crate::validate_flow_track_name(track_id)?;
@@ -1068,18 +1107,20 @@ impl RealmState {
             .extract_optional_field::<String>(&event.content, "message_id")
             .or_else(|| self.extract_optional_field::<String>(&event.content, "id"))
             .unwrap_or_else(|| event.event_id.to_string());
-        self.messages.entry(message_id.clone()).or_insert_with(|| ResolvedMessage {
-            message_id,
-            source_event_id: event.event_id.clone(),
-            latest_event_id: event.event_id.clone(),
-            created_by: event.actor_id.clone(),
-            latest_actor_id: event.actor_id.clone(),
-            latest_actor_seq: event.actor_seq,
-            latest_hlc: event.hlc.clone(),
-            content: event.content.clone(),
-            revision_event_ids: Vec::new(),
-            redacted: false,
-        });
+        self.messages
+            .entry(message_id.clone())
+            .or_insert_with(|| ResolvedMessage {
+                message_id,
+                source_event_id: event.event_id.clone(),
+                latest_event_id: event.event_id.clone(),
+                created_by: event.actor_id.clone(),
+                latest_actor_id: event.actor_id.clone(),
+                latest_actor_seq: event.actor_seq,
+                latest_hlc: event.hlc.clone(),
+                content: event.content.clone(),
+                revision_event_ids: Vec::new(),
+                redacted: false,
+            });
         Ok(())
     }
 
@@ -1099,8 +1140,11 @@ impl RealmState {
             message.latest_actor_id = event.actor_id.clone();
             message.latest_actor_seq = event.actor_seq;
             message.latest_hlc = event.hlc.clone();
-            message.content =
-                event.content.get("content").cloned().unwrap_or_else(|| event.content.clone());
+            message.content = event
+                .content
+                .get("content")
+                .cloned()
+                .unwrap_or_else(|| event.content.clone());
             message.redacted = false;
         }
         message.revision_event_ids.push(event.event_id.clone());
@@ -1228,7 +1272,8 @@ impl RealmState {
     /// Update the causal frontier.
     fn update_frontier(&mut self, event: &Event) {
         let prev_refs: BTreeSet<EventId> = event.prev_refs.iter().cloned().collect();
-        self.frontier.retain(|frontier_event| !prev_refs.contains(frontier_event));
+        self.frontier
+            .retain(|frontier_event| !prev_refs.contains(frontier_event));
         if !self.frontier.contains(&event.event_id) {
             self.frontier.push(event.event_id.clone());
         }
@@ -1327,8 +1372,9 @@ impl RealmState {
             .as_object()
             .ok_or_else(|| Error::Protocol("event content must be an object".to_owned()))?;
 
-        let value =
-            obj.get(field).ok_or_else(|| Error::Protocol(format!("missing field: {}", field)))?;
+        let value = obj
+            .get(field)
+            .ok_or_else(|| Error::Protocol(format!("missing field: {}", field)))?;
 
         serde_json::from_value(value.clone())
             .map_err(|_| Error::Protocol(format!("invalid field {}: wrong type", field)))
@@ -1347,7 +1393,9 @@ impl RealmState {
 
     /// Extract fields map from event content.
     fn extract_fields(&self, content: &Value) -> Result<BTreeMap<String, Value>> {
-        Ok(self.extract_optional_field(content, "fields").unwrap_or_default())
+        Ok(self
+            .extract_optional_field(content, "fields")
+            .unwrap_or_default())
     }
 
     /// Derive the cell subject for an event from typed payload fields,
@@ -1425,7 +1473,12 @@ impl RealmState {
             .cmp(&existing.hlc)
             .then_with(|| candidate.actor_id.as_str().cmp(existing.actor_id.as_str()))
             .then_with(|| candidate.actor_seq.cmp(&existing.actor_seq))
-            .then_with(|| candidate.source_event_id.as_str().cmp(existing.source_event_id.as_str()))
+            .then_with(|| {
+                candidate
+                    .source_event_id
+                    .as_str()
+                    .cmp(existing.source_event_id.as_str())
+            })
             .is_gt()
     }
 
@@ -1433,9 +1486,19 @@ impl RealmState {
         candidate
             .hlc
             .cmp(&existing.latest_hlc)
-            .then_with(|| candidate.actor_id.as_str().cmp(existing.latest_actor_id.as_str()))
+            .then_with(|| {
+                candidate
+                    .actor_id
+                    .as_str()
+                    .cmp(existing.latest_actor_id.as_str())
+            })
             .then_with(|| candidate.actor_seq.cmp(&existing.latest_actor_seq))
-            .then_with(|| candidate.event_id.as_str().cmp(existing.latest_event_id.as_str()))
+            .then_with(|| {
+                candidate
+                    .event_id
+                    .as_str()
+                    .cmp(existing.latest_event_id.as_str())
+            })
             .is_gt()
     }
 
@@ -1445,7 +1508,12 @@ impl RealmState {
             .cmp(&existing.hlc)
             .then_with(|| candidate.actor_id.as_str().cmp(existing.actor_id.as_str()))
             .then_with(|| candidate.actor_seq.cmp(&existing.actor_seq))
-            .then_with(|| candidate.source_event_id.as_str().cmp(existing.source_event_id.as_str()))
+            .then_with(|| {
+                candidate
+                    .source_event_id
+                    .as_str()
+                    .cmp(existing.source_event_id.as_str())
+            })
             .is_gt()
     }
 
@@ -1472,9 +1540,14 @@ impl RealmState {
     }
 
     pub fn effective_capability(&self, capability_id: &str) -> Option<&ResolvedStateEvent> {
-        self.resolved_state.get(&format!("ck.capability|{}", capability_id)).filter(|event| {
-            matches!(event.kind.as_str(), "ck.capability.grant" | "ck.capability.delegate")
-        })
+        self.resolved_state
+            .get(&format!("ck.capability|{}", capability_id))
+            .filter(|event| {
+                matches!(
+                    event.kind.as_str(),
+                    "ck.capability.grant" | "ck.capability.delegate"
+                )
+            })
     }
 
     pub fn capability_allows(&self, capability_id: &str, action: &str) -> bool {
@@ -1658,7 +1731,9 @@ fn reject_legacy_morph_patch_fields(patch: &Option<BTreeMap<String, Value>>) -> 
 
 fn validate_morph_schema_refs(schema_refs: &[String]) -> Result<()> {
     if schema_refs.is_empty() {
-        return Err(Error::Protocol("morph object requires non-empty schema_refs".to_owned()));
+        return Err(Error::Protocol(
+            "morph object requires non-empty schema_refs".to_owned(),
+        ));
     }
     let mut seen = BTreeSet::new();
     for schema_ref in schema_refs {
@@ -1679,7 +1754,10 @@ fn patch_metadata_fields(
         return serde_json::from_value(value.clone()).ok();
     }
     patch.get("metadata").and_then(|metadata| {
-        metadata.get("fields").cloned().and_then(|fields| serde_json::from_value(fields).ok())
+        metadata
+            .get("fields")
+            .cloned()
+            .and_then(|fields| serde_json::from_value(fields).ok())
     })
 }
 
@@ -1688,5 +1766,9 @@ fn patch_metadata_string(patch: &Option<BTreeMap<String, Value>>, field: &str) -
     if let Some(value) = patch.get(&format!("metadata.{field}")) {
         return value.as_str().map(ToOwned::to_owned);
     }
-    patch.get("metadata")?.get(field)?.as_str().map(ToOwned::to_owned)
+    patch
+        .get("metadata")?
+        .get(field)?
+        .as_str()
+        .map(ToOwned::to_owned)
 }

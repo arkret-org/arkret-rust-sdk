@@ -29,7 +29,11 @@ pub struct TypingManager {
 impl TypingManager {
     /// Create a manager with debounce duration.
     pub fn new(debounce: Duration) -> Self {
-        Self { states: BTreeMap::new(), last_sent: BTreeMap::new(), debounce }
+        Self {
+            states: BTreeMap::new(),
+            last_sent: BTreeMap::new(),
+            debounce,
+        }
     }
 
     /// Send/update a typing notification. Returns `None` when debounced.

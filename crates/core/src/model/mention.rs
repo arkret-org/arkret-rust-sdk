@@ -54,7 +54,12 @@ pub enum AudienceMentionAudience {
 
 impl AudienceMentionAudience {
     pub fn from_ui_token(token: &str) -> Option<Self> {
-        match token.trim().trim_start_matches('@').to_ascii_lowercase().as_str() {
+        match token
+            .trim()
+            .trim_start_matches('@')
+            .to_ascii_lowercase()
+            .as_str()
+        {
             "all" => Some(Self::EffectiveScopeMembers),
             "participants" => Some(Self::FlowParticipants),
             "watchers" => Some(Self::FlowWatchers),

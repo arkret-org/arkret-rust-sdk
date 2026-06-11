@@ -6,25 +6,22 @@
 //! - Timeline gaps
 //! - Latest event tracking
 
-use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
-    sync::Arc,
-};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::sync::Arc;
 
-use crate::{
-    Result,
-    base::BaseClient,
-    model::{DeviceId, Did, Event, EventId, RealmId},
-    receipts::{ReadReceipt, ReadScope},
-    sync::{
-        BackfillDirection, BackfillFrom, BackfillRequestBody, SyncGapReason, SyncTimeline,
-        TimelineOrderKey,
-    },
-    typing::TypingNotification,
-};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use crate::Result;
+use crate::base::BaseClient;
+use crate::model::{DeviceId, Did, Event, EventId, RealmId};
+use crate::receipts::{ReadReceipt, ReadScope};
+use crate::sync::{
+    BackfillDirection, BackfillFrom, BackfillRequestBody, SyncGapReason, SyncTimeline,
+    TimelineOrderKey,
+};
+use crate::typing::TypingNotification;
 
 /// Configuration for timeline queries.
 #[derive(Clone, Debug)]
@@ -39,7 +36,11 @@ pub struct TimelineOptions {
 
 impl Default for TimelineOptions {
     fn default() -> Self {
-        Self { limit: 50, direction: TimelineDirection::Backward, from: TimelineFrom::Latest }
+        Self {
+            limit: 50,
+            direction: TimelineDirection::Backward,
+            from: TimelineFrom::Latest,
+        }
     }
 }
 
@@ -306,7 +307,9 @@ impl EventCache {
             if existing.digest == digest {
                 return Ok(EventCacheInsert::DuplicateEventId);
             }
-            return Err(crate::Error::IdempotencyConflict(event.event_id.to_string()));
+            return Err(crate::Error::IdempotencyConflict(
+                event.event_id.to_string(),
+            ));
         }
         if let Some(existing_event_id) = self.digest_index.get(&digest) {
             return Ok(EventCacheInsert::DuplicateDigest {
@@ -317,8 +320,17 @@ impl EventCache {
         let depth = causal_depth_for(&event, &self.depths);
         let order = TimelineOrderKey::from_event(&event, depth);
         self.depths.insert(event.event_id.clone(), depth);
-        self.digest_index.insert(digest.clone(), event.event_id.clone());
-        self.events.insert(event.event_id.clone(), CachedEvent { event, raw, digest, order });
+        self.digest_index
+            .insert(digest.clone(), event.event_id.clone());
+        self.events.insert(
+            event.event_id.clone(),
+            CachedEvent {
+                event,
+                raw,
+                digest,
+                order,
+            },
+        );
         Ok(EventCacheInsert::Inserted)
     }
 
@@ -337,9 +349,9 @@ impl EventCache {
                 EventCacheInsert::Inserted => {
                     update.inserted.push(edge_event_ids.last().unwrap().clone())
                 }
-                EventCacheInsert::DuplicateEventId => {
-                    update.duplicate_event_ids.push(edge_event_ids.last().unwrap().clone())
-                }
+                EventCacheInsert::DuplicateEventId => update
+                    .duplicate_event_ids
+                    .push(edge_event_ids.last().unwrap().clone()),
                 EventCacheInsert::DuplicateDigest { existing_event_id } => {
                     update.duplicate_digests.push(existing_event_id)
                 }
@@ -431,11 +443,15 @@ impl EventCache {
             from: gap
                 .prev_cursor
                 .as_ref()
-                .map(|cursor| BackfillFrom::Cursor { cursor: cursor.clone() })
+                .map(|cursor| BackfillFrom::Cursor {
+                    cursor: cursor.clone(),
+                })
                 .or_else(|| {
                     gap.prev_event_id
                         .as_ref()
-                        .map(|event_id| BackfillFrom::EventId { event_id: event_id.clone() })
+                        .map(|event_id| BackfillFrom::EventId {
+                            event_id: event_id.clone(),
+                        })
                 })
                 .unwrap_or(BackfillFrom::Beginning),
             direction: BackfillDirection::Backward,
@@ -531,7 +547,10 @@ impl Timeline {
 
     /// Get stable UI-facing timeline items.
     pub fn items(&self) -> Vec<TimelineItem> {
-        self.item_order.iter().filter_map(|item_id| self.items.get(item_id).cloned()).collect()
+        self.item_order
+            .iter()
+            .filter_map(|item_id| self.items.get(item_id).cloned())
+            .collect()
     }
 
     /// Get one stable item by item ID.
@@ -541,12 +560,17 @@ impl Timeline {
 
     /// Get the stable item produced or modified by an event ID.
     pub fn item_for_event(&self, event_id: &EventId) -> Option<TimelineItem> {
-        self.event_to_item.get(event_id).and_then(|item_id| self.get_item(item_id))
+        self.event_to_item
+            .get(event_id)
+            .and_then(|item_id| self.get_item(item_id))
     }
 
     /// Get a specific event by ID.
     pub fn get_event(&self, event_id: &EventId) -> Option<TimelineEvent> {
-        self.events.iter().find(|te| &te.event.event_id == event_id).cloned()
+        self.events
+            .iter()
+            .find(|te| &te.event.event_id == event_id)
+            .cloned()
     }
 
     /// Get the latest event.
@@ -588,7 +612,11 @@ impl Timeline {
                 match options.direction {
                     TimelineDirection::Backward => {
                         // Return the latest `limit` events
-                        events.into_iter().rev().take(options.limit as usize).collect()
+                        events
+                            .into_iter()
+                            .rev()
+                            .take(options.limit as usize)
+                            .collect()
                     }
                     TimelineDirection::Forward => {
                         // Return the oldest `limit` events
@@ -635,7 +663,11 @@ impl Timeline {
                 }
             }
             TimelineFrom::Beginning => events.into_iter().take(options.limit as usize).collect(),
-            TimelineFrom::End => events.into_iter().rev().take(options.limit as usize).collect(),
+            TimelineFrom::End => events
+                .into_iter()
+                .rev()
+                .take(options.limit as usize)
+                .collect(),
         }
     }
 
@@ -644,14 +676,20 @@ impl Timeline {
         // Find the oldest gap or the beginning
         let from = if let Some(gap) = self.gaps.first() {
             if let Some(prev_cursor) = &gap.prev_cursor {
-                BackfillFrom::Cursor { cursor: prev_cursor.clone() }
+                BackfillFrom::Cursor {
+                    cursor: prev_cursor.clone(),
+                }
             } else if let Some(prev_id) = &gap.prev_event_id {
-                BackfillFrom::EventId { event_id: prev_id.clone() }
+                BackfillFrom::EventId {
+                    event_id: prev_id.clone(),
+                }
             } else {
                 BackfillFrom::Beginning
             }
         } else if let Some(oldest_id) = &self.oldest_event_id {
-            BackfillFrom::EventId { event_id: oldest_id.clone() }
+            BackfillFrom::EventId {
+                event_id: oldest_id.clone(),
+            }
         } else {
             BackfillFrom::Beginning
         };
@@ -725,7 +763,8 @@ impl Timeline {
                 existing.actor_id != summary.actor_id || existing.read_scope != summary.read_scope
             });
             item.read_receipts.push(summary);
-            item.read_receipts.sort_by(|left, right| left.actor_id.cmp(&right.actor_id));
+            item.read_receipts
+                .sort_by(|left, right| left.actor_id.cmp(&right.actor_id));
         }
     }
 
@@ -775,14 +814,20 @@ impl Timeline {
                 gaps: self.gaps.clone(),
                 backfill_request: Some(BackfillRequestBody {
                     realm_id: self.realm_id.clone(),
-                    from: BackfillFrom::EventId { event_id: target_event_id },
+                    from: BackfillFrom::EventId {
+                        event_id: target_event_id,
+                    },
                     direction: BackfillDirection::Both,
                     limit: Some((before + after + 1) as u32),
                 }),
             };
         };
 
-        let Some(index) = self.item_order.iter().position(|candidate| candidate == &item_id) else {
+        let Some(index) = self
+            .item_order
+            .iter()
+            .position(|candidate| candidate == &item_id)
+        else {
             return FocusedTimeline {
                 target_event_id,
                 before: Vec::new(),
@@ -821,7 +866,9 @@ impl Timeline {
             gaps: self.gaps.clone(),
             backfill_request: needs_backfill.then(|| BackfillRequestBody {
                 realm_id: self.realm_id.clone(),
-                from: BackfillFrom::EventId { event_id: backfill_from_event_id },
+                from: BackfillFrom::EventId {
+                    event_id: backfill_from_event_id,
+                },
                 direction: BackfillDirection::Both,
                 limit: Some((before + after + 1) as u32),
             }),
@@ -835,7 +882,10 @@ impl Timeline {
             te.position.index = index;
             te.position.is_latest = index == len - 1;
         }
-        self.oldest_event_id = self.events.front().map(|event| event.event.event_id.clone());
+        self.oldest_event_id = self
+            .events
+            .front()
+            .map(|event| event.event.event_id.clone());
         self.latest_event_id = self.events.back().map(|event| event.event.event_id.clone());
     }
 
@@ -852,9 +902,15 @@ impl Timeline {
         let entry = TimelineEvent {
             event,
             order: order.clone(),
-            position: TimelinePosition { index: 0, is_latest: false },
+            position: TimelinePosition {
+                index: 0,
+                is_latest: false,
+            },
         };
-        let insert_at = self.events.iter().position(|existing| existing.order > order);
+        let insert_at = self
+            .events
+            .iter()
+            .position(|existing| existing.order > order);
         if let Some(index) = insert_at {
             self.events.insert(index, entry);
         } else {
@@ -944,7 +1000,10 @@ impl Timeline {
 
     fn apply_message_redaction(&mut self, event: &Event, order: TimelineOrderKey) {
         let Some(item_id) = self.target_item_id(event).or_else(|| {
-            event.redacts.as_ref().and_then(|event_id| self.event_to_item.get(event_id).cloned())
+            event
+                .redacts
+                .as_ref()
+                .and_then(|event_id| self.event_to_item.get(event_id).cloned())
         }) else {
             return;
         };
@@ -975,8 +1034,14 @@ impl Timeline {
         };
 
         let active = event.kind == "ck.reaction.add";
-        self.reaction_index
-            .insert((item_id.clone(), event.actor_id.clone(), reaction_key.clone()), active);
+        self.reaction_index.insert(
+            (
+                item_id.clone(),
+                event.actor_id.clone(),
+                reaction_key.clone(),
+            ),
+            active,
+        );
         self.recompute_reaction_summary(&item_id, &reaction_key);
         self.event_to_item.insert(event.event_id.clone(), item_id);
     }
@@ -985,13 +1050,16 @@ impl Timeline {
         let mut senders: Vec<Did> = self
             .reaction_index
             .iter()
-            .filter_map(|((candidate_item_id, sender, candidate_reaction), active)| {
-                if candidate_item_id == item_id && candidate_reaction == reaction_key && *active {
-                    Some(sender.clone())
-                } else {
-                    None
-                }
-            })
+            .filter_map(
+                |((candidate_item_id, sender, candidate_reaction), active)| {
+                    if candidate_item_id == item_id && candidate_reaction == reaction_key && *active
+                    {
+                        Some(sender.clone())
+                    } else {
+                        None
+                    }
+                },
+            )
             .collect();
         senders.sort();
         senders.dedup();
@@ -1074,12 +1142,13 @@ fn string_content_field(event: &Event, field: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::BTreeMap;
 
-    use crate::{DeviceId, Did, Hlc, RealmId};
     use chrono::Duration;
     use serde_json::json;
+
+    use super::*;
+    use crate::{DeviceId, Did, Hlc, RealmId};
 
     fn create_test_event(realm_id: &RealmId, index: u32) -> Event {
         Event {
@@ -1153,11 +1222,17 @@ mod tests {
         let mut timeline = Timeline::new(realm_id.clone(), base_client);
 
         // First append some events
-        let events1 = vec![create_test_event(&realm_id, 4), create_test_event(&realm_id, 5)];
+        let events1 = vec![
+            create_test_event(&realm_id, 4),
+            create_test_event(&realm_id, 5),
+        ];
         timeline.append_events(events1).unwrap();
 
         // Then prepend older events
-        let events2 = vec![create_test_event(&realm_id, 2), create_test_event(&realm_id, 3)];
+        let events2 = vec![
+            create_test_event(&realm_id, 2),
+            create_test_event(&realm_id, 3),
+        ];
         timeline.prepend_events(events2).unwrap();
 
         assert_eq!(timeline.len(), 4);
@@ -1258,7 +1333,9 @@ mod tests {
         redaction.kind = "ck.message.redact".into();
         redaction.content = json!({"target_message_id":"m1"});
 
-        timeline.append_events(vec![message, edit, reaction]).unwrap();
+        timeline
+            .append_events(vec![message, edit, reaction])
+            .unwrap();
 
         let item = timeline.get_item("m1").unwrap();
         assert_eq!(timeline.items().len(), 1);
@@ -1316,12 +1393,19 @@ mod tests {
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = create_test_event(&realm_id, 1);
         let raw = serde_json::to_value(&event).unwrap();
-        let timeline_section =
-            SyncTimeline { events: vec![raw], limited: true, prev_cursor: Some("prev".to_owned()) };
+        let timeline_section = SyncTimeline {
+            events: vec![raw],
+            limited: true,
+            prev_cursor: Some("prev".to_owned()),
+        };
         let mut cache = EventCache::new();
 
-        let update = cache.apply_sync_timeline(realm_id.clone(), &timeline_section).unwrap();
-        let duplicate = cache.apply_sync_timeline(realm_id.clone(), &timeline_section).unwrap();
+        let update = cache
+            .apply_sync_timeline(realm_id.clone(), &timeline_section)
+            .unwrap();
+        let duplicate = cache
+            .apply_sync_timeline(realm_id.clone(), &timeline_section)
+            .unwrap();
         let request = cache.next_gap_backfill_request(&realm_id, 10).unwrap();
         cache.store_processed_items(
             realm_id.clone(),

@@ -1,8 +1,9 @@
 //! Wire-model invariants preserved while domain modules stay split.
 
 mod session_and_identity {
-    use super::super::*;
     use chrono::{Duration, Utc};
+
+    use super::super::*;
     fn realm() -> RealmId {
         RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap()
     }
@@ -129,8 +130,9 @@ mod session_and_identity {
 }
 
 mod protocol_wire {
-    use super::super::*;
     use chrono::Utc;
+
+    use super::super::*;
     fn realm() -> RealmId {
         RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap()
     }

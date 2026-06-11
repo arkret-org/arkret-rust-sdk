@@ -1,7 +1,8 @@
+use serde_json::json;
+
 use super::*;
 use crate::events::kinds::FLOW_TRACKS_UPDATE as OP_FLOW_TRACKS_UPDATE;
 use crate::{EventRequirements, Hlc, RealmId};
-use serde_json::json;
 
 fn realm_id() -> RealmId {
     RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
@@ -110,12 +111,17 @@ fn space_events_create_update_parent_and_tombstone() {
     tombstone.prev_refs.push(parent.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
-    state.apply_events(&[tombstone, parent, update, create]).unwrap();
+    state
+        .apply_events(&[tombstone, parent, update, create])
+        .unwrap();
 
     let space = state.spaces.get(space_id).unwrap();
     assert_eq!(space.kind, "board");
     assert_eq!(space.title, "Roadmap 2026");
-    assert_eq!(space.parent_space_id.as_ref().map(|p| p.as_str()), Some(parent_space_id));
+    assert_eq!(
+        space.parent_space_id.as_ref().map(|p| p.as_str()),
+        Some(parent_space_id)
+    );
     assert_eq!(space.rank.as_deref(), Some("a0"));
     assert_eq!(space.fields["wip_limit"], 5);
     assert_eq!(space.state, Some(crate::model::SpaceState::Tombstoned));
@@ -169,7 +175,10 @@ fn space_restore_rejected_when_active() {
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, restore]).unwrap_err();
-    assert!(err.to_string().contains("space_not_archived"), "unexpected error: {err}");
+    assert!(
+        err.to_string().contains("space_not_archived"),
+        "unexpected error: {err}"
+    );
 
     let space = state.spaces.get(space_id).unwrap();
     assert_eq!(space.state, Some(crate::model::SpaceState::Active));
@@ -188,8 +197,13 @@ fn space_restore_rejected_when_tombstoned() {
     restore.prev_refs.push(tombstone.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
-    let err = state.apply_events(&[create, tombstone, restore]).unwrap_err();
-    assert!(err.to_string().contains("space_not_archived"), "unexpected error: {err}");
+    let err = state
+        .apply_events(&[create, tombstone, restore])
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("space_not_archived"),
+        "unexpected error: {err}"
+    );
 
     let space = state.spaces.get(space_id).unwrap();
     assert_eq!(space.state, Some(crate::model::SpaceState::Tombstoned));
@@ -244,7 +258,10 @@ fn flow_restore_rejected_when_active() {
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, restore]).unwrap_err();
-    assert!(err.to_string().contains("flow_not_archived"), "unexpected error: {err}");
+    assert!(
+        err.to_string().contains("flow_not_archived"),
+        "unexpected error: {err}"
+    );
 
     // create_flow defaults the Flow to Active. The failed restore must
     // be a no-op — state stays Active, state_changed_at stays unset
@@ -285,7 +302,10 @@ fn morph_restore_rejected_when_active() {
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, restore]).unwrap_err();
-    assert!(err.to_string().contains("morph_not_archived"), "unexpected error: {err}");
+    assert!(
+        err.to_string().contains("morph_not_archived"),
+        "unexpected error: {err}"
+    );
 
     // morph_event constructs `create_morph` without an explicit state;
     // create_morph defaults to ObjectState::Active. The failed restore
@@ -308,8 +328,13 @@ fn space_archive_rejected_when_already_archived() {
     archive2.prev_refs.push(archive1.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
-    let err = state.apply_events(&[create, archive1, archive2]).unwrap_err();
-    assert!(err.to_string().contains("space_not_active"), "unexpected error: {err}");
+    let err = state
+        .apply_events(&[create, archive1, archive2])
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("space_not_active"),
+        "unexpected error: {err}"
+    );
 
     // First archive succeeded; second archive (the rejected one) must not
     // touch Space state.
@@ -327,8 +352,13 @@ fn space_archive_rejected_when_tombstoned() {
     archive.prev_refs.push(tombstone.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
-    let err = state.apply_events(&[create, tombstone, archive]).unwrap_err();
-    assert!(err.to_string().contains("space_not_active"), "unexpected error: {err}");
+    let err = state
+        .apply_events(&[create, tombstone, archive])
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("space_not_active"),
+        "unexpected error: {err}"
+    );
     assert_eq!(
         state.spaces.get(space_id).unwrap().state,
         Some(crate::model::SpaceState::Tombstoned)
@@ -345,8 +375,13 @@ fn space_tombstone_rejected_when_already_terminal() {
     tombstone2.prev_refs.push(tombstone1.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
-    let err = state.apply_events(&[create, tombstone1, tombstone2]).unwrap_err();
-    assert!(err.to_string().contains("space_already_terminal"), "unexpected error: {err}");
+    let err = state
+        .apply_events(&[create, tombstone1, tombstone2])
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("space_already_terminal"),
+        "unexpected error: {err}"
+    );
     assert_eq!(
         state.spaces.get(space_id).unwrap().state,
         Some(crate::model::SpaceState::Tombstoned)
@@ -363,9 +398,17 @@ fn flow_archive_rejected_when_already_archived() {
     archive2.prev_refs.push(archive1.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
-    let err = state.apply_events(&[create, archive1, archive2]).unwrap_err();
-    assert!(err.to_string().contains("flow_not_active"), "unexpected error: {err}");
-    assert_eq!(state.subjects.get(flow_id).unwrap().state, Some(crate::ObjectState::Archived));
+    let err = state
+        .apply_events(&[create, archive1, archive2])
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("flow_not_active"),
+        "unexpected error: {err}"
+    );
+    assert_eq!(
+        state.subjects.get(flow_id).unwrap().state,
+        Some(crate::ObjectState::Archived)
+    );
 }
 
 #[test]
@@ -378,9 +421,17 @@ fn morph_archive_rejected_when_already_archived() {
     archive2.prev_refs.push(archive1.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
-    let err = state.apply_events(&[create, archive1, archive2]).unwrap_err();
-    assert!(err.to_string().contains("morph_not_active"), "unexpected error: {err}");
-    assert_eq!(state.morphs.get(morph_id).unwrap().state, Some(crate::ObjectState::Archived));
+    let err = state
+        .apply_events(&[create, archive1, archive2])
+        .unwrap_err();
+    assert!(
+        err.to_string().contains("morph_not_active"),
+        "unexpected error: {err}"
+    );
+    assert_eq!(
+        state.morphs.get(morph_id).unwrap().state,
+        Some(crate::ObjectState::Archived)
+    );
 }
 
 #[test]
@@ -389,13 +440,19 @@ fn space_update_rejected_when_archived() {
     let create = space_create_event(1, space_id);
     let mut archive = event(OP_SPACE_ARCHIVE, 2, json!({ "space_id": space_id }));
     archive.prev_refs.push(create.event_id.clone());
-    let mut update =
-        event(OP_SPACE_UPDATE, 3, json!({ "space_id": space_id, "patch": { "title": "Renamed" } }));
+    let mut update = event(
+        OP_SPACE_UPDATE,
+        3,
+        json!({ "space_id": space_id, "patch": { "title": "Renamed" } }),
+    );
     update.prev_refs.push(archive.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, archive, update]).unwrap_err();
-    assert!(err.to_string().contains("space_not_active"), "unexpected error: {err}");
+    assert!(
+        err.to_string().contains("space_not_active"),
+        "unexpected error: {err}"
+    );
     // Title must NOT have been changed.
     assert_eq!(state.spaces.get(space_id).unwrap().title, "Roadmap");
 }
@@ -415,8 +472,14 @@ fn flow_update_rejected_when_archived() {
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, archive, update]).unwrap_err();
-    assert!(err.to_string().contains("flow_not_active"), "unexpected error: {err}");
-    assert_eq!(state.subjects.get(flow_id).unwrap().metadata_title(), Some("Payment refactor"));
+    assert!(
+        err.to_string().contains("flow_not_active"),
+        "unexpected error: {err}"
+    );
+    assert_eq!(
+        state.subjects.get(flow_id).unwrap().metadata_title(),
+        Some("Payment refactor")
+    );
 }
 
 #[test]
@@ -434,8 +497,14 @@ fn morph_update_rejected_when_archived() {
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, archive, update]).unwrap_err();
-    assert!(err.to_string().contains("morph_not_active"), "unexpected error: {err}");
-    assert_eq!(state.morphs.get(morph_id).unwrap().metadata_title(), Some("Original Title"));
+    assert!(
+        err.to_string().contains("morph_not_active"),
+        "unexpected error: {err}"
+    );
+    assert_eq!(
+        state.morphs.get(morph_id).unwrap().metadata_title(),
+        Some("Original Title")
+    );
 }
 
 #[test]
@@ -511,10 +580,16 @@ fn flow_events_create_update_and_default_view_relation() {
 
     let flow = state.subjects.get(flow_id).unwrap();
     assert_eq!(flow.metadata_title(), Some("Payment refactor"));
-    assert_eq!(flow.metadata_summary(), Some("Risk, refunds and callbacks are tracked together."));
+    assert_eq!(
+        flow.metadata_summary(),
+        Some("Risk, refunds and callbacks are tracked together.")
+    );
     assert_eq!(flow.metadata_fields().unwrap()["priority"], "high");
 
-    let relation = state.relations.get("ck:relation:01904100-0000-7000-8000-4da53c8b9e89").unwrap();
+    let relation = state
+        .relations
+        .get("ck:relation:01904100-0000-7000-8000-4da53c8b9e89")
+        .unwrap();
     assert_eq!(relation.relation_kind, crate::RelationKind::HasDefaultView);
     assert_eq!(relation.from_ref, flow_id);
     assert_eq!(relation.to_ref, view_ref);
@@ -524,7 +599,11 @@ fn flow_events_create_update_and_default_view_relation() {
 #[test]
 fn realm_state_applies_morph_events() {
     let mut state = RealmState::new(realm_id());
-    let create_event = morph_event(1, "ck:morph:01904100-0000-7000-8000-bbe051c5f72e", "Test task");
+    let create_event = morph_event(
+        1,
+        "ck:morph:01904100-0000-7000-8000-bbe051c5f72e",
+        "Test task",
+    );
 
     state.apply_events(&[create_event]).unwrap();
     assert_eq!(state.morphs.len(), 1);
@@ -568,15 +647,21 @@ fn member_state_conflict_prefers_ban_semantics() {
     let mut state = RealmState::new(realm_id());
     state.apply_events(&[leave, ban]).unwrap();
 
-    let resolved = state.resolved_state.get("ck.member.state|did:web:alice.example").unwrap();
+    let resolved = state
+        .resolved_state
+        .get("ck.member.state|did:web:alice.example")
+        .unwrap();
     assert_eq!(resolved.content["membership"], "ban");
     assert_eq!(state.conflict_records.len(), 1);
 }
 
 #[test]
 fn capability_rebind_uses_deterministic_lww_order() {
-    let revoke =
-        event("ck.capability.revoke", 1, json!({ "target_capability_id": "cap-chan-post" }));
+    let revoke = event(
+        "ck.capability.revoke",
+        1,
+        json!({ "target_capability_id": "cap-chan-post" }),
+    );
     let grant = event(
         "ck.capability.grant",
         2,
@@ -590,7 +675,10 @@ fn capability_rebind_uses_deterministic_lww_order() {
     let mut state = RealmState::new(realm_id());
     state.apply_events(&[revoke, grant]).unwrap();
 
-    let resolved = state.resolved_state.get("ck.capability|cap-chan-post").unwrap();
+    let resolved = state
+        .resolved_state
+        .get("ck.capability|cap-chan-post")
+        .unwrap();
     assert_eq!(resolved.content["actions"][1], "ck.reaction.add");
     assert!(state.capability_allows("cap-chan-post", "ck.reaction.add"));
     assert!(!state.capability_allows("cap-chan-post", "message.delete"));
@@ -598,15 +686,22 @@ fn capability_rebind_uses_deterministic_lww_order() {
 
 #[test]
 fn message_revision_redaction_and_reaction_converge() {
-    let base = event("ck.message.create", 1, json!({ "message_id": "m1", "body": "hello" }));
+    let base = event(
+        "ck.message.create",
+        1,
+        json!({ "message_id": "m1", "body": "hello" }),
+    );
     let mut revise = event(
         "ck.message.revise",
         2,
         json!({ "target_message_id": "m1", "content": { "body": "edited" } }),
     );
     revise.prev_refs.push(base.event_id.clone());
-    let mut reaction_add =
-        event("ck.reaction.add", 3, json!({ "message_id": "m1", "reaction_key": "+1" }));
+    let mut reaction_add = event(
+        "ck.reaction.add",
+        3,
+        json!({ "message_id": "m1", "reaction_key": "+1" }),
+    );
     reaction_add.prev_refs.push(revise.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
@@ -616,13 +711,20 @@ fn message_revision_redaction_and_reaction_converge() {
     assert_eq!(message.content["body"], "edited");
     assert_eq!(message.revision_event_ids.len(), 1);
 
-    let reaction = state.reactions.get("m1|did:web:alice.example.com|+1").unwrap();
+    let reaction = state
+        .reactions
+        .get("m1|did:web:alice.example.com|+1")
+        .unwrap();
     assert!(reaction.active);
 }
 
 #[test]
 fn snapshot_manifest_tracks_state_digest_and_merkle_root() {
-    let event = morph_event(9, "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77", "Snapshot task");
+    let event = morph_event(
+        9,
+        "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77",
+        "Snapshot task",
+    );
     let mut state = RealmState::new(realm_id());
 
     state.apply_events(std::slice::from_ref(&event)).unwrap();
@@ -669,7 +771,11 @@ fn merkle_root_is_order_independent_for_leaf_hashes() {
 
 #[test]
 fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
-    let event = morph_event(10, "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77", "Replayed task");
+    let event = morph_event(
+        10,
+        "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77",
+        "Replayed task",
+    );
     let mut state = RealmState::new(realm_id());
     state.apply_events(std::slice::from_ref(&event)).unwrap();
     let mut snapshot = state.snapshot();
@@ -680,7 +786,12 @@ fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
         RealmState::restore_snapshot_or_replay(Some(snapshot), realm_id(), &[event]).unwrap();
 
     assert_eq!(restored.source, SnapshotRestoreSource::RepoReplay);
-    assert!(restored.snapshot_error.unwrap().contains("state hash mismatch"));
+    assert!(
+        restored
+            .snapshot_error
+            .unwrap()
+            .contains("state hash mismatch")
+    );
     assert_eq!(restored.state.morphs.len(), 1);
 }
 
@@ -731,8 +842,11 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
     // `ck.redaction` dispatch path uses `event.redacts`; populate it so
     // the dispatcher invokes redact_event AND redact_object_for_event.
     ev.redacts = Some(
-        EventId::new(format!("ck:event:01904100-0000-7000-8000-{:012x}", 0xdeadbeef + seq))
-            .unwrap(),
+        EventId::new(format!(
+            "ck:event:01904100-0000-7000-8000-{:012x}",
+            0xdeadbeef + seq
+        ))
+        .unwrap(),
     );
     ev
 }
@@ -778,8 +892,14 @@ fn redaction_against_already_redacted_flow_rejects() {
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, redact1, redact2]).unwrap_err();
-    assert!(err.to_string().contains("flow_already_terminal"), "unexpected error: {err}");
-    assert_eq!(state.subjects.get(flow_id).unwrap().state, Some(crate::ObjectState::Redacted));
+    assert!(
+        err.to_string().contains("flow_already_terminal"),
+        "unexpected error: {err}"
+    );
+    assert_eq!(
+        state.subjects.get(flow_id).unwrap().state,
+        Some(crate::ObjectState::Redacted)
+    );
 }
 
 #[test]
@@ -814,7 +934,10 @@ fn flow_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
 
     let flow = state.subjects.get(flow_id).unwrap();
     assert!(flow.tracks.contains_key(crate::FLOW_TRACK_NAME_SYNTHESIS));
-    assert_eq!(flow.tracks["discussion"].profile.as_deref(), Some("discussion"));
+    assert_eq!(
+        flow.tracks["discussion"].profile.as_deref(),
+        Some("discussion")
+    );
     assert_eq!(flow.tracks["discussion"].metadata["capacity"], 25);
     assert_eq!(flow.tracks["review"].profile.as_deref(), Some("review"));
     assert_eq!(flow.tracks["review"].template.as_deref(), Some("Review"));
@@ -831,6 +954,12 @@ fn redaction_against_already_redacted_morph_rejects() {
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, redact1, redact2]).unwrap_err();
-    assert!(err.to_string().contains("morph_already_terminal"), "unexpected error: {err}");
-    assert_eq!(state.morphs.get(morph_id).unwrap().state, Some(crate::ObjectState::Redacted));
+    assert!(
+        err.to_string().contains("morph_already_terminal"),
+        "unexpected error: {err}"
+    );
+    assert_eq!(
+        state.morphs.get(morph_id).unwrap().state,
+        Some(crate::ObjectState::Redacted)
+    );
 }

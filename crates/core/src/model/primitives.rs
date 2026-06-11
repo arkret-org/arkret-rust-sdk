@@ -443,7 +443,12 @@ pub enum ReadScopeTrackScope {
 
 impl ReadScope {
     pub fn realm() -> Self {
-        Self { kind: ReadScopeKind::Realm, object_ref: None, track: None, track_scope: None }
+        Self {
+            kind: ReadScopeKind::Realm,
+            object_ref: None,
+            track: None,
+            track_scope: None,
+        }
     }
 
     pub fn flow(flow_id: impl Into<String>, track: Option<impl Into<String>>) -> Self {
@@ -549,15 +554,21 @@ impl ReadScope {
 fn validate_read_scope_track(track: &str) -> Result<()> {
     let mut bytes = track.bytes();
     let Some(first) = bytes.next() else {
-        return Err(Error::Protocol("read_scope.track_name must not be empty".to_owned()));
+        return Err(Error::Protocol(
+            "read_scope.track_name must not be empty".to_owned(),
+        ));
     };
     if !first.is_ascii_lowercase() {
-        return Err(Error::Protocol(format!("invalid read_scope.track_name '{track}'")));
+        return Err(Error::Protocol(format!(
+            "invalid read_scope.track_name '{track}'"
+        )));
     }
     if track.len() > 64
         || !bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
     {
-        return Err(Error::Protocol(format!("invalid read_scope.track_name '{track}'")));
+        return Err(Error::Protocol(format!(
+            "invalid read_scope.track_name '{track}'"
+        )));
     }
     Ok(())
 }
@@ -761,8 +772,14 @@ impl Proof {
     /// verifier so both derive identical transcripts.
     pub fn binding_object(&self, actor_id: &Did) -> Value {
         let mut obj = serde_json::Map::new();
-        obj.insert("event_digest".to_owned(), Value::String(self.event_digest.as_str().to_owned()));
-        obj.insert("actor_id".to_owned(), Value::String(actor_id.as_str().to_owned()));
+        obj.insert(
+            "event_digest".to_owned(),
+            Value::String(self.event_digest.as_str().to_owned()),
+        );
+        obj.insert(
+            "actor_id".to_owned(),
+            Value::String(actor_id.as_str().to_owned()),
+        );
         obj.insert(
             "verification_method".to_owned(),
             Value::String(self.verification_method.clone()),
@@ -789,13 +806,19 @@ impl Proof {
     /// empty kind.
     pub fn validate(&self) -> Result<()> {
         if self.alg.eq_ignore_ascii_case("none") {
-            return Err(Error::Protocol("proof algorithm 'none' is not allowed".to_owned()));
+            return Err(Error::Protocol(
+                "proof algorithm 'none' is not allowed".to_owned(),
+            ));
         }
         if self.alg.is_empty() {
-            return Err(Error::Protocol("proof algorithm must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "proof algorithm must not be empty".to_owned(),
+            ));
         }
         if self.verification_method.is_empty() {
-            return Err(Error::Protocol("proof verification_method must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "proof verification_method must not be empty".to_owned(),
+            ));
         }
         if self.jws.is_empty() {
             return Err(Error::Protocol("proof JWS must not be empty".to_owned()));
@@ -811,13 +834,19 @@ impl Proof {
     /// Rejects `alg:none`, unknown algorithms, and dev/test proof kinds.
     pub fn validate_production(&self) -> Result<()> {
         self.validate()?;
-        if DEV_PROOF_KINDS.iter().any(|k| self.kind.eq_ignore_ascii_case(k)) {
+        if DEV_PROOF_KINDS
+            .iter()
+            .any(|k| self.kind.eq_ignore_ascii_case(k))
+        {
             return Err(Error::Protocol(format!(
                 "production proofs must not use dev/test kind: {}",
                 self.kind
             )));
         }
-        if !PRODUCTION_ALGORITHMS.iter().any(|a| self.alg.eq_ignore_ascii_case(a)) {
+        if !PRODUCTION_ALGORITHMS
+            .iter()
+            .any(|a| self.alg.eq_ignore_ascii_case(a))
+        {
             return Err(Error::Protocol(format!(
                 "unsupported production proof algorithm: {}",
                 self.alg
@@ -921,7 +950,9 @@ impl FactChainEcho {
     /// Validate server proofs against this echo's digest.
     pub fn validate_server_proofs(&self) -> Result<()> {
         if self.proofs.is_empty() {
-            return Err(Error::Protocol("fact-chain echo has no server proof".to_owned()));
+            return Err(Error::Protocol(
+                "fact-chain echo has no server proof".to_owned(),
+            ));
         }
         let expected = Hash::new(self.echo_digest()?)?;
         for proof in &self.proofs {

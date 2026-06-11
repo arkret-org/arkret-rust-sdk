@@ -29,7 +29,6 @@
 //! object via [`cokret_core::Proof::canonical_binding_bytes`].
 
 use chrono::{DateTime, Utc};
-
 use cokret_core::{Audience, Error, Event, Hash, MoveSigner, Proof, Result, canonical, proof_kind};
 
 /// Options threaded into [`sign_event`].
@@ -131,8 +130,10 @@ pub fn sign_event<S: MoveSigner + ?Sized>(
 
     // Idempotent: replace any existing proof from the same verification
     // method (e.g. a re-sign with a refreshed `created_at`).
-    if let Some(slot) =
-        event.proofs.iter_mut().find(|proof| proof.verification_method == verification_method)
+    if let Some(slot) = event
+        .proofs
+        .iter_mut()
+        .find(|proof| proof.verification_method == verification_method)
     {
         *slot = proof;
     } else {
@@ -145,17 +146,17 @@ pub fn sign_event<S: MoveSigner + ?Sized>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use std::collections::BTreeMap;
 
     use chrono::{TimeZone, Utc};
-    use serde_json::json;
-
+    use cokret_core::move_event::Move;
     use cokret_core::{
         Audience, Did, Event, EventId, EventRequirements, Hash, Hlc, MoveSignature, MoveSigner,
-        RealmId, Result, UnsignedMove, canonical, move_event::Move,
+        RealmId, Result, UnsignedMove, canonical,
     };
+    use serde_json::json;
+
+    use super::*;
 
     fn realm() -> RealmId {
         RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
@@ -210,7 +211,10 @@ mod tests {
 
     impl StubMoveSigner {
         fn new(did: Did, kid: impl Into<String>) -> Self {
-            Self { did, kid: kid.into() }
+            Self {
+                did,
+                kid: kid.into(),
+            }
         }
     }
 
@@ -337,7 +341,13 @@ mod tests {
     fn sign_event_rejects_when_proofs_already_populated_with_other_signer() {
         let mut event = make_event();
         let alice_signer = StubMoveSigner::new(alice(), vm_alice());
-        sign_event(&mut event, &alice_signer, vm_alice(), SignEventOptions::new()).unwrap();
+        sign_event(
+            &mut event,
+            &alice_signer,
+            vm_alice(),
+            SignEventOptions::new(),
+        )
+        .unwrap();
 
         let bob_kid = "did:web:bob.example#key-1";
         let bob_signer = StubMoveSigner::new(bob(), bob_kid);

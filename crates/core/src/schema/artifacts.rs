@@ -88,7 +88,10 @@ impl SpecArtifactBundle {
     pub fn load(artifacts_dir: impl AsRef<Path>) -> Result<Self> {
         let requested_dir = artifacts_dir.as_ref();
         let (artifacts_dir, registry_dir) = if requested_dir.ends_with("registry") {
-            let artifacts_dir = requested_dir.parent().unwrap_or(requested_dir).to_path_buf();
+            let artifacts_dir = requested_dir
+                .parent()
+                .unwrap_or(requested_dir)
+                .to_path_buf();
             (artifacts_dir, requested_dir.to_path_buf())
         } else {
             (requested_dir.to_path_buf(), requested_dir.join("registry"))
@@ -101,7 +104,9 @@ impl SpecArtifactBundle {
             operation_registry: read_json_artifact(&registry_dir.join("operation-registry.json"))?,
             id_kind_registry: read_json_artifact(&registry_dir.join("id-kind-registry.json"))?,
             conformance_profiles: read_json_artifact(
-                &artifacts_dir.join("profiles").join("conformance-profiles.json"),
+                &artifacts_dir
+                    .join("profiles")
+                    .join("conformance-profiles.json"),
             )?,
             artifacts_dir: Some(artifacts_dir),
         })
@@ -175,8 +180,10 @@ impl SpecArtifactBundle {
 
     /// Return the machine-readable requirements for one profile ID.
     pub fn profile_requirement(&self, profile_id: &str) -> Result<Option<ProfileRequirement>> {
-        let Some(requirements) =
-            self.conformance_profiles.get("profile_requirements").and_then(Value::as_object)
+        let Some(requirements) = self
+            .conformance_profiles
+            .get("profile_requirements")
+            .and_then(Value::as_object)
         else {
             return Ok(None);
         };
@@ -226,7 +233,9 @@ impl SpecArtifactBundle {
                 Ok(Some(requirement)) => requirement,
                 Ok(None) => continue,
                 Err(error) => {
-                    issues.push(format!("{profile_id}: profile requirement parse error: {error}"));
+                    issues.push(format!(
+                        "{profile_id}: profile requirement parse error: {error}"
+                    ));
                     continue;
                 }
             };
@@ -264,9 +273,12 @@ impl SpecArtifactBundle {
     /// registry entry is malformed (missing `component_type`, non-integer
     /// version, unknown criticality value).
     pub fn component(&self, event_kind: &str) -> Result<Option<ComponentDescriptor>> {
-        let Some(entry) =
-            registry_entry(&self.event_kind_registry, "event_kinds", "event_kind", event_kind)
-        else {
+        let Some(entry) = registry_entry(
+            &self.event_kind_registry,
+            "event_kinds",
+            "event_kind",
+            event_kind,
+        ) else {
             return Ok(None);
         };
         // Spec migrated from `component_type`/`component_version`/`criticality`
@@ -290,7 +302,9 @@ impl SpecArtifactBundle {
             .and_then(Value::as_u64)
             .or_else(|| {
                 // Parse version suffix `.vN` from cell_family
-                component_type.rsplit_once(".v").and_then(|(_, suffix)| suffix.parse::<u64>().ok())
+                component_type
+                    .rsplit_once(".v")
+                    .and_then(|(_, suffix)| suffix.parse::<u64>().ok())
             })
             .ok_or_else(|| {
                 Error::Protocol(format!(
@@ -324,8 +338,9 @@ impl SpecArtifactBundle {
             .map(str::to_owned)
             .or_else(|| {
                 let cell_subject = entry.get("cell_subject");
-                let canonical_owner =
-                    self.event_kind_registry["event_kinds"].as_array().and_then(|entries| {
+                let canonical_owner = self.event_kind_registry["event_kinds"]
+                    .as_array()
+                    .and_then(|entries| {
                         entries.iter().find_map(|other| {
                             let other_kind = other.get("event_kind").and_then(Value::as_str)?;
                             let other_family = other.get("cell_family").and_then(Value::as_str)?;
@@ -338,7 +353,11 @@ impl SpecArtifactBundle {
                             Some(other_kind.to_owned())
                         })
                     })?;
-                if canonical_owner == event_kind { None } else { Some(canonical_owner) }
+                if canonical_owner == event_kind {
+                    None
+                } else {
+                    Some(canonical_owner)
+                }
             });
         Ok(Some(ComponentDescriptor {
             event_kind: event_kind.to_owned(),
@@ -423,11 +442,11 @@ impl ArtifactDriftReport {
 /// [`SpecArtifactBundle::drift_report`] cross-checks them against the live
 /// registry and produces:
 ///
-/// * `missing_*` (hard error) — the SDK declares coverage for an entry the
-///   spec no longer ships. Surfaced by [`ArtifactDriftReport::validate`];
-///   bring the constant in line with the spec when this fires.
-/// * `unlisted_event_kinds` (soft signal) — the spec ships an active event
-///   kind the SDK has not declared coverage for.
+/// * `missing_*` (hard error) — the SDK declares coverage for an entry the spec no longer ships.
+///   Surfaced by [`ArtifactDriftReport::validate`]; bring the constant in line with the spec when
+///   this fires.
+/// * `unlisted_event_kinds` (soft signal) — the spec ships an active event kind the SDK has not
+///   declared coverage for.
 ///
 /// Update this constant whenever the SDK adds typed support for a new
 /// schema; the drift report will then enforce that the spec still ships it.
@@ -548,8 +567,11 @@ pub const ARTIFACT_BACKED_SERVICE_OPERATIONS: &[&str] = BUILT_IN_OPERATION_KINDS
 /// Profile IDs that still appear as hand-written SDK constants or service
 /// requirement fixtures and are therefore hard-checked against the profile
 /// artifact.
-pub const ARTIFACT_BACKED_PROFILE_IDS: &[&str] =
-    &[PROFILE_DIRECTORY_SERVICE, PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DISCLOSED_AUDIT_E2EE];
+pub const ARTIFACT_BACKED_PROFILE_IDS: &[&str] = &[
+    PROFILE_DIRECTORY_SERVICE,
+    PROFILE_ATTESTED_AUDIT_E2EE,
+    PROFILE_DISCLOSED_AUDIT_E2EE,
+];
 
 pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
     "actor_profile",
@@ -610,8 +632,15 @@ pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
 /// adds `trust_domain` (`ck:trust_domain:<scope>`). These are validated
 /// separately from `ARTIFACT_BACKED_ID_KINDS` because the spec lists them
 /// under `special_forms`, not `id_kinds`.
-pub const ARTIFACT_BACKED_SPECIAL_FORM_ID_KINDS: &[&str] =
-    &["anchor", "blob", "cell", "cursor", "mls", "pseudonym", "trust_domain"];
+pub const ARTIFACT_BACKED_SPECIAL_FORM_ID_KINDS: &[&str] = &[
+    "anchor",
+    "blob",
+    "cell",
+    "cursor",
+    "mls",
+    "pseudonym",
+    "trust_domain",
+];
 
 pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
     if let Ok(artifacts_dir) = std::env::var("COKRET_SPEC_ARTIFACTS") {
@@ -623,14 +652,20 @@ pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
         .join("..")
         .join("cokret-spec");
     let artifacts_dir = spec_root.join("spec").join("v1").join("artifacts");
-    artifacts_dir.join("registry").join("schema-registry.json").exists().then_some(artifacts_dir)
+    artifacts_dir
+        .join("registry")
+        .join("schema-registry.json")
+        .exists()
+        .then_some(artifacts_dir)
 }
 
 pub fn artifact_drift_report_from_default_location() -> Result<Option<ArtifactDriftReport>> {
     let Some(artifacts_dir) = default_spec_artifacts_dir() else {
         return Ok(None);
     };
-    Ok(Some(SpecArtifactBundle::load(artifacts_dir)?.drift_report()))
+    Ok(Some(
+        SpecArtifactBundle::load(artifacts_dir)?.drift_report(),
+    ))
 }
 
 pub fn schema_registry_from_spec_artifacts(
@@ -711,12 +746,16 @@ fn optional_string_array(value: &Value, field: &str, profile_id: &str) -> Result
         return Ok(Vec::new());
     };
     let array = raw.as_array().ok_or_else(|| {
-        Error::Protocol(format!("profile {profile_id} field {field} must be an array"))
+        Error::Protocol(format!(
+            "profile {profile_id} field {field} must be an array"
+        ))
     })?;
     let mut out = Vec::with_capacity(array.len());
     for item in array {
         let text = item.as_str().ok_or_else(|| {
-            Error::Protocol(format!("profile {profile_id} field {field} contains a non-string"))
+            Error::Protocol(format!(
+                "profile {profile_id} field {field} contains a non-string"
+            ))
         })?;
         out.push(text.to_owned());
     }
@@ -725,8 +764,16 @@ fn optional_string_array(value: &Value, field: &str, profile_id: &str) -> Result
 
 fn profile_required_constraint_kinds(value: &Value, profile_id: &str) -> Result<Vec<String>> {
     let mut out = optional_string_array(value, "required_constraint_kinds", profile_id)?;
-    out.extend(optional_string_array(value, "required_constraint_types", profile_id)?);
-    out.extend(optional_string_array(value, "required_constraint_subtypes", profile_id)?);
+    out.extend(optional_string_array(
+        value,
+        "required_constraint_types",
+        profile_id,
+    )?);
+    out.extend(optional_string_array(
+        value,
+        "required_constraint_subtypes",
+        profile_id,
+    )?);
     out.sort();
     out.dedup();
     Ok(out)

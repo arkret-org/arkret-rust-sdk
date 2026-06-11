@@ -34,32 +34,71 @@ pub enum ResourceSelector {
     /// Space selector.
     Space { space_id: String },
     /// Flow selector (flow_id)
-    Flow { realm_id: String, flow_id: Option<String> },
+    Flow {
+        realm_id: String,
+        flow_id: Option<String>,
+    },
     /// Generic object selector.
-    Object { realm_id: String, object_type: Option<String>, object_ref: Option<String> },
+    Object {
+        realm_id: String,
+        object_type: Option<String>,
+        object_ref: Option<String>,
+    },
     /// Message selector.
-    Message { realm_id: String, message_id: Option<String> },
+    Message {
+        realm_id: String,
+        message_id: Option<String>,
+    },
     /// Relation selector
-    Relation { realm_id: String, relation_kind: String },
+    Relation {
+        realm_id: String,
+        relation_kind: String,
+    },
     /// View selector
-    View { realm_id: String, view_id: Option<String> },
+    View {
+        realm_id: String,
+        view_id: Option<String>,
+    },
     /// Schema selector
-    Schema { realm_id: String, schema_id: Option<String> },
+    Schema {
+        realm_id: String,
+        schema_id: Option<String>,
+    },
     /// Policy selector
-    Policy { realm_id: String, policy_id: Option<String> },
+    Policy {
+        realm_id: String,
+        policy_id: Option<String>,
+    },
     /// Invite selector
-    Invite { realm_id: String, invite_id: Option<String> },
+    Invite {
+        realm_id: String,
+        invite_id: Option<String>,
+    },
     /// Read marker selector
     ReadCursor { realm_id: String },
     /// Morph selector — `morph_type` is the canonical filter per
     /// `resource-selector-grammar.md` §6 (matches by exact type name).
-    Morph { realm_id: String, morph_id: Option<String>, morph_type: Option<String> },
+    Morph {
+        realm_id: String,
+        morph_id: Option<String>,
+        morph_type: Option<String>,
+    },
     /// Notification selector (per-actor private). `actor_id` may be `*`.
-    Notification { actor_id: String, notification_id: Option<String> },
+    Notification {
+        actor_id: String,
+        notification_id: Option<String>,
+    },
     /// Blob selector. `realm_id` MAY be `*` for global blobs (e.g. avatars).
-    Blob { realm_id: String, blob_id: Option<String> },
+    Blob {
+        realm_id: String,
+        blob_id: Option<String>,
+    },
     /// Event selector (audit/redaction). Matches by event kind / id.
-    Event { realm_id: String, event_kind: Option<String>, event_id: Option<String> },
+    Event {
+        realm_id: String,
+        event_kind: Option<String>,
+        event_id: Option<String>,
+    },
     /// Actor selector (e.g. account-lifecycle, profile updates).
     Actor { actor_id: String },
     /// CKP-0007 (R3 spec-sync 2026-05-27) — Circle selector. Matches a
@@ -75,24 +114,33 @@ impl ResourceSelector {
     /// Check if this selector matches a target resource.
     pub fn matches(&self, resource: &Resource) -> bool {
         match (self, resource) {
-            (Self::Realm { realm_id }, Resource::Realm { realm_id: target_id }) => {
-                realm_id == target_id || realm_id == "*"
-            }
+            (
+                Self::Realm { realm_id },
+                Resource::Realm {
+                    realm_id: target_id,
+                },
+            ) => realm_id == target_id || realm_id == "*",
             (Self::Realm { realm_id }, resource) => {
                 let target_realm = resource.realm_id();
                 realm_id == target_realm || realm_id == "*"
             }
 
             // Space selector
-            (Self::Space { space_id }, Resource::Space { space_id: target_id }) => {
-                space_id == target_id || space_id == "*"
-            }
+            (
+                Self::Space { space_id },
+                Resource::Space {
+                    space_id: target_id,
+                },
+            ) => space_id == target_id || space_id == "*",
             (Self::Space { .. }, _) => false,
 
             // Flow selector
             (
                 Self::Flow { realm_id, flow_id },
-                Resource::Flow { realm_id: target_realm, flow_id: target_id },
+                Resource::Flow {
+                    realm_id: target_realm,
+                    flow_id: target_id,
+                },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
                 let id_match = flow_id.as_ref().is_none_or(|id| id == target_id);
@@ -102,8 +150,15 @@ impl ResourceSelector {
 
             // Object selector
             (
-                Self::Object { realm_id, object_type, object_ref },
-                Resource::Flow { realm_id: target_realm, flow_id: target_id },
+                Self::Object {
+                    realm_id,
+                    object_type,
+                    object_ref,
+                },
+                Resource::Flow {
+                    realm_id: target_realm,
+                    flow_id: target_id,
+                },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
                 let type_match = object_type.as_ref().is_none_or(|t| t == "flow");
@@ -111,7 +166,11 @@ impl ResourceSelector {
                 realm_match && type_match && ref_match
             }
             (
-                Self::Object { realm_id, object_type, object_ref },
+                Self::Object {
+                    realm_id,
+                    object_type,
+                    object_ref,
+                },
                 Resource::Morph {
                     realm_id: target_realm,
                     morph_id: target_id,
@@ -127,8 +186,14 @@ impl ResourceSelector {
 
             // Message selector
             (
-                Self::Message { realm_id, message_id },
-                Resource::Message { realm_id: target_realm, message_id: target_id },
+                Self::Message {
+                    realm_id,
+                    message_id,
+                },
+                Resource::Message {
+                    realm_id: target_realm,
+                    message_id: target_id,
+                },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
                 realm_match && message_id.as_ref().is_none_or(|id| id == target_id)
@@ -137,8 +202,14 @@ impl ResourceSelector {
 
             // Relation selector
             (
-                Self::Relation { realm_id, relation_kind },
-                Resource::Relation { realm_id: target_realm, relation_kind: target_kind },
+                Self::Relation {
+                    realm_id,
+                    relation_kind,
+                },
+                Resource::Relation {
+                    realm_id: target_realm,
+                    relation_kind: target_kind,
+                },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
                 realm_match && relation_kind == target_kind
@@ -148,7 +219,10 @@ impl ResourceSelector {
             // View selector
             (
                 Self::View { realm_id, view_id },
-                Resource::View { realm_id: target_realm, view_id: target_id },
+                Resource::View {
+                    realm_id: target_realm,
+                    view_id: target_id,
+                },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
                 let id_match = view_id.as_ref().is_none_or(|id| id == target_id);
@@ -158,8 +232,14 @@ impl ResourceSelector {
 
             // Schema selector
             (
-                Self::Schema { realm_id, schema_id },
-                Resource::Schema { realm_id: target_realm, schema_id: target_id },
+                Self::Schema {
+                    realm_id,
+                    schema_id,
+                },
+                Resource::Schema {
+                    realm_id: target_realm,
+                    schema_id: target_id,
+                },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
                 realm_match && schema_id.as_ref().is_none_or(|id| id == target_id)
@@ -168,8 +248,14 @@ impl ResourceSelector {
 
             // Policy selector
             (
-                Self::Policy { realm_id, policy_id },
-                Resource::Policy { realm_id: target_realm, policy_id: target_id },
+                Self::Policy {
+                    realm_id,
+                    policy_id,
+                },
+                Resource::Policy {
+                    realm_id: target_realm,
+                    policy_id: target_id,
+                },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
                 realm_match && policy_id.as_ref().is_none_or(|id| id == target_id)
@@ -178,8 +264,14 @@ impl ResourceSelector {
 
             // Invite selector
             (
-                Self::Invite { realm_id, invite_id },
-                Resource::Invite { realm_id: target_realm, invite_id: target_id },
+                Self::Invite {
+                    realm_id,
+                    invite_id,
+                },
+                Resource::Invite {
+                    realm_id: target_realm,
+                    invite_id: target_id,
+                },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
                 realm_match && invite_id.as_ref().is_none_or(|id| id == target_id)
@@ -187,14 +279,21 @@ impl ResourceSelector {
             (Self::Invite { .. }, _) => false,
 
             // Read marker selector
-            (Self::ReadCursor { realm_id }, Resource::ReadCursor { realm_id: target_realm }) => {
-                realm_id == target_realm || realm_id == "*"
-            }
+            (
+                Self::ReadCursor { realm_id },
+                Resource::ReadCursor {
+                    realm_id: target_realm,
+                },
+            ) => realm_id == target_realm || realm_id == "*",
             (Self::ReadCursor { .. }, _) => false,
 
             // Morph selector
             (
-                Self::Morph { realm_id, morph_id, morph_type },
+                Self::Morph {
+                    realm_id,
+                    morph_id,
+                    morph_type,
+                },
                 Resource::Morph {
                     realm_id: target_realm,
                     morph_id: target_id,
@@ -210,8 +309,14 @@ impl ResourceSelector {
 
             // Notification selector
             (
-                Self::Notification { actor_id, notification_id },
-                Resource::Notification { actor_id: target_actor, notification_id: target_id },
+                Self::Notification {
+                    actor_id,
+                    notification_id,
+                },
+                Resource::Notification {
+                    actor_id: target_actor,
+                    notification_id: target_id,
+                },
             ) => {
                 let actor_match = actor_id == target_actor || actor_id == "*";
                 let id_match = notification_id.as_ref().is_none_or(|id| id == target_id);
@@ -222,7 +327,10 @@ impl ResourceSelector {
             // Blob selector
             (
                 Self::Blob { realm_id, blob_id },
-                Resource::Blob { realm_id: target_realm, blob_id: target_id },
+                Resource::Blob {
+                    realm_id: target_realm,
+                    blob_id: target_id,
+                },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
                 let id_match = blob_id.as_ref().is_none_or(|id| id == target_id);
@@ -232,7 +340,11 @@ impl ResourceSelector {
 
             // Event selector
             (
-                Self::Event { realm_id, event_kind, event_id },
+                Self::Event {
+                    realm_id,
+                    event_kind,
+                    event_id,
+                },
                 Resource::Event {
                     realm_id: target_realm,
                     event_kind: target_kind,
@@ -247,15 +359,21 @@ impl ResourceSelector {
             (Self::Event { .. }, _) => false,
 
             // Actor selector
-            (Self::Actor { actor_id }, Resource::Actor { actor_id: target_actor }) => {
-                actor_id == target_actor || actor_id == "*"
-            }
+            (
+                Self::Actor { actor_id },
+                Resource::Actor {
+                    actor_id: target_actor,
+                },
+            ) => actor_id == target_actor || actor_id == "*",
             (Self::Actor { .. }, _) => false,
 
             // Circle selector
-            (Self::Circle { circle_id }, Resource::Circle { circle_id: target_id }) => {
-                circle_id == target_id
-            }
+            (
+                Self::Circle { circle_id },
+                Resource::Circle {
+                    circle_id: target_id,
+                },
+            ) => circle_id == target_id,
             (Self::Circle { .. }, _) => false,
 
             // Wildcard matches everything
@@ -282,8 +400,12 @@ impl ResourceSelector {
         let remainder = parts[1];
 
         match selector_type {
-            "realm" => Ok(Self::Realm { realm_id: remainder.to_owned() }),
-            "space" => Ok(Self::Space { space_id: remainder.to_owned() }),
+            "realm" => Ok(Self::Realm {
+                realm_id: remainder.to_owned(),
+            }),
+            "space" => Ok(Self::Space {
+                space_id: remainder.to_owned(),
+            }),
             "flow" => {
                 let (realm_id, flow_id) = split_realm_tail(remainder, selector)?;
                 Ok(Self::Flow { realm_id, flow_id })
@@ -298,11 +420,18 @@ impl ResourceSelector {
                     }
                     Some(tail) => (Some(tail), None),
                 };
-                Ok(Self::Object { realm_id, object_type, object_ref })
+                Ok(Self::Object {
+                    realm_id,
+                    object_type,
+                    object_ref,
+                })
             }
             "message" => {
                 let (realm_id, message_id) = split_realm_tail(remainder, selector)?;
-                Ok(Self::Message { realm_id, message_id })
+                Ok(Self::Message {
+                    realm_id,
+                    message_id,
+                })
             }
             "relation" => {
                 let (realm_id, relation_kind) = split_realm_tail(remainder, selector)?;
@@ -312,7 +441,10 @@ impl ResourceSelector {
                         selector
                     )));
                 };
-                Ok(Self::Relation { realm_id, relation_kind })
+                Ok(Self::Relation {
+                    realm_id,
+                    relation_kind,
+                })
             }
             "view" => {
                 let (realm_id, view_id) = split_realm_tail(remainder, selector)?;
@@ -320,17 +452,28 @@ impl ResourceSelector {
             }
             "schema" => {
                 let (realm_id, schema_id) = split_realm_tail(remainder, selector)?;
-                Ok(Self::Schema { realm_id, schema_id })
+                Ok(Self::Schema {
+                    realm_id,
+                    schema_id,
+                })
             }
             "policy" => {
                 let (realm_id, policy_id) = split_realm_tail(remainder, selector)?;
-                Ok(Self::Policy { realm_id, policy_id })
+                Ok(Self::Policy {
+                    realm_id,
+                    policy_id,
+                })
             }
             "invite" => {
                 let (realm_id, invite_id) = split_realm_tail(remainder, selector)?;
-                Ok(Self::Invite { realm_id, invite_id })
+                Ok(Self::Invite {
+                    realm_id,
+                    invite_id,
+                })
             }
-            "read_cursor" => Ok(Self::ReadCursor { realm_id: realm_part(remainder, selector)? }),
+            "read_cursor" => Ok(Self::ReadCursor {
+                realm_id: realm_part(remainder, selector)?,
+            }),
             "circle" => {
                 // Accept either `circle:ck:circle:<uuid>` (typed) or bare
                 // `circle:<uuid>` (parser tail).
@@ -344,7 +487,10 @@ impl ResourceSelector {
                 Ok(Self::Circle { circle_id })
             }
             "*" => Ok(Self::Wildcard),
-            _ => Err(Error::Protocol(format!("unknown selector type: {}", selector))),
+            _ => Err(Error::Protocol(format!(
+                "unknown selector type: {}",
+                selector
+            ))),
         }
     }
 }
@@ -448,20 +594,30 @@ impl ProtocolResourceSelector {
                 out.flow_id = flow_id.clone();
                 out
             }
-            ResourceSelector::Object { realm_id, object_type, object_ref } => {
+            ResourceSelector::Object {
+                realm_id,
+                object_type,
+                object_ref,
+            } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Object);
                 out.realm_id = Some(realm_id.clone());
                 out.object_type = object_type.clone();
                 out.object_ref = object_ref.clone();
                 out
             }
-            ResourceSelector::Message { realm_id, message_id } => {
+            ResourceSelector::Message {
+                realm_id,
+                message_id,
+            } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Message);
                 out.realm_id = Some(realm_id.clone());
                 out.message_id = message_id.clone();
                 out
             }
-            ResourceSelector::Relation { realm_id, relation_kind } => {
+            ResourceSelector::Relation {
+                realm_id,
+                relation_kind,
+            } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Relation);
                 out.realm_id = Some(realm_id.clone());
                 out.relation_kind = Some(relation_kind.clone());
@@ -473,19 +629,28 @@ impl ProtocolResourceSelector {
                 out.view_id = view_id.clone();
                 out
             }
-            ResourceSelector::Schema { realm_id, schema_id } => {
+            ResourceSelector::Schema {
+                realm_id,
+                schema_id,
+            } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Schema);
                 out.realm_id = Some(realm_id.clone());
                 out.schema_ref = schema_id.clone();
                 out
             }
-            ResourceSelector::Policy { realm_id, policy_id } => {
+            ResourceSelector::Policy {
+                realm_id,
+                policy_id,
+            } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Policy);
                 out.realm_id = Some(realm_id.clone());
                 out.policy_id = policy_id.clone();
                 out
             }
-            ResourceSelector::Invite { realm_id, invite_id } => {
+            ResourceSelector::Invite {
+                realm_id,
+                invite_id,
+            } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Invite);
                 out.realm_id = Some(realm_id.clone());
                 out.invite_id = invite_id.clone();
@@ -496,14 +661,21 @@ impl ProtocolResourceSelector {
                 out.realm_id = Some(realm_id.clone());
                 out
             }
-            ResourceSelector::Morph { realm_id, morph_id, morph_type } => {
+            ResourceSelector::Morph {
+                realm_id,
+                morph_id,
+                morph_type,
+            } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Morph);
                 out.realm_id = Some(realm_id.clone());
                 out.morph_id = morph_id.clone();
                 out.morph_type = morph_type.clone();
                 out
             }
-            ResourceSelector::Notification { actor_id, notification_id } => {
+            ResourceSelector::Notification {
+                actor_id,
+                notification_id,
+            } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Notification);
                 out.actor_id = Some(actor_id.clone());
                 out.object_ref = notification_id.clone();
@@ -515,7 +687,11 @@ impl ProtocolResourceSelector {
                 out.blob_ref = blob_id.clone();
                 out
             }
-            ResourceSelector::Event { realm_id, event_kind, event_id } => {
+            ResourceSelector::Event {
+                realm_id,
+                event_kind,
+                event_id,
+            } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Event);
                 out.realm_id = Some(realm_id.clone());
                 out.object_type = event_kind.clone();
@@ -659,7 +835,9 @@ impl ProtocolResourceSelector {
 fn realm_part(remainder: &str, selector: &str) -> Result<String> {
     let (realm_id, tail) = split_realm_tail(remainder, selector)?;
     if tail.is_some() {
-        return Err(Error::Protocol(format!("invalid realm-only selector: {selector}")));
+        return Err(Error::Protocol(format!(
+            "invalid realm-only selector: {selector}"
+        )));
     }
     Ok(realm_id)
 }
@@ -669,12 +847,21 @@ fn split_realm_tail(remainder: &str, selector: &str) -> Result<(String, Option<S
         return Ok(("*".to_owned(), None));
     }
     if let Some(tail) = remainder.strip_prefix("*:") {
-        return Ok(("*".to_owned(), if tail.is_empty() { None } else { Some(tail.to_owned()) }));
+        return Ok((
+            "*".to_owned(),
+            if tail.is_empty() {
+                None
+            } else {
+                Some(tail.to_owned())
+            },
+        ));
     }
 
     let parts = remainder.split(':').collect::<Vec<_>>();
     if parts.len() < 3 || parts[0] != "ck" || parts[1] != "realm" || parts[2].is_empty() {
-        return Err(Error::Protocol(format!("invalid realm-scoped selector: {selector}")));
+        return Err(Error::Protocol(format!(
+            "invalid realm-scoped selector: {selector}"
+        )));
     }
     let realm_id = format!("{}:{}:{}", parts[0], parts[1], parts[2]);
     let tail = if parts.len() > 3 {

@@ -52,8 +52,11 @@ impl Realm {
         let flow_id = FlowId::new(generate_id("ck:flow:"))?;
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let now = Utc::now();
-        let tracks =
-            if metadata.tracks.is_empty() { default_flow_tracks() } else { metadata.tracks };
+        let tracks = if metadata.tracks.is_empty() {
+            default_flow_tracks()
+        } else {
+            metadata.tracks
+        };
 
         let mut flow_metadata = serde_json::Map::new();
         flow_metadata.insert("title".to_owned(), json!(title.into()));
@@ -274,6 +277,9 @@ impl Realm {
 
 fn default_flow_tracks() -> BTreeMap<String, crate::FlowTrackConfig> {
     let mut tracks = BTreeMap::new();
-    tracks.insert(crate::FLOW_TRACK_NAME_SYNTHESIS.to_owned(), crate::FlowTrackConfig::synthesis());
+    tracks.insert(
+        crate::FLOW_TRACK_NAME_SYNTHESIS.to_owned(),
+        crate::FlowTrackConfig::synthesis(),
+    );
     tracks
 }

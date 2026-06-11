@@ -44,13 +44,19 @@ pub struct AgentParticipation {
 
 impl AgentParticipation {
     /// Minimal element — every bit off.
-    pub const NONE: Self =
-        Self { reply: false, accept_third_party_mention: false, act_on_behalf: false };
+    pub const NONE: Self = Self {
+        reply: false,
+        accept_third_party_mention: false,
+        act_on_behalf: false,
+    };
 
     /// Maximal element — every bit on (the deployment-default ceiling
     /// fold seed).
-    pub const ALL: Self =
-        Self { reply: true, accept_third_party_mention: true, act_on_behalf: true };
+    pub const ALL: Self = Self {
+        reply: true,
+        accept_third_party_mention: true,
+        act_on_behalf: true,
+    };
 
     /// Bitwise AND. Used both for folding the ceiling chain and for
     /// `effective = ceiling ∩ selection`.
@@ -81,9 +87,17 @@ impl AgentParticipation {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AgentParticipationScope {
-    Realm { realm_id: RealmId },
-    Circle { realm_id: RealmId, circle_id: CircleId },
-    Flow { realm_id: RealmId, flow_id: FlowId },
+    Realm {
+        realm_id: RealmId,
+    },
+    Circle {
+        realm_id: RealmId,
+        circle_id: CircleId,
+    },
+    Flow {
+        realm_id: RealmId,
+        flow_id: FlowId,
+    },
 }
 
 impl AgentParticipationScope {
@@ -95,11 +109,22 @@ impl AgentParticipationScope {
     pub fn scope_key(&self) -> String {
         match self {
             Self::Realm { realm_id } => format!("realm:{}", uuid_part(realm_id.as_str())),
-            Self::Circle { realm_id, circle_id } => {
-                format!("circle:{}:{}", uuid_part(realm_id.as_str()), uuid_part(circle_id.as_str()))
+            Self::Circle {
+                realm_id,
+                circle_id,
+            } => {
+                format!(
+                    "circle:{}:{}",
+                    uuid_part(realm_id.as_str()),
+                    uuid_part(circle_id.as_str())
+                )
             }
             Self::Flow { realm_id, flow_id } => {
-                format!("flow:{}:{}", uuid_part(realm_id.as_str()), uuid_part(flow_id.as_str()))
+                format!(
+                    "flow:{}:{}",
+                    uuid_part(realm_id.as_str()),
+                    uuid_part(flow_id.as_str())
+                )
             }
         }
     }
@@ -126,13 +151,19 @@ pub enum AgentParticipationError {
     #[error(
         "reason=agent_participation_ceiling_widen: child {child:?} widens parent ceiling {parent:?}"
     )]
-    CeilingWiden { parent: AgentParticipation, child: AgentParticipation },
+    CeilingWiden {
+        parent: AgentParticipation,
+        child: AgentParticipation,
+    },
     /// A controller selection enables a bit the effective ceiling
     /// disables.
     #[error(
         "reason=agent_participation_exceeds_ceiling: selection {selection:?} exceeds ceiling {ceiling:?}"
     )]
-    ExceedsCeiling { ceiling: AgentParticipation, selection: AgentParticipation },
+    ExceedsCeiling {
+        ceiling: AgentParticipation,
+        selection: AgentParticipation,
+    },
 }
 
 /// Reducer-pure validator (CKP-0010 §3 invariant 1): an inner scope's
@@ -157,7 +188,9 @@ pub fn fold_ceiling_chain<I>(chain: I) -> AgentParticipation
 where
     I: IntoIterator<Item = AgentParticipation>,
 {
-    chain.into_iter().fold(AgentParticipation::ALL, |acc, c| acc.intersect(c))
+    chain
+        .into_iter()
+        .fold(AgentParticipation::ALL, |acc, c| acc.intersect(c))
 }
 
 /// Effective participation = effective ceiling ∩ controller selection
@@ -220,7 +253,11 @@ mod tests {
     use super::*;
 
     fn p(reply: bool, mention: bool, aob: bool) -> AgentParticipation {
-        AgentParticipation { reply, accept_third_party_mention: mention, act_on_behalf: aob }
+        AgentParticipation {
+            reply,
+            accept_third_party_mention: mention,
+            act_on_behalf: aob,
+        }
     }
 
     #[test]
@@ -229,7 +266,10 @@ mod tests {
         assert!(!AgentParticipation::ALL.is_subset_of(AgentParticipation::NONE));
         assert!(p(true, false, false).is_subset_of(p(true, true, false)));
         assert!(!p(true, true, false).is_subset_of(p(true, false, false)));
-        assert_eq!(p(true, true, false).intersect(p(true, false, true)), p(true, false, false));
+        assert_eq!(
+            p(true, true, false).intersect(p(true, false, true)),
+            p(true, false, false)
+        );
     }
 
     #[test]
@@ -250,7 +290,10 @@ mod tests {
     fn effective_is_ceiling_meet_selection() {
         let ceiling = p(true, true, false);
         let selection = p(true, false, true);
-        assert_eq!(effective_participation(ceiling, selection), p(true, false, false));
+        assert_eq!(
+            effective_participation(ceiling, selection),
+            p(true, false, false)
+        );
     }
 
     #[test]
@@ -280,7 +323,10 @@ mod tests {
         let realm =
             RealmId::new("ck:realm:01970000-0000-7000-8000-000000000000".to_owned()).unwrap();
         let flow = FlowId::new("ck:flow:01970000-0000-7000-8000-000000000001".to_owned()).unwrap();
-        let scope = AgentParticipationScope::Flow { realm_id: realm, flow_id: flow };
+        let scope = AgentParticipationScope::Flow {
+            realm_id: realm,
+            flow_id: flow,
+        };
         assert_eq!(
             scope.scope_key(),
             "flow:01970000-0000-7000-8000-000000000000:01970000-0000-7000-8000-000000000001"

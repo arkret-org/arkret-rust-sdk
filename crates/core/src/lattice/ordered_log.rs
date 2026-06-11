@@ -2,11 +2,10 @@
 //!
 //! Per spec §5.3:
 //! - `append(value, issuer_seq)` adds an entry to the log.
-//! - `(issuer, issuer_seq)` is the deduplication key — duplicate entries
-//!   under the same Move issuer's seq are coalesced (idempotent
-//!   reappend).
-//! - Output is the sorted entry list, ordered by `(issuer, issuer_seq)`
-//!   ascending, projected as `[{issuer, issuer_seq, value}, ...]`.
+//! - `(issuer, issuer_seq)` is the deduplication key — duplicate entries under the same Move
+//!   issuer's seq are coalesced (idempotent reappend).
+//! - Output is the sorted entry list, ordered by `(issuer, issuer_seq)` ascending, projected as
+//!   `[{issuer, issuer_seq, value}, ...]`.
 //!
 //! Since the deduplication key includes the issuer DID, this Lattice
 //! requires the AnchoredOp to expose the Move's `issuer`. Move
@@ -15,10 +14,10 @@
 
 use std::collections::BTreeMap;
 
-use crate::{CellRef, Did, LatticeOp, LatticeOpType};
 use serde_json::{Value, json};
 
 use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use crate::{CellRef, Did, LatticeOp, LatticeOpType};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct OrderedLog;
@@ -47,9 +46,15 @@ impl OrderedLog {
             if Self.validate_op(&entry.op.op).is_err() {
                 continue;
             }
-            let Some(seq) = entry.op.op.issuer_seq else { continue };
-            let Some(value) = entry.op.op.value.clone() else { continue };
-            entries.entry((entry.issuer.as_str().to_owned(), seq)).or_insert(value);
+            let Some(seq) = entry.op.op.issuer_seq else {
+                continue;
+            };
+            let Some(value) = entry.op.op.value.clone() else {
+                continue;
+            };
+            entries
+                .entry((entry.issuer.as_str().to_owned(), seq))
+                .or_insert(value);
         }
         let arr: Vec<Value> = entries
             .into_iter()
@@ -74,10 +79,16 @@ impl Lattice for OrderedLog {
         match op.op_type {
             LatticeOpType::Append => {
                 if op.value.is_none() {
-                    return Err(OpError::MissingField { kind: "ordered_log", field: "value" });
+                    return Err(OpError::MissingField {
+                        kind: "ordered_log",
+                        field: "value",
+                    });
                 }
                 if op.issuer_seq.is_none() {
-                    return Err(OpError::MissingField { kind: "ordered_log", field: "issuer_seq" });
+                    return Err(OpError::MissingField {
+                        kind: "ordered_log",
+                        field: "issuer_seq",
+                    });
                 }
                 Ok(())
             }
@@ -95,7 +106,10 @@ impl Lattice for OrderedLog {
         let issued: Vec<IssuedOp> = anchored_ops
             .iter()
             .cloned()
-            .map(|op| IssuedOp { issuer: unknown.clone(), op })
+            .map(|op| IssuedOp {
+                issuer: unknown.clone(),
+                op,
+            })
             .collect();
         self.join_with_issuers(cell, &issued)
     }
@@ -147,7 +161,9 @@ mod tests {
             reason: None,
             issuer_seq: Some(1),
         };
-        OrderedLog.validate_op(&op).expect_err("non-append op must fail");
+        OrderedLog
+            .validate_op(&op)
+            .expect_err("non-append op must fail");
     }
 
     #[test]
@@ -230,7 +246,9 @@ mod tests {
     fn plain_join_collapses_under_unknown_issuer() {
         let ops = vec![
             AnchoredOp::new(move_id(1), append(1, json!("e1"))),
-            AnchoredOp::new(move_id(2), append(1, json!("e1-dup"))), // same seq, same issuer=unknown -> dropped
+            AnchoredOp::new(move_id(2), append(1, json!("e1-dup"))), /* same seq, same
+                                                                      * issuer=unknown ->
+                                                                      * dropped */
             AnchoredOp::new(move_id(3), append(2, json!("e2"))),
         ];
         let state = OrderedLog.join(&cell(), &ops);

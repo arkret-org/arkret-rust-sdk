@@ -19,10 +19,14 @@ pub struct WasmHttpRequestBody {
 impl WasmHttpRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.method.trim().is_empty() {
-            return Err(Error::Protocol("WASM HTTP method must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "WASM HTTP method must not be empty".to_owned(),
+            ));
         }
         if !(self.url.starts_with("https://") || self.url.starts_with("http://localhost")) {
-            return Err(Error::Protocol("WASM HTTP URL must be HTTPS or localhost".to_owned()));
+            return Err(Error::Protocol(
+                "WASM HTTP URL must be HTTPS or localhost".to_owned(),
+            ));
         }
         Ok(())
     }

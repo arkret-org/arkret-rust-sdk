@@ -9,9 +9,10 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::store::StoreEncryptionKey;
 use crate::{
     DeviceId, DeviceVerificationState, Did, Error, MlsCommitEnvelope, MlsKeyPackageRecord,
-    MlsWelcomeEnvelope, Result, store::StoreEncryptionKey,
+    MlsWelcomeEnvelope, Result,
 };
 
 pub const CRYPTO_STORE_BACKUP_VERSION: &str = "cokret.crypto_store.backup.v1";
@@ -37,7 +38,9 @@ pub struct PlatformKeyStoreDescriptor {
 impl PlatformKeyStoreDescriptor {
     pub fn validate(&self) -> Result<()> {
         if self.key_ref.trim().is_empty() {
-            return Err(Error::Protocol("platform key store key_ref is required".to_owned()));
+            return Err(Error::Protocol(
+                "platform key store key_ref is required".to_owned(),
+            ));
         }
         if self.hardware_backed && self.exportable {
             return Err(Error::Protocol(
@@ -64,7 +67,9 @@ impl CryptoStoreKeyRotation {
             ));
         }
         if self.reason.trim().is_empty() {
-            return Err(Error::Protocol("crypto store key rotation reason is required".to_owned()));
+            return Err(Error::Protocol(
+                "crypto store key rotation reason is required".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -93,10 +98,14 @@ impl CryptoStoreBackupEnvelope {
 
     pub fn validate(&self) -> Result<()> {
         if self.version != CRYPTO_STORE_BACKUP_VERSION {
-            return Err(Error::Protocol("unsupported crypto store backup version".to_owned()));
+            return Err(Error::Protocol(
+                "unsupported crypto store backup version".to_owned(),
+            ));
         }
         if self.payload_digest != crate::canonical::sha256_digest(self.payload_json.as_bytes()) {
-            return Err(Error::Protocol("crypto store backup digest mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "crypto store backup digest mismatch".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -218,7 +227,10 @@ impl CryptoStore for MemoryCryptoStore {
     }
 
     fn put_key_package(&mut self, record: MlsKeyPackageRecord) -> Result<()> {
-        self.key_packages.insert((record.principal_id.clone(), record.device_id.clone()), record);
+        self.key_packages.insert(
+            (record.principal_id.clone(), record.device_id.clone()),
+            record,
+        );
         Ok(())
     }
 
@@ -227,7 +239,8 @@ impl CryptoStore for MemoryCryptoStore {
         principal_id: &Did,
         device_id: &DeviceId,
     ) -> Option<&MlsKeyPackageRecord> {
-        self.key_packages.get(&(principal_id.clone(), device_id.clone()))
+        self.key_packages
+            .get(&(principal_id.clone(), device_id.clone()))
     }
 
     fn put_welcome(&mut self, record: MlsWelcomeEnvelope) -> Result<()> {
@@ -272,7 +285,10 @@ impl CryptoStore for MemoryCryptoStore {
             return Err(Error::Protocol("MLS commit group_id is empty".to_owned()));
         }
         let commits = self.commits.entry(record.group_id.clone()).or_default();
-        if commits.iter().any(|commit| commit.commit_digest == record.commit_digest) {
+        if commits
+            .iter()
+            .any(|commit| commit.commit_digest == record.commit_digest)
+        {
             return Ok(());
         }
         if commits.iter().any(|commit| commit.epoch == record.epoch) {
@@ -286,11 +302,15 @@ impl CryptoStore for MemoryCryptoStore {
     }
 
     fn commits_for_group(&self, group_id: &str) -> Vec<&MlsCommitEnvelope> {
-        self.commits.get(group_id).map(|commits| commits.iter().collect()).unwrap_or_default()
+        self.commits
+            .get(group_id)
+            .map(|commits| commits.iter().collect())
+            .unwrap_or_default()
     }
 
     fn put_epoch_secret(&mut self, record: MlsEpochSecretRecord) -> Result<()> {
-        self.epoch_secrets.insert((record.group_id.clone(), record.epoch), record);
+        self.epoch_secrets
+            .insert((record.group_id.clone(), record.epoch), record);
         Ok(())
     }
 
@@ -299,8 +319,10 @@ impl CryptoStore for MemoryCryptoStore {
     }
 
     fn put_device_verification(&mut self, record: StoredDeviceVerification) -> Result<()> {
-        self.device_verifications
-            .insert((record.principal_id.clone(), record.device_id.clone()), record);
+        self.device_verifications.insert(
+            (record.principal_id.clone(), record.device_id.clone()),
+            record,
+        );
         Ok(())
     }
 
@@ -309,7 +331,8 @@ impl CryptoStore for MemoryCryptoStore {
         principal_id: &Did,
         device_id: &DeviceId,
     ) -> Option<&StoredDeviceVerification> {
-        self.device_verifications.get(&(principal_id.clone(), device_id.clone()))
+        self.device_verifications
+            .get(&(principal_id.clone(), device_id.clone()))
     }
 
     fn plan_mls_recovery(
@@ -339,9 +362,14 @@ impl CryptoStore for MemoryCryptoStore {
             Some(epoch) => MlsRecoveryAction::RequestEpochRecovery {
                 missing_from_epoch: epoch.saturating_add(1),
             },
-            None => MlsRecoveryAction::RequestEpochRecovery { missing_from_epoch: required_epoch },
+            None => MlsRecoveryAction::RequestEpochRecovery {
+                missing_from_epoch: required_epoch,
+            },
         };
-        MlsRecoveryPlan { group_id: group_id.to_owned(), action }
+        MlsRecoveryPlan {
+            group_id: group_id.to_owned(),
+            action,
+        }
     }
 
     fn export_backup_json(&self) -> Result<String> {
@@ -438,7 +466,9 @@ impl EncryptedMemoryCryptoStore {
 
     /// Raw encrypted epoch secret bytes.
     pub fn encrypted_epoch_secret_bytes(&self, group_id: &str, epoch: u64) -> Option<&[u8]> {
-        self.encrypted_epoch_secrets.get(&(group_id.to_owned(), epoch)).map(Vec::as_slice)
+        self.encrypted_epoch_secrets
+            .get(&(group_id.to_owned(), epoch))
+            .map(Vec::as_slice)
     }
 
     /// Raw encrypted key package bytes.
@@ -464,8 +494,10 @@ impl EncryptedMemoryCryptoStore {
 
         for record in self.inner.group_states.values() {
             let aad = format!("group_state:{}", record.group_id);
-            self.encrypted_group_states
-                .insert(record.group_id.clone(), self.seal_record(record, aad.as_bytes())?);
+            self.encrypted_group_states.insert(
+                record.group_id.clone(),
+                self.seal_record(record, aad.as_bytes())?,
+            );
         }
         for record in self.inner.epoch_secrets.values() {
             let aad = format!("epoch_secret:{}:{}", record.group_id, record.epoch);
@@ -504,8 +536,11 @@ impl CryptoStore for EncryptedMemoryCryptoStore {
     }
 
     fn put_key_package(&mut self, record: MlsKeyPackageRecord) -> Result<()> {
-        let aad =
-            format!("key_package:{}:{}", record.principal_id.as_str(), record.device_id.as_str());
+        let aad = format!(
+            "key_package:{}:{}",
+            record.principal_id.as_str(),
+            record.device_id.as_str()
+        );
         let encrypted = self.seal_record(&record, aad.as_bytes())?;
         let key = (record.principal_id.clone(), record.device_id.clone());
         self.inner.put_key_package(record)?;
@@ -574,7 +609,13 @@ impl CryptoStore for EncryptedMemoryCryptoStore {
         principal_id: &Did,
         device_id: &DeviceId,
     ) -> MlsRecoveryPlan {
-        self.inner.plan_mls_recovery(group_id, local_epoch, required_epoch, principal_id, device_id)
+        self.inner.plan_mls_recovery(
+            group_id,
+            local_epoch,
+            required_epoch,
+            principal_id,
+            device_id,
+        )
     }
 
     fn export_backup_json(&self) -> Result<String> {
@@ -759,7 +800,10 @@ mod tests {
         let encrypted_epoch = store.encrypted_epoch_secret_bytes("group1", 5).unwrap();
         let epoch_plain = String::from_utf8_lossy(encrypted_epoch);
         assert!(!epoch_plain.contains("epoch-5-secret"));
-        assert_eq!(store.epoch_secret("group1", 5).unwrap().secret_ref, "epoch-5-secret");
+        assert_eq!(
+            store.epoch_secret("group1", 5).unwrap().secret_ref,
+            "epoch-5-secret"
+        );
 
         store
             .put_key_package(MlsKeyPackageRecord {
@@ -781,7 +825,9 @@ mod tests {
             })
             .unwrap();
 
-        let encrypted_kp = store.encrypted_key_package_bytes(&alice, &device_id).unwrap();
+        let encrypted_kp = store
+            .encrypted_key_package_bytes(&alice, &device_id)
+            .unwrap();
         let kp_plain = String::from_utf8_lossy(encrypted_kp);
         assert!(!kp_plain.contains("kp-secret"));
         assert!(store.key_package(&alice, &device_id).is_some());
@@ -798,8 +844,9 @@ mod tests {
             exportable: false,
         };
         let key = StoreEncryptionKey::derive("test-passphrase", b"crypto-store-salt", 4);
-        let mut store =
-            EncryptedMemoryCryptoStore::new(key).with_platform_key_store(descriptor).unwrap();
+        let mut store = EncryptedMemoryCryptoStore::new(key)
+            .with_platform_key_store(descriptor)
+            .unwrap();
         assert!(store.platform_key_store().is_some());
 
         store
@@ -812,7 +859,10 @@ mod tests {
                 updated_at: Utc::now(),
             })
             .unwrap();
-        let before_rotation = store.encrypted_group_state_bytes("group1").unwrap().to_vec();
+        let before_rotation = store
+            .encrypted_group_state_bytes("group1")
+            .unwrap()
+            .to_vec();
         let rotation = store
             .rotate_key(
                 StoreEncryptionKey::derive("new-passphrase", b"crypto-store-salt", 4),
@@ -823,7 +873,10 @@ mod tests {
         assert_eq!(rotation.previous_key_version, 1);
         assert_eq!(store.key_version(), 2);
         assert_eq!(store.rotations().len(), 1);
-        assert_ne!(before_rotation, store.encrypted_group_state_bytes("group1").unwrap());
+        assert_ne!(
+            before_rotation,
+            store.encrypted_group_state_bytes("group1").unwrap()
+        );
 
         let backup = store.export_backup_envelope(store.key_version()).unwrap();
         backup.validate().unwrap();
@@ -897,6 +950,9 @@ mod tests {
         conflicting_commit.commit_digest =
             Hash::new("sha256:5555555555555555555555555555555555555555555555555555555555555555")
                 .unwrap();
-        assert!(matches!(store.put_commit(conflicting_commit), Err(Error::IdempotencyConflict(_))));
+        assert!(matches!(
+            store.put_commit(conflicting_commit),
+            Err(Error::IdempotencyConflict(_))
+        ));
     }
 }

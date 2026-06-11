@@ -5,18 +5,11 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
-
 pub use cokret_contracts as api;
-pub use cokret_contracts::federation as federation_api;
-pub use cokret_contracts::identity as identity_api;
-pub use cokret_contracts::integration as integration_api;
-pub use cokret_contracts::principal as principal_api;
-pub use cokret_contracts::push as push_gateway_api;
-pub use cokret_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
-pub use cokret_signatures as signatures;
-
+pub use cokret_contracts::{
+    federation as federation_api, identity as identity_api, integration as integration_api,
+    principal as principal_api, push as push_gateway_api,
+};
 use cokret_core::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AppletActorView, AppletDescription,
     AppletPingOutcome, AppletProtocolMetadata, AppletRealmView, AppletTransactionOutcome,
@@ -43,6 +36,10 @@ use cokret_core::{
     Result, ServerDescription, SnapshotHeadState, SyncBackfillOutcome, SyncDescription,
     SyncOutcome, SyncRequestBody,
 };
+pub use cokret_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
+pub use cokret_signatures as signatures;
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 
 mod fixtures;
 mod protocol;

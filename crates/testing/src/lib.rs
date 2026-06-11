@@ -2,18 +2,17 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use cokret_core::events::{
+    AGENT_INTEROP_SESSION_STATUS, AnyEventContent, CALL_SIGNAL, EventClass, EventContentEnvelope,
+    MESSAGE_CREATE, MLS_WELCOME, REACTION_ADD, classify_event_kind, parse_event_content,
+};
+use cokret_core::lattice::CellState;
+use cokret_core::state::{
+    MemoryAnchorStore, MemoryCellRegistry, MemoryCellStore, MemoryMoveStore, MoveStore,
+    apply_anchor, compute_state_root,
+};
 use cokret_core::{
     AnchorId, CellRef, Did, Error, Event, Hash, Hlc, Move, MoveId, RealmId, Result, canonical,
-    events::{
-        AGENT_INTEROP_SESSION_STATUS, AnyEventContent, CALL_SIGNAL, EventClass,
-        EventContentEnvelope, MESSAGE_CREATE, MLS_WELCOME, REACTION_ADD, classify_event_kind,
-        parse_event_content,
-    },
-    lattice::CellState,
-    state::{
-        MemoryAnchorStore, MemoryCellRegistry, MemoryCellStore, MemoryMoveStore, MoveStore,
-        apply_anchor, compute_state_root,
-    },
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -60,12 +59,21 @@ pub struct EndpointCoverageReport {
 impl EndpointCoverageReport {
     pub fn covers_domain(&self, domain: ConformanceDomain) -> bool {
         self.rows.iter().any(|row| row.domain == domain)
-            || self.event_vectors.iter().any(|_| domain == ConformanceDomain::Events)
-            || self.state_vectors.iter().any(|_| domain == ConformanceDomain::StateResolution)
+            || self
+                .event_vectors
+                .iter()
+                .any(|_| domain == ConformanceDomain::Events)
+            || self
+                .state_vectors
+                .iter()
+                .any(|_| domain == ConformanceDomain::StateResolution)
     }
 
     pub fn operation_ids(&self) -> BTreeSet<&str> {
-        self.rows.iter().map(|row| row.operation_id.as_str()).collect()
+        self.rows
+            .iter()
+            .map(|row| row.operation_id.as_str())
+            .collect()
     }
 }
 
@@ -260,16 +268,18 @@ pub fn sync_vectors() -> Vec<SyncVector> {
 
 pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
     let mut rows = Vec::new();
-    rows.extend(cokret_core::BUILT_IN_OPERATION_KINDS.iter().map(|operation_id| {
-        EndpointCoverageRow {
-            domain: operation_domain(operation_id),
-            operation_id: (*operation_id).to_owned(),
-            method: "CONTRACT".to_owned(),
-            path: format!("cokret-core://operations/{operation_id}"),
-            request_schema: "OperationInput".to_owned(),
-            response_schema: "OperationOutcome".to_owned(),
-        }
-    }));
+    rows.extend(
+        cokret_core::BUILT_IN_OPERATION_KINDS
+            .iter()
+            .map(|operation_id| EndpointCoverageRow {
+                domain: operation_domain(operation_id),
+                operation_id: (*operation_id).to_owned(),
+                method: "CONTRACT".to_owned(),
+                path: format!("cokret-core://operations/{operation_id}"),
+                request_schema: "OperationInput".to_owned(),
+                response_schema: "OperationOutcome".to_owned(),
+            }),
+    );
     // Product client-API coverage rows were previously derived from the
     // now-removed CLIENT_API_ENDPOINTS catalogue in the contracts crate. That catalogue has been
     // removed in favour of typed salvo route handlers + ToSchema derives, so
@@ -544,7 +554,9 @@ pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
     let cells = MemoryCellStore::default();
     let registry = MemoryCellRegistry::new();
 
-    moves.put_pending(&move_obj).map_err(|e| Error::Protocol(format!("store: {e}")))?;
+    moves
+        .put_pending(&move_obj)
+        .map_err(|e| Error::Protocol(format!("store: {e}")))?;
 
     // Compute expected state_root: after the Move, member.state = "join".
     let mut expected = BTreeMap::new();
@@ -553,8 +565,15 @@ pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
 
     let empty_root = Hash::new(cokret_core::EMPTY_STATE_ROOT.to_owned())?;
     let genesis = build_anchor(&realm_id, &[], &[], &empty_root)?;
-    apply_anchor(&genesis, &moves, &anchors, &cells, &registry, |_, _, _, _| Ok::<(), String>(()))
-        .map_err(|e| Error::Protocol(format!("apply_genesis_anchor: {e}")))?;
+    apply_anchor(
+        &genesis,
+        &moves,
+        &anchors,
+        &cells,
+        &registry,
+        |_, _, _, _| Ok::<(), String>(()),
+    )
+    .map_err(|e| Error::Protocol(format!("apply_genesis_anchor: {e}")))?;
 
     let anchor = build_anchor(
         &realm_id,
@@ -562,9 +581,14 @@ pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
         std::slice::from_ref(&move_obj.id),
         &expected_root,
     )?;
-    let effect = apply_anchor(&anchor, &moves, &anchors, &cells, &registry, |_, _, _, _| {
-        Ok::<(), String>(())
-    })
+    let effect = apply_anchor(
+        &anchor,
+        &moves,
+        &anchors,
+        &cells,
+        &registry,
+        |_, _, _, _| Ok::<(), String>(()),
+    )
     .map_err(|e| Error::Protocol(format!("apply_anchor: {e}")))?;
 
     Ok(vec![StateResolutionVector {
@@ -646,7 +670,9 @@ fn build_anchor(
             .map_err(|e| Error::Protocol(format!("hlc: {e}")))?,
         kind: cokret_core::AnchorKind::Normal,
     };
-    a.id = a.derive_id().map_err(|e| Error::Protocol(format!("derive: {e}")))?;
+    a.id = a
+        .derive_id()
+        .map_err(|e| Error::Protocol(format!("derive: {e}")))?;
     Ok(a)
 }
 
@@ -659,7 +685,10 @@ pub fn domain_counts(report: &EndpointCoverageReport) -> BTreeMap<ConformanceDom
         counts.insert(ConformanceDomain::Events, report.event_vectors.len());
     }
     if !report.state_vectors.is_empty() {
-        counts.insert(ConformanceDomain::StateResolution, report.state_vectors.len());
+        counts.insert(
+            ConformanceDomain::StateResolution,
+            report.state_vectors.len(),
+        );
     }
     counts
 }
@@ -699,7 +728,10 @@ mod tests {
 
     #[test]
     fn edge_push_operations_are_push_gateway_domain() {
-        assert_eq!(operation_domain("ck.edge.push.notify"), ConformanceDomain::PushGateway);
+        assert_eq!(
+            operation_domain("ck.edge.push.notify"),
+            ConformanceDomain::PushGateway
+        );
         assert_eq!(
             operation_domain("ck.edge.push.register_device"),
             ConformanceDomain::PushGateway
@@ -708,7 +740,9 @@ mod tests {
 
     #[test]
     fn boundary_crate_smoke_contracts_validate() {
-        cokret_core::operations::operation_catalog().validate().unwrap();
+        cokret_core::operations::operation_catalog()
+            .validate()
+            .unwrap();
         assert!(!cokret_core::operations::negative_dag_vectors().is_empty());
         cokret_core::schema::schema_catalog().validate().unwrap();
         cokret_core::schema::validate_schema_vectors(
@@ -720,7 +754,9 @@ mod tests {
             cokret_html::RichTextFormat::Html,
         )
         .unwrap();
-        cokret_ffi::WasmRuntimeContract::default().validate().unwrap();
+        cokret_ffi::WasmRuntimeContract::default()
+            .validate()
+            .unwrap();
 
         let mut plan = cokret_crypto::CryptoMachinePlan::default();
         plan.push(
@@ -736,7 +772,10 @@ mod tests {
     #[test]
     fn event_vectors_include_unknown_raw_preservation() {
         let vectors = event_taxonomy_vectors().unwrap();
-        let custom = vectors.iter().find(|vector| vector.preserves_unknown).unwrap();
+        let custom = vectors
+            .iter()
+            .find(|vector| vector.preserves_unknown)
+            .unwrap();
         assert_eq!(custom.input["opaque"], true);
     }
 

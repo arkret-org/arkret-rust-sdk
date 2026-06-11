@@ -12,11 +12,10 @@
 //! `ck.member.state{join}.delivery_binding`.
 //!
 //! Two legal provenance paths:
-//!   1. `ck.find.directory.resolve_handle(intent="member_add" | "invite")` packed
-//!      into a candidate by the Directory.
-//!   2. Trusted issuer (Organization / Principal Server / service DID) signs
-//!      a candidate directly — e.g. invite token payload, organization
-//!      member roster push.
+//!   1. `ck.find.directory.resolve_handle(intent="member_add" | "invite")` packed into a candidate
+//!      by the Directory.
+//!   2. Trusted issuer (Organization / Principal Server / service DID) signs a candidate directly —
+//!      e.g. invite token payload, organization member roster push.
 //!
 //! Any object lacking `proofs[]` MUST NOT be named a candidate.
 use super::*;
@@ -78,7 +77,10 @@ pub enum CandidateError {
     #[error("candidate audience mismatch: expected {expected}, got {actual}")]
     AudienceMismatch { expected: String, actual: String },
     #[error("candidate expired at {expires_at} (now = {now})")]
-    Expired { expires_at: DateTime<Utc>, now: DateTime<Utc> },
+    Expired {
+        expires_at: DateTime<Utc>,
+        now: DateTime<Utc>,
+    },
     #[error(
         "candidate proofs[] missing or empty; at least one proof MUST bind \
          handle / subject_id / member_delivery_binding.recipient_service_did / audience / \
@@ -151,8 +153,10 @@ impl MemberDeliveryBindingCandidate {
         //      snuck in via raw JSON.
         let canonical = self.handle.canonical();
         let has_localpart_colon = canonical.contains(':');
-        let has_dotted_domain =
-            canonical.split(':').nth(1).is_some_and(|domain| domain.contains('.'));
+        let has_dotted_domain = canonical
+            .split(':')
+            .nth(1)
+            .is_some_and(|domain| domain.contains('.'));
         if !has_localpart_colon || !has_dotted_domain {
             return Err(CandidateError::NonCanonicalHandle(canonical.to_owned()));
         }
@@ -167,7 +171,10 @@ impl MemberDeliveryBindingCandidate {
 
         // (4) expiry — strictly greater than now
         if self.expires_at <= context.now {
-            return Err(CandidateError::Expired { expires_at: self.expires_at, now: context.now });
+            return Err(CandidateError::Expired {
+                expires_at: self.expires_at,
+                now: context.now,
+            });
         }
 
         // (5) proof presence — substantive cryptographic verification is
@@ -350,7 +357,10 @@ mod tests {
         value["handle"] = json!("acct:alice@acme.example");
         let parsed: std::result::Result<MemberDeliveryBindingCandidate, _> =
             serde_json::from_value(value);
-        assert!(parsed.is_err(), "non-canonical handle must be rejected at deserialisation");
+        assert!(
+            parsed.is_err(),
+            "non-canonical handle must be rejected at deserialisation"
+        );
     }
 
     #[test]
@@ -376,6 +386,9 @@ mod tests {
         value["surprise"] = json!("should-be-rejected");
         let parsed: std::result::Result<MemberDeliveryBindingCandidate, _> =
             serde_json::from_value(value);
-        assert!(parsed.is_err(), "unknown fields MUST be rejected (#[serde(deny_unknown_fields)])");
+        assert!(
+            parsed.is_err(),
+            "unknown fields MUST be rejected (#[serde(deny_unknown_fields)])"
+        );
     }
 }

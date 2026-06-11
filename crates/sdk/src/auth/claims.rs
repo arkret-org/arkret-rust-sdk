@@ -256,17 +256,18 @@ impl PresentationRequestBody {
     /// Returns `Ok(())` when:
     ///
     /// 1. If `verifier_did` is `None`, the request is rejected.
-    /// 2. If `represented_org` is `None`, the chain MUST be empty
-    ///    (verifier acts for itself).
-    /// 3. Otherwise the chain MUST start at `verifier_did`, end at
-    ///    `represented_org`, and every link MUST be unexpired at `now`.
+    /// 2. If `represented_org` is `None`, the chain MUST be empty (verifier acts for itself).
+    /// 3. Otherwise the chain MUST start at `verifier_did`, end at `represented_org`, and every
+    ///    link MUST be unexpired at `now`.
     ///
     /// This validator does NOT verify the cryptographic proofs — it
     /// only enforces the chain shape. Callers SHOULD additionally
     /// verify each link's `proof` against the issuer's DID document.
     pub fn validate_verifier_authority(&self, now: DateTime<Utc>) -> Result<()> {
         let Some(verifier) = &self.verifier_did else {
-            return Err(Error::Protocol("presentation request missing verifier_did".to_owned()));
+            return Err(Error::Protocol(
+                "presentation request missing verifier_did".to_owned(),
+            ));
         };
         let Some(org) = &self.represented_org else {
             if self.verifier_authority_chain.is_empty() {
@@ -347,19 +348,29 @@ impl DisclosureProofAdapterBoundary {
         expected_domain: Option<&str>,
     ) -> Result<()> {
         if self.holder != request.subject {
-            return Err(Error::Protocol("disclosure proof holder mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "disclosure proof holder mismatch".to_owned(),
+            ));
         }
         if self.audience != request.audience {
-            return Err(Error::Protocol("disclosure proof audience mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "disclosure proof audience mismatch".to_owned(),
+            ));
         }
         if self.nonce != request.nonce {
-            return Err(Error::Protocol("disclosure proof nonce mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "disclosure proof nonce mismatch".to_owned(),
+            ));
         }
         if expected_domain != self.domain.as_deref() {
-            return Err(Error::Protocol("disclosure proof domain mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "disclosure proof domain mismatch".to_owned(),
+            ));
         }
         if self.encoded_presentation.trim().is_empty() {
-            return Err(Error::Protocol("disclosure proof payload is empty".to_owned()));
+            return Err(Error::Protocol(
+                "disclosure proof payload is empty".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -416,7 +427,10 @@ pub fn validate_presentation(
 
     for requirement in &request.policy.requirements {
         let mut matched = false;
-        for claim in claims.iter().filter(|claim| claim.claim_kind == requirement.claim_kind) {
+        for claim in claims
+            .iter()
+            .filter(|claim| claim.claim_kind == requirement.claim_kind)
+        {
             match validate_presented_claim(request, requirement, claim, revoked_claim_ids, now) {
                 Ok(()) => {
                     disclosed_claims.push(disclose_claim(claim, &requirement.reveal_fields));
@@ -437,7 +451,12 @@ pub fn validate_presentation(
 
     let accepted =
         missing_required.is_empty() && (!request.policy.fail_closed || rejected_claims.is_empty());
-    PresentationValidation { accepted, disclosed_claims, missing_required, rejected_claims }
+    PresentationValidation {
+        accepted,
+        disclosed_claims,
+        missing_required,
+        rejected_claims,
+    }
 }
 
 /// Verify a presentation end-to-end through a host-provided proof adapter.
@@ -459,5 +478,10 @@ where
 {
     proof.validate_request_binding(request, expected_domain)?;
     verify_proof(proof)?;
-    Ok(validate_presentation(request, claims, revoked_claim_ids, now))
+    Ok(validate_presentation(
+        request,
+        claims,
+        revoked_claim_ids,
+        now,
+    ))
 }

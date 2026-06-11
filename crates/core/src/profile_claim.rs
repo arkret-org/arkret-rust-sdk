@@ -19,18 +19,16 @@
 //!
 //! Roles partition the profile namespace into:
 //!
-//! * `client` — locally implemented end-user surface (chat, kanban, e2ee,
-//!   franking sender commitment, …).
-//! * `server` — wire-conformance principal / federation / agent runtime
-//!   surfaces (core event store, principal server, agent workspace flavours,
-//!   …).
+//! * `client` — locally implemented end-user surface (chat, kanban, e2ee, franking sender
+//!   commitment, …).
+//! * `server` — wire-conformance principal / federation / agent runtime surfaces (core event store,
+//!   principal server, agent workspace flavours, …).
 //! * `gateway` — push / blob / media relay surfaces.
 //! * `directory`— directory / identity-registry surfaces.
-//! * `admin` — deployment / hardening / constraint posture profiles that
-//!   describe operator stance rather than wire conformance.
-//! * `interop` — explicit cross-role bridge surfaces (mimi_interop,
-//!   matrix_compat, push_gateway.matrix_passthrough, encoding / hash interop,
-//!   conformance vector packs).
+//! * `admin` — deployment / hardening / constraint posture profiles that describe operator stance
+//!   rather than wire conformance.
+//! * `interop` — explicit cross-role bridge surfaces (mimi_interop, matrix_compat,
+//!   push_gateway.matrix_passthrough, encoding / hash interop, conformance vector packs).
 //!
 //! A [`ServiceType`] declares which roles it can legitimately claim; profiles
 //! whose role is not in that allow-set are rejected. `interop` profiles are
@@ -45,13 +43,18 @@
 //!
 //! let validator = ProfileValidator::new(ServiceType::PushGateway);
 //! let claims = [
-//!     ProfileClaim::new("ck.profile.push_gateway.v1", ProfileClaimKind::ConformanceVerified),
+//!     ProfileClaim::new(
+//!         "ck.profile.push_gateway.v1",
+//!         ProfileClaimKind::ConformanceVerified,
+//!     ),
 //!     ProfileClaim::new(
 //!         "ck.profile.push_gateway.matrix_passthrough.v1",
 //!         ProfileClaimKind::ConformanceVerified,
 //!     ),
 //! ];
-//! validator.validate(&claims).expect("push_gateway may claim gateway + interop");
+//! validator
+//!     .validate(&claims)
+//!     .expect("push_gateway may claim gateway + interop");
 //! ```
 
 use std::fmt;
@@ -105,7 +108,10 @@ pub struct ProfileClaim {
 
 impl ProfileClaim {
     pub fn new(profile_id: impl Into<String>, kind: ProfileClaimKind) -> Self {
-        Self { profile_id: profile_id.into(), kind }
+        Self {
+            profile_id: profile_id.into(),
+            kind,
+        }
     }
 
     pub fn self_claimed(profile_id: impl Into<String>) -> Self {
@@ -136,7 +142,10 @@ pub enum ProfileClaimError {
     /// `SelfClaimed` / `ConformanceVerified` provenance, but `Experimental` claims
     /// are surfaced as [`Self::ExperimentalUnknownProfile`] instead so they
     /// can be allow-listed by the caller.
-    UnknownProfile { profile_id: String, kind: ProfileClaimKind },
+    UnknownProfile {
+        profile_id: String,
+        kind: ProfileClaimKind,
+    },
     /// The profile is declared in the spec but its `profile_roles` entry is
     /// not in the allow-set of the claiming service.
     RoleMismatch {
@@ -158,7 +167,12 @@ impl fmt::Display for ProfileClaimError {
                 f,
                 "profile {profile_id} is not in the spec catalogue but was claimed as {kind}"
             ),
-            Self::RoleMismatch { profile_id, declared_role, service_type, permitted_roles } => {
+            Self::RoleMismatch {
+                profile_id,
+                declared_role,
+                service_type,
+                permitted_roles,
+            } => {
                 let permitted: Vec<&str> =
                     permitted_roles.iter().map(|role| role.as_str()).collect();
                 write!(
@@ -170,7 +184,10 @@ impl fmt::Display for ProfileClaimError {
                 )
             }
             Self::ExperimentalUnknownProfile { profile_id } => {
-                write!(f, "experimental profile {profile_id} is not in the spec catalogue")
+                write!(
+                    f,
+                    "experimental profile {profile_id} is not in the spec catalogue"
+                )
             }
         }
     }
@@ -201,7 +218,11 @@ impl ProfileValidator {
     /// for the resolution rule.
     pub fn new(service_type: ServiceType) -> Self {
         let permitted_roles = Self::permitted_roles(service_type.clone());
-        Self { service_type, permitted_roles, surface_experimental_unknown: true }
+        Self {
+            service_type,
+            permitted_roles,
+            surface_experimental_unknown: true,
+        }
     }
 
     /// Treat `Experimental` claims with unknown profile ids as acceptable
@@ -222,12 +243,11 @@ impl ProfileValidator {
     /// Spec-derived allow-set:
     ///
     /// * `Interop` is always included (bridge profiles).
-    /// * Each `ServiceType` exposes its own canonical role plus the
-    ///   `Admin` role, because deployment / hardening posture profiles are
-    ///   service-agnostic.
-    /// * Client-shaped service types (none today — clients consume the SDK
-    ///   directly rather than registering as a `ServiceType`) would surface
-    ///   `Client` here. The SDK exposes [`Self::for_client`] for that path.
+    /// * Each `ServiceType` exposes its own canonical role plus the `Admin` role, because
+    ///   deployment / hardening posture profiles are service-agnostic.
+    /// * Client-shaped service types (none today — clients consume the SDK directly rather than
+    ///   registering as a `ServiceType`) would surface `Client` here. The SDK exposes
+    ///   [`Self::for_client`] for that path.
     pub fn permitted_roles(service_type: ServiceType) -> Vec<ProfileRole> {
         let mut roles = match service_type {
             ServiceType::PrincipalServer
@@ -270,7 +290,11 @@ impl ProfileValidator {
     pub fn for_client() -> Self {
         Self {
             service_type: ServiceType::PrincipalServer, // sentinel: never used
-            permitted_roles: vec![ProfileRole::Client, ProfileRole::Admin, ProfileRole::Interop],
+            permitted_roles: vec![
+                ProfileRole::Client,
+                ProfileRole::Admin,
+                ProfileRole::Interop,
+            ],
             surface_experimental_unknown: true,
         }
     }
@@ -285,7 +309,11 @@ impl ProfileValidator {
                 errors.push(error);
             }
         }
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 
     /// Validate a single claim. Exposed for callers that want per-claim
@@ -389,18 +417,30 @@ mod tests {
     fn unknown_profile_is_unknown_unless_experimental() {
         let validator = ProfileValidator::for_client();
         let errors = validator
-            .validate(&[ProfileClaim::conformance_verified("ck.profile.not_in_spec.v1")])
+            .validate(&[ProfileClaim::conformance_verified(
+                "ck.profile.not_in_spec.v1",
+            )])
             .expect_err("unknown profile must fail closed");
-        assert!(matches!(errors[0], ProfileClaimError::UnknownProfile { .. }));
+        assert!(matches!(
+            errors[0],
+            ProfileClaimError::UnknownProfile { .. }
+        ));
 
         let errors = validator
-            .validate(&[ProfileClaim::experimental("ck.profile.experimental_thing.v1")])
+            .validate(&[ProfileClaim::experimental(
+                "ck.profile.experimental_thing.v1",
+            )])
             .expect_err("experimental + unknown surfaces by default");
-        assert!(matches!(errors[0], ProfileClaimError::ExperimentalUnknownProfile { .. }));
+        assert!(matches!(
+            errors[0],
+            ProfileClaimError::ExperimentalUnknownProfile { .. }
+        ));
 
         let permissive = ProfileValidator::for_client().accept_experimental_unknown();
         permissive
-            .validate(&[ProfileClaim::experimental("ck.profile.experimental_thing.v1")])
+            .validate(&[ProfileClaim::experimental(
+                "ck.profile.experimental_thing.v1",
+            )])
             .expect("permissive validator accepts experimental unknown ids");
     }
 

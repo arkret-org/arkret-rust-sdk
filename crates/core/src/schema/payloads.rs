@@ -23,12 +23,14 @@ impl EventPayloadValidatorCatalog {
         };
         validate_required_payload_fields(event_kind, payload, &rule.required_fields)?;
         if let Some(registry) = &self.registry {
-            registry.validate_value(&rule.payload_schema_id, payload).map_err(|error| {
-                Error::Protocol(format!(
-                    "event kind '{event_kind}' payload violates {}: {error}",
-                    rule.payload_schema_id
-                ))
-            })?;
+            registry
+                .validate_value(&rule.payload_schema_id, payload)
+                .map_err(|error| {
+                    Error::Protocol(format!(
+                        "event kind '{event_kind}' payload violates {}: {error}",
+                        rule.payload_schema_id
+                    ))
+                })?;
         } else {
             validate_fallback_payload_shape(event_kind, payload)?;
         }
@@ -53,7 +55,9 @@ fn validate_required_payload_fields(
     required_fields: &[String],
 ) -> Result<()> {
     let object = payload.as_object().ok_or_else(|| {
-        Error::Protocol(format!("event kind '{event_kind}' payload must be a JSON object"))
+        Error::Protocol(format!(
+            "event kind '{event_kind}' payload must be a JSON object"
+        ))
     })?;
     for field in required_fields {
         if !object.contains_key(field) {
@@ -151,12 +155,16 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
             object,
             &["event_ref", "status", "occurrence", "comment"],
         ),
-        "ck.pin.add" => {
-            validate_known_fields(event_kind, object, &["pin_scope", "target_ref", "rank", "note"])
-        }
-        "ck.pin.remove" => {
-            validate_known_fields(event_kind, object, &["pin_scope", "target_ref", "expected_rank"])
-        }
+        "ck.pin.add" => validate_known_fields(
+            event_kind,
+            object,
+            &["pin_scope", "target_ref", "rank", "note"],
+        ),
+        "ck.pin.remove" => validate_known_fields(
+            event_kind,
+            object,
+            &["pin_scope", "target_ref", "expected_rank"],
+        ),
         "ck.pin.reorder" => validate_known_fields(
             event_kind,
             object,
@@ -208,9 +216,14 @@ fn validate_create_object_fallback_payload(
     wrapper: &serde_json::Map<String, Value>,
     context: crate::WireContext,
 ) -> Result<()> {
-    let object = wrapper.get("object").and_then(Value::as_object).ok_or_else(|| {
-        Error::Protocol(format!("event kind '{event_kind}' payload object must be an object"))
-    })?;
+    let object = wrapper
+        .get("object")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "event kind '{event_kind}' payload object must be an object"
+            ))
+        })?;
     for key in object.keys() {
         if crate::is_forbidden_in_context(key, context) {
             return Err(Error::Protocol(format!(
@@ -250,28 +263,45 @@ fn validate_mls_commit_fallback_payload(
         ],
     )?;
 
-    let base_epoch = object.get("base_epoch").and_then(Value::as_u64).ok_or_else(|| {
-        Error::Protocol(format!("event kind '{event_kind}' payload base_epoch must be an integer"))
-    })?;
-    let next_epoch = object.get("next_epoch").and_then(Value::as_u64).ok_or_else(|| {
-        Error::Protocol(format!("event kind '{event_kind}' payload next_epoch must be an integer"))
-    })?;
+    let base_epoch = object
+        .get("base_epoch")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "event kind '{event_kind}' payload base_epoch must be an integer"
+            ))
+        })?;
+    let next_epoch = object
+        .get("next_epoch")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "event kind '{event_kind}' payload next_epoch must be an integer"
+            ))
+        })?;
     if base_epoch.checked_add(1) != Some(next_epoch) {
         return Err(Error::Protocol(format!(
             "event kind '{event_kind}' payload next_epoch must equal base_epoch + 1"
         )));
     }
-    if object.get("proposal_refs").and_then(Value::as_array).is_none() {
+    if object
+        .get("proposal_refs")
+        .and_then(Value::as_array)
+        .is_none()
+    {
         return Err(Error::Protocol(format!(
             "event kind '{event_kind}' payload proposal_refs must be an array"
         )));
     }
 
-    let binding = object.get("governance_binding").and_then(Value::as_object).ok_or_else(|| {
-        Error::Protocol(format!(
-            "event kind '{event_kind}' payload governance_binding must be an object"
-        ))
-    })?;
+    let binding = object
+        .get("governance_binding")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "event kind '{event_kind}' payload governance_binding must be an object"
+            ))
+        })?;
     validate_required_object_fields(
         event_kind,
         binding,
@@ -319,7 +349,11 @@ fn validate_mls_commit_fallback_payload(
             "event kind '{event_kind}' payload governance_binding.encoding_profile is invalid"
         )));
     }
-    if binding.get("membership_frontier").and_then(Value::as_array).is_none_or(Vec::is_empty) {
+    if binding
+        .get("membership_frontier")
+        .and_then(Value::as_array)
+        .is_none_or(Vec::is_empty)
+    {
         return Err(Error::Protocol(format!(
             "event kind '{event_kind}' payload governance_binding.membership_frontier must be non-empty"
         )));
@@ -431,17 +465,36 @@ pub fn event_payload_validator_catalog_from_spec_artifacts(
             },
         );
     }
-    Ok(EventPayloadValidatorCatalog { rules, registry: Some(registry) })
+    Ok(EventPayloadValidatorCatalog {
+        rules,
+        registry: Some(registry),
+    })
 }
 
 fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
     let rules = [
         ("ck.flow.create", EVENT_PAYLOAD_SCHEMA, &["object"][..]),
         ("ck.morph.create", EVENT_PAYLOAD_SCHEMA, &["object"][..]),
-        ("ck.realm.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
-        ("ck.flow.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
-        ("ck.morph.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
-        ("ck.space.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
+        (
+            "ck.realm.update",
+            EVENT_PAYLOAD_SCHEMA,
+            &["target_ref", "patch"][..],
+        ),
+        (
+            "ck.flow.update",
+            EVENT_PAYLOAD_SCHEMA,
+            &["target_ref", "patch"][..],
+        ),
+        (
+            "ck.morph.update",
+            EVENT_PAYLOAD_SCHEMA,
+            &["target_ref", "patch"][..],
+        ),
+        (
+            "ck.space.update",
+            EVENT_PAYLOAD_SCHEMA,
+            &["target_ref", "patch"][..],
+        ),
         (
             "ck.flow.move",
             EVENT_PAYLOAD_SCHEMA,
@@ -452,11 +505,31 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
             EVENT_PAYLOAD_SCHEMA,
             &["board_space_id", "flow_id", "space_id", "rank"][..],
         ),
-        ("ck.message.create", EVENT_PAYLOAD_SCHEMA, &["flow_id", "track_name"][..]),
-        ("ck.rsvp.set", EVENT_PAYLOAD_SCHEMA, &["event_ref", "status", "occurrence"][..]),
-        ("ck.pin.add", EVENT_PAYLOAD_SCHEMA, &["pin_scope", "target_ref", "rank"][..]),
-        ("ck.pin.remove", EVENT_PAYLOAD_SCHEMA, &["pin_scope", "target_ref"][..]),
-        ("ck.pin.reorder", EVENT_PAYLOAD_SCHEMA, &["pin_scope", "target_ref", "rank"][..]),
+        (
+            "ck.message.create",
+            EVENT_PAYLOAD_SCHEMA,
+            &["flow_id", "track_name"][..],
+        ),
+        (
+            "ck.rsvp.set",
+            EVENT_PAYLOAD_SCHEMA,
+            &["event_ref", "status", "occurrence"][..],
+        ),
+        (
+            "ck.pin.add",
+            EVENT_PAYLOAD_SCHEMA,
+            &["pin_scope", "target_ref", "rank"][..],
+        ),
+        (
+            "ck.pin.remove",
+            EVENT_PAYLOAD_SCHEMA,
+            &["pin_scope", "target_ref"][..],
+        ),
+        (
+            "ck.pin.reorder",
+            EVENT_PAYLOAD_SCHEMA,
+            &["pin_scope", "target_ref", "rank"][..],
+        ),
         (
             "ck.realm.disappearing_policy",
             EVENT_PAYLOAD_SCHEMA,
@@ -465,7 +538,11 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
         (
             "ck.realm.search_policy",
             EVENT_PAYLOAD_SCHEMA,
-            &["enabled_profile_refs", "allowed_service_dids", "data_classes"][..],
+            &[
+                "enabled_profile_refs",
+                "allowed_service_dids",
+                "data_classes",
+            ][..],
         ),
         ("ck.member.state", EVENT_PAYLOAD_SCHEMA, &["membership"][..]),
         (
@@ -505,12 +582,18 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
             EventPayloadSchemaRule {
                 event_kind: event_kind.to_owned(),
                 payload_schema_id: payload_schema_id.to_owned(),
-                required_fields: required_fields.iter().map(|field| (*field).to_owned()).collect(),
+                required_fields: required_fields
+                    .iter()
+                    .map(|field| (*field).to_owned())
+                    .collect(),
             },
         )
     })
     .collect();
-    EventPayloadValidatorCatalog { rules, registry: None }
+    EventPayloadValidatorCatalog {
+        rules,
+        registry: None,
+    }
 }
 
 pub(super) fn payload_schema_ref_for_event_entry(
@@ -529,7 +612,9 @@ fn payload_def_name_for_event_kind(
     event_kind: &str,
     event_payload_schema: &Value,
 ) -> Option<String> {
-    let defs = event_payload_schema.get("$defs").and_then(Value::as_object)?;
+    let defs = event_payload_schema
+        .get("$defs")
+        .and_then(Value::as_object)?;
     for candidate in payload_def_candidates(event_kind) {
         if defs.contains_key(&candidate) {
             return Some(candidate);
@@ -721,10 +806,14 @@ pub struct SchemaEvolutionPlan {
 impl SchemaEvolutionPlan {
     pub fn validate_release_candidate(&self) -> Result<()> {
         if self.from_version.trim().is_empty() || self.to_version.trim().is_empty() {
-            return Err(Error::Protocol("schema evolution versions must be present".to_owned()));
+            return Err(Error::Protocol(
+                "schema evolution versions must be present".to_owned(),
+            ));
         }
         if self.affected_schemas.is_empty() {
-            return Err(Error::Protocol("schema evolution must name affected schemas".to_owned()));
+            return Err(Error::Protocol(
+                "schema evolution must name affected schemas".to_owned(),
+            ));
         }
         if !self.breaking_changes.is_empty() {
             return Err(Error::Protocol(format!(
@@ -741,21 +830,30 @@ pub fn generated_validators() -> Result<BTreeMap<String, GeneratedSchemaValidato
         .unwrap_or_else(ProtocolSchemaRegistry::default);
     registry
         .schema_ids()
-        .map(|schema_id| Ok((schema_id.to_owned(), registry.generated_validator(schema_id)?)))
+        .map(|schema_id| {
+            Ok((
+                schema_id.to_owned(),
+                registry.generated_validator(schema_id)?,
+            ))
+        })
         .collect()
 }
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
     use crate::MORPH_SCHEMA;
-    use serde_json::json;
 
     #[test]
     fn fallback_catalog_accepts_flow_create_payload_wrapper() {
         let catalog = fallback_event_payload_validator_catalog();
 
-        assert_eq!(catalog.rules["ck.flow.create"].payload_schema_id, EVENT_PAYLOAD_SCHEMA);
+        assert_eq!(
+            catalog.rules["ck.flow.create"].payload_schema_id,
+            EVENT_PAYLOAD_SCHEMA
+        );
         catalog
             .validate_payload(
                 "ck.flow.create",
@@ -821,9 +919,12 @@ mod tests {
     fn fallback_catalog_accepts_object_patch_wire_shape() {
         let catalog = fallback_event_payload_validator_catalog();
 
-        for event_kind in
-            ["ck.realm.update", "ck.flow.update", "ck.morph.update", "ck.space.update"]
-        {
+        for event_kind in [
+            "ck.realm.update",
+            "ck.flow.update",
+            "ck.morph.update",
+            "ck.space.update",
+        ] {
             catalog
                 .validate_payload(
                     event_kind,
@@ -842,7 +943,10 @@ mod tests {
     fn fallback_catalog_accepts_message_create_payload_not_event_envelope() {
         let catalog = fallback_event_payload_validator_catalog();
 
-        assert_eq!(catalog.rules["ck.message.create"].payload_schema_id, EVENT_PAYLOAD_SCHEMA);
+        assert_eq!(
+            catalog.rules["ck.message.create"].payload_schema_id,
+            EVENT_PAYLOAD_SCHEMA
+        );
         catalog
             .validate_payload(
                 "ck.message.create",
@@ -877,7 +981,10 @@ mod tests {
     fn fallback_catalog_accepts_member_state_payload_not_event_envelope() {
         let catalog = fallback_event_payload_validator_catalog();
 
-        assert_eq!(catalog.rules["ck.member.state"].payload_schema_id, EVENT_PAYLOAD_SCHEMA);
+        assert_eq!(
+            catalog.rules["ck.member.state"].payload_schema_id,
+            EVENT_PAYLOAD_SCHEMA
+        );
         catalog
             .validate_payload(
                 "ck.member.state",
@@ -961,7 +1068,11 @@ mod tests {
                 }),
             )
             .expect_err("content and encrypted_content are mutually exclusive");
-        assert!(both_content_forms.to_string().contains("both content and encrypted_content"));
+        assert!(
+            both_content_forms
+                .to_string()
+                .contains("both content and encrypted_content")
+        );
     }
 
     #[test]

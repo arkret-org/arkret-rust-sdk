@@ -11,9 +11,15 @@ pub enum Resource {
     /// Flow resource
     Flow { realm_id: String, flow_id: String },
     /// Message resource.
-    Message { realm_id: String, message_id: String },
+    Message {
+        realm_id: String,
+        message_id: String,
+    },
     /// Relation resource
-    Relation { realm_id: String, relation_kind: String },
+    Relation {
+        realm_id: String,
+        relation_kind: String,
+    },
     /// View resource
     View { realm_id: String, view_id: String },
     /// Schema resource
@@ -25,13 +31,24 @@ pub enum Resource {
     /// Read marker resource
     ReadCursor { realm_id: String },
     /// Morph resource (canonical open-typed object).
-    Morph { realm_id: String, morph_id: String, morph_type: String },
+    Morph {
+        realm_id: String,
+        morph_id: String,
+        morph_type: String,
+    },
     /// Notification resource (per-actor private channel).
-    Notification { actor_id: String, notification_id: String },
+    Notification {
+        actor_id: String,
+        notification_id: String,
+    },
     /// Blob resource. `realm_id` may be `*` for global blobs.
     Blob { realm_id: String, blob_id: String },
     /// Event resource (audit / redaction / state-resolution targets).
-    Event { realm_id: String, event_kind: String, event_id: String },
+    Event {
+        realm_id: String,
+        event_kind: String,
+        event_id: String,
+    },
     /// Actor resource (account-lifecycle, profile updates).
     Actor { actor_id: String },
     /// Circle resource.
@@ -78,7 +95,11 @@ pub enum Constraint {
         recurrence: Option<Recurrence>,
     },
     /// Field access constraint
-    FieldAccess { effect: ConstraintEffect, scope: FieldScope, fields: Vec<String> },
+    FieldAccess {
+        effect: ConstraintEffect,
+        scope: FieldScope,
+        fields: Vec<String>,
+    },
     /// Type restriction constraint
     TypeRestriction {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -228,7 +249,9 @@ pub enum Constraint {
     /// of Circle ids. Spec `capability-action-registry.json` declares
     /// `required_constraints=["allowed_circle_ids"]` on each gated action;
     /// unconstrained Realm-wide grants for these actions MUST be rejected.
-    AllowedCircleIds { allowed_circle_ids: std::collections::BTreeSet<cokret_core::CircleId> },
+    AllowedCircleIds {
+        allowed_circle_ids: std::collections::BTreeSet<cokret_core::CircleId>,
+    },
 }
 
 /// Constraint effect.
@@ -442,8 +465,16 @@ pub(super) fn recurrence_allows(
         }
     }
 
-    let window_start = recurrence.window_start.as_deref().map(parse_recurrence_time).transpose()?;
-    let window_end = recurrence.window_end.as_deref().map(parse_recurrence_time).transpose()?;
+    let window_start = recurrence
+        .window_start
+        .as_deref()
+        .map(parse_recurrence_time)
+        .transpose()?;
+    let window_end = recurrence
+        .window_end
+        .as_deref()
+        .map(parse_recurrence_time)
+        .transpose()?;
 
     if !recurrence_window_contains(local_time, window_start, window_end) {
         return Err(ConstraintParseError::OutsideWindow);
@@ -457,9 +488,17 @@ pub(super) fn recurrence_next_transition_after(
     recurrence: &Recurrence,
 ) -> std::result::Result<Option<DateTime<Utc>>, ConstraintParseError> {
     let zone = parse_recurrence_zone(recurrence.timezone.as_deref())?;
-    let (local_date, _, _) = zone.local_parts(now);
-    let window_start = recurrence.window_start.as_deref().map(parse_recurrence_time).transpose()?;
-    let window_end = recurrence.window_end.as_deref().map(parse_recurrence_time).transpose()?;
+    let (local_date, ..) = zone.local_parts(now);
+    let window_start = recurrence
+        .window_start
+        .as_deref()
+        .map(parse_recurrence_time)
+        .transpose()?;
+    let window_end = recurrence
+        .window_end
+        .as_deref()
+        .map(parse_recurrence_time)
+        .transpose()?;
     let has_window = window_start.is_some() || window_end.is_some();
     let has_day_boundary = has_window || recurrence_uses_day_boundaries(recurrence);
     let midnight =
@@ -482,7 +521,10 @@ pub(super) fn recurrence_next_transition_after(
         }
     }
 
-    Ok(candidates.into_iter().filter(|candidate| *candidate > now).min())
+    Ok(candidates
+        .into_iter()
+        .filter(|candidate| *candidate > now)
+        .min())
 }
 
 fn parse_recurrence_zone(
@@ -526,7 +568,10 @@ fn parse_fixed_offset(value: &str) -> Option<FixedOffset> {
     let (hours, minutes) = if let Some((hours, minutes)) = rest.split_once(':') {
         (hours.parse::<i32>().ok()?, minutes.parse::<i32>().ok()?)
     } else if rest.len() == 4 {
-        (rest[..2].parse::<i32>().ok()?, rest[2..].parse::<i32>().ok()?)
+        (
+            rest[..2].parse::<i32>().ok()?,
+            rest[2..].parse::<i32>().ok()?,
+        )
     } else {
         (rest.parse::<i32>().ok()?, 0)
     };
@@ -590,9 +635,15 @@ fn recurrence_frequency_allows(
 }
 
 fn recurrence_uses_day_boundaries(recurrence: &Recurrence) -> bool {
-    recurrence.days.as_ref().is_some_and(|days| !days.is_empty())
+    recurrence
+        .days
+        .as_ref()
+        .is_some_and(|days| !days.is_empty())
         || recurrence.frequency.as_deref().is_some_and(|frequency| {
-            matches!(frequency.trim().to_ascii_lowercase().as_str(), "weekdays" | "weekends")
+            matches!(
+                frequency.trim().to_ascii_lowercase().as_str(),
+                "weekdays" | "weekends"
+            )
         })
 }
 
@@ -675,7 +726,11 @@ pub struct ConstraintEntry {
 impl ConstraintEntry {
     /// Create a new constraint entry.
     pub fn new(constraint: Constraint) -> Self {
-        Self { constraint_id: None, constraint, priority: 0 }
+        Self {
+            constraint_id: None,
+            constraint,
+            priority: 0,
+        }
     }
 
     /// Set the priority.
@@ -710,12 +765,12 @@ impl ConstraintEntry {
     /// authorization engine may use a fast-path cache:
     ///
     /// - `Stateless` — pure inputs (clock, calendar). Safe to cache.
-    /// - `GrantLocal` — inputs from the grant itself. Safe to cache as long
-    ///   as the cache key binds the grant id and the constraint priority.
-    /// - `RealmState` — depends on Realm membership/policy/capability state.
-    ///   MUST be re-evaluated on every frontier change.
-    /// - `External` — depends on out-of-band signals (policy server, claim
-    ///   issuer, presentation). MUST NOT be cached without explicit TTL.
+    /// - `GrantLocal` — inputs from the grant itself. Safe to cache as long as the cache key binds
+    ///   the grant id and the constraint priority.
+    /// - `RealmState` — depends on Realm membership/policy/capability state. MUST be re-evaluated
+    ///   on every frontier change.
+    /// - `External` — depends on out-of-band signals (policy server, claim issuer, presentation).
+    ///   MUST NOT be cached without explicit TTL.
     pub fn evaluation_class(&self) -> crate::EvaluationClass {
         use crate::EvaluationClass;
         match &self.constraint {
@@ -792,14 +847,20 @@ mod constraint_parse_error_tests {
     #[test]
     fn recurrence_frequency_allows_weekdays_on_sunday_returns_outside_weekday_variant() {
         let err = recurrence_frequency_allows(Some("weekdays"), Weekday::Sun).unwrap_err();
-        assert!(matches!(err, ConstraintParseError::OutsideWeekdayRecurrence(Weekday::Sun)));
+        assert!(matches!(
+            err,
+            ConstraintParseError::OutsideWeekdayRecurrence(Weekday::Sun)
+        ));
         assert_eq!(err.to_string(), "outside weekday recurrence: Sun");
     }
 
     #[test]
     fn recurrence_frequency_allows_weekends_on_wednesday_returns_outside_weekend_variant() {
         let err = recurrence_frequency_allows(Some("weekends"), Weekday::Wed).unwrap_err();
-        assert!(matches!(err, ConstraintParseError::OutsideWeekendRecurrence(Weekday::Wed)));
+        assert!(matches!(
+            err,
+            ConstraintParseError::OutsideWeekendRecurrence(Weekday::Wed)
+        ));
         assert_eq!(err.to_string(), "outside weekend recurrence: Wed");
     }
 
@@ -831,7 +892,10 @@ mod constraint_parse_error_tests {
             timezone: Some("UTC".to_owned()),
         };
         let err = recurrence_allows(now, &recurrence).unwrap_err();
-        assert!(matches!(err, ConstraintParseError::OutsideRecurrenceDays(Weekday::Wed)));
+        assert!(matches!(
+            err,
+            ConstraintParseError::OutsideRecurrenceDays(Weekday::Wed)
+        ));
         assert_eq!(err.to_string(), "outside recurrence days: Wed");
     }
 }

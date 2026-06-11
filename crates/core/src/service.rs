@@ -147,7 +147,10 @@ impl ServiceDidAllowlist {
 
     pub fn verify_description(&self, description: &ServerDescription) -> Result<()> {
         let binding = self.services.get(&description.service_did).ok_or_else(|| {
-            Error::Protocol(format!("service DID {} is not allowlisted", description.service_did))
+            Error::Protocol(format!(
+                "service DID {} is not allowlisted",
+                description.service_did
+            ))
         })?;
         if description.service_type != binding.service_type.as_str() {
             return Err(Error::Protocol(format!(
@@ -158,7 +161,11 @@ impl ServiceDidAllowlist {
             )));
         }
         for operation in &binding.operations {
-            if !description.supported_operations.iter().any(|actual| actual == operation) {
+            if !description
+                .supported_operations
+                .iter()
+                .any(|actual| actual == operation)
+            {
                 return Err(Error::Protocol(format!(
                     "allowlisted service {} does not advertise operation {operation}",
                     description.service_did
@@ -263,12 +270,17 @@ pub fn privacy_preserving_not_found(trace: Option<HttpTraceMetadata>) -> ErrorEn
 pub fn rate_limited_error(metadata: RateLimitMetadata) -> ErrorEnvelope {
     ErrorEnvelope::new("rate_limited", "Too many requests")
         .with_retry_after_ms(metadata.retry_after_ms)
-        .with_detail("rate_limit", serde_json::to_value(metadata).unwrap_or(Value::Null))
+        .with_detail(
+            "rate_limit",
+            serde_json::to_value(metadata).unwrap_or(Value::Null),
+        )
 }
 
 pub fn quota_exceeded_error(metadata: QuotaMetadata) -> ErrorEnvelope {
-    ErrorEnvelope::new("quota_exceeded", "Quota exceeded")
-        .with_detail("quota", serde_json::to_value(metadata).unwrap_or(Value::Null))
+    ErrorEnvelope::new("quota_exceeded", "Quota exceeded").with_detail(
+        "quota",
+        serde_json::to_value(metadata).unwrap_or(Value::Null),
+    )
 }
 
 #[derive(Clone, Debug, Default)]
@@ -340,13 +352,23 @@ impl ServiceRequirements {
         }
 
         for profile in &self.profiles {
-            if !description.supported_profiles.iter().any(|actual| actual == profile) {
-                return Err(Error::Protocol(format!("service does not support profile {profile}")));
+            if !description
+                .supported_profiles
+                .iter()
+                .any(|actual| actual == profile)
+            {
+                return Err(Error::Protocol(format!(
+                    "service does not support profile {profile}"
+                )));
             }
         }
 
         for profile in &self.reducer_profiles {
-            if !description.supported_reducer_profiles.iter().any(|actual| actual == profile) {
+            if !description
+                .supported_reducer_profiles
+                .iter()
+                .any(|actual| actual == profile)
+            {
                 return Err(Error::Protocol(format!(
                     "service does not support reducer profile {profile}"
                 )));
@@ -354,7 +376,11 @@ impl ServiceRequirements {
         }
 
         for profile in &self.schema_profiles {
-            if !description.supported_schema_profiles.iter().any(|actual| actual == profile) {
+            if !description
+                .supported_schema_profiles
+                .iter()
+                .any(|actual| actual == profile)
+            {
                 return Err(Error::Protocol(format!(
                     "service does not support schema profile {profile}"
                 )));
@@ -362,7 +388,11 @@ impl ServiceRequirements {
         }
 
         for operation in &self.operations {
-            if !description.supported_operations.iter().any(|actual| actual == operation) {
+            if !description
+                .supported_operations
+                .iter()
+                .any(|actual| actual == operation)
+            {
                 return Err(Error::Protocol(format!(
                     "service does not support operation {operation}"
                 )));
@@ -482,7 +512,10 @@ mod tests {
         };
         let not_found = privacy_preserving_not_found(Some(trace));
         assert_eq!(not_found.code(), "not_found");
-        assert_eq!(not_found.details()["not_found_privacy"], "hide_nonexistent_and_invisible");
+        assert_eq!(
+            not_found.details()["not_found_privacy"],
+            "hide_nonexistent_and_invisible"
+        );
         assert!(not_found.details()["trace"].is_object());
 
         let rate_limited = rate_limited_error(RateLimitMetadata {

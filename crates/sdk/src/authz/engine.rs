@@ -205,7 +205,10 @@ pub struct PolicyEvaluationRequest {
 
 impl PolicyEvaluationRequest {
     pub fn new(context: AuthzContext) -> Self {
-        Self { operation: "ck.self.policy.check".to_owned(), context }
+        Self {
+            operation: "ck.self.policy.check".to_owned(),
+            context,
+        }
     }
 }
 
@@ -263,7 +266,10 @@ struct CachedDecision {
 impl AuthzEngine {
     /// Create a new authorization engine.
     pub fn new() -> Self {
-        Self { cache: HashMap::new(), max_cache_size: 1000 }
+        Self {
+            cache: HashMap::new(),
+            max_cache_size: 1000,
+        }
     }
 
     /// Check authorization for a context against a list of grants.
@@ -275,7 +281,10 @@ impl AuthzEngine {
         // Check cache first
         let cache_key = self.cache_key(ctx, grants);
         if let Some(cached) = self.cache.get(&cache_key)
-            && cached.expires_at.as_ref().is_none_or(|valid| &ctx.now < valid)
+            && cached
+                .expires_at
+                .as_ref()
+                .is_none_or(|valid| &ctx.now < valid)
         {
             return cached.decision.clone();
         }
@@ -297,9 +306,9 @@ impl AuthzEngine {
     ) -> EngineDecision {
         match capability_grants_from_realm_state(state) {
             Ok(grants) => self.check_authorization(ctx, &grants),
-            Err(err) => {
-                EngineDecision::Deny { reason: format!("invalid capability state: {}", err) }
-            }
+            Err(err) => EngineDecision::Deny {
+                reason: format!("invalid capability state: {}", err),
+            },
         }
     }
 
@@ -339,7 +348,10 @@ impl AuthzEngine {
                         approved.constraints.retain(|entry| {
                             !matches!(
                                 &entry.constraint,
-                                Constraint::ApprovalWorkflow { approval_required: true, .. }
+                                Constraint::ApprovalWorkflow {
+                                    approval_required: true,
+                                    ..
+                                }
                             )
                         });
                         Some(approved)
@@ -370,7 +382,9 @@ impl AuthzEngine {
 
         // If no matching grants, deny
         if matching_grants.is_empty() {
-            return EngineDecision::Deny { reason: "no matching grant".to_owned() };
+            return EngineDecision::Deny {
+                reason: "no matching grant".to_owned(),
+            };
         }
 
         // Check action match
@@ -380,7 +394,9 @@ impl AuthzEngine {
             .collect();
 
         if action_grants.is_empty() {
-            return EngineDecision::Deny { reason: format!("action '{}' not granted", ctx.action) };
+            return EngineDecision::Deny {
+                reason: format!("action '{}' not granted", ctx.action),
+            };
         }
 
         // Evaluate constraints for all matching grants
@@ -411,7 +427,10 @@ impl AuthzEngine {
 
     /// Check if a grant matches the resource.
     fn grant_matches_resource(&self, ctx: &AuthzContext, grant: &CapabilityGrant) -> bool {
-        grant.resources.iter().any(|selector| selector.matches(&ctx.resource))
+        grant
+            .resources
+            .iter()
+            .any(|selector| selector.matches(&ctx.resource))
     }
 
     /// Check if a grant applies to the requesting actor.
@@ -461,7 +480,9 @@ impl AuthzEngine {
                 ConstraintEffect::RequireReview => 2,
                 ConstraintEffect::Allow => 3,
             };
-            effect_a.cmp(&effect_b).then_with(|| b.priority.cmp(&a.priority))
+            effect_a
+                .cmp(&effect_b)
+                .then_with(|| b.priority.cmp(&a.priority))
         });
 
         for entry in &constraints {
@@ -477,7 +498,11 @@ impl AuthzEngine {
     /// Evaluate a single constraint.
     fn evaluate_constraint(&self, ctx: &AuthzContext, entry: &ConstraintEntry) -> EngineDecision {
         match &entry.constraint {
-            Constraint::Temporal { not_before, expires_at, recurrence } => {
+            Constraint::Temporal {
+                not_before,
+                expires_at,
+                recurrence,
+            } => {
                 if let Some(not_before) = not_before
                     && ctx.now < *not_before
                 {
@@ -497,11 +522,17 @@ impl AuthzEngine {
                 {
                     // Render structured ConstraintParseError via Display so the
                     // public deny reason stays byte-equivalent with v0.
-                    return EngineDecision::Deny { reason: err.to_string() };
+                    return EngineDecision::Deny {
+                        reason: err.to_string(),
+                    };
                 }
                 EngineDecision::Allow
             }
-            Constraint::FieldAccess { effect, scope, fields } => {
+            Constraint::FieldAccess {
+                effect,
+                scope,
+                fields,
+            } => {
                 let target_fields = match scope {
                     FieldScope::Read => &ctx.read_fields,
                     FieldScope::Write => &ctx.write_fields,
@@ -625,13 +656,18 @@ impl AuthzEngine {
                 }
 
                 if !denied_facets.is_empty()
-                    && let Some(facet) =
-                        denied_facets.iter().find(|facet| ctx.facets.contains(facet))
+                    && let Some(facet) = denied_facets
+                        .iter()
+                        .find(|facet| ctx.facets.contains(facet))
                 {
-                    return EngineDecision::Deny { reason: format!("facet denied: {:?}", facet) };
+                    return EngineDecision::Deny {
+                        reason: format!("facet denied: {:?}", facet),
+                    };
                 }
                 if !allowed_facets.is_empty() {
-                    let missing = allowed_facets.iter().find(|facet| !ctx.facets.contains(facet));
+                    let missing = allowed_facets
+                        .iter()
+                        .find(|facet| !ctx.facets.contains(facet));
                     if let Some(facet) = missing {
                         return EngineDecision::Deny {
                             reason: format!("facet not allowed or unavailable: {:?}", facet),
@@ -640,9 +676,14 @@ impl AuthzEngine {
                 }
                 EngineDecision::Allow
             }
-            Constraint::DelegationControl { max_delegation_depth, prohibit_subdelegation } => {
+            Constraint::DelegationControl {
+                max_delegation_depth,
+                prohibit_subdelegation,
+            } => {
                 if *prohibit_subdelegation && ctx.delegation_depth > 0 {
-                    return EngineDecision::Deny { reason: "subdelegation prohibited".to_owned() };
+                    return EngineDecision::Deny {
+                        reason: "subdelegation prohibited".to_owned(),
+                    };
                 }
                 if let Some(max_depth) = max_delegation_depth
                     && ctx.delegation_depth > *max_depth
@@ -656,7 +697,11 @@ impl AuthzEngine {
                 }
                 EngineDecision::Allow
             }
-            Constraint::RateLimiting { max_operations, period, scope } => {
+            Constraint::RateLimiting {
+                max_operations,
+                period,
+                scope,
+            } => {
                 if *max_operations == 0 {
                     return EngineDecision::Deny {
                         reason: "rate limit: max_operations is 0".to_owned(),
@@ -688,7 +733,11 @@ impl AuthzEngine {
                     let reason = if let Some(approvers) = approval_actor_ids {
                         format!(
                             "approval required from one of: {}",
-                            approvers.iter().map(|a| a.as_str()).collect::<Vec<_>>().join(", ")
+                            approvers
+                                .iter()
+                                .map(|a| a.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ")
                         )
                     } else {
                         "approval required".to_owned()
@@ -752,8 +801,12 @@ impl AuthzEngine {
                                 roles.iter().all(|role| claim.roles.contains(role))
                             })
                             && claim_id_active
-                            && claim.revoked_at.is_none_or(|revoked_at| revoked_at > ctx.now)
-                            && claim.expires_at.is_none_or(|expires_at| expires_at > ctx.now)
+                            && claim
+                                .revoked_at
+                                .is_none_or(|revoked_at| revoked_at > ctx.now)
+                            && claim
+                                .expires_at
+                                .is_none_or(|expires_at| expires_at > ctx.now)
                             && (!*claim_refresh_required || claim.refreshed_at.is_some())
                             && claim_max_age.as_ref().is_none_or(|max_age| {
                                 freshness_basis
@@ -771,7 +824,10 @@ impl AuthzEngine {
                 }
                 EngineDecision::Allow
             }
-            Constraint::Accountability { accountability_required, responsible_actor } => {
+            Constraint::Accountability {
+                accountability_required,
+                responsible_actor,
+            } => {
                 if *accountability_required {
                     if let Some(responsible) = responsible_actor
                         && ctx.actor_id != *responsible
@@ -794,7 +850,10 @@ impl AuthzEngine {
                     EngineDecision::Allow
                 }
             }
-            Constraint::EncryptionRequirement { encryption_required, min_encryption_level } => {
+            Constraint::EncryptionRequirement {
+                encryption_required,
+                min_encryption_level,
+            } => {
                 if *encryption_required {
                     let level = min_encryption_level.as_deref().unwrap_or("mls_rfc9420");
                     match ctx.encryption_level.as_deref() {
@@ -1104,7 +1163,11 @@ impl AuthzEngine {
         let field_digest =
             crate::canonical::canonical_sha256(&(&ctx.read_fields, &ctx.write_fields))
                 .unwrap_or_else(|_| {
-                    format!("fields:{}:{}", ctx.read_fields.len(), ctx.write_fields.len())
+                    format!(
+                        "fields:{}:{}",
+                        ctx.read_fields.len(),
+                        ctx.write_fields.len()
+                    )
                 });
         format!(
             "{}:{}:{}:{}:{}:{}:{:?}:{:?}:{}:{}:{}",
@@ -1138,7 +1201,11 @@ impl AuthzEngine {
         let expires_at = self.cache_expires_at(ctx, grants);
         self.cache.insert(
             key,
-            CachedDecision { decision: decision.clone(), _cached_at: ctx.now, expires_at },
+            CachedDecision {
+                decision: decision.clone(),
+                _cached_at: ctx.now,
+                expires_at,
+            },
         );
     }
 
@@ -1155,8 +1222,11 @@ impl AuthzEngine {
             update_earliest_future(&mut cache_expires_at, ctx.now, grant.revoked_at);
 
             for entry in &grant.constraints {
-                if let Constraint::Temporal { not_before, expires_at, recurrence } =
-                    &entry.constraint
+                if let Constraint::Temporal {
+                    not_before,
+                    expires_at,
+                    recurrence,
+                } = &entry.constraint
                 {
                     update_earliest_future(&mut cache_expires_at, ctx.now, *not_before);
                     update_earliest_future(&mut cache_expires_at, ctx.now, *expires_at);
@@ -1190,20 +1260,28 @@ pub fn apply_policy_response(
 ) -> EngineDecision {
     match policy.effect {
         PolicyServerEffect::NoAction => capability_decision,
-        PolicyServerEffect::Deny => EngineDecision::Deny { reason: policy.reason.clone() },
-        PolicyServerEffect::Quarantine => {
-            EngineDecision::Quarantine { reason: policy.reason.clone() }
-        }
-        PolicyServerEffect::RequireReview => {
-            EngineDecision::RequireReview { reason: policy.reason.clone() }
-        }
+        PolicyServerEffect::Deny => EngineDecision::Deny {
+            reason: policy.reason.clone(),
+        },
+        PolicyServerEffect::Quarantine => EngineDecision::Quarantine {
+            reason: policy.reason.clone(),
+        },
+        PolicyServerEffect::RequireReview => EngineDecision::RequireReview {
+            reason: policy.reason.clone(),
+        },
     }
 }
 
 /// Check if a grant requires approval through the proposal flow.
 pub fn grant_requires_approval(grant: &CapabilityGrant) -> bool {
     grant.constraints.iter().any(|entry| {
-        matches!(&entry.constraint, Constraint::ApprovalWorkflow { approval_required: true, .. })
+        matches!(
+            &entry.constraint,
+            Constraint::ApprovalWorkflow {
+                approval_required: true,
+                ..
+            }
+        )
     })
 }
 

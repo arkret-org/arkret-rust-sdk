@@ -4,17 +4,14 @@
 //! integrations can implement directly: HTTP transport, IndexedDB-like durable
 //! storage descriptors, WebCrypto key handles and opaque FFI callback shapes.
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
+pub use cokret_core::{WasmHttpRequestBody, WasmHttpResponseBody};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{Error, Result};
-
-pub use cokret_core::{WasmHttpRequestBody, WasmHttpResponseBody};
 
 /// Host-provided browser transport boundary.
 pub trait WasmBrowserHttpTransport {
@@ -51,10 +48,14 @@ pub struct IndexedDbStoreDescriptor {
 impl IndexedDbStoreDescriptor {
     pub fn validate(&self) -> Result<()> {
         if self.database.trim().is_empty() || self.object_store.trim().is_empty() {
-            return Err(Error::Protocol("IndexedDB names must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "IndexedDB names must not be empty".to_owned(),
+            ));
         }
         if self.schema_version == 0 {
-            return Err(Error::Protocol("IndexedDB schema version must be non-zero".to_owned()));
+            return Err(Error::Protocol(
+                "IndexedDB schema version must be non-zero".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -83,10 +84,14 @@ pub struct WebCryptoKeyHandle {
 impl WebCryptoKeyHandle {
     pub fn validate(&self) -> Result<()> {
         if self.key_id.trim().is_empty() || self.algorithm.trim().is_empty() {
-            return Err(Error::Protocol("WebCrypto key id and algorithm are required".to_owned()));
+            return Err(Error::Protocol(
+                "WebCrypto key id and algorithm are required".to_owned(),
+            ));
         }
         if self.usages.is_empty() {
-            return Err(Error::Protocol("WebCrypto key usages must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "WebCrypto key usages must not be empty".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -134,19 +139,27 @@ impl Default for WasmRuntimeContract {
 impl WasmRuntimeContract {
     pub fn validate(&self) -> Result<()> {
         if !self.http_transport {
-            return Err(Error::Protocol("WASM browser HTTP transport is required".to_owned()));
+            return Err(Error::Protocol(
+                "WASM browser HTTP transport is required".to_owned(),
+            ));
         }
         self.state_store.validate()?;
         self.crypto_store.validate()?;
         if self.state_store.kind != IndexedDbStoreKind::State {
-            return Err(Error::Protocol("WASM state store descriptor has wrong kind".to_owned()));
+            return Err(Error::Protocol(
+                "WASM state store descriptor has wrong kind".to_owned(),
+            ));
         }
         if self.crypto_store.kind != IndexedDbStoreKind::Crypto {
-            return Err(Error::Protocol("WASM crypto store descriptor has wrong kind".to_owned()));
+            return Err(Error::Protocol(
+                "WASM crypto store descriptor has wrong kind".to_owned(),
+            ));
         }
         self.webcrypto_key.validate()?;
         if self.sync_state_cache.trim().is_empty() {
-            return Err(Error::Protocol("WASM sync state cache name must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "WASM sync state cache name must not be empty".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -176,7 +189,11 @@ impl FfiHandle {
         if id == 0 {
             return Err(Error::Protocol("FFI handle id must be non-zero".to_owned()));
         }
-        Ok(Self { kind, id, generation })
+        Ok(Self {
+            kind,
+            id,
+            generation,
+        })
     }
 }
 
@@ -219,12 +236,18 @@ impl FfiError {
             #[allow(unreachable_patterns)]
             _ => FfiErrorCode::Protocol,
         };
-        Self { code, message: error.to_string() }
+        Self {
+            code,
+            message: error.to_string(),
+        }
     }
 
     /// Construct a cancellation error payload.
     pub fn cancelled() -> Self {
-        Self { code: FfiErrorCode::Cancelled, message: "operation cancelled".to_owned() }
+        Self {
+            code: FfiErrorCode::Cancelled,
+            message: "operation cancelled".to_owned(),
+        }
     }
 }
 
@@ -246,12 +269,18 @@ pub struct FfiCallbackResult {
 impl FfiCallbackResult {
     /// Continue delivering events.
     pub fn continue_stream() -> Self {
-        Self { action: FfiCallbackAction::Continue, error: None }
+        Self {
+            action: FfiCallbackAction::Continue,
+            error: None,
+        }
     }
 
     /// Drop the event stream, optionally returning an error.
     pub fn drop_stream(error: Option<FfiError>) -> Self {
-        Self { action: FfiCallbackAction::DropStream, error }
+        Self {
+            action: FfiCallbackAction::DropStream,
+            error,
+        }
     }
 }
 

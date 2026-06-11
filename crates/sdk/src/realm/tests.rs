@@ -1,5 +1,6 @@
 use super::*;
-use crate::{DeviceId, Event, EventRequirements, Hlc, OperationType, base::SessionMeta};
+use crate::base::SessionMeta;
+use crate::{DeviceId, Event, EventRequirements, Hlc, OperationType};
 
 fn sessioned_base() -> Arc<BaseClient> {
     let base_client = Arc::new(BaseClient::new());
@@ -57,7 +58,9 @@ fn realm_checks_membership() {
     let base_client = Arc::new(BaseClient::new());
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
 
-    base_client.update_realm_membership_state(&realm_id, RealmMembershipState::Joined).unwrap();
+    base_client
+        .update_realm_membership_state(&realm_id, RealmMembershipState::Joined)
+        .unwrap();
 
     let realm = Realm::new(realm_id, base_client);
     assert!(realm.is_joined());
@@ -72,7 +75,13 @@ fn realm_creates_morph_operation() {
     let realm = Realm::new(realm_id.clone(), base_client);
 
     let op = realm
-        .create_morph_operation("task", Some("Test task".to_owned()), None, None, BTreeMap::new())
+        .create_morph_operation(
+            "task",
+            Some("Test task".to_owned()),
+            None,
+            None,
+            BTreeMap::new(),
+        )
         .unwrap();
 
     assert_eq!(op.operation_type, OperationType::Create);
@@ -80,7 +89,12 @@ fn realm_creates_morph_operation() {
     assert_eq!(op.object_type, OP_MORPH_CREATE);
     assert_eq!(op.payload["object"]["morph_type"], "task");
     assert_eq!(op.payload["object"]["metadata"]["title"], "Test task");
-    assert!(op.payload["object"]["id"].as_str().unwrap().starts_with("ck:morph:"));
+    assert!(
+        op.payload["object"]["id"]
+            .as_str()
+            .unwrap()
+            .starts_with("ck:morph:")
+    );
 }
 
 #[test]
@@ -99,7 +113,12 @@ fn realm_creates_relation_operation() {
     assert_eq!(op.operation_type, OperationType::Create);
     assert_eq!(op.realm_id.as_str(), realm_id.as_str());
     assert_eq!(op.payload["relation"]["relation_kind"], "depends_on");
-    assert!(op.payload["relation"]["id"].as_str().unwrap().starts_with("ck:relation:"));
+    assert!(
+        op.payload["relation"]["id"]
+            .as_str()
+            .unwrap()
+            .starts_with("ck:relation:")
+    );
 }
 
 #[test]
@@ -176,13 +195,17 @@ fn realm_flow_move_operation_uses_target_space_id() {
     let board_space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000020").unwrap();
     let target_space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000030").unwrap();
 
-    let op =
-        realm.move_flow_operation(flow_id, board_space_id, target_space_id, "a0", None).unwrap();
+    let op = realm
+        .move_flow_operation(flow_id, board_space_id, target_space_id, "a0", None)
+        .unwrap();
 
     assert_eq!(op.operation_type, OperationType::Update);
     assert_eq!(op.realm_id.as_str(), realm_id.as_str());
     assert_eq!(op.object_type, crate::OP_FLOW_MOVE);
-    assert_eq!(op.payload["target_space_id"], "ck:space:01904100-0000-7000-8000-000000000030");
+    assert_eq!(
+        op.payload["target_space_id"],
+        "ck:space:01904100-0000-7000-8000-000000000030"
+    );
     assert!(op.payload.get("target_realm_id").is_none());
 }
 
@@ -325,7 +348,9 @@ fn realm_traverses_relation_ref_graph_paths_and_cycles() {
         vec![b.to_owned(), c.to_owned()]
     );
     assert_eq!(
-        realm.shortest_relation_ref_path(a, c, Some(RelationKind::DependsOn)).unwrap(),
+        realm
+            .shortest_relation_ref_path(a, c, Some(RelationKind::DependsOn))
+            .unwrap(),
         vec![a.to_owned(), b.to_owned(), c.to_owned()]
     );
     assert!(realm.relation_ref_graph_has_cycle(Some(RelationKind::DependsOn)));
@@ -444,34 +469,52 @@ fn realm_provides_message_membership_and_media_convenience_helpers() {
     assert_eq!(text.payload["content"]["body"], "hello");
 
     let message_id = MessageId::new(text.payload["message_id"].as_str().unwrap()).unwrap();
-    let edit = realm.edit_message(message_id.clone(), json!({"body": "updated"})).unwrap();
+    let edit = realm
+        .edit_message(message_id.clone(), json!({"body": "updated"}))
+        .unwrap();
     assert_eq!(edit.object_type, "ck.message.revise");
     assert_eq!(edit.object_id, Some(message_id.as_str().to_owned()));
 
-    let redact = realm.redact_message(message_id, Some("cleanup".to_owned())).unwrap();
+    let redact = realm
+        .redact_message(message_id, Some("cleanup".to_owned()))
+        .unwrap();
     assert_eq!(redact.operation_type, OperationType::Redact);
 
     let join = realm.join_realm().unwrap();
     assert_eq!(join.object_type, "ck.member.state");
-    assert_eq!(base_client.get_realm(&realm_id).unwrap().state, RealmMembershipState::Joined);
+    assert_eq!(
+        base_client.get_realm(&realm_id).unwrap().state,
+        RealmMembershipState::Joined
+    );
 
     let leave = realm.leave_realm().unwrap();
     assert_eq!(leave.object_type, "ck.member.state");
-    assert_eq!(base_client.get_realm(&realm_id).unwrap().state, RealmMembershipState::Left);
+    assert_eq!(
+        base_client.get_realm(&realm_id).unwrap().state,
+        RealmMembershipState::Left
+    );
 
     assert_eq!(
-        realm.ban(bob.clone(), Some("spam".to_owned())).unwrap().object_type,
+        realm
+            .ban(bob.clone(), Some("spam".to_owned()))
+            .unwrap()
+            .object_type,
         "ck.member.state"
     );
     assert_eq!(realm.unban(bob).unwrap().object_type, "ck.member.state");
 
-    let media = realm.upload_media(b"bytes", "text/plain", Some("note.txt".to_owned())).unwrap();
+    let media = realm
+        .upload_media(b"bytes", "text/plain", Some("note.txt".to_owned()))
+        .unwrap();
     assert_eq!(realm.download_media(&media.blob_ref).unwrap(), b"bytes");
 
     realm
         .upload_encrypted_attachment("att1", "secret.txt", "text/plain", b"secret", b"key")
         .unwrap();
-    assert_eq!(realm.download_decrypted_attachment("att1", b"key").unwrap(), b"secret");
+    assert_eq!(
+        realm.download_decrypted_attachment("att1", b"key").unwrap(),
+        b"secret"
+    );
 }
 
 #[test]
@@ -574,5 +617,8 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
 
     let err = realm.member_add_with_candidate(&candidate).unwrap_err();
     let msg = format!("{err}");
-    assert!(msg.contains("audience"), "expected audience mismatch error, got: {msg}");
+    assert!(
+        msg.contains("audience"),
+        "expected audience mismatch error, got: {msg}"
+    );
 }

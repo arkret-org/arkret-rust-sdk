@@ -42,7 +42,10 @@ pub fn validate_capability_frontier(
             return Err(Error::Protocol("capability grant id is empty".to_owned()));
         }
         if grant.actions.is_empty() {
-            return Err(Error::Protocol(format!("capability grant '{}' has no actions", grant.id)));
+            return Err(Error::Protocol(format!(
+                "capability grant '{}' has no actions",
+                grant.id
+            )));
         }
         if grant.resources.is_empty() {
             return Err(Error::Protocol(format!(
@@ -51,7 +54,10 @@ pub fn validate_capability_frontier(
             )));
         }
         if by_id.insert(grant.id.clone(), grant).is_some() {
-            return Err(Error::Protocol(format!("duplicate capability grant id '{}'", grant.id)));
+            return Err(Error::Protocol(format!(
+                "duplicate capability grant id '{}'",
+                grant.id
+            )));
         }
     }
 
@@ -73,7 +79,10 @@ pub fn reject_unknown_critical_constraints(value: &Value, supported: &[&str]) ->
         return Ok(());
     };
     for constraint in constraints {
-        let critical = constraint.get("critical").and_then(Value::as_bool).unwrap_or(false);
+        let critical = constraint
+            .get("critical")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         if !critical {
             continue;
         }
@@ -95,8 +104,13 @@ pub fn reject_unknown_critical_constraints(value: &Value, supported: &[&str]) ->
                 })
             })
             .ok_or_else(|| Error::Protocol("critical constraint is missing a type".to_owned()))?;
-        if !supported.iter().any(|supported| *supported == constraint_type) {
-            return Err(Error::Protocol(format!("unknown critical constraint: {constraint_type}")));
+        if !supported
+            .iter()
+            .any(|supported| *supported == constraint_type)
+        {
+            return Err(Error::Protocol(format!(
+                "unknown critical constraint: {constraint_type}"
+            )));
         }
     }
     Ok(())
@@ -111,7 +125,9 @@ fn validate_delegation_chain(
     let mut child = grant;
     while let Some(parent_id) = &child.parent_grant_id {
         if !seen.insert(child.id.clone()) {
-            return Err(Error::Protocol("capability delegation cycle detected".to_owned()));
+            return Err(Error::Protocol(
+                "capability delegation cycle detected".to_owned(),
+            ));
         }
         let parent = by_id.get(parent_id).ok_or_else(|| {
             Error::Protocol(format!(
@@ -167,11 +183,17 @@ fn validate_delegation_chain(
 
 fn actions_are_narrowed(child: &[String], parent: &[String]) -> bool {
     parent.iter().any(|action| action == "*")
-        || child.iter().all(|action| parent.iter().any(|parent| parent == action))
+        || child
+            .iter()
+            .all(|action| parent.iter().any(|parent| parent == action))
 }
 
 fn resources_are_narrowed(child: &[ResourceSelector], parent: &[ResourceSelector]) -> bool {
-    child.iter().all(|child| parent.iter().any(|parent| resource_is_narrowed(child, parent)))
+    child.iter().all(|child| {
+        parent
+            .iter()
+            .any(|parent| resource_is_narrowed(child, parent))
+    })
 }
 
 fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> bool {
@@ -181,13 +203,20 @@ fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> 
     match (child, parent) {
         (
             ResourceSelector::Flow { realm_id, flow_id },
-            ResourceSelector::Flow { realm_id: parent_realm, flow_id: parent_id },
+            ResourceSelector::Flow {
+                realm_id: parent_realm,
+                flow_id: parent_id,
+            },
         ) => {
             realm_narrowed(realm_id, parent_realm)
                 && option_narrowed(flow_id.as_ref(), parent_id.as_ref())
         }
         (
-            ResourceSelector::Object { realm_id, object_type, object_ref },
+            ResourceSelector::Object {
+                realm_id,
+                object_type,
+                object_ref,
+            },
             ResourceSelector::Object {
                 realm_id: parent_realm,
                 object_type: parent_type,
@@ -199,33 +228,55 @@ fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> 
                 && option_narrowed(object_ref.as_ref(), parent_id.as_ref())
         }
         (
-            ResourceSelector::Message { realm_id, message_id },
-            ResourceSelector::Message { realm_id: parent_realm, message_id: parent_id },
+            ResourceSelector::Message {
+                realm_id,
+                message_id,
+            },
+            ResourceSelector::Message {
+                realm_id: parent_realm,
+                message_id: parent_id,
+            },
         ) => {
             realm_narrowed(realm_id, parent_realm)
                 && option_narrowed(message_id.as_ref(), parent_id.as_ref())
         }
         (
-            ResourceSelector::Policy { realm_id, policy_id },
-            ResourceSelector::Policy { realm_id: parent_realm, policy_id: parent_id },
+            ResourceSelector::Policy {
+                realm_id,
+                policy_id,
+            },
+            ResourceSelector::Policy {
+                realm_id: parent_realm,
+                policy_id: parent_id,
+            },
         ) => {
             realm_narrowed(realm_id, parent_realm)
                 && option_narrowed(policy_id.as_ref(), parent_id.as_ref())
         }
         (
-            ResourceSelector::Invite { realm_id, invite_id },
-            ResourceSelector::Invite { realm_id: parent_realm, invite_id: parent_id },
+            ResourceSelector::Invite {
+                realm_id,
+                invite_id,
+            },
+            ResourceSelector::Invite {
+                realm_id: parent_realm,
+                invite_id: parent_id,
+            },
         ) => {
             realm_narrowed(realm_id, parent_realm)
                 && option_narrowed(invite_id.as_ref(), parent_id.as_ref())
         }
         (
             ResourceSelector::Realm { realm_id },
-            ResourceSelector::Realm { realm_id: parent_realm },
+            ResourceSelector::Realm {
+                realm_id: parent_realm,
+            },
         ) => realm_narrowed(realm_id, parent_realm),
         (
             ResourceSelector::Space { space_id },
-            ResourceSelector::Space { space_id: parent_space },
+            ResourceSelector::Space {
+                space_id: parent_space,
+            },
         ) => realm_narrowed(space_id, parent_space),
         _ => false,
     }
@@ -249,10 +300,16 @@ pub fn capability_grants_from_realm_state(
     let mut grants = Vec::new();
 
     for event in state.resolved_state.values() {
-        if !matches!(event.kind.as_str(), "ck.capability.grant" | "ck.capability.delegate") {
+        if !matches!(
+            event.kind.as_str(),
+            "ck.capability.grant" | "ck.capability.delegate"
+        ) {
             continue;
         }
-        grants.push(capability_grant_from_resolved_event(event, Some(state.realm_id.clone()))?);
+        grants.push(capability_grant_from_resolved_event(
+            event,
+            Some(state.realm_id.clone()),
+        )?);
     }
 
     Ok(grants)
@@ -276,18 +333,25 @@ fn capability_grant_from_resolved_event(
         .ok_or_else(|| Error::Protocol("capability grant requires subject".to_owned()))?;
     let actions = string_array(content.get("actions"))
         .ok_or_else(|| Error::Protocol("capability grant requires actions".to_owned()))?;
-    let resources =
-        resource_selectors(content.get("resources").or_else(|| content.get("resource_selectors")))?
-            .unwrap_or_else(|| {
-                default_realm_id
-                    .as_ref()
-                    .map(|realm_id| {
-                        vec![ResourceSelector::Realm { realm_id: realm_id.as_str().to_owned() }]
-                    })
-                    .unwrap_or_default()
-            });
+    let resources = resource_selectors(
+        content
+            .get("resources")
+            .or_else(|| content.get("resource_selectors")),
+    )?
+    .unwrap_or_else(|| {
+        default_realm_id
+            .as_ref()
+            .map(|realm_id| {
+                vec![ResourceSelector::Realm {
+                    realm_id: realm_id.as_str().to_owned(),
+                }]
+            })
+            .unwrap_or_default()
+    });
     if resources.is_empty() {
-        return Err(Error::Protocol("capability grant requires resources".to_owned()));
+        return Err(Error::Protocol(
+            "capability grant requires resources".to_owned(),
+        ));
     }
 
     Ok(CapabilityGrant {
@@ -298,7 +362,10 @@ fn capability_grant_from_resolved_event(
         actions,
         resources,
         constraints: optional_from_value(content.get("constraints"))?.unwrap_or_default(),
-        delegable: content.get("delegable").and_then(Value::as_bool).unwrap_or(false),
+        delegable: content
+            .get("delegable")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
         parent_grant_id: optional_string(content, "parent_grant_id"),
         not_before: optional_from_value(content.get("not_before"))?,
         expires_at: optional_from_value(content.get("expires_at"))?,
@@ -308,7 +375,10 @@ fn capability_grant_from_resolved_event(
 }
 
 fn optional_string(content: &serde_json::Map<String, Value>, field: &str) -> Option<String> {
-    content.get(field).and_then(Value::as_str).map(ToOwned::to_owned)
+    content
+        .get(field)
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned)
 }
 
 fn optional_did(content: &serde_json::Map<String, Value>, field: &str) -> Result<Option<Did>> {
@@ -319,18 +389,26 @@ fn optional_realm_id(
     content: &serde_json::Map<String, Value>,
     field: &str,
 ) -> Result<Option<RealmId>> {
-    Ok(optional_string(content, field).map(RealmId::new).transpose()?)
+    Ok(optional_string(content, field)
+        .map(RealmId::new)
+        .transpose()?)
 }
 
 fn optional_from_value<T: serde::de::DeserializeOwned>(value: Option<&Value>) -> Result<Option<T>> {
-    value.map(|value| serde_json::from_value(value.clone()).map_err(Error::from)).transpose()
+    value
+        .map(|value| serde_json::from_value(value.clone()).map_err(Error::from))
+        .transpose()
 }
 
 fn string_array(value: Option<&Value>) -> Option<Vec<String>> {
     value
         .and_then(Value::as_array)
         .map(|items| {
-            items.iter().filter_map(Value::as_str).map(ToOwned::to_owned).collect::<Vec<_>>()
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>()
         })
         .filter(|items| !items.is_empty())
 }
@@ -376,7 +454,11 @@ impl CapabilityGrantBuilder {
     /// `grant.issuer` MUST equal `actor_id`; the builder enforces this
     /// at `build` time.
     pub fn new(realm_id: RealmId, actor_id: Did, grant: CapabilityGrant) -> Self {
-        Self { realm_id, actor_id, grant }
+        Self {
+            realm_id,
+            actor_id,
+            grant,
+        }
     }
 
     /// Override the grant subject (delegee).
@@ -484,10 +566,14 @@ mod capability_grant_builder_tests {
 
     #[test]
     fn capability_grant_builder_emits_canonical_kind() {
-        let event =
-            CapabilityGrantBuilder::new(realm(), alice(), base_grant()).build(1, hlc()).unwrap();
+        let event = CapabilityGrantBuilder::new(realm(), alice(), base_grant())
+            .build(1, hlc())
+            .unwrap();
         assert_eq!(event.kind, crate::events::CAPABILITY_GRANT);
-        assert_eq!(event.content["id"], "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa");
+        assert_eq!(
+            event.content["id"],
+            "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
+        );
         assert_eq!(event.content["issuer"], "did:web:alice.example");
         assert_eq!(event.content["subject"], "did:web:bob.example");
     }

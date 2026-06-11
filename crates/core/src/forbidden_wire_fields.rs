@@ -8,18 +8,15 @@
 //!
 //! Three checker forms are exposed:
 //!
-//! 1. [`is_forbidden_wire_field`] — top-level / generic context. Returns
-//!    `true` for any name forbidden in *some* commonly-relevant context.
-//!    Suitable for a coarse scan; prefer [`is_forbidden_in_context`] when
-//!    the caller knows the surrounding payload class.
-//! 2. [`is_forbidden_in_context`] — context-aware variant. Pass the
-//!    [`WireContext`] describing where the field appears (which payload
-//!    class, whether it is a JSON-Patch op path, whether it is a typed-id
-//!    prefix) and the checker returns only the entries that the spec
-//!    forbids in that exact context.
-//! 3. [`is_forbidden_id_prefix`] — typed-id prefix check (e.g. `ck:notif:`
-//!    is forbidden as an id prefix anywhere on the wire; `ck:notification:`
-//!    is canonical).
+//! 1. [`is_forbidden_wire_field`] — top-level / generic context. Returns `true` for any name
+//!    forbidden in *some* commonly-relevant context. Suitable for a coarse scan; prefer
+//!    [`is_forbidden_in_context`] when the caller knows the surrounding payload class.
+//! 2. [`is_forbidden_in_context`] — context-aware variant. Pass the [`WireContext`] describing
+//!    where the field appears (which payload class, whether it is a JSON-Patch op path, whether it
+//!    is a typed-id prefix) and the checker returns only the entries that the spec forbids in that
+//!    exact context.
+//! 3. [`is_forbidden_id_prefix`] — typed-id prefix check (e.g. `ck:notif:` is forbidden as an id
+//!    prefix anywhere on the wire; `ck:notification:` is canonical).
 
 /// Surface a forbidden field can appear in. Mirrors the `context` field
 /// in `forbidden-wire-fields.json` collapsed into the categories the SDK
@@ -295,71 +292,218 @@ struct ForbiddenEntry {
 /// matches the spec file for easy diff.
 const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     // Top-level / generic
-    ForbiddenEntry { field: "branch", context: WireContext::TimelineEventTopLevel },
-    ForbiddenEntry { field: "track", context: WireContext::TimelineEventTopLevel },
-    ForbiddenEntry { field: "room_kind", context: WireContext::EventEnvelopeOrPayloadTopLevel },
+    ForbiddenEntry {
+        field: "branch",
+        context: WireContext::TimelineEventTopLevel,
+    },
+    ForbiddenEntry {
+        field: "track",
+        context: WireContext::TimelineEventTopLevel,
+    },
+    ForbiddenEntry {
+        field: "room_kind",
+        context: WireContext::EventEnvelopeOrPayloadTopLevel,
+    },
     // Flow / Morph / Space / Relation payload guards
-    ForbiddenEntry { field: "title", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "summary", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "fields", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "encrypted_payload", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "title", context: WireContext::MorphPayload },
-    ForbiddenEntry { field: "summary", context: WireContext::MorphPayload },
-    ForbiddenEntry { field: "encrypted_payload", context: WireContext::MorphPayload },
-    ForbiddenEntry { field: "track", context: WireContext::MessageCreatePayload },
-    ForbiddenEntry { field: "encrypted_payload", context: WireContext::MessageCreatePayload },
-    ForbiddenEntry { field: "discussion_space_ref", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "discussion_realm_ref", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "fields.rank", context: WireContext::RelationPayload },
-    ForbiddenEntry { field: "fields.rank", context: WireContext::SpacePayload },
-    ForbiddenEntry { field: "metadata.fields.stage", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "metadata.fields.stage_changed_at", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "metadata.fields.stage_reason", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "metadata.fields.stage_note", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "metadata.fields.lifecycle", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "metadata.fields.progress_state", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "metadata.fields.assignee", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "metadata.fields.assignees", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "metadata.fields.assigned_to", context: WireContext::FlowPayload },
+    ForbiddenEntry {
+        field: "title",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "summary",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "fields",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "encrypted_payload",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "title",
+        context: WireContext::MorphPayload,
+    },
+    ForbiddenEntry {
+        field: "summary",
+        context: WireContext::MorphPayload,
+    },
+    ForbiddenEntry {
+        field: "encrypted_payload",
+        context: WireContext::MorphPayload,
+    },
+    ForbiddenEntry {
+        field: "track",
+        context: WireContext::MessageCreatePayload,
+    },
+    ForbiddenEntry {
+        field: "encrypted_payload",
+        context: WireContext::MessageCreatePayload,
+    },
+    ForbiddenEntry {
+        field: "discussion_space_ref",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "discussion_realm_ref",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "fields.rank",
+        context: WireContext::RelationPayload,
+    },
+    ForbiddenEntry {
+        field: "fields.rank",
+        context: WireContext::SpacePayload,
+    },
+    ForbiddenEntry {
+        field: "metadata.fields.stage",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "metadata.fields.stage_changed_at",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "metadata.fields.stage_reason",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "metadata.fields.stage_note",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "metadata.fields.lifecycle",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "metadata.fields.progress_state",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "metadata.fields.assignee",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "metadata.fields.assignees",
+        context: WireContext::FlowPayload,
+    },
+    ForbiddenEntry {
+        field: "metadata.fields.assigned_to",
+        context: WireContext::FlowPayload,
+    },
     ForbiddenEntry {
         field: "metadata.fields.assigned_actor_ids",
         context: WireContext::FlowPayload,
     },
-    ForbiddenEntry { field: "fields.stage", context: WireContext::MorphPayload },
-    ForbiddenEntry { field: "fields.stage_changed_at", context: WireContext::MorphPayload },
-    ForbiddenEntry { field: "fields.stage_reason", context: WireContext::MorphPayload },
-    ForbiddenEntry { field: "fields.stage_note", context: WireContext::MorphPayload },
-    ForbiddenEntry { field: "fields.lifecycle", context: WireContext::MorphPayload },
-    ForbiddenEntry { field: "fields.progress_state", context: WireContext::MorphPayload },
-    ForbiddenEntry { field: "security_class", context: WireContext::SpacePayload },
-    ForbiddenEntry { field: "join_rule", context: WireContext::SpacePayload },
-    ForbiddenEntry { field: "history_visibility", context: WireContext::SpacePayload },
-    ForbiddenEntry { field: "policy_server", context: WireContext::SpacePayload },
-    ForbiddenEntry { field: "delivery_binding_policy", context: WireContext::SpacePayload },
+    ForbiddenEntry {
+        field: "fields.stage",
+        context: WireContext::MorphPayload,
+    },
+    ForbiddenEntry {
+        field: "fields.stage_changed_at",
+        context: WireContext::MorphPayload,
+    },
+    ForbiddenEntry {
+        field: "fields.stage_reason",
+        context: WireContext::MorphPayload,
+    },
+    ForbiddenEntry {
+        field: "fields.stage_note",
+        context: WireContext::MorphPayload,
+    },
+    ForbiddenEntry {
+        field: "fields.lifecycle",
+        context: WireContext::MorphPayload,
+    },
+    ForbiddenEntry {
+        field: "fields.progress_state",
+        context: WireContext::MorphPayload,
+    },
+    ForbiddenEntry {
+        field: "security_class",
+        context: WireContext::SpacePayload,
+    },
+    ForbiddenEntry {
+        field: "join_rule",
+        context: WireContext::SpacePayload,
+    },
+    ForbiddenEntry {
+        field: "history_visibility",
+        context: WireContext::SpacePayload,
+    },
+    ForbiddenEntry {
+        field: "policy_server",
+        context: WireContext::SpacePayload,
+    },
+    ForbiddenEntry {
+        field: "delivery_binding_policy",
+        context: WireContext::SpacePayload,
+    },
     // Patch-path guards
-    ForbiddenEntry { field: "stage", context: WireContext::FlowPatchPath },
-    ForbiddenEntry { field: "stage_changed_at", context: WireContext::FlowPatchPath },
-    ForbiddenEntry { field: "metadata.fields.assignee", context: WireContext::FlowPatchPath },
-    ForbiddenEntry { field: "metadata.fields.assignees", context: WireContext::FlowPatchPath },
-    ForbiddenEntry { field: "metadata.fields.assigned_to", context: WireContext::FlowPatchPath },
+    ForbiddenEntry {
+        field: "stage",
+        context: WireContext::FlowPatchPath,
+    },
+    ForbiddenEntry {
+        field: "stage_changed_at",
+        context: WireContext::FlowPatchPath,
+    },
+    ForbiddenEntry {
+        field: "metadata.fields.assignee",
+        context: WireContext::FlowPatchPath,
+    },
+    ForbiddenEntry {
+        field: "metadata.fields.assignees",
+        context: WireContext::FlowPatchPath,
+    },
+    ForbiddenEntry {
+        field: "metadata.fields.assigned_to",
+        context: WireContext::FlowPatchPath,
+    },
     ForbiddenEntry {
         field: "metadata.fields.assigned_actor_ids",
         context: WireContext::FlowPatchPath,
     },
-    ForbiddenEntry { field: "fields.assignee", context: WireContext::FlowPatchPath },
-    ForbiddenEntry { field: "fields.assignees", context: WireContext::FlowPatchPath },
-    ForbiddenEntry { field: "fields.assigned_to", context: WireContext::FlowPatchPath },
-    ForbiddenEntry { field: "fields.assigned_actor_ids", context: WireContext::FlowPatchPath },
-    ForbiddenEntry { field: "stage", context: WireContext::MorphPatchPath },
-    ForbiddenEntry { field: "stage_changed_at", context: WireContext::MorphPatchPath },
+    ForbiddenEntry {
+        field: "fields.assignee",
+        context: WireContext::FlowPatchPath,
+    },
+    ForbiddenEntry {
+        field: "fields.assignees",
+        context: WireContext::FlowPatchPath,
+    },
+    ForbiddenEntry {
+        field: "fields.assigned_to",
+        context: WireContext::FlowPatchPath,
+    },
+    ForbiddenEntry {
+        field: "fields.assigned_actor_ids",
+        context: WireContext::FlowPatchPath,
+    },
+    ForbiddenEntry {
+        field: "stage",
+        context: WireContext::MorphPatchPath,
+    },
+    ForbiddenEntry {
+        field: "stage_changed_at",
+        context: WireContext::MorphPatchPath,
+    },
     // Identifier rename batch (post-2026-05-25): single concrete object ids
     // use `_id`; `_ref` is reserved for causal / proof / polymorphic refs.
-    ForbiddenEntry { field: "parent_ref", context: WireContext::EventEnvelopeOrPayloadTopLevel },
+    ForbiddenEntry {
+        field: "parent_ref",
+        context: WireContext::EventEnvelopeOrPayloadTopLevel,
+    },
     ForbiddenEntry {
         field: "default_realm_ref",
         context: WireContext::EventEnvelopeOrPayloadTopLevel,
     },
-    ForbiddenEntry { field: "scope_ref", context: WireContext::EventEnvelopeOrPayloadTopLevel },
+    ForbiddenEntry {
+        field: "scope_ref",
+        context: WireContext::EventEnvelopeOrPayloadTopLevel,
+    },
     ForbiddenEntry {
         field: "default_scope_ref",
         context: WireContext::EventEnvelopeOrPayloadTopLevel,
@@ -378,63 +522,171 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     },
     // policy_ref is keep on Realm itself (object-self id); forbidden on
     // handle_claim and member_delivery_binding scopes (context-aware).
-    ForbiddenEntry { field: "policy_ref", context: WireContext::HandleClaimTopLevel },
-    ForbiddenEntry { field: "policy_ref", context: WireContext::MemberDeliveryBinding },
-    ForbiddenEntry { field: "service_acceptance_ref", context: WireContext::HandleClaimTopLevel },
-    ForbiddenEntry { field: "recipient_service_did", context: WireContext::HandleClaimTopLevel },
+    ForbiddenEntry {
+        field: "policy_ref",
+        context: WireContext::HandleClaimTopLevel,
+    },
+    ForbiddenEntry {
+        field: "policy_ref",
+        context: WireContext::MemberDeliveryBinding,
+    },
+    ForbiddenEntry {
+        field: "service_acceptance_ref",
+        context: WireContext::HandleClaimTopLevel,
+    },
+    ForbiddenEntry {
+        field: "recipient_service_did",
+        context: WireContext::HandleClaimTopLevel,
+    },
     // Child scope policy / join policy
-    ForbiddenEntry { field: "require_scope_ref", context: WireContext::ChildScopePolicyKind },
-    ForbiddenEntry { field: "parent_space_refs", context: WireContext::JoinPolicyPayload },
+    ForbiddenEntry {
+        field: "require_scope_ref",
+        context: WireContext::ChildScopePolicyKind,
+    },
+    ForbiddenEntry {
+        field: "parent_space_refs",
+        context: WireContext::JoinPolicyPayload,
+    },
     // Frontier object property
-    ForbiddenEntry { field: "space_frontier", context: WireContext::FrontierObjectProperty },
+    ForbiddenEntry {
+        field: "space_frontier",
+        context: WireContext::FrontierObjectProperty,
+    },
     // Validity / cache rename batch (any wire schema)
-    ForbiddenEntry { field: "valid_from", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "valid_until", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "not_after", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "cache_valid_until", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry {
+        field: "valid_from",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "valid_until",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "not_after",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "cache_valid_until",
+        context: WireContext::WireSchemaOrPayload,
+    },
     // Proof rename batch
-    ForbiddenEntry { field: "signed_by", context: WireContext::ProofOrCrossSigningPayload },
-    ForbiddenEntry { field: "payload_hash", context: WireContext::EventProof },
-    ForbiddenEntry { field: "payload_hash", context: WireContext::GenericProof },
+    ForbiddenEntry {
+        field: "signed_by",
+        context: WireContext::ProofOrCrossSigningPayload,
+    },
+    ForbiddenEntry {
+        field: "payload_hash",
+        context: WireContext::EventProof,
+    },
+    ForbiddenEntry {
+        field: "payload_hash",
+        context: WireContext::GenericProof,
+    },
     // Subject rename batch
-    ForbiddenEntry { field: "actor_did", context: WireContext::ProtocolSubjectField },
-    ForbiddenEntry { field: "principal_did", context: WireContext::ProtocolSubjectField },
-    ForbiddenEntry { field: "subject_did", context: WireContext::ProtocolSubjectField },
+    ForbiddenEntry {
+        field: "actor_did",
+        context: WireContext::ProtocolSubjectField,
+    },
+    ForbiddenEntry {
+        field: "principal_did",
+        context: WireContext::ProtocolSubjectField,
+    },
+    ForbiddenEntry {
+        field: "subject_did",
+        context: WireContext::ProtocolSubjectField,
+    },
     // Notification payload
-    ForbiddenEntry { field: "notification.space_name", context: WireContext::NotificationPayload },
-    ForbiddenEntry { field: "sender_display_name", context: WireContext::NotificationPayload },
+    ForbiddenEntry {
+        field: "notification.space_name",
+        context: WireContext::NotificationPayload,
+    },
+    ForbiddenEntry {
+        field: "sender_display_name",
+        context: WireContext::NotificationPayload,
+    },
     // Event payload sender field
-    ForbiddenEntry { field: "sender", context: WireContext::EventPayloadOrProjection },
+    ForbiddenEntry {
+        field: "sender",
+        context: WireContext::EventPayloadOrProjection,
+    },
     // Directory projection / search
-    ForbiddenEntry { field: "name", context: WireContext::DirectoryProjection },
-    ForbiddenEntry { field: "avatar", context: WireContext::DirectoryProjection },
-    ForbiddenEntry { field: "official_organizations", context: WireContext::DirectoryProjection },
-    ForbiddenEntry { field: "parent_realm_id", context: WireContext::DirectorySearchRequest },
+    ForbiddenEntry {
+        field: "name",
+        context: WireContext::DirectoryProjection,
+    },
+    ForbiddenEntry {
+        field: "avatar",
+        context: WireContext::DirectoryProjection,
+    },
+    ForbiddenEntry {
+        field: "official_organizations",
+        context: WireContext::DirectoryProjection,
+    },
+    ForbiddenEntry {
+        field: "parent_realm_id",
+        context: WireContext::DirectorySearchRequest,
+    },
     // Encrypted envelope
-    ForbiddenEntry { field: "cleartext_commitment", context: WireContext::EncryptedEnvelope },
+    ForbiddenEntry {
+        field: "cleartext_commitment",
+        context: WireContext::EncryptedEnvelope,
+    },
     // Capability delegate
-    ForbiddenEntry { field: "source_capability", context: WireContext::CapabilityDelegatePayload },
+    ForbiddenEntry {
+        field: "source_capability",
+        context: WireContext::CapabilityDelegatePayload,
+    },
     // Object-patch payload
-    ForbiddenEntry { field: "object_ref", context: WireContext::ObjectPatchPayload },
-    ForbiddenEntry { field: "object_ref", context: WireContext::ObjectLifecyclePayload },
+    ForbiddenEntry {
+        field: "object_ref",
+        context: WireContext::ObjectPatchPayload,
+    },
+    ForbiddenEntry {
+        field: "object_ref",
+        context: WireContext::ObjectLifecyclePayload,
+    },
     // Message create payload
-    ForbiddenEntry { field: "revision_root", context: WireContext::MessageCreatePayload },
+    ForbiddenEntry {
+        field: "revision_root",
+        context: WireContext::MessageCreatePayload,
+    },
     // Realm freeze payload
-    ForbiddenEntry { field: "until", context: WireContext::RealmFreezePayload },
+    ForbiddenEntry {
+        field: "until",
+        context: WireContext::RealmFreezePayload,
+    },
     // Account subscribe
     ForbiddenEntry {
         field: "events",
         context: WireContext::AccountSubscribeDeviceMessageContainer,
     },
-    ForbiddenEntry { field: "space_entry", context: WireContext::AccountSubscribeFrameSchemaDef },
+    ForbiddenEntry {
+        field: "space_entry",
+        context: WireContext::AccountSubscribeFrameSchemaDef,
+    },
     // Agent audit binding
-    ForbiddenEntry { field: "actor", context: WireContext::AgentAuditBinding },
+    ForbiddenEntry {
+        field: "actor",
+        context: WireContext::AgentAuditBinding,
+    },
     // Snapshot chunk
-    ForbiddenEntry { field: "sha256", context: WireContext::SnapshotChunk },
+    ForbiddenEntry {
+        field: "sha256",
+        context: WireContext::SnapshotChunk,
+    },
     // Moderation payloads
-    ForbiddenEntry { field: "frank", context: WireContext::ModerationReportPayload },
-    ForbiddenEntry { field: "frank_id", context: WireContext::ModerationFrankingProofPayload },
-    ForbiddenEntry { field: "frank_only", context: WireContext::ModerationQueueItemVisibility },
+    ForbiddenEntry {
+        field: "frank",
+        context: WireContext::ModerationReportPayload,
+    },
+    ForbiddenEntry {
+        field: "frank_id",
+        context: WireContext::ModerationFrankingProofPayload,
+    },
+    ForbiddenEntry {
+        field: "frank_only",
+        context: WireContext::ModerationQueueItemVisibility,
+    },
     ForbiddenEntry {
         field: "requires_frank_verification",
         context: WireContext::ModerationQueueItemEvidencePolicy,
@@ -443,110 +695,326 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
         field: "retention_until",
         context: WireContext::ModerationQueueItemEvidencePolicy,
     },
-    ForbiddenEntry { field: "queue_item_id", context: WireContext::ModerationQueueItem },
+    ForbiddenEntry {
+        field: "queue_item_id",
+        context: WireContext::ModerationQueueItem,
+    },
     // Member delivery binding candidate
     ForbiddenEntry {
         field: "delivery_binding_hint",
         context: WireContext::MemberDeliveryBindingCandidate,
     },
     // Error code
-    ForbiddenEntry { field: "frank_unavailable", context: WireContext::ErrorCode },
+    ForbiddenEntry {
+        field: "frank_unavailable",
+        context: WireContext::ErrorCode,
+    },
     // CRDT lattice enum values
-    ForbiddenEntry { field: "or-set", context: WireContext::CrdtLatticeEnumValue },
-    ForbiddenEntry { field: "mv-register", context: WireContext::CrdtLatticeEnumValue },
-    ForbiddenEntry { field: "cas-register", context: WireContext::CrdtLatticeEnumValue },
-    ForbiddenEntry { field: "ordered-log", context: WireContext::CrdtLatticeEnumValue },
-    ForbiddenEntry { field: "lww-register", context: WireContext::CrdtLatticeEnumValue },
+    ForbiddenEntry {
+        field: "or-set",
+        context: WireContext::CrdtLatticeEnumValue,
+    },
+    ForbiddenEntry {
+        field: "mv-register",
+        context: WireContext::CrdtLatticeEnumValue,
+    },
+    ForbiddenEntry {
+        field: "cas-register",
+        context: WireContext::CrdtLatticeEnumValue,
+    },
+    ForbiddenEntry {
+        field: "ordered-log",
+        context: WireContext::CrdtLatticeEnumValue,
+    },
+    ForbiddenEntry {
+        field: "lww-register",
+        context: WireContext::CrdtLatticeEnumValue,
+    },
     // Event kind / schema id / capability action values
-    ForbiddenEntry { field: "cx.agent.key.authorized", context: WireContext::EventKind },
-    ForbiddenEntry { field: "cx.agent.key.revoked", context: WireContext::EventKind },
-    ForbiddenEntry { field: "cx.agent.key.rotated", context: WireContext::EventKind },
-    ForbiddenEntry { field: "cx.device.authorized", context: WireContext::EventKind },
-    ForbiddenEntry { field: "cx.device.revoked", context: WireContext::EventKind },
-    ForbiddenEntry { field: "cx.relation.delete", context: WireContext::EventKind },
-    ForbiddenEntry { field: "cx.read.marker", context: WireContext::EventKind },
-    ForbiddenEntry { field: "cx.read.marker", context: WireContext::CapabilityAction },
-    ForbiddenEntry { field: "cx.schema.read_marker.v1", context: WireContext::SchemaId },
+    ForbiddenEntry {
+        field: "cx.agent.key.authorized",
+        context: WireContext::EventKind,
+    },
+    ForbiddenEntry {
+        field: "cx.agent.key.revoked",
+        context: WireContext::EventKind,
+    },
+    ForbiddenEntry {
+        field: "cx.agent.key.rotated",
+        context: WireContext::EventKind,
+    },
+    ForbiddenEntry {
+        field: "cx.device.authorized",
+        context: WireContext::EventKind,
+    },
+    ForbiddenEntry {
+        field: "cx.device.revoked",
+        context: WireContext::EventKind,
+    },
+    ForbiddenEntry {
+        field: "cx.relation.delete",
+        context: WireContext::EventKind,
+    },
+    ForbiddenEntry {
+        field: "cx.read.marker",
+        context: WireContext::EventKind,
+    },
+    ForbiddenEntry {
+        field: "cx.read.marker",
+        context: WireContext::CapabilityAction,
+    },
+    ForbiddenEntry {
+        field: "cx.schema.read_marker.v1",
+        context: WireContext::SchemaId,
+    },
     // Flow kind value
-    ForbiddenEntry { field: "kind=room", context: WireContext::FlowPayload },
+    ForbiddenEntry {
+        field: "kind=room",
+        context: WireContext::FlowPayload,
+    },
     // R3.4 naming hard rejects.
-    ForbiddenEntry { field: "event_hashes", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "cache_until", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "signed_payload_hash", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "avatar_ref", context: WireContext::MemberIdentityDisplayProfile },
-    ForbiddenEntry { field: "icon_blob", context: WireContext::AppletProtocolMetadata },
-    ForbiddenEntry { field: "space_bound", context: WireContext::MediaMetadataVisibility },
-    ForbiddenEntry { field: "sha256", context: WireContext::BlobMetadata },
-    ForbiddenEntry { field: "sha256", context: WireContext::BlobUploadMetadata },
-    ForbiddenEntry { field: "size", context: WireContext::BlobUploadMetadata },
-    ForbiddenEntry { field: "filter_hash", context: WireContext::CursorBody },
-    ForbiddenEntry { field: "derived_hash_prefix", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "application_receipt_hash", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "review_receipt_hash", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "receipt_hash", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "pattern_hash", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "media_hash", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "presentation_hash", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "raw_document_hash", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry {
+        field: "event_hashes",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "cache_until",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "signed_payload_hash",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "avatar_ref",
+        context: WireContext::MemberIdentityDisplayProfile,
+    },
+    ForbiddenEntry {
+        field: "icon_blob",
+        context: WireContext::AppletProtocolMetadata,
+    },
+    ForbiddenEntry {
+        field: "space_bound",
+        context: WireContext::MediaMetadataVisibility,
+    },
+    ForbiddenEntry {
+        field: "sha256",
+        context: WireContext::BlobMetadata,
+    },
+    ForbiddenEntry {
+        field: "sha256",
+        context: WireContext::BlobUploadMetadata,
+    },
+    ForbiddenEntry {
+        field: "size",
+        context: WireContext::BlobUploadMetadata,
+    },
+    ForbiddenEntry {
+        field: "filter_hash",
+        context: WireContext::CursorBody,
+    },
+    ForbiddenEntry {
+        field: "derived_hash_prefix",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "application_receipt_hash",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "review_receipt_hash",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "receipt_hash",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "pattern_hash",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "media_hash",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "presentation_hash",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "raw_document_hash",
+        context: WireContext::WireSchemaOrPayload,
+    },
     ForbiddenEntry {
         field: "signature_over_content_hash",
         context: WireContext::WireSchemaOrPayload,
     },
-    ForbiddenEntry { field: "prev_frontier_hash", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "constraint_hash", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry {
+        field: "prev_frontier_hash",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "constraint_hash",
+        context: WireContext::WireSchemaOrPayload,
+    },
     // 2026-05-31: single-kind grant constraint identifiers use `_ids`, not `_refs`.
-    ForbiddenEntry { field: "allowed_view_refs", context: WireContext::GrantConstraint },
-    ForbiddenEntry { field: "allowed_flow_refs", context: WireContext::GrantConstraint },
-    ForbiddenEntry { field: "allowed_circle_refs", context: WireContext::GrantConstraint },
-    ForbiddenEntry { field: "denied_flow_refs", context: WireContext::GrantConstraint },
-    ForbiddenEntry { field: "allowed_space_refs", context: WireContext::GrantConstraint },
-    ForbiddenEntry { field: "denied_space_refs", context: WireContext::GrantConstraint },
-    ForbiddenEntry { field: "realm_refs", context: WireContext::GrantConstraint },
-    ForbiddenEntry { field: "approval_actor_refs", context: WireContext::GrantConstraint },
+    ForbiddenEntry {
+        field: "allowed_view_refs",
+        context: WireContext::GrantConstraint,
+    },
+    ForbiddenEntry {
+        field: "allowed_flow_refs",
+        context: WireContext::GrantConstraint,
+    },
+    ForbiddenEntry {
+        field: "allowed_circle_refs",
+        context: WireContext::GrantConstraint,
+    },
+    ForbiddenEntry {
+        field: "denied_flow_refs",
+        context: WireContext::GrantConstraint,
+    },
+    ForbiddenEntry {
+        field: "allowed_space_refs",
+        context: WireContext::GrantConstraint,
+    },
+    ForbiddenEntry {
+        field: "denied_space_refs",
+        context: WireContext::GrantConstraint,
+    },
+    ForbiddenEntry {
+        field: "realm_refs",
+        context: WireContext::GrantConstraint,
+    },
+    ForbiddenEntry {
+        field: "approval_actor_refs",
+        context: WireContext::GrantConstraint,
+    },
     // 2026-05-31: key-backup KDF algorithm selector.
-    ForbiddenEntry { field: "hash", context: WireContext::KeyBackupKdfParams },
+    ForbiddenEntry {
+        field: "hash",
+        context: WireContext::KeyBackupKdfParams,
+    },
     // 2026-05-31: algorithm / principal / accountability / proof naming.
-    ForbiddenEntry { field: "signature_alg", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "device_key_alg", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "agent_did", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "audit_agent_did", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "accountable_actor", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "accountable_to", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "thumbnail_ref", context: WireContext::BlobMetadata },
-    ForbiddenEntry { field: "claim_type", context: WireContext::HandleClaimTopLevel },
-    ForbiddenEntry { field: "anchorer_sig", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry {
+        field: "signature_alg",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "device_key_alg",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "agent_did",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "audit_agent_did",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "accountable_actor",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "accountable_to",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "thumbnail_ref",
+        context: WireContext::BlobMetadata,
+    },
+    ForbiddenEntry {
+        field: "claim_type",
+        context: WireContext::HandleClaimTopLevel,
+    },
+    ForbiddenEntry {
+        field: "anchorer_sig",
+        context: WireContext::WireSchemaOrPayload,
+    },
     ForbiddenEntry {
         field: "inception_pubkey_fingerprint",
         context: WireContext::WireSchemaOrPayload,
     },
-    ForbiddenEntry { field: "commitment_b64", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "changed_at", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "via", context: WireContext::WireSchemaOrPayload },
-    ForbiddenEntry { field: "of", context: WireContext::ReviewerQuorum },
-    ForbiddenEntry { field: "actor_kind=ghost", context: WireContext::ActorKindValue },
-    ForbiddenEntry { field: "actor_kind=agent_native", context: WireContext::ActorKindValue },
-    ForbiddenEntry { field: "actor_kind=agent_ghost", context: WireContext::ActorKindValue },
-    ForbiddenEntry { field: "actor_kind=device", context: WireContext::ActorKindValue },
+    ForbiddenEntry {
+        field: "commitment_b64",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "changed_at",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "via",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry {
+        field: "of",
+        context: WireContext::ReviewerQuorum,
+    },
+    ForbiddenEntry {
+        field: "actor_kind=ghost",
+        context: WireContext::ActorKindValue,
+    },
+    ForbiddenEntry {
+        field: "actor_kind=agent_native",
+        context: WireContext::ActorKindValue,
+    },
+    ForbiddenEntry {
+        field: "actor_kind=agent_ghost",
+        context: WireContext::ActorKindValue,
+    },
+    ForbiddenEntry {
+        field: "actor_kind=device",
+        context: WireContext::ActorKindValue,
+    },
     // 2026-06-10: policy check chain bare `actor` → `actor_id`
     // (did_id_suffix rule). Registered under the dotted bound_to.actor
     // path — the bare token `actor` remains a legitimate enum value and
     // prose noun, so it MUST NOT enter the coarse flat list.
-    ForbiddenEntry { field: "bound_to.actor", context: WireContext::PolicyCheckBoundTo },
+    ForbiddenEntry {
+        field: "bound_to.actor",
+        context: WireContext::PolicyCheckBoundTo,
+    },
     // 2026-06 registry sync (SDK-06-003): entries the mirror previously
     // lacked or carried under a collapsed context. Pinned against the JSON
     // registry by `mirror_covers_spec_registry_hard_rejects` below.
-    ForbiddenEntry { field: "track", context: WireContext::FlowTrackKeyField },
+    ForbiddenEntry {
+        field: "track",
+        context: WireContext::FlowTrackKeyField,
+    },
     ForbiddenEntry {
         field: "encrypted_payload",
         context: WireContext::ContentCarrierWithContentCounterpart,
     },
-    ForbiddenEntry { field: "title", context: WireContext::FlowOrMorphPayloadTopLevel },
-    ForbiddenEntry { field: "summary", context: WireContext::FlowOrMorphPayloadTopLevel },
-    ForbiddenEntry { field: "fields", context: WireContext::FlowOrMessagePayloadTopLevel },
-    ForbiddenEntry { field: "blocks", context: WireContext::ContentBlockComposite },
-    ForbiddenEntry { field: "sender_display_name", context: WireContext::NotificationProjection },
-    ForbiddenEntry { field: "actor", context: WireContext::MimiUpdateConsentRequestBody },
-    ForbiddenEntry { field: "requester", context: WireContext::MimiRequestConsentRequestBody },
+    ForbiddenEntry {
+        field: "title",
+        context: WireContext::FlowOrMorphPayloadTopLevel,
+    },
+    ForbiddenEntry {
+        field: "summary",
+        context: WireContext::FlowOrMorphPayloadTopLevel,
+    },
+    ForbiddenEntry {
+        field: "fields",
+        context: WireContext::FlowOrMessagePayloadTopLevel,
+    },
+    ForbiddenEntry {
+        field: "blocks",
+        context: WireContext::ContentBlockComposite,
+    },
+    ForbiddenEntry {
+        field: "sender_display_name",
+        context: WireContext::NotificationProjection,
+    },
+    ForbiddenEntry {
+        field: "actor",
+        context: WireContext::MimiUpdateConsentRequestBody,
+    },
+    ForbiddenEntry {
+        field: "requester",
+        context: WireContext::MimiRequestConsentRequestBody,
+    },
     ForbiddenEntry {
         field: "cotest_run_id",
         context: WireContext::ServiceDescribeVerifiedProfiles,
@@ -559,24 +1027,54 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
         field: "signed_payload_hash",
         context: WireContext::FederationVerificationPayload,
     },
-    ForbiddenEntry { field: "signature_alg", context: WireContext::KeyBackupRecoveryAuthData },
-    ForbiddenEntry { field: "device_key_alg", context: WireContext::DeviceAuthorizePayload },
-    ForbiddenEntry { field: "agent_did", context: WireContext::AgentKeyPayload },
-    ForbiddenEntry { field: "accountable_actor", context: WireContext::AgentKeyPayload },
-    ForbiddenEntry { field: "audit_agent_did", context: WireContext::AttestationEvidence },
-    ForbiddenEntry { field: "changed_at", context: WireContext::AgentLifecyclePayload },
-    ForbiddenEntry { field: "anchorer_sig", context: WireContext::Anchor },
+    ForbiddenEntry {
+        field: "signature_alg",
+        context: WireContext::KeyBackupRecoveryAuthData,
+    },
+    ForbiddenEntry {
+        field: "device_key_alg",
+        context: WireContext::DeviceAuthorizePayload,
+    },
+    ForbiddenEntry {
+        field: "agent_did",
+        context: WireContext::AgentKeyPayload,
+    },
+    ForbiddenEntry {
+        field: "accountable_actor",
+        context: WireContext::AgentKeyPayload,
+    },
+    ForbiddenEntry {
+        field: "audit_agent_did",
+        context: WireContext::AttestationEvidence,
+    },
+    ForbiddenEntry {
+        field: "changed_at",
+        context: WireContext::AgentLifecyclePayload,
+    },
+    ForbiddenEntry {
+        field: "anchorer_sig",
+        context: WireContext::Anchor,
+    },
     ForbiddenEntry {
         field: "inception_pubkey_fingerprint",
         context: WireContext::DidContinuityProofTransferEvidence,
     },
-    ForbiddenEntry { field: "by", context: WireContext::DidContinuityProofSignatureChain },
+    ForbiddenEntry {
+        field: "by",
+        context: WireContext::DidContinuityProofSignatureChain,
+    },
     ForbiddenEntry {
         field: "commitment_b64",
         context: WireContext::RecoveryPolicyShareCommitment,
     },
-    ForbiddenEntry { field: "accountable_to", context: WireContext::ActorProfile },
-    ForbiddenEntry { field: "via", context: WireContext::MembershipPayload },
+    ForbiddenEntry {
+        field: "accountable_to",
+        context: WireContext::ActorProfile,
+    },
+    ForbiddenEntry {
+        field: "via",
+        context: WireContext::MembershipPayload,
+    },
     ForbiddenEntry {
         field: "duration_compact_mini_dsl",
         context: WireContext::WireDurationString,
@@ -586,7 +1084,9 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
 /// Returns `true` when `field` is forbidden in the given `context` per the
 /// in-Rust mirror of `forbidden-wire-fields.json`.
 pub fn is_forbidden_in_context(field: &str, context: WireContext) -> bool {
-    FORBIDDEN_ENTRIES.iter().any(|entry| entry.field == field && entry.context == context)
+    FORBIDDEN_ENTRIES
+        .iter()
+        .any(|entry| entry.field == field && entry.context == context)
 }
 
 /// Typed-id prefixes that MUST NOT appear anywhere on the wire.
@@ -609,7 +1109,9 @@ pub const FORBIDDEN_ID_PREFIXES: &[&str] = &[
 /// Returns `true` when `id` starts with a forbidden typed-id prefix
 /// (e.g. `ck:notif:01234...` — canonical is `ck:notification:`).
 pub fn is_forbidden_id_prefix(id: &str) -> bool {
-    FORBIDDEN_ID_PREFIXES.iter().any(|prefix| id.starts_with(prefix))
+    FORBIDDEN_ID_PREFIXES
+        .iter()
+        .any(|prefix| id.starts_with(prefix))
 }
 
 #[cfg(test)]
@@ -618,7 +1120,11 @@ mod tests {
 
     #[test]
     fn accepts_canonical_replacements() {
-        for field in ["scope_circle_id", "default_scope_circle_id", "parent_space_id"] {
+        for field in [
+            "scope_circle_id",
+            "default_scope_circle_id",
+            "parent_space_id",
+        ] {
             assert!(
                 !is_forbidden_wire_field(field),
                 "canonical replacement `{field}` must not be hard-rejected"
@@ -630,10 +1136,19 @@ mod tests {
     fn context_aware_distinguishes_policy_ref_scopes() {
         // policy_ref is canonical on Realm itself (object-self id) but
         // forbidden on handle_claim / member_delivery_binding scopes.
-        assert!(is_forbidden_in_context("policy_ref", WireContext::HandleClaimTopLevel));
-        assert!(is_forbidden_in_context("policy_ref", WireContext::MemberDeliveryBinding));
+        assert!(is_forbidden_in_context(
+            "policy_ref",
+            WireContext::HandleClaimTopLevel
+        ));
+        assert!(is_forbidden_in_context(
+            "policy_ref",
+            WireContext::MemberDeliveryBinding
+        ));
         // Not flagged in a context the spec doesn't restrict.
-        assert!(!is_forbidden_in_context("policy_ref", WireContext::RealmFreezePayload));
+        assert!(!is_forbidden_in_context(
+            "policy_ref",
+            WireContext::RealmFreezePayload
+        ));
     }
 
     #[test]
@@ -641,26 +1156,53 @@ mod tests {
         // `stage` as a JSON-Patch path on a Flow patch payload is
         // forbidden (single-source via ck.flow.stage.set).
         assert!(is_forbidden_in_context("stage", WireContext::FlowPatchPath));
-        assert!(is_forbidden_in_context("stage_changed_at", WireContext::FlowPatchPath));
-        assert!(is_forbidden_in_context("stage", WireContext::MorphPatchPath));
+        assert!(is_forbidden_in_context(
+            "stage_changed_at",
+            WireContext::FlowPatchPath
+        ));
+        assert!(is_forbidden_in_context(
+            "stage",
+            WireContext::MorphPatchPath
+        ));
         // But `stage` as a top-level Flow payload field is canonical.
         assert!(!is_forbidden_in_context("stage", WireContext::FlowPayload));
     }
 
     #[test]
     fn context_aware_fields_dot_stage_rejected_on_flow_and_morph() {
-        assert!(is_forbidden_in_context("metadata.fields.stage", WireContext::FlowPayload));
-        assert!(is_forbidden_in_context("fields.stage", WireContext::MorphPayload));
+        assert!(is_forbidden_in_context(
+            "metadata.fields.stage",
+            WireContext::FlowPayload
+        ));
+        assert!(is_forbidden_in_context(
+            "fields.stage",
+            WireContext::MorphPayload
+        ));
         assert!(is_forbidden_in_context(
             "metadata.fields.stage_changed_at",
             WireContext::FlowPayload
         ));
-        assert!(is_forbidden_in_context("metadata.fields.assignee", WireContext::FlowPayload));
-        assert!(is_forbidden_in_context("metadata.fields.assigned_to", WireContext::FlowPayload));
-        assert!(is_forbidden_in_context("metadata.fields.assignee", WireContext::FlowPatchPath));
-        assert!(is_forbidden_in_context("fields.assignee", WireContext::FlowPatchPath));
+        assert!(is_forbidden_in_context(
+            "metadata.fields.assignee",
+            WireContext::FlowPayload
+        ));
+        assert!(is_forbidden_in_context(
+            "metadata.fields.assigned_to",
+            WireContext::FlowPayload
+        ));
+        assert!(is_forbidden_in_context(
+            "metadata.fields.assignee",
+            WireContext::FlowPatchPath
+        ));
+        assert!(is_forbidden_in_context(
+            "fields.assignee",
+            WireContext::FlowPatchPath
+        ));
         // Not flagged on unrelated payload contexts.
-        assert!(!is_forbidden_in_context("fields.stage", WireContext::SpacePayload));
+        assert!(!is_forbidden_in_context(
+            "fields.stage",
+            WireContext::SpacePayload
+        ));
     }
 
     #[test]
@@ -675,7 +1217,10 @@ mod tests {
         }
         // snake_case canonical spellings pass.
         for value in ["or_set", "mv_register", "lww_register"] {
-            assert!(!is_forbidden_in_context(value, WireContext::CrdtLatticeEnumValue));
+            assert!(!is_forbidden_in_context(
+                value,
+                WireContext::CrdtLatticeEnumValue
+            ));
         }
     }
 
@@ -778,9 +1323,8 @@ mod tests {
     fn mirror_covers_spec_registry_hard_rejects() {
         let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
         let path = [
-            manifest_dir.join(
-                "../../../cokret-spec/spec/v1/artifacts/registry/forbidden-wire-fields.json",
-            ),
+            manifest_dir
+                .join("../../../cokret-spec/spec/v1/artifacts/registry/forbidden-wire-fields.json"),
             std::path::PathBuf::from(
                 "../cokret-spec/spec/v1/artifacts/registry/forbidden-wire-fields.json",
             ),
@@ -805,9 +1349,14 @@ mod tests {
         assert!(!entries.is_empty());
 
         for entry in entries {
-            let id = entry.get("id").and_then(serde_json::Value::as_str).expect("entry id");
-            let context =
-                entry.get("context").and_then(serde_json::Value::as_str).expect("entry context");
+            let id = entry
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .expect("entry id");
+            let context = entry
+                .get("context")
+                .and_then(serde_json::Value::as_str)
+                .expect("entry context");
             let level = entry
                 .get("rejection_level")
                 .and_then(serde_json::Value::as_str)
@@ -841,16 +1390,16 @@ mod tests {
                     "rate_limit_policy_ref",
                 ] {
                     assert!(
-                        is_forbidden_in_context(
-                            field,
-                            WireContext::EventEnvelopeOrPayloadTopLevel
-                        ),
+                        is_forbidden_in_context(field, WireContext::EventEnvelopeOrPayloadTopLevel),
                         "batch identifier rename field {field:?} is missing from the mirror"
                     );
                 }
                 // policy_ref stays canonical on a Policy object itself; the
                 // mirror pins its two forbidden scopes explicitly.
-                assert!(is_forbidden_in_context("policy_ref", WireContext::HandleClaimTopLevel));
+                assert!(is_forbidden_in_context(
+                    "policy_ref",
+                    WireContext::HandleClaimTopLevel
+                ));
                 assert!(is_forbidden_in_context(
                     "policy_ref",
                     WireContext::MemberDeliveryBinding

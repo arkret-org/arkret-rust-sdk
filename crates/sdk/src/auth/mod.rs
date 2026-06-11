@@ -1,16 +1,16 @@
 //! Authentication flow and session management helpers.
 
-use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
-    fmt,
-};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::fmt;
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::{DeviceId, Did, Error, Result, identity::DidDocument, model::Proof};
+use crate::identity::DidDocument;
+use crate::model::Proof;
+use crate::{DeviceId, Did, Error, Result};
 
 mod claims;
 mod grants;
@@ -99,13 +99,16 @@ pub enum AccountRecoveryMethod {
 impl fmt::Debug for AccountRecoveryMethod {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::DidProof { verification_method } => f
+            Self::DidProof {
+                verification_method,
+            } => f
                 .debug_struct("DidProof")
                 .field("verification_method", verification_method)
                 .finish(),
-            Self::PasswordReset { .. } => {
-                f.debug_struct("PasswordReset").field("reset_token_hash", &"<redacted>").finish()
-            }
+            Self::PasswordReset { .. } => f
+                .debug_struct("PasswordReset")
+                .field("reset_token_hash", &"<redacted>")
+                .finish(),
             Self::PasskeyWebAuthnRebinding { credential_id } => f
                 .debug_struct("PasskeyWebAuthnRebinding")
                 .field("credential_id", credential_id)
@@ -239,7 +242,10 @@ pub fn principal_control_realm_id(principal_id: &Did) -> String {
 /// Returns `true` when `event_kind` MUST be pinned to a principal
 /// control Realm per `key-management.md` §4.1.
 pub fn is_principal_control_event(event_kind: &str) -> bool {
-    matches!(event_kind, CX_DEVICE_AUTHORIZED | CX_DEVICE_REVOKED | CX_SESSION_GRANT)
+    matches!(
+        event_kind,
+        CX_DEVICE_AUTHORIZED | CX_DEVICE_REVOKED | CX_SESSION_GRANT
+    )
 }
 
 /// Validate that a control event is being submitted under the correct
@@ -284,5 +290,7 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<str>,
 {
-    scopes.into_iter().find_map(|scope| device_id_from_scope_token(scope.as_ref()))
+    scopes
+        .into_iter()
+        .find_map(|scope| device_id_from_scope_token(scope.as_ref()))
 }

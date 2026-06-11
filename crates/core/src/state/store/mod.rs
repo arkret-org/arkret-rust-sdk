@@ -13,11 +13,10 @@
 
 pub mod memory;
 
-use crate::{
-    Anchor, AnchorId, CellRef, Hash, Move, MoveId, RealmId,
-    lattice::{AnchoredOp, CellState, Lattice},
-};
 use thiserror::Error;
+
+use crate::lattice::{AnchoredOp, CellState, Lattice};
+use crate::{Anchor, AnchorId, CellRef, Hash, Move, MoveId, RealmId};
 
 pub type StoreResult<T> = Result<T, StoreError>;
 

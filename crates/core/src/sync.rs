@@ -6,10 +6,11 @@
 //! - Device message handling
 //! - Filter and subscription support
 
+use std::collections::{BTreeSet, HashMap};
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeSet, HashMap};
 
 use crate::{Cursor, DeviceId, Did, Error, Event, EventId, Hlc, RealmId, Result, canonical};
 
@@ -386,7 +387,10 @@ impl SyncStreamPosition {
         }
 
         let frontier: BTreeSet<_> = self.frontier.iter().collect();
-        required.frontier.iter().all(|event_id| frontier.contains(event_id))
+        required
+            .frontier
+            .iter()
+            .all(|event_id| frontier.contains(event_id))
     }
 }
 
@@ -503,7 +507,11 @@ pub struct SyncSemantics {
 impl SyncSemantics {
     /// Derive semantics from a request.
     pub fn from_request(request: &SyncRequestBody) -> Self {
-        let mode = if request.after.is_some() { SyncMode::Incremental } else { SyncMode::Initial };
+        let mode = if request.after.is_some() {
+            SyncMode::Incremental
+        } else {
+            SyncMode::Initial
+        };
         Self {
             mode,
             after: request.after.clone(),
@@ -601,7 +609,12 @@ impl LimitedTimelineState {
             reason: SyncGapReason::Limited,
         });
 
-        Self { realm_id, limited: timeline.limited, prev_cursor: timeline.prev_cursor.clone(), gap }
+        Self {
+            realm_id,
+            limited: timeline.limited,
+            prev_cursor: timeline.prev_cursor.clone(),
+            gap,
+        }
     }
 
     /// Convert this limited section into a backfill request, if one is needed.
@@ -612,11 +625,15 @@ impl LimitedTimelineState {
             from: gap
                 .prev_cursor
                 .as_ref()
-                .map(|cursor| BackfillFrom::Cursor { cursor: cursor.clone() })
+                .map(|cursor| BackfillFrom::Cursor {
+                    cursor: cursor.clone(),
+                })
                 .or_else(|| {
                     gap.prev_event_id
                         .as_ref()
-                        .map(|event_id| BackfillFrom::EventId { event_id: event_id.clone() })
+                        .map(|event_id| BackfillFrom::EventId {
+                            event_id: event_id.clone(),
+                        })
                 })
                 .unwrap_or(BackfillFrom::Beginning),
             direction: BackfillDirection::Backward,
@@ -673,7 +690,9 @@ pub struct ToDeviceAck {
 }
 
 fn event_id_from_value(value: &Value) -> Option<EventId> {
-    serde_json::from_value::<Event>(value.clone()).ok().map(|event| event.event_id)
+    serde_json::from_value::<Event>(value.clone())
+        .ok()
+        .map(|event| event.event_id)
 }
 
 /// Project a `Vec<Value>` from the wire `SyncOutcome` into typed
@@ -681,7 +700,10 @@ fn event_id_from_value(value: &Value) -> Option<EventId> {
 /// fail to parse are dropped silently. Callers that need strict
 /// validation should walk the wire `Vec<Value>` directly.
 pub fn project_typed_vec<T: serde::de::DeserializeOwned>(items: Vec<Value>) -> Vec<T> {
-    items.into_iter().filter_map(|value| serde_json::from_value(value).ok()).collect()
+    items
+        .into_iter()
+        .filter_map(|value| serde_json::from_value(value).ok())
+        .collect()
 }
 
 /// Project a single `Value` (the wire-shape `notifications` field —
@@ -712,7 +734,11 @@ pub struct SyncClient {
 impl SyncClient {
     /// Create a new sync client.
     pub fn new(device_id: String) -> Self {
-        Self { current_token: None, _device_id: device_id, subscriptions: HashMap::new() }
+        Self {
+            current_token: None,
+            _device_id: device_id,
+            subscriptions: HashMap::new(),
+        }
     }
 
     /// Get the current sync token.
@@ -766,7 +792,9 @@ impl SyncClient {
         // Extract updates
         let mut realm_updates = Vec::new();
         for (raw_realm_id, raw_sync_realm) in response.realms {
-            let Ok(realm_id) = RealmId::new(raw_realm_id) else { continue };
+            let Ok(realm_id) = RealmId::new(raw_realm_id) else {
+                continue;
+            };
             let sync_realm: SyncRealm = serde_json::from_value(raw_sync_realm).unwrap_or_default();
             realm_updates.push(RealmUpdate {
                 realm_id,
@@ -789,7 +817,8 @@ impl SyncClient {
 
     /// Subscribe to a Realm.
     pub fn subscribe(&mut self, subscription: RealmSubscription) {
-        self.subscriptions.insert(subscription.realm_id.clone(), subscription);
+        self.subscriptions
+            .insert(subscription.realm_id.clone(), subscription);
     }
 
     /// Unsubscribe from a Realm.
@@ -844,9 +873,10 @@ pub struct RealmUpdate {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use super::*;
     use crate::RealmId;
-    use std::collections::BTreeMap;
 
     #[test]
     fn sync_request_serializes_correctly() {
@@ -1029,8 +1059,10 @@ mod tests {
         .unwrap();
         deeper.event_id = EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
 
-        let mut keys =
-            [TimelineOrderKey::from_event(&newer_hlc, 0), TimelineOrderKey::from_event(&deeper, 1)];
+        let mut keys = [
+            TimelineOrderKey::from_event(&newer_hlc, 0),
+            TimelineOrderKey::from_event(&deeper, 1),
+        ];
         keys.sort();
 
         assert_eq!(keys[0].event_id, newer_hlc.event_id);
@@ -1048,7 +1080,10 @@ mod tests {
             state_digest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 .to_owned(),
         };
-        let wait_for = WaitForFrontier { positions: vec![required], timeout_ms: 1500 };
+        let wait_for = WaitForFrontier {
+            positions: vec![required],
+            timeout_ms: 1500,
+        };
         let current = SyncStreamPosition {
             realm_id,
             frontier: vec![event_id],

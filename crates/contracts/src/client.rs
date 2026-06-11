@@ -19,7 +19,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::push::{PushPriority, PushRule, PushRuleSet, Pusher};
 use chrono::{DateTime, Utc};
 use cokret_core::{
     BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId, Notification,
@@ -29,6 +28,8 @@ use cokret_crypto::MediaEncryptionInfo;
 use cokret_html::RichTextDocument;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use crate::push::{PushPriority, PushRule, PushRuleSet, Pusher};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -44,7 +45,9 @@ pub struct AccountRegisterRequestBody {
 impl AccountRegisterRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.username.trim().is_empty() {
-            return Err(Error::Protocol("account username must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "account username must not be empty".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -179,7 +182,9 @@ pub struct InteractiveAuthChallengeOutcome {
 
 impl InteractiveAuthChallengeOutcome {
     pub fn select_satisfied_flow(&self) -> Option<&InteractiveAuthFlow> {
-        self.flows.iter().find(|flow| flow.is_satisfied_by(&self.completed))
+        self.flows
+            .iter()
+            .find(|flow| flow.is_satisfied_by(&self.completed))
     }
 }
 
@@ -320,7 +325,9 @@ pub struct PresenceSubscriptionRequestBody {
 impl PresenceSubscriptionRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.users.is_empty() {
-            Err(Error::Protocol("presence subscription must include users".to_owned()))
+            Err(Error::Protocol(
+                "presence subscription must include users".to_owned(),
+            ))
         } else {
             Ok(())
         }
@@ -425,7 +432,9 @@ impl MembershipActionRequestBody {
                 | MembershipAction::Unban
         ) && self.target_user.is_none()
         {
-            return Err(Error::Protocol("membership action requires target user".to_owned()));
+            return Err(Error::Protocol(
+                "membership action requires target user".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -455,7 +464,9 @@ impl SubmitEventRequestBody {
             return Err(Error::Protocol("event kind must not be empty".to_owned()));
         }
         if !self.content.is_object() {
-            return Err(Error::Protocol("event content must be a JSON object".to_owned()));
+            return Err(Error::Protocol(
+                "event content must be a JSON object".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -550,7 +561,9 @@ pub struct MessageSearchRequestBody {
 impl MessageSearchRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.query.trim().is_empty() {
-            Err(Error::Protocol("message search query must not be empty".to_owned()))
+            Err(Error::Protocol(
+                "message search query must not be empty".to_owned(),
+            ))
         } else {
             Ok(())
         }
@@ -677,10 +690,14 @@ pub struct MediaUploadRequestBody {
 impl MediaUploadRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.content_type.trim().is_empty() {
-            return Err(Error::Protocol("media content type must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "media content type must not be empty".to_owned(),
+            ));
         }
         if self.size_bytes == 0 {
-            return Err(Error::Protocol("media upload size must be non-zero".to_owned()));
+            return Err(Error::Protocol(
+                "media upload size must be non-zero".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -803,7 +820,9 @@ pub struct SetPusherRequestBody {
 impl SetPusherRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.pusher.push_gateway.trim().is_empty() {
-            return Err(Error::Protocol("pusher gateway must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "pusher gateway must not be empty".to_owned(),
+            ));
         }
         if self.pusher.push_key.trim().is_empty() {
             return Err(Error::Protocol("pusher key must not be empty".to_owned()));
@@ -853,7 +872,9 @@ impl PushRuleUpdateRequestBody {
             return Err(Error::Protocol("push rule id must not be empty".to_owned()));
         }
         if self.rule.rule_id != params.rule_id {
-            return Err(Error::Protocol("push rule path id must match request rule id".to_owned()));
+            return Err(Error::Protocol(
+                "push rule path id must match request rule id".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -966,7 +987,9 @@ pub struct NotificationListRequestBody {
 impl NotificationListRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.limit == Some(0) {
-            Err(Error::Protocol("notification list limit must be non-zero".to_owned()))
+            Err(Error::Protocol(
+                "notification list limit must be non-zero".to_owned(),
+            ))
         } else {
             Ok(())
         }
@@ -1023,10 +1046,14 @@ pub struct ReportRequestBody {
 impl ReportRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.event_id.is_none() && self.user_id.is_none() && self.realm_id.is_none() {
-            return Err(Error::Protocol("moderation report needs a target".to_owned()));
+            return Err(Error::Protocol(
+                "moderation report needs a target".to_owned(),
+            ));
         }
         if self.reason.trim().is_empty() {
-            return Err(Error::Protocol("moderation report reason must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "moderation report reason must not be empty".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -1076,10 +1103,22 @@ pub struct CallSignalParams {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum CallSignalRequestBody {
-    Invite { call_id: String, offer: CallSessionDescription },
-    Answer { call_id: String, answer: CallSessionDescription },
-    Candidates { call_id: String, candidates: Vec<IceCandidate> },
-    Hangup { call_id: String, reason: Option<String> },
+    Invite {
+        call_id: String,
+        offer: CallSessionDescription,
+    },
+    Answer {
+        call_id: String,
+        answer: CallSessionDescription,
+    },
+    Candidates {
+        call_id: String,
+        candidates: Vec<IceCandidate>,
+    },
+    Hangup {
+        call_id: String,
+        reason: Option<String>,
+    },
 }
 
 impl CallSignalRequestBody {
@@ -1178,7 +1217,10 @@ mod tests {
             ]),
             params: BTreeMap::new(),
         };
-        assert_eq!(challenge.select_satisfied_flow().unwrap().flow_id, "password-passkey");
+        assert_eq!(
+            challenge.select_satisfied_flow().unwrap().flow_id,
+            "password-passkey"
+        );
     }
 
     #[test]
@@ -1194,7 +1236,14 @@ mod tests {
             encrypted: false,
         };
         upload.validate().unwrap();
-        assert_eq!(MediaProgress { transferred: 6, total: 12 }.percent(), 50);
+        assert_eq!(
+            MediaProgress {
+                transferred: 6,
+                total: 12
+            }
+            .percent(),
+            50
+        );
 
         let report = ReportRequestBody {
             category: AbuseCategory::Spam,
@@ -1222,7 +1271,9 @@ mod tests {
         .validate()
         .unwrap();
 
-        let push_params = PushRuleParams { rule_id: "mention".to_owned() };
+        let push_params = PushRuleParams {
+            rule_id: "mention".to_owned(),
+        };
         PushRuleUpdateRequestBody {
             rule: PushRule {
                 rule_id: "mention".to_owned(),
@@ -1260,7 +1311,10 @@ mod tests {
 
     #[test]
     fn call_signal_requires_call_id() {
-        let signal = CallSignalRequestBody::Hangup { call_id: String::new(), reason: None };
+        let signal = CallSignalRequestBody::Hangup {
+            call_id: String::new(),
+            reason: None,
+        };
         assert!(matches!(signal.validate(), Err(Error::Protocol(_))));
     }
 
@@ -1283,10 +1337,18 @@ mod tests {
         .validate()
         .unwrap();
 
-        MessageSearchRequestBody { query: "hello".to_owned(), realms: vec![Realm()], limit: Some(10) }
-            .validate()
-            .unwrap();
+        MessageSearchRequestBody {
+            query: "hello".to_owned(),
+            realms: vec![Realm()],
+            limit: Some(10),
+        }
+        .validate()
+        .unwrap();
 
-        PresenceSubscriptionRequestBody { users: vec![did("alice")] }.validate().unwrap();
+        PresenceSubscriptionRequestBody {
+            users: vec![did("alice")],
+        }
+        .validate()
+        .unwrap();
     }
 }

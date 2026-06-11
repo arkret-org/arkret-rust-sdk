@@ -7,10 +7,10 @@
 //!
 //! - **SingleDid** — one DID is the anchorer (typical principal control).
 //! - **Threshold** — `k`-of-`n` threshold scheme with explicit member set.
-//! - **OpenSet** — any signer in the listed DID set may sign (used for
-//!   open-mesh / committee-coordinated profiles).
-//! - **Mixed** — primary anchorer + `recovery_members` who can step in
-//!   only when primary is paused / fails the staleness window.
+//! - **OpenSet** — any signer in the listed DID set may sign (used for open-mesh /
+//!   committee-coordinated profiles).
+//! - **Mixed** — primary anchorer + `recovery_members` who can step in only when primary is paused
+//!   / fails the staleness window.
 //!
 //! Wire shape uses internal tagging on `kind` so consumers can decode
 //! without ambiguity.
@@ -24,10 +24,21 @@ use crate::{Did, Error, Result};
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AnchorerValue {
-    SingleDid { did: Did },
-    Threshold { k: u32, n: u32, members: Vec<Did> },
-    OpenSet { members: Vec<Did> },
-    Mixed { primary: Did, recovery_members: Vec<Did> },
+    SingleDid {
+        did: Did,
+    },
+    Threshold {
+        k: u32,
+        n: u32,
+        members: Vec<Did>,
+    },
+    OpenSet {
+        members: Vec<Did>,
+    },
+    Mixed {
+        primary: Did,
+        recovery_members: Vec<Did>,
+    },
 }
 
 impl AnchorerValue {
@@ -78,7 +89,10 @@ impl AnchorerValue {
                 }
                 Ok(())
             }
-            AnchorerValue::Mixed { primary, recovery_members } => {
+            AnchorerValue::Mixed {
+                primary,
+                recovery_members,
+            } => {
                 if recovery_members.is_empty() {
                     return Err(Error::Protocol(
                         "AnchorerValue::Mixed recovery_members must not be empty".to_owned(),
@@ -128,13 +142,17 @@ impl AnchorerValue {
 }
 
 fn has_duplicates<T: Eq>(items: &[T]) -> bool {
-    items.iter().enumerate().any(|(i, a)| items.iter().skip(i + 1).any(|b| a == b))
+    items
+        .iter()
+        .enumerate()
+        .any(|(i, a)| items.iter().skip(i + 1).any(|b| a == b))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     fn did(s: &str) -> Did {
         Did::new(s.to_owned()).unwrap()
@@ -142,7 +160,9 @@ mod tests {
 
     #[test]
     fn single_did_validates() {
-        let v = AnchorerValue::SingleDid { did: did("did:web:soland.example") };
+        let v = AnchorerValue::SingleDid {
+            did: did("did:web:soland.example"),
+        };
         v.validate().unwrap();
     }
 
@@ -231,12 +251,16 @@ mod tests {
         };
         assert!(threshold.includes_signer_as_primary(&bob));
 
-        let open = AnchorerValue::OpenSet { members: vec![alice.clone(), bob.clone()] };
+        let open = AnchorerValue::OpenSet {
+            members: vec![alice.clone(), bob.clone()],
+        };
         assert!(open.includes_signer_as_primary(&alice));
         assert!(!open.includes_signer_as_primary(&charlie));
 
-        let mixed =
-            AnchorerValue::Mixed { primary: alice.clone(), recovery_members: vec![bob.clone()] };
+        let mixed = AnchorerValue::Mixed {
+            primary: alice.clone(),
+            recovery_members: vec![bob.clone()],
+        };
         assert!(mixed.includes_signer_as_primary(&alice));
         assert!(!mixed.includes_signer_as_primary(&bob));
         assert!(mixed.is_recovery_member(&bob));
@@ -245,7 +269,9 @@ mod tests {
 
     #[test]
     fn serializes_with_kind_discriminator() {
-        let v = AnchorerValue::SingleDid { did: did("did:web:a.example") };
+        let v = AnchorerValue::SingleDid {
+            did: did("did:web:a.example"),
+        };
         let s = serde_json::to_string(&v).unwrap();
         assert!(s.contains("\"kind\":\"single_did\""), "got {s}");
 
@@ -271,7 +297,10 @@ mod tests {
         });
         let v: AnchorerValue = serde_json::from_value(raw).unwrap();
         match v {
-            AnchorerValue::Mixed { primary, recovery_members } => {
+            AnchorerValue::Mixed {
+                primary,
+                recovery_members,
+            } => {
                 assert_eq!(primary.as_str(), "did:web:soland.example");
                 assert_eq!(recovery_members.len(), 1);
             }

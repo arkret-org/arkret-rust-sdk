@@ -12,7 +12,10 @@ pub(super) use crate::canonical::sha256_hex;
 /// `localhost` is also blocked. Registered domain names are allowed (DNS
 /// rebinding is out of scope for this static check).
 pub(super) fn host_is_safe_for_outbound(host: &str) -> bool {
-    let candidate = host.strip_prefix('[').and_then(|h| h.strip_suffix(']')).unwrap_or(host);
+    let candidate = host
+        .strip_prefix('[')
+        .and_then(|h| h.strip_suffix(']'))
+        .unwrap_or(host);
     if let Ok(ip) = candidate.parse::<IpAddr>() {
         return ip_is_public(ip);
     }
@@ -61,7 +64,9 @@ fn is_ipv6_unicast_link_local(addr: Ipv6Addr) -> bool {
 pub(super) fn split_domain_handle(handle: &str) -> Result<(String, String)> {
     let normalized = normalize_handle(handle);
     let Some((local, domain)) = normalized.split_once('@') else {
-        return Err(Error::Protocol("handle proof requires local@domain form".to_owned()));
+        return Err(Error::Protocol(
+            "handle proof requires local@domain form".to_owned(),
+        ));
     };
     if local.is_empty()
         || domain.is_empty()
@@ -104,15 +109,26 @@ pub(super) fn did_web_document_url(did: &Did) -> Option<String> {
     if parts.len() == 1 {
         return Some(format!("https://{host}/.well-known/did.json"));
     }
-    if parts[1..].iter().any(|part| part.is_empty() || part.contains('/') || part.contains("..")) {
+    if parts[1..]
+        .iter()
+        .any(|part| part.is_empty() || part.contains('/') || part.contains(".."))
+    {
         return None;
     }
     Some(format!("https://{host}/{}/did.json", parts[1..].join("/")))
 }
 
 pub(super) fn is_allowed_did_web_content_type(content_type: &str) -> bool {
-    let media_type = content_type.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
-    matches!(media_type.as_str(), "application/did+json" | "application/json")
+    let media_type = content_type
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+    matches!(
+        media_type.as_str(),
+        "application/did+json" | "application/json"
+    )
 }
 
 /// Split a `did:webvh:<scid>:<host>[%3A<port>][:<path>…]` DID into its
@@ -151,7 +167,7 @@ pub fn did_webvh_parts(did: &Did) -> Option<(String, String, Option<u16>, Vec<St
 }
 
 pub(super) fn did_webvh_scid(did: &Did) -> Option<String> {
-    did_webvh_parts(did).map(|(scid, _, _, _)| scid)
+    did_webvh_parts(did).map(|(scid, ..)| scid)
 }
 
 pub(super) fn did_webvh_document_url(did: &Did) -> Option<String> {
@@ -238,4 +254,3 @@ pub(super) fn is_supported_did_key_multicodec(bytes: &[u8]) -> bool {
         _ => false,
     }
 }
-

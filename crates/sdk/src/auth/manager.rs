@@ -105,7 +105,9 @@ impl AuthManager {
             password_hash: password_hash.into(),
             mfa_enabled: false,
         };
-        self.account_states.entry(user.user_id.clone()).or_insert(AccountAuthState::Active);
+        self.account_states
+            .entry(user.user_id.clone())
+            .or_insert(AccountAuthState::Active);
         self.password_users.insert(username, user.clone());
         Ok(user)
     }
@@ -213,7 +215,13 @@ impl AuthManager {
         let authorization_url = format!(
             "{issuer}/authorize?client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&state={state}"
         );
-        OidcAuthRequestBody { issuer, client_id, redirect_uri, state, authorization_url }
+        OidcAuthRequestBody {
+            issuer,
+            client_id,
+            redirect_uri,
+            state,
+            authorization_url,
+        }
     }
 
     /// Complete an OIDC/OAuth2 login after upstream verification.
@@ -403,7 +411,8 @@ impl AuthManager {
                 revoked_at: None,
             },
         );
-        self.sessions.insert(session.session_id.clone(), session.clone());
+        self.sessions
+            .insert(session.session_id.clone(), session.clone());
         let session_ids = self.sessions_by_user.entry(user_id).or_default();
         session_ids.push_back(session.session_id.clone());
         while session_ids.len() > self.session_limit {
@@ -549,7 +558,9 @@ impl AuthManager {
             return Err(Error::Protocol("session expired".to_owned()));
         }
         if &session.device_id != device_id {
-            return Err(Error::Protocol("session device binding mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "session device binding mismatch".to_owned(),
+            ));
         }
         let supplied_hash = sha256_hex(access_token.as_bytes());
         if let Some(metadata) = self.refresh_tokens.get(session_id) {
@@ -569,7 +580,10 @@ impl AuthManager {
 
     /// Current account state. Missing state fails closed.
     pub fn account_state(&self, user_id: &Did) -> AccountAuthState {
-        self.account_states.get(user_id).copied().unwrap_or(AccountAuthState::Suspended)
+        self.account_states
+            .get(user_id)
+            .copied()
+            .unwrap_or(AccountAuthState::Suspended)
     }
 
     /// Export durable auth state without raw access or refresh token material.
@@ -628,8 +642,9 @@ impl AuthManager {
                 revoked: persisted.revoked,
                 created_at: persisted.created_at,
             };
-            self.refresh_tokens.entry(persisted.session_id.clone()).or_insert(
-                RefreshTokenMetadata {
+            self.refresh_tokens
+                .entry(persisted.session_id.clone())
+                .or_insert(RefreshTokenMetadata {
                     session_id: persisted.session_id.clone(),
                     user_id: persisted.user_id.clone(),
                     device_id: persisted.device_id,
@@ -637,9 +652,12 @@ impl AuthManager {
                     refresh_token_hash: persisted.refresh_token_hash,
                     issued_at: persisted.created_at,
                     expires_at: persisted.expires_at,
-                    revoked_at: if persisted.revoked { Some(Utc::now()) } else { None },
-                },
-            );
+                    revoked_at: if persisted.revoked {
+                        Some(Utc::now())
+                    } else {
+                        None
+                    },
+                });
             self.sessions_by_user
                 .entry(persisted.user_id)
                 .or_default()
@@ -669,7 +687,8 @@ impl AuthManager {
             expires_at: Utc::now() + Duration::minutes(15),
             completed_at: None,
         };
-        self.recovery_requests.insert(request.request_id.clone(), request.clone());
+        self.recovery_requests
+            .insert(request.request_id.clone(), request.clone());
         Ok(request)
     }
 
@@ -694,7 +713,9 @@ impl AuthManager {
             return Err(Error::Protocol("recovery request expired".to_owned()));
         }
         if request.completed_at.is_some() {
-            return Err(Error::Protocol("recovery request already completed".to_owned()));
+            return Err(Error::Protocol(
+                "recovery request already completed".to_owned(),
+            ));
         }
         // DID-proof and passkey rebinding identifiers are PUBLIC values, so a
         // proof derived from them is no proof at all. These methods MUST be
@@ -747,10 +768,17 @@ impl AuthManager {
             return Err(Error::Protocol("recovery request expired".to_owned()));
         }
         if request.completed_at.is_some() {
-            return Err(Error::Protocol("recovery request already completed".to_owned()));
+            return Err(Error::Protocol(
+                "recovery request already completed".to_owned(),
+            ));
         }
-        let AccountRecoveryMethod::DidProof { verification_method } = &request.method else {
-            return Err(Error::Protocol("recovery method is not did proof".to_owned()));
+        let AccountRecoveryMethod::DidProof {
+            verification_method,
+        } = &request.method
+        else {
+            return Err(Error::Protocol(
+                "recovery method is not did proof".to_owned(),
+            ));
         };
         if did_document.id != request.user_id {
             return Err(Error::Protocol("did document subject mismatch".to_owned()));
@@ -762,7 +790,9 @@ impl AuthManager {
             .ok_or_else(|| Error::Protocol("verification method not found".to_owned()))?
             .clone();
         if proof.verification_method != *verification_method {
-            return Err(Error::Protocol("proof verification method mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "proof verification method mismatch".to_owned(),
+            ));
         }
         let verification = verifier.verify_did_proof(&DidProofVerificationRequestBody {
             subject: request.user_id.clone(),
@@ -843,7 +873,8 @@ impl AuthManager {
         }
 
         let issued_at = Utc::now();
-        let expires_at = issued_at + chrono::Duration::seconds(Self::DID_PROOF_FRESHNESS_WINDOW_SECS);
+        let expires_at =
+            issued_at + chrono::Duration::seconds(Self::DID_PROOF_FRESHNESS_WINDOW_SECS);
 
         // Digest of the canonical request binding (request body without
         // the proof object) — bound into both the wire proof and the

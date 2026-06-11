@@ -21,7 +21,9 @@ use crate::schema::default_spec_artifacts_dir;
 
 fn artifact_path() -> Option<std::path::PathBuf> {
     let artifacts_dir = default_spec_artifacts_dir()?;
-    let path = artifacts_dir.join("profiles").join("conformance-profiles.json");
+    let path = artifacts_dir
+        .join("profiles")
+        .join("conformance-profiles.json");
     path.exists().then_some(path)
 }
 
@@ -29,7 +31,10 @@ fn collect_str_array(value: Option<&Value>) -> BTreeSet<String> {
     let Some(Value::Array(items)) = value else {
         return BTreeSet::new();
     };
-    items.iter().filter_map(|v| v.as_str().map(|s| s.to_owned())).collect()
+    items
+        .iter()
+        .filter_map(|v| v.as_str().map(|s| s.to_owned()))
+        .collect()
 }
 
 fn artifact_requirement_table() -> BTreeMap<String, ProfileRequirementSnapshot> {
@@ -125,7 +130,11 @@ fn generated_profile_requirements_match_artifact() {
                 .iter()
                 .map(|s| (*s).to_owned())
                 .collect(),
-            required_schemas: generated.required_schemas.iter().map(|s| (*s).to_owned()).collect(),
+            required_schemas: generated
+                .required_schemas
+                .iter()
+                .map(|s| (*s).to_owned())
+                .collect(),
             rejected_event_kinds: generated
                 .rejected_event_kinds
                 .iter()
@@ -151,7 +160,11 @@ fn generated_profile_requirements_match_artifact() {
                 .iter()
                 .map(|s| (*s).to_owned())
                 .collect(),
-            required_cells: generated.required_cells.iter().map(|s| (*s).to_owned()).collect(),
+            required_cells: generated
+                .required_cells
+                .iter()
+                .map(|s| (*s).to_owned())
+                .collect(),
             required_constraint_kinds: generated
                 .required_constraint_kinds
                 .iter()
@@ -176,7 +189,10 @@ fn generated_profile_requirements_arrays_are_sorted_unique() {
             ("required_schemas", req.required_schemas),
             ("rejected_event_kinds", req.rejected_event_kinds),
             ("required_fixtures", req.required_fixtures),
-            ("required_capability_actions", req.required_capability_actions),
+            (
+                "required_capability_actions",
+                req.required_capability_actions,
+            ),
             ("required_features", req.required_features),
             ("required_cell_namespaces", req.required_cell_namespaces),
             ("required_cells", req.required_cells),
@@ -245,8 +261,14 @@ fn validate_profile_requirements_reports_structured_diff_when_incomplete() {
             missing_schemas,
         } => {
             assert_eq!(profile_id, req.profile_id);
-            assert_eq!(missing_operations, vec![req.required_operations[0].to_owned()]);
-            assert_eq!(missing_event_kinds, vec![req.required_event_kinds[0].to_owned()]);
+            assert_eq!(
+                missing_operations,
+                vec![req.required_operations[0].to_owned()]
+            );
+            assert_eq!(
+                missing_event_kinds,
+                vec![req.required_event_kinds[0].to_owned()]
+            );
             assert!(missing_schemas.is_empty(), "schemas should all be present");
         }
         other => panic!("expected MissingRequirements, got {other:?}"),
@@ -262,8 +284,14 @@ fn profile_compliance_report_partitions_satisfied_and_missing() {
     let report = profile_compliance_report(req.profile_id, &ops, &kinds, &schemas)
         .expect("known profile must produce report");
     assert_eq!(report.profile_id, req.profile_id);
-    assert_eq!(report.missing_operations, vec![req.required_operations[0].to_owned()]);
-    assert_eq!(report.satisfied_operations.len(), req.required_operations.len() - 1);
+    assert_eq!(
+        report.missing_operations,
+        vec![req.required_operations[0].to_owned()]
+    );
+    assert_eq!(
+        report.satisfied_operations.len(),
+        req.required_operations.len() - 1
+    );
     assert!(report.missing_event_kinds.is_empty());
     assert!(report.missing_schemas.is_empty());
     assert!(!report.is_compliant());
@@ -279,7 +307,13 @@ fn profile_compliance_report_is_compliant_when_everything_implemented() {
     let report = profile_compliance_report(req.profile_id, &ops, &kinds, &schemas)
         .expect("known profile must produce report");
     assert!(report.is_compliant());
-    assert_eq!(report.satisfied_operations.len(), req.required_operations.len());
-    assert_eq!(report.satisfied_event_kinds.len(), req.required_event_kinds.len());
+    assert_eq!(
+        report.satisfied_operations.len(),
+        req.required_operations.len()
+    );
+    assert_eq!(
+        report.satisfied_event_kinds.len(),
+        req.required_event_kinds.len()
+    );
     assert_eq!(report.satisfied_schemas.len(), req.required_schemas.len());
 }

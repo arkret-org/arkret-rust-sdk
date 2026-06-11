@@ -10,9 +10,8 @@
 //! - `<component>` is the cell family (e.g. `ck.component.member.state.v1`,
 //!   `ck.component.capability.grant.v1`, `ck.component.consent.v1`).
 //! - `<subject>` may be a flat identifier (`did.web.alice.example`,
-//!   `ck.grant.01js0gr0000000000000000000`) or a deterministic composite
-//!   subject when the spec event-kind-registry's `cell_subject` declares
-//!   `composite` form.
+//!   `ck.grant.01js0gr0000000000000000000`) or a deterministic composite subject when the spec
+//!   event-kind-registry's `cell_subject` declares `composite` form.
 //!
 //! Composite subjects are `base64url_nopad(sha256(canonical_json([...])))`
 //! over an ordered components array. The order is fixed per cell family
@@ -20,16 +19,15 @@
 //!
 //! - [`CellId::parse`] — strict parser for `ck:cell:<component>:<subject>`.
 //! - [`CellId::component`] / [`CellId::subject`] — accessors.
-//! - [`composite_subject`] — produce the canonical composite subject hash
-//!   for a fixed-order list of string parts (the wire-canonical form).
-//! - [`composite_subject_pipe`] — produce the diagnostic `a|b|c` form
-//!   (informational only; never wire-canonical).
+//! - [`composite_subject`] — produce the canonical composite subject hash for a fixed-order list of
+//!   string parts (the wire-canonical form).
+//! - [`composite_subject_pipe`] — produce the diagnostic `a|b|c` form (informational only; never
+//!   wire-canonical).
 
 use sha2::{Digest, Sha256};
 
 use crate::base64url::base64url_encode;
-use crate::canonical;
-use crate::{CellRef, Error, Result};
+use crate::{CellRef, Error, Result, canonical};
 
 const CELL_PREFIX: &str = "ck:cell:";
 
@@ -57,12 +55,19 @@ impl CellId {
             Error::Protocol(format!("cell id missing 'ck:cell:' prefix: {value}"))
         })?;
         let (component, subject) = rest.split_once(':').ok_or_else(|| {
-            Error::Protocol(format!("cell id missing component:subject separator: {value}"))
+            Error::Protocol(format!(
+                "cell id missing component:subject separator: {value}"
+            ))
         })?;
         if component.is_empty() {
-            return Err(Error::Protocol(format!("cell id has empty component: {value}")));
+            return Err(Error::Protocol(format!(
+                "cell id has empty component: {value}"
+            )));
         }
-        Ok(Self { component: component.to_owned(), subject: subject.to_owned() })
+        Ok(Self {
+            component: component.to_owned(),
+            subject: subject.to_owned(),
+        })
     }
 
     /// Parse from a typed [`CellRef`].
@@ -197,7 +202,10 @@ mod tests {
     fn composite_subject_reorder_diverges() {
         let canonical = composite_subject(&["a", "b", "c"]).unwrap();
         let reordered = composite_subject(&["b", "a", "c"]).unwrap();
-        assert_ne!(canonical, reordered, "reorder must diverge from canonical hash");
+        assert_ne!(
+            canonical, reordered,
+            "reorder must diverge from canonical hash"
+        );
     }
 
     #[test]
@@ -223,6 +231,9 @@ mod tests {
             subject: "did.web.alice.example".to_owned(),
         };
         let cref = id.to_cell_ref().unwrap();
-        assert_eq!(cref.as_str(), "ck:cell:ck.component.member.state.v1:did.web.alice.example");
+        assert_eq!(
+            cref.as_str(),
+            "ck:cell:ck.component.member.state.v1:did.web.alice.example"
+        );
     }
 }

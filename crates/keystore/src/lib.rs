@@ -134,7 +134,10 @@ mod tests {
         // persist; use a per-process unique id instead.
         let id = format!(
             "cokret:test:platform-default:{}",
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
         );
         store.store(&id, b"platform-default-secret").unwrap();
         assert_eq!(store.load(&id).unwrap(), b"platform-default-secret");

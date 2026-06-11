@@ -15,13 +15,12 @@
 //!
 //! The MLS commit Move:
 //!
-//! - **preconditions** ensure (a) the cas-register epoch matches `prev_epoch`
-//!   (otherwise the commit is racing) and (b) the or-set covered_frontier
-//!   already contains the governance Anchor that the encrypted message
-//!   path will require.
-//! - **effects** atomically advance the epoch (cas-register set), set the
-//!   new key schedule (cas-register set), and add the new attested
-//!   governance frontier tag to the covered_frontier or-set.
+//! - **preconditions** ensure (a) the cas-register epoch matches `prev_epoch` (otherwise the commit
+//!   is racing) and (b) the or-set covered_frontier already contains the governance Anchor that the
+//!   encrypted message path will require.
+//! - **effects** atomically advance the epoch (cas-register set), set the new key schedule
+//!   (cas-register set), and add the new attested governance frontier tag to the covered_frontier
+//!   or-set.
 //!
 //! E2EE message Moves (e.g. `ck.message.create` in an E2EE Realm) MUST
 //! independently include a `contains` precondition on covered_frontier_cell
@@ -43,7 +42,9 @@ pub const COVERED_FRONTIER_CELL_FAMILY: &str = "ck.component.covered_frontier.v1
 /// MLS group's current epoch counter.
 pub fn mls_epoch_cell_id(group_id: &str) -> Result<CellRef, cokret_core::Error> {
     if group_id.is_empty() {
-        return Err(cokret_core::Error::Protocol("MLS group_id must not be empty".to_owned()));
+        return Err(cokret_core::Error::Protocol(
+            "MLS group_id must not be empty".to_owned(),
+        ));
     }
     CellRef::new(format!("ck:cell:{MLS_EPOCH_CELL_FAMILY}:{group_id}"))
         .map_err(|e| cokret_core::Error::Protocol(format!("invalid mls_epoch cell id: {e}")))
@@ -53,7 +54,9 @@ pub fn mls_epoch_cell_id(group_id: &str) -> Result<CellRef, cokret_core::Error> 
 /// the MLS group's latest key schedule pointer.
 pub fn key_schedule_cell_id(group_id: &str) -> Result<CellRef, cokret_core::Error> {
     if group_id.is_empty() {
-        return Err(cokret_core::Error::Protocol("MLS group_id must not be empty".to_owned()));
+        return Err(cokret_core::Error::Protocol(
+            "MLS group_id must not be empty".to_owned(),
+        ));
     }
     CellRef::new(format!("ck:cell:{KEY_SCHEDULE_CELL_FAMILY}:{group_id}"))
         .map_err(|e| cokret_core::Error::Protocol(format!("invalid key_schedule cell id: {e}")))
@@ -62,8 +65,11 @@ pub fn key_schedule_cell_id(group_id: &str) -> Result<CellRef, cokret_core::Erro
 /// `ck:cell:ck.component.covered_frontier.v1:<realm_id>` — or-set listing
 /// the governance Anchor frontiers this MLS group is currently bound to.
 pub fn covered_frontier_cell_id(realm_id: &RealmId) -> Result<CellRef, cokret_core::Error> {
-    CellRef::new(format!("ck:cell:{COVERED_FRONTIER_CELL_FAMILY}:{}", realm_id.as_str()))
-        .map_err(|e| cokret_core::Error::Protocol(format!("invalid covered_frontier cell id: {e}")))
+    CellRef::new(format!(
+        "ck:cell:{COVERED_FRONTIER_CELL_FAMILY}:{}",
+        realm_id.as_str()
+    ))
+    .map_err(|e| cokret_core::Error::Protocol(format!("invalid covered_frontier cell id: {e}")))
 }
 
 /// Deterministic or-set tag for "this MLS commit attests Anchor X covers
@@ -79,9 +85,8 @@ pub fn governance_frontier_tag(anchor: &AnchorId) -> String {
 ///
 /// Per spec §10:
 /// - `mls_epoch_cell.head_eq(prev_epoch)` — racing commits fail closed.
-/// - `covered_frontier_cell.contains(required_governance_anchor)` — the
-///   governance frontier this commit is binding to MUST already be
-///   covered by the Realm's covered_frontier or-set.
+/// - `covered_frontier_cell.contains(required_governance_anchor)` — the governance frontier this
+///   commit is binding to MUST already be covered by the Realm's covered_frontier or-set.
 pub fn mls_commit_preconditions(
     group_id: &str,
     realm_id: &RealmId,
@@ -104,7 +109,9 @@ pub fn mls_commit_preconditions(
             cell: frontier_cell,
             predicate: Predicate {
                 op: PredicateOp::Contains,
-                value: Some(Value::String(governance_frontier_tag(required_governance_anchor))),
+                value: Some(Value::String(governance_frontier_tag(
+                    required_governance_anchor,
+                ))),
                 values: None,
                 predicate_id: None,
             },
@@ -158,7 +165,9 @@ pub fn mls_commit_effects(
             op: LatticeOp {
                 op_type: LatticeOpType::Add,
                 tag: Some(governance_frontier_tag(attested_governance_anchor)),
-                value: Some(Value::String(attested_governance_anchor.as_str().to_owned())),
+                value: Some(Value::String(
+                    attested_governance_anchor.as_str().to_owned(),
+                )),
                 from: None,
                 to: None,
                 reason: None,
@@ -241,7 +250,9 @@ impl MlsCommitMoveSpec {
 /// when verifying an E2EE message Move, look up the cell value and call
 /// this to evaluate `contains`.
 pub fn covered_frontier_contains(cell_value: &Value, anchor: &AnchorId) -> bool {
-    let Some(arr) = cell_value.as_array() else { return false };
+    let Some(arr) = cell_value.as_array() else {
+        return false;
+    };
     let needle = governance_frontier_tag(anchor);
     arr.iter().any(|item| {
         // or-set output: `[{tag, value?}, ...]`. Match on either tag (the
@@ -253,18 +264,21 @@ pub fn covered_frontier_contains(cell_value: &Value, anchor: &AnchorId) -> bool 
 
 #[cfg(test)]
 mod tests {
+    use cokret_core::MoveId;
+    use cokret_core::lattice::{AnchoredOp, CellState, Lattice, OrSet};
+
     use super::*;
-    use cokret_core::{
-        MoveId,
-        lattice::{AnchoredOp, CellState, Lattice, OrSet},
-    };
 
     fn realm() -> RealmId {
         RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn anchor(byte: u8) -> AnchorId {
-        AnchorId::new(format!("ck:anchor:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+        AnchorId::new(format!(
+            "ck:anchor:sha256:{}",
+            format!("{byte:02x}").repeat(32)
+        ))
+        .unwrap()
     }
 
     fn move_id(byte: u8) -> MoveId {
@@ -288,7 +302,10 @@ mod tests {
         );
         assert_eq!(
             covered_frontier_cell_id(&realm()).unwrap().as_str(),
-            format!("ck:cell:ck.component.covered_frontier.v1:{}", realm().as_str())
+            format!(
+                "ck:cell:ck.component.covered_frontier.v1:{}",
+                realm().as_str()
+            )
         );
     }
 
@@ -313,14 +330,23 @@ mod tests {
         // First: head_eq on mls_epoch_cell.
         assert_eq!(
             pres[0].cell.as_str(),
-            format!("ck:cell:ck.component.mls_epoch.v1:{}", "group.01js0mls0000000000000000")
+            format!(
+                "ck:cell:ck.component.mls_epoch.v1:{}",
+                "group.01js0mls0000000000000000"
+            )
         );
         assert_eq!(pres[0].predicate.op, PredicateOp::HeadEq);
-        assert_eq!(pres[0].predicate.value.as_ref().unwrap().as_u64().unwrap(), 5);
+        assert_eq!(
+            pres[0].predicate.value.as_ref().unwrap().as_u64().unwrap(),
+            5
+        );
         // Second: contains on covered_frontier_cell.
         assert_eq!(
             pres[1].cell.as_str(),
-            format!("ck:cell:ck.component.covered_frontier.v1:{}", realm().as_str())
+            format!(
+                "ck:cell:ck.component.covered_frontier.v1:{}",
+                realm().as_str()
+            )
         );
         assert_eq!(pres[1].predicate.op, PredicateOp::Contains);
         assert_eq!(
@@ -378,10 +404,16 @@ mod tests {
         let pre = e2ee_message_precondition(&realm(), &anchor(0xaa)).unwrap();
         assert_eq!(
             pre.cell.as_str(),
-            format!("ck:cell:ck.component.covered_frontier.v1:{}", realm().as_str())
+            format!(
+                "ck:cell:ck.component.covered_frontier.v1:{}",
+                realm().as_str()
+            )
         );
         assert_eq!(pre.predicate.op, PredicateOp::Contains);
-        assert_eq!(pre.predicate.value.as_ref().unwrap().as_str().unwrap(), anchor(0xaa).as_str());
+        assert_eq!(
+            pre.predicate.value.as_ref().unwrap().as_str().unwrap(),
+            anchor(0xaa).as_str()
+        );
     }
 
     #[test]
@@ -410,7 +442,10 @@ mod tests {
     #[test]
     fn covered_frontier_contains_rejects_non_array() {
         assert!(!covered_frontier_contains(&Value::Null, &anchor(0xaa)));
-        assert!(!covered_frontier_contains(&Value::String("x".into()), &anchor(0xaa)));
+        assert!(!covered_frontier_contains(
+            &Value::String("x".into()),
+            &anchor(0xaa)
+        ));
     }
 
     #[test]

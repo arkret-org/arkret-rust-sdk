@@ -1,6 +1,7 @@
-use super::*;
 use chrono::Utc;
 use serde_json::json;
+
+use super::*;
 
 fn did(name: &str) -> Did {
     Did::new(format!("did:web:{name}.example")).unwrap()
@@ -11,8 +12,11 @@ fn device(id: &str) -> DeviceId {
     for byte in id.bytes() {
         acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
     }
-    DeviceId::new(format!("ck:device:01904100-0000-7000-8000-{:012x}", acc & 0x0000_ffff_ffff_ffff))
-        .unwrap()
+    DeviceId::new(format!(
+        "ck:device:01904100-0000-7000-8000-{:012x}",
+        acc & 0x0000_ffff_ffff_ffff
+    ))
+    .unwrap()
 }
 
 fn fake_binding(generation: u64) -> DeviceTrustBinding {
@@ -84,7 +88,10 @@ fn devices_tracks_lists_metadata_and_changes() {
     );
 
     assert_eq!(manager.user_devices(&alice).len(), 1);
-    assert_eq!(manager.device(&alice, &device_id).unwrap().metadata.name, Some("Phone".to_owned()));
+    assert_eq!(
+        manager.device(&alice, &device_id).unwrap().metadata.name,
+        Some("Phone".to_owned())
+    );
     assert_eq!(manager.drain_changes().len(), 1);
 }
 
@@ -95,7 +102,13 @@ fn devices_queues_to_device_messages() {
     let device_id = device("laptop");
     let mut manager = DeviceManager::new();
 
-    manager.send_to_device(alice, bob, device_id, "ck.keys.room_key", json!({"session":"abc"}));
+    manager.send_to_device(
+        alice,
+        bob,
+        device_id,
+        "ck.keys.room_key",
+        json!({"session":"abc"}),
+    );
 
     let messages = manager.drain_to_device();
     assert_eq!(messages.len(), 1);
@@ -111,7 +124,12 @@ fn devices_verifies_blocks_and_deletes() {
     manager.upsert_device(
         alice.clone(),
         device_id.clone(),
-        DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        DeviceMetadata {
+            name: None,
+            model: None,
+            os: None,
+            last_seen_at: None,
+        },
     );
 
     manager.start_verification(&alice, &device_id).unwrap();
@@ -119,7 +137,9 @@ fn devices_verifies_blocks_and_deletes() {
         manager.device(&alice, &device_id).unwrap().verification,
         DeviceVerificationState::VerificationStarted
     );
-    manager.verify_device(&alice, &device_id, Some(fake_binding(1))).unwrap();
+    manager
+        .verify_device(&alice, &device_id, Some(fake_binding(1)))
+        .unwrap();
     assert_eq!(
         manager.device(&alice, &device_id).unwrap().verification,
         DeviceVerificationState::Verified
@@ -137,10 +157,17 @@ fn devices_run_challenge_response_verification_flow() {
     manager.upsert_device(
         alice.clone(),
         device_id.clone(),
-        DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        DeviceMetadata {
+            name: None,
+            model: None,
+            os: None,
+            last_seen_at: None,
+        },
     );
 
-    let challenge = manager.begin_verification_flow(&alice, &device_id, "sas", "123456").unwrap();
+    let challenge = manager
+        .begin_verification_flow(&alice, &device_id, "sas", "123456")
+        .unwrap();
     manager
         .confirm_verification_flow(&challenge.transaction_id, "123456", Some(fake_binding(1)))
         .unwrap();
@@ -162,21 +189,39 @@ fn devices_support_sas_qr_mismatch_with_trust_chain_propagation() {
     manager.upsert_device_with_key(
         alice.clone(),
         phone.clone(),
-        DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        DeviceMetadata {
+            name: None,
+            model: None,
+            os: None,
+            last_seen_at: None,
+        },
         "z6MkPhoneVerifyKey",
     );
     manager.upsert_device_with_key(
         alice.clone(),
         laptop.clone(),
-        DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        DeviceMetadata {
+            name: None,
+            model: None,
+            os: None,
+            last_seen_at: None,
+        },
         "z6MkLaptopVerifyKey",
     );
 
-    let challenge = manager.begin_sas_verification(&alice, &phone, "123456").unwrap();
+    let challenge = manager
+        .begin_sas_verification(&alice, &phone, "123456")
+        .unwrap();
     assert!(challenge.commitment.starts_with("sha256:"));
-    let qr = manager.qr_verification_payload(&challenge.transaction_id).unwrap();
+    let qr = manager
+        .qr_verification_payload(&challenge.transaction_id)
+        .unwrap();
     DeviceManager::validate_qr_verification_payload(&qr, &alice, &phone).unwrap();
-    assert!(manager.confirm_verification_flow(&challenge.transaction_id, "000000", None).is_err());
+    assert!(
+        manager
+            .confirm_verification_flow(&challenge.transaction_id, "000000", None)
+            .is_err()
+    );
     assert_eq!(
         manager.device(&alice, &phone).unwrap().verification,
         DeviceVerificationState::VerificationFailed
@@ -184,10 +229,16 @@ fn devices_support_sas_qr_mismatch_with_trust_chain_propagation() {
 
     // Record a cross-signing publish for Alice and a proper per-device
     // binding for both devices.
-    manager.record_cross_signing_publish(sample_publish(&alice, 1)).unwrap();
+    manager
+        .record_cross_signing_publish(sample_publish(&alice, 1))
+        .unwrap();
     manager.start_verification(&alice, &phone).unwrap();
-    manager.verify_device(&alice, &phone, Some(fake_binding(1))).unwrap();
-    manager.attach_cross_signing_binding(&alice, &laptop, fake_binding(1)).unwrap();
+    manager
+        .verify_device(&alice, &phone, Some(fake_binding(1)))
+        .unwrap();
+    manager
+        .attach_cross_signing_binding(&alice, &laptop, fake_binding(1))
+        .unwrap();
 
     // propagate_trust now requires the target to already have its own
     // binding — sibling trust isn't transitive.
@@ -208,14 +259,25 @@ fn propagate_trust_requires_binding_on_target() {
         manager.upsert_device_with_key(
             alice.clone(),
             d.clone(),
-            DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+            DeviceMetadata {
+                name: None,
+                model: None,
+                os: None,
+                last_seen_at: None,
+            },
             "z6MkVerifyKey",
         );
     }
-    manager.record_cross_signing_publish(sample_publish(&alice, 1)).unwrap();
-    manager.verify_device(&alice, &phone, Some(fake_binding(1))).unwrap();
+    manager
+        .record_cross_signing_publish(sample_publish(&alice, 1))
+        .unwrap();
+    manager
+        .verify_device(&alice, &phone, Some(fake_binding(1)))
+        .unwrap();
     // Laptop has no binding yet — propagation MUST fail.
-    let err = manager.propagate_trust(&alice, &phone, &laptop).unwrap_err();
+    let err = manager
+        .propagate_trust(&alice, &phone, &laptop)
+        .unwrap_err();
     assert!(format!("{err}").contains("target device has no cross_signing_binding"));
 }
 
@@ -229,13 +291,24 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
         manager.upsert_device_with_key(
             alice.clone(),
             d.clone(),
-            DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+            DeviceMetadata {
+                name: None,
+                model: None,
+                os: None,
+                last_seen_at: None,
+            },
             "z6MkVerifyKey",
         );
     }
-    manager.record_cross_signing_publish(sample_publish(&alice, 1)).unwrap();
-    manager.verify_device(&alice, &phone, Some(fake_binding(1))).unwrap();
-    manager.verify_device(&alice, &laptop, Some(fake_binding(1))).unwrap();
+    manager
+        .record_cross_signing_publish(sample_publish(&alice, 1))
+        .unwrap();
+    manager
+        .verify_device(&alice, &phone, Some(fake_binding(1)))
+        .unwrap();
+    manager
+        .verify_device(&alice, &laptop, Some(fake_binding(1)))
+        .unwrap();
 
     let reset = CrossSigningResetContent {
         principal_id: alice.clone(),
@@ -255,18 +328,29 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
 
     for d in [&phone, &laptop] {
         let dev = manager.device(&alice, d).unwrap();
-        assert_eq!(dev.verification, DeviceVerificationState::NeedsReverification);
+        assert_eq!(
+            dev.verification,
+            DeviceVerificationState::NeedsReverification
+        );
         assert!(dev.cross_signing_binding.is_none());
     }
     // No publish accepted right now — attaching a new binding must fail.
-    assert!(manager.attach_cross_signing_binding(&alice, &phone, fake_binding(2)).is_err());
+    assert!(
+        manager
+            .attach_cross_signing_binding(&alice, &phone, fake_binding(2))
+            .is_err()
+    );
 
     // Round 4 (spec a77b995): reset bumps generation high-water to
     // `new_generation = 2`, so the next publish chains from there —
     // expected_previous_generation = 2, generation = 3. The
     // pre-round-4 wire (publish(gen=2) directly after reset) is rejected.
-    manager.record_cross_signing_publish(sample_publish(&alice, 3)).unwrap();
-    manager.attach_cross_signing_binding(&alice, &phone, fake_binding(3)).unwrap();
+    manager
+        .record_cross_signing_publish(sample_publish(&alice, 3))
+        .unwrap();
+    manager
+        .attach_cross_signing_binding(&alice, &phone, fake_binding(3))
+        .unwrap();
     let dev = manager.device(&alice, &phone).unwrap();
     assert!(dev.cross_signing_binding.is_some());
 }
@@ -279,20 +363,38 @@ fn publish_generation_must_advance_and_invalidates_old_bindings() {
     manager.upsert_device_with_key(
         alice.clone(),
         phone.clone(),
-        DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        DeviceMetadata {
+            name: None,
+            model: None,
+            os: None,
+            last_seen_at: None,
+        },
         "z6MkVerifyKey",
     );
-    manager.record_cross_signing_publish(sample_publish(&alice, 1)).unwrap();
-    manager.verify_device(&alice, &phone, Some(fake_binding(1))).unwrap();
+    manager
+        .record_cross_signing_publish(sample_publish(&alice, 1))
+        .unwrap();
+    manager
+        .verify_device(&alice, &phone, Some(fake_binding(1)))
+        .unwrap();
 
     // Same generation rejected.
-    assert!(manager.record_cross_signing_publish(sample_publish(&alice, 1)).is_err());
+    assert!(
+        manager
+            .record_cross_signing_publish(sample_publish(&alice, 1))
+            .is_err()
+    );
 
     // Advancing the publish invalidates the existing device binding.
-    manager.record_cross_signing_publish(sample_publish(&alice, 2)).unwrap();
+    manager
+        .record_cross_signing_publish(sample_publish(&alice, 2))
+        .unwrap();
     let dev = manager.device(&alice, &phone).unwrap();
     assert!(dev.cross_signing_binding.is_none());
-    assert_eq!(dev.verification, DeviceVerificationState::NeedsReverification);
+    assert_eq!(
+        dev.verification,
+        DeviceVerificationState::NeedsReverification
+    );
 }
 
 #[test]
@@ -303,12 +405,19 @@ fn evaluate_trust_chain_states() {
     manager.upsert_device_with_key(
         alice.clone(),
         phone.clone(),
-        DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        DeviceMetadata {
+            name: None,
+            model: None,
+            os: None,
+            last_seen_at: None,
+        },
         "z6MkVerifyKey",
     );
 
     // No publish, no binding → Unverified.
-    let outcome = manager.evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true)).unwrap();
+    let outcome = manager
+        .evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true))
+        .unwrap();
     assert_eq!(outcome, DeviceTrustChainOutcome::Unverified);
 
     // Attach bootstrap binding before any publish → Bootstrap.
@@ -322,28 +431,49 @@ fn evaluate_trust_chain_states() {
             },
         )
         .unwrap();
-    let outcome = manager.evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true)).unwrap();
+    let outcome = manager
+        .evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true))
+        .unwrap();
     assert_eq!(outcome, DeviceTrustChainOutcome::Bootstrap);
 
     // After a publish, bootstrap is no longer accepted.
-    manager.record_cross_signing_publish(sample_publish(&alice, 1)).unwrap();
-    let outcome = manager.evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true)).unwrap();
+    manager
+        .record_cross_signing_publish(sample_publish(&alice, 1))
+        .unwrap();
+    let outcome = manager
+        .evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true))
+        .unwrap();
     assert_eq!(outcome, DeviceTrustChainOutcome::NeedsReverification);
 
     // Real binding + verifier that always returns true → CrossSigned.
-    manager.attach_cross_signing_binding(&alice, &phone, fake_binding(1)).unwrap();
-    let outcome = manager.evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true)).unwrap();
+    manager
+        .attach_cross_signing_binding(&alice, &phone, fake_binding(1))
+        .unwrap();
+    let outcome = manager
+        .evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true))
+        .unwrap();
     assert_eq!(outcome, DeviceTrustChainOutcome::CrossSigned);
 
     // Verifier rejects → Invalid.
-    let outcome = manager.evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(false)).unwrap();
+    let outcome = manager
+        .evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(false))
+        .unwrap();
     assert_eq!(outcome, DeviceTrustChainOutcome::Invalid);
 
     // Generation behind accepted → NeedsReverification.
-    manager.record_cross_signing_publish(sample_publish(&alice, 2)).unwrap();
-    manager.attach_cross_signing_binding(&alice, &phone, fake_binding(2)).unwrap();
+    manager
+        .record_cross_signing_publish(sample_publish(&alice, 2))
+        .unwrap();
+    manager
+        .attach_cross_signing_binding(&alice, &phone, fake_binding(2))
+        .unwrap();
     // Manually back-date the binding to test the stale-generation branch.
-    let device_ref = manager.user_devices(&alice).into_iter().next().unwrap().clone();
+    let device_ref = manager
+        .user_devices(&alice)
+        .into_iter()
+        .next()
+        .unwrap()
+        .clone();
     let mut stale = device_ref.clone();
     stale.cross_signing_binding = Some(fake_binding(1));
     // Replace via upsert+attach.
@@ -354,8 +484,12 @@ fn evaluate_trust_chain_states() {
         "z6MkVerifyKey",
     );
     // Force-set the stale binding back through the manager API:
-    manager.verify_device(&alice, &phone, Some(fake_binding(1))).unwrap();
-    let outcome = manager.evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true)).unwrap();
+    manager
+        .verify_device(&alice, &phone, Some(fake_binding(1)))
+        .unwrap();
+    let outcome = manager
+        .evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true))
+        .unwrap();
     assert_eq!(outcome, DeviceTrustChainOutcome::NeedsReverification);
 }
 
@@ -367,13 +501,22 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
     manager.upsert_device_with_key(
         alice.clone(),
         phone.clone(),
-        DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        DeviceMetadata {
+            name: None,
+            model: None,
+            os: None,
+            last_seen_at: None,
+        },
         "z6MkVerifyKey",
     );
-    manager.record_cross_signing_publish(sample_publish(&alice, 1)).unwrap();
+    manager
+        .record_cross_signing_publish(sample_publish(&alice, 1))
+        .unwrap();
 
     // Start a SAS verification (no confirm yet).
-    let challenge = manager.begin_sas_verification(&alice, &phone, "000000").unwrap();
+    let challenge = manager
+        .begin_sas_verification(&alice, &phone, "000000")
+        .unwrap();
     let reset = CrossSigningResetContent {
         principal_id: alice.clone(),
         trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
@@ -391,7 +534,11 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
     manager.record_cross_signing_reset(&reset).unwrap();
 
     // In-flight transaction MUST have been cancelled.
-    assert!(manager.confirm_verification_flow(&challenge.transaction_id, "000000", None).is_err());
+    assert!(
+        manager
+            .confirm_verification_flow(&challenge.transaction_id, "000000", None)
+            .is_err()
+    );
     let dev = manager.device(&alice, &phone).unwrap();
     assert!(matches!(
         dev.verification,
@@ -408,7 +555,12 @@ fn devices_revoke_and_fail_closed() {
     manager.upsert_device(
         alice.clone(),
         device_id.clone(),
-        DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        DeviceMetadata {
+            name: None,
+            model: None,
+            os: None,
+            last_seen_at: None,
+        },
     );
 
     assert!(!manager.is_device_revoked(&alice, &device_id));

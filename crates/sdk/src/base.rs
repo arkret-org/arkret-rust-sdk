@@ -8,7 +8,8 @@
 //! - Event processing and state resolution
 //! - Read markers and notifications
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 // `parking_lot::RwLock` has no lock-poisoning, so a panic while holding a
@@ -18,17 +19,15 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{
-    Result,
-    cursor::{SyncPositions, SyncTracker},
-    media::{Attachment, MediaMetadata, MemoryBlobStore},
-    model::{BlobRef, DeviceId, Did, Event, RealmId},
-    presence::Presence,
-    profile::UserProfile,
-    resolver::RealmState,
-    settings::ClientSettings,
-    sync::PresenceStatus,
-};
+use crate::Result;
+use crate::cursor::{SyncPositions, SyncTracker};
+use crate::media::{Attachment, MediaMetadata, MemoryBlobStore};
+use crate::model::{BlobRef, DeviceId, Did, Event, RealmId};
+use crate::presence::Presence;
+use crate::profile::UserProfile;
+use crate::resolver::RealmState;
+use crate::settings::ClientSettings;
+use crate::sync::PresenceStatus;
 
 /// Session metadata for the authenticated user.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,12 +45,21 @@ pub struct SessionMeta {
 impl SessionMeta {
     /// Create new session metadata.
     pub fn new(user_id: Did, device_id: DeviceId) -> Self {
-        Self { user_id, device_id, access_token: None, expires_at: None }
+        Self {
+            user_id,
+            device_id,
+            access_token: None,
+            expires_at: None,
+        }
     }
 
     /// Check if the session is expired.
     pub fn is_expired(&self) -> bool {
-        if let Some(expires_at) = self.expires_at { Utc::now() > expires_at } else { false }
+        if let Some(expires_at) = self.expires_at {
+            Utc::now() > expires_at
+        } else {
+            false
+        }
     }
 }
 
@@ -170,10 +178,21 @@ impl BootstrapSequence {
             BootstrapStepKind::EnterCursorSubscription,
         ]
         .into_iter()
-        .map(|kind| BootstrapStep { kind, status: BootstrapStepStatus::Pending, updated_at: now })
+        .map(|kind| BootstrapStep {
+            kind,
+            status: BootstrapStepStatus::Pending,
+            updated_at: now,
+        })
         .collect();
 
-        Self { principal_id, device_id, realm_id, service_id: None, steps, sync_token: None }
+        Self {
+            principal_id,
+            device_id,
+            realm_id,
+            service_id: None,
+            steps,
+            sync_token: None,
+        }
     }
 
     /// Mark a step as running.
@@ -196,7 +215,9 @@ impl BootstrapSequence {
 
     /// True once every step is complete.
     pub fn is_complete(&self) -> bool {
-        self.steps.iter().all(|step| step.status == BootstrapStepStatus::Complete)
+        self.steps
+            .iter()
+            .all(|step| step.status == BootstrapStepStatus::Complete)
     }
 
     fn update_step(&mut self, kind: BootstrapStepKind, status: BootstrapStepStatus) -> Result<()> {
@@ -270,7 +291,12 @@ impl BaseClient {
         access_token: Option<String>,
         expires_at: Option<DateTime<Utc>>,
     ) -> Result<SessionMeta> {
-        let meta = SessionMeta { user_id, device_id, access_token, expires_at };
+        let meta = SessionMeta {
+            user_id,
+            device_id,
+            access_token,
+            expires_at,
+        };
         self.set_session_meta(meta.clone())?;
         Ok(meta)
     }
@@ -278,7 +304,9 @@ impl BaseClient {
     /// Restore a previously persisted local session.
     pub fn restore_session(&self, restore: SessionRestore) -> Result<()> {
         if restore.session.is_expired() {
-            return Err(crate::Error::Protocol("cannot restore expired session".to_owned()));
+            return Err(crate::Error::Protocol(
+                "cannot restore expired session".to_owned(),
+            ));
         }
 
         self.set_session_meta(restore.session)?;
@@ -290,7 +318,10 @@ impl BaseClient {
 
     /// Capture the current local session restore payload.
     pub fn session_restore(&self) -> Option<SessionRestore> {
-        self.session_meta().map(|session| SessionRestore { session, sync_token: self.sync_token() })
+        self.session_meta().map(|session| SessionRestore {
+            session,
+            sync_token: self.sync_token(),
+        })
     }
 
     /// Return the authenticated session or fail when the client is logged out.
@@ -334,7 +365,10 @@ impl BaseClient {
 
     /// Set the default sync token.
     pub fn set_sync_token(&self, token: impl Into<String>) {
-        self.sync_tracker.write().sync_tokens.insert("default".to_owned(), token.into());
+        self.sync_tracker
+            .write()
+            .sync_tokens
+            .insert("default".to_owned(), token.into());
     }
 
     /// Get the current cursor for resuming sync.
@@ -360,13 +394,20 @@ impl BaseClient {
         service_key: impl Into<String>,
         token: impl Into<String>,
     ) -> Result<()> {
-        self.sync_tracker.write().sync_tokens.insert(service_key.into(), token.into());
+        self.sync_tracker
+            .write()
+            .sync_tokens
+            .insert(service_key.into(), token.into());
         Ok(())
     }
 
     /// Get a sync token by service key.
     pub fn sync_token_for(&self, service_key: &str) -> Option<String> {
-        self.sync_tracker.read().sync_tokens.get(service_key).cloned()
+        self.sync_tracker
+            .read()
+            .sync_tokens
+            .get(service_key)
+            .cloned()
     }
 
     /// Get a Realm by ID.
@@ -378,35 +419,49 @@ impl BaseClient {
     /// Get all joined realms.
     pub fn joined_realms(&self) -> Vec<ClientRealm> {
         let realms = self.realms.read();
-        realms.values().filter(|s| s.state == RealmMembershipState::Joined).cloned().collect()
+        realms
+            .values()
+            .filter(|s| s.state == RealmMembershipState::Joined)
+            .cloned()
+            .collect()
     }
 
     /// Get all invited realms.
     pub fn invited_realms(&self) -> Vec<ClientRealm> {
         let realms = self.realms.read();
-        realms.values().filter(|s| s.state == RealmMembershipState::Invited).cloned().collect()
+        realms
+            .values()
+            .filter(|s| s.state == RealmMembershipState::Invited)
+            .cloned()
+            .collect()
     }
 
     /// Get all left realms.
     pub fn left_realms(&self) -> Vec<ClientRealm> {
         let realms = self.realms.read();
-        realms.values().filter(|s| s.state == RealmMembershipState::Left).cloned().collect()
+        realms
+            .values()
+            .filter(|s| s.state == RealmMembershipState::Left)
+            .cloned()
+            .collect()
     }
 
     /// Process events and update Realm states.
     pub fn process_events(&self, realm_id: &RealmId, events: Vec<Event>) -> Result<()> {
         let mut realms = self.realms.write();
-        let client_realm = realms.entry(realm_id.as_str().to_owned()).or_insert_with(|| {
-            let realm_state = RealmState::new(realm_id.clone());
-            ClientRealm {
-                realm_id: realm_id.clone(),
-                state: RealmMembershipState::Joined,
-                realm_state,
-                read_marker: None,
-                notification_count: 0,
-                highlight_count: 0,
-            }
-        });
+        let client_realm = realms
+            .entry(realm_id.as_str().to_owned())
+            .or_insert_with(|| {
+                let realm_state = RealmState::new(realm_id.clone());
+                ClientRealm {
+                    realm_id: realm_id.clone(),
+                    state: RealmMembershipState::Joined,
+                    realm_state,
+                    read_marker: None,
+                    notification_count: 0,
+                    highlight_count: 0,
+                }
+            });
 
         client_realm.realm_state.apply_events(&events)?;
 
@@ -420,17 +475,19 @@ impl BaseClient {
         state: RealmMembershipState,
     ) -> Result<()> {
         let mut realms = self.realms.write();
-        let client_realm = realms.entry(realm_id.as_str().to_owned()).or_insert_with(|| {
-            let realm_state = RealmState::new(realm_id.clone());
-            ClientRealm {
-                realm_id: realm_id.clone(),
-                state,
-                realm_state,
-                read_marker: None,
-                notification_count: 0,
-                highlight_count: 0,
-            }
-        });
+        let client_realm = realms
+            .entry(realm_id.as_str().to_owned())
+            .or_insert_with(|| {
+                let realm_state = RealmState::new(realm_id.clone());
+                ClientRealm {
+                    realm_id: realm_id.clone(),
+                    state,
+                    realm_state,
+                    read_marker: None,
+                    notification_count: 0,
+                    highlight_count: 0,
+                }
+            });
         client_realm.state = state;
         Ok(())
     }
@@ -462,7 +519,9 @@ impl BaseClient {
     /// Get the read marker for a Realm.
     pub fn read_marker(&self, realm_id: &RealmId) -> Option<String> {
         let realms = self.realms.read();
-        realms.get(realm_id.as_str()).and_then(|s| s.read_marker.clone())
+        realms
+            .get(realm_id.as_str())
+            .and_then(|s| s.read_marker.clone())
     }
 
     /// Get a cached profile.
@@ -497,7 +556,9 @@ impl BaseClient {
         let current = self.profile(&session.user_id);
         self.update_my_profile(
             Some(display_name.into()),
-            current.as_ref().and_then(|profile| profile.avatar_url.clone()),
+            current
+                .as_ref()
+                .and_then(|profile| profile.avatar_url.clone()),
             current.and_then(|profile| profile.bio),
         )
     }
@@ -521,7 +582,9 @@ impl BaseClient {
             active_device: None,
             status_msg,
         };
-        self.presence.write().insert(user_id.as_str().to_owned(), presence.clone());
+        self.presence
+            .write()
+            .insert(user_id.as_str().to_owned(), presence.clone());
         Ok(presence)
     }
 
@@ -569,7 +632,9 @@ impl BaseClient {
 
     /// Replace cached settings for a user.
     pub fn update_settings(&self, settings: ClientSettings) -> Result<()> {
-        self.settings.write().insert(settings.user_id.as_str().to_owned(), settings);
+        self.settings
+            .write()
+            .insert(settings.user_id.as_str().to_owned(), settings);
         Ok(())
     }
 
@@ -581,7 +646,9 @@ impl BaseClient {
         filename: Option<String>,
     ) -> Result<MediaMetadata> {
         let session = self.whoami()?;
-        self.media.write().upload(bytes, media_type, filename, session.user_id)
+        self.media
+            .write()
+            .upload(bytes, media_type, filename, session.user_id)
     }
 
     /// Download media bytes from the local in-memory media store.
@@ -598,7 +665,9 @@ impl BaseClient {
         bytes: impl AsRef<[u8]>,
     ) -> Result<Attachment> {
         let session = self.whoami()?;
-        self.media.write().upload_attachment(id, filename, media_type, bytes, session.user_id)
+        self.media
+            .write()
+            .upload_attachment(id, filename, media_type, bytes, session.user_id)
     }
 
     /// Upload an encrypted attachment into the local in-memory media store.
@@ -744,13 +813,18 @@ mod tests {
         };
 
         client.save_sync_positions(positions).unwrap();
-        client.bind_sync_token("did:web:sync.example", "sync-token").unwrap();
+        client
+            .bind_sync_token("did:web:sync.example", "sync-token")
+            .unwrap();
 
         assert_eq!(client.sync_positions().realms.len(), 1);
         let current_cursor = client.current_cursor().unwrap();
         assert!(current_cursor.h.is_some());
         assert!(current_cursor.s.is_empty());
-        assert_eq!(client.sync_token_for("did:web:sync.example"), Some("sync-token".to_owned()));
+        assert_eq!(
+            client.sync_token_for("did:web:sync.example"),
+            Some("sync-token".to_owned())
+        );
     }
 
     #[test]
@@ -762,7 +836,10 @@ mod tests {
         assert_eq!(sequence.next_pending(), Some(BootstrapStepKind::Resolve));
         sequence.mark_running(BootstrapStepKind::Resolve).unwrap();
         sequence.mark_complete(BootstrapStepKind::Resolve).unwrap();
-        assert_eq!(sequence.next_pending(), Some(BootstrapStepKind::DiscoverServices));
+        assert_eq!(
+            sequence.next_pending(),
+            Some(BootstrapStepKind::DiscoverServices)
+        );
 
         for kind in [
             BootstrapStepKind::DiscoverServices,
@@ -795,12 +872,18 @@ mod tests {
         assert_eq!(profile.display_name, Some("Alice".to_owned()));
         assert_eq!(client.profile(&alice).unwrap().version, 1);
 
-        let presence =
-            client.set_my_presence(PresenceStatus::Online, Some("available".to_owned())).unwrap();
+        let presence = client
+            .set_my_presence(PresenceStatus::Online, Some("available".to_owned()))
+            .unwrap();
         assert_eq!(presence.status, PresenceStatus::Online);
-        assert_eq!(client.presence(&alice).unwrap().status_msg, Some("available".to_owned()));
+        assert_eq!(
+            client.presence(&alice).unwrap().status_msg,
+            Some("available".to_owned())
+        );
 
-        client.set_account_data("theme", serde_json::json!({"value": "dark"})).unwrap();
+        client
+            .set_account_data("theme", serde_json::json!({"value": "dark"}))
+            .unwrap();
         assert_eq!(client.account_data("theme").unwrap()["value"], "dark");
 
         let mut settings = client.my_settings().unwrap();
@@ -808,14 +891,18 @@ mod tests {
         client.update_settings(settings).unwrap();
         assert_eq!(client.my_settings().unwrap().language, "zh-CN");
 
-        let metadata =
-            client.upload_media(b"hello", "text/plain", Some("hello.txt".to_owned())).unwrap();
+        let metadata = client
+            .upload_media(b"hello", "text/plain", Some("hello.txt".to_owned()))
+            .unwrap();
         assert_eq!(client.download_media(&metadata.blob_ref).unwrap(), b"hello");
 
         client
             .upload_encrypted_attachment("a1", "secret.txt", "text/plain", b"secret", b"key")
             .unwrap();
-        assert_eq!(client.download_decrypted_attachment("a1", b"key").unwrap(), b"secret");
+        assert_eq!(
+            client.download_decrypted_attachment("a1", b"key").unwrap(),
+            b"secret"
+        );
     }
 
     #[test]
@@ -823,7 +910,9 @@ mod tests {
         let client = BaseClient::new();
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
 
-        client.update_realm_membership_state(&realm_id, RealmMembershipState::Joined).unwrap();
+        client
+            .update_realm_membership_state(&realm_id, RealmMembershipState::Joined)
+            .unwrap();
 
         let realm = client.get_realm(&realm_id);
         assert!(realm.is_some());
@@ -837,9 +926,15 @@ mod tests {
         let realm2 = RealmId::new("ck:realm:01904100-0000-7000-8000-f949e0272316").unwrap();
         let realm3 = RealmId::new("ck:realm:01904100-0000-7000-8000-46f8537dc94e").unwrap();
 
-        client.update_realm_membership_state(&realm1, RealmMembershipState::Joined).unwrap();
-        client.update_realm_membership_state(&realm2, RealmMembershipState::Left).unwrap();
-        client.update_realm_membership_state(&realm3, RealmMembershipState::Invited).unwrap();
+        client
+            .update_realm_membership_state(&realm1, RealmMembershipState::Joined)
+            .unwrap();
+        client
+            .update_realm_membership_state(&realm2, RealmMembershipState::Left)
+            .unwrap();
+        client
+            .update_realm_membership_state(&realm3, RealmMembershipState::Invited)
+            .unwrap();
 
         let joined = client.joined_realms();
         assert_eq!(joined.len(), 1);

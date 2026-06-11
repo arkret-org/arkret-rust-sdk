@@ -12,7 +12,9 @@ use super::event_kinds::{EVENT_KIND_COUNT, EventKind};
 use crate::schema::default_spec_artifacts_dir;
 
 fn registry_active_kinds() -> Option<Vec<String>> {
-    let path = default_spec_artifacts_dir()?.join("registry").join("event-kind-registry.json");
+    let path = default_spec_artifacts_dir()?
+        .join("registry")
+        .join("event-kind-registry.json");
     if !path.exists() {
         return None;
     }
@@ -24,7 +26,11 @@ fn registry_active_kinds() -> Option<Vec<String>> {
     let kinds = entries
         .iter()
         .filter(|e| e.get("status").and_then(Value::as_str) == Some("active"))
-        .filter_map(|e| e.get("event_kind").and_then(Value::as_str).map(str::to_owned))
+        .filter_map(|e| {
+            e.get("event_kind")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
         .collect();
     Some(kinds)
 }

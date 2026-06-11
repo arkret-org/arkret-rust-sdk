@@ -11,7 +11,11 @@ pub enum SendQueueItemKind {
     /// Redaction targeting an existing event.
     Redaction { target_event_id: EventId },
     /// Reaction add/remove targeting an existing event.
-    Reaction { target_event_id: EventId, reaction_key: String, add: bool },
+    Reaction {
+        target_event_id: EventId,
+        reaction_key: String,
+        add: bool,
+    },
     /// Custom event kind.
     Custom { kind: String },
 }
@@ -126,7 +130,10 @@ impl SendQueue {
 
     /// Restore a queue from a serialized snapshot.
     pub fn from_snapshot(snapshot: SendQueueSnapshot) -> Result<Self> {
-        let mut queue = Self { next_sequence: snapshot.next_sequence, ..Self::default() };
+        let mut queue = Self {
+            next_sequence: snapshot.next_sequence,
+            ..Self::default()
+        };
         for item in snapshot.items {
             if queue.items.contains_key(&item.transaction_id) {
                 return Err(Error::IdempotencyConflict(item.transaction_id));
@@ -166,7 +173,13 @@ impl SendQueue {
         realm_id: RealmId,
         content: Value,
     ) -> Result<SendQueueItem> {
-        self.enqueue(transaction_id, realm_id, SendQueueItemKind::Message, content, Vec::new())
+        self.enqueue(
+            transaction_id,
+            realm_id,
+            SendQueueItemKind::Message,
+            content,
+            Vec::new(),
+        )
     }
 
     /// Enqueue a message edit.
@@ -196,8 +209,9 @@ impl SendQueue {
         reason: Option<String>,
         depends_on: Vec<String>,
     ) -> Result<SendQueueItem> {
-        let content =
-            reason.map(|reason| serde_json::json!({ "reason": reason })).unwrap_or(Value::Null);
+        let content = reason
+            .map(|reason| serde_json::json!({ "reason": reason }))
+            .unwrap_or(Value::Null);
         self.enqueue(
             transaction_id,
             realm_id,
@@ -220,7 +234,11 @@ impl SendQueue {
         self.enqueue(
             transaction_id,
             realm_id,
-            SendQueueItemKind::Reaction { target_event_id, reaction_key, add },
+            SendQueueItemKind::Reaction {
+                target_event_id,
+                reaction_key,
+                add,
+            },
             Value::Null,
             depends_on,
         )
@@ -337,7 +355,9 @@ impl SendQueue {
                 .items
                 .values()
                 .filter(|item| {
-                    item.depends_on.iter().any(|dependency| dependency == transaction_id)
+                    item.depends_on
+                        .iter()
+                        .any(|dependency| dependency == transaction_id)
                 })
                 .map(|item| item.transaction_id.clone())
                 .collect();
@@ -349,10 +369,17 @@ impl SendQueue {
     }
 
     fn is_ready(&self, item: &SendQueueItem, now: DateTime<Utc>) -> bool {
-        if !matches!(item.status, SendQueueStatus::Queued | SendQueueStatus::Failed) {
+        if !matches!(
+            item.status,
+            SendQueueStatus::Queued | SendQueueStatus::Failed
+        ) {
             return false;
         }
-        if item.next_retry_at.map(|retry_at| retry_at > now).unwrap_or(false) {
+        if item
+            .next_retry_at
+            .map(|retry_at| retry_at > now)
+            .unwrap_or(false)
+        {
             return false;
         }
         item.depends_on.iter().all(|dependency| {
@@ -365,7 +392,10 @@ impl SendQueue {
 
     fn item_mut(&mut self, transaction_id: &str) -> Result<&mut SendQueueItem> {
         self.items.get_mut(transaction_id).ok_or_else(|| {
-            Error::Protocol(format!("send queue transaction not found: {}", transaction_id))
+            Error::Protocol(format!(
+                "send queue transaction not found: {}",
+                transaction_id
+            ))
         })
     }
 

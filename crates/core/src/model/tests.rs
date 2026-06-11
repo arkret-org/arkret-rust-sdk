@@ -1,5 +1,6 @@
-use super::*;
 use serde_json::json;
+
+use super::*;
 
 fn test_realm_id() -> RealmId {
     RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
@@ -169,9 +170,15 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
         proofs: vec![proof.clone()],
     };
     let mut different_proof = envelope.clone();
-    different_proof.proofs = vec![Proof { jws: "sig-b".to_owned(), ..proof }];
+    different_proof.proofs = vec![Proof {
+        jws: "sig-b".to_owned(),
+        ..proof
+    }];
 
-    assert_eq!(envelope.operation_digest().unwrap(), different_proof.operation_digest().unwrap());
+    assert_eq!(
+        envelope.operation_digest().unwrap(),
+        different_proof.operation_digest().unwrap()
+    );
     envelope.validate_for_submit().unwrap();
 
     let encoded = serde_json::to_value(&envelope).unwrap();
@@ -287,7 +294,10 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
 
     assert!(builder.clone().build(&registry).is_err());
     let envelope = builder
-        .with_content_field("flow_id", json!("ck:flow:01904100-0000-7000-8000-6c663fa0205f"))
+        .with_content_field(
+            "flow_id",
+            json!("ck:flow:01904100-0000-7000-8000-6c663fa0205f"),
+        )
         .with_content_field("track_name", json!("discussion"))
         .build(&registry)
         .unwrap();
@@ -340,7 +350,9 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
         )
         .unwrap();
     assert!(
-        registry.validate_value(ACCOUNT_SUBSCRIBE_FRAME_SCHEMA, &json!({"realms": {}})).is_err()
+        registry
+            .validate_value(ACCOUNT_SUBSCRIBE_FRAME_SCHEMA, &json!({"realms": {}}))
+            .is_err()
     );
     registry
         .validate_value(
@@ -359,7 +371,10 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
         .unwrap();
     assert!(
         registry
-            .validate_value(ACCOUNT_SUBSCRIBE_FRAME_SCHEMA, &json!({"kind": 1, "realms": {}}))
+            .validate_value(
+                ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
+                &json!({"kind": 1, "realms": {}})
+            )
             .is_err()
     );
 
@@ -444,7 +459,11 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
     });
     assert!(validator.validate(&sensitive_extension).is_err());
     registry.trust_extension_prefix("x-policy-critical");
-    registry.generated_validator(EVENT_SCHEMA).unwrap().validate(&sensitive_extension).unwrap();
+    registry
+        .generated_validator(EVENT_SCHEMA)
+        .unwrap()
+        .validate(&sensitive_extension)
+        .unwrap();
 
     registry.register(
         "ck.schema.strict.v1",
@@ -502,7 +521,9 @@ fn schema_registry_fails_closed_for_unknown_security_extensions() {
         "proofs": [],
         "x-ui-hint": {"preserved": true}
     });
-    registry.validate_value(EVENT_SCHEMA, &ordinary_extension).unwrap();
+    registry
+        .validate_value(EVENT_SCHEMA, &ordinary_extension)
+        .unwrap();
 }
 
 #[test]
@@ -521,7 +542,11 @@ fn profile_conformance_suites_cover_required_domains() {
         ConformanceProfile::Privacy,
         ConformanceProfile::Security,
     ] {
-        assert!(suites.iter().any(|suite| suite.profile == profile && !suite.cases.is_empty()));
+        assert!(
+            suites
+                .iter()
+                .any(|suite| suite.profile == profile && !suite.cases.is_empty())
+        );
     }
 }
 
@@ -529,7 +554,10 @@ fn profile_conformance_suites_cover_required_domains() {
 fn builtin_conformance_report_is_machine_readable_and_covers_profiles() {
     let report = run_builtin_conformance_report();
 
-    assert_eq!(report.fixture_version, BUILT_IN_CONFORMANCE_FIXTURES_VERSION);
+    assert_eq!(
+        report.fixture_version,
+        BUILT_IN_CONFORMANCE_FIXTURES_VERSION
+    );
     assert!(report.passed);
     for profile in [
         ConformanceProfile::Encoding,
@@ -544,7 +572,11 @@ fn builtin_conformance_report_is_machine_readable_and_covers_profiles() {
         ConformanceProfile::Privacy,
         ConformanceProfile::Security,
     ] {
-        let coverage = report.coverage.iter().find(|coverage| coverage.profile == profile).unwrap();
+        let coverage = report
+            .coverage
+            .iter()
+            .find(|coverage| coverage.profile == profile)
+            .unwrap();
         assert!(coverage.cases_total > 0);
         assert_eq!(coverage.cases_total, coverage.cases_passed);
     }
@@ -561,7 +593,10 @@ fn conformance_fixture_set_loads_and_reports_external_json() {
     let report = fixtures.run();
 
     assert!(report.passed);
-    assert_eq!(report.fixture_version, BUILT_IN_CONFORMANCE_FIXTURES_VERSION);
+    assert_eq!(
+        report.fixture_version,
+        BUILT_IN_CONFORMANCE_FIXTURES_VERSION
+    );
 
     let empty = serde_json::from_value::<ConformanceFixtureSet>(json!({
         "fixture_version": "",
@@ -799,7 +834,10 @@ fn facets_accept_name_lists_and_config_maps() {
     }))
     .unwrap();
     assert!(configs.contains(&Facet::Rankable));
-    assert_eq!(serde_json::to_value(configs).unwrap()["renderable"]["renderers"][0], "card");
+    assert_eq!(
+        serde_json::to_value(configs).unwrap()["renderable"]["renderers"][0],
+        "card"
+    );
 }
 
 #[test]
@@ -847,7 +885,10 @@ fn view_supports_renderer_and_facet_config_facades() {
 
     let value = serde_json::to_value(view).unwrap();
     assert_eq!(value["renderer"], "board");
-    assert_eq!(value["collection"]["item_facets"], json!(["stateful", "rankable"]));
+    assert_eq!(
+        value["collection"]["item_facets"],
+        json!(["stateful", "rankable"])
+    );
 }
 
 #[test]
@@ -864,7 +905,10 @@ fn operation_serializes_protocol_field_names() {
 
     assert_eq!(value["type"], "operation");
     assert_eq!(value["operation_type"], "create");
-    assert_eq!(value["object_id"], "ck:morph:01904100-0000-7000-8000-c12dc98b2948");
+    assert_eq!(
+        value["object_id"],
+        "ck:morph:01904100-0000-7000-8000-c12dc98b2948"
+    );
     assert_eq!(value["object_type"], "morph");
     assert!(value.get("target_object_id").is_none());
     assert_eq!(value["schema"], OPERATION_SCHEMA);
@@ -934,7 +978,10 @@ fn proof_validate_production_rejects_dev_kinds() {
     for kind in &["dev", "test", "mock", "stub", "dummy"] {
         let mut proof = valid_proof();
         proof.kind = kind.to_string();
-        assert!(proof.validate_production().is_err(), "should reject kind: {kind}");
+        assert!(
+            proof.validate_production().is_err(),
+            "should reject kind: {kind}"
+        );
     }
 }
 
@@ -956,7 +1003,10 @@ fn proof_validate_production_accepts_known_algorithms() {
     for alg in &["EdDSA", "ES256", "ML-DSA-65"] {
         let mut proof = valid_proof();
         proof.alg = alg.to_string();
-        assert!(proof.validate_production().is_ok(), "should accept algorithm: {alg}");
+        assert!(
+            proof.validate_production().is_ok(),
+            "should accept algorithm: {alg}"
+        );
     }
 }
 
@@ -1098,22 +1148,37 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     .unwrap();
     let base_digest = event.event_digest().unwrap();
 
-    event.requirements.schema_profile_refs.push("ck.schema.core_event.v1".to_owned());
+    event
+        .requirements
+        .schema_profile_refs
+        .push("ck.schema.core_event.v1".to_owned());
     event.requirements.reducer_profile_ref = Some("ck.reducer.core_event.v1".to_owned());
-    event.requirements.required_features.push("ck.feature.event_extensions.v1".to_owned());
-    event.requirements.critical_extensions.push(CriticalExtension {
-        id: "ck.feature.policy_gate.v1".to_owned(),
-        scope: "authz".to_owned(),
-        schema_ref: Some("ck.schema.policy.v1".to_owned()),
-        fail_closed: true,
-    });
+    event
+        .requirements
+        .required_features
+        .push("ck.feature.event_extensions.v1".to_owned());
+    event
+        .requirements
+        .critical_extensions
+        .push(CriticalExtension {
+            id: "ck.feature.policy_gate.v1".to_owned(),
+            scope: "authz".to_owned(),
+            schema_ref: Some("ck.schema.policy.v1".to_owned()),
+            fail_closed: true,
+        });
 
     assert_ne!(base_digest, event.event_digest().unwrap());
     let value = serde_json::to_value(&event).unwrap();
     assert!(value.get("schema_profile_refs").is_none());
-    assert_eq!(value["requirements"]["schema"][0], "ck.schema.core_event.v1");
+    assert_eq!(
+        value["requirements"]["schema"][0],
+        "ck.schema.core_event.v1"
+    );
     assert_eq!(value["requirements"]["reducer"], "ck.reducer.core_event.v1");
-    assert_eq!(value["requirements"]["features"][0], "ck.feature.event_extensions.v1");
+    assert_eq!(
+        value["requirements"]["features"][0],
+        "ck.feature.event_extensions.v1"
+    );
 
     event.requirements.critical_extensions[0].fail_closed = false;
     assert!(event.validate_for_submit().is_err());
@@ -1137,7 +1202,9 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
     .build(&OperationKindRegistry::default())
     .unwrap();
 
-    let event = operation.into_event_envelope(OperationEventConversion::default()).unwrap();
+    let event = operation
+        .into_event_envelope(OperationEventConversion::default())
+        .unwrap();
     assert_eq!(event.kind, OP_MESSAGE_CREATE);
     assert_eq!(event.actor_seq, 7);
     assert_eq!(
@@ -1152,7 +1219,13 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
         event.unsigned["local_operation_idempotency_alias"],
         json!("ck:operation:01904100-0000-7000-8000-9c5aa474063f")
     );
-    assert!(!event.digest_payload().unwrap().to_string().contains("local_operation_id"));
+    assert!(
+        !event
+            .digest_payload()
+            .unwrap()
+            .to_string()
+            .contains("local_operation_id")
+    );
 }
 
 #[test]
@@ -1183,7 +1256,12 @@ fn flow_constructor_sets_protocol_shape() {
     );
 
     assert_eq!(subject.schema, FLOW_SCHEMA);
-    assert!(serde_json::to_value(&subject).unwrap().get("type").is_none());
+    assert!(
+        serde_json::to_value(&subject)
+            .unwrap()
+            .get("type")
+            .is_none()
+    );
     assert!(subject.tracks.contains_key("synthesis"));
     assert_eq!(subject.state, Some(ObjectState::Active));
     subject.validate_title().unwrap();
@@ -1204,17 +1282,26 @@ fn flow_discussion_constructor_sets_room_shape() {
     assert!(flow.is_conversational());
     assert_eq!(flow.tracks.len(), 2, "synthesis + discussion expected");
 
-    let synthesis = flow.tracks.get("synthesis").expect("synthesis track present");
+    let synthesis = flow
+        .tracks
+        .get("synthesis")
+        .expect("synthesis track present");
     assert!(synthesis.is_primary != Some(true));
 
-    let discussion = flow.tracks.get("discussion").expect("discussion track present");
+    let discussion = flow
+        .tracks
+        .get("discussion")
+        .expect("discussion track present");
     assert_eq!(discussion.is_primary, Some(true));
     assert_eq!(discussion.profile.as_deref(), Some("discussion"));
 }
 
 #[test]
 fn read_scope_flow_track_uses_explicit_track_field() {
-    let scope = ReadScope::flow("ck:flow:01904100-0000-7000-8000-58754cf88c25", Some("discussion"));
+    let scope = ReadScope::flow(
+        "ck:flow:01904100-0000-7000-8000-58754cf88c25",
+        Some("discussion"),
+    );
     scope.validate().unwrap();
 
     let value = serde_json::to_value(&scope).unwrap();
@@ -1299,14 +1386,24 @@ fn realm_anchor_fields_default_none_and_builders_apply() {
             ],
         })
         .with_max_anchor_staleness(60_000)
-        .with_cell_lattice("ck.component.flow.track.v1", "or_set", Some("reject".to_owned()))
+        .with_cell_lattice(
+            "ck.component.flow.track.v1",
+            "or_set",
+            Some("reject".to_owned()),
+        )
         .with_co_write_policy(CoWritePolicy::CausalOnly);
 
     assert_eq!(realm.anchor_profile, Some(AnchorProfile::Threshold));
-    assert!(matches!(realm.anchorer, Some(AnchorerValue::Threshold { k: 2, n: 3, .. })));
+    assert!(matches!(
+        realm.anchorer,
+        Some(AnchorerValue::Threshold { k: 2, n: 3, .. })
+    ));
     assert_eq!(realm.max_anchor_staleness_ms, Some(60_000));
     assert_eq!(realm.cell_lattices.len(), 1);
-    assert_eq!(realm.cell_lattices[0].cell_family, "ck.component.flow.track.v1");
+    assert_eq!(
+        realm.cell_lattices[0].cell_family,
+        "ck.component.flow.track.v1"
+    );
     assert_eq!(realm.cell_lattices[0].lattice, "or_set");
     assert_eq!(realm.cell_lattices[0].bottom.as_deref(), Some("reject"));
     assert_eq!(realm.co_write_policy, Some(CoWritePolicy::CausalOnly));
@@ -1316,11 +1413,17 @@ fn realm_anchor_fields_default_none_and_builders_apply() {
     assert_eq!(json["anchor_profile"], "threshold");
     assert_eq!(json["max_anchor_staleness_ms"], 60_000);
     assert_eq!(json["co_write_policy"], "causal_only");
-    assert_eq!(json["cell_lattices"][0]["cell_family"], "ck.component.flow.track.v1");
+    assert_eq!(
+        json["cell_lattices"][0]["cell_family"],
+        "ck.component.flow.track.v1"
+    );
 
     let restored: Realm = serde_json::from_value(json).unwrap();
     assert_eq!(restored.anchor_profile, realm.anchor_profile);
-    assert_eq!(restored.max_anchor_staleness_ms, realm.max_anchor_staleness_ms);
+    assert_eq!(
+        restored.max_anchor_staleness_ms,
+        realm.max_anchor_staleness_ms
+    );
     assert_eq!(restored.co_write_policy, realm.co_write_policy);
 }
 
@@ -1383,11 +1486,17 @@ fn collection_projection_response_serde_round_trip() {
         serde_json::from_value(payload.clone()).expect("deserialize");
     assert!(matches!(resp.kind, ViewKind::Collection));
     assert!(matches!(resp.renderer, ViewRenderer::Board));
-    assert_eq!(resp.view_id.as_str(), "ck:view:019641be-0000-7000-8000-000000000000");
+    assert_eq!(
+        resp.view_id.as_str(),
+        "ck:view:019641be-0000-7000-8000-000000000000"
+    );
     assert_eq!(resp.frontier.len(), 1);
     assert_eq!(resp.groups.len(), 1);
     let group = &resp.groups[0];
-    assert_eq!(group.group_id, "ck:space:01c3b617-7000-7000-8000-000000000000");
+    assert_eq!(
+        group.group_id,
+        "ck:space:01c3b617-7000-7000-8000-000000000000"
+    );
     assert_eq!(group.title, "Review");
     assert_eq!(group.rank.as_deref(), Some("mV"));
     assert_eq!(group.items.len(), 1);
@@ -1397,7 +1506,10 @@ fn collection_projection_response_serde_round_trip() {
         Some("ck:flow:01d2b330-0000-7000-8000-000000000000")
     );
     let position = item.position.as_ref().expect("position");
-    assert_eq!(position.relation_id, "ck:relation:01b03200-0000-7000-8000-000000000000");
+    assert_eq!(
+        position.relation_id,
+        "ck:relation:01b03200-0000-7000-8000-000000000000"
+    );
     assert_eq!(position.rank, "mV");
     let discussion = item.discussion.as_ref().expect("discussion");
     assert!(discussion.enabled);
@@ -1503,16 +1615,28 @@ fn top_level_keys(json: &str) -> Vec<String> {
 fn assert_field_order(object: &str, keys: &[String]) {
     let pos = |name: &str| keys.iter().position(|k| k == name);
     if let (Some(id), Some(schema)) = (pos("id"), pos("schema")) {
-        assert!(id < schema, "{object}: `id` MUST precede `schema` (§3.2 identity cluster)");
+        assert!(
+            id < schema,
+            "{object}: `id` MUST precede `schema` (§3.2 identity cluster)"
+        );
     }
     if let (Some(cb), Some(ca)) = (pos("created_by"), pos("created_at")) {
-        assert!(cb < ca, "{object}: `created_by` MUST precede `created_at` (§3.2)");
+        assert!(
+            cb < ca,
+            "{object}: `created_by` MUST precede `created_at` (§3.2)"
+        );
     }
     if let (Some(ub), Some(ua)) = (pos("updated_by"), pos("updated_at")) {
-        assert!(ub < ua, "{object}: `updated_by` MUST precede `updated_at` (§3.2)");
+        assert!(
+            ub < ua,
+            "{object}: `updated_by` MUST precede `updated_at` (§3.2)"
+        );
     }
     if let (Some(ca), Some(ua)) = (pos("created_at"), pos("updated_at")) {
-        assert!(ca < ua, "{object}: `created_at` MUST precede `updated_at` (§3.2)");
+        assert!(
+            ca < ua,
+            "{object}: `created_at` MUST precede `updated_at` (§3.2)"
+        );
     }
     if let (Some(s), Some(sca)) = (pos("state"), pos("state_changed_at")) {
         assert_eq!(
@@ -1605,7 +1729,10 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     flow.stage_changed_at = Some(now);
     flow.updated_by = Some(updated_by.clone());
     flow.updated_at = Some(now);
-    assert_field_order("Flow", &top_level_keys(&serde_json::to_string(&flow).unwrap()));
+    assert_field_order(
+        "Flow",
+        &top_level_keys(&serde_json::to_string(&flow).unwrap()),
+    );
 
     // Morph — scope/container cluster `scope_circle_id` precedes lifecycle `state`.
     let mut morph = Morph::new(

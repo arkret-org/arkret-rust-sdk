@@ -21,17 +21,15 @@
 //! Beyond step ordering the flow enforces the two cryptographic binding
 //! points of `device-lifecycle.md` §10.3:
 //!
-//! - **Commitment** — `accept.commitment` is a SHA-256 commitment over the
-//!   responder's ephemeral public key and the canonical `start` message
-//!   (see [`compute_key_commitment`]). When the responder's `key` envelope
-//!   arrives, [`KeyVerificationFlow::on_key`] recomputes the commitment
+//! - **Commitment** — `accept.commitment` is a SHA-256 commitment over the responder's ephemeral
+//!   public key and the canonical `start` message (see [`compute_key_commitment`]). When the
+//!   responder's `key` envelope arrives, [`KeyVerificationFlow::on_key`] recomputes the commitment
 //!   and cancels with `code=mismatched_commitment` on mismatch.
-//! - **MAC** — [`KeyVerificationFlow::on_mac`] verifies the sender's MAC
-//!   envelope against the full negotiated transcript (both parties,
-//!   transaction id, method, algorithm selection, both ephemeral keys and
-//!   the verified key ids/values) using an HKDF-derived MAC key, and
-//!   cancels with `code=mismatched_mac` on any mismatch. Producers build
-//!   matching envelopes with [`KeyVerificationFlow::build_mac`].
+//! - **MAC** — [`KeyVerificationFlow::on_mac`] verifies the sender's MAC envelope against the full
+//!   negotiated transcript (both parties, transaction id, method, algorithm selection, both
+//!   ephemeral keys and the verified key ids/values) using an HKDF-derived MAC key, and cancels
+//!   with `code=mismatched_mac` on any mismatch. Producers build matching envelopes with
+//!   [`KeyVerificationFlow::build_mac`].
 
 use std::collections::BTreeMap;
 
@@ -98,9 +96,11 @@ impl EphemeralX25519Keypair {
     /// suitable as the `shared_secret` argument to
     /// [`derive_sas_bytes`].
     pub fn compute_shared_secret(&self, peer_public_b64: &str) -> Result<[u8; 32]> {
-        let peer_bytes = STANDARD_NO_PAD.decode(peer_public_b64.as_bytes()).map_err(|err| {
-            Error::Protocol(format!("peer x25519 public key base64 decode: {err}"))
-        })?;
+        let peer_bytes = STANDARD_NO_PAD
+            .decode(peer_public_b64.as_bytes())
+            .map_err(|err| {
+                Error::Protocol(format!("peer x25519 public key base64 decode: {err}"))
+            })?;
         if peer_bytes.len() != 32 {
             return Err(Error::Protocol(format!(
                 "peer x25519 public key must be 32 bytes, got {}",
@@ -138,10 +138,10 @@ impl std::fmt::Debug for EphemeralX25519Keypair {
 //
 // Two outputs are supported (matches the Matrix SAS modes both clients
 // have to support):
-//   * **emoji** — 7 indices each into [`SAS_EMOJI_TABLE`] (64-entry
-//     table from the MSC2241 dictionary).
-//   * **decimal** — 3 digits in `[1000, 9999]`, one per side of the
-//     "compare these three numbers" UX.
+//   * **emoji** — 7 indices each into [`SAS_EMOJI_TABLE`] (64-entry table from the MSC2241
+//     dictionary).
+//   * **decimal** — 3 digits in `[1000, 9999]`, one per side of the "compare these three numbers"
+//     UX.
 //
 // The two SAS bytes are derived from the same HKDF expand so a single
 // call to [`derive_sas_bytes`] returns both at once.
@@ -293,7 +293,10 @@ pub fn derive_sas_bytes(shared_secret: &[u8], info: &[u8]) -> ShortAuthenticatio
         1000u16.saturating_add(d3 % 9000),
     ];
 
-    ShortAuthenticationString { emoji_indices, decimal_digits }
+    ShortAuthenticationString {
+        emoji_indices,
+        decimal_digits,
+    }
 }
 
 /// HMAC-SHA256 (RFC 2104) implemented inline against the SDK's
@@ -331,7 +334,10 @@ fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
 /// produced by iterating `T(i) = HMAC(prk, T(i-1) || info || i)`.
 fn hkdf_expand_sha256(prk: &[u8; 32], info: &[u8], output: &mut [u8]) {
     let n = output.len().div_ceil(32);
-    debug_assert!(n <= 255, "HKDF-Expand SHA-256 output limited to 255 * 32 bytes");
+    debug_assert!(
+        n <= 255,
+        "HKDF-Expand SHA-256 output limited to 255 * 32 bytes"
+    );
     let mut prev: [u8; 32] = [0u8; 32];
     let mut produced = 0usize;
     for i in 1..=n {
@@ -566,15 +572,16 @@ impl KeyVerificationFlow {
     /// callers SHOULD use this to fill `KeyVerificationKey.key` when
     /// sending the `key` envelope to the peer.
     pub fn ephemeral_public_base64(&self) -> Option<String> {
-        self.ephemeral.as_ref().map(EphemeralX25519Keypair::public_base64)
+        self.ephemeral
+            .as_ref()
+            .map(EphemeralX25519Keypair::public_base64)
     }
 
     /// Compute the SAS pair for this flow. Steps:
-    ///   1. Look up the peer's public key in `keys_exchanged` — the
-    ///      `self_device` argument is OUR `DeviceId`, so the peer's
-    ///      key is the only entry not keyed by `self_device`.
-    ///   2. Run X25519 between our ephemeral private + the peer's
-    ///      public to produce the 32-byte shared secret.
+    ///   1. Look up the peer's public key in `keys_exchanged` — the `self_device` argument is OUR
+    ///      `DeviceId`, so the peer's key is the only entry not keyed by `self_device`.
+    ///   2. Run X25519 between our ephemeral private + the peer's public to produce the 32-byte
+    ///      shared secret.
     ///   3. Feed `(shared_secret, info)` through `derive_sas_bytes`.
     ///
     /// `info` is the canonical SAS binding string both sides MUST
@@ -632,7 +639,10 @@ impl KeyVerificationFlow {
             || msg.message_authentication_codes.is_empty()
             || msg.short_authentication_string.is_empty()
         {
-            return self.fail("invalid_param", "start protocol/mac/SAS lists must not be empty");
+            return self.fail(
+                "invalid_param",
+                "start protocol/mac/SAS lists must not be empty",
+            );
         }
         self.transaction_id = Some(msg.transaction_id.clone());
         self.initiator = Some((msg.from_user.clone(), msg.from_device.clone()));
@@ -656,7 +666,10 @@ impl KeyVerificationFlow {
         if let Some((init_did, init_device)) = &self.initiator
             && (init_did, init_device) == (&msg.from_user, &msg.from_device)
         {
-            return self.fail("invalid_param", "accept must come from responder, not initiator");
+            return self.fail(
+                "invalid_param",
+                "accept must come from responder, not initiator",
+            );
         }
         self.responder = Some((msg.from_user.clone(), msg.from_device.clone()));
         self.accept = Some(msg.clone());
@@ -681,22 +694,36 @@ impl KeyVerificationFlow {
             return self.fail("invalid_param", "key.key must not be empty");
         }
         if !self.is_known_party(&msg.from_user, &msg.from_device) {
-            return self.fail("invalid_param", "key.from_user/device not part of this flow");
+            return self.fail(
+                "invalid_param",
+                "key.from_user/device not part of this flow",
+            );
         }
         if self.keys_exchanged.contains_key(&msg.from_device) {
-            return self.fail("invalid_transition", "key already received from this device");
+            return self.fail(
+                "invalid_transition",
+                "key already received from this device",
+            );
         }
         // §10.3: the responder committed to its ephemeral key in
         // `accept.commitment` before seeing the initiator's key. Now
         // that the key is revealed, recompute and compare.
-        let from_responder =
-            self.responder.as_ref().is_some_and(|(_, device)| device == &msg.from_device);
+        let from_responder = self
+            .responder
+            .as_ref()
+            .is_some_and(|(_, device)| device == &msg.from_device);
         if from_responder {
             let Some(start) = self.start.clone() else {
-                return self.fail("unexpected_message", "key received without a recorded start");
+                return self.fail(
+                    "unexpected_message",
+                    "key received without a recorded start",
+                );
             };
             let Some(expected) = self.accept.as_ref().map(|a| a.commitment.clone()) else {
-                return self.fail("unexpected_message", "key received without a recorded accept");
+                return self.fail(
+                    "unexpected_message",
+                    "key received without a recorded accept",
+                );
             };
             let computed = match compute_key_commitment(&msg.key, &start) {
                 Ok(commitment) => commitment,
@@ -714,7 +741,8 @@ impl KeyVerificationFlow {
                 );
             }
         }
-        self.keys_exchanged.insert(msg.from_device.clone(), msg.key.clone());
+        self.keys_exchanged
+            .insert(msg.from_device.clone(), msg.key.clone());
         self.state = next;
         Ok(())
     }
@@ -803,7 +831,9 @@ impl KeyVerificationFlow {
         verify_keys: &BTreeMap<String, String>,
     ) -> Result<KeyVerificationMac> {
         if verify_keys.is_empty() {
-            return Err(Error::Protocol("mac requires at least one key to verify".to_owned()));
+            return Err(Error::Protocol(
+                "mac requires at least one key to verify".to_owned(),
+            ));
         }
         let txn = self
             .transaction_id
@@ -844,7 +874,10 @@ impl KeyVerificationFlow {
             KeyVerificationState::KeysExchanged => KeyVerificationState::MacHalfReceived,
             KeyVerificationState::MacHalfReceived => KeyVerificationState::MacsReceived,
             _ => {
-                return self.fail("invalid_transition", "mac only legal after both keys exchanged");
+                return self.fail(
+                    "invalid_transition",
+                    "mac only legal after both keys exchanged",
+                );
             }
         };
         self.assert_txn(&msg.transaction_id)?;
@@ -852,10 +885,16 @@ impl KeyVerificationFlow {
             return self.fail("invalid_param", "mac.keys and mac.mac must not be empty");
         }
         if !self.is_known_party(&msg.from_user, &msg.from_device) {
-            return self.fail("invalid_param", "mac.from_user/device not part of this flow");
+            return self.fail(
+                "invalid_param",
+                "mac.from_user/device not part of this flow",
+            );
         }
         if self.macs_received.contains_key(&msg.from_device) {
-            return self.fail("invalid_transition", "mac already received from this device");
+            return self.fail(
+                "invalid_transition",
+                "mac already received from this device",
+            );
         }
         // §10.3: the MAC MUST be verified against the transcript-bound
         // MAC key; an unverifiable MAC is a mismatch, not a pass.
@@ -872,17 +911,24 @@ impl KeyVerificationFlow {
         }
         for (key_id, mac_value) in &msg.mac {
             let Some(key_value) = expected_verify_keys.get(key_id) else {
-                return self
-                    .fail("mismatched_mac", &format!("mac covers unknown key id {key_id:?}"));
+                return self.fail(
+                    "mismatched_mac",
+                    &format!("mac covers unknown key id {key_id:?}"),
+                );
             };
-            let expected =
-                STANDARD_NO_PAD.encode(hmac_sha256(&mac_key, format!("{key_id}|{key_value}").as_bytes()));
+            let expected = STANDARD_NO_PAD.encode(hmac_sha256(
+                &mac_key,
+                format!("{key_id}|{key_value}").as_bytes(),
+            ));
             if !ct_eq(&expected, mac_value) {
-                return self
-                    .fail("mismatched_mac", &format!("mac for key id {key_id:?} does not match"));
+                return self.fail(
+                    "mismatched_mac",
+                    &format!("mac for key id {key_id:?} does not match"),
+                );
             }
         }
-        self.macs_received.insert(msg.from_device.clone(), msg.clone());
+        self.macs_received
+            .insert(msg.from_device.clone(), msg.clone());
         self.state = next;
         Ok(())
     }
@@ -893,17 +939,27 @@ impl KeyVerificationFlow {
             KeyVerificationState::MacsReceived => KeyVerificationState::DoneHalfReceived,
             KeyVerificationState::DoneHalfReceived => KeyVerificationState::Done,
             _ => {
-                return self.fail("invalid_transition", "done only legal after both macs received");
+                return self.fail(
+                    "invalid_transition",
+                    "done only legal after both macs received",
+                );
             }
         };
         self.assert_txn(&msg.transaction_id)?;
         if !self.is_known_party(&msg.from_user, &msg.from_device) {
-            return self.fail("invalid_param", "done.from_user/device not part of this flow");
+            return self.fail(
+                "invalid_param",
+                "done.from_user/device not part of this flow",
+            );
         }
         if self.done_received.contains_key(&msg.from_device) {
-            return self.fail("invalid_transition", "done already received from this device");
+            return self.fail(
+                "invalid_transition",
+                "done already received from this device",
+            );
         }
-        self.done_received.insert(msg.from_device.clone(), msg.clone());
+        self.done_received
+            .insert(msg.from_device.clone(), msg.clone());
         self.state = next;
         Ok(())
     }
@@ -911,7 +967,9 @@ impl KeyVerificationFlow {
     /// Cancel the flow at any non-terminal state.
     pub fn on_cancel(&mut self, msg: &KeyVerificationCancel) -> Result<()> {
         if self.state.is_terminal() {
-            return Err(Error::Protocol("cannot cancel terminal verification flow".to_owned()));
+            return Err(Error::Protocol(
+                "cannot cancel terminal verification flow".to_owned(),
+            ));
         }
         if let Some(ref txn) = self.transaction_id
             && txn != &msg.transaction_id
@@ -926,15 +984,20 @@ impl KeyVerificationFlow {
     fn assert_txn(&self, txn: &str) -> Result<()> {
         match &self.transaction_id {
             Some(active) if active == txn => Ok(()),
-            _ => {
-                Err(Error::Protocol("key-verification envelope transaction_id mismatch".to_owned()))
-            }
+            _ => Err(Error::Protocol(
+                "key-verification envelope transaction_id mismatch".to_owned(),
+            )),
         }
     }
 
     fn is_known_party(&self, did: &Did, device: &DeviceId) -> bool {
-        self.initiator.as_ref().is_some_and(|(d, dev)| d == did && dev == device)
-            || self.responder.as_ref().is_some_and(|(d, dev)| d == did && dev == device)
+        self.initiator
+            .as_ref()
+            .is_some_and(|(d, dev)| d == did && dev == device)
+            || self
+                .responder
+                .as_ref()
+                .is_some_and(|(d, dev)| d == did && dev == device)
     }
 
     fn fail(&mut self, code: &str, reason: &str) -> Result<()> {
@@ -965,10 +1028,14 @@ impl KeyVerificationFlow {
 
 fn validate_transaction_id(txn: &str) -> Result<()> {
     if txn.trim().is_empty() {
-        return Err(Error::Protocol("transaction_id must not be empty".to_owned()));
+        return Err(Error::Protocol(
+            "transaction_id must not be empty".to_owned(),
+        ));
     }
     if txn.len() > 256 {
-        return Err(Error::Protocol("transaction_id exceeds 256 chars".to_owned()));
+        return Err(Error::Protocol(
+            "transaction_id exceeds 256 chars".to_owned(),
+        ));
     }
     Ok(())
 }
@@ -1035,10 +1102,12 @@ mod tests {
     fn ephemeral_x25519_keypair_yields_symmetric_shared_secret() {
         let alice = EphemeralX25519Keypair::generate();
         let bob = EphemeralX25519Keypair::generate();
-        let alice_to_bob =
-            alice.compute_shared_secret(&bob.public_base64()).expect("compute alice -> bob");
-        let bob_to_alice =
-            bob.compute_shared_secret(&alice.public_base64()).expect("compute bob -> alice");
+        let alice_to_bob = alice
+            .compute_shared_secret(&bob.public_base64())
+            .expect("compute alice -> bob");
+        let bob_to_alice = bob
+            .compute_shared_secret(&alice.public_base64())
+            .expect("compute bob -> alice");
         assert_eq!(alice_to_bob, bob_to_alice);
     }
 
@@ -1051,8 +1120,12 @@ mod tests {
     fn sas_derived_from_ecdh_shared_secret_matches_on_both_sides() {
         let alice = EphemeralX25519Keypair::generate();
         let bob = EphemeralX25519Keypair::generate();
-        let alice_shared = alice.compute_shared_secret(&bob.public_base64()).expect("alice shared");
-        let bob_shared = bob.compute_shared_secret(&alice.public_base64()).expect("bob shared");
+        let alice_shared = alice
+            .compute_shared_secret(&bob.public_base64())
+            .expect("alice shared");
+        let bob_shared = bob
+            .compute_shared_secret(&alice.public_base64())
+            .expect("bob shared");
         let info = b"flow-7|did:web:alice|alice-device|did:web:bob|bob-device";
         let sas_alice = derive_sas_bytes(&alice_shared, info);
         let sas_bob = derive_sas_bytes(&bob_shared, info);
@@ -1159,12 +1232,16 @@ mod tests {
     fn compute_sas_refuses_when_prerequisites_missing() {
         let alice_dev = dev("alice-dev");
         let flow = KeyVerificationFlow::new();
-        let err = flow.compute_sas(&alice_dev, b"info").expect_err("no keypair installed");
+        let err = flow
+            .compute_sas(&alice_dev, b"info")
+            .expect_err("no keypair installed");
         assert!(format!("{err}").contains("ephemeral keypair"));
 
         let flow =
             KeyVerificationFlow::new().with_ephemeral_key(EphemeralX25519Keypair::generate());
-        let err = flow.compute_sas(&alice_dev, b"info").expect_err("no peer key received");
+        let err = flow
+            .compute_sas(&alice_dev, b"info")
+            .expect_err("no peer key received");
         assert!(format!("{err}").contains("peer public key not received"));
     }
 
@@ -1173,10 +1250,13 @@ mod tests {
         let alice = EphemeralX25519Keypair::generate();
         // base64 of 31 bytes — wrong length.
         let too_short = STANDARD_NO_PAD.encode(&[0u8; 31][..]);
-        let err = alice.compute_shared_secret(&too_short).expect_err("31 bytes must reject");
+        let err = alice
+            .compute_shared_secret(&too_short)
+            .expect_err("31 bytes must reject");
         assert!(format!("{err}").contains("32"));
-        let err =
-            alice.compute_shared_secret("not-base64-@@!!").expect_err("invalid base64 must reject");
+        let err = alice
+            .compute_shared_secret("not-base64-@@!!")
+            .expect_err("invalid base64 must reject");
         assert!(format!("{err}").contains("base64"));
     }
 
@@ -1248,8 +1328,14 @@ mod tests {
 
     fn verify_keys() -> BTreeMap<String, String> {
         BTreeMap::from([
-            ("ed25519:alice_phone".to_owned(), "alice-device-verify-key".to_owned()),
-            ("ed25519:bob_laptop".to_owned(), "bob-device-verify-key".to_owned()),
+            (
+                "ed25519:alice_phone".to_owned(),
+                "alice-device-verify-key".to_owned(),
+            ),
+            (
+                "ed25519:bob_laptop".to_owned(),
+                "bob-device-verify-key".to_owned(),
+            ),
         ])
     }
 
@@ -1267,8 +1353,10 @@ mod tests {
         let mut flow = KeyVerificationFlow::new().with_ephemeral_key(alice_kp);
         flow.on_start(&start_msg).unwrap();
         flow.on_accept(&accept_msg).unwrap();
-        flow.on_key(&key(txn, &did("alice"), &dev("alice_phone"), &alice_pub)).unwrap();
-        flow.on_key(&key(txn, &did("bob"), &dev("bob_laptop"), &bob_pub)).unwrap();
+        flow.on_key(&key(txn, &did("alice"), &dev("alice_phone"), &alice_pub))
+            .unwrap();
+        flow.on_key(&key(txn, &did("bob"), &dev("bob_laptop"), &bob_pub))
+            .unwrap();
         assert_eq!(flow.state(), KeyVerificationState::KeysExchanged);
         (flow, bob_pub)
     }
@@ -1280,13 +1368,19 @@ mod tests {
         let keys = verify_keys();
         // The shared secret is symmetric, so one flow can produce both
         // sides' MAC envelopes for the round trip.
-        let alice_mac = flow.build_mac(&did("alice"), &dev("alice_phone"), &keys).unwrap();
-        let bob_mac = flow.build_mac(&did("bob"), &dev("bob_laptop"), &keys).unwrap();
+        let alice_mac = flow
+            .build_mac(&did("alice"), &dev("alice_phone"), &keys)
+            .unwrap();
+        let bob_mac = flow
+            .build_mac(&did("bob"), &dev("bob_laptop"), &keys)
+            .unwrap();
         flow.on_mac(&alice_mac, &keys).unwrap();
         flow.on_mac(&bob_mac, &keys).unwrap();
         assert_eq!(flow.state(), KeyVerificationState::MacsReceived);
-        flow.on_done(&done(txn, &did("alice"), &dev("alice_phone"))).unwrap();
-        flow.on_done(&done(txn, &did("bob"), &dev("bob_laptop"))).unwrap();
+        flow.on_done(&done(txn, &did("alice"), &dev("alice_phone")))
+            .unwrap();
+        flow.on_done(&done(txn, &did("bob"), &dev("bob_laptop")))
+            .unwrap();
         assert_eq!(flow.state(), KeyVerificationState::Done);
         assert!(flow.state().is_terminal());
     }
@@ -1300,10 +1394,16 @@ mod tests {
         flow.on_start(&start(txn)).unwrap();
         // accept() carries a bogus commitment ("sha256:cafe").
         flow.on_accept(&accept(txn)).unwrap();
-        flow.on_key(&key(txn, &did("alice"), &dev("alice_phone"), "AKEY")).unwrap();
+        flow.on_key(&key(txn, &did("alice"), &dev("alice_phone"), "AKEY"))
+            .unwrap();
         let bob_kp = EphemeralX25519Keypair::generate();
         let err = flow
-            .on_key(&key(txn, &did("bob"), &dev("bob_laptop"), &bob_kp.public_base64()))
+            .on_key(&key(
+                txn,
+                &did("bob"),
+                &dev("bob_laptop"),
+                &bob_kp.public_base64(),
+            ))
             .unwrap_err();
         assert!(format!("{err}").contains("mismatched_commitment"));
         assert_eq!(flow.state(), KeyVerificationState::Cancelled);
@@ -1316,7 +1416,9 @@ mod tests {
         let txn = "txn-mac";
         let (mut flow, _) = flow_at_keys_exchanged(txn);
         let keys = verify_keys();
-        let mut tampered = flow.build_mac(&did("alice"), &dev("alice_phone"), &keys).unwrap();
+        let mut tampered = flow
+            .build_mac(&did("alice"), &dev("alice_phone"), &keys)
+            .unwrap();
         tampered.keys = STANDARD_NO_PAD.encode([0u8; 32]);
         let err = flow.on_mac(&tampered, &keys).unwrap_err();
         assert!(format!("{err}").contains("mismatched_mac"));
@@ -1331,10 +1433,14 @@ mod tests {
         let txn = "txn-mac-key";
         let (mut flow, _) = flow_at_keys_exchanged(txn);
         let mut forged_keys = verify_keys();
-        forged_keys
-            .insert("ed25519:bob_laptop".to_owned(), "attacker-substituted-key".to_owned());
+        forged_keys.insert(
+            "ed25519:bob_laptop".to_owned(),
+            "attacker-substituted-key".to_owned(),
+        );
         // Sender MACs the forged key; receiver checks against its own view.
-        let mac = flow.build_mac(&did("bob"), &dev("bob_laptop"), &forged_keys).unwrap();
+        let mac = flow
+            .build_mac(&did("bob"), &dev("bob_laptop"), &forged_keys)
+            .unwrap();
         let err = flow.on_mac(&mac, &verify_keys()).unwrap_err();
         assert!(format!("{err}").contains("mismatched_mac"));
         assert_eq!(flow.state(), KeyVerificationState::Cancelled);
@@ -1347,17 +1453,27 @@ mod tests {
         let txn = "txn-mac-eph";
         let (reference_flow, bob_pub) = flow_at_keys_exchanged(txn);
         let keys = verify_keys();
-        let mac = reference_flow.build_mac(&did("bob"), &dev("bob_laptop"), &keys).unwrap();
+        let mac = reference_flow
+            .build_mac(&did("bob"), &dev("bob_laptop"), &keys)
+            .unwrap();
         // Rebuild the same transcript in a flow with no keypair installed.
-        let alice_pub = reference_flow.keys_exchanged.get(&dev("alice_phone")).unwrap().clone();
+        let alice_pub = reference_flow
+            .keys_exchanged
+            .get(&dev("alice_phone"))
+            .unwrap()
+            .clone();
         let start_msg = start(txn);
         let mut accept_msg = accept(txn);
         accept_msg.commitment = compute_key_commitment(&bob_pub, &start_msg).unwrap();
         let mut observer = KeyVerificationFlow::new();
         observer.on_start(&start_msg).unwrap();
         observer.on_accept(&accept_msg).unwrap();
-        observer.on_key(&key(txn, &did("alice"), &dev("alice_phone"), &alice_pub)).unwrap();
-        observer.on_key(&key(txn, &did("bob"), &dev("bob_laptop"), &bob_pub)).unwrap();
+        observer
+            .on_key(&key(txn, &did("alice"), &dev("alice_phone"), &alice_pub))
+            .unwrap();
+        observer
+            .on_key(&key(txn, &did("bob"), &dev("bob_laptop"), &bob_pub))
+            .unwrap();
         let err = observer.on_mac(&mac, &keys).unwrap_err();
         assert!(format!("{err}").contains("mismatched_mac"));
         assert_eq!(observer.state(), KeyVerificationState::Cancelled);
@@ -1385,7 +1501,9 @@ mod tests {
         let mut flow = KeyVerificationFlow::new();
         flow.on_start(&start(txn)).unwrap();
         flow.on_accept(&accept(txn)).unwrap();
-        let err = flow.on_key(&key(txn, &did("eve"), &dev("eve_box"), "EKEY")).unwrap_err();
+        let err = flow
+            .on_key(&key(txn, &did("eve"), &dev("eve_box"), "EKEY"))
+            .unwrap_err();
         assert!(format!("{err}").contains("not part of this flow"));
         assert_eq!(flow.state(), KeyVerificationState::Cancelled);
     }

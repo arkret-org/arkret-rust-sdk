@@ -789,7 +789,10 @@ mod tests {
         assert_eq!(classify_event_kind(MESSAGE_CREATE), EventClass::Message);
         assert_eq!(classify_event_kind(REALM_CREATE), EventClass::Realm);
         assert_eq!(classify_event_kind(SPACE_CREATE), EventClass::Space);
-        assert_eq!(classify_event_kind(AGENT_INTEROP_SESSION_STATUS), EventClass::Agent);
+        assert_eq!(
+            classify_event_kind(AGENT_INTEROP_SESSION_STATUS),
+            EventClass::Agent
+        );
         assert_eq!(classify_event_kind(CALL_SIGNAL), EventClass::Call);
         assert_eq!(
             classify_event_kind("vendor.example.widget"),
@@ -831,7 +834,10 @@ mod tests {
         assert_eq!(parsed.as_str(), "ck.future.kind");
         assert!(!parsed.is_standard());
         // Round-trips back to the same wire string.
-        assert_eq!(serde_json::to_string(&parsed).unwrap(), r#""ck.future.kind""#);
+        assert_eq!(
+            serde_json::to_string(&parsed).unwrap(),
+            r#""ck.future.kind""#
+        );
     }
 
     #[test]
@@ -845,11 +851,15 @@ mod tests {
     #[test]
     fn standard_event_kind_tables_are_binary_searchable() {
         assert!(
-            STANDARD_EVENT_KINDS.windows(2).all(|pair| pair[0] < pair[1]),
+            STANDARD_EVENT_KINDS
+                .windows(2)
+                .all(|pair| pair[0] < pair[1]),
             "STANDARD_EVENT_KINDS must stay sorted by wire string"
         );
         assert!(
-            NON_REDUCER_EVENT_KINDS.windows(2).all(|pair| pair[0] < pair[1]),
+            NON_REDUCER_EVENT_KINDS
+                .windows(2)
+                .all(|pair| pair[0] < pair[1]),
             "NON_REDUCER_EVENT_KINDS must stay sorted by wire string"
         );
     }

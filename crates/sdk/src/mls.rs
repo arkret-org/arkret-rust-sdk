@@ -288,7 +288,11 @@ impl FrankingVerifierExporterSecret {
     /// Borrow the secret only while the window is live; `None` once expired so
     /// callers cannot keep deriving sender-commitment keys past the cap.
     pub fn secret(&self, now: chrono::DateTime<Utc>) -> Option<&[u8]> {
-        if self.is_expired(now) { None } else { Some(self.secret.as_slice()) }
+        if self.is_expired(now) {
+            None
+        } else {
+            Some(self.secret.as_slice())
+        }
     }
 
     /// Zeroize the held secret if the window has elapsed; returns `true` when it
@@ -439,15 +443,29 @@ impl EncryptedEnvelopeV1 {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MessageCryptoDecrypt {
-    Plaintext { message_id: String, content_type: String, plaintext: Vec<u8> },
-    Encrypted { message_id: String, payload: EncryptedPayload, reason: MessageCryptoUnavailable },
+    Plaintext {
+        message_id: String,
+        content_type: String,
+        plaintext: Vec<u8>,
+    },
+    Encrypted {
+        message_id: String,
+        payload: EncryptedPayload,
+        reason: MessageCryptoUnavailable,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MessageCryptoUnavailable {
     NoSession,
-    WrongGroup { expected: String, actual: String },
-    EpochUnavailable { local_epoch: u64, required_epoch: u64 },
+    WrongGroup {
+        expected: String,
+        actual: String,
+    },
+    EpochUnavailable {
+        local_epoch: u64,
+        required_epoch: u64,
+    },
     KeyUnavailable(String),
 }
 
@@ -496,7 +514,9 @@ impl MessageCrypto {
                 })?;
             let actual = crate::crypto::json_aad_digest(aad)?;
             if actual != expected {
-                return Err(Error::Protocol("encrypted payload AAD digest mismatch".to_owned()));
+                return Err(Error::Protocol(
+                    "encrypted payload AAD digest mismatch".to_owned(),
+                ));
             }
         }
         Ok(())
@@ -545,9 +565,11 @@ impl MessageCrypto {
         }
 
         match group.decrypt_payload(&message.payload) {
-            Ok(plaintext) => {
-                Ok(MessageCryptoDecrypt::Plaintext { message_id, content_type, plaintext })
-            }
+            Ok(plaintext) => Ok(MessageCryptoDecrypt::Plaintext {
+                message_id,
+                content_type,
+                plaintext,
+            }),
             Err(error) => Ok(MessageCryptoDecrypt::Encrypted {
                 message_id,
                 payload: message.payload,
@@ -568,12 +590,23 @@ impl CokretMlsIdentity {
             signature_key: signer.public().into(),
         };
 
-        Ok(Self { principal_id, device_id, provider, signer, credential })
+        Ok(Self {
+            principal_id,
+            device_id,
+            provider,
+            signer,
+            credential,
+        })
     }
 
     pub fn key_package_record(&self) -> Result<MlsKeyPackageRecord> {
         let key_package = KeyPackage::builder()
-            .build(COKRET_MLS_CIPHERSUITE, &self.provider, &self.signer, self.credential.clone())
+            .build(
+                COKRET_MLS_CIPHERSUITE,
+                &self.provider,
+                &self.signer,
+                self.credential.clone(),
+            )
             .map_err(mls_error)?;
         let key_package = key_package.key_package();
         let key_package_bytes = key_package.tls_serialize_detached().map_err(mls_error)?;
@@ -620,7 +653,10 @@ impl CokretMlsIdentity {
         )
         .map_err(mls_error)?;
 
-        Ok(CokretMlsGroup { identity: self, group })
+        Ok(CokretMlsGroup {
+            identity: self,
+            group,
+        })
     }
 }
 
@@ -638,7 +674,11 @@ impl CokretMlsGroup {
     }
 
     pub fn ratchet_tree(&self) -> Result<String> {
-        let bytes = self.group.export_ratchet_tree().tls_serialize_detached().map_err(mls_error)?;
+        let bytes = self
+            .group
+            .export_ratchet_tree()
+            .tls_serialize_detached()
+            .map_err(mls_error)?;
         Ok(encode(&bytes))
     }
 
@@ -735,14 +775,18 @@ impl CokretMlsGroup {
     pub fn restore_from_state_record(record: &MlsGroupStateRecord) -> Result<Self> {
         let snapshot: OpenMlsStateSnapshot = serde_json::from_slice(&record.serialized_state)?;
         if snapshot.context != COKRET_OPENMLS_STATE_SNAPSHOT {
-            return Err(Error::Protocol("unsupported OpenMLS state snapshot".to_owned()));
+            return Err(Error::Protocol(
+                "unsupported OpenMLS state snapshot".to_owned(),
+            ));
         }
         if snapshot.group_id != record.group_id
             || snapshot.epoch != record.epoch
             || snapshot.principal_id != record.principal_id
             || snapshot.device_id != record.device_id
         {
-            return Err(Error::Protocol("OpenMLS state snapshot metadata mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "OpenMLS state snapshot metadata mismatch".to_owned(),
+            ));
         }
 
         let provider = OpenMlsRustCrypto::default();
@@ -764,7 +808,9 @@ impl CokretMlsGroup {
             .map_err(mls_error)?
             .ok_or_else(|| Error::Protocol("OpenMLS group state is missing".to_owned()))?;
         if group.epoch().as_u64() != record.epoch {
-            return Err(Error::Protocol("OpenMLS restored epoch mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "OpenMLS restored epoch mismatch".to_owned(),
+            ));
         }
 
         Ok(Self {
@@ -802,8 +848,13 @@ impl CokretMlsGroup {
                 LeafNodeParameters::default(),
             )
             .map_err(mls_error)?;
-        self.group.merge_pending_commit(&self.identity.provider).map_err(mls_error)?;
-        let commit_bytes = bundle.commit().tls_serialize_detached().map_err(mls_error)?;
+        self.group
+            .merge_pending_commit(&self.identity.provider)
+            .map_err(mls_error)?;
+        let commit_bytes = bundle
+            .commit()
+            .tls_serialize_detached()
+            .map_err(mls_error)?;
         let ratchet_tree = Some(self.ratchet_tree()?);
         Ok(MlsCommitEnvelope {
             group_id: self.group_id(),
@@ -820,7 +871,9 @@ impl CokretMlsGroup {
         member_key_package: &MlsKeyPackageRecord,
     ) -> Result<MlsAddMemberResult> {
         if !member_key_package.is_usable() {
-            return Err(Error::Protocol("refusing to add revoked MLS KeyPackage".to_owned()));
+            return Err(Error::Protocol(
+                "refusing to add revoked MLS KeyPackage".to_owned(),
+            ));
         }
 
         let key_package = decode_key_package(&self.identity.provider, member_key_package)?;
@@ -832,7 +885,9 @@ impl CokretMlsGroup {
                 std::slice::from_ref(&key_package),
             )
             .map_err(mls_error)?;
-        self.group.merge_pending_commit(&self.identity.provider).map_err(mls_error)?;
+        self.group
+            .merge_pending_commit(&self.identity.provider)
+            .map_err(mls_error)?;
 
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
         let welcome_bytes = welcome.tls_serialize_detached().map_err(mls_error)?;
@@ -911,7 +966,10 @@ impl CokretMlsGroup {
             .members()
             .filter_map(|member| {
                 if leaves.contains(&member.index) {
-                    Some((member.index, member.credential.serialized_content().to_vec()))
+                    Some((
+                        member.index,
+                        member.credential.serialized_content().to_vec(),
+                    ))
                 } else {
                     None
                 }
@@ -931,7 +989,9 @@ impl CokretMlsGroup {
             .group
             .remove_members(&self.identity.provider, &self.identity.signer, leaves)
             .map_err(mls_error)?;
-        self.group.merge_pending_commit(&self.identity.provider).map_err(mls_error)?;
+        self.group
+            .merge_pending_commit(&self.identity.provider)
+            .map_err(mls_error)?;
 
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
         let ratchet_tree = Some(self.ratchet_tree()?);
@@ -1052,13 +1112,18 @@ impl CokretMlsGroup {
             ciphertext: encode(&message_bytes),
             aad,
             payload_digest,
-            key_ref: Some(cokret_core::KeyRefObject::mls_rfc9420(self.group_id(), epoch)),
+            key_ref: Some(cokret_core::KeyRefObject::mls_rfc9420(
+                self.group_id(),
+                epoch,
+            )),
         })
     }
 
     pub fn decrypt_payload(&mut self, payload: &EncryptedPayload) -> Result<Vec<u8>> {
         if payload.scheme != EncryptedPayloadScheme::MlsRfc9420 {
-            return Err(Error::Protocol("encrypted payload is not MLS RFC 9420".to_owned()));
+            return Err(Error::Protocol(
+                "encrypted payload is not MLS RFC 9420".to_owned(),
+            ));
         }
         if payload.group_id != self.group_id() {
             return Err(Error::Protocol(
@@ -1066,7 +1131,9 @@ impl CokretMlsGroup {
             ));
         }
         if payload.epoch > self.epoch() {
-            return Err(Error::Protocol("MLS epoch is not available locally".to_owned()));
+            return Err(Error::Protocol(
+                "MLS epoch is not available locally".to_owned(),
+            ));
         }
 
         let message_bytes = decode(&payload.ciphertext)?;
@@ -1087,9 +1154,13 @@ impl CokretMlsGroup {
                 self.group
                     .merge_staged_commit(&self.identity.provider, *commit)
                     .map_err(mls_error)?;
-                Err(Error::Protocol("expected MLS application message, got commit".to_owned()))
+                Err(Error::Protocol(
+                    "expected MLS application message, got commit".to_owned(),
+                ))
             }
-            _ => Err(Error::Protocol("expected MLS application message".to_owned())),
+            _ => Err(Error::Protocol(
+                "expected MLS application message".to_owned(),
+            )),
         }
     }
 
@@ -1146,7 +1217,9 @@ fn decode_key_package(
 
     let key_package_in =
         KeyPackageIn::tls_deserialize_exact(bytes.as_slice()).map_err(mls_error)?;
-    key_package_in.validate(provider.crypto(), ProtocolVersion::Mls10).map_err(mls_error)
+    key_package_in
+        .validate(provider.crypto(), ProtocolVersion::Mls10)
+        .map_err(mls_error)
 }
 
 pub fn revoke_key_package(record: &mut MlsKeyPackageRecord) -> MlsDeviceWorkflowStep {
@@ -1238,7 +1311,9 @@ impl EpochRecoveryRequestBody {
     /// Validate the request is well-formed.
     pub fn validate(&self) -> Result<()> {
         if self.group_id.is_empty() {
-            return Err(Error::Protocol("epoch recovery group_id is empty".to_owned()));
+            return Err(Error::Protocol(
+                "epoch recovery group_id is empty".to_owned(),
+            ));
         }
         if self.local_epoch >= self.target_epoch {
             return Err(Error::Protocol(
@@ -1258,7 +1333,9 @@ impl EpochRecoveryOutcome {
     /// Validate that the response covers the requested epoch range.
     pub fn validate_range(&self, request: &EpochRecoveryRequestBody) -> Result<()> {
         if self.group_id != request.group_id {
-            return Err(Error::Protocol("epoch recovery response group_id mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "epoch recovery response group_id mismatch".to_owned(),
+            ));
         }
         for commit in &self.commits {
             if commit.epoch <= request.local_epoch || commit.epoch > request.target_epoch {
@@ -1288,7 +1365,9 @@ pub fn build_epoch_recovery_response(
         .collect();
 
     if recovery_commits.is_empty() {
-        return Err(Error::Protocol("no commits available for epoch recovery".to_owned()));
+        return Err(Error::Protocol(
+            "no commits available for epoch recovery".to_owned(),
+        ));
     }
 
     Ok(EpochRecoveryOutcome {
@@ -1305,7 +1384,10 @@ fn snapshot_provider_storage(provider: &OpenMlsRustCrypto) -> Result<BTreeMap<St
         .values
         .read()
         .map_err(|_| Error::Protocol("OpenMLS storage lock poisoned".to_owned()))?;
-    Ok(values.iter().map(|(key, value)| (encode(key), encode(value))).collect())
+    Ok(values
+        .iter()
+        .map(|(key, value)| (encode(key), encode(value)))
+        .collect())
 }
 
 fn restore_provider_storage(
@@ -1351,7 +1433,10 @@ mod tests {
     #[test]
     fn minimal_metadata_max_epoch_lifetime_is_one_hour() {
         assert_eq!(MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS, 3600);
-        assert_eq!(minimal_metadata_max_epoch_lifetime(), chrono::Duration::hours(1));
+        assert_eq!(
+            minimal_metadata_max_epoch_lifetime(),
+            chrono::Duration::hours(1)
+        );
     }
 
     // --- SEC-05: franking verifier exporter-secret holding window ---
@@ -1361,9 +1446,15 @@ mod tests {
         let seven_d = FRANKING_VERIFIER_EXPORTER_SECRET_MAX_WINDOW_SECS;
         assert_eq!(seven_d, 7 * 24 * 3600);
         // Deployment declaring > 7d is clamped down to 7d.
-        assert_eq!(franking_verifier_effective_window_secs(10 * 24 * 3600), seven_d);
+        assert_eq!(
+            franking_verifier_effective_window_secs(10 * 24 * 3600),
+            seven_d
+        );
         // A shorter declared window is honored.
-        assert_eq!(franking_verifier_effective_window_secs(3 * 24 * 3600), 3 * 24 * 3600);
+        assert_eq!(
+            franking_verifier_effective_window_secs(3 * 24 * 3600),
+            3 * 24 * 3600
+        );
         // Negative / nonsense floors to 0.
         assert_eq!(franking_verifier_effective_window_secs(-5), 0);
     }
@@ -1373,7 +1464,10 @@ mod tests {
         let held = chrono::DateTime::<Utc>::from_timestamp(1_900_000_000, 0).unwrap();
         // Declared 10d clamps to the 7d protocol cap.
         let mut sec = FrankingVerifierExporterSecret::new(vec![1, 2, 3, 4], held, 10 * 24 * 3600);
-        assert_eq!(sec.window_secs(), FRANKING_VERIFIER_EXPORTER_SECRET_MAX_WINDOW_SECS);
+        assert_eq!(
+            sec.window_secs(),
+            FRANKING_VERIFIER_EXPORTER_SECRET_MAX_WINDOW_SECS
+        );
         // Within window: secret is borrowable.
         let within = held + chrono::Duration::days(6);
         assert!(!sec.is_expired(within));
@@ -1411,13 +1505,19 @@ mod tests {
             started + chrono::Duration::minutes(59) + chrono::Duration::seconds(59)
         ));
         // Exactly 1h is the boundary (strict `>`), one second past is overdue.
-        assert!(!minimal_metadata_epoch_overdue(started, started + chrono::Duration::hours(1)));
+        assert!(!minimal_metadata_epoch_overdue(
+            started,
+            started + chrono::Duration::hours(1)
+        ));
         assert!(minimal_metadata_epoch_overdue(
             started,
             started + chrono::Duration::hours(1) + chrono::Duration::seconds(1)
         ));
         // Clock skew (now before epoch start) is never overdue.
-        assert!(!minimal_metadata_epoch_overdue(started, started - chrono::Duration::minutes(5)));
+        assert!(!minimal_metadata_epoch_overdue(
+            started,
+            started - chrono::Duration::minutes(5)
+        ));
     }
 
     #[test]
@@ -1439,8 +1539,9 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a40").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a40")
+            .unwrap();
         let hash_pre = alice_group.schedule_hash();
         assert!(
             hash_pre.as_str().starts_with("sha256:"),
@@ -1477,25 +1578,40 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a41").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a41")
+            .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
         let realm = b"ck:realm:01904100-0000-7000-8000-1ad6479d4a41";
-        let a = alice_group.export_secret("cokret-reaction-routing-v1", realm, 32).unwrap();
-        let b = bob_group.export_secret("cokret-reaction-routing-v1", realm, 32).unwrap();
+        let a = alice_group
+            .export_secret("cokret-reaction-routing-v1", realm, 32)
+            .unwrap();
+        let b = bob_group
+            .export_secret("cokret-reaction-routing-v1", realm, 32)
+            .unwrap();
         assert_eq!(a.len(), 32);
-        assert_eq!(a, b, "same epoch + label + context MUST agree across members");
+        assert_eq!(
+            a, b,
+            "same epoch + label + context MUST agree across members"
+        );
 
         // Different context (realm) MUST diverge.
         let other_realm = b"ck:realm:01904100-0000-7000-8000-1ad6479d4a42";
         assert_ne!(
             a,
-            alice_group.export_secret("cokret-reaction-routing-v1", other_realm, 32).unwrap()
+            alice_group
+                .export_secret("cokret-reaction-routing-v1", other_realm, 32)
+                .unwrap()
         );
         // Different label MUST diverge.
-        assert_ne!(a, alice_group.export_secret("ck-rtc-frame-key/v1", realm, 32).unwrap());
+        assert_ne!(
+            a,
+            alice_group
+                .export_secret("ck-rtc-frame-key/v1", realm, 32)
+                .unwrap()
+        );
     }
 
     #[test]
@@ -1514,8 +1630,9 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a41").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a41")
+            .unwrap();
         assert_eq!(
             alice_group.member_principal_ids(),
             vec![Did::new("did:web:alice.example").unwrap()],
@@ -1547,8 +1664,9 @@ mod tests {
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let mut group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-555555555555").unwrap();
+        let mut group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-555555555555")
+            .unwrap();
         let pre_epoch = group.epoch();
         let pre_group_id = group.group_id();
         let envelope = group.self_update_commit().expect("self_update succeeds");
@@ -1583,13 +1701,15 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-d652c78259d9").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-d652c78259d9")
+            .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
-        let encrypted =
-            alice_group.encrypt_payload("application/json", br#"{"body":"hello"}"#).unwrap();
+        let encrypted = alice_group
+            .encrypt_payload("application/json", br#"{"body":"hello"}"#)
+            .unwrap();
         let decrypted = bob_group.decrypt_payload(&encrypted).unwrap();
 
         assert_eq!(decrypted, br#"{"body":"hello"}"#);
@@ -1612,8 +1732,9 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-f2f103987ef3").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-f2f103987ef3")
+            .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
@@ -1644,8 +1765,9 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-65bef476aed3").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-65bef476aed3")
+            .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let aad = serde_json::json!({
@@ -1685,8 +1807,9 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a3f").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a3f")
+            .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let mut store = crate::MemoryCryptoStore::new();
@@ -1694,7 +1817,10 @@ mod tests {
         let mut restored_bob = CokretMlsGroup::restore_from_state_record(&record).unwrap();
 
         assert_eq!(restored_bob.epoch(), bob_group.epoch());
-        assert_eq!(store.mls_group_state(&record.group_id).unwrap().epoch, record.epoch);
+        assert_eq!(
+            store.mls_group_state(&record.group_id).unwrap().epoch,
+            record.epoch
+        );
 
         let encrypted = alice_group
             .encrypt_payload("application/json", br#"{"body":"after restore"}"#)
@@ -1726,18 +1852,27 @@ mod tests {
         let charlie_key_package = charlie.key_package_record().unwrap();
         let mut revoked_package = charlie_key_package.clone();
         let revoke_step = revoke_key_package(&mut revoked_package);
-        assert_eq!(revoked_package.state, cokret_core::MlsKeyPackageState::Revoked);
-        assert_eq!(revoke_step.action, MlsDeviceWorkflowAction::RevokeKeyPackage);
+        assert_eq!(
+            revoked_package.state,
+            cokret_core::MlsKeyPackageState::Revoked
+        );
+        assert_eq!(
+            revoke_step.action,
+            MlsDeviceWorkflowAction::RevokeKeyPackage
+        );
 
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-877788250807").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-877788250807")
+            .unwrap();
         let bob_add = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
         let charlie_add = alice_group.add_member(&charlie_key_package).unwrap();
         let workflow = late_device_join_steps(&charlie_add.welcome);
         assert_eq!(workflow[0].action, MlsDeviceWorkflowAction::ConsumeWelcome);
 
-        bob_group.apply_commits(std::slice::from_ref(&charlie_add.commit)).unwrap();
+        bob_group
+            .apply_commits(std::slice::from_ref(&charlie_add.commit))
+            .unwrap();
         assert_eq!(bob_group.epoch(), alice_group.epoch());
         let recovery = epoch_recovery_step(
             Did::new("did:web:bob.example").unwrap(),
@@ -1746,7 +1881,10 @@ mod tests {
             bob_group.epoch() + 1,
             bob_group.epoch() + 3,
         );
-        assert_eq!(recovery.action, MlsDeviceWorkflowAction::RequestEpochRecovery);
+        assert_eq!(
+            recovery.action,
+            MlsDeviceWorkflowAction::RequestEpochRecovery
+        );
     }
 
     #[test]
@@ -1763,8 +1901,9 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-4ecefcf31ad2").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-4ecefcf31ad2")
+            .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let operation = add_result
             .commit_operation(
@@ -1789,8 +1928,9 @@ mod tests {
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-f2f103987ef3").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-f2f103987ef3")
+            .unwrap();
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
             "ck:message:02",
@@ -1803,7 +1943,12 @@ mod tests {
 
         let result = MessageCrypto::decrypt_or_preserve(None, encrypted).unwrap();
 
-        let MessageCryptoDecrypt::Encrypted { message_id, payload, reason } = result else {
+        let MessageCryptoDecrypt::Encrypted {
+            message_id,
+            payload,
+            reason,
+        } = result
+        else {
             panic!("message should stay encrypted without a local MLS session");
         };
         assert_eq!(message_id, "ck:message:02");
@@ -1826,8 +1971,9 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-469a459e1b8f").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-469a459e1b8f")
+            .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
@@ -1867,8 +2013,9 @@ mod tests {
         let charlie_kp = charlie.key_package_record().unwrap();
 
         // Alice creates group and adds Bob and Charlie.
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-4cc289f6471e").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-4cc289f6471e")
+            .unwrap();
         let bob_add = alice_group.add_member(&bob_kp).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
         let charlie_add = alice_group.add_member(&charlie_kp).unwrap();
@@ -1948,8 +2095,9 @@ mod tests {
         .unwrap();
 
         let bob_key_package = bob.key_package_record().unwrap();
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-d652c78259d9").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-d652c78259d9")
+            .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let Err(error) = CokretMlsGroup::join_from_welcome(mallory, &add_result.welcome) else {
             panic!("Mallory should not be able to consume Bob's Welcome");
@@ -1981,8 +2129,9 @@ mod tests {
         let bob_kp = bob.key_package_record().unwrap();
         let charlie_kp = charlie.key_package_record().unwrap();
 
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-a78a8b504d40").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-a78a8b504d40")
+            .unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = CokretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
         let add_charlie = alice_group.add_member(&charlie_kp).unwrap();
@@ -2001,7 +2150,10 @@ mod tests {
         // Exactly one leaf removed; principal correctly reported.
         assert_eq!(result.removed_leaves.len(), 1);
         assert_eq!(result.removed_principals.len(), 1);
-        assert_eq!(result.removed_principals[0].as_str(), "did:web:charlie.example");
+        assert_eq!(
+            result.removed_principals[0].as_str(),
+            "did:web:charlie.example"
+        );
     }
 
     /// T31 — removing an absent principal returns a Protocol error rather
@@ -2014,8 +2166,9 @@ mod tests {
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-3cf34eced3c3").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-3cf34eced3c3")
+            .unwrap();
 
         let absent = Did::new("did:web:nobody.example").unwrap();
         let err = alice_group.remove_member_by_principal(&absent);
@@ -2029,8 +2182,9 @@ mod tests {
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000abcd").unwrap(),
         )
         .unwrap();
-        let mut group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-0abc0abc0abc").unwrap();
+        let mut group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-0abc0abc0abc")
+            .unwrap();
 
         let realm_id = "ck:realm:01904100-0000-7000-8000-0abc0abc0abc";
         let aad = EncryptedEnvelopeAadV1::hidden(realm_id, "ck.message.create");
@@ -2079,7 +2233,12 @@ mod tests {
         assert!(!aad_obj.contains_key("event_id"));
         assert!(!aad_obj.contains_key("event_ref_digest"));
         assert!(obj["aad_digest"].as_str().unwrap().starts_with("sha256:"));
-        assert!(obj["payload_digest"].as_str().unwrap().starts_with("sha256:"));
+        assert!(
+            obj["payload_digest"]
+                .as_str()
+                .unwrap()
+                .starts_with("sha256:")
+        );
         assert!(!obj.contains_key("authentication_tag"));
         assert!(!obj.contains_key("digests"));
         assert!(!obj.contains_key("cleartext_commitment"));
@@ -2120,8 +2279,9 @@ mod tests {
         .unwrap();
         let bob_kp = bob.key_package_record().unwrap();
 
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-89444e193497").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-89444e193497")
+            .unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = CokretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
 
@@ -2148,8 +2308,9 @@ mod tests {
         .unwrap();
         let bob_kp = bob.key_package_record().unwrap();
 
-        let mut alice_group =
-            alice.create_group(b"ck:realm:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-bd49dfdbc804")
+            .unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = CokretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
         let result = alice_group

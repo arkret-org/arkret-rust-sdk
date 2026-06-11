@@ -3,15 +3,14 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-
-use crate::{Did, EventId, RealmId};
-
 // Authoritative wire shape for notification counters lives in
 // `cokret-contracts`; the manager reuses it instead of keeping a
 // field-subset copy.
 pub use cokret_contracts::client::NotificationCounts;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::{Did, EventId, RealmId};
 
 /// Notification action.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -98,8 +97,16 @@ impl NotificationManager {
             .values()
             .find(|rule| {
                 rule.enabled
-                    && rule.event_kind.as_deref().map(|kind| kind == event_kind).unwrap_or(true)
-                    && rule.sender.as_ref().map(|did| did == sender).unwrap_or(true)
+                    && rule
+                        .event_kind
+                        .as_deref()
+                        .map(|kind| kind == event_kind)
+                        .unwrap_or(true)
+                    && rule
+                        .sender
+                        .as_ref()
+                        .map(|did| did == sender)
+                        .unwrap_or(true)
             })
             .map(|rule| rule.action)
             .unwrap_or(NotificationAction::Notify)
@@ -142,7 +149,10 @@ impl NotificationManager {
     /// The in-memory manager treats every un-cleared notification as
     /// unread, so `unread_count` tracks `notification_count`.
     pub fn counts(&self, realm_id: Option<&RealmId>) -> NotificationCounts {
-        self.counts.get(&realm_id.cloned()).cloned().unwrap_or_default()
+        self.counts
+            .get(&realm_id.cloned())
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Clear one notification and decrement counts.

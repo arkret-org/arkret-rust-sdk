@@ -34,7 +34,9 @@ impl IntegrationDescribeOutcome {
     }
 
     pub fn requires(&self, service: &str, purpose: &str) -> bool {
-        self.dependencies.iter().any(|dep| dep.service == service && dep.purpose == purpose)
+        self.dependencies
+            .iter()
+            .any(|dep| dep.service == service && dep.purpose == purpose)
     }
 }
 

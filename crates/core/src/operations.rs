@@ -2,11 +2,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::*;
-
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::*;
 pub use crate::{CausalRef, Operation, OperationSignature, OperationType};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -49,7 +48,9 @@ pub struct OperationCatalogReport {
 impl OperationCatalogReport {
     pub fn validate(&self) -> Result<()> {
         if self.total != BUILT_IN_OPERATION_KINDS.len() {
-            return Err(Error::Protocol("operation catalog does not cover built-ins".to_owned()));
+            return Err(Error::Protocol(
+                "operation catalog does not cover built-ins".to_owned(),
+            ));
         }
         if !self.missing_surfaces.is_empty() {
             return Err(Error::Protocol(format!(
@@ -166,7 +167,9 @@ pub fn operation_catalog() -> OperationCatalogReport {
     let rows = BUILT_IN_OPERATION_KINDS
         .iter()
         .map(|kind| {
-            let spec = registry.spec(kind).expect("built-in operation kind is registered");
+            let spec = registry
+                .spec(kind)
+                .expect("built-in operation kind is registered");
             OperationCatalogRow {
                 kind: (*kind).to_owned(),
                 surface: classify_operation_kind(kind),
@@ -175,7 +178,10 @@ pub fn operation_catalog() -> OperationCatalogReport {
             }
         })
         .collect::<Vec<_>>();
-    let covered = rows.iter().map(|row| row.surface.clone()).collect::<BTreeSet<_>>();
+    let covered = rows
+        .iter()
+        .map(|row| row.surface.clone())
+        .collect::<BTreeSet<_>>();
     let required_surfaces = [
         OperationSurface::Account,
         OperationSurface::Applet,
@@ -194,9 +200,15 @@ pub fn operation_catalog() -> OperationCatalogReport {
         OperationSurface::Server,
         OperationSurface::AccountStream,
     ];
-    let missing_surfaces =
-        required_surfaces.into_iter().filter(|surface| !covered.contains(surface)).collect();
-    OperationCatalogReport { total: rows.len(), rows, missing_surfaces }
+    let missing_surfaces = required_surfaces
+        .into_iter()
+        .filter(|surface| !covered.contains(surface))
+        .collect();
+    OperationCatalogReport {
+        total: rows.len(),
+        rows,
+        missing_surfaces,
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -211,9 +223,12 @@ impl OperationDag {
 
     pub fn insert(&mut self, operation: OperationEnvelope) -> Result<()> {
         if self.operations.contains_key(&operation.operation_id) {
-            return Err(Error::IdempotencyConflict(operation.operation_id.to_string()));
+            return Err(Error::IdempotencyConflict(
+                operation.operation_id.to_string(),
+            ));
         }
-        self.operations.insert(operation.operation_id.clone(), operation);
+        self.operations
+            .insert(operation.operation_id.clone(), operation);
         Ok(())
     }
 
@@ -301,7 +316,9 @@ impl OperationDagReport {
             return Err(Error::Protocol("operation DAG contains a cycle".to_owned()));
         }
         if !self.missing_dependencies.is_empty() {
-            return Err(Error::Protocol("operation DAG has missing dependencies".to_owned()));
+            return Err(Error::Protocol(
+                "operation DAG has missing dependencies".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -428,11 +445,13 @@ impl OperationSemanticReducer {
         };
         match effect.mutation {
             OperationMutation::Create | OperationMutation::Update | OperationMutation::External => {
-                self.active_targets.insert(target_id, effect.operation_id.clone());
+                self.active_targets
+                    .insert(target_id, effect.operation_id.clone());
             }
             OperationMutation::Delete | OperationMutation::Redact => {
                 self.active_targets.remove(&target_id);
-                self.tombstoned_targets.insert(target_id, effect.operation_id.clone());
+                self.tombstoned_targets
+                    .insert(target_id, effect.operation_id.clone());
             }
             OperationMutation::Read => {}
         }
@@ -553,7 +572,10 @@ fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
         _ => &[],
     };
     fields.iter().find_map(|field| {
-        content.get(*field).and_then(Value::as_str).map(|value| format!("{field}:{value}"))
+        content
+            .get(*field)
+            .and_then(Value::as_str)
+            .map(|value| format!("{field}:{value}"))
     })
 }
 
@@ -611,13 +633,13 @@ pub mod protocol {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
+    use super::*;
     use crate::{
         Did, GrantId, Hlc, OP_EVENTS_QUERY, OP_PUSH_REGISTER_DEVICE, OP_PUSH_UNREGISTER_DEVICE,
         OperationEnvelopeBuilder,
     };
-    use serde_json::json;
-
-    use super::*;
 
     fn envelope(id: &str, deps: Vec<&str>) -> OperationEnvelope {
         envelope_for(id, OP_EVENTS_QUERY, json!({}), deps, false)
@@ -654,15 +676,23 @@ mod tests {
     fn catalog_covers_builtin_operation_surfaces() {
         let catalog = operation_catalog();
         catalog.validate().unwrap();
-        assert!(catalog.rows.iter().any(|row| row.surface == OperationSurface::Events));
+        assert!(
+            catalog
+                .rows
+                .iter()
+                .any(|row| row.surface == OperationSurface::Events)
+        );
         assert_eq!(conformance_vectors().len(), BUILT_IN_OPERATION_KINDS.len());
     }
 
     #[test]
     fn dag_accepts_complete_acyclic_dependencies() {
         let mut dag = OperationDag::new();
-        dag.insert(envelope("ck:operation:01904100-0000-7000-8000-b24c1b0f1a32", Vec::new()))
-            .unwrap();
+        dag.insert(envelope(
+            "ck:operation:01904100-0000-7000-8000-b24c1b0f1a32",
+            Vec::new(),
+        ))
+        .unwrap();
         dag.insert(envelope(
             "ck:operation:01904100-0000-7000-8000-bc16402a117e",
             vec!["ck:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
@@ -701,8 +731,10 @@ mod tests {
         assert!(report.has_cycle);
         assert!(report.validate_acyclic_complete().is_err());
 
-        let issues =
-            negative_dag_vectors().into_iter().map(|vector| vector.issue).collect::<BTreeSet<_>>();
+        let issues = negative_dag_vectors()
+            .into_iter()
+            .map(|vector| vector.issue)
+            .collect::<BTreeSet<_>>();
         assert!(issues.contains(&OperationDagNegativeKind::Cycle));
         assert!(issues.contains(&OperationDagNegativeKind::MutationAfterTombstone));
         assert!(issues.contains(&OperationDagNegativeKind::MissingAuthz));

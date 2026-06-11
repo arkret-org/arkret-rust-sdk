@@ -54,7 +54,11 @@ pub struct PrivacySettings {
 
 impl Default for PrivacySettings {
     fn default() -> Self {
-        Self { profile_discoverable: true, public_read_receipts: true, presence_visible: true }
+        Self {
+            profile_discoverable: true,
+            public_read_receipts: true,
+            presence_visible: true,
+        }
     }
 }
 
@@ -104,7 +108,9 @@ impl SettingsManager {
 
     /// Get settings, creating defaults if missing.
     pub fn settings_mut(&mut self, user_id: Did) -> &mut ClientSettings {
-        self.settings.entry(user_id.clone()).or_insert_with(|| ClientSettings::new(user_id))
+        self.settings
+            .entry(user_id.clone())
+            .or_insert_with(|| ClientSettings::new(user_id))
     }
 
     /// Get settings.

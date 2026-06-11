@@ -233,8 +233,9 @@ pub struct ModerationQueueItem {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     #[test]
     fn agent_envelope_round_trips_minimal() {

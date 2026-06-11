@@ -80,10 +80,12 @@ impl SyncResponseProcessor {
             self.presence.insert(event.user_id.clone(), event.clone());
         }
         for item in &account_data {
-            self.account_data.insert(item.data_type.clone(), item.clone());
+            self.account_data
+                .insert(item.data_type.clone(), item.clone());
         }
         for notification in &notifications {
-            self.notifications.insert(notification.id.clone(), notification.clone());
+            self.notifications
+                .insert(notification.id.clone(), notification.clone());
         }
 
         Ok(SyncUpdates {

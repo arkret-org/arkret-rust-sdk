@@ -47,7 +47,9 @@ impl Operation {
         if self.payload.is_object() {
             Ok(())
         } else {
-            Err(Error::Protocol("operation payload must be a JSON object".to_owned()))
+            Err(Error::Protocol(
+                "operation payload must be a JSON object".to_owned(),
+            ))
         }
     }
 }
@@ -149,7 +151,9 @@ impl OperationEnvelope {
             );
         }
         if let Some(target_ref) = self.target_ref {
-            event.unsigned.insert("local_target_ref".to_owned(), Value::String(target_ref));
+            event
+                .unsigned
+                .insert("local_target_ref".to_owned(), Value::String(target_ref));
         }
         Ok(event)
     }
@@ -282,7 +286,11 @@ impl OperationEnvelopeBuilder {
             actor_id: self.actor_id,
             kind: validation.canonical_kind,
             target_ref: self.target_ref,
-            causal: CausalRef { deps: self.deps, hlc: self.hlc, actor_seq: self.actor_seq },
+            causal: CausalRef {
+                deps: self.deps,
+                hlc: self.hlc,
+                actor_seq: self.actor_seq,
+            },
             content: self.content,
             authz_ref: self.authz_ref,
             proofs: self.proofs,
@@ -334,7 +342,9 @@ pub fn container_rebalance_assignments(
     }
     let step = RANK_MAX / (object_refs.len() as u64 + 1);
     if step == 0 {
-        return Err(Error::Protocol("too many container assignments to rebalance".to_owned()));
+        return Err(Error::Protocol(
+            "too many container assignments to rebalance".to_owned(),
+        ));
     }
     Ok(object_refs
         .iter()
@@ -466,7 +476,9 @@ impl PolicyRule {
     /// violation.
     pub fn validate(&self) -> Result<()> {
         if self.rule_id.trim().is_empty() {
-            return Err(Error::Protocol("policy rule rule_id must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "policy rule rule_id must not be empty".to_owned(),
+            ));
         }
         let require = |field: &str| -> Result<()> {
             match self.extra.get(field) {
@@ -674,7 +686,10 @@ impl EncryptedPayload {
         };
         let mut input = canonical::canonical_json_bytes(&metadata)?;
         input.extend_from_slice(ciphertext_bytes);
-        Ok(Hash::new(format!("sha256:{}", hex::encode(Sha256::digest(&input))))?)
+        Ok(Hash::new(format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(&input))
+        ))?)
     }
 
     pub fn verify_mls_payload_digest(&self, ciphertext_bytes: &[u8]) -> Result<()> {
@@ -687,7 +702,9 @@ impl EncryptedPayload {
         if expected == self.payload_digest {
             Ok(())
         } else {
-            Err(Error::Protocol("encrypted payload digest mismatch".to_owned()))
+            Err(Error::Protocol(
+                "encrypted payload digest mismatch".to_owned(),
+            ))
         }
     }
 
@@ -696,12 +713,16 @@ impl EncryptedPayload {
         if let Some(key_ref) = &self.key_ref
             && key_ref.algorithm.trim().is_empty()
         {
-            return Err(Error::Protocol("key_ref.algorithm must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "key_ref.algorithm must not be empty".to_owned(),
+            ));
         }
         if let Some(key_ref) = &self.key_ref
             && key_ref.group_state_ref.trim().is_empty()
         {
-            return Err(Error::Protocol("key_ref.group_state_ref must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "key_ref.group_state_ref must not be empty".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -765,7 +786,10 @@ impl MlsKeyPackageRecord {
 
     /// Whether the record is currently usable for a Welcome.
     pub fn is_usable(&self) -> bool {
-        !matches!(self.state, MlsKeyPackageState::Revoked | MlsKeyPackageState::Consumed)
+        !matches!(
+            self.state,
+            MlsKeyPackageState::Revoked | MlsKeyPackageState::Consumed
+        )
     }
 }
 
@@ -784,10 +808,16 @@ pub struct MlsProposalEnvelope {
 impl MlsProposalEnvelope {
     /// Build a repo operation that carries this MLS proposal.
     pub fn operation(&self, operation_id: OperationId, realm_id: RealmId) -> Result<Operation> {
-        let mut operation =
-            Operation::create(operation_id, realm_id, "mls_proposal", serde_json::to_value(self)?);
-        operation.object_id =
-            Some(format!("{}:{}:{}", self.group_id, self.epoch, self.proposal_type));
+        let mut operation = Operation::create(
+            operation_id,
+            realm_id,
+            "mls_proposal",
+            serde_json::to_value(self)?,
+        );
+        operation.object_id = Some(format!(
+            "{}:{}:{}",
+            self.group_id, self.epoch, self.proposal_type
+        ));
         Ok(operation)
     }
 }
@@ -903,8 +933,12 @@ pub struct MlsCommitEnvelope {
 impl MlsCommitEnvelope {
     /// Build a repo operation that carries this MLS commit.
     pub fn operation(&self, operation_id: OperationId, realm_id: RealmId) -> Result<Operation> {
-        let mut operation =
-            Operation::create(operation_id, realm_id, "mls_commit", serde_json::to_value(self)?);
+        let mut operation = Operation::create(
+            operation_id,
+            realm_id,
+            "mls_commit",
+            serde_json::to_value(self)?,
+        );
         operation.object_id = Some(format!("{}:{}", self.group_id, self.epoch));
         Ok(operation)
     }
@@ -926,8 +960,12 @@ pub struct MlsWelcomeEnvelope {
 impl MlsWelcomeEnvelope {
     /// Build a repo operation that records this MLS welcome delivery.
     pub fn operation(&self, operation_id: OperationId, realm_id: RealmId) -> Result<Operation> {
-        let mut operation =
-            Operation::create(operation_id, realm_id, "mls_welcome", serde_json::to_value(self)?);
+        let mut operation = Operation::create(
+            operation_id,
+            realm_id,
+            "mls_welcome",
+            serde_json::to_value(self)?,
+        );
         operation.object_id = Some(format!(
             "{}:{}:{}:{}",
             self.group_id, self.epoch, self.recipient_principal_id, self.recipient_device_id

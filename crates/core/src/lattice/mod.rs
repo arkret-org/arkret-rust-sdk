@@ -4,13 +4,12 @@
 //! Lattice type from a closed set of 6 normative algebras. Each Lattice
 //! implementation defines:
 //!
-//! - `Op` — the wire-level operation shape it accepts (a subset of
-//!   [`crate::LatticeOp`] with its required fields populated);
+//! - `Op` — the wire-level operation shape it accepts (a subset of [`crate::LatticeOp`] with its
+//!   required fields populated);
 //! - `Value` — the resolved value type after `join()`;
-//! - `validate_op` — schema-level validity of a single op against this
-//!   Lattice's rules;
-//! - `join` — deterministic merge of an ordered list of anchored ops to
-//!   produce either `Value` or `Bottom`.
+//! - `validate_op` — schema-level validity of a single op against this Lattice's rules;
+//! - `join` — deterministic merge of an ordered list of anchored ops to produce either `Value` or
+//!   `Bottom`.
 //!
 //! The 6 normative Lattice types:
 //!
@@ -45,10 +44,10 @@ pub use fsm::Fsm;
 pub use mv_register::MvRegister;
 pub use or_set::OrSet;
 pub use ordered_log::OrderedLog;
+use serde_json::Value;
 pub use traits::{Lattice, LatticeKind, OpError};
 
 use crate::{Bottom, BottomKind, CellRef, LatticeOp, MoveId};
-use serde_json::Value;
 
 /// A single anchored op input to [`Lattice::join`].
 ///

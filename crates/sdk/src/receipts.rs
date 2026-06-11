@@ -18,10 +18,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-
-use crate::{DeviceId, Did, EventId, FlowId, Hlc, RealmId, Result};
-
+use cokret_core::ReadCursorId;
 // Wire-shaped read receipt / read cursor types are owned by `cokret-core`
 // (mirroring `read-receipt.schema.json` / `read-cursor.schema.json`); the
 // manager reuses them instead of keeping `user_id`-shaped local copies.
@@ -29,8 +26,9 @@ pub use cokret_core::{
     READ_CURSOR_SCHEMA, READ_RECEIPT_SCHEMA, READ_RECEIPT_TYPE, ReadCursor, ReadCursorPosition,
     ReadMarker, ReadReceipt, ReadScope, ReadScopeKind,
 };
+use serde::{Deserialize, Serialize};
 
-use cokret_core::ReadCursorId;
+use crate::{DeviceId, Did, EventId, FlowId, Hlc, RealmId, Result};
 
 /// Build the [`ReadScope`] for an optional thread position.
 fn scope_for_thread(thread_id: Option<&str>) -> ReadScope {
@@ -42,7 +40,11 @@ fn scope_for_thread(thread_id: Option<&str>) -> ReadScope {
 
 /// Extract the manager thread key from a [`ReadScope`].
 fn scope_thread_id(read_scope: &ReadScope) -> Option<String> {
-    if read_scope.kind == ReadScopeKind::Thread { read_scope.object_ref.clone() } else { None }
+    if read_scope.kind == ReadScopeKind::Thread {
+        read_scope.object_ref.clone()
+    } else {
+        None
+    }
 }
 
 /// Read receipt manager.
@@ -106,8 +108,10 @@ impl ReceiptManager {
             position: ReadCursorPosition { event_id, hlc },
             updated_at: Utc::now(),
         };
-        self.thread_index.insert((realm_id.clone(), thread_id.clone()));
-        self.markers.insert((realm_id, actor_id, thread_id), marker.clone());
+        self.thread_index
+            .insert((realm_id.clone(), thread_id.clone()));
+        self.markers
+            .insert((realm_id, actor_id, thread_id), marker.clone());
         Ok(marker)
     }
 
@@ -118,7 +122,11 @@ impl ReceiptManager {
         actor_id: &Did,
         thread_id: Option<&str>,
     ) -> Option<&ReadMarker> {
-        self.markers.get(&(realm_id.clone(), actor_id.clone(), thread_id.map(str::to_owned)))
+        self.markers.get(&(
+            realm_id.clone(),
+            actor_id.clone(),
+            thread_id.map(str::to_owned),
+        ))
     }
 
     /// Send/store a read receipt (a `ck.schema.read_receipt.v1` value).
@@ -158,18 +166,27 @@ impl ReceiptManager {
             read_scope: scope_for_thread(thread_id.as_deref()),
             created_at: now,
         };
-        self.thread_index.insert((realm_id.clone(), thread_id.clone()));
+        self.thread_index
+            .insert((realm_id.clone(), thread_id.clone()));
         self.last_send_at.insert(dedup_key, now);
-        self.receipts.entry((realm_id, event_id, thread_id)).or_default().push(receipt.clone());
+        self.receipts
+            .entry((realm_id, event_id, thread_id))
+            .or_default()
+            .push(receipt.clone());
         receipt
     }
 
     /// Process a receipt received from sync.
     pub fn process_receipt(&mut self, receipt: ReadReceipt) {
         let thread_id = scope_thread_id(&receipt.read_scope);
-        self.thread_index.insert((receipt.realm_id.clone(), thread_id.clone()));
+        self.thread_index
+            .insert((receipt.realm_id.clone(), thread_id.clone()));
         self.receipts
-            .entry((receipt.realm_id.clone(), receipt.event_id.clone(), thread_id))
+            .entry((
+                receipt.realm_id.clone(),
+                receipt.event_id.clone(),
+                thread_id,
+            ))
             .or_default()
             .push(receipt);
     }
@@ -182,7 +199,11 @@ impl ReceiptManager {
         thread_id: Option<&str>,
     ) -> Vec<&ReadReceipt> {
         self.receipts
-            .get(&(realm_id.clone(), event_id.clone(), thread_id.map(str::to_owned)))
+            .get(&(
+                realm_id.clone(),
+                event_id.clone(),
+                thread_id.map(str::to_owned),
+            ))
             .map(|receipts| receipts.iter().collect())
             .unwrap_or_default()
     }
@@ -401,8 +422,16 @@ mod tests {
             Some("t1".to_owned()),
         );
 
-        assert_eq!(manager.receipts_for_event(&realm_id, &event, Some("t1")).len(), 2);
-        assert_eq!(manager.thread_positions(&realm_id), vec![Some("t1".to_owned())]);
+        assert_eq!(
+            manager
+                .receipts_for_event(&realm_id, &event, Some("t1"))
+                .len(),
+            2
+        );
+        assert_eq!(
+            manager.thread_positions(&realm_id),
+            vec![Some("t1".to_owned())]
+        );
     }
 
     fn realm() -> RealmId {
@@ -446,8 +475,10 @@ mod tests {
     fn should_send_required_forces_send_overrides_user() {
         let mut prefs = ReadReceiptPreferences::default();
         prefs.default.send = Some(false);
-        let policy =
-            ReadReceiptPolicy { disclosure: ReadReceiptDisclosure::Required, ..Default::default() };
+        let policy = ReadReceiptPolicy {
+            disclosure: ReadReceiptDisclosure::Required,
+            ..Default::default()
+        };
         let decision = should_send_receipt(&prefs, Some(&policy), None, None);
         assert_eq!(decision, ReceiptDecision::ForcedSend);
         assert!(decision.is_send());
@@ -458,8 +489,10 @@ mod tests {
     fn should_send_disabled_forces_skip_overrides_user() {
         let mut prefs = ReadReceiptPreferences::default();
         prefs.default.send = Some(true);
-        let policy =
-            ReadReceiptPolicy { disclosure: ReadReceiptDisclosure::Disabled, ..Default::default() };
+        let policy = ReadReceiptPolicy {
+            disclosure: ReadReceiptDisclosure::Disabled,
+            ..Default::default()
+        };
         let decision = should_send_receipt(&prefs, Some(&policy), None, None);
         assert_eq!(decision, ReceiptDecision::ForcedSkip);
         assert!(!decision.is_send());

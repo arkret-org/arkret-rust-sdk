@@ -2,8 +2,8 @@
 //!
 //! Per spec §5.3:
 //! - Single `set(value)` op produces `value`.
-//! - Multiple concurrent `set` ops produce a `kind=conflict` Bottom whose
-//!   `heads[]` contains every concurrent value (default `bottom=expose`).
+//! - Multiple concurrent `set` ops produce a `kind=conflict` Bottom whose `heads[]` contains every
+//!   concurrent value (default `bottom=expose`).
 //!
 //! "Concurrent" here means there is no causal ordering provided by the
 //! Anchor — two `set` ops in the same Anchor frontier with no causal
@@ -11,10 +11,10 @@
 //! responsible for collapsing causally-ordered chains; this trait method
 //! sees only the surviving heads.
 
-use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
 use serde_json::Value;
 
 use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct MvRegister;
@@ -28,7 +28,10 @@ impl Lattice for MvRegister {
         match op.op_type {
             LatticeOpType::Set => {
                 if op.value.is_none() {
-                    return Err(OpError::MissingField { kind: "mv_register", field: "value" });
+                    return Err(OpError::MissingField {
+                        kind: "mv_register",
+                        field: "value",
+                    });
                 }
                 Ok(())
             }
@@ -40,14 +43,18 @@ impl Lattice for MvRegister {
     }
 
     fn join(&self, cell: &CellRef, anchored_ops: &[AnchoredOp]) -> CellState {
-        let valid_ops: Vec<&AnchoredOp> =
-            anchored_ops.iter().filter(|e| self.validate_op(&e.op).is_ok()).collect();
+        let valid_ops: Vec<&AnchoredOp> = anchored_ops
+            .iter()
+            .filter(|e| self.validate_op(&e.op).is_ok())
+            .collect();
         match valid_ops.len() {
             0 => CellState::Value(Value::Null),
             1 => CellState::Value(valid_ops[0].op.value.clone().unwrap_or(Value::Null)),
             _ => {
-                let heads: Vec<Value> =
-                    valid_ops.iter().filter_map(|e| e.op.value.clone()).collect();
+                let heads: Vec<Value> = valid_ops
+                    .iter()
+                    .filter_map(|e| e.op.value.clone())
+                    .collect();
                 let move_ids = valid_ops.iter().map(|e| e.move_id.clone()).collect();
                 let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
                 bottom.move_ids = move_ids;
@@ -60,9 +67,10 @@ impl Lattice for MvRegister {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
     use crate::{LatticeOp, MoveId};
-    use serde_json::json;
 
     fn cell() -> CellRef {
         CellRef::new(
@@ -98,7 +106,9 @@ mod tests {
             reason: None,
             issuer_seq: None,
         };
-        MvRegister.validate_op(&op).expect_err("non-set op must fail");
+        MvRegister
+            .validate_op(&op)
+            .expect_err("non-set op must fail");
     }
 
     #[test]
@@ -112,7 +122,9 @@ mod tests {
             reason: None,
             issuer_seq: None,
         };
-        MvRegister.validate_op(&op).expect_err("set without value must fail");
+        MvRegister
+            .validate_op(&op)
+            .expect_err("set without value must fail");
     }
 
     #[test]
@@ -123,7 +135,10 @@ mod tests {
     #[test]
     fn single_set_returns_value() {
         let ops = vec![AnchoredOp::new(move_id(1), set_op(json!("hello")))];
-        assert_eq!(MvRegister.join(&cell(), &ops), CellState::Value(json!("hello")));
+        assert_eq!(
+            MvRegister.join(&cell(), &ops),
+            CellState::Value(json!("hello"))
+        );
     }
 
     #[test]
@@ -177,7 +192,10 @@ mod tests {
             AnchoredOp::new(move_id(2), set_op(json!("only valid"))),
         ];
         // Only one valid op -> single value, no Bottom.
-        assert_eq!(MvRegister.join(&cell(), &ops), CellState::Value(json!("only valid")));
+        assert_eq!(
+            MvRegister.join(&cell(), &ops),
+            CellState::Value(json!("only valid"))
+        );
     }
 
     #[test]

@@ -13,7 +13,10 @@ pub struct ObjectCreatePayload<T> {
 
 impl<T> ObjectCreatePayload<T> {
     pub fn new(object: T) -> Self {
-        Self { object, initial_relations: Vec::new() }
+        Self {
+            object,
+            initial_relations: Vec::new(),
+        }
     }
 
     pub fn with_initial_relation(mut self, relation: Value) -> Self {
@@ -204,12 +207,17 @@ impl FlowCreateObject {
     }
 
     pub fn with_metadata_title(mut self, title: impl Into<String>) -> Self {
-        self.metadata.get_or_insert_with(FlowMetadata::default).title = Some(title.into());
+        self.metadata
+            .get_or_insert_with(FlowMetadata::default)
+            .title = Some(title.into());
         self
     }
 
     pub fn with_metadata_field(mut self, key: impl Into<String>, value: Value) -> Self {
-        self.metadata.get_or_insert_with(FlowMetadata::default).fields.insert(key.into(), value);
+        self.metadata
+            .get_or_insert_with(FlowMetadata::default)
+            .fields
+            .insert(key.into(), value);
         self
     }
 
@@ -236,7 +244,11 @@ pub struct FlowPatchPayload {
 impl FlowPatchPayload {
     pub fn for_flow(flow_id: FlowId, patch: Patch) -> Result<Self> {
         patch.validate()?;
-        Ok(Self { flow_id, patch, expected_state_digest: None })
+        Ok(Self {
+            flow_id,
+            patch,
+            expected_state_digest: None,
+        })
     }
 
     pub fn to_value(&self) -> Result<Value> {
@@ -275,7 +287,12 @@ impl RelationCreatePayload {
         from_ref: impl Into<ObjectRef>,
         to_ref: impl Into<ObjectRef>,
     ) -> Self {
-        Self { kind: kind.into(), from_ref: from_ref.into(), to_ref: to_ref.into(), rank: None }
+        Self {
+            kind: kind.into(),
+            from_ref: from_ref.into(),
+            to_ref: to_ref.into(),
+            rank: None,
+        }
     }
 
     pub fn with_rank(mut self, rank: impl Into<String>) -> Self {
@@ -515,7 +532,10 @@ pub struct InviteRefPayload {
 
 impl InviteRefPayload {
     pub fn new(invite_id: InviteId) -> Self {
-        Self { invite_id, reason: None }
+        Self {
+            invite_id,
+            reason: None,
+        }
     }
 
     pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
@@ -552,7 +572,11 @@ pub struct RealmArchivePayload {
 
 impl RealmArchivePayload {
     pub fn new(archived: bool) -> Self {
-        Self { archived, reason: None, effective_at: None }
+        Self {
+            archived,
+            reason: None,
+            effective_at: None,
+        }
     }
 
     pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
@@ -764,7 +788,13 @@ impl FlowReorderPayload {
         space_id: SpaceId,
         rank: impl Into<String>,
     ) -> Self {
-        Self { board_space_id, flow_id, space_id, rank: rank.into(), expected_position: None }
+        Self {
+            board_space_id,
+            flow_id,
+            space_id,
+            rank: rank.into(),
+            expected_position: None,
+        }
     }
 
     pub fn with_expected_position(mut self, expected: FlowReorderExpectedPosition) -> Self {
@@ -839,13 +869,25 @@ impl FlowWatchSetPayload {
         level: FlowWatchLevel,
         level_public: Option<bool>,
     ) -> Self {
-        Self { flow_id, watcher_actor_id, level: Some(level), level_public, expected_value: None }
+        Self {
+            flow_id,
+            watcher_actor_id,
+            level: Some(level),
+            level_public,
+            expected_value: None,
+        }
     }
 
     /// Clear the watch cell (`level: null`). Per the schema `allOf`,
     /// `level_public` is forced off on this path.
     pub fn clear(flow_id: FlowId, watcher_actor_id: Did) -> Self {
-        Self { flow_id, watcher_actor_id, level: None, level_public: None, expected_value: None }
+        Self {
+            flow_id,
+            watcher_actor_id,
+            level: None,
+            level_public: None,
+            expected_value: None,
+        }
     }
 
     pub fn with_expected_value(mut self, expected: Option<FlowWatchExpectedValue>) -> Self {
@@ -887,7 +929,12 @@ pub struct ObjectLifecyclePayload {
 
 impl ObjectLifecyclePayload {
     pub fn new(target_ref: impl Into<ObjectRef>) -> Self {
-        Self { target_ref: target_ref.into(), target_state: None, reason: None, effective_at: None }
+        Self {
+            target_ref: target_ref.into(),
+            target_state: None,
+            reason: None,
+            effective_at: None,
+        }
     }
 
     pub fn with_target_state(mut self, target_state: impl Into<String>) -> Self {
@@ -935,7 +982,11 @@ pub struct HistoryVisibilityPayload {
 
 impl HistoryVisibilityPayload {
     pub fn new(value: HistoryVisibility) -> Self {
-        Self { value, restricted_policy_digest: None, reason: None }
+        Self {
+            value,
+            restricted_policy_digest: None,
+            reason: None,
+        }
     }
 
     /// Build a `restricted` payload with its mandatory policy digest.
@@ -1064,7 +1115,9 @@ impl PlaintextVisibleServicesPayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self).map_err(|err| {
-            Error::Protocol(format!("plaintext visible services payload serialize: {err}"))
+            Error::Protocol(format!(
+                "plaintext visible services payload serialize: {err}"
+            ))
         })
     }
 }
@@ -1072,8 +1125,10 @@ impl PlaintextVisibleServicesPayload {
 /// serde adapter that maps a `BTreeMap<String, Value>` to/from wire keys
 /// carrying the mandatory `x_` extension prefix.
 mod x_prefixed_map {
+    use serde::ser::SerializeMap;
+    use serde::{Deserializer, Serializer};
+
     use super::*;
-    use serde::{Deserializer, Serializer, ser::SerializeMap};
 
     pub fn serialize<S: Serializer>(
         map: &BTreeMap<String, Value>,
@@ -1081,7 +1136,11 @@ mod x_prefixed_map {
     ) -> std::result::Result<S::Ok, S::Error> {
         let mut m = serializer.serialize_map(Some(map.len()))?;
         for (k, v) in map {
-            let key = if k.starts_with("x_") { k.clone() } else { format!("x_{k}") };
+            let key = if k.starts_with("x_") {
+                k.clone()
+            } else {
+                format!("x_{k}")
+            };
             m.serialize_entry(&key, v)?;
         }
         m.end()
@@ -1164,17 +1223,24 @@ impl MorphCreateObject {
     }
 
     pub fn with_title(mut self, title: impl Into<String>) -> Self {
-        self.metadata.get_or_insert_with(MorphMetadata::default).title = Some(title.into());
+        self.metadata
+            .get_or_insert_with(MorphMetadata::default)
+            .title = Some(title.into());
         self
     }
 
     pub fn with_summary(mut self, summary: impl Into<String>) -> Self {
-        self.metadata.get_or_insert_with(MorphMetadata::default).summary = Some(summary.into());
+        self.metadata
+            .get_or_insert_with(MorphMetadata::default)
+            .summary = Some(summary.into());
         self
     }
 
     pub fn with_metadata(mut self, key: impl Into<String>, value: Value) -> Self {
-        self.metadata.get_or_insert_with(MorphMetadata::default).extra.insert(key.into(), value);
+        self.metadata
+            .get_or_insert_with(MorphMetadata::default)
+            .extra
+            .insert(key.into(), value);
         self
     }
 
@@ -1239,7 +1305,12 @@ pub struct ContentBlock {
 
 impl ContentBlock {
     pub fn new(kind: impl Into<String>, body: impl Into<String>) -> Self {
-        Self { kind: kind.into(), body: body.into(), parts: Vec::new(), extra: BTreeMap::new() }
+        Self {
+            kind: kind.into(),
+            body: body.into(),
+            parts: Vec::new(),
+            extra: BTreeMap::new(),
+        }
     }
 
     pub fn text(body: impl Into<String>) -> Self {

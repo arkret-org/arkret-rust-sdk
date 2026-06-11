@@ -6,15 +6,17 @@
 //! - Grant validation and enforcement
 //! - Delegation tracking
 
+use std::collections::{BTreeMap, HashMap, HashSet};
+
 use chrono::{
     DateTime, Datelike, FixedOffset, LocalResult, NaiveDate, NaiveTime, TimeZone, Utc, Weekday,
 };
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::{Did, Error, RealmId, Result, model::Facet};
+use crate::model::Facet;
+use crate::{Did, Error, RealmId, Result};
 
 mod approval;
 mod constraints;

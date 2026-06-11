@@ -4,13 +4,13 @@
 //! `sdk/src/identity/helpers.rs`、`signatures/src/proof.rs` 各写了一份手摇
 //! base58 实现。这里把底层 base58btc 收敛到成熟的 `bs58` crate,并提供:
 //!
-//! - [`encode_base58btc`] / [`decode_base58btc`] —— Bitcoin 字母表 base58,
-//!   **不含** multibase `z` 前缀。
-//! - [`encode_multibase_base58btc`] / [`decode_multibase_base58btc`] ——
-//!   带 `z` 前缀的 multibase base58btc(W3C did:key / verificationMethod 形态)。
+//! - [`encode_base58btc`] / [`decode_base58btc`] —— Bitcoin 字母表 base58, **不含** multibase `z`
+//!   前缀。
+//! - [`encode_multibase_base58btc`] / [`decode_multibase_base58btc`] —— 带 `z` 前缀的 multibase
+//!   base58btc(W3C did:key / verificationMethod 形态)。
 //! - [`decode_multicodec_varint`] —— multicodec unsigned-varint 头解析。
-//! - [`ed25519_pubkey_to_did_key_multibase`] /
-//!   [`decode_ed25519_multibase`] —— Ed25519 公钥 ⇄ `z<base58btc(0xed01||key)>`。
+//! - [`ed25519_pubkey_to_did_key_multibase`] / [`decode_ed25519_multibase`] —— Ed25519 公钥 ⇄
+//!   `z<base58btc(0xed01||key)>`。
 //!
 //! webvh 的 SCID / entry-hash multihash 形态也复用本模块的 base58btc 原语
 //! (见 [`encode_multibase_base58btc`] 之上的 multihash 包裹),底层字节与

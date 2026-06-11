@@ -5,13 +5,15 @@
 //! - Client-specific data
 //! - Account data synchronization
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Did, Result, base::BaseClient};
+use crate::base::BaseClient;
+use crate::{Did, Result};
 
 /// Standard account-data type for the personal blocklist
 /// (`moderation.md` §4.1).
@@ -89,7 +91,12 @@ pub struct BlocklistEntry {
 
 impl BlocklistEntry {
     pub fn new(block_did: Did) -> Self {
-        Self { block_did, created_at: Utc::now(), expires_at: None, reason: None }
+        Self {
+            block_did,
+            created_at: Utc::now(),
+            expires_at: None,
+            reason: None,
+        }
     }
 
     pub fn with_ttl(mut self, expires_at: DateTime<Utc>) -> Self {
@@ -103,7 +110,9 @@ impl BlocklistEntry {
     }
 
     pub fn is_active(&self, now: DateTime<Utc>) -> bool {
-        self.expires_at.map(|deadline| now < deadline).unwrap_or(true)
+        self.expires_at
+            .map(|deadline| now < deadline)
+            .unwrap_or(true)
     }
 }
 
@@ -112,13 +121,10 @@ impl BlocklistEntry {
 ///
 /// Storage rules per `moderation.md` §4.1:
 ///
-/// - Persisted only as `ck.account.blocklist` account data (not as a
-///   shared Space state event).
-/// - MUST NOT be exfiltrated to federation peers, push gateways, or
-///   directory services.
-/// - When a Space is encrypted with MLS, the blocklist MAY be stored
-///   inside the actor's encrypted account data backup, never as
-///   plaintext on the principal server.
+/// - Persisted only as `ck.account.blocklist` account data (not as a shared Space state event).
+/// - MUST NOT be exfiltrated to federation peers, push gateways, or directory services.
+/// - When a Space is encrypted with MLS, the blocklist MAY be stored inside the actor's encrypted
+///   account data backup, never as plaintext on the principal server.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountBlocklist {
     pub entries: BTreeMap<String, BlocklistEntry>,
@@ -130,7 +136,8 @@ impl AccountBlocklist {
     }
 
     pub fn block(&mut self, entry: BlocklistEntry) {
-        self.entries.insert(entry.block_did.as_str().to_owned(), entry);
+        self.entries
+            .insert(entry.block_did.as_str().to_owned(), entry);
     }
 
     pub fn unblock(&mut self, did: &Did) -> bool {
@@ -138,7 +145,9 @@ impl AccountBlocklist {
     }
 
     pub fn is_blocked(&self, did: &Did, now: DateTime<Utc>) -> bool {
-        self.entries.get(did.as_str()).is_some_and(|entry| entry.is_active(now))
+        self.entries
+            .get(did.as_str())
+            .is_some_and(|entry| entry.is_active(now))
     }
 
     /// Drop expired entries; returns the number removed.
@@ -178,30 +187,49 @@ impl AccountDataManager {
 
     /// Get account data by type.
     pub fn get(&self, data_type: &str) -> Option<AccountData> {
-        self.account_data.read().unwrap_or_else(std::sync::PoisonError::into_inner).get(data_type).cloned()
+        self.account_data
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(data_type)
+            .cloned()
     }
 
     /// Set account data.
     pub fn set(&self, data_type: String, content: Value) -> Result<()> {
-        let account_data = AccountData { data_type: data_type.clone(), content };
-        self.account_data.write().unwrap_or_else(std::sync::PoisonError::into_inner).insert(data_type, account_data);
+        let account_data = AccountData {
+            data_type: data_type.clone(),
+            content,
+        };
+        self.account_data
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(data_type, account_data);
         Ok(())
     }
 
     /// Remove account data.
     pub fn remove(&self, data_type: &str) -> Result<()> {
-        self.account_data.write().unwrap_or_else(std::sync::PoisonError::into_inner).remove(data_type);
+        self.account_data
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(data_type);
         Ok(())
     }
 
     /// Get all account data.
     pub fn all(&self) -> BTreeMap<String, AccountData> {
-        self.account_data.read().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
+        self.account_data
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
     }
 
     /// Clear all account data.
     pub fn clear(&self) -> Result<()> {
-        self.account_data.write().unwrap_or_else(std::sync::PoisonError::into_inner).clear();
+        self.account_data
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clear();
         Ok(())
     }
 }
@@ -228,7 +256,9 @@ mod tests {
         let base_client = Arc::new(BaseClient::new());
         let manager = AccountDataManager::new(base_client);
 
-        manager.set("test".to_owned(), serde_json::json!({"key": "value"})).unwrap();
+        manager
+            .set("test".to_owned(), serde_json::json!({"key": "value"}))
+            .unwrap();
         assert!(manager.get("test").is_some());
 
         manager.remove("test").unwrap();
@@ -240,8 +270,12 @@ mod tests {
         let base_client = Arc::new(BaseClient::new());
         let manager = AccountDataManager::new(base_client);
 
-        manager.set("key1".to_owned(), serde_json::json!(1)).unwrap();
-        manager.set("key2".to_owned(), serde_json::json!(2)).unwrap();
+        manager
+            .set("key1".to_owned(), serde_json::json!(1))
+            .unwrap();
+        manager
+            .set("key2".to_owned(), serde_json::json!(2))
+            .unwrap();
 
         let all = manager.all();
         assert_eq!(all.len(), 2);

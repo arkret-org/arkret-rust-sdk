@@ -10,15 +10,14 @@
 use std::ffi::OsString;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 
+use cokret_core::Result;
+use cokret_core::keystore::{service_name, validate_id};
 use windows::Win32::Foundation::ERROR_NOT_FOUND;
 use windows::Win32::Security::Credentials::{
     CRED_PERSIST_SESSION, CRED_TYPE_GENERIC, CREDENTIALW, CredDeleteW, CredEnumerateW, CredFree,
     CredReadW, CredWriteW,
 };
 use windows::core::PCWSTR;
-
-use cokret_core::Result;
-use cokret_core::keystore::{service_name, validate_id};
 
 use crate::{KeyStore, KeyStoreError};
 
@@ -33,9 +32,13 @@ impl WindowsCredentialKeyStore {
     /// Construct a keystore for the given application id.
     pub fn new(application_id: &str) -> std::result::Result<Self, KeyStoreError> {
         if application_id.is_empty() {
-            return Err(KeyStoreError::invalid_id("application_id must be non-empty"));
+            return Err(KeyStoreError::invalid_id(
+                "application_id must be non-empty",
+            ));
         }
-        Ok(Self { service: service_name(application_id) })
+        Ok(Self {
+            service: service_name(application_id),
+        })
     }
 
     fn target_name(&self, id: &str) -> String {
@@ -54,10 +57,16 @@ impl KeyStore for WindowsCredentialKeyStore {
         validate_id(id)?;
         let target = wide(&self.target_name(id));
         let mut cred_ptr: *mut CREDENTIALW = std::ptr::null_mut();
-        // SAFETY: `target` is a valid NUL-terminated UTF-16 buffer owned for the duration of the call;
-        // `cred_ptr` is an out-parameter the Win32 API writes into.
-        let res =
-            unsafe { CredReadW(PCWSTR(target.as_ptr()), CRED_TYPE_GENERIC, None, &mut cred_ptr) };
+        // SAFETY: `target` is a valid NUL-terminated UTF-16 buffer owned for the duration of the
+        // call; `cred_ptr` is an out-parameter the Win32 API writes into.
+        let res = unsafe {
+            CredReadW(
+                PCWSTR(target.as_ptr()),
+                CRED_TYPE_GENERIC,
+                None,
+                &mut cred_ptr,
+            )
+        };
         match res {
             Ok(()) => {
                 if cred_ptr.is_null() {
@@ -132,7 +141,8 @@ impl KeyStore for WindowsCredentialKeyStore {
                 let prefix_len = self.service.len() + 1; // service + ':'
                 for i in 0..count as isize {
                     // SAFETY: `creds` points to a Win32-allocated array of length `count`;
-                    // `i` is strictly less than `count` so the offset and double-deref are in-bounds.
+                    // `i` is strictly less than `count` so the offset and double-deref are
+                    // in-bounds.
                     let cred = unsafe { &**(creds.offset(i)) };
                     // SAFETY: TargetName originates from the Win32 credential array above;
                     // the pointer is valid until CredFree(creds) runs below.
@@ -145,7 +155,8 @@ impl KeyStore for WindowsCredentialKeyStore {
                     }
                 }
                 if !creds.is_null() {
-                    // SAFETY: `creds` was allocated by CredEnumerateW and is freed exactly once here.
+                    // SAFETY: `creds` was allocated by CredEnumerateW and is freed exactly once
+                    // here.
                     unsafe { CredFree(creds as *const _) };
                 }
                 ids.sort();
@@ -164,7 +175,8 @@ impl KeyStore for WindowsCredentialKeyStore {
     fn delete(&self, id: &str) -> Result<()> {
         validate_id(id)?;
         let target = wide(&self.target_name(id));
-        // SAFETY: `target` is a valid NUL-terminated UTF-16 buffer owned for the duration of the call.
+        // SAFETY: `target` is a valid NUL-terminated UTF-16 buffer owned for the duration of the
+        // call.
         let res = unsafe { CredDeleteW(PCWSTR(target.as_ptr()), CRED_TYPE_GENERIC, None) };
         match res {
             Ok(()) => Ok(()),
@@ -217,7 +229,10 @@ mod tests {
 
     fn unique_app_id() -> String {
         use std::time::{SystemTime, UNIX_EPOCH};
-        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         format!("test.{nanos:x}")
     }
 
@@ -267,9 +282,18 @@ mod tests {
         store_b.store("k-b-1", b"b1").unwrap();
 
         let listed_a = store_a.list().unwrap();
-        assert!(listed_a.contains(&"k-a-1".to_owned()), "listed_a={listed_a:?}");
-        assert!(listed_a.contains(&"k-a-2".to_owned()), "listed_a={listed_a:?}");
-        assert!(!listed_a.contains(&"k-b-1".to_owned()), "listed_a={listed_a:?}");
+        assert!(
+            listed_a.contains(&"k-a-1".to_owned()),
+            "listed_a={listed_a:?}"
+        );
+        assert!(
+            listed_a.contains(&"k-a-2".to_owned()),
+            "listed_a={listed_a:?}"
+        );
+        assert!(
+            !listed_a.contains(&"k-b-1".to_owned()),
+            "listed_a={listed_a:?}"
+        );
 
         store_a.delete("k-a-1").unwrap();
         store_a.delete("k-a-2").unwrap();

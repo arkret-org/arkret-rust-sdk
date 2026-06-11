@@ -7,12 +7,10 @@
 //! non-snake_case keys; max 1024 bytes, max 16 nesting segments) and
 //! whose values are either:
 //!
-//! - A **direct value** — any JSON value that is *not* a JSON object
-//!   containing a `$op` discriminator. Equivalent to `{"$op":"set",
-//!   "value":<value>}`.
-//! - An **explicit op object** — `{ "$op": "set"|"unset"|"add"|"remove",
-//!   "value": ... }`. `value` is required for `set`/`add`/`remove` and
-//!   MUST be absent for `unset`.
+//! - A **direct value** — any JSON value that is *not* a JSON object containing a `$op`
+//!   discriminator. Equivalent to `{"$op":"set", "value":<value>}`.
+//! - An **explicit op object** — `{ "$op": "set"|"unset"|"add"|"remove", "value": ... }`. `value`
+//!   is required for `set`/`add`/`remove` and MUST be absent for `unset`.
 //!
 //! Reducer parser rules (selector semantics, redactable-field
 //! protection, reducer-managed-field protection) are defined normatively
@@ -75,22 +73,34 @@ pub enum PatchOp {
 impl PatchOp {
     /// Build a `set` operation with the given value.
     pub fn set(value: impl Into<Value>) -> Self {
-        Self::Explicit { op: PatchOpKind::Set, value: Some(value.into()) }
+        Self::Explicit {
+            op: PatchOpKind::Set,
+            value: Some(value.into()),
+        }
     }
 
     /// Build an `unset` operation.
     pub fn unset() -> Self {
-        Self::Explicit { op: PatchOpKind::Unset, value: None }
+        Self::Explicit {
+            op: PatchOpKind::Unset,
+            value: None,
+        }
     }
 
     /// Build an `add` operation.
     pub fn add(value: impl Into<Value>) -> Self {
-        Self::Explicit { op: PatchOpKind::Add, value: Some(value.into()) }
+        Self::Explicit {
+            op: PatchOpKind::Add,
+            value: Some(value.into()),
+        }
     }
 
     /// Build a `remove` operation.
     pub fn remove(value: impl Into<Value>) -> Self {
-        Self::Explicit { op: PatchOpKind::Remove, value: Some(value.into()) }
+        Self::Explicit {
+            op: PatchOpKind::Remove,
+            value: Some(value.into()),
+        }
     }
 
     /// Resolve the operation kind regardless of form.
@@ -147,14 +157,22 @@ impl<'de> Deserialize<'de> for PatchOp {
                     return Err(de::Error::custom("patch op 'unset' must not carry a value"));
                 }
                 if !matches!(op_kind, PatchOpKind::Unset) && inner_value.is_none() {
-                    return Err(de::Error::custom(format!("patch op '{op}' requires a value",)));
+                    return Err(de::Error::custom(format!(
+                        "patch op '{op}' requires a value",
+                    )));
                 }
-                if map.keys().any(|k| k.as_str() != "$op" && k.as_str() != "value") {
+                if map
+                    .keys()
+                    .any(|k| k.as_str() != "$op" && k.as_str() != "value")
+                {
                     return Err(de::Error::custom(
                         "patch op object must contain only $op and value",
                     ));
                 }
-                Ok(Self::Explicit { op: op_kind, value: inner_value })
+                Ok(Self::Explicit {
+                    op: op_kind,
+                    value: inner_value,
+                })
             }
             _ => Ok(Self::DirectValue(value)),
         }
@@ -180,7 +198,8 @@ impl Patch {
     pub fn insert(&mut self, path: impl Into<String>, value: impl Into<Value>) -> Result<()> {
         let path = path.into();
         validate_path(&path)?;
-        self.entries.insert(path, PatchOp::DirectValue(value.into()));
+        self.entries
+            .insert(path, PatchOp::DirectValue(value.into()));
         Ok(())
     }
 
@@ -395,8 +414,9 @@ fn validate_object_patch_ref(field: &str, value: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     #[test]
     fn direct_value_sugar_round_trips() {
@@ -456,8 +476,10 @@ mod tests {
     #[test]
     fn add_remove_round_trip() {
         let mut p = Patch::new();
-        p.insert_op("labels", PatchOp::add(json!("urgent"))).unwrap();
-        p.insert_op("labels", PatchOp::remove(json!("draft"))).unwrap();
+        p.insert_op("labels", PatchOp::add(json!("urgent")))
+            .unwrap();
+        p.insert_op("labels", PatchOp::remove(json!("draft")))
+            .unwrap();
         // BTreeMap dedupes by key; the second insert wins.
         assert_eq!(p.len(), 1);
         let op = p.iter().next().unwrap().1;
@@ -480,8 +502,9 @@ mod tests {
 
     #[test]
     fn path_too_deep_rejected() {
-        let deep_path =
-            std::iter::repeat_n("a", PATCH_PATH_MAX_SEGMENTS + 1).collect::<Vec<_>>().join(".");
+        let deep_path = std::iter::repeat_n("a", PATCH_PATH_MAX_SEGMENTS + 1)
+            .collect::<Vec<_>>()
+            .join(".");
         let mut p = Patch::new();
         assert!(p.insert(deep_path, "x").is_err());
     }
@@ -495,7 +518,9 @@ mod tests {
     #[test]
     fn object_patch_payload_serializes_canonical_shape() {
         let mut patch = Patch::new();
-        patch.insert_op("fields.document", PatchOp::set(json!({ "blocks": [] }))).unwrap();
+        patch
+            .insert_op("fields.document", PatchOp::set(json!({ "blocks": [] })))
+            .unwrap();
 
         let payload =
             ObjectPatchPayload::for_target("ck:flow:0196419b-0000-7000-8000-000000000001", patch)

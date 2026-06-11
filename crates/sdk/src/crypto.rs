@@ -1,9 +1,7 @@
 //! Shared authenticated encryption helpers.
 
-use chacha20poly1305::{
-    XChaCha20Poly1305,
-    aead::{Aead, KeyInit, Payload},
-};
+use chacha20poly1305::XChaCha20Poly1305;
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use hkdf::Hkdf;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -105,7 +103,10 @@ impl FeatureSafetyReport {
         if self.violations.is_empty() {
             Ok(())
         } else {
-            Err(Error::Protocol(format!("unsafe Cargo feature combination: {:?}", self.violations)))
+            Err(Error::Protocol(format!(
+                "unsafe Cargo feature combination: {:?}",
+                self.violations
+            )))
         }
     }
 }
@@ -116,8 +117,10 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<str>,
 {
-    let mut enabled_features =
-        features.into_iter().map(|feature| feature.as_ref().to_owned()).collect::<Vec<_>>();
+    let mut enabled_features = features
+        .into_iter()
+        .map(|feature| feature.as_ref().to_owned())
+        .collect::<Vec<_>>();
     enabled_features.sort();
     enabled_features.dedup();
 
@@ -132,15 +135,23 @@ where
     if has("salvo") && !has("server") {
         violations.push(UnsafeFeatureCombination::SalvoWithoutServer);
     }
-    if ["applet-runtime", "device-runtime", "sync-runtime", "timeline-runtime"]
-        .iter()
-        .any(|feature| has(feature))
+    if [
+        "applet-runtime",
+        "device-runtime",
+        "sync-runtime",
+        "timeline-runtime",
+    ]
+    .iter()
+    .any(|feature| has(feature))
         && !has("full-surface")
     {
         violations.push(UnsafeFeatureCombination::RuntimeWithoutFullSurface);
     }
 
-    FeatureSafetyReport { enabled_features, violations }
+    FeatureSafetyReport {
+        enabled_features,
+        violations,
+    }
 }
 
 /// Evaluate the feature set compiled into this crate.
@@ -259,7 +270,13 @@ pub fn seal(plaintext: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>
     let mut nonce = [0u8; NONCE_LEN];
     getrandom::fill(&mut nonce).map_err(|error| Error::Crypto(error.to_string()))?;
     let ciphertext = cipher
-        .encrypt(&nonce.into(), Payload { msg: plaintext, aad })
+        .encrypt(
+            &nonce.into(),
+            Payload {
+                msg: plaintext,
+                aad,
+            },
+        )
         .map_err(|_| Error::Crypto("AEAD encryption failed".to_owned()))?;
     let mut envelope = Vec::with_capacity(NONCE_LEN + ciphertext.len());
     envelope.extend_from_slice(&nonce);
@@ -271,7 +288,9 @@ pub fn seal(plaintext: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(envelope_len = envelope.len())))]
 pub fn open(envelope: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
     if envelope.len() < NONCE_LEN {
-        return Err(Error::Crypto("AEAD envelope is shorter than nonce".to_owned()));
+        return Err(Error::Crypto(
+            "AEAD envelope is shorter than nonce".to_owned(),
+        ));
     }
     let (nonce, ciphertext) = envelope.split_at(NONCE_LEN);
     let key = derive_aead_key(key_material, aad)?;
@@ -281,7 +300,13 @@ pub fn open(envelope: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>>
         .try_into()
         .map_err(|_| Error::Crypto("AEAD envelope nonce has invalid length".to_owned()))?;
     cipher
-        .decrypt(&nonce.into(), Payload { msg: ciphertext, aad })
+        .decrypt(
+            &nonce.into(),
+            Payload {
+                msg: ciphertext,
+                aad,
+            },
+        )
         .map_err(|_| Error::Crypto("AEAD decryption failed".to_owned()))
 }
 
@@ -312,7 +337,9 @@ pub fn verify_envelope_aad_digest(aad: &EncryptedEnvelopeAad, expected: &str) ->
     if constant_time_eq(&actual, expected) {
         Ok(())
     } else {
-        Err(Error::Protocol("encrypted envelope AAD digest mismatch".to_owned()))
+        Err(Error::Protocol(
+            "encrypted envelope AAD digest mismatch".to_owned(),
+        ))
     }
 }
 
@@ -532,9 +559,21 @@ mod tests {
     fn feature_safety_report_rejects_unsafe_combinations() {
         let report = feature_safety_report(["mls", "salvo", "sync-runtime"]);
         assert!(report.validate().is_err());
-        assert!(report.violations.contains(&UnsafeFeatureCombination::MlsWithoutFullSurface));
-        assert!(report.violations.contains(&UnsafeFeatureCombination::SalvoWithoutServer));
-        assert!(report.violations.contains(&UnsafeFeatureCombination::RuntimeWithoutFullSurface));
+        assert!(
+            report
+                .violations
+                .contains(&UnsafeFeatureCombination::MlsWithoutFullSurface)
+        );
+        assert!(
+            report
+                .violations
+                .contains(&UnsafeFeatureCombination::SalvoWithoutServer)
+        );
+        assert!(
+            report
+                .violations
+                .contains(&UnsafeFeatureCombination::RuntimeWithoutFullSurface)
+        );
 
         let safe = feature_safety_report(["full-surface", "server", "salvo", "mls"]);
         safe.validate().unwrap();
@@ -552,8 +591,9 @@ mod tests {
         let key = b"test-key-material-for-property-tests";
         let aad = b"test-aad";
         // Test a range of plaintext sizes including edge cases.
-        let sizes: Vec<usize> =
-            vec![0, 1, 15, 16, 17, 23, 31, 32, 63, 64, 127, 128, 255, 256, 512, 1024];
+        let sizes: Vec<usize> = vec![
+            0, 1, 15, 16, 17, 23, 31, 32, 63, 64, 127, 128, 255, 256, 512, 1024,
+        ];
         for size in sizes {
             let plaintext: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
             let sealed = seal(&plaintext, key, aad).unwrap();
@@ -562,7 +602,10 @@ mod tests {
                 "sealed must be larger than plaintext for size {size}"
             );
             let opened = open(&sealed, key, aad).unwrap();
-            assert_eq!(opened, plaintext, "roundtrip failed for plaintext size {size}");
+            assert_eq!(
+                opened, plaintext,
+                "roundtrip failed for plaintext size {size}"
+            );
         }
     }
 
@@ -582,7 +625,12 @@ mod tests {
         for key in &keys {
             let sealed = seal(plaintext, key, aad).unwrap();
             let opened = open(&sealed, key, aad).unwrap();
-            assert_eq!(opened, plaintext, "roundtrip failed for key length {}", key.len());
+            assert_eq!(
+                opened,
+                plaintext,
+                "roundtrip failed for key length {}",
+                key.len()
+            );
         }
     }
 
@@ -600,7 +648,12 @@ mod tests {
         for aad in &aads {
             let sealed = seal(plaintext, key, aad).unwrap();
             let opened = open(&sealed, key, aad).unwrap();
-            assert_eq!(opened, plaintext, "roundtrip failed for AAD length {}", aad.len());
+            assert_eq!(
+                opened,
+                plaintext,
+                "roundtrip failed for AAD length {}",
+                aad.len()
+            );
         }
     }
 
@@ -612,7 +665,10 @@ mod tests {
         let sealed1 = seal(plaintext, key, aad).unwrap();
         let sealed2 = seal(plaintext, key, aad).unwrap();
         // Different nonces should produce different ciphertexts.
-        assert_ne!(sealed1, sealed2, "two seals of the same plaintext must differ (unique nonce)");
+        assert_ne!(
+            sealed1, sealed2,
+            "two seals of the same plaintext must differ (unique nonce)"
+        );
         // Both should decrypt to the same plaintext.
         assert_eq!(open(&sealed1, key, aad).unwrap(), plaintext);
         assert_eq!(open(&sealed2, key, aad).unwrap(), plaintext);
@@ -628,7 +684,10 @@ mod tests {
         if sealed.len() > 25 {
             sealed[25] ^= 0xff;
         }
-        assert!(open(&sealed, key, aad).is_err(), "tampered ciphertext must fail to open");
+        assert!(
+            open(&sealed, key, aad).is_err(),
+            "tampered ciphertext must fail to open"
+        );
     }
 
     #[test]
@@ -675,13 +734,22 @@ mod tests {
         };
         let digest1 = envelope_aad_digest(&aad1).unwrap();
         let digest2 = envelope_aad_digest(&aad2).unwrap();
-        assert_ne!(digest1, digest2, "different AADs must produce different digests");
+        assert_ne!(
+            digest1, digest2,
+            "different AADs must produce different digests"
+        );
     }
 
     #[test]
     fn constant_time_eq_matches_standard_equality() {
-        let pairs: Vec<(&str, &str)> =
-            vec![("", ""), ("a", "a"), ("abc", "abc"), ("abc", "abe"), ("abc", "ab"), ("", "a")];
+        let pairs: Vec<(&str, &str)> = vec![
+            ("", ""),
+            ("a", "a"),
+            ("abc", "abc"),
+            ("abc", "abe"),
+            ("abc", "ab"),
+            ("", "a"),
+        ];
         for (left, right) in pairs {
             let ct_result = constant_time_eq(left, right);
             let eq_result = left == right;

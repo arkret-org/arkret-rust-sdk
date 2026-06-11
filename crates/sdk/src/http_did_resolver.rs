@@ -4,13 +4,11 @@
 //! helpers. Per `identity/identity-handles.md` §4 the resolver:
 //!
 //! - fetches `https://<host>/.well-known/did.json` for `did:web`,
-//! - fetches `https://<host>/.well-known/did.jsonl` and `did.json` for
-//!   `did:webvh` and validates the SCID + chain via the existing
-//!   [`DidWebvhResolver`] helpers,
+//! - fetches `https://<host>/.well-known/did.jsonl` and `did.json` for `did:webvh` and validates
+//!   the SCID + chain via the existing [`DidWebvhResolver`] helpers,
 //! - caches results behind a configurable TTL (default 5min),
 //! - applies the [`ResolverPolicy`] allow-list and fail-mode,
-//! - bounds responses by [`DID_WEB_MAX_DOCUMENT_BYTES`] and rejects
-//!   non-JSON content types.
+//! - bounds responses by [`DID_WEB_MAX_DOCUMENT_BYTES`] and rejects non-JSON content types.
 //!
 //! Concurrency: the cache is guarded by a `Mutex` because resolver
 //! traits are sync. For high-fanout deployments wrap the resolver in a
@@ -56,7 +54,14 @@ impl std::fmt::Debug for HttpDidResolver {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("HttpDidResolver")
             .field("policy", &self.policy)
-            .field("cached_dids", &self.cache.lock().map(|cache| cache.len()).unwrap_or_default())
+            .field(
+                "cached_dids",
+                &self
+                    .cache
+                    .lock()
+                    .map(|cache| cache.len())
+                    .unwrap_or_default(),
+            )
             .finish()
     }
 }
@@ -91,9 +96,16 @@ impl HttpDidResolver {
     /// Build a resolver from a pre-configured [`reqwest::Client`].
     pub fn with_client(http: HttpClient, policy: ResolverPolicy) -> Result<Self> {
         let runtime = tokio::runtime::Handle::try_current().map_err(|err| {
-            Error::Protocol(format!("HttpDidResolver requires an active Tokio runtime: {err}"))
+            Error::Protocol(format!(
+                "HttpDidResolver requires an active Tokio runtime: {err}"
+            ))
         })?;
-        Ok(Self { http, policy, cache: Mutex::new(std::collections::BTreeMap::new()), runtime })
+        Ok(Self {
+            http,
+            policy,
+            cache: Mutex::new(std::collections::BTreeMap::new()),
+            runtime,
+        })
     }
 
     /// Read the active policy.
@@ -116,21 +128,33 @@ impl HttpDidResolver {
     }
 
     fn ttl_secs(&self) -> i64 {
-        self.policy.ttl.map(|d| d.num_seconds()).unwrap_or(DEFAULT_HTTP_DID_RESOLVER_TTL_SECS)
+        self.policy
+            .ttl
+            .map(|d| d.num_seconds())
+            .unwrap_or(DEFAULT_HTTP_DID_RESOLVER_TTL_SECS)
     }
 
     fn cached(&self, did: &Did) -> Option<DidDocument> {
         let cache = self.cache.lock().ok()?;
         let entry = cache.get(did)?;
-        let age = Utc::now().signed_duration_since(entry.fetched_at).num_seconds();
-        if age >= 0 && age < self.ttl_secs() { Some(entry.document.clone()) } else { None }
+        let age = Utc::now()
+            .signed_duration_since(entry.fetched_at)
+            .num_seconds();
+        if age >= 0 && age < self.ttl_secs() {
+            Some(entry.document.clone())
+        } else {
+            None
+        }
     }
 
     fn cache_put(&self, did: &Did, document: &DidDocument) {
         if let Ok(mut cache) = self.cache.lock() {
             cache.insert(
                 did.clone(),
-                CacheEntry { document: document.clone(), fetched_at: Utc::now() },
+                CacheEntry {
+                    document: document.clone(),
+                    fetched_at: Utc::now(),
+                },
             );
         }
     }
@@ -168,8 +192,13 @@ impl HttpDidResolver {
             .and_then(|v| v.to_str().ok())
             .unwrap_or("application/json")
             .to_owned();
-        if response.content_length().is_some_and(|len| len > max_bytes as u64) {
-            return Err(Error::Protocol("did response exceeds maximum size".to_owned()));
+        if response
+            .content_length()
+            .is_some_and(|len| len > max_bytes as u64)
+        {
+            return Err(Error::Protocol(
+                "did response exceeds maximum size".to_owned(),
+            ));
         }
         let mut body: Vec<u8> = Vec::new();
         loop {
@@ -179,7 +208,9 @@ impl HttpDidResolver {
                 .map_err(|err| Error::Protocol(format!("did body read failed: {err}")))?;
             let Some(chunk) = chunk else { break };
             if body.len().saturating_add(chunk.len()) > max_bytes {
-                return Err(Error::Protocol("did response exceeds maximum size".to_owned()));
+                return Err(Error::Protocol(
+                    "did response exceeds maximum size".to_owned(),
+                ));
             }
             body.extend_from_slice(&chunk);
         }
@@ -190,8 +221,14 @@ impl HttpDidResolver {
         let url = DidWebResolver::document_url(did)?;
         let (content_type, body) = self.fetch_bytes(&url, DID_WEB_MAX_DOCUMENT_BYTES).await?;
         let mut resolver = DidWebResolver::new();
-        let document = resolver
-            .insert_from_https_response(did, DidWebDocumentOutcome { url, content_type, body })?;
+        let document = resolver.insert_from_https_response(
+            did,
+            DidWebDocumentOutcome {
+                url,
+                content_type,
+                body,
+            },
+        )?;
         Ok(document)
     }
 
@@ -200,18 +237,29 @@ impl HttpDidResolver {
         let log_url = DidWebvhResolver::log_url(did)?;
         // Documents are capped at the spec document limit; the jsonl log
         // is deliberately wider (×32, matching `DidWebvhResolver::ingest_log`).
-        let (doc_ct, doc_body) = self.fetch_bytes(&doc_url, DID_WEB_MAX_DOCUMENT_BYTES).await?;
-        let (log_ct, log_body) =
-            self.fetch_bytes(&log_url, DID_WEB_MAX_DOCUMENT_BYTES.saturating_mul(32)).await?;
+        let (doc_ct, doc_body) = self
+            .fetch_bytes(&doc_url, DID_WEB_MAX_DOCUMENT_BYTES)
+            .await?;
+        let (log_ct, log_body) = self
+            .fetch_bytes(&log_url, DID_WEB_MAX_DOCUMENT_BYTES.saturating_mul(32))
+            .await?;
         let mut resolver = DidWebvhResolver::new();
         let document = resolver.insert_from_https_response(
             did,
-            DidWebvhDocumentOutcome { url: doc_url, content_type: doc_ct, body: doc_body },
+            DidWebvhDocumentOutcome {
+                url: doc_url,
+                content_type: doc_ct,
+                body: doc_body,
+            },
         )?;
         // Validate the log too — reject the document if the log chain is bad.
         resolver.ingest_log(
             did,
-            DidWebvhLogOutcome { url: log_url, content_type: log_ct, body: log_body },
+            DidWebvhLogOutcome {
+                url: log_url,
+                content_type: log_ct,
+                body: log_body,
+            },
         )?;
         Ok(document)
     }
@@ -236,9 +284,7 @@ impl HttpDidResolver {
                         .enable_all()
                         .build()
                         .map_err(|err| {
-                            Error::Protocol(format!(
-                                "failed to build DID resolver runtime: {err}"
-                            ))
+                            Error::Protocol(format!("failed to build DID resolver runtime: {err}"))
                         })?;
                     runtime.block_on(future)
                 }
@@ -254,7 +300,9 @@ impl HttpDidResolver {
         match method {
             "web" => self.block_on(self.resolve_did_web(did)),
             "webvh" => self.block_on(self.resolve_did_webvh(did)),
-            other => Err(Error::Protocol(format!("HttpDidResolver does not support did:{other}"))),
+            other => Err(Error::Protocol(format!(
+                "HttpDidResolver does not support did:{other}"
+            ))),
         }
     }
 }

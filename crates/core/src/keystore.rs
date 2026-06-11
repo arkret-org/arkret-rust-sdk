@@ -90,7 +90,9 @@ pub enum KeyStoreError {
 
 impl KeyStoreError {
     pub fn unsupported(reason: impl Into<String>) -> Self {
-        Self::Unsupported { reason: reason.into() }
+        Self::Unsupported {
+            reason: reason.into(),
+        }
     }
 
     pub fn not_found(id: impl Into<String>) -> Self {
@@ -98,7 +100,9 @@ impl KeyStoreError {
     }
 
     pub fn invalid_id(reason: impl Into<String>) -> Self {
-        Self::InvalidId { reason: reason.into() }
+        Self::InvalidId {
+            reason: reason.into(),
+        }
     }
 
     pub fn backend(message: impl Into<String>) -> Self {
@@ -182,8 +186,12 @@ mod tests {
     #[test]
     fn in_memory_key_store_round_trips_store_load_delete() {
         let store = InMemoryKeyStore::new();
-        store.store("cokret:signer:alice:key-1", b"secret-bytes-1").unwrap();
-        store.store("cokret:signer:bob:key-1", b"secret-bytes-2").unwrap();
+        store
+            .store("cokret:signer:alice:key-1", b"secret-bytes-1")
+            .unwrap();
+        store
+            .store("cokret:signer:bob:key-1", b"secret-bytes-2")
+            .unwrap();
 
         let loaded = store.load("cokret:signer:alice:key-1").unwrap();
         assert_eq!(loaded, b"secret-bytes-1");
@@ -192,7 +200,10 @@ mod tests {
         listed.sort();
         assert_eq!(
             listed,
-            vec!["cokret:signer:alice:key-1".to_owned(), "cokret:signer:bob:key-1".to_owned(),]
+            vec![
+                "cokret:signer:alice:key-1".to_owned(),
+                "cokret:signer:bob:key-1".to_owned(),
+            ]
         );
 
         store.delete("cokret:signer:alice:key-1").unwrap();

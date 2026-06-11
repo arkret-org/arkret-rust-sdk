@@ -13,7 +13,11 @@ pub(super) fn morph_matches_predicate(morph: &Morph, predicate: &FieldFilter) ->
     let actual = morph_field_value(morph, &predicate.field);
     match &predicate.op {
         FilterOp::Exists => {
-            let expected = predicate.value.as_ref().and_then(Value::as_bool).unwrap_or(true);
+            let expected = predicate
+                .value
+                .as_ref()
+                .and_then(Value::as_bool)
+                .unwrap_or(true);
             actual.is_some() == expected
         }
         FilterOp::Eq => actual.as_ref() == predicate.value.as_ref(),
@@ -119,9 +123,14 @@ pub(super) fn morph_field_value(morph: &Morph, field: &str) -> Option<Value> {
         "title" => morph.metadata_title().map(|title| json!(title)),
         "summary" => morph.metadata_summary().map(|summary| json!(summary)),
         "morph_type" => Some(json!(morph.morph_type)),
-        "state" => morph.state.as_ref().and_then(|state| serde_json::to_value(state).ok()),
+        "state" => morph
+            .state
+            .as_ref()
+            .and_then(|state| serde_json::to_value(state).ok()),
         "created_at" => Some(json!(morph.created_at.to_rfc3339())),
-        "updated_at" => morph.updated_at.map(|updated_at| json!(updated_at.to_rfc3339())),
+        "updated_at" => morph
+            .updated_at
+            .map(|updated_at| json!(updated_at.to_rfc3339())),
         "content" => morph.content.clone(),
         "labels" => Some(json!(morph.labels)),
         _ if field.starts_with("fields.") => morph.fields.get(&field["fields.".len()..]).cloned(),
@@ -165,9 +174,11 @@ pub(super) fn value_search_text(value: Option<&Value>) -> String {
         Some(Value::Bool(value)) => value.to_string(),
         Some(Value::Number(value)) => value.to_string(),
         Some(Value::String(value)) => value.to_lowercase(),
-        Some(Value::Array(values)) => {
-            values.iter().map(|value| value_search_text(Some(value))).collect::<Vec<_>>().join(" ")
-        }
+        Some(Value::Array(values)) => values
+            .iter()
+            .map(|value| value_search_text(Some(value)))
+            .collect::<Vec<_>>()
+            .join(" "),
         Some(Value::Object(values)) => values
             .iter()
             .map(|(key, value)| {

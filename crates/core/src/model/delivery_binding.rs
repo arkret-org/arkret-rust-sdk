@@ -248,13 +248,19 @@ mod tests {
         // Negative: "space" is not a legal Realm binding scope.
         let err: std::result::Result<BindingScope, _> =
             serde_json::from_value(serde_json::json!("space"));
-        assert!(err.is_err(), "BindingScope value 'space' MUST be rejected, got {err:?}");
+        assert!(
+            err.is_err(),
+            "BindingScope value 'space' MUST be rejected, got {err:?}"
+        );
 
         // Defensive: arbitrary tokens MUST also be rejected.
         for bad in &["Realm", "REALM", "tenant", "container", ""] {
             let err: std::result::Result<BindingScope, _> =
                 serde_json::from_value(serde_json::json!(*bad));
-            assert!(err.is_err(), "BindingScope MUST reject `{bad}`, got {err:?}");
+            assert!(
+                err.is_err(),
+                "BindingScope MUST reject `{bad}`, got {err:?}"
+            );
         }
     }
 

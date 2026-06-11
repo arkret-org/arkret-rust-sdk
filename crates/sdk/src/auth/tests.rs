@@ -10,8 +10,11 @@ fn device(id: &str) -> DeviceId {
     for byte in id.bytes() {
         acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
     }
-    DeviceId::new(format!("ck:device:01904100-0000-7000-8000-{:012x}", acc & 0x0000_ffff_ffff_ffff))
-        .unwrap()
+    DeviceId::new(format!(
+        "ck:device:01904100-0000-7000-8000-{:012x}",
+        acc & 0x0000_ffff_ffff_ffff
+    ))
+    .unwrap()
 }
 
 fn deny_password_login(ctx: &AuthRateLimitContext) -> Result<()> {
@@ -40,7 +43,9 @@ fn session_grant_notification(
         revocation_ref: "https://coauth.example/api/admin/v1/session-grants/grant-1".to_owned(),
         session_public_key: Some("session-public-key".to_owned()),
     };
-    let mut record = SessionGrant::new(payload, "signed.jwt.value").unwrap().into_record();
+    let mut record = SessionGrant::new(payload, "signed.jwt.value")
+        .unwrap()
+        .into_record();
     record.revoke(now + Duration::minutes(1), "logout");
 
     PrincipalSessionGrantNotification {
@@ -56,7 +61,8 @@ fn session_grant_notification(
 fn auth_handles_password_mfa_and_sessions() {
     let alice = did("alice");
     let mut auth = AuthManager::new(1);
-    auth.register_password_user("alice", "secret", alice.clone()).unwrap();
+    auth.register_password_user("alice", "secret", alice.clone())
+        .unwrap();
     auth.enable_mfa("alice").unwrap();
     assert!(auth.login_password("alice", "secret", device("1")).is_err());
 
@@ -68,8 +74,14 @@ fn auth_handles_password_mfa_and_sessions() {
     assert_eq!(auth.active_sessions(&alice).len(), 1);
     let binding = auth.session_principal_binding(&second.session_id).unwrap();
     assert_eq!(binding.principal_id, alice);
-    assert!(auth.refresh_session(&second.session_id, &second.refresh_token).is_ok());
-    assert!(auth.refresh_session(&first.session_id, &first.refresh_token).is_err());
+    assert!(
+        auth.refresh_session(&second.session_id, &second.refresh_token)
+            .is_ok()
+    );
+    assert!(
+        auth.refresh_session(&first.session_id, &first.refresh_token)
+            .is_err()
+    );
     auth.revoke_session(&second.session_id).unwrap();
     assert!(auth.active_sessions(&alice).is_empty());
 }
@@ -79,13 +91,20 @@ fn auth_handles_oidc_and_passkeys() {
     let alice = did("alice");
     let mut auth = AuthManager::default();
     auth.set_account_state(alice.clone(), AccountAuthState::Active);
-    let oidc = auth.start_oidc("https://issuer.example", "client", "https://app/cb", "state");
+    let oidc = auth.start_oidc(
+        "https://issuer.example",
+        "client",
+        "https://app/cb",
+        "state",
+    );
     assert!(oidc.authorization_url.contains("response_type=code"));
     assert!(auth.complete_oidc(alice.clone(), device("oidc")).is_ok());
 
     let challenge = auth.start_passkey(alice.clone());
     let response = sha256_hex(challenge.challenge.as_bytes());
-    let session = auth.verify_passkey(&alice, &response, device("passkey")).unwrap();
+    let session = auth
+        .verify_passkey(&alice, &response, device("passkey"))
+        .unwrap();
     assert_eq!(session.user_id, alice);
 }
 
@@ -93,14 +112,18 @@ fn auth_handles_oidc_and_passkeys() {
 fn auth_uses_provider_password_verifier() {
     let alice = did("alice");
     let mut auth = AuthManager::default();
-    auth.register_password_hash("alice", "$argon2id$hash", alice.clone()).unwrap();
+    auth.register_password_hash("alice", "$argon2id$hash", alice.clone())
+        .unwrap();
 
     let verifier = |request: &PasswordVerificationRequestBody| {
         assert_eq!(request.username, "alice");
         assert_eq!(request.user_id, alice);
         assert_eq!(request.password_hash, "$argon2id$hash");
         assert_eq!(request.algorithm, PasswordHashAlgorithm::Argon2id);
-        Ok(PasswordVerification { verified: request.password == "secret", rehash_needed: false })
+        Ok(PasswordVerification {
+            verified: request.password == "secret",
+            rehash_needed: false,
+        })
     };
 
     let session = auth
@@ -138,13 +161,20 @@ fn auth_uses_provider_oidc_verifier_with_metadata_and_jwks() {
             token_endpoint: "https://issuer.example/token".to_owned(),
             jwks_uri: "https://issuer.example/jwks".to_owned(),
         },
-        jwks: OidcJwks { keys: serde_json::json!({ "keys": [] }) },
+        jwks: OidcJwks {
+            keys: serde_json::json!({ "keys": [] }),
+        },
         client_id: "client".to_owned(),
         expected_nonce: Some("nonce".to_owned()),
-        credential: OidcCredential::IdToken { id_token: "token".to_owned() },
+        credential: OidcCredential::IdToken {
+            id_token: "token".to_owned(),
+        },
     };
     let verifier = |request: &OidcVerificationRequestBody| {
-        assert_eq!(request.issuer_metadata.jwks_uri, "https://issuer.example/jwks");
+        assert_eq!(
+            request.issuer_metadata.jwks_uri,
+            "https://issuer.example/jwks"
+        );
         Ok(OidcVerifiedIdentity {
             user_id: alice.clone(),
             issuer: request.issuer_metadata.issuer.clone(),
@@ -155,8 +185,9 @@ fn auth_uses_provider_oidc_verifier_with_metadata_and_jwks() {
         })
     };
 
-    let session =
-        auth.complete_oidc_with_verifier(request, device("oidc-provider"), &verifier).unwrap();
+    let session = auth
+        .complete_oidc_with_verifier(request, device("oidc-provider"), &verifier)
+        .unwrap();
     assert_eq!(session.user_id, alice);
 }
 
@@ -204,7 +235,9 @@ fn auth_models_account_recovery_methods() {
     let request = auth
         .start_recovery(
             did("alice"),
-            AccountRecoveryMethod::DidProof { verification_method: verification_method.to_owned() },
+            AccountRecoveryMethod::DidProof {
+                verification_method: verification_method.to_owned(),
+            },
         )
         .unwrap();
     assert!(request.request_id.starts_with("recovery_"));
@@ -215,23 +248,40 @@ fn auth_models_account_recovery_methods() {
     // signature-verifying `complete_recovery_with_did_verifier` path. The
     // hash of the public verification method is no longer accepted as proof.
     assert!(
-        auth.complete_recovery(&request.request_id, &sha256_hex(verification_method.as_bytes()))
+        auth.complete_recovery(
+            &request.request_id,
+            &sha256_hex(verification_method.as_bytes())
+        )
+        .is_err()
+    );
+    assert!(
+        auth.complete_recovery(&request.request_id, "wrong")
             .is_err()
     );
-    assert!(auth.complete_recovery(&request.request_id, "wrong").is_err());
     // The request stays open for the verifier-backed completion path.
-    assert!(auth.complete_recovery(&request.request_id, "anything").is_err());
+    assert!(
+        auth.complete_recovery(&request.request_id, "anything")
+            .is_err()
+    );
 }
 
 #[test]
 fn auth_password_hash_is_salted_argon2id() {
     let mut auth = AuthManager::default();
-    let user = auth.register_password_user("alice", "secret", did("alice")).unwrap();
+    let user = auth
+        .register_password_user("alice", "secret", did("alice"))
+        .unwrap();
     // Built-in hashing now produces a salted Argon2id PHC string, not a
     // bare SHA-256 hex digest.
     assert!(user.password_hash.starts_with("$argon2id$"));
-    assert!(auth.login_password("alice", "secret", device("desktop")).is_ok());
-    assert!(auth.login_password("alice", "wrong", device("desktop")).is_err());
+    assert!(
+        auth.login_password("alice", "secret", device("desktop"))
+            .is_ok()
+    );
+    assert!(
+        auth.login_password("alice", "wrong", device("desktop"))
+            .is_err()
+    );
 }
 
 #[test]
@@ -239,10 +289,18 @@ fn auth_exports_safe_state_and_enforces_device_binding_and_account_state() {
     let alice = did("alice");
     let mut auth = AuthManager::default();
     assert_eq!(auth.account_state(&alice), AccountAuthState::Suspended);
-    auth.register_password_user("alice", "secret", alice.clone()).unwrap();
+    auth.register_password_user("alice", "secret", alice.clone())
+        .unwrap();
 
-    let session = auth.login_password("alice", "secret", device("desktop")).unwrap();
-    auth.validate_session(&session.session_id, &session.access_token, &device("desktop")).unwrap();
+    let session = auth
+        .login_password("alice", "secret", device("desktop"))
+        .unwrap();
+    auth.validate_session(
+        &session.session_id,
+        &session.access_token,
+        &device("desktop"),
+    )
+    .unwrap();
     assert!(
         auth.validate_session(&session.session_id, &session.access_token, &device("phone"))
             .is_err()
@@ -250,15 +308,27 @@ fn auth_exports_safe_state_and_enforces_device_binding_and_account_state() {
 
     let snapshot = auth.export_state();
     assert_eq!(snapshot.sessions.len(), 1);
-    assert!(!serde_json::to_string(&snapshot).unwrap().contains(&session.refresh_token));
+    assert!(
+        !serde_json::to_string(&snapshot)
+            .unwrap()
+            .contains(&session.refresh_token)
+    );
 
     let mut restored = AuthManager::default();
     restored.import_state(snapshot).unwrap();
     restored
-        .validate_session(&session.session_id, &session.access_token, &device("desktop"))
+        .validate_session(
+            &session.session_id,
+            &session.access_token,
+            &device("desktop"),
+        )
         .unwrap();
     restored.set_account_state(alice, AccountAuthState::Locked);
-    assert!(restored.refresh_session(&session.session_id, &session.refresh_token).is_err());
+    assert!(
+        restored
+            .refresh_session(&session.session_id, &session.refresh_token)
+            .is_err()
+    );
 }
 
 #[test]
@@ -326,8 +396,11 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
     let mut outbox = MemorySessionGrantOutbox::default();
     outbox.enqueue(notification, now).unwrap();
     assert_eq!(outbox.due(now).len(), 1);
-    let policy =
-        SessionGrantRetryPolicy { initial_backoff_ms: 10, max_backoff_ms: 100, max_attempts: 2 };
+    let policy = SessionGrantRetryPolicy {
+        initial_backoff_ms: 10,
+        max_backoff_ms: 100,
+        max_attempts: 2,
+    };
     let mut entry = outbox.entries().next().unwrap().clone();
     entry.record_failure("temporary", now, policy);
     assert_eq!(entry.state, SessionGrantOutboxState::Failed);
@@ -347,13 +420,20 @@ impl SessionGrantOutbox for MockPgSessionGrantOutbox {
         notification: PrincipalSessionGrantNotification,
         now: DateTime<Utc>,
     ) -> Result<()> {
-        self.writes.push(format!("insert:{}", notification.request_id));
-        self.rows.push(SessionGrantOutboxEntry::new(notification, now)?);
+        self.writes
+            .push(format!("insert:{}", notification.request_id));
+        self.rows
+            .push(SessionGrantOutboxEntry::new(notification, now)?);
         Ok(())
     }
 
     fn due(&self, now: DateTime<Utc>) -> Result<Vec<SessionGrantOutboxEntry>> {
-        Ok(self.rows.iter().filter(|entry| entry.due(now)).cloned().collect())
+        Ok(self
+            .rows
+            .iter()
+            .filter(|entry| entry.due(now))
+            .cloned()
+            .collect())
     }
 
     fn entries(&self) -> Result<Vec<SessionGrantOutboxEntry>> {
@@ -361,8 +441,10 @@ impl SessionGrantOutbox for MockPgSessionGrantOutbox {
     }
 
     fn record_delivery(&mut self, request_id: &str) -> Result<bool> {
-        let Some(entry) =
-            self.rows.iter_mut().find(|entry| entry.notification.request_id == request_id)
+        let Some(entry) = self
+            .rows
+            .iter_mut()
+            .find(|entry| entry.notification.request_id == request_id)
         else {
             return Ok(false);
         };
@@ -378,8 +460,10 @@ impl SessionGrantOutbox for MockPgSessionGrantOutbox {
         now: DateTime<Utc>,
         policy: SessionGrantRetryPolicy,
     ) -> Result<bool> {
-        let Some(entry) =
-            self.rows.iter_mut().find(|entry| entry.notification.request_id == request_id)
+        let Some(entry) = self
+            .rows
+            .iter_mut()
+            .find(|entry| entry.notification.request_id == request_id)
         else {
             return Ok(false);
         };
@@ -392,19 +476,28 @@ impl SessionGrantOutbox for MockPgSessionGrantOutbox {
 #[test]
 fn session_grant_outbox_slot_accepts_memory_and_pg_like_backends() {
     let now = Utc::now();
-    let policy =
-        SessionGrantRetryPolicy { initial_backoff_ms: 10, max_backoff_ms: 100, max_attempts: 2 };
+    let policy = SessionGrantRetryPolicy {
+        initial_backoff_ms: 10,
+        max_backoff_ms: 100,
+        max_attempts: 2,
+    };
 
     let mut memory = SessionGrantOutboxSlot::memory();
-    memory.enqueue(session_grant_notification(now, "memory-1"), now).unwrap();
+    memory
+        .enqueue(session_grant_notification(now, "memory-1"), now)
+        .unwrap();
     assert_eq!(memory.due(now).unwrap().len(), 1);
     assert!(memory.record_delivery("memory-1").unwrap());
     assert_eq!(memory.due(now).unwrap().len(), 0);
 
     let mut pg = SessionGrantOutboxSlot::new(Box::<MockPgSessionGrantOutbox>::default());
-    pg.enqueue(session_grant_notification(now, "pg-1"), now).unwrap();
+    pg.enqueue(session_grant_notification(now, "pg-1"), now)
+        .unwrap();
     assert_eq!(pg.due(now).unwrap().len(), 1);
-    assert!(pg.record_failure("pg-1", "serialization_failure", now, policy).unwrap());
+    assert!(
+        pg.record_failure("pg-1", "serialization_failure", now, policy)
+            .unwrap()
+    );
     let entry = pg.entries().unwrap().pop().unwrap();
     assert_eq!(entry.state, SessionGrantOutboxState::Failed);
     assert_eq!(entry.attempts, 1);
@@ -415,7 +508,10 @@ fn device_scope_helpers_accept_only_cokret_scope() {
     let device = device("phone");
     let scope = cokret_device_scope(&device);
     assert_eq!(device_id_from_scope_token(&scope).unwrap(), device);
-    assert_eq!(primary_device_id_from_scopes(["openid", scope.as_str()]).unwrap(), device);
+    assert_eq!(
+        primary_device_id_from_scopes(["openid", scope.as_str()]).unwrap(),
+        device
+    );
 
     assert!(device_id_from_scope_token("urn:matrix:client:device:dev_phone").is_none());
 }
@@ -482,12 +578,19 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
 
     let accepted = validate_presentation(
         &request,
-        &[handle.clone(), membership.clone(), guardian_controller.clone()],
+        &[
+            handle.clone(),
+            membership.clone(),
+            guardian_controller.clone(),
+        ],
         &BTreeSet::new(),
         Utc::now(),
     );
     assert!(accepted.accepted);
-    assert_eq!(accepted.disclosed_claims[0].value, serde_json::json!({"handle": "alice"}));
+    assert_eq!(
+        accepted.disclosed_claims[0].value,
+        serde_json::json!({"handle": "alice"})
+    );
     assert_eq!(
         accepted.disclosed_claims[1].value,
         serde_json::json!({"organization": "did:web:org.example"})
@@ -508,11 +611,17 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
         domain: Some("cokret-auth".to_owned()),
         encoded_presentation: "compact.sd-jwt".to_owned(),
     };
-    boundary.validate_request_binding(&request, Some("cokret-auth")).unwrap();
+    boundary
+        .validate_request_binding(&request, Some("cokret-auth"))
+        .unwrap();
     let verified = verify_presentation_with_adapter(
         &request,
         &boundary,
-        &[handle.clone(), membership.clone(), guardian_controller.clone()],
+        &[
+            handle.clone(),
+            membership.clone(),
+            guardian_controller.clone(),
+        ],
         &BTreeSet::new(),
         Utc::now(),
         Some("cokret-auth"),
@@ -540,7 +649,11 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
     );
     let mut wrong_audience = boundary;
     wrong_audience.audience = "other-audience".to_owned();
-    assert!(wrong_audience.validate_request_binding(&request, Some("cokret-auth")).is_err());
+    assert!(
+        wrong_audience
+            .validate_request_binding(&request, Some("cokret-auth"))
+            .is_err()
+    );
 
     let rejected = validate_presentation(
         &request,
@@ -549,7 +662,12 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
         Utc::now(),
     );
     assert!(!rejected.accepted);
-    assert!(rejected.rejected_claims.iter().any(|claim| claim.reason == "claim is revoked"));
+    assert!(
+        rejected
+            .rejected_claims
+            .iter()
+            .any(|claim| claim.reason == "claim is revoked")
+    );
 }
 
 #[test]
@@ -560,7 +678,9 @@ fn auth_uses_provider_did_proof_verifier_for_recovery() {
     let request = auth
         .start_recovery(
             alice.clone(),
-            AccountRecoveryMethod::DidProof { verification_method: verification_method.to_owned() },
+            AccountRecoveryMethod::DidProof {
+                verification_method: verification_method.to_owned(),
+            },
         )
         .unwrap();
     let document = DidDocument::new(alice.clone(), verification_method, "public-key");
@@ -595,8 +715,12 @@ fn auth_uses_provider_did_proof_verifier_for_recovery() {
 fn auth_redacts_secrets_in_debug_output() {
     let alice = did("alice");
     let mut auth = AuthManager::default();
-    let user = auth.register_password_user("alice", "secret", alice.clone()).unwrap();
-    let session = auth.login_password("alice", "secret", device("desktop")).unwrap();
+    let user = auth
+        .register_password_user("alice", "secret", alice.clone())
+        .unwrap();
+    let session = auth
+        .login_password("alice", "secret", device("desktop"))
+        .unwrap();
     let challenge = auth.issue_mfa(alice);
 
     assert!(!format!("{user:?}").contains(&user.password_hash));
@@ -609,8 +733,11 @@ fn auth_redacts_secrets_in_debug_output() {
 fn auth_rate_limit_hook_can_deny_login() {
     let alice = did("alice");
     let mut auth = AuthManager::default().with_rate_limit_hook(deny_password_login);
-    auth.register_password_user("alice", "secret", alice).unwrap();
+    auth.register_password_user("alice", "secret", alice)
+        .unwrap();
 
-    let err = auth.login_password("alice", "secret", device("desktop")).unwrap_err();
+    let err = auth
+        .login_password("alice", "secret", device("desktop"))
+        .unwrap_err();
     assert!(err.to_string().contains("rate limited"));
 }

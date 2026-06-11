@@ -4,14 +4,12 @@
 //! These types model the three new wire payloads that compose the
 //! cross-Realm governance surface:
 //!
-//! - [`RealmLink`] — `ck.realm.link` payload. Typed link between two
-//!   Realm boundaries, one of eight canonical [`RealmLinkKind`] values.
-//! - [`RealmInheritancePolicy`] — `ck.realm.inheritance_policy` payload.
-//!   Declares which policy names + capability bundles a child Realm
-//!   inherits from a parent Realm, capped by `max_depth`.
-//! - [`CapabilityDerived`] — `ck.capability.derived` payload. Records a
-//!   capability that was derived by composing a parent Realm's grant
-//!   with a child Realm's inheritance declaration.
+//! - [`RealmLink`] — `ck.realm.link` payload. Typed link between two Realm boundaries, one of eight
+//!   canonical [`RealmLinkKind`] values.
+//! - [`RealmInheritancePolicy`] — `ck.realm.inheritance_policy` payload. Declares which policy
+//!   names + capability bundles a child Realm inherits from a parent Realm, capped by `max_depth`.
+//! - [`CapabilityDerived`] — `ck.capability.derived` payload. Records a capability that was derived
+//!   by composing a parent Realm's grant with a child Realm's inheritance declaration.
 //!
 //! All three are wire-shape-only typed structs at this stage; the full
 //! derive evaluation lives in the reducer's audit pipeline.

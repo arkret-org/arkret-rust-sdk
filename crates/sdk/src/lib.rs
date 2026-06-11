@@ -40,7 +40,7 @@
 //! Run one in-memory sync-loop step:
 //!
 //! ```rust
-//! use cokret::{SyncLoop, SyncLoopStep, SyncRequestBody, SyncOutcome};
+//! use cokret::{SyncLoop, SyncLoopStep, SyncOutcome, SyncRequestBody};
 //!
 //! # fn main() {
 //! let mut sync_loop = SyncLoop::new();
@@ -57,7 +57,10 @@
 //!         partial: false,
 //!     })
 //! };
-//! assert!(matches!(sync_loop.step(&mut transport), SyncLoopStep::Updates(_)));
+//! assert!(matches!(
+//!     sync_loop.step(&mut transport),
+//!     SyncLoopStep::Updates(_)
+//! ));
 //! # }
 //! ```
 //!
@@ -70,37 +73,24 @@
 
 pub use cokret_contracts as api;
 pub use cokret_contracts::product::client as client_api;
-pub use cokret_core::events;
-pub use cokret_core::schema;
-pub use cokret_core::state;
-pub use cokret_core::*;
-pub use cokret_core::{
-    canonical, cursor, error, identifiers, keystore, model, push_rule_core, service, sync,
+pub use cokret_contracts::{
+    federation as federation_api, identity as identity_api, integration as integration_api,
+    principal as principal_api, push as push_gateway_api,
 };
-#[cfg(feature = "client")]
-pub use cokret_http_client as http_client;
-// Platform-native KeyStore backends. The glob import above already
-// re-exports these symbols, but listing them explicitly keeps them
-// visible in `cargo doc` and signals the supported surface to
-// downstream crates that depend only on `cokret` (not `cokret-core`).
-#[cfg(feature = "full-surface")]
-pub use crate::store as store_contracts;
-pub use cokret_contracts::federation as federation_api;
-pub use cokret_contracts::identity as identity_api;
-pub use cokret_contracts::integration as integration_api;
-pub use cokret_contracts::principal as principal_api;
-pub use cokret_contracts::push as push_gateway_api;
-pub use cokret_core::lattice;
-pub use cokret_core::operations;
-pub use cokret_core::schema as schema_contracts;
-pub use cokret_core::state as state_res;
 // The pure KeyStore contract (trait + in-memory backend + error type) lives
 // in `cokret-core`; the OS-native backends and the platform-default
 // constructor now live in the dedicated `cokret-keystore` crate.
 pub use cokret_core::{InMemoryKeyStore, KeyRefObject, KeyStore, KeyStoreError};
+pub use cokret_core::{
+    canonical, cursor, error, events, identifiers, keystore, lattice, model, operations,
+    push_rule_core, schema, schema as schema_contracts, service, state, state as state_res, sync,
+    *,
+};
 pub use cokret_crypto as crypto_protocol;
 pub use cokret_ffi as ffi;
 pub use cokret_html as html;
+#[cfg(feature = "client")]
+pub use cokret_http_client as http_client;
 pub use cokret_keystore::{
     LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
     platform_default_keystore,
@@ -112,6 +102,13 @@ pub use cokret_signatures as signatures;
 pub use cokret_signatures::Ed25519MoveSigner;
 #[cfg(feature = "testing")]
 pub use cokret_testing as testing;
+
+// Platform-native KeyStore backends. The glob import above already
+// re-exports these symbols, but listing them explicitly keeps them
+// visible in `cargo doc` and signals the supported surface to
+// downstream crates that depend only on `cokret` (not `cokret-core`).
+#[cfg(feature = "full-surface")]
+pub use crate::store as store_contracts;
 #[cfg(feature = "full-surface")]
 pub mod account;
 #[cfg(feature = "full-surface")]
@@ -170,7 +167,11 @@ pub use cokret_signatures::http_signature;
 // of which are available on the wasm32 fetch backend. Gate the module out
 // on wasm32; web embedders should plug in a fetch-based resolver via
 // the `DidResolver` trait directly.
-#[cfg(all(feature = "full-surface", feature = "client", not(target_arch = "wasm32")))]
+#[cfg(all(
+    feature = "full-surface",
+    feature = "client",
+    not(target_arch = "wasm32")
+))]
 pub mod http_did_resolver;
 #[cfg(feature = "full-surface")]
 pub mod identity;
@@ -182,7 +183,11 @@ pub mod identity_link;
 /// on `identity::DidResolver`, so it's gated on `full-surface`.
 #[cfg(feature = "full-surface")]
 pub mod jws;
-#[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
+#[cfg(all(
+    feature = "full-surface",
+    feature = "device-runtime",
+    feature = "client"
+))]
 pub mod key_backup_client;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod key_verification;
@@ -222,6 +227,8 @@ pub mod search;
 #[cfg(feature = "full-surface")]
 pub mod settings;
 #[cfg(feature = "full-surface")]
+pub mod snapshot_v1;
+#[cfg(feature = "full-surface")]
 pub mod store;
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub mod sync_client;
@@ -251,28 +258,33 @@ pub use applet::{
     AppletPortal, AppletServiceIntent, AppletServiceTransaction, AppletWireNamespaces,
     ApprovalRequest, ApprovedScope, EffectiveScope, GhostActorProfileFields,
     GhostActorProfileRequest, GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
-    InstallCommitOutcome, InstallCommitRequestBody, InstallE2eePolicy,
-    InstallPlan, InstallPreviewRequestBody, InstallRevokeRequestBody, PortalMode,
-    PortalRealmMapping, RemoteRealmMapping, RemoteUserMapping, ThirdPartyLookupKind,
-    ThirdPartyLookupRequestBody, ThirdPartyLookupOutcome, VirtualActor, WebhookAuth, WidgetPolicy,
-    WireAppletRegistration, namespace_pattern_matches, sign_registration,
+    InstallCommitOutcome, InstallCommitRequestBody, InstallE2eePolicy, InstallPlan,
+    InstallPreviewRequestBody, InstallRevokeRequestBody, PortalMode, PortalRealmMapping,
+    RemoteRealmMapping, RemoteUserMapping, ThirdPartyLookupKind, ThirdPartyLookupOutcome,
+    ThirdPartyLookupRequestBody, VirtualActor, WebhookAuth, WidgetPolicy, WireAppletRegistration,
+    namespace_pattern_matches, sign_registration,
 };
-#[cfg(all(feature = "full-surface", feature = "applet-runtime", feature = "salvo"))]
+#[cfg(all(
+    feature = "full-surface",
+    feature = "applet-runtime",
+    feature = "salvo"
+))]
 pub use applet_server::router as applet_router;
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet_server::{AppletHandler, AppletService};
 #[cfg(feature = "full-surface")]
 pub use auth::{
-    AccountAuthState, AccountRecoveryMethod, AccountRecoveryRequestBody, AuthClaimKind, AuthManager,
-    AuthRateLimitAction, AuthRateLimitContext, AuthRateLimitHook, AuthSession, AuthStateSnapshot,
-    COKRET_DEVICE_SCOPE_PREFIX, ClaimDisclosurePolicy, ClaimDisclosureRequirement,
-    DidProofVerification, DidProofVerificationRequestBody, DidProofVerifier,
-    DisclosureProofAdapterBoundary, DisclosureProofFormat, MemorySessionGrantOutbox, MfaChallenge,
-    OidcAuthRequestBody, OidcCredential, OidcIssuerMetadata, OidcJwks, OidcVerificationRequestBody,
-    OidcVerifiedIdentity, OidcVerifier, PasskeyChallenge, PasskeyVerification,
-    PasskeyVerificationRequestBody, PasskeyVerifier, PasswordHashAlgorithm, PasswordHashVerifier,
-    PasswordUser, PasswordVerification, PasswordVerificationRequestBody, PersistedAuthSession,
-    PresentationRequestBody, PresentationValidation, PresentedClaim, PrincipalSessionGrantNotification,
+    AccountAuthState, AccountRecoveryMethod, AccountRecoveryRequestBody, AuthClaimKind,
+    AuthManager, AuthRateLimitAction, AuthRateLimitContext, AuthRateLimitHook, AuthSession,
+    AuthStateSnapshot, COKRET_DEVICE_SCOPE_PREFIX, ClaimDisclosurePolicy,
+    ClaimDisclosureRequirement, DidProofVerification, DidProofVerificationRequestBody,
+    DidProofVerifier, DisclosureProofAdapterBoundary, DisclosureProofFormat,
+    MemorySessionGrantOutbox, MfaChallenge, OidcAuthRequestBody, OidcCredential,
+    OidcIssuerMetadata, OidcJwks, OidcVerificationRequestBody, OidcVerifiedIdentity, OidcVerifier,
+    PasskeyChallenge, PasskeyVerification, PasskeyVerificationRequestBody, PasskeyVerifier,
+    PasswordHashAlgorithm, PasswordHashVerifier, PasswordUser, PasswordVerification,
+    PasswordVerificationRequestBody, PersistedAuthSession, PresentationRequestBody,
+    PresentationValidation, PresentedClaim, PrincipalSessionGrantNotification,
     PrincipalSessionGrantNotificationOutcome, PrincipalSessionGrantNotifier, RefreshTokenMetadata,
     RejectedClaim, SessionGrant, SessionGrantNotificationKind, SessionGrantOutboxEntry,
     SessionGrantOutboxState, SessionGrantPayload, SessionGrantRecord, SessionGrantRetryPolicy,
@@ -283,12 +295,11 @@ pub use auth::{
 };
 #[cfg(feature = "full-surface")]
 pub use authz::{
-    ApprovalFlowManager, ApprovalMode, AuthzContext, AuthzEngine,
-    CapabilityFrontierValidation, CapabilityGrant, CapabilityGrantBuilder, ClaimRequirement,
-    Constraint, ConstraintDuration, ConstraintEffect, ConstraintEntry, EngineDecision, FieldScope,
-    GrantProposal,
-    ModerationReport, PolicyEvaluationRequest, PolicyEvaluationResult, PolicyServerEffect,
-    ProposalApproval, ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
+    ApprovalFlowManager, ApprovalMode, AuthzContext, AuthzEngine, CapabilityFrontierValidation,
+    CapabilityGrant, CapabilityGrantBuilder, ClaimRequirement, Constraint, ConstraintDuration,
+    ConstraintEffect, ConstraintEntry, EngineDecision, FieldScope, GrantProposal, ModerationReport,
+    PolicyEvaluationRequest, PolicyEvaluationResult, PolicyServerEffect, ProposalApproval,
+    ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
     ProtocolGrantConstraint, ProtocolGrantConstraintEffect, ProtocolGrantConstraintTrack,
     ProtocolGrantConstraintType, ProtocolResourceSelector, ProtocolResourceSelectorKind,
     ProtocolResourceSelectorScope, RateLimitScope, Recurrence, Resource, ResourceSelector,
@@ -330,10 +341,9 @@ pub use devices::{
     CrossSigningResetContent, CrossSigningResetProof, Device, DeviceBootstrapBinding, DeviceChange,
     DeviceManager, DeviceMetadata, DeviceQuorumSignature, DeviceTrustBinding,
     DeviceTrustChainOutcome, DeviceVerificationChallenge, DeviceVerificationMessageContent,
-    DeviceVerificationMessageKind, KeyBackupClass, KeyBackupContentItem,
-    KeyBackupEncryption, ProtocolDeviceMessageEnvelope, ProtocolKeyBackup, QrVerificationPayload,
-    SignedCrossSigningKey, ToDeviceEnvelope, cross_signing_publish_cell_subject,
-    device_verification_commitment,
+    DeviceVerificationMessageKind, KeyBackupClass, KeyBackupContentItem, KeyBackupEncryption,
+    ProtocolDeviceMessageEnvelope, ProtocolKeyBackup, QrVerificationPayload, SignedCrossSigningKey,
+    ToDeviceEnvelope, cross_signing_publish_cell_subject, device_verification_commitment,
 };
 #[cfg(feature = "full-surface")]
 pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};
@@ -359,7 +369,11 @@ pub use hlc::{
 };
 #[cfg(feature = "client")]
 pub use http_client::{Auth, Client, ClientBuilder, ClientRequestOptions, RetryConfig};
-#[cfg(all(feature = "full-surface", feature = "client", not(target_arch = "wasm32")))]
+#[cfg(all(
+    feature = "full-surface",
+    feature = "client",
+    not(target_arch = "wasm32")
+))]
 pub use http_did_resolver::{
     DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS, DEFAULT_HTTP_DID_RESOLVER_TTL_SECS, HttpDidResolver,
 };
@@ -370,19 +384,22 @@ pub use identity::{
     DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyLogEntry, DidKeyLogOperation,
     DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver, DidVisibility,
     DidWebDocumentOutcome, DidWebResolver, ExternalHandleProof, HandleAttestation, HandleClaim,
-    HandleProofProfile, IdentityManager, IdentityReceiptWitnessRole,
-    InMemoryStaridRegistryAdapter, PairwiseDidBinding, PairwiseDidResolutionProof,
-    PairwiseDidStore, ResolvedVerificationMethodKey, StaridControlProofRequestBody,
-    StaridControlProofVerification, StaridRegistryAdapter, StaridRegistryRecord,
-    VerifiedDidKeyLog,
-    handle_claim_proof, handle_dns_txt_name, handle_well_known_url, pairwise_resolution_proof,
+    HandleProofProfile, IdentityManager, IdentityReceiptWitnessRole, InMemoryStaridRegistryAdapter,
+    PairwiseDidBinding, PairwiseDidResolutionProof, PairwiseDidStore,
+    ResolvedVerificationMethodKey, StaridControlProofRequestBody, StaridControlProofVerification,
+    StaridRegistryAdapter, StaridRegistryRecord, VerifiedDidKeyLog, handle_claim_proof,
+    handle_dns_txt_name, handle_well_known_url, pairwise_resolution_proof,
     resolve_verification_method_key, resolve_verification_method_key_from_document,
     starid_control_proof, verification_method_did, verify_canonical_proof_with_did_resolver,
     verify_did_key_log, verify_event_proof_with_did_resolver,
 };
 #[cfg(feature = "full-surface")]
 pub use identity_link::{IdentityLinkCache, IdentityLinkCacheEntry};
-#[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
+#[cfg(all(
+    feature = "full-surface",
+    feature = "device-runtime",
+    feature = "client"
+))]
 pub use key_backup_client::{
     KeyBackupClient, KeyBackupListOutcome, KeysBackupsDeleteOutcome, KeysBackupsPutOutcome,
 };
@@ -457,12 +474,17 @@ pub use secret_share::{
 #[cfg(all(feature = "full-surface", feature = "server"))]
 pub use server::{
     EndpointHandler, ProtocolFixtureFlow, ProtocolFixtureReport, ProtocolFixtureStep,
-    ProtocolGoldenVector, ProtocolServerFixture, ServerRequestBody, ServerOutcome,
+    ProtocolGoldenVector, ProtocolServerFixture, ServerOutcome, ServerRequestBody,
     WireConformanceVector, protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
 };
 #[cfg(feature = "full-surface")]
 pub use settings::{
     ClientSettings, NotificationPreferences, PrivacySettings, SettingsManager, ThemeSetting,
+};
+#[cfg(feature = "full-surface")]
+pub use snapshot_v1::{
+    sign_snapshot_manifest_ed25519, verify_snapshot_manifest as verify_snapshot_manifest_v1,
+    verify_snapshot_manifest_signature,
 };
 #[cfg(feature = "full-surface")]
 pub use store::{

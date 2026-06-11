@@ -6,10 +6,9 @@
 //! helpers. The module owns:
 //!
 //! 1. Parsing the `Signature-Input` and `Signature` headers.
-//! 2. Building the canonical signing string from a typed request
-//!    description ([`SignedRequestParts`]).
-//! 3. Computing and verifying the RFC 9530 `Content-Digest` for the
-//!    request body.
+//! 2. Building the canonical signing string from a typed request description
+//!    ([`SignedRequestParts`]).
+//! 3. Computing and verifying the RFC 9530 `Content-Digest` for the request body.
 //! 4. Ed25519 sign / verify on the canonical message bytes.
 //!
 //! Wire shape (matches floria's verifier and soland's fanout signer):
@@ -36,15 +35,15 @@
 //! [`decode_signature_b64`] use the standard alphabet rather than
 //! URL-safe.
 
+use std::collections::BTreeSet;
+
 use cokret_core::{base64_standard_decode, base64_standard_encode};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
-use sha2::{Digest, Sha256, Sha512};
-use std::collections::BTreeSet;
-use thiserror::Error;
-
 // -- public re-exports of the underlying crypto primitives so callers
 // -- can construct keys without depending on `ed25519-dalek` directly.
 pub use ed25519_dalek::{SigningKey as Ed25519SigningKey, VerifyingKey as Ed25519PublicKey};
+use sha2::{Digest, Sha256, Sha512};
+use thiserror::Error;
 
 /// Errors emitted by the RFC 9421 helpers.
 ///
@@ -250,9 +249,14 @@ impl SignatureInput {
     /// `@target-uri`, `@authority`, `content-digest`, the two
     /// service-DID headers).
     pub fn covers_all(&self, required: &[Component]) -> bool {
-        let covered: BTreeSet<String> =
-            self.covered_components.iter().map(Component::canonical_name).collect();
-        required.iter().all(|c| covered.contains(&c.canonical_name()))
+        let covered: BTreeSet<String> = self
+            .covered_components
+            .iter()
+            .map(Component::canonical_name)
+            .collect();
+        required
+            .iter()
+            .all(|c| covered.contains(&c.canonical_name()))
     }
 }
 
@@ -340,8 +344,9 @@ impl SignatureVerificationPolicy {
 /// ```
 pub fn parse_signature_input(header: &str) -> Result<SignatureInput, SignatureError> {
     let trimmed = header.trim();
-    let (label, remainder) =
-        trimmed.split_once('=').ok_or(SignatureError::MalformedSignatureInput)?;
+    let (label, remainder) = trimmed
+        .split_once('=')
+        .ok_or(SignatureError::MalformedSignatureInput)?;
     let label = label.trim().to_owned();
     let remainder = remainder.trim();
 
@@ -352,7 +357,9 @@ pub fn parse_signature_input(header: &str) -> Result<SignatureInput, SignatureEr
     if !remainder.starts_with('(') {
         return Err(SignatureError::MalformedSignatureInput);
     }
-    let end_components = remainder.find(')').ok_or(SignatureError::MalformedSignatureInput)?;
+    let end_components = remainder
+        .find(')')
+        .ok_or(SignatureError::MalformedSignatureInput)?;
     let components_str = &remainder[1..end_components];
     let covered_components: Vec<Component> = components_str
         .split_ascii_whitespace()
@@ -369,10 +376,14 @@ pub fn parse_signature_input(header: &str) -> Result<SignatureInput, SignatureEr
     let mut key_id: Option<String> = None;
     let mut algorithm: Option<String> = None;
 
-    for param in remainder[end_components + 1..].split(';').map(str::trim).filter(|p| !p.is_empty())
+    for param in remainder[end_components + 1..]
+        .split(';')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
     {
-        let (name, raw_value) =
-            param.split_once('=').ok_or(SignatureError::MalformedSignatureInput)?;
+        let (name, raw_value) = param
+            .split_once('=')
+            .ok_or(SignatureError::MalformedSignatureInput)?;
         match name.trim() {
             "created" => {
                 created = Some(
@@ -464,7 +475,9 @@ pub fn format_signature_input_component_list(
 pub fn format_signature_header(label: &str, signature: &str) -> Result<String, SignatureError> {
     if !is_valid_signature_label(label)
         || signature.trim().is_empty()
-        || !signature.bytes().all(|byte| byte.is_ascii_graphic() && byte != b':')
+        || !signature
+            .bytes()
+            .all(|byte| byte.is_ascii_graphic() && byte != b':')
     {
         return Err(SignatureError::MalformedSignatureHeader(label.to_owned()));
     }
@@ -474,7 +487,9 @@ pub fn format_signature_header(label: &str, signature: &str) -> Result<String, S
 
 fn is_valid_signature_label(label: &str) -> bool {
     !label.is_empty()
-        && label.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.'))
+        && label
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.'))
 }
 
 // =====================================================================
@@ -526,7 +541,11 @@ impl SignedRequestParts {
             .map(|(_, v)| v.trim())
             .filter(|v| !v.is_empty())
             .collect();
-        if values.is_empty() { None } else { Some(values.join(", ")) }
+        if values.is_empty() {
+            None
+        } else {
+            Some(values.join(", "))
+        }
     }
 }
 
@@ -577,8 +596,16 @@ impl ContentDigest {
             ContentDigestAlgorithm::Sha256 => Sha256::digest(body).to_vec(),
             ContentDigestAlgorithm::Sha512 => Sha512::digest(body).to_vec(),
         };
-        let wire_value = format!("{}=:{}:", algorithm.wire_name(), base64_standard_encode(&digest));
-        ContentDigest { algorithm, digest, wire_value }
+        let wire_value = format!(
+            "{}=:{}:",
+            algorithm.wire_name(),
+            base64_standard_encode(&digest)
+        );
+        ContentDigest {
+            algorithm,
+            digest,
+            wire_value,
+        }
     }
 
     /// Parse a `Content-Digest` header value. Accepts the simple
@@ -586,8 +613,9 @@ impl ContentDigest {
     pub fn parse(value: &str) -> Result<ContentDigest, SignatureError> {
         let trimmed = value.trim();
         // Find the first `=` (algorithm name boundary).
-        let (alg_str, rest) =
-            trimmed.split_once('=').ok_or(SignatureError::MalformedContentDigest)?;
+        let (alg_str, rest) = trimmed
+            .split_once('=')
+            .ok_or(SignatureError::MalformedContentDigest)?;
         let algorithm = match alg_str.trim() {
             "sha-256" => ContentDigestAlgorithm::Sha256,
             "sha-512" => ContentDigestAlgorithm::Sha512,
@@ -607,7 +635,11 @@ impl ContentDigest {
         if digest.len() != expected_len {
             return Err(SignatureError::MalformedContentDigest);
         }
-        Ok(ContentDigest { algorithm, digest, wire_value: trimmed.to_owned() })
+        Ok(ContentDigest {
+            algorithm,
+            digest,
+            wire_value: trimmed.to_owned(),
+        })
     }
 }
 
@@ -634,8 +666,8 @@ pub fn verify_content_digest(parsed: &ContentDigest, body: &[u8]) -> Result<(), 
 ///
 /// 1. `Signature-Input` / `Signature` header extraction.
 /// 2. `Content-Digest` parsing and raw-body verification, when present.
-/// 3. Cokret policy validation (`required_components`, digest requirement and
-///    created/expires window).
+/// 3. Cokret policy validation (`required_components`, digest requirement and created/expires
+///    window).
 /// 4. RFC 9421 canonical message construction.
 /// 5. Ed25519 verification against the supplied public key.
 pub fn verify_signed_http_message<I, N, V>(
@@ -662,15 +694,21 @@ where
         headers: headers
             .into_iter()
             .map(|(name, value)| {
-                (name.as_ref().to_ascii_lowercase(), value.as_ref().trim().to_owned())
+                (
+                    name.as_ref().to_ascii_lowercase(),
+                    value.as_ref().trim().to_owned(),
+                )
             })
             .collect(),
         body_digest: None,
     };
 
-    let signature_input_header = request
-        .header("signature-input")
-        .ok_or(HttpMessageVerificationError::MissingHeader("Signature-Input"))?;
+    let signature_input_header =
+        request
+            .header("signature-input")
+            .ok_or(HttpMessageVerificationError::MissingHeader(
+                "Signature-Input",
+            ))?;
     let signature_header = request
         .header("signature")
         .ok_or(HttpMessageVerificationError::MissingHeader("Signature"))?;
@@ -692,7 +730,9 @@ where
 
     policy.validate(
         &signature_input,
-        content_digest.as_ref().map(|digest| digest.wire_value.as_str()),
+        content_digest
+            .as_ref()
+            .map(|digest| digest.wire_value.as_str()),
         now_unix_seconds,
     )?;
 
@@ -708,7 +748,11 @@ where
         .verify_strict(&canonical_message, &signature)
         .map_err(|_| SignatureError::InvalidSignature)?;
 
-    Ok(VerifiedHttpMessageSignature { signature_input, content_digest, canonical_message })
+    Ok(VerifiedHttpMessageSignature {
+        signature_input,
+        content_digest,
+        canonical_message,
+    })
 }
 
 // =====================================================================
@@ -735,7 +779,10 @@ pub fn canonical_message(
         let value = component_value(req, component)?;
         lines.push(format!("\"{}\": {}", component.canonical_name(), value));
     }
-    lines.push(format!("\"@signature-params\": {}", signature_input.params_value));
+    lines.push(format!(
+        "\"@signature-params\": {}",
+        signature_input.params_value
+    ));
     Ok(lines.join("\n").into_bytes())
 }
 
@@ -754,7 +801,8 @@ fn component_value(
             {
                 return Ok(digest.clone());
             }
-            req.header(name).ok_or_else(|| SignatureError::MissingCoveredComponent(name.clone()))
+            req.header(name)
+                .ok_or_else(|| SignatureError::MissingCoveredComponent(name.clone()))
         }
     }
 }
@@ -786,7 +834,9 @@ pub fn verify_signature(
     let mut arr = [0u8; 64];
     arr.copy_from_slice(&bytes);
     let signature = Signature::from_bytes(&arr);
-    public_key.verify_strict(message, &signature).map_err(|_| SignatureError::InvalidSignature)
+    public_key
+        .verify_strict(message, &signature)
+        .map_err(|_| SignatureError::InvalidSignature)
 }
 
 /// Construct an Ed25519 public key from raw 32 bytes. Helper for
@@ -853,7 +903,10 @@ mod tests {
         assert_eq!(parsed.covered_components[0], Component::Method);
         assert_eq!(parsed.covered_components[1], Component::TargetUri);
         assert_eq!(parsed.covered_components[2], Component::Authority);
-        assert_eq!(parsed.covered_components[3], Component::Header("content-digest".to_owned()));
+        assert_eq!(
+            parsed.covered_components[3],
+            Component::Header("content-digest".to_owned())
+        );
         assert_eq!(
             parsed.covered_components[4],
             Component::Header("x-cokret-origin-service-did".to_owned())
@@ -874,7 +927,11 @@ mod tests {
         let now = 1_715_990_010;
         let valid = parse_signature_input(&floria_signature_input(now - 1, now + 30)).unwrap();
         policy
-            .validate(&valid, Some("sha-256=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:"), now)
+            .validate(
+                &valid,
+                Some("sha-256=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:"),
+                now,
+            )
             .expect("valid policy input passes");
 
         let missing_digest = parse_signature_input(
@@ -913,7 +970,10 @@ mod tests {
             ],
         )
         .unwrap();
-        assert_eq!(input, "sig1=(\"@method\" \"@target-uri\" \"content-digest\")");
+        assert_eq!(
+            input,
+            "sig1=(\"@method\" \"@target-uri\" \"content-digest\")"
+        );
 
         let signature = format_signature_header("sig1", "YWJjZA==").unwrap();
         assert_eq!(signature, "sig1=:YWJjZA==:");
@@ -952,7 +1012,10 @@ mod tests {
             authority: "127.0.0.1".to_owned(),
             path: "/_cokret/edge/push/notify".to_owned(),
             headers: vec![
-                ("x-cokret-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
+                (
+                    "x-cokret-origin-service-did".to_owned(),
+                    "did:web:sync.example.com".to_owned(),
+                ),
                 (
                     "x-cokret-destination-service-did".to_owned(),
                     "did:web:push.example.com".to_owned(),
@@ -993,7 +1056,10 @@ mod tests {
             authority: "push.example".to_owned(),
             path: "/_cokret/edge/push/notify".to_owned(),
             headers: vec![
-                ("x-cokret-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
+                (
+                    "x-cokret-origin-service-did".to_owned(),
+                    "did:web:sync.example.com".to_owned(),
+                ),
                 (
                     "x-cokret-destination-service-did".to_owned(),
                     "did:web:push.example.com".to_owned(),
@@ -1027,7 +1093,10 @@ mod tests {
             authority: "push.example".to_owned(),
             path: "/_cokret/edge/push/notify".to_owned(),
             headers: vec![
-                ("x-cokret-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
+                (
+                    "x-cokret-origin-service-did".to_owned(),
+                    "did:web:sync.example.com".to_owned(),
+                ),
                 (
                     "x-cokret-destination-service-did".to_owned(),
                     "did:web:push.example.com".to_owned(),
@@ -1043,7 +1112,10 @@ mod tests {
             ("Signature", signature_header.as_str()),
             ("Content-Digest", digest.wire_value.as_str()),
             ("X-Cokret-Origin-Service-Did", "did:web:sync.example.com"),
-            ("X-Cokret-Destination-Service-Did", "did:web:push.example.com"),
+            (
+                "X-Cokret-Destination-Service-Did",
+                "did:web:push.example.com",
+            ),
         ];
 
         let verified = verify_signed_http_message(
@@ -1058,8 +1130,14 @@ mod tests {
             now,
         )
         .unwrap();
-        assert_eq!(verified.signature_input.key_id, "did:web:sync.example.com#push");
-        assert_eq!(verified.content_digest.unwrap().wire_value, digest.wire_value);
+        assert_eq!(
+            verified.signature_input.key_id,
+            "did:web:sync.example.com#push"
+        );
+        assert_eq!(
+            verified.content_digest.unwrap().wire_value,
+            digest.wire_value
+        );
 
         let err = verify_signed_http_message(
             "POST",
@@ -1091,7 +1169,10 @@ mod tests {
             authority: "push.example".to_owned(),
             path: "/".to_owned(),
             headers: vec![
-                ("x-cokret-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
+                (
+                    "x-cokret-origin-service-did".to_owned(),
+                    "did:web:sync.example.com".to_owned(),
+                ),
                 (
                     "x-cokret-destination-service-did".to_owned(),
                     "did:web:push.example.com".to_owned(),
@@ -1156,7 +1237,10 @@ mod tests {
         // Missing `created` → MissingSignatureInputParameter("created").
         let header = "sig1=(\"@method\");expires=2;keyid=\"k\";alg=\"ed25519\"";
         let err = parse_signature_input(header).unwrap_err();
-        assert_eq!(err, SignatureError::MissingSignatureInputParameter("created"));
+        assert_eq!(
+            err,
+            SignatureError::MissingSignatureInputParameter("created")
+        );
 
         // Empty covered components → EmptyCoveredComponents.
         let header2 = "sig1=();created=1;expires=2;keyid=\"k\";alg=\"ed25519\"";

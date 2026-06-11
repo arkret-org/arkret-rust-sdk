@@ -6,8 +6,8 @@
 //! behind the `signer` feature.
 //!
 //! ```
-//! use cokret_signatures::Ed25519MoveSigner;
 //! use cokret_core::{Did, MoveSigner};
+//! use cokret_signatures::Ed25519MoveSigner;
 //!
 //! let seed = [0u8; 32];
 //! let did = Did::new("did:web:alice.example".to_owned()).unwrap();
@@ -16,13 +16,12 @@
 //! ```
 
 use chrono::Utc;
-use ed25519_dalek::{Signer as _, SigningKey};
-
-use cokret_core::canonical;
 use cokret_core::move_event::{Move, MoveSignature};
 use cokret_core::{
     Did, Error, Hash, MoveSigner, Result, UnsignedMove, base64url_decode, base64url_encode,
+    canonical,
 };
+use ed25519_dalek::{Signer as _, SigningKey};
 
 /// Ed25519 [`MoveSigner`] backend.
 ///
@@ -43,7 +42,11 @@ impl Ed25519MoveSigner {
         did: Did,
         verification_method_id: impl Into<String>,
     ) -> Self {
-        Self { signing_key, did, kid: verification_method_id.into() }
+        Self {
+            signing_key,
+            did,
+            kid: verification_method_id.into(),
+        }
     }
 
     /// Convenience constructor that derives an ed25519 keypair from a 32-byte
@@ -151,7 +154,9 @@ pub fn verify_ed25519_move_signature(
     let sig_bytes = base64url_decode(sig_b64)
         .map_err(|err| Error::Protocol(format!("invalid sig base64: {err}")))?;
     if sig_bytes.len() != 64 {
-        return Err(Error::Protocol("Ed25519 signature must be 64 bytes".to_owned()));
+        return Err(Error::Protocol(
+            "Ed25519 signature must be 64 bytes".to_owned(),
+        ));
     }
     let mut sig_arr = [0u8; 64];
     sig_arr.copy_from_slice(&sig_bytes);
@@ -168,10 +173,11 @@ pub fn verify_ed25519_move_signature(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use cokret_core::move_event::{Effect, LatticeOp, LatticeOpType};
     use cokret_core::{Anchor, AnchorId, AnchorerSig, CellRef, Hlc, MoveId, RealmId, UnsignedMove};
     use serde_json::json;
+
+    use super::*;
 
     fn alice() -> Did {
         Did::new("did:web:alice.example".to_owned()).unwrap()
@@ -182,7 +188,11 @@ mod tests {
     }
 
     fn anchor_id(byte: u8) -> AnchorId {
-        AnchorId::new(format!("ck:anchor:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+        AnchorId::new(format!(
+            "ck:anchor:sha256:{}",
+            format!("{byte:02x}").repeat(32)
+        ))
+        .unwrap()
     }
 
     fn move_id(byte: u8) -> MoveId {

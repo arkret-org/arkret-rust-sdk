@@ -39,6 +39,9 @@ fn umbrella_crate_builds_client_signs_event_and_verifies_binding() {
     client.process_events(&realm_id, vec![event]).unwrap();
     let realm = client.get_realm(&realm_id).unwrap();
     assert!(
-        realm.realm_state.messages.contains_key("ck:message:01904100-0000-7000-8000-000000000001")
+        realm
+            .realm_state
+            .messages
+            .contains_key("ck:message:01904100-0000-7000-8000-000000000001")
     );
 }

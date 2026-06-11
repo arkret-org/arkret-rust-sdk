@@ -1,7 +1,5 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
-};
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 use cokret::{canonical, *};
 use serde_json::json;
@@ -15,8 +13,11 @@ fn device(id: &str) -> DeviceId {
     for byte in id.bytes() {
         acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
     }
-    DeviceId::new(format!("ck:device:01904100-0000-7000-8000-{:012x}", acc & 0x0000_ffff_ffff_ffff))
-        .unwrap()
+    DeviceId::new(format!(
+        "ck:device:01904100-0000-7000-8000-{:012x}",
+        acc & 0x0000_ffff_ffff_ffff
+    ))
+    .unwrap()
 }
 
 fn event(kind: &str, seq: u64, realm_id: &RealmId, content: serde_json::Value) -> Event {
@@ -49,8 +50,11 @@ fn event(kind: &str, seq: u64, realm_id: &RealmId, content: serde_json::Value) -
 fn end_to_end_auth_session_realm_query_and_notifications() {
     let alice = did("alice");
     let mut auth = AuthManager::default();
-    auth.register_password_user("alice", "secret", alice.clone()).unwrap();
-    let session = auth.login_password("alice", "secret", device("desktop")).unwrap();
+    auth.register_password_user("alice", "secret", alice.clone())
+        .unwrap();
+    let session = auth
+        .login_password("alice", "secret", device("desktop"))
+        .unwrap();
 
     let base = Arc::new(BaseClient::new());
     base.set_session_meta(SessionMeta {
@@ -106,8 +110,12 @@ fn error_boundary_and_concurrency_paths_are_covered() {
     assert!(RealmId::new("not-a-realm").is_err());
 
     let mut auth = AuthManager::default();
-    auth.register_password_user("alice", "secret", did("alice")).unwrap();
-    assert!(auth.login_password("alice", "wrong", device("desktop")).is_err());
+    auth.register_password_user("alice", "secret", did("alice"))
+        .unwrap();
+    assert!(
+        auth.login_password("alice", "wrong", device("desktop"))
+            .is_err()
+    );
 
     let mut empty_cache: StoreCache<&str, i32> = StoreCache::new(0);
     empty_cache.insert("a", 1);
@@ -161,11 +169,15 @@ fn stress_smoke_processes_many_index_and_cache_entries() {
             RealmId::new(format!("ck:realm:01904100-0000-7000-8000-{index:012x}")).unwrap(),
             format!("Realm {index}"),
         );
-        entry.tags.insert(if index % 2 == 0 { "even" } else { "odd" }.to_owned());
+        entry
+            .tags
+            .insert(if index % 2 == 0 { "even" } else { "odd" }.to_owned());
         directory.publish_realm(entry);
     }
     assert_eq!(
-        directory.recommend_realms(BTreeSet::from(["even".to_owned()]), BTreeSet::new(), 10).len(),
+        directory
+            .recommend_realms(BTreeSet::from(["even".to_owned()]), BTreeSet::new(), 10)
+            .len(),
         10
     );
 

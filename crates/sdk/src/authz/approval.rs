@@ -155,7 +155,9 @@ impl ApprovalFlowManager {
 
     /// Check if a proposal is approved.
     pub fn is_proposal_approved(&self, proposal_id: &str) -> bool {
-        self.proposals.get(proposal_id).is_some_and(|p| p.status == ProposalStatus::Approved)
+        self.proposals
+            .get(proposal_id)
+            .is_some_and(|p| p.status == ProposalStatus::Approved)
     }
 
     /// Get a proposal by ID.
@@ -196,8 +198,12 @@ impl ApprovalFlowManager {
             return;
         };
 
-        let approvals: Vec<Did> =
-            proposal.approvals.iter().filter(|a| a.approved).map(|a| a.approver.clone()).collect();
+        let approvals: Vec<Did> = proposal
+            .approvals
+            .iter()
+            .filter(|a| a.approved)
+            .map(|a| a.approver.clone())
+            .collect();
         let rejections = proposal.approvals.iter().filter(|a| !a.approved).count();
 
         let approved = match &proposal.approval_mode {

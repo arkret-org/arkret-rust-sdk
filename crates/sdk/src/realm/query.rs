@@ -10,7 +10,10 @@ impl Realm {
             .values()
             .filter(|morph| {
                 (query.morph_types.is_empty() || query.morph_types.contains(&morph.morph_type))
-                    && query.filters.iter().all(|filter| morph_matches_filter(morph, filter))
+                    && query
+                        .filters
+                        .iter()
+                        .all(|filter| morph_matches_filter(morph, filter))
             })
             .cloned()
             .collect();
@@ -36,11 +39,16 @@ impl Realm {
 
     /// Aggregate Morph objects by type and selected field keys.
     pub fn aggregate_morphs(&self, field_keys: &[impl AsRef<str>]) -> MorphAggregation {
-        let mut aggregation =
-            MorphAggregation { total: self.state.morphs.len(), ..MorphAggregation::default() };
+        let mut aggregation = MorphAggregation {
+            total: self.state.morphs.len(),
+            ..MorphAggregation::default()
+        };
 
         for morph in self.state.morphs.values() {
-            *aggregation.by_type.entry(morph.morph_type.clone()).or_default() += 1;
+            *aggregation
+                .by_type
+                .entry(morph.morph_type.clone())
+                .or_default() += 1;
 
             for field_key in field_keys {
                 let field_key = field_key.as_ref();
@@ -170,8 +178,10 @@ impl Realm {
 
         for event in &self.state.state_events {
             let object = event.content.get("object").unwrap_or(&event.content);
-            let target_id =
-                object.get("id").or_else(|| event.content.get("morph_id")).and_then(Value::as_str);
+            let target_id = object
+                .get("id")
+                .or_else(|| event.content.get("morph_id"))
+                .and_then(Value::as_str);
             if target_id != Some(morph_id.as_str()) {
                 continue;
             }
@@ -203,7 +213,9 @@ impl Realm {
                         .or_else(|| patch.and_then(|patch| patch.get("metadata.title")))
                         .or_else(|| {
                             patch.and_then(|patch| {
-                                patch.get("metadata").and_then(|metadata| metadata.get("title"))
+                                patch
+                                    .get("metadata")
+                                    .and_then(|metadata| metadata.get("title"))
                             })
                         })
                         .and_then(Value::as_str)
@@ -268,8 +280,12 @@ impl Realm {
         to_version: u64,
     ) -> Option<MorphVersionDiff> {
         let versions = self.morph_versions(morph_id);
-        let from = versions.iter().find(|version| version.version == from_version)?;
-        let to = versions.iter().find(|version| version.version == to_version)?;
+        let from = versions
+            .iter()
+            .find(|version| version.version == from_version)?;
+        let to = versions
+            .iter()
+            .find(|version| version.version == to_version)?;
 
         let from_keys: std::collections::HashSet<_> = from.fields.keys().cloned().collect();
         let to_keys: std::collections::HashSet<_> = to.fields.keys().cloned().collect();
@@ -358,7 +374,10 @@ impl Realm {
         &self,
         morph_ids: Vec<MorphId>,
     ) -> Result<Vec<Operation>> {
-        morph_ids.into_iter().map(|morph_id| self.archive_morph_operation(morph_id)).collect()
+        morph_ids
+            .into_iter()
+            .map(|morph_id| self.archive_morph_operation(morph_id))
+            .collect()
     }
 
     fn relation_ref_neighbors(
@@ -371,7 +390,9 @@ impl Realm {
             .values()
             .filter(|relation| relation_is_active(relation))
             .filter(|relation| {
-                relation_kind.map(|kind| &relation.relation_kind == kind).unwrap_or(true)
+                relation_kind
+                    .map(|kind| &relation.relation_kind == kind)
+                    .unwrap_or(true)
             })
             .filter(|relation| relation.from_ref == object_ref)
             .map(|relation| relation.to_ref.clone())

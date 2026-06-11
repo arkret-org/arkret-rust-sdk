@@ -19,14 +19,12 @@ mod resolvers;
 #[cfg(test)]
 mod tests;
 
-use helpers::*;
-
+pub use handles::*;
 /// Public re-export of the `did:webvh` splitter so downstream crates
 /// (e.g. starid) can parse a webvh DID into its parts without depending
 /// on the SDK's internal module layout.
 pub use helpers::did_webvh_parts;
-
-pub use handles::*;
+use helpers::*;
 pub use primary_handle::{
     DidDocumentSnapshotResolver, MentionRender, NoHolderPreferenceResolver,
     PrimaryHandleSelectInput, claim_digest, render_mention, select_primary_handle,

@@ -25,7 +25,9 @@ pub struct ResolvedVerificationMethodKey {
 /// Extract the controller DID portion from a DID URL verification method.
 pub fn verification_method_did(verification_method: &str) -> Result<Did> {
     if verification_method.trim().is_empty() {
-        return Err(Error::Protocol("verification_method must not be empty".to_owned()));
+        return Err(Error::Protocol(
+            "verification_method must not be empty".to_owned(),
+        ));
     }
     let hash = verification_method.find('#');
     let query = verification_method.find('?');
@@ -148,7 +150,10 @@ where
     let canonical_bytes = builder.envelope_bytes(event)?;
     let expected_digest =
         crate::Hash::new(cokret_core::canonical::sha256_digest(&canonical_bytes))?;
-    let signing_actor = event.executed_by.clone().unwrap_or_else(|| event.actor_id.clone());
+    let signing_actor = event
+        .executed_by
+        .clone()
+        .unwrap_or_else(|| event.actor_id.clone());
     let context = cokret_signatures::ProofVerificationContext::new(signing_actor, expected_digest);
     // Binding object `actor_id` is the Event envelope's `actor_id` (spec §6
     // L201), independent of the controller actor (`executed_by`) above.
@@ -268,7 +273,9 @@ impl ResolverPolicy {
             return true;
         }
         let s = did.as_str();
-        self.allowed_methods.iter().any(|prefix| s.starts_with(prefix))
+        self.allowed_methods
+            .iter()
+            .any(|prefix| s.starts_with(prefix))
     }
 
     /// Validate `did` against the policy. Returns
@@ -333,10 +340,14 @@ impl DidWebResolver {
             return Err(Error::Protocol("did:web response URL mismatch".to_owned()));
         }
         if !is_allowed_did_web_content_type(&response.content_type) {
-            return Err(Error::Protocol("unsupported did:web content type".to_owned()));
+            return Err(Error::Protocol(
+                "unsupported did:web content type".to_owned(),
+            ));
         }
         if response.body.len() > DID_WEB_MAX_DOCUMENT_BYTES {
-            return Err(Error::Protocol("did:web document exceeds size limit".to_owned()));
+            return Err(Error::Protocol(
+                "did:web document exceeds size limit".to_owned(),
+            ));
         }
         let document: DidDocument = serde_json::from_slice(&response.body)?;
         if &document.id != did {
@@ -354,7 +365,9 @@ impl DidResolver for DidWebResolver {
 
     fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
         if !self.supports(did) {
-            return Err(Error::Protocol("unsupported DID method for did:web resolver".to_owned()));
+            return Err(Error::Protocol(
+                "unsupported DID method for did:web resolver".to_owned(),
+            ));
         }
         self.documents
             .get(did)
@@ -373,11 +386,10 @@ impl DidResolver for DidWebResolver {
 /// - the SCID present on every log entry matches the DID
 /// - the entry chain (`prevVersionId` → `versionId`) is contiguous
 /// - the document size is bounded by [`DID_WEB_MAX_DOCUMENT_BYTES`]
-/// - **full `did:webvh` v1.0 cryptographic verification** — SCID
-///   derivation from the initial entry, the per-entry hash chain, every
-///   entry's `eddsa-jcs-2022` Data Integrity proof, and the key-rotation
-///   authorization chain (see [`verify_webvh_log`]). Any failure is
-///   fatal: the whole log is rejected (fail-closed).
+/// - **full `did:webvh` v1.0 cryptographic verification** — SCID derivation from the initial entry,
+///   the per-entry hash chain, every entry's `eddsa-jcs-2022` Data Integrity proof, and the
+///   key-rotation authorization chain (see [`verify_webvh_log`]). Any failure is fatal: the whole
+///   log is rejected (fail-closed).
 #[derive(Clone, Debug, Default)]
 pub struct DidWebvhResolver {
     documents: BTreeMap<Did, DidDocument>,
@@ -441,13 +453,19 @@ impl DidWebvhResolver {
     ) -> Result<DidDocument> {
         let expected_url = Self::document_url(did)?;
         if response.url != expected_url {
-            return Err(Error::Protocol("did:webvh response URL mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "did:webvh response URL mismatch".to_owned(),
+            ));
         }
         if !is_allowed_did_web_content_type(&response.content_type) {
-            return Err(Error::Protocol("unsupported did:webvh content type".to_owned()));
+            return Err(Error::Protocol(
+                "unsupported did:webvh content type".to_owned(),
+            ));
         }
         if response.body.len() > DID_WEB_MAX_DOCUMENT_BYTES {
-            return Err(Error::Protocol("did:webvh document exceeds size limit".to_owned()));
+            return Err(Error::Protocol(
+                "did:webvh document exceeds size limit".to_owned(),
+            ));
         }
         let document: DidDocument = serde_json::from_slice(&response.body)?;
         if &document.id != did {
@@ -470,7 +488,9 @@ impl DidWebvhResolver {
             return Err(Error::Protocol("did:webvh log URL mismatch".to_owned()));
         }
         if response.body.len() > DID_WEB_MAX_DOCUMENT_BYTES * 32 {
-            return Err(Error::Protocol("did:webvh log exceeds maximum size".to_owned()));
+            return Err(Error::Protocol(
+                "did:webvh log exceeds maximum size".to_owned(),
+            ));
         }
         let scid = did_webvh_scid(did)
             .ok_or_else(|| Error::Protocol("did:webvh DID has no SCID".to_owned()))?;
@@ -482,12 +502,19 @@ impl DidWebvhResolver {
         // re-serialized typed struct.
         let mut raw_entries: Vec<Value> = Vec::new();
         let mut last_version_id: Option<String> = None;
-        for line in response.body.split(|b| *b == b'\n').filter(|chunk| !chunk.is_empty()) {
+        for line in response
+            .body
+            .split(|b| *b == b'\n')
+            .filter(|chunk| !chunk.is_empty())
+        {
             let raw: Value = serde_json::from_slice(line)?;
             let entry: DidWebvhLogEntry = serde_json::from_value(raw.clone())?;
             // SCID consistency.
-            let entry_scid =
-                entry.parameters.get("scid").and_then(Value::as_str).unwrap_or_default();
+            let entry_scid = entry
+                .parameters
+                .get("scid")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
             if !entry_scid.is_empty() && entry_scid != scid {
                 return Err(Error::Protocol(
                     "did:webvh log entry SCID does not match DID".to_owned(),
@@ -510,7 +537,9 @@ impl DidWebvhResolver {
             // outright (fail-closed) rather than accepting an unsigned
             // history line.
             if entry.proof.is_empty() {
-                return Err(Error::Protocol("did:webvh entry is missing its proof".to_owned()));
+                return Err(Error::Protocol(
+                    "did:webvh entry is missing its proof".to_owned(),
+                ));
             }
             // Optional `prevVersionId` field for >1 entries.
             if let Some(prev) = entry
@@ -580,23 +609,19 @@ impl DidResolver for DidWebvhResolver {
 /// `eddsa-jcs-2022` Data Integrity suite (per `identity-did.md` §3.4,
 /// which delegates to the DIF `did:webvh` v1.0 method specification):
 ///
-/// 1. **SCID derivation** — the first entry's SCID MUST be reproducible
-///    from the entry's own content (every literal SCID occurrence
-///    replaced by the `{SCID}` placeholder, JCS-canonicalized, hashed
-///    with SHA-256, wrapped in a multihash, base58btc/multibase encoded).
-/// 2. **Entry hash chain** — each `versionId`'s hash component MUST equal
-///    the multihash of the entry canonicalized with its `versionId`
-///    replaced by the predecessor's `versionId` (the SCID for entry 1)
-///    and the `proof` removed.
-/// 3. **Per-entry proof verification** — every Data Integrity proof on an
-///    entry MUST verify with Ed25519 over `hash(proofConfig) ||
-///    hash(transformedDoc)`, using the public key named by the proof's
-///    `verificationMethod`.
-/// 4. **Key-rotation authorization chain** — entry 1's proof key MUST be
-///    one of the `updateKeys` the SCID commits to; entry N's proof key
-///    MUST be one of the `updateKeys` authorized by entry N-1 (carried
-///    forward when an entry does not re-declare them). This binds every
-///    `updateKeys` change to the previous version's authority.
+/// 1. **SCID derivation** — the first entry's SCID MUST be reproducible from the entry's own
+///    content (every literal SCID occurrence replaced by the `{SCID}` placeholder,
+///    JCS-canonicalized, hashed with SHA-256, wrapped in a multihash, base58btc/multibase encoded).
+/// 2. **Entry hash chain** — each `versionId`'s hash component MUST equal the multihash of the
+///    entry canonicalized with its `versionId` replaced by the predecessor's `versionId` (the SCID
+///    for entry 1) and the `proof` removed.
+/// 3. **Per-entry proof verification** — every Data Integrity proof on an entry MUST verify with
+///    Ed25519 over `hash(proofConfig) || hash(transformedDoc)`, using the public key named by the
+///    proof's `verificationMethod`.
+/// 4. **Key-rotation authorization chain** — entry 1's proof key MUST be one of the `updateKeys`
+///    the SCID commits to; entry N's proof key MUST be one of the `updateKeys` authorized by entry
+///    N-1 (carried forward when an entry does not re-declare them). This binds every `updateKeys`
+///    change to the previous version's authority.
 ///
 /// Any failure is fatal: the function returns `Err` and the caller MUST
 /// reject the whole log (fail-closed).
@@ -614,7 +639,9 @@ fn verify_webvh_log(scid: &str, entries: &[DidWebvhLogEntry], raw_entries: &[Val
     // own declared `updateKeys`).
     let mut authorized_keys = webvh_update_keys(&entries[0].parameters)?;
     if authorized_keys.is_empty() {
-        return Err(Error::Protocol("did:webvh initial entry declares no updateKeys".to_owned()));
+        return Err(Error::Protocol(
+            "did:webvh initial entry declares no updateKeys".to_owned(),
+        ));
     }
 
     let mut prev_version_id: Option<&str> = None;
@@ -630,9 +657,12 @@ fn verify_webvh_log(scid: &str, entries: &[DidWebvhLogEntry], raw_entries: &[Val
         // cryptographically valid signature (fail-closed on any bad one).
         let mut any_authorized = false;
         for proof in &entry.proof {
-            let vm = proof.get("verificationMethod").and_then(Value::as_str).ok_or_else(|| {
-                Error::Protocol("did:webvh proof missing verificationMethod".to_owned())
-            })?;
+            let vm = proof
+                .get("verificationMethod")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    Error::Protocol("did:webvh proof missing verificationMethod".to_owned())
+                })?;
             let key_multibase = webvh_verification_method_key(vm);
             verify_webvh_proof(raw, proof, &key_multibase)?;
             if authorized_keys.iter().any(|k| k == &key_multibase) {
@@ -668,11 +698,16 @@ fn verify_webvh_log(scid: &str, entries: &[DidWebvhLogEntry], raw_entries: &[Val
 fn webvh_placeholder(value: &Value, scid: &str) -> Value {
     match value {
         Value::String(s) => Value::String(s.replace(scid, "{SCID}")),
-        Value::Array(items) => {
-            Value::Array(items.iter().map(|item| webvh_placeholder(item, scid)).collect())
-        }
+        Value::Array(items) => Value::Array(
+            items
+                .iter()
+                .map(|item| webvh_placeholder(item, scid))
+                .collect(),
+        ),
         Value::Object(map) => Value::Object(
-            map.iter().map(|(k, v)| (k.clone(), webvh_placeholder(v, scid))).collect(),
+            map.iter()
+                .map(|(k, v)| (k.clone(), webvh_placeholder(v, scid)))
+                .collect(),
         ),
         other => other.clone(),
     }
@@ -704,13 +739,18 @@ fn verify_webvh_entry_hash(version_id: &str, prev_anchor: &str, raw: &Value) -> 
     let mut preimage = raw.clone();
     if let Some(obj) = preimage.as_object_mut() {
         obj.remove("proof");
-        obj.insert("versionId".to_owned(), Value::String(prev_anchor.to_owned()));
+        obj.insert(
+            "versionId".to_owned(),
+            Value::String(prev_anchor.to_owned()),
+        );
     }
     let bytes = cokret_core::canonical::canonical_json_bytes(&preimage)
         .map_err(|e| Error::Protocol(format!("did:webvh entry canonicalization failed: {e}")))?;
     let computed = webvh_multihash_base58(&bytes);
     if computed != declared_hash {
-        return Err(Error::Protocol("did:webvh entry hash does not match versionId".to_owned()));
+        return Err(Error::Protocol(
+            "did:webvh entry hash does not match versionId".to_owned(),
+        ));
     }
     Ok(())
 }
@@ -763,7 +803,10 @@ fn verify_webvh_proof(raw_entry: &Value, proof: &Value, key_multibase: &str) -> 
     let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&key_bytes)
         .map_err(|e| Error::Protocol(format!("did:webvh proof key is not Ed25519: {e}")))?;
     verifying_key
-        .verify_strict(&signing_input, &ed25519_dalek::Signature::from_bytes(&signature))
+        .verify_strict(
+            &signing_input,
+            &ed25519_dalek::Signature::from_bytes(&signature),
+        )
         .map_err(|_| Error::Protocol("did:webvh proof signature verification failed".to_owned()))
 }
 
@@ -773,7 +816,10 @@ fn verify_webvh_proof(raw_entry: &Value, proof: &Value, key_multibase: &str) -> 
 fn webvh_verification_method_key(vm: &str) -> String {
     let after_fragment = vm.rsplit('#').next().unwrap_or(vm);
     // Strip a leading `did:key:` if the key sits in the method id.
-    after_fragment.strip_prefix("did:key:").unwrap_or(after_fragment).to_owned()
+    after_fragment
+        .strip_prefix("did:key:")
+        .unwrap_or(after_fragment)
+        .to_owned()
 }
 
 /// Read the `updateKeys` multibase strings from an entry's `parameters`.
@@ -809,7 +855,9 @@ impl DidKeriResolver {
     /// Register a `did:keri` document.
     pub fn insert(&mut self, document: DidDocument) -> Result<()> {
         if document.id.method() != "keri" {
-            return Err(Error::Protocol("did:keri resolver only accepts did:keri".to_owned()));
+            return Err(Error::Protocol(
+                "did:keri resolver only accepts did:keri".to_owned(),
+            ));
         }
         document.validate()?;
         self.documents.insert(document.id.clone(), document);
@@ -824,7 +872,9 @@ impl DidResolver for DidKeriResolver {
 
     fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
         if !self.supports(did) {
-            return Err(Error::Protocol("unsupported DID method for did:keri resolver".to_owned()));
+            return Err(Error::Protocol(
+                "unsupported DID method for did:keri resolver".to_owned(),
+            ));
         }
         self.documents
             .get(did)
@@ -852,7 +902,11 @@ impl DidResolver for DidKeyResolver {
     fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
         let key = did_key_material(did)
             .ok_or_else(|| Error::Protocol("unsupported did:key form".to_owned()))?;
-        Ok(DidDocument::new(did.clone(), format!("{}#{key}", did.as_str()), key))
+        Ok(DidDocument::new(
+            did.clone(),
+            format!("{}#{key}", did.as_str()),
+            key,
+        ))
     }
 }
 
@@ -921,17 +975,17 @@ impl DidResolver for CompositeDidResolver {
 // 不改动任何现有 public API 的前提下,以纯粹的「加法」补上缓存层:
 //
 // - `Freshness` 描述一次取值相对 TTL 的新鲜程度(新鲜 / 过期 / 缺失)。
-// - `CachedResolution` 是单条缓存记录,携带文档、缓存/过期时间戳、文档
-//   规范哈希,以及可选的 webvh 日志头与版本号。
-// - `CachingDidResolver<R>` 包装任意 `R: DidResolver`,内部以
-//   `Mutex<CacheState>` 保存条目并执行 LRU + TTL 逐出。
+// - `CachedResolution` 是单条缓存记录,携带文档、缓存/过期时间戳、文档 规范哈希,以及可选的 webvh
+//   日志头与版本号。
+// - `CachingDidResolver<R>` 包装任意 `R: DidResolver`,内部以 `Mutex<CacheState>` 保存条目并执行 LRU
+//   + TTL 逐出。
 // ============================================================================
 
 /// 一次缓存取值相对其 TTL 的新鲜程度。
 ///
 /// - `Fresh`:命中且仍在 TTL 窗口内。
-/// - `Stale { age }`:命中但已过期(`age` 是相对 `expires_at` 超出的时长);
-///   仅在 `ResolverFailMode::AllowCachedOnError` 且底层 resolver 出错时返回。
+/// - `Stale { age }`:命中但已过期(`age` 是相对 `expires_at` 超出的时长); 仅在
+///   `ResolverFailMode::AllowCachedOnError` 且底层 resolver 出错时返回。
 /// - `Missing`:缓存里没有这个 DID(或缓存被关闭),需要走底层 resolver。
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Freshness {
@@ -974,7 +1028,14 @@ impl CachedResolution {
         expires_at: DateTime<Utc>,
     ) -> Result<Self> {
         let document_hash = document_canonical_hash(&document)?;
-        Ok(Self { document, cached_at, expires_at, document_hash, log_head: None, version: None })
+        Ok(Self {
+            document,
+            cached_at,
+            expires_at,
+            document_hash,
+            log_head: None,
+            version: None,
+        })
     }
 
     /// 相对 `now` 计算这条记录的新鲜程度。
@@ -982,7 +1043,9 @@ impl CachedResolution {
         if now < self.expires_at {
             Freshness::Fresh
         } else {
-            Freshness::Stale { age: now - self.expires_at }
+            Freshness::Stale {
+                age: now - self.expires_at,
+            }
         }
     }
 }
@@ -1032,8 +1095,11 @@ impl CacheState {
             return;
         }
         if !self.entries.contains_key(&key) && self.entries.len() >= self.max_entries {
-            if let Some(victim) =
-                self.entries.iter().min_by_key(|(_, e)| e.cached_at).map(|(k, _)| k.clone())
+            if let Some(victim) = self
+                .entries
+                .iter()
+                .min_by_key(|(_, e)| e.cached_at)
+                .map(|(k, _)| k.clone())
             {
                 self.entries.remove(&victim);
             }
@@ -1064,7 +1130,10 @@ impl<R: DidResolver> CachingDidResolver<R> {
         Self {
             inner,
             policy,
-            state: std::sync::Mutex::new(CacheState { entries: HashMap::new(), max_entries }),
+            state: std::sync::Mutex::new(CacheState {
+                entries: HashMap::new(),
+                max_entries,
+            }),
         }
     }
 
@@ -1080,7 +1149,11 @@ impl<R: DidResolver> CachingDidResolver<R> {
 
     /// 当前缓存条目数(惰性逐出之外的即时计数)。
     pub fn len(&self) -> usize {
-        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).entries.len()
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .entries
+            .len()
     }
 
     /// 缓存是否为空。
@@ -1090,12 +1163,20 @@ impl<R: DidResolver> CachingDidResolver<R> {
 
     /// 丢弃某个 DID 的缓存(例如收到吊销 / 轮换事件时)。
     pub fn invalidate(&self, did: &Did) {
-        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).entries.remove(did.as_str());
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .entries
+            .remove(did.as_str());
     }
 
     /// 清空全部缓存。
     pub fn clear(&self) {
-        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).entries.clear();
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .entries
+            .clear();
     }
 
     /// 依据 `policy.ttl` 计算 `expires_at`。`ttl == None` 表示禁用缓存,
@@ -1113,8 +1194,8 @@ impl<R: DidResolver> CachingDidResolver<R> {
     /// 1. 命中且未过期 → 返回 `(doc, Fresh)`。
     /// 2. 否则调用底层 resolver:
     ///    - 成功 → 回填缓存,返回 `(doc, Missing)`(本次取自上游,非缓存)。
-    ///    - 失败 → 若 `fail_mode == AllowCachedOnError` 且存在过期缓存,
-    ///      返回 `(stale_doc, Stale { age })`;否则向上抛错(fail-closed)。
+    ///    - 失败 → 若 `fail_mode == AllowCachedOnError` 且存在过期缓存, 返回 `(stale_doc, Stale {
+    ///      age })`;否则向上抛错(fail-closed)。
     pub fn resolve_with_freshness(
         &self,
         did: &Did,
@@ -1122,9 +1203,12 @@ impl<R: DidResolver> CachingDidResolver<R> {
     ) -> Result<(DidDocument, Freshness)> {
         let key = did.as_str().to_owned();
 
-        // 1. 命中且新鲜(此处用 peek,不删除过期项,以便步骤 2 的
-        //    stale 回退仍能读到过期条目)。
-        if let Some(entry) = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).peek_fresh(&key, now)
+        // 1. 命中且新鲜(此处用 peek,不删除过期项,以便步骤 2 的 stale 回退仍能读到过期条目)。
+        if let Some(entry) = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .peek_fresh(&key, now)
         {
             return Ok((entry.document, Freshness::Fresh));
         }
@@ -1134,14 +1218,22 @@ impl<R: DidResolver> CachingDidResolver<R> {
             Ok(document) => {
                 let expires_at = self.expires_at(now);
                 let entry = CachedResolution::new(document.clone(), now, expires_at)?;
-                self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(key, entry);
+                self.state
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .insert(key, entry);
                 Ok((document, Freshness::Missing))
             }
             Err(err) => {
                 // 仅在 AllowCachedOnError 下回退到过期缓存。
                 if self.policy.fail_mode == ResolverFailMode::AllowCachedOnError {
-                    let stale =
-                        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).entries.get(&key).cloned();
+                    let stale = self
+                        .state
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .entries
+                        .get(&key)
+                        .cloned();
                     if let Some(entry) = stale {
                         let freshness = entry.freshness_at(now);
                         return Ok((entry.document, freshness));
@@ -1162,14 +1254,22 @@ impl<R: DidResolver> DidResolver for CachingDidResolver<R> {
         let now = Utc::now();
         let key = did.as_str().to_owned();
 
-        if let Some(entry) = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get_fresh(&key, now) {
+        if let Some(entry) = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get_fresh(&key, now)
+        {
             return Ok(entry.document);
         }
 
         let document = self.inner.resolve_did(did)?;
         let expires_at = self.expires_at(now);
         let entry = CachedResolution::new(document.clone(), now, expires_at)?;
-        self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(key, entry);
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(key, entry);
         Ok(document)
     }
 }
@@ -1204,7 +1304,10 @@ mod caching_tests {
 
     impl StubResolver {
         fn new() -> Self {
-            Self { calls: AtomicUsize::new(0), fail: std::sync::atomic::AtomicBool::new(false) }
+            Self {
+                calls: AtomicUsize::new(0),
+                fail: std::sync::atomic::AtomicBool::new(false),
+            }
         }
 
         fn calls(&self) -> usize {
@@ -1228,7 +1331,11 @@ mod caching_tests {
             }
             let key = did_key_material(did)
                 .ok_or_else(|| Error::Protocol("stub: unsupported did:key".to_owned()))?;
-            Ok(DidDocument::new(did.clone(), format!("{}#{key}", did.as_str()), key))
+            Ok(DidDocument::new(
+                did.clone(),
+                format!("{}#{key}", did.as_str()),
+                key,
+            ))
         }
     }
 
@@ -1253,13 +1360,18 @@ mod caching_tests {
         let stub = StubResolver::new();
         let resolver = CachingDidResolver::new(
             stub,
-            policy(Some(chrono::Duration::minutes(15)), ResolverFailMode::FailClosed),
+            policy(
+                Some(chrono::Duration::minutes(15)),
+                ResolverFailMode::FailClosed,
+            ),
             128,
         );
         let did = sample_did("");
 
         let now = Utc::now();
-        let (_doc, f1) = resolver.resolve_with_freshness(&did, now).expect("first resolve");
+        let (_doc, f1) = resolver
+            .resolve_with_freshness(&did, now)
+            .expect("first resolve");
         assert_eq!(f1, Freshness::Missing, "首次解析来自上游");
         assert_eq!(resolver.inner().calls(), 1);
 
@@ -1279,7 +1391,10 @@ mod caching_tests {
         let stub = StubResolver::new();
         let resolver = CachingDidResolver::new(
             stub,
-            policy(Some(chrono::Duration::minutes(15)), ResolverFailMode::FailClosed),
+            policy(
+                Some(chrono::Duration::minutes(15)),
+                ResolverFailMode::FailClosed,
+            ),
             128,
         );
         let did = sample_did("");
@@ -1290,7 +1405,9 @@ mod caching_tests {
 
         // 超过 TTL 后再解析:过期 → miss → 重新走上游。
         let later = now + chrono::Duration::minutes(16);
-        let (_doc, f) = resolver.resolve_with_freshness(&did, later).expect("after expiry");
+        let (_doc, f) = resolver
+            .resolve_with_freshness(&did, later)
+            .expect("after expiry");
         assert_eq!(f, Freshness::Missing, "过期后重新取自上游");
         assert_eq!(resolver.inner().calls(), 2);
     }
@@ -1301,7 +1418,10 @@ mod caching_tests {
         // 容量 2:写入三个不同 DID 后,最旧的应被逐出。
         let resolver = CachingDidResolver::new(
             stub,
-            policy(Some(chrono::Duration::minutes(15)), ResolverFailMode::FailClosed),
+            policy(
+                Some(chrono::Duration::minutes(15)),
+                ResolverFailMode::FailClosed,
+            ),
             2,
         );
 
@@ -1314,11 +1434,15 @@ mod caching_tests {
             .expect("valid did:key");
 
         resolver.resolve_with_freshness(&d1, base).expect("d1");
-        resolver.resolve_with_freshness(&d2, base + chrono::Duration::seconds(1)).expect("d2");
+        resolver
+            .resolve_with_freshness(&d2, base + chrono::Duration::seconds(1))
+            .expect("d2");
         assert_eq!(resolver.len(), 2);
 
         // 写入第三个,最旧的 d1(cached_at 最早)应被逐出。
-        resolver.resolve_with_freshness(&d3, base + chrono::Duration::seconds(2)).expect("d3");
+        resolver
+            .resolve_with_freshness(&d3, base + chrono::Duration::seconds(2))
+            .expect("d3");
         assert_eq!(resolver.len(), 2, "容量上限保持为 2");
 
         // d1 现在 miss(会再次走上游),d2/d3 仍命中。
@@ -1340,7 +1464,10 @@ mod caching_tests {
         let stub = StubResolver::new();
         let resolver = CachingDidResolver::new(
             stub,
-            policy(Some(chrono::Duration::minutes(15)), ResolverFailMode::FailClosed),
+            policy(
+                Some(chrono::Duration::minutes(15)),
+                ResolverFailMode::FailClosed,
+            ),
             0,
         );
         let did = sample_did("");
@@ -1358,14 +1485,19 @@ mod caching_tests {
         let stub = StubResolver::new();
         let resolver = CachingDidResolver::new(
             stub,
-            policy(Some(chrono::Duration::minutes(15)), ResolverFailMode::FailClosed),
+            policy(
+                Some(chrono::Duration::minutes(15)),
+                ResolverFailMode::FailClosed,
+            ),
             128,
         );
         let did = sample_did("");
         let now = Utc::now();
 
         // 先成功填充一条缓存。
-        resolver.resolve_with_freshness(&did, now).expect("warm cache");
+        resolver
+            .resolve_with_freshness(&did, now)
+            .expect("warm cache");
         // 切换为失败,并越过 TTL 触发上游调用。
         resolver.inner().set_fail(true);
         let later = now + chrono::Duration::minutes(16);
@@ -1378,23 +1510,32 @@ mod caching_tests {
         let stub = StubResolver::new();
         let resolver = CachingDidResolver::new(
             stub,
-            policy(Some(chrono::Duration::minutes(15)), ResolverFailMode::AllowCachedOnError),
+            policy(
+                Some(chrono::Duration::minutes(15)),
+                ResolverFailMode::AllowCachedOnError,
+            ),
             128,
         );
         let did = sample_did("");
         let now = Utc::now();
 
         // 先成功填充缓存。
-        resolver.resolve_with_freshness(&did, now).expect("warm cache");
+        resolver
+            .resolve_with_freshness(&did, now)
+            .expect("warm cache");
         // 切换为失败,越过 TTL。
         resolver.inner().set_fail(true);
         let later = now + chrono::Duration::minutes(16);
-        let (_doc, f) =
-            resolver.resolve_with_freshness(&did, later).expect("stale fallback succeeds");
+        let (_doc, f) = resolver
+            .resolve_with_freshness(&did, later)
+            .expect("stale fallback succeeds");
         match f {
             Freshness::Stale { age } => {
                 // age 约为超过 expires_at 的 1 分钟(16 - 15)。
-                assert!(age >= chrono::Duration::seconds(30), "返回的过期时长应为正且合理");
+                assert!(
+                    age >= chrono::Duration::seconds(30),
+                    "返回的过期时长应为正且合理"
+                );
             }
             other => panic!("期望 Stale,实际为 {other:?}"),
         }

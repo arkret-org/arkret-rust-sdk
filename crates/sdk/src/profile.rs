@@ -107,12 +107,14 @@ impl SovereignDeploymentPolicy {
 
     /// Pin a DID resolver endpoint or trust root.
     pub fn pin_resolver(&mut self, did_method: impl Into<String>, resolver_ref: impl Into<String>) {
-        self.resolver_pins.insert(did_method.into(), resolver_ref.into());
+        self.resolver_pins
+            .insert(did_method.into(), resolver_ref.into());
     }
 
     /// Classify a data subject reference.
     pub fn classify(&mut self, subject_ref: impl Into<String>, classification: DataClassification) {
-        self.data_classification.insert(subject_ref.into(), classification);
+        self.data_classification
+            .insert(subject_ref.into(), classification);
     }
 }
 
@@ -150,10 +152,14 @@ impl ServiceReplacementPlan {
     /// Validate a service replacement contract.
     pub fn validate(&self, now: DateTime<Utc>) -> Result<()> {
         if self.old_service_did == self.new_service_did {
-            return Err(Error::Protocol("replacement service must change".to_owned()));
+            return Err(Error::Protocol(
+                "replacement service must change".to_owned(),
+            ));
         }
         if self.effective_at < now {
-            return Err(Error::Protocol("replacement effective time is in the past".to_owned()));
+            return Err(Error::Protocol(
+                "replacement effective time is in the past".to_owned(),
+            ));
         }
         if self.reason.trim().is_empty() {
             return Err(Error::Protocol("replacement reason is empty".to_owned()));
@@ -186,7 +192,10 @@ pub fn validate_realm_import(
         errors.push("source service is not allowed".to_owned());
     }
 
-    RealmImportValidation { accepted: errors.is_empty(), errors }
+    RealmImportValidation {
+        accepted: errors.is_empty(),
+        errors,
+    }
 }
 
 /// Optional TSP trust binding.
@@ -205,7 +214,10 @@ impl TspTrustBinding {
     /// Check whether the binding is active.
     pub fn is_active(&self, at: DateTime<Utc>) -> bool {
         !self.binding_proof.is_empty()
-            && self.expires_at.map(|expires_at| expires_at > at).unwrap_or(true)
+            && self
+                .expires_at
+                .map(|expires_at| expires_at > at)
+                .unwrap_or(true)
     }
 }
 
@@ -255,7 +267,10 @@ impl ProfileManager {
 
     /// Get profile version history.
     pub fn history(&self, user_id: &Did) -> Vec<&UserProfile> {
-        self.history.get(user_id).map(|history| history.iter().collect()).unwrap_or_default()
+        self.history
+            .get(user_id)
+            .map(|history| history.iter().collect())
+            .unwrap_or_default()
     }
 
     /// Replace profile fields and increment version.
@@ -266,15 +281,20 @@ impl ProfileManager {
         avatar_url: Option<String>,
         bio: Option<String>,
     ) -> UserProfile {
-        let mut profile =
-            self.profiles.remove(&user_id).unwrap_or_else(|| UserProfile::new(user_id.clone()));
+        let mut profile = self
+            .profiles
+            .remove(&user_id)
+            .unwrap_or_else(|| UserProfile::new(user_id.clone()));
         profile.display_name = display_name;
         profile.avatar_url = avatar_url;
         profile.bio = bio;
         profile.version += 1;
         profile.updated_at = Utc::now();
         self.profiles.insert(user_id.clone(), profile.clone());
-        self.history.entry(user_id).or_default().push(profile.clone());
+        self.history
+            .entry(user_id)
+            .or_default()
+            .push(profile.clone());
         profile
     }
 
@@ -289,7 +309,12 @@ impl ProfileManager {
             .get(&user_id)
             .cloned()
             .unwrap_or_else(|| UserProfile::new(user_id.clone()));
-        self.update_profile(user_id, Some(display_name.into()), current.avatar_url, current.bio)
+        self.update_profile(
+            user_id,
+            Some(display_name.into()),
+            current.avatar_url,
+            current.bio,
+        )
     }
 
     /// Update avatar URL only.
@@ -299,7 +324,12 @@ impl ProfileManager {
             .get(&user_id)
             .cloned()
             .unwrap_or_else(|| UserProfile::new(user_id.clone()));
-        self.update_profile(user_id, current.display_name, Some(avatar_url.into()), current.bio)
+        self.update_profile(
+            user_id,
+            current.display_name,
+            Some(avatar_url.into()),
+            current.bio,
+        )
     }
 
     /// Update bio only.
@@ -309,7 +339,12 @@ impl ProfileManager {
             .get(&user_id)
             .cloned()
             .unwrap_or_else(|| UserProfile::new(user_id.clone()));
-        self.update_profile(user_id, current.display_name, current.avatar_url, Some(bio.into()))
+        self.update_profile(
+            user_id,
+            current.display_name,
+            current.avatar_url,
+            Some(bio.into()),
+        )
     }
 
     /// Get a specific profile version.
@@ -421,7 +456,8 @@ impl ProfileCreateBuilder {
     }
 
     pub fn with_bio(mut self, bio: impl Into<String>) -> Self {
-        self.profile_fields.insert("bio".to_owned(), Value::String(bio.into()));
+        self.profile_fields
+            .insert("bio".to_owned(), Value::String(bio.into()));
         self
     }
 
@@ -450,8 +486,10 @@ impl ProfileCreateBuilder {
         accountable_principal_ids: Vec<Did>,
     ) -> Self {
         self.actor_kind = Some(ActorKind::Integration);
-        self.profile_fields
-            .insert("managed_by_applet".to_owned(), Value::String(applet_id.to_string()));
+        self.profile_fields.insert(
+            "managed_by_applet".to_owned(),
+            Value::String(applet_id.to_string()),
+        );
         self.accountable_principal_ids = accountable_principal_ids;
         self
     }
@@ -459,7 +497,8 @@ impl ProfileCreateBuilder {
     /// Attach the bridge-side external reference (e.g. `{"slack_user_id":
     /// "U12345"}`) as `profile_fields.external_ref`.
     pub fn with_external_ref(mut self, external_ref: Value) -> Self {
-        self.profile_fields.insert("external_ref".to_owned(), external_ref);
+        self.profile_fields
+            .insert("external_ref".to_owned(), external_ref);
         self
     }
 
@@ -484,7 +523,8 @@ impl ProfileCreateBuilder {
     }
 
     pub fn with_event_external_ref(mut self, external_ref: Value) -> Self {
-        self.profile_fields.insert("external_ref".to_owned(), external_ref);
+        self.profile_fields
+            .insert("external_ref".to_owned(), external_ref);
         self
     }
 
@@ -521,7 +561,9 @@ impl ProfileCreateBuilder {
             Error::Protocol("actor_profile.create requires display_name".to_owned())
         })?;
         if display_name.trim().is_empty() {
-            return Err(Error::Protocol("actor_profile.display_name must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "actor_profile.display_name must not be empty".to_owned(),
+            ));
         }
         if display_name.chars().count() > 128 {
             return Err(Error::Protocol(
@@ -557,7 +599,10 @@ impl ProfileCreateBuilder {
             patch.insert("handle", Value::String(handle.clone()))?;
         }
         if let Some(avatar_blob_ref) = &self.avatar_blob_ref {
-            patch.insert("avatar_blob_ref", Value::String(avatar_blob_ref.to_string()))?;
+            patch.insert(
+                "avatar_blob_ref",
+                Value::String(avatar_blob_ref.to_string()),
+            )?;
         }
         if let Some(actor_kind) = &self.actor_kind {
             patch.insert("actor_kind", serde_json::to_value(actor_kind)?)?;
@@ -594,7 +639,9 @@ impl ProfileCreateBuilder {
         if let Some(authorization_ref) = &self.authorization_ref
             && authorization_ref.trim().is_empty()
         {
-            return Err(Error::Protocol("authorization_ref must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "authorization_ref must not be empty".to_owned(),
+            ));
         }
         if self.executed_by.is_some() && self.authorization_ref.is_none() {
             return Err(Error::Protocol(
@@ -650,7 +697,10 @@ mod profile_builder_tests {
             .build(1, hlc())
             .unwrap();
         assert_eq!(event.kind, "ck.profile.create");
-        assert_eq!(event.content["object"]["principal_id"], "did:web:alice.example");
+        assert_eq!(
+            event.content["object"]["principal_id"],
+            "did:web:alice.example"
+        );
         assert_eq!(event.content["object"]["actor_kind"], "user");
         assert_eq!(event.content["object"]["display_name"], "Alice");
     }
@@ -684,8 +734,14 @@ mod profile_builder_tests {
             object["profile_fields"]["managed_by_applet"],
             "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
-        assert_eq!(object["accountable_principal_ids"][0], "did:web:owner.example");
-        assert_eq!(object["profile_fields"]["external_ref"]["slack_user_id"], "U12345");
+        assert_eq!(
+            object["accountable_principal_ids"][0],
+            "did:web:owner.example"
+        );
+        assert_eq!(
+            object["profile_fields"]["external_ref"]["slack_user_id"],
+            "U12345"
+        );
         assert!(object.get("accountability").is_none());
         assert!(object.get("managed_by_applet").is_none());
     }
@@ -715,7 +771,10 @@ mod tests {
 
         let v3 = manager.set_bio(alice.clone(), "Builder");
         assert_eq!(v3.version, 3);
-        assert_eq!(manager.profile(&alice).unwrap().bio, Some("Builder".to_owned()));
+        assert_eq!(
+            manager.profile(&alice).unwrap().bio,
+            Some("Builder".to_owned())
+        );
         assert_eq!(manager.history(&alice).len(), 3);
         assert_eq!(
             manager.profile_version(&alice, 1).unwrap().display_name,
@@ -745,8 +804,11 @@ mod tests {
                 .to_owned(),
             created_at: Utc::now(),
         };
-        let validation =
-            validate_realm_import(&manifest, Some(&manifest.realm_id), &BTreeSet::from([service]));
+        let validation = validate_realm_import(
+            &manifest,
+            Some(&manifest.realm_id),
+            &BTreeSet::from([service]),
+        );
         assert!(validation.accepted);
     }
 

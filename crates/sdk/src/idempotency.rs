@@ -12,11 +12,9 @@
 //! own `HashMap<(String, String), Instant>` with subtly different
 //! semantics.
 
-use std::{
-    collections::HashMap,
-    sync::Mutex,
-    time::{Duration, Instant},
-};
+use std::collections::HashMap;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use cokret_core::Hash;
 
@@ -53,7 +51,10 @@ impl IdempotencyWindow {
     /// Construct a window with the given retention duration. Spec
     /// recommends 5 minutes (`Duration::from_secs(5 * 60)`).
     pub fn new(window: Duration) -> Self {
-        Self { window, inner: Mutex::new(HashMap::new()) }
+        Self {
+            window,
+            inner: Mutex::new(HashMap::new()),
+        }
     }
 
     /// Inspect the window for an existing entry. Does not mutate;
@@ -66,7 +67,10 @@ impl IdempotencyWindow {
     ) -> IdempotencyDecision {
         let key = (source_service_did.to_owned(), idempotency_key.to_owned());
         let now = Instant::now();
-        let inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         match inner.get(&key) {
             None => IdempotencyDecision::Fresh,
             Some(entry) if now.saturating_duration_since(entry.first_seen) > self.window => {
@@ -74,9 +78,13 @@ impl IdempotencyWindow {
                 IdempotencyDecision::Fresh
             }
             Some(entry) if &entry.body_hash == body_canonical_hash => {
-                IdempotencyDecision::Duplicate { first_seen: entry.first_seen }
+                IdempotencyDecision::Duplicate {
+                    first_seen: entry.first_seen,
+                }
             }
-            Some(entry) => IdempotencyDecision::Conflict { first_seen: entry.first_seen },
+            Some(entry) => IdempotencyDecision::Conflict {
+                first_seen: entry.first_seen,
+            },
         }
     }
 
@@ -90,7 +98,10 @@ impl IdempotencyWindow {
         body_canonical_hash: Hash,
     ) {
         let key = (source_service_did.to_owned(), idempotency_key.to_owned());
-        let mut inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         inner.entry(key).or_insert(IdempotencyEntry {
             body_hash: body_canonical_hash,
             first_seen: Instant::now(),
@@ -101,14 +112,20 @@ impl IdempotencyWindow {
     /// background timer; safe to skip in test scenarios.
     pub fn gc(&self) {
         let now = Instant::now();
-        let mut inner = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         inner.retain(|_, entry| now.saturating_duration_since(entry.first_seen) <= self.window);
     }
 
     /// Current entry count. Test-only helper.
     #[cfg(test)]
     pub fn len(&self) -> usize {
-        self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner).len()
+        self.inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .len()
     }
 
     /// Whether the window has zero recorded entries. Test-only
@@ -116,14 +133,18 @@ impl IdempotencyWindow {
     /// `clippy::len_without_is_empty`.
     #[cfg(test)]
     pub fn is_empty(&self) -> bool {
-        self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty()
+        self.inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .is_empty()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use cokret_core::canonical;
+
+    use super::*;
 
     fn hash_of(bytes: &[u8]) -> Hash {
         Hash::new(canonical::sha256_digest(bytes)).unwrap()
@@ -137,7 +158,10 @@ mod tests {
     fn check_returns_fresh_for_unseen_key() {
         let win = IdempotencyWindow::new(Duration::from_secs(5 * 60));
         let body = hash_of(b"hello");
-        assert_eq!(win.check(alice_svc(), "key-1", &body), IdempotencyDecision::Fresh);
+        assert_eq!(
+            win.check(alice_svc(), "key-1", &body),
+            IdempotencyDecision::Fresh
+        );
     }
 
     #[test]
@@ -176,7 +200,10 @@ mod tests {
         win.gc();
         assert_eq!(win.len(), 0);
         // After GC the key reads as Fresh again.
-        assert_eq!(win.check(alice_svc(), "key-1", &body), IdempotencyDecision::Fresh);
+        assert_eq!(
+            win.check(alice_svc(), "key-1", &body),
+            IdempotencyDecision::Fresh
+        );
     }
 
     #[test]
@@ -185,6 +212,9 @@ mod tests {
         let body = hash_of(b"hello");
         win.record(alice_svc(), "key-1", body.clone());
         std::thread::sleep(Duration::from_millis(10));
-        assert_eq!(win.check(alice_svc(), "key-1", &body), IdempotencyDecision::Fresh);
+        assert_eq!(
+            win.check(alice_svc(), "key-1", &body),
+            IdempotencyDecision::Fresh
+        );
     }
 }

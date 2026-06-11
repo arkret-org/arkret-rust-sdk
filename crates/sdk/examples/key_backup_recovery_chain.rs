@@ -4,13 +4,12 @@
 //!
 //! The chain semantics this example exercises:
 //!
-//! * Every envelope in a chain shares the same `series_id` (a
-//!   `ck:backup_series:` strict-typed id).
+//! * Every envelope in a chain shares the same `series_id` (a `ck:backup_series:` strict-typed id).
 //! * `series_seq == 0` marks the genesis envelope; `supersedes` MUST be absent.
-//! * `series_seq >= 1` marks a successor; `supersedes` and
-//!   `supersedes_digest` are REQUIRED and the chain must be contiguous.
-//! * `frontier_ref` ties the envelope to the originating-key frontier so the
-//!   reducer can reject stale rollups with `backup_frontier_stale`.
+//! * `series_seq >= 1` marks a successor; `supersedes` and `supersedes_digest` are REQUIRED and the
+//!   chain must be contiguous.
+//! * `frontier_ref` ties the envelope to the originating-key frontier so the reducer can reject
+//!   stale rollups with `backup_frontier_stale`.
 //!
 //! A reader wanting to drive a real soland would feed the chain to
 //! `KeyBackupClient::put_key_backup` per envelope; the recovery walker would
@@ -40,10 +39,17 @@ fn build_envelope(
     predecessor: Option<&KeyBackup>,
     ciphertext: &str,
 ) -> KeyBackup {
-    let backup_id_str = format!("ck:backup:01964137-0000-7000-8000-{:012x}", 0xA000_u64 + seq);
+    let backup_id_str = format!(
+        "ck:backup:01964137-0000-7000-8000-{:012x}",
+        0xA000_u64 + seq
+    );
     let ciphertext_digest = format!(
         "sha256:{:0>64}",
-        format!("{seq:02x}").repeat(32).chars().take(64).collect::<String>()
+        format!("{seq:02x}")
+            .repeat(32)
+            .chars()
+            .take(64)
+            .collect::<String>()
     );
     let supersedes = predecessor.map(|p| p.backup_id.clone());
     let supersedes_digest = predecessor.map(|p| p.ciphertext_digest.clone());
@@ -118,7 +124,10 @@ fn validate_chain(envelopes: &[KeyBackup]) -> Result<(), String> {
         return Err("empty chain".into());
     };
     if first.series_seq != 0 {
-        return Err(format!("genesis must have series_seq=0, got {}", first.series_seq));
+        return Err(format!(
+            "genesis must have series_seq=0, got {}",
+            first.series_seq
+        ));
     }
     if first.supersedes.is_some() || first.supersedes_digest.is_some() {
         return Err("genesis must not set supersedes".into());
@@ -159,7 +168,14 @@ fn main() -> cokret::Result<()> {
     let series_id = BackupSeriesId::new("ck:backup_series:01964137-0000-7000-8000-000000000777")?;
 
     // Build the chain: genesis + two rotations.
-    let genesis = build_envelope(&actor_id, &device_id, &series_id, 0, None, "ciphertext-genesis");
+    let genesis = build_envelope(
+        &actor_id,
+        &device_id,
+        &series_id,
+        0,
+        None,
+        "ciphertext-genesis",
+    );
     let v1 = build_envelope(
         &actor_id,
         &device_id,
@@ -168,11 +184,21 @@ fn main() -> cokret::Result<()> {
         Some(&genesis),
         "ciphertext-rotated-1",
     );
-    let v2 =
-        build_envelope(&actor_id, &device_id, &series_id, 2, Some(&v1), "ciphertext-rotated-2");
+    let v2 = build_envelope(
+        &actor_id,
+        &device_id,
+        &series_id,
+        2,
+        Some(&v1),
+        "ciphertext-rotated-2",
+    );
     let chain = vec![genesis, v1, v2];
 
-    println!("built {} envelopes in series {}", chain.len(), series_id.as_str());
+    println!(
+        "built {} envelopes in series {}",
+        chain.len(),
+        series_id.as_str()
+    );
 
     // Validate chain locally as a recovery walker would.
     validate_chain(&chain).expect("chain must be well-formed");
@@ -181,7 +207,10 @@ fn main() -> cokret::Result<()> {
     // The real recovery flow: GET /_cokret/self/keys/backups?series_id=<sid>,
     // sort by series_seq, walk genesis → head verifying supersedes_digest
     // against the prior envelope's ciphertext_digest at each step.
-    let recovery_path = format!("/_cokret/self/keys/backups?series_id={}", series_id.as_str());
+    let recovery_path = format!(
+        "/_cokret/self/keys/backups?series_id={}",
+        series_id.as_str()
+    );
     println!("recovery list path: {recovery_path}");
 
     let head = chain.last().expect("non-empty chain");

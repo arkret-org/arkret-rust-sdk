@@ -116,13 +116,21 @@ pub enum BindingError {
     #[error(
         "binding proof public_key length {actual} does not match expected {expected} for kind {kind:?}"
     )]
-    PublicKeyLength { kind: BindingProofKind, expected: usize, actual: usize },
+    PublicKeyLength {
+        kind: BindingProofKind,
+        expected: usize,
+        actual: usize,
+    },
 
     /// `proof.signature` has the wrong length for `proof.kind`.
     #[error(
         "binding proof signature length {actual} does not match expected {expected} for kind {kind:?}"
     )]
-    SignatureLength { kind: BindingProofKind, expected: usize, actual: usize },
+    SignatureLength {
+        kind: BindingProofKind,
+        expected: usize,
+        actual: usize,
+    },
 
     /// The expected subject string did not appear as a contiguous
     /// UTF-8 substring of `proof.payload`. The signature may still be
@@ -149,12 +157,10 @@ pub enum BindingError {
 /// Returns `Ok(())` if all of the following hold:
 ///   1. `proof.kind` is a supported variant.
 ///   2. `proof.payload` is non-empty.
-///   3. `proof.public_key` / `proof.signature` have the expected length
-///      for the variant.
-///   4. The UTF-8 bytes of `expected_subject` appear as a contiguous
-///      substring of `proof.payload`.
-///   5. The signature verifies against the payload under the public
-///      key per the variant's algorithm.
+///   3. `proof.public_key` / `proof.signature` have the expected length for the variant.
+///   4. The UTF-8 bytes of `expected_subject` appear as a contiguous substring of `proof.payload`.
+///   5. The signature verifies against the payload under the public key per the variant's
+///      algorithm.
 ///
 /// Otherwise returns the corresponding [`BindingError`]. No I/O, no
 /// allocations beyond `Signature::from_bytes` / `VerifyingKey::from_bytes`.
@@ -228,7 +234,12 @@ pub fn derive_ed25519_from_seed(seed: &[u8; 32]) -> SigningKey {
 pub fn sign_binding_proof_ed25519(signing_key: &SigningKey, payload: Vec<u8>) -> BindingProof {
     let signature = signing_key.sign(&payload).to_bytes().to_vec();
     let public_key = signing_key.verifying_key().to_bytes().to_vec();
-    BindingProof { kind: BindingProofKind::Ed25519V1, payload, signature, public_key }
+    BindingProof {
+        kind: BindingProofKind::Ed25519V1,
+        payload,
+        signature,
+        public_key,
+    }
 }
 
 /// Encode an Ed25519 public key as the multibase string
@@ -425,7 +436,10 @@ mod tests {
         // catches it. If it isn't (rare for a 1-bit flip in the first
         // byte), the subject check catches it. Either way, reject.
         let err = verify_binding_proof(&proof, subject).expect_err("tampered payload must reject");
-        assert!(matches!(err, BindingError::SignatureMismatch(_) | BindingError::SubjectMismatch));
+        assert!(matches!(
+            err,
+            BindingError::SignatureMismatch(_) | BindingError::SubjectMismatch
+        ));
     }
 
     /// Subject substring check: a proof signed for Alice does not bind
@@ -475,7 +489,11 @@ mod tests {
         };
         assert!(matches!(
             verify_binding_proof(&short_sig, subject),
-            Err(BindingError::SignatureLength { expected: 64, actual: 63, .. })
+            Err(BindingError::SignatureLength {
+                expected: 64,
+                actual: 63,
+                ..
+            })
         ));
         let short_pk = BindingProof {
             kind: BindingProofKind::Ed25519V1,
@@ -485,7 +503,11 @@ mod tests {
         };
         assert!(matches!(
             verify_binding_proof(&short_pk, subject),
-            Err(BindingError::PublicKeyLength { expected: 32, actual: 31, .. })
+            Err(BindingError::PublicKeyLength {
+                expected: 32,
+                actual: 31,
+                ..
+            })
         ));
     }
 
@@ -498,9 +520,16 @@ mod tests {
         let seed = [0x55u8; 32];
         let key = derive_ed25519_from_seed(&seed).verifying_key();
         let encoded = multicodec_ed25519_public_key(&key);
-        assert!(encoded.starts_with("z6Mk"), "multicodec output {encoded:?} must start with z6Mk");
+        assert!(
+            encoded.starts_with("z6Mk"),
+            "multicodec output {encoded:?} must start with z6Mk"
+        );
         let decoded = decode_multicodec_ed25519(&encoded).expect("decode succeeds");
-        assert_eq!(decoded, key.to_bytes(), "round trip preserves the 32-byte key");
+        assert_eq!(
+            decoded,
+            key.to_bytes(),
+            "round trip preserves the 32-byte key"
+        );
 
         // multicodec_ed25519_from_bytes for opaque-32-byte input round
         // trips too (the encoder doesn't require a real ed25519 key).

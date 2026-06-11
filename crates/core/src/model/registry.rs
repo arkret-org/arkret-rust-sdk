@@ -1,6 +1,7 @@
-use super::*;
 use chrono::DateTime;
 use regex::Regex;
+
+use super::*;
 
 /// Registry entry for one operation kind.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,7 +30,9 @@ pub struct OperationKindRegistry {
 impl OperationKindRegistry {
     /// Create an empty registry.
     pub fn new() -> Self {
-        Self { specs: BTreeMap::new() }
+        Self {
+            specs: BTreeMap::new(),
+        }
     }
 
     /// Register one operation kind.
@@ -45,7 +48,9 @@ impl OperationKindRegistry {
     /// Resolve a canonical kind.
     pub fn canonicalize(&self, kind: &str) -> Result<OperationKindValidation> {
         if self.specs.contains_key(kind) {
-            return Ok(OperationKindValidation { canonical_kind: kind.to_owned() });
+            return Ok(OperationKindValidation {
+                canonical_kind: kind.to_owned(),
+            });
         }
         Err(Error::Protocol(format!("unknown operation kind '{kind}'")))
     }
@@ -146,12 +151,16 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .into_iter()
         .map(str::to_owned)
         .collect(),
-        OP_AGENT_KEY_REVOKE => {
-            ["agent_principal_id", "key_id", "revoked_at", "revoked_by", "revocation_frontier"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect()
-        }
+        OP_AGENT_KEY_REVOKE => [
+            "agent_principal_id",
+            "key_id",
+            "revoked_at",
+            "revoked_by",
+            "revocation_frontier",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
         OP_AGENT_KEY_ROTATE => [
             "agent_principal_id",
             "key_id",
@@ -179,7 +188,11 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
             vec!["session_id".to_owned(), "status".to_owned()]
         }
         OP_AGENT_INTEROP_SESSION_RESULT => {
-            vec!["session_id".to_owned(), "result".to_owned(), "audit_binding".to_owned()]
+            vec![
+                "session_id".to_owned(),
+                "result".to_owned(),
+                "audit_binding".to_owned(),
+            ]
         }
         OP_MORPH_CREATE => vec!["object".to_owned()],
         OP_MORPH_UPDATE => vec!["morph_id".to_owned(), "patch".to_owned()],
@@ -194,12 +207,16 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_RELATION_CREATE => vec!["object".to_owned()],
         OP_RELATION_UPDATE => vec!["relation_id".to_owned(), "patch".to_owned()],
         OP_RELATION_TOMBSTONE => vec!["relation_id".to_owned()],
-        OP_CONTAINER_MOVE_ITEM => {
-            ["scope_container_id", "relation_kind", "object_ref", "to_container_id", "rank"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect()
-        }
+        OP_CONTAINER_MOVE_ITEM => [
+            "scope_container_id",
+            "relation_kind",
+            "object_ref",
+            "to_container_id",
+            "rank",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
         OP_CONTAINER_REBALANCE => [
             "scope_container_id",
             "container_id",
@@ -211,12 +228,15 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .map(str::to_owned)
         .collect(),
         OP_MESSAGE_CREATE => vec!["flow_id".to_owned(), "track_name".to_owned()],
-        OP_DEVICE_MESSAGES_PUT => {
-            ["kind", "recipient_principal_id", "recipient_device_id", "content"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect()
-        }
+        OP_DEVICE_MESSAGES_PUT => [
+            "kind",
+            "recipient_principal_id",
+            "recipient_device_id",
+            "content",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
         OP_KEYS_BACKUPS_PUT => [
             "backup_id",
             "actor_id",
@@ -231,21 +251,28 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_KEYS_BACKUPS_LIST | OP_KEYS_BACKUPS_UNLOCK | OP_KEYS_BACKUPS_DELETE => {
             vec!["backup_id".to_owned()]
         }
-        OP_KEYS_KEYPACKAGES_UPLOAD => {
-            ["principal_id", "device_id", "keypackages"].into_iter().map(str::to_owned).collect()
-        }
-        OP_KEYS_KEYPACKAGES_CLAIM => {
-            ["target_principal_id", "intended_space_id", "requester", "claim_nonce", "expires_at"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect()
-        }
-        OP_KEYS_KEYPACKAGES_CONSUME => {
-            ["claim_id", "keypackage_ref"].into_iter().map(str::to_owned).collect()
-        }
-        OP_KEYS_KEYPACKAGES_REVOKE => {
-            ["principal_id", "device_id", "keypackage_ref"].into_iter().map(str::to_owned).collect()
-        }
+        OP_KEYS_KEYPACKAGES_UPLOAD => ["principal_id", "device_id", "keypackages"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        OP_KEYS_KEYPACKAGES_CLAIM => [
+            "target_principal_id",
+            "intended_space_id",
+            "requester",
+            "claim_nonce",
+            "expires_at",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        OP_KEYS_KEYPACKAGES_CONSUME => ["claim_id", "keypackage_ref"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        OP_KEYS_KEYPACKAGES_REVOKE => ["principal_id", "device_id", "keypackage_ref"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         OP_DIRECTORY_RESOLVE_HANDLE => vec!["handle".to_owned()],
         OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT => vec!["subject".to_owned()],
         OP_DIRECTORY_RESOLVE_TARGET => vec!["address".to_owned()],
@@ -258,46 +285,60 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
             vec!["query".to_owned()]
         }
         OP_DIRECTORY_SEARCH_USERS => vec!["q".to_owned()],
-        OP_DIRECTORY_PUSH_REGISTER => {
-            ["subscriber_did", "webhook_endpoint"].into_iter().map(str::to_owned).collect()
-        }
+        OP_DIRECTORY_PUSH_REGISTER => ["subscriber_did", "webhook_endpoint"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         OP_IDENTITY_GET_DOCUMENT | OP_IDENTITY_GET_LOG | OP_IDENTITY_GET_RECEIPTS => {
             vec!["did".to_owned()]
         }
-        OP_IDENTITY_SUBMIT_DID_OPERATION => {
-            ["did", "operation"].into_iter().map(str::to_owned).collect()
-        }
-        OP_ACCOUNT_DEVICE_PAIR => {
-            ["principal_id", "device_id"].into_iter().map(str::to_owned).collect()
-        }
+        OP_IDENTITY_SUBMIT_DID_OPERATION => ["did", "operation"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        OP_ACCOUNT_DEVICE_PAIR => ["principal_id", "device_id"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         OP_ACCOUNT_ISSUE_SESSION_GRANT => ["principal_id", "device_id", "audience", "scopes"]
             .into_iter()
             .map(str::to_owned)
             .collect(),
-        OP_PUSH_REGISTER_DEVICE => {
-            ["device_id", "endpoint"].into_iter().map(str::to_owned).collect()
-        }
+        OP_PUSH_REGISTER_DEVICE => ["device_id", "endpoint"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         OP_PUSH_UNREGISTER_DEVICE => vec!["device_id".to_owned()],
-        OP_MODERATION_REPORT => ["target_ref", "reason"].into_iter().map(str::to_owned).collect(),
+        OP_MODERATION_REPORT => ["target_ref", "reason"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         OP_POLICY_CHECK => vec!["resource".to_owned()],
         OP_AUTHZ_GET_EFFECTIVE_GRANTS => vec!["actor_id".to_owned()],
         OP_AUTHZ_GET_INVITES => vec!["realm_id".to_owned()],
         OP_OPEN_INVITE_LOCATOR_RESOLVE => vec!["locator_token".to_owned()],
-        OP_PEER_INVITES_SUBMIT => {
-            ["schema", "invite_event", "invite_address", "introduction_evidence", "idempotency_key"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect()
-        }
+        OP_PEER_INVITES_SUBMIT => [
+            "schema",
+            "invite_event",
+            "invite_address",
+            "introduction_evidence",
+            "idempotency_key",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
         OP_EVENTS_GET | OP_EVENTS_RESOLVE => vec!["event_id".to_owned()],
         OP_EVENTS_FRONTIER => vec!["realm_id".to_owned()],
-        OP_EVENTS_QUERY => Vec::new(), // selector = realms[]?+actors[]? — neither is strictly required
-        OP_EVENTS_SUBSCRIBE => Vec::new(), // selector arrays may be empty for "all reachable"; subscription
+        OP_EVENTS_QUERY => Vec::new(), // selector = realms[]?+actors[]? — neither is strictly
+        // required
+        OP_EVENTS_SUBSCRIBE => Vec::new(), // selector arrays may be empty for "all reachable";
+        // subscription
         OP_EVENTS_SUBMIT => vec!["events".to_owned()],
         OP_ACCOUNT_SUBSCRIBE => Vec::new(),
-        OP_ACCOUNT_CURSOR_REVOKE => {
-            ["cursor", "reason_code"].into_iter().map(str::to_owned).collect()
-        }
+        OP_ACCOUNT_CURSOR_REVOKE => ["cursor", "reason_code"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         OP_SNAPSHOT_HEAD => vec!["realm_id".to_owned()],
         _ => Vec::new(),
     }
@@ -446,8 +487,10 @@ impl GeneratedSchemaValidator {
             if !is_security_sensitive_extension(field) {
                 continue;
             }
-            let trusted =
-                self.trusted_extension_prefixes.iter().any(|prefix| field.starts_with(prefix));
+            let trusted = self
+                .trusted_extension_prefixes
+                .iter()
+                .any(|prefix| field.starts_with(prefix));
             if !trusted {
                 return Err(Error::Protocol(format!(
                     "schema '{}' rejects unknown security-sensitive extension '{}'",
@@ -462,7 +505,10 @@ impl GeneratedSchemaValidator {
 impl ProtocolSchemaRegistry {
     /// Create an empty schema registry.
     pub fn new() -> Self {
-        Self { schemas: BTreeMap::new(), trusted_extension_prefixes: Vec::new() }
+        Self {
+            schemas: BTreeMap::new(),
+            trusted_extension_prefixes: Vec::new(),
+        }
     }
 
     /// Register a schema document by `$id`.
@@ -540,7 +586,10 @@ impl ProtocolSchemaRegistry {
 
     /// Validate one value against the registered JSON Schema document.
     pub fn validate_value(&self, schema_id: &str, value: &Value) -> Result<()> {
-        let root_id = schema_id.split_once('#').map(|(base, _)| base).unwrap_or(schema_id);
+        let root_id = schema_id
+            .split_once('#')
+            .map(|(base, _)| base)
+            .unwrap_or(schema_id);
         let root = self
             .schemas
             .get(root_id)
@@ -589,13 +638,17 @@ impl ProtocolSchemaRegistry {
         if let Some(constant) = schema_object.get("const")
             && value != constant
         {
-            return Err(Error::Protocol(format!("schema '{root_id}' const mismatch at {path}")));
+            return Err(Error::Protocol(format!(
+                "schema '{root_id}' const mismatch at {path}"
+            )));
         }
 
         if let Some(enum_values) = schema_object.get("enum").and_then(Value::as_array)
             && !enum_values.iter().any(|candidate| candidate == value)
         {
-            return Err(Error::Protocol(format!("schema '{root_id}' enum mismatch at {path}")));
+            return Err(Error::Protocol(format!(
+                "schema '{root_id}' enum mismatch at {path}"
+            )));
         }
 
         if let Some(schema_type) = schema_object.get("type") {
@@ -615,10 +668,15 @@ impl ProtocolSchemaRegistry {
                 let matches = items
                     .iter()
                     .filter(|item| {
-                        self.validate_schema(root_id, root, item, value, path, depth + 1).is_ok()
+                        self.validate_schema(root_id, root, item, value, path, depth + 1)
+                            .is_ok()
                     })
                     .count();
-                let valid = if keyword == "oneOf" { matches == 1 } else { matches >= 1 };
+                let valid = if keyword == "oneOf" {
+                    matches == 1
+                } else {
+                    matches >= 1
+                };
                 if !valid {
                     return Err(Error::Protocol(format!(
                         "schema '{root_id}' {keyword} matched {matches} branches at {path}"
@@ -628,7 +686,9 @@ impl ProtocolSchemaRegistry {
         }
 
         if let Some(not_schema) = schema_object.get("not")
-            && self.validate_schema(root_id, root, not_schema, value, path, depth + 1).is_ok()
+            && self
+                .validate_schema(root_id, root, not_schema, value, path, depth + 1)
+                .is_ok()
         {
             return Err(Error::Protocol(format!(
                 "schema '{root_id}' not schema matched at {path}"
@@ -636,12 +696,14 @@ impl ProtocolSchemaRegistry {
         }
 
         if let Some(if_schema) = schema_object.get("if") {
-            let branch =
-                if self.validate_schema(root_id, root, if_schema, value, path, depth + 1).is_ok() {
-                    schema_object.get("then")
-                } else {
-                    schema_object.get("else")
-                };
+            let branch = if self
+                .validate_schema(root_id, root, if_schema, value, path, depth + 1)
+                .is_ok()
+            {
+                schema_object.get("then")
+            } else {
+                schema_object.get("else")
+            };
             if let Some(branch_schema) = branch {
                 self.validate_schema(root_id, root, branch_schema, value, path, depth + 1)?;
             }
@@ -694,8 +756,9 @@ impl ProtocolSchemaRegistry {
                 }
             }
             let mut pattern_matches = BTreeSet::new();
-            if let Some(pattern_properties) =
-                schema_object.get("patternProperties").and_then(Value::as_object)
+            if let Some(pattern_properties) = schema_object
+                .get("patternProperties")
+                .and_then(Value::as_object)
             {
                 for (pattern, pattern_schema) in pattern_properties {
                     let regex = Regex::new(pattern).map_err(|error| {
@@ -805,8 +868,10 @@ impl ProtocolSchemaRegistry {
                         .is_ok()
                     })
                     .count();
-                let min =
-                    schema_object.get("minContains").and_then(Value::as_u64).unwrap_or(1) as usize;
+                let min = schema_object
+                    .get("minContains")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(1) as usize;
                 let max = schema_object
                     .get("maxContains")
                     .and_then(Value::as_u64)
@@ -855,7 +920,10 @@ impl ProtocolSchemaRegistry {
     fn resolve_external_schema<'a>(&'a self, document_ref: &str) -> Option<(&'a str, &'a Value)> {
         let normalized = document_ref.trim_start_matches("./");
         self.schemas.iter().find_map(|(schema_id, schema)| {
-            let json_id = schema.get("$id").and_then(Value::as_str).unwrap_or_default();
+            let json_id = schema
+                .get("$id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
             if schema_id == document_ref
                 || schema_id == normalized
                 || json_id == document_ref
@@ -877,8 +945,10 @@ impl ProtocolSchemaRegistry {
             if !is_security_sensitive_extension(field) {
                 continue;
             }
-            let trusted =
-                self.trusted_extension_prefixes.iter().any(|prefix| field.starts_with(prefix));
+            let trusted = self
+                .trusted_extension_prefixes
+                .iter()
+                .any(|prefix| field.starts_with(prefix));
             if !trusted {
                 return Err(Error::Protocol(format!(
                     "schema '{schema_id}' rejects unknown security-sensitive extension '{field}'"
@@ -998,7 +1068,11 @@ impl Default for ProtocolSchemaRegistry {
         );
         registry.register(
             PERSONAL_PRODUCTIVITY_SCHEMA,
-            object_schema(PERSONAL_PRODUCTIVITY_SCHEMA, &["kind"], &[("kind", "string")]),
+            object_schema(
+                PERSONAL_PRODUCTIVITY_SCHEMA,
+                &["kind"],
+                &[("kind", "string")],
+            ),
         );
         registry.register(
             DRAFT_SYNC_SCHEMA,
@@ -1053,7 +1127,14 @@ impl Default for ProtocolSchemaRegistry {
             ENCRYPTED_ENVELOPE_SCHEMA,
             object_schema(
                 ENCRYPTED_ENVELOPE_SCHEMA,
-                &["scheme", "group_id", "epoch", "content_type", "ciphertext", "payload_digest"],
+                &[
+                    "scheme",
+                    "group_id",
+                    "epoch",
+                    "content_type",
+                    "ciphertext",
+                    "payload_digest",
+                ],
                 &[
                     ("scheme", "string"),
                     ("group_id", "string"),
@@ -1069,7 +1150,11 @@ impl Default for ProtocolSchemaRegistry {
             object_schema(
                 ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
                 &["kind"],
-                &[("kind", "string"), ("cursor", "string"), ("realms", "object")],
+                &[
+                    ("kind", "string"),
+                    ("cursor", "string"),
+                    ("realms", "object"),
+                ],
             ),
         );
         registry
@@ -1282,9 +1367,10 @@ fn validate_json_schema_type_value(
 ) -> Result<()> {
     let matches = match schema_type {
         Value::String(kind) => json_schema_type_matches(kind, value),
-        Value::Array(kinds) => {
-            kinds.iter().filter_map(Value::as_str).any(|kind| json_schema_type_matches(kind, value))
-        }
+        Value::Array(kinds) => kinds
+            .iter()
+            .filter_map(Value::as_str)
+            .any(|kind| json_schema_type_matches(kind, value)),
         _ => true,
     };
     if matches {
@@ -1319,12 +1405,16 @@ fn validate_json_schema_pattern(
         return Ok(());
     };
     let regex = Regex::new(pattern).map_err(|error| {
-        Error::Protocol(format!("schema '{schema_id}' has invalid regex at {path}: {error}"))
+        Error::Protocol(format!(
+            "schema '{schema_id}' has invalid regex at {path}: {error}"
+        ))
     })?;
     if regex.is_match(text) {
         Ok(())
     } else {
-        Err(Error::Protocol(format!("schema '{schema_id}' pattern mismatch at {path}")))
+        Err(Error::Protocol(format!(
+            "schema '{schema_id}' pattern mismatch at {path}"
+        )))
     }
 }
 
@@ -1340,11 +1430,13 @@ fn validate_json_schema_format(
     let Some(text) = value.as_str() else {
         return Ok(());
     };
-    DateTime::parse_from_rfc3339(text).map(|_| ()).map_err(|error| {
-        Error::Protocol(format!(
-            "schema '{schema_id}' date-time format mismatch at {path}: {error}"
-        ))
-    })
+    DateTime::parse_from_rfc3339(text)
+        .map(|_| ())
+        .map_err(|error| {
+            Error::Protocol(format!(
+                "schema '{schema_id}' date-time format mismatch at {path}: {error}"
+            ))
+        })
 }
 
 fn validate_json_schema_string_lengths(
@@ -1360,12 +1452,16 @@ fn validate_json_schema_string_lengths(
     if let Some(min) = schema.get("minLength").and_then(Value::as_u64)
         && len < min
     {
-        return Err(Error::Protocol(format!("schema '{schema_id}' minLength mismatch at {path}")));
+        return Err(Error::Protocol(format!(
+            "schema '{schema_id}' minLength mismatch at {path}"
+        )));
     }
     if let Some(max) = schema.get("maxLength").and_then(Value::as_u64)
         && len > max
     {
-        return Err(Error::Protocol(format!("schema '{schema_id}' maxLength mismatch at {path}")));
+        return Err(Error::Protocol(format!(
+            "schema '{schema_id}' maxLength mismatch at {path}"
+        )));
     }
     Ok(())
 }
@@ -1380,12 +1476,16 @@ fn validate_json_schema_array_sizes(
     if let Some(min) = schema.get("minItems").and_then(Value::as_u64)
         && len < min
     {
-        return Err(Error::Protocol(format!("schema '{schema_id}' minItems mismatch at {path}")));
+        return Err(Error::Protocol(format!(
+            "schema '{schema_id}' minItems mismatch at {path}"
+        )));
     }
     if let Some(max) = schema.get("maxItems").and_then(Value::as_u64)
         && len > max
     {
-        return Err(Error::Protocol(format!("schema '{schema_id}' maxItems mismatch at {path}")));
+        return Err(Error::Protocol(format!(
+            "schema '{schema_id}' maxItems mismatch at {path}"
+        )));
     }
     Ok(())
 }
@@ -1424,15 +1524,33 @@ fn validate_json_schema_numbers(
         return Ok(());
     };
     for (keyword, violated) in [
-        ("minimum", schema.get("minimum").and_then(Value::as_f64).is_some_and(|min| number < min)),
-        ("maximum", schema.get("maximum").and_then(Value::as_f64).is_some_and(|max| number > max)),
+        (
+            "minimum",
+            schema
+                .get("minimum")
+                .and_then(Value::as_f64)
+                .is_some_and(|min| number < min),
+        ),
+        (
+            "maximum",
+            schema
+                .get("maximum")
+                .and_then(Value::as_f64)
+                .is_some_and(|max| number > max),
+        ),
         (
             "exclusiveMinimum",
-            schema.get("exclusiveMinimum").and_then(Value::as_f64).is_some_and(|min| number <= min),
+            schema
+                .get("exclusiveMinimum")
+                .and_then(Value::as_f64)
+                .is_some_and(|min| number <= min),
         ),
         (
             "exclusiveMaximum",
-            schema.get("exclusiveMaximum").and_then(Value::as_f64).is_some_and(|max| number >= max),
+            schema
+                .get("exclusiveMaximum")
+                .and_then(Value::as_f64)
+                .is_some_and(|max| number >= max),
         ),
     ] {
         if violated {

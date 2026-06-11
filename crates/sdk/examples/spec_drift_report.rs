@@ -11,11 +11,11 @@
 //!
 //! The report distinguishes:
 //!
-//! * **hard drift** (`missing_*`) — the SDK declares coverage for an entry the
-//!   spec no longer ships. Exits non-zero so CI fails fast.
-//! * **soft drift** (`unlisted_event_kinds`) — the spec ships an active entry
-//!   the SDK has not yet declared coverage for. Reported as informational
-//!   output; exits zero so CI doesn't block on intentional gaps.
+//! * **hard drift** (`missing_*`) — the SDK declares coverage for an entry the spec no longer
+//!   ships. Exits non-zero so CI fails fast.
+//! * **soft drift** (`unlisted_event_kinds`) — the spec ships an active entry the SDK has not yet
+//!   declared coverage for. Reported as informational output; exits zero so CI doesn't block on
+//!   intentional gaps.
 //!
 //! In CI, point this at a checked-out spec to surface drift before tagging:
 //!
@@ -91,7 +91,10 @@ fn main() -> ExitCode {
         return ExitCode::from(1);
     }
     if !report.has_unlisted() {
-        println!("no drift detected ({} files checked)", report.checked_files.len());
+        println!(
+            "no drift detected ({} files checked)",
+            report.checked_files.len()
+        );
     }
     ExitCode::SUCCESS
 }

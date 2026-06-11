@@ -6,18 +6,17 @@
 //! collection (`/org/freedesktop/secrets/aliases/default`) and are tagged
 //! with two attributes:
 //!
-//! - `service = "cokret.<application_id>"` — namespaces items so multiple
-//!   Cokret-using apps on the same desktop don't collide.
+//! - `service = "cokret.<application_id>"` — namespaces items so multiple Cokret-using apps on the
+//!   same desktop don't collide.
 //! - `account = <key_id>` — the caller-supplied opaque key id.
 //!
 //! Collisions on `(service, account)` are resolved by overwriting the
 //! existing item (the Secret Service `replace` flag).
 
-use secret_service::EncryptionType;
-use secret_service::blocking::SecretService;
-
 use cokret_core::Result;
 use cokret_core::keystore::{service_name, validate_id};
+use secret_service::EncryptionType;
+use secret_service::blocking::SecretService;
 
 use crate::{KeyStore, KeyStoreError};
 
@@ -34,12 +33,17 @@ impl LinuxSecretServiceKeyStore {
     /// default collection.
     pub fn new(application_id: &str) -> std::result::Result<Self, KeyStoreError> {
         if application_id.is_empty() {
-            return Err(KeyStoreError::invalid_id("application_id must be non-empty"));
+            return Err(KeyStoreError::invalid_id(
+                "application_id must be non-empty",
+            ));
         }
         // Probe the bus once so a missing Secret Service surfaces at
         // construction time rather than per call.
         Self::connect()?;
-        Ok(Self { service: service_name(application_id), collection_alias: None })
+        Ok(Self {
+            service: service_name(application_id),
+            collection_alias: None,
+        })
     }
 
     /// Construct with an explicit collection alias (`"login"`,
@@ -93,7 +97,8 @@ impl KeyStore for LinuxSecretServiceKeyStore {
             .next()
             .ok_or_else(|| KeyStoreError::not_found(id))?;
         if item.is_locked().unwrap_or(false) {
-            item.unlock().map_err(|err| KeyStoreError::backend(format!("unlock item: {err}")))?;
+            item.unlock()
+                .map_err(|err| KeyStoreError::backend(format!("unlock item: {err}")))?;
         }
         let secret = item
             .get_secret()
@@ -150,7 +155,8 @@ impl KeyStore for LinuxSecretServiceKeyStore {
             .search_items(attrs)
             .map_err(|err| KeyStoreError::backend(format!("search items: {err}")))?;
         for item in items.unlocked.into_iter().chain(items.locked) {
-            item.delete().map_err(|err| KeyStoreError::backend(format!("delete item: {err}")))?;
+            item.delete()
+                .map_err(|err| KeyStoreError::backend(format!("delete item: {err}")))?;
         }
         Ok(())
     }
@@ -171,7 +177,10 @@ mod tests {
 
     fn unique_app_id() -> String {
         use std::time::{SystemTime, UNIX_EPOCH};
-        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         format!("test.{nanos:x}")
     }
 

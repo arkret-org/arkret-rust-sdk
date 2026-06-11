@@ -48,7 +48,12 @@ impl IdentityLinkCache {
         let proof_digest = link.canonical_payload_digest()?;
         self.entries.insert(
             key,
-            IdentityLinkCacheEntry { link, verified_at, proof_digest, policy_frontier_digest },
+            IdentityLinkCacheEntry {
+                link,
+                verified_at,
+                proof_digest,
+                policy_frontier_digest,
+            },
         );
         Ok(())
     }
@@ -76,7 +81,8 @@ impl IdentityLinkCache {
     }
 
     pub fn invalidate_pairwise(&mut self, realm_id: &RealmId, pairwise_did: &Did) {
-        self.entries.remove(&(realm_id.clone(), pairwise_did.clone()));
+        self.entries
+            .remove(&(realm_id.clone(), pairwise_did.clone()));
     }
 
     pub fn invalidate_realm(&mut self, realm_id: &RealmId) {
@@ -91,7 +97,8 @@ impl IdentityLinkCache {
     }
 
     pub fn invalidate_device(&mut self, device_id: &DeviceId) {
-        self.entries.retain(|_, entry| entry.link.device_id != *device_id);
+        self.entries
+            .retain(|_, entry| entry.link.device_id != *device_id);
     }
 
     pub fn invalidate_on_epoch_advance(&mut self, realm_id: &RealmId, new_epoch: u64) {
@@ -110,16 +117,19 @@ impl IdentityLinkCache {
     }
 
     pub fn require_principal(&self, realm_id: &RealmId, pairwise_did: &Did) -> Result<&Did> {
-        self.get(realm_id, pairwise_did).map(|entry| &entry.link.principal_id).ok_or_else(|| {
-            Error::Protocol("identity_link cache entry is missing or invalidated".to_owned())
-        })
+        self.get(realm_id, pairwise_did)
+            .map(|entry| &entry.link.principal_id)
+            .ok_or_else(|| {
+                Error::Protocol("identity_link cache entry is missing or invalidated".to_owned())
+            })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use cokret_core::{Hash, IdentityLinkProof, TypedTrustDomainId};
+
+    use super::*;
 
     fn did(value: &str) -> Did {
         Did::new(value.to_owned()).unwrap()
@@ -173,7 +183,10 @@ mod tests {
         let principal = active.principal_id.clone();
         let device = active.device_id.clone();
         cache.upsert_verified(active, Utc::now()).unwrap();
-        assert_eq!(cache.require_principal(&realm, &pairwise).unwrap(), &principal);
+        assert_eq!(
+            cache.require_principal(&realm, &pairwise).unwrap(),
+            &principal
+        );
 
         cache.invalidate_on_epoch_advance(&realm, 4);
         assert!(cache.get(&realm, &pairwise).is_none());

@@ -6,22 +6,21 @@
 //! * `artifacts/schemas/account-subscribe-frame.schema.json#/$defs/member_roster_entry`
 //!
 //! R3.2 wire-breaking changes:
-//! * `MemberIdentity` no longer carries `primary_handle` / `handles[]`;
-//!   handle lifecycle is governed solely by `ck.schema.handle_claim.v1`.
-//!   This object discloses `subject_id` + `display_profile` for Realm UI
-//!   projection only.
-//! * Payload field `identity_state_digest` renamed to
-//!   `identity_payload_digest` (carrier cache key).
-//! * Roster `identity_state_digest` renamed to `member_display_state_digest`
-//!   and now folds the visible handle-claim digest set.
+//! * `MemberIdentity` no longer carries `primary_handle` / `handles[]`; handle lifecycle is
+//!   governed solely by `ck.schema.handle_claim.v1`. This object discloses `subject_id` +
+//!   `display_profile` for Realm UI projection only.
+//! * Payload field `identity_state_digest` renamed to `identity_payload_digest` (carrier cache
+//!   key).
+//! * Roster `identity_state_digest` renamed to `member_display_state_digest` and now folds the
+//!   visible handle-claim digest set.
 //!
 //! Three distinct digests live here and MUST NOT be confused:
-//! * [`IdentityPayloadCarrier::carrier_sha256`] → `identity_payload_digest`
-//!   (digest of the exact `identity_payload` carrier object).
-//! * [`member_identity_effective_set_digest`] → `expected_state_digest`
-//!   (writer-observed effective-set guard, includes `segment`).
-//! * [`member_display_state_digest`] → roster display cache key
-//!   (includes effective events + visible handle-claim digests).
+//! * [`IdentityPayloadCarrier::carrier_sha256`] → `identity_payload_digest` (digest of the exact
+//!   `identity_payload` carrier object).
+//! * [`member_identity_effective_set_digest`] → `expected_state_digest` (writer-observed
+//!   effective-set guard, includes `segment`).
+//! * [`member_display_state_digest`] → roster display cache key (includes effective events +
+//!   visible handle-claim digests).
 
 use super::*;
 use crate::canonical;
@@ -179,7 +178,9 @@ impl IdentityPayloadCarrier {
     /// value that goes into `MemberIdentityReplacementRef.payload_digest`
     /// and (when set) [`MemberIdentityUpdatePayload::identity_payload_digest`].
     pub fn carrier_sha256(&self) -> Result<String> {
-        Ok(canonical::sha256_digest(canonical::canonical_json_bytes(self)?))
+        Ok(canonical::sha256_digest(canonical::canonical_json_bytes(
+            self,
+        )?))
     }
 }
 
@@ -307,7 +308,9 @@ pub fn member_identity_effective_set_digest(
         "segment": segment,
         "effective_events": sorted,
     });
-    Ok(canonical::sha256_digest(canonical::canonical_json_bytes(&projection)?))
+    Ok(canonical::sha256_digest(canonical::canonical_json_bytes(
+        &projection,
+    )?))
 }
 
 /// R3.2 — roster `member_display_state_digest` projection.
@@ -338,7 +341,9 @@ pub fn member_display_state_digest(
         "effective_events": sorted_events,
         "handle_claims": sorted_claims,
     });
-    Ok(canonical::sha256_digest(canonical::canonical_json_bytes(&projection)?))
+    Ok(canonical::sha256_digest(canonical::canonical_json_bytes(
+        &projection,
+    )?))
 }
 
 fn sorted_effective_entries(entries: &[EffectiveIdentityEntry]) -> Vec<&EffectiveIdentityEntry> {
@@ -346,7 +351,9 @@ fn sorted_effective_entries(entries: &[EffectiveIdentityEntry]) -> Vec<&Effectiv
     sorted.sort_by(|a, b| {
         let seg_a = serde_json::to_string(&a.segment).unwrap_or_default();
         let seg_b = serde_json::to_string(&b.segment).unwrap_or_default();
-        seg_a.cmp(&seg_b).then_with(|| a.event_id.as_str().cmp(b.event_id.as_str()))
+        seg_a
+            .cmp(&seg_b)
+            .then_with(|| a.event_id.as_str().cmp(b.event_id.as_str()))
     });
     sorted
 }
@@ -463,7 +470,10 @@ mod tests {
             fake_realm(),
             fake_actor("alice"),
             fake_actor("alice-principal"),
-            DisplayProfile { display_name: name.to_owned(), avatar_blob_ref: None },
+            DisplayProfile {
+                display_name: name.to_owned(),
+                avatar_blob_ref: None,
+            },
             Utc::now(),
             MemberIdentityProof {
                 verification_method: "did:web:alice.example#key-1".to_owned(),
@@ -490,7 +500,10 @@ mod tests {
         b.proof.signature = "BBBB".to_owned();
         // asserted_at is the only timestamp; pin it equal across both.
         b.asserted_at = a.asserted_at;
-        assert_eq!(a.canonical_payload_sha256().unwrap(), b.canonical_payload_sha256().unwrap(),);
+        assert_eq!(
+            a.canonical_payload_sha256().unwrap(),
+            b.canonical_payload_sha256().unwrap(),
+        );
     }
 
     #[test]
@@ -500,8 +513,12 @@ mod tests {
         let event_a = fake_event_ref("000a");
         let event_b = fake_event_ref("000b");
 
-        let carrier_a = IdentityPayloadCarrier::MemberIdentity { member_identity: id_a };
-        let carrier_b = IdentityPayloadCarrier::MemberIdentity { member_identity: id_b };
+        let carrier_a = IdentityPayloadCarrier::MemberIdentity {
+            member_identity: id_a,
+        };
+        let carrier_b = IdentityPayloadCarrier::MemberIdentity {
+            member_identity: id_b,
+        };
 
         let digest_a = Hash::new(carrier_a.carrier_sha256().unwrap()).unwrap();
 
@@ -540,8 +557,12 @@ mod tests {
         let event_a = fake_event_ref("0010");
         let event_b = fake_event_ref("0011");
 
-        let carrier_a = IdentityPayloadCarrier::MemberIdentity { member_identity: id_a };
-        let carrier_b = IdentityPayloadCarrier::MemberIdentity { member_identity: id_b };
+        let carrier_a = IdentityPayloadCarrier::MemberIdentity {
+            member_identity: id_a,
+        };
+        let carrier_b = IdentityPayloadCarrier::MemberIdentity {
+            member_identity: id_b,
+        };
 
         let payload_a = MemberIdentityUpdatePayload {
             realm_id: fake_realm(),

@@ -1,14 +1,14 @@
 use std::collections::BTreeMap;
 
-use crate::{
-    AnchorId, BlobRef, DeviceId, Did, Effect, Error, Event, EventId, EventRef, Hlc, Precondition,
-    PresenceStatus, RealmId, Result,
-};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::kinds::*;
+use crate::{
+    AnchorId, BlobRef, DeviceId, Did, Effect, Error, Event, EventId, EventRef, Hlc, Precondition,
+    PresenceStatus, RealmId, Result,
+};
 
 /// A typed view of a raw event envelope.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -215,13 +215,19 @@ pub struct TextMessageContent {
 
 impl TextMessageContent {
     pub fn plain(body: impl Into<String>) -> Self {
-        Self { body: body.into(), ..Self::default() }
+        Self {
+            body: body.into(),
+            ..Self::default()
+        }
     }
 
     pub fn html(body: impl Into<String>, html: impl Into<String>) -> Self {
         Self {
             body: body.into(),
-            formatted: Some(FormattedBody { format: "html".to_owned(), body: html.into() }),
+            formatted: Some(FormattedBody {
+                format: "html".to_owned(),
+                body: html.into(),
+            }),
             mentions: Vec::new(),
             audience_mentions: Vec::new(),
             relates_to: None,
@@ -261,7 +267,11 @@ pub struct HtmlMessageContent {
 
 impl HtmlMessageContent {
     pub fn new(body: impl Into<String>, html: impl Into<String>) -> Self {
-        Self { body: body.into(), html: html.into(), ..Self::default() }
+        Self {
+            body: body.into(),
+            html: html.into(),
+            ..Self::default()
+        }
     }
 
     pub fn with_mentions(mut self, mentions: Vec<MentionRef>) -> Self {
@@ -298,7 +308,10 @@ pub struct MentionRef {
 
 impl MentionRef {
     pub fn new(target: impl Into<String>) -> Self {
-        Self { target: target.into(), display_name: None }
+        Self {
+            target: target.into(),
+            display_name: None,
+        }
     }
 
     pub fn with_display_name(mut self, display_name: impl Into<String>) -> Self {
@@ -317,7 +330,11 @@ pub struct RelationRef {
 
 impl RelationRef {
     pub fn new(kind: impl Into<String>, event_id: EventId) -> Self {
-        Self { kind: kind.into(), event_id, thread_id: None }
+        Self {
+            kind: kind.into(),
+            event_id,
+            thread_id: None,
+        }
     }
 
     pub fn with_thread(mut self, thread_id: impl Into<String>) -> Self {
@@ -344,7 +361,10 @@ pub struct UnsignedMetadata {
 
 impl UnsignedMetadata {
     pub fn from_raw(raw: BTreeMap<String, Value>) -> Result<Self> {
-        let age_ms = raw.get("age_ms").or_else(|| raw.get("age")).and_then(Value::as_u64);
+        let age_ms = raw
+            .get("age_ms")
+            .or_else(|| raw.get("age"))
+            .and_then(Value::as_u64);
         let transaction_id = raw
             .get("transaction_id")
             .or_else(|| raw.get("txn_id"))
@@ -409,20 +429,29 @@ impl RedactionMetadata {
                 ..Self::default()
             });
         };
-        let event_id =
-            object.get("event_id").and_then(Value::as_str).map(EventId::new).transpose()?;
+        let event_id = object
+            .get("event_id")
+            .and_then(Value::as_str)
+            .map(EventId::new)
+            .transpose()?;
         let actor_id = object
             .get("actor_id")
             .or_else(|| object.get("sender"))
             .and_then(Value::as_str)
             .map(Did::new)
             .transpose()?;
-        let reason = object.get("reason").and_then(Value::as_str).map(ToOwned::to_owned);
+        let reason = object
+            .get("reason")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned);
         Ok(Self {
             event_id,
             actor_id,
             reason,
-            raw: object.iter().map(|(key, value)| (key.clone(), value.clone())).collect(),
+            raw: object
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect(),
         })
     }
 }
@@ -479,7 +508,10 @@ pub struct ReactionContent {
 
 impl ReactionContent {
     pub fn new(target_event_id: EventId, key: impl Into<String>) -> Self {
-        Self { target_event_id, key: key.into() }
+        Self {
+            target_event_id,
+            key: key.into(),
+        }
     }
 }
 
@@ -493,7 +525,11 @@ pub struct PollContent {
 
 impl PollContent {
     pub fn new(question: impl Into<String>, answers: Vec<PollAnswer>) -> Self {
-        Self { question: question.into(), answers, closed: false }
+        Self {
+            question: question.into(),
+            answers,
+            closed: false,
+        }
     }
 }
 
@@ -505,7 +541,10 @@ pub struct PollAnswer {
 
 impl PollAnswer {
     pub fn new(id: impl Into<String>, text: impl Into<String>) -> Self {
-        Self { id: id.into(), text: text.into() }
+        Self {
+            id: id.into(),
+            text: text.into(),
+        }
     }
 }
 
@@ -580,7 +619,10 @@ pub struct EditContent {
 
 impl EditContent {
     pub fn new(target_event_id: EventId, replacement: Value) -> Self {
-        Self { target_event_id, replacement }
+        Self {
+            target_event_id,
+            replacement,
+        }
     }
 }
 
@@ -593,7 +635,10 @@ pub struct RedactionContent {
 
 impl RedactionContent {
     pub fn new(target_event_id: EventId) -> Self {
-        Self { target_event_id, reason: None }
+        Self {
+            target_event_id,
+            reason: None,
+        }
     }
 
     pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
@@ -1031,9 +1076,10 @@ pub fn require_known_content(content: AnyEventContent) -> Result<KnownEventConte
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::TimeZone;
     use serde_json::json;
+
+    use super::*;
 
     #[test]
     fn text_content_builders_preserve_mentions_and_relations() {
@@ -1045,10 +1091,16 @@ mod tests {
             .with_relation(RelationRef::new("reply", target.clone()).with_thread("thread-1"));
 
         assert_eq!(content.body, "hello");
-        assert_eq!(content.formatted.as_ref().map(|body| body.format.as_str()), Some("html"));
+        assert_eq!(
+            content.formatted.as_ref().map(|body| body.format.as_str()),
+            Some("html")
+        );
         assert_eq!(content.mentions[0].target, "did:web:alice.example");
         assert_eq!(
-            content.relates_to.as_ref().map(|relation| relation.event_id.clone()),
+            content
+                .relates_to
+                .as_ref()
+                .map(|relation| relation.event_id.clone()),
             Some(target)
         );
     }
@@ -1128,7 +1180,9 @@ mod tests {
         assert_eq!(envelope.unsigned["age"], json!(12));
         assert!(matches!(
             envelope.content,
-            AnyEventContent::Known { content: KnownEventContent::Standard(_) }
+            AnyEventContent::Known {
+                content: KnownEventContent::Standard(_)
+            }
         ));
     }
 
@@ -1155,7 +1209,10 @@ mod tests {
                     "reason": "policy"
                 }),
             ),
-            ("server.received_at".to_owned(), json!("2026-05-01T00:00:00Z")),
+            (
+                "server.received_at".to_owned(),
+                json!("2026-05-01T00:00:00Z"),
+            ),
         ]))
         .unwrap();
 
@@ -1163,9 +1220,16 @@ mod tests {
         assert_eq!(metadata.transaction_id.as_deref(), Some("txn-1"));
         assert_eq!(metadata.relation_aggregations[0].count, 2);
         assert_eq!(
-            metadata.redaction.as_ref().and_then(|redaction| redaction.reason.as_deref()),
+            metadata
+                .redaction
+                .as_ref()
+                .and_then(|redaction| redaction.reason.as_deref()),
             Some("policy")
         );
-        assert!(metadata.server_annotations.contains_key("server.received_at"));
+        assert!(
+            metadata
+                .server_annotations
+                .contains_key("server.received_at")
+        );
     }
 }

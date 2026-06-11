@@ -81,7 +81,10 @@ impl MlsGovernanceBindingPayload {
             encoding_profile: MLS_GOVERNANCE_BINDING_ENCODING_PROFILE.to_owned(),
             realm_id: realm_id.clone(),
             circle_id: Some(circle_id.clone()),
-            effective_scope: EffectiveScope::Circle { realm_id, circle_id },
+            effective_scope: EffectiveScope::Circle {
+                realm_id,
+                circle_id,
+            },
             mls_group_id: mls_group_id.into(),
             previous_epoch,
             next_epoch,
@@ -142,7 +145,11 @@ impl MlsGovernanceBindingPayload {
         if let Some(binding_profile) = &self.binding_profile {
             validate_profile_id("mls_governance_binding.binding_profile", binding_profile)?;
         }
-        if self.reducer_profile.as_ref().is_some_and(|profile| profile.is_empty()) {
+        if self
+            .reducer_profile
+            .as_ref()
+            .is_some_and(|profile| profile.is_empty())
+        {
             return Err(Error::Protocol(format!(
                 "mls_governance_binding.reducer_profile must be non-empty ({ERROR_CODE_SCHEMA_VIOLATION})"
             )));
@@ -155,7 +162,10 @@ impl MlsGovernanceBindingPayload {
                     )));
                 }
             }
-            EffectiveScope::Circle { realm_id, circle_id } => {
+            EffectiveScope::Circle {
+                realm_id,
+                circle_id,
+            } => {
                 if realm_id != &self.realm_id || self.circle_id.as_ref() != Some(circle_id) {
                     return Err(Error::Protocol(format!(
                         "mls_governance_binding circle effective_scope mismatch ({ERROR_CODE_SCHEMA_VIOLATION})"
@@ -364,8 +374,11 @@ impl MediaDecryptPolicyValue {
     /// `plaintext_visible_services` are sorted by DID so set-equal inputs
     /// hash identically regardless of source ordering.
     fn canonical_value(&self) -> Value {
-        let mut services: Vec<String> =
-            self.plaintext_visible_services.iter().map(|s| s.service_did.to_string()).collect();
+        let mut services: Vec<String> = self
+            .plaintext_visible_services
+            .iter()
+            .map(|s| s.service_did.to_string())
+            .collect();
         services.sort_unstable();
         services.dedup();
         json!({
@@ -533,13 +546,18 @@ mod tests {
         )
         .unwrap();
 
-        binding.clone().with_binding_profile("ck.profile.mls_governance_binding.full.v1").unwrap();
+        binding
+            .clone()
+            .with_binding_profile("ck.profile.mls_governance_binding.full.v1")
+            .unwrap();
         assert!(binding.clone().with_binding_profile("mls.full").is_err());
         assert!(binding.with_reducer_profile("").is_err());
     }
 
     fn media_service(host: &str) -> MediaPlaintextService {
-        MediaPlaintextService { service_did: Did::new(format!("did:web:{host}")).unwrap() }
+        MediaPlaintextService {
+            service_did: Did::new(format!("did:web:{host}")).unwrap(),
+        }
     }
 
     fn media_value(decrypts: bool, hosts: &[&str]) -> MediaDecryptPolicyValue {
@@ -557,7 +575,10 @@ mod tests {
         assert_eq!(h1, h2);
         // Set order MUST NOT change the digest (canonical sorting).
         let reordered = media_value(true, &["sfu-b.example", "sfu-a.example"]);
-        assert_eq!(h1, derive_media_decrypt_metadata_digest(&reordered).unwrap());
+        assert_eq!(
+            h1,
+            derive_media_decrypt_metadata_digest(&reordered).unwrap()
+        );
     }
 
     #[test]
@@ -581,6 +602,9 @@ mod tests {
         let recomputed =
             derive_media_decrypt_metadata_digest(&media_value(false, &["sfu-a.example"])).unwrap();
         let err = verify_media_decrypt_metadata(&digest, &recomputed).unwrap_err();
-        assert!(err.to_string().contains(ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE));
+        assert!(
+            err.to_string()
+                .contains(ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE)
+        );
     }
 }

@@ -13,7 +13,9 @@ impl SlidingWindow {
     /// Create a new window.
     pub fn new(start: usize, end: usize) -> Result<Self> {
         if start > end {
-            return Err(Error::Protocol("sliding sync window start is after end".to_owned()));
+            return Err(Error::Protocol(
+                "sliding sync window start is after end".to_owned(),
+            ));
         }
         Ok(Self { start, end })
     }
@@ -68,7 +70,8 @@ impl SlidingSync {
     /// Apply incremental insertions/removals to the ordered Realm list.
     pub fn apply_delta(&mut self, removals: &[RealmId], insertions: Vec<(usize, RealmId)>) {
         let removal_set: BTreeSet<_> = removals.iter().cloned().collect();
-        self.all_realms.retain(|realm_id| !removal_set.contains(realm_id));
+        self.all_realms
+            .retain(|realm_id| !removal_set.contains(realm_id));
 
         for (index, realm_id) in insertions {
             let index = index.min(self.all_realms.len());
@@ -157,7 +160,10 @@ pub struct RealmListFilter {
 impl RealmListFilter {
     fn matches(&self, entry: &RealmListEntry) -> bool {
         (self.memberships.is_empty() || self.memberships.contains(&entry.membership))
-            && self.favorite.map(|favorite| entry.favorite == favorite).unwrap_or(true)
+            && self
+                .favorite
+                .map(|favorite| entry.favorite == favorite)
+                .unwrap_or(true)
             && (!self.unread_only || entry.unread_count > 0 || entry.highlight_count > 0)
             && self
                 .category
@@ -222,7 +228,11 @@ pub enum RealmListChange {
     /// Entry disappeared from the visible projection.
     Removed { old_index: usize, realm_id: RealmId },
     /// Existing entry moved after sorting/filtering.
-    Moved { old_index: usize, new_index: usize, realm_id: RealmId },
+    Moved {
+        old_index: usize,
+        new_index: usize,
+        realm_id: RealmId,
+    },
 }
 
 /// Result of applying one Realm-list mutation.
@@ -288,7 +298,10 @@ impl RealmListService {
 
     /// Current ordered visible entries.
     pub fn entries(&self) -> Vec<&RealmListEntry> {
-        self.ordered.iter().filter_map(|realm_id| self.entries.get(realm_id)).collect()
+        self.ordered
+            .iter()
+            .filter_map(|realm_id| self.entries.get(realm_id))
+            .collect()
     }
 
     /// Set sort mode and return the resulting delta.
@@ -348,7 +361,10 @@ impl RealmListService {
         if let Some(unread_count) = update.summary.get("unread_count").and_then(Value::as_u64) {
             entry.unread_count = unread_count;
         }
-        if let Some(highlight_count) = update.summary.get("highlight_count").and_then(Value::as_u64)
+        if let Some(highlight_count) = update
+            .summary
+            .get("highlight_count")
+            .and_then(Value::as_u64)
         {
             entry.highlight_count = highlight_count;
         }
@@ -359,8 +375,10 @@ impl RealmListService {
                 .and_then(|value| serde_json::from_value::<Event>(value.clone()).ok())
         {
             entry.last_event_id = Some(event.event_id.clone());
-            entry.last_activity =
-                Some(TimelineOrderKey::from_event(&event, event.prev_refs.len() as u64));
+            entry.last_activity = Some(TimelineOrderKey::from_event(
+                &event,
+                event.prev_refs.len() as u64,
+            ));
         }
         self.upsert(entry)
     }
@@ -382,7 +400,11 @@ impl RealmListService {
     }
 
     fn visible_entries(&self) -> Vec<RealmListEntry> {
-        self.entries.values().filter(|entry| self.filter.matches(entry)).cloned().collect()
+        self.entries
+            .values()
+            .filter(|entry| self.filter.matches(entry))
+            .cloned()
+            .collect()
     }
 }
 
@@ -391,9 +413,15 @@ fn compare_space_entries(
     right: &RealmListEntry,
     sort: RealmListSort,
 ) -> std::cmp::Ordering {
-    let name_order = left.name.cmp(&right.name).then_with(|| left.realm_id.cmp(&right.realm_id));
+    let name_order = left
+        .name
+        .cmp(&right.name)
+        .then_with(|| left.realm_id.cmp(&right.realm_id));
     match sort {
-        RealmListSort::Recency => right.last_activity.cmp(&left.last_activity).then(name_order),
+        RealmListSort::Recency => right
+            .last_activity
+            .cmp(&left.last_activity)
+            .then(name_order),
         RealmListSort::Name => name_order,
         RealmListSort::Unread => right
             .highlight_count
@@ -435,8 +463,10 @@ fn diff_realm_lists(
     }
     for (realm_id, (new_index, entry)) in &current_index {
         match previous_index.get(realm_id) {
-            None => changes
-                .push(RealmListChange::Inserted { index: *new_index, entry: (*entry).clone() }),
+            None => changes.push(RealmListChange::Inserted {
+                index: *new_index,
+                entry: (*entry).clone(),
+            }),
             Some((old_index, previous_entry)) if *old_index != *new_index => {
                 changes.push(RealmListChange::Moved {
                     old_index: *old_index,
@@ -451,8 +481,10 @@ fn diff_realm_lists(
                 }
             }
             Some((_, previous_entry)) if *previous_entry != *entry => {
-                changes
-                    .push(RealmListChange::Updated { index: *new_index, entry: (*entry).clone() });
+                changes.push(RealmListChange::Updated {
+                    index: *new_index,
+                    entry: (*entry).clone(),
+                });
             }
             _ => {}
         }

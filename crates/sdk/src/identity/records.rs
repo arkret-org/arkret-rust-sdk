@@ -1,6 +1,6 @@
-use super::*;
-
 use cokret_core::DetachedPayloadProof;
+
+use super::*;
 
 /// Normalized DID key-log operation kind
 /// (`did-key-log-entry.schema.json` `operation` enum). The DID
@@ -34,8 +34,7 @@ where
     D: serde::Deserializer<'de>,
 {
     let raw = String::deserialize(deserializer)?;
-    cokret_core::canonical::validate_timestamp_canonical(&raw)
-        .map_err(serde::de::Error::custom)?;
+    cokret_core::canonical::validate_timestamp_canonical(&raw).map_err(serde::de::Error::custom)?;
     DateTime::parse_from_rfc3339(&raw)
         .map(|value| value.with_timezone(&Utc))
         .map_err(serde::de::Error::custom)
@@ -126,7 +125,9 @@ impl DidKeyLogEntry {
     /// only `proofs`).
     fn digest_view(&self, include_head: bool) -> Result<Value> {
         let mut value = serde_json::to_value(self)?;
-        let object = value.as_object_mut().expect("DidKeyLogEntry serializes to an object");
+        let object = value
+            .as_object_mut()
+            .expect("DidKeyLogEntry serializes to an object");
         object.remove("proofs");
         if !include_head {
             object.remove("head_event_digest");
@@ -137,14 +138,18 @@ impl DidKeyLogEntry {
     /// Recompute `head_event_digest` per §3.1.3.
     pub fn compute_head_event_digest(&self) -> Result<crate::Hash> {
         let bytes = cokret_core::canonical::canonical_json_bytes(&self.digest_view(false)?)?;
-        Ok(crate::Hash::new(cokret_core::canonical::sha256_digest(&bytes))?)
+        Ok(crate::Hash::new(cokret_core::canonical::sha256_digest(
+            &bytes,
+        ))?)
     }
 
     /// Recompute the proof `payload_digest`
     /// (`canonical_digest(entry_without_proofs)`, §3.1.3).
     pub fn proof_payload_digest(&self) -> Result<crate::Hash> {
         let bytes = cokret_core::canonical::canonical_json_bytes(&self.digest_view(true)?)?;
-        Ok(crate::Hash::new(cokret_core::canonical::sha256_digest(&bytes))?)
+        Ok(crate::Hash::new(cokret_core::canonical::sha256_digest(
+            &bytes,
+        ))?)
     }
 
     /// Canonical proof binding object bytes per §3.1.3:
@@ -158,14 +163,19 @@ impl DidKeyLogEntry {
             "payload_digest".to_owned(),
             Value::String(proof.payload_digest.as_str().to_owned()),
         );
-        object.insert("did".to_owned(), Value::String(self.did.as_str().to_owned()));
+        object.insert(
+            "did".to_owned(),
+            Value::String(self.did.as_str().to_owned()),
+        );
         object.insert(
             "verification_method".to_owned(),
             Value::String(proof.verification_method.clone()),
         );
         object.insert(
             "created_at".to_owned(),
-            Value::String(cokret_core::canonical::format_timestamp_canonical(proof.created_at)),
+            Value::String(cokret_core::canonical::format_timestamp_canonical(
+                proof.created_at,
+            )),
         );
         if let Some(domain) = &proof.domain {
             object.insert("domain".to_owned(), Value::String(domain.clone()));
@@ -173,7 +183,9 @@ impl DidKeyLogEntry {
         if let Some(audience) = &proof.audience {
             object.insert("audience".to_owned(), serde_json::to_value(audience)?);
         }
-        Ok(cokret_core::canonical::canonical_json_bytes(&Value::Object(object))?)
+        Ok(cokret_core::canonical::canonical_json_bytes(
+            &Value::Object(object),
+        )?)
     }
 
     /// Structural validation against `did-key-log-entry.schema.json` +
@@ -268,9 +280,13 @@ pub fn verify_did_key_log(
     entries: &[DidKeyLogEntry],
     resolver: &dyn DidResolver,
 ) -> Result<VerifiedDidKeyLog> {
-    let first = entries.first().ok_or_else(|| Error::Protocol("empty DID key log".to_owned()))?;
+    let first = entries
+        .first()
+        .ok_or_else(|| Error::Protocol("empty DID key log".to_owned()))?;
     if first.operation != DidKeyLogOperation::Inception {
-        return Err(Error::Protocol("DID key log must start with inception".to_owned()));
+        return Err(Error::Protocol(
+            "DID key log must start with inception".to_owned(),
+        ));
     }
 
     let mut prev_head: Option<crate::Hash> = None;
@@ -284,10 +300,14 @@ pub fn verify_did_key_log(
             return Err(Error::Protocol("DID key log changed DID".to_owned()));
         }
         if deactivated {
-            return Err(Error::Protocol("DID key log continues after deactivate".to_owned()));
+            return Err(Error::Protocol(
+                "DID key log continues after deactivate".to_owned(),
+            ));
         }
         if index > 0 && entry.operation == DidKeyLogOperation::Inception {
-            return Err(Error::Protocol("DID key log has duplicate inception".to_owned()));
+            return Err(Error::Protocol(
+                "DID key log has duplicate inception".to_owned(),
+            ));
         }
 
         entry.validate()?;
@@ -295,7 +315,11 @@ pub fn verify_did_key_log(
         match (&entry.prev_event_digest, &prev_head) {
             (None, None) => {}
             (Some(prev), Some(head)) if constant_time_digest_eq(prev, head) => {}
-            _ => return Err(Error::Protocol("DID key log hash chain mismatch".to_owned())),
+            _ => {
+                return Err(Error::Protocol(
+                    "DID key log hash chain mismatch".to_owned(),
+                ));
+            }
         }
 
         let payload_digest = entry.proof_payload_digest()?;
@@ -442,7 +466,9 @@ impl DidRegistryReceipt {
             .expect("DidRegistryReceipt serializes to an object")
             .remove("signature");
         let bytes = cokret_core::canonical::canonical_json_bytes(&value)?;
-        Ok(crate::Hash::new(cokret_core::canonical::sha256_digest(&bytes))?)
+        Ok(crate::Hash::new(cokret_core::canonical::sha256_digest(
+            &bytes,
+        ))?)
     }
 
     fn binding_bytes(&self) -> Result<Vec<u8>> {
@@ -471,7 +497,9 @@ impl DidRegistryReceipt {
         if let Some(audience) = &self.signature.audience {
             object.insert("audience".to_owned(), serde_json::to_value(audience)?);
         }
-        Ok(cokret_core::canonical::canonical_json_bytes(&Value::Object(object))?)
+        Ok(cokret_core::canonical::canonical_json_bytes(
+            &Value::Object(object),
+        )?)
     }
 
     /// Verify the receipt: digest recompute (constant-time compare) then
@@ -486,7 +514,9 @@ impl DidRegistryReceipt {
             )));
         }
         if self.signature.kind != "detached_jws" {
-            return Err(Error::Protocol("identity receipt proof kind must be detached_jws".to_owned()));
+            return Err(Error::Protocol(
+                "identity receipt proof kind must be detached_jws".to_owned(),
+            ));
         }
         let recomputed = self.payload_digest()?;
         if !constant_time_digest_eq(&recomputed, &self.signature.payload_digest) {
@@ -523,13 +553,19 @@ pub struct StaridRegistryRecord {
 impl StaridRegistryRecord {
     pub fn validate(&self) -> Result<()> {
         if self.did != self.document.id {
-            return Err(Error::Protocol("StarID record document DID mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "StarID record document DID mismatch".to_owned(),
+            ));
         }
         if self.key_log_head.trim().is_empty() {
-            return Err(Error::Protocol("StarID record key_log_head is empty".to_owned()));
+            return Err(Error::Protocol(
+                "StarID record key_log_head is empty".to_owned(),
+            ));
         }
         if self.current_control_key.trim().is_empty() {
-            return Err(Error::Protocol("StarID record current_control_key is empty".to_owned()));
+            return Err(Error::Protocol(
+                "StarID record current_control_key is empty".to_owned(),
+            ));
         }
         self.document.validate()
     }
@@ -571,8 +607,7 @@ pub fn starid_control_proof(
 /// * fetch from the configured registry network with explicit timeouts,
 /// * enforce response size and content-type limits,
 /// * validate signed key-log receipts before trusting any record, and
-/// * fail closed on stale or conflicting heads rather than serving cached
-///   state.
+/// * fail closed on stale or conflicting heads rather than serving cached state.
 pub trait StaridRegistryAdapter: DidResolver {
     fn resolve_registry_record(&self, did: &Did) -> Result<StaridRegistryRecord>;
 
@@ -611,7 +646,10 @@ pub struct InMemoryStaridRegistryAdapter {
 
 impl InMemoryStaridRegistryAdapter {
     pub fn new(registry_did: Did) -> Self {
-        Self { registry_did, records: BTreeMap::new() }
+        Self {
+            registry_did,
+            records: BTreeMap::new(),
+        }
     }
 
     pub fn registry_did(&self) -> &Did {
@@ -621,7 +659,9 @@ impl InMemoryStaridRegistryAdapter {
     pub fn insert(&mut self, record: StaridRegistryRecord) -> Result<()> {
         record.validate()?;
         if record.registry_did != self.registry_did {
-            return Err(Error::Protocol("StarID record registry DID mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "StarID record registry DID mismatch".to_owned(),
+            ));
         }
         self.records.insert(record.did.clone(), record);
         Ok(())
@@ -651,10 +691,13 @@ impl StaridRegistryAdapter for InMemoryStaridRegistryAdapter {
         request: &StaridControlProofRequestBody,
     ) -> Result<StaridControlProofVerification> {
         let record = self.resolve_registry_record(&request.did)?;
-        let public_key =
-            record.document.verification_methods.get(&request.verification_method).ok_or_else(
-                || Error::Protocol("StarID control proof verification method not found".to_owned()),
-            )?;
+        let public_key = record
+            .document
+            .verification_methods
+            .get(&request.verification_method)
+            .ok_or_else(|| {
+                Error::Protocol("StarID control proof verification method not found".to_owned())
+            })?;
         let expected = starid_control_proof(
             &request.did,
             &request.verification_method,

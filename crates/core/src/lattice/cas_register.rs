@@ -2,10 +2,9 @@
 //!
 //! Per spec §5.3:
 //! - `set(value)` writes the cell.
-//! - Two concurrent `set` ops produce a `kind=conflict` Bottom (default
-//!   `bottom=reject`). Unlike `mv-register`, dependent Moves must fail
-//!   closed because this Lattice serves safety-critical state (e.g.
-//!   `ck.component.realm.policy.v1`, `ck.component.anchorer.v1`).
+//! - Two concurrent `set` ops produce a `kind=conflict` Bottom (default `bottom=reject`). Unlike
+//!   `mv-register`, dependent Moves must fail closed because this Lattice serves safety-critical
+//!   state (e.g. `ck.component.realm.policy.v1`, `ck.component.anchorer.v1`).
 //!
 //! Wire-shape and signature mirror `MvRegister`; the only behavioural
 //! difference is the implicit `bottom=reject` semantics enforced by
@@ -13,10 +12,10 @@
 //! Moves whose preconditions touch a `cas-register` cell MUST consult
 //! this join's Bottom and fail closed.
 
-use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
 use serde_json::Value;
 
 use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct CasRegister;
@@ -30,7 +29,10 @@ impl Lattice for CasRegister {
         match op.op_type {
             LatticeOpType::Set => {
                 if op.value.is_none() {
-                    return Err(OpError::MissingField { kind: "cas_register", field: "value" });
+                    return Err(OpError::MissingField {
+                        kind: "cas_register",
+                        field: "value",
+                    });
                 }
                 Ok(())
             }
@@ -42,14 +44,18 @@ impl Lattice for CasRegister {
     }
 
     fn join(&self, cell: &CellRef, anchored_ops: &[AnchoredOp]) -> CellState {
-        let valid_ops: Vec<&AnchoredOp> =
-            anchored_ops.iter().filter(|e| self.validate_op(&e.op).is_ok()).collect();
+        let valid_ops: Vec<&AnchoredOp> = anchored_ops
+            .iter()
+            .filter(|e| self.validate_op(&e.op).is_ok())
+            .collect();
         match valid_ops.len() {
             0 => CellState::Value(Value::Null),
             1 => CellState::Value(valid_ops[0].op.value.clone().unwrap_or(Value::Null)),
             _ => {
-                let heads: Vec<Value> =
-                    valid_ops.iter().filter_map(|e| e.op.value.clone()).collect();
+                let heads: Vec<Value> = valid_ops
+                    .iter()
+                    .filter_map(|e| e.op.value.clone())
+                    .collect();
                 let move_ids = valid_ops.iter().map(|e| e.move_id.clone()).collect();
                 let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
                 bottom.move_ids = move_ids;
@@ -62,9 +68,10 @@ impl Lattice for CasRegister {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
     use crate::{LatticeOp, MoveId};
-    use serde_json::json;
 
     fn cell() -> CellRef {
         CellRef::new(
@@ -91,8 +98,14 @@ mod tests {
 
     #[test]
     fn single_set_value_resolved() {
-        let ops = vec![AnchoredOp::new(move_id(1), set_op(json!({"policy": "open"})))];
-        assert_eq!(CasRegister.join(&cell(), &ops), CellState::Value(json!({"policy": "open"})));
+        let ops = vec![AnchoredOp::new(
+            move_id(1),
+            set_op(json!({"policy": "open"})),
+        )];
+        assert_eq!(
+            CasRegister.join(&cell(), &ops),
+            CellState::Value(json!({"policy": "open"}))
+        );
     }
 
     #[test]
@@ -123,12 +136,17 @@ mod tests {
             reason: None,
             issuer_seq: None,
         };
-        CasRegister.validate_op(&op).expect_err("non-set op must fail");
+        CasRegister
+            .validate_op(&op)
+            .expect_err("non-set op must fail");
     }
 
     #[test]
     fn empty_join_returns_null() {
-        assert_eq!(CasRegister.join(&cell(), &[]), CellState::Value(Value::Null));
+        assert_eq!(
+            CasRegister.join(&cell(), &[]),
+            CellState::Value(Value::Null)
+        );
     }
 
     #[test]

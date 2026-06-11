@@ -102,10 +102,14 @@ impl SecretShareSendContent {
     /// is shipped or after it is received.
     pub fn validate(&self) -> Result<()> {
         if self.request_id.trim().is_empty() {
-            return Err(Error::Protocol("ck.secret.send.request_id must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "ck.secret.send.request_id must not be empty".to_owned(),
+            ));
         }
         if self.secret_id.trim().is_empty() {
-            return Err(Error::Protocol("ck.secret.send.secret_id must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "ck.secret.send.secret_id must not be empty".to_owned(),
+            ));
         }
         if self.scheme != HPKE_SECRET_SHARE_SCHEME {
             return Err(Error::Protocol(format!(
@@ -124,8 +128,9 @@ impl SecretShareSendContent {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     fn device() -> DeviceId {
         DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000a").unwrap()

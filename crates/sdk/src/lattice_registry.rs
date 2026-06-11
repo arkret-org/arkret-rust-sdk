@@ -13,21 +13,17 @@
 //! subject-derivation function.
 //!
 //! Coverage (mirrors soland `reducer::lattice_kinds`):
-//! - **OrSet** (causal add/remove): consent.grant, capability.grant /
-//!   delegate / derived, session.grant, device.authorized,
-//!   device.list_update, agent.key, covered_frontier (MLS).
-//! - **CasRegister** (last-writer-wins, conflict→Bottom): realm.policy,
-//!   realm.read_receipt_policy, realm.history_visibility,
-//!   realm.join_rule, realm.discovery, realm.organization,
-//!   realm.upgrade, flow.position, flow.stage, morph.stage, space.parent,
-//!   device.push_route, anchorer (Move/Anchor authority cell), mls_epoch.
+//! - **OrSet** (causal add/remove): consent.grant, capability.grant / delegate / derived,
+//!   session.grant, device.authorized, device.list_update, agent.key, covered_frontier (MLS).
+//! - **CasRegister** (last-writer-wins, conflict→Bottom): realm.policy, realm.read_receipt_policy,
+//!   realm.history_visibility, realm.join_rule, realm.discovery, realm.organization, realm.upgrade,
+//!   flow.position, flow.stage, morph.stage, space.parent, device.push_route, anchorer (Move/Anchor
+//!   authority cell), mls_epoch.
 //! - **Fsm** (legal transitions only): member.state, agent.status.
-//!   
-//! - **OrderedLog** (per-issuer monotonic append): account.status,
-//!   policy.rule, cross_signing.reset, contact.fact_log,
-//!   direct_conversation.binding.
-//! - **MvRegister** (concurrent multi-value): profile.create,
-//!   view.create / update / reconcile, mimi.room_binding.
+//! - **OrderedLog** (per-issuer monotonic append): account.status, policy.rule,
+//!   cross_signing.reset, contact.fact_log, direct_conversation.binding.
+//! - **MvRegister** (concurrent multi-value): profile.create, view.create / update / reconcile,
+//!   mimi.room_binding.
 
 use std::collections::BTreeMap;
 
@@ -80,15 +76,13 @@ pub struct ComponentDescriptor {
 
 /// Bottom-handling policy for a cell family.
 ///
-/// - `Reject`: when the Lattice's `join` returns a structured `Bottom`,
-///   the receiver MUST quarantine the resolved cell and emit
-///   `bottom_diagnostics` events. Lattice queries on this cell return
-///   `bottom` rather than choosing a winner. This is the v1 default for
-///   safety-critical cells (capability, consent, anchorer).
-/// - `Expose`: callers are expected to render the multi-value set
-///   directly (e.g. UI shows "two concurrent edits, please reconcile"
-///   rather than blocking). Suitable for advisory cells (Flow titles,
-///   user profile fields).
+/// - `Reject`: when the Lattice's `join` returns a structured `Bottom`, the receiver MUST
+///   quarantine the resolved cell and emit `bottom_diagnostics` events. Lattice queries on this
+///   cell return `bottom` rather than choosing a winner. This is the v1 default for safety-critical
+///   cells (capability, consent, anchorer).
+/// - `Expose`: callers are expected to render the multi-value set directly (e.g. UI shows "two
+///   concurrent edits, please reconcile" rather than blocking). Suitable for advisory cells (Flow
+///   titles, user profile fields).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BottomPolicy {
     Reject,
@@ -119,17 +113,26 @@ impl BottomPolicy {
 pub enum LatticeKindError {
     /// The Move's effects[] is missing the typed field used to derive the
     /// cell subject (e.g. `payload.flow_id` for a flow-position cell).
-    MissingSubjectField { cell_family: &'static str, field: &'static str },
+    MissingSubjectField {
+        cell_family: &'static str,
+        field: &'static str,
+    },
     /// The cell_family declared by a Move effect doesn't match this
     /// `LatticeKind`. The dispatcher MUST route to a different impl.
-    UnknownCellFamily { observed: String, declared: &'static str },
+    UnknownCellFamily {
+        observed: String,
+        declared: &'static str,
+    },
 }
 
 impl std::fmt::Display for LatticeKindError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::MissingSubjectField { cell_family, field } => {
-                write!(f, "{cell_family} requires effect field `{field}` for cell subject")
+                write!(
+                    f,
+                    "{cell_family} requires effect field `{field}` for cell subject"
+                )
             }
             Self::UnknownCellFamily { observed, declared } => {
                 write!(
@@ -240,7 +243,14 @@ impl LatticeRegistry {
 
 macro_rules! singleton_lattice {
     ($struct_name:ident, $cell_family:expr, $lattice:expr, $bottom:expr, $criticality:expr) => {
-        singleton_lattice!($struct_name, $cell_family, $lattice, $bottom, $criticality, &[]);
+        singleton_lattice!(
+            $struct_name,
+            $cell_family,
+            $lattice,
+            $bottom,
+            $criticality,
+            &[]
+        );
     };
     (
         $struct_name:ident,
@@ -448,25 +458,30 @@ impl LatticeKind for DevicePushRoute {
                 cell_family: "ck.component.device.push_route.v1",
                 field: "recipient_service_did",
             })?;
-        let principal_id = effect_payload.get("principal_id").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+        let principal_id = effect_payload
+            .get("principal_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.device.push_route.v1",
                 field: "principal_id",
-            },
-        )?;
-        let device_id = effect_payload.get("device_id").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+            })?;
+        let device_id = effect_payload
+            .get("device_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.device.push_route.v1",
                 field: "device_id",
-            },
-        )?;
-        let push_route = effect_payload.get("push_route").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+            })?;
+        let push_route = effect_payload
+            .get("push_route")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.device.push_route.v1",
                 field: "push_route",
-            },
-        )?;
-        Ok(Some(format!("{recipient_service_did}::{principal_id}::{device_id}::{push_route}")))
+            })?;
+        Ok(Some(format!(
+            "{recipient_service_did}::{principal_id}::{device_id}::{push_route}"
+        )))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
         &["ck.device.push_route"]
@@ -499,9 +514,9 @@ impl LatticeKind for AgentKey {
             .get("agent_principal_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-            cell_family: "ck.component.agent.key.v1",
-            field: "agent_principal_id",
-        })?;
+                cell_family: "ck.component.agent.key.v1",
+                field: "agent_principal_id",
+            })?;
         let key_id = effect_payload.get("key_id").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.agent.key.v1",
@@ -511,7 +526,11 @@ impl LatticeKind for AgentKey {
         Ok(Some(format!("{agent_principal_id}::{key_id}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
-        &["ck.agent.key.authorize", "ck.agent.key.revoke", "ck.agent.key.rotate"]
+        &[
+            "ck.agent.key.authorize",
+            "ck.agent.key.revoke",
+            "ck.agent.key.rotate",
+        ]
     }
 }
 
@@ -537,18 +556,20 @@ impl LatticeKind for KeyBackupActiveSeries {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        let actor_id = effect_payload.get("actor_id").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+        let actor_id = effect_payload
+            .get("actor_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.key_backup.active_series.v1",
                 field: "actor_id",
-            },
-        )?;
-        let backup_class = effect_payload.get("backup_class").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+            })?;
+        let backup_class = effect_payload
+            .get("backup_class")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.key_backup.active_series.v1",
                 field: "backup_class",
-            },
-        )?;
+            })?;
         Ok(Some(format!("{actor_id}::{backup_class}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
@@ -633,12 +654,13 @@ impl LatticeKind for FlowWatch {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        let flow_id = effect_payload.get("flow_id").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+        let flow_id = effect_payload
+            .get("flow_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.flow.watch.v1",
                 field: "flow_id",
-            },
-        )?;
+            })?;
         let watcher_actor_id = effect_payload
             .get("watcher_actor_id")
             .and_then(Value::as_str)
@@ -698,7 +720,11 @@ per_subject_lattice!(
     BottomPolicy::Reject,
     Criticality::Required,
     "agent_principal_id",
-    &["ck.self.agent.pause", "ck.self.agent.resume", "ck.self.agent.deactivate"]
+    &[
+        "ck.self.agent.pause",
+        "ck.self.agent.resume",
+        "ck.self.agent.deactivate"
+    ]
 );
 
 pub struct CircleMember;
@@ -723,18 +749,20 @@ impl LatticeKind for CircleMember {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        let circle_id = effect_payload.get("circle_id").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+        let circle_id = effect_payload
+            .get("circle_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.circle.member.v1",
                 field: "circle_id",
-            },
-        )?;
-        let actor_id = effect_payload.get("actor_id").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+            })?;
+        let actor_id = effect_payload
+            .get("actor_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.circle.member.v1",
                 field: "actor_id",
-            },
-        )?;
+            })?;
         Ok(Some(format!("{circle_id}::{actor_id}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
@@ -819,24 +847,27 @@ impl LatticeKind for MemberIdentityLattice {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        let realm_id = effect_payload.get("realm_id").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+        let realm_id = effect_payload
+            .get("realm_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.member.identity.v1",
                 field: "realm_id",
-            },
-        )?;
-        let actor_id = effect_payload.get("actor_id").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+            })?;
+        let actor_id = effect_payload
+            .get("actor_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.member.identity.v1",
                 field: "actor_id",
-            },
-        )?;
-        let segment = effect_payload.get("segment").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+            })?;
+        let segment = effect_payload
+            .get("segment")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.member.identity.v1",
                 field: "segment",
-            },
-        )?;
+            })?;
         Ok(Some(format!("{realm_id}::{actor_id}::{segment}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
@@ -1416,7 +1447,11 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
             let kind = registry
                 .lookup(family)
                 .unwrap_or_else(|| panic!("default_lattice_registry missing {family}"));
-            (*family, kind.lattice(), kind.bottom_policy().to_sdk_bottom_mode())
+            (
+                *family,
+                kind.lattice(),
+                kind.bottom_policy().to_sdk_bottom_mode(),
+            )
         })
         .collect()
 }
@@ -1542,7 +1577,9 @@ mod tests {
     #[test]
     fn covered_frontier_is_singleton_or_set() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("ck.component.mls.covered_frontier.v1").unwrap();
+        let kind = registry
+            .lookup("ck.component.mls.covered_frontier.v1")
+            .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
         let subject = kind.subject_for_effect(&json!({})).unwrap();
         assert!(subject.is_none());
@@ -1558,8 +1595,9 @@ mod tests {
             "ck.component.view.reconcile.v1",
             "ck.component.mimi.room_binding.v1",
         ] {
-            let kind =
-                registry.lookup(family).unwrap_or_else(|| panic!("missing impl for {family}"));
+            let kind = registry
+                .lookup(family)
+                .unwrap_or_else(|| panic!("missing impl for {family}"));
             assert_eq!(kind.lattice(), SdkLatticeKind::MvRegister);
             assert_eq!(
                 kind.bottom_policy(),
@@ -1585,7 +1623,9 @@ mod tests {
     fn missing_subject_field_surfaces_typed_error() {
         let registry = default_lattice_registry();
         let kind = registry.lookup("ck.component.flow.position.v1").unwrap();
-        let err = kind.subject_for_effect(&json!({"unrelated": "x"})).unwrap_err();
+        let err = kind
+            .subject_for_effect(&json!({"unrelated": "x"}))
+            .unwrap_err();
         match err {
             LatticeKindError::MissingSubjectField { cell_family, field } => {
                 assert_eq!(cell_family, "ck.component.flow.position.v1");

@@ -55,7 +55,9 @@ pub struct DelegatedActor {
 impl DelegatedActor {
     /// Check whether the delegation is active.
     pub fn is_active(&self, at: DateTime<Utc>) -> bool {
-        self.expires_at.map(|expires_at| expires_at > at).unwrap_or(true)
+        self.expires_at
+            .map(|expires_at| expires_at > at)
+            .unwrap_or(true)
     }
 }
 
@@ -231,7 +233,10 @@ impl AgentToolAuditLog {
 
     /// List entries for a run.
     pub fn entries_for_run(&self, run_id: &str) -> Vec<&AgentToolAuditEntry> {
-        self.entries.iter().filter(|entry| entry.run_id == run_id).collect()
+        self.entries
+            .iter()
+            .filter(|entry| entry.run_id == run_id)
+            .collect()
     }
 }
 

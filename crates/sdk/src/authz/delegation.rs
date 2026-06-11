@@ -8,8 +8,7 @@
 //! - 再授权 MUST NOT 扩大资源范围 (`ResourceOutOfScope`)
 //! - 子 `expires_at` MUST ≤ 父 `expires_at` (`OverExpire`)
 //! - 调用方 MUST 是父 grant 的 subject (`NotGrantHolder`)
-//! - 父 grant 必须存在 (`ParentNotFound`), 未 revoke (`ParentRevoked`),
-//!   未 expire (`ParentExpired`)
+//! - 父 grant 必须存在 (`ParentNotFound`), 未 revoke (`ParentRevoked`), 未 expire (`ParentExpired`)
 //!
 //! These helpers operate on a [`Grant`] shape that intentionally mirrors
 //! soland's in-memory runtime form (stringly-typed `resource`, single
@@ -93,21 +92,18 @@ pub enum GrantConstraint {
     /// Temporal constraint (`constraint_type: "temporal"`). Carries two
     /// independent facets that share the spec `temporal` discriminator:
     ///
-    /// - Grant expiry: optional `expires_at`. The top-level
-    ///   `Grant::expires_at` field and any `Temporal { expires_at }` entry
-    ///   are intersected; the stricter wins (see [`grant_effective_expiry`]).
-    /// - Message edit / redact window (`subtype = "edit_window" |
-    ///   "redact_window"`, constraint-schema.md §14.2). `message_edit_window`
-    ///   governs `ck.message.revise[.own]`; `message_redact_window` governs
-    ///   `ck.message.redact[.own]`. `allow_redact_after_window` controls
-    ///   whether redact stays coupled to the edit window when no separate
-    ///   redact window is declared (default `false` = coupled; omitting a
-    ///   redact window then means unbounded recall once the edit window
-    ///   closes only if this flag is `true`). When `message_redact_window` is
-    ///   declared it is authoritative for redact and the flag no longer
-    ///   changes the redact verdict. Enforcement (which requires the target
-    ///   Message `created_at`) lives in the service-side evaluator, not in
-    ///   the pure delegation helper.
+    /// - Grant expiry: optional `expires_at`. The top-level `Grant::expires_at` field and any
+    ///   `Temporal { expires_at }` entry are intersected; the stricter wins (see
+    ///   [`grant_effective_expiry`]).
+    /// - Message edit / redact window (`subtype = "edit_window" | "redact_window"`,
+    ///   constraint-schema.md §14.2). `message_edit_window` governs `ck.message.revise[.own]`;
+    ///   `message_redact_window` governs `ck.message.redact[.own]`. `allow_redact_after_window`
+    ///   controls whether redact stays coupled to the edit window when no separate redact window is
+    ///   declared (default `false` = coupled; omitting a redact window then means unbounded recall
+    ///   once the edit window closes only if this flag is `true`). When `message_redact_window` is
+    ///   declared it is authoritative for redact and the flag no longer changes the redact verdict.
+    ///   Enforcement (which requires the target Message `created_at`) lives in the service-side
+    ///   evaluator, not in the pure delegation helper.
     Temporal {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         expires_at: Option<DateTime<Utc>>,
@@ -127,7 +123,9 @@ pub enum GrantConstraint {
     /// `required_constraints=["allowed_circle_ids"]` on each gated
     /// action; unconstrained Realm-wide grants for these actions MUST be
     /// rejected by the grant-issue guard.
-    AllowedCircleIds { allowed_circle_ids: BTreeSet<CircleId> },
+    AllowedCircleIds {
+        allowed_circle_ids: BTreeSet<CircleId>,
+    },
     /// Resource must carry at least one of the listed facets. soland uses
     /// this on `ck:flow:` / `ck:realm:` / `ck:morph:` projections; an
     /// unfaceted target falls outside scope (fail-closed).
@@ -204,10 +202,13 @@ pub enum DelegationError {
 /// `constraints[]`. `None` means the grant never expires.
 pub fn grant_effective_expiry(grant: &Grant) -> Option<DateTime<Utc>> {
     let top_level = grant.expires_at;
-    let from_constraint = grant.constraints.iter().find_map(|constraint| match constraint {
-        GrantConstraint::Temporal { expires_at, .. } => *expires_at,
-        _ => None,
-    });
+    let from_constraint = grant
+        .constraints
+        .iter()
+        .find_map(|constraint| match constraint {
+            GrantConstraint::Temporal { expires_at, .. } => *expires_at,
+            _ => None,
+        });
     match (top_level, from_constraint) {
         (Some(a), Some(b)) => Some(a.min(b)),
         (Some(a), None) => Some(a),
@@ -308,8 +309,10 @@ pub fn create_delegated_grant(
     parents: &[Grant],
     now: DateTime<Utc>,
 ) -> Result<Grant, DelegationError> {
-    let parent =
-        parents.iter().find(|g| g.grant_id == parent_id).ok_or(DelegationError::ParentNotFound)?;
+    let parent = parents
+        .iter()
+        .find(|g| g.grant_id == parent_id)
+        .ok_or(DelegationError::ParentNotFound)?;
 
     if parent.revoked {
         return Err(DelegationError::ParentRevoked);
@@ -412,8 +415,9 @@ pub fn revoke_with_cascade(grants: &[Grant], grant_id: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::Duration;
+
+    use super::*;
 
     fn root_grant(id: &str, actions: &[&str], resource: &str) -> Grant {
         Grant {
@@ -458,8 +462,15 @@ mod tests {
     #[test]
     fn happy_path_root_plus_one_delegation_chain_intact() {
         let root = root_grant("g1", &["read"], "ck:realm:1");
-        let child =
-            child_grant("g2", "g1", "did:web:bob", "did:web:carol", &["read"], "ck:realm:1", None);
+        let child = child_grant(
+            "g2",
+            "g1",
+            "did:web:bob",
+            "did:web:carol",
+            &["read"],
+            "ck:realm:1",
+            None,
+        );
         let grants = vec![root, child];
         let now = Utc::now();
         assert!(delegation_chain_intact(&grants, "g1", now));
@@ -470,8 +481,15 @@ mod tests {
     fn parent_revoked_breaks_chain() {
         let mut root = root_grant("g1", &["read"], "ck:realm:1");
         root.revoked = true;
-        let child =
-            child_grant("g2", "g1", "did:web:bob", "did:web:carol", &["read"], "ck:realm:1", None);
+        let child = child_grant(
+            "g2",
+            "g1",
+            "did:web:bob",
+            "did:web:carol",
+            &["read"],
+            "ck:realm:1",
+            None,
+        );
         let grants = vec![root, child];
         let now = Utc::now();
         assert!(!delegation_chain_intact(&grants, "g1", now));
@@ -483,8 +501,15 @@ mod tests {
         let now = Utc::now();
         let mut root = root_grant("g1", &["read"], "ck:realm:1");
         root.expires_at = Some(now - Duration::seconds(1));
-        let child =
-            child_grant("g2", "g1", "did:web:bob", "did:web:carol", &["read"], "ck:realm:1", None);
+        let child = child_grant(
+            "g2",
+            "g1",
+            "did:web:bob",
+            "did:web:carol",
+            &["read"],
+            "ck:realm:1",
+            None,
+        );
         let grants = vec![root, child];
         assert!(!delegation_chain_intact(&grants, "g1", now));
         assert!(!delegation_chain_intact(&grants, "g2", now));
@@ -533,7 +558,10 @@ mod tests {
         ));
 
         // Also reject when child has no expiry but parent does.
-        let req_none = GrantRequestDraft { expires_at: None, ..req };
+        let req_none = GrantRequestDraft {
+            expires_at: None,
+            ..req
+        };
         assert!(matches!(
             create_delegated_grant("g1", &req_none, &parents, now),
             Err(DelegationError::OverExpire)
@@ -610,10 +638,24 @@ mod tests {
     fn three_level_chain_middle_revoke_breaks_both_descendants() {
         let now = Utc::now();
         let root = root_grant("g1", &["read"], "ck:realm:1");
-        let mut middle =
-            child_grant("g2", "g1", "did:web:bob", "did:web:carol", &["read"], "ck:realm:1", None);
-        let leaf =
-            child_grant("g3", "g2", "did:web:carol", "did:web:dave", &["read"], "ck:realm:1", None);
+        let mut middle = child_grant(
+            "g2",
+            "g1",
+            "did:web:bob",
+            "did:web:carol",
+            &["read"],
+            "ck:realm:1",
+            None,
+        );
+        let leaf = child_grant(
+            "g3",
+            "g2",
+            "did:web:carol",
+            "did:web:dave",
+            &["read"],
+            "ck:realm:1",
+            None,
+        );
         // Pre-condition: all three chain-intact.
         let intact = vec![root.clone(), middle.clone(), leaf.clone()];
         assert!(delegation_chain_intact(&intact, "g1", now));
@@ -631,10 +673,24 @@ mod tests {
     #[test]
     fn revoke_with_cascade_includes_all_descendants() {
         let root = root_grant("g1", &["read"], "ck:realm:1");
-        let middle_a =
-            child_grant("g2a", "g1", "did:web:bob", "did:web:carol", &["read"], "ck:realm:1", None);
-        let middle_b =
-            child_grant("g2b", "g1", "did:web:bob", "did:web:dave", &["read"], "ck:realm:1", None);
+        let middle_a = child_grant(
+            "g2a",
+            "g1",
+            "did:web:bob",
+            "did:web:carol",
+            &["read"],
+            "ck:realm:1",
+            None,
+        );
+        let middle_b = child_grant(
+            "g2b",
+            "g1",
+            "did:web:bob",
+            "did:web:dave",
+            &["read"],
+            "ck:realm:1",
+            None,
+        );
         let leaf_a = child_grant(
             "g3a",
             "g2a",
@@ -658,7 +714,12 @@ mod tests {
         cascade.sort();
         assert_eq!(
             cascade,
-            vec!["g2a".to_owned(), "g2b".to_owned(), "g3a".to_owned(), "g3b".to_owned(),]
+            vec![
+                "g2a".to_owned(),
+                "g2b".to_owned(),
+                "g3a".to_owned(),
+                "g3b".to_owned(),
+            ]
         );
         // Cascading on a leaf reports an empty set (no descendants).
         assert!(revoke_with_cascade(&grants, "g3a").is_empty());
@@ -705,8 +766,9 @@ mod tests {
     fn allowed_circle_ids_constraint_round_trips_through_serde() {
         let circle = CircleId::new("ck:circle:01904100-0000-7000-8000-000000000000".to_owned())
             .expect("valid CircleId");
-        let constraint =
-            GrantConstraint::AllowedCircleIds { allowed_circle_ids: BTreeSet::from([circle]) };
+        let constraint = GrantConstraint::AllowedCircleIds {
+            allowed_circle_ids: BTreeSet::from([circle]),
+        };
         let json = serde_json::to_string(&constraint).expect("serde round trip");
         assert!(json.contains("allowed_circle_ids"));
         assert!(json.contains("ck:circle:01904100-0000-7000-8000-000000000000"));
@@ -717,8 +779,9 @@ mod tests {
 
     #[test]
     fn decision_constraint_round_trips_through_serde() {
-        let constraint =
-            GrantConstraint::Decision { decision: GrantDecisionVerdict::RequireReview };
+        let constraint = GrantConstraint::Decision {
+            decision: GrantDecisionVerdict::RequireReview,
+        };
         let json = serde_json::to_string(&constraint).expect("serde");
         assert!(json.contains("decision"));
         assert!(json.contains("require_review"));

@@ -1,6 +1,7 @@
 use super::*;
 
-/// Optional Space (container) create metadata accepted by [`Realm::create_space_operation_with_metadata`].
+/// Optional Space (container) create metadata accepted by
+/// [`Realm::create_space_operation_with_metadata`].
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SpaceCreateMetadata {
     pub parent_space_id: Option<String>,
@@ -11,7 +12,8 @@ pub struct SpaceCreateMetadata {
     pub labels: Vec<String>,
 }
 
-/// Optional Space (container) patch metadata accepted by [`Realm::update_space_operation_with_metadata`].
+/// Optional Space (container) patch metadata accepted by
+/// [`Realm::update_space_operation_with_metadata`].
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SpaceUpdateMetadata {
     pub kind: Option<String>,
@@ -35,7 +37,12 @@ impl Realm {
         self.create_space_operation_with_metadata(
             kind,
             title,
-            SpaceCreateMetadata { parent_space_id, rank, fields, ..Default::default() },
+            SpaceCreateMetadata {
+                parent_space_id,
+                rank,
+                fields,
+                ..Default::default()
+            },
         )
     }
 
@@ -103,7 +110,10 @@ impl Realm {
         self.update_space_operation_with_metadata(
             space_id,
             title,
-            SpaceUpdateMetadata { fields, ..Default::default() },
+            SpaceUpdateMetadata {
+                fields,
+                ..Default::default()
+            },
         )
     }
 

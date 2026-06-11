@@ -1,6 +1,5 @@
-use crate::model::{CandidateError, CandidateValidationContext, MemberDeliveryBindingCandidate};
-
 use super::*;
+use crate::model::{CandidateError, CandidateValidationContext, MemberDeliveryBindingCandidate};
 
 /// Realm membership operations.
 impl Realm {
@@ -70,7 +69,12 @@ impl Realm {
             "delivery_binding_candidate": candidate,
         });
 
-        Ok(Operation::create(operation_id, self.realm_id()?, OP_INVITE_CREATE, payload))
+        Ok(Operation::create(
+            operation_id,
+            self.realm_id()?,
+            OP_INVITE_CREATE,
+            payload,
+        ))
     }
 
     /// Build a `member_add` (`ck.member.state{membership=join}`) operation
@@ -108,7 +112,12 @@ impl Realm {
             "handle": candidate.handle.canonical(),
         });
 
-        Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
+        Ok(Operation::create(
+            operation_id,
+            self.realm_id()?,
+            OP_MEMBER_STATE,
+            payload,
+        ))
     }
 
     /// Create a join operation for the current user to join this Realm.
@@ -131,7 +140,12 @@ impl Realm {
             "delivery_status": DeliveryStatus::Unroutable,
         });
 
-        Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
+        Ok(Operation::create(
+            operation_id,
+            self.realm_id()?,
+            OP_MEMBER_STATE,
+            payload,
+        ))
     }
 
     /// Create a `routable` join operation that carries a concrete
@@ -153,7 +167,12 @@ impl Realm {
             "delivery_binding": binding,
         });
 
-        Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
+        Ok(Operation::create(
+            operation_id,
+            self.realm_id()?,
+            OP_MEMBER_STATE,
+            payload,
+        ))
     }
 
     /// Create a leave operation for the current user to leave this Realm.
@@ -170,7 +189,12 @@ impl Realm {
             "membership": "leave",
         });
 
-        Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
+        Ok(Operation::create(
+            operation_id,
+            self.realm_id()?,
+            OP_MEMBER_STATE,
+            payload,
+        ))
     }
 
     /// Create a ban operation for a user in this Realm.
@@ -191,7 +215,12 @@ impl Realm {
             payload["reason"] = json!(reason);
         }
 
-        Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
+        Ok(Operation::create(
+            operation_id,
+            self.realm_id()?,
+            OP_MEMBER_STATE,
+            payload,
+        ))
     }
 
     /// Create an unban operation for a user in this Realm.
@@ -209,7 +238,12 @@ impl Realm {
             "membership": "invite",
         });
 
-        Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
+        Ok(Operation::create(
+            operation_id,
+            self.realm_id()?,
+            OP_MEMBER_STATE,
+            payload,
+        ))
     }
 }
 

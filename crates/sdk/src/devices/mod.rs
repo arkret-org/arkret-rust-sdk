@@ -3,16 +3,15 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use chrono::{DateTime, Duration, Utc};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use sha2::{Digest, Sha256};
-
 pub use cokret_crypto::{
     CrossSigningBinding, CrossSigningKeyKind, CrossSigningKeyRecord, CrossSigningPublishContent,
     CrossSigningResetContent, CrossSigningResetProof, DeviceBootstrapBinding,
     DeviceQuorumSignature, DeviceTrustBinding, DeviceTrustChainOutcome, SignedCrossSigningKey,
     cross_signing_publish_cell_subject,
 };
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use crate::{DeviceId, DeviceVerificationState, Did, Error, Result, canonical};
 

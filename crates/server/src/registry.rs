@@ -20,7 +20,11 @@ macro_rules! method_str {
 
 macro_rules! endpoint {
     ($operation_id:literal, $method:ident, $path:literal) => {
-        ServiceRoute { operation_id: $operation_id, method: method_str!($method), path: $path }
+        ServiceRoute {
+            operation_id: $operation_id,
+            method: method_str!($method),
+            path: $path,
+        }
     };
 }
 
@@ -39,20 +43,48 @@ pub(crate) struct ServiceRoute {
 // `artifacts/migration/removed-operation-ids.json` (e.g. the four `ck.admin.*`
 // operations removed on 2026-06-04 MUST NOT reappear here).
 const SERVICE_ROUTES: &[ServiceRoute] = &[
-    endpoint!("ck.gate.account.register", Post, "/_cokret/gate/account/register"),
-    endpoint!("ck.gate.account.device_pair", Post, "/_cokret/gate/account/device-pair"),
-    endpoint!("ck.gate.account.issue_session_grant", Post, "/_cokret/gate/account/session-grants"),
+    endpoint!(
+        "ck.gate.account.register",
+        Post,
+        "/_cokret/gate/account/register"
+    ),
+    endpoint!(
+        "ck.gate.account.device_pair",
+        Post,
+        "/_cokret/gate/account/device-pair"
+    ),
+    endpoint!(
+        "ck.gate.account.issue_session_grant",
+        Post,
+        "/_cokret/gate/account/session-grants"
+    ),
     endpoint!(
         "ck.gate.account.session_revoke",
         Post,
         "/_cokret/gate/account/session-grants/revoke"
     ),
-    endpoint!("ck.gate.account.agent_key_pair", Post, "/_cokret/gate/account/agent-key-pair"),
+    endpoint!(
+        "ck.gate.account.agent_key_pair",
+        Post,
+        "/_cokret/gate/account/agent-key-pair"
+    ),
     endpoint!("ck.self.agent.provision", Post, "/_cokret/self/agents"),
     endpoint!("ck.self.agent.list", Get, "/_cokret/self/agents"),
-    endpoint!("ck.self.agent.get", Get, "/_cokret/self/agents/{agent_principal_id}"),
-    endpoint!("ck.self.agent.pause", Post, "/_cokret/self/agents/{agent_principal_id}/pause"),
-    endpoint!("ck.self.agent.resume", Post, "/_cokret/self/agents/{agent_principal_id}/resume"),
+    endpoint!(
+        "ck.self.agent.get",
+        Get,
+        "/_cokret/self/agents/{agent_principal_id}"
+    ),
+    endpoint!(
+        "ck.self.agent.pause",
+        Post,
+        "/_cokret/self/agents/{agent_principal_id}/pause"
+    ),
+    endpoint!(
+        "ck.self.agent.resume",
+        Post,
+        "/_cokret/self/agents/{agent_principal_id}/resume"
+    ),
     endpoint!(
         "ck.self.agent.deactivate",
         Post,
@@ -88,54 +120,138 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         Get,
         "/_cokret/self/agents/{agent_principal_id}/participation"
     ),
-    endpoint!("ck.gate.account.oidc_callback", Post, "/_cokret/gate/account/oidc/callback"),
-    endpoint!("ck.edge.applet.describe", Get, "/_cokret/edge/applet/describe"),
-    endpoint!("ck.self.applet.install.preview", Post, "/_cokret/self/applets/install/preview"),
-    endpoint!("ck.self.applet.install", Post, "/_cokret/self/applets/install"),
+    endpoint!(
+        "ck.gate.account.oidc_callback",
+        Post,
+        "/_cokret/gate/account/oidc/callback"
+    ),
+    endpoint!(
+        "ck.edge.applet.describe",
+        Get,
+        "/_cokret/edge/applet/describe"
+    ),
+    endpoint!(
+        "ck.self.applet.install.preview",
+        Post,
+        "/_cokret/self/applets/install/preview"
+    ),
+    endpoint!(
+        "ck.self.applet.install",
+        Post,
+        "/_cokret/self/applets/install"
+    ),
     endpoint!("ck.edge.applet.ping", Get, "/_cokret/edge/applet/ping"),
-    endpoint!("ck.edge.applet.protocol_metadata", Get, "/_cokret/edge/applet/protocols/{protocol}"),
-    endpoint!("ck.edge.applet.resolve_actor", Get, "/_cokret/edge/applet/actors/{actor_id}"),
+    endpoint!(
+        "ck.edge.applet.protocol_metadata",
+        Get,
+        "/_cokret/edge/applet/protocols/{protocol}"
+    ),
+    endpoint!(
+        "ck.edge.applet.resolve_actor",
+        Get,
+        "/_cokret/edge/applet/actors/{actor_id}"
+    ),
     endpoint!(
         "ck.edge.applet.resolve_realm",
         Get,
         "/_cokret/edge/applet/realms/{realm_id_or_alias}"
     ),
-    endpoint!("ck.self.applet.revoke", Post, "/_cokret/self/applets/{applet_id}/revoke"),
+    endpoint!(
+        "ck.self.applet.revoke",
+        Post,
+        "/_cokret/self/applets/{applet_id}/revoke"
+    ),
     endpoint!(
         "ck.edge.applet.third_party_locations",
         Get,
         "/_cokret/edge/applet/third_party/locations"
     ),
-    endpoint!("ck.edge.applet.third_party_users", Get, "/_cokret/edge/applet/third_party/users"),
-    endpoint!("ck.edge.applet.transaction", Post, "/_cokret/edge/applet/transactions"),
+    endpoint!(
+        "ck.edge.applet.third_party_users",
+        Get,
+        "/_cokret/edge/applet/third_party/users"
+    ),
+    endpoint!(
+        "ck.edge.applet.transaction",
+        Post,
+        "/_cokret/edge/applet/transactions"
+    ),
     endpoint!("ck.self.authz.check", Post, "/_cokret/self/authz/check"),
-    endpoint!("ck.self.authz.get_effective_grants", Get, "/_cokret/self/authz/effective-grants"),
-    endpoint!("ck.self.authz.get_invites", Get, "/_cokret/self/authz/invites"),
+    endpoint!(
+        "ck.self.authz.get_effective_grants",
+        Get,
+        "/_cokret/self/authz/effective-grants"
+    ),
+    endpoint!(
+        "ck.self.authz.get_invites",
+        Get,
+        "/_cokret/self/authz/invites"
+    ),
     endpoint!("ck.self.blob.get", Get, "/_cokret/self/blob/get"),
     endpoint!("ck.self.blob.head", Head, "/_cokret/self/blob/get"),
     endpoint!("ck.self.blob.upload", Post, "/_cokret/self/blob/upload"),
     endpoint!("ck.self.blob.presign", Post, "/_cokret/self/blob/presign"),
-    endpoint!("ck.self.device_messages.get", Get, "/_cokret/self/device_messages"),
-    endpoint!("ck.self.device_messages.put", Post, "/_cokret/self/device_messages"),
-    endpoint!("ck.self.contact.request", Post, "/_cokret/self/contacts/request"),
-    endpoint!("ck.self.contact.respond", Post, "/_cokret/self/contacts/respond"),
+    endpoint!(
+        "ck.self.device_messages.get",
+        Get,
+        "/_cokret/self/device_messages"
+    ),
+    endpoint!(
+        "ck.self.device_messages.put",
+        Post,
+        "/_cokret/self/device_messages"
+    ),
+    endpoint!(
+        "ck.self.contact.request",
+        Post,
+        "/_cokret/self/contacts/request"
+    ),
+    endpoint!(
+        "ck.self.contact.respond",
+        Post,
+        "/_cokret/self/contacts/respond"
+    ),
     endpoint!("ck.self.contact.list", Get, "/_cokret/self/contacts"),
-    endpoint!("ck.self.contact.tombstone", Post, "/_cokret/self/contacts/tombstone"),
-    endpoint!("ck.self.invite_receive_policy.get", Get, "/_cokret/self/invite-receive-policy"),
-    endpoint!("ck.self.invite_receive_policy.set", Post, "/_cokret/self/invite-receive-policy"),
+    endpoint!(
+        "ck.self.contact.tombstone",
+        Post,
+        "/_cokret/self/contacts/tombstone"
+    ),
+    endpoint!(
+        "ck.self.invite_receive_policy.get",
+        Get,
+        "/_cokret/self/invite-receive-policy"
+    ),
+    endpoint!(
+        "ck.self.invite_receive_policy.set",
+        Post,
+        "/_cokret/self/invite-receive-policy"
+    ),
     endpoint!(
         "ck.self.direct_conversation.resolve",
         Post,
         "/_cokret/self/direct-conversations/resolve"
     ),
-    endpoint!("ck.find.directory.announce", Post, "/_cokret/find/directory/announce"),
-    endpoint!("ck.find.directory.describe", Get, "/_cokret/find/directory/describe"),
+    endpoint!(
+        "ck.find.directory.announce",
+        Post,
+        "/_cokret/find/directory/announce"
+    ),
+    endpoint!(
+        "ck.find.directory.describe",
+        Get,
+        "/_cokret/find/directory/describe"
+    ),
     endpoint!(
         "ck.find.directory.private_contact_discovery",
         Post,
         "/_cokret/find/directory/private-contact-discovery"
     ),
-    endpoint!("ck.find.directory.resolve_handle", Post, "/_cokret/find/directory/resolve-handle"),
+    endpoint!(
+        "ck.find.directory.resolve_handle",
+        Post,
+        "/_cokret/find/directory/resolve-handle"
+    ),
     endpoint!(
         "ck.find.directory.list_handles_for_subject",
         Post,
@@ -146,42 +262,130 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         Post,
         "/_cokret/find/directory/resolve-organization"
     ),
-    endpoint!("ck.find.directory.resolve_realm", Post, "/_cokret/find/directory/resolve-realm"),
-    endpoint!("ck.find.directory.resolve_target", Post, "/_cokret/find/directory/resolve-target"),
-    endpoint!("ck.find.directory.search_actors", Post, "/_cokret/find/directory/search-actors"),
+    endpoint!(
+        "ck.find.directory.resolve_realm",
+        Post,
+        "/_cokret/find/directory/resolve-realm"
+    ),
+    endpoint!(
+        "ck.find.directory.resolve_target",
+        Post,
+        "/_cokret/find/directory/resolve-target"
+    ),
+    endpoint!(
+        "ck.find.directory.search_actors",
+        Post,
+        "/_cokret/find/directory/search-actors"
+    ),
     endpoint!(
         "ck.find.directory.search_organizations",
         Post,
         "/_cokret/find/directory/search-organizations"
     ),
-    endpoint!("ck.find.directory.search_realms", Post, "/_cokret/find/directory/search-realms"),
-    endpoint!("ck.find.directory.search_users", Post, "/_cokret/find/directory/search-users"),
-    endpoint!("ck.find.directory.push.register", Post, "/_cokret/find/directory/push/register"),
-    endpoint!("ck.find.directory.withdraw", Post, "/_cokret/find/directory/withdraw"),
-    endpoint!("ck.self.events.describe", Get, "/_cokret/self/events/describe"),
-    endpoint!("ck.self.events.frontier", Get, "/_cokret/self/events/frontier"),
+    endpoint!(
+        "ck.find.directory.search_realms",
+        Post,
+        "/_cokret/find/directory/search-realms"
+    ),
+    endpoint!(
+        "ck.find.directory.search_users",
+        Post,
+        "/_cokret/find/directory/search-users"
+    ),
+    endpoint!(
+        "ck.find.directory.push.register",
+        Post,
+        "/_cokret/find/directory/push/register"
+    ),
+    endpoint!(
+        "ck.find.directory.withdraw",
+        Post,
+        "/_cokret/find/directory/withdraw"
+    ),
+    endpoint!(
+        "ck.self.events.describe",
+        Get,
+        "/_cokret/self/events/describe"
+    ),
+    endpoint!(
+        "ck.self.events.frontier",
+        Get,
+        "/_cokret/self/events/frontier"
+    ),
     endpoint!("ck.self.events.get", Get, "/_cokret/self/events/{event_id}"),
     endpoint!("ck.self.events.query", Get, "/_cokret/self/events"),
-    endpoint!("ck.self.events.query_post", Post, "/_cokret/self/events/query"),
-    endpoint!("ck.self.events.resolve", Post, "/_cokret/self/events/resolve"),
-    endpoint!("ck.self.events.subscribe", Get, "/_cokret/self/events/subscribe"),
+    endpoint!(
+        "ck.self.events.query_post",
+        Post,
+        "/_cokret/self/events/query"
+    ),
+    endpoint!(
+        "ck.self.events.resolve",
+        Post,
+        "/_cokret/self/events/resolve"
+    ),
+    endpoint!(
+        "ck.self.events.subscribe",
+        Get,
+        "/_cokret/self/events/subscribe"
+    ),
     endpoint!("ck.self.events.submit", Post, "/_cokret/self/events"),
-    endpoint!("ck.peer.events.describe", Get, "/_cokret/peer/events/describe"),
-    endpoint!("ck.peer.events.frontier", Get, "/_cokret/peer/events/frontier"),
+    endpoint!(
+        "ck.peer.events.describe",
+        Get,
+        "/_cokret/peer/events/describe"
+    ),
+    endpoint!(
+        "ck.peer.events.frontier",
+        Get,
+        "/_cokret/peer/events/frontier"
+    ),
     endpoint!("ck.peer.events.query", Get, "/_cokret/peer/events"),
-    endpoint!("ck.peer.events.query_post", Post, "/_cokret/peer/events/query"),
-    endpoint!("ck.peer.events.resolve", Post, "/_cokret/peer/events/resolve"),
+    endpoint!(
+        "ck.peer.events.query_post",
+        Post,
+        "/_cokret/peer/events/query"
+    ),
+    endpoint!(
+        "ck.peer.events.resolve",
+        Post,
+        "/_cokret/peer/events/resolve"
+    ),
     endpoint!("ck.peer.events.submit", Post, "/_cokret/peer/events"),
     endpoint!("ck.peer.invites.submit", Post, "/_cokret/peer/invites"),
     endpoint!("ck.peer.contacts.submit", Post, "/_cokret/peer/contacts"),
     endpoint!("ck.peer.snapshot.head", Get, "/_cokret/peer/snapshot/head"),
     endpoint!("ck.self.ephemeral.send", Post, "/_cokret/self/ephemeral"),
-    endpoint!("ck.self.call.media.token_exchange", Post, "/_cokret/self/rtc/token"),
-    endpoint!("ck.root.identity.describe_registry", Get, "/_cokret/root/identity/describe"),
-    endpoint!("ck.root.identity.get_document", Get, "/_cokret/root/identity/document"),
-    endpoint!("ck.root.identity.get_log", Get, "/_cokret/root/identity/log"),
-    endpoint!("ck.root.identity.get_receipts", Get, "/_cokret/root/identity/receipts"),
-    endpoint!("ck.root.identity.resolve", Post, "/_cokret/root/identity/resolve"),
+    endpoint!(
+        "ck.self.call.media.token_exchange",
+        Post,
+        "/_cokret/self/rtc/token"
+    ),
+    endpoint!(
+        "ck.root.identity.describe_registry",
+        Get,
+        "/_cokret/root/identity/describe"
+    ),
+    endpoint!(
+        "ck.root.identity.get_document",
+        Get,
+        "/_cokret/root/identity/document"
+    ),
+    endpoint!(
+        "ck.root.identity.get_log",
+        Get,
+        "/_cokret/root/identity/log"
+    ),
+    endpoint!(
+        "ck.root.identity.get_receipts",
+        Get,
+        "/_cokret/root/identity/receipts"
+    ),
+    endpoint!(
+        "ck.root.identity.resolve",
+        Post,
+        "/_cokret/root/identity/resolve"
+    ),
     endpoint!(
         "ck.root.identity.submit_did_operation",
         Post,
@@ -208,43 +412,171 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/root/identity/recovery-sessions/{recovery_session_id}/complete"
     ),
     endpoint!("ck.self.keys.claim", Post, "/_cokret/self/keys/claim"),
-    endpoint!("ck.self.keys.backups.delete", Delete, "/_cokret/self/keys/backups/{backup_id}"),
-    endpoint!("ck.self.keys.backups.list", Get, "/_cokret/self/keys/backups"),
-    endpoint!("ck.self.keys.backups.put", Put, "/_cokret/self/keys/backups/{backup_id}"),
-    endpoint!("ck.self.keys.backups.unlock", Post, "/_cokret/self/keys/backups/{backup_id}/unlock"),
-    endpoint!("ck.self.keys.keypackages.claim", Post, "/_cokret/self/keys/keypackages/claim"),
-    endpoint!("ck.self.keys.keypackages.consume", Post, "/_cokret/self/keys/keypackages/consume"),
-    endpoint!("ck.self.keys.keypackages.revoke", Post, "/_cokret/self/keys/keypackages/revoke"),
-    endpoint!("ck.self.keys.keypackages.upload", Post, "/_cokret/self/keys/keypackages/upload"),
+    endpoint!(
+        "ck.self.keys.backups.delete",
+        Delete,
+        "/_cokret/self/keys/backups/{backup_id}"
+    ),
+    endpoint!(
+        "ck.self.keys.backups.list",
+        Get,
+        "/_cokret/self/keys/backups"
+    ),
+    endpoint!(
+        "ck.self.keys.backups.put",
+        Put,
+        "/_cokret/self/keys/backups/{backup_id}"
+    ),
+    endpoint!(
+        "ck.self.keys.backups.unlock",
+        Post,
+        "/_cokret/self/keys/backups/{backup_id}/unlock"
+    ),
+    endpoint!(
+        "ck.self.keys.keypackages.claim",
+        Post,
+        "/_cokret/self/keys/keypackages/claim"
+    ),
+    endpoint!(
+        "ck.self.keys.keypackages.consume",
+        Post,
+        "/_cokret/self/keys/keypackages/consume"
+    ),
+    endpoint!(
+        "ck.self.keys.keypackages.revoke",
+        Post,
+        "/_cokret/self/keys/keypackages/revoke"
+    ),
+    endpoint!(
+        "ck.self.keys.keypackages.upload",
+        Post,
+        "/_cokret/self/keys/keypackages/upload"
+    ),
     endpoint!("ck.self.keys.query", Post, "/_cokret/self/keys/query"),
     endpoint!("ck.self.keys.upload", Post, "/_cokret/self/keys/upload"),
-    endpoint!("ck.self.media.ice_config", Post, "/_cokret/self/rtc/ice-config"),
-    endpoint!("ck.open.invite_locator.resolve", Post, "/_cokret/open/invite-locators/resolve"),
-    endpoint!("ck.open.mimi.group_info", Get, "/_cokret/open/mimi/flows/{flow_id}/group-info"),
-    endpoint!("ck.open.mimi.identifier_query", Post, "/_cokret/open/mimi/identifiers/query"),
-    endpoint!("ck.open.mimi.key_material", Post, "/_cokret/open/mimi/key-material"),
-    endpoint!("ck.open.mimi.notify", Post, "/_cokret/open/mimi/flows/{flow_id}/notify"),
-    endpoint!("ck.open.mimi.provider_directory", Get, "/_cokret/open/mimi/provider-directory"),
-    endpoint!("ck.open.mimi.proxy_download", Post, "/_cokret/open/mimi/proxy-download"),
-    endpoint!("ck.open.mimi.report_abuse", Post, "/_cokret/open/mimi/report-abuse"),
-    endpoint!("ck.open.mimi.request_consent", Post, "/_cokret/open/mimi/consent/request"),
-    endpoint!("ck.open.mimi.room_update", Put, "/_cokret/open/mimi/flows/{flow_id}/update"),
-    endpoint!("ck.open.mimi.submit_message", Post, "/_cokret/open/mimi/flows/{flow_id}/messages"),
-    endpoint!("ck.open.mimi.update_consent", Post, "/_cokret/open/mimi/consent/update"),
-    endpoint!("ck.self.moderation.report", Post, "/_cokret/self/moderation/report"),
+    endpoint!(
+        "ck.self.media.ice_config",
+        Post,
+        "/_cokret/self/rtc/ice-config"
+    ),
+    endpoint!(
+        "ck.open.invite_locator.resolve",
+        Post,
+        "/_cokret/open/invite-locators/resolve"
+    ),
+    endpoint!(
+        "ck.open.mimi.group_info",
+        Get,
+        "/_cokret/open/mimi/flows/{flow_id}/group-info"
+    ),
+    endpoint!(
+        "ck.open.mimi.identifier_query",
+        Post,
+        "/_cokret/open/mimi/identifiers/query"
+    ),
+    endpoint!(
+        "ck.open.mimi.key_material",
+        Post,
+        "/_cokret/open/mimi/key-material"
+    ),
+    endpoint!(
+        "ck.open.mimi.notify",
+        Post,
+        "/_cokret/open/mimi/flows/{flow_id}/notify"
+    ),
+    endpoint!(
+        "ck.open.mimi.provider_directory",
+        Get,
+        "/_cokret/open/mimi/provider-directory"
+    ),
+    endpoint!(
+        "ck.open.mimi.proxy_download",
+        Post,
+        "/_cokret/open/mimi/proxy-download"
+    ),
+    endpoint!(
+        "ck.open.mimi.report_abuse",
+        Post,
+        "/_cokret/open/mimi/report-abuse"
+    ),
+    endpoint!(
+        "ck.open.mimi.request_consent",
+        Post,
+        "/_cokret/open/mimi/consent/request"
+    ),
+    endpoint!(
+        "ck.open.mimi.room_update",
+        Put,
+        "/_cokret/open/mimi/flows/{flow_id}/update"
+    ),
+    endpoint!(
+        "ck.open.mimi.submit_message",
+        Post,
+        "/_cokret/open/mimi/flows/{flow_id}/messages"
+    ),
+    endpoint!(
+        "ck.open.mimi.update_consent",
+        Post,
+        "/_cokret/open/mimi/consent/update"
+    ),
+    endpoint!(
+        "ck.self.moderation.report",
+        Post,
+        "/_cokret/self/moderation/report"
+    ),
     endpoint!("ck.self.policy.check", Post, "/_cokret/self/policy/check"),
-    endpoint!("ck.self.projection.flows", Get, "/_cokret/self/projection/flows"),
-    endpoint!("ck.self.projection.morphs", Get, "/_cokret/self/projection/morphs"),
-    endpoint!("ck.self.projection.spaces", Get, "/_cokret/self/projection/spaces"),
+    endpoint!(
+        "ck.self.projection.flows",
+        Get,
+        "/_cokret/self/projection/flows"
+    ),
+    endpoint!(
+        "ck.self.projection.morphs",
+        Get,
+        "/_cokret/self/projection/morphs"
+    ),
+    endpoint!(
+        "ck.self.projection.spaces",
+        Get,
+        "/_cokret/self/projection/spaces"
+    ),
     endpoint!("ck.edge.push.notify", Post, "/_cokret/edge/push/notify"),
-    endpoint!("ck.edge.push.register_device", Post, "/_cokret/edge/push/register-device"),
-    endpoint!("ck.edge.push.unregister_device", Post, "/_cokret/edge/push/unregister-device"),
+    endpoint!(
+        "ck.edge.push.register_device",
+        Post,
+        "/_cokret/edge/push/register-device"
+    ),
+    endpoint!(
+        "ck.edge.push.unregister_device",
+        Post,
+        "/_cokret/edge/push/unregister-device"
+    ),
     endpoint!("ck.server.describe", Get, "/_cokret/describe"),
-    endpoint!("ck.self.account.describe", Get, "/_cokret/self/account/describe"),
-    endpoint!("ck.self.account.viewer", Get, "/_cokret/self/account/viewer"),
-    endpoint!("ck.self.account.update_profile", Post, "/_cokret/self/account/profile"),
-    endpoint!("ck.self.account.subscribe", Get, "/_cokret/self/account/subscribe"),
-    endpoint!("ck.self.account.cursor_revoke", Post, "/_cokret/self/account/cursor/revoke"),
+    endpoint!(
+        "ck.self.account.describe",
+        Get,
+        "/_cokret/self/account/describe"
+    ),
+    endpoint!(
+        "ck.self.account.viewer",
+        Get,
+        "/_cokret/self/account/viewer"
+    ),
+    endpoint!(
+        "ck.self.account.update_profile",
+        Post,
+        "/_cokret/self/account/profile"
+    ),
+    endpoint!(
+        "ck.self.account.subscribe",
+        Get,
+        "/_cokret/self/account/subscribe"
+    ),
+    endpoint!(
+        "ck.self.account.cursor_revoke",
+        Post,
+        "/_cokret/self/account/cursor/revoke"
+    ),
     endpoint!("ck.self.snapshot.head", Get, "/_cokret/self/snapshot/head"),
 ];
 
@@ -367,7 +699,10 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             method: "GET".to_owned(),
             path: "/_cokret/peer/events".to_owned(),
             query: BTreeMap::from([
-                ("realms".to_owned(), "ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                (
+                    "realms".to_owned(),
+                    "ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+                ),
                 ("after".to_owned(), "ck:cursor:expired".to_owned()),
             ]),
             headers: BTreeMap::new(),

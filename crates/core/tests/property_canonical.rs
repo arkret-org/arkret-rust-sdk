@@ -2,14 +2,13 @@
 //!
 //! Pins the *byte-stability* invariant of the canonical-JSON profile:
 //!
-//!  * Object-key order in the source value MUST NOT change the
-//!    output (we shuffle keys via `BTreeMap` round-trips).
-//!  * Repeated calls on the same logical value yield byte-identical
-//!    output.
-//!  * Unicode strings (BMP, supplementary plane, ZWJ sequences) survive
-//!    the canonical round-trip without re-encoding tricks.
-//!  * Unknown / extra fields are preserved (canonical is not a schema
-//!    filter — only the encoding shape is normalised).
+//!  * Object-key order in the source value MUST NOT change the output (we shuffle keys via
+//!    `BTreeMap` round-trips).
+//!  * Repeated calls on the same logical value yield byte-identical output.
+//!  * Unicode strings (BMP, supplementary plane, ZWJ sequences) survive the canonical round-trip
+//!    without re-encoding tricks.
+//!  * Unknown / extra fields are preserved (canonical is not a schema filter — only the encoding
+//!    shape is normalised).
 //!
 //! These guarantees are the foundation for cross-service
 //! `payload_digest` agreement: if two services serialise the same logical

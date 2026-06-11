@@ -247,7 +247,9 @@ impl Realm {
 
     /// Look up the active [`RelationProfile`] for a given `relation_kind`.
     pub fn relation_profile(&self, relation_kind: &str) -> Option<&RelationProfile> {
-        self.relation_profiles.iter().find(|profile| profile.relation_kind == relation_kind)
+        self.relation_profiles
+            .iter()
+            .find(|profile| profile.relation_kind == relation_kind)
     }
 
     /// Validate spec-level Realm invariants.
@@ -449,7 +451,10 @@ pub struct ObjectMetadata {
 
 impl ObjectMetadata {
     pub fn with_title(title: impl Into<String>) -> Self {
-        Self { title: Some(title.into()), ..Self::default() }
+        Self {
+            title: Some(title.into()),
+            ..Self::default()
+        }
     }
 }
 
@@ -520,7 +525,10 @@ pub struct Flow {
 impl Flow {
     pub fn new(id: FlowId, realm_id: RealmId, title: impl Into<String>, created_by: Did) -> Self {
         let mut tracks = BTreeMap::new();
-        tracks.insert(FLOW_TRACK_NAME_SYNTHESIS.to_owned(), FlowTrackConfig::synthesis());
+        tracks.insert(
+            FLOW_TRACK_NAME_SYNTHESIS.to_owned(),
+            FlowTrackConfig::synthesis(),
+        );
         Self {
             id,
             schema: FLOW_SCHEMA.to_owned(),
@@ -544,16 +552,22 @@ impl Flow {
     }
 
     pub fn with_metadata_title(mut self, title: impl Into<String>) -> Self {
-        self.metadata.get_or_insert_with(FlowMetadata::default).title = Some(title.into());
+        self.metadata
+            .get_or_insert_with(FlowMetadata::default)
+            .title = Some(title.into());
         self
     }
 
     pub fn metadata_title(&self) -> Option<&str> {
-        self.metadata.as_ref().and_then(|metadata| metadata.title.as_deref())
+        self.metadata
+            .as_ref()
+            .and_then(|metadata| metadata.title.as_deref())
     }
 
     pub fn metadata_summary(&self) -> Option<&str> {
-        self.metadata.as_ref().and_then(|metadata| metadata.summary.as_deref())
+        self.metadata
+            .as_ref()
+            .and_then(|metadata| metadata.summary.as_deref())
     }
 
     pub fn metadata_fields(&self) -> Option<&BTreeMap<String, Value>> {
@@ -569,8 +583,14 @@ impl Flow {
     ) -> Self {
         let mut flow = Self::new(id, realm_id, title, created_by);
         let mut tracks = BTreeMap::new();
-        tracks.insert(FLOW_TRACK_NAME_SYNTHESIS.to_owned(), FlowTrackConfig::synthesis());
-        tracks.insert(FLOW_TRACK_NAME_DISCUSSION.to_owned(), FlowTrackConfig::discussion_primary());
+        tracks.insert(
+            FLOW_TRACK_NAME_SYNTHESIS.to_owned(),
+            FlowTrackConfig::synthesis(),
+        );
+        tracks.insert(
+            FLOW_TRACK_NAME_DISCUSSION.to_owned(),
+            FlowTrackConfig::discussion_primary(),
+        );
         flow.tracks = tracks;
         flow
     }
@@ -583,7 +603,10 @@ impl Flow {
     }
 
     pub fn validate_title(&self) -> Result<()> {
-        if self.metadata_title().is_none_or(|title| title.trim().is_empty()) {
+        if self
+            .metadata_title()
+            .is_none_or(|title| title.trim().is_empty())
+        {
             return Err(Error::Protocol("flow title must not be empty".to_owned()));
         }
         if self.tracks.is_empty() {
@@ -671,10 +694,9 @@ pub struct RelationEdgeRef<'a> {
 /// when the candidate edge would breach the cardinality rule.
 ///
 /// Cardinality rules:
-/// - `OneToOne` — a Space MAY contain at most one edge per `from` and
-///   per `to` for the given `relation_kind`.
-/// - `OneToMany` — many `to` per `from` are fine, but each `to` MUST
-///   have at most one `from`.
+/// - `OneToOne` — a Space MAY contain at most one edge per `from` and per `to` for the given
+///   `relation_kind`.
+/// - `OneToMany` — many `to` per `from` are fine, but each `to` MUST have at most one `from`.
 /// - `ManyToMany` — always permitted.
 pub fn enforce_relation_cardinality(
     profile: &RelationProfile,
@@ -717,7 +739,9 @@ pub fn enforce_relation_cardinality(
 impl Relation {
     pub fn validate_endpoints(&self) -> Result<()> {
         if self.from_ref.trim().is_empty() || self.to_ref.trim().is_empty() {
-            Err(Error::Protocol("relation requires non-empty from_ref and to_ref".to_owned()))
+            Err(Error::Protocol(
+                "relation requires non-empty from_ref and to_ref".to_owned(),
+            ))
         } else {
             Ok(())
         }

@@ -7,21 +7,19 @@
 //! other on a shared host.
 //!
 //! Implementation notes:
-//! - Items are written as **generic passwords** (`SecGenericPasswordItem`)
-//!   keyed on `(service, account)` where `service` is the namespaced
-//!   service-name and `account` is the caller-supplied key id.
-//! - `list()` enumerates all generic-password items whose service field
-//!   equals our service name.
-//! - `delete()` is idempotent — a "not found" error from the underlying
-//!   `delete_generic_password` is swallowed.
+//! - Items are written as **generic passwords** (`SecGenericPasswordItem`) keyed on `(service,
+//!   account)` where `service` is the namespaced service-name and `account` is the caller-supplied
+//!   key id.
+//! - `list()` enumerates all generic-password items whose service field equals our service name.
+//! - `delete()` is idempotent — a "not found" error from the underlying `delete_generic_password`
+//!   is swallowed.
 
+use cokret_core::Result;
+use cokret_core::keystore::{service_name, validate_id};
 use security_framework::base::Error as SfError;
 use security_framework::passwords::{
     delete_generic_password, get_generic_password, set_generic_password,
 };
-
-use cokret_core::Result;
-use cokret_core::keystore::{service_name, validate_id};
 
 use crate::{KeyStore, KeyStoreError};
 
@@ -43,9 +41,13 @@ impl MacOsKeychainKeyStore {
     /// session is acquired lazily on each call.
     pub fn new(application_id: &str) -> std::result::Result<Self, KeyStoreError> {
         if application_id.is_empty() {
-            return Err(KeyStoreError::invalid_id("application_id must be non-empty"));
+            return Err(KeyStoreError::invalid_id(
+                "application_id must be non-empty",
+            ));
         }
-        Ok(Self { service: service_name(application_id) })
+        Ok(Self {
+            service: service_name(application_id),
+        })
     }
 
     /// Service-name prefix used by this keystore (testing hook).
@@ -145,7 +147,10 @@ mod tests {
 
     fn uuid_like() -> String {
         use std::time::{SystemTime, UNIX_EPOCH};
-        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         format!("{nanos:x}")
     }
 

@@ -7,7 +7,10 @@ use serde_json::json;
 
 #[test]
 fn builtin_operation_ids_are_unique() {
-    let ids = cokret_core::BUILT_IN_OPERATION_KINDS.iter().copied().collect::<BTreeSet<_>>();
+    let ids = cokret_core::BUILT_IN_OPERATION_KINDS
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
     assert_eq!(ids.len(), cokret_core::BUILT_IN_OPERATION_KINDS.len());
 }
 
@@ -32,11 +35,19 @@ fn core_registry_matches_spec_operation_registry_when_available() {
                 .unwrap_or_else(|| panic!("operation without operation_id in {}", path.display()))
         })
         .collect::<BTreeSet<_>>();
-    let builtin_ids =
-        cokret_core::BUILT_IN_OPERATION_KINDS.iter().copied().collect::<BTreeSet<_>>();
+    let builtin_ids = cokret_core::BUILT_IN_OPERATION_KINDS
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
 
-    let missing_from_core = spec_ids.difference(&builtin_ids).copied().collect::<Vec<_>>();
-    let extra_in_core = builtin_ids.difference(&spec_ids).copied().collect::<Vec<_>>();
+    let missing_from_core = spec_ids
+        .difference(&builtin_ids)
+        .copied()
+        .collect::<Vec<_>>();
+    let extra_in_core = builtin_ids
+        .difference(&spec_ids)
+        .copied()
+        .collect::<Vec<_>>();
 
     assert!(
         missing_from_core.is_empty(),
@@ -81,8 +92,15 @@ fn push_bridge_describe_serde_shape_is_stable() {
     let response: crate::push::PushBridgeDescribeOutcome =
         serde_json::from_value(value).expect("push bridge shape decodes");
     assert!(response.warn_on_spec_version_mismatch());
-    assert!(response.gateway.supports_auth_mode("HTTP-Message-Signature"));
-    assert_eq!(response.notify.dedup_window(), Some(std::time::Duration::from_secs(300)));
+    assert!(
+        response
+            .gateway
+            .supports_auth_mode("HTTP-Message-Signature")
+    );
+    assert_eq!(
+        response.notify.dedup_window(),
+        Some(std::time::Duration::from_secs(300))
+    );
 
     let encoded = serde_json::to_value(&response).expect("push bridge shape encodes");
     assert!(encoded.get("api_base_path").is_some());
@@ -101,8 +119,16 @@ fn identity_resolve_keeps_did_document_wire_names() {
     let encoded = serde_json::to_value(response).expect("identity resolve encodes");
 
     assert_eq!(encoded["did_document"]["did"], "did:web:alice.example");
-    assert!(encoded["did_document"]["document"].get("verificationMethod").is_some());
-    assert!(encoded["did_document"]["document"].get("verification_methods").is_none());
+    assert!(
+        encoded["did_document"]["document"]
+            .get("verificationMethod")
+            .is_some()
+    );
+    assert!(
+        encoded["did_document"]["document"]
+            .get("verification_methods")
+            .is_none()
+    );
     assert!(encoded.get("method_evidence").is_none());
 }
 
@@ -127,13 +153,20 @@ fn federation_envelope_serde_shape_uses_contract_hashes() {
         payload,
     )
     .expect("envelope builds");
-    envelope.validate_digest().expect("content digest matches payload");
+    envelope
+        .validate_digest()
+        .expect("content digest matches payload");
 
     let encoded = serde_json::to_value(&envelope).expect("federation envelope encodes");
     assert_eq!(encoded["transaction_id"], "txn-1");
     assert!(encoded.get("origin").is_some());
     assert!(encoded.get("destination").is_some());
-    assert!(encoded["content_digest"].as_str().unwrap().starts_with("sha256:"));
+    assert!(
+        encoded["content_digest"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:")
+    );
     assert!(encoded.get("signature").is_none());
 
     let replay = crate::federation::FederationReplayRecord {
@@ -145,7 +178,12 @@ fn federation_envelope_serde_shape_uses_contract_hashes() {
         first_seen_at: Utc::now(),
     };
     let replay_shape = serde_json::to_value(replay).expect("replay record encodes");
-    assert!(replay_shape["content_digest"].as_str().unwrap().starts_with("sha256:"));
+    assert!(
+        replay_shape["content_digest"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:")
+    );
 }
 
 #[cfg(feature = "salvo")]

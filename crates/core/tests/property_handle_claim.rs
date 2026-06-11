@@ -2,17 +2,15 @@
 //!
 //! Pins three classes of invariant:
 //!
-//!  1. **Handle canonicalisation is idempotent.** Parsing a well-formed
-//!     `<localpart>:<domain>` handle then formatting it MUST yield the
-//!     same string. Lower-casing of localpart + domain MUST be applied
-//!     consistently.
-//!  2. **`acct:` round-trips synthesise the canonical form.** Any
-//!     valid `acct:` is convertible to canonical and back to `acct:`
-//!     without information loss.
-//!  3. **`HandleClaim::validate` enforces conditional required fields.**
-//!     If `binding_state=verified`, both `handle` and `expires_at`
-//!     MUST be present. If `member_delivery_binding` is present, both
-//!     `handle` + `audience` + `expires_at` MUST also be present.
+//!  1. **Handle canonicalisation is idempotent.** Parsing a well-formed `<localpart>:<domain>`
+//!     handle then formatting it MUST yield the same string. Lower-casing of localpart + domain
+//!     MUST be applied consistently.
+//!  2. **`acct:` round-trips synthesise the canonical form.** Any valid `acct:` is convertible to
+//!     canonical and back to `acct:` without information loss.
+//!  3. **`HandleClaim::validate` enforces conditional required fields.** If
+//!     `binding_state=verified`, both `handle` and `expires_at` MUST be present. If
+//!     `member_delivery_binding` is present, both `handle` + `audience` + `expires_at` MUST also be
+//!     present.
 
 use chrono::{Duration, Utc};
 use cokret_core::Did;

@@ -15,10 +15,18 @@ pub enum RichTextFormat {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RichTextBlock {
-    Heading { level: u8, text: String },
+    Heading {
+        level: u8,
+        text: String,
+    },
     Paragraph(String),
-    CodeBlock { language: Option<String>, code: String },
-    List { items: Vec<String> },
+    CodeBlock {
+        language: Option<String>,
+        code: String,
+    },
+    List {
+        items: Vec<String>,
+    },
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,8 +58,11 @@ impl MarkdownDocument {
                 } else {
                     flush_paragraph(&mut blocks, &mut paragraph);
                     flush_list(&mut blocks, &mut list);
-                    code_language =
-                        if fence.trim().is_empty() { None } else { Some(fence.trim().to_owned()) };
+                    code_language = if fence.trim().is_empty() {
+                        None
+                    } else {
+                        Some(fence.trim().to_owned())
+                    };
                     in_code = true;
                 }
                 continue;
@@ -80,8 +91,10 @@ impl MarkdownDocument {
         }
 
         if in_code {
-            blocks
-                .push(RichTextBlock::CodeBlock { language: code_language, code: code.join("\n") });
+            blocks.push(RichTextBlock::CodeBlock {
+                language: code_language,
+                code: code.join("\n"),
+            });
         }
         flush_paragraph(&mut blocks, &mut paragraph);
         flush_list(&mut blocks, &mut list);
@@ -193,7 +206,9 @@ impl RichTextDocument {
 
 pub fn sanitize_html(input: &str) -> Result<String> {
     if input.len() > 256 * 1024 {
-        return Err(Error::Protocol("rich text HTML exceeds sanitizer limit".to_owned()));
+        return Err(Error::Protocol(
+            "rich text HTML exceeds sanitizer limit".to_owned(),
+        ));
     }
     let input = remove_dangerous_blocks(input);
     let mut output = String::with_capacity(input.len());
@@ -251,7 +266,13 @@ pub fn parse_mentions(text: &str) -> Vec<Mention> {
         if index > token_start {
             let token = text[token_start..index].to_owned();
             let (target_kind, target_ref) = classify_mention_token(&token);
-            mentions.push(Mention { token, start, end: index, target_kind, target_ref });
+            mentions.push(Mention {
+                token,
+                start,
+                end: index,
+                target_kind,
+                target_ref,
+            });
         }
     }
     mentions
@@ -314,9 +335,10 @@ fn sanitize_tag(raw_tag: &str) -> String {
     }
     if tag == "code"
         && let Some(class) = extract_attr(content, "class").filter(|value| {
-            value
-                .strip_prefix("language-")
-                .is_some_and(|name| name.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '-'))
+            value.strip_prefix("language-").is_some_and(|name| {
+                name.chars()
+                    .all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
+            })
         })
     {
         return format!("<code class=\"{}\">", escape_html(&class));
@@ -410,7 +432,10 @@ fn classify_mention_token(token: &str) -> (Option<MentionTarget>, Option<String>
         token.to_ascii_lowercase().as_str(),
         "all" | "participants" | "watchers" | "here" | "assigned" | "assignees"
     ) {
-        (Some(MentionTarget::Audience), Some(token.to_ascii_lowercase()))
+        (
+            Some(MentionTarget::Audience),
+            Some(token.to_ascii_lowercase()),
+        )
     } else if token.starts_with("did:") {
         (Some(MentionTarget::Actor), Some(token.to_owned()))
     } else if token.starts_with("ck:space:") {
@@ -431,8 +456,10 @@ fn render_inline(text: &str) -> String {
     for preview in extract_link_previews(text) {
         let escaped_url = escape_html(&preview.url);
         let escaped_title = escape_html(&preview.title);
-        output =
-            output.replace(&escaped_url, &format!("<a href=\"{escaped_url}\">{escaped_title}</a>"));
+        output = output.replace(
+            &escaped_url,
+            &format!("<a href=\"{escaped_url}\">{escaped_title}</a>"),
+        );
     }
     output
 }
@@ -446,7 +473,9 @@ fn flush_paragraph(blocks: &mut Vec<RichTextBlock>, paragraph: &mut Vec<String>)
 
 fn flush_list(blocks: &mut Vec<RichTextBlock>, list: &mut Vec<String>) {
     if !list.is_empty() {
-        blocks.push(RichTextBlock::List { items: list.clone() });
+        blocks.push(RichTextBlock::List {
+            items: list.clone(),
+        });
         list.clear();
     }
 }

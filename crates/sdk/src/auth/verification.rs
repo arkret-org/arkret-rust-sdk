@@ -163,14 +163,20 @@ pub struct PasskeyVerification {
 
 /// Application-supplied WebAuthn/passkey response verifier.
 pub trait PasskeyVerifier {
-    fn verify_passkey(&self, request: &PasskeyVerificationRequestBody) -> Result<PasskeyVerification>;
+    fn verify_passkey(
+        &self,
+        request: &PasskeyVerificationRequestBody,
+    ) -> Result<PasskeyVerification>;
 }
 
 impl<F> PasskeyVerifier for F
 where
     F: Fn(&PasskeyVerificationRequestBody) -> Result<PasskeyVerification>,
 {
-    fn verify_passkey(&self, request: &PasskeyVerificationRequestBody) -> Result<PasskeyVerification> {
+    fn verify_passkey(
+        &self,
+        request: &PasskeyVerificationRequestBody,
+    ) -> Result<PasskeyVerification> {
         self(request)
     }
 }

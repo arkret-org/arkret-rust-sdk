@@ -90,10 +90,14 @@ impl ConformanceFixtureSet {
     /// Validate fixture shape before execution.
     pub fn validate(&self) -> Result<()> {
         if self.fixture_version.trim().is_empty() {
-            return Err(Error::Protocol("fixture_version must be non-empty".to_owned()));
+            return Err(Error::Protocol(
+                "fixture_version must be non-empty".to_owned(),
+            ));
         }
         if self.suites.is_empty() {
-            return Err(Error::Protocol("fixture set must contain at least one suite".to_owned()));
+            return Err(Error::Protocol(
+                "fixture set must contain at least one suite".to_owned(),
+            ));
         }
         for suite in &self.suites {
             if suite.cases.is_empty() {
@@ -250,8 +254,9 @@ fn run_conformance_suites(
 
     for suite in suites {
         for case in &suite.cases {
-            let error =
-                validate_conformance_case(registry, case).err().map(|error| error.to_string());
+            let error = validate_conformance_case(registry, case)
+                .err()
+                .map(|error| error.to_string());
             results.push(ConformanceCaseOutcome {
                 profile: suite.profile,
                 case_id: case.case_id.clone(),
@@ -264,18 +269,29 @@ fn run_conformance_suites(
     let coverage = suites
         .iter()
         .map(|suite| {
-            let cases_total =
-                results.iter().filter(|result| result.profile == suite.profile).count();
+            let cases_total = results
+                .iter()
+                .filter(|result| result.profile == suite.profile)
+                .count();
             let cases_passed = results
                 .iter()
                 .filter(|result| result.profile == suite.profile && result.passed)
                 .count();
-            ConformanceProfileCoverage { profile: suite.profile, cases_total, cases_passed }
+            ConformanceProfileCoverage {
+                profile: suite.profile,
+                cases_total,
+                cases_passed,
+            }
         })
         .collect::<Vec<_>>();
     let passed = results.iter().all(|result| result.passed);
 
-    ConformanceReport { fixture_version, passed, coverage, results }
+    ConformanceReport {
+        fixture_version,
+        passed,
+        coverage,
+        results,
+    }
 }
 
 fn validate_conformance_case(
@@ -283,7 +299,9 @@ fn validate_conformance_case(
     case: &ConformanceCase,
 ) -> Result<()> {
     if case.case_id.trim().is_empty() {
-        return Err(Error::Protocol("conformance case id must be non-empty".to_owned()));
+        return Err(Error::Protocol(
+            "conformance case id must be non-empty".to_owned(),
+        ));
     }
     if case.vector.is_null() {
         return Err(Error::Protocol(format!(

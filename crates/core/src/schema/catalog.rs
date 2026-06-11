@@ -16,13 +16,21 @@ pub struct SchemaCatalogReport {
 impl SchemaCatalogReport {
     pub fn validate(&self) -> Result<()> {
         if self.profile != CORE_SCHEMA_PROFILE {
-            return Err(Error::Protocol("schema catalog profile mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "schema catalog profile mismatch".to_owned(),
+            ));
         }
         let registry = ProtocolSchemaRegistry::default();
         let registered = registry.schema_ids().collect::<BTreeSet<_>>();
-        let reported = self.entries.iter().map(|entry| entry.schema_id.as_str()).collect();
+        let reported = self
+            .entries
+            .iter()
+            .map(|entry| entry.schema_id.as_str())
+            .collect();
         if registered != reported {
-            return Err(Error::Protocol("schema catalog does not match registry".to_owned()));
+            return Err(Error::Protocol(
+                "schema catalog does not match registry".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -35,7 +43,10 @@ pub fn schema_catalog() -> SchemaCatalogReport {
         entries.push(catalog_entry(&registry, schema_id));
     }
     entries.sort_by(|left, right| left.schema_id.cmp(&right.schema_id));
-    SchemaCatalogReport { profile: CORE_SCHEMA_PROFILE.to_owned(), entries }
+    SchemaCatalogReport {
+        profile: CORE_SCHEMA_PROFILE.to_owned(),
+        entries,
+    }
 }
 
 fn catalog_entry(registry: &ProtocolSchemaRegistry, schema_id: &str) -> SchemaCatalogEntry {
@@ -128,7 +139,9 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
 pub fn validate_schema_vectors(vectors: &[SchemaValidationVector]) -> Result<()> {
     let registry = ProtocolSchemaRegistry::default();
     for vector in vectors {
-        let valid = registry.validate_value(&vector.schema_id, &vector.input).is_ok();
+        let valid = registry
+            .validate_value(&vector.schema_id, &vector.input)
+            .is_ok();
         if valid != vector.expected_valid {
             return Err(Error::Protocol(format!(
                 "schema vector '{}' expected valid={} got valid={valid}",

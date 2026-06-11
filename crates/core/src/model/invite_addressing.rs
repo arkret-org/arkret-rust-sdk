@@ -67,7 +67,9 @@ where
 
 fn validate_locator_token_shape(value: &str) -> bool {
     (22..=512).contains(&value.len())
-        && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -79,7 +81,9 @@ pub struct InviteLocatorResolveRequestBody {
 
 impl InviteLocatorResolveRequestBody {
     pub fn new(locator_token: impl Into<String>) -> Self {
-        Self { locator_token: locator_token.into() }
+        Self {
+            locator_token: locator_token.into(),
+        }
     }
 
     pub fn validate_minimal(&self) -> Result<()> {
@@ -105,7 +109,11 @@ pub struct InviteAddress {
 
 impl InviteAddress {
     pub fn principal_server(subject_id: Did, recipient_service_did: Did) -> Self {
-        Self { subject_id, recipient_service_did, recipient_service_type: None }
+        Self {
+            subject_id,
+            recipient_service_did,
+            recipient_service_type: None,
+        }
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -131,7 +139,10 @@ pub struct InviteDeliveryTarget {
 
 impl InviteDeliveryTarget {
     pub fn principal_server(recipient_service_did: Did) -> Self {
-        Self { recipient_service_did, recipient_service_type: None }
+        Self {
+            recipient_service_did,
+            recipient_service_type: None,
+        }
     }
 
     pub fn from_invite_address(address: &InviteAddress) -> Self {
@@ -198,7 +209,9 @@ impl PrincipalLocator {
 
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != PRINCIPAL_LOCATOR_SCHEMA {
-            return Err(Error::Protocol("principal_locator.schema mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "principal_locator.schema mismatch".to_owned(),
+            ));
         }
         if let Some(service_type) = &self.recipient_service_type
             && service_type != INVITE_RECIPIENT_SERVICE_TYPE_PRINCIPAL_SERVER
@@ -331,7 +344,9 @@ impl InviteDeliveryRequest {
 
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != INVITE_DELIVERY_REQUEST_SCHEMA {
-            return Err(Error::Protocol("invite_delivery_request.schema mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "invite_delivery_request.schema mismatch".to_owned(),
+            ));
         }
         if self.idempotency_key.trim().is_empty() {
             return Err(Error::Protocol(
@@ -439,15 +454,22 @@ mod tests {
     use super::*;
 
     fn test_time() -> DateTime<Utc> {
-        DateTime::parse_from_rfc3339("2026-06-07T10:00:00.123Z").unwrap().with_timezone(&Utc)
+        DateTime::parse_from_rfc3339("2026-06-07T10:00:00.123Z")
+            .unwrap()
+            .with_timezone(&Utc)
     }
 
     #[test]
     fn invite_locator_resolve_body_validates_body_only_token_shape() {
         let token = "a".repeat(22);
         let body = InviteLocatorResolveRequestBody::new(token);
-        body.validate_minimal().expect("valid base64url token shape");
-        assert!(InviteLocatorResolveRequestBody::new("short").validate_minimal().is_err());
+        body.validate_minimal()
+            .expect("valid base64url token shape");
+        assert!(
+            InviteLocatorResolveRequestBody::new("short")
+                .validate_minimal()
+                .is_err()
+        );
         assert!(
             InviteLocatorResolveRequestBody::new("aaaaaaaaaaaaaaaaaaaaa+")
                 .validate_minimal()
@@ -487,7 +509,10 @@ mod tests {
         let value = serde_json::to_value(&locator).expect("serialize locator");
         assert_eq!(value["issued_at"], "2026-06-07T10:00:00Z");
         assert_eq!(value["expires_at"], "2026-06-07T10:15:00Z");
-        assert_eq!(value["proofs"][0]["proof"]["created_at"], "2026-06-07T10:00:00Z");
+        assert_eq!(
+            value["proofs"][0]["proof"]["created_at"],
+            "2026-06-07T10:00:00Z"
+        );
         assert!(serde_json::from_value::<PrincipalLocator>(value).is_ok());
     }
 

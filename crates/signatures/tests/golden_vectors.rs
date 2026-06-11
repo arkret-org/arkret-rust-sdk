@@ -2,14 +2,13 @@
 //!
 //! 这些向量锁定收敛后的不可漂移字节:
 //!
-//! 1. detached JWS 的 protected header 字节在 **整个生态** 唯一为
-//!    `{"alg":"EdDSA"}`(base64url = `eyJhbGciOiJFZERTQSJ9`),与 spec §6、
-//!    soland `move_anchor_wire`、cotest、teabay `sdk::jws` 完全一致;
-//! 2. `Ed25519MoveSigner`(Move/Anchor 签名)与 `Ed25519DetachedJwsSigner`
-//!    (event-proof 签名)对同一 canonical bytes 产出**同一 signing input
-//!    与同一 64 字节签名** —— 证明两条历史分叉的 JWS 实现已收敛为一套;
-//! 3. base58btc(`core::multibase`,bs58 后端)对 `did:key` Ed25519 多编码栈
-//!    的固定向量稳定;
+//! 1. detached JWS 的 protected header 字节在 **整个生态** 唯一为 `{"alg":"EdDSA"}`(base64url =
+//!    `eyJhbGciOiJFZERTQSJ9`),与 spec §6、 soland `move_anchor_wire`、cotest、teabay `sdk::jws`
+//!    完全一致;
+//! 2. `Ed25519MoveSigner`(Move/Anchor 签名)与 `Ed25519DetachedJwsSigner` (event-proof 签名)对同一
+//!    canonical bytes 产出**同一 signing input 与同一 64 字节签名** —— 证明两条历史分叉的 JWS
+//!    实现已收敛为一套;
+//! 3. base58btc(`core::multibase`,bs58 后端)对 `did:key` Ed25519 多编码栈 的固定向量稳定;
 //! 4. base64url(`core::base64url`)无 padding、URL-safe 字母表稳定。
 
 use cokret_core::{base64url_decode, base64url_encode, ed25519_pubkey_to_did_key_multibase};
@@ -20,16 +19,21 @@ const PROTECTED_HEADER_B64URL: &str = "eyJhbGciOiJFZERTQSJ9";
 #[test]
 fn detached_jws_protected_header_is_alg_eddsa_only() {
     let decoded = base64url_decode(PROTECTED_HEADER_B64URL).unwrap();
-    assert_eq!(decoded, br#"{"alg":"EdDSA"}"#, "JWS header MUST be alg=EdDSA with no typ/crit");
-    assert_eq!(base64url_encode(br#"{"alg":"EdDSA"}"#), PROTECTED_HEADER_B64URL);
+    assert_eq!(
+        decoded, br#"{"alg":"EdDSA"}"#,
+        "JWS header MUST be alg=EdDSA with no typ/crit"
+    );
+    assert_eq!(
+        base64url_encode(br#"{"alg":"EdDSA"}"#),
+        PROTECTED_HEADER_B64URL
+    );
 }
 
 #[cfg(feature = "signer")]
 #[test]
 fn move_signer_and_event_proof_signer_share_one_jws_header_and_signature() {
     use cokret_core::move_event::{Effect, LatticeOp, LatticeOpType};
-    use cokret_core::{AnchorId, CellRef, Hlc, RealmId};
-    use cokret_core::{Did, MoveSigner, UnsignedMove};
+    use cokret_core::{AnchorId, CellRef, Did, Hlc, MoveSigner, RealmId, UnsignedMove};
     use cokret_signatures::Ed25519MoveSigner;
     use cokret_signatures::proof::{Ed25519DetachedJwsSigner, EventSigner};
 
@@ -65,14 +69,21 @@ fn move_signer_and_event_proof_signer_share_one_jws_header_and_signature() {
 
     // The Move JWS header segment MUST be the canonical alg=EdDSA header.
     let move_header_seg = signed_move.sig.jws.split('.').next().unwrap();
-    assert_eq!(move_header_seg, PROTECTED_HEADER_B64URL, "Move JWS header drift");
+    assert_eq!(
+        move_header_seg, PROTECTED_HEADER_B64URL,
+        "Move JWS header drift"
+    );
 
     // The event-proof signer over the SAME bytes must produce the SAME raw
     // 64-byte signature (proving a single signing input across both paths).
     let event_signer = Ed25519DetachedJwsSigner::from_seed(seed, vm);
     let event_sig = event_signer.sign(&move_bytes).unwrap();
     let move_sig_seg = signed_move.sig.jws.rsplit('.').next().unwrap();
-    assert_eq!(base64url_encode(&event_sig), move_sig_seg, "Move/event signature bytes diverge");
+    assert_eq!(
+        base64url_encode(&event_sig),
+        move_sig_seg,
+        "Move/event signature bytes diverge"
+    );
 }
 
 #[test]

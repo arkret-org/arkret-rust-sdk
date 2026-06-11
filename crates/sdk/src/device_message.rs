@@ -99,13 +99,19 @@ impl DeviceMessage {
         let bytes = self.canonical_bytes()?;
         let expected = signer.sign_payload(&bytes)?;
         if expected.alg != self.sig.alg {
-            return Err(Error::Protocol("device message sig alg mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "device message sig alg mismatch".to_owned(),
+            ));
         }
         if expected.payload_digest != self.sig.payload_digest {
-            return Err(Error::Protocol("device message sig payload_digest mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "device message sig payload_digest mismatch".to_owned(),
+            ));
         }
         if expected.jws != self.sig.jws {
-            return Err(Error::Protocol("device message sig jws mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "device message sig jws mismatch".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -263,7 +269,10 @@ pub struct DeviceMessageReceipt {
 impl DeviceMessageReceipt {
     /// Wrap a verified [`DeviceMessage`] with a fresh receive timestamp.
     pub fn now(message: DeviceMessage) -> Self {
-        Self { message, received_at: Utc::now() }
+        Self {
+            message,
+            received_at: Utc::now(),
+        }
     }
 }
 

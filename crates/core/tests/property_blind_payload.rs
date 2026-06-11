@@ -3,17 +3,15 @@
 //! These tests exercise [`cokret_core::blind_payload_sanitizer`] with
 //! randomly-shaped JSON values and assert two core invariants:
 //!
-//!  1. **No forbidden field ever survives.** If the sanitizer returns
-//!     `Ok(())`, scanning the same payload for any name in the SDK's
-//!     forbidden-key registry MUST find none — at any nesting depth.
-//!  2. **Disguised keys do not slip through.** A handful of look-alike
-//!     keys (`Sender`, `EVENT_ID`, `senderdid`, `space-name`, …) are
-//!     either rejected (case-insensitive match of the real forbidden
-//!     name) or, when not on the list, validated as ordinary unknown
-//!     keys (forbidden because the allow-list is closed).
-//!  3. **Sensitive literals are caught everywhere except
-//!     `push_target_id`.** A string value containing `did:` or `ck:` in
-//!     any non-pseudonym slot MUST be rejected.
+//!  1. **No forbidden field ever survives.** If the sanitizer returns `Ok(())`, scanning the same
+//!     payload for any name in the SDK's forbidden-key registry MUST find none — at any nesting
+//!     depth.
+//!  2. **Disguised keys do not slip through.** A handful of look-alike keys (`Sender`, `EVENT_ID`,
+//!     `senderdid`, `space-name`, …) are either rejected (case-insensitive match of the real
+//!     forbidden name) or, when not on the list, validated as ordinary unknown keys (forbidden
+//!     because the allow-list is closed).
+//!  3. **Sensitive literals are caught everywhere except `push_target_id`.** A string value
+//!     containing `did:` or `ck:` in any non-pseudonym slot MUST be rejected.
 //!
 //! All proptest blocks use 64 cases to keep CI fast.
 
@@ -207,9 +205,9 @@ fn contains_forbidden_key(value: &Value) -> bool {
 /// `push_target_id` slot.
 fn contains_sensitive_literal(path: &str, value: &Value) -> bool {
     match value {
-        Value::Object(map) => {
-            map.iter().any(|(k, v)| contains_sensitive_literal(&format!("{path}.{k}"), v))
-        }
+        Value::Object(map) => map
+            .iter()
+            .any(|(k, v)| contains_sensitive_literal(&format!("{path}.{k}"), v)),
         Value::Array(values) => values
             .iter()
             .enumerate()

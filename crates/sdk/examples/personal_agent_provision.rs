@@ -26,9 +26,10 @@
 //! cargo run --example personal_agent_provision
 //! ```
 
+use std::fmt::Write;
+
 use cokret::{DeviceId, Did};
 use serde_json::{Value, json};
-use std::fmt::Write;
 
 /// Stand-in for a wire send. Returns the mock response a real soland would
 /// produce for each operation so the example stays self-contained.
@@ -109,7 +110,10 @@ fn main() -> cokret::Result<()> {
             "agent_key_id": agent_key_id,
         }),
     );
-    let agent_principal_id = provisioned["agent_principal_id"].as_str().unwrap().to_owned();
+    let agent_principal_id = provisioned["agent_principal_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     let agent_principal_path = path_component(&agent_principal_id);
 
     // 3. ck.self.agent.list

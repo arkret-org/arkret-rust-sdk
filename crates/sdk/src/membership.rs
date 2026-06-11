@@ -10,13 +10,12 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Duration, Utc};
+pub use cokret_core::events::MembershipState;
+pub use cokret_core::{INVITE_SCHEMA, Invite, InviteState, ThirdPartyInvite};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::{Did, Error, InviteId, Operation, OperationId, RealmId, Result};
-
-pub use cokret_core::events::MembershipState;
-pub use cokret_core::{INVITE_SCHEMA, Invite, InviteState, ThirdPartyInvite};
 
 /// Generate a new UUIDv7-based wire ID with the given Cokret typed prefix
 /// (e.g. `ck:invite:`, `ck:operation:`). RFC 9562 §5.7 / `conformance/encoding.md` §4.
@@ -41,8 +40,7 @@ const DEFAULT_INVITE_TTL_DAYS: i64 = 7;
 /// - `knock → {invite, leave}`
 /// - `join → {leave, ban}`
 /// - `leave → {invite, knock}` (re-enter via fresh invite or knock)
-/// - `ban → leave` (only via unban; reducer MUST emit `Leave` then a fresh
-///   invite for re-admission)
+/// - `ban → leave` (only via unban; reducer MUST emit `Leave` then a fresh invite for re-admission)
 ///
 /// Same-state writes (e.g. `Join → Join`) are allowed as idempotent
 /// no-ops; reducers may still emit a profile/role change without flipping
@@ -182,10 +180,20 @@ impl MembershipManager {
         let previous = self.members.get(&actor_id).map(|member| member.state);
         self.members.insert(
             actor_id.clone(),
-            Member { actor_id: actor_id.clone(), state, role, profile, updated_at: Utc::now() },
+            Member {
+                actor_id: actor_id.clone(),
+                state,
+                role,
+                profile,
+                updated_at: Utc::now(),
+            },
         );
         if previous != Some(state) {
-            self.changes.push(MemberChange { actor_id, previous, current: state });
+            self.changes.push(MemberChange {
+                actor_id,
+                previous,
+                current: state,
+            });
         }
     }
 
@@ -229,7 +237,9 @@ impl MembershipManager {
                 );
                 Ok(())
             }
-            _ => Err(Error::Protocol("only banned members can be unbanned".to_owned())),
+            _ => Err(Error::Protocol(
+                "only banned members can be unbanned".to_owned(),
+            )),
         }
     }
 
@@ -250,7 +260,11 @@ impl MembershipManager {
                 "illegal membership transition {from:?} -> {to:?}"
             )));
         }
-        let role = self.members.get(actor_id).map(|m| m.role).unwrap_or(MemberRole::Member);
+        let role = self
+            .members
+            .get(actor_id)
+            .map(|m| m.role)
+            .unwrap_or(MemberRole::Member);
         let profile = self.members.get(actor_id).and_then(|m| m.profile.clone());
         self.upsert_member(actor_id.clone(), to, role, profile);
         Ok(())
@@ -258,7 +272,9 @@ impl MembershipManager {
 
     /// Current user role.
     pub fn current_user_role(&self) -> Option<MemberRole> {
-        self.members.get(&self.current_user).map(|member| member.role)
+        self.members
+            .get(&self.current_user)
+            .map(|member| member.role)
     }
 
     /// Check the current user has at least `required` role level.
@@ -394,7 +410,9 @@ impl MembershipManager {
             .ok_or_else(|| Error::Protocol("invite not found".to_owned()))?;
         match invite.state {
             InviteState::Accepted => {
-                return Err(Error::Protocol("accepted invite cannot be revoked".to_owned()));
+                return Err(Error::Protocol(
+                    "accepted invite cannot be revoked".to_owned(),
+                ));
             }
             InviteState::Revoked => {
                 return Err(Error::Protocol("invite is already revoked".to_owned()));
@@ -442,7 +460,10 @@ impl MembershipManager {
 
     /// List all pending invites.
     pub fn pending_invites(&self) -> Vec<&Invite> {
-        self.invites.values().filter(|invite| invite_is_pending(invite)).collect()
+        self.invites
+            .values()
+            .filter(|invite| invite_is_pending(invite))
+            .collect()
     }
 
     /// Get an invite by ID.
@@ -452,7 +473,10 @@ impl MembershipManager {
 
     /// Role granted on acceptance of an invite (manager-side bookkeeping).
     pub fn invite_role(&self, invite_id: &InviteId) -> MemberRole {
-        self.invite_roles.get(invite_id).copied().unwrap_or(MemberRole::Member)
+        self.invite_roles
+            .get(invite_id)
+            .copied()
+            .unwrap_or(MemberRole::Member)
     }
 
     /// Accept an invite for a DID.
@@ -465,18 +489,26 @@ impl MembershipManager {
                 .ok_or_else(|| Error::Protocol("invite not found".to_owned()))?;
             match invite.state {
                 InviteState::Rejected => {
-                    return Err(Error::Protocol("rejected invite cannot be accepted".to_owned()));
+                    return Err(Error::Protocol(
+                        "rejected invite cannot be accepted".to_owned(),
+                    ));
                 }
                 InviteState::Revoked => {
-                    return Err(Error::Protocol("revoked invite cannot be accepted".to_owned()));
+                    return Err(Error::Protocol(
+                        "revoked invite cannot be accepted".to_owned(),
+                    ));
                 }
                 InviteState::Expired => {
-                    return Err(Error::Protocol("expired invite cannot be accepted".to_owned()));
+                    return Err(Error::Protocol(
+                        "expired invite cannot be accepted".to_owned(),
+                    ));
                 }
                 _ => {}
             }
             if invite_is_expired(invite) {
-                return Err(Error::Protocol("expired invite cannot be accepted".to_owned()));
+                return Err(Error::Protocol(
+                    "expired invite cannot be accepted".to_owned(),
+                ));
             }
             invite.state = InviteState::Accepted;
             invite.invitee = Some(actor_id.clone());
@@ -496,10 +528,14 @@ impl MembershipManager {
                 .ok_or_else(|| Error::Protocol("invite not found".to_owned()))?;
             match invite.state {
                 InviteState::Accepted => {
-                    return Err(Error::Protocol("accepted invite cannot be rejected".to_owned()));
+                    return Err(Error::Protocol(
+                        "accepted invite cannot be rejected".to_owned(),
+                    ));
                 }
                 InviteState::Revoked => {
-                    return Err(Error::Protocol("revoked invite cannot be rejected".to_owned()));
+                    return Err(Error::Protocol(
+                        "revoked invite cannot be rejected".to_owned(),
+                    ));
                 }
                 _ => {}
             }
@@ -571,20 +607,33 @@ mod tests {
         let alice = did("alice");
         let mut manager = MembershipManager::new(realm_id, alice.clone());
 
-        manager.upsert_member(alice.clone(), MembershipState::Invite, MemberRole::Member, None);
+        manager.upsert_member(
+            alice.clone(),
+            MembershipState::Invite,
+            MemberRole::Member,
+            None,
+        );
         manager.join(&alice).unwrap();
         assert_eq!(manager.member(&alice).unwrap().state, MembershipState::Join);
 
         manager.leave(&alice).unwrap();
-        assert_eq!(manager.member(&alice).unwrap().state, MembershipState::Leave);
+        assert_eq!(
+            manager.member(&alice).unwrap().state,
+            MembershipState::Leave
+        );
 
         assert!(manager.join(&alice).is_err());
-        manager.send_invite(alice.clone(), alice.clone(), MemberRole::Member).unwrap();
+        manager
+            .send_invite(alice.clone(), alice.clone(), MemberRole::Member)
+            .unwrap();
         manager.join(&alice).unwrap();
         manager.ban(&alice).unwrap();
         assert!(manager.join(&alice).is_err());
         manager.unban(&alice).unwrap();
-        assert_eq!(manager.member(&alice).unwrap().state, MembershipState::Leave);
+        assert_eq!(
+            manager.member(&alice).unwrap().state,
+            MembershipState::Leave
+        );
     }
 
     #[test]
@@ -610,13 +659,22 @@ mod tests {
         manager
             .update_profile(
                 &bob,
-                MemberProfile { display_name: Some("Bob".to_owned()), avatar_url: None },
+                MemberProfile {
+                    display_name: Some("Bob".to_owned()),
+                    avatar_url: None,
+                },
             )
             .unwrap();
 
         assert_eq!(manager.members().len(), 1);
         assert_eq!(
-            manager.member(&bob).unwrap().profile.as_ref().unwrap().display_name,
+            manager
+                .member(&bob)
+                .unwrap()
+                .profile
+                .as_ref()
+                .unwrap()
+                .display_name,
             Some("Bob".to_owned())
         );
         assert_eq!(manager.drain_changes().len(), 1);
@@ -630,7 +688,9 @@ mod tests {
         let bob = did("bob");
         let mut manager = MembershipManager::new(realm_id, alice.clone());
 
-        let invite = manager.send_invite(bob.clone(), alice.clone(), MemberRole::Member).unwrap();
+        let invite = manager
+            .send_invite(bob.clone(), alice.clone(), MemberRole::Member)
+            .unwrap();
         assert_eq!(invite.schema, INVITE_SCHEMA);
         manager.accept_invite(&invite.id, bob.clone()).unwrap();
         assert_eq!(manager.member(&bob).unwrap().state, MembershipState::Join);
@@ -640,7 +700,10 @@ mod tests {
             .unwrap();
         assert!(third_party.third_party_id.is_some());
         manager.reject_invite(&third_party.id).unwrap();
-        assert_eq!(manager.invite(&third_party.id).unwrap().state, InviteState::Rejected);
+        assert_eq!(
+            manager.invite(&third_party.id).unwrap().state,
+            InviteState::Rejected
+        );
     }
 
     #[test]
@@ -650,7 +713,9 @@ mod tests {
         let bob = did("bob");
         let mut manager = MembershipManager::new(realm_id, alice.clone());
 
-        let invite = manager.send_invite(bob.clone(), alice, MemberRole::Member).unwrap();
+        let invite = manager
+            .send_invite(bob.clone(), alice, MemberRole::Member)
+            .unwrap();
         manager.revoke_invite(&invite.id).unwrap();
 
         let stored = manager.invite(&invite.id).unwrap();
@@ -668,7 +733,9 @@ mod tests {
         let bob = did("bob");
         let mut manager = MembershipManager::new(realm_id, alice.clone());
 
-        let invite = manager.send_invite(bob.clone(), alice, MemberRole::Member).unwrap();
+        let invite = manager
+            .send_invite(bob.clone(), alice, MemberRole::Member)
+            .unwrap();
         manager.accept_invite(&invite.id, bob).unwrap();
         assert!(manager.revoke_invite(&invite.id).is_err());
     }
@@ -682,7 +749,9 @@ mod tests {
 
         // Invite that already expired
         let past = "2020-01-01T00:00:00Z".parse().unwrap();
-        let invite = manager.send_invite_with_expiry(bob, alice, MemberRole::Member, past).unwrap();
+        let invite = manager
+            .send_invite_with_expiry(bob, alice, MemberRole::Member, past)
+            .unwrap();
 
         assert!(invite_is_expired(&invite));
         assert!(invite_is_pending(&invite)); // Not yet processed
@@ -704,11 +773,14 @@ mod tests {
         let mut manager = MembershipManager::new(realm_id, alice.clone());
 
         // Pending invite
-        let invite1 = manager.send_invite(bob, alice.clone(), MemberRole::Member).unwrap();
+        let invite1 = manager
+            .send_invite(bob, alice.clone(), MemberRole::Member)
+            .unwrap();
         // Expired invite
         let past = "2020-01-01T00:00:00Z".parse().unwrap();
-        let _invite2 =
-            manager.send_invite_with_expiry(carol, alice, MemberRole::Member, past).unwrap();
+        let _invite2 = manager
+            .send_invite_with_expiry(carol, alice, MemberRole::Member, past)
+            .unwrap();
 
         assert_eq!(manager.pending_invites().len(), 2); // Both still pending until expire runs
         manager.expire_invites();

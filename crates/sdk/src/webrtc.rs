@@ -3,13 +3,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-
-use crate::{Did, RealmId, Result};
-
 // Signaling DTOs are owned by `cokret-contracts`; re-export the authoritative
 // definitions instead of keeping a parallel copy here.
 pub use cokret_contracts::client::{CallSessionDescription, IceCandidate, SdpType};
+use serde::{Deserialize, Serialize};
+
+use crate::{Did, RealmId, Result};
 
 /// To-device WebRTC signaling message kind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,7 +49,10 @@ impl WebRtcSignalMessage {
             call_id,
             sender,
             recipient,
-            CallSessionDescription { sdp_type: SdpType::Offer, sdp: sdp.into() },
+            CallSessionDescription {
+                sdp_type: SdpType::Offer,
+                sdp: sdp.into(),
+            },
         )
     }
 
@@ -67,7 +69,10 @@ impl WebRtcSignalMessage {
             call_id,
             sender,
             recipient,
-            CallSessionDescription { sdp_type: SdpType::Answer, sdp: sdp.into() },
+            CallSessionDescription {
+                sdp_type: SdpType::Answer,
+                sdp: sdp.into(),
+            },
         )
     }
 
@@ -183,8 +188,14 @@ impl IceServer {
     /// SHOULD derive the username from a short-lived ephemeral identifier
     /// such as `<unix>:<random_b64>` instead.
     pub fn validate_credential_privacy(&self) -> Result<()> {
-        const FORBIDDEN_PREFIXES: &[&str] =
-            &["did:web:", "did:plc:", "did:key:", "did:webvh:", "did:webs:", "did:keri:"];
+        const FORBIDDEN_PREFIXES: &[&str] = &[
+            "did:web:",
+            "did:plc:",
+            "did:key:",
+            "did:webvh:",
+            "did:webs:",
+            "did:keri:",
+        ];
         for value in [&self.username, &self.credential].into_iter().flatten() {
             for prefix in FORBIDDEN_PREFIXES {
                 if value.contains(prefix) {
@@ -251,7 +262,10 @@ impl WebRtcManager {
             caller,
             callees,
             state: CallState::Offering,
-            offer: Some(CallSessionDescription { sdp_type: SdpType::Offer, sdp: sdp.into() }),
+            offer: Some(CallSessionDescription {
+                sdp_type: SdpType::Offer,
+                sdp: sdp.into(),
+            }),
             answer: None,
             ice_candidates: Vec::new(),
             tracks: BTreeMap::new(),
@@ -265,7 +279,10 @@ impl WebRtcManager {
     /// Store an answer.
     pub fn receive_answer(&mut self, call_id: &str, sdp: impl Into<String>) -> Option<&WebRtcCall> {
         let call = self.calls.get_mut(call_id)?;
-        call.answer = Some(CallSessionDescription { sdp_type: SdpType::Answer, sdp: sdp.into() });
+        call.answer = Some(CallSessionDescription {
+            sdp_type: SdpType::Answer,
+            sdp: sdp.into(),
+        });
         call.state = CallState::Answered;
         Some(call)
     }
@@ -303,7 +320,10 @@ impl WebRtcManager {
 
     /// Add or update a media track.
     pub fn set_track(&mut self, call_id: &str, track: MediaTrack) -> Option<()> {
-        self.calls.get_mut(call_id)?.tracks.insert(track.track_id.clone(), track);
+        self.calls
+            .get_mut(call_id)?
+            .tracks
+            .insert(track.track_id.clone(), track);
         Some(())
     }
 
@@ -314,7 +334,11 @@ impl WebRtcManager {
         track_id: &str,
         enabled: bool,
     ) -> Option<()> {
-        self.calls.get_mut(call_id)?.tracks.get_mut(track_id)?.enabled = enabled;
+        self.calls
+            .get_mut(call_id)?
+            .tracks
+            .get_mut(track_id)?
+            .enabled = enabled;
         Some(())
     }
 
@@ -331,12 +355,18 @@ impl WebRtcManager {
 
     /// STUN servers.
     pub fn stun_servers(&self) -> Vec<&IceServer> {
-        self.ice_servers.iter().filter(|server| server.kind == IceServerKind::Stun).collect()
+        self.ice_servers
+            .iter()
+            .filter(|server| server.kind == IceServerKind::Stun)
+            .collect()
     }
 
     /// TURN servers.
     pub fn turn_servers(&self) -> Vec<&IceServer> {
-        self.ice_servers.iter().filter(|server| server.kind == IceServerKind::Turn).collect()
+        self.ice_servers
+            .iter()
+            .filter(|server| server.kind == IceServerKind::Turn)
+            .collect()
     }
 
     /// Get a call.
@@ -360,8 +390,12 @@ mod tests {
     #[test]
     fn webrtc_exchanges_offer_answer_ice_and_state() {
         let mut manager = WebRtcManager::new();
-        let call =
-            manager.create_offer(Realm(), did("alice"), BTreeSet::from([did("bob")]), "offer-sdp");
+        let call = manager.create_offer(
+            Realm(),
+            did("alice"),
+            BTreeSet::from([did("bob")]),
+            "offer-sdp",
+        );
         manager.receive_answer(&call.call_id, "answer-sdp").unwrap();
         manager
             .add_ice_candidate(
@@ -373,7 +407,9 @@ mod tests {
                 },
             )
             .unwrap();
-        manager.update_state(&call.call_id, CallState::Connected).unwrap();
+        manager
+            .update_state(&call.call_id, CallState::Connected)
+            .unwrap();
 
         let call = manager.call(&call.call_id).unwrap();
         assert_eq!(call.state, CallState::Connected);
@@ -385,7 +421,9 @@ mod tests {
         let mut manager = WebRtcManager::new();
         let call =
             manager.create_offer(Realm(), did("alice"), BTreeSet::from([did("bob")]), "offer");
-        manager.join_conference(&call.call_id, "conf1", ConferenceMode::Sfu, did("alice")).unwrap();
+        manager
+            .join_conference(&call.call_id, "conf1", ConferenceMode::Sfu, did("alice"))
+            .unwrap();
         manager
             .set_track(
                 &call.call_id,
@@ -396,7 +434,9 @@ mod tests {
                 },
             )
             .unwrap();
-        manager.set_track_enabled(&call.call_id, "audio1", false).unwrap();
+        manager
+            .set_track_enabled(&call.call_id, "audio1", false)
+            .unwrap();
         manager.set_screen_sharing(&call.call_id, true).unwrap();
 
         let call = manager.call(&call.call_id).unwrap();
@@ -444,7 +484,10 @@ mod tests {
         );
 
         assert_eq!(offer.kind, WebRtcSignalKind::Offer);
-        assert_eq!(offer.session_description.as_ref().unwrap().sdp_type, SdpType::Offer);
+        assert_eq!(
+            offer.session_description.as_ref().unwrap().sdp_type,
+            SdpType::Offer
+        );
         assert_eq!(answer.kind, WebRtcSignalKind::Answer);
         assert_eq!(ice.kind, WebRtcSignalKind::IceCandidate);
         assert!(ice.ice_candidate.is_some());

@@ -2,10 +2,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{
-    Anchor, AnchorId, CellRef, Hash, Move, MoveId, RealmId, canonical,
-    lattice::{AnchoredOp, CellState},
-};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use thiserror::Error;
@@ -13,6 +9,8 @@ use thiserror::Error;
 use super::state_root::compute_state_root;
 use super::store::{AnchorStore, CellRegistry, CellStore, MoveStore};
 use super::verify::verify_move;
+use crate::lattice::{AnchoredOp, CellState};
+use crate::{Anchor, AnchorId, CellRef, Hash, Move, MoveId, RealmId, canonical};
 
 /// Result of a successful `apply_anchor`.
 #[derive(Clone, Debug)]
@@ -38,7 +36,10 @@ pub enum AnchorReject {
     MissingMove { move_id: String },
 
     #[error("declared state_root {declared} does not match recomputed {recomputed}")]
-    StateRootMismatch { declared: String, recomputed: String },
+    StateRootMismatch {
+        declared: String,
+        recomputed: String,
+    },
 
     #[error("store error: {0}")]
     Store(String),
@@ -66,8 +67,10 @@ where
     F: Fn(&[u8], &str, &str, &str) -> Result<(), String> + Copy,
 {
     // Step 1: structural + id round-trip.
-    a.validate_id().map_err(|e| AnchorReject::Structural(format!("id: {e}")))?;
-    a.validate_structural().map_err(|e| AnchorReject::Structural(e.to_string()))?;
+    a.validate_id()
+        .map_err(|e| AnchorReject::Structural(format!("id: {e}")))?;
+    a.validate_structural()
+        .map_err(|e| AnchorReject::Structural(e.to_string()))?;
     if a.predecessor_refs.is_empty() && !a.frontier.is_empty() {
         return Err(AnchorReject::Structural(
             "Genesis Anchor MUST have frontier=[]; predecessor_refs=[] with non-empty frontier is invalid"
@@ -91,13 +94,17 @@ where
     let pre_state = effective_state_at(&a.predecessor_refs, &a.realm_id, cells, registry)?;
 
     // Step 5: deterministic_order over new Moves; verify each.
-    let new_move_ids: Vec<MoveId> =
-        a.frontier.iter().filter(|m| !pred_union.contains(m)).cloned().collect();
+    let new_move_ids: Vec<MoveId> = a
+        .frontier
+        .iter()
+        .filter(|m| !pred_union.contains(m))
+        .cloned()
+        .collect();
     let mut new_moves: Vec<Move> = Vec::with_capacity(new_move_ids.len());
     for mid in &new_move_ids {
-        let m = moves
-            .get(mid)?
-            .ok_or_else(|| AnchorReject::MissingMove { move_id: mid.as_str().to_owned() })?;
+        let m = moves.get(mid)?.ok_or_else(|| AnchorReject::MissingMove {
+            move_id: mid.as_str().to_owned(),
+        })?;
         new_moves.push(m);
     }
     let ordered = deterministic_order(new_moves);
@@ -184,7 +191,11 @@ pub fn effective_anchor_view(
     let state_root = compute_state_root(&post_state)
         .map_err(|e| AnchorReject::Store(format!("state_root: {e}")))?;
 
-    Ok(EffectiveAnchorView { predecessor_refs: sorted, frontier, state_root })
+    Ok(EffectiveAnchorView {
+        predecessor_refs: sorted,
+        frontier,
+        state_root,
+    })
 }
 
 /// Materialized result of [`effective_anchor_view`].
@@ -290,13 +301,14 @@ pub fn view_hash(leaves: &[AnchorId]) -> Result<Hash, crate::Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{AnchorerSig, Hlc, MoveSignature, lattice::CellState};
     use serde_json::json;
 
+    use super::*;
+    use crate::lattice::CellState;
     use crate::state::store::memory::{
         MemoryAnchorStore, MemoryCellRegistry, MemoryCellStore, MemoryMoveStore,
     };
+    use crate::{AnchorerSig, Hlc, MoveSignature};
 
     fn Realm() -> RealmId {
         RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
@@ -322,8 +334,10 @@ mod tests {
         });
         let body_bytes = canonical::canonical_json_bytes(&body).unwrap();
         let payload_digest = canonical::sha256_digest(&body_bytes);
-        let id_hex: String =
-            Sha256::digest(&body_bytes).iter().map(|b| format!("{b:02x}")).collect();
+        let id_hex: String = Sha256::digest(&body_bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
         let mut full = body.as_object().unwrap().clone();
         full.insert("id".into(), Value::String(format!("sha256:{id_hex}")));
         full.insert(
@@ -378,7 +392,10 @@ mod tests {
         let m2 = build_move("join", "leave");
         // m2 has longer hlc trailing hex; deterministic_order sorts by hlc.
         let ordered = deterministic_order(vec![m2.clone(), m1.clone()]);
-        assert_eq!(ordered[0].hlc.as_str(), m1.hlc.as_str().min(m2.hlc.as_str()));
+        assert_eq!(
+            ordered[0].hlc.as_str(),
+            m1.hlc.as_str().min(m2.hlc.as_str())
+        );
     }
 
     #[test]

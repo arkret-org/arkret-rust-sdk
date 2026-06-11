@@ -31,7 +31,10 @@ pub struct ExponentialBackoff {
 impl ExponentialBackoff {
     /// Create backoff state with a custom configuration.
     pub fn new(config: BackoffConfig) -> Self {
-        Self { config, failures: 0 }
+        Self {
+            config,
+            failures: 0,
+        }
     }
 
     /// Record a failed sync attempt and return the next wait duration.
@@ -58,7 +61,10 @@ impl ExponentialBackoff {
 
         let exponent = self.failures.saturating_sub(1);
         let factor = self.config.multiplier.saturating_pow(exponent);
-        self.config.initial_delay.saturating_mul(factor).min(self.config.max_delay)
+        self.config
+            .initial_delay
+            .saturating_mul(factor)
+            .min(self.config.max_delay)
     }
 }
 
@@ -74,7 +80,10 @@ pub enum SyncLoopStep {
     /// A response was processed successfully.
     Updates(SyncUpdates),
     /// Sync failed; caller should wait for `retry_after` before trying again.
-    Retry { retry_after: Duration, error: String },
+    Retry {
+        retry_after: Duration,
+        error: String,
+    },
     /// The caller requested cancellation before a transport request started.
     Cancelled,
     /// A request was deferred because the configured in-flight limit was reached.
@@ -199,7 +208,10 @@ pub struct BackpressureConfig {
 
 impl Default for BackpressureConfig {
     fn default() -> Self {
-        Self { max_in_flight_requests: 1, retry_after: Duration::from_millis(100) }
+        Self {
+            max_in_flight_requests: 1,
+            retry_after: Duration::from_millis(100),
+        }
     }
 }
 
@@ -262,7 +274,11 @@ impl SyncLoopControl {
                 Ordering::SeqCst,
                 Ordering::SeqCst,
             ) {
-                Ok(_) => return Some(InFlightPermit { in_flight: Arc::clone(&self.in_flight) }),
+                Ok(_) => {
+                    return Some(InFlightPermit {
+                        in_flight: Arc::clone(&self.in_flight),
+                    });
+                }
                 Err(observed) => current = observed,
             }
         }
@@ -405,7 +421,10 @@ impl SyncLoop {
             Ok(updates) => {
                 if self.gap_strategy == SyncGapStrategy::ResetTokenOnLimitedTimeline
                     && updates.realm_updates.iter().any(|update| {
-                        update.timeline.as_ref().is_some_and(|timeline| timeline.limited)
+                        update
+                            .timeline
+                            .as_ref()
+                            .is_some_and(|timeline| timeline.limited)
                     })
                 {
                     self.token = None;
@@ -414,7 +433,10 @@ impl SyncLoop {
             }
             Err(error) => {
                 let retry_after = self.backoff.record_failure();
-                SyncLoopStep::Retry { retry_after, error: error.to_string() }
+                SyncLoopStep::Retry {
+                    retry_after,
+                    error: error.to_string(),
+                }
             }
         }
     }
@@ -432,7 +454,10 @@ impl SyncLoop {
             Ok(response) => self.handle_response(response),
             Err(error) => {
                 let retry_after = self.backoff.record_failure();
-                SyncLoopStep::Retry { retry_after, error: error.to_string() }
+                SyncLoopStep::Retry {
+                    retry_after,
+                    error: error.to_string(),
+                }
             }
         }
     }
@@ -459,14 +484,19 @@ impl SyncLoop {
             return SyncLoopStep::Cancelled;
         }
         let Some(_permit) = control.try_acquire() else {
-            return SyncLoopStep::Backpressure { retry_after: control.backpressure_retry_after() };
+            return SyncLoopStep::Backpressure {
+                retry_after: control.backpressure_retry_after(),
+            };
         };
         let request = self.next_request();
         match transport.sync_async(request).await {
             Ok(response) => self.handle_response(response),
             Err(error) => {
                 let retry_after = self.backoff.record_failure();
-                SyncLoopStep::Retry { retry_after, error: error.to_string() }
+                SyncLoopStep::Retry {
+                    retry_after,
+                    error: error.to_string(),
+                }
             }
         }
     }

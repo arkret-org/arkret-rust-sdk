@@ -346,7 +346,13 @@ pub struct CompatSurfaceEntry {
 
 impl CompatSurfaceEntry {
     pub fn new(name: impl Into<String>, kind: CompatSurfaceKind) -> Self {
-        Self { name: name.into(), kind, since: None, notes: None, extra: BTreeMap::new() }
+        Self {
+            name: name.into(),
+            kind,
+            since: None,
+            notes: None,
+            extra: BTreeMap::new(),
+        }
     }
 
     pub fn matrix_passthrough(name: impl Into<String>) -> Self {
@@ -593,8 +599,9 @@ pub struct SessionRevokeOutcome {
 
 #[cfg(test)]
 mod error_envelope_tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     #[test]
     fn error_envelope_serializes_to_spec_canonical_shape() {
@@ -887,7 +894,9 @@ mod account_subscribe_frame_tests {
     #[test]
     fn account_subscribe_frame_from_ndjson_line_delta() {
         let line = r#"{"kind":"delta","cursor":"sx:acc:1"}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        let frame = AccountSubscribeFrame::from_ndjson_line(line)
+            .unwrap()
+            .unwrap();
         assert_eq!(frame.kind, AccountSubscribeFrameKind::Delta);
         assert_eq!(frame.cursor.as_deref(), Some("sx:acc:1"));
         assert!(!frame.requires_resubscribe());
@@ -897,7 +906,9 @@ mod account_subscribe_frame_tests {
     #[test]
     fn account_subscribe_frame_from_ndjson_line_catchup_complete() {
         let line = r#"{"kind":"catchup_complete","cursor":"sx:live:0"}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        let frame = AccountSubscribeFrame::from_ndjson_line(line)
+            .unwrap()
+            .unwrap();
         assert!(frame.is_catchup_complete());
         assert!(!frame.requires_resubscribe());
     }
@@ -905,7 +916,9 @@ mod account_subscribe_frame_tests {
     #[test]
     fn account_subscribe_frame_from_ndjson_line_frontier() {
         let line = r#"{"kind":"frontier","cursor":"sx:adv:7"}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        let frame = AccountSubscribeFrame::from_ndjson_line(line)
+            .unwrap()
+            .unwrap();
         assert_eq!(frame.kind, AccountSubscribeFrameKind::Frontier);
         assert!(!frame.requires_resubscribe());
         assert!(!frame.is_catchup_complete());
@@ -914,7 +927,9 @@ mod account_subscribe_frame_tests {
     #[test]
     fn account_subscribe_frame_from_ndjson_line_heartbeat() {
         let line = r#"{"kind":"heartbeat"}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        let frame = AccountSubscribeFrame::from_ndjson_line(line)
+            .unwrap()
+            .unwrap();
         assert_eq!(frame.kind, AccountSubscribeFrameKind::Heartbeat);
         assert!(!frame.requires_resubscribe());
     }
@@ -922,7 +937,9 @@ mod account_subscribe_frame_tests {
     #[test]
     fn account_subscribe_frame_from_ndjson_line_dropped_requires_resubscribe() {
         let line = r#"{"kind":"dropped","reason":"buffer overflow","reconnect_after_ms":10000}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        let frame = AccountSubscribeFrame::from_ndjson_line(line)
+            .unwrap()
+            .unwrap();
         assert!(frame.requires_resubscribe());
         assert_eq!(frame.reason.as_deref(), Some("buffer overflow"));
         assert_eq!(frame.reconnect_after_ms(), Some(10_000));
@@ -932,7 +949,9 @@ mod account_subscribe_frame_tests {
     fn account_subscribe_frame_from_ndjson_line_resync_required_requires_resubscribe() {
         let line =
             r#"{"kind":"resync_required","reason":"epoch rotated","reconnect_after_ms":7500}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        let frame = AccountSubscribeFrame::from_ndjson_line(line)
+            .unwrap()
+            .unwrap();
         assert!(frame.requires_resubscribe());
         assert_eq!(frame.reconnect_after_ms(), Some(7_500));
     }
@@ -940,15 +959,25 @@ mod account_subscribe_frame_tests {
     #[test]
     fn account_subscribe_frame_from_ndjson_line_unauthorized() {
         let line = r#"{"kind":"unauthorized","reason":"revoked"}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        let frame = AccountSubscribeFrame::from_ndjson_line(line)
+            .unwrap()
+            .unwrap();
         assert_eq!(frame.kind, AccountSubscribeFrameKind::Unauthorized);
         assert!(!frame.requires_resubscribe());
     }
 
     #[test]
     fn account_subscribe_frame_from_ndjson_line_empty_returns_none() {
-        assert!(AccountSubscribeFrame::from_ndjson_line("").unwrap().is_none());
-        assert!(AccountSubscribeFrame::from_ndjson_line("   \n  ").unwrap().is_none());
+        assert!(
+            AccountSubscribeFrame::from_ndjson_line("")
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            AccountSubscribeFrame::from_ndjson_line("   \n  ")
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
@@ -1000,6 +1029,8 @@ pub struct SyncBackfillOutcome {
     #[serde(default)]
     pub events: Vec<Event>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub snapshot_bootstrap: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -1027,40 +1058,12 @@ pub struct EventsQueryPostRequestBody {
     pub filters: Option<Value>,
 }
 
-/// Result of `ck.self.snapshot.head` — a signed snapshot pointer for fast
-/// bootstrap. Mirrors
-/// `service-operation-dtos.schema.json#/$defs/SnapshotHeadState`
-/// (closed schema, 8 required fields). `snapshot_ref` is an external pointer
-/// that MUST equal the Snapshot manifest id; `created_by` / `created_at` /
-/// `authority_binding` are part of the signed manifest transcript and MUST
-/// be returned to verifiers.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SnapshotHeadState {
-    /// External pointer to the Snapshot manifest; MUST equal the manifest id.
-    pub snapshot_ref: String,
-    pub state_digest: Hash,
-    /// Snapshot frontier (object — event-set / causal frontier descriptor).
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub frontier: Value,
-    /// Commitment over the snapshot's event set (object).
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub event_set_commitment: Value,
-    /// Optional verifier hints (object).
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_hints: Option<Value>,
-    /// DID of the snapshot issuer; bound by the manifest signature transcript.
-    pub created_by: Did,
-    /// RFC 3339 UTC timestamp (`Z`) when the manifest was sealed.
-    pub created_at: DateTime<Utc>,
-    /// Snapshot issuer authority evidence (object); bound by the transcript.
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub authority_binding: Value,
-    /// Detached proof of the snapshot manifest.
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub signature: Value,
-}
+/// Result of `ck.self.snapshot.head`.
+///
+/// The v1 wire returns the full signed `ck.schema.snapshot.v1` manifest, not a
+/// pointer DTO. The alias keeps older type references source-compatible while
+/// removing the legacy shape from the SDK surface.
+pub type SnapshotHeadState = crate::SnapshotManifest;
 
 fn is_false(value: &bool) -> bool {
     !*value
@@ -3440,7 +3443,6 @@ pub struct KeyBackupRetention {
 /// shape but leave `body` as a free-form `Value` for now: the full
 /// commitment-branch shape (passphrase commitment, threshold params, AEAD
 /// profile, etc.) lands in a follow-up.
-///
 // TODO(P1): expand `body` into a tagged enum (passphrase | recovery_key |
 // threshold | hardware_wrapped) matching the spec's `oneOf` branches.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -3475,7 +3477,6 @@ pub enum RecoveryPolicyLifecycle {
 /// cokret-spec b47ff6ec). Mirrors `recovery-policy.schema.json`
 /// `body.proof_kinds[]`. Validation of the proof internals is
 /// deferred to R3.1 (verifier implementation).
-//
 // TODO(R3.1): internal proof verification (cross-signing reset proof
 // equivalents, threshold device quorum, OIDC trusted recovery service,
 // principal-signing) — wire-level shape only at this round.
@@ -3516,7 +3517,6 @@ impl RecoveryProofKind {
 /// Key-backup hardening (B-C, spec head 37ce729) — minimal Rust shape for
 /// `ck.schema.recovery_receipt.v1`. Captures verification evidence + a
 /// proof that binds the receipt to a specific recovery session.
-///
 // TODO(P1): expand `evidence` into a tagged enum matching the spec's
 // recovery-attestation oneOf (self-asserted | hardware-attested | quorum).
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -3581,10 +3581,17 @@ mod tests {
 
     #[test]
     fn key_backup_recipient_method_rejects_removed_wire_values() {
-        for value in ["device_snapshot_secret", "threshold_recovery", "hardware_wrapped_key"] {
+        for value in [
+            "device_snapshot_secret",
+            "threshold_recovery",
+            "hardware_wrapped_key",
+        ] {
             let parsed: std::result::Result<KeyBackupRecipientMethod, _> =
                 serde_json::from_value(serde_json::json!(value));
-            assert!(parsed.is_err(), "{value} must not be a key-backup recipient_method");
+            assert!(
+                parsed.is_err(),
+                "{value} must not be a key-backup recipient_method"
+            );
         }
     }
 }

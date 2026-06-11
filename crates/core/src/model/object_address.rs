@@ -5,28 +5,24 @@
 //! inside a Flow. Three envelopes share ONE grammar:
 //!
 //! * logical id `ck:<kind>:<uuid>` — opaque, never carries via/action/token.
-//! * `web+cokret:` URI scheme:
-//!   `web+cokret:realm/<realm>/flow/<flow>/m/<msg>?action=view`
-//! * HTTPS landing: `https://<landing>/#realm/.../flow/...?action=...` — everything
-//!   AFTER the `#` is the SAME grammar as the `web+cokret:` form (strip the
-//!   `https://<host>/#` shell, then reuse the same parser).
+//! * `web+cokret:` URI scheme: `web+cokret:realm/<realm>/flow/<flow>/m/<msg>?action=view`
+//! * HTTPS landing: `https://<landing>/#realm/.../flow/...?action=...` — everything AFTER the `#` is
+//!   the SAME grammar as the `web+cokret:` form (strip the `https://<host>/#` shell, then reuse the
+//!   same parser).
 //!
 //! ## Normative grammar rules
-//! * PATH carries identity: keyword + bare uuid (the `ck:<kind>:` sigil is
-//!   stripped). Hierarchy is fixed `realm/<r>` ⊃ `flow/<f>` ⊃ `m/<msg>`. The
-//!   message anchor keyword is exactly `m/`.
-//! * The `<realm>` segment: a UUIDv7 textual form is a `realm_id`; otherwise it
-//!   is an ALIAS (domain-style). `<flow>` and `<msg>` segments accept ONLY a
-//!   bare uuid.
-//! * Flow/Message addresses MUST carry `realm/<r>`. A global flow_id is never
-//!   guessed. Retired `via` query hints are ignored.
-//! * Unknown path keyword, wrong order, or a missing intermediate level fails
-//!   closed. v1 legal keywords are ONLY `realm` / `flow` / `m`; an unknown
-//!   keyword is always fail-closed (forward-compat, no fork).
+//! * PATH carries identity: keyword + bare uuid (the `ck:<kind>:` sigil is stripped). Hierarchy is
+//!   fixed `realm/<r>` ⊃ `flow/<f>` ⊃ `m/<msg>`. The message anchor keyword is exactly `m/`.
+//! * The `<realm>` segment: a UUIDv7 textual form is a `realm_id`; otherwise it is an ALIAS
+//!   (domain-style). `<flow>` and `<msg>` segments accept ONLY a bare uuid.
+//! * Flow/Message addresses MUST carry `realm/<r>`. A global flow_id is never guessed. Retired
+//!   `via` query hints are ignored.
+//! * Unknown path keyword, wrong order, or a missing intermediate level fails closed. v1 legal
+//!   keywords are ONLY `realm` / `flow` / `m`; an unknown keyword is always fail-closed
+//!   (forward-compat, no fork).
 //!
 //! ## QUERY hints (never identity)
-//! * `action=<view|join|reply>` — default `view`; pure UI hint, MUST NOT
-//!   escalate permissions.
+//! * `action=<view|join|reply>` — default `view`; pure UI hint, MUST NOT escalate permissions.
 //! * `lt=<reference|invite|preview>` — omitted == `reference`.
 //! * `tok=<opaque-token>` — present iff `lt=invite` or `lt=preview`.
 //!
@@ -38,9 +34,8 @@
 //! Flow/Message necessarily changes the digest, so a token cannot be replayed
 //! across objects (scope-confusion defence). See [`verify_token_target`].
 
-use serde::{Deserialize, Serialize};
-
 use cokret_identifiers::is_lowercase_uuidv7;
+use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result, canonical};
 
@@ -225,10 +220,13 @@ fn parse_path(path: &str) -> Result<(RealmRef, Option<String>, Option<String>)> 
         }
         None => return Err(protocol_err("empty path")),
     }
-    let realm_seg =
-        segments.next().ok_or_else(|| protocol_err("missing realm identifier after 'realm/'"))?;
+    let realm_seg = segments
+        .next()
+        .ok_or_else(|| protocol_err("missing realm identifier after 'realm/'"))?;
     if realm_seg == "flow" || realm_seg == "m" || realm_seg == "realm" {
-        return Err(protocol_err("missing realm identifier (found keyword in id slot)"));
+        return Err(protocol_err(
+            "missing realm identifier (found keyword in id slot)",
+        ));
     }
     let realm = RealmRef::parse(realm_seg);
 
@@ -269,7 +267,9 @@ fn parse_path(path: &str) -> Result<(RealmRef, Option<String>, Option<String>)> 
         }
         // `m/<msg>` without an intermediate `flow/` is a missing-level error.
         Some("m") => {
-            return Err(protocol_err("message anchor 'm/' requires an intermediate 'flow/' level"));
+            return Err(protocol_err(
+                "message anchor 'm/' requires an intermediate 'flow/' level",
+            ));
         }
         Some(other) => {
             return Err(protocol_err(&format!(
@@ -280,7 +280,9 @@ fn parse_path(path: &str) -> Result<(RealmRef, Option<String>, Option<String>)> 
 
     // Any trailing segments are illegal (e.g. a 4th level, or a stray keyword).
     if segments.next().is_some() {
-        return Err(protocol_err("trailing path segments beyond realm/flow/m hierarchy"));
+        return Err(protocol_err(
+            "trailing path segments beyond realm/flow/m hierarchy",
+        ));
     }
 
     Ok((realm, flow, message))
@@ -353,7 +355,11 @@ fn parse_query(query: &str) -> (AddressAction, LinkType, Option<String>) {
     let link_type = LinkType::from_query(lt_raw.as_deref());
     // `tok` is meaningful iff `lt=invite|preview`; drop a stray token on a
     // reference link so it can never be mistaken for authorization.
-    let tok = if matches!(link_type, LinkType::Invite | LinkType::Preview) { tok } else { None };
+    let tok = if matches!(link_type, LinkType::Invite | LinkType::Preview) {
+        tok
+    } else {
+        None
+    };
     (action, link_type, tok)
 }
 
@@ -368,7 +374,14 @@ pub fn parse_address(input: &str) -> Result<ParsedAddress> {
     let (realm, flow, message) = parse_path(&path)?;
     let (action, link_type, token) = parse_query(&query);
 
-    Ok(ParsedAddress { realm, flow, message, action, link_type, token })
+    Ok(ParsedAddress {
+        realm,
+        flow,
+        message,
+        action,
+        link_type,
+        token,
+    })
 }
 
 /// Build a canonical `web+cokret:` address from its parts. `action` is emitted
@@ -424,13 +437,21 @@ fn build_query(parsed: &ParsedAddress) -> String {
             parts.push(format!("tok={token}"));
         }
     }
-    if parts.is_empty() { String::new() } else { format!("?{}", parts.join("&")) }
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!("?{}", parts.join("&"))
+    }
 }
 
 /// Wrap a bare uuid (or already-typed id) into a canonical `ck:<kind>:<uuid>`
 /// identifier. Idempotent if the input already carries the prefix.
 fn typed_id(prefix: &str, bare: &str) -> String {
-    if bare.starts_with(prefix) { bare.to_owned() } else { format!("{prefix}{bare}") }
+    if bare.starts_with(prefix) {
+        bare.to_owned()
+    } else {
+        format!("{prefix}{bare}")
+    }
 }
 
 /// The canonical signed-payload target descriptor bound into an `invite` token.
@@ -470,7 +491,10 @@ impl TargetDescriptor {
         TargetDescriptor {
             realm_id,
             flow_id: parsed.flow.as_deref().map(|f| typed_id("ck:flow:", f)),
-            message_id: parsed.message.as_deref().map(|m| typed_id("ck:message:", m)),
+            message_id: parsed
+                .message
+                .as_deref()
+                .map(|m| typed_id("ck:message:", m)),
             link_type: parsed.link_type,
         }
     }
@@ -579,17 +603,19 @@ mod tests {
 
     #[test]
     fn retired_via_hint_is_ignored() {
-        let parsed =
-            parse_address(&format!("web+cokret:realm/{R}/flow/{F}?via=did:web:a&via=did:web:b"))
-                .unwrap();
+        let parsed = parse_address(&format!(
+            "web+cokret:realm/{R}/flow/{F}?via=did:web:a&via=did:web:b"
+        ))
+        .unwrap();
         assert!(parsed.is_flow());
     }
 
     #[test]
     fn query_percent_decode_handles_complete_and_truncated_octets() {
-        let parsed =
-            parse_address(&format!("web+cokret:realm/{R}/flow/{F}?lt=preview&tok=a%2Fb%25c%2"))
-                .unwrap();
+        let parsed = parse_address(&format!(
+            "web+cokret:realm/{R}/flow/{F}?lt=preview&tok=a%2Fb%25c%2"
+        ))
+        .unwrap();
         assert_eq!(parsed.token.as_deref(), Some("a/b%c%2"));
     }
 
@@ -753,15 +779,20 @@ mod tests {
 
     #[test]
     fn verify_token_target_fails_closed_on_alias_realm() {
-        let alias_addr =
-            parse_address(&format!("web+cokret:realm/team.example.com/flow/{F}?lt=invite&tok=t"))
-                .unwrap();
+        let alias_addr = parse_address(&format!(
+            "web+cokret:realm/team.example.com/flow/{F}?lt=invite&tok=t"
+        ))
+        .unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&alias_addr);
             d.link_type = LinkType::Invite;
             d
         };
         // Without an injected canonical realm_id, comparison MUST fail closed.
-        assert!(!verify_token_target(&token_desc, &alias_addr, LinkType::Invite));
+        assert!(!verify_token_target(
+            &token_desc,
+            &alias_addr,
+            LinkType::Invite
+        ));
     }
 }

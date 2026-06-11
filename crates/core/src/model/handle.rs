@@ -29,21 +29,28 @@ impl Handle {
     /// Lowercases both the localpart and domain.
     pub fn parse(input: &str) -> Result<Self> {
         let mut parts = input.split(':');
-        let local =
-            parts.next().ok_or_else(|| Error::Protocol(format!("handle is empty: {input}")))?;
+        let local = parts
+            .next()
+            .ok_or_else(|| Error::Protocol(format!("handle is empty: {input}")))?;
         let domain_part = parts
             .next()
             .ok_or_else(|| Error::Protocol(format!("handle missing ':<domain>': {input}")))?;
         let port_part = parts.next();
         if parts.next().is_some() {
-            return Err(Error::Protocol(format!("handle has too many ':' separators: {input}")));
+            return Err(Error::Protocol(format!(
+                "handle has too many ':' separators: {input}"
+            )));
         }
         if local.is_empty() {
-            return Err(Error::Protocol(format!("handle localpart is empty: {input}")));
+            return Err(Error::Protocol(format!(
+                "handle localpart is empty: {input}"
+            )));
         }
         let localpart = local.to_ascii_lowercase();
         if !is_valid_localpart(&localpart) {
-            return Err(Error::Protocol(format!("handle localpart invalid: {input}")));
+            return Err(Error::Protocol(format!(
+                "handle localpart invalid: {input}"
+            )));
         }
         let domain = domain_part.to_ascii_lowercase();
         if !is_valid_domain(&domain) {
@@ -60,7 +67,12 @@ impl Handle {
             Some(p) => format!("{localpart}:{domain}:{p}"),
             None => format!("{localpart}:{domain}"),
         };
-        Ok(Self { canonical, localpart, domain, port })
+        Ok(Self {
+            canonical,
+            localpart,
+            domain,
+            port,
+        })
     }
 
     /// Build from `acct:<local>@<domain>` interop form. The result is the
@@ -146,8 +158,7 @@ fn is_valid_localpart(s: &str) -> bool {
 ///
 /// 1. Reject zero-width / bidi controls before any display processing.
 /// 2. Enforce the v1 canonical ASCII localpart alphabet.
-/// 3. Reject common non-ASCII Latin lookalikes with the
-///    `handle_homograph_forbidden` wire code.
+/// 3. Reject common non-ASCII Latin lookalikes with the `handle_homograph_forbidden` wire code.
 ///
 /// On rejection returns [`Error::Protocol`] carrying the
 /// `handle_homograph_forbidden` wire code prefix so downstream HTTP
@@ -293,7 +304,9 @@ fn is_valid_domain(s: &str) -> bool {
             bytes[bytes.len() - 1].is_ascii_lowercase() || bytes[bytes.len() - 1].is_ascii_digit();
         first_ok
             && last_ok
-            && label.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+            && label
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
     })
 }
 
@@ -477,13 +490,15 @@ impl Default for HandleClaim {
 impl HandleClaim {
     /// Enforce schema `allOf` conditional required fields:
     ///   - `binding_state=verified` ⇒ `handle` + `expires_at`
-    ///   - `member_delivery_binding` present ⇒ `handle` + `audience` +
-    ///     `expires_at`, and binding_source != did_document_default
-    ///     (enforced by the [`HandleHintBindingSource`] type itself).
+    ///   - `member_delivery_binding` present ⇒ `handle` + `audience` + `expires_at`, and
+    ///     binding_source != did_document_default (enforced by the [`HandleHintBindingSource`] type
+    ///     itself).
     pub fn validate(&self) -> Result<()> {
         if matches!(self.binding_state, Some(HandleBindingState::Verified)) {
             if self.handle.is_none() {
-                return Err(Error::Protocol("binding_state=verified requires handle".to_owned()));
+                return Err(Error::Protocol(
+                    "binding_state=verified requires handle".to_owned(),
+                ));
             }
             if self.expires_at.is_none() {
                 return Err(Error::Protocol(
@@ -559,8 +574,10 @@ mod tests {
 
     #[test]
     fn verified_requires_handle_and_expires() {
-        let claim =
-            HandleClaim { binding_state: Some(HandleBindingState::Verified), ..Default::default() };
+        let claim = HandleClaim {
+            binding_state: Some(HandleBindingState::Verified),
+            ..Default::default()
+        };
         assert!(claim.validate().is_err());
     }
 

@@ -4,7 +4,9 @@
 //! content hashes, cursors and HLC values. Constructors and Serde decoding both
 //! validate their input so malformed wire identifiers fail at the edge.
 
-use std::{cmp::Ordering, fmt, str::FromStr};
+use std::cmp::Ordering;
+use std::fmt;
+use std::str::FromStr;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest, Sha256};
@@ -89,14 +91,14 @@ macro_rules! id_type {
 /// single prefix, no hash alternative). In addition to the string-newtype API
 /// it exposes the at-rest bare-uuid form:
 ///
-/// - [`uuid()`](#method.uuid) — the bare RFC 9562 UUIDv7 payload, the DB
-///   storage form. Wire / `Display` / `as_str` keep the canonical
-///   `ck:<kind>:<uuid>` string, so the protocol surface is unchanged.
-/// - [`from_uuid()`](#method.from_uuid) — rebuild the typed id from a bare DB
-///   uuid + this type's kind prefix.
-/// - feature `diesel`: `ToSql`/`FromSql` against PostgreSQL `uuid`, so these
-///   ids persist as native `uuid` columns (bare) and reload as the prefixed
-///   wire form. Gated so the wasm/protocol build never pulls diesel.
+/// - [`uuid()`](#method.uuid) — the bare RFC 9562 UUIDv7 payload, the DB storage form. Wire /
+///   `Display` / `as_str` keep the canonical `ck:<kind>:<uuid>` string, so the protocol surface is
+///   unchanged.
+/// - [`from_uuid()`](#method.from_uuid) — rebuild the typed id from a bare DB uuid + this type's
+///   kind prefix.
+/// - feature `diesel`: `ToSql`/`FromSql` against PostgreSQL `uuid`, so these ids persist as native
+///   `uuid` columns (bare) and reload as the prefixed wire form. Gated so the wasm/protocol build
+///   never pulls diesel.
 ///
 /// Hash-bearing or hybrid kinds (`OperationId`, `BlobRef`, `AnchorId`,
 /// `MoveId`, `Hash`), DIDs, cursors and `trust_domain` MUST stay on plain
@@ -132,9 +134,9 @@ macro_rules! uuid_id_type {
             ) -> diesel::serialize::Result {
                 let value = self.uuid();
                 <uuid::Uuid as diesel::serialize::ToSql<
-                    diesel::sql_types::Uuid,
-                    diesel::pg::Pg,
-                >>::to_sql(&value, &mut out.reborrow())
+                                                            diesel::sql_types::Uuid,
+                                                            diesel::pg::Pg,
+                                                        >>::to_sql(&value, &mut out.reborrow())
             }
         }
 
@@ -171,11 +173,16 @@ pub fn is_did(value: &str) -> bool {
     };
     if method.is_empty()
         || method_specific_id.is_empty()
-        || !method.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        || !method
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
     {
         return false;
     }
-    if method_specific_id.bytes().any(|b| matches!(b, b' ' | b'\t' | b'\n' | b'\r' | b'#' | b'?')) {
+    if method_specific_id
+        .bytes()
+        .any(|b| matches!(b, b' ' | b'\t' | b'\n' | b'\r' | b'#' | b'?'))
+    {
         return false;
     }
     method != "uuid"
@@ -193,7 +200,9 @@ fn is_hash(value: &str) -> bool {
         _ => return false,
     };
     digest.len() == expected_len
-        && digest.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        && digest
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
 fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
@@ -345,7 +354,10 @@ uuid_id_type!(RelationId, "ck:relation:");
 uuid_id_type!(EventId, "ck:event:");
 // OperationId is hybrid: `ck:operation:<uuidv7>` OR a content hash. No bare
 // uuid form, so it stays a text `id_type!`.
-id_type!(OperationId, |value: &str| is_strict_typed_id(value, "ck:operation:") || is_hash(value));
+id_type!(OperationId, |value: &str| is_strict_typed_id(
+    value,
+    "ck:operation:"
+) || is_hash(value));
 uuid_id_type!(GrantId, "ck:grant:");
 uuid_id_type!(InviteId, "ck:invite:");
 uuid_id_type!(KeyEventId, "ck:key_event:");
@@ -430,14 +442,18 @@ impl Hlc {
             .next()
             .ok_or_else(|| IdentifierError::InvalidId(value.to_owned()))
             .and_then(|part| parse_lower_hex(part, value))?;
-        let node = parts.next().ok_or_else(|| IdentifierError::InvalidId(value.to_owned()))?;
+        let node = parts
+            .next()
+            .ok_or_else(|| IdentifierError::InvalidId(value.to_owned()))?;
         if parts.next().is_some()
             || value.len() != 26
             || value.as_bytes().get(12) != Some(&b'-')
             || value.as_bytes().get(17) != Some(&b'-')
             || node.is_empty()
             || node.len() != 8
-            || !node.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+            || !node
+                .bytes()
+                .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
         {
             return Err(IdentifierError::InvalidId(value.to_owned()));
         }
@@ -497,7 +513,9 @@ impl<'de> Deserialize<'de> for Hlc {
 fn parse_lower_hex(part: &str, original: &str) -> Result<u64> {
     if part.is_empty()
         || !matches!(part.len(), 4 | 8 | 12)
-        || !part.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        || !part
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
     {
         return Err(IdentifierError::InvalidId(original.to_owned()));
     }
@@ -509,8 +527,9 @@ mod oapi;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde::Deserialize;
+
+    use super::*;
 
     #[test]
     fn did_validation_rejects_handles() {
@@ -651,15 +670,30 @@ mod tests {
     fn is_strict_typed_id_rejects_ulid_and_bad_uuid_payloads() {
         // C19 wire-break: typed wire ids MUST be canonical lowercase UUIDv7.
         // Mixed-case ULID-form is rejected (intentionally non-UUIDv7).
-        assert!(!is_strict_typed_id("ck:space:01js0ke000000000000000000", "ck:space:"));
+        assert!(!is_strict_typed_id(
+            "ck:space:01js0ke000000000000000000",
+            "ck:space:"
+        ));
         // Uppercase hex forbidden.
-        assert!(!is_strict_typed_id("ck:space:0196419B-0000-7000-8000-000000000000", "ck:space:"));
+        assert!(!is_strict_typed_id(
+            "ck:space:0196419B-0000-7000-8000-000000000000",
+            "ck:space:"
+        ));
         // Wrong UUID version (4 instead of 7).
-        assert!(!is_strict_typed_id("ck:space:0196419b-0000-4000-8000-000000000000", "ck:space:"));
+        assert!(!is_strict_typed_id(
+            "ck:space:0196419b-0000-4000-8000-000000000000",
+            "ck:space:"
+        ));
         // Wrong variant nibble (c not in {8,9,a,b}).
-        assert!(!is_strict_typed_id("ck:space:0196419b-0000-7000-c000-000000000000", "ck:space:"));
+        assert!(!is_strict_typed_id(
+            "ck:space:0196419b-0000-7000-c000-000000000000",
+            "ck:space:"
+        ));
         // Canonical UUIDv7 accepted.
-        assert!(is_strict_typed_id("ck:space:0196419b-0000-7000-8000-000000000000", "ck:space:"));
+        assert!(is_strict_typed_id(
+            "ck:space:0196419b-0000-7000-8000-000000000000",
+            "ck:space:"
+        ));
     }
 
     #[test]
@@ -675,7 +709,10 @@ mod tests {
             "hlc": "01970e589d21-0004-a13f9c2e",
         }))
         .unwrap();
-        assert_eq!(valid.space_id.as_str(), "ck:space:01904100-0000-7000-8000-000000000001");
+        assert_eq!(
+            valid.space_id.as_str(),
+            "ck:space:01904100-0000-7000-8000-000000000001"
+        );
         assert_eq!(valid.hlc.as_str(), "01970e589d21-0004-a13f9c2e");
 
         let invalid_id = serde_json::from_value::<Envelope>(serde_json::json!({

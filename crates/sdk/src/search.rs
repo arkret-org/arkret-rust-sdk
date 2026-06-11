@@ -81,17 +81,26 @@ impl RealmSearchIndex {
     /// Search by name or description.
     pub fn search_by_text(&self, query: &str) -> Vec<&RealmSearchEntry> {
         let query = query.to_lowercase();
-        self.entries.values().filter(|entry| realm_text(entry).contains(&query)).collect()
+        self.entries
+            .values()
+            .filter(|entry| realm_text(entry).contains(&query))
+            .collect()
     }
 
     /// Search by tag.
     pub fn search_by_tag(&self, tag: &str) -> Vec<&RealmSearchEntry> {
-        self.entries.values().filter(|entry| entry.tags.contains(tag)).collect()
+        self.entries
+            .values()
+            .filter(|entry| entry.tags.contains(tag))
+            .collect()
     }
 
     /// Search by member.
     pub fn search_by_member(&self, member: &Did) -> Vec<&RealmSearchEntry> {
-        self.entries.values().filter(|entry| entry.members.contains(member)).collect()
+        self.entries
+            .values()
+            .filter(|entry| entry.members.contains(member))
+            .collect()
     }
 
     /// Run a combined query.
@@ -108,12 +117,19 @@ impl RealmSearchIndex {
                     .unwrap_or(true)
             })
             .filter(|entry| query.tags.iter().all(|tag| entry.tags.contains(tag)))
-            .filter(|entry| query.members.iter().all(|member| entry.members.contains(member)))
+            .filter(|entry| {
+                query
+                    .members
+                    .iter()
+                    .all(|member| entry.members.contains(member))
+            })
             .map(|entry| (realm_score(entry, &query), entry))
             .collect();
 
         scored.sort_by(|(left_score, left), (right_score, right)| {
-            right_score.cmp(left_score).then_with(|| left.name.cmp(&right.name))
+            right_score
+                .cmp(left_score)
+                .then_with(|| left.name.cmp(&right.name))
         });
 
         let mut results: Vec<_> = scored.into_iter().map(|(_, entry)| entry).collect();
@@ -141,12 +157,28 @@ fn realm_score(entry: &RealmSearchEntry, query: &RealmSearchQuery) -> usize {
         if entry.name.to_lowercase().contains(&text) {
             score += 10;
         }
-        if entry.description.as_deref().unwrap_or_default().to_lowercase().contains(&text) {
+        if entry
+            .description
+            .as_deref()
+            .unwrap_or_default()
+            .to_lowercase()
+            .contains(&text)
+        {
             score += 4;
         }
     }
-    score += query.tags.iter().filter(|tag| entry.tags.contains(*tag)).count() * 3;
-    score += query.members.iter().filter(|member| entry.members.contains(*member)).count() * 2;
+    score += query
+        .tags
+        .iter()
+        .filter(|tag| entry.tags.contains(*tag))
+        .count()
+        * 3;
+    score += query
+        .members
+        .iter()
+        .filter(|member| entry.members.contains(*member))
+        .count()
+        * 2;
     score
 }
 

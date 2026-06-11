@@ -143,8 +143,12 @@ pub const AGENT_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_AGENT_SIDECAR_THREAD_PUBLISH,
 ];
 
-pub const AGENT_SIDECAR_THREAD_ENSURE_TARGET_EVENT_KINDS: &[&str] =
-    &["ck.circle.create", "ck.circle.member.state", "ck.flow.create", "ck.relation.create"];
+pub const AGENT_SIDECAR_THREAD_ENSURE_TARGET_EVENT_KINDS: &[&str] = &[
+    "ck.circle.create",
+    "ck.circle.member.state",
+    "ck.flow.create",
+    "ck.relation.create",
+];
 pub const AGENT_SIDECAR_THREAD_WRITE_TARGET_EVENT_KINDS: &[&str] = &["ck.message.create"];
 pub const AGENT_SIDECAR_THREAD_PUBLISH_TARGET_EVENT_KINDS: &[&str] = &["ck.message.create"];
 
@@ -212,7 +216,6 @@ pub const RECOVERY_RECEIPT_SCHEMA: &str = "ck.schema.recovery_receipt.v1";
 /// Circle is provisioned in the context Realm of the controller's
 /// current focused conversation when available, falling back to the
 /// controller's home Realm only when no context Realm exists.
-///
 pub const PROFILE_AGENT_SIDECAR_THREAD: &str = "ck.profile.agent_sidecar_thread.v1";
 pub const AGENT_SIDECAR_HOME_POLICY_CONTEXT_REALM_PREFERRED: &str = "context_realm_preferred";
 
@@ -394,7 +397,9 @@ pub const REVIEWED_CAPABILITY_ACTION_DEFINITIONS: &[CapabilityActionDefinition] 
 ];
 
 pub fn capability_action_definition(action: &str) -> Option<&'static CapabilityActionDefinition> {
-    REVIEWED_CAPABILITY_ACTION_DEFINITIONS.iter().find(|definition| definition.action == action)
+    REVIEWED_CAPABILITY_ACTION_DEFINITIONS
+        .iter()
+        .find(|definition| definition.action == action)
 }
 
 pub fn capability_action_target_event_kinds(action: &str) -> &'static [&'static str] {
@@ -528,7 +533,6 @@ pub const OP_DIRECTORY_PUSH_REGISTER: &str = "ck.find.directory.push.register";
 pub const OP_DIRECTORY_WITHDRAW: &str = "ck.find.directory.withdraw";
 
 /// Events-API operations (low-level Event Envelope plane).
-///
 pub const OP_EVENTS_RESOLVE: &str = "ck.self.events.resolve";
 pub const OP_EVENTS_DESCRIBE: &str = "ck.self.events.describe";
 pub const OP_EVENTS_FRONTIER: &str = "ck.self.events.frontier";
@@ -903,7 +907,10 @@ mod tests {
             select_agent_sidecar_home_realm(Some("ck:realm:context"), "ck:realm:home"),
             "ck:realm:context"
         );
-        assert_eq!(select_agent_sidecar_home_realm(None, "ck:realm:home"), "ck:realm:home");
+        assert_eq!(
+            select_agent_sidecar_home_realm(None, "ck:realm:home"),
+            "ck:realm:home"
+        );
     }
 
     #[test]
@@ -915,7 +922,10 @@ mod tests {
             capability_action_required_constraints(CAP_ACTION_FLOW_UPDATE),
             &[CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS]
         );
-        assert_eq!(capability_action_target_event_kinds(CAP_ACTION_FLOW_UPDATE), &[OP_FLOW_UPDATE]);
+        assert_eq!(
+            capability_action_target_event_kinds(CAP_ACTION_FLOW_UPDATE),
+            &[OP_FLOW_UPDATE]
+        );
 
         assert_eq!(
             capability_action_target_event_kinds(CAP_ACTION_OBJECT_ARCHIVE),

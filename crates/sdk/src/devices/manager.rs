@@ -54,7 +54,11 @@ impl DeviceManager {
                 updated_at: Utc::now(),
             },
         );
-        self.changes.push(DeviceChange { user_id, device_id, removed: false });
+        self.changes.push(DeviceChange {
+            user_id,
+            device_id,
+            removed: false,
+        });
     }
 
     /// Insert / replace the device record together with its public key (spec §4).
@@ -66,8 +70,10 @@ impl DeviceManager {
         device_public_key: impl Into<String>,
     ) {
         self.upsert_device(user_id.clone(), device_id.clone(), metadata);
-        if let Some(device) =
-            self.devices.get_mut(&user_id).and_then(|devices| devices.get_mut(&device_id))
+        if let Some(device) = self
+            .devices
+            .get_mut(&user_id)
+            .and_then(|devices| devices.get_mut(&device_id))
         {
             device.device_public_key = Some(device_public_key.into());
         }
@@ -75,12 +81,17 @@ impl DeviceManager {
 
     /// Get all devices for a user.
     pub fn user_devices(&self, user_id: &Did) -> Vec<&Device> {
-        self.devices.get(user_id).map(|devices| devices.values().collect()).unwrap_or_default()
+        self.devices
+            .get(user_id)
+            .map(|devices| devices.values().collect())
+            .unwrap_or_default()
     }
 
     /// Get one device.
     pub fn device(&self, user_id: &Did, device_id: &DeviceId) -> Option<&Device> {
-        self.devices.get(user_id).and_then(|devices| devices.get(device_id))
+        self.devices
+            .get(user_id)
+            .and_then(|devices| devices.get(device_id))
     }
 
     /// Drain tracked device-list changes.
@@ -147,7 +158,11 @@ impl DeviceManager {
 
     /// Start device verification.
     pub fn start_verification(&mut self, user_id: &Did, device_id: &DeviceId) -> Result<()> {
-        self.set_verification(user_id, device_id, DeviceVerificationState::VerificationStarted)
+        self.set_verification(
+            user_id,
+            device_id,
+            DeviceVerificationState::VerificationStarted,
+        )
     }
 
     pub fn begin_verification_flow(
@@ -183,7 +198,8 @@ impl DeviceManager {
             created_at,
             expires_at,
         };
-        self.verification_challenges.insert(challenge.transaction_id.clone(), challenge.clone());
+        self.verification_challenges
+            .insert(challenge.transaction_id.clone(), challenge.clone());
         Ok(challenge)
     }
 
@@ -220,13 +236,19 @@ impl DeviceManager {
         expected_device: &DeviceId,
     ) -> Result<()> {
         if payload.version != 1 {
-            return Err(Error::Protocol("unsupported verification QR version".to_owned()));
+            return Err(Error::Protocol(
+                "unsupported verification QR version".to_owned(),
+            ));
         }
         if &payload.user_id != expected_user || &payload.device_id != expected_device {
-            return Err(Error::Protocol("verification QR device mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "verification QR device mismatch".to_owned(),
+            ));
         }
         if payload.commitment.trim().is_empty() {
-            return Err(Error::Protocol("verification QR commitment is empty".to_owned()));
+            return Err(Error::Protocol(
+                "verification QR commitment is empty".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -247,7 +269,9 @@ impl DeviceManager {
                 &challenge.device_id,
                 DeviceVerificationState::VerificationExpired,
             )?;
-            return Err(Error::Protocol("verification transaction expired".to_owned()));
+            return Err(Error::Protocol(
+                "verification transaction expired".to_owned(),
+            ));
         }
         if challenge.challenge != response {
             self.set_verification(
@@ -255,7 +279,9 @@ impl DeviceManager {
                 &challenge.device_id,
                 DeviceVerificationState::VerificationFailed,
             )?;
-            return Err(Error::Protocol("verification challenge mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "verification challenge mismatch".to_owned(),
+            ));
         }
         let expected = device_verification_commitment(
             &challenge.user_id,
@@ -269,9 +295,15 @@ impl DeviceManager {
                 &challenge.device_id,
                 DeviceVerificationState::VerificationFailed,
             )?;
-            return Err(Error::Protocol("verification commitment mismatch".to_owned()));
+            return Err(Error::Protocol(
+                "verification commitment mismatch".to_owned(),
+            ));
         }
-        self.verify_device(&challenge.user_id, &challenge.device_id, cross_signing_binding)
+        self.verify_device(
+            &challenge.user_id,
+            &challenge.device_id,
+            cross_signing_binding,
+        )
     }
 
     /// Cancel a pending verification flow.
@@ -292,11 +324,13 @@ impl DeviceManager {
         let expired = self
             .verification_challenges
             .iter()
-            .filter_map(
-                |(id, challenge)| {
-                    if challenge.expires_at <= now { Some(id.clone()) } else { None }
-                },
-            )
+            .filter_map(|(id, challenge)| {
+                if challenge.expires_at <= now {
+                    Some(id.clone())
+                } else {
+                    None
+                }
+            })
             .collect::<Vec<_>>();
         for transaction_id in &expired {
             if let Some(challenge) = self.verification_challenges.remove(transaction_id) {
@@ -365,7 +399,10 @@ impl DeviceManager {
 
     /// Check if a device has been revoked.
     pub fn is_device_revoked(&self, user_id: &Did, device_id: &DeviceId) -> bool {
-        self.revoked_devices.get(user_id).and_then(|devices| devices.get(device_id)).is_some()
+        self.revoked_devices
+            .get(user_id)
+            .and_then(|devices| devices.get(device_id))
+            .is_some()
     }
 
     /// Get all revoked devices for a user.
@@ -453,7 +490,8 @@ impl DeviceManager {
                 "protocol key backup ciphertext and digest must not be empty".to_owned(),
             ));
         }
-        self.protocol_key_backups.insert(backup.backup_id.clone(), backup);
+        self.protocol_key_backups
+            .insert(backup.backup_id.clone(), backup);
         Ok(())
     }
 
@@ -499,8 +537,11 @@ impl DeviceManager {
         // Round 4 (spec a77b995) — high-water tracks the lineage across
         // reset, so a publish following a reset must continue
         // monotonically from `reset.new_generation`.
-        let current_generation =
-            self.cross_signing_generation_high_water.get(&principal).copied().unwrap_or(0);
+        let current_generation = self
+            .cross_signing_generation_high_water
+            .get(&principal)
+            .copied()
+            .unwrap_or(0);
         // Round 4 CAS guard: `expected_previous_generation` MUST equal
         // the currently accepted generation BEFORE signature verification.
         // Mismatch is `cas_conflict`, not `invalid_signature`.
@@ -521,7 +562,8 @@ impl DeviceManager {
             // A new accepted generation invalidates every device chain.
             self.mark_principal_needs_reverification(&principal)?;
         }
-        self.cross_signing_generation_high_water.insert(principal.clone(), publish.generation);
+        self.cross_signing_generation_high_water
+            .insert(principal.clone(), publish.generation);
         self.cross_signing_publishes.insert(principal, publish);
         Ok(())
     }
@@ -547,18 +589,21 @@ impl DeviceManager {
         self.cross_signing_publishes.remove(principal);
         // Round 4 — reset bumps the generation high-water so the next
         // publish MUST chain from `reset.new_generation`.
-        self.cross_signing_generation_high_water.insert(principal.clone(), reset.new_generation);
+        self.cross_signing_generation_high_water
+            .insert(principal.clone(), reset.new_generation);
         self.mark_principal_needs_reverification(principal)?;
         // Cancel any in-flight verification transactions for this principal
         // (spec §14.2 step 4).
         let cancel_ids: Vec<String> = self
             .verification_challenges
             .iter()
-            .filter_map(
-                |(id, challenge)| {
-                    if &challenge.user_id == principal { Some(id.clone()) } else { None }
-                },
-            )
+            .filter_map(|(id, challenge)| {
+                if &challenge.user_id == principal {
+                    Some(id.clone())
+                } else {
+                    None
+                }
+            })
             .collect();
         for id in cancel_ids {
             let _ = self.cancel_verification_flow(&id);

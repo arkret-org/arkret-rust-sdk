@@ -2,11 +2,10 @@
 //!
 //! ## Feature flags
 //!
-//! * `backup` — pulls in the [`backup`] module, which provides
-//!   client-side Argon2id KDF, XChaCha20-Poly1305 AEAD, a recovery-key
-//!   codec, and a typed [`cokret_core::KeyBackup`] envelope builder
-//!   (spec: `crypto-media/key-management.md` §7). When the feature is
-//!   off, the bare types crate stays free of heavyweight crypto deps.
+//! * `backup` — pulls in the [`backup`] module, which provides client-side Argon2id KDF,
+//!   XChaCha20-Poly1305 AEAD, a recovery-key codec, and a typed [`cokret_core::KeyBackup`] envelope
+//!   builder (spec: `crypto-media/key-management.md` §7). When the feature is off, the bare types
+//!   crate stays free of heavyweight crypto deps.
 
 #[cfg(feature = "backup")]
 pub mod backup;
@@ -18,11 +17,10 @@ use cokret_core::{
     BlobRef, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash,
     RealmId, Result,
 };
+pub use cokret_signatures::{DetachedSignature, DetachedSignatureBinding, DetachedVerifier};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-
-pub use cokret_signatures::{DetachedSignature, DetachedSignatureBinding, DetachedVerifier};
 
 /// Typed crypto-machine validation errors.
 ///
@@ -184,7 +182,11 @@ fn validate_nonempty_key(field: &str, value: &str) -> Result<()> {
 /// Helper: reject string fields above a per-field byte ceiling.
 fn validate_max_length(field: &str, value: &str, max: usize) -> Result<()> {
     if value.len() > max {
-        return Err(Error::Protocol(format!("{field} length {} exceeds {}", value.len(), max)));
+        return Err(Error::Protocol(format!(
+            "{field} length {} exceeds {}",
+            value.len(),
+            max
+        )));
     }
     Ok(())
 }
@@ -333,7 +335,9 @@ impl CrossSigningPublishContent {
             ));
         }
         if self.generation == 0 {
-            return Err(Error::Protocol("cross-signing publish generation must be ≥ 1".to_owned()));
+            return Err(Error::Protocol(
+                "cross-signing publish generation must be ≥ 1".to_owned(),
+            ));
         }
         // Bindings must reference the published PSK kid.
         if self.self_signing_key.binding.verification_method != self.principal_signing_key.kid {
@@ -403,7 +407,11 @@ pub struct CrossSigningResetContent {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum CrossSigningResetProof {
     /// Signature from the principal's current DID control key.
-    PrincipalSigning { verification_method: String, alg: String, signature: String },
+    PrincipalSigning {
+        verification_method: String,
+        alg: String,
+        signature: String,
+    },
     /// Unlock of secret storage with the recovery key.
     RecoveryUnlock {
         recovery_secret_ref: String,
@@ -412,7 +420,10 @@ pub enum CrossSigningResetProof {
         signature: String,
     },
     /// Quorum of already-verified devices.
-    DeviceQuorum { threshold: u32, signatures: Vec<DeviceQuorumSignature> },
+    DeviceQuorum {
+        threshold: u32,
+        signatures: Vec<DeviceQuorumSignature>,
+    },
     /// Signature from a recovery service declared in the principal's DID document.
     TrustedRecoveryService {
         service_did: Did,
@@ -452,7 +463,10 @@ impl CrossSigningResetContent {
             MAX_REASON_LEN,
         )?;
         match &self.proof {
-            CrossSigningResetProof::DeviceQuorum { threshold, signatures } => {
+            CrossSigningResetProof::DeviceQuorum {
+                threshold,
+                signatures,
+            } => {
                 if signatures.is_empty() {
                     return Err(Error::Protocol(
                         "device_quorum reset proof requires at least one signature".to_owned(),
@@ -490,7 +504,11 @@ impl CrossSigningResetContent {
                     )?;
                 }
             }
-            CrossSigningResetProof::PrincipalSigning { verification_method, alg, signature }
+            CrossSigningResetProof::PrincipalSigning {
+                verification_method,
+                alg,
+                signature,
+            }
             | CrossSigningResetProof::TrustedRecoveryService {
                 verification_method,
                 alg,
@@ -716,7 +734,9 @@ impl DeviceVerificationFlow {
             MAX_IDENTIFIER_LEN,
         )?;
         if self.from_device == self.to_device {
-            return Err(Error::Protocol("verification requires two distinct devices".to_owned()));
+            return Err(Error::Protocol(
+                "verification requires two distinct devices".to_owned(),
+            ));
         }
         if self.methods.len() > MAX_VERIFICATION_METHODS {
             return Err(Error::Protocol(format!(
@@ -735,12 +755,22 @@ impl DeviceVerificationFlow {
     pub fn advance(&mut self, next: VerificationFlowState) -> Result<()> {
         let allowed = matches!(
             (self.state, next),
-            (VerificationFlowState::Requested, VerificationFlowState::Ready)
-                | (VerificationFlowState::Ready, VerificationFlowState::SasStarted)
-                | (VerificationFlowState::Ready, VerificationFlowState::QrScanned)
-                | (VerificationFlowState::SasStarted, VerificationFlowState::Done)
-                | (VerificationFlowState::QrScanned, VerificationFlowState::Done)
-                | (_, VerificationFlowState::Cancelled)
+            (
+                VerificationFlowState::Requested,
+                VerificationFlowState::Ready
+            ) | (
+                VerificationFlowState::Ready,
+                VerificationFlowState::SasStarted
+            ) | (
+                VerificationFlowState::Ready,
+                VerificationFlowState::QrScanned
+            ) | (
+                VerificationFlowState::SasStarted,
+                VerificationFlowState::Done
+            ) | (
+                VerificationFlowState::QrScanned,
+                VerificationFlowState::Done
+            ) | (_, VerificationFlowState::Cancelled)
                 | (_, VerificationFlowState::TimedOut)
         );
         if allowed {
@@ -797,14 +827,27 @@ impl CryptoSessionRecord {
             ));
         }
         validate_max_length("crypto session id", &self.session_id, MAX_IDENTIFIER_LEN)?;
-        validate_max_length("crypto session sender_key", &self.sender_key, MAX_KEY_FIELD_LEN)?;
-        validate_max_length("crypto session algorithm", &self.algorithm, MAX_ALGORITHM_NAME_LEN)?;
+        validate_max_length(
+            "crypto session sender_key",
+            &self.sender_key,
+            MAX_KEY_FIELD_LEN,
+        )?;
+        validate_max_length(
+            "crypto session algorithm",
+            &self.algorithm,
+            MAX_ALGORITHM_NAME_LEN,
+        )?;
         Ok(())
     }
 
     pub fn accept_message_index(&mut self, index: u64, now: DateTime<Utc>) -> Result<()> {
-        if self.message_index_high_watermark.is_some_and(|seen| index <= seen) {
-            return Err(Error::Protocol("encrypted session replay detected".to_owned()));
+        if self
+            .message_index_high_watermark
+            .is_some_and(|seen| index <= seen)
+        {
+            return Err(Error::Protocol(
+                "encrypted session replay detected".to_owned(),
+            ));
         }
         self.message_index_high_watermark = Some(index);
         self.last_used_at = now;
@@ -845,7 +888,11 @@ pub struct SecretGossipRequestBody {
 impl SecretGossipRequestBody {
     pub fn validate(&self) -> Result<()> {
         validate_nonempty_key("secret gossip request_id", &self.request_id)?;
-        validate_max_length("secret gossip request_id", &self.request_id, MAX_IDENTIFIER_LEN)?;
+        validate_max_length(
+            "secret gossip request_id",
+            &self.request_id,
+            MAX_IDENTIFIER_LEN,
+        )?;
         validate_nonempty_key("secret gossip name", &self.name)?;
         validate_max_length("secret gossip name", &self.name, MAX_IDENTIFIER_LEN)?;
         if self.requesting_device == self.recipient_device {
@@ -874,9 +921,15 @@ pub struct OneTimeKeyClaim {
 impl OneTimeKeyClaim {
     pub fn validate(&self) -> Result<()> {
         validate_nonempty_key("one-time key algorithm", &self.algorithm)?;
-        validate_max_length("one-time key algorithm", &self.algorithm, MAX_ALGORITHM_NAME_LEN)?;
+        validate_max_length(
+            "one-time key algorithm",
+            &self.algorithm,
+            MAX_ALGORITHM_NAME_LEN,
+        )?;
         if self.count == 0 {
-            return Err(Error::Protocol("one-time key claim count must be non-zero".to_owned()));
+            return Err(Error::Protocol(
+                "one-time key claim count must be non-zero".to_owned(),
+            ));
         }
         if self.count > MAX_ONE_TIME_KEY_CLAIM_COUNT {
             return Err(Error::Protocol(format!(
@@ -925,8 +978,16 @@ impl SecretBackupDescriptor {
             ));
         }
         validate_max_length("secret backup id", &self.backup_id, MAX_IDENTIFIER_LEN)?;
-        validate_max_length("secret backup algorithm", &self.algorithm, MAX_ALGORITHM_NAME_LEN)?;
-        validate_max_length("secret backup public_key", &self.public_key, MAX_KEY_FIELD_LEN)?;
+        validate_max_length(
+            "secret backup algorithm",
+            &self.algorithm,
+            MAX_ALGORITHM_NAME_LEN,
+        )?;
+        validate_max_length(
+            "secret backup public_key",
+            &self.public_key,
+            MAX_KEY_FIELD_LEN,
+        )?;
         Ok(())
     }
 }
@@ -986,7 +1047,9 @@ impl MediaEncryptionInfo {
         if actual == self.plaintext_sha256 {
             Ok(())
         } else {
-            Err(Error::Protocol("encrypted media plaintext digest mismatch".to_owned()))
+            Err(Error::Protocol(
+                "encrypted media plaintext digest mismatch".to_owned(),
+            ))
         }
     }
 }
@@ -1082,22 +1145,26 @@ impl CryptoMachineRequestBody {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::UploadDeviceKeys(bundle) => bundle.validate(),
-            Self::QueryDeviceKeys { users } if users.is_empty() => {
-                Err(Error::Protocol("device-key query must include users".to_owned()))
-            }
-            Self::ClaimOneTimeKeys(claims) if claims.is_empty() => {
-                Err(Error::Protocol("one-time key claim must include requests".to_owned()))
-            }
+            Self::QueryDeviceKeys { users } if users.is_empty() => Err(Error::Protocol(
+                "device-key query must include users".to_owned(),
+            )),
+            Self::ClaimOneTimeKeys(claims) if claims.is_empty() => Err(Error::Protocol(
+                "one-time key claim must include requests".to_owned(),
+            )),
             Self::ClaimOneTimeKeys(claims) => {
                 for claim in claims {
                     claim.validate()?;
                 }
                 Ok(())
             }
-            Self::EncryptEvent { event_kind, .. } if event_kind.trim().is_empty() => {
-                Err(Error::Protocol("encrypt event request must include event kind".to_owned()))
-            }
-            Self::ShareRoomKey { session_id, recipients, .. } => {
+            Self::EncryptEvent { event_kind, .. } if event_kind.trim().is_empty() => Err(
+                Error::Protocol("encrypt event request must include event kind".to_owned()),
+            ),
+            Self::ShareRoomKey {
+                session_id,
+                recipients,
+                ..
+            } => {
                 if session_id.trim().is_empty() || recipients.is_empty() {
                     Err(Error::Protocol(
                         "share room key request requires session id and recipients".to_owned(),
@@ -1106,13 +1173,13 @@ impl CryptoMachineRequestBody {
                     Ok(())
                 }
             }
-            Self::RequestRoomKey { session_id, .. } if session_id.trim().is_empty() => {
-                Err(Error::Protocol("room key request requires session id".to_owned()))
-            }
+            Self::RequestRoomKey { session_id, .. } if session_id.trim().is_empty() => Err(
+                Error::Protocol("room key request requires session id".to_owned()),
+            ),
             Self::BackupSecrets(descriptor) => descriptor.validate(),
-            Self::RestoreSecrets { backup_id } if backup_id.trim().is_empty() => {
-                Err(Error::Protocol("restore request must include backup id".to_owned()))
-            }
+            Self::RestoreSecrets { backup_id } if backup_id.trim().is_empty() => Err(
+                Error::Protocol("restore request must include backup id".to_owned()),
+            ),
             _ => Ok(()),
         }
     }
@@ -1123,7 +1190,10 @@ impl CryptoMachineRequestBody {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum CryptoMachineResponseBody {
     /// Request accepted and queued for asynchronous processing.
-    Queued { request_id: String, kind: CryptoMachineRequestKind },
+    Queued {
+        request_id: String,
+        kind: CryptoMachineRequestKind,
+    },
     /// `UploadDeviceKeys` accepted.
     DeviceKeysUploaded { device_id: DeviceId },
     /// `QueryDeviceKeys` result set.
@@ -1137,13 +1207,23 @@ pub enum CryptoMachineResponseBody {
     /// `DecryptEvent` could not decrypt — caller should display a placeholder.
     UnableToDecrypt(UnableToDecryptRecord),
     /// `ShareRoomKey` fanned out to this many recipients.
-    RoomKeyShared { realm_id: RealmId, session_id: String, recipients: usize },
+    RoomKeyShared {
+        realm_id: RealmId,
+        session_id: String,
+        recipients: usize,
+    },
     /// `RequestRoomKey` was emitted on the wire.
-    RoomKeyRequested { event_id: EventId, session_id: String },
+    RoomKeyRequested {
+        event_id: EventId,
+        session_id: String,
+    },
     /// `BackupSecrets` flushed this descriptor to storage.
     BackupReady(SecretBackupDescriptor),
     /// `RestoreSecrets` pulled the named backup and recovered this many secrets.
-    Restored { backup_id: String, recovered_secrets: usize },
+    Restored {
+        backup_id: String,
+        recovered_secrets: usize,
+    },
 }
 
 /// In-memory FIFO queue of pending crypto-machine requests.
@@ -1161,7 +1241,9 @@ impl CryptoMachinePlan {
         request.validate()?;
         let request_id = request_id.into();
         if request_id.trim().is_empty() {
-            return Err(Error::Protocol("crypto request id must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "crypto request id must not be empty".to_owned(),
+            ));
         }
         let kind = request.kind();
         self.queue.push_back((request_id.clone(), request));
@@ -1177,7 +1259,10 @@ impl CryptoMachinePlan {
     }
 
     pub fn pending_kinds(&self) -> Vec<CryptoMachineRequestKind> {
-        self.queue.iter().map(|(_, request)| request.kind()).collect()
+        self.queue
+            .iter()
+            .map(|(_, request)| request.kind())
+            .collect()
     }
 }
 
@@ -1210,13 +1295,15 @@ impl CryptoStoreBinding {
 
     pub fn record_verification_flow(&mut self, flow: DeviceVerificationFlow) -> Result<()> {
         flow.validate()?;
-        self.verification_flows.insert(flow.transaction_id.clone(), flow);
+        self.verification_flows
+            .insert(flow.transaction_id.clone(), flow);
         Ok(())
     }
 
     pub fn record_session(&mut self, session: CryptoSessionRecord) -> Result<()> {
         session.validate()?;
-        self.sessions.insert(session_key(&session.realm_id, &session.session_id), session);
+        self.sessions
+            .insert(session_key(&session.realm_id, &session.session_id), session);
         Ok(())
     }
 
@@ -1229,11 +1316,13 @@ impl CryptoStoreBinding {
     }
 
     pub fn record_withheld_key(&mut self, record: WithheldKeyRecord) {
-        self.withheld_keys.insert(session_key(&record.realm_id, &record.session_id), record);
+        self.withheld_keys
+            .insert(session_key(&record.realm_id, &record.session_id), record);
     }
 
     pub fn record_unable_to_decrypt(&mut self, record: UnableToDecryptRecord) {
-        self.unable_to_decrypt.insert(record.event_id.clone(), record);
+        self.unable_to_decrypt
+            .insert(record.event_id.clone(), record);
     }
 }
 
@@ -1321,7 +1410,9 @@ impl Validate for WithheldKeyRecord {
 impl Validate for KeyLifecycleEvent {
     fn validate(&self) -> std::result::Result<(), CryptoError> {
         if self.key_ref.trim().is_empty() {
-            return Err(CryptoError::Validation("key lifecycle event requires key_ref".to_owned()));
+            return Err(CryptoError::Validation(
+                "key lifecycle event requires key_ref".to_owned(),
+            ));
         }
         if self.key_ref.len() > MAX_IDENTIFIER_LEN {
             return Err(CryptoError::BoundsExceeded {
@@ -1369,7 +1460,12 @@ mod tests {
     fn crypto_machine_plan_validates_and_orders_requests() {
         let mut plan = CryptoMachinePlan::default();
         let queued = plan
-            .push("r1", CryptoMachineRequestBody::QueryDeviceKeys { users: vec![did("alice")] })
+            .push(
+                "r1",
+                CryptoMachineRequestBody::QueryDeviceKeys {
+                    users: vec![did("alice")],
+                },
+            )
             .unwrap();
         assert_eq!(
             queued,
@@ -1378,9 +1474,15 @@ mod tests {
                 kind: CryptoMachineRequestKind::QueryDeviceKeys
             }
         );
-        assert_eq!(plan.pending_kinds(), vec![CryptoMachineRequestKind::QueryDeviceKeys]);
+        assert_eq!(
+            plan.pending_kinds(),
+            vec![CryptoMachineRequestKind::QueryDeviceKeys]
+        );
         assert!(matches!(
-            plan.push("bad", CryptoMachineRequestBody::QueryDeviceKeys { users: Vec::new() }),
+            plan.push(
+                "bad",
+                CryptoMachineRequestBody::QueryDeviceKeys { users: Vec::new() }
+            ),
             Err(Error::Protocol(_))
         ));
         plan.push(
@@ -1394,7 +1496,10 @@ mod tests {
         .unwrap();
         assert_eq!(
             plan.pending_kinds(),
-            vec![CryptoMachineRequestKind::QueryDeviceKeys, CryptoMachineRequestKind::ShareRoomKey]
+            vec![
+                CryptoMachineRequestKind::QueryDeviceKeys,
+                CryptoMachineRequestKind::ShareRoomKey
+            ]
         );
     }
 
@@ -1476,7 +1581,10 @@ mod tests {
             .unwrap();
         let session = binding.session_mut(&realm_id, "sess1").unwrap();
         session.accept_message_index(7, Utc::now()).unwrap();
-        assert!(matches!(session.accept_message_index(7, Utc::now()), Err(Error::Protocol(_))));
+        assert!(matches!(
+            session.accept_message_index(7, Utc::now()),
+            Err(Error::Protocol(_))
+        ));
 
         binding.record_withheld_key(WithheldKeyRecord {
             realm_id,
@@ -1500,7 +1608,10 @@ mod tests {
             ciphertext_sha256: Hash::new(sha256_prefixed(b"ciphertext")).unwrap(),
         };
         info.validate_plaintext(plaintext).unwrap();
-        assert!(matches!(info.validate_plaintext(b"changed"), Err(Error::Protocol(_))));
+        assert!(matches!(
+            info.validate_plaintext(b"changed"),
+            Err(Error::Protocol(_))
+        ));
     }
 
     // ── Round-2 typed Validate trait coverage ───────────────────────
@@ -1534,10 +1645,14 @@ mod tests {
 
         // Too many methods → BoundsExceeded.
         flow.to_device = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000002").unwrap();
-        flow.methods = (0..(MAX_VERIFICATION_METHODS + 1)).map(|i| format!("m{i}")).collect();
+        flow.methods = (0..(MAX_VERIFICATION_METHODS + 1))
+            .map(|i| format!("m{i}"))
+            .collect();
         let err = <DeviceVerificationFlow as Validate>::validate(&flow).unwrap_err();
-        assert!(matches!(err, CryptoError::BoundsExceeded { ref field, limit }
-            if field == "verification methods" && limit == MAX_VERIFICATION_METHODS));
+        assert!(
+            matches!(err, CryptoError::BoundsExceeded { ref field, limit }
+            if field == "verification methods" && limit == MAX_VERIFICATION_METHODS)
+        );
     }
 
     #[test]
@@ -1599,8 +1714,11 @@ mod tests {
         let core_err: Error = CryptoError::ReplayDetected.into();
         assert!(matches!(core_err, Error::Protocol(_)));
 
-        let core_err: Error =
-            CryptoError::BoundsExceeded { field: "field".to_owned(), limit: 10 }.into();
+        let core_err: Error = CryptoError::BoundsExceeded {
+            field: "field".to_owned(),
+            limit: 10,
+        }
+        .into();
         if let Error::Protocol(message) = core_err {
             assert!(message.contains("field"));
             assert!(message.contains("10"));
@@ -1692,9 +1810,18 @@ mod tests {
         let now = Utc::now();
         session.accept_message_index(u64::MAX, now).unwrap();
         // Every subsequent index (including u64::MAX) must reject.
-        assert!(matches!(session.accept_message_index(u64::MAX, now), Err(Error::Protocol(_))));
-        assert!(matches!(session.accept_message_index(0, now), Err(Error::Protocol(_))));
-        assert!(matches!(session.accept_message_index(u64::MAX - 1, now), Err(Error::Protocol(_))));
+        assert!(matches!(
+            session.accept_message_index(u64::MAX, now),
+            Err(Error::Protocol(_))
+        ));
+        assert!(matches!(
+            session.accept_message_index(0, now),
+            Err(Error::Protocol(_))
+        ));
+        assert!(matches!(
+            session.accept_message_index(u64::MAX - 1, now),
+            Err(Error::Protocol(_))
+        ));
         // Watermark stays pinned.
         assert_eq!(session.message_index_high_watermark, Some(u64::MAX));
     }
@@ -1761,7 +1888,10 @@ mod tests {
         };
         let err = content.validate_structure().unwrap_err();
         if let Error::Protocol(message) = err {
-            assert!(message.contains("threshold >= 1"), "unexpected message: {message}");
+            assert!(
+                message.contains("threshold >= 1"),
+                "unexpected message: {message}"
+            );
         } else {
             panic!("expected Error::Protocol");
         }
@@ -1787,7 +1917,10 @@ mod tests {
             },
             issued_at: Utc::now(),
         };
-        assert!(matches!(blank_verification_method.validate_structure(), Err(Error::Protocol(_))));
+        assert!(matches!(
+            blank_verification_method.validate_structure(),
+            Err(Error::Protocol(_))
+        ));
 
         // PrincipalSigning with empty `alg`.
         let blank_alg = CrossSigningResetContent {
@@ -1798,7 +1931,10 @@ mod tests {
             },
             ..blank_verification_method.clone()
         };
-        assert!(matches!(blank_alg.validate_structure(), Err(Error::Protocol(_))));
+        assert!(matches!(
+            blank_alg.validate_structure(),
+            Err(Error::Protocol(_))
+        ));
 
         // RecoveryUnlock with blank `unlock_commitment` is rejected.
         let blank_unlock = CrossSigningResetContent {
@@ -1810,7 +1946,10 @@ mod tests {
             },
             ..blank_verification_method.clone()
         };
-        assert!(matches!(blank_unlock.validate_structure(), Err(Error::Protocol(_))));
+        assert!(matches!(
+            blank_unlock.validate_structure(),
+            Err(Error::Protocol(_))
+        ));
 
         // device_quorum with one signature whose `alg` is empty.
         let bad_quorum = CrossSigningResetContent {
@@ -1825,7 +1964,10 @@ mod tests {
             },
             ..blank_verification_method
         };
-        assert!(matches!(bad_quorum.validate_structure(), Err(Error::Protocol(_))));
+        assert!(matches!(
+            bad_quorum.validate_structure(),
+            Err(Error::Protocol(_))
+        ));
     }
 
     /// `CrossSigningResetProof::DeviceQuorum`: an over-long `alg` string

@@ -4,15 +4,15 @@
 //! introduced by spec 2026-05-08 (`spec/v1/zh/authz/event-auth-state-resolution.md`
 //! §3, schema `move.schema.json`). Each Move:
 //!
-//! - is single-signed by its `issuer` (committee / multi-sig / threshold are
-//!   anchorer-side concerns, not Move-side);
-//! - declares ordered `preconditions[]` over cell ids — the Anchor batch
-//!   pre-state must satisfy all of them or the Move fails as a whole;
-//! - carries `effects[]` with `lattice_op` shapes whose validity depends on
-//!   the target cell's declared Lattice type;
-//! - references an `anchor_ref` so the receiver knows which Anchor view the
-//!   issuer was working from, plus optional `refs[]` for `authorized_by` /
-//!   `recovery_capability` / `parent_move` / `after` semantic dependencies.
+//! - is single-signed by its `issuer` (committee / multi-sig / threshold are anchorer-side
+//!   concerns, not Move-side);
+//! - declares ordered `preconditions[]` over cell ids — the Anchor batch pre-state must satisfy all
+//!   of them or the Move fails as a whole;
+//! - carries `effects[]` with `lattice_op` shapes whose validity depends on the target cell's
+//!   declared Lattice type;
+//! - references an `anchor_ref` so the receiver knows which Anchor view the issuer was working
+//!   from, plus optional `refs[]` for `authorized_by` / `recovery_capability` / `parent_move` /
+//!   `after` semantic dependencies.
 //!
 //! `Move::id` is content-addressed: `sha256:<hex>` derived from
 //! [`Move::canonical_bytes_for_id`] (everything **except** `id` and `sig`).
@@ -25,8 +25,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::canonical;
-use crate::{AnchorId, CellRef, Did, Error, Hash, Hlc, MoveId, RealmId, Result};
+use crate::{AnchorId, CellRef, Did, Error, Hash, Hlc, MoveId, RealmId, Result, canonical};
 
 /// Allowed Move signature algorithms (must match `move.schema.json` `signature.alg`).
 pub const MOVE_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
@@ -147,7 +146,10 @@ pub enum LatticeOpType {
 pub struct SemanticRef {
     pub id: String,
     pub role: String,
-    #[serde(default = "default_critical", skip_serializing_if = "is_default_critical")]
+    #[serde(
+        default = "default_critical",
+        skip_serializing_if = "is_default_critical"
+    )]
     pub critical: bool,
 }
 
@@ -237,8 +239,7 @@ impl Move {
     /// covers wire-shape rules that don't need a cell registry:
     ///
     /// 1. `effects[]` MUST contain at least one entry (no pure-query Move).
-    /// 2. `preconditions.len()` and `effects.len()` MUST be `<= 256`
-    ///    (schema bound).
+    /// 2. `preconditions.len()` and `effects.len()` MUST be `<= 256` (schema bound).
     /// 3. Signature `alg` MUST be in [`MOVE_SIGNATURE_ALGS`].
     /// 4. `payload_digest` MUST equal sha256 of canonical bytes.
     pub fn validate_structural(&self) -> Result<()> {
@@ -260,7 +261,10 @@ impl Move {
                 self.effects.len()
             )));
         }
-        if !MOVE_SIGNATURE_ALGS.iter().any(|allowed| *allowed == self.sig.alg) {
+        if !MOVE_SIGNATURE_ALGS
+            .iter()
+            .any(|allowed| *allowed == self.sig.alg)
+        {
             return Err(Error::Protocol(format!(
                 "Move signature alg '{}' is not in allowed set {:?}",
                 self.sig.alg, MOVE_SIGNATURE_ALGS
@@ -279,9 +283,10 @@ impl Move {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
     use crate::canonical::sha256_digest;
-    use serde_json::json;
 
     fn sample_move_body_json() -> Value {
         json!({
@@ -349,7 +354,8 @@ mod tests {
         m.id =
             MoveId::new("sha256:0000000000000000000000000000000000000000000000000000000000000000")
                 .unwrap();
-        m.validate_id().expect_err("declared id ≠ canonical hash must reject");
+        m.validate_id()
+            .expect_err("declared id ≠ canonical hash must reject");
     }
 
     #[test]
@@ -385,8 +391,14 @@ mod tests {
         let m = sample_move();
         let bytes = m.canonical_bytes_for_id().unwrap();
         let s = std::str::from_utf8(&bytes).unwrap();
-        assert!(!s.contains("\"id\":"), "canonical bytes must not contain id field");
-        assert!(!s.contains("\"sig\":"), "canonical bytes must not contain sig field");
+        assert!(
+            !s.contains("\"id\":"),
+            "canonical bytes must not contain id field"
+        );
+        assert!(
+            !s.contains("\"sig\":"),
+            "canonical bytes must not contain sig field"
+        );
         assert!(s.contains("\"issuer\""));
         assert!(s.contains("\"effects\""));
     }
@@ -431,7 +443,10 @@ mod tests {
         };
         let s = serde_json::to_string(&r).unwrap();
         // critical=true is the default and should be skipped.
-        assert!(!s.contains("\"critical\""), "default critical=true should be skipped: {s}");
+        assert!(
+            !s.contains("\"critical\""),
+            "default critical=true should be skipped: {s}"
+        );
     }
 
     #[test]

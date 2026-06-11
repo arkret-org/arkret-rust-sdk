@@ -1,7 +1,9 @@
-use serde::{Serialize, de::DeserializeOwned};
+use std::io::Write as _;
+
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde_json::{Map, Number, Value};
 use sha2::{Digest, Sha256};
-use std::io::Write as _;
 
 use crate::{Error, Result};
 
@@ -53,10 +55,9 @@ pub fn to_nfc(s: &str) -> String {
 /// through one call:
 /// - UTF-8 BOM / `U+FEFF` rejected (byte scan in [`parse_canonical_json`]);
 /// - duplicate object keys rejected at any depth ([`parse_canonical_json`]);
-/// - every string value / object key rejected if non-NFC or containing an
-///   (escaped) `U+FEFF`;
-/// - every JSON number rejected if it falls outside the canonical integer
-///   profile or the JSON safe-integer range (reuses [`write_number`]).
+/// - every string value / object key rejected if non-NFC or containing an (escaped) `U+FEFF`;
+/// - every JSON number rejected if it falls outside the canonical integer profile or the JSON
+///   safe-integer range (reuses [`write_number`]).
 ///
 /// Object-key *ordering* is enforced for emitters by [`canonical_json_bytes`];
 /// a standalone ingress key-order check needs the raw key sequence (serde_json
@@ -108,10 +109,14 @@ fn validate_canonical_string(s: &str) -> Result<()> {
     // A raw U+FEFF is already rejected at the byte level, but an escaped
     // `﻿` survives JSON string decoding — reject it here too.
     if s.contains('\u{feff}') {
-        return Err(Error::NonCanonicalString("string value contains U+FEFF".to_owned()));
+        return Err(Error::NonCanonicalString(
+            "string value contains U+FEFF".to_owned(),
+        ));
     }
     if !is_nfc(s) {
-        return Err(Error::NonCanonicalString(format!("string value is not Unicode NFC: {s:?}")));
+        return Err(Error::NonCanonicalString(format!(
+            "string value is not Unicode NFC: {s:?}"
+        )));
     }
     Ok(())
 }
@@ -137,7 +142,9 @@ pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
     // occurrence (escaped `﻿` is rejected separately by `write_string` on
     // the canonical emit path).
     if bytes.windows(3).any(|w| w == [0xEF, 0xBB, 0xBF]) {
-        return Err(Error::NonCanonicalString("input contains a UTF-8 BOM / U+FEFF".to_owned()));
+        return Err(Error::NonCanonicalString(
+            "input contains a UTF-8 BOM / U+FEFF".to_owned(),
+        ));
     }
     let mut de = serde_json::Deserializer::from_slice(bytes);
     let value = serde::de::DeserializeSeed::deserialize(CanonicalValueSeed, &mut de)
@@ -246,7 +253,9 @@ impl<'de> serde::de::Visitor<'de> for CanonicalValueVisitor {
         while let Some(key) = map.next_key::<String>()? {
             let value = map.next_value_seed(CanonicalValueSeed)?;
             if object.contains_key(&key) {
-                return Err(serde::de::Error::custom(format!("{DUPLICATE_KEY_MARKER}{key}")));
+                return Err(serde::de::Error::custom(format!(
+                    "{DUPLICATE_KEY_MARKER}{key}"
+                )));
             }
             object.insert(key, value);
         }
@@ -366,7 +375,9 @@ pub fn decode_state_subject_parts(encoded: &str) -> Result<Vec<String>> {
 pub fn validate_timestamp_canonical(timestamp: &str) -> Result<()> {
     // Must end with 'Z' (not '+00:00' or lowercase 'z')
     if !timestamp.ends_with('Z') {
-        return Err(Error::Protocol(format!("canonical timestamp must end with 'Z': {timestamp}")));
+        return Err(Error::Protocol(format!(
+            "canonical timestamp must end with 'Z': {timestamp}"
+        )));
     }
     // Reject lowercase 't' separator
     if timestamp.contains('t') {
@@ -395,7 +406,9 @@ pub fn validate_timestamp_canonical(timestamp: &str) -> Result<()> {
     }
     // Verify it parses as a valid DateTime
     chrono::DateTime::parse_from_rfc3339(timestamp).map_err(|_| {
-        Error::Protocol(format!("canonical timestamp is not a valid RFC 3339 date: {timestamp}"))
+        Error::Protocol(format!(
+            "canonical timestamp is not a valid RFC 3339 date: {timestamp}"
+        ))
     })?;
     Ok(())
 }
@@ -507,7 +520,9 @@ fn write_string(string: &str, out: &mut Vec<u8>) -> Result<()> {
             // encoding.md §2: any U+FEFF (BOM), whether at stream start or inside a
             // string value, MUST be rejected as schema_violation — never emitted.
             '\u{feff}' => {
-                return Err(Error::NonCanonicalString("string value contains U+FEFF".to_owned()));
+                return Err(Error::NonCanonicalString(
+                    "string value contains U+FEFF".to_owned(),
+                ));
             }
             '"' => out.extend_from_slice(br#"\""#),
             '\\' => out.extend_from_slice(br#"\\"#),
@@ -572,13 +587,19 @@ mod tests {
     #[test]
     fn canonical_json_rejects_float_numbers() {
         let value = json!({ "n": 1.5 });
-        assert!(matches!(canonical_json_string(&value), Err(Error::NonCanonicalNumber)));
+        assert!(matches!(
+            canonical_json_string(&value),
+            Err(Error::NonCanonicalNumber)
+        ));
     }
 
     #[test]
     fn canonical_json_rejects_float_zero() {
         let value = json!({ "n": 0.0 });
-        assert!(matches!(canonical_json_string(&value), Err(Error::NonCanonicalNumber)));
+        assert!(matches!(
+            canonical_json_string(&value),
+            Err(Error::NonCanonicalNumber)
+        ));
     }
 
     #[test]
@@ -590,13 +611,19 @@ mod tests {
     #[test]
     fn write_string_rejects_embedded_feff() {
         let value = json!({ "x": "a\u{feff}b" });
-        assert!(matches!(canonical_json_bytes(&value), Err(Error::NonCanonicalString(_))));
+        assert!(matches!(
+            canonical_json_bytes(&value),
+            Err(Error::NonCanonicalString(_))
+        ));
     }
 
     #[test]
     fn canonical_json_rejects_non_nfc_string() {
         let value = json!({ "name": "cafe\u{301}" }); // decomposed e + acute
-        assert!(matches!(canonical_json_bytes(&value), Err(Error::NonCanonicalString(_))));
+        assert!(matches!(
+            canonical_json_bytes(&value),
+            Err(Error::NonCanonicalString(_))
+        ));
     }
 
     #[test]
@@ -610,7 +637,10 @@ mod tests {
     fn parse_canonical_json_rejects_leading_bom() {
         let mut bytes = vec![0xEF, 0xBB, 0xBF];
         bytes.extend_from_slice(br#"{"a":1}"#);
-        assert!(matches!(parse_canonical_json(&bytes), Err(Error::NonCanonicalString(_))));
+        assert!(matches!(
+            parse_canonical_json(&bytes),
+            Err(Error::NonCanonicalString(_))
+        ));
     }
 
     #[test]
@@ -678,7 +708,10 @@ mod tests {
     #[test]
     fn sha256_hex_has_no_prefix_and_matches_digest() {
         let hex = sha256_hex(b"hello");
-        assert_eq!(hex, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+        assert_eq!(
+            hex,
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
         assert_eq!(hex.len(), 64);
         assert!(!hex.starts_with("sha256:"));
         assert_eq!(sha256_digest(b"hello"), format!("sha256:{hex}"));
@@ -703,8 +736,14 @@ mod tests {
         assert_eq!(canonical_json_string(&json!(1)).unwrap(), "1");
         assert_eq!(canonical_json_string(&json!(-1)).unwrap(), "-1");
         // The JSON safe-integer boundary `±(2^53 - 1)` MUST round-trip exactly.
-        assert_eq!(canonical_json_string(&json!(MAX_SAFE_INTEGER)).unwrap(), "9007199254740991");
-        assert_eq!(canonical_json_string(&json!(-MAX_SAFE_INTEGER)).unwrap(), "-9007199254740991");
+        assert_eq!(
+            canonical_json_string(&json!(MAX_SAFE_INTEGER)).unwrap(),
+            "9007199254740991"
+        );
+        assert_eq!(
+            canonical_json_string(&json!(-MAX_SAFE_INTEGER)).unwrap(),
+            "-9007199254740991"
+        );
     }
 
     #[test]
@@ -788,8 +827,11 @@ mod tests {
 
     #[test]
     fn state_subject_encoding_roundtrips_simple_parts() {
-        let parts =
-            ["did:web:alice.example", "discussion", "ck:flow:01904100-0000-7000-8000-6c663fa0205f"];
+        let parts = [
+            "did:web:alice.example",
+            "discussion",
+            "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+        ];
         let encoded = encode_state_subject(&parts);
         assert_eq!(
             encoded,

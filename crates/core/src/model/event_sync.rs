@@ -173,6 +173,9 @@ pub enum EventsSubscribeFrameBody {
 /// `domain`, `state_digest`, `snapshot_frontier`, and a deterministic digest
 /// root over the ordered chunk digests. Consumers still fetch and verify each
 /// chunk by its declared digest before applying the snapshot.
+///
+/// Dev-only legacy shape. Current production snapshot bootstrap uses
+/// `ck.schema.snapshot.v1` [`crate::SnapshotManifest`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotBootstrap {
@@ -187,6 +190,7 @@ pub struct SnapshotBootstrap {
     pub chunks: Vec<SnapshotBootstrapChunk>,
 }
 
+/// Dev-only legacy bootstrap signature for [`SnapshotBootstrap`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotBootstrapSignature {
@@ -201,7 +205,11 @@ impl SnapshotBootstrap {
     pub const SIGNING_DOMAIN: &'static str = "ck.snapshot.bootstrap.v1";
 
     pub fn chunk_digest_root(&self) -> Result<Hash> {
-        let digests: Vec<&str> = self.chunks.iter().map(|chunk| chunk.digest.as_str()).collect();
+        let digests: Vec<&str> = self
+            .chunks
+            .iter()
+            .map(|chunk| chunk.digest.as_str())
+            .collect();
         let digest = canonical::canonical_sha256(&serde_json::json!({
             "domain": Self::SIGNING_DOMAIN,
             "chunk_digests": digests,
@@ -238,6 +246,7 @@ impl SnapshotBootstrap {
     }
 }
 
+/// Dev-only legacy bootstrap chunk descriptor for [`SnapshotBootstrap`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotBootstrapChunk {

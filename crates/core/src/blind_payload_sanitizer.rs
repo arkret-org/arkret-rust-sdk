@@ -17,46 +17,38 @@
 //! ## Allowed fields
 //!
 //! - `push_target_id` — opaque pseudonym token (see [`is_valid_push_target_id`]).
-//! - `wakeup_kind` — closed enum (`message`, `mention`, `reaction`,
-//!   `call_invite`, `reminder`, `scheduled_send`, `expiry_invalidation`).
-//! - `badge`, `unread_count`, `count`, `unread` — small non-negative
-//!   integers (≤ `MAX_COUNT_VALUE`). May be carried inside a `counts` object.
-//! - `push_hint` — closed enum (`new_message`, `incoming_call`,
-//!   `mention_self`) **or** the form `l10n_key:<token>` where the token is
-//!   ASCII alphanumeric/`._-`, ≤ 64 chars, and never contains PII.
+//! - `wakeup_kind` — closed enum (`message`, `mention`, `reaction`, `call_invite`, `reminder`,
+//!   `scheduled_send`, `expiry_invalidation`).
+//! - `badge`, `unread_count`, `count`, `unread` — small non-negative integers (≤
+//!   `MAX_COUNT_VALUE`). May be carried inside a `counts` object.
+//! - `push_hint` — closed enum (`new_message`, `incoming_call`, `mention_self`) **or** the form
+//!   `l10n_key:<token>` where the token is ASCII alphanumeric/`._-`, ≤ 64 chars, and never contains
+//!   PII.
 //!
 //! ## Forbidden fields
 //!
 //! Any presence of these top-level or nested keys triggers a
 //! [`BlindPayloadReasonCode::ForbiddenField`]:
 //!
-//! - Correlation identifiers: `event_id`, `message_id`, `flow_id`,
-//!   `realm_id`, `space_id`, `thread_id`, `correlation_id`,
-//!   `request_id`, `txn_id`.
-//! - Sender identity: `sender`, `sender_did`, `sender_handle`,
-//!   `sender_actor_display_name`, `sender_display_name`, `sender_name`,
-//!   `user_name`, `display_name`, `from`, `to`, `target_did`.
-//! - Device identity: `device_did`, `device_url`, `device_id`,
-//!   `device_name`. (`device_did` 在协议层已不存在,但仍作为禁止字段
-//!   保留作防御纵深。)
-//! - Content / preview: `body`, `content`, `text`, `message`, `title`,
-//!   `subtitle`, `preview`, `summary`, `alert`, `notification_body`,
-//!   `notification_title`, `formatted_body`, `template`, `template_vars`,
-//!   `reaction`, `reaction_value`, productivity/search plaintext such as
-//!   `target_ref`, `collection_title`, `message_payload`, `blind_tokens`,
-//!   `shard_key`.
-//! - Attachment metadata: `filename`, `file_name`, `attachment_name`,
-//!   `attachment_filename`, `attachment_preview`, `mime_type`, `media_url`.
-//! - Space / flow / room names: `space_name`, `flow_name`, `room_name`,
-//!   `room_display_name`.
-//! - Provider escape hatches: `provider_payload`, `provider_data`,
-//!   `notification_payload`, `payload`, `aps`, `android`, `webpush`,
-//!   `encrypted_content`, `ciphertext`.
-//! - Call setup: `sdp`, `offer`, `candidate`, `ice`, `ice_candidate`,
-//!   `ice_candidates`, `turn`, `turns`, `turn_credential`,
-//!   `turn_credentials`, `call_setup`.
-//! - View renderers: `facet`, `facets`, `entity_facet`, `entity_facets`,
-//!   `view_renderer`, `view_renderers`, `rendered_view`, `renderer`.
+//! - Correlation identifiers: `event_id`, `message_id`, `flow_id`, `realm_id`, `space_id`,
+//!   `thread_id`, `correlation_id`, `request_id`, `txn_id`.
+//! - Sender identity: `sender`, `sender_did`, `sender_handle`, `sender_actor_display_name`,
+//!   `sender_display_name`, `sender_name`, `user_name`, `display_name`, `from`, `to`, `target_did`.
+//! - Device identity: `device_did`, `device_url`, `device_id`, `device_name`. (`device_did`
+//!   在协议层已不存在,但仍作为禁止字段 保留作防御纵深。)
+//! - Content / preview: `body`, `content`, `text`, `message`, `title`, `subtitle`, `preview`,
+//!   `summary`, `alert`, `notification_body`, `notification_title`, `formatted_body`, `template`,
+//!   `template_vars`, `reaction`, `reaction_value`, productivity/search plaintext such as
+//!   `target_ref`, `collection_title`, `message_payload`, `blind_tokens`, `shard_key`.
+//! - Attachment metadata: `filename`, `file_name`, `attachment_name`, `attachment_filename`,
+//!   `attachment_preview`, `mime_type`, `media_url`.
+//! - Space / flow / room names: `space_name`, `flow_name`, `room_name`, `room_display_name`.
+//! - Provider escape hatches: `provider_payload`, `provider_data`, `notification_payload`,
+//!   `payload`, `aps`, `android`, `webpush`, `encrypted_content`, `ciphertext`.
+//! - Call setup: `sdp`, `offer`, `candidate`, `ice`, `ice_candidate`, `ice_candidates`, `turn`,
+//!   `turns`, `turn_credential`, `turn_credentials`, `call_setup`.
+//! - View renderers: `facet`, `facets`, `entity_facet`, `entity_facets`, `view_renderer`,
+//!   `view_renderers`, `rendered_view`, `renderer`.
 //!
 //! In addition, any string value containing the literal substring `did:` or
 //! the typed-id prefix `ck:` is rejected as a sensitive correlation key,
@@ -74,7 +66,6 @@ use thiserror::Error;
 pub const MAX_COUNT_VALUE: u64 = 9_999;
 
 /// Closed enum of wakeup_kind values accepted in blind wakeups.
-///
 pub const ALLOWED_WAKEUP_KINDS: &[&str] = &[
     "message",
     "mention",
@@ -210,12 +201,10 @@ pub enum SanitizerMode {
 ///
 /// Accepts either:
 /// * a "notification" object (allow-listed fields at the top level), or
-/// * a wrapper object that contains a `notification` field — only the
-///   `notification` sub-object is checked against the allow-list; the
-///   wrapper itself may carry routing metadata (`operation_id`,
-///   `destination_service_did`, `devices`, …) and is recursively scanned
-///   only for sensitive literals and forbidden keys, not against the
-///   allow-list.
+/// * a wrapper object that contains a `notification` field — only the `notification` sub-object is
+///   checked against the allow-list; the wrapper itself may carry routing metadata (`operation_id`,
+///   `destination_service_did`, `devices`, …) and is recursively scanned only for sensitive
+///   literals and forbidden keys, not against the allow-list.
 ///
 /// Use [`sanitize_blind_payload_strict`] for the gateway ingress / push
 /// provider variant that also requires `push_target_id` + `wakeup_kind`.
@@ -262,7 +251,10 @@ pub fn sanitize_blind_payload_with(
             None => map,
         },
         _ => {
-            return Err(BlindPayloadError::invalid("", "blind payload must be a JSON object"));
+            return Err(BlindPayloadError::invalid(
+                "",
+                "blind payload must be a JSON object",
+            ));
         }
     };
 
@@ -297,7 +289,10 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
                 "push_target_id must be an opaque pseudonym (ck:pseudonym:push:<token> \
                  or base64url ≥ 22 chars)",
             )),
-            None => Err(BlindPayloadError::invalid(key, "push_target_id must be a string")),
+            None => Err(BlindPayloadError::invalid(
+                key,
+                "push_target_id must be a string",
+            )),
         },
         "wakeup_kind" => match value.as_str() {
             Some(raw) if is_valid_wakeup_kind(raw) => Ok(()),
@@ -305,7 +300,10 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
                 key,
                 "wakeup_kind must be one of message/mention/reaction/call_invite/reminder/scheduled_send/expiry_invalidation",
             )),
-            None => Err(BlindPayloadError::invalid(key, "wakeup_kind must be a string")),
+            None => Err(BlindPayloadError::invalid(
+                key,
+                "wakeup_kind must be a string",
+            )),
         },
         "push_hint" => match value.as_str() {
             Some(raw) if is_valid_push_hint(raw) => Ok(()),
@@ -314,7 +312,10 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
                 "push_hint must be one of new_message/incoming_call/mention_self \
                  or `l10n_key:<token>`",
             )),
-            None => Err(BlindPayloadError::invalid(key, "push_hint must be a string")),
+            None => Err(BlindPayloadError::invalid(
+                key,
+                "push_hint must be a string",
+            )),
         },
         "badge" | "unread_count" | "count" | "unread" => validate_count_number(key, value),
         "counts" => validate_counts_tree(key, value),
@@ -325,10 +326,14 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
 fn validate_count_number(path: &str, value: &Value) -> Result<(), BlindPayloadError> {
     match value.as_u64() {
         Some(n) if n <= MAX_COUNT_VALUE => Ok(()),
-        Some(_) => {
-            Err(BlindPayloadError::invalid(path, format!("count must be ≤ {MAX_COUNT_VALUE}")))
-        }
-        None => Err(BlindPayloadError::invalid(path, "count must be a non-negative integer")),
+        Some(_) => Err(BlindPayloadError::invalid(
+            path,
+            format!("count must be ≤ {MAX_COUNT_VALUE}"),
+        )),
+        None => Err(BlindPayloadError::invalid(
+            path,
+            "count must be a non-negative integer",
+        )),
     }
 }
 
@@ -555,7 +560,9 @@ pub fn is_valid_push_target_id(value: &str) -> bool {
         trimmed
     };
     (22..=128).contains(&token.len())
-        && token.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
+        && token
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
 }
 
 /// Return true if `value` is a valid `wakeup_kind` for blind wakeups.
@@ -573,7 +580,9 @@ pub fn is_valid_custom_wakeup_kind(value: &str) -> bool {
     if lower.contains("did:") || lower.contains("ck:") {
         return false;
     }
-    value.chars().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
+    value
+        .chars()
+        .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
 }
 
 /// Return true if `value` is a valid `push_hint` for blind wakeups.
@@ -589,15 +598,18 @@ pub fn is_valid_push_hint(value: &str) -> bool {
         if lower.contains("did:") || lower.contains("ck:") {
             return false;
         }
-        return token.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-'));
+        return token
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-'));
     }
     false
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     fn ok_notification() -> Value {
         json!({
@@ -633,7 +645,10 @@ mod tests {
                 "wakeup_kind": kind,
             }))
             .unwrap();
-            assert!(is_valid_wakeup_kind(kind), "{kind} should be in wakeup enum");
+            assert!(
+                is_valid_wakeup_kind(kind),
+                "{kind} should be in wakeup enum"
+            );
         }
     }
 
@@ -734,7 +749,9 @@ mod tests {
     fn rejects_did_target_id() {
         assert!(!is_valid_push_target_id("did:web:alice.example"));
         assert!(!is_valid_push_target_id("ck:device:01HYZ8Z000000000000000"));
-        assert!(is_valid_push_target_id("ck:pseudonym:push:01HYZ8Z000000000000000"));
+        assert!(is_valid_push_target_id(
+            "ck:pseudonym:push:01HYZ8Z000000000000000"
+        ));
         assert!(is_valid_push_target_id("01HYZ8Z000000000000000"));
     }
 
@@ -753,7 +770,10 @@ mod tests {
             }
         });
         let err = sanitize_blind_payload_strict(&payload).unwrap_err();
-        assert_eq!(err.reason_code, BlindPayloadReasonCode::MissingRequiredField);
+        assert_eq!(
+            err.reason_code,
+            BlindPayloadReasonCode::MissingRequiredField
+        );
         assert_eq!(err.field_path, "push_target_id");
     }
 
