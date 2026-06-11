@@ -3440,11 +3440,10 @@ pub struct KeyBackupRetention {
 /// commitment / KDF profile branches.
 ///
 /// The fields below mirror the spec's `policy_id` / `lifecycle` / `body`
-/// shape but leave `body` as a free-form `Value` for now: the full
-/// commitment-branch shape (passphrase commitment, threshold params, AEAD
-/// profile, etc.) lands in a follow-up.
-// TODO(P1): expand `body` into a tagged enum (passphrase | recovery_key |
-// threshold | hardware_wrapped) matching the spec's `oneOf` branches.
+/// shape. `body` stays a free-form `Value` at the SDK model boundary; schema
+/// validation against `recovery-policy.schema.json` remains the normative
+/// oneOf gate for passphrase commitment, threshold, hardware-wrapped, and
+/// recovery-key branches.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryPolicy {
@@ -3475,11 +3474,8 @@ pub enum RecoveryPolicyLifecycle {
 
 /// CKP recovery policy proof-kind enum (R3 spec-sync 2026-05-27,
 /// cokret-spec b47ff6ec). Mirrors `recovery-policy.schema.json`
-/// `body.proof_kinds[]`. Validation of the proof internals is
-/// deferred to R3.1 (verifier implementation).
-// TODO(R3.1): internal proof verification (cross-signing reset proof
-// equivalents, threshold device quorum, OIDC trusted recovery service,
-// principal-signing) — wire-level shape only at this round.
+/// `body.proof_kinds[]`. Cryptographic proof validation is specified by
+/// device-lifecycle verifier rules and handled outside this discriminator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -3517,8 +3513,10 @@ impl RecoveryProofKind {
 /// Key-backup hardening (B-C, spec head 37ce729) — minimal Rust shape for
 /// `ck.schema.recovery_receipt.v1`. Captures verification evidence + a
 /// proof that binds the receipt to a specific recovery session.
-// TODO(P1): expand `evidence` into a tagged enum matching the spec's
-// recovery-attestation oneOf (self-asserted | hardware-attested | quorum).
+///
+/// `evidence` stays a free-form `Value` at the SDK model boundary; schema
+/// validation against `recovery-receipt.schema.json` remains the normative
+/// recovery-attestation oneOf gate.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryReceipt {

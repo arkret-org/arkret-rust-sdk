@@ -237,6 +237,21 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .into_iter()
         .map(str::to_owned)
         .collect(),
+        OP_DEVICE_MESSAGES_ACK => vec!["ack_token".to_owned()],
+        OP_APPLET_GHOST_PROVISION => [
+            "schema",
+            "applet_id",
+            "service_did",
+            "ghost_actor_id",
+            "protocol",
+            "tenant",
+            "external_user_id",
+            "realm_id",
+            "external_ref",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
         OP_KEYS_BACKUPS_PUT => [
             "backup_id",
             "actor_id",
@@ -292,6 +307,7 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_IDENTITY_GET_DOCUMENT | OP_IDENTITY_GET_LOG | OP_IDENTITY_GET_RECEIPTS => {
             vec!["did".to_owned()]
         }
+        OP_IDENTITY_RECOVERY_POLICY_GET => Vec::new(),
         OP_IDENTITY_SUBMIT_DID_OPERATION => ["did", "operation"]
             .into_iter()
             .map(str::to_owned)
@@ -340,6 +356,8 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
             .map(str::to_owned)
             .collect(),
         OP_SNAPSHOT_HEAD => vec!["realm_id".to_owned()],
+        OP_PROJECTION_DOCUMENT => vec!["morph_id".to_owned()],
+        OP_VIEW_COLLECTION_PROJECTION => vec!["view_id".to_owned()],
         _ => Vec::new(),
     }
 }

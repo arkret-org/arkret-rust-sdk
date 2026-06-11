@@ -436,7 +436,8 @@ pub const OP_BLOB_GET: &str = "ck.self.blob.get";
 /// Round C44 (2026-05-18; spec dc01ad7) — pre-signed blob URL surface.
 /// `POST /blob/presign` returns a short-lived put/get URL pair so very
 /// large blobs can be uploaded directly to object storage. Full signing
-/// path is a soland TODO; SDK only needs the constant for client routing.
+/// enforcement is a server responsibility; SDK only needs the constant for
+/// client routing.
 pub const OP_BLOB_PRESIGN: &str = "ck.self.blob.presign";
 
 /// Push and key operations.
@@ -446,6 +447,7 @@ pub const OP_KEYS_QUERY: &str = "ck.self.keys.query";
 pub const OP_KEYS_CLAIM: &str = "ck.self.keys.claim";
 pub const OP_DEVICE_MESSAGES_PUT: &str = "ck.self.device_messages.put";
 pub const OP_DEVICE_MESSAGES_GET: &str = "ck.self.device_messages.get";
+pub const OP_DEVICE_MESSAGES_ACK: &str = "ck.self.device_messages.ack";
 pub const OP_KEYS_KEYPACKAGES_UPLOAD: &str = "ck.self.keys.keypackages.upload";
 pub const OP_KEYS_KEYPACKAGES_CLAIM: &str = "ck.self.keys.keypackages.claim";
 pub const OP_KEYS_KEYPACKAGES_CONSUME: &str = "ck.self.keys.keypackages.consume";
@@ -559,12 +561,15 @@ pub const OP_DIRECT_CONVERSATION_RESOLVE: &str = "ck.self.direct_conversation.re
 pub const OP_PROJECTION_SPACES: &str = "ck.self.projection.spaces";
 pub const OP_PROJECTION_FLOWS: &str = "ck.self.projection.flows";
 pub const OP_PROJECTION_MORPHS: &str = "ck.self.projection.morphs";
+pub const OP_PROJECTION_DOCUMENT: &str = "ck.self.projection.document";
+pub const OP_VIEW_COLLECTION_PROJECTION: &str = "ck.self.views.collection_projection";
 
 /// Identity-registry operations.
 pub const OP_IDENTITY_DESCRIBE_REGISTRY: &str = "ck.root.identity.describe_registry";
 pub const OP_IDENTITY_GET_DOCUMENT: &str = "ck.root.identity.get_document";
 pub const OP_IDENTITY_GET_LOG: &str = "ck.root.identity.get_log";
 pub const OP_IDENTITY_GET_RECEIPTS: &str = "ck.root.identity.get_receipts";
+pub const OP_IDENTITY_RECOVERY_POLICY_GET: &str = "ck.root.identity.recovery_policy.get";
 pub const OP_IDENTITY_SUBMIT_DID_OPERATION: &str = "ck.root.identity.submit_did_operation";
 
 /// Media / WebRTC ICE config.
@@ -724,6 +729,7 @@ pub const OP_AGENT_PARTICIPATION_GET: &str = "ck.self.agent.participation.get";
 pub const OP_AGENT_PARTICIPATION_SET: &str = "ck.self.agent.participation.set";
 pub const OP_APPLET_INSTALL: &str = "ck.self.applet.install";
 pub const OP_APPLET_INSTALL_PREVIEW: &str = "ck.self.applet.install.preview";
+pub const OP_APPLET_GHOST_PROVISION: &str = "ck.self.applet.ghost.provision";
 pub const OP_APPLET_REVOKE: &str = "ck.self.applet.revoke";
 pub const OP_INVITE_RECEIVE_POLICY_GET: &str = "ck.self.invite_receive_policy.get";
 pub const OP_INVITE_RECEIVE_POLICY_SET: &str = "ck.self.invite_receive_policy.set";
@@ -790,6 +796,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_CALL_MEDIA_TOKEN_EXCHANGE,
     OP_DEVICE_MESSAGES_GET,
     OP_DEVICE_MESSAGES_PUT,
+    OP_DEVICE_MESSAGES_ACK,
     OP_DIRECTORY_ANNOUNCE,
     OP_SERVER_DESCRIBE,
     OP_DIRECTORY_DESCRIBE,
@@ -817,10 +824,13 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_PROJECTION_SPACES,
     OP_PROJECTION_FLOWS,
     OP_PROJECTION_MORPHS,
+    OP_PROJECTION_DOCUMENT,
+    OP_VIEW_COLLECTION_PROJECTION,
     OP_IDENTITY_DESCRIBE_REGISTRY,
     OP_IDENTITY_GET_DOCUMENT,
     OP_IDENTITY_GET_LOG,
     OP_IDENTITY_GET_RECEIPTS,
+    OP_IDENTITY_RECOVERY_POLICY_GET,
     OP_IDENTITY_RESOLVE,
     OP_IDENTITY_SUBMIT_DID_OPERATION,
     OP_KEYS_BACKUPS_DELETE,
@@ -863,6 +873,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_AGENT_PARTICIPATION_SET,
     OP_APPLET_INSTALL,
     OP_APPLET_INSTALL_PREVIEW,
+    OP_APPLET_GHOST_PROVISION,
     OP_APPLET_REVOKE,
     OP_CONTACT_LIST,
     OP_CONTACT_REQUEST,

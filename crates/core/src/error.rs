@@ -600,6 +600,8 @@ pub const REASON_CROSS_SIGNING_RESET: &str = "cross_signing_reset";
 // Bounded-lifetime / provisioning generic reasons.
 pub const REASON_TTL_EXPIRED: &str = "ttl_expired";
 pub const REASON_NOT_PROVISIONED: &str = "not_provisioned";
+pub const REASON_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE: &str =
+    "legacy_single_endpoint_media_service";
 
 // Morph schema evolution (zh/models/morph.md §4.1).
 pub const REASON_MORPH_SCHEMA_REFS_EVOLUTION_UNAUTHORIZED: &str =
@@ -613,8 +615,6 @@ pub const REASON_MORPH_SCHEMA_VERSION_BINDING_MISSING: &str =
 pub const REASON_RANGE_COMPLETENESS_ROOT_MISMATCH: &str = "range_completeness_root_mismatch";
 pub const REASON_RANGE_COMPLETENESS_ACTOR_SEQ_GAP: &str = "range_completeness_actor_seq_gap";
 pub const REASON_WITNESS_DISAGREEMENT: &str = "witness_disagreement";
-pub const REASON_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE: &str =
-    "legacy_single_endpoint_media_service";
 
 /// Known `failed_precondition` reason codes registered in round C45.
 pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
@@ -668,13 +668,13 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_CROSS_SIGNING_RESET,
     REASON_TTL_EXPIRED,
     REASON_NOT_PROVISIONED,
+    REASON_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE,
     REASON_MORPH_SCHEMA_REFS_EVOLUTION_UNAUTHORIZED,
     REASON_MORPH_SCHEMA_REFS_TRANSFORMATION_UNSUPPORTED,
     REASON_MORPH_SCHEMA_VERSION_BINDING_MISSING,
     REASON_RANGE_COMPLETENESS_ROOT_MISMATCH,
     REASON_RANGE_COMPLETENESS_ACTOR_SEQ_GAP,
     REASON_WITNESS_DISAGREEMENT,
-    REASON_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE,
 ];
 
 // ── CKP-0007 (spec b7d35be) — Circle primitive reason codes.

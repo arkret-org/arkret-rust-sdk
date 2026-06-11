@@ -76,7 +76,9 @@ fn build_envelope(
             }),
             aead: KeyBackupAead {
                 name: "xchacha20_poly1305".to_owned(),
+                aead_profile: Some("ck.aead.xchacha20_poly1305.v1".to_owned()),
                 nonce: Some(format!("nonce-{seq}")),
+                nonce_salt: Some(format!("nonce-salt-{seq}")),
                 extra: BTreeMap::new(),
             },
             key_commitment: None,

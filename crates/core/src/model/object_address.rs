@@ -183,8 +183,8 @@ fn strip_shell(input: &str) -> Result<(String, String)> {
         rest.trim_start_matches('/').to_owned()
     } else if input.starts_with("https://") || input.starts_with("http://") {
         // HTTPS landing: everything AFTER the first `#` is the same grammar.
-        // TODO(R3.3.1): tolerate landing URLs whose fragment itself was
-        // percent-encoded by an over-eager link rewriter.
+        // A percent-encoded whole fragment is a non-canonical landing URL and
+        // is rejected by the shared grammar parser instead of being guessed.
         let (_, fragment) = input
             .split_once('#')
             .ok_or_else(|| protocol_err("https landing missing '#' fragment"))?;
@@ -407,8 +407,9 @@ pub fn build_address(parsed: &ParsedAddress) -> String {
 /// Build an HTTPS landing URL. The target + token live in the fragment, which
 /// reuses the canonical `web+cokret:` grammar (sans scheme).
 ///
-/// TODO(R3.3.1): RFC 3986 percent-encode the `landing` host/path and the
-/// fragment's reserved characters; v1 assumes a bare host and ASCII-safe ids.
+/// The caller supplies the deployment-owned landing URL. This helper appends
+/// the canonical fragment grammar unchanged; accepted ids and query atoms are
+/// ASCII-safe.
 pub fn build_https_landing(landing: &str, parsed: &ParsedAddress) -> String {
     let host = landing.trim_end_matches('/');
     let mut fragment = String::from("realm/");
@@ -483,8 +484,8 @@ impl TargetDescriptor {
     pub fn from_parsed(parsed: &ParsedAddress) -> Self {
         let realm_id = match &parsed.realm {
             RealmRef::RealmId(uuid) => typed_id("ck:realm:", uuid),
-            // TODO(R3.3.1): alias → canonical realm_id needs a directory
-            // round-trip; the caller MUST inject the resolved id via
+            // Alias targets need directory resolution before signing. Keep the
+            // alias placeholder here, then inject the canonical id via
             // `set_realm_id` before digesting/signing.
             RealmRef::Alias(alias) => alias.clone(),
         };

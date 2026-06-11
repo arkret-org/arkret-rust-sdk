@@ -39,7 +39,7 @@ mls = [
     "dep:tls_codec",
 ]
 full-surface = []
-tracing = ["dep:tracing"]
+tracing = ["dep:tracing", "cokret-http-client?/tracing"]
 # Re-export the conformance/test-fixture crate. Opt-in so it never lands in
 # downstream production builds of the umbrella `cokret` crate.
 testing = ["dep:cokret-testing"]

@@ -27,8 +27,8 @@ pub enum ThirdPartyInviteOobKind {
 /// Both modes ALWAYS carry `max_claims`,
 /// `verification_service_did`, and `verification_public_key`. Internal
 /// verifier chain (`verification_service_did` chain of trust + replay
-/// guard against `pepper_id` reuse) is TODO; the SDK only needs the
-/// wire shape right now.
+/// guard against `pepper_id` reuse) is handled by verifier/reducer layers;
+/// the SDK model carries the wire shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ThirdPartyInvite {

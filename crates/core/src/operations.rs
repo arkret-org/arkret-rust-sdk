@@ -81,12 +81,15 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | OP_APPLET_TRANSACTION
         | OP_APPLET_INSTALL
         | OP_APPLET_INSTALL_PREVIEW
+        | OP_APPLET_GHOST_PROVISION
         | OP_APPLET_REVOKE => OperationSurface::Applet,
         OP_AUTHZ_CHECK | OP_AUTHZ_GET_EFFECTIVE_GRANTS | OP_AUTHZ_GET_INVITES => {
             OperationSurface::Authz
         }
         OP_BLOB_UPLOAD | OP_BLOB_HEAD | OP_BLOB_GET => OperationSurface::Blob,
-        OP_DEVICE_MESSAGES_PUT | OP_DEVICE_MESSAGES_GET => OperationSurface::DeviceMessages,
+        OP_DEVICE_MESSAGES_PUT | OP_DEVICE_MESSAGES_GET | OP_DEVICE_MESSAGES_ACK => {
+            OperationSurface::DeviceMessages
+        }
         OP_DIRECTORY_ANNOUNCE
         | OP_DIRECTORY_DESCRIBE
         | OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY
@@ -118,6 +121,7 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | OP_IDENTITY_GET_DOCUMENT
         | OP_IDENTITY_GET_LOG
         | OP_IDENTITY_GET_RECEIPTS
+        | OP_IDENTITY_RECOVERY_POLICY_GET
         | OP_IDENTITY_RESOLVE
         | OP_IDENTITY_SUBMIT_DID_OPERATION
         | OP_RECOVERY_SESSION_CREATE
@@ -493,11 +497,14 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
         | OP_EVENTS_QUERY
         | OP_EVENTS_SUBSCRIBE
         | OP_SNAPSHOT_HEAD
+        | OP_PROJECTION_DOCUMENT
+        | OP_VIEW_COLLECTION_PROJECTION
         | OP_IDENTITY_DESCRIBE_REGISTRY
         | OP_IDENTITY_RESOLVE
         | OP_IDENTITY_GET_DOCUMENT
         | OP_IDENTITY_GET_LOG
         | OP_IDENTITY_GET_RECEIPTS
+        | OP_IDENTITY_RECOVERY_POLICY_GET
         | OP_BLOB_HEAD
         | OP_BLOB_GET
         | OP_DIRECTORY_RESOLVE_HANDLE
@@ -564,11 +571,16 @@ fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
         OP_DEVICE_MESSAGES_PUT | OP_DEVICE_MESSAGES_GET => {
             &["recipient_principal_id", "recipient_device_id"]
         }
+        OP_DEVICE_MESSAGES_ACK => &["ack_token"],
+        OP_APPLET_GHOST_PROVISION => &["applet_id", "ghost_actor_id", "external_user_id"],
         OP_ACCOUNT_DEVICE_PAIR | OP_ACCOUNT_ISSUE_SESSION_GRANT => &["principal_id"],
         OP_MODERATION_REPORT => &["target_ref"],
         OP_OPEN_INVITE_LOCATOR_RESOLVE => &["locator_token"],
         OP_PEER_INVITES_SUBMIT => &["idempotency_key"],
         OP_POLICY_CHECK => &["resource"],
+        OP_IDENTITY_RECOVERY_POLICY_GET => &["principal_id"],
+        OP_PROJECTION_DOCUMENT => &["morph_id"],
+        OP_VIEW_COLLECTION_PROJECTION => &["view_id"],
         _ => &[],
     };
     fields.iter().find_map(|field| {

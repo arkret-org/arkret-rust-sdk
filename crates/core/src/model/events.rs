@@ -13,7 +13,7 @@ pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
 ///
 /// Reducer rules:
 /// - This field is reducer-stamped. Clients MUST NOT supply it; reducers MUST reject envelopes that
-///   arrive with a client-supplied value (return `actor_kind_self_stamped`).
+///   arrive with a client-supplied value (return `actor_kind_reducer_managed`).
 /// - The serialized wire form on the Envelope is the field name `actor_kind`, distinct from the
 ///   `ActorProfile.actor_kind` slot.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -125,8 +125,11 @@ pub struct Event {
     /// present, the reducer MUST verify that the DID resolved from
     /// `proof.verification_method` equals `executed_by`. Signed; nested
     /// into the canonical signing transcript when set.
-    // TODO(P1): reducer MUST stamp `actor_kind` and reject client-supplied;
-    // reducer MUST verify `executed_by` == proof verification_method DID.
+    ///
+    /// The SDK model represents the accepted/read envelope. Actor-supplied
+    /// submit envelopes remain a reducer validation surface: reject
+    /// client-supplied `actor_kind` and verify `executed_by` against the
+    /// proof verification method DID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executed_by: Option<Did>,
     /// CKP-0008 / CKP-0009 â€” typed reference (e.g. `ck:grant:<uuidv7>` /
@@ -138,8 +141,10 @@ pub struct Event {
     /// CKP-0008 / CKP-0009 â€” runtime-origin classifier. Reducer-stamped
     /// projection; clients MUST NOT supply it. See
     /// [`EnvelopeActorKind`] for invariants.
-    // TODO(P1): reducer MUST stamp this and reject client-supplied values;
-    // wire-form rejection code `actor_kind_self_stamped`.
+    ///
+    /// Actor-supplied submit envelopes MUST be rejected with
+    /// `actor_kind_reducer_managed`; reducers stamp this immutable projection
+    /// on accepted envelopes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_kind: Option<EnvelopeActorKind>,
     /// Reducer/client-local extension data that is not part of the signed
