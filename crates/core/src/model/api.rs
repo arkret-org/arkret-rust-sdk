@@ -750,6 +750,14 @@ pub struct SyncOutcome {
     pub left_realms: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub to_device: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to_device_ack_token: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub to_device_limited: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to_device_next_cursor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to_device_lost: Option<bool>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub device_lists: Value,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -782,16 +790,41 @@ impl SyncOutcome {
         if let Some(frame_realms) = frame.realms {
             realms.extend(frame_realms.entries);
         }
+        let to_device_value = frame.to_device;
+        let to_device = to_device_value
+            .as_ref()
+            .and_then(|value| value.get("messages").cloned())
+            .and_then(|value| value.as_array().cloned())
+            .unwrap_or_default();
+        let to_device_ack_token = to_device_value
+            .as_ref()
+            .and_then(|value| value.get("ack_token"))
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned);
+        let to_device_limited = to_device_value
+            .as_ref()
+            .and_then(|value| value.get("limited"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let to_device_next_cursor = to_device_value
+            .as_ref()
+            .and_then(|value| value.get("next_cursor"))
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned);
+        let to_device_lost = to_device_value
+            .as_ref()
+            .and_then(|value| value.get("lost"))
+            .and_then(Value::as_bool);
 
         Some(Self {
             cursor,
             realms,
             left_realms: Vec::new(),
-            to_device: frame
-                .to_device
-                .and_then(|value| value.get("messages").cloned())
-                .and_then(|value| value.as_array().cloned())
-                .unwrap_or_default(),
+            to_device,
+            to_device_ack_token,
+            to_device_limited,
+            to_device_next_cursor,
+            to_device_lost,
             device_lists: frame.device_lists.unwrap_or(Value::Null),
             account_data: frame
                 .account_data
@@ -3071,11 +3104,29 @@ pub struct DeviceMessagesPutOutcome {
 pub struct DeviceMessagesGetOutcome {
     pub messages: Vec<DeviceMessageEnvelope>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub ack_token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     #[serde(default)]
     pub has_more: bool,
     #[serde(default)]
     pub limited: bool,
+    #[serde(default)]
+    pub lost: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DeviceMessagesAckRequestBody {
+    pub ack_token: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DeviceMessagesAckOutcome {
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pruned_count: Option<u64>,
 }
 
 // ── Spec-aligned canonical types added in 2026-05 alignment pass ───────────

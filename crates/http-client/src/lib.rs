@@ -7,29 +7,30 @@ use cokret_core::{
     AuthzCheckRequestBody, AuthzInviteList, BackupId, BlobMetadata, BlobRef, BlobUploadMetadata,
     BlobUploadOutcome, ContactList, ContactRequestOutcome, ContactRequestRequestBody,
     ContactRespondOutcome, ContactRespondRequestBody, ContactTombstone,
-    ContactTombstoneRequestBody, DeviceMessagesGetOutcome, DeviceMessagesPutOutcome,
-    DeviceMessagesPutRequestBody, DidOperationSubmitOutcome, DidOperationSubmitRequestBody,
-    DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
-    DirectoryActorSearchOutcome, DirectoryDescription, DirectoryHandleResolutionOutcome,
-    DirectoryListHandlesForSubjectRequestBody, DirectoryOrganizationResolutionOutcome,
-    DirectoryOrganizationSearchOutcome, DirectoryPrivateContactDiscoveryOutcome,
-    DirectoryPrivateContactDiscoveryRequestBody, DirectoryRealmResolutionOutcome,
-    DirectoryRealmSearchOutcome, DirectoryResolveHandleRequestBody,
-    DirectoryResolveOrganizationRequestBody, DirectoryResolveRealmRequestBody,
-    DirectoryResolveTargetRequestBody, DirectorySearchActorsRequestBody,
-    DirectorySearchOrganizationsRequestBody, DirectorySearchRealmsRequestBody,
-    DirectorySearchUsersRequestBody, DirectorySubjectHandleList, DirectoryTargetResolutionOutcome,
-    DirectoryUserSearchOutcome, Error, ErrorEnvelope, Event, EventsSubmitOutcome, GrantList,
-    IdentityDescription, IdentityDocumentView, IdentityLogOutcome, IdentityReceiptsOutcome,
-    IdentityResolveOutcome, IdentityResolveRequestBody, KeyBackup, KeyBackupSummary,
-    KeyBackupsListQuery, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody, KeysBackupsList,
-    KeysBackupsPutOutcome, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
-    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody, MediaIceConfigOutcome,
-    MediaIceConfigRequestBody, MimiProviderDirectory, MimiReportAbuseOutcome,
-    MimiReportAbuseRequestBody, ModerationReportOutcome, ModerationReportRequestBody, OkOutcome,
-    PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST, PATH_SELF_CONTACTS_RESPOND,
-    PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, PolicyCheckOutcome,
-    PolicyCheckRequestBody, PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
+    ContactTombstoneRequestBody, DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody,
+    DeviceMessagesGetOutcome, DeviceMessagesPutOutcome, DeviceMessagesPutRequestBody,
+    DidOperationSubmitOutcome, DidOperationSubmitRequestBody, DirectConversationResolveOutcome,
+    DirectConversationResolveRequestBody, DirectoryActorSearchOutcome, DirectoryDescription,
+    DirectoryHandleResolutionOutcome, DirectoryListHandlesForSubjectRequestBody,
+    DirectoryOrganizationResolutionOutcome, DirectoryOrganizationSearchOutcome,
+    DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
+    DirectoryRealmResolutionOutcome, DirectoryRealmSearchOutcome,
+    DirectoryResolveHandleRequestBody, DirectoryResolveOrganizationRequestBody,
+    DirectoryResolveRealmRequestBody, DirectoryResolveTargetRequestBody,
+    DirectorySearchActorsRequestBody, DirectorySearchOrganizationsRequestBody,
+    DirectorySearchRealmsRequestBody, DirectorySearchUsersRequestBody, DirectorySubjectHandleList,
+    DirectoryTargetResolutionOutcome, DirectoryUserSearchOutcome, Error, ErrorEnvelope, Event,
+    EventsSubmitOutcome, GrantList, IdentityDescription, IdentityDocumentView, IdentityLogOutcome,
+    IdentityReceiptsOutcome, IdentityResolveOutcome, IdentityResolveRequestBody, KeyBackup,
+    KeyBackupSummary, KeyBackupsListQuery, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
+    KeysBackupsList, KeysBackupsPutOutcome, KeysClaimOutcome, KeysClaimRequestBody,
+    KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
+    MediaIceConfigOutcome, MediaIceConfigRequestBody, MimiProviderDirectory,
+    MimiReportAbuseOutcome, MimiReportAbuseRequestBody, ModerationReportOutcome,
+    ModerationReportRequestBody, OkOutcome, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
+    PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
+    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, PolicyCheckOutcome, PolicyCheckRequestBody,
+    PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
     PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, Result, ServerDescription,
     ServiceRequirements, SessionGrantOutcome, SessionGrantRequestBody, SnapshotHeadState,
     SyncBackfillOutcome, SyncDescription, SyncOutcome, SyncRequestBody,
@@ -1178,6 +1179,14 @@ impl Client {
             builder = builder.query(&[("limit", limit)]);
         }
         self.send_json(builder).await
+    }
+
+    pub async fn ack_device_messages(
+        &self,
+        request: &DeviceMessagesAckRequestBody,
+    ) -> Result<DeviceMessagesAckOutcome> {
+        self.post("/_cokret/self/device_messages/ack", request)
+            .await
     }
 
     pub async fn directory_describe(&self) -> Result<DirectoryDescription> {

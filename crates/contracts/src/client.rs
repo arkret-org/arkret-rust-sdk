@@ -1141,10 +1141,11 @@ impl CallSignalRequestBody {
 
 pub mod protocol {
     pub use cokret_core::{
-        DeviceMessagesGetOutcome, DeviceMessagesPutOutcome, DeviceMessagesPutRequestBody,
-        KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody,
-        KeysUploadOutcome, KeysUploadRequestBody, ModerationReportOutcome,
-        ModerationReportRequestBody, SyncOutcome, SyncRequestBody,
+        DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome,
+        DeviceMessagesPutOutcome, DeviceMessagesPutRequestBody, KeysClaimOutcome,
+        KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome,
+        KeysUploadRequestBody, ModerationReportOutcome, ModerationReportRequestBody, SyncOutcome,
+        SyncRequestBody,
     };
 }
 

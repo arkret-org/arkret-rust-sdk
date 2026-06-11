@@ -158,6 +158,11 @@ pub const ERROR_CODE_AUTHORIZED_GRANT_REVOKED: &str = "authorized_grant_revoked"
 pub const ERROR_CODE_DEVICE_RECOVERY_SSK_GENERATION_MISMATCH: &str =
     "device_recovery_ssk_generation_mismatch";
 pub const ERROR_CODE_CURSOR_REVOKED: &str = "cursor_revoked";
+pub const ERROR_CODE_MEMBER_IDENTITY_STATE_MISMATCH: &str = "member_identity_state_mismatch";
+pub const ERROR_CODE_MEMBER_IDENTITY_PROOF_INVALID: &str = "member_identity_proof_invalid";
+pub const ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH: &str =
+    "member_identity_replacement_digest_mismatch";
+pub const ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT: &str = "member_identity_unknown_segment";
 
 // ── Key-backup hardening (B-C, spec head 37ce729) — 11 new wire-level error
 // codes covering the key-backup series chain, recovery-policy alignment,
@@ -371,6 +376,10 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_AUTHORIZED_GRANT_REVOKED,
     ERROR_CODE_DEVICE_RECOVERY_SSK_GENERATION_MISMATCH,
     ERROR_CODE_CURSOR_REVOKED,
+    ERROR_CODE_MEMBER_IDENTITY_STATE_MISMATCH,
+    ERROR_CODE_MEMBER_IDENTITY_PROOF_INVALID,
+    ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH,
+    ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT,
     // Key-backup hardening (B-C, spec head 37ce729) — 11 codes.
     ERROR_CODE_SERIES_CHAIN_BROKEN,
     ERROR_CODE_SERIES_SEQ_NOT_MONOTONIC,
@@ -582,6 +591,24 @@ pub const REASON_RECOVERY_CAPABILITY_NOT_ANCHORED: &str = "recovery_capability_n
 
 // Policy server runtime challenge (zh/authz/policy-server.md §4).
 pub const REASON_CHALLENGE_PROOF_INVALID: &str = "challenge_proof_invalid";
+pub const REASON_INVALID_TASK_FSM_TRANSITION: &str = "invalid_task_fsm_transition";
+
+// Audit-agent destruction pairing and attestations.
+pub const REASON_AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING: &str =
+    "audit_agent_key_destruction_attestation_missing";
+pub const REASON_AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION: &str =
+    "audit_agent_remove_requires_paired_destruction_attestation";
+pub const REASON_AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE: &str =
+    "audit_agent_destruction_not_paired_with_remove";
+pub const REASON_AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED: &str =
+    "audit_agent_destruction_proof_not_enclave_signed";
+pub const REASON_AUDIT_AGENT_EPOCH_RANGE_INCOMPLETE: &str = "audit_agent_epoch_range_incomplete";
+pub const REASON_AUDIT_AGENT_ATTESTATION_MISMATCH: &str = "audit_agent_attestation_mismatch";
+
+// Profile and structural relation policy reasons.
+pub const REASON_LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND: &str =
+    "lite_profile_writes_disallowed_event_kind";
+pub const REASON_CROSS_SPACE_STRUCTURAL_RELATION: &str = "cross_space_structural_relation";
 
 // Watch state capabilities (zh/models/flow-and-message.md §8.4–8.5).
 //
@@ -595,6 +622,7 @@ pub const REASON_WATCH_MUST_BE_SELF: &str = "watch_must_be_self";
 pub const REASON_WATCH_MUTED_MUST_BE_SELF: &str = "watch_muted_must_be_self";
 pub const REASON_WATCH_LEVEL_PUBLIC_MUST_BE_SELF: &str = "watch_level_public_must_be_self";
 pub const REASON_WATCH_SET_OTHERS_AUDIT_MISSING: &str = "watch_set_others_audit_missing";
+pub const REASON_MANAGE_OTHERS_AUDIT_MISSING: &str = "manage_others_audit_missing";
 
 // Join policy (zh/governance/join-policy.md §4 / §6).
 pub const REASON_JOIN_AUTHORISATION_INVALID: &str = "join_authorisation_invalid";
@@ -616,6 +644,14 @@ pub const REASON_MORPH_SCHEMA_REFS_TRANSFORMATION_UNSUPPORTED: &str =
     "morph_schema_refs_transformation_unsupported";
 pub const REASON_MORPH_SCHEMA_VERSION_BINDING_MISSING: &str =
     "morph_schema_version_binding_missing";
+
+// Sender commitment validation.
+pub const REASON_SENDER_COMMITMENT_INVALID: &str = "sender_commitment_invalid";
+pub const REASON_SENDER_COMMITMENT_MISSING: &str = "sender_commitment_missing";
+pub const REASON_SENDER_COMMITMENT_SEQ_REPLAY: &str = "sender_commitment_seq_replay";
+pub const REASON_SENDER_COMMITMENT_CIPHERTEXT_MISMATCH: &str =
+    "sender_commitment_ciphertext_mismatch";
+pub const REASON_SENDER_COMMITMENT_EPOCH_MISMATCH: &str = "sender_commitment_epoch_mismatch";
 
 // Range-completeness attestation (zh/sync/operations-sync.md §4.2.4).
 pub const REASON_RANGE_COMPLETENESS_ROOT_MISMATCH: &str = "range_completeness_root_mismatch";

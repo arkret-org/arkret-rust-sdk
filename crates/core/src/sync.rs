@@ -6,7 +6,7 @@
 //! - Device message handling
 //! - Filter and subscription support
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -226,6 +226,10 @@ pub struct SyncFilter {
     /// Event kind deny list
     #[serde(default)]
     pub not_event_types: Vec<String>,
+    /// Forward-compatible service-specific filter extensions.
+    #[serde(default, flatten)]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub extra: BTreeMap<String, Value>,
 }
 
 /// Subscription configuration for realms.
@@ -950,6 +954,10 @@ mod tests {
             realms: BTreeMap::new(),
             left_realms: Vec::new(),
             to_device: Vec::new(),
+            to_device_ack_token: None,
+            to_device_limited: false,
+            to_device_next_cursor: None,
+            to_device_lost: None,
             device_lists: Value::Null,
             account_data: Vec::new(),
             presence: Vec::new(),
@@ -1004,6 +1012,7 @@ mod tests {
             include_redundant_members: false,
             event_types: vec!["ck.message.create".to_owned()],
             not_event_types: Vec::new(),
+            extra: BTreeMap::new(),
         };
         let filter_digest = sync_filter_digest(Some(&filter), None).unwrap();
         let binding = SyncTokenBinding::for_request(
