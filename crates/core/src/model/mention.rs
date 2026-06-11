@@ -28,6 +28,18 @@ pub struct Mention {
     /// the current display handle.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handle_at_time: Option<Handle>,
+    /// Controller principal DID captured when the mention came from a
+    /// controller-scoped agent selector. Audit metadata only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub controller_subject_id: Option<Did>,
+    /// Controller handle snapshot from `@<controller-handle>/<agent_slug>`.
+    /// Audit / search / fallback metadata only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub controller_handle_at_time: Option<Handle>,
+    /// Agent selector slug snapshot from `@<controller-handle>/<agent_slug>`.
+    /// Audit / search / fallback metadata only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_slug_at_time: Option<String>,
     /// Original string the user typed (e.g. `@alice:acme.com`). Audit /
     /// search-index use only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -145,6 +157,9 @@ impl Mention {
             subject_id,
             display_name_at_time: None,
             handle_at_time: None,
+            controller_subject_id: None,
+            controller_handle_at_time: None,
+            agent_slug_at_time: None,
             mention_text_original: None,
             resolved_at: None,
         }
@@ -157,6 +172,18 @@ impl Mention {
 
     pub fn with_display_name_at_time(mut self, name: impl Into<String>) -> Self {
         self.display_name_at_time = Some(name.into());
+        self
+    }
+
+    pub fn with_agent_selector_metadata(
+        mut self,
+        controller_subject_id: Did,
+        controller_handle_at_time: Handle,
+        agent_slug_at_time: impl Into<String>,
+    ) -> Self {
+        self.controller_subject_id = Some(controller_subject_id);
+        self.controller_handle_at_time = Some(controller_handle_at_time);
+        self.agent_slug_at_time = Some(agent_slug_at_time.into());
         self
     }
 
@@ -183,6 +210,26 @@ mod tests {
         // Audit metadata omitted when unset.
         assert!(json.get("handle_at_time").is_none());
         assert!(json.get("display_name_at_time").is_none());
+        let decoded: Mention = serde_json::from_value(json).unwrap();
+        assert_eq!(decoded, m);
+    }
+
+    #[test]
+    fn mention_agent_selector_metadata_round_trips() {
+        let m = Mention::new(Did::new("did:web:agent.example".to_owned()).unwrap())
+            .with_agent_selector_metadata(
+                Did::new("did:web:example.com:users:alice".to_owned()).unwrap(),
+                Handle::parse("alice:example.com").unwrap(),
+                "summary",
+            )
+            .with_mention_text_original("@alice:example.com/summary");
+        let json = serde_json::to_value(&m).unwrap();
+        assert_eq!(
+            json["controller_subject_id"],
+            "did:web:example.com:users:alice"
+        );
+        assert_eq!(json["controller_handle_at_time"], "alice:example.com");
+        assert_eq!(json["agent_slug_at_time"], "summary");
         let decoded: Mention = serde_json::from_value(json).unwrap();
         assert_eq!(decoded, m);
     }

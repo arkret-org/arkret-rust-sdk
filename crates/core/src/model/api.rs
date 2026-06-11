@@ -2288,6 +2288,208 @@ pub struct DirectoryHandleResolutionOutcome {
     pub via_services: Vec<String>,
 }
 
+fn default_agent_selector_claim_schema() -> String {
+    AGENT_SELECTOR_CLAIM_SCHEMA.to_owned()
+}
+
+/// Signed controller-scoped selector claim for
+/// `@<controller-handle>/<agent_slug>` resolution.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentSelectorClaim {
+    #[serde(default = "default_agent_selector_claim_schema")]
+    pub schema: String,
+    pub controller_subject: Did,
+    pub agent_slug: String,
+    pub subject: Did,
+    pub issuer: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issuer_service_did: Option<Did>,
+    pub binding_state: HandleBindingState,
+    pub visibility: HandleVisibility,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audience: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub claim_scope: BTreeMap<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proofs: Vec<Value>,
+}
+
+impl AgentSelectorClaim {
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != AGENT_SELECTOR_CLAIM_SCHEMA {
+            return Err(Error::Protocol(format!(
+                "agent_selector_claim schema must be {AGENT_SELECTOR_CLAIM_SCHEMA}"
+            )));
+        }
+        validate_agent_slug(&self.agent_slug)?;
+        if matches!(self.binding_state, HandleBindingState::Verified) && self.proofs.is_empty() {
+            return Err(Error::Protocol(
+                "verified agent_selector_claim requires proofs".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Request body for `ck.find.directory.resolve_agent_selector`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectoryResolveAgentSelectorRequestBody {
+    pub controller_handle: Handle,
+    pub agent_slug: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_agent_did: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_challenge: Option<String>,
+    pub intent: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    pub requester: Did,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proofs: Vec<Value>,
+}
+
+/// Response body for `ck.find.directory.resolve_agent_selector`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectoryAgentSelectorResolutionOutcome {
+    pub controller_subject: Did,
+    pub subject: Did,
+    pub agent_slug: String,
+    pub verified: bool,
+    pub selector_claim: AgentSelectorClaim,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl DirectoryAgentSelectorResolutionOutcome {
+    pub fn validate(&self) -> Result<()> {
+        if !self.verified {
+            return Err(Error::Protocol(
+                "directory_agent_selector_resolution_outcome.verified must be true".to_owned(),
+            ));
+        }
+        validate_agent_slug(&self.agent_slug)?;
+        self.selector_claim.validate()?;
+        if self.selector_claim.controller_subject != self.controller_subject {
+            return Err(Error::Protocol(
+                "selector_claim.controller_subject must match response.controller_subject"
+                    .to_owned(),
+            ));
+        }
+        if self.selector_claim.subject != self.subject {
+            return Err(Error::Protocol(
+                "selector_claim.subject must match response.subject".to_owned(),
+            ));
+        }
+        if self.selector_claim.agent_slug != self.agent_slug {
+            return Err(Error::Protocol(
+                "selector_claim.agent_slug must match response.agent_slug".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+pub fn validate_agent_slug(value: &str) -> Result<()> {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return Err(Error::Protocol("agent_slug must not be empty".to_owned()));
+    };
+    if !first.is_ascii_lowercase() && !first.is_ascii_digit() {
+        return Err(Error::Protocol(
+            "agent_slug must start with lowercase alnum".to_owned(),
+        ));
+    }
+    let mut last = first;
+    let mut len = 1usize;
+    for ch in chars {
+        len += 1;
+        if len > 64 {
+            return Err(Error::Protocol(
+                "agent_slug must be at most 64 characters".to_owned(),
+            ));
+        }
+        if !ch.is_ascii_lowercase() && !ch.is_ascii_digit() && ch != '_' && ch != '-' {
+            return Err(Error::Protocol(
+                "agent_slug may contain lowercase alnum, underscore, or hyphen only".to_owned(),
+            ));
+        }
+        last = ch;
+    }
+    if !last.is_ascii_lowercase() && !last.is_ascii_digit() {
+        return Err(Error::Protocol(
+            "agent_slug must end with lowercase alnum".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod agent_selector_tests {
+    use super::*;
+
+    fn did(value: &str) -> Did {
+        Did::new(value.to_owned()).unwrap()
+    }
+
+    fn selector_claim() -> AgentSelectorClaim {
+        AgentSelectorClaim {
+            schema: AGENT_SELECTOR_CLAIM_SCHEMA.to_owned(),
+            controller_subject: did("did:web:example.com:users:alice"),
+            agent_slug: "summary".to_owned(),
+            subject: did("did:web:agent.example"),
+            issuer: did("did:web:example.com"),
+            issuer_service_did: Some(did("did:web:example.com")),
+            binding_state: HandleBindingState::Verified,
+            visibility: HandleVisibility::Restricted,
+            audience: Some("ck:realm:018f0000-0000-7000-8000-000000000001".to_owned()),
+            claim_scope: BTreeMap::new(),
+            expires_at: None,
+            created_at: Utc::now(),
+            verified_at: None,
+            source_refs: Vec::new(),
+            proofs: vec![json!({"kind": "detached_jws"})],
+        }
+    }
+
+    #[test]
+    fn validates_agent_slug_pattern() {
+        for value in ["s", "summary", "summary_v2", "summary-v2"] {
+            validate_agent_slug(value).unwrap();
+        }
+        for value in ["", "-summary", "summary-", "Summary", "sum.mary"] {
+            assert!(validate_agent_slug(value).is_err(), "{value}");
+        }
+    }
+
+    #[test]
+    fn validates_selector_outcome_matches_claim() {
+        let selector_claim = selector_claim();
+        let outcome = DirectoryAgentSelectorResolutionOutcome {
+            controller_subject: selector_claim.controller_subject.clone(),
+            subject: selector_claim.subject.clone(),
+            agent_slug: selector_claim.agent_slug.clone(),
+            verified: true,
+            selector_claim,
+            source_refs: Vec::new(),
+            expires_at: None,
+        };
+        outcome.validate().unwrap();
+    }
+}
+
 /// R3.2 (cokret-spec @ b56cab1) — request body for
 /// `ck.find.directory.list_handles_for_subject`. Known holder/principal DID +
 /// context → current visible handle claims (inverse of `resolve_handle`).
@@ -2771,6 +2973,8 @@ pub struct AgentProvisionRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_slug: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub requested_scope: Option<AgentKeyScope>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub accountability: Value,
@@ -2816,6 +3020,8 @@ pub struct AgentProjection {
     pub agent_principal_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_slug: Option<String>,
     pub status: AgentStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at: Option<DateTime<Utc>>,

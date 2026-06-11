@@ -10,27 +10,28 @@ use cokret_core::{
     ContactTombstoneRequestBody, DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody,
     DeviceMessagesGetOutcome, DeviceMessagesPutOutcome, DeviceMessagesPutRequestBody,
     DidOperationSubmitOutcome, DidOperationSubmitRequestBody, DirectConversationResolveOutcome,
-    DirectConversationResolveRequestBody, DirectoryActorSearchOutcome, DirectoryDescription,
+    DirectConversationResolveRequestBody, DirectoryActorSearchOutcome,
+    DirectoryAgentSelectorResolutionOutcome, DirectoryDescription,
     DirectoryHandleResolutionOutcome, DirectoryListHandlesForSubjectRequestBody,
     DirectoryOrganizationResolutionOutcome, DirectoryOrganizationSearchOutcome,
     DirectoryPrivateContactDiscoveryOutcome, DirectoryPrivateContactDiscoveryRequestBody,
     DirectoryRealmResolutionOutcome, DirectoryRealmSearchOutcome,
-    DirectoryResolveHandleRequestBody, DirectoryResolveOrganizationRequestBody,
-    DirectoryResolveRealmRequestBody, DirectoryResolveTargetRequestBody,
-    DirectorySearchActorsRequestBody, DirectorySearchOrganizationsRequestBody,
-    DirectorySearchRealmsRequestBody, DirectorySearchUsersRequestBody, DirectorySubjectHandleList,
-    DirectoryTargetResolutionOutcome, DirectoryUserSearchOutcome, Error, ErrorEnvelope, Event,
-    EventsSubmitOutcome, GrantList, IdentityDescription, IdentityDocumentView, IdentityLogOutcome,
-    IdentityReceiptsOutcome, IdentityResolveOutcome, IdentityResolveRequestBody, KeyBackup,
-    KeyBackupSummary, KeyBackupsListQuery, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
-    KeysBackupsList, KeysBackupsPutOutcome, KeysClaimOutcome, KeysClaimRequestBody,
-    KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
-    MediaIceConfigOutcome, MediaIceConfigRequestBody, MimiProviderDirectory,
-    MimiReportAbuseOutcome, MimiReportAbuseRequestBody, ModerationReportOutcome,
-    ModerationReportRequestBody, OkOutcome, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
-    PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
-    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, PolicyCheckOutcome, PolicyCheckRequestBody,
-    PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
+    DirectoryResolveAgentSelectorRequestBody, DirectoryResolveHandleRequestBody,
+    DirectoryResolveOrganizationRequestBody, DirectoryResolveRealmRequestBody,
+    DirectoryResolveTargetRequestBody, DirectorySearchActorsRequestBody,
+    DirectorySearchOrganizationsRequestBody, DirectorySearchRealmsRequestBody,
+    DirectorySearchUsersRequestBody, DirectorySubjectHandleList, DirectoryTargetResolutionOutcome,
+    DirectoryUserSearchOutcome, Error, ErrorEnvelope, Event, EventsSubmitOutcome, GrantList,
+    IdentityDescription, IdentityDocumentView, IdentityLogOutcome, IdentityReceiptsOutcome,
+    IdentityResolveOutcome, IdentityResolveRequestBody, KeyBackup, KeyBackupSummary,
+    KeyBackupsListQuery, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody, KeysBackupsList,
+    KeysBackupsPutOutcome, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
+    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody, MediaIceConfigOutcome,
+    MediaIceConfigRequestBody, MimiProviderDirectory, MimiReportAbuseOutcome,
+    MimiReportAbuseRequestBody, ModerationReportOutcome, ModerationReportRequestBody, OkOutcome,
+    PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST, PATH_SELF_CONTACTS_RESPOND,
+    PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, PolicyCheckOutcome,
+    PolicyCheckRequestBody, PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
     PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, Result, ServerDescription,
     ServiceRequirements, SessionGrantOutcome, SessionGrantRequestBody, SnapshotHeadState,
     SyncBackfillOutcome, SyncDescription, SyncOutcome, SyncRequestBody,
@@ -1268,6 +1269,18 @@ impl Client {
     ) -> Result<DirectoryHandleResolutionOutcome> {
         self.post("/_cokret/find/directory/resolve-handle", request)
             .await
+    }
+
+    /// Resolve a controller-scoped native personal agent selector exactly.
+    pub async fn directory_resolve_agent_selector(
+        &self,
+        request: &DirectoryResolveAgentSelectorRequestBody,
+    ) -> Result<DirectoryAgentSelectorResolutionOutcome> {
+        let body: DirectoryAgentSelectorResolutionOutcome = self
+            .post("/_cokret/find/directory/resolve-agent-selector", request)
+            .await?;
+        body.validate()?;
+        Ok(body)
     }
 
     /// R3.2 (cokret-spec @ b56cab1) — `ck.find.directory.list_handles_for_subject`.

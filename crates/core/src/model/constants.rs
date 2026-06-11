@@ -11,6 +11,7 @@ pub const REALM_SCHEMA_ID: &str = "ck.schema.realm.v1";
 pub const REALM_JOIN_CANDIDATE_SCHEMA: &str = "ck.schema.realm_join_candidate.v1";
 pub const SPACE_SCHEMA: &str = "ck.schema.space.v1";
 pub const ACTOR_PROFILE_SCHEMA: &str = "ck.schema.actor_profile.v1";
+pub const AGENT_SELECTOR_CLAIM_SCHEMA: &str = "ck.schema.agent_selector_claim.v1";
 pub const FLOW_SCHEMA: &str = "ck.schema.flow.v1";
 pub const RELATION_SCHEMA: &str = "ck.schema.relation.v1";
 pub const EVENT_SCHEMA: &str = "ck.schema.event.v1";
