@@ -272,11 +272,17 @@ impl AuthzEngine {
         }
     }
 
-    /// Check authorization for a context against a list of grants.
+    /// Check authorization for a context against a list of spec wire-form
+    /// grants ([`cokret_core::CapabilityGrant`]).
+    ///
+    /// Each grant is projected into the engine's internal typed form first;
+    /// a grant that fails projection is rejected with `schema_violation`
+    /// semantics (it contributes no authority, per
+    /// `capability-grant.schema.json`).
     pub fn check_authorization(
         &mut self,
         ctx: &AuthzContext,
-        grants: &[CapabilityGrant],
+        grants: &[cokret_core::CapabilityGrant],
     ) -> EngineDecision {
         // Check cache first
         let cache_key = self.cache_key(ctx, grants);
@@ -289,11 +295,21 @@ impl AuthzEngine {
             return cached.decision.clone();
         }
 
+        // Project the wire form; schema-violating grants are excluded.
+        let mut projections = Vec::with_capacity(grants.len());
+        let mut rejected = Vec::new();
+        for grant in grants {
+            match GrantProjection::from_wire(grant) {
+                Ok(projection) => projections.push(projection),
+                Err(err) => rejected.push(format!("grant '{}' rejected: {}", grant.id, err)),
+            }
+        }
+
         // Evaluate grants
-        let decision = self.evaluate_grants(ctx, grants);
+        let decision = self.evaluate_grants(ctx, &projections, &rejected);
 
         // Cache the result
-        self.cache_decision(cache_key, &decision, ctx, grants);
+        self.cache_decision(cache_key, &decision, ctx, &projections);
 
         decision
     }
@@ -319,7 +335,7 @@ impl AuthzEngine {
     pub fn check_authorization_with_policy(
         &mut self,
         ctx: &AuthzContext,
-        grants: &[CapabilityGrant],
+        grants: &[cokret_core::CapabilityGrant],
         policy: &PolicyEvaluationResult,
     ) -> EngineDecision {
         apply_policy_response(self.check_authorization(ctx, grants), policy)
@@ -335,25 +351,19 @@ impl AuthzEngine {
     pub fn check_authorization_with_approvals(
         &mut self,
         ctx: &AuthzContext,
-        grants: &[CapabilityGrant],
+        grants: &[cokret_core::CapabilityGrant],
         approvals: &ApprovalFlowManager,
     ) -> EngineDecision {
-        let eligible_grants: Vec<CapabilityGrant> = grants
+        let eligible_grants: Vec<cokret_core::CapabilityGrant> = grants
             .iter()
             .filter_map(|grant| {
                 if grant_requires_approval(grant) {
-                    if approvals.is_grant_approved(&grant.id) {
+                    if approvals.is_grant_approved(grant.id.as_str()) {
                         // Strip the approval constraint since it is already satisfied.
                         let mut approved = grant.clone();
-                        approved.constraints.retain(|entry| {
-                            !matches!(
-                                &entry.constraint,
-                                Constraint::ApprovalWorkflow {
-                                    approval_required: true,
-                                    ..
-                                }
-                            )
-                        });
+                        approved
+                            .constraints
+                            .retain(|constraint| !is_approval_required_constraint(constraint));
                         Some(approved)
                     } else {
                         None
@@ -366,8 +376,15 @@ impl AuthzEngine {
         self.check_authorization(ctx, &eligible_grants)
     }
 
-    /// Evaluate all grants and return the combined decision.
-    fn evaluate_grants(&self, ctx: &AuthzContext, grants: &[CapabilityGrant]) -> EngineDecision {
+    /// Evaluate all projected grants and return the combined decision.
+    /// `rejected` carries the schema_violation reasons of grants that failed
+    /// wire → projection parsing, for diagnosis when nothing matches.
+    fn evaluate_grants(
+        &self,
+        ctx: &AuthzContext,
+        grants: &[GrantProjection],
+        rejected: &[String],
+    ) -> EngineDecision {
         let mut matching_grants = Vec::new();
 
         // Find grants that match the resource
@@ -382,9 +399,12 @@ impl AuthzEngine {
 
         // If no matching grants, deny
         if matching_grants.is_empty() {
-            return EngineDecision::Deny {
-                reason: "no matching grant".to_owned(),
+            let reason = if rejected.is_empty() {
+                "no matching grant".to_owned()
+            } else {
+                format!("no matching grant ({})", rejected.join("; "))
             };
+            return EngineDecision::Deny { reason };
         }
 
         // Check action match
@@ -426,20 +446,23 @@ impl AuthzEngine {
     }
 
     /// Check if a grant matches the resource.
-    fn grant_matches_resource(&self, ctx: &AuthzContext, grant: &CapabilityGrant) -> bool {
+    fn grant_matches_resource(&self, ctx: &AuthzContext, grant: &GrantProjection) -> bool {
         grant
             .resources
             .iter()
             .any(|selector| selector.matches(&ctx.resource))
     }
 
-    /// Check if a grant applies to the requesting actor.
-    fn grant_matches_actor(&self, ctx: &AuthzContext, grant: &CapabilityGrant) -> bool {
-        grant.subject == ctx.actor_id
+    /// Check if a grant applies to the requesting actor. Condition
+    /// (selector) subjects are not evaluated by this engine and fail closed.
+    fn grant_matches_actor(&self, ctx: &AuthzContext, grant: &GrantProjection) -> bool {
+        grant
+            .subject_did()
+            .is_some_and(|subject| *subject == ctx.actor_id)
     }
 
     /// Check if a grant is currently usable.
-    fn grant_is_active(&self, ctx: &AuthzContext, grant: &CapabilityGrant) -> bool {
+    fn grant_is_active(&self, ctx: &AuthzContext, grant: &GrantProjection) -> bool {
         if grant.revoked_by.is_some() {
             return false;
         }
@@ -462,7 +485,7 @@ impl AuthzEngine {
     }
 
     /// Evaluate all constraints for a grant.
-    fn evaluate_constraints(&self, ctx: &AuthzContext, grant: &CapabilityGrant) -> EngineDecision {
+    fn evaluate_constraints(&self, ctx: &AuthzContext, grant: &GrantProjection) -> EngineDecision {
         // Sort constraints by effect priority, then by entry priority within same effect.
         // deny (0) > quarantine (1) > require_review (2) > allow (3)
         // Higher priority number = evaluated first within the same effect group.
@@ -1150,7 +1173,7 @@ impl AuthzEngine {
     }
 
     /// Generate a cache key for the context.
-    fn cache_key(&self, ctx: &AuthzContext, grants: &[CapabilityGrant]) -> String {
+    fn cache_key(&self, ctx: &AuthzContext, grants: &[cokret_core::CapabilityGrant]) -> String {
         let grants_digest = crate::canonical::canonical_sha256(&grants)
             .unwrap_or_else(|_| format!("grant-count:{}", grants.len()));
         let claims_digest =
@@ -1191,7 +1214,7 @@ impl AuthzEngine {
         key: String,
         decision: &EngineDecision,
         ctx: &AuthzContext,
-        grants: &[CapabilityGrant],
+        grants: &[GrantProjection],
     ) {
         // Evict old entries if cache is full
         if self.cache.len() >= self.max_cache_size {
@@ -1212,7 +1235,7 @@ impl AuthzEngine {
     fn cache_expires_at(
         &self,
         ctx: &AuthzContext,
-        grants: &[CapabilityGrant],
+        grants: &[GrantProjection],
     ) -> Option<DateTime<Utc>> {
         let mut cache_expires_at = None;
 
@@ -1273,16 +1296,169 @@ pub fn apply_policy_response(
 }
 
 /// Check if a grant requires approval through the proposal flow.
-pub fn grant_requires_approval(grant: &CapabilityGrant) -> bool {
-    grant.constraints.iter().any(|entry| {
-        matches!(
-            &entry.constraint,
-            Constraint::ApprovalWorkflow {
-                approval_required: true,
-                ..
-            }
+///
+/// Operates on the spec wire form: an approval requirement is a constraint
+/// with `constraint_type = "claim_based"`, `subtype = "approval"` and
+/// `approval_required = true` (grant-constraint.schema.json).
+pub fn grant_requires_approval(grant: &cokret_core::CapabilityGrant) -> bool {
+    grant
+        .constraints
+        .iter()
+        .any(is_approval_required_constraint)
+}
+
+/// Spec-shape predicate for an `approval_required = true` constraint object.
+fn is_approval_required_constraint(constraint: &Value) -> bool {
+    constraint.get("constraint_type").and_then(Value::as_str) == Some("claim_based")
+        && constraint.get("subtype").and_then(Value::as_str) == Some("approval")
+        && constraint
+            .get("approval_required")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod engine_wire_tests {
+    use cokret_core::{CAPABILITY_SCHEMA, CapabilitySubject, GrantId};
+    use serde_json::json;
+
+    use super::*;
+
+    fn alice() -> Did {
+        Did::new("did:web:alice.example").unwrap()
+    }
+
+    fn bob() -> Did {
+        Did::new("did:web:bob.example").unwrap()
+    }
+
+    fn proof(issuer: &Did) -> cokret_core::Proof {
+        cokret_core::Proof {
+            kind: cokret_core::proof_kind::DETACHED_JWS.to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: format!("{issuer}#device-1"),
+            event_digest: cokret_core::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            domain: None,
+            audience: None,
+            jws: "eyJhbGciOiJFZERTQSJ9..signature".to_owned(),
+        }
+    }
+
+    fn wire_grant(constraints: Vec<Value>) -> cokret_core::CapabilityGrant {
+        cokret_core::CapabilityGrant {
+            id: GrantId::new("ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
+            schema: CAPABILITY_SCHEMA.to_owned(),
+            realm_id: None,
+            issuer: alice(),
+            subject: CapabilitySubject::Did(bob()),
+            actions: vec!["ck.message.create".to_owned()],
+            resources: vec![json!({"kind": "*"})],
+            constraints,
+            parent_grant_id: None,
+            issued_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            not_before: None,
+            expires_at: None,
+            updated_by: None,
+            updated_at: None,
+            revoked_by: None,
+            revoked_at: None,
+            proofs: vec![proof(&alice())],
+        }
+    }
+
+    fn ctx() -> AuthzContext {
+        AuthzContext::new(
+            bob(),
+            "ck.message.create".to_owned(),
+            Resource::Realm {
+                realm_id: "ck:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
+            },
         )
-    })
+    }
+
+    #[test]
+    fn wire_grant_with_matching_action_allows() {
+        let mut engine = AuthzEngine::new();
+        let decision = engine.check_authorization(&ctx(), &[wire_grant(Vec::new())]);
+        assert_eq!(decision, EngineDecision::Allow);
+    }
+
+    #[test]
+    fn spec_temporal_constraint_denies_after_expiry() {
+        let mut engine = AuthzEngine::new();
+        let grant = wire_grant(vec![json!({
+            "constraint_type": "temporal",
+            "effect": "allow",
+            "expires_at": "2026-01-01T00:00:00Z",
+        })]);
+        let mut ctx = ctx();
+        ctx.now = "2026-02-01T00:00:00Z".parse().unwrap();
+        let decision = engine.check_authorization(&ctx, std::slice::from_ref(&grant));
+        assert!(matches!(decision, EngineDecision::Deny { reason } if reason.contains("expires_at")));
+    }
+
+    #[test]
+    fn schema_violating_grant_contributes_no_authority() {
+        let mut engine = AuthzEngine::new();
+        let mut grant = wire_grant(Vec::new());
+        grant.schema = "ck.schema.capability.v0".to_owned();
+        let decision = engine.check_authorization(&ctx(), &[grant]);
+        assert!(matches!(
+            decision,
+            EngineDecision::Deny { reason } if reason.contains("schema_violation")
+        ));
+    }
+
+    #[test]
+    fn unknown_constraint_family_fails_closed() {
+        let mut engine = AuthzEngine::new();
+        let grant = wire_grant(vec![json!({
+            "constraint_type": "telepathy",
+            "effect": "allow",
+        })]);
+        let decision = engine.check_authorization(&ctx(), &[grant]);
+        assert!(matches!(
+            decision,
+            EngineDecision::Deny { reason } if reason.contains("schema_violation")
+        ));
+    }
+
+    #[test]
+    fn approval_required_grant_is_held_until_approved() {
+        let mut engine = AuthzEngine::new();
+        let grant = wire_grant(vec![json!({
+            "constraint_type": "claim_based",
+            "subtype": "approval",
+            "effect": "require_review",
+            "approval_required": true,
+            "approval_actor_ids": ["did:web:carol.example"],
+        })]);
+        assert!(grant_requires_approval(&grant));
+
+        let mut approvals = ApprovalFlowManager::new();
+        let decision = engine.check_authorization_with_approvals(&ctx(), &[grant.clone()], &approvals);
+        assert!(matches!(decision, EngineDecision::Deny { .. }));
+
+        let proposal = approvals.submit_proposal(
+            grant.clone(),
+            alice(),
+            vec![Did::new("did:web:carol.example").unwrap()],
+            ApprovalMode::Any,
+            None,
+        );
+        approvals
+            .record_approval(
+                &proposal.proposal_id,
+                Did::new("did:web:carol.example").unwrap(),
+                true,
+                None,
+            )
+            .unwrap();
+        engine.clear_cache();
+        let decision = engine.check_authorization_with_approvals(&ctx(), &[grant], &approvals);
+        assert_eq!(decision, EngineDecision::Allow);
+    }
 }
 
 pub fn moderation_report_for_policy_outcome(

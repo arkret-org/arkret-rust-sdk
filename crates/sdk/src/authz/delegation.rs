@@ -13,13 +13,13 @@
 //! These helpers operate on a [`Grant`] shape that intentionally mirrors
 //! soland's in-memory runtime form (stringly-typed `resource`, single
 //! [`GrantConstraint`] list, top-level `expires_at` + `delegated_from`). The
-//! wire-spec shape — with typed [`crate::authz::ResourceSelector`] and richer
-//! not_before/expires_at pairs — is the separate [`crate::authz::CapabilityGrant`]
-//! used at the canonical event boundary. The two shapes are siblings, not
-//! alternatives: typically a capability event resolves into a
-//! `CapabilityGrant`, then projects down to a `Grant` for fast in-memory
-//! check / delegation enforcement. The fields critical to delegation —
-//! `delegated_from` and `expires_at` — live on both shapes verbatim per
+//! wire-spec shape is the core authority [`cokret_core::CapabilityGrant`]
+//! (`capability-grant.schema.json`) used at the canonical event boundary.
+//! The two shapes are siblings, not alternatives: typically a capability
+//! event resolves into a `cokret_core::CapabilityGrant`, then projects down
+//! to a `Grant` for fast in-memory check / delegation enforcement. The
+//! fields critical to delegation — `delegated_from` and `expires_at` — live
+//! on both shapes verbatim per
 //! `cokret-spec/spec/v1/zh/authz/capabilities.md` §3 + §10.
 //!
 //! All functions in this module are **pure**: they take a slice of grants

@@ -13,6 +13,17 @@ release, GitHub release, or release tag.
 
 ## [Unreleased]
 
+### R4.3 — sdk authz `CapabilityGrant` converges on the core authority form 2026-06-12 (SDK-05-003)
+
+- **Wire-breaking, no compatibility shim**: the sdk-local `authz::CapabilityGrant` (string `id`, `subject: Did`, missing `schema`/`issued_at`/`proofs`, non-spec top-level `delegable` + `revoked_*` semantics) is **removed**. The only wire shape is now the core authority `cokret_core::CapabilityGrant` (`capability-grant.schema.json`: required `id`/`schema`/`issuer`/`subject`/`actions`/`resources`/`proofs`). `AuthzEngine::check_authorization*`, `validate_capability_frontier`, `capability_grants_from_realm_state`, `grant_requires_approval`, `GrantProposal.grant` and `CapabilityGrantBuilder` all take/return the core form.
+- **Engine-internal projection**: evaluation now goes through the crate-private, non-serializable `GrantProjection` (typed `ResourceSelector` / `ConstraintEntry`), parsed from the core wire form. Projection failure carries `schema_violation` semantics — the grant contributes no authority. Spec constraint families / subtypes / restriction fields the evaluator cannot enforce **fail closed** (e.g. `claim_based.device_session`, `value_constraints`, `allowed_space_kinds`).
+- **Top-level `delegable` removed** per spec: resolved `ck.capability.grant`/`ck.capability.delegate` content carrying `delegable` is rejected as `schema_violation`. Delegation is expressed via `constraint_type="delegation_control"` + `max_delegation_depth` (absent ⇒ not delegable). `CapabilityGrantBuilder::with_delegable` is replaced by `with_delegation_control(max_delegation_depth, prohibit_subdelegation)`; the delegation-chain validator enforces the depth budget along the chain.
+- **Spec-shaped constraint/selector parsing**: new wire→engine projections for `grant-constraint.schema.json` objects (8 families, ISO 8601 durations → engine durations, calendar-ambiguous components fail closed) and `resource-selector.schema.json` objects (`ResourceSelector::from_spec_value` / `to_spec_value`). `ProtocolResourceSelectorKind::Wildcard` now (de)serializes as the spec's `"*"` instead of `"wildcard"`.
+- **`capability_grants_from_realm_state` is strict**: event content must deserialize into the core form (the old `capability_id`/`grant_id` aliasing and implicit realm-wide resource default are gone; missing `realm_id` is still defaulted from the Realm state).
+- **Approval flow**: approval requirements are detected on the wire form (`constraint_type="claim_based"`, `subtype="approval"`, `approval_required=true`); `ApprovalFlowManager` proposals embed the core grant.
+
+> No version tag, no publish — git commit only.
+
 ### Tooling
 
 - **MSRV bump 1.92 → 1.96.** The workspace `Cargo.toml` already declared

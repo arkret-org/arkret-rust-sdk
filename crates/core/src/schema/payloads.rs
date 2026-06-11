@@ -14,7 +14,32 @@ pub struct EventPayloadValidatorCatalog {
     registry: Option<ProtocolSchemaRegistry>,
 }
 
+/// Which validation semantics an [`EventPayloadValidatorCatalog`] applies.
+///
+/// SDK-06-002 mitigation: the catalog silently degrades to the hand-written
+/// fallback when spec artifacts are not discoverable; callers can now query
+/// (and surface / log) the active source instead of being unable to tell the
+/// two semantics apart.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PayloadValidatorSource {
+    /// Schema-registry-backed strong validation (spec artifacts loaded).
+    Strong,
+    /// Hand-written fallback validation (spec artifacts unavailable).
+    Fallback,
+}
+
 impl EventPayloadValidatorCatalog {
+    /// Report whether this catalog validates through the strong
+    /// schema-registry path or the hand-written fallback shapes.
+    pub fn validator_source(&self) -> PayloadValidatorSource {
+        if self.registry.is_some() {
+            PayloadValidatorSource::Strong
+        } else {
+            PayloadValidatorSource::Fallback
+        }
+    }
+
     pub fn validate_payload(&self, event_kind: &str, payload: &Value) -> Result<()> {
         let Some(rule) = self.rules.get(event_kind) else {
             return Err(Error::Protocol(format!(
@@ -73,6 +98,9 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
     let Some(object) = payload.as_object() else {
         return Ok(());
     };
+    if let Some(allowed_fields) = fallback_allowed_fields(event_kind) {
+        validate_known_fields(event_kind, object, allowed_fields)?;
+    }
     match event_kind {
         "ck.flow.create" => validate_create_object_fallback_payload(
             event_kind,
@@ -84,52 +112,7 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
             object,
             crate::WireContext::MorphPayload,
         ),
-        "ck.realm.update" | "ck.flow.update" | "ck.morph.update" | "ck.space.update" => {
-            validate_known_fields(
-                event_kind,
-                object,
-                &["target_ref", "patch", "expected_state_digest"],
-            )
-        }
-        "ck.member.state" => validate_known_fields(
-            event_kind,
-            object,
-            // Must mirror the `membership_payload` property set in
-            // `event-payload.schema.json` (additionalProperties:false). The
-            // strong schema makes `realm_id` REQUIRED whenever
-            // `membership == "join"`, so the fallback allowlist MUST permit it
-            // (and `gate_proofs`) or registry-absent clients (wasm) reject
-            // their own well-formed invite-accept events.
-            &[
-                "flow_id",
-                "realm_id",
-                "actor_id",
-                "membership",
-                "delivery_status",
-                "delivery_binding",
-                "gate_proofs",
-                "via_service_dids",
-                "reason",
-                "invite_ref",
-            ],
-        ),
         "ck.message.create" => {
-            validate_known_fields(
-                event_kind,
-                object,
-                &[
-                    "flow_id",
-                    "message_id",
-                    "track_name",
-                    "content",
-                    "encrypted_content",
-                    "metadata",
-                    "encrypted_metadata",
-                    "blob_refs",
-                    "reply_to",
-                    "expiry",
-                ],
-            )?;
             // `message_create_payload` top-level `not` — `metadata` and
             // `encrypted_metadata` are mutually exclusive.
             if object.contains_key("metadata") && object.contains_key("encrypted_metadata") {
@@ -150,50 +133,111 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
             }
         }
         "ck.mls.commit" => validate_mls_commit_fallback_payload(event_kind, object),
-        "ck.rsvp.set" => validate_known_fields(
-            event_kind,
-            object,
-            &["event_ref", "status", "occurrence", "comment"],
-        ),
-        "ck.pin.add" => validate_known_fields(
-            event_kind,
-            object,
-            &["pin_scope", "target_ref", "rank", "note"],
-        ),
-        "ck.pin.remove" => validate_known_fields(
-            event_kind,
-            object,
-            &["pin_scope", "target_ref", "expected_rank"],
-        ),
-        "ck.pin.reorder" => validate_known_fields(
-            event_kind,
-            object,
-            &["pin_scope", "target_ref", "rank", "expected_rank"],
-        ),
-        "ck.realm.disappearing_policy" => validate_known_fields(
-            event_kind,
-            object,
-            &[
-                "enabled",
-                "max_ttl_ms",
-                "allowed_triggers",
-                "default_grace_ms",
-                "allow_plaintext_realms",
-            ],
-        ),
-        "ck.realm.search_policy" => validate_known_fields(
-            event_kind,
-            object,
-            &[
-                "enabled_profile_refs",
-                "allowed_service_dids",
-                "data_classes",
-                "index_retention_ms",
-                "revocation_behavior",
-            ],
-        ),
         _ => Ok(()),
     }
+}
+
+/// `object_patch_payload` property set shared by the `*.update` kinds.
+const OBJECT_PATCH_FALLBACK_FIELDS: &[&str] = &["target_ref", "patch", "expected_state_digest"];
+
+/// Closed field allow-lists the fallback validator enforces per event kind.
+///
+/// Each entry MUST mirror the property set of the corresponding
+/// `event-payload.schema.json` `$defs/*_payload` definition
+/// (`additionalProperties: false`): a property the strong schema accepts but
+/// this list omits makes registry-absent clients (wasm, prod without a spec
+/// checkout) reject their own well-formed events — e.g. `realm_id` /
+/// `gate_proofs` on `ck.member.state` join. Lockstep is enforced by the
+/// `fallback_allowlists_lockstep_with_event_payload_schema` test whenever
+/// spec artifacts are available (dev / CI).
+const FALLBACK_FIELD_ALLOWLISTS: &[(&str, &[&str])] = &[
+    ("ck.realm.update", OBJECT_PATCH_FALLBACK_FIELDS),
+    ("ck.flow.update", OBJECT_PATCH_FALLBACK_FIELDS),
+    ("ck.morph.update", OBJECT_PATCH_FALLBACK_FIELDS),
+    ("ck.space.update", OBJECT_PATCH_FALLBACK_FIELDS),
+    (
+        "ck.member.state",
+        &[
+            "flow_id",
+            "realm_id",
+            "actor_id",
+            "membership",
+            "delivery_status",
+            "delivery_binding",
+            "gate_proofs",
+            "via_service_dids",
+            "reason",
+            "invite_ref",
+        ],
+    ),
+    (
+        "ck.message.create",
+        &[
+            "flow_id",
+            "message_id",
+            "track_name",
+            "content",
+            "encrypted_content",
+            "metadata",
+            "encrypted_metadata",
+            "blob_refs",
+            "reply_to",
+            "expiry",
+        ],
+    ),
+    (
+        "ck.mls.commit",
+        &[
+            "mls_group_id",
+            "base_epoch",
+            "base_epoch_ref",
+            "proposal_refs",
+            "next_epoch",
+            "commit_message_ref",
+            "commit_digest",
+            "governance_binding",
+        ],
+    ),
+    (
+        "ck.rsvp.set",
+        &["event_ref", "status", "occurrence", "comment"],
+    ),
+    ("ck.pin.add", &["pin_scope", "target_ref", "rank", "note"]),
+    (
+        "ck.pin.remove",
+        &["pin_scope", "target_ref", "expected_rank"],
+    ),
+    (
+        "ck.pin.reorder",
+        &["pin_scope", "target_ref", "rank", "expected_rank"],
+    ),
+    (
+        "ck.realm.disappearing_policy",
+        &[
+            "enabled",
+            "max_ttl_ms",
+            "allowed_triggers",
+            "default_grace_ms",
+            "allow_plaintext_realms",
+        ],
+    ),
+    (
+        "ck.realm.search_policy",
+        &[
+            "enabled_profile_refs",
+            "allowed_service_dids",
+            "data_classes",
+            "index_retention_ms",
+            "revocation_behavior",
+        ],
+    ),
+];
+
+fn fallback_allowed_fields(event_kind: &str) -> Option<&'static [&'static str]> {
+    FALLBACK_FIELD_ALLOWLISTS
+        .iter()
+        .find(|(kind, _)| *kind == event_kind)
+        .map(|(_, fields)| *fields)
 }
 
 fn validate_required_object_fields(
@@ -248,21 +292,9 @@ fn validate_mls_commit_fallback_payload(
     event_kind: &str,
     object: &serde_json::Map<String, Value>,
 ) -> Result<()> {
-    validate_known_fields(
-        event_kind,
-        object,
-        &[
-            "mls_group_id",
-            "base_epoch",
-            "base_epoch_ref",
-            "proposal_refs",
-            "next_epoch",
-            "commit_message_ref",
-            "commit_digest",
-            "governance_binding",
-        ],
-    )?;
-
+    // Field allow-list is already enforced via FALLBACK_FIELD_ALLOWLISTS in
+    // validate_fallback_payload_shape; this helper checks the semantic
+    // (cross-field) invariants only.
     let base_epoch = object
         .get("base_epoch")
         .and_then(Value::as_u64)
@@ -572,7 +604,13 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
         (
             "ck.capability.grant",
             CAPABILITY_SCHEMA,
-            &["grant_id", "subject", "actions", "resources"][..],
+            // `capability_grant_payload` only REQUIRES the cell subject
+            // `grant_id` at the top level; the anyOf alternatives (embedded
+            // `grant` artifact vs summary subject/actions/resources) are
+            // schema-level and the fallback must not over-require — the
+            // canonical `{grant_id, grant}` wrapper carries none of
+            // subject/actions/resources at the top level.
+            &["grant_id"][..],
         ),
     ]
     .into_iter()
@@ -841,10 +879,114 @@ pub fn generated_validators() -> Result<BTreeMap<String, GeneratedSchemaValidato
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use serde_json::json;
 
     use super::*;
     use crate::MORPH_SCHEMA;
+
+    #[test]
+    fn validator_source_reports_strong_vs_fallback() {
+        assert_eq!(
+            fallback_event_payload_validator_catalog().validator_source(),
+            PayloadValidatorSource::Fallback
+        );
+        let Some(artifacts_dir) = default_spec_artifacts_dir() else {
+            return;
+        };
+        let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
+        assert_eq!(catalog.validator_source(), PayloadValidatorSource::Strong);
+    }
+
+    /// SDK-06-002 mitigation: the hand-written fallback allow-lists MUST stay
+    /// lockstep with the `event-payload.schema.json` property sets, otherwise
+    /// registry-absent clients reject well-formed events the strong schema
+    /// accepts (or accept fields the schema closed off).
+    #[test]
+    fn fallback_allowlists_lockstep_with_event_payload_schema() {
+        let Some(artifacts_dir) = default_spec_artifacts_dir() else {
+            return;
+        };
+        let registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
+        let event_payload_schema = registry
+            .schema(EVENT_PAYLOAD_SCHEMA)
+            .expect("event payload schema artifact");
+        let defs = event_payload_schema
+            .get("$defs")
+            .and_then(Value::as_object)
+            .expect("event payload schema $defs");
+        for (event_kind, allowed_fields) in FALLBACK_FIELD_ALLOWLISTS {
+            let def_name = payload_def_name_for_event_kind(event_kind, event_payload_schema)
+                .unwrap_or_else(|| panic!("no payload def resolves for {event_kind}"));
+            assert_ne!(
+                def_name, "generic_standard_payload",
+                "{event_kind} must resolve to a named payload def for the lockstep check"
+            );
+            let def = defs
+                .get(&def_name)
+                .unwrap_or_else(|| panic!("missing $defs/{def_name}"));
+            assert_eq!(
+                def.get("additionalProperties"),
+                Some(&Value::Bool(false)),
+                "$defs/{def_name} must be closed (additionalProperties:false) \
+                 for the fallback allow-list mirror to be sound"
+            );
+            let schema_fields: BTreeSet<&str> = def
+                .get("properties")
+                .and_then(Value::as_object)
+                .unwrap_or_else(|| panic!("$defs/{def_name} has no properties"))
+                .keys()
+                .map(String::as_str)
+                .collect();
+            let fallback_fields: BTreeSet<&str> = allowed_fields.iter().copied().collect();
+            assert_eq!(
+                fallback_fields, schema_fields,
+                "fallback allow-list for {event_kind} drifted from \
+                 $defs/{def_name} property set"
+            );
+        }
+    }
+
+    /// Companion lockstep: every fallback rule's required-field set must
+    /// match the spec-derived required set of the event kind's
+    /// `event-payload.schema.json` payload definition (the same derivation
+    /// the strong catalog uses for def-backed kinds, including the
+    /// `ck.invite.create` augmentation). Kinds whose registry entry points
+    /// at a dedicated `payload_schema` (e.g. pin / rsvp anyOf wrappers with
+    /// no top-level `required`) are still compared against their named def,
+    /// since that is the shape the schema ultimately enforces.
+    #[test]
+    fn fallback_required_fields_lockstep_with_event_payload_schema() {
+        let Some(artifacts_dir) = default_spec_artifacts_dir() else {
+            return;
+        };
+        let registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
+        let event_payload_schema = registry
+            .schema(EVENT_PAYLOAD_SCHEMA)
+            .expect("event payload schema artifact")
+            .clone();
+        let fallback = fallback_event_payload_validator_catalog();
+        for (event_kind, rule) in &fallback.rules {
+            let def_name = payload_def_name_for_event_kind(event_kind, &event_payload_schema)
+                .unwrap_or_else(|| panic!("no payload def resolves for {event_kind}"));
+            if def_name == "generic_standard_payload" {
+                continue;
+            }
+            let schema_ref = format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/{def_name}");
+            let expected: BTreeSet<String> =
+                required_fields_for_event_kind(event_kind, &registry, &schema_ref)
+                    .into_iter()
+                    .collect();
+            let fallback_required: BTreeSet<String> =
+                rule.required_fields.iter().cloned().collect();
+            assert_eq!(
+                fallback_required, expected,
+                "fallback required fields for {event_kind} drifted from \
+                 $defs/{def_name}"
+            );
+        }
+    }
 
     #[test]
     fn fallback_catalog_accepts_flow_create_payload_wrapper() {

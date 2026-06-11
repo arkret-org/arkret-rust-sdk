@@ -381,6 +381,281 @@ impl ResourceSelector {
         }
     }
 
+    /// Parse a spec-shaped selector object (`resource-selector.schema.json`:
+    /// `{"kind": "...", ...}`) into the engine selector model. String values
+    /// fall back to the legacy compact grammar via [`Self::parse`].
+    ///
+    /// This is the wire → engine direction used when projecting a
+    /// [`cokret_core::CapabilityGrant`] (whose `resources` are untyped spec
+    /// values) for evaluation. Unknown `kind` values fail closed.
+    pub fn from_spec_value(value: &Value) -> Result<Self> {
+        if let Some(selector) = value.as_str() {
+            return Self::parse(selector);
+        }
+        let object = value.as_object().ok_or_else(|| {
+            Error::Protocol("resource selector must be an object or string".to_owned())
+        })?;
+        let field = |name: &str| -> Option<String> {
+            object
+                .get(name)
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned)
+        };
+        let realm_or_wildcard = || field("realm_id").unwrap_or_else(|| "*".to_owned());
+        let kind = field("kind")
+            .ok_or_else(|| Error::Protocol("resource selector requires 'kind'".to_owned()))?;
+        match kind.as_str() {
+            "realm" => Ok(Self::Realm {
+                realm_id: realm_or_wildcard(),
+            }),
+            "space" => Ok(Self::Space {
+                space_id: field("space_id").unwrap_or_else(|| "*".to_owned()),
+            }),
+            "circle" => {
+                let raw = field("circle_id").ok_or_else(|| {
+                    Error::Protocol("circle selector requires circle_id".to_owned())
+                })?;
+                let circle_id = cokret_core::CircleId::new(raw)
+                    .map_err(|err| Error::Protocol(format!("invalid circle selector: {err}")))?;
+                Ok(Self::Circle { circle_id })
+            }
+            "flow" => Ok(Self::Flow {
+                realm_id: realm_or_wildcard(),
+                flow_id: field("flow_id"),
+            }),
+            "message" => Ok(Self::Message {
+                realm_id: realm_or_wildcard(),
+                message_id: field("message_id"),
+            }),
+            "morph" => Ok(Self::Morph {
+                realm_id: realm_or_wildcard(),
+                morph_id: field("morph_id"),
+                morph_type: field("morph_type"),
+            }),
+            "object" => Ok(Self::Object {
+                realm_id: realm_or_wildcard(),
+                object_type: field("object_type"),
+                object_ref: field("object_ref"),
+            }),
+            "relation" => Ok(Self::Relation {
+                realm_id: realm_or_wildcard(),
+                relation_kind: field("relation_kind").ok_or_else(|| {
+                    Error::Protocol("relation selector requires relation_kind".to_owned())
+                })?,
+            }),
+            "view" => Ok(Self::View {
+                realm_id: realm_or_wildcard(),
+                view_id: field("view_id"),
+            }),
+            // The spec selector schema has no dedicated event-kind field;
+            // mirror `ProtocolResourceSelector::from_engine`, which rides the
+            // event kind in `object_type`.
+            "event" => Ok(Self::Event {
+                realm_id: realm_or_wildcard(),
+                event_kind: field("object_type"),
+                event_id: field("event_id"),
+            }),
+            "actor" => Ok(Self::Actor {
+                actor_id: field("actor_id").ok_or_else(|| {
+                    Error::Protocol("actor selector requires actor_id".to_owned())
+                })?,
+            }),
+            "schema" => Ok(Self::Schema {
+                realm_id: realm_or_wildcard(),
+                schema_id: field("schema_ref"),
+            }),
+            "policy" => Ok(Self::Policy {
+                realm_id: realm_or_wildcard(),
+                policy_id: field("policy_id"),
+            }),
+            "invite" => Ok(Self::Invite {
+                realm_id: realm_or_wildcard(),
+                invite_id: field("invite_id"),
+            }),
+            // Spec: notification selectors are realm-scoped and *-only on the
+            // object part. The engine notification resource is keyed by
+            // actor; absent actor_id means any actor in scope.
+            "notification" => Ok(Self::Notification {
+                actor_id: field("actor_id").unwrap_or_else(|| "*".to_owned()),
+                notification_id: None,
+            }),
+            "read_cursor" => Ok(Self::ReadCursor {
+                realm_id: field("realm_id").ok_or_else(|| {
+                    Error::Protocol("read_cursor selector requires realm_id".to_owned())
+                })?,
+            }),
+            "blob" => Ok(Self::Blob {
+                realm_id: realm_or_wildcard(),
+                blob_id: field("blob_ref"),
+            }),
+            "*" => Ok(Self::Wildcard),
+            other => Err(Error::Protocol(format!(
+                "unknown resource selector kind: {other}"
+            ))),
+        }
+    }
+
+    /// Serialize this selector into the spec object form
+    /// (`resource-selector.schema.json`). Wildcard realm/actor parts (`"*"`)
+    /// are emitted by omitting the field, matching the schema's optionality
+    /// semantics.
+    pub fn to_spec_value(&self) -> Value {
+        let mut object = serde_json::Map::new();
+        let mut put = |key: &str, value: &str| {
+            object.insert(key.to_owned(), Value::String(value.to_owned()));
+        };
+        let put_opt = |object: &mut serde_json::Map<String, Value>,
+                           key: &str,
+                           value: &Option<String>| {
+            if let Some(value) = value {
+                object.insert(key.to_owned(), Value::String(value.clone()));
+            }
+        };
+        match self {
+            Self::Realm { realm_id } => {
+                put("kind", "realm");
+                if realm_id != "*" {
+                    put("realm_id", realm_id);
+                }
+            }
+            Self::Space { space_id } => {
+                put("kind", "space");
+                if space_id != "*" {
+                    put("space_id", space_id);
+                }
+            }
+            Self::Circle { circle_id } => {
+                put("kind", "circle");
+                put("circle_id", circle_id.as_ref());
+            }
+            Self::Flow { realm_id, flow_id } => {
+                put("kind", "flow");
+                if realm_id != "*" {
+                    put("realm_id", realm_id);
+                }
+                put_opt(&mut object, "flow_id", flow_id);
+            }
+            Self::Message {
+                realm_id,
+                message_id,
+            } => {
+                put("kind", "message");
+                if realm_id != "*" {
+                    put("realm_id", realm_id);
+                }
+                put_opt(&mut object, "message_id", message_id);
+            }
+            Self::Morph {
+                realm_id,
+                morph_id,
+                morph_type,
+            } => {
+                put("kind", "morph");
+                if realm_id != "*" {
+                    put("realm_id", realm_id);
+                }
+                put_opt(&mut object, "morph_id", morph_id);
+                put_opt(&mut object, "morph_type", morph_type);
+            }
+            Self::Object {
+                realm_id,
+                object_type,
+                object_ref,
+            } => {
+                put("kind", "object");
+                if realm_id != "*" {
+                    put("realm_id", realm_id);
+                }
+                put_opt(&mut object, "object_type", object_type);
+                put_opt(&mut object, "object_ref", object_ref);
+            }
+            Self::Relation {
+                realm_id,
+                relation_kind,
+            } => {
+                put("kind", "relation");
+                if realm_id != "*" {
+                    put("realm_id", realm_id);
+                }
+                put("relation_kind", relation_kind);
+            }
+            Self::View { realm_id, view_id } => {
+                put("kind", "view");
+                if realm_id != "*" {
+                    put("realm_id", realm_id);
+                }
+                put_opt(&mut object, "view_id", view_id);
+            }
+            Self::Event {
+                realm_id,
+                event_kind,
+                event_id,
+            } => {
+                put("kind", "event");
+                if realm_id != "*" {
+                    put("realm_id", realm_id);
+                }
+                put_opt(&mut object, "object_type", event_kind);
+                put_opt(&mut object, "event_id", event_id);
+            }
+            Self::Actor { actor_id } => {
+                put("kind", "actor");
+                put("actor_id", actor_id);
+            }
+            Self::Schema {
+                realm_id,
+                schema_id,
+            } => {
+                put("kind", "schema");
+                if realm_id != "*" {
+                    put("realm_id", realm_id);
+                }
+                put_opt(&mut object, "schema_ref", schema_id);
+            }
+            Self::Policy {
+                realm_id,
+                policy_id,
+            } => {
+                put("kind", "policy");
+                if realm_id != "*" {
+                    put("realm_id", realm_id);
+                }
+                put_opt(&mut object, "policy_id", policy_id);
+            }
+            Self::Invite {
+                realm_id,
+                invite_id,
+            } => {
+                put("kind", "invite");
+                if realm_id != "*" {
+                    put("realm_id", realm_id);
+                }
+                put_opt(&mut object, "invite_id", invite_id);
+            }
+            Self::Notification { actor_id, .. } => {
+                put("kind", "notification");
+                if actor_id != "*" {
+                    put("actor_id", actor_id);
+                }
+            }
+            Self::ReadCursor { realm_id } => {
+                put("kind", "read_cursor");
+                put("realm_id", realm_id);
+            }
+            Self::Blob { realm_id, blob_id } => {
+                put("kind", "blob");
+                if realm_id != "*" {
+                    put("realm_id", realm_id);
+                }
+                put_opt(&mut object, "blob_ref", blob_id);
+            }
+            Self::Wildcard => {
+                put("kind", "*");
+            }
+        }
+        Value::Object(object)
+    }
+
     /// Parse a resource selector from a string.
     ///
     /// Supports formats like:
@@ -517,6 +792,9 @@ pub enum ProtocolResourceSelectorKind {
     Blob,
     /// CKP-0007 (R3 spec-sync 2026-05-27).
     Circle,
+    /// Spec `resource-selector.schema.json` spells the wildcard kind as
+    /// `"*"`, not `"wildcard"`.
+    #[serde(rename = "*")]
     Wildcard,
 }
 
@@ -829,6 +1107,62 @@ impl ProtocolResourceSelector {
                 match_scope: Some(ProtocolResourceSelectorScope::Exact),
             },
         ]
+    }
+}
+
+#[cfg(test)]
+mod spec_selector_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn spec_object_round_trips_through_engine_form() {
+        let spec = json!({
+            "kind": "object",
+            "realm_id": "ck:realm:01904100-0000-7000-8000-65c7feb295d7",
+            "object_type": "flow"
+        });
+        let selector = ResourceSelector::from_spec_value(&spec).unwrap();
+        assert_eq!(
+            selector,
+            ResourceSelector::Object {
+                realm_id: "ck:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
+                object_type: Some("flow".to_owned()),
+                object_ref: None,
+            }
+        );
+        assert_eq!(selector.to_spec_value(), spec);
+    }
+
+    #[test]
+    fn wildcard_uses_star_kind() {
+        let spec = json!({"kind": "*"});
+        assert_eq!(
+            ResourceSelector::from_spec_value(&spec).unwrap(),
+            ResourceSelector::Wildcard
+        );
+        assert_eq!(ResourceSelector::Wildcard.to_spec_value(), spec);
+    }
+
+    #[test]
+    fn unknown_kind_fails_closed() {
+        let err = ResourceSelector::from_spec_value(&json!({"kind": "board"})).unwrap_err();
+        assert!(format!("{err}").contains("unknown resource selector kind"));
+    }
+
+    #[test]
+    fn string_selector_falls_back_to_compact_grammar() {
+        let selector = ResourceSelector::from_spec_value(&json!(
+            "realm:ck:realm:01904100-0000-7000-8000-65c7feb295d7"
+        ))
+        .unwrap();
+        assert_eq!(
+            selector,
+            ResourceSelector::Realm {
+                realm_id: "ck:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
+            }
+        );
     }
 }
 

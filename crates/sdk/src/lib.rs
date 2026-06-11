@@ -300,7 +300,7 @@ pub use auth::{
 #[cfg(feature = "full-surface")]
 pub use authz::{
     ApprovalFlowManager, ApprovalMode, AuthzContext, AuthzEngine, CapabilityFrontierValidation,
-    CapabilityGrant, CapabilityGrantBuilder, ClaimRequirement, Constraint, ConstraintDuration,
+    CapabilityGrantBuilder, ClaimRequirement, Constraint, ConstraintDuration,
     ConstraintEffect, ConstraintEntry, EngineDecision, FieldScope, GrantProposal, ModerationReport,
     PolicyEvaluationRequest, PolicyEvaluationResult, PolicyServerEffect, ProposalApproval,
     ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
