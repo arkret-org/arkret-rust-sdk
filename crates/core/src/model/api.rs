@@ -3690,106 +3690,300 @@ pub struct KeyBackupRetention {
     pub extra: BTreeMap<String, Value>,
 }
 
-/// Key-backup hardening (B-C, spec head 37ce729) — minimal Rust shape for
-/// `ck.schema.recovery_policy.v1`. Carries the policy lifecycle plus the
-/// commitment / KDF profile branches.
+/// REC-1 (spec head, `recovery-policy.schema.json`) — Rust shape for
+/// `ck.schema.recovery_policy.v1`. A principal's signed recovery policy,
+/// versioned and bound to the Principal Control Realm via publish / rotate /
+/// revoke control events.
 ///
-/// The fields below mirror the spec's `policy_id` / `lifecycle` / `body`
-/// shape. `body` stays a free-form `Value` at the SDK model boundary; schema
-/// validation against `recovery-policy.schema.json` remains the normative
-/// oneOf gate for passphrase commitment, threshold, hardware-wrapped, and
-/// recovery-key branches.
+/// Required surface: `schema`, `policy_id`, `principal_id`, `version`,
+/// `supersedes`, `trust_domain`, `allowed_proof_kinds`, `issued_at`,
+/// `auth_data`. The proof-family configuration sub-objects
+/// (`threshold` / `device_quorum` / `trusted_recovery_services`) are required
+/// by `allOf` when the matching `allowed_proof_kinds` entry is present;
+/// full conditional / signed-fields enforcement stays with schema validation.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryPolicy {
     /// Schema id (`ck.schema.recovery_policy.v1`).
     pub schema: String,
-    pub policy_id: String,
-    pub lifecycle: RecoveryPolicyLifecycle,
-    pub epoch: u64,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub body: Value,
-    pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retired_at: Option<DateTime<Utc>>,
+    pub policy_id: PolicyId,
+    pub principal_id: Did,
+    /// Monotonically increasing counter scoped by `principal_id`.
+    pub version: u64,
+    /// Predecessor `policy_id`; `None` only for the genesis policy.
+    pub supersedes: Option<PolicyId>,
+    pub trust_domain: TypedTrustDomainId,
+    pub allowed_proof_kinds: Vec<RecoveryProofKind>,
+    /// Threshold-recovery config; required when `allowed_proof_kinds`
+    /// contains `threshold_recovery`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub threshold: Option<RecoveryThresholdConfig>,
+    /// Device-quorum config; required when `allowed_proof_kinds` contains
+    /// `device_quorum`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_quorum: Option<RecoveryDeviceQuorumConfig>,
+    /// Declared recovery services; required when `allowed_proof_kinds`
+    /// contains `trusted_recovery_service`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trusted_recovery_services: Option<Vec<RecoveryTrustedService>>,
+    /// Two-person-rule / cooldown enforcement layered on the proofs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_requirement: Option<RecoveryApprovalRequirement>,
+    /// Where the recovery flow MUST emit auditable records.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit: Option<RecoveryAuditConfig>,
+    pub issued_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_before: Option<DateTime<Utc>>,
+    /// `null` permitted; an empty `allowed_proof_kinds` revocation policy
+    /// MUST set this.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    pub auth_data: RecoveryPolicyAuthData,
+    /// `x_*` extension fields (`patternProperties`).
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
 
-/// Key-backup hardening — three-state lifecycle for recovery policy.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// `recovery-policy.schema.json#/properties/threshold` — Shamir-style
+/// threshold recovery configuration.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum RecoveryPolicyLifecycle {
-    Pending,
-    Active,
-    Retired,
+pub struct RecoveryThresholdConfig {
+    /// Minimum shares to reconstruct (MUST be >= 2).
+    pub k: u32,
+    /// Total shares issued (MUST equal `shares.len()` and be >= `k`).
+    pub n: u32,
+    pub shares: Vec<RecoveryShare>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vss_root_commitment: Option<Hash>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reshare_policy: Option<Value>,
 }
 
-/// CKP recovery policy proof-kind enum (R3 spec-sync 2026-05-27,
-/// cokret-spec b47ff6ec). Mirrors `recovery-policy.schema.json`
-/// `body.proof_kinds[]`. Cryptographic proof validation is specified by
+/// `recovery-policy.schema.json#/$defs/share` — single recovery share.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RecoveryShare {
+    pub share_id: String,
+    pub holder: Did,
+    pub transport: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub share_commitment: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_before: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revocation_reason_code: Option<String>,
+}
+
+/// `recovery-policy.schema.json#/properties/device_quorum`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RecoveryDeviceQuorumConfig {
+    pub k: u32,
+    pub members: Vec<DeviceId>,
+}
+
+/// `recovery-policy.schema.json#/properties/trusted_recovery_services[]`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RecoveryTrustedService {
+    pub service_did: Did,
+    pub audience: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attestation_required: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_action_scope: Option<Vec<String>>,
+}
+
+/// `recovery-policy.schema.json#/properties/approval_requirement`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RecoveryApprovalRequirement {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_approvals: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cooldown_seconds: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub announcement_required: Option<bool>,
+}
+
+/// `recovery-policy.schema.json#/properties/audit`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RecoveryAuditConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit_realm_id: Option<RealmId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt_required: Option<bool>,
+}
+
+/// `recovery-policy.schema.json#/properties/auth_data` — detached signature
+/// over the declared `signed_fields`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RecoveryPolicyAuthData {
+    pub verification_method: String,
+    pub signature_algorithm: String,
+    pub signature: String,
+    pub signed_fields: Vec<String>,
+}
+
+/// CKP recovery proof-family enum, aligned to `recovery-policy.schema.json`
+/// `allowed_proof_kinds[]` and `recovery-receipt.schema.json`
+/// `proof_summary.kind`. Cryptographic proof validation is specified by
 /// device-lifecycle verifier rules and handled outside this discriminator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryProofKind {
-    /// Device-quorum signed reset (threshold of trusted devices).
-    DeviceQuorum,
-    /// Recovery passphrase / hardware-wrapped unlock evidence.
-    RecoveryUnlock,
-    /// External trusted recovery service (e.g. OIDC, custodian).
-    TrustedRecoveryService,
     /// Principal-key direct signature (sovereign deployments).
     PrincipalSigning,
+    /// Recovery passphrase / hardware-wrapped unlock evidence.
+    RecoveryUnlock,
+    /// Device-quorum signed reset (threshold of trusted devices).
+    DeviceQuorum,
+    /// External trusted recovery service (e.g. OIDC, custodian).
+    TrustedRecoveryService,
+    /// Shamir threshold-share reconstruction.
+    ThresholdRecovery,
 }
 
 impl RecoveryProofKind {
-    /// All variants in registry order. Helpful for schema-driven
-    /// validators.
+    /// All variants in `recovery-policy.schema.json` enum order.
     pub const ALL: &'static [Self] = &[
-        Self::DeviceQuorum,
-        Self::RecoveryUnlock,
-        Self::TrustedRecoveryService,
         Self::PrincipalSigning,
+        Self::RecoveryUnlock,
+        Self::DeviceQuorum,
+        Self::TrustedRecoveryService,
+        Self::ThresholdRecovery,
     ];
 
     pub fn as_wire_str(self) -> &'static str {
         match self {
-            Self::DeviceQuorum => "device_quorum",
-            Self::RecoveryUnlock => "recovery_unlock",
-            Self::TrustedRecoveryService => "trusted_recovery_service",
             Self::PrincipalSigning => "principal_signing",
+            Self::RecoveryUnlock => "recovery_unlock",
+            Self::DeviceQuorum => "device_quorum",
+            Self::TrustedRecoveryService => "trusted_recovery_service",
+            Self::ThresholdRecovery => "threshold_recovery",
         }
     }
 }
 
-/// Key-backup hardening (B-C, spec head 37ce729) — minimal Rust shape for
-/// `ck.schema.recovery_receipt.v1`. Captures verification evidence + a
-/// proof that binds the receipt to a specific recovery session.
+/// REC-1 (spec head, `recovery-receipt.schema.json`) — Rust shape for
+/// `ck.schema.recovery_receipt.v1`. Signed completion receipt for a principal
+/// recovery flow, bound to the `recovery_session_id` used by every proof,
+/// backup unlock, and MLS Welcome replay action.
 ///
-/// `evidence` stays a free-form `Value` at the SDK model boundary; schema
-/// validation against `recovery-receipt.schema.json` remains the normative
-/// recovery-attestation oneOf gate.
+/// Required surface: `schema`, `receipt_id`, `principal_id`,
+/// `recovery_session_id`, `policy_id`, `policy_version`, `trust_domain`,
+/// `new_device_id`, `proof_summary`, `backup_classes_unlocked`,
+/// `welcome_count`, `outcome`, `started_at`, `completed_at`, `auth_data`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryReceipt {
     /// Schema id (`ck.schema.recovery_receipt.v1`).
     pub schema: String,
+    pub receipt_id: ReceiptId,
+    pub principal_id: Did,
     pub recovery_session_id: RecoverySessionId,
-    pub policy_id: String,
-    pub policy_epoch: u64,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub evidence: Value,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub bound_proof: Value,
-    pub issued_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
+    pub policy_id: PolicyId,
+    pub policy_version: u64,
+    pub trust_domain: TypedTrustDomainId,
+    pub new_device_id: DeviceId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_ssk_generation: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub new_ssk_generation: Option<u64>,
+    pub proof_summary: RecoveryProofSummary,
+    pub backup_classes_unlocked: Vec<RecoveryBackupClassUnlocked>,
+    /// MLS Welcomes successfully replayed for the recovering device.
+    pub welcome_count: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub welcome_realm_summary: Option<Vec<RecoveryWelcomeRealmSummary>>,
+    pub outcome: RecoveryReceiptOutcome,
+    /// MUST be present when `outcome != completed`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome_reason_code: Option<String>,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: DateTime<Utc>,
+    pub auth_data: RecoveryReceiptAuthData,
+    /// `x_*` extension fields (`patternProperties`).
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+/// `recovery-receipt.schema.json#/properties/proof_summary`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RecoveryProofSummary {
+    pub kind: RecoveryProofKind,
+    pub proof_digest: Hash,
+    /// Required for `device_quorum` and `threshold_recovery`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quorum_size: Option<u32>,
+    /// Participating share ids when `kind = threshold_recovery`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub share_ids: Option<Vec<String>>,
+}
+
+/// `recovery-receipt.schema.json#/properties/backup_classes_unlocked[]`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RecoveryBackupClassUnlocked {
+    pub backup_class: RecoveryBackupClass,
+    pub backup_id: BackupId,
+    pub series_id: BackupSeriesId,
+    pub ciphertext_digest: Hash,
+}
+
+/// `recovery-receipt.schema.json` backup-class discriminator.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryBackupClass {
+    DidRecovery,
+    SecretStorage,
+    MlsHistory,
+}
+
+/// `recovery-receipt.schema.json#/properties/welcome_realm_summary[]`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RecoveryWelcomeRealmSummary {
+    pub realm_id: RealmId,
+    pub mls_group_id: String,
+    pub epoch: u64,
+}
+
+/// `recovery-receipt.schema.json#/properties/outcome` enum.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryReceiptOutcome {
+    Completed,
+    Partial,
+    AbortedByUser,
+    PolicyDenied,
+    EvidenceInsufficient,
+    ServiceDefined,
+}
+
+/// `recovery-receipt.schema.json#/properties/auth_data`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RecoveryReceiptAuthData {
+    pub verification_method: String,
+    pub signature_algorithm: String,
+    pub signature: String,
+    pub signed_fields: Vec<String>,
 }
 
 // ─── DID-proof session grant flow ──────────────────────────────────────────

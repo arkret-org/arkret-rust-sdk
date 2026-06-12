@@ -34,6 +34,8 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
         content,
         executed_by: None,
         authorization_ref: None,
+        applet_id: None,
+        external_ref: None,
         actor_kind: None,
         unsigned: BTreeMap::new(),
         proofs: vec![],
@@ -662,13 +664,13 @@ fn capability_rebind_uses_deterministic_lww_order() {
     let revoke = event(
         "ck.capability.revoke",
         1,
-        json!({ "target_capability_id": "cap-chan-post" }),
+        json!({ "grant_id": "cap-chan-post" }),
     );
     let grant = event(
         "ck.capability.grant",
         2,
         json!({
-            "capability_id": "cap-chan-post",
+            "grant_id": "cap-chan-post",
             "subject": "did:web:alice.example",
             "actions": ["ck.message.create", "ck.reaction.add"]
         }),

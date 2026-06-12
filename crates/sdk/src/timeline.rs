@@ -1183,6 +1183,8 @@ mod tests {
             }),
             executed_by: None,
             authorization_ref: None,
+            applet_id: None,
+            external_ref: None,
             actor_kind: None,
             unsigned: BTreeMap::new(),
             proofs: vec![],

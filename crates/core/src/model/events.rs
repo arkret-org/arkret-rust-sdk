@@ -154,6 +154,22 @@ pub struct Event {
     /// included in the canonical signing transcript.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<String>,
+    /// Signed Applet provenance (`event-envelope.schema.json#/$defs/applet_id`,
+    /// shape `ck:applet:<uuidv7>`). Present when the Event is introduced by an
+    /// Applet / Ghost Actor / bridge / delegated applet path. Enters canonical
+    /// event bytes and therefore `proof.event_digest`. Invariant: when present,
+    /// `authorization_ref` MUST also be present (the accepted grant that binds
+    /// this applet_id + registration_epoch).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applet_id: Option<AppletId>,
+    /// Signed external provenance reference for Applet / bridge-originated
+    /// Events (`event-envelope.schema.json#/$defs/external_ref`). Open object
+    /// whose field vocabulary is defined by extension profiles (protocol,
+    /// network_id, instance_id, external_id, url, ...). Covered by
+    /// `event_digest`. Invariant: only meaningful when bound to a signed
+    /// `applet_id` (schema `allOf`: external_ref ⇒ applet_id).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_ref: Option<Value>,
     /// CKP-0008 / CKP-0009 â€” runtime-origin classifier. Reducer-stamped
     /// projection; clients MUST NOT supply it. See
     /// [`EnvelopeActorKind`] for invariants.
@@ -206,6 +222,10 @@ struct EventWire {
     #[serde(default)]
     pub authorization_ref: Option<String>,
     #[serde(default)]
+    pub applet_id: Option<AppletId>,
+    #[serde(default)]
+    pub external_ref: Option<Value>,
+    #[serde(default)]
     pub actor_kind: Option<EnvelopeActorKind>,
     #[serde(default)]
     pub unsigned: BTreeMap<String, Value>,
@@ -237,10 +257,13 @@ impl TryFrom<EventWire> for Event {
             content: wire.content,
             executed_by: wire.executed_by,
             authorization_ref: wire.authorization_ref,
+            applet_id: wire.applet_id,
+            external_ref: wire.external_ref,
             actor_kind: wire.actor_kind,
             unsigned: wire.unsigned,
             proofs: wire.proofs,
         };
+        event.validate_applet_provenance_invariants()?;
         event
             .validate_forbidden_wire_surface()
             .map_err(|err| err.to_string())?;
@@ -307,6 +330,8 @@ impl Event {
 
     pub fn validate_for_submit(&self) -> Result<()> {
         self.validate_wire_schema()?;
+        self.validate_applet_provenance_invariants()
+            .map_err(Error::Protocol)?;
         if self.effective_scope.is_some() {
             return Err(Error::Protocol(
                 "event effective_scope is reducer-managed on actor submit".to_owned(),
@@ -369,6 +394,25 @@ impl Event {
         let registry = crate::schema::schema_registry_from_default_spec_artifacts()?
             .unwrap_or_else(ProtocolSchemaRegistry::default);
         registry.validate_value(EVENT_SCHEMA, &value)
+    }
+
+    /// Enforce the signed-Applet-provenance invariants from
+    /// `event-envelope.schema.json` (`allOf` §262): `external_ref` is only
+    /// meaningful when bound to a signed `applet_id`, and any Applet-originated
+    /// write (`applet_id` present) MUST cite the accepted authorization grant
+    /// via `authorization_ref`.
+    fn validate_applet_provenance_invariants(&self) -> std::result::Result<(), String> {
+        if self.external_ref.is_some() && self.applet_id.is_none() {
+            return Err(
+                "event external_ref requires a signed applet_id (event-envelope allOf)".to_owned(),
+            );
+        }
+        if self.applet_id.is_some() && self.authorization_ref.is_none() {
+            return Err(
+                "event applet_id requires authorization_ref (event-envelope allOf)".to_owned(),
+            );
+        }
+        Ok(())
     }
 
     pub fn validate_forbidden_wire_surface(&self) -> Result<()> {
@@ -442,6 +486,8 @@ impl Event {
             content,
             executed_by: None,
             authorization_ref: None,
+            applet_id: None,
+            external_ref: None,
             actor_kind: None,
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
@@ -719,6 +765,8 @@ mod event_wire_surface_tests {
             content: json!({ "body": "hello" }),
             executed_by: None,
             authorization_ref: None,
+            applet_id: None,
+            external_ref: None,
             actor_kind: None,
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
@@ -726,7 +774,7 @@ mod event_wire_surface_tests {
     }
 
     #[test]
-    fn event_serialization_omits_legacy_applet_surface() {
+    fn event_serialization_omits_applet_surface_when_absent() {
         let event = base_event();
         let serialized = serde_json::to_value(&event).unwrap();
         assert!(serialized.get("applet_id").is_none());
@@ -734,24 +782,69 @@ mod event_wire_surface_tests {
     }
 
     #[test]
-    fn event_deserialize_rejects_legacy_top_level_applet_surface() {
-        let event = base_event();
+    fn event_accepts_top_level_applet_provenance_and_round_trips() {
+        // Applet-originated write: applet_id + external_ref, with the
+        // authorization_ref the schema invariant requires.
+        let mut event = base_event();
+        event.applet_id =
+            Some(AppletId::new("ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap());
+        event.authorization_ref =
+            Some("ck:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
+        event.external_ref = Some(json!({
+            "protocol": "slack",
+            "external_id": "1234567890.0001"
+        }));
+
         let value = serde_json::to_value(&event).unwrap();
-        let mut applet_value = value.clone();
-        applet_value.as_object_mut().unwrap().insert(
+        // Both fields serialize at the top level (so they enter canonical bytes).
+        assert_eq!(
+            value.get("applet_id").and_then(Value::as_str),
+            Some("ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb")
+        );
+        assert!(value.get("external_ref").unwrap().is_object());
+
+        // Round-trips through the wire deserializer (deny_unknown_fields).
+        let round_tripped: Event = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(round_tripped, event);
+
+        // Both fields enter the digest payload (proofs/unsigned removed only).
+        let digest_payload = event.digest_payload().unwrap();
+        assert!(digest_payload.get("applet_id").is_some());
+        assert!(digest_payload.get("external_ref").is_some());
+        // Mutating external_ref changes the event digest (it is covered).
+        let mut mutated = event.clone();
+        mutated.external_ref = Some(json!({ "protocol": "slack", "external_id": "different" }));
+        assert_ne!(event.event_digest().unwrap(), mutated.event_digest().unwrap());
+    }
+
+    #[test]
+    fn event_rejects_external_ref_without_applet_id() {
+        let event = base_event();
+        let mut value = serde_json::to_value(&event).unwrap();
+        value.as_object_mut().unwrap().insert(
+            "external_ref".to_owned(),
+            json!({ "protocol": "slack", "external_id": "1234567890.0001" }),
+        );
+        let err = serde_json::from_value::<Event>(value).unwrap_err();
+        assert!(
+            err.to_string().contains("external_ref requires a signed applet_id"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn event_rejects_applet_id_without_authorization_ref() {
+        let event = base_event();
+        let mut value = serde_json::to_value(&event).unwrap();
+        value.as_object_mut().unwrap().insert(
             "applet_id".to_owned(),
             json!("ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"),
         );
-        let applet_err = serde_json::from_value::<Event>(applet_value).unwrap_err();
-        assert!(applet_err.to_string().contains("unknown field"));
-
-        let mut external_ref_value = value;
-        external_ref_value.as_object_mut().unwrap().insert(
-            "external_ref".to_owned(),
-            json!({"slack_msg_id": "1234567890.0001"}),
+        let err = serde_json::from_value::<Event>(value).unwrap_err();
+        assert!(
+            err.to_string().contains("applet_id requires authorization_ref"),
+            "unexpected error: {err}"
         );
-        let external_ref_err = serde_json::from_value::<Event>(external_ref_value).unwrap_err();
-        assert!(external_ref_err.to_string().contains("unknown field"));
     }
 
     #[test]

@@ -1057,9 +1057,10 @@ impl RealmState {
     fn reduce_generic_state_event(&mut self, event: &Event) -> Result<()> {
         let subject = self.subject_for_event(event)?;
         let family = match event.kind.as_str() {
-            "ck.capability.grant" | "ck.capability.delegate" | "ck.capability.revoke" => {
-                "ck.capability"
-            }
+            "ck.capability.grant"
+            | "ck.capability.delegate"
+            | "ck.capability.revoke"
+            | "ck.capability.derived" => "ck.capability",
             "ck.invite.create" | "ck.invite.cancel" | "ck.invite.accept" => "ck.invite",
             "ck.realm.policy" | "ck.policy.set" => "ck.policy",
             other => other,
@@ -1409,17 +1410,16 @@ impl RealmState {
                 .ok_or_else(|| {
                     Error::Protocol("member state requires payload.actor_id".to_owned())
                 }),
-            "ck.capability.revoke" => self
-                .extract_optional_field::<String>(&event.content, "target_capability_id")
-                .or_else(|| self.extract_optional_field::<String>(&event.content, "id"))
+            // Per spec event-kind-registry: all `ck.capability.*` kinds
+            // declare `cell_subject.field = payload.grant_id` over the shared
+            // `ck.component.capability.grant.v1` cell family.
+            "ck.capability.grant"
+            | "ck.capability.delegate"
+            | "ck.capability.revoke"
+            | "ck.capability.derived" => self
+                .extract_optional_field::<String>(&event.content, "grant_id")
                 .ok_or_else(|| {
-                    Error::Protocol("capability revoke requires target_capability_id".to_owned())
-                }),
-            "ck.capability.grant" | "ck.capability.delegate" => self
-                .extract_optional_field::<String>(&event.content, "capability_id")
-                .or_else(|| self.extract_optional_field::<String>(&event.content, "id"))
-                .ok_or_else(|| {
-                    Error::Protocol("capability event requires capability_id or id".to_owned())
+                    Error::Protocol("capability event requires payload.grant_id".to_owned())
                 }),
             "ck.realm.policy" | "ck.policy.set" => Ok(self
                 .extract_optional_field::<String>(&event.content, "policy_id")

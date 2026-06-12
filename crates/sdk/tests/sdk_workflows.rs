@@ -42,6 +42,8 @@ fn event(kind: &str, seq: u64, realm_id: &RealmId, content: serde_json::Value) -
         content,
         executed_by: None,
         authorization_ref: None,
+        applet_id: None,
+        external_ref: None,
         actor_kind: None,
         unsigned: BTreeMap::new(),
         proofs: vec![],

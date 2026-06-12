@@ -375,7 +375,7 @@ per_subject_lattice!(
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
-    "capability_id",
+    "grant_id",
     &["ck.capability.grant", "ck.capability.revoke"]
 );
 
@@ -385,7 +385,7 @@ per_subject_lattice!(
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
-    "capability_id",
+    "grant_id",
     &["ck.capability.delegate"]
 );
 
@@ -395,7 +395,7 @@ per_subject_lattice!(
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
-    "capability_id",
+    "grant_id",
     &["ck.capability.derived"]
 );
 
