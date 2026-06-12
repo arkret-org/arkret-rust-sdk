@@ -18,16 +18,66 @@ pub enum FrontierPeerRole {
     AnonymousHealth,
 }
 
-/// Round 4 — account-client variant of the `/events/frontier` response.
-/// Used by signed-in clients; the SDK does NOT include `frontier_root`
-/// or transport signatures here (client UI does not need them).
+/// `ck.self.events.frontier` account-client response
+/// (`service-operation-dtos.schema.json#/$defs/EventsFrontierAccountClientState`,
+/// SPEC-SOL-003 resolution): a single `frontier` object whose shape follows
+/// the request selector — actor (`{actor_id, actor_seq, event_id}`) or Realm
+/// Seal view (`{realm_id, seal_id, control_event_set_root, state_root,
+/// hlc?}`) — plus optional receipts. The Realm Seal view is the registered
+/// account-client source for minting a single-leaf Control Move `seal_basis`
+/// and a DataEvent `seal_ref`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventsFrontierAccountClientState {
-    pub peer_role: FrontierPeerRole,
-    pub frontier: BTreeMap<RealmId, Vec<EventId>>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub actor_seq_upper_bounds: BTreeMap<Did, u64>,
+    pub frontier: EventsFrontierView,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub receipts: Vec<Value>,
+}
+
+/// Selector-dependent `frontier` object of
+/// [`EventsFrontierAccountClientState`].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(untagged)]
+pub enum EventsFrontierView {
+    RealmSealView(RealmSealFrontierView),
+    Actor(ActorFrontierView),
+}
+
+/// Realm Seal view shape of the account-client frontier: the current
+/// accepted Seal head of the Realm. `seal_basis()` mints the single-leaf
+/// Control Move basis (`leaves=[seal_id]`); `seal_id` alone is the DataEvent
+/// `seal_ref`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RealmSealFrontierView {
+    pub realm_id: RealmId,
+    pub seal_id: crate::SealId,
+    pub control_event_set_root: Hash,
+    pub state_root: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hlc: Option<Hlc>,
+}
+
+impl RealmSealFrontierView {
+    /// Single-leaf Control Move `seal_basis` under this view.
+    pub fn seal_basis(&self) -> crate::SealBasis {
+        crate::SealBasis {
+            leaves: vec![self.seal_id.clone()],
+            control_event_set_root: self.control_event_set_root.clone(),
+            state_root: self.state_root.clone(),
+        }
+    }
+}
+
+/// Actor shape of the account-client frontier: highest accepted
+/// `actor_seq` visible to the caller.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ActorFrontierView {
+    pub actor_id: Did,
+    pub actor_seq: u64,
+    pub event_id: EventId,
 }
 
 /// Round 4 — federation-peer variant of `/events/frontier`. Carries
