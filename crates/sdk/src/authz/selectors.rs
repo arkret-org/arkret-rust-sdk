@@ -504,13 +504,12 @@ impl ResourceSelector {
         let mut put = |key: &str, value: &str| {
             object.insert(key.to_owned(), Value::String(value.to_owned()));
         };
-        let put_opt = |object: &mut serde_json::Map<String, Value>,
-                           key: &str,
-                           value: &Option<String>| {
-            if let Some(value) = value {
-                object.insert(key.to_owned(), Value::String(value.clone()));
-            }
-        };
+        let put_opt =
+            |object: &mut serde_json::Map<String, Value>, key: &str, value: &Option<String>| {
+                if let Some(value) = value {
+                    object.insert(key.to_owned(), Value::String(value.clone()));
+                }
+            };
         match self {
             Self::Realm { realm_id } => {
                 put("kind", "realm");

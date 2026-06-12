@@ -1395,7 +1395,9 @@ mod engine_wire_tests {
         let mut ctx = ctx();
         ctx.now = "2026-02-01T00:00:00Z".parse().unwrap();
         let decision = engine.check_authorization(&ctx, std::slice::from_ref(&grant));
-        assert!(matches!(decision, EngineDecision::Deny { reason } if reason.contains("expires_at")));
+        assert!(
+            matches!(decision, EngineDecision::Deny { reason } if reason.contains("expires_at"))
+        );
     }
 
     #[test]
@@ -1437,7 +1439,8 @@ mod engine_wire_tests {
         assert!(grant_requires_approval(&grant));
 
         let mut approvals = ApprovalFlowManager::new();
-        let decision = engine.check_authorization_with_approvals(&ctx(), &[grant.clone()], &approvals);
+        let decision =
+            engine.check_authorization_with_approvals(&ctx(), &[grant.clone()], &approvals);
         assert!(matches!(decision, EngineDecision::Deny { .. }));
 
         let proposal = approvals.submit_proposal(

@@ -511,12 +511,8 @@ pub(crate) fn constraint_entries_from_spec(value: &Value) -> Result<Vec<Constrai
             .and_then(Value::as_str)
             .map(ToOwned::to_owned)
     };
-    let bool_field = |name: &str| -> bool {
-        object
-            .get(name)
-            .and_then(Value::as_bool)
-            .unwrap_or(false)
-    };
+    let bool_field =
+        |name: &str| -> bool { object.get(name).and_then(Value::as_bool).unwrap_or(false) };
     let u64_field = |name: &str| -> Option<u64> { object.get(name).and_then(Value::as_u64) };
     let constraint_type = str_field("constraint_type")
         .ok_or_else(|| Error::Protocol("grant constraint requires constraint_type".to_owned()))?;
@@ -544,8 +540,9 @@ pub(crate) fn constraint_entries_from_spec(value: &Value) -> Result<Vec<Constrai
                     recurrence: object
                         .get("recurrence")
                         .map(|value| {
-                            serde_json::from_value::<Recurrence>(value.clone())
-                                .map_err(|err| Error::Protocol(format!("invalid recurrence: {err}")))
+                            serde_json::from_value::<Recurrence>(value.clone()).map_err(|err| {
+                                Error::Protocol(format!("invalid recurrence: {err}"))
+                            })
                         })
                         .transpose()?,
                 });
@@ -786,15 +783,16 @@ pub(crate) fn constraint_entries_from_spec(value: &Value) -> Result<Vec<Constrai
                             .get("status")
                             .and_then(Value::as_str)
                             .map(ToOwned::to_owned),
-                        roles: item_object.get("roles").and_then(Value::as_array).map(
-                            |roles| {
+                        roles: item_object
+                            .get("roles")
+                            .and_then(Value::as_array)
+                            .map(|roles| {
                                 roles
                                     .iter()
                                     .filter_map(Value::as_str)
                                     .map(ToOwned::to_owned)
                                     .collect()
-                            },
-                        ),
+                            }),
                     });
                 }
                 constraints.push(Constraint::ClaimBased {
@@ -1109,8 +1107,7 @@ impl CapabilityGrantBuilder {
         prohibit_subdelegation: bool,
     ) -> Self {
         self.grant.constraints.retain(|constraint| {
-            constraint.get("constraint_type").and_then(Value::as_str)
-                != Some("delegation_control")
+            constraint.get("constraint_type").and_then(Value::as_str) != Some("delegation_control")
         });
         self.grant.constraints.push(serde_json::json!({
             "constraint_type": "delegation_control",
@@ -1263,7 +1260,9 @@ mod capability_grant_builder_tests {
         assert_eq!(artifact["subject"], "did:web:bob.example");
         assert!(artifact.get("issued_at").is_some());
         assert!(
-            artifact["proofs"].as_array().is_some_and(|proofs| !proofs.is_empty()),
+            artifact["proofs"]
+                .as_array()
+                .is_some_and(|proofs| !proofs.is_empty()),
             "spec requires at least one proof"
         );
         assert!(
@@ -1284,7 +1283,10 @@ mod capability_grant_builder_tests {
             content: event.content.clone(),
         };
         let grant = capability_grant_from_resolved_event(&event_view, None).unwrap();
-        assert_eq!(grant.id.as_str(), "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa");
+        assert_eq!(
+            grant.id.as_str(),
+            "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
+        );
     }
 
     #[test]
@@ -1447,7 +1449,10 @@ mod capability_grant_builder_tests {
         assert_eq!(entries.len(), 1);
         assert!(matches!(
             entries[0].constraint,
-            Constraint::Temporal { expires_at: Some(_), .. }
+            Constraint::Temporal {
+                expires_at: Some(_),
+                ..
+            }
         ));
 
         let entries = constraint_entries_from_spec(&json!({
