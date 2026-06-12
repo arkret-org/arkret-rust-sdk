@@ -240,6 +240,7 @@ pub const ERROR_CODE_PUSH_TOKEN_INVALID: &str = "push_token_invalid";
 pub const ERROR_CODE_PUSH_TOKEN_UNKNOWN: &str = "push_token_unknown";
 pub const ERROR_CODE_QUARANTINE: &str = "quarantine";
 pub const ERROR_CODE_SNAPSHOT_AUTHORITY_UNVERIFIED: &str = "snapshot_authority_unverified";
+pub const ERROR_CODE_REDUCER_PROFILE_MISMATCH: &str = "reducer_profile_mismatch";
 pub const ERROR_CODE_SNAPSHOT_UNAVAILABLE: &str = "snapshot_unavailable";
 pub const ERROR_CODE_STREAM_DROPPED: &str = "stream_dropped";
 pub const ERROR_CODE_STREAM_RESYNC_REQUIRED: &str = "stream_resync_required";
@@ -439,6 +440,7 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_PUSH_TOKEN_UNKNOWN,
     ERROR_CODE_QUARANTINE,
     ERROR_CODE_SNAPSHOT_AUTHORITY_UNVERIFIED,
+    ERROR_CODE_REDUCER_PROFILE_MISMATCH,
     ERROR_CODE_SNAPSHOT_UNAVAILABLE,
     ERROR_CODE_STREAM_DROPPED,
     ERROR_CODE_STREAM_RESYNC_REQUIRED,
@@ -945,6 +947,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_ONE_TIME_KEYS_EXHAUSTED
         | ERROR_CODE_POLICY_STALE
         | ERROR_CODE_QUARANTINE
+        | ERROR_CODE_REDUCER_PROFILE_MISMATCH
         | ERROR_CODE_STREAM_DROPPED
         | ERROR_CODE_STREAM_RESYNC_REQUIRED
         | ERROR_CODE_CONTACT_NOT_ACCEPTED
@@ -1274,6 +1277,7 @@ pub enum ErrorCode {
     PushTokenUnknown,
     Quarantine,
     SnapshotAuthorityUnverified,
+    ReducerProfileMismatch,
     SnapshotUnavailable,
     StreamDropped,
     StreamResyncRequired,
@@ -1468,6 +1472,7 @@ impl ErrorCode {
         Self::PushTokenUnknown,
         Self::Quarantine,
         Self::SnapshotAuthorityUnverified,
+        Self::ReducerProfileMismatch,
         Self::SnapshotUnavailable,
         Self::StreamDropped,
         Self::StreamResyncRequired,
@@ -1674,6 +1679,7 @@ impl ErrorCode {
             Self::PushTokenUnknown => ERROR_CODE_PUSH_TOKEN_UNKNOWN,
             Self::Quarantine => ERROR_CODE_QUARANTINE,
             Self::SnapshotAuthorityUnverified => ERROR_CODE_SNAPSHOT_AUTHORITY_UNVERIFIED,
+            Self::ReducerProfileMismatch => ERROR_CODE_REDUCER_PROFILE_MISMATCH,
             Self::SnapshotUnavailable => ERROR_CODE_SNAPSHOT_UNAVAILABLE,
             Self::StreamDropped => ERROR_CODE_STREAM_DROPPED,
             Self::StreamResyncRequired => ERROR_CODE_STREAM_RESYNC_REQUIRED,

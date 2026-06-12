@@ -92,6 +92,14 @@ pub struct FederationServiceBindingRef {
     pub reducer_profile_digest: Hash,
 }
 
+pub const FEDERATION_MINIMAL_PROFILE_ID: &str = "ck.profile.federation_minimal.v1";
+pub const FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST: &str =
+    "sha256:1fa83b8ca1719c604c298d83e89b0456f3af5ed1382cf8dcb025b074a34e0109";
+
+pub fn federation_minimal_reducer_profile_digest() -> &'static str {
+    FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST
+}
+
 // ── EventsSubmit variants ───────────────────────────────────────────────
 
 /// Round 4 — batch `/events/submit` request. Multiple envelopes
@@ -256,4 +264,27 @@ pub struct SnapshotBootstrapChunk {
     /// HTTP URL or `ck:blob:` reference where the chunk bytes can be
     /// fetched.
     pub fetch_ref: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn federation_minimal_reducer_profile_digest_is_well_formed() {
+        assert_eq!(
+            FEDERATION_MINIMAL_PROFILE_ID,
+            "ck.profile.federation_minimal.v1"
+        );
+        assert_eq!(
+            federation_minimal_reducer_profile_digest(),
+            FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST
+        );
+        assert_eq!(
+            Hash::new(FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST)
+                .unwrap()
+                .as_str(),
+            FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST
+        );
+    }
 }
