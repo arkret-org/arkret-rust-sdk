@@ -1107,11 +1107,13 @@ fn is_false(value: &bool) -> bool {
 pub struct AuthzCheckRequestBody {
     pub actor_id: Did,
     pub action: String,
-    pub resource: Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    #[serde(default)]
-    pub proofs: Vec<Proof>,
+    /// Optional resource selector (Realm / Flow / Space / Morph / etc.).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource: Option<Value>,
+    /// Optional decision context — claim presentations, frontier reference,
+    /// request metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1119,7 +1121,7 @@ pub struct AuthzCheckRequestBody {
 pub struct AuthzCheckOutcome {
     pub decision: AuthzDecision,
     #[serde(default)]
-    pub matched_grants: Vec<GrantId>,
+    pub matched_grants: Vec<Value>,
     #[serde(default)]
     pub applied_constraints: Vec<Value>,
     #[serde(default)]
@@ -1127,9 +1129,21 @@ pub struct AuthzCheckOutcome {
     #[serde(default)]
     pub missing_proofs: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub frontier: Option<String>,
+    pub frontier: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub freshness_state: Option<FreshnessState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_known_frontier_age_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notary_status: Option<NotaryStatus>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_expires_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+    #[serde(default)]
+    pub obligations: Vec<Value>,
 }
 
 pub type Capability = CapabilityGrant;

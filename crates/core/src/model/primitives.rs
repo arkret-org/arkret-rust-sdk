@@ -353,13 +353,36 @@ pub enum PolicyEffect {
 #[serde(rename_all = "snake_case")]
 pub enum AuthzDecision {
     Allow,
-    Deny,
+    SoftDeny,
+    HardDeny,
     Quarantine,
     RequireReview,
-    SoftFail,
 }
 
 pub type Decision = AuthzDecision;
+
+/// Frontier freshness classification for revocation-sensitive authz decisions.
+/// Spec `AuthzCheckOutcome.freshness_state` enum.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum FreshnessState {
+    Fresh,
+    Stale,
+    Unknown,
+}
+
+/// Coarse status of the notary / frontier source used to diagnose stale or
+/// unknown revocation freshness. Spec `AuthzCheckOutcome.notary_status` enum.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum NotaryStatus {
+    Fresh,
+    Lagging,
+    Unreachable,
+    Unknown,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
