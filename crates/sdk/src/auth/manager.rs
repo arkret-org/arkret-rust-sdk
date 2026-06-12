@@ -873,8 +873,7 @@ impl AuthManager {
         }
 
         let issued_at = Utc::now();
-        let expires_at =
-            issued_at + chrono::Duration::seconds(Self::DID_PROOF_FRESHNESS_WINDOW_SECS);
+        let expires_at = issued_at + Duration::seconds(Self::DID_PROOF_FRESHNESS_WINDOW_SECS);
 
         // Digest of the canonical request binding (request body without
         // the proof object) — bound into both the wire proof and the

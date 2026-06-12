@@ -113,7 +113,7 @@ where
 pub fn verify_canonical_proof_with_did_resolver<R>(
     canonical_bytes: &[u8],
     proof: &crate::Proof,
-    binding_actor_id: &cokret_core::Did,
+    binding_actor_id: &Did,
     context: &cokret_signatures::ProofVerificationContext,
     resolver: &R,
 ) -> Result<cokret_signatures::SignatureVerification>

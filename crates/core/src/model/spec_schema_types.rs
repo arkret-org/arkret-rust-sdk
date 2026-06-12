@@ -463,10 +463,6 @@ pub type AgentDraftProposePayload = Value;
 pub type AgentEndpointPayload = Value;
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_interop_session_id`.
-pub type AgentInteropSessionId = String;
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
 /// agent_interop_session_result_payload`.
 pub type AgentInteropSessionResultPayload = Value;
@@ -542,14 +538,8 @@ pub type AuditAccessedPayload = Value;
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_applet_binding_payload`.
 pub type AuditAppletBindingPayload = Value;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_binding_id`.
-pub type AuditBindingId = String;
-
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_payload`.
 pub type AuditPayload = Value;
-
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_release_id`.
-pub type AuditReleaseId = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_release_payload`.
@@ -562,9 +552,6 @@ pub type AuditSessionAuthorizePayload = Value;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_session_close_payload`.
 pub type AuditSessionClosePayload = Value;
-
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_session_id`.
-pub type AuditSessionId = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_session_notice_payload`.

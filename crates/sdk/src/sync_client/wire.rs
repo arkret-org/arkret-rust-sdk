@@ -314,7 +314,7 @@ pub struct EventsQueryOutcome {
     #[serde(default)]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub snapshot_bootstrap: Option<serde_json::Value>,
+    pub snapshot_bootstrap: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
