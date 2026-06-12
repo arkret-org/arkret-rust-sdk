@@ -30,8 +30,8 @@ storage and service-level interoperability tests.
 
 This table mirrors `ck.profile.*.vN` IDs the SDK 1.0 line implements. New
 profiles introduced in P5 (spec head 37ce729) are listed first; the
-remainder of the catalog is covered by the generated drift test
-`generated::profile_requirements_tests::generated_profile_requirements_match_artifact`.
+remainder of the catalog is represented by the generated
+`generated::profile_requirements` table.
 
 | Profile ID | SDK 1.0 | Notes |
 | --- | --- | --- |

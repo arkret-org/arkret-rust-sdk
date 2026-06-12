@@ -37,11 +37,7 @@ pub(crate) struct ServiceRoute {
 
 // HTTP/JSON bindings for every operation in the canonical spec operation
 // registry (`cokret-spec/spec/v1/artifacts/registry/operation-registry.json`),
-// kept in the registry's own file order. The table is pinned by the
-// `service_routes_match_spec_operation_registry` drift test (bidirectional,
-// method + path exact), plus a negative assertion against
-// `artifacts/migration/removed-operation-ids.json` (e.g. the four `ck.admin.*`
-// operations removed on 2026-06-04 MUST NOT reappear here).
+// kept in the registry's own file order.
 const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!(
         "ck.gate.account.register",

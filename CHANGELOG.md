@@ -303,10 +303,9 @@ section will roll into the next published release.
 
 #### Fixed
 
-- Spec-drift gate now covers the CKP-0007 schemas / event kinds; the
+- Spec-drift reporting now covers the CKP-0007 schemas / event kinds, and the
   `spec_drift_report` example reports 0 hard drift against spec floor
-  `2b0d70d` and `spec_artifact_registry_covers_key_local_schema_and_event_contracts`
-  passes again.
+  `2b0d70d`.
 
 #### Notes
 

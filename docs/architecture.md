@@ -88,13 +88,13 @@ async fn call_media_token_exchange(
     actor_id: Did,
     device_id: DeviceId,
     focus_id: FocusId,
-) -> Result<MediaTokenResponse, ServiceError>;
+) -> Result<CallMediaTokenExchangeOutcome, ServiceError>;
 ```
 
-`MediaTokenResponse`:
+`CallMediaTokenExchangeOutcome`:
 
 ```rust
-pub struct MediaTokenResponse {
+pub struct CallMediaTokenExchangeOutcome {
     pub backend_token: String,           // opaque to SDK; passes through to backend
     pub participant_identity: String,    // canonical: ck:participant:<realm>:<actor>:<device>:<call>
     pub participant_binding: ParticipantBinding,

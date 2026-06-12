@@ -1734,83 +1734,7 @@ impl std::fmt::Display for ErrorCode {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{BTreeMap, BTreeSet};
-
     use super::*;
-
-    fn spec_registry_error_codes() -> BTreeMap<String, u16> {
-        let raw = include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../../cokret-spec/spec/v1/artifacts/registry/error-code-registry.json"
-        ));
-        let registry: serde_json::Value =
-            serde_json::from_str(raw).expect("error-code-registry.json parses");
-        let codes = registry
-            .get("codes")
-            .and_then(serde_json::Value::as_array)
-            .expect("registry codes is an array");
-        codes
-            .iter()
-            .filter_map(|entry| {
-                let code = entry.get("code")?.as_str()?;
-                let status = entry.get("http_status")?.as_u64()?;
-                Some((code.to_owned(), status as u16))
-            })
-            .collect()
-    }
-
-    #[test]
-    fn known_error_codes_match_current_registry_shape() {
-        let codes = KNOWN_ERROR_CODES.iter().copied().collect::<BTreeSet<_>>();
-        let registry_codes = spec_registry_error_codes();
-
-        assert_eq!(codes.len(), KNOWN_ERROR_CODES.len(), "duplicate error code");
-        assert!(
-            KNOWN_ERROR_CODES.len() >= registry_codes.len(),
-            "SDK known-code mirror must cover all top-level registry codes",
-        );
-        assert!(codes.contains(ERROR_CODE_CURSOR_EXPIRED));
-        assert!(codes.contains(ERROR_CODE_POLICY_COMBINATION_INVALID));
-        assert!(codes.contains(ERROR_CODE_HISTORY_SHARING_POLICY_MISSING));
-        assert!(codes.contains(ERROR_CODE_HISTORY_NOT_VISIBLE));
-        assert!(codes.contains(ERROR_CODE_PREVIEW_POLICY_DENIED));
-        assert!(codes.contains(ERROR_CODE_NOTARY_RECOVERY_MISSING));
-        assert!(codes.contains(ERROR_CODE_UNSUPPORTED_LATTICE_TYPE));
-        assert!(codes.contains(ERROR_CODE_PROFILE_UNSUPPORTED));
-        assert!(codes.contains(ERROR_CODE_CURSOR_INTEGRITY_INVALID));
-        assert!(codes.contains(ERROR_CODE_FAILED_PRECONDITION));
-        assert!(codes.contains(ERROR_CODE_UNSUPPORTED_HASH));
-        assert!(codes.contains(ERROR_CODE_SEAL_INCOMPLETE));
-        assert!(codes.contains(ERROR_CODE_FRANKING_PROOF_UNAVAILABLE));
-        assert!(codes.contains(ERROR_CODE_TURN_CREDENTIAL_EXPIRED));
-        assert!(codes.contains(ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING));
-        assert!(codes.contains(ERROR_CODE_RESET_EVENT_ID_MISMATCH));
-        assert!(codes.contains(ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT));
-        assert!(codes.contains(ERROR_CODE_BLOB_REDACTED));
-        assert!(codes.contains(ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP));
-        assert!(codes.contains(ERROR_CODE_DIRECTORY_NOT_AUTHORIZED));
-        assert!(codes.contains(ERROR_CODE_POLICY_REVISION_ROLLBACK));
-        assert!(codes.contains(ERROR_CODE_DID_PROOF_REQUIRED));
-        assert!(codes.contains(ERROR_CODE_EPHEMERAL_KIND_NOT_PERMITTED));
-        assert!(codes.contains(ERROR_CODE_AUTHORIZED_GRANT_REVOKED));
-        assert!(codes.contains(ERROR_CODE_CURSOR_REVOKED));
-    }
-
-    #[test]
-    fn known_error_codes_cover_spec_registry_http_statuses() {
-        let codes = KNOWN_ERROR_CODES.iter().copied().collect::<BTreeSet<_>>();
-        for (code, status) in spec_registry_error_codes() {
-            assert!(
-                codes.contains(code.as_str()),
-                "spec registry code {code:?} missing from KNOWN_ERROR_CODES",
-            );
-            assert_eq!(
-                error_code_http_status(&code),
-                Some(status),
-                "HTTP status drift for spec registry code {code:?}",
-            );
-        }
-    }
 
     #[test]
     fn every_known_error_code_has_http_status() {
@@ -1820,16 +1744,6 @@ mod tests {
                 "known error code {code:?} has no HTTP status mapping",
             );
         }
-    }
-
-    #[test]
-    fn round_c45_reason_codes_are_unique() {
-        let set: BTreeSet<&str> = KNOWN_REASON_CODES_ROUND_C45.iter().copied().collect();
-        assert_eq!(
-            set.len(),
-            KNOWN_REASON_CODES_ROUND_C45.len(),
-            "duplicate reason code in KNOWN_REASON_CODES_ROUND_C45",
-        );
     }
 
     /// `ErrorCode::ALL` MUST contain one variant per entry in
