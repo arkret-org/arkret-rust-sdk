@@ -16,10 +16,9 @@ pub struct EventPayloadValidatorCatalog {
 
 /// Which validation semantics an [`EventPayloadValidatorCatalog`] applies.
 ///
-/// SDK-06-002 mitigation: the catalog silently degrades to the hand-written
-/// fallback when spec artifacts are not discoverable; callers can now query
-/// (and surface / log) the active source instead of being unable to tell the
-/// two semantics apart.
+/// SDK-06-002 mitigation: the default catalog now uses bundled spec artifacts.
+/// The fallback source exists only as an explicit last-resort shape for callers
+/// that construct it directly or if both explicit and bundled artifacts fail.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PayloadValidatorSource {
@@ -452,6 +451,9 @@ pub fn event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
     {
         return catalog;
     }
+    if let Ok(catalog) = event_payload_validator_catalog_from_embedded_spec_artifacts() {
+        return catalog;
+    }
     fallback_event_payload_validator_catalog()
 }
 
@@ -461,6 +463,20 @@ pub fn event_payload_validator_catalog_from_spec_artifacts(
     let artifacts_dir = artifacts_dir.as_ref();
     let bundle = SpecArtifactBundle::load(artifacts_dir)?;
     let registry = schema_registry_from_spec_artifacts(artifacts_dir)?;
+    event_payload_validator_catalog_from_bundle(&bundle, registry)
+}
+
+pub fn event_payload_validator_catalog_from_embedded_spec_artifacts()
+-> Result<EventPayloadValidatorCatalog> {
+    let bundle = SpecArtifactBundle::load_embedded()?;
+    let registry = schema_registry_from_embedded_spec_artifacts()?;
+    event_payload_validator_catalog_from_bundle(&bundle, registry)
+}
+
+fn event_payload_validator_catalog_from_bundle(
+    bundle: &SpecArtifactBundle,
+    registry: ProtocolSchemaRegistry,
+) -> Result<EventPayloadValidatorCatalog> {
     let event_payload_schema = registry
         .schema(EVENT_PAYLOAD_SCHEMA)
         .ok_or_else(|| Error::Protocol("missing event payload schema artifact".to_owned()))?;
@@ -892,11 +908,16 @@ mod tests {
             fallback_event_payload_validator_catalog().validator_source(),
             PayloadValidatorSource::Fallback
         );
-        let Some(artifacts_dir) = default_spec_artifacts_dir() else {
-            return;
-        };
-        let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
-        assert_eq!(catalog.validator_source(), PayloadValidatorSource::Strong);
+        assert_eq!(
+            event_payload_validator_catalog().validator_source(),
+            PayloadValidatorSource::Strong
+        );
+        assert_eq!(
+            event_payload_validator_catalog_from_embedded_spec_artifacts()
+                .unwrap()
+                .validator_source(),
+            PayloadValidatorSource::Strong
+        );
     }
 
     /// SDK-06-002 mitigation: the hand-written fallback allow-lists MUST stay
@@ -905,10 +926,7 @@ mod tests {
     /// accepts (or accept fields the schema closed off).
     #[test]
     fn fallback_allowlists_lockstep_with_event_payload_schema() {
-        let Some(artifacts_dir) = default_spec_artifacts_dir() else {
-            return;
-        };
-        let registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
+        let registry = schema_registry_from_embedded_spec_artifacts().unwrap();
         let event_payload_schema = registry
             .schema(EVENT_PAYLOAD_SCHEMA)
             .expect("event payload schema artifact");
@@ -958,10 +976,7 @@ mod tests {
     /// since that is the shape the schema ultimately enforces.
     #[test]
     fn fallback_required_fields_lockstep_with_event_payload_schema() {
-        let Some(artifacts_dir) = default_spec_artifacts_dir() else {
-            return;
-        };
-        let registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
+        let registry = schema_registry_from_embedded_spec_artifacts().unwrap();
         let event_payload_schema = registry
             .schema(EVENT_PAYLOAD_SCHEMA)
             .expect("event payload schema artifact")

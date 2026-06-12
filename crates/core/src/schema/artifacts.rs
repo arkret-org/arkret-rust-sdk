@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use super::*;
 use crate::events::STANDARD_EVENT_KINDS;
 use crate::{
@@ -5,6 +7,12 @@ use crate::{
     PRINCIPAL_LOCATOR_SCHEMA, PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DIRECTORY_SERVICE,
     PROFILE_DISCLOSED_AUDIT_E2EE,
 };
+
+const EMBEDDED_ARTIFACTS_SENTINEL: &str = "<embedded-spec-artifacts>";
+const EMBEDDED_SPEC_ARTIFACTS_JSON: &str = include_str!("embedded_artifacts.json");
+
+static EMBEDDED_SPEC_ARTIFACTS: OnceLock<std::result::Result<BTreeMap<String, Value>, String>> =
+    OnceLock::new();
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SpecArtifactBundle {
@@ -112,6 +120,19 @@ impl SpecArtifactBundle {
         })
     }
 
+    pub fn load_embedded() -> Result<Self> {
+        Ok(Self {
+            schema_registry: read_embedded_json_artifact("registry/schema-registry.json")?,
+            event_kind_registry: read_embedded_json_artifact("registry/event-kind-registry.json")?,
+            operation_registry: read_embedded_json_artifact("registry/operation-registry.json")?,
+            id_kind_registry: read_embedded_json_artifact("registry/id-kind-registry.json")?,
+            conformance_profiles: read_embedded_json_artifact(
+                "profiles/conformance-profiles.json",
+            )?,
+            artifacts_dir: Some(PathBuf::from(EMBEDDED_ARTIFACTS_SENTINEL)),
+        })
+    }
+
     pub fn drift_report(&self) -> ArtifactDriftReport {
         ArtifactDriftReport {
             checked_files: vec![
@@ -161,7 +182,12 @@ impl SpecArtifactBundle {
         let Some(artifacts_dir) = &self.artifacts_dir else {
             return Vec::new();
         };
-        let catalog = match event_payload_validator_catalog_from_spec_artifacts(artifacts_dir) {
+        let catalog = if artifacts_dir == Path::new(EMBEDDED_ARTIFACTS_SENTINEL) {
+            event_payload_validator_catalog_from_embedded_spec_artifacts()
+        } else {
+            event_payload_validator_catalog_from_spec_artifacts(artifacts_dir)
+        };
+        let catalog = match catalog {
             Ok(catalog) => catalog,
             Err(error) => return vec![format!("catalog_error: {error}")],
         };
@@ -652,26 +678,19 @@ pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
     if let Ok(artifacts_dir) = std::env::var("COKRET_SPEC_ARTIFACTS") {
         return Some(PathBuf::from(artifacts_dir));
     }
-    let spec_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("..")
-        .join("..")
-        .join("cokret-spec");
-    let artifacts_dir = spec_root.join("spec").join("v1").join("artifacts");
-    artifacts_dir
-        .join("registry")
-        .join("schema-registry.json")
-        .exists()
-        .then_some(artifacts_dir)
+    None
+}
+
+fn default_spec_artifact_bundle() -> Result<SpecArtifactBundle> {
+    if let Some(artifacts_dir) = default_spec_artifacts_dir() {
+        SpecArtifactBundle::load(artifacts_dir)
+    } else {
+        SpecArtifactBundle::load_embedded()
+    }
 }
 
 pub fn artifact_drift_report_from_default_location() -> Result<Option<ArtifactDriftReport>> {
-    let Some(artifacts_dir) = default_spec_artifacts_dir() else {
-        return Ok(None);
-    };
-    Ok(Some(
-        SpecArtifactBundle::load(artifacts_dir)?.drift_report(),
-    ))
+    Ok(Some(default_spec_artifact_bundle()?.drift_report()))
 }
 
 pub fn schema_registry_from_spec_artifacts(
@@ -701,6 +720,29 @@ pub fn schema_registry_from_spec_artifacts(
     Ok(registry)
 }
 
+pub fn schema_registry_from_embedded_spec_artifacts() -> Result<ProtocolSchemaRegistry> {
+    let bundle = SpecArtifactBundle::load_embedded()?;
+    let mut registry = ProtocolSchemaRegistry::new();
+    let schemas = bundle
+        .schema_registry
+        .get("schemas")
+        .and_then(Value::as_array)
+        .ok_or_else(|| Error::Protocol("schema registry missing schemas".to_owned()))?;
+    for entry in schemas {
+        let schema_id = entry
+            .get("schema_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::Protocol("schema registry entry missing schema_id".to_owned()))?;
+        let file = entry
+            .get("file")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::Protocol(format!("schema artifact {schema_id} has no file")))?;
+        let schema = read_embedded_json_artifact(file)?;
+        registry.register(schema_id, schema);
+    }
+    Ok(registry)
+}
+
 fn active_standard_durable_event_kinds(registry: &Value) -> Vec<&str> {
     let Some(entries) = registry.get("event_kinds").and_then(Value::as_array) else {
         return Vec::new();
@@ -715,10 +757,11 @@ fn active_standard_durable_event_kinds(registry: &Value) -> Vec<&str> {
 }
 
 pub fn schema_registry_from_default_spec_artifacts() -> Result<Option<ProtocolSchemaRegistry>> {
-    let Some(artifacts_dir) = default_spec_artifacts_dir() else {
-        return Ok(None);
-    };
-    Ok(Some(schema_registry_from_spec_artifacts(artifacts_dir)?))
+    if let Some(artifacts_dir) = default_spec_artifacts_dir() {
+        Ok(Some(schema_registry_from_spec_artifacts(artifacts_dir)?))
+    } else {
+        Ok(Some(schema_registry_from_embedded_spec_artifacts()?))
+    }
 }
 
 fn collect_profile_ids(value: &Value, out: &mut BTreeSet<String>) {
@@ -807,6 +850,23 @@ fn read_json_artifact(path: &Path) -> Result<Value> {
         .map_err(|error| Error::Protocol(format!("failed to read {}: {error}", path.display())))?;
     serde_json::from_str(&text)
         .map_err(|error| Error::Protocol(format!("failed to parse {}: {error}", path.display())))
+}
+
+fn embedded_spec_artifacts() -> Result<&'static BTreeMap<String, Value>> {
+    match EMBEDDED_SPEC_ARTIFACTS.get_or_init(|| {
+        serde_json::from_str(EMBEDDED_SPEC_ARTIFACTS_JSON)
+            .map_err(|error| format!("failed to parse embedded spec artifacts: {error}"))
+    }) {
+        Ok(artifacts) => Ok(artifacts),
+        Err(error) => Err(Error::Protocol(error.clone())),
+    }
+}
+
+fn read_embedded_json_artifact(path: &str) -> Result<Value> {
+    embedded_spec_artifacts()?
+        .get(path)
+        .cloned()
+        .ok_or_else(|| Error::Protocol(format!("embedded spec artifact {path} is missing")))
 }
 
 fn missing_registry_values(
