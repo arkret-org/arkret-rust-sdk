@@ -578,8 +578,8 @@ impl LatticeKind for KeyBackupActiveSeries {
 }
 
 singleton_lattice!(
-    CoveredFrontier,
-    "ck.component.mls.covered_seals.v1",
+    CoveredSeals,
+    "ck.component.covered_seals.v1",
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required
@@ -1296,7 +1296,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(DeviceListUpdate);
     registry.register(DevicePushRoute);
     registry.register(AgentKey);
-    registry.register(CoveredFrontier);
+    registry.register(CoveredSeals);
     registry.register(KeyBackupActiveSeries);
 
     // CasRegister
@@ -1381,7 +1381,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ck.component.device.list_update.v1",
         "ck.component.device.push_route.v1",
         "ck.component.agent.key.v1",
-        "ck.component.mls.covered_seals.v1",
+        "ck.component.covered_seals.v1",
         "ck.component.key_backup.active_series.v1",
         // CasRegister
         "ck.component.circle.tombstone.v1",
@@ -1528,7 +1528,7 @@ mod tests {
     fn default_registry_kind_count_matches_expected_total() {
         // The registry covers the 60 cell families declared by
         // event-kind-registry plus the three reducer-local seal/MLS
-        // families (`notary`, `mls.epoch`, `mls.covered_seals`).
+        // families (`notary`, `mls.epoch`, `covered_seals`).
         let registry = default_lattice_registry();
         assert_eq!(registry.len(), 63);
     }
@@ -1577,9 +1577,7 @@ mod tests {
     #[test]
     fn covered_seals_is_singleton_or_set() {
         let registry = default_lattice_registry();
-        let kind = registry
-            .lookup("ck.component.mls.covered_seals.v1")
-            .unwrap();
+        let kind = registry.lookup("ck.component.covered_seals.v1").unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
         let subject = kind.subject_for_effect(&json!({})).unwrap();
         assert!(subject.is_none());

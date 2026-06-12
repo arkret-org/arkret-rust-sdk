@@ -388,7 +388,7 @@ pub struct CrossSigningResetContent {
     pub reset_event_id: String,
     pub previous_generation: u64,
     pub new_generation: u64,
-    #[serde(rename = "reset_reason_code", alias = "reset_reason")]
+    #[serde(rename = "reset_reason_code")]
     pub reset_reason: String,
     pub proof: CrossSigningResetProof,
     pub issued_at: DateTime<Utc>,
@@ -576,7 +576,7 @@ impl CrossSigningResetContent {
             "reset_event_id": self.reset_event_id,
             "previous_generation": self.previous_generation,
             "new_generation": self.new_generation,
-            "reset_reason": self.reset_reason,
+            "reset_reason_code": self.reset_reason,
         });
         let mut out = b"ck-cross-signing-reset-v1\n".to_vec();
         out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(&body)?);

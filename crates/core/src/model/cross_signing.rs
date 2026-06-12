@@ -20,6 +20,7 @@ pub struct CrossSigningResetPayload {
 
     pub new_generation: u64,
 
+    #[serde(rename = "reset_reason_code")]
     pub reset_reason: String,
     /// One of `principal_signing` / `recovery_unlock` / `device_quorum` /
     /// `trusted_recovery_service`. Validated in the proof verification

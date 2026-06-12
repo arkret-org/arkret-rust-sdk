@@ -2215,7 +2215,6 @@ pub struct ActorPreview {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchUsersRequestBody {
-    #[serde(alias = "query")]
     pub q: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
@@ -2261,7 +2260,6 @@ pub struct DirectoryResolveHandleRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryHandleResolutionOutcome {
-    #[serde(alias = "subject")]
     pub did: Did,
     pub handle: String,
     #[serde(default)]

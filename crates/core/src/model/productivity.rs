@@ -218,7 +218,7 @@ pub struct MessageExpiry {
     pub ttl_ms: u64,
     pub trigger: ExpiryTrigger,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub anchor_hlc: Option<String>,
+    pub seal_hlc: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub grace_ms: Option<u64>,
 }
