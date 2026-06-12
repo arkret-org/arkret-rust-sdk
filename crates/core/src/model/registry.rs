@@ -156,7 +156,6 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
             "key_id",
             "revoked_at",
             "revoked_by",
-            "revocation_frontier",
         ]
         .into_iter()
         .map(str::to_owned)
