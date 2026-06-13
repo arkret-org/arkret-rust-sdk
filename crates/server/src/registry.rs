@@ -393,6 +393,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/root/identity/recovery-policy"
     ),
     endpoint!(
+        "ck.root.identity.recovery_policy.put",
+        Post,
+        "/_cokret/root/identity/recovery-policy"
+    ),
+    endpoint!(
         "ck.root.identity.resolve",
         Post,
         "/_cokret/root/identity/resolve"

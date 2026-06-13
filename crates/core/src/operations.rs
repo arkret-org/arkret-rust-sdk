@@ -122,6 +122,7 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | OP_IDENTITY_GET_LOG
         | OP_IDENTITY_GET_RECEIPTS
         | OP_IDENTITY_RECOVERY_POLICY_GET
+        | OP_IDENTITY_RECOVERY_POLICY_PUT
         | OP_IDENTITY_RESOLVE
         | OP_IDENTITY_SUBMIT_DID_OPERATION
         | OP_RECOVERY_SESSION_CREATE
@@ -578,7 +579,7 @@ fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
         OP_OPEN_INVITE_LOCATOR_RESOLVE => &["locator_token"],
         OP_PEER_INVITES_SUBMIT => &["idempotency_key"],
         OP_POLICY_CHECK => &["resource"],
-        OP_IDENTITY_RECOVERY_POLICY_GET => &["principal_id"],
+        OP_IDENTITY_RECOVERY_POLICY_GET | OP_IDENTITY_RECOVERY_POLICY_PUT => &["principal_id"],
         OP_PROJECTION_DOCUMENT => &["morph_id"],
         OP_VIEW_COLLECTION_PROJECTION => &["view_id"],
         _ => &[],

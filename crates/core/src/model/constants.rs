@@ -572,6 +572,7 @@ pub const OP_IDENTITY_GET_DOCUMENT: &str = "ck.root.identity.get_document";
 pub const OP_IDENTITY_GET_LOG: &str = "ck.root.identity.get_log";
 pub const OP_IDENTITY_GET_RECEIPTS: &str = "ck.root.identity.get_receipts";
 pub const OP_IDENTITY_RECOVERY_POLICY_GET: &str = "ck.root.identity.recovery_policy.get";
+pub const OP_IDENTITY_RECOVERY_POLICY_PUT: &str = "ck.root.identity.recovery_policy.put";
 pub const OP_IDENTITY_SUBMIT_DID_OPERATION: &str = "ck.root.identity.submit_did_operation";
 
 /// Media / WebRTC ICE config.
@@ -834,6 +835,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_IDENTITY_GET_LOG,
     OP_IDENTITY_GET_RECEIPTS,
     OP_IDENTITY_RECOVERY_POLICY_GET,
+    OP_IDENTITY_RECOVERY_POLICY_PUT,
     OP_IDENTITY_RESOLVE,
     OP_IDENTITY_SUBMIT_DID_OPERATION,
     OP_KEYS_BACKUPS_DELETE,

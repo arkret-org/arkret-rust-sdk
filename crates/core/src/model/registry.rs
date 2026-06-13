@@ -302,6 +302,10 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
             vec!["did".to_owned()]
         }
         OP_IDENTITY_RECOVERY_POLICY_GET => Vec::new(),
+        OP_IDENTITY_RECOVERY_POLICY_PUT => ["policy_id", "principal_id", "version"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         OP_IDENTITY_SUBMIT_DID_OPERATION => ["did", "operation"]
             .into_iter()
             .map(str::to_owned)
