@@ -534,6 +534,7 @@ mod tests {
             platform: Some("fcm".to_owned()),
             app_id: Some("app".to_owned()),
             display_name: None,
+            recipient_service_did: None,
         };
         let pusher = Pusher::from_register(did("alice"), request);
         assert_eq!(pusher.platform, PushPlatform::Fcm);

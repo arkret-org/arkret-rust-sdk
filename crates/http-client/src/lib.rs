@@ -2401,19 +2401,22 @@ mod tests {
 
         #[tokio::test]
         async fn mimi_report_abuse_posts_canonical_path() {
-            let (client, capture) = spawn_capture_server(r#"{"ok":true}"#).await;
+            let (client, capture) = spawn_capture_server(
+                r#"{"report_id":"ck:report:01904100-0000-7000-8000-a0086f45c575","status":"queued","routed_to":[]}"#,
+            )
+            .await;
             let request = MimiReportAbuseRequestBody {
                 flow_id: FlowId::new("ck:flow:01904100-0000-7000-8000-f571eead1fc4").unwrap(),
                 target_ref: "mimi://provider/rooms/room-1/messages/msg-1".to_owned(),
                 reporter: Did::new("did:web:alice.example").unwrap(),
-                reason: "spam".to_owned(),
+                abuse_reason_code: "spam".to_owned(),
                 evidence_package: Value::Null,
-                frank: Value::Null,
+                franking_proof: Value::Null,
                 description: Some("unsolicited message".to_owned()),
             };
 
             let response = client.mimi_report_abuse(&request).await.unwrap();
-            assert!(response.0.ok);
+            assert_eq!(response.status, "queued");
 
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
@@ -2422,7 +2425,7 @@ mod tests {
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
-            assert_eq!(parsed["reason"], "spam");
+            assert_eq!(parsed["abuse_reason_code"], "spam");
             assert_eq!(parsed["reporter"], "did:web:alice.example");
         }
 

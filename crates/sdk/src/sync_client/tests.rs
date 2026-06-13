@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use super::*;
 use crate::sync::{SyncRealm, UnreadCounts};
-use crate::{Did, RealmId};
+use crate::{Did, EventsQueryOutcome, RealmId};
 
 fn sync_response(cursor: &str) -> SyncOutcome {
     SyncOutcome {
@@ -742,23 +742,17 @@ fn events_query_request_renders_query_pairs() {
 }
 
 #[test]
-fn events_query_response_round_trips_with_sync_backfill() {
+fn events_query_response_uses_core_http_shape() {
     let body = serde_json::json!({
         "events": [],
         "next_cursor": "sx:next:1",
         "prev_cursor": "sx:prev:0",
-        "limited": true,
+        "has_more": true,
     });
     let resp: EventsQueryOutcome = serde_json::from_value(body).unwrap();
     assert_eq!(resp.next_cursor.as_deref(), Some("sx:next:1"));
     assert_eq!(resp.prev_cursor.as_deref(), Some("sx:prev:0"));
-    assert!(resp.limited);
-    // Round-trip via SyncBackfillOutcome keeps cursors and flag.
-    let bf: cokret_core::SyncBackfillOutcome = resp.clone().into();
-    let back: EventsQueryOutcome = bf.into();
-    assert_eq!(back.next_cursor, resp.next_cursor);
-    assert_eq!(back.prev_cursor, resp.prev_cursor);
-    assert_eq!(back.limited, resp.limited);
+    assert!(resp.has_more);
 }
 
 #[test]

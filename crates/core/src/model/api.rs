@@ -694,10 +694,14 @@ pub struct IdentityLogOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DidOperationSubmitRequestBody {
     pub did: Did,
-    pub seq: u64,
+    pub did_method: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seq: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_event_digest: Option<Hash>,
-    pub patch: Value,
+    pub operation: Value,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub policy_context: Value,
     #[serde(default)]
     pub proofs: Vec<Proof>,
 }
@@ -706,8 +710,13 @@ pub struct DidOperationSubmitRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DidOperationSubmitOutcome {
     pub status: String,
-    pub head_event_digest: Hash,
-    pub seq: u64,
+    pub did: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seq: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub head_event_digest: Option<Hash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub operation_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub receipts: Vec<Value>,
 }
@@ -1583,7 +1592,7 @@ pub struct InboxView {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SearchOutcome {
+pub struct SearchMatch {
     pub object: ProjectionObject,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub score: Option<f64>,
@@ -1593,8 +1602,8 @@ pub struct SearchOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SearchResultList {
-    pub matches: Vec<SearchOutcome>,
+pub struct SearchMatchList {
+    pub matches: Vec<SearchMatch>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2790,6 +2799,8 @@ pub struct PushRegisterDeviceRequestBody {
     pub app_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipient_service_did: Option<Did>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -3532,7 +3543,7 @@ pub struct DirectoryWithdrawRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryWithdrawOutcome {
-    pub withdraw_id: String,
+    pub withdrawal_ref: String,
     pub acked_at: DateTime<Utc>,
 }
 
@@ -3560,6 +3571,7 @@ pub struct KeysBackupsList {
     pub backups: Vec<KeyBackupSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
+    pub has_more: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -3575,6 +3587,8 @@ pub struct KeysBackupsDeleteRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeysBackupsDeleteOutcome {
     pub deleted: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backup_id: Option<BackupId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -304,53 +304,6 @@ impl EventsQueryRequestBody {
     }
 }
 
-/// Typed `ck.self.events.query` response body.
-///
-/// Downstream agents pattern-match on `events`, then resume with
-/// `next_cursor` (forward) / `prev_cursor` (backward). Server returns
-/// `limited=true` when the page hit `limit` and more events remain.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct EventsQueryOutcome {
-    #[serde(default)]
-    pub events: Vec<Event>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub snapshot_bootstrap: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub prev_cursor: Option<String>,
-    #[serde(default, skip_serializing_if = "is_false_default")]
-    pub limited: bool,
-}
-
-fn is_false_default(v: &bool) -> bool {
-    !*v
-}
-
-impl From<cokret_core::SyncBackfillOutcome> for EventsQueryOutcome {
-    fn from(r: cokret_core::SyncBackfillOutcome) -> Self {
-        Self {
-            events: r.events,
-            snapshot_bootstrap: r.snapshot_bootstrap,
-            next_cursor: r.next_cursor,
-            prev_cursor: r.prev_cursor,
-            limited: r.limited,
-        }
-    }
-}
-
-impl From<EventsQueryOutcome> for cokret_core::SyncBackfillOutcome {
-    fn from(r: EventsQueryOutcome) -> Self {
-        Self {
-            events: r.events,
-            snapshot_bootstrap: r.snapshot_bootstrap,
-            next_cursor: r.next_cursor,
-            prev_cursor: r.prev_cursor,
-            limited: r.limited,
-        }
-    }
-}
-
 impl EventsQueryOrder {
     pub fn as_str(self) -> &'static str {
         match self {

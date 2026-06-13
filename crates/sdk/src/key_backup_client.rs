@@ -1,25 +1,8 @@
 //! Typed key-backup HTTP client for `ck.keys.backups.*`.
 
 use cokret_http_client::Client;
-use serde::{Deserialize, Serialize};
 
 use crate::{ProtocolKeyBackup, Result as SdkResult};
-
-/// Response for `ck.self.keys.backups.put`.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-pub struct KeysBackupsPutOutcome {
-    pub status: String,
-    pub backup_id: String,
-    pub ciphertext_digest: String,
-}
-
-/// Response for `ck.self.keys.backups.list`.
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub struct KeyBackupListOutcome {
-    pub backups: Vec<ProtocolKeyBackup>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<String>,
-}
 
 /// Typed key-backup HTTP client wrapping a [`cokret_http_client::Client`].
 ///
@@ -49,7 +32,7 @@ impl KeyBackupClient {
         &self,
         backup_id: &str,
         record: &ProtocolKeyBackup,
-    ) -> SdkResult<KeysBackupsPutOutcome> {
+    ) -> SdkResult<cokret_core::KeysBackupsPutOutcome> {
         let path = format!("/_cokret/self/keys/backups/{backup_id}");
         self.client.put(&path, record).await
     }
@@ -62,20 +45,18 @@ impl KeyBackupClient {
 
     /// `GET /_cokret/self/keys/backups` (list current backups for the
     /// authenticated principal).
-    pub async fn list_key_backups(&self) -> SdkResult<KeyBackupListOutcome> {
+    pub async fn list_key_backups(&self) -> SdkResult<cokret_core::KeysBackupsList> {
         self.client.get("/_cokret/self/keys/backups").await
     }
 
     /// `DELETE /_cokret/self/keys/backups/{backup_id}`.
-    pub async fn delete_key_backup(&self, backup_id: &str) -> SdkResult<KeysBackupsDeleteOutcome> {
+    pub async fn delete_key_backup(
+        &self,
+        backup_id: &str,
+    ) -> SdkResult<cokret_core::KeysBackupsDeleteOutcome> {
         let path = format!("/_cokret/self/keys/backups/{backup_id}");
         self.client.delete(&path).await
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct KeysBackupsDeleteOutcome {
-    pub deleted: bool,
 }
 
 #[cfg(test)]
@@ -146,13 +127,13 @@ mod tests {
     #[test]
     fn key_backup_put_response_round_trips() {
         let record = backup_record();
-        let response = KeysBackupsPutOutcome {
+        let response = cokret_core::KeysBackupsPutOutcome {
             status: "accepted".to_owned(),
             backup_id: record.backup_id.clone(),
             ciphertext_digest: record.ciphertext_digest.clone(),
         };
         let json = serde_json::to_value(&response).unwrap();
-        let back: KeysBackupsPutOutcome = serde_json::from_value(json).unwrap();
+        let back: cokret_core::KeysBackupsPutOutcome = serde_json::from_value(json).unwrap();
         assert_eq!(back.backup_id, record.backup_id);
     }
 }

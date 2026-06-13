@@ -42,6 +42,9 @@ pub fn compute_audit_policy_version_digest(
 pub struct PolicyCheckSource {
     pub service_did: Did,
     pub service_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_ip_digest: Option<Hash>,
+    pub signed_transport: bool,
 }
 
 /// Round 4 (commit 7446832) — typed `/policy/check` request body.
@@ -53,16 +56,11 @@ pub struct PolicyCheckRequestBody {
     pub request_id: String,
     pub realm_id: RealmId,
     pub actor_id: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
     pub action: String,
     pub request_canonical_digest: Hash,
     pub source: PolicyCheckSource,
-    /// Hex-encoded hash of the source IP (privacy-preserving), see
-    /// `policy-server.md` §4.2.
-    pub source_ip_digest: Hash,
-    /// Signed transport envelope (HTTP message-signature transcript).
-    /// Required so policy server can verify the originating request
-    /// is bound to the calling service.
-    pub signed_transport: Value,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub event_preview: Value,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -98,16 +96,17 @@ pub struct PolicyCheckSignature {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PolicyCheckOutcome {
+    pub request_id: String,
     pub decision: AuthzDecision,
     pub bound_to: PolicyCheckBoundTo,
+    pub reason_code: String,
+    pub expires_at: DateTime<Utc>,
     pub auth_state_digest: Hash,
     pub policy_frontier_digest: Hash,
     pub membership_frontier_digest: Hash,
     pub signature: PolicyCheckSignature,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
+    pub next_retry_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub obligations: Vec<Value>,
 }

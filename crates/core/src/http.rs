@@ -2130,12 +2130,16 @@ pub struct EventsSubmitOutcome {
     pub duplicate: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejected: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub quarantine: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub actor_frontier: Value,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub realm_frontier: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub original_outcome: Option<Box<EventsSubmitOutcome>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2370,6 +2374,8 @@ pub struct EventsQueryOutcome {
     pub prev_cursor: Option<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub has_more: bool,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub range_completeness: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2635,6 +2641,7 @@ pub struct DirectoryPrivateContactDiscoveryOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesUploadRequestBody {
+    pub principal_id: Did,
     pub device_id: DeviceId,
     #[serde(default)]
     pub key_packages: Vec<Value>,
@@ -2660,23 +2667,35 @@ pub struct KeyPackagesUploadOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesClaimRequestBody {
-    #[serde(default)]
-    pub claims: Vec<Value>,
+    pub target_principal_id: Did,
+    pub intended_realm_id: RealmId,
+    pub requester: Did,
+    pub required_capabilities: Vec<String>,
+    pub claim_nonce: String,
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub target_device_ids: Vec<DeviceId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub minimal_metadata_allowed: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub flow_id: Option<FlowId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proofs: Vec<Proof>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesClaimOutcome {
     #[serde(default)]
-    pub key_packages: Vec<Value>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub failures: Value,
+    pub claims: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub failures: Vec<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub available_count: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2838,7 +2857,7 @@ pub struct MimiGroupInfoOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiRequestConsentRequestBody {
-    pub requester: Did,
+    pub requester_id: Did,
     pub target: Value,
     pub purpose: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2872,7 +2891,7 @@ pub enum MimiConsentDecision {
 pub struct MimiUpdateConsentRequestBody {
     pub consent_id: String,
     pub decision: MimiConsentDecision,
-    pub actor: Did,
+    pub actor_id: Did,
     pub signature: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -2918,11 +2937,11 @@ pub struct MimiReportAbuseRequestBody {
     pub flow_id: FlowId,
     pub target_ref: String,
     pub reporter: Did,
-    pub reason: String,
+    pub abuse_reason_code: String,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub evidence_package: Value,
     #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub frank: Value,
+    pub franking_proof: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }
@@ -2958,6 +2977,10 @@ pub struct SessionGrantRequestBody {
     pub device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requested_scope: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_key_authorization_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub agent_scope_request: Value,
     pub proof: SessionGrantRequestProof,
 }
 
@@ -2993,6 +3016,8 @@ pub struct SessionGrantOutcome {
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub granted_scope: Vec<String>,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub scope_details: Value,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -3067,7 +3092,7 @@ pub struct AccountOidcCallbackOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub principal_id: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub session: Option<SessionGrantOutcome>,
+    pub recovery_session_state: Option<SessionGrantOutcome>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redirect_url: Option<String>,
 }
@@ -3236,10 +3261,13 @@ pub struct KeysBackupsGetOutcome(pub KeyBackup);
 #[cfg_attr(feature = "salvo", salvo(schema(value_type = GrantList)))]
 pub struct GrantListOutcome(pub GrantList);
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = OkOutcome)))]
-pub struct MimiReportAbuseOutcome(pub OkOutcome);
+pub struct MimiReportAbuseOutcome {
+    pub report_id: ReportId,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub routed_to: Vec<Did>,
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

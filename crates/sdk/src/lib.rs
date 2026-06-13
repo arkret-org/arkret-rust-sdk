@@ -405,9 +405,7 @@ pub use identity_link::{IdentityLinkCache, IdentityLinkCacheEntry};
     feature = "device-runtime",
     feature = "client"
 ))]
-pub use key_backup_client::{
-    KeyBackupClient, KeyBackupListOutcome, KeysBackupsDeleteOutcome, KeysBackupsPutOutcome,
-};
+pub use key_backup_client::KeyBackupClient;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use key_verification::{
     KeyVerificationAccept, KeyVerificationCancel, KeyVerificationDone, KeyVerificationFlow,
@@ -500,12 +498,12 @@ pub use store::{
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{
     AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
-    EventsQueryOrder, EventsQueryOutcome, EventsQueryRequestBody, EventsQuerySelector,
-    EventsSubscribeFrame, EventsSubscribeTransport, ExponentialBackoff, LocalEcho, ProcessedRealm,
-    RealmListChange, RealmListEntry, RealmListFilter, RealmListService, RealmListSnapshot,
-    RealmListSort, SendQueue, SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus,
-    SlidingSync, SlidingWindow, SyncGapStrategy, SyncLoop, SyncLoopControl, SyncLoopSnapshot,
-    SyncLoopStep, SyncResponseProcessor, SyncTransport,
+    EventsQueryOrder, EventsQueryRequestBody, EventsQuerySelector, EventsSubscribeFrame,
+    EventsSubscribeTransport, ExponentialBackoff, LocalEcho, ProcessedRealm, RealmListChange,
+    RealmListEntry, RealmListFilter, RealmListService, RealmListSnapshot, RealmListSort, SendQueue,
+    SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus, SlidingSync,
+    SlidingWindow, SyncGapStrategy, SyncLoop, SyncLoopControl, SyncLoopSnapshot, SyncLoopStep,
+    SyncResponseProcessor, SyncTransport,
 };
 #[cfg(all(feature = "full-surface", feature = "timeline-runtime"))]
 pub use timeline::{
