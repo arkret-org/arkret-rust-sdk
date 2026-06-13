@@ -27,6 +27,31 @@ fn directory_search_realms_request_uses_source_realm_id() {
 }
 
 #[test]
+fn session_login_outcome_uses_typed_wire_fields() {
+    let value = json!({
+        "access_token": "sx_token",
+        "token_type": "Bearer",
+        "actor": "did:web:alice.example",
+        "device_id": "ck:device:01964137-0000-7000-8000-000000000001",
+        "expires_at": "2026-04-28T12:00:00Z"
+    });
+    let outcome: SessionLoginOutcome = serde_json::from_value(value).unwrap();
+    assert_eq!(outcome.actor.as_str(), "did:web:alice.example");
+    assert_eq!(
+        outcome.device_id.as_str(),
+        "ck:device:01964137-0000-7000-8000-000000000001"
+    );
+
+    let serialized = serde_json::to_value(outcome).unwrap();
+    assert_eq!(serialized["token_type"], "Bearer");
+    assert_eq!(serialized["actor"], "did:web:alice.example");
+    assert_eq!(
+        serialized["device_id"],
+        "ck:device:01964137-0000-7000-8000-000000000001"
+    );
+}
+
+#[test]
 fn did_validation_rejects_handles() {
     assert!(Did::new("did:web:alice.example").is_ok());
     assert!(Did::new("alice.example").is_err());

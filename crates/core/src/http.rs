@@ -2986,6 +2986,17 @@ pub struct SessionGrantOutcome {
     pub granted_scope: Vec<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct SessionLoginOutcome {
+    pub access_token: String,
+    pub token_type: String,
+    pub actor: Did,
+    pub device_id: DeviceId,
+    pub expires_at: DateTime<Utc>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
