@@ -559,6 +559,71 @@ mod tests {
     }
 
     #[test]
+    fn sanitizer_resists_parsing_ambiguity_bypass_classes() {
+        // The sanitizer is allowlist-based: only allowlisted tags survive, all
+        // attributes except http(s) `href` and `code class="language-*"` are
+        // dropped, and every text run is `escape_html`'d. Output safety must
+        // therefore hold regardless of malformed/ambiguous input, since the
+        // emitted bytes (which are signed + conformance-pinned) can only ever
+        // contain allowlisted formatting tags + escaped text.
+        let vectors = [
+            // attribute-injection on allowlisted + non-allowlisted tags
+            r#"<img src=x onerror="alert(1)">"#,
+            r#"<p onclick="alert(1)" onmouseover=alert(2)>hi</p>"#,
+            // scheme tricks in href
+            r#"<a href="javascript:alert(1)">x</a>"#,
+            r#"<a href="data:text/html;base64,PHNjcmlwdD4=">x</a>"#,
+            r#"<a href="vbscript:msgbox(1)">x</a>"#,
+            // namespace-confusion tags a browser parser would treat specially
+            r#"<svg/onload=alert(1)>"#,
+            r#"<svg><script>alert(1)</script></svg>"#,
+            r#"<math><mtext><script>alert(1)</script></mtext></math>"#,
+            // case-insensitive dangerous blocks
+            r#"<SCRIPT>alert(1)</SCRIPT>"#,
+            r#"<ScRiPt>alert(1)</ScRiPt>"#,
+            // nested/malformed tag splitting
+            r#"<scr<script>ipt>alert(1)//<</script>"#,
+            r#"<<script>alert(1)</script>"#,
+            // unterminated tag (no closing '>')
+            r#"<img src=x onerror=alert(1)//"#,
+            // entity double-decoding must not re-introduce live markup
+            "&lt;script&gt;alert(1)&lt;/script&gt;",
+            "&amp;lt;script&amp;gt;",
+            // embedded frame/object
+            r#"<iframe src="javascript:alert(1)"></iframe>"#,
+            r#"<object data="x"></object>"#,
+        ];
+        for raw in vectors {
+            let out = sanitize_html(raw).unwrap();
+            let lower = out.to_ascii_lowercase();
+            // Live-markup leaks: a raw `<tag` only appears if a real tag was
+            // emitted (stray `<` in text is escaped to `&lt;`), so any
+            // dangerous tag name preceded by a literal `<` is a true leak.
+            // Attribute-name substrings (onerror, ...) inside `&lt;`-escaped
+            // text are inert and intentionally not flagged.
+            for needle in [
+                "<script", "<svg", "<math", "<img", "<iframe", "<object", "<style",
+            ] {
+                assert!(
+                    !lower.contains(needle),
+                    "sanitizer leaked live tag `{needle}` for input `{raw}` -> `{out}`"
+                );
+            }
+            // Dangerous URL schemes must never survive inside an emitted href
+            // (the sanitizer only re-emits http(s) hrefs).
+            for needle in ["href=\"javascript:", "href=\"data:", "href=\"vbscript:"] {
+                assert!(
+                    !lower.contains(needle),
+                    "sanitizer leaked scheme `{needle}` for input `{raw}` -> `{out}`"
+                );
+            }
+        }
+        // Allowlisted markup with a safe link is preserved verbatim.
+        let safe = sanitize_html(r#"<p>see <a href="https://example.com/x">x</a></p>"#).unwrap();
+        assert_eq!(safe, "<p>see <a href=\"https://example.com/x\">x</a></p>");
+    }
+
+    #[test]
     fn html_plaintext_fallback_decodes_entities() {
         let document = RichTextDocument::normalize(
             "<p>Hello &amp; welcome<br>@alice</p>",

@@ -256,7 +256,7 @@ impl VaultBinding {
         });
         let transcript_bytes =
             canonical_json_bytes(&transcript).map_err(|err| anyhow!("nonce transcript: {err}"))?;
-        let mut mac = <HmacSha256 as Mac>::new_from_slice(&nonce_key)
+        let mut mac = <HmacSha256 as hmac::digest::KeyInit>::new_from_slice(&nonce_key)
             .map_err(|err| anyhow!("nonce hmac key: {err}"))?;
         mac.update(&transcript_bytes);
         let tag = mac.finalize().into_bytes();
