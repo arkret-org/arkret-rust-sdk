@@ -7,6 +7,26 @@ fn test_realm_id() -> RealmId {
 }
 
 #[test]
+fn directory_search_realms_request_uses_source_realm_id() {
+    let source_realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
+    let request = DirectorySearchRealmsRequestBody {
+        query: Some("release".to_owned()),
+        organization_did: None,
+        source_realm_id: Some(source_realm_id.clone()),
+        requester: None,
+        proofs: Vec::new(),
+        cursor: None,
+        limit: Some(20),
+    };
+    let value = serde_json::to_value(&request).unwrap();
+    assert_eq!(value["source_realm_id"], source_realm_id.as_str());
+    assert!(value.get("parent_space_id").is_none());
+
+    let parsed: DirectorySearchRealmsRequestBody = serde_json::from_value(value).unwrap();
+    assert_eq!(parsed.source_realm_id, Some(source_realm_id));
+}
+
+#[test]
 fn did_validation_rejects_handles() {
     assert!(Did::new("did:web:alice.example").is_ok());
     assert!(Did::new("alice.example").is_err());
