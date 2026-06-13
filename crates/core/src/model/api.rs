@@ -1674,6 +1674,18 @@ pub struct RawQueryOutcome {
     pub stale: Option<bool>,
 }
 
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/view.schema.json#/$defs/view_projection_request_body`.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ViewProjectionRequestBody {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<Cursor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CollectionProjectionView {

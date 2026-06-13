@@ -1222,7 +1222,13 @@ pub type ProofSummary = Value;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/recovery_policy_ref`.
-pub type RecoveryPolicyRef = Value;
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryPolicyRef {
+    pub policy_id: PolicyId,
+    pub policy_version: u64,
+}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
@@ -1232,12 +1238,28 @@ pub type RecoverySessionCompleteOutcome = Value;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_complete_request_body`.
-pub type RecoverySessionCompleteRequestBody = Value;
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecoverySessionCompleteRequestBody {
+    pub authorization_event_id: EventId,
+    pub device_list_update_event_id: EventId,
+}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_create_request_body`.
-pub type RecoverySessionCreateRequestBody = Value;
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecoverySessionCreateRequestBody {
+    pub principal_id: Did,
+    pub requesting_device_id: DeviceId,
+    pub trust_domain: TypedTrustDomainId,
+    pub ssk_generation: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_recovery_policy_ref: Option<RecoveryPolicyRef>,
+}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
@@ -1247,7 +1269,13 @@ pub type RecoverySessionProofSubmitOutcome = Value;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_proof_submit_request_body`.
-pub type RecoverySessionProofSubmitRequestBody = Value;
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecoverySessionProofSubmitRequestBody {
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub proof: Value,
+}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/recovery_session_state`.

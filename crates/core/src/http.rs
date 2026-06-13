@@ -2973,6 +2973,27 @@ pub struct SessionGrantOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantIntrospectionProof {
+    pub challenge: String,
+    pub proof_jwt: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantExchangeRequestBody {
+    pub grant_jwt: String,
+    pub principal_id: Did,
+    pub device_id: DeviceId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub introspection_proof: Option<SessionGrantIntrospectionProof>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountDevicePairRequestBody {
     pub pairing_code: String,
     pub new_device_pubkey: Value,
