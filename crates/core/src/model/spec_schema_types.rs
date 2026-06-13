@@ -373,10 +373,6 @@ pub type SourceRefs = Vec<EventId>;
 /// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/subscription_id`.
 pub type SubscriptionId = String;
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/user_search_outcome`.
-pub type UserSearchOutcome = Value;
-
 /// Counterpart for `spec/v1/artifacts/schemas/disappearing-messages.schema.json`.
 pub type DisappearingMessages = Value;
 

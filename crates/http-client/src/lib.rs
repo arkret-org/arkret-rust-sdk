@@ -1255,9 +1255,11 @@ impl Client {
         limit: Option<u32>,
     ) -> Result<DirectoryUserSearchOutcome> {
         let request = DirectorySearchUsersRequestBody {
-            q: q.to_owned(),
+            query: q.to_owned(),
             realm_id: realm_id.map(str::parse).transpose()?,
+            cursor: None,
             limit,
+            intent: None,
         };
         self.post("/_cokret/find/directory/search-users", &request)
             .await

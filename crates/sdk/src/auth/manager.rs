@@ -913,7 +913,7 @@ impl AuthManager {
                     proof_kind: cokret_core::SessionGrantProofKind::DidBoundSignature,
                     challenge: challenge.to_owned(),
                     request_canonical_digest,
-                    audience: Some(audience.to_owned()),
+                    audience: audience.to_owned(),
                     expires_at: Some(expires_at),
                     signature: move_sig.jws,
                 },

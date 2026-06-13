@@ -2229,6 +2229,9 @@ pub struct ProjectionSpaceList {
     #[serde(default)]
     pub spaces: Vec<ProjectionSpaceRow>,
     pub total: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2286,6 +2289,9 @@ pub struct ProjectionFlowList {
     #[serde(default)]
     pub flows: Vec<ProjectionFlowRow>,
     pub total: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2314,6 +2320,9 @@ pub struct ProjectionMorphList {
     #[serde(default)]
     pub morphs: Vec<ProjectionMorphRow>,
     pub total: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -2897,9 +2906,10 @@ pub struct MimiIdentifierQueryRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiIdentifierQueryOutcome {
     #[serde(default)]
-    pub results: Vec<Value>,
+    pub matches: Vec<Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<Value>,
+    pub has_more: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2967,8 +2977,7 @@ pub struct SessionGrantRequestProof {
     pub proof_kind: SessionGrantProofKind,
     pub challenge: String,
     pub request_canonical_digest: Hash,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub audience: Option<String>,
+    pub audience: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     pub signature: String,

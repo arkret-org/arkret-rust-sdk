@@ -1594,7 +1594,7 @@ pub struct SearchOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SearchResultList {
-    pub results: Vec<SearchOutcome>,
+    pub matches: Vec<SearchOutcome>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1664,7 +1664,7 @@ pub struct SpaceHierarchyView {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RawQueryOutcome {
     pub projection: String,
-    pub results: Vec<Value>,
+    pub rows: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1834,6 +1834,23 @@ pub struct DocumentProjectionView {
     pub stale: Option<bool>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DocumentMorphProjectionOutcome {
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub document: Value,
+    #[serde(default)]
+    pub versions: Vec<Value>,
+    #[serde(default)]
+    pub relations: Vec<Value>,
+    #[serde(default)]
+    pub comments: Vec<Value>,
+    #[serde(default)]
+    pub cursor_presence: Vec<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frontier: Option<StateFrontier>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -1967,19 +1984,73 @@ pub struct DirectorySearchRealmsRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryRealmSearchOutcome {
     #[serde(default)]
-    pub results: Vec<RealmPreview>,
+    pub realms: Vec<RealmPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
+    pub has_more: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum RealmMemberCountBucketLabel {
+    #[serde(rename = "1-10")]
+    OneToTen,
+    #[serde(rename = "11-50")]
+    ElevenToFifty,
+    #[serde(rename = "51-100")]
+    FiftyOneToOneHundred,
+    #[serde(rename = "101-500")]
+    OneHundredOneToFiveHundred,
+    #[serde(rename = "501-2000")]
+    FiveHundredOneToTwoThousand,
+    #[serde(rename = "2000+")]
+    TwoThousandPlus,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(untagged)]
+pub enum RealmMemberCountBucket {
+    Bucket(RealmMemberCountBucketLabel),
+    Exact(u64),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RealmPreview {
     pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub preview: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub organization_did: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub join_rule: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_count_bucket: Option<RealmMemberCountBucket>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub owning_organizations: Vec<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub discoverability: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub history_visibility: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub join_candidates: Vec<RealmJoinCandidate>,
+    pub as_of: DateTime<Utc>,
+    #[serde(default)]
+    pub source_refs: Vec<String>,
+    pub policy_revision: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stale: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub divergent: Option<bool>,
 }
 
 /// Service class that can receive Realm join-side submissions.
@@ -2168,9 +2239,10 @@ pub struct DirectorySearchOrganizationsRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryOrganizationSearchOutcome {
     #[serde(default)]
-    pub results: Vec<OrganizationPreview>,
+    pub organizations: Vec<OrganizationPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
+    pub has_more: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2223,9 +2295,10 @@ pub struct DirectorySearchActorsRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryActorSearchOutcome {
     #[serde(default)]
-    pub results: Vec<ActorPreview>,
+    pub actors: Vec<ActorPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
+    pub has_more: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2241,18 +2314,54 @@ pub struct ActorPreview {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchUsersRequestBody {
-    pub q: String,
+    pub query: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intent: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum UserSearchMembership {
+    Joined,
+    Invited,
+    Knocked,
+    Left,
+    Unknown,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct UserSearchOutcome {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handle: Option<String>,
+    pub did: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub membership: Option<UserSearchMembership>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_delivery_binding: Option<DeliveryBindingHint>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryUserSearchOutcome {
     #[serde(default)]
-    pub results: Vec<ActorPreview>,
+    pub users: Vec<UserSearchOutcome>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2701,6 +2810,12 @@ pub struct PushUnregisterDeviceRequestBody {
     pub push_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub app_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PushUnregisterDeviceOutcome {
+    pub ok: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -3462,6 +3577,12 @@ pub struct KeysBackupsDeleteOutcome {
     pub deleted: bool,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeysBackupsUnlockRequestBody {
+    pub proof: KeyBackupUnlockProof,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -4066,5 +4187,44 @@ mod tests {
                 "{value} must not be a key-backup recipient_method"
             );
         }
+    }
+
+    #[test]
+    fn directory_realm_search_outcome_decodes_typed_preview_fields() {
+        let value = serde_json::json!({
+            "realms": [
+                {
+                    "realm_id": "ck:realm:01904100-0000-7000-8000-000000000001",
+                    "title": "Public Realm",
+                    "member_count_bucket": "51-100",
+                    "as_of": "2026-06-13T00:00:00Z",
+                    "source_refs": ["ck:event:01904100-0000-7000-8000-000000000002"],
+                    "policy_revision": "rev-1"
+                },
+                {
+                    "realm_id": "ck:realm:01904100-0000-7000-8000-000000000003",
+                    "member_count_bucket": 342,
+                    "as_of": "2026-06-13T00:00:00Z",
+                    "source_refs": ["ck:event:01904100-0000-7000-8000-000000000004"],
+                    "policy_revision": "rev-2"
+                }
+            ],
+            "next_cursor": null,
+            "has_more": false
+        });
+
+        let outcome: DirectoryRealmSearchOutcome = serde_json::from_value(value).unwrap();
+
+        assert!(!outcome.has_more);
+        assert!(matches!(
+            outcome.realms[0].member_count_bucket,
+            Some(RealmMemberCountBucket::Bucket(
+                RealmMemberCountBucketLabel::FiftyOneToOneHundred
+            ))
+        ));
+        assert!(matches!(
+            outcome.realms[1].member_count_bucket,
+            Some(RealmMemberCountBucket::Exact(342))
+        ));
     }
 }
