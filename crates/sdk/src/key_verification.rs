@@ -73,16 +73,20 @@ pub struct EphemeralX25519Keypair {
 }
 
 impl EphemeralX25519Keypair {
-    /// Generate a fresh keypair using `getrandom` via x25519-dalek's
-    /// `StaticSecret::random_from_rng` against `OsRng`. The keypair is
-    /// scoped to a single SAS verification round and MUST NOT be
-    /// reused across flows.
-    pub fn generate() -> Self {
+    /// Generate a fresh keypair from OS randomness via `getrandom`. The
+    /// keypair is scoped to a single SAS verification round and MUST NOT
+    /// be reused across flows.
+    ///
+    /// Returns `Err(Error::Crypto(..))` when the OS RNG is unavailable
+    /// (early boot, restricted sandbox, seccomp-blocked `getrandom`),
+    /// matching the fallible error-propagation used by every other RNG
+    /// site in the SDK rather than panicking.
+    pub fn generate() -> Result<Self> {
         let mut seed = [0u8; 32];
-        getrandom::fill(&mut seed).expect("system rng");
+        getrandom::fill(&mut seed).map_err(|error| Error::Crypto(error.to_string()))?;
         let secret = StaticSecret::from(seed);
         let public = X25519PublicKey::from(&secret);
-        Self { secret, public }
+        Ok(Self { secret, public })
     }
 
     /// Base64 (no-pad) encoding of the public key — the on-the-wire
@@ -559,7 +563,7 @@ impl KeyVerificationFlow {
 
     /// Install this side's ephemeral X25519 keypair. Builder-style so
     /// call sites stay readable:
-    /// `KeyVerificationFlow::new().with_ephemeral_key(EphemeralX25519Keypair::generate())`.
+    /// `KeyVerificationFlow::new().with_ephemeral_key(EphemeralX25519Keypair::generate()?)`.
     /// MUST be called before the first `on_key` step or
     /// [`Self::compute_sas`] will refuse with `Error::Protocol`.
     pub fn with_ephemeral_key(mut self, key: EphemeralX25519Keypair) -> Self {
@@ -1100,8 +1104,8 @@ mod tests {
     /// protocol's core invariant.
     #[test]
     fn ephemeral_x25519_keypair_yields_symmetric_shared_secret() {
-        let alice = EphemeralX25519Keypair::generate();
-        let bob = EphemeralX25519Keypair::generate();
+        let alice = EphemeralX25519Keypair::generate().unwrap();
+        let bob = EphemeralX25519Keypair::generate().unwrap();
         let alice_to_bob = alice
             .compute_shared_secret(&bob.public_base64())
             .expect("compute alice -> bob");
@@ -1118,8 +1122,8 @@ mod tests {
     /// per-party device ids).
     #[test]
     fn sas_derived_from_ecdh_shared_secret_matches_on_both_sides() {
-        let alice = EphemeralX25519Keypair::generate();
-        let bob = EphemeralX25519Keypair::generate();
+        let alice = EphemeralX25519Keypair::generate().unwrap();
+        let bob = EphemeralX25519Keypair::generate().unwrap();
         let alice_shared = alice
             .compute_shared_secret(&bob.public_base64())
             .expect("alice shared");
@@ -1149,8 +1153,8 @@ mod tests {
         let bob_dev = dev("bob-dev");
         let txn = "txn-flow-7";
 
-        let alice_kp = EphemeralX25519Keypair::generate();
-        let bob_kp = EphemeralX25519Keypair::generate();
+        let alice_kp = EphemeralX25519Keypair::generate().unwrap();
+        let bob_kp = EphemeralX25519Keypair::generate().unwrap();
         let alice_public_b64 = alice_kp.public_base64();
         let bob_public_b64 = bob_kp.public_base64();
 
@@ -1237,8 +1241,8 @@ mod tests {
             .expect_err("no keypair installed");
         assert!(format!("{err}").contains("ephemeral keypair"));
 
-        let flow =
-            KeyVerificationFlow::new().with_ephemeral_key(EphemeralX25519Keypair::generate());
+        let flow = KeyVerificationFlow::new()
+            .with_ephemeral_key(EphemeralX25519Keypair::generate().unwrap());
         let err = flow
             .compute_sas(&alice_dev, b"info")
             .expect_err("no peer key received");
@@ -1247,7 +1251,7 @@ mod tests {
 
     #[test]
     fn compute_shared_secret_rejects_malformed_peer_public_key() {
-        let alice = EphemeralX25519Keypair::generate();
+        let alice = EphemeralX25519Keypair::generate().unwrap();
         // base64 of 31 bytes — wrong length.
         let too_short = STANDARD_NO_PAD.encode(&[0u8; 31][..]);
         let err = alice
@@ -1343,8 +1347,8 @@ mod tests {
     /// start -> accept -> key/key with a real commitment, ending in
     /// `KeysExchanged`. Returns the flow plus bob's public key.
     fn flow_at_keys_exchanged(txn: &str) -> (KeyVerificationFlow, String) {
-        let alice_kp = EphemeralX25519Keypair::generate();
-        let bob_kp = EphemeralX25519Keypair::generate();
+        let alice_kp = EphemeralX25519Keypair::generate().unwrap();
+        let bob_kp = EphemeralX25519Keypair::generate().unwrap();
         let alice_pub = alice_kp.public_base64();
         let bob_pub = bob_kp.public_base64();
         let start_msg = start(txn);
@@ -1396,7 +1400,7 @@ mod tests {
         flow.on_accept(&accept(txn)).unwrap();
         flow.on_key(&key(txn, &did("alice"), &dev("alice_phone"), "AKEY"))
             .unwrap();
-        let bob_kp = EphemeralX25519Keypair::generate();
+        let bob_kp = EphemeralX25519Keypair::generate().unwrap();
         let err = flow
             .on_key(&key(
                 txn,

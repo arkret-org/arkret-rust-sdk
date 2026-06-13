@@ -3487,8 +3487,8 @@ pub struct DeviceMessagesAckOutcome {
 
 // ── Spec-aligned canonical types added in 2026-05 alignment pass ───────────
 //
-// These types fill gaps identified in `_todos.md` between the Rust SDK
-// surface and `cokret-spec/spec/v1/zh/` v1-core-rc.
+// These types fill gaps between the Rust SDK surface and
+// `cokret-spec/spec/v1/zh/` v1-core.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

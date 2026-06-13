@@ -869,6 +869,30 @@ fn read_embedded_json_artifact(path: &str) -> Result<Value> {
         .ok_or_else(|| Error::Protocol(format!("embedded spec artifact {path} is missing")))
 }
 
+/// The set of `reason_code` strings declared in the embedded
+/// `error-code-registry.json` snapshot.
+///
+/// Exposed so [`crate::error`]'s regression tests can cross-assert that the
+/// hand-maintained `REASON_*` constants stay in sync with the embedded
+/// registry snapshot (guards against the manual-mirror drift fixed alongside
+/// `federation_trust_domain_mismatch` / `invalid_ack_token`).
+pub fn embedded_error_code_reason_codes() -> Result<BTreeSet<String>> {
+    let registry = read_embedded_json_artifact("registry/error-code-registry.json")?;
+    let codes = registry
+        .get("reason_codes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            Error::Protocol(
+                "embedded error-code-registry.json missing reason_codes array".to_owned(),
+            )
+        })?;
+    Ok(codes
+        .iter()
+        .filter_map(|entry| entry.get("code").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect())
+}
+
 fn missing_registry_values(
     registry: &Value,
     array_field: &str,

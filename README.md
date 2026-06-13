@@ -47,8 +47,7 @@ cokret = { path = "crates/sdk" }
 The workspace is split into focused crates and the top-level `cokret` crate
 re-exports the public SDK surface:
 
-- `cokret-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types and service metadata
-- `cokret-contracts`: shared wire-contract DTOs for product-local client APIs, identity, federation and push gateway integration
+- `cokret-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types, service metadata and the shared wire-contract DTOs (identity, federation and push gateway integration)
 - `cokret-crypto`: local encryption, backup and key-management helpers
 - `cokret-ffi`: C ABI surface for core identifiers, canonical helpers and runtime bridges
 - `cokret-html`: rich-text sanitization helpers and conformance fixtures
@@ -146,7 +145,7 @@ The first Cokret crate currently includes:
 - in-memory persistence helpers for event cache, verified state snapshots and account-local records
 - Server description and profile version checks
 - HTTP client methods for the Cokret v1 service HTTP binding, including request metadata, retry/backoff and `Retry-After` handling
-- shared contract DTOs exposed through `cokret-contracts` and re-exported from the umbrella SDK as `cokret::api`, `cokret::client_api`, `cokret::identity_api`, `cokret::federation_api` and `cokret::push_gateway_api`
+- shared contract DTOs that live in `cokret-core` and are re-exported from the umbrella SDK as `cokret::api`, `cokret::identity_api`, `cokret::federation_api` and `cokret::push_gateway_api` (product-local client DTOs live in the SDK's own `cokret::client_api`)
 - framework-independent server handler contracts, endpoint fixture coverage and Salvo OAPI DTO support through `cokret-core`
 - high-level sync loop, membership, devices, receipts, notifications, content,
   media, profile/settings, discovery, E2EE, auth/identity, federation, push,

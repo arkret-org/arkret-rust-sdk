@@ -7,9 +7,10 @@ as `membership`, `devices`, `receipts`, `notifications`, `content`, `media`,
 `profile`, `settings`, `search`, `discovery`, `e2ee`, `auth`, `identity`,
 `federation`, `push`, `typing`, `webrtc` and `store`.
 
-Shared product and service DTOs live in `cokret-contracts` and are re-exported
+Shared product and service DTOs live in `cokret-core` and are re-exported
 from the umbrella crate as `cokret::api`, with narrower facades for
-`client_api`, `identity_api`, `federation_api` and `push_gateway_api`.
+`identity_api`, `federation_api` and `push_gateway_api`. Product-local client
+DTOs live in the SDK's own `cokret::client_api`.
 
 Most fallible APIs return `cokret::Result<T>`, whose error type is
 `cokret::Error`.

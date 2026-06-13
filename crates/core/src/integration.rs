@@ -40,10 +40,6 @@ impl IntegrationDescribeOutcome {
     }
 }
 
-/// Compatibility alias for services/docs that call this an integration
-/// manifest rather than a describe response.
-pub type IntegrationManifest = IntegrationDescribeOutcome;
-
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IntegrationDependencyDescriptor {

@@ -128,12 +128,6 @@ impl Cursor {
     /// §8.3 rule 5/12 clock-skew tolerance for `t`/`x` future checks.
     pub const CLOCK_SKEW_TOLERANCE_MS: i64 = 5 * 60 * 1000;
 
-    /// SDK-local placeholder constants retained for profile-specific
-    /// stateless cursor tests. v1 core emits stateful `h` handles by default.
-    pub const DEV_TEST_MAC: &'static str =
-        "hmac-sha256:0000000000000000000000000000000000000000000000000000000000000000";
-    pub const DEV_TEST_ISSUER_KID: &'static str = "cokret-sdk-dev#cursor";
-
     /// Create a new cursor with current timestamp and default expiration.
     pub fn new() -> Result<Self> {
         let now = chrono::Utc::now();
@@ -209,20 +203,24 @@ impl Cursor {
     }
 
     /// Replace the stateless integrity MAC on this cursor.
+    ///
+    /// The caller MUST set [`Self::with_issuer_kid`] for the cursor to be a
+    /// valid stateless wire form; this builder no longer injects a dev
+    /// placeholder issuer kid.
     pub fn with_mac(mut self, mac: impl Into<String>) -> Self {
         self.h = None;
-        self.issuer_kid
-            .get_or_insert_with(|| Self::DEV_TEST_ISSUER_KID.to_owned());
         self.mac = Some(mac.into());
         self.sig = None;
         self
     }
 
     /// Replace the stateless integrity signature on this cursor.
+    ///
+    /// The caller MUST set [`Self::with_issuer_kid`] for the cursor to be a
+    /// valid stateless wire form; this builder no longer injects a dev
+    /// placeholder issuer kid.
     pub fn with_signature(mut self, signature: impl Into<String>) -> Self {
         self.h = None;
-        self.issuer_kid
-            .get_or_insert_with(|| Self::DEV_TEST_ISSUER_KID.to_owned());
         self.mac = None;
         self.sig = Some(signature.into());
         self

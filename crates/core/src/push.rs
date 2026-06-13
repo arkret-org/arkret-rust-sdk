@@ -481,9 +481,6 @@ pub type PushGatewayIntegrationDescribeOutcome = crate::integration::Integration
 /// Compatibility alias for a generic integration dependency descriptor.
 pub type PushGatewayIntegrationDependency = crate::integration::IntegrationDependencyDescriptor;
 
-/// Compatibility alias for a generic integration surface descriptor.
-pub type PushGatewayIntegrationSurface = crate::integration::IntegrationSurfaceDescriptor;
-
 /// Combined view of a push gateway's high-level integration manifest plus its
 /// active bridge contract.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

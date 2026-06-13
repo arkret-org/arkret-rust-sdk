@@ -68,16 +68,6 @@ impl From<CryptoError> for Error {
     }
 }
 
-/// Common validation entry-point implemented by every crypto-machine
-/// payload that has structural invariants beyond what `serde` can
-/// enforce. Round 2 — introduced as a typed counterpart to the ad-hoc
-/// inherent `validate()` methods so callers can dispatch generically.
-pub trait Validate {
-    /// Round-trippable validation. Returns the first failure as a typed
-    /// [`CryptoError`].
-    fn validate(&self) -> std::result::Result<(), CryptoError>;
-}
-
 /// Discriminator for the request variants the crypto-machine plan
 /// queue dispatches on. One variant per `CryptoMachineRequestBody` arm.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -873,6 +863,17 @@ pub struct WithheldKeyRecord {
     pub received_at: DateTime<Utc>,
 }
 
+impl WithheldKeyRecord {
+    /// Validate the structural invariants beyond what `serde` enforces.
+    pub fn validate(&self) -> Result<()> {
+        validate_nonempty_key("withheld session id", &self.session_id)?;
+        validate_max_length("withheld session id", &self.session_id, MAX_IDENTIFIER_LEN)?;
+        validate_nonempty_key("withheld code", &self.code)?;
+        validate_max_length("withheld code", &self.code, MAX_IDENTIFIER_LEN)?;
+        Ok(())
+    }
+}
+
 /// Inbound device-to-device secret-gossip request body.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SecretGossipRequestBody {
@@ -1029,6 +1030,16 @@ pub struct KeyLifecycleEvent {
     pub occurred_at: DateTime<Utc>,
     /// Free-form reason / context string.
     pub reason: String,
+}
+
+impl KeyLifecycleEvent {
+    /// Validate the structural invariants beyond what `serde` enforces.
+    pub fn validate(&self) -> Result<()> {
+        validate_nonempty_key("key lifecycle key_ref", &self.key_ref)?;
+        validate_max_length("key lifecycle key_ref", &self.key_ref, MAX_IDENTIFIER_LEN)?;
+        validate_max_length("key lifecycle reason", &self.reason, MAX_REASON_LEN)?;
+        Ok(())
+    }
 }
 
 /// Decryption metadata bound to an encrypted media blob.
@@ -1330,106 +1341,6 @@ pub(crate) fn session_key(realm_id: &RealmId, session_id: &str) -> String {
     format!("{}|{}", realm_id.as_str(), session_id)
 }
 
-// ── Round-2 typed `Validate` trait impls ────────────────────────────────
-//
-// These implementations mirror the existing inherent `validate()`
-// methods (when present) but return the typed `CryptoError` instead of
-// `cokret_core::Error::Protocol`. The inherent methods stay for
-// backward compatibility; new call sites should prefer the trait form
-// (`<T as Validate>::validate(&value)`).
-
-impl Validate for DeviceVerificationFlow {
-    fn validate(&self) -> std::result::Result<(), CryptoError> {
-        if self.transaction_id.trim().is_empty() {
-            return Err(CryptoError::Validation(
-                "verification transaction id must not be empty".to_owned(),
-            ));
-        }
-        if self.transaction_id.len() > MAX_IDENTIFIER_LEN {
-            return Err(CryptoError::BoundsExceeded {
-                field: "verification transaction id".to_owned(),
-                limit: MAX_IDENTIFIER_LEN,
-            });
-        }
-        if self.from_device == self.to_device {
-            return Err(CryptoError::Validation(
-                "verification requires two distinct devices".to_owned(),
-            ));
-        }
-        if self.methods.len() > MAX_VERIFICATION_METHODS {
-            return Err(CryptoError::BoundsExceeded {
-                field: "verification methods".to_owned(),
-                limit: MAX_VERIFICATION_METHODS,
-            });
-        }
-        for method in &self.methods {
-            if method.trim().is_empty() {
-                return Err(CryptoError::Validation(
-                    "verification method must not be empty".to_owned(),
-                ));
-            }
-            if method.len() > MAX_IDENTIFIER_LEN {
-                return Err(CryptoError::BoundsExceeded {
-                    field: "verification method".to_owned(),
-                    limit: MAX_IDENTIFIER_LEN,
-                });
-            }
-        }
-        Ok(())
-    }
-}
-
-impl Validate for WithheldKeyRecord {
-    fn validate(&self) -> std::result::Result<(), CryptoError> {
-        if self.session_id.trim().is_empty() {
-            return Err(CryptoError::Validation(
-                "withheld key record requires session id".to_owned(),
-            ));
-        }
-        if self.session_id.len() > MAX_IDENTIFIER_LEN {
-            return Err(CryptoError::BoundsExceeded {
-                field: "withheld session id".to_owned(),
-                limit: MAX_IDENTIFIER_LEN,
-            });
-        }
-        if self.code.trim().is_empty() {
-            return Err(CryptoError::Validation(
-                "withheld key record requires wire code".to_owned(),
-            ));
-        }
-        if self.code.len() > MAX_IDENTIFIER_LEN {
-            return Err(CryptoError::BoundsExceeded {
-                field: "withheld code".to_owned(),
-                limit: MAX_IDENTIFIER_LEN,
-            });
-        }
-        Ok(())
-    }
-}
-
-impl Validate for KeyLifecycleEvent {
-    fn validate(&self) -> std::result::Result<(), CryptoError> {
-        if self.key_ref.trim().is_empty() {
-            return Err(CryptoError::Validation(
-                "key lifecycle event requires key_ref".to_owned(),
-            ));
-        }
-        if self.key_ref.len() > MAX_IDENTIFIER_LEN {
-            return Err(CryptoError::BoundsExceeded {
-                field: "key lifecycle key_ref".to_owned(),
-                limit: MAX_IDENTIFIER_LEN,
-            });
-        }
-        if self.reason.len() > MAX_REASON_LEN {
-            return Err(CryptoError::BoundsExceeded {
-                field: "key lifecycle reason".to_owned(),
-                limit: MAX_REASON_LEN,
-            });
-        }
-        Ok(())
-    }
-}
-
 pub(crate) fn sha256_prefixed(bytes: &[u8]) -> String {
     format!("sha256:{}", base16_lower(&Sha256::digest(bytes)))
 }
@@ -1614,10 +1525,17 @@ mod tests {
         ));
     }
 
-    // ── Round-2 typed Validate trait coverage ───────────────────────
+    // ── Inherent validate() coverage ────────────────────────────────
+
+    fn protocol_message(err: Error) -> String {
+        match err {
+            Error::Protocol(message) => message,
+            other => panic!("expected Error::Protocol, got {other:?}"),
+        }
+    }
 
     #[test]
-    fn typed_validate_rejects_invalid_device_verification_flow() {
+    fn validate_rejects_invalid_device_verification_flow() {
         let mut flow = DeviceVerificationFlow {
             transaction_id: String::new(),
             user_id: did("alice"),
@@ -1630,33 +1548,25 @@ mod tests {
         };
 
         // Empty transaction id.
-        assert!(matches!(
-            <DeviceVerificationFlow as Validate>::validate(&flow),
-            Err(CryptoError::Validation(_))
-        ));
+        assert!(flow.validate().is_err());
 
         // Same device on both sides.
         flow.transaction_id = "tx".to_owned();
         flow.to_device = flow.from_device.clone();
-        assert!(matches!(
-            <DeviceVerificationFlow as Validate>::validate(&flow),
-            Err(CryptoError::Validation(_))
-        ));
+        let message = protocol_message(flow.validate().unwrap_err());
+        assert!(message.contains("two distinct devices"), "{message}");
 
-        // Too many methods → BoundsExceeded.
+        // Too many methods → bounds error.
         flow.to_device = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000002").unwrap();
         flow.methods = (0..(MAX_VERIFICATION_METHODS + 1))
             .map(|i| format!("m{i}"))
             .collect();
-        let err = <DeviceVerificationFlow as Validate>::validate(&flow).unwrap_err();
-        assert!(
-            matches!(err, CryptoError::BoundsExceeded { ref field, limit }
-            if field == "verification methods" && limit == MAX_VERIFICATION_METHODS)
-        );
+        let message = protocol_message(flow.validate().unwrap_err());
+        assert!(message.contains("verification methods"), "{message}");
     }
 
     #[test]
-    fn typed_validate_rejects_invalid_withheld_key_record() {
+    fn validate_rejects_invalid_withheld_key_record() {
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         let mut record = WithheldKeyRecord {
             realm_id,
@@ -1666,26 +1576,19 @@ mod tests {
             reason: UnableToDecryptReason::Withheld,
             received_at: Utc::now(),
         };
-        assert!(matches!(
-            <WithheldKeyRecord as Validate>::validate(&record),
-            Err(CryptoError::Validation(_))
-        ));
+        assert!(record.validate().is_err());
 
         record.session_id = "sess1".to_owned();
         record.code = String::new();
-        assert!(matches!(
-            <WithheldKeyRecord as Validate>::validate(&record),
-            Err(CryptoError::Validation(_))
-        ));
+        assert!(record.validate().is_err());
 
         record.code = "x".repeat(MAX_IDENTIFIER_LEN + 1);
-        let err = <WithheldKeyRecord as Validate>::validate(&record).unwrap_err();
-        assert!(matches!(err, CryptoError::BoundsExceeded { ref field, .. }
-            if field == "withheld code"));
+        let message = protocol_message(record.validate().unwrap_err());
+        assert!(message.contains("withheld code"), "{message}");
     }
 
     #[test]
-    fn typed_validate_rejects_invalid_key_lifecycle_event() {
+    fn validate_rejects_invalid_key_lifecycle_event() {
         let mut ev = KeyLifecycleEvent {
             key_ref: String::new(),
             phase: KeyLifecyclePhase::Created,
@@ -1694,16 +1597,12 @@ mod tests {
             occurred_at: Utc::now(),
             reason: "init".to_owned(),
         };
-        assert!(matches!(
-            <KeyLifecycleEvent as Validate>::validate(&ev),
-            Err(CryptoError::Validation(_))
-        ));
+        assert!(ev.validate().is_err());
 
         ev.key_ref = "kid".to_owned();
         ev.reason = "r".repeat(MAX_REASON_LEN + 1);
-        let err = <KeyLifecycleEvent as Validate>::validate(&ev).unwrap_err();
-        assert!(matches!(err, CryptoError::BoundsExceeded { ref field, .. }
-            if field == "key lifecycle reason"));
+        let message = protocol_message(ev.validate().unwrap_err());
+        assert!(message.contains("key lifecycle reason"), "{message}");
     }
 
     #[test]

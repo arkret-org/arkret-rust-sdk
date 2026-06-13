@@ -371,7 +371,7 @@ impl AccountStatus {
 /// Service implementation profile IDs surfaced by discovery / requirements.
 pub const PROFILE_DIRECTORY_SERVICE: &str = "ck.profile.directory_service.v1";
 
-/// Audit assurance class (encryption-and-audit.md §3.1; spec _todos A1–A9).
+/// Audit assurance class (encryption-and-audit.md §3.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -380,7 +380,7 @@ pub enum AuditAssurance {
     DisclosedPolicy,
 }
 
-/// Profile id constants for audit profiles (spec _todos A1).
+/// Profile id constants for audit profiles (encryption-and-audit.md §3.1).
 pub const PROFILE_ATTESTED_AUDIT_E2EE: &str = "ck.profile.attested_audit.e2ee.v1";
 pub const PROFILE_DISCLOSED_AUDIT_E2EE: &str = "ck.profile.disclosed_audit.e2ee.v1";
 
@@ -441,7 +441,7 @@ impl AuditAssurance {
     }
 
     /// Words that MUST NOT appear in user-facing materials in disclosed
-    /// audit mode (spec _todos A7).
+    /// audit mode (encryption-and-audit.md §3.1).
     pub fn forbidden_marketing_terms(self) -> &'static [&'static str] {
         match self {
             AuditAssurance::AttestedHardware => &[],
@@ -502,7 +502,7 @@ pub struct RywFrontier {
 }
 
 /// `ck.audit.ryw_receipt` event payload
-/// (`audit-ryw-receipt.schema.json`, spec _todos A10).
+/// (`audit-ryw-receipt.schema.json`).
 ///
 /// Issued by an Events API node, witness, or peer Principal Server to
 /// confirm a `ck.audit.accessed` envelope reached `accepted`. The Audit
@@ -875,7 +875,7 @@ impl BackupClass {
     }
 }
 
-/// Constraint evaluation class (constraint-schema.md §2.1, spec _todos B4).
+/// Constraint evaluation class (constraint-schema.md §2.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]

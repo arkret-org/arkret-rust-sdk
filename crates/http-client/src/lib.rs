@@ -593,13 +593,36 @@ impl ClientBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Client> {
+    // `mut self` is only used by the native redirect-hardening block below;
+    // on wasm32 the browser owns redirect/header-stripping so the binding is
+    // intentionally unused there.
+    #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
+    pub fn build(mut self) -> Result<Client> {
         validate_base_url(&self.base_url, self.allow_insecure_localhost)?;
         if let Some(auth) = &self.auth {
             validate_auth(auth)?;
         }
         if let Some(user_agent) = &self.user_agent {
             validate_header_value("user agent", user_agent)?;
+        }
+        // DeviceProof / ServiceSignature credentials ride in custom headers
+        // (`X-Cokret-Device-Proof`, `Signature` / `X-Cokret-Service-Signature`)
+        // that reqwest does NOT strip across a cross-host redirect (its
+        // sensitive-header allowlist only covers `Authorization` / `Cookie` /
+        // `Proxy-Authorization`). Following a 3xx to an attacker-controlled
+        // host would replay these device / service credentials to a third
+        // party. Default such clients to never follow redirects unless the
+        // caller explicitly chose a policy (Bearer is safe — reqwest strips
+        // `Authorization` itself — so it keeps reqwest's default).
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.http.is_none()
+            && self.transport.redirect.is_none()
+            && matches!(
+                self.auth,
+                Some(Auth::DeviceProof(_)) | Some(Auth::ServiceSignature(_))
+            )
+        {
+            self.transport.redirect = Some(RedirectPolicy::None);
         }
         // Pre-built clients own their transport configuration end to end;
         // the per-request default timeout only kicks in when this builder
@@ -842,7 +865,15 @@ impl Client {
             .bytes_stream()
             .map(|chunk| chunk.map_err(std::io::Error::other));
         let reader = StreamReader::new(byte_stream);
-        let lines = FramedRead::new(reader, LinesCodec::new());
+        // Bound the per-line buffer so a hostile / misbehaving server that
+        // never emits a newline can't drive unbounded memory growth (DoS).
+        // Matches `account_subscribe_once`'s 8 MiB cap; over-limit lines
+        // surface as `LinesCodecError::MaxLineLengthExceeded`, mapped to
+        // `Error::Protocol` in the `Err` arm below.
+        let lines = FramedRead::new(
+            reader,
+            LinesCodec::new_with_max_length(MAX_SUBSCRIBE_FRAME_BYTES),
+        );
         let stream = lines.filter_map(|line_res| async move {
             match line_res {
                 Ok(line) => match AccountSubscribeFrame::from_ndjson_line(&line) {

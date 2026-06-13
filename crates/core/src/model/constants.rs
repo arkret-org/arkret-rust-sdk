@@ -130,7 +130,7 @@ pub const CAP_ACTION_AGENT_SIDECAR_THREAD_WRITE: &str = "ck.agent.sidecar_thread
 pub const CAP_ACTION_AGENT_SIDECAR_THREAD_PUBLISH: &str = "ck.agent.sidecar_thread.publish";
 
 /// CKP-0008 / CKP-0009 — full capability-action list (11 base + 3 aggregate
-/// = 14 entries per `_before_todos.md` §1.4).
+/// = 14 entries per `capability-action-registry.json`).
 pub const AGENT_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_AGENT_PROVISION,
     CAP_ACTION_AGENT_PAUSE,

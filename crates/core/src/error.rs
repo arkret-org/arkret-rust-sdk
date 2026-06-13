@@ -4,7 +4,7 @@ use crate::model::ErrorEnvelope;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-// ── Canonical error codes (mirror of `error-code-registry.json` v2026-05-27) ─
+// ── Canonical error codes (mirror of `error-code-registry.json` v2026-05-23) ─
 //
 // Use these constants when populating `ErrorEnvelope.code` so the wire form
 // stays in sync with the canonical registry. `error_code_http_status` returns
@@ -812,6 +812,21 @@ pub const REASON_CONTACT_NOT_ACCEPTED: &str = "contact_not_accepted";
 pub const REASON_CONTACT_CONSENT_MISSING: &str = "contact_consent_missing";
 pub const KNOWN_REASON_CODES_CONTACT_DIRECT_CONVERSATION: &[&str] =
     &[REASON_CONTACT_NOT_ACCEPTED, REASON_CONTACT_CONSENT_MISSING];
+
+// ── Federation / to-device reason codes (error-code-registry.json#reason_codes).
+
+/// `federation_transaction` / `service_call` audit-only reason:
+/// `Destination-Trust-Domain` does not equal the receiver deployment's
+/// `ServiceDescribe.trust_domain`, or does not match the receiving Realm's
+/// `trust_domain` (zh/sync/federation.md §3.2). The wire response MUST be the
+/// unified minimal-disclosure authentication failure envelope.
+pub const REASON_FEDERATION_TRUST_DOMAIN_MISMATCH: &str = "federation_trust_domain_mismatch";
+/// `service_call` reason carried under `invalid_param`: a to-device message
+/// ack carried an ack token that does not correspond to a delivered to-device
+/// cursor (unknown, malformed, or already-superseded). See
+/// zh/sync/client-sync.md §10.1 and zh/sync/service-http-binding.md
+/// device_messages/ack.
+pub const REASON_INVALID_ACK_TOKEN: &str = "invalid_ack_token";
 
 /// Return `true` when `code` is a registered canonical error code.
 pub fn is_known_error_code(code: &str) -> bool {
@@ -1790,6 +1805,45 @@ mod tests {
                 (100..=599).contains(&status),
                 "ErrorCode::{:?} returned status {status}",
                 code,
+            );
+        }
+    }
+
+    /// Guard against the manual-mirror drift fixed in SDK-01-001: every
+    /// hand-maintained `REASON_*` constant MUST exist in the embedded
+    /// `error-code-registry.json` snapshot's `reason_codes`. This pins the
+    /// previously-missing `federation_trust_domain_mismatch` /
+    /// `invalid_ack_token` and catches any future reason code added as a
+    /// constant without a matching registry entry (or vice versa).
+    #[test]
+    fn reason_constants_are_declared_in_embedded_registry() {
+        let registry = crate::schema::embedded_error_code_reason_codes()
+            .expect("embedded error-code-registry reason_codes must load");
+
+        // The two reason codes restored in SDK-01-001 must be present.
+        assert!(
+            registry.contains(REASON_FEDERATION_TRUST_DOMAIN_MISMATCH),
+            "federation_trust_domain_mismatch missing from embedded registry",
+        );
+        assert!(
+            registry.contains(REASON_INVALID_ACK_TOKEN),
+            "invalid_ack_token missing from embedded registry",
+        );
+
+        // Every curated reason-code set MUST be a registry subset; a constant
+        // absent from the snapshot signals manual-mirror drift.
+        let curated = [
+            KNOWN_REASON_CODES_ROUND_C45,
+            KNOWN_REASON_CODES_CKP_0007,
+            KNOWN_REASON_CODES_ROUND_C44,
+            KNOWN_REASON_CODES_REACTION,
+            KNOWN_REASON_CODES_CONTACT_DIRECT_CONVERSATION,
+        ];
+        for reason in curated.iter().flat_map(|set| set.iter()) {
+            assert!(
+                registry.contains(*reason),
+                "REASON constant {reason:?} not present in embedded \
+                 error-code-registry.json reason_codes",
             );
         }
     }
