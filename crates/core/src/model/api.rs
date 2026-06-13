@@ -1952,7 +1952,7 @@ pub struct DirectorySearchRealmsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub organization_did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_space_id: Option<SpaceId>,
+    pub source_realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requester: Option<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
