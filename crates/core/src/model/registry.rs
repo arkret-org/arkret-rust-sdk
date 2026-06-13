@@ -151,15 +151,10 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .into_iter()
         .map(str::to_owned)
         .collect(),
-        OP_AGENT_KEY_REVOKE => [
-            "agent_principal_id",
-            "key_id",
-            "revoked_at",
-            "revoked_by",
-        ]
-        .into_iter()
-        .map(str::to_owned)
-        .collect(),
+        OP_AGENT_KEY_REVOKE => ["agent_principal_id", "key_id", "revoked_at", "revoked_by"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         OP_AGENT_KEY_ROTATE => [
             "agent_principal_id",
             "key_id",

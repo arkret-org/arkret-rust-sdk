@@ -3,17 +3,10 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
-use cokret_core::{Did, DidDocumentRef, Hash, IdentityResolveOutcome, Proof, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub mod protocol {
-    pub use cokret_core::{
-        DidDocumentRef, DidOperationSubmitOutcome, DidOperationSubmitRequestBody,
-        IdentityDescription, IdentityDocumentView, IdentityLogOutcome, IdentityReceiptsOutcome,
-        IdentityResolveOutcome, IdentityResolveRequestBody,
-    };
-}
+use crate::{Did, DidDocumentRef, Hash, IdentityResolveOutcome, Proof, Result};
 
 pub const DID_WEB_MAX_DOCUMENT_BYTES: usize = 64 * 1024;
 
@@ -109,7 +102,7 @@ impl DidDocument {
 
     pub fn validate(&self) -> Result<()> {
         if self.verification_methods.is_empty() {
-            return Err(cokret_core::Error::Protocol(
+            return Err(crate::Error::Protocol(
                 "did document has no verification methods".to_owned(),
             ));
         }

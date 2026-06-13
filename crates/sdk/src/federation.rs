@@ -12,7 +12,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
-pub use cokret_contracts::federation::{
+pub use cokret_core::federation::{
     FederationBackfillAuthorization, FederationQuarantineKind, FederationQuarantineRecord,
     FederationReplayDecision, FederationReplayRecord, FederationTransactionEnvelope,
     HttpMessageSignature, ServiceEndpointDescriptor, VerifyActorChallenge,

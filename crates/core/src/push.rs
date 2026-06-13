@@ -3,24 +3,18 @@
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-use cokret_core::{
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+
+use crate::{
     DeviceId, Did, EventId, PushNotifyOutcome, PushNotifyRequestBody,
     PushRegisterDeviceRequestBody, RealmId,
 };
-use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
 
 fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
     haystack
         .iter()
         .any(|entry| entry.eq_ignore_ascii_case(needle))
-}
-
-pub mod protocol {
-    pub use cokret_core::{
-        PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
-        PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody,
-    };
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -232,7 +226,7 @@ pub const EXPECTED_SPEC_VERSION: &str = "cokret-spec@2026-05-26";
 ///
 /// This is a product-local push-gateway contract shared by the gateway
 /// implementation and clients that probe it before registration / notify
-/// flows. It intentionally lives in `cokret-contracts` rather than individual
+/// flows. It intentionally lives in `cokret-core` rather than individual
 /// services so bridge producers and consumers cannot drift silently.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

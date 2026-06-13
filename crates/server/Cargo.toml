@@ -21,7 +21,6 @@ default = []
 salvo = ["cokret-core/salvo"]
 
 [dependencies]
-cokret-contracts = {workspace = true}
 cokret-core = {workspace = true}
 cokret-signatures = {workspace = true}
 serde = {workspace = true}

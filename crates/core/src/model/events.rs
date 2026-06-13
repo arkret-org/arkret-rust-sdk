@@ -788,8 +788,7 @@ mod event_wire_surface_tests {
         let mut event = base_event();
         event.applet_id =
             Some(AppletId::new("ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap());
-        event.authorization_ref =
-            Some("ck:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
+        event.authorization_ref = Some("ck:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
         event.external_ref = Some(json!({
             "protocol": "slack",
             "external_id": "1234567890.0001"
@@ -814,7 +813,10 @@ mod event_wire_surface_tests {
         // Mutating external_ref changes the event digest (it is covered).
         let mut mutated = event.clone();
         mutated.external_ref = Some(json!({ "protocol": "slack", "external_id": "different" }));
-        assert_ne!(event.event_digest().unwrap(), mutated.event_digest().unwrap());
+        assert_ne!(
+            event.event_digest().unwrap(),
+            mutated.event_digest().unwrap()
+        );
     }
 
     #[test]
@@ -827,7 +829,8 @@ mod event_wire_surface_tests {
         );
         let err = serde_json::from_value::<Event>(value).unwrap_err();
         assert!(
-            err.to_string().contains("external_ref requires a signed applet_id"),
+            err.to_string()
+                .contains("external_ref requires a signed applet_id"),
             "unexpected error: {err}"
         );
     }
@@ -842,7 +845,8 @@ mod event_wire_surface_tests {
         );
         let err = serde_json::from_value::<Event>(value).unwrap_err();
         assert!(
-            err.to_string().contains("applet_id requires authorization_ref"),
+            err.to_string()
+                .contains("applet_id requires authorization_ref"),
             "unexpected error: {err}"
         );
     }

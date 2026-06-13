@@ -3,22 +3,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
-use cokret_core::{
-    BlobRef, Did, Error, EventId, FederationTransactionRequestBody, Hash, Operation, OperationId,
-    RealmId, Result, TypedTrustDomainId, canonical,
-};
-pub use cokret_signatures::HttpMessageSignature;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub mod protocol {
-    pub use cokret_core::{
-        FederationPullOperationsOutcome, FederationPushOperationsOutcome,
-        FederationPushOperationsRequestBody, FederationRealmMemberList,
-        FederationTransactionOutcome, FederationTransactionRequestBody,
-        FederationVerifyActorOutcome, FederationVerifyActorRequestBody,
-    };
-}
+pub use crate::HttpMessageSignature;
+use crate::{
+    BlobRef, Did, Error, EventId, FederationTransactionRequestBody, Hash, Operation, OperationId,
+    RealmId, Result, TypedTrustDomainId, canonical,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WellKnownCokretServer {

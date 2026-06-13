@@ -16,7 +16,6 @@ default = []
 
 [dependencies]
 chrono = {workspace = true,features = ["serde"]}
-cokret-contracts = {workspace = true}
 cokret-core = {workspace = true}
 cokret-crypto = {workspace = true}
 cokret-ffi = {workspace = true}

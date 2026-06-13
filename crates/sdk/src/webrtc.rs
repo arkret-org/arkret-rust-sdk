@@ -3,11 +3,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
-// Signaling DTOs are owned by `cokret-contracts`; re-export the authoritative
-// definitions instead of keeping a parallel copy here.
-pub use cokret_contracts::client::{CallSessionDescription, IceCandidate, SdpType};
 use serde::{Deserialize, Serialize};
 
+// Signaling DTOs are owned by the SDK's `client_api` module; re-export the
+// authoritative definitions instead of keeping a parallel copy here.
+pub use crate::client_api::{CallSessionDescription, IceCandidate, SdpType};
 use crate::{Did, RealmId, Result};
 
 /// To-device WebRTC signaling message kind.

@@ -3,13 +3,13 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
-// Authoritative wire shape for notification counters lives in
-// `cokret-contracts`; the manager reuses it instead of keeping a
-// field-subset copy.
-pub use cokret_contracts::client::NotificationCounts;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+// Authoritative wire shape for notification counters lives in the SDK's
+// `client_api` module; the manager reuses it instead of keeping a
+// field-subset copy.
+pub use crate::client_api::NotificationCounts;
 use crate::{Did, EventId, RealmId};
 
 /// Notification action.

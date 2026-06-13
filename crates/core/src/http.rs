@@ -13,6 +13,21 @@ use serde_json::Value;
 
 use crate::*;
 
+/// RFC 9421 HTTP message signature wire envelope.
+///
+/// `Signature-Input` parameters plus the detached `Signature` value. The
+/// canonical signature base (the bytes actually signed) is built by the RFC
+/// 9421 implementation in `cokret-signatures`; this struct is just the
+/// resulting wire envelope, re-exported by `cokret-signatures` and embedded in
+/// [`crate::federation::FederationTransactionEnvelope`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HttpMessageSignature {
+    pub key_id: String,
+    pub alg: String,
+    pub signed_fields: Vec<String>,
+    pub signature: String,
+}
+
 pub const PATH_SELF_CONTACTS_REQUEST: &str = "/_cokret/self/contacts/request";
 pub const PATH_SELF_CONTACTS_RESPOND: &str = "/_cokret/self/contacts/respond";
 pub const PATH_SELF_CONTACTS: &str = "/_cokret/self/contacts";

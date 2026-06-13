@@ -23,7 +23,6 @@ bs58 = {version = "0.5.1",default-features = false,features = ["std"]}
 chacha20poly1305 = {version = "0.10.1",default-features = false,features = ["alloc"]}
 chrono = {version = "0.4.45",default-features = false,features = ["clock", "std", "serde"]}
 chrono-tz = {version = "0.10.4",default-features = false}
-cokret-contracts = {version = "0.3.0",path = "crates/contracts",default-features = false}
 cokret-core = {version = "0.3.0",path = "crates/core",default-features = false}
 cokret-crypto = {version = "0.3.0",path = "crates/crypto",default-features = false}
 cokret-ffi = {version = "0.3.0",path = "crates/ffi",default-features = false}

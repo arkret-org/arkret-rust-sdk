@@ -75,20 +75,21 @@
 //! let did: cokret::Did = "did:web:alice.example";
 //! ```
 
-pub use cokret_contracts as api;
-pub use cokret_contracts::product::client as client_api;
-pub use cokret_contracts::{
-    federation as federation_api, identity as identity_api, integration as integration_api,
-    principal as principal_api, push as push_gateway_api,
-};
+// Product-local client API DTOs (auth/realm/media/call wire shapes that need
+// `cokret-crypto`/`cokret-html` types) are owned by the SDK. The canonical
+// protocol/federation/push/integration wire contracts live in `cokret-core`
+// and are surfaced here under stable `*_api` aliases that do not clash with the
+// SDK's own manager modules (`federation`, `identity`, `push`).
+pub mod client_api;
 // The pure KeyStore contract (trait + in-memory backend + error type) lives
 // in `cokret-core`; the OS-native backends and the platform-default
 // constructor now live in the dedicated `cokret-keystore` crate.
 pub use cokret_core::{InMemoryKeyStore, KeyRefObject, KeyStore, KeyStoreError};
 pub use cokret_core::{
-    canonical, cursor, error, events, identifiers, keystore, lattice, model, operations,
-    push_rule_core, schema, schema as schema_contracts, service, state, state as state_res, sync,
-    *,
+    canonical, cursor, error, events, federation as federation_api, identifiers,
+    identity as identity_api, integration as integration_api, keystore, lattice, model, operations,
+    ops as ops_api, principal as principal_api, push as push_gateway_api, push_rule_core, schema,
+    schema as schema_contracts, service, state, state as state_res, sync, *,
 };
 pub use cokret_crypto as crypto_protocol;
 pub use cokret_ffi as ffi;

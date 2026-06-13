@@ -1,9 +1,9 @@
-//! Client-server protocol API contracts.
+//! Client-server product API contracts.
 //!
-//! Owner: product-local client API producers/consumers. These DTOs are kept in
-//! `cokret-contracts` only for shared product surfaces that need a common
-//! schema across services, SDKs, or fixtures. Canonical protocol request/
-//! response bodies generated from `cokret-spec` stay in `cokret-core`.
+//! Owner: the Cokret client SDK. These product-local client API DTOs need
+//! `cokret-crypto` / `cokret-html` types (encrypted media metadata, rich text)
+//! so they live in the SDK rather than `cokret-core`. Canonical protocol
+//! request/response bodies generated from `cokret-spec` stay in `cokret-core`.
 //!
 //! Naming convention follows the OpenAPI shape of each operation:
 //!
@@ -20,6 +20,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
+use cokret_core::push::{PushPriority, PushRule, PushRuleSet, Pusher};
 use cokret_core::{
     BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId, Notification,
     RealmId, Result,
@@ -28,8 +29,6 @@ use cokret_crypto::MediaEncryptionInfo;
 use cokret_html::RichTextDocument;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::push::{PushPriority, PushRule, PushRuleSet, Pusher};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -1139,16 +1138,6 @@ impl CallSignalRequestBody {
     }
 }
 
-pub mod protocol {
-    pub use cokret_core::{
-        DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome,
-        DeviceMessagesPutOutcome, DeviceMessagesPutRequestBody, KeysClaimOutcome,
-        KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome,
-        KeysUploadRequestBody, ModerationReportOutcome, ModerationReportRequestBody, SyncOutcome,
-        SyncRequestBody,
-    };
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ThirdPartyInviteRequestBody {
@@ -1262,7 +1251,7 @@ mod tests {
             pusher: Pusher {
                 user_id: did("alice"),
                 device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
-                platform: crate::push::PushPlatform::Fcm,
+                platform: cokret_core::push::PushPlatform::Fcm,
                 push_gateway: "https://push.example".to_owned(),
                 push_key: "token".to_owned(),
                 app_id: Some("app".to_owned()),
