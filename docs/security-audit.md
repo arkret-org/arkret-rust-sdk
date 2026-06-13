@@ -118,7 +118,7 @@ DOS against the controller's automated workflows.
 request to a signed envelope binding the agent's S-1 key, the calling
 `agent_session_id` (S-2), and the controller DID; the verifier rejects any
 envelope whose `agent_key_id` is not in the active rotation window from
-`ck.self.agent.rotate_key`. `ck.self.agent.pause` / `deactivate` are gated on the
+`ck.self.agent.command.rotate_key`. `ck.self.agent.command.pause` / `ck.self.agent.command.deactivate` are gated on the
 controller's session grant (`ck.profile.agent_delegation_policy.v1`), so a
 stolen agent key cannot deactivate itself or extend its own scope. SDK
 helpers `agent_binding::sign_ed25519_audit_binding` /
@@ -151,7 +151,7 @@ hostile agent fabricates a sidecar thread referencing a Circle it does not
 have a grant for.
 
 *Mitigations.* `ck.profile.agent_sidecar_thread.v1` requires every
-`ck.self.agent.sidecar_thread.ensure` request to carry a `SidecarCircleId`
+`ck.self.agent.sidecar_thread.command.ensure` request to carry a `SidecarCircleId`
 bounded by the controller's existing membership in the parent
 `CircleId`; the reducer cross-checks the bound circle's policy before
 creating the thread. The sidecar's audit log is isolated from the parent

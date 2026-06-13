@@ -18,7 +18,7 @@ pub enum FrontierPeerRole {
     AnonymousHealth,
 }
 
-/// `ck.self.events.frontier` account-client response
+/// `ck.self.events.query.frontier` account-client response
 /// (`service-operation-dtos.schema.json#/$defs/EventsFrontierAccountClientState`,
 /// SPEC-SOL-003 resolution): a single `frontier` object whose shape follows
 /// the request selector — actor (`{actor_id, actor_seq, event_id}`) or Realm
@@ -128,7 +128,7 @@ pub enum EventsFrontierState {
 
 /// Round 4 (commit 7446832) — typed binding reference for federation
 /// transport. All six fields REQUIRED. Carried inside
-/// `ck.self.events.submit` (federation variant) and the
+/// `ck.self.events.command.submit` (federation variant) and the
 /// `events/frontier` federation-peer response so a receiver can verify
 /// the request is bound to the sender's current reducer state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -49,11 +49,11 @@ Transition matrix (informational — soland is canonical):
 
 Operations:
 
-- `ck.self.agent.pause` — `POST /agents/{agent_principal_id}/pause` — soft stop;
+- `ck.self.agent.command.pause` — `POST /agents/{agent_principal_id}/pause` — soft stop;
   outstanding tasks complete, no new tasks accepted.
-- `ck.self.agent.resume` — `POST /agents/{agent_principal_id}/resume` — reverse of
+- `ck.self.agent.command.resume` — `POST /agents/{agent_principal_id}/resume` — reverse of
   pause; rejected if state == Deactivated with `agent_deactivated`.
-- `ck.self.agent.deactivate` — `POST /agents/{agent_principal_id}/deactivate` —
+- `ck.self.agent.command.deactivate` — `POST /agents/{agent_principal_id}/deactivate` —
   terminal. The historical `/revoke` alias was dropped at R3. Validator
   ensures no callers reference `/revoke`.
 
@@ -61,7 +61,7 @@ Errors surfaced on this surface:
 
 - `agent_paused` — write attempted against a paused agent principal.
 - `agent_deactivated` — any write or resume against a deactivated agent.
-- `pairing_request_expired` — `ck.gate.account.agent_key_pair` window elapsed.
+- `pairing_request_expired` — `ck.gate.account.command.pair_agent_key` window elapsed.
 - `proof_invalid` — pairing proof bytes failed canonical-digest check.
 - `verification_method_principal_mismatch` — DID resolved to a different
   principal than the pairing payload claims.
@@ -75,7 +75,7 @@ The SDK exposes `ck.agent.draft.propose`, `ck.agent.action_request`,
 kinds (`reducer_input = false`). These are *not* part of the FSM lattice; they
 ride on the agent's own actor stream.
 
-### Call media (`ck.self.call.media.token_exchange`)
+### Call media (`ck.self.call.media.exchange.issue_token`)
 
 The call media surface lets a participant exchange a Cokret call grant for
 a backend-specific media token (LiveKit, Mediasoup, Janus, Cokret-native,
@@ -231,7 +231,7 @@ declares but the spec no longer ships).
 
 R3's new event kinds (`ck.agent.draft.propose`, `ck.agent.action_request`,
 `ck.agent.action_approve`, `ck.agent.action_reject`), new operation
-(`ck.self.call.media.token_exchange`), and new profiles are all in the SDK's
+(`ck.self.call.media.exchange.issue_token`), and new profiles are all in the SDK's
 declared-coverage set, so the drift report runs clean against
 `cokret-spec @ b47ff6ec`.
 

@@ -12,8 +12,8 @@
 //! `ck.member.state{join}.delivery_binding`.
 //!
 //! Two legal provenance paths:
-//!   1. `ck.find.directory.resolve_handle(intent="member_add" | "invite")` packed into a candidate
-//!      by the Directory.
+//!   1. `ck.find.directory.query.resolve_handle(intent="member_add" | "invite")` packed into a
+//!      candidate by the Directory.
 //!   2. Trusted issuer (Organization / Principal Server / service DID) signs a candidate directly —
 //!      e.g. invite token payload, organization member roster push.
 //!

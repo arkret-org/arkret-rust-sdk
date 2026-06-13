@@ -76,7 +76,7 @@ impl ServiceType {
                 "ck.account_data.",
             ],
             Self::IdentityRegistry => &["ck.root.identity.", "ck.identity."],
-            Self::AuthServer => &["ck.gate.account.", "ck.self.policy.check"],
+            Self::AuthServer => &["ck.gate.account.", "ck.self.policy.query.check"],
             Self::SyncNode => &["ck.self.events.", "ck.self.account.", "ck.self.snapshot."],
             Self::BlobNode => &["ck.self.blob."],
             Self::MediaService => &["ck.self.media.", "ck.self.call.media."],
@@ -86,9 +86,9 @@ impl ServiceType {
             Self::PolicyServer => &["ck.self.policy.", "ck.policy."],
             Self::PushGateway => &["ck.edge.push."],
             Self::AppletService => &["ck.edge.applet."],
-            Self::AgentRuntime => &["ck.self.agent.", "ck.gate.account.agent_key_pair"],
+            Self::AgentRuntime => &["ck.self.agent.", "ck.gate.account.command.pair_agent_key"],
             Self::SfuService => &["ck.self.call.media.", "ck.self.media."],
-            Self::TurnService => &["ck.self.media.ice_config"],
+            Self::TurnService => &["ck.self.media.query.ice_config"],
             Self::ModerationService => &["ck.self.moderation."],
         }
     }
@@ -419,7 +419,7 @@ mod tests {
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![crate::PROFILE_DIRECTORY_SERVICE.to_owned()],
             supported_features: vec![],
-            supported_operations: vec!["ck.find.directory.search_realms".to_owned()],
+            supported_operations: vec!["ck.find.directory.query.search_realms".to_owned()],
             supported_bindings: vec![],
             auth_metadata: Value::Null,
             limits: Value::Null,
@@ -447,7 +447,7 @@ mod tests {
             .profile(crate::PROFILE_DIRECTORY_SERVICE)
             .reducer_profile("ck.reducer.v1")
             .schema_profile("ck.schema.core.v1")
-            .operation("ck.find.directory.search_realms")
+            .operation("ck.find.directory.query.search_realms")
             .verify(&description)
             .unwrap();
     }
@@ -459,7 +459,7 @@ mod tests {
             service_did: service_did.clone(),
             service_type: ServiceType::DirectoryService,
             endpoint: "https://svc.example/_cokret/find/directory".to_owned(),
-            operations: vec!["ck.find.directory.search_realms".to_owned()],
+            operations: vec!["ck.find.directory.query.search_realms".to_owned()],
         });
         let description = ServerDescription {
             service_did,
@@ -468,7 +468,7 @@ mod tests {
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![],
             supported_features: vec![],
-            supported_operations: vec!["ck.find.directory.search_realms".to_owned()],
+            supported_operations: vec!["ck.find.directory.query.search_realms".to_owned()],
             supported_bindings: vec![],
             auth_metadata: Value::Null,
             limits: Value::Null,
@@ -495,10 +495,10 @@ mod tests {
     #[test]
     fn push_gateway_permits_current_edge_push_operations() {
         let service_type = ServiceType::PushGateway;
-        assert!(service_type.permits_operation("ck.edge.push.register_device"));
-        assert!(service_type.permits_operation("ck.edge.push.unregister_device"));
-        assert!(service_type.permits_operation("ck.edge.push.notify"));
-        assert!(!service_type.permits_operation("ck.push.notify"));
+        assert!(service_type.permits_operation("ck.edge.push.command.register_device"));
+        assert!(service_type.permits_operation("ck.edge.push.command.unregister_device"));
+        assert!(service_type.permits_operation("ck.edge.push.command.notify"));
+        assert!(!service_type.permits_operation("ck.edge.push.command.notify"));
     }
 
     #[test]

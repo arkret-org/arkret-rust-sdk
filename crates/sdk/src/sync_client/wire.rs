@@ -1,6 +1,6 @@
 use super::*;
 
-/// One frame off the `ck.self.events.subscribe` NDJSON stream
+/// One frame off the `ck.self.events.stream.subscribe` NDJSON stream
 /// (`GET /_cokret/self/events/subscribe`).
 ///
 /// The contract uses `kind` as the top field and defines control kinds clients
@@ -132,8 +132,8 @@ impl EventsSubscribeFrame {
     }
 }
 
-/// Selector + range parameters for `ck.self.events.query` and
-/// `ck.self.events.subscribe`. Per spec C17, the selector is `realms[]` ∪
+/// Selector + range parameters for `ck.self.events.query.scan` and
+/// `ck.self.events.stream.subscribe`. Per spec C17, the selector is `realms[]` ∪
 /// `actors[]` (at least one element). Range parameters apply only to
 /// `query`; `subscribe` accepts `after` + `catchup`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -197,7 +197,7 @@ impl EventsQuerySelector {
     }
 }
 
-/// Ordering parameter for `ck.self.events.query`.
+/// Ordering parameter for `ck.self.events.query.scan`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum EventsQueryOrder {
@@ -207,7 +207,7 @@ pub enum EventsQueryOrder {
     Descending,
 }
 
-/// Typed `ck.self.events.query` request body.
+/// Typed `ck.self.events.query.scan` request body.
 ///
 /// This is the ergonomic typed surface downstream agents (coauth / soland /
 /// yougen) call against. It mirrors the wire shape soland accepts on

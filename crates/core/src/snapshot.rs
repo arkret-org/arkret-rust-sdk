@@ -54,7 +54,7 @@ pub const SNAPSHOT_V1_HIGH_ASSURANCE_MAX_ACCEPTANCE_AGE_MS: i64 = 604_800_000;
 pub const EMPTY_SHA256_DIGEST: &str =
     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-/// Full `ck.schema.snapshot.v1` manifest returned by `ck.self.snapshot.head`.
+/// Full `ck.schema.snapshot.v1` manifest returned by `ck.self.snapshot.query.manifest_head`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotManifest {

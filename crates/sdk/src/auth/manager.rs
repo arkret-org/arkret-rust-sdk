@@ -835,7 +835,7 @@ impl AuthManager {
 
 /// One-shot DID-proof login flow that drives the single registered
 /// `POST /_cokret/gate/account/session-grants`
-/// (`ck.gate.account.issue_session_grant`) operation.
+/// (`ck.gate.account.command.issue_session_grant`) operation.
 ///
 /// The helper is split off into its own impl block (gated on `client`
 /// and `signer`) so the in-process `AuthManager` core surface stays

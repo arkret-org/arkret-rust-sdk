@@ -2489,7 +2489,7 @@ pub struct ContactRequestRequestBody {
     /// §4.1): when `target` is hosted on a different Principal Server, the
     /// requester MUST supply the target's home service DID so the issuer-side
     /// server can federate the signed `ck.contact.requested` fact via
-    /// `ck.peer.contacts.submit`. Omit for same-server requests.
+    /// `ck.peer.contacts.command.submit`. Omit for same-server requests.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recipient_service_did: Option<Did>,
 }
@@ -2514,7 +2514,7 @@ pub struct ContactRespondRequestBody {
     /// Cross-Principal-Server addressing (spec §4.1): when the original
     /// `requester` is hosted on a different Principal Server, the responder
     /// supplies the requester's home service DID so the accept / reject fact
-    /// is federated back via `ck.peer.contacts.submit`. Omit for same-server
+    /// is federated back via `ck.peer.contacts.command.submit`. Omit for same-server
     /// responses.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub requester_service_did: Option<Did>,
@@ -2571,7 +2571,7 @@ pub struct ContactTombstoneRequestBody {
     /// §4.1): when `contact` (the peer) is hosted on a different Principal
     /// Server, the holder supplies the peer's home service DID so the
     /// `ck.contact.tombstoned` fact is federated to the peer's server via
-    /// `ck.peer.contacts.submit`. Omit for same-server tombstones; when absent
+    /// `ck.peer.contacts.command.submit`. Omit for same-server tombstones; when absent
     /// the issuer falls back to the peer's recorded `peer_service_did` on the
     /// stored contact row.
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -61,7 +61,7 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
     Ok(())
 }
 
-/// Client helper that builds a `ck.self.call.media.token_exchange` request body.
+/// Client helper that builds a `ck.self.call.media.exchange.issue_token` request body.
 ///
 /// Implementations using a concrete HTTP transport (e.g. [`reqwest`])
 /// POST the body to `/_cokret/self/rtc/token` and feed the JSON response

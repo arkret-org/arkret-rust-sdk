@@ -146,7 +146,7 @@ pub const RECEIPT_OBJECT_KINDS: &[&str] = &["ck.event_batch_receipt"];
 /// Round R2/R3 (2026-05-20). Items here MUST NOT be reduced into durable
 /// state, MUST NOT advance Seal frontier or Move state_root, MUST NOT
 /// carry preconditions/effects/seal_ref, and MUST NOT be submitted via
-/// `ck.self.events.submit`. See zh/sync/operations-sync.md §3.6 and
+/// `ck.self.events.command.submit`. See zh/sync/operations-sync.md §3.6 and
 /// schemas/ephemeral-envelope.schema.json (the 4 broadcast forms) and
 /// schemas/device-message.schema.json (the to-device key.verification forms).
 pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[

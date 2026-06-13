@@ -102,7 +102,6 @@ pub const PROFILE_IDS: &[&str] = &[
     "ck.profile.sovereign_client.v1",
     "ck.profile.sovereign_deployment.v1",
     "ck.profile.sovereign_enclave.v1",
-    "ck.profile.stateless_cursor.v1",
     "ck.profile.sync_vectors.v1",
     "ck.profile.traffic_metadata_hardened.v1",
     "ck.profile.ucan_interop.v1",
@@ -332,7 +331,6 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
     ("ck.profile.sovereign_client.v1", ProfileRole::Client),
     ("ck.profile.sovereign_deployment.v1", ProfileRole::Admin),
     ("ck.profile.sovereign_enclave.v1", ProfileRole::Admin),
-    ("ck.profile.stateless_cursor.v1", ProfileRole::Server),
     ("ck.profile.sync_vectors.v1", ProfileRole::Interop),
     (
         "ck.profile.traffic_metadata_hardened.v1",

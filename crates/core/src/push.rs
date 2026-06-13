@@ -615,7 +615,7 @@ mod tests {
     fn bridge_notify_descriptor_exposes_dedup_and_rate_limit_windows() {
         let descriptor = PushBridgeDescribeNotifyDescriptor {
             notify_path: "/_cokret/edge/push/notify".to_owned(),
-            operation_id: "ck.edge.push.notify".to_owned(),
+            operation_id: "ck.edge.push.command.notify".to_owned(),
             request_id_header: "X-Cokret-Request-Id".to_owned(),
             idempotency_key_header: "X-Cokret-Idempotency-Key".to_owned(),
             origin_service_did_header: "X-Cokret-Origin-Service-Did".to_owned(),
@@ -683,7 +683,7 @@ mod tests {
             "gateway": {},
             "notify": {
                 "notify_path": "/_cokret/edge/push/notify",
-                "operation_id": "ck.edge.push.notify",
+                "operation_id": "ck.edge.push.command.notify",
                 "request_id_header": "X-Cokret-Request-Id",
                 "idempotency_key_header": "X-Cokret-Idempotency-Key",
                 "origin_service_did_header": "X-Cokret-Origin-Service-Did",

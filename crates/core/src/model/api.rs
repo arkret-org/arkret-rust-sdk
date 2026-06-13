@@ -732,7 +732,7 @@ pub struct IdentityReceiptsOutcome {
 
 /// Folded account-aggregate delta used by SDK internals.
 ///
-/// Current wire delivery is `ck.self.account.subscribe`: an NDJSON stream of
+/// Current wire delivery is `ck.self.account.stream.subscribe`: an NDJSON stream of
 /// [`AccountSubscribeFrame`] values. The SDK folds `delta` frames into this
 /// shape so existing reducers and UI code can consume a single account snapshot
 /// value without depending on transport streaming details.
@@ -788,7 +788,7 @@ impl SyncOutcome {
         &self.realms
     }
 
-    /// Fold a single `ck.self.account.subscribe` data frame into the SDK aggregate
+    /// Fold a single `ck.self.account.stream.subscribe` data frame into the SDK aggregate
     /// snapshot shape. Control frames without data return `None`.
     pub fn from_account_subscribe_frame(frame: AccountSubscribeFrame) -> Option<Self> {
         if frame.kind != AccountSubscribeFrameKind::Delta {
@@ -851,7 +851,7 @@ impl SyncOutcome {
     }
 }
 
-/// One NDJSON frame on `ck.self.account.subscribe`.
+/// One NDJSON frame on `ck.self.account.stream.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountSubscribeFrame {
@@ -1100,7 +1100,7 @@ pub struct EventsQueryPostRequestBody {
     pub filters: Option<Value>,
 }
 
-/// Result of `ck.self.snapshot.head`.
+/// Result of `ck.self.snapshot.query.manifest_head`.
 ///
 /// The v1 wire returns the full signed `ck.schema.snapshot.v1` manifest, not a
 /// pointer DTO. The alias keeps older type references source-compatible while
@@ -2181,7 +2181,7 @@ pub enum TargetKind {
     Message,
 }
 
-/// R3.3 (CKP-0011) — request body for `ck.find.directory.resolve_target`.
+/// R3.3 (CKP-0011) — request body for `ck.find.directory.query.resolve_target`.
 ///
 /// `address` is a client-agnostic shareable object address in either the
 /// `web+cokret:` URI form or the HTTPS-landing fragment form (see
@@ -2200,7 +2200,7 @@ pub struct DirectoryResolveTargetRequestBody {
     pub token: Option<String>,
 }
 
-/// R3.3 (CKP-0011) — response body for `ck.find.directory.resolve_target`.
+/// R3.3 (CKP-0011) — response body for `ck.find.directory.query.resolve_target`.
 ///
 /// Common §9.1 directory fields (`as_of`, `source_refs`, `join_candidates`,
 /// `policy_revision`, `stale`, `divergent`) mirror the other directory
@@ -2482,7 +2482,7 @@ impl AgentSelectorClaim {
     }
 }
 
-/// Request body for `ck.find.directory.resolve_agent_selector`.
+/// Request body for `ck.find.directory.query.resolve_agent_selector`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveAgentSelectorRequestBody {
@@ -2500,7 +2500,7 @@ pub struct DirectoryResolveAgentSelectorRequestBody {
     pub proofs: Vec<Value>,
 }
 
-/// Response body for `ck.find.directory.resolve_agent_selector`.
+/// Response body for `ck.find.directory.query.resolve_agent_selector`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryAgentSelectorResolutionOutcome {
@@ -2633,7 +2633,7 @@ mod agent_selector_tests {
 }
 
 /// R3.2 (cokret-spec @ b56cab1) — request body for
-/// `ck.find.directory.list_handles_for_subject`. Known holder/principal DID +
+/// `ck.find.directory.query.list_handles_for_subject`. Known holder/principal DID +
 /// context → current visible handle claims (inverse of `resolve_handle`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -2658,7 +2658,7 @@ pub struct DirectoryListHandlesForSubjectRequestBody {
     pub limit: Option<u32>,
 }
 
-/// R3.2 — response body for `ck.find.directory.list_handles_for_subject`.
+/// R3.2 — response body for `ck.find.directory.query.list_handles_for_subject`.
 /// Schema `ck.schema.list_handles_for_subject_response.v1`. Every
 /// `claims[].subject` MUST equal [`Self::subject`] (byte-equal); use
 /// [`Self::validate`] to enforce.
@@ -4150,7 +4150,7 @@ pub struct RecoveryReceiptAuthData {
 // ─── DID-proof session grant flow ──────────────────────────────────────────
 //
 // The wire shapes for `POST /_cokret/gate/account/session-grants`
-// (`ck.gate.account.issue_session_grant`) live in `crate::http` as
+// (`ck.gate.account.command.issue_session_grant`) live in `crate::http` as
 // `SessionGrantRequestBody` / `SessionGrantOutcome`, mirroring
 // `service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody`.
 // The spec HTTP binding registers exactly one operation (proof in body,

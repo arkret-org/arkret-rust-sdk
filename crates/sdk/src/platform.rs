@@ -366,7 +366,7 @@ mod tests {
         let result = sink.on_event(FfiEvent {
             stream,
             sequence: 1,
-            event_kind: "ck.self.account.subscribe".to_owned(),
+            event_kind: "ck.self.account.stream.subscribe".to_owned(),
             payload: json!({"ok": true}),
         });
         assert_eq!(result.action, FfiCallbackAction::Continue);

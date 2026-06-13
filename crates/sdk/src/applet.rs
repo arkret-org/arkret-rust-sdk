@@ -268,7 +268,7 @@ pub fn sign_registration<S: cokret_core::MoveSigner + ?Sized>(
 // Package is a controller-signed *distribution* object: it is NOT Realm
 // history and NOT a grant. The Principal Server / authz service derives a
 // canonical `ck.applet.registration` and capability grants during
-// `ck.self.applet.install`.
+// `ck.self.applet.command.install`.
 
 /// Controller-signed installable Applet package (`ck.schema.applet_package.v1`).
 ///

@@ -2,17 +2,17 @@
 //! surface. Wires every operation from the `agent_runtime` group of
 //! `operation-registry.json` (spec head 37ce729):
 //!
-//! 1. `ck.gate.account.agent_key_pair`        — mint a fresh agent keypair
-//! 2. `ck.self.agent.provision`               — create the agent principal
-//! 3. `ck.self.agent.list`                    — confirm registry membership
-//! 4. `ck.self.agent.get`                     — fetch the principal record
-//! 5. `ck.self.agent.pause`                   — quiesce the runtime
-//! 6. `ck.self.agent.resume`                  — un-quiesce
-//! 7. `ck.self.agent.rotate_key`              — roll the signing key
-//! 8. `ck.self.agent.grant.attach`            — bind a delegation grant
-//! 9. `ck.self.agent.grant.detach`            — release the grant
-//! 10. `ck.self.agent.sidecar_thread.ensure`  — pin a sidecar thread for tool calls
-//! 11. `ck.self.agent.deactivate`             — terminate the principal
+//! 1. `ck.gate.account.command.pair_agent_key`        — mint a fresh agent keypair
+//! 2. `ck.self.agent.command.provision`               — create the agent principal
+//! 3. `ck.self.agent.query.list`                    — confirm registry membership
+//! 4. `ck.self.agent.resource.get`                     — fetch the principal record
+//! 5. `ck.self.agent.command.pause`                   — quiesce the runtime
+//! 6. `ck.self.agent.command.resume`                  — un-quiesce
+//! 7. `ck.self.agent.command.rotate_key`              — roll the signing key
+//! 8. `ck.self.agent.grant.command.attach`            — bind a delegation grant
+//! 9. `ck.self.agent.grant.resource.delete`            — release the grant
+//! 10. `ck.self.agent.sidecar_thread.command.ensure`  — pin a sidecar thread for tool calls
+//! 11. `ck.self.agent.command.deactivate`             — terminate the principal
 //!
 //! The example does NOT require a live soland deployment. The HTTP `Client` is
 //! constructed against a stub URL; the per-step bodies and paths are stamped
@@ -37,34 +37,34 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
     println!("→ {method} {path}  ({op_id})");
     println!("  request: {body}");
     match op_id {
-        "ck.gate.account.agent_key_pair" => json!({
+        "ck.gate.account.command.pair_agent_key" => json!({
             "agent_key_id": "ck:agent_key:01964137-0000-7000-8000-000000000001",
             "public_key": "ed25519:base64-pub-key",
         }),
-        "ck.self.agent.provision" => json!({
+        "ck.self.agent.command.provision" => json!({
             "agent_principal_id": "did:web:agent.example",
             "status": "active",
         }),
-        "ck.self.agent.list" => json!({ "agents": [], "next_cursor": null }),
-        "ck.self.agent.get" => {
+        "ck.self.agent.query.list" => json!({ "agents": [], "next_cursor": null }),
+        "ck.self.agent.resource.get" => {
             json!({ "agent_principal_id": body["agent_principal_id"], "status": "active" })
         }
-        "ck.self.agent.pause" => json!({ "status": "paused" }),
-        "ck.self.agent.resume" => json!({ "status": "active" }),
-        "ck.self.agent.rotate_key" => json!({
+        "ck.self.agent.command.pause" => json!({ "status": "paused" }),
+        "ck.self.agent.command.resume" => json!({ "status": "active" }),
+        "ck.self.agent.command.rotate_key" => json!({
             "agent_key_id": "ck:agent_key:01964137-0000-7000-8000-000000000002",
             "status": "rotated",
         }),
-        "ck.self.agent.grant.attach" => json!({
+        "ck.self.agent.grant.command.attach" => json!({
             "grant_id": "ck:grant:01964137-0000-7000-8000-000000000010",
             "status": "active",
         }),
-        "ck.self.agent.grant.detach" => json!({ "status": "detached" }),
-        "ck.self.agent.sidecar_thread.ensure" => json!({
+        "ck.self.agent.grant.resource.delete" => json!({ "status": "detached" }),
+        "ck.self.agent.sidecar_thread.command.ensure" => json!({
             "sidecar_thread_id": "ck:thread:01964137-0000-7000-8000-000000000020",
             "created": true,
         }),
-        "ck.self.agent.deactivate" => json!({ "status": "deactivated" }),
+        "ck.self.agent.command.deactivate" => json!({ "status": "deactivated" }),
         _ => Value::Null,
     }
 }
@@ -90,18 +90,18 @@ fn main() -> cokret::Result<()> {
     // / `client.get(...)` / `client.delete(...)`. The example skips the
     // live transport so it compiles without network access.
 
-    // 1. ck.gate.account.agent_key_pair
+    // 1. ck.gate.account.command.pair_agent_key
     let key = mock_send(
-        "ck.gate.account.agent_key_pair",
+        "ck.gate.account.command.pair_agent_key",
         "POST",
         "/_cokret/gate/account/agent-key-pair",
         &json!({ "controller": controller, "device_id": device_id }),
     );
     let agent_key_id = key["agent_key_id"].as_str().unwrap();
 
-    // 2. ck.self.agent.provision
+    // 2. ck.self.agent.command.provision
     let provisioned = mock_send(
-        "ck.self.agent.provision",
+        "ck.self.agent.command.provision",
         "POST",
         "/agents",
         &json!({
@@ -116,17 +116,17 @@ fn main() -> cokret::Result<()> {
         .to_owned();
     let agent_principal_path = path_component(&agent_principal_id);
 
-    // 3. ck.self.agent.list
+    // 3. ck.self.agent.query.list
     let _list = mock_send(
-        "ck.self.agent.list",
+        "ck.self.agent.query.list",
         "GET",
         "/agents?controller=did:web:alice.example",
         &Value::Null,
     );
 
-    // 4. ck.self.agent.get
+    // 4. ck.self.agent.resource.get
     let _get = mock_send(
-        "ck.self.agent.get",
+        "ck.self.agent.resource.get",
         "GET",
         &format!("/agents/{agent_principal_path}"),
         &json!({ "agent_principal_id": agent_principal_id }),
@@ -134,13 +134,13 @@ fn main() -> cokret::Result<()> {
 
     // 5-6. pause + resume
     let _paused = mock_send(
-        "ck.self.agent.pause",
+        "ck.self.agent.command.pause",
         "POST",
         &format!("/agents/{agent_principal_path}/pause"),
         &json!({ "reason": "user_requested" }),
     );
     let _resumed = mock_send(
-        "ck.self.agent.resume",
+        "ck.self.agent.command.resume",
         "POST",
         &format!("/agents/{agent_principal_path}/resume"),
         &Value::Null,
@@ -148,7 +148,7 @@ fn main() -> cokret::Result<()> {
 
     // 7. rotate-key
     let _rotated = mock_send(
-        "ck.self.agent.rotate_key",
+        "ck.self.agent.command.rotate_key",
         "POST",
         &format!("/agents/{agent_principal_path}/rotate-key"),
         &json!({ "previous_key_id": agent_key_id }),
@@ -156,7 +156,7 @@ fn main() -> cokret::Result<()> {
 
     // 8. grant.attach
     let grant = mock_send(
-        "ck.self.agent.grant.attach",
+        "ck.self.agent.grant.command.attach",
         "POST",
         &format!("/agents/{agent_principal_path}/grants"),
         &json!({
@@ -169,7 +169,7 @@ fn main() -> cokret::Result<()> {
 
     // 9. grant.detach
     let _detached = mock_send(
-        "ck.self.agent.grant.detach",
+        "ck.self.agent.grant.resource.delete",
         "DELETE",
         &format!("/agents/{agent_principal_path}/grants/{grant_path}"),
         &Value::Null,
@@ -177,7 +177,7 @@ fn main() -> cokret::Result<()> {
 
     // 10. sidecar_thread.ensure
     let _sidecar = mock_send(
-        "ck.self.agent.sidecar_thread.ensure",
+        "ck.self.agent.sidecar_thread.command.ensure",
         "POST",
         "/agent-sidecar-threads:ensure",
         &json!({
@@ -188,7 +188,7 @@ fn main() -> cokret::Result<()> {
 
     // 11. deactivate
     let _deactivated = mock_send(
-        "ck.self.agent.deactivate",
+        "ck.self.agent.command.deactivate",
         "POST",
         &format!("/agents/{agent_principal_path}/deactivate"),
         &json!({ "reason": "demo_complete" }),

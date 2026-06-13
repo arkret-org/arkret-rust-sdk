@@ -78,10 +78,11 @@ fn protocol_server_fixture_covers_core_flow_groups() {
             .steps
             .iter()
             .any(|step| step.flow == ProtocolFixtureFlow::Blob
-                && step.operation_id == "ck.self.blob.get")
+                && step.operation_id == "ck.self.blob.resource.get")
     );
     assert!(report.steps.iter().any(|step| {
-        step.flow == ProtocolFixtureFlow::Sync && step.operation_id == "ck.self.events.submit"
+        step.flow == ProtocolFixtureFlow::Sync
+            && step.operation_id == "ck.self.events.command.submit"
     }));
 }
 
@@ -144,6 +145,6 @@ fn framework_independent_handler_shape_can_be_mocked() {
     assert!(
         description
             .supported_operations
-            .contains(&"ck.self.account.subscribe".to_owned())
+            .contains(&"ck.self.account.stream.subscribe".to_owned())
     );
 }

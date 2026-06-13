@@ -123,10 +123,10 @@ where
     }
 }
 
-/// Async streaming transport abstraction for `ck.self.events.subscribe`
+/// Async streaming transport abstraction for `ck.self.events.stream.subscribe`
 /// (`/_cokret/self/events/subscribe`).
 ///
-/// Opens the `ck.self.events.subscribe` stream. The transport accepts a single
+/// Opens the `ck.self.events.stream.subscribe` stream. The transport accepts a single
 /// `realm_id` selector; callers that need multi-Realm / actor selectors should
 /// use the lower-level HTTP client directly.
 pub trait EventsSubscribeTransport {

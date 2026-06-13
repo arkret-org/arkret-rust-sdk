@@ -731,7 +731,7 @@ impl Client {
     }
 
     /// `POST /_cokret/gate/account/session-grants`
-    /// (`ck.gate.account.issue_session_grant`): exchange a body-borne
+    /// (`ck.gate.account.command.issue_session_grant`): exchange a body-borne
     /// passkey / OIDC / device / DID proof for a session grant. This is
     /// the only session-grant issuance path registered in the spec HTTP
     /// binding (`x-cokret-auth.proof_in_body: true`); challenge
@@ -904,7 +904,7 @@ impl Client {
     }
 
     /// Subscribe to the Event stream for one or more Realms / actors via
-    /// `ck.self.events.subscribe` (`GET /_cokret/self/events/subscribe`). The selector is
+    /// `ck.self.events.stream.subscribe` (`GET /_cokret/self/events/subscribe`). The selector is
     /// `realms[]` ∪ `actors[]` repeated query args, and frames use top-level
     /// `kind` with explicit control variants.
     ///
@@ -929,7 +929,7 @@ impl Client {
         self.send_response(builder).await
     }
 
-    /// Range-read Events via `ck.self.events.query` (`GET /_cokret/self/events`). Pass
+    /// Range-read Events via `ck.self.events.query.scan` (`GET /_cokret/self/events`). Pass
     /// `before` to walk older history, `after` to catch up toward newer events,
     /// and `order` to override the default proximity-to-seal ordering.
     pub async fn events_query(
@@ -958,14 +958,14 @@ impl Client {
         self.send_json(builder).await
     }
 
-    /// Submit a single signed Event Envelope via `ck.self.events.submit`
+    /// Submit a single signed Event Envelope via `ck.self.events.command.submit`
     /// (`POST /_cokret/self/events`). Wire body is the bare envelope per the OpenAPI
     /// `oneOf` first arm (`event-envelope.schema.json`).
     pub async fn events_submit(&self, event: &Event) -> Result<EventsSubmitOutcome> {
         self.post("/_cokret/self/events", event).await
     }
 
-    /// Submit a batch of signed Event Envelopes via `ck.self.events.submit`
+    /// Submit a batch of signed Event Envelopes via `ck.self.events.command.submit`
     /// (`POST /_cokret/self/events`) using the `EventsSubmitBatchRequestBody` body shape.
     pub async fn events_submit_batch(&self, events: &[Event]) -> Result<EventsSubmitOutcome> {
         #[derive(serde::Serialize)]
@@ -1210,7 +1210,7 @@ impl Client {
             .await
     }
 
-    /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — `ck.find.directory.resolve_target`.
+    /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — `ck.find.directory.query.resolve_target`.
     /// Resolve a client-agnostic shareable object address (Realm / Flow /
     /// Message) to a preview. The `address` and any `token` should be derived
     /// from [`cokret_core::model::parse_address`]; invite and preview tokens
@@ -1285,7 +1285,7 @@ impl Client {
         Ok(body)
     }
 
-    /// R3.2 (cokret-spec @ b56cab1) — `ck.find.directory.list_handles_for_subject`.
+    /// R3.2 (cokret-spec @ b56cab1) — `ck.find.directory.query.list_handles_for_subject`.
     /// Known holder/principal DID → current visible handle claims. The
     /// response invariant `claims[].subject == subject` is enforced via
     /// [`DirectorySubjectHandleList::validate`] before returning.

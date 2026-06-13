@@ -1,5 +1,5 @@
 //! Build a series-chained `KeyBackup` envelope chain and walk recovery via
-//! the `?series_id=` listing shape exposed by `ck.self.keys.backups.list` (spec
+//! the `?series_id=` listing shape exposed by `ck.self.keys.backups.query.list` (spec
 //! head 37ce729 / key-management.md §7.4 "key-backup hardening").
 //!
 //! The chain semantics this example exercises:

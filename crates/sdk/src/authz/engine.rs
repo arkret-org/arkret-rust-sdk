@@ -185,7 +185,7 @@ impl AuthzContext {
     }
 }
 
-/// Policy-server response for `ck.self.policy.check`.
+/// Policy-server response for `ck.self.policy.query.check`.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PolicyServerEffect {
@@ -206,7 +206,7 @@ pub struct PolicyEvaluationRequest {
 impl PolicyEvaluationRequest {
     pub fn new(context: AuthzContext) -> Self {
         Self {
-            operation: "ck.self.policy.check".to_owned(),
+            operation: "ck.self.policy.query.check".to_owned(),
             context,
         }
     }
@@ -227,7 +227,7 @@ pub struct PolicyEvaluationResult {
 impl PolicyEvaluationResult {
     pub fn no_action() -> Self {
         Self {
-            operation: "ck.self.policy.check".to_owned(),
+            operation: "ck.self.policy.query.check".to_owned(),
             effect: PolicyServerEffect::NoAction,
             reason: "no policy restriction".to_owned(),
             policy_id: None,

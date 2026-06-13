@@ -14,7 +14,7 @@ use serde_json::Value;
 
 use crate::{Cursor, DeviceId, Did, Error, Event, EventId, Hlc, RealmId, Result, canonical};
 
-/// Query parameters for `ck.self.account.subscribe`.
+/// Query parameters for `ck.self.account.stream.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncRequestBody {

@@ -720,8 +720,16 @@ mod tests {
         ] {
             assert!(report.covers_domain(domain.clone()), "{domain:?}");
         }
-        assert!(report.operation_ids().contains("ck.self.events.submit"));
-        assert!(report.operation_ids().contains("ck.root.identity.resolve"));
+        assert!(
+            report
+                .operation_ids()
+                .contains("ck.self.events.command.submit")
+        );
+        assert!(
+            report
+                .operation_ids()
+                .contains("ck.root.identity.query.resolve")
+        );
         assert!(report.operation_ids().contains("ck.crypto.machine_request"));
         assert!(report.operation_ids().contains("ck.ui.timeline_projection"));
         assert!(report.operation_ids().contains("ck.ffi.wasm_runtime"));
@@ -733,11 +741,11 @@ mod tests {
     #[test]
     fn edge_push_operations_are_push_gateway_domain() {
         assert_eq!(
-            operation_domain("ck.edge.push.notify"),
+            operation_domain("ck.edge.push.command.notify"),
             ConformanceDomain::PushGateway
         );
         assert_eq!(
-            operation_domain("ck.edge.push.register_device"),
+            operation_domain("ck.edge.push.command.register_device"),
             ConformanceDomain::PushGateway
         );
     }

@@ -402,7 +402,7 @@ mod tests {
             sink.emit(FfiEvent {
                 stream: handle,
                 sequence: 1,
-                event_kind: "ck.self.account.subscribe".to_owned(),
+                event_kind: "ck.self.account.stream.subscribe".to_owned(),
                 payload: Value::Null,
             }),
             FfiCallbackResult::continue_stream()

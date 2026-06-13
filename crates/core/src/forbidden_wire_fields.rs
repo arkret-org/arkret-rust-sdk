@@ -159,9 +159,9 @@ pub enum WireContext {
     ContentBlockComposite,
     /// Notification projection property (registry `notification_projection`).
     NotificationProjection,
-    /// MIMI consent request body (`ck.open.mimi.request_consent`).
+    /// MIMI consent request body (`ck.open.mimi.command.request_consent`).
     MimiRequestConsentRequestBody,
-    /// MIMI consent update body (`ck.open.mimi.update_consent`).
+    /// MIMI consent update body (`ck.open.mimi.command.update_consent`).
     MimiUpdateConsentRequestBody,
     /// Service describe `verified_profiles[]` entry property.
     ServiceDescribeVerifiedProfiles,

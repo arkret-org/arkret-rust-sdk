@@ -70,7 +70,7 @@ release, GitHub release, or release tag.
 
 ### R3.3 — Spec sync 2026-05-28 (cokret-spec @ cced4b8, CKP-0011)
 
-- **New operation**: `ck.directory.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `ck.directory.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `ck.schema.*`, or wire/reducer changes.
+- **New operation**: `ck.find.directory.query.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `ck.find.directory.query.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `ck.schema.*`, or wire/reducer changes.
 - **Wire types**: `DirectoryResolveTargetRequestBody { address, requester, proofs, token }` + `DirectoryTargetResolutionOutcome { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Flow, Message }`. http-client method `directory_resolve_target`.
 - **Object-addressing grammar** (`cokret_core::model::object_address`): client-agnostic shareable address pointing at a Realm / Flow / Message. `parse_address` accepts both the `web+cokret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `flow` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid flow/message segment, or a flow/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
 - **Invite-token target binding** (scope-confusion defence): `TargetDescriptor { realm_id, flow_id?, message_id?, link_type }` with absent hierarchy fields OMITTED (never `null`) and typed canonical id values (`ck:realm:` / `ck:flow:` / `ck:message:`). `target_digest` reuses the shared canonicalizer (`canonical::canonical_sha256`) and covers ONLY the identity tuple + `link_type` — never `via` / `action` / `tok` / `lt`. `verify_token_target` recomputes + compares the digest so a token minted for object A cannot be replayed onto a different object B (and fails closed when the realm is still an unresolved alias).
@@ -84,15 +84,15 @@ release, GitHub release, or release tag.
 - **Mention shape v2**: `Mention` field `subject` → `subject_id` (sole authoritative field); `handle` → `handle_at_time`, `display_snapshot` → `display_name_at_time`, new `mention_text_original`; all handle/name fields are audit metadata only.
 - **HandleClaim**: `claim_type=service_handle` removed (`HandleClass::ServiceHandle` deleted); `validate_handle_claim_subject` rejects `ck:actor:` / `ck:account:` / non-DID subjects.
 - **Roster v2**: `MemberRosterEntry` gains `subject_id` + `handle_claim_digests` + `handle_claims` + `handle_claims_limited` with dependentRequired enforcement (`validate`).
-- **New operation**: `ck.directory.list_handles_for_subject` (`POST /api/v1/directory/list-handles-for-subject`, `Directory/ListHandlesForSubject`, `directory.list_handles_for_subject`) + `DirectoryListHandlesForSubject{Req,Res}Body` + http-client method with `claims[].subject == subject` validation. New schema `ck.schema.list_handles_for_subject_response.v1`.
+- **New operation**: `ck.find.directory.query.list_handles_for_subject` (`POST /api/v1/directory/list-handles-for-subject`, `Directory/ListHandlesForSubject`, `directory.list_handles_for_subject`) + `DirectoryListHandlesForSubject{Req,Res}Body` + http-client method with `claims[].subject == subject` validation. New schema `ck.schema.list_handles_for_subject_response.v1`.
 - **§3.2.1 primary handle selection**: `select_primary_handle` (6-tuple deterministic algorithm), `claim_digest` (semantic-projection canonical digest, stable under hint mutation), `DidDocumentSnapshotResolver` hook. **§3.8.2 mention render**: `render_mention` + `MentionRender` fallback tiers.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
 ### R3 — Spec sync 2026-05-27 (cokret-spec @ b47ff6ec)
 
-- Call / media (CKP-0010): client helper `call_media_token_exchange`, `MediaTokenResponse` / `ParticipantBinding` / `MediaBackendType` types, TTL gate `<=600s`, five new capability actions, op registry mirror at `ck.call.media.token_exchange`.
-- Agent (CKP-0008 / 0009): `ck.agent.deactivate` HTTP path canonicalised (no `/revoke`), draft / action_request / approve / reject event kinds wired, `pause/resume/deactivate` FSM lattice metadata, agent_runtime surface tier definition.
+- Call / media (CKP-0010): client helper `call_media_token_exchange`, `MediaTokenResponse` / `ParticipantBinding` / `MediaBackendType` types, TTL gate `<=600s`, five new capability actions, op registry mirror at `ck.self.call.media.exchange.issue_token`.
+- Agent (CKP-0008 / 0009): `ck.self.agent.command.deactivate` HTTP path canonicalised (no `/revoke`), draft / action_request / approve / reject event kinds wired, `pause/resume/deactivate` FSM lattice metadata, agent_runtime surface tier definition.
 - Errors: 20 new error codes added to SDK `Error` / `ServiceError` (pairing, proof, agent lifecycle, media binding, focus, recording, recovery, handle homograph).
 - Recovery: `RecoveryPolicy`, `RecoveryReceipt`, `RecoveryProofKind`, `RecoverySession` id-kind + codec round-trip per the new schemas.
 - Profiles / cursor / selector / data: media-service-binding + `accountable_principals.strict_reject` profile entries, stateful core cursor enforcement, `ResourceSelector::Circle(CircleId)`, `AccountDataSet` / `AccountBlocklist` payloads, handle NFC + confusable skeleton helper.
@@ -105,7 +105,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
 
 #### CKP-0010 — Call / Media token exchange
 
-- New op `ck.call.media.token_exchange` mounted at
+- New op `ck.self.call.media.exchange.issue_token` mounted at
   `POST /cokret/v1/rtc/token` with surface tier `core_personal`
   (`crates/core/src/model/constants.rs`,
   `crates/server/src/registry.rs`).
@@ -1258,7 +1258,7 @@ legacy-form fallback in `Deserialize`.
     inserting `FlowTrackConfig::synthesis()` and
     `FlowTrackConfig::discussion_primary()` under the canonical names.
 - **`/device_messages` is now `POST` + `Idempotency-Key` header**.
-  - Endpoint registry: `ck.device_messages.put` is `POST
+  - Endpoint registry: `ck.self.device_messages.command.send` is `POST
     /api/v1/device_messages` (was `PUT
     /api/v1/device_messages/{txn_id}`).
   - `Client::send_device_messages(idempotency_key, request)` switches
@@ -1272,15 +1272,15 @@ legacy-form fallback in `Deserialize`.
     `txn_id` field to match
     `device-message.schema.json`.
 - **`/applet/transactions` is now `POST` + `Idempotency-Key` header**.
-  - Endpoint registry: `ck.applet.transaction` is `POST
+  - Endpoint registry: `ck.edge.applet.command.transaction` is `POST
     /api/v1/applet/transactions` (was `PUT
     /api/v1/applet/transactions/{txn_id}`).
   - `Client::applet_transaction(idempotency_key, request)` switches to
     `POST` + `Idempotency-Key` header.
   - Server route table, OpenAPI document, conformance vectors, and
     Salvo router debug strings updated to the new shape.
-- API endpoint headers list: both `ck.device_messages.put` and
-  `ck.applet.transaction` declare a required `Idempotency-Key` header.
+- API endpoint headers list: both `ck.self.device_messages.command.send` and
+  `ck.edge.applet.command.transaction` declare a required `Idempotency-Key` header.
 
 ### Changed
 
@@ -1340,7 +1340,7 @@ unchanged; this is an additive SDK API release.
 This release completes round 21 of the SDK: the public Move/Seal signer
 trait, an Ed25519 backend for production signing, the `EventsQueryRequest`
 / `EventsQueryOutcome` typed wrappers downstream agents (coauth / soland /
-yougen) need for `ck.events.query`, and the workspace bump to 0.5.0
+yougen) need for `ck.self.events.query.scan`, and the workspace bump to 0.5.0
 (folds C19.B follow-ups + completes signer surface). v1 wire is unchanged
 from 0.4.0; this is an additive SDK API release.
 
@@ -1363,7 +1363,7 @@ from 0.4.0; this is an additive SDK API release.
 - Re-exported at the top-level `cokret` crate root behind the
   `cokret/signer = ["cokret-signatures/signer"]` feature flag.
 - **`cokret::EventsQueryRequest` / `EventsQueryOutcome`** typed
-  wrappers in `sync_client.rs` for `ck.events.query`. Multi-selector
+  wrappers in `sync_client.rs` for `ck.self.events.query.scan`. Multi-selector
   (`spaces[] ∪ actors[]`), `from` / `until` HLC bounds, `direction`
   (forward/backward), `limit`. `EventsQueryOutcome` carries `events`,
   `next_cursor`, `prev_cursor`, `limited`. From/Into impls bridge with

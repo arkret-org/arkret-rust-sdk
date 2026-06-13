@@ -116,15 +116,16 @@ pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
 /// 3 aggregate actions that fan out to `target_event_kinds` (publish / write /
 /// ensure trio carries the migration_group metadata in the spec; SDK consumers
 /// MUST consult the registry artifact for the target_event_kinds expansion).
-pub const CAP_ACTION_AGENT_PROVISION: &str = "ck.self.agent.provision";
-pub const CAP_ACTION_AGENT_PAUSE: &str = "ck.self.agent.pause";
-pub const CAP_ACTION_AGENT_RESUME: &str = "ck.self.agent.resume";
-pub const CAP_ACTION_AGENT_DEACTIVATE: &str = "ck.self.agent.deactivate";
+pub const CAP_ACTION_AGENT_PROVISION: &str = "ck.self.agent.command.provision";
+pub const CAP_ACTION_AGENT_PAUSE: &str = "ck.self.agent.command.pause";
+pub const CAP_ACTION_AGENT_RESUME: &str = "ck.self.agent.command.resume";
+pub const CAP_ACTION_AGENT_DEACTIVATE: &str = "ck.self.agent.command.deactivate";
 pub const CAP_ACTION_AGENT_DRAFT_PROPOSE: &str = "ck.agent.draft.propose";
 pub const CAP_ACTION_AGENT_ACTION_REQUEST: &str = "ck.agent.action_request";
 pub const CAP_ACTION_AGENT_ACTION_APPROVE: &str = "ck.agent.action_approve";
 pub const CAP_ACTION_AGENT_ACTION_REJECT: &str = "ck.agent.action_reject";
-pub const CAP_ACTION_AGENT_SIDECAR_THREAD_ENSURE: &str = "ck.self.agent.sidecar_thread.ensure";
+pub const CAP_ACTION_AGENT_SIDECAR_THREAD_ENSURE: &str =
+    "ck.self.agent.sidecar_thread.command.ensure";
 pub const CAP_ACTION_AGENT_SIDECAR_THREAD_WRITE: &str = "ck.agent.sidecar_thread.write";
 pub const CAP_ACTION_AGENT_SIDECAR_THREAD_PUBLISH: &str = "ck.agent.sidecar_thread.publish";
 
@@ -179,17 +180,17 @@ pub fn agent_capability_target_event_kinds(action: &str) -> &'static [&'static s
 /// `operation-registry.json`). Used by the RPC dispatch layer; reducer-input
 /// agent lifecycle events are registered separately under `AGENT_*`
 /// event-kind constants above.
-pub const OP_ACCOUNT_AGENT_KEY_PAIR: &str = "ck.gate.account.agent_key_pair";
-pub const OP_AGENT_PROVISION: &str = "ck.self.agent.provision";
-pub const OP_AGENT_LIST: &str = "ck.self.agent.list";
-pub const OP_AGENT_GET: &str = "ck.self.agent.get";
-pub const OP_AGENT_PAUSE: &str = "ck.self.agent.pause";
-pub const OP_AGENT_RESUME: &str = "ck.self.agent.resume";
-pub const OP_AGENT_DEACTIVATE: &str = "ck.self.agent.deactivate";
-pub const OP_AGENT_ROTATE_KEY: &str = "ck.self.agent.rotate_key";
-pub const OP_AGENT_GRANT_ATTACH: &str = "ck.self.agent.grant.attach";
-pub const OP_AGENT_GRANT_DETACH: &str = "ck.self.agent.grant.detach";
-pub const OP_AGENT_SIDECAR_THREAD_ENSURE: &str = "ck.self.agent.sidecar_thread.ensure";
+pub const OP_ACCOUNT_AGENT_KEY_PAIR: &str = "ck.gate.account.command.pair_agent_key";
+pub const OP_AGENT_PROVISION: &str = "ck.self.agent.command.provision";
+pub const OP_AGENT_LIST: &str = "ck.self.agent.query.list";
+pub const OP_AGENT_GET: &str = "ck.self.agent.resource.get";
+pub const OP_AGENT_PAUSE: &str = "ck.self.agent.command.pause";
+pub const OP_AGENT_RESUME: &str = "ck.self.agent.command.resume";
+pub const OP_AGENT_DEACTIVATE: &str = "ck.self.agent.command.deactivate";
+pub const OP_AGENT_ROTATE_KEY: &str = "ck.self.agent.command.rotate_key";
+pub const OP_AGENT_GRANT_ATTACH: &str = "ck.self.agent.grant.command.attach";
+pub const OP_AGENT_GRANT_DETACH: &str = "ck.self.agent.grant.resource.delete";
+pub const OP_AGENT_SIDECAR_THREAD_ENSURE: &str = "ck.self.agent.sidecar_thread.command.ensure";
 
 /// CKP-0008 / CKP-0009 — controller-private account-data types. Reducer
 /// MUST reject writes from non-controller actors.
@@ -420,57 +421,57 @@ pub const OP_MEMBER_STATE: &str = "ck.member.state";
 pub const OP_INVITE_CREATE: &str = "ck.invite.create";
 
 /// Server and account/snapshot operations.
-pub const OP_SERVER_DESCRIBE: &str = "ck.server.describe";
-pub const OP_OPEN_INVITE_LOCATOR_RESOLVE: &str = "ck.open.invite_locator.resolve";
-pub const OP_PEER_INVITES_SUBMIT: &str = "ck.peer.invites.submit";
-pub const OP_IDENTITY_RESOLVE: &str = "ck.root.identity.resolve";
-pub const OP_ACCOUNT_DESCRIBE: &str = "ck.self.account.describe";
-pub const OP_ACCOUNT_CURSOR_REVOKE: &str = "ck.self.account.cursor_revoke";
+pub const OP_SERVER_DESCRIBE: &str = "ck.server.query.describe";
+pub const OP_OPEN_INVITE_LOCATOR_RESOLVE: &str = "ck.open.invite_locator.query.resolve";
+pub const OP_PEER_INVITES_SUBMIT: &str = "ck.peer.invites.command.submit";
+pub const OP_IDENTITY_RESOLVE: &str = "ck.root.identity.query.resolve";
+pub const OP_ACCOUNT_DESCRIBE: &str = "ck.self.account.query.describe";
+pub const OP_ACCOUNT_CURSOR_REVOKE: &str = "ck.self.account.command.revoke_cursor";
 
 /// Directory operations.
-pub const OP_DIRECTORY_DESCRIBE: &str = "ck.find.directory.describe";
+pub const OP_DIRECTORY_DESCRIBE: &str = "ck.find.directory.query.describe";
 
 /// Blob operations.
-pub const OP_BLOB_UPLOAD: &str = "ck.self.blob.upload";
-pub const OP_BLOB_HEAD: &str = "ck.self.blob.head";
-pub const OP_BLOB_GET: &str = "ck.self.blob.get";
+pub const OP_BLOB_UPLOAD: &str = "ck.self.blob.upload.create";
+pub const OP_BLOB_HEAD: &str = "ck.self.blob.resource.head";
+pub const OP_BLOB_GET: &str = "ck.self.blob.resource.get";
 /// Round C44 (2026-05-18; spec dc01ad7) — pre-signed blob URL surface.
 /// `POST /blob/presign` returns a short-lived put/get URL pair so very
 /// large blobs can be uploaded directly to object storage. Full signing
 /// enforcement is a server responsibility; SDK only needs the constant for
 /// client routing.
-pub const OP_BLOB_PRESIGN: &str = "ck.self.blob.presign";
+pub const OP_BLOB_PRESIGN: &str = "ck.self.blob.command.presign";
 
 /// Push and key operations.
-pub const OP_PUSH_NOTIFY: &str = "ck.edge.push.notify";
-pub const OP_KEYS_UPLOAD: &str = "ck.self.keys.upload";
-pub const OP_KEYS_QUERY: &str = "ck.self.keys.query";
-pub const OP_KEYS_CLAIM: &str = "ck.self.keys.claim";
-pub const OP_DEVICE_MESSAGES_PUT: &str = "ck.self.device_messages.put";
-pub const OP_DEVICE_MESSAGES_GET: &str = "ck.self.device_messages.get";
-pub const OP_DEVICE_MESSAGES_ACK: &str = "ck.self.device_messages.ack";
-pub const OP_KEYS_KEYPACKAGES_UPLOAD: &str = "ck.self.keys.keypackages.upload";
-pub const OP_KEYS_KEYPACKAGES_CLAIM: &str = "ck.self.keys.keypackages.claim";
-pub const OP_KEYS_KEYPACKAGES_CONSUME: &str = "ck.self.keys.keypackages.consume";
-pub const OP_KEYS_KEYPACKAGES_REVOKE: &str = "ck.self.keys.keypackages.revoke";
-pub const OP_KEYS_BACKUPS_PUT: &str = "ck.self.keys.backups.put";
-pub const OP_KEYS_BACKUPS_LIST: &str = "ck.self.keys.backups.list";
-// Renamed from `ck.self.keys.backups.get` on 2026-06-11
+pub const OP_PUSH_NOTIFY: &str = "ck.edge.push.command.notify";
+pub const OP_KEYS_UPLOAD: &str = "ck.self.keys.upload.create";
+pub const OP_KEYS_QUERY: &str = "ck.self.keys.query.lookup";
+pub const OP_KEYS_CLAIM: &str = "ck.self.keys.command.claim";
+pub const OP_DEVICE_MESSAGES_PUT: &str = "ck.self.device_messages.command.send";
+pub const OP_DEVICE_MESSAGES_GET: &str = "ck.self.device_messages.query.list";
+pub const OP_DEVICE_MESSAGES_ACK: &str = "ck.self.device_messages.command.ack";
+pub const OP_KEYS_KEYPACKAGES_UPLOAD: &str = "ck.self.keys.keypackages.upload.create";
+pub const OP_KEYS_KEYPACKAGES_CLAIM: &str = "ck.self.keys.keypackages.command.claim";
+pub const OP_KEYS_KEYPACKAGES_CONSUME: &str = "ck.self.keys.keypackages.command.consume";
+pub const OP_KEYS_KEYPACKAGES_REVOKE: &str = "ck.self.keys.keypackages.command.revoke";
+pub const OP_KEYS_BACKUPS_PUT: &str = "ck.self.keys.backups.resource.replace";
+pub const OP_KEYS_BACKUPS_LIST: &str = "ck.self.keys.backups.query.list";
+// Renamed from `ck.self.keys.backups.command.unlock` on 2026-06-11
 // (artifacts/migration/renames.json): backup retrieval is rebound to
 // `POST /_cokret/self/keys/backups/{backup_id}/unlock` with a body-borne
 // unlock proof.
-pub const OP_KEYS_BACKUPS_UNLOCK: &str = "ck.self.keys.backups.unlock";
-pub const OP_KEYS_BACKUPS_DELETE: &str = "ck.self.keys.backups.delete";
+pub const OP_KEYS_BACKUPS_UNLOCK: &str = "ck.self.keys.backups.command.unlock";
+pub const OP_KEYS_BACKUPS_DELETE: &str = "ck.self.keys.backups.resource.delete";
 
 /// Authorization check.
-pub const OP_AUTHZ_CHECK: &str = "ck.self.authz.check";
-pub const OP_AUTHZ_GET_EFFECTIVE_GRANTS: &str = "ck.self.authz.get_effective_grants";
-pub const OP_AUTHZ_GET_INVITES: &str = "ck.self.authz.get_invites";
+pub const OP_AUTHZ_CHECK: &str = "ck.self.authz.query.check";
+pub const OP_AUTHZ_GET_EFFECTIVE_GRANTS: &str = "ck.self.authz.grants.query.effective";
+pub const OP_AUTHZ_GET_INVITES: &str = "ck.self.authz.invites.query.list";
 
 /// Account / auth-server operations.
-pub const OP_ACCOUNT_DEVICE_PAIR: &str = "ck.gate.account.device_pair";
-pub const OP_ACCOUNT_ISSUE_SESSION_GRANT: &str = "ck.gate.account.issue_session_grant";
-pub const OP_ACCOUNT_OIDC_CALLBACK: &str = "ck.gate.account.oidc_callback";
+pub const OP_ACCOUNT_DEVICE_PAIR: &str = "ck.gate.account.command.pair_device";
+pub const OP_ACCOUNT_ISSUE_SESSION_GRANT: &str = "ck.gate.account.command.issue_session_grant";
+pub const OP_ACCOUNT_OIDC_CALLBACK: &str = "ck.gate.account.exchange.complete_oidc";
 
 // Admin / operator APIs (moderation queue, server status, device revocation,
 // account status) are product-local per spec @ 2026-06-04 and MUST NOT be
@@ -480,14 +481,14 @@ pub const OP_ACCOUNT_OIDC_CALLBACK: &str = "ck.gate.account.oidc_callback";
 // therefore carry no `OP_ADMIN_*` protocol constants here.
 
 /// Applet / bridge operations.
-pub const OP_APPLET_DESCRIBE: &str = "ck.edge.applet.describe";
-pub const OP_APPLET_PING: &str = "ck.edge.applet.ping";
-pub const OP_APPLET_PROTOCOL_METADATA: &str = "ck.edge.applet.protocol_metadata";
-pub const OP_APPLET_RESOLVE_ACTOR: &str = "ck.edge.applet.resolve_actor";
-pub const OP_APPLET_RESOLVE_REALM: &str = "ck.edge.applet.resolve_realm";
-pub const OP_APPLET_THIRD_PARTY_LOCATIONS: &str = "ck.edge.applet.third_party_locations";
-pub const OP_APPLET_THIRD_PARTY_USERS: &str = "ck.edge.applet.third_party_users";
-pub const OP_APPLET_TRANSACTION: &str = "ck.edge.applet.transaction";
+pub const OP_APPLET_DESCRIBE: &str = "ck.edge.applet.query.describe";
+pub const OP_APPLET_PING: &str = "ck.edge.applet.query.ping";
+pub const OP_APPLET_PROTOCOL_METADATA: &str = "ck.edge.applet.query.protocol_metadata";
+pub const OP_APPLET_RESOLVE_ACTOR: &str = "ck.edge.applet.actor.query.resolve";
+pub const OP_APPLET_RESOLVE_REALM: &str = "ck.edge.applet.realm.query.resolve";
+pub const OP_APPLET_THIRD_PARTY_LOCATIONS: &str = "ck.edge.applet.third_party_locations.query.list";
+pub const OP_APPLET_THIRD_PARTY_USERS: &str = "ck.edge.applet.third_party_users.query.list";
+pub const OP_APPLET_TRANSACTION: &str = "ck.edge.applet.command.transaction";
 
 /// Applet protocol-session sub-events (round 13, 2026-05-16). Spec
 /// `extensions/applet-integration.md` event-kind-registry rows. These
@@ -515,84 +516,87 @@ pub const OP_AGENT_INTEROP_SESSION_STATUS: &str = "ck.agent.interop_session.stat
 
 /// Directory operations beyond the bare `describe`.
 pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str =
-    "ck.find.directory.private_contact_discovery";
-pub const OP_DIRECTORY_ANNOUNCE: &str = "ck.find.directory.announce";
-pub const OP_DIRECTORY_RESOLVE_AGENT_SELECTOR: &str = "ck.find.directory.resolve_agent_selector";
-pub const OP_DIRECTORY_RESOLVE_HANDLE: &str = "ck.find.directory.resolve_handle";
+    "ck.find.directory.query.private_contact_discovery";
+pub const OP_DIRECTORY_ANNOUNCE: &str = "ck.find.directory.command.announce";
+pub const OP_DIRECTORY_RESOLVE_AGENT_SELECTOR: &str =
+    "ck.find.directory.query.resolve_agent_selector";
+pub const OP_DIRECTORY_RESOLVE_HANDLE: &str = "ck.find.directory.query.resolve_handle";
 /// R3.2 (cokret-spec @ b56cab1) — subject/context → current visible
 /// handle claims; the inverse of `resolve_handle`.
 pub const OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT: &str =
-    "ck.find.directory.list_handles_for_subject";
-pub const OP_DIRECTORY_RESOLVE_ORGANIZATION: &str = "ck.find.directory.resolve_organization";
-pub const OP_DIRECTORY_RESOLVE_REALM: &str = "ck.find.directory.resolve_realm";
+    "ck.find.directory.query.list_handles_for_subject";
+pub const OP_DIRECTORY_RESOLVE_ORGANIZATION: &str = "ck.find.directory.query.resolve_organization";
+pub const OP_DIRECTORY_RESOLVE_REALM: &str = "ck.find.directory.query.resolve_realm";
 /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — resolve a client-agnostic
 /// shareable object address (Realm / Flow / Message) to a preview. Pure ADD;
 /// `resolve_realm` is retained and NOT deprecated.
-pub const OP_DIRECTORY_RESOLVE_TARGET: &str = "ck.find.directory.resolve_target";
-pub const OP_DIRECTORY_SEARCH_ACTORS: &str = "ck.find.directory.search_actors";
-pub const OP_DIRECTORY_SEARCH_ORGANIZATIONS: &str = "ck.find.directory.search_organizations";
-pub const OP_DIRECTORY_SEARCH_REALMS: &str = "ck.find.directory.search_realms";
-pub const OP_DIRECTORY_SEARCH_USERS: &str = "ck.find.directory.search_users";
-pub const OP_DIRECTORY_PUSH_REGISTER: &str = "ck.find.directory.push.register";
-pub const OP_DIRECTORY_WITHDRAW: &str = "ck.find.directory.withdraw";
+pub const OP_DIRECTORY_RESOLVE_TARGET: &str = "ck.find.directory.query.resolve_target";
+pub const OP_DIRECTORY_SEARCH_ACTORS: &str = "ck.find.directory.query.search_actors";
+pub const OP_DIRECTORY_SEARCH_ORGANIZATIONS: &str = "ck.find.directory.query.search_organizations";
+pub const OP_DIRECTORY_SEARCH_REALMS: &str = "ck.find.directory.query.search_realms";
+pub const OP_DIRECTORY_SEARCH_USERS: &str = "ck.find.directory.query.search_users";
+pub const OP_DIRECTORY_PUSH_REGISTER: &str = "ck.find.directory.push.command.register";
+pub const OP_DIRECTORY_WITHDRAW: &str = "ck.find.directory.command.withdraw";
 
 /// Events-API operations (low-level Event Envelope plane).
-pub const OP_EVENTS_RESOLVE: &str = "ck.self.events.resolve";
-pub const OP_EVENTS_DESCRIBE: &str = "ck.self.events.describe";
-pub const OP_EVENTS_FRONTIER: &str = "ck.self.events.frontier";
-pub const OP_EVENTS_GET: &str = "ck.self.events.get";
-pub const OP_EVENTS_QUERY: &str = "ck.self.events.query";
+pub const OP_EVENTS_RESOLVE: &str = "ck.self.events.query.resolve";
+pub const OP_EVENTS_DESCRIBE: &str = "ck.self.events.query.describe";
+pub const OP_EVENTS_FRONTIER: &str = "ck.self.events.query.frontier";
+pub const OP_EVENTS_GET: &str = "ck.self.events.resource.get";
+pub const OP_EVENTS_QUERY: &str = "ck.self.events.query.scan";
 /// Round C44 (2026-05-18; spec dc01ad7) — POST variant of
-/// `ck.self.events.query` for selectors too long to fit in a `GET` query
+/// `ck.self.events.query.scan` for selectors too long to fit in a `GET` query
 /// string (large `spaces[]` / `actors[]` unions). HTTP path:
 /// `POST /events/query`. Identical selector / range / response shape.
-pub const OP_EVENTS_QUERY_POST: &str = "ck.self.events.query_post";
+pub const OP_EVENTS_QUERY_POST: &str = "ck.self.events.query.scan_body";
 // DRIFT-ALLOW: constant declaring the operation-id string, not a payload type.
-pub const OP_EVENTS_SUBSCRIBE: &str = "ck.self.events.subscribe";
-pub const OP_EVENTS_SUBMIT: &str = "ck.self.events.submit";
-pub const OP_EPHEMERAL_SEND: &str = "ck.self.ephemeral.send";
+pub const OP_EVENTS_SUBSCRIBE: &str = "ck.self.events.stream.subscribe";
+pub const OP_EVENTS_SUBMIT: &str = "ck.self.events.command.submit";
+pub const OP_EPHEMERAL_SEND: &str = "ck.self.ephemeral.command.send";
 
 /// Contact and direct-conversation operations.
-pub const OP_CONTACT_REQUEST: &str = "ck.self.contact.request";
-pub const OP_CONTACT_RESPOND: &str = "ck.self.contact.respond";
-pub const OP_CONTACT_LIST: &str = "ck.self.contact.list";
-pub const OP_CONTACT_TOMBSTONE: &str = "ck.self.contact.tombstone";
-pub const OP_DIRECT_CONVERSATION_RESOLVE: &str = "ck.self.direct_conversation.resolve";
+pub const OP_CONTACT_REQUEST: &str = "ck.self.contact.command.request";
+pub const OP_CONTACT_RESPOND: &str = "ck.self.contact.command.respond";
+pub const OP_CONTACT_LIST: &str = "ck.self.contact.query.list";
+pub const OP_CONTACT_TOMBSTONE: &str = "ck.self.contact.command.tombstone";
+pub const OP_DIRECT_CONVERSATION_RESOLVE: &str = "ck.self.direct_conversation.command.resolve";
 
 /// Projection read-model operations.
-pub const OP_PROJECTION_SPACES: &str = "ck.self.projection.spaces";
-pub const OP_PROJECTION_FLOWS: &str = "ck.self.projection.flows";
-pub const OP_PROJECTION_MORPHS: &str = "ck.self.projection.morphs";
-pub const OP_PROJECTION_DOCUMENT: &str = "ck.self.projection.document";
-pub const OP_VIEW_COLLECTION_PROJECTION: &str = "ck.self.views.collection_projection";
+pub const OP_PROJECTION_SPACES: &str = "ck.self.projection.spaces.query.list";
+pub const OP_PROJECTION_FLOWS: &str = "ck.self.projection.flows.query.list";
+pub const OP_PROJECTION_MORPHS: &str = "ck.self.projection.morphs.query.list";
+pub const OP_PROJECTION_DOCUMENT: &str = "ck.self.projection.document.resource.get";
+pub const OP_VIEW_COLLECTION_PROJECTION: &str =
+    "ck.self.views.collection_projection.command.materialize";
 
 /// Identity-registry operations.
-pub const OP_IDENTITY_DESCRIBE_REGISTRY: &str = "ck.root.identity.describe_registry";
-pub const OP_IDENTITY_GET_DOCUMENT: &str = "ck.root.identity.get_document";
-pub const OP_IDENTITY_GET_LOG: &str = "ck.root.identity.get_log";
-pub const OP_IDENTITY_GET_RECEIPTS: &str = "ck.root.identity.get_receipts";
-pub const OP_IDENTITY_RECOVERY_POLICY_GET: &str = "ck.root.identity.recovery_policy.get";
-pub const OP_IDENTITY_RECOVERY_POLICY_PUT: &str = "ck.root.identity.recovery_policy.put";
-pub const OP_IDENTITY_SUBMIT_DID_OPERATION: &str = "ck.root.identity.submit_did_operation";
+pub const OP_IDENTITY_DESCRIBE_REGISTRY: &str = "ck.root.identity.registry.query.describe";
+pub const OP_IDENTITY_GET_DOCUMENT: &str = "ck.root.identity.document.resource.get";
+pub const OP_IDENTITY_GET_LOG: &str = "ck.root.identity.log.query.list";
+pub const OP_IDENTITY_GET_RECEIPTS: &str = "ck.root.identity.receipts.query.list";
+pub const OP_IDENTITY_RECOVERY_POLICY_GET: &str = "ck.root.identity.recovery_policy.resource.get";
+pub const OP_IDENTITY_RECOVERY_POLICY_PUT: &str =
+    "ck.root.identity.recovery_policy.command.publish";
+pub const OP_IDENTITY_SUBMIT_DID_OPERATION: &str = "ck.root.identity.command.submit_did_operation";
 
 /// Media / WebRTC ICE config.
-pub const OP_MEDIA_ICE_CONFIG: &str = "ck.self.media.ice_config";
+pub const OP_MEDIA_ICE_CONFIG: &str = "ck.self.media.query.ice_config";
 
 /// MIMI provider-facade operations.
-pub const OP_MIMI_GROUP_INFO: &str = "ck.open.mimi.group_info";
-pub const OP_MIMI_IDENTIFIER_QUERY: &str = "ck.open.mimi.identifier_query";
-pub const OP_MIMI_KEY_MATERIAL: &str = "ck.open.mimi.key_material";
-pub const OP_MIMI_NOTIFY: &str = "ck.open.mimi.notify";
-pub const OP_MIMI_PROVIDER_DIRECTORY: &str = "ck.open.mimi.provider_directory";
-pub const OP_MIMI_PROXY_DOWNLOAD: &str = "ck.open.mimi.proxy_download";
-pub const OP_MIMI_REPORT_ABUSE: &str = "ck.open.mimi.report_abuse";
-pub const OP_MIMI_REQUEST_CONSENT: &str = "ck.open.mimi.request_consent";
-pub const OP_MIMI_ROOM_UPDATE: &str = "ck.open.mimi.room_update";
-pub const OP_MIMI_SUBMIT_MESSAGE: &str = "ck.open.mimi.submit_message";
-pub const OP_MIMI_UPDATE_CONSENT: &str = "ck.open.mimi.update_consent";
+pub const OP_MIMI_GROUP_INFO: &str = "ck.open.mimi.query.group_info";
+pub const OP_MIMI_IDENTIFIER_QUERY: &str = "ck.open.mimi.query.identifiers";
+pub const OP_MIMI_KEY_MATERIAL: &str = "ck.open.mimi.exchange.request_key_material";
+pub const OP_MIMI_NOTIFY: &str = "ck.open.mimi.command.notify";
+pub const OP_MIMI_PROVIDER_DIRECTORY: &str = "ck.open.mimi.query.provider_directory";
+pub const OP_MIMI_PROXY_DOWNLOAD: &str = "ck.open.mimi.command.proxy_download";
+pub const OP_MIMI_REPORT_ABUSE: &str = "ck.open.mimi.command.report_abuse";
+pub const OP_MIMI_REQUEST_CONSENT: &str = "ck.open.mimi.command.request_consent";
+pub const OP_MIMI_ROOM_UPDATE: &str = "ck.open.mimi.command.update_room";
+pub const OP_MIMI_SUBMIT_MESSAGE: &str = "ck.open.mimi.command.submit_message";
+pub const OP_MIMI_UPDATE_CONSENT: &str = "ck.open.mimi.command.update_consent";
 
 /// Moderation report submission.
-pub const OP_MODERATION_REPORT: &str = "ck.self.moderation.report";
+pub const OP_MODERATION_REPORT: &str = "ck.self.moderation.command.report";
 
 /// Round R2/R3 (2026-05-20) — capability actions for the moderation appeal
 /// flow. `submit` is low-risk (any member may appeal); `review` is
@@ -626,10 +630,10 @@ pub const CALL_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_CALL_MODERATE,
 ];
 
-/// CKP-0010 — `ck.self.call.media.token_exchange` operation id. HTTP route:
+/// CKP-0010 — `ck.self.call.media.exchange.issue_token` operation id. HTTP route:
 /// `POST /rtc/token`. Surface tier `core_personal`. Registered in
 /// `operation-registry.json` v2026-05-27.
-pub const OP_CALL_MEDIA_TOKEN_EXCHANGE: &str = "ck.self.call.media.token_exchange";
+pub const OP_CALL_MEDIA_TOKEN_EXCHANGE: &str = "ck.self.call.media.exchange.issue_token";
 
 /// CKP-0010 — schema id for the participant_binding signing envelope.
 pub const PARTICIPANT_BINDING_SCHEMA: &str = "ck.media.participant_binding.v1";
@@ -709,45 +713,46 @@ pub const HEADER_DESTINATION_TRUST_DOMAIN: &str = "Destination-Trust-Domain";
 pub const HEADER_REQUEST_CANONICAL_DIGEST: &str = "Request-Canonical-Digest";
 
 /// Policy server check.
-pub const OP_POLICY_CHECK: &str = "ck.self.policy.check";
+pub const OP_POLICY_CHECK: &str = "ck.self.policy.query.check";
 
 /// Push gateway register / unregister.
-pub const OP_PUSH_REGISTER_DEVICE: &str = "ck.edge.push.register_device";
-pub const OP_PUSH_UNREGISTER_DEVICE: &str = "ck.edge.push.unregister_device";
+pub const OP_PUSH_REGISTER_DEVICE: &str = "ck.edge.push.command.register_device";
+pub const OP_PUSH_UNREGISTER_DEVICE: &str = "ck.edge.push.command.unregister_device";
 
 /// Account aggregate stream and snapshot head.
-pub const OP_ACCOUNT_SUBSCRIBE: &str = "ck.self.account.subscribe";
-pub const OP_SNAPSHOT_HEAD: &str = "ck.self.snapshot.head";
+pub const OP_ACCOUNT_SUBSCRIBE: &str = "ck.self.account.stream.subscribe";
+pub const OP_SNAPSHOT_HEAD: &str = "ck.self.snapshot.query.manifest_head";
 
 // Spec-sync (operation-registry.json) — service operations the registry ships
 // that the SDK had not yet enumerated. Trust-surface segments: `gate` =
 // pre-auth account onboarding, `self` = authenticated account-scoped surface,
 // `peer` = inter-principal-server federation surface, `root` = identity-root
 // recovery surface.
-pub const OP_ACCOUNT_REGISTER: &str = "ck.gate.account.register";
-pub const OP_ACCOUNT_SESSION_REVOKE: &str = "ck.gate.account.session_revoke";
-pub const OP_ACCOUNT_UPDATE_PROFILE: &str = "ck.self.account.update_profile";
-pub const OP_ACCOUNT_VIEWER: &str = "ck.self.account.viewer";
-pub const OP_AGENT_PARTICIPATION_GET: &str = "ck.self.agent.participation.get";
-pub const OP_AGENT_PARTICIPATION_SET: &str = "ck.self.agent.participation.set";
-pub const OP_APPLET_INSTALL: &str = "ck.self.applet.install";
-pub const OP_APPLET_INSTALL_PREVIEW: &str = "ck.self.applet.install.preview";
-pub const OP_APPLET_GHOST_PROVISION: &str = "ck.self.applet.ghost.provision";
-pub const OP_APPLET_REVOKE: &str = "ck.self.applet.revoke";
-pub const OP_INVITE_RECEIVE_POLICY_GET: &str = "ck.self.invite_receive_policy.get";
-pub const OP_INVITE_RECEIVE_POLICY_SET: &str = "ck.self.invite_receive_policy.set";
-pub const OP_PEER_CONTACTS_SUBMIT: &str = "ck.peer.contacts.submit";
-pub const OP_PEER_EVENTS_DESCRIBE: &str = "ck.peer.events.describe";
-pub const OP_PEER_EVENTS_FRONTIER: &str = "ck.peer.events.frontier";
-pub const OP_PEER_EVENTS_QUERY: &str = "ck.peer.events.query";
-pub const OP_PEER_EVENTS_QUERY_POST: &str = "ck.peer.events.query_post";
-pub const OP_PEER_EVENTS_RESOLVE: &str = "ck.peer.events.resolve";
-pub const OP_PEER_EVENTS_SUBMIT: &str = "ck.peer.events.submit";
-pub const OP_PEER_SNAPSHOT_HEAD: &str = "ck.peer.snapshot.head";
-pub const OP_RECOVERY_SESSION_COMPLETE: &str = "ck.root.identity.recovery_session.complete";
-pub const OP_RECOVERY_SESSION_CREATE: &str = "ck.root.identity.recovery_session.create";
-pub const OP_RECOVERY_SESSION_GET: &str = "ck.root.identity.recovery_session.get";
-pub const OP_RECOVERY_SESSION_SUBMIT_PROOF: &str = "ck.root.identity.recovery_session.submit_proof";
+pub const OP_ACCOUNT_REGISTER: &str = "ck.gate.account.command.register";
+pub const OP_ACCOUNT_SESSION_REVOKE: &str = "ck.gate.account.command.revoke_session";
+pub const OP_ACCOUNT_UPDATE_PROFILE: &str = "ck.self.account.command.update_profile";
+pub const OP_ACCOUNT_VIEWER: &str = "ck.self.account.query.viewer";
+pub const OP_AGENT_PARTICIPATION_GET: &str = "ck.self.agent.participation.resource.get";
+pub const OP_AGENT_PARTICIPATION_SET: &str = "ck.self.agent.participation.resource.replace";
+pub const OP_APPLET_INSTALL: &str = "ck.self.applet.command.install";
+pub const OP_APPLET_INSTALL_PREVIEW: &str = "ck.self.applet.install.command.preview";
+pub const OP_APPLET_GHOST_PROVISION: &str = "ck.self.applet.ghost.command.provision";
+pub const OP_APPLET_REVOKE: &str = "ck.self.applet.command.revoke";
+pub const OP_INVITE_RECEIVE_POLICY_GET: &str = "ck.self.invite_receive_policy.resource.get";
+pub const OP_INVITE_RECEIVE_POLICY_SET: &str = "ck.self.invite_receive_policy.resource.replace";
+pub const OP_PEER_CONTACTS_SUBMIT: &str = "ck.peer.contacts.command.submit";
+pub const OP_PEER_EVENTS_DESCRIBE: &str = "ck.peer.events.query.describe";
+pub const OP_PEER_EVENTS_FRONTIER: &str = "ck.peer.events.query.frontier";
+pub const OP_PEER_EVENTS_QUERY: &str = "ck.peer.events.query.scan";
+pub const OP_PEER_EVENTS_QUERY_POST: &str = "ck.peer.events.query.scan_body";
+pub const OP_PEER_EVENTS_RESOLVE: &str = "ck.peer.events.query.resolve";
+pub const OP_PEER_EVENTS_SUBMIT: &str = "ck.peer.events.command.submit";
+pub const OP_PEER_SNAPSHOT_HEAD: &str = "ck.peer.snapshot.query.manifest_head";
+pub const OP_RECOVERY_SESSION_COMPLETE: &str = "ck.root.identity.recovery_session.command.complete";
+pub const OP_RECOVERY_SESSION_CREATE: &str = "ck.root.identity.recovery_session.command.create";
+pub const OP_RECOVERY_SESSION_GET: &str = "ck.root.identity.recovery_session.resource.get";
+pub const OP_RECOVERY_SESSION_SUBMIT_PROOF: &str =
+    "ck.root.identity.recovery_session.command.submit_proof";
 
 /// Canonical service operation IDs built into this SDK.
 ///
