@@ -910,7 +910,7 @@ impl AuthManager {
                 device_id: Some(device_id),
                 requested_scope: Vec::new(),
                 agent_key_authorization_ref: None,
-                agent_scope_request: serde_json::Value::Null,
+                agent_scope_request: Value::Null,
                 proof: cokret_core::SessionGrantRequestProof {
                     proof_kind: cokret_core::SessionGrantProofKind::DidBoundSignature,
                     challenge: challenge.to_owned(),
