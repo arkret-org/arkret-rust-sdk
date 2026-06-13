@@ -275,7 +275,7 @@ mod tests {
             Some(realm_id.clone()),
             EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
             did("bob"),
-            "ck.message",
+            "ck.message.create",
             None,
         );
         manager.add_notification(
@@ -283,7 +283,7 @@ mod tests {
             Some(realm_id.clone()),
             EventId::new("ck:event:01904100-0000-7000-8000-6008ddd67225").unwrap(),
             did("carol"),
-            "ck.message",
+            "ck.message.create",
             None,
         );
 
