@@ -24,6 +24,7 @@ use crate::{
 /// field — determines the segment separator set used for pattern
 /// matching (§2). Replaces the legacy `AppletNamespaceKind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AppletNamespaceDomain {
     /// Actor / DID namespace. Separator: `:` only; `#fragment` is ignored.
@@ -49,6 +50,7 @@ impl AppletNamespaceDomain {
 /// [`InstallPlan::namespace_conflicts`] and by
 /// [`AppletWireNamespaces::conflicts_with`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletNamespaceConflict {
     pub domain: AppletNamespaceDomain,
     pub pattern: String,
@@ -63,6 +65,7 @@ pub struct AppletNamespaceConflict {
 /// (see [`AppletWireNamespaces::conflicts_with`]); non-exclusive claims
 /// may coexist.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletNamespaceEntry {
     #[serde(default)]
     pub exclusive: bool,
@@ -93,6 +96,7 @@ impl AppletNamespaceEntry {
 /// which could not express exclusivity and so could not round-trip the
 /// spec's object-form namespace entries).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletWireNamespaces {
     #[serde(default)]
     pub actors: Vec<AppletNamespaceEntry>,
@@ -148,6 +152,7 @@ pub type WebhookAuth = Value;
 /// sends. Build it directly via [`WireAppletRegistration::new`] or derive
 /// it from an [`AppletPackage`] with [`AppletPackage::to_registration`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct WireAppletRegistration {
     /// Always `"ck.applet.registration"`. Reducer rejects other values.
     pub kind: String,
@@ -277,6 +282,7 @@ pub fn sign_registration<S: cokret_core::MoveSigner + ?Sized>(
 /// signer. [`to_registration`](Self::to_registration) performs the
 /// spec §1a Package→registration derivation.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletPackage {
     /// Always `ck.schema.applet_package.v1`.
     pub schema: String,
@@ -293,7 +299,7 @@ pub struct AppletPackage {
     pub claimed_profiles: Vec<String>,
     pub protocols: Vec<String>,
     pub namespaces: AppletWireNamespaces,
-    /// Capability action request list —审批 UI only, never a grant.
+    /// Capability action request list for approval UI only, never a grant.
     pub requested_scopes: Vec<String>,
     /// Supported Applet API endpoints + auth requirements (open shape).
     /// Renamed `endpoint_set` → `endpoint_policy` (2026-06-10, hard_reject;
@@ -547,6 +553,7 @@ impl EffectiveScope {
 /// a grant; the commit step intersects it with package requested scopes
 /// and Realm/Circle policy.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ApprovalRequest {
     #[serde(default)]
     pub approve_actions: Vec<String>,
@@ -562,6 +569,7 @@ pub struct ApprovalRequest {
 
 /// `POST /_cokret/self/applets/install/preview` request body.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct InstallPreviewRequestBody {
     pub applet_package: AppletPackage,
     pub effective_scope: EffectiveScope,
@@ -572,20 +580,75 @@ pub struct InstallPreviewRequestBody {
 /// Approved capability scope (commit input). `actions` × `realm_ids`
 /// under optional `constraints`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ApprovedScope {
     #[serde(default)]
     pub actions: Vec<String>,
     #[serde(default)]
     pub realm_ids: Vec<RealmId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub circle_ids: Vec<crate::CircleId>,
     #[serde(default)]
     pub constraints: Vec<Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct InstallDeniedScope {
+    pub requested_scope: String,
+    pub reason_code: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct InstallEventSubmission {
+    pub event_kind: String,
+    pub payload: Value,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub refs: Vec<Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct InstallCapabilityConstraint {
+    pub constraint_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub params: Option<Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct InstallNamespaceConflict {
+    pub namespace: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub existing_owner: Option<String>,
+    pub resolution: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct InstallE2eeEffect {
+    pub requires_mls_join: bool,
+    pub plaintext_access: String,
+    #[serde(default)]
+    pub authorization_refs: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct InstallWidgetEffect {
+    pub allow_widget: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_event_ref: Option<String>,
 }
 
 /// Read-only `InstallPlan` returned by install preview (spec §1b). The
 /// recomputed `plan_digest` is the anti-tamper seal the commit step
 /// re-derives and compares (`applet_install_plan_mismatch`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct InstallPlan {
+    pub schema: String,
     pub plan_id: String,
     pub applet_id: String,
     pub package_digest: crate::Hash,
@@ -596,15 +659,15 @@ pub struct InstallPlan {
     #[serde(default)]
     pub approved_scopes: Vec<ApprovedScope>,
     #[serde(default)]
-    pub denied_scopes: Vec<String>,
+    pub denied_scopes: Vec<InstallDeniedScope>,
     #[serde(default)]
-    pub events_to_submit: Vec<Value>,
+    pub events_to_submit: Vec<InstallEventSubmission>,
     #[serde(default)]
-    pub capability_constraints: Vec<Value>,
+    pub capability_constraints: Vec<InstallCapabilityConstraint>,
     #[serde(default)]
-    pub namespace_conflicts: Vec<AppletNamespaceConflict>,
-    pub e2ee_effect: Value,
-    pub widget_effect: Value,
+    pub namespace_conflicts: Vec<InstallNamespaceConflict>,
+    pub e2ee_effect: InstallE2eeEffect,
+    pub widget_effect: InstallWidgetEffect,
     #[serde(default)]
     pub warnings: Vec<String>,
     /// `None` until [`seal`](Self::seal); canonical digest excludes
@@ -630,6 +693,7 @@ impl InstallPlan {
 
 /// Bot / ghost membership policy carried into the install commit.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ActorPolicy {
     pub bot_membership: String,
     pub ghost_actor_mode: String,
@@ -637,6 +701,7 @@ pub struct ActorPolicy {
 
 /// E2EE policy at install commit time.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct InstallE2eePolicy {
     #[serde(default)]
     pub allow_mls_join: bool,
@@ -644,6 +709,7 @@ pub struct InstallE2eePolicy {
 
 /// Widget policy at install commit time.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct WidgetPolicy {
     #[serde(default)]
     pub allow_widget: bool,
@@ -652,6 +718,7 @@ pub struct WidgetPolicy {
 /// `POST /_cokret/self/applets/install` request body. MUST carry the
 /// preview `plan_digest`; the server fails closed on a mismatch.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct InstallCommitRequestBody {
     pub plan_digest: crate::Hash,
     pub applet_package: AppletPackage,
@@ -669,6 +736,7 @@ pub struct InstallCommitRequestBody {
 /// (`ck.applet.registration`, `ck.capability.grant`, membership, E2EE
 /// authorization, widget policy).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct InstallCommitOutcome {
     pub ok: bool,
     pub install_id: String,
@@ -690,16 +758,15 @@ pub struct InstallCommitOutcome {
 }
 
 /// `POST /_cokret/self/applets/{applet_id}/revoke` request body. Revoke
-/// targets the active install bound to `applet_id` + `effective_scope` +
-/// `registration_epoch` (spec §4b): all active grants, widget scoped
-/// token, delegated session and (where required) bot/ghost membership.
+/// targets the active install bound to `applet_id` + `effective_scope` and
+/// `revoke_mode` (spec §4b): all active grants, widget scoped token,
+/// delegated session and (where required) bot/ghost membership.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct InstallRevokeRequestBody {
     pub effective_scope: EffectiveScope,
-    pub registration_epoch: crate::Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason_code: String,
+    pub revoke_mode: crate::AppletRevokeMode,
 }
 
 /// `POST /_cokret/self/applets/{applet_id}/ghosts/provision` request body.
@@ -2303,6 +2370,7 @@ mod tests {
     #[test]
     fn install_plan_digest_excludes_itself_and_effective_scope_round_trips() {
         let mut plan = InstallPlan {
+            schema: "ck.schema.applet_install_plan.v1".to_owned(),
             plan_id: "plan_1".to_owned(),
             applet_id: "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
             package_digest: sample_epoch(),
@@ -2314,8 +2382,15 @@ mod tests {
             events_to_submit: vec![],
             capability_constraints: vec![],
             namespace_conflicts: vec![],
-            e2ee_effect: json!({"allow_mls_join": false}),
-            widget_effect: json!({"allow_widget": false}),
+            e2ee_effect: InstallE2eeEffect {
+                requires_mls_join: false,
+                plaintext_access: "none".to_owned(),
+                authorization_refs: Vec::new(),
+            },
+            widget_effect: InstallWidgetEffect {
+                allow_widget: false,
+                policy_event_ref: None,
+            },
             warnings: vec![],
             plan_digest: None,
         };

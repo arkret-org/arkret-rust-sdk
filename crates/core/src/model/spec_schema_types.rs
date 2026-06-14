@@ -1214,7 +1214,15 @@ pub type GenericRecoveryTranscript = Value;
 pub type PrincipalSigningTranscript = Value;
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/proof_summary`.
-pub type ProofSummary = Value;
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ProofSummary {
+    pub kind: RecoveryProofKind,
+    pub proof_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_method: Option<String>,
+}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/recovery_policy_ref`.
@@ -1229,7 +1237,17 @@ pub struct RecoveryPolicyRef {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_complete_outcome`.
-pub type RecoverySessionCompleteOutcome = Value;
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecoverySessionCompleteOutcome {
+    pub ok: bool,
+    pub recovery_session_id: RecoverySessionId,
+    pub state: SessionState,
+    pub device_id: DeviceId,
+    pub authorization_event_id: EventId,
+    pub device_list_update_event_id: EventId,
+}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
@@ -1240,6 +1258,8 @@ pub type RecoverySessionCompleteOutcome = Value;
 pub struct RecoverySessionCompleteRequestBody {
     pub authorization_event_id: EventId,
     pub device_list_update_event_id: EventId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
 }
 
 /// Counterpart for
@@ -1260,7 +1280,16 @@ pub struct RecoverySessionCreateRequestBody {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_proof_submit_outcome`.
-pub type RecoverySessionProofSubmitOutcome = Value;
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecoverySessionProofSubmitOutcome {
+    pub recovery_session_id: RecoverySessionId,
+    pub state: SessionState,
+    pub verification: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_summary: Option<ProofSummary>,
+}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
@@ -1275,10 +1304,40 @@ pub struct RecoverySessionProofSubmitRequestBody {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/recovery_session_state`.
-pub type RecoverySessionState = Value;
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecoverySessionState {
+    pub schema: String,
+    pub recovery_session_id: RecoverySessionId,
+    pub principal_id: Did,
+    pub requesting_device_id: DeviceId,
+    pub trust_domain: TypedTrustDomainId,
+    pub policy_id: PolicyId,
+    pub policy_version: u64,
+    pub ssk_generation: u64,
+    pub challenge: Challenge,
+    pub state: SessionState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_summary: Option<ProofSummary>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rejection_reason_code: Option<String>,
+    pub expires_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/session_state`.
-pub type SessionState = String;
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum SessionState {
+    Pending,
+    Verified,
+    Completed,
+    Rejected,
+    Expired,
+}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/threshold_recovery_proof`.

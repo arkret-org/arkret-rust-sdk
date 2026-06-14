@@ -3586,6 +3586,14 @@ impl AgentLifecycleState {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentLifecycleOutcome {
+    pub ok: bool,
+    pub status: AgentLifecycleState,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentList {
     #[serde(default)]
     pub agents: Vec<Value>,
@@ -4400,6 +4408,69 @@ pub struct RecoveryPolicy {
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+/// Read-model summary for the currently accepted recovery policy.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryPolicySummary {
+    pub policy_id: PolicyId,
+    pub principal_id: Did,
+    pub version: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovery_policy_ref: Option<RecoveryPolicyRef>,
+    pub trust_domain: TypedTrustDomainId,
+    pub allowed_proof_kinds: Vec<RecoveryProofKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supersedes: Option<PolicyId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    pub issued_at: DateTime<Utc>,
+    pub accepted_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy: Option<RecoveryPolicy>,
+}
+
+/// Principal control-stream frontier used by recovery policy read models.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryControlFrontier {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub event_ids: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frontier_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_at: Option<DateTime<Utc>>,
+}
+
+/// Response for `ck.root.identity.recovery_policy.resource.get`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryPolicyActiveOutcome {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub principal_id: Option<Did>,
+    pub active_policy: Option<RecoveryPolicySummary>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_policy_ref: Option<RecoveryPolicyRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub as_of: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_frontier: Option<RecoveryControlFrontier>,
+}
+
+/// Response for `ck.root.identity.recovery_policy.command.publish`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryPolicyPublishOutcome {
+    pub ok: bool,
+    pub policy_id: PolicyId,
+    pub principal_id: Did,
+    pub version: u64,
+    pub accepted_at: DateTime<Utc>,
 }
 
 /// `recovery-policy.schema.json#/properties/threshold` — Shamir-style

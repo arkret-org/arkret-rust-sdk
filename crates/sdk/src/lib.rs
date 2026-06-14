@@ -263,11 +263,13 @@ pub use applet::{
     AppletPortal, AppletServiceIntent, AppletServiceTransaction, AppletWireNamespaces,
     ApprovalRequest, ApprovedScope, EffectiveScope, GhostActorProfileFields,
     GhostActorProfileRequest, GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
-    InstallCommitOutcome, InstallCommitRequestBody, InstallE2eePolicy, InstallPlan,
-    InstallPreviewRequestBody, InstallRevokeRequestBody, PortalMode, PortalRealmMapping,
-    RemoteRealmMapping, RemoteUserMapping, ThirdPartyLookupKind, ThirdPartyLookupOutcome,
-    ThirdPartyLookupRequestBody, VirtualActor, WebhookAuth, WidgetPolicy, WireAppletRegistration,
-    namespace_pattern_matches, sign_registration,
+    InstallCapabilityConstraint, InstallCommitOutcome, InstallCommitRequestBody,
+    InstallDeniedScope, InstallE2eeEffect, InstallE2eePolicy, InstallEventSubmission,
+    InstallNamespaceConflict, InstallPlan, InstallPreviewRequestBody, InstallRevokeRequestBody,
+    InstallWidgetEffect, PortalMode, PortalRealmMapping, RemoteRealmMapping, RemoteUserMapping,
+    ThirdPartyLookupKind, ThirdPartyLookupOutcome, ThirdPartyLookupRequestBody, VirtualActor,
+    WebhookAuth, WidgetPolicy, WireAppletRegistration, namespace_pattern_matches,
+    sign_registration,
 };
 #[cfg(all(
     feature = "full-surface",
