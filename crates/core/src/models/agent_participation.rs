@@ -15,7 +15,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{CircleId, StrandId, RealmId};
+use crate::{CircleId, RealmId, StrandId};
 
 /// Controller-owned account-data type carrying a per-scope participation
 /// selection (CKP-0010 §5.1).
@@ -119,7 +119,10 @@ impl AgentParticipationScope {
                     uuid_part(circle_id.as_str())
                 )
             }
-            Self::Strand { realm_id, strand_id } => {
+            Self::Strand {
+                realm_id,
+                strand_id,
+            } => {
                 format!(
                     "strand:{}:{}",
                     uuid_part(realm_id.as_str()),
@@ -324,7 +327,8 @@ mod tests {
     fn scope_key_canonical() {
         let realm =
             RealmId::new("ck:realm:01970000-0000-7000-8000-000000000000".to_owned()).unwrap();
-        let strand = StrandId::new("ck:strand:01970000-0000-7000-8000-000000000001".to_owned()).unwrap();
+        let strand =
+            StrandId::new("ck:strand:01970000-0000-7000-8000-000000000001".to_owned()).unwrap();
         let scope = AgentParticipationScope::Strand {
             realm_id: realm,
             strand_id: strand,

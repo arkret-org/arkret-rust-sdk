@@ -11,8 +11,8 @@ use serde_json::Value;
 
 use crate::events::kinds::IDENTITY_ACCOUNTABILITY_GRANT;
 #[cfg(test)]
-use crate::model::AppletTransactionOutcome;
-use crate::model::{AppletActorView, AppletRealmView, AppletTransactionRequestBody};
+use crate::models::AppletTransactionOutcome;
+use crate::models::{AppletActorView, AppletRealmView, AppletTransactionRequestBody};
 use crate::{
     ACTOR_PROFILE_SCHEMA, ActorKind, ActorProfile, ActorProfileId, AppletId, BlobRef, Did, Error,
     Event, Hlc, ObjectCreatePayload, Proof, RealmId, Result, canonical,

@@ -28,7 +28,7 @@ pub use cokret_core::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{DeviceId, Did, EventId, StrandId, Hlc, RealmId, Result};
+use crate::{DeviceId, Did, EventId, Hlc, RealmId, Result, StrandId};
 
 /// Build the [`ReadScope`] for an optional thread position.
 fn scope_for_thread(thread_id: Option<&str>) -> ReadScope {

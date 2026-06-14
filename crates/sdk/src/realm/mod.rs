@@ -14,32 +14,31 @@ use serde_json::{Value, json};
 
 use crate::base::{BaseClient, RealmMembershipState};
 use crate::media::{Attachment, MediaMetadata};
-use crate::model::{
-    BlobRef, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, Strand,
-    MemberDeliveryBinding, MessageId, Morph, MorphId, NullsOrder, OP_INVITE_CREATE,
-    OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE,
-    OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_TOMBSTONE, ObjectState,
-    Operation, OperationId, OperationType, Relation, RelationId, RelationKind, RelationState,
-    SortDirection, SortSpec, Space,
+use crate::models::{
+    BlobRef, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, MemberDeliveryBinding,
+    MessageId, Morph, MorphId, NullsOrder, OP_INVITE_CREATE, OP_MEMBER_STATE, OP_MESSAGE_CREATE,
+    OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE, OP_MORPH_CREATE, OP_MORPH_UPDATE,
+    OP_RELATION_CREATE, OP_RELATION_TOMBSTONE, ObjectState, Operation, OperationId, OperationType,
+    Relation, RelationId, RelationKind, RelationState, SortDirection, SortSpec, Space, Strand,
 };
 use crate::resolver::RealmState;
-use crate::{StrandId, RealmId, Result, SpaceId};
+use crate::{RealmId, Result, SpaceId, StrandId};
 
-/// Generate a new UUIDv7-based wire ID with the given Cokret typed prefix.
-mod strand;
 mod helpers;
 mod membership;
 mod morph;
 mod query;
 mod relation;
 mod space;
+/// Generate a new UUIDv7-based wire ID with the given Cokret typed prefix.
+mod strand;
 #[cfg(test)]
 mod tests;
 
-pub use strand::{StrandCreateMetadata, StrandUpdateMetadata};
 use helpers::*;
 pub use relation::RelationOperationInput;
 pub use space::{SpaceCreateMetadata, SpaceUpdateMetadata};
+pub use strand::{StrandCreateMetadata, StrandUpdateMetadata};
 
 fn generate_id(prefix: &str) -> String {
     format!("{prefix}{}", uuid::Uuid::now_v7())
@@ -284,7 +283,8 @@ impl Realm {
             .subjects
             .values()
             .filter(|strand| {
-                strand.tracks
+                strand
+                    .tracks
                     .values()
                     .any(|track| track.profile.as_deref() == Some(track_profile))
             })
@@ -388,7 +388,7 @@ impl Realm {
     }
 
     /// Apply events to update the space state.
-    pub fn apply_events(&self, events: Vec<crate::model::Event>) -> Result<()> {
+    pub fn apply_events(&self, events: Vec<crate::models::Event>) -> Result<()> {
         self.base_client.process_events(&self.realm_id, events)
     }
 

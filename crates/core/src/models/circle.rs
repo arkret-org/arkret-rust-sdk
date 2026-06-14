@@ -16,7 +16,7 @@ pub use cokret_identifiers::CircleId;
 
 /// Canonical schema id for `Circle`.
 ///
-/// Re-export of [`crate::model::CIRCLE_SCHEMA_ID`] for code that imports
+/// Re-export of [`crate::models::CIRCLE_SCHEMA_ID`] for code that imports
 /// types from this module.
 pub use super::CIRCLE_SCHEMA_ID as CIRCLE_SCHEMA;
 use super::*;

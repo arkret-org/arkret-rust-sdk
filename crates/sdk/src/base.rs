@@ -22,7 +22,7 @@ use serde_json::Value;
 use crate::Result;
 use crate::cursor::{SyncPositions, SyncTracker};
 use crate::media::{Attachment, MediaMetadata, MemoryBlobStore};
-use crate::model::{BlobRef, DeviceId, Did, Event, RealmId};
+use crate::models::{BlobRef, DeviceId, Did, Event, RealmId};
 use crate::presence::Presence;
 use crate::profile::UserProfile;
 use crate::resolver::RealmState;

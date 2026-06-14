@@ -1,5 +1,5 @@
 use super::*;
-use crate::model::{CandidateError, CandidateValidationContext, MemberDeliveryBindingCandidate};
+use crate::models::{CandidateError, CandidateValidationContext, MemberDeliveryBindingCandidate};
 
 /// Realm membership operations.
 impl Realm {
@@ -255,7 +255,7 @@ impl Realm {
 fn candidate_to_delivery_binding(
     candidate: &MemberDeliveryBindingCandidate,
 ) -> MemberDeliveryBinding {
-    use crate::model::{
+    use crate::models::{
         BindingScope, BindingSource, DeliveryMode, EventRef, HandleHintBindingSource,
         RecipientServiceType,
     };

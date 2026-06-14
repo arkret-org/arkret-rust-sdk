@@ -86,7 +86,7 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
 | Crate | Tests |
 |---|---|
 | `crates/identifiers/` | `recovery_session_id::round_trip`, `circle_id::pattern_match`, `circle_id::reject_malformed` |
-| `crates/core/` | `events::kinds::agent_event_kinds_registered`, `model::call_media::participant_binding_round_trip`, `model::call_media::token_ttl_gate_rejects_above_600s`, `model::call_media::backend_type_unknown_rejects`, `model::recovery::policy_round_trip`, `model::recovery::receipt_round_trip`, `model::handle::homograph_skeleton_rejects` |
+| `crates/core/` | `events::kinds::agent_event_kinds_registered`, `models::call_media::participant_binding_round_trip`, `models::call_media::token_ttl_gate_rejects_above_600s`, `models::call_media::backend_type_unknown_rejects`, `models::recovery::policy_round_trip`, `models::recovery::receipt_round_trip`, `models::handle::homograph_skeleton_rejects` |
 | `crates/http-client/` | `call_media::token_exchange_request_shape` (mock transport), `agent::deactivate_path_no_revoke` (path-regression guard) |
 | `crates/server/` | `registry::call_media_token_exchange_registered`, `registry::agent_runtime_tier_surface` |
 
@@ -101,13 +101,13 @@ underlying proofs / payloads. Downstream services (soland, coauth) carry
 the canonical verifiers in R3 and are expected to reject anything the SDK's
 relaxed validators would have let through.
 
-- `crates/core/src/model/recovery.rs::verify_proof_witnesses` — proof
+- `crates/core/src/models/recovery.rs::verify_proof_witnesses` — proof
   arms (`DeviceQuorum`, `RecoveryUnlock`, `TrustedRecoveryService`,
   `PrincipalSigning`) currently structure-check only. R3.1 will wire the
   per-arm verifier table.
-- `crates/core/src/model/handle.rs::uts39_full_skeleton_table` — minimal
+- `crates/core/src/models/handle.rs::uts39_full_skeleton_table` — minimal
   confusable skeleton ships in R3; full UTS#39 table import deferred.
-- `crates/core/src/model/member_identity.rs` (R3.1) — `ck.member.identity.update`,
+- `crates/core/src/models/member_identity.rs` (R3.1) — `ck.member.identity.update`,
   `MemberIdentity` / `VerifiedHandle` shapes, effective-set computation,
   identity_state_digest helper. Tracked under R3.1 items HDLREN-* / MID-*
   in `_cokret-rust-sdk_todos.md`.

@@ -6,9 +6,9 @@
 //!
 //! * logical id `ck:<kind>:<uuid>` — opaque, never carries via/action/token.
 //! * `web+cokret:` URI scheme: `web+cokret:realm/<realm>/strand/<strand>/m/<msg>?action=view`
-//! * HTTPS landing: `https://<landing>/#realm/.../strand/...?action=...` — everything AFTER the `#` is
-//!   the SAME grammar as the `web+cokret:` form (strip the `https://<host>/#` shell, then reuse the
-//!   same parser).
+//! * HTTPS landing: `https://<landing>/#realm/.../strand/...?action=...` — everything AFTER the `#`
+//!   is the SAME grammar as the `web+cokret:` form (strip the `https://<host>/#` shell, then reuse
+//!   the same parser).
 //!
 //! ## Normative grammar rules
 //! * PATH carries identity: keyword + bare uuid (the `ck:<kind>:` sigil is stripped). Hierarchy is
@@ -155,7 +155,7 @@ pub struct ParsedAddress {
 }
 
 impl ParsedAddress {
-    /// The resolved [`TargetKind`](crate::model::TargetKind)-equivalent class.
+    /// The resolved [`TargetKind`](crate::models::TargetKind)-equivalent class.
     pub fn is_realm(&self) -> bool {
         self.strand.is_none()
     }
@@ -240,7 +240,9 @@ fn parse_path(path: &str) -> Result<(RealmRef, Option<String>, Option<String>)> 
                 .next()
                 .ok_or_else(|| protocol_err("missing strand identifier after 'strand/'"))?;
             if !is_lowercase_uuidv7(strand_seg) {
-                return Err(protocol_err("strand segment must be a bare lowercase uuidv7"));
+                return Err(protocol_err(
+                    "strand segment must be a bare lowercase uuidv7",
+                ));
             }
             strand = Some(strand_seg.to_owned());
 
@@ -595,8 +597,10 @@ mod tests {
         assert!(strand.is_strand());
         assert_eq!(strand.strand.as_deref(), Some(F));
 
-        let msg =
-            parse_address(&format!("web+cokret:realm/{R}/strand/{F}/m/{M}?action=reply")).unwrap();
+        let msg = parse_address(&format!(
+            "web+cokret:realm/{R}/strand/{F}/m/{M}?action=reply"
+        ))
+        .unwrap();
         assert!(msg.is_message());
         assert_eq!(msg.message.as_deref(), Some(M));
         assert_eq!(msg.action, AddressAction::Reply);
@@ -632,7 +636,8 @@ mod tests {
 
     #[test]
     fn https_landing_equivalence() {
-        let parsed = parse_address(&format!("web+cokret:realm/{R}/strand/{F}?action=join")).unwrap();
+        let parsed =
+            parse_address(&format!("web+cokret:realm/{R}/strand/{F}?action=join")).unwrap();
         let landing = build_https_landing("https://share.cokret.example", &parsed);
         assert!(landing.starts_with("https://share.cokret.example/#realm/"));
         // Everything after `#` is the same grammar → reparse yields the same
@@ -686,7 +691,9 @@ mod tests {
 
     #[test]
     fn non_uuid_strand_segment_fails_closed() {
-        assert!(parse_address(&format!("web+cokret:realm/{R}/strand/not-a-uuid?via={VIA}")).is_err());
+        assert!(
+            parse_address(&format!("web+cokret:realm/{R}/strand/not-a-uuid?via={VIA}")).is_err()
+        );
     }
 
     #[test]
@@ -699,8 +706,10 @@ mod tests {
         let parsed = parse_address(&format!("web+cokret:realm/{R}/strand/{F}?lt=preview")).unwrap();
         assert_eq!(parsed.link_type, LinkType::Preview);
         assert_eq!(parsed.token, None);
-        let parsed2 =
-            parse_address(&format!("web+cokret:realm/{R}/strand/{F}?lt=preview&tok=xyz")).unwrap();
+        let parsed2 = parse_address(&format!(
+            "web+cokret:realm/{R}/strand/{F}?lt=preview&tok=xyz"
+        ))
+        .unwrap();
         assert_eq!(parsed2.link_type, LinkType::Preview);
         assert_eq!(parsed2.token.as_deref(), Some("xyz"));
     }

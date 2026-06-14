@@ -21,7 +21,7 @@ pub mod identity;
 pub mod integration;
 pub mod keystore;
 pub mod lattice;
-pub mod model;
+pub mod models;
 pub mod move_event;
 pub mod multibase;
 pub mod notary;
@@ -108,14 +108,14 @@ pub use identifiers::{
     ActorProfileId, AgentInteropSessionId, AnnounceId, AppletId, AttestationId, AuditBindingId,
     AuditReleaseId, AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId,
     CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, DeviceId, DeviceMessageId, Did,
-    EventId, FilterId, StrandId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
+    EventId, FilterId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
     MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId, PolicyId,
     PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
-    RequestId, RtcParticipantId, SealId, SnapshotId, SpaceId, TransactionId, TypedAppealId,
-    TypedTrustDomainId, ViewId,
+    RequestId, RtcParticipantId, SealId, SnapshotId, SpaceId, StrandId, TransactionId,
+    TypedAppealId, TypedTrustDomainId, ViewId,
 };
 pub use keystore::{InMemoryKeyStore, KeyStore, KeyStoreError};
-pub use model::*;
+pub use models::*;
 pub use move_event::{
     Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
     Predicate, PredicateOp, SealBasis, SemanticRef,
@@ -174,9 +174,9 @@ pub use sync::{
     SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage,
     WaitForFrontier, sync_filter_digest,
 };
-// `SyncOutcome` is the wire-shape projection in [`model::api`]; the typed
+// `SyncOutcome` is the wire-shape projection in [`models::api`]; the typed
 // per-event helpers above (SyncRealm, ToDeviceMessage, AccountData,
 // NotificationDelta, PresenceEvent, DeviceListChanges, UnreadCounts,
 // SyncTimeline) are typed views that consumers parse per-field from the
 // loose `BTreeMap<String, Value>` / `Vec<Value>` carried by the wire
-// type. `pub use model::*;` re-exports `SyncOutcome` at the crate root.
+// type. `pub use models::*;` re-exports `SyncOutcome` at the crate root.

@@ -36,7 +36,7 @@ Cokret IDs, hashes, cursor tokens and HLC values. Serde decoding validates
 the same invariants as constructors so malformed wire identifiers fail at the
 edge.
 
-`crates/core/src/model/` owns object state enums, Realm /
+`crates/core/src/models/` owns object state enums, Realm /
 ActorProfile / Strand / Message / Morph / Relation / View objects, signed
 Events, canonical Operations, signed Operation envelopes, Commits, capability
 grants, policies, invites, read markers, notifications, blob metadata and

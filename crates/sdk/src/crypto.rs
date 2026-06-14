@@ -361,9 +361,9 @@ pub fn security_review_checklist() -> Vec<SecurityReviewItem> {
             area: "canonical signing/proof binding".to_owned(),
             source_files: vec!["canonical.rs".to_owned(), "model.rs".to_owned()],
             test_targets: vec![
-                "model::tests::signature_binding_payload_matches_canonical_vector".to_owned(),
-                "model::tests::proof_validate_binding_rejects_mismatched_payload_digest".to_owned(),
-                "model::tests::proof_validate_production_rejects_dev_kinds".to_owned(),
+                "models::tests::signature_binding_payload_matches_canonical_vector".to_owned(),
+                "models::tests::proof_validate_binding_rejects_mismatched_payload_digest".to_owned(),
+                "models::tests::proof_validate_production_rejects_dev_kinds".to_owned(),
             ],
             status: SecurityReviewStatus::Tested,
             notes: "signed payloads use canonical JSON and reject alg:none/dev proof kinds"

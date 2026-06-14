@@ -63,7 +63,7 @@ pub struct SyncRealm {
     /// effective set of `ck.member.identity.update` references; raw
     /// handle / display fields MUST NOT be carried here.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub members: Vec<crate::model::MemberRosterEntry>,
+    pub members: Vec<crate::models::MemberRosterEntry>,
     /// R3.1 — SYNC-2: true when `members` is truncated and MUST NOT be
     /// treated as the complete Realm roster.
     #[serde(default, skip_serializing_if = "is_false_default")]
@@ -785,11 +785,11 @@ impl SyncClient {
     }
 
     /// Process a sync response and extract updates. The response is
-    /// the wire-shape [`crate::model::SyncOutcome`] — per-event
+    /// the wire-shape [`crate::models::SyncOutcome`] — per-event
     /// classes ([`SyncRealm`], [`ToDeviceMessage`], [`AccountData`],
     /// …) are projected out of the loose `Value` shape on demand so
     /// the wire layer doesn't have to commit to the typed shape.
-    pub fn process_response(&mut self, response: crate::model::SyncOutcome) -> SyncUpdates {
+    pub fn process_response(&mut self, response: crate::models::SyncOutcome) -> SyncUpdates {
         // Update token
         self.current_token = Some(response.cursor);
 
@@ -928,7 +928,7 @@ mod tests {
             "partial": false
         }"#;
 
-        let response: crate::model::SyncOutcome = serde_json::from_str(json).unwrap();
+        let response: crate::models::SyncOutcome = serde_json::from_str(json).unwrap();
         assert_eq!(response.cursor, "token456");
         assert_eq!(response.realms.len(), 1);
     }
@@ -949,7 +949,7 @@ mod tests {
     fn sync_client_processes_response() {
         let mut client = SyncClient::new("device1".to_owned());
 
-        let response = crate::model::SyncOutcome {
+        let response = crate::models::SyncOutcome {
             cursor: "token456".to_owned(),
             realms: BTreeMap::new(),
             left_realms: Vec::new(),

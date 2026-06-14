@@ -49,7 +49,7 @@ fn event_payload_catalog_validates_known_payload_fields() {
 #[test]
 fn relation_create_payload_strong_type_passes_spec_validator() {
     let catalog = event_payload_validator_catalog();
-    let payload = crate::model::RelationCreatePayload::new(
+    let payload = crate::models::RelationCreatePayload::new(
         "ck.relation.parent_of",
         "ck:strand:01904100-0000-7000-8000-111111111111",
         "ck:strand:01904100-0000-7000-8000-222222222222",
@@ -72,13 +72,13 @@ fn relation_create_payload_strong_type_passes_spec_validator() {
 
 #[test]
 fn membership_payload_strong_type_passes_spec_validator() {
-    use crate::model::{DeliveryStatus, MembershipPayload, MembershipPayloadState};
+    use crate::models::{DeliveryStatus, MembershipPayload, MembershipPayloadState};
     let catalog = event_payload_validator_catalog();
 
     // invite transition (non-join): only `membership` is structurally required.
     let invite = MembershipPayload::transition(
         MembershipPayloadState::Invite,
-        crate::model::Did::new("did:web:bob.example").unwrap(),
+        crate::models::Did::new("did:web:bob.example").unwrap(),
         "space_create",
     );
     catalog
@@ -88,8 +88,8 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // join transition (unroutable): realm_id + actor_id + delivery_status
     // required, but delivery_binding only when routable.
     let join = MembershipPayload::join(
-        crate::model::RealmId::new("ck:realm:01904100-0000-7000-8000-111111111111").unwrap(),
-        crate::model::Did::new("did:web:bob.example").unwrap(),
+        crate::models::RealmId::new("ck:realm:01904100-0000-7000-8000-111111111111").unwrap(),
+        crate::models::Did::new("did:web:bob.example").unwrap(),
         DeliveryStatus::Unroutable,
         "invite_accept",
     )
@@ -115,7 +115,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
 
 #[test]
 fn invite_payload_strong_types_pass_spec_validator() {
-    use crate::model::{
+    use crate::models::{
         Did, Hash, InviteCreatePayload, InviteDeliveryTarget, InviteId, InviteRefPayload,
     };
     let catalog = event_payload_validator_catalog();
@@ -148,7 +148,7 @@ fn invite_payload_strong_types_pass_spec_validator() {
 
 #[test]
 fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
-    use crate::model::{RealmArchivePayload, RealmDestroyPayload, RealmId, RealmTombstonePayload};
+    use crate::models::{RealmArchivePayload, RealmDestroyPayload, RealmId, RealmTombstonePayload};
     let catalog = event_payload_validator_catalog();
 
     // ck.realm.archive: reversible boolean register; `archived:false` un-archives.
@@ -191,10 +191,10 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
 
 #[test]
 fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
-    use crate::model::{
-        Did, StrandId, StrandMovePayload, StrandReorderExpectedPosition, StrandReorderPayload,
-        StrandWatchExpectedValue, StrandWatchLevel, StrandWatchSetPayload, ObjectLifecyclePayload,
-        SpaceId,
+    use crate::models::{
+        Did, ObjectLifecyclePayload, SpaceId, StrandId, StrandMovePayload,
+        StrandReorderExpectedPosition, StrandReorderPayload, StrandWatchExpectedValue,
+        StrandWatchLevel, StrandWatchSetPayload,
     };
     let catalog = event_payload_validator_catalog();
     let board = || SpaceId::new("ck:space:01904100-0000-7000-8000-111111111111").unwrap();
@@ -207,7 +207,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     // target_space_id (a stray `list_space_id` would be rejected).
     let mv = StrandMovePayload::new(board(), strand(), target(), "U")
         .with_from_space_id(board())
-        .with_expected_position(crate::model::StrandMoveExpectedPosition {
+        .with_expected_position(crate::models::StrandMoveExpectedPosition {
             space_id: Some(board()),
             rank: Some("T".to_owned()),
             relation_id: None,
@@ -217,12 +217,11 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
         .unwrap();
 
     // ck.strand.reorder — single List Space (`space_id`); no destination field.
-    let reorder = StrandReorderPayload::new(board(), strand(), target(), "V").with_expected_position(
-        StrandReorderExpectedPosition {
+    let reorder = StrandReorderPayload::new(board(), strand(), target(), "V")
+        .with_expected_position(StrandReorderExpectedPosition {
             rank: Some("U".to_owned()),
             relation_id: None,
-        },
-    );
+        });
     catalog
         .validate_payload("ck.strand.reorder", &reorder.to_value().unwrap())
         .unwrap();
@@ -240,11 +239,12 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     catalog
         .validate_payload("ck.strand.watch.set", &cleared_value)
         .unwrap();
-    let guarded = StrandWatchSetPayload::set(strand(), actor(), StrandWatchLevel::Participating, None)
-        .with_expected_value(Some(StrandWatchExpectedValue {
-            level: StrandWatchLevel::Muted,
-            level_public: None,
-        }));
+    let guarded =
+        StrandWatchSetPayload::set(strand(), actor(), StrandWatchLevel::Participating, None)
+            .with_expected_value(Some(StrandWatchExpectedValue {
+                level: StrandWatchLevel::Muted,
+                level_public: None,
+            }));
     catalog
         .validate_payload("ck.strand.watch.set", &guarded.to_value().unwrap())
         .unwrap();
@@ -290,7 +290,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
     // `generic_standard_payload`, so we validate the strong types DIRECTLY
     // against their named `$defs/*_payload` schema_ref (the shape these defs
     // describe) rather than via `validate_payload(kind, …)`.
-    use crate::model::{
+    use crate::models::{
         Did, HistoryVisibility, HistoryVisibilityPayload, PlaintextDataClassKind,
         PlaintextServiceVisibility, PlaintextVisibleService, PlaintextVisibleServicesPayload,
     };
@@ -503,7 +503,9 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
                 }
             }),
         )
-        .unwrap_or_else(|err| panic!("ck.strand.tracks.update should accept track payloads: {err}"));
+        .unwrap_or_else(|err| {
+            panic!("ck.strand.tracks.update should accept track payloads: {err}")
+        });
     assert!(
         catalog
             .validate_payload(

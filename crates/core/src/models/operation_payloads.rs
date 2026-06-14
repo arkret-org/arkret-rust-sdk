@@ -1357,7 +1357,11 @@ pub struct MessageCreatePayload {
 }
 
 impl MessageCreatePayload {
-    pub fn with_content(strand_id: StrandId, track_name: impl Into<String>, content: Value) -> Self {
+    pub fn with_content(
+        strand_id: StrandId,
+        track_name: impl Into<String>,
+        content: Value,
+    ) -> Self {
         Self {
             strand_id,
             message_id: None,

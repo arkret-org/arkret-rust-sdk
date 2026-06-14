@@ -128,7 +128,7 @@ fn space_events_create_update_parent_and_tombstone() {
     );
     assert_eq!(space.rank.as_deref(), Some("a0"));
     assert_eq!(space.fields["wip_limit"], 5);
-    assert_eq!(space.state, Some(crate::model::SpaceState::Tombstoned));
+    assert_eq!(space.state, Some(crate::models::SpaceState::Tombstoned));
 }
 
 fn space_create_event(seq: u64, space_id: &str) -> Event {
@@ -165,7 +165,7 @@ fn space_archive_then_restore_round_trip() {
     state.apply_events(&[create, archive, restore]).unwrap();
 
     let space = state.spaces.get(space_id).unwrap();
-    assert_eq!(space.state, Some(crate::model::SpaceState::Active));
+    assert_eq!(space.state, Some(crate::models::SpaceState::Active));
     assert_eq!(space.state_changed_at, Some(restore_at));
 }
 
@@ -185,7 +185,7 @@ fn space_restore_rejected_when_active() {
     );
 
     let space = state.spaces.get(space_id).unwrap();
-    assert_eq!(space.state, Some(crate::model::SpaceState::Active));
+    assert_eq!(space.state, Some(crate::models::SpaceState::Active));
 }
 
 #[test]
@@ -210,7 +210,7 @@ fn space_restore_rejected_when_tombstoned() {
     );
 
     let space = state.spaces.get(space_id).unwrap();
-    assert_eq!(space.state, Some(crate::model::SpaceState::Tombstoned));
+    assert_eq!(space.state, Some(crate::models::SpaceState::Tombstoned));
     assert_eq!(space.state_changed_at, Some(tombstone_at));
 }
 
@@ -343,7 +343,7 @@ fn space_archive_rejected_when_already_archived() {
     // First archive succeeded; second archive (the rejected one) must not
     // touch Space state.
     let space = state.spaces.get(space_id).unwrap();
-    assert_eq!(space.state, Some(crate::model::SpaceState::Archived));
+    assert_eq!(space.state, Some(crate::models::SpaceState::Archived));
 }
 
 #[test]
@@ -365,7 +365,7 @@ fn space_archive_rejected_when_tombstoned() {
     );
     assert_eq!(
         state.spaces.get(space_id).unwrap().state,
-        Some(crate::model::SpaceState::Tombstoned)
+        Some(crate::models::SpaceState::Tombstoned)
     );
 }
 
@@ -388,7 +388,7 @@ fn space_tombstone_rejected_when_already_terminal() {
     );
     assert_eq!(
         state.spaces.get(space_id).unwrap().state,
-        Some(crate::model::SpaceState::Tombstoned)
+        Some(crate::models::SpaceState::Tombstoned)
     );
 }
 
@@ -937,7 +937,11 @@ fn strand_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
     state.apply_events(&[create, update]).unwrap();
 
     let strand = state.subjects.get(strand_id).unwrap();
-    assert!(strand.tracks.contains_key(crate::STRAND_TRACK_NAME_SYNTHESIS));
+    assert!(
+        strand
+            .tracks
+            .contains_key(crate::STRAND_TRACK_NAME_SYNTHESIS)
+    );
     assert_eq!(
         strand.tracks["discussion"].profile.as_deref(),
         Some("discussion")

@@ -3,7 +3,7 @@ use super::*;
 /// Authorization decision result produced by the runtime `AuthzEngine`.
 ///
 /// Named `EngineDecision` (not `AuthzDecision`) to avoid colliding with
-/// the wire enum `model::AuthzDecision` re-exported at the umbrella crate
+/// the wire enum `models::AuthzDecision` re-exported at the umbrella crate
 /// root; this runtime type additionally carries a human-readable `reason`
 /// and is never serialized.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -136,7 +136,10 @@ impl ResourceSelector {
 
             // Strand selector
             (
-                Self::Strand { realm_id, strand_id },
+                Self::Strand {
+                    realm_id,
+                    strand_id,
+                },
                 Resource::Strand {
                     realm_id: target_realm,
                     strand_id: target_id,
@@ -527,7 +530,10 @@ impl ResourceSelector {
                 put("kind", "circle");
                 put("circle_id", circle_id.as_ref());
             }
-            Self::Strand { realm_id, strand_id } => {
+            Self::Strand {
+                realm_id,
+                strand_id,
+            } => {
                 put("kind", "strand");
                 if realm_id != "*" {
                     put("realm_id", realm_id);
@@ -682,7 +688,10 @@ impl ResourceSelector {
             }),
             "strand" => {
                 let (realm_id, strand_id) = split_realm_tail(remainder, selector)?;
-                Ok(Self::Strand { realm_id, strand_id })
+                Ok(Self::Strand {
+                    realm_id,
+                    strand_id,
+                })
             }
             "object" => {
                 let (realm_id, tail) = split_realm_tail(remainder, selector)?;
@@ -865,7 +874,10 @@ impl ProtocolResourceSelector {
                 out.space_id = Some(space_id.clone());
                 out
             }
-            ResourceSelector::Strand { realm_id, strand_id } => {
+            ResourceSelector::Strand {
+                realm_id,
+                strand_id,
+            } => {
                 let mut out = Self::empty(ProtocolResourceSelectorKind::Strand);
                 out.realm_id = Some(realm_id.clone());
                 out.strand_id = strand_id.clone();

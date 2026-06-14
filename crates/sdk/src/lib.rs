@@ -87,7 +87,7 @@ pub mod client_api;
 pub use cokret_core::{
     InMemoryKeyStore, KeyRefObject, KeyStore, KeyStoreError, canonical, cursor, error, events,
     federation as federation_api, identifiers, identity as identity_api,
-    integration as integration_api, keystore, lattice, model, operations, ops as ops_api,
+    integration as integration_api, keystore, lattice, models, operations, ops as ops_api,
     principal as principal_api, push as push_gateway_api, push_rule_core, schema,
     schema as schema_contracts, service, state, state as state_res, sync, *,
 };
@@ -302,7 +302,7 @@ pub use auth::{
 };
 #[cfg(feature = "full-surface")]
 pub use authz::{
-    ApprovalStrandManager, ApprovalMode, AuthzContext, AuthzEngine, CapabilityFrontierValidation,
+    ApprovalMode, ApprovalStrandManager, AuthzContext, AuthzEngine, CapabilityFrontierValidation,
     CapabilityGrantBuilder, ClaimRequirement, Constraint, ConstraintDuration, ConstraintEffect,
     ConstraintEntry, EngineDecision, FieldScope, GrantProposal, ModerationReport,
     PolicyEvaluationRequest, PolicyEvaluationResult, PolicyServerEffect, ProposalApproval,
@@ -410,8 +410,8 @@ pub use identity_link::{IdentityLinkCache, IdentityLinkCacheEntry};
 pub use key_backup_client::KeyBackupClient;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use key_verification::{
-    KeyVerificationAccept, KeyVerificationCancel, KeyVerificationDone, KeyVerificationStrand,
-    KeyVerificationKey, KeyVerificationMac, KeyVerificationStart, KeyVerificationState,
+    KeyVerificationAccept, KeyVerificationCancel, KeyVerificationDone, KeyVerificationKey,
+    KeyVerificationMac, KeyVerificationStart, KeyVerificationState, KeyVerificationStrand,
     compute_key_commitment,
 };
 #[cfg(feature = "full-surface")]
@@ -478,7 +478,7 @@ pub use secret_share::{
 };
 #[cfg(all(feature = "full-surface", feature = "server"))]
 pub use server::{
-    EndpointHandler, ProtocolFixtureStrand, ProtocolFixtureReport, ProtocolFixtureStep,
+    EndpointHandler, ProtocolFixtureReport, ProtocolFixtureStep, ProtocolFixtureStrand,
     ProtocolGoldenVector, ProtocolServerFixture, ServerOutcome, ServerRequestBody,
     WireConformanceVector, protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
 };

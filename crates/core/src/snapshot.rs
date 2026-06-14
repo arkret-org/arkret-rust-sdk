@@ -131,8 +131,8 @@ impl SnapshotManifest {
         self.unsigned_view().payload_digest()
     }
 
-    pub fn signature_as_proof(&self) -> crate::model::Proof {
-        crate::model::Proof {
+    pub fn signature_as_proof(&self) -> crate::models::Proof {
+        crate::models::Proof {
             kind: self.signature.kind.clone(),
             alg: self.signature.alg.clone(),
             verification_method: self.signature.verification_method.clone(),
@@ -326,7 +326,7 @@ pub struct AuthorityBinding {
     pub auth_frontier: Vec<EventId>,
     pub checked_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub witness_attestations: Vec<crate::model::Proof>,
+    pub witness_attestations: Vec<crate::models::Proof>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

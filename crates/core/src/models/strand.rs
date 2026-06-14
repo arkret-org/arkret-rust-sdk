@@ -184,7 +184,9 @@ impl Strand {
             return Err(Error::Protocol("strand title must not be empty".to_owned()));
         }
         if self.tracks.is_empty() {
-            return Err(Error::Protocol("strand tracks must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "strand tracks must not be empty".to_owned(),
+            ));
         }
         for track_name in self.tracks.keys() {
             validate_strand_track_name(track_name)?;

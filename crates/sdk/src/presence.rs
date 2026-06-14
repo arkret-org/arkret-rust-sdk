@@ -13,7 +13,7 @@ use chrono::{DateTime, Utc};
 
 use crate::Result;
 use crate::base::BaseClient;
-use crate::model::Did;
+use crate::models::Did;
 use crate::sync::PresenceStatus;
 
 /// Presence information for a user.

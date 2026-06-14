@@ -14,7 +14,7 @@ use sha2::{Digest, Sha256};
 
 use crate::auth::AuthSession;
 use crate::e2ee::AuditEntry;
-use crate::model::BlobMetadata;
+use crate::models::BlobMetadata;
 use crate::resolver::{RealmState, SnapshotRestore, StateSnapshot};
 use crate::{BlobRef, Did, Error, Event, EventId, RealmId, Result, crypto};
 

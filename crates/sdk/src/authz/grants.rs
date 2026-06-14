@@ -323,7 +323,10 @@ fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> 
     }
     match (child, parent) {
         (
-            ResourceSelector::Strand { realm_id, strand_id },
+            ResourceSelector::Strand {
+                realm_id,
+                strand_id,
+            },
             ResourceSelector::Strand {
                 realm_id: parent_realm,
                 strand_id: parent_id,

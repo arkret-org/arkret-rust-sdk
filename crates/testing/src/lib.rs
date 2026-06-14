@@ -48,7 +48,7 @@ pub struct EndpointCoverageRow {
 
 /// Catalog coverage report over endpoints / event vectors / state vectors.
 /// Named `EndpointCoverageReport` (not `ConformanceReport`) to avoid
-/// colliding with the wire object `cokret_core::model::ConformanceReport`.
+/// colliding with the wire object `cokret_core::models::ConformanceReport`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EndpointCoverageReport {
     pub rows: Vec<EndpointCoverageRow>,

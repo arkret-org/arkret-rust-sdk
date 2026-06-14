@@ -1154,7 +1154,10 @@ mod tests {
     fn context_aware_patch_path_distinguishes_field_vs_path() {
         // `stage` as a JSON-Patch path on a Strand patch payload is
         // forbidden (single-source via ck.strand.stage.set).
-        assert!(is_forbidden_in_context("stage", WireContext::StrandPatchPath));
+        assert!(is_forbidden_in_context(
+            "stage",
+            WireContext::StrandPatchPath
+        ));
         assert!(is_forbidden_in_context(
             "stage_changed_at",
             WireContext::StrandPatchPath
@@ -1164,7 +1167,10 @@ mod tests {
             WireContext::MorphPatchPath
         ));
         // But `stage` as a top-level Strand payload field is canonical.
-        assert!(!is_forbidden_in_context("stage", WireContext::StrandPayload));
+        assert!(!is_forbidden_in_context(
+            "stage",
+            WireContext::StrandPayload
+        ));
     }
 
     #[test]

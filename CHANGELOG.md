@@ -72,7 +72,7 @@ release, GitHub release, or release tag.
 
 - **New operation**: `ck.find.directory.query.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `ck.find.directory.query.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `ck.schema.*`, or wire/reducer changes.
 - **Wire types**: `DirectoryResolveTargetRequestBody { address, requester, proofs, token }` + `DirectoryTargetResolutionOutcome { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Strand, Message }`. http-client method `directory_resolve_target`.
-- **Object-addressing grammar** (`cokret_core::model::object_address`): client-agnostic shareable address pointing at a Realm / Strand / Message. `parse_address` accepts both the `web+cokret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `strand` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid strand/message segment, or a strand/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
+- **Object-addressing grammar** (`cokret_core::models::object_address`): client-agnostic shareable address pointing at a Realm / Strand / Message. `parse_address` accepts both the `web+cokret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `strand` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid strand/message segment, or a strand/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
 - **Invite-token target binding** (scope-confusion defence): `TargetDescriptor { realm_id, strand_id?, message_id?, link_type }` with absent hierarchy fields OMITTED (never `null`) and typed canonical id values (`ck:realm:` / `ck:strand:` / `ck:message:`). `target_digest` reuses the shared canonicalizer (`canonical::canonical_sha256`) and covers ONLY the identity tuple + `link_type` — never `via` / `action` / `tok` / `lt`. `verify_token_target` recomputes + compares the digest so a token minted for object A cannot be replayed onto a different object B (and fails closed when the realm is still an unresolved alias).
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
@@ -107,7 +107,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
 
 - New op `ck.self.call.media.exchange.issue_token` mounted at
   `POST /cokret/v1/rtc/token` with surface tier `core_personal`
-  (`crates/core/src/model/constants.rs`,
+  (`crates/core/src/models/constants.rs`,
   `crates/server/src/registry.rs`).
 - New SDK types in `crates/sdk/src/media.rs`:
   - `MediaTokenResponse { backend_token, participant_identity,
@@ -130,7 +130,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
 - `ck.agent.{pause, resume, deactivate}` declared as `Fsm` lattice
   kinds (`crates/core/src/lattice/traits.rs`).
 - `AGENT_RUNTIME_SURFACE_OPERATIONS` exported in
-  `model::constants` listing the 11 ops under
+  `models::constants` listing the 11 ops under
   `ck.profile.agent_runtime.v1`.
 - HTTP path already canonical at `/agents/{id}/deactivate`
   (no `/revoke` references remain in the SDK).
@@ -157,7 +157,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
 
 - New `RecoveryProofKind { DeviceQuorum, RecoveryUnlock,
   TrustedRecoveryService, PrincipalSigning }` enum in
-  `crates/core/src/model/api.rs`. Existing `RecoveryPolicy` /
+  `crates/core/src/models/api.rs`. Existing `RecoveryPolicy` /
   `RecoveryReceipt` / `RecoverySessionId` already covered the
   wire shape. Internal proof verification deferred to R3.1
   (`TODO(R3.1)` markers in place).
@@ -170,7 +170,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
 - `AccountDataSetPayload` and `AccountBlocklistPayload` payload
   structs added in `crates/sdk/src/account.rs`.
 - Wire-level handle normalize helper `normalize_handle_localpart`
-  in `crates/core/src/model/handle.rs`: zero-width / bidi reject,
+  in `crates/core/src/models/handle.rs`: zero-width / bidi reject,
   script-mixed reject, minimal Cyrillic / Greek confusable
   skeleton (full UTS#39 table → R3.1).
 - Cursor parser already defaults to stateful `{v,purpose,t,x,h}`
@@ -285,7 +285,7 @@ section will roll into the next published release.
 - 7 `ck.circle.*` event-kind constants in `events::kinds`, classified
   into the new `EventClass::Circle` bucket. `ck.circle.anchor_commit`
   is recorded in `NON_REDUCER_EVENT_KINDS` (reducer-derived).
-- 6 `CAP_ACTION_CIRCLE_*` constants in `model::constants`, plus a
+- 6 `CAP_ACTION_CIRCLE_*` constants in `models::constants`, plus a
   `CIRCLE_CAPABILITY_ACTIONS` slice for iteration.
 - 5 CKP-0007 `REASON_*` constants (`circle_realm_mismatch`,
   `circle_not_active`, `circle_member_must_be_realm_member`,
@@ -705,11 +705,11 @@ of the applet (`ck.applet.{registration,discovery,protocol_session.{start,status
 and agent (`ck.agent.{endpoint,protocol_session.{start,status,result}}`)
 families were registered as event kinds in `crates/core/src/events/kinds.rs`
 but had no `OP_*` aliases or `required_fields_for_operation_kind` entries
-in `crates/core/src/model/`. This round adds both so downstream consumers
+in `crates/core/src/models/`. This round adds both so downstream consumers
 (soland, yougen, …) can validate submit payloads using the same registry
 abstraction as the rest of the reducer-input event family.
 
-- **`cokret-core`** — all changes in `crates/core/src/model/`:
+- **`cokret-core`** — all changes in `crates/core/src/models/`:
   - `constants.rs`: new `OP_APPLET_BRIDGE_ERROR` / `OP_APPLET_DISCOVERY` /
     `OP_APPLET_PROTOCOL_SESSION_START` / `OP_APPLET_PROTOCOL_SESSION_STATUS`
     / `OP_APPLET_REGISTRATION` / `OP_AGENT_ENDPOINT` /
@@ -768,18 +768,18 @@ type" no-ops. This round wires the full reducer surface so client-side
 state machines correctly maintain `Strand.tracks` from the event log.
 
 - **`cokret-core`**:
-  - `crates/core/src/model/constants.rs`: new `OP_STRAND_TRACK_DISABLE` /
+  - `crates/core/src/models/constants.rs`: new `OP_STRAND_TRACK_DISABLE` /
     `OP_STRAND_TRACK_ENABLE` / `OP_STRAND_TRACK_SET_PRIMARY` /
     `OP_STRAND_TRACK_UPDATE` constants (alphabetically grouped under the
     Strand header, after `OP_STRAND_REORDER`).
-  - `crates/core/src/model/registry.rs::required_fields_for_operation_kind`
+  - `crates/core/src/models/registry.rs::required_fields_for_operation_kind`
     new arms: `OP_STRAND_TRACK_DISABLE | OP_STRAND_TRACK_ENABLE |
     OP_STRAND_TRACK_SET_PRIMARY` → `[strand_id, track_id]`;
     `OP_STRAND_TRACK_UPDATE` → `[strand_id, track_id, patch]`.
 
 - **`cokret` (sdk)**:
   - `crates/sdk/src/resolver/mod.rs`: re-export the four new `OP_*` from
-    the `model::*` use list.
+    the `models::*` use list.
   - `crates/sdk/src/resolver/state.rs`:
     - `process_event_content` dispatcher gets four new arms calling new
       helpers `enable_strand_track` / `disable_strand_track` /
@@ -1014,10 +1014,10 @@ implements the canonical `archived -> active` transition end-to-end.
     `STANDARD_EVENT_KINDS` array (binary-searched by
     `is_standard_event_kind`) between `PLACE_PARENT` and `PLACE_TOMBSTONE`,
     and added to the `Place` arm of `classify_event_kind`.
-  - `model::OP_PLACE_RESTORE` constant added in
-    `crates/core/src/model/constants.rs` alongside `OP_PLACE_ARCHIVE` /
+  - `models::OP_PLACE_RESTORE` constant added in
+    `crates/core/src/models/constants.rs` alongside `OP_PLACE_ARCHIVE` /
     `OP_PLACE_TOMBSTONE`; auto-re-exported via `pub use constants::*`.
-  - `required_fields_for_operation_kind` (in `crates/core/src/model/registry.rs`)
+  - `required_fields_for_operation_kind` (in `crates/core/src/models/registry.rs`)
     extends its existing `OP_PLACE_ARCHIVE | OP_PLACE_TOMBSTONE` arm to
     `OP_PLACE_ARCHIVE | OP_PLACE_RESTORE | OP_PLACE_TOMBSTONE` — restore
     requires the same single `place_id` field as archive.
@@ -1264,7 +1264,7 @@ legacy-form fallback in `Deserialize`.
   - `Client::send_device_messages(idempotency_key, request)` switches
     to `POST` and propagates the key via the `Idempotency-Key`
     request header.
-  - `ToDeviceMessage` (in both `cokret_core::model` and
+  - `ToDeviceMessage` (in both `cokret_core::models` and
     `cokret_core::sync`) drops its `Option<String> txn_id` field —
     the wire envelope no longer carries it.
   - `OP_DEVICE_MESSAGES_PUT` required-fields list drops `txn_id`.

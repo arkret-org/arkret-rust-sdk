@@ -577,7 +577,8 @@ impl ReadScope {
             },
             _ if self.track.is_some() || self.track_scope.is_some() => {
                 return Err(Error::Protocol(
-                    "read_scope.track_name/track_scope is only valid when kind is strand".to_owned(),
+                    "read_scope.track_name/track_scope is only valid when kind is strand"
+                        .to_owned(),
                 ));
             }
             _ => {}

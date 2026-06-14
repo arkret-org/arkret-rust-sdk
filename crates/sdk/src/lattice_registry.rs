@@ -824,7 +824,7 @@ per_subject_lattice!(
 
 /// Lattice marker for the `ck.component.member.identity.v1` cell family.
 /// Named `MemberIdentityLattice` (not `MemberIdentity`) to avoid colliding
-/// with the wire object `model::MemberIdentity`.
+/// with the wire object `models::MemberIdentity`.
 pub struct MemberIdentityLattice;
 impl LatticeKind for MemberIdentityLattice {
     fn cell_family(&self) -> &'static str {

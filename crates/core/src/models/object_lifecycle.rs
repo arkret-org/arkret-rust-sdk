@@ -14,7 +14,7 @@ use super::*;
 pub struct SpaceStateTransitionPayload {
     pub space_id: SpaceId,
     /// New ObjectState; reducers reject any transition not in the
-    /// allowed FSM (see `model::primitives::ObjectState`).
+    /// allowed FSM (see `models::primitives::ObjectState`).
     pub new_state: ObjectState,
     /// Optional human-readable reason for the audit trail.
     #[serde(default, skip_serializing_if = "Option::is_none")]

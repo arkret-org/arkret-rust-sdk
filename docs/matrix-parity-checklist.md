@@ -31,7 +31,7 @@ The spec-side comparison is in [`cokret-spec/spec/v1/zh/overview/matrix-core-dif
 | --- | --- | --- |
 | Ed25519 fingerprint key | [`DeviceKeyBundle.signing_key`](../crates/crypto/src/lib.rs) | Implemented |
 | Curve25519 identity key | [`DeviceKeyBundle.identity_key`](../crates/crypto/src/lib.rs) | Implemented |
-| One-time keys (Curve25519) | `KeysUploadRequestBody.one_time_keys` ([crates/core/src/model/api.rs](../crates/core/src/model/api.rs)) | Wire shape implemented; consumed by Olm-style bootstraps where applicable. MLS bootstrapping uses MLS KeyPackages instead — see below. |
+| One-time keys (Curve25519) | `KeysUploadRequestBody.one_time_keys` ([crates/core/src/models/api.rs](../crates/core/src/models/api.rs)) | Wire shape implemented; consumed by Olm-style bootstraps where applicable. MLS bootstrapping uses MLS KeyPackages instead — see below. |
 | Fallback key | `KeysUploadRequestBody.fallback_keys` | Wire shape implemented; SHOULD rotate after first use (spec §8). |
 | Device verify_key on the device record | [`Device.device_public_key`](../crates/sdk/src/devices/mod.rs) | Implemented in v0.7 (was missing in earlier revisions). |
 
@@ -58,7 +58,7 @@ The Cokret SDK ships the full three-key hierarchy as typed records, not as a sin
 
 ### `NeedsReverification` state (spec §14.2)
 
-Both `crypto::DeviceTrustState` and `core::model::api::DeviceVerificationState` now have a `NeedsReverification` variant. After a reset, every accepted device drops to this state and its binding is cleared. UI / policy MUST treat it as "no longer cross-signed". This is the SDK-side enforcement of spec §14.2 steps 1–3.
+Both `crypto::DeviceTrustState` and `core::models::api::DeviceVerificationState` now have a `NeedsReverification` variant. After a reset, every accepted device drops to this state and its binding is cleared. UI / policy MUST treat it as "no longer cross-signed". This is the SDK-side enforcement of spec §14.2 steps 1–3.
 
 ### Bootstrap path (spec §5.3)
 

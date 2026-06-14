@@ -15,7 +15,7 @@ use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::model::Facet;
+use crate::models::Facet;
 use crate::{Did, Error, RealmId, Result};
 
 mod approval;

@@ -11,4 +11,4 @@ pub use content::*;
 pub use kinds::*;
 pub use reaction::*;
 
-pub use crate::model::Event as RawEvent;
+pub use crate::models::Event as RawEvent;

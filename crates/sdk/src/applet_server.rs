@@ -17,7 +17,7 @@ use std::sync::Arc;
 use crate::Result;
 use crate::idempotency::IdempotencyWindow;
 use crate::identity::DidResolver;
-use crate::model::{
+use crate::models::{
     AppletActorView, AppletDescription, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
     AppletTransactionOutcome, AppletTransactionRequestBody,
 };
@@ -348,7 +348,7 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::model::AppletPingOutcome;
+    use crate::models::AppletPingOutcome;
 
     struct StubHandler {
         resolver: crate::identity::DidWebResolver,

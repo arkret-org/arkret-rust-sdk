@@ -1243,9 +1243,9 @@ impl Client {
     /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — `ck.find.directory.query.resolve_target`.
     /// Resolve a client-agnostic shareable object address (Realm / Strand /
     /// Message) to a preview. The `address` and any `token` should be derived
-    /// from [`cokret_core::model::parse_address`]; invite and preview tokens
+    /// from [`cokret_core::models::parse_address`]; invite and preview tokens
     /// MUST be bound to the resolved object server-side via
-    /// [`cokret_core::model::verify_token_target`].
+    /// [`cokret_core::models::verify_token_target`].
     pub async fn directory_resolve_target(
         &self,
         request: &DirectoryResolveTargetRequestBody,
@@ -2109,7 +2109,7 @@ mod tests {
     mod events_submit_tests {
         use std::collections::BTreeMap;
 
-        use cokret_core::{Did, EventId, EventRequirements, StrandId, Hlc, RealmId};
+        use cokret_core::{Did, EventId, EventRequirements, Hlc, RealmId, StrandId};
         use serde_json::json;
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         use tokio::net::TcpListener;

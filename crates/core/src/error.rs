@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::model::ErrorEnvelope;
+use crate::models::ErrorEnvelope;
 
 pub type Result<T> = std::result::Result<T, Error>;
 

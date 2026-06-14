@@ -523,7 +523,7 @@ fn realm_provides_message_membership_and_media_convenience_helpers() {
 
 #[test]
 fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
-    use crate::model::{
+    use crate::models::{
         CandidateIntent, DeliveryBindingHint, DeliveryMode, Handle, HandleHintBindingSource,
         MemberDeliveryBindingCandidate, RecipientServiceType,
     };
@@ -582,7 +582,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
 
 #[test]
 fn member_add_with_candidate_rejects_audience_mismatch() {
-    use crate::model::{
+    use crate::models::{
         CandidateIntent, DeliveryBindingHint, DeliveryMode, Handle, HandleHintBindingSource,
         MemberDeliveryBindingCandidate, RecipientServiceType,
     };

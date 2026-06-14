@@ -2267,7 +2267,7 @@ pub struct DirectoryRealmResolutionOutcome {
 }
 
 /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — the resolved object class of a
-/// shareable address. The address grammar (`crate::model::object_address`)
+/// shareable address. The address grammar (`crate::models::object_address`)
 /// fixes the hierarchy `realm` ⊃ `strand` ⊃ `m` (message).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -2282,9 +2282,9 @@ pub enum TargetKind {
 ///
 /// `address` is a client-agnostic shareable object address in either the
 /// `web+cokret:` URI form or the HTTPS-landing fragment form (see
-/// [`crate::model::object_address::parse_address`]). `token` is present iff
+/// [`crate::models::object_address::parse_address`]). `token` is present iff
 /// the address carries `lt=invite` or `lt=preview`; the server MUST bind it to
-/// the resolved object via [`crate::model::object_address::verify_token_target`].
+/// the resolved object via [`crate::models::object_address::verify_token_target`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveTargetRequestBody {

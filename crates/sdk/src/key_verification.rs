@@ -23,10 +23,10 @@
 //!
 //! - **Commitment** — `accept.commitment` is a SHA-256 commitment over the responder's ephemeral
 //!   public key and the canonical `start` message (see [`compute_key_commitment`]). When the
-//!   responder's `key` envelope arrives, [`KeyVerificationStrand::on_key`] recomputes the commitment
-//!   and cancels with `code=mismatched_commitment` on mismatch.
-//! - **MAC** — [`KeyVerificationStrand::on_mac`] verifies the sender's MAC envelope against the full
-//!   negotiated transcript (both parties, transaction id, method, algorithm selection, both
+//!   responder's `key` envelope arrives, [`KeyVerificationStrand::on_key`] recomputes the
+//!   commitment and cancels with `code=mismatched_commitment` on mismatch.
+//! - **MAC** — [`KeyVerificationStrand::on_mac`] verifies the sender's MAC envelope against the
+//!   full negotiated transcript (both parties, transaction id, method, algorithm selection, both
 //!   ephemeral keys and the verified key ids/values) using an HKDF-derived MAC key, and cancels
 //!   with `code=mismatched_mac` on any mismatch. Producers build matching envelopes with
 //!   [`KeyVerificationStrand::build_mac`].
@@ -1357,9 +1357,11 @@ mod tests {
         let mut strand = KeyVerificationStrand::new().with_ephemeral_key(alice_kp);
         strand.on_start(&start_msg).unwrap();
         strand.on_accept(&accept_msg).unwrap();
-        strand.on_key(&key(txn, &did("alice"), &dev("alice_phone"), &alice_pub))
+        strand
+            .on_key(&key(txn, &did("alice"), &dev("alice_phone"), &alice_pub))
             .unwrap();
-        strand.on_key(&key(txn, &did("bob"), &dev("bob_laptop"), &bob_pub))
+        strand
+            .on_key(&key(txn, &did("bob"), &dev("bob_laptop"), &bob_pub))
             .unwrap();
         assert_eq!(strand.state(), KeyVerificationState::KeysExchanged);
         (strand, bob_pub)
@@ -1381,9 +1383,11 @@ mod tests {
         strand.on_mac(&alice_mac, &keys).unwrap();
         strand.on_mac(&bob_mac, &keys).unwrap();
         assert_eq!(strand.state(), KeyVerificationState::MacsReceived);
-        strand.on_done(&done(txn, &did("alice"), &dev("alice_phone")))
+        strand
+            .on_done(&done(txn, &did("alice"), &dev("alice_phone")))
             .unwrap();
-        strand.on_done(&done(txn, &did("bob"), &dev("bob_laptop")))
+        strand
+            .on_done(&done(txn, &did("bob"), &dev("bob_laptop")))
             .unwrap();
         assert_eq!(strand.state(), KeyVerificationState::Done);
         assert!(strand.state().is_terminal());
@@ -1398,7 +1402,8 @@ mod tests {
         strand.on_start(&start(txn)).unwrap();
         // accept() carries a bogus commitment ("sha256:cafe").
         strand.on_accept(&accept(txn)).unwrap();
-        strand.on_key(&key(txn, &did("alice"), &dev("alice_phone"), "AKEY"))
+        strand
+            .on_key(&key(txn, &did("alice"), &dev("alice_phone"), "AKEY"))
             .unwrap();
         let bob_kp = EphemeralX25519Keypair::generate().unwrap();
         let err = strand
@@ -1411,7 +1416,10 @@ mod tests {
             .unwrap_err();
         assert!(format!("{err}").contains("mismatched_commitment"));
         assert_eq!(strand.state(), KeyVerificationState::Cancelled);
-        assert_eq!(strand.cancel_record().unwrap().code, "mismatched_commitment");
+        assert_eq!(
+            strand.cancel_record().unwrap().code,
+            "mismatched_commitment"
+        );
     }
 
     /// §10.3: a tampered MAC MUST cancel with `code=mismatched_mac`.
@@ -1517,15 +1525,16 @@ mod tests {
         let txn = "txn-1";
         let mut strand = KeyVerificationStrand::new();
         strand.on_start(&start(txn)).unwrap();
-        strand.on_cancel(&KeyVerificationCancel {
-            transaction_id: txn.to_owned(),
-            from_user: did("alice"),
-            from_device: dev("alice_phone"),
-            code: "user_cancel".to_owned(),
-            reason: "user pressed cancel".to_owned(),
-            sent_at: now(),
-        })
-        .unwrap();
+        strand
+            .on_cancel(&KeyVerificationCancel {
+                transaction_id: txn.to_owned(),
+                from_user: did("alice"),
+                from_device: dev("alice_phone"),
+                code: "user_cancel".to_owned(),
+                reason: "user pressed cancel".to_owned(),
+                sent_at: now(),
+            })
+            .unwrap();
         assert_eq!(strand.state(), KeyVerificationState::Cancelled);
         assert_eq!(strand.cancel_record().unwrap().code, "user_cancel");
     }
@@ -1535,15 +1544,16 @@ mod tests {
         let txn = "txn-1";
         let mut strand = KeyVerificationStrand::new();
         strand.on_start(&start(txn)).unwrap();
-        strand.on_cancel(&KeyVerificationCancel {
-            transaction_id: txn.to_owned(),
-            from_user: did("alice"),
-            from_device: dev("alice_phone"),
-            code: "x".to_owned(),
-            reason: "x".to_owned(),
-            sent_at: now(),
-        })
-        .unwrap();
+        strand
+            .on_cancel(&KeyVerificationCancel {
+                transaction_id: txn.to_owned(),
+                from_user: did("alice"),
+                from_device: dev("alice_phone"),
+                code: "x".to_owned(),
+                reason: "x".to_owned(),
+                sent_at: now(),
+            })
+            .unwrap();
         let err = strand
             .on_cancel(&KeyVerificationCancel {
                 transaction_id: txn.to_owned(),

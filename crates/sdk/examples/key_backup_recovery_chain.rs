@@ -24,7 +24,7 @@
 
 use std::collections::BTreeMap;
 
-use cokret::model::{
+use cokret::models::{
     BackupClass, KeyBackup, KeyBackupAead, KeyBackupAuthData, KeyBackupContentItem,
     KeyBackupDomainSeparation, KeyBackupDomainSeparationAad, KeyBackupEncryption,
     KeyBackupFrontierRef, KeyBackupKdf, KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm,

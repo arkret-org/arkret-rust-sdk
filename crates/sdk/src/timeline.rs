@@ -15,7 +15,7 @@ use serde_json::Value;
 
 use crate::Result;
 use crate::base::BaseClient;
-use crate::model::{DeviceId, Did, Event, EventId, RealmId};
+use crate::models::{DeviceId, Did, Event, EventId, RealmId};
 use crate::receipts::{ReadReceipt, ReadScope};
 use crate::sync::{
     BackfillDirection, BackfillFrom, BackfillRequestBody, SyncGapReason, SyncTimeline,

@@ -6,10 +6,10 @@ pub use cokret_identifiers::{
     ActorProfileId, AgentInteropSessionId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
     AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
     CapabilityId, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId, Did, EventId,
-    FilterId, StrandId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
-    MessageId, ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId,
-    PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
-    RequestId, RtcParticipantId, SnapshotId, SpaceId, TransactionId, TypedAppealId,
+    FilterId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId, MessageId,
+    ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId, PresentationId,
+    ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId,
+    RtcParticipantId, SnapshotId, SpaceId, StrandId, TransactionId, TypedAppealId,
     TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
 use serde::{Deserialize, Serialize};
@@ -21,6 +21,7 @@ use crate::{Error, Result, canonical};
 mod actor_profile;
 mod agent_participation;
 mod api;
+mod artifacts;
 mod attestation;
 mod circle;
 mod conformance;
@@ -32,7 +33,6 @@ mod ephemeral;
 mod event_sync;
 mod events;
 mod federation_wire;
-mod strand;
 mod governance_payloads;
 mod handle;
 mod identity_link_cache;
@@ -59,8 +59,8 @@ mod realm_governance;
 mod registry;
 mod relation;
 mod runtime_identity;
-mod schema_artifacts;
 mod space;
+mod strand;
 #[cfg(test)]
 mod tests;
 mod third_party_invite;
@@ -70,6 +70,7 @@ mod wire_model_tests;
 pub use actor_profile::*;
 pub use agent_participation::*;
 pub use api::*;
+pub use artifacts::*;
 pub use attestation::*;
 pub use circle::*;
 pub use conformance::*;
@@ -81,7 +82,6 @@ pub use ephemeral::*;
 pub use event_sync::*;
 pub use events::*;
 pub use federation_wire::*;
-pub use strand::*;
 pub use governance_payloads::*;
 pub use handle::*;
 pub use identity_link_cache::*;
@@ -108,6 +108,6 @@ pub use realm_governance::*;
 pub use registry::*;
 pub use relation::*;
 pub use runtime_identity::*;
-pub use schema_artifacts::*;
 pub use space::*;
+pub use strand::*;
 pub use third_party_invite::*;

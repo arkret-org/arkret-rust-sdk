@@ -9,7 +9,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::identity::DidDocument;
-use crate::model::Proof;
+use crate::models::Proof;
 use crate::{DeviceId, Did, Error, Result};
 
 mod claims;

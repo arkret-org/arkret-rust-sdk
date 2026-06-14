@@ -196,7 +196,7 @@ pub struct ClaimDisclosureRequirement {
 ///
 /// Named `ClaimDisclosurePolicy` (not `DisclosurePolicy`) to avoid
 /// colliding with the unrelated invite tiered-disclosure
-/// `model::DisclosurePolicy` re-exported at the umbrella crate root.
+/// `models::DisclosurePolicy` re-exported at the umbrella crate root.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimDisclosurePolicy {
     pub policy_id: String,

@@ -1048,13 +1048,13 @@ pub struct StrandCreatePayload {
 }
 
 // `strand_move_payload` now has a strong type:
-// `model::operation_payloads::StrandMovePayload` (replaces the former
+// `models::operation_payloads::StrandMovePayload` (replaces the former
 // `= Value` alias as part of the wire strong-type migration; flat
 // board/target Space ids + rank with an optional `expected_position`
 // CAS guard, `additionalProperties:false`).
 
 // `strand_reorder_payload` now has a strong type:
-// `model::operation_payloads::StrandReorderPayload` (single List-Space
+// `models::operation_payloads::StrandReorderPayload` (single List-Space
 // re-rank; `additionalProperties:false`).
 
 /// Counterpart for
@@ -1069,7 +1069,7 @@ pub struct StrandStageSetPayload {
 }
 
 // `strand_watch_set_payload` now has a strong type:
-// `model::operation_payloads::StrandWatchSetPayload` (carries the
+// `models::operation_payloads::StrandWatchSetPayload` (carries the
 // `StrandWatchLevel` enum / nullable `level` clear path and the
 // `level_public`/`expected_value` CAS fields; `additionalProperties:false`).
 
@@ -1142,7 +1142,7 @@ pub struct HistorySharingRestrictedRule {
 }
 
 // `history_visibility_payload` now has a strong type:
-// `model::operation_payloads::HistoryVisibilityPayload` (`{value,
+// `models::operation_payloads::HistoryVisibilityPayload` (`{value,
 // restricted_policy_digest?, reason?}`, deny_unknown_fields, with the
 // `value==restricted ⇒ restricted_policy_digest` conditional enforced by
 // `to_value`). NB: the kind→def resolver still routes
@@ -1158,7 +1158,7 @@ pub type HistoryVisibilityValue = String;
 pub type InheritancePolicyStatus = String;
 
 // `invite_payload` anyOf branches now have strong types in
-// `model::operation_payloads`: `InviteCreatePayload` (directed-create) and
+// `models::operation_payloads`: `InviteCreatePayload` (directed-create) and
 // `InviteRefPayload` (invite_id ref, for accept/cancel). The full union is
 // not modeled as one type (the remaining anyOf branches — `invite`,
 // `third_party_id`, claim-proof — are not constructed by the client wire).
@@ -1253,7 +1253,7 @@ pub struct ListReorderPayload {
 }
 
 // `membership_payload` now has a strong type:
-// `model::operation_payloads::MembershipPayload` (replaces the former
+// `models::operation_payloads::MembershipPayload` (replaces the former
 // `= Value` alias as part of the wire strong-type migration; carries the
 // `MembershipPayloadState` enum and enforces the join/routable conditional
 // required fields).
@@ -1599,7 +1599,7 @@ pub struct MorphStageSetPayload {
 pub type NullableTimestamp = Option<DateTime<Utc>>;
 
 // `object_lifecycle_payload` now has a strong type:
-// `model::operation_payloads::ObjectLifecyclePayload` (generic Strand / Circle /
+// `models::operation_payloads::ObjectLifecyclePayload` (generic Strand / Circle /
 // Morph archive·restore·tombstone shape, single-sourced by `target_ref`;
 // `additionalProperties:false`).
 
@@ -1645,7 +1645,7 @@ pub type PatchValue = BTreeMap<String, Value>;
 pub type PlaintextDataClass = String;
 
 // `plaintext_visible_services_payload` now has a strong type:
-// `model::operation_payloads::PlaintextVisibleServicesPayload` (`{services:
+// `models::operation_payloads::PlaintextVisibleServicesPayload` (`{services:
 // [PlaintextVisibleService]}`, top-level deny_unknown_fields; item required
 // fields strongly typed with `PlaintextDataClassKind` / `PlaintextServiceVisibility`
 // enums, item kept open per spec additionalProperties:true). Resolver routes
@@ -1752,7 +1752,7 @@ pub struct ReadReceiptPolicyPayload {
 }
 
 // `realm_archive_payload` now has a strong type:
-// `model::operation_payloads::RealmArchivePayload` (replaces the former
+// `models::operation_payloads::RealmArchivePayload` (replaces the former
 // `= Value` alias as part of the wire strong-type migration).
 
 /// Counterpart for
@@ -1766,7 +1766,7 @@ pub struct RealmCreatePayload {
 }
 
 // `realm_destroy_payload` now has a strong type:
-// `model::operation_payloads::RealmDestroyPayload` (replaces the former
+// `models::operation_payloads::RealmDestroyPayload` (replaces the former
 // `= Value` alias as part of the wire strong-type migration).
 
 /// Counterpart for
@@ -1915,11 +1915,11 @@ pub struct RealmSearchPolicyPayload {
 }
 
 // `realm_tombstone_payload` now has a strong type:
-// `model::operation_payloads::RealmTombstonePayload` (replaces the former
+// `models::operation_payloads::RealmTombstonePayload` (replaces the former
 // `= Value` alias as part of the wire strong-type migration).
 
 // `relation_create_payload` now has a strong type:
-// `model::operation_payloads::RelationCreatePayload` (replaces the former
+// `models::operation_payloads::RelationCreatePayload` (replaces the former
 // `= Value` alias as part of the wire strong-type migration).
 
 /// Counterpart for

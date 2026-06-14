@@ -9,7 +9,7 @@
 //! pure function of its inputs.
 //!
 //! This module is wasm-safe: it depends only on `cokret-core` primitives
-//! (`canonical`, `model::{Handle, HandleClaim, HandleBindingState}`,
+//! (`canonical`, `models::{Handle, HandleClaim, HandleBindingState}`,
 //! `Did`/`Error`/`Result`) and pulls in no client / keystore / salvo / MLS
 //! native-only dependency. The umbrella `cokret` crate re-exports these
 //! symbols from `cokret::identity` so existing SDK callers are unaffected,
@@ -18,9 +18,8 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::canonical;
-use crate::model::{Handle, HandleBindingState, HandleClaim};
-use crate::{Did, Error, Result};
+use crate::models::{Handle, HandleBindingState, HandleClaim};
+use crate::{Did, Error, Result, canonical};
 
 /// Hook that resolves the holder's preferred handle from the subject DID
 /// Document `metadata.primary_handle` at a given `as_of`. Implementations
@@ -340,9 +339,8 @@ fn truncate_did(did: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::model::Handle;
-
     use super::*;
+    use crate::models::Handle;
 
     fn issuer(s: &str) -> String {
         s.to_owned()
