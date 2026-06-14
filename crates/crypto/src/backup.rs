@@ -41,8 +41,9 @@ use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use chrono::{SubsecRound, Utc};
 use cokret_core::canonical::{canonical_json_bytes, format_timestamp_canonical};
 use cokret_core::{
-    BackupClass, BackupId, DeviceId, Did, KeyBackup, KeyBackupAead, KeyBackupContentItem,
-    KeyBackupEncryption, KeyBackupKdf, KeyBackupRecipientMethod,
+    BackupClass, BackupId, DeviceId, Did, Hash, KeyBackup, KeyBackupAead, KeyBackupContentItem,
+    KeyBackupDomainSeparation, KeyBackupDomainSeparationAad, KeyBackupEncryption,
+    KeyBackupFrontierRef, KeyBackupKdf, KeyBackupRecipientMethod,
 };
 use getrandom::fill;
 use hkdf::Hkdf;
@@ -217,7 +218,6 @@ impl VaultBinding {
             BackupClass::DidRecovery => "did_recovery",
             BackupClass::SecretStorage => "secret_storage",
             BackupClass::MlsHistory => "mls_history",
-            BackupClass::External => "external",
         }
     }
 
@@ -276,7 +276,7 @@ impl VaultBinding {
             "backup_version": self.backup_version,
             "item_types": self.item_types,
             "created_at": format_timestamp_canonical(self.created_at.trunc_subsecs(0)),
-            "schema_id": VAULT_SCHEMA_ID,
+            "schema": VAULT_SCHEMA_ID,
         });
         canonical_json_bytes(&aad).map_err(|err| anyhow!("aead aad: {err}"))
     }
@@ -541,6 +541,7 @@ pub fn build_key_backup_envelope(
         aead_profile: Some(VAULT_AEAD_PROFILE.to_owned()),
         nonce_salt: Some(ciphertext.nonce_salt_b64.clone()),
         nonce: Some(ciphertext.nonce_b64.clone()),
+        enc: None,
         extra: Default::default(),
     };
     let encryption = KeyBackupEncryption {
@@ -552,6 +553,24 @@ pub fn build_key_backup_envelope(
             "sha256:{}",
             hex_lower(&commitment_digest(&kek.key, backup_class))
         )),
+        extra: Default::default(),
+    };
+    let domain_separation = KeyBackupDomainSeparation {
+        hkdf_info: backup_class.hkdf_info("aead"),
+        subdomain: "aead".to_owned(),
+        aead_aad: KeyBackupDomainSeparationAad {
+            schema: VAULT_SCHEMA_ID.to_owned(),
+            actor_id: actor_id.clone(),
+            device_id: device_id
+                .as_ref()
+                .map(|device_id| device_id.as_str().to_owned())
+                .unwrap_or_default(),
+            backup_class,
+            backup_version: backup_version.to_owned(),
+            created_at,
+            item_types: binding.item_types.clone(),
+            extra: Default::default(),
+        },
         extra: Default::default(),
     };
     let contents: Vec<KeyBackupContentItem> = contents
@@ -585,6 +604,7 @@ pub fn build_key_backup_envelope(
         updated_at: None,
         expires_at: None,
         encryption,
+        domain_separation,
         contents,
         ciphertext: ciphertext.ciphertext_b64.clone(),
         ciphertext_digest: ciphertext.digest_sha256.clone(),
@@ -596,6 +616,7 @@ pub fn build_key_backup_envelope(
         supersedes: None,
         supersedes_digest: None,
         frontier_ref: None,
+        recovery_policy_ref: None,
         extra: Default::default(),
     })
 }
@@ -619,10 +640,12 @@ pub fn build_key_backup_successor_envelope(
     if backup_id == predecessor.backup_id {
         return Err(anyhow!("successor backup_id must differ from predecessor"));
     }
-    let frontier_ref = frontier_ref.into();
-    if frontier_ref.trim().is_empty() {
+    let frontier_digest = frontier_ref.into();
+    if frontier_digest.trim().is_empty() {
         return Err(anyhow!("successor frontier_ref must not be empty"));
     }
+    let frontier_digest = Hash::new(frontier_digest)
+        .map_err(|err| anyhow!("successor frontier_ref.frontier_digest invalid: {err}"))?;
     let mut successor = build_key_backup_envelope(
         backup_id,
         predecessor.actor_id.clone(),
@@ -640,7 +663,11 @@ pub fn build_key_backup_successor_envelope(
         .ok_or_else(|| anyhow!("successor series_seq overflow"))?;
     successor.supersedes = Some(predecessor.backup_id.clone());
     successor.supersedes_digest = Some(predecessor.ciphertext_digest.clone());
-    successor.frontier_ref = Some(frontier_ref);
+    successor.frontier_ref = Some(KeyBackupFrontierRef {
+        frontier_digest,
+        seal_ref: None,
+        ssk_generation: None,
+    });
     Ok(successor)
 }
 
@@ -957,7 +984,7 @@ mod tests {
             &kek,
             b"successor",
             &[("recovery_secret", Some("successor"))],
-            "ck:frontier:recovery:2",
+            "sha256:2222222222222222222222222222222222222222222222222222222222222222",
         )
         .unwrap();
         assert_eq!(successor.series_id, genesis.series_id);
@@ -968,8 +995,11 @@ mod tests {
             Some(genesis.ciphertext_digest.as_str())
         );
         assert_eq!(
-            successor.frontier_ref.as_deref(),
-            Some("ck:frontier:recovery:2")
+            successor
+                .frontier_ref
+                .as_ref()
+                .map(|frontier| frontier.frontier_digest.as_str()),
+            Some("sha256:2222222222222222222222222222222222222222222222222222222222222222")
         );
     }
 

@@ -859,7 +859,6 @@ pub enum BackupClass {
     DidRecovery,
     SecretStorage,
     MlsHistory,
-    External,
 }
 
 impl BackupClass {
@@ -869,7 +868,6 @@ impl BackupClass {
             BackupClass::DidRecovery => "did_recovery",
             BackupClass::SecretStorage => "secret_storage",
             BackupClass::MlsHistory => "mls_history",
-            BackupClass::External => "external",
         };
         format!("cokret-key-backup/{class}/{subdomain}/v1")
     }

@@ -1138,7 +1138,6 @@ impl Client {
                 cokret_core::BackupClass::DidRecovery => "did_recovery",
                 cokret_core::BackupClass::SecretStorage => "secret_storage",
                 cokret_core::BackupClass::MlsHistory => "mls_history",
-                cokret_core::BackupClass::External => "external",
             };
             builder = builder.query(&[("backup_class", class_str)]);
         }
