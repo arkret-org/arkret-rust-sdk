@@ -159,7 +159,7 @@ pub fn federation_minimal_reducer_profile_digest() -> &'static str {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventsSubmitBatchRequestBody {
-    pub events: Vec<Value>,
+    pub events: Vec<Event>,
     /// Optional idempotency key for the entire batch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
@@ -173,7 +173,7 @@ pub struct EventsSubmitBatchRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventsSubmitFederationRequestBody {
     pub service_binding_ref: FederationServiceBindingRef,
-    pub events: Vec<Value>,
+    pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
 }

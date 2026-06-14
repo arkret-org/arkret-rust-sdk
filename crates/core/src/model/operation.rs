@@ -572,6 +572,35 @@ pub struct ReadCursorPosition {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
+pub struct ReadCursorAdvanceRequestBody {
+    pub realm_id: RealmId,
+    pub read_scope: ReadScope,
+    pub position: ReadCursorPosition,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ReadMarkerOutcome {
+    pub realm_id: RealmId,
+    pub actor_id: Did,
+    pub device_id: DeviceId,
+    pub read_scope: ReadScope,
+    pub position: ReadCursorPosition,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ReadCursorList {
+    #[serde(default)]
+    pub markers: Vec<ReadMarkerOutcome>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ReadReceipt {
     pub receipt_type: String,
     pub schema: String,

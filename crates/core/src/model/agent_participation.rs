@@ -227,6 +227,8 @@ pub struct AgentParticipationSetRequestBody {
     pub selection: AgentParticipation,
 }
 
+pub type AgentParticipationReplaceRequestBody = AgentParticipationSetRequestBody;
+
 /// One resolved per-scope participation entry: the controller-set
 /// selection, the governance ceiling, and their effective intersection.
 #[derive(Clone, Debug, Serialize, Deserialize)]

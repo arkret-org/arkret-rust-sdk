@@ -444,6 +444,19 @@ pub enum ReadScopeKind {
     Morph,
 }
 
+impl ReadScopeKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Realm => "realm",
+            Self::Flow => "flow",
+            Self::Thread => "thread",
+            Self::View => "view",
+            Self::Message => "message",
+            Self::Morph => "morph",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]

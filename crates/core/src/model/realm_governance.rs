@@ -177,6 +177,174 @@ impl RealmLinkDirection {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmLinkEntry {
+    pub realm_id: RealmId,
+    pub target_realm_id: RealmId,
+    pub link_kind: RealmLinkKind,
+    pub status: RealmLinkStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commitment: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+pub type RealmLinkCreateRequestBody = RealmLinkPayload;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmLinkList {
+    pub realm_id: RealmId,
+    pub direction: RealmLinkDirection,
+    #[serde(default)]
+    pub links: Vec<RealmLinkEntry>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmLinkMutationOutcome {
+    pub realm_id: RealmId,
+    pub target_realm_id: RealmId,
+    pub link_kind: RealmLinkKind,
+    pub status: RealmLinkStatus,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmEffectivePolicyInheritanceMode {
+    Explicit,
+    None,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmEffectivePolicyOutcome {
+    pub realm_id: RealmId,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub effective_policy: BTreeMap<String, Value>,
+    #[serde(default)]
+    pub inheritance_chain: Vec<RealmId>,
+    pub inheritance_mode: RealmEffectivePolicyInheritanceMode,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmLifecycleView {
+    pub ok: bool,
+    pub realm_id: RealmId,
+    pub owner: Did,
+    #[serde(default)]
+    pub members: Vec<Did>,
+    pub deleted: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmExport {
+    pub schema: String,
+    pub realm_id: RealmId,
+    pub generated_at: DateTime<Utc>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = Vec<serde_json::Value>)))]
+    pub operations: Vec<BTreeMap<String, Value>>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = Vec<serde_json::Value>)))]
+    pub events: Vec<BTreeMap<String, Value>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmModerationInheritanceMode {
+    None,
+    Organization,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RealmEffectiveModerationPolicy {
+    pub realm_id: RealmId,
+    pub inheritance_mode: RealmModerationInheritanceMode,
+    #[serde(default)]
+    pub inheritance_chain: Vec<Did>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = Vec<serde_json::Value>)))]
+    pub organization_policy_layers: Vec<BTreeMap<String, Value>>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_policy: Option<BTreeMap<String, Value>>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = Vec<serde_json::Value>)))]
+    pub effective_rules: Vec<BTreeMap<String, Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub override_requires_organization_approval: Option<bool>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RealmModerationPolicyReplaceRequestBody {
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(flatten)]
+    pub policy: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmModerationPolicyDocument {
+    pub kind: String,
+    pub realm_id: RealmId,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub policy: BTreeMap<String, Value>,
+    pub updated_by: Did,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmPolicyServerOnTimeout {
+    FailClosed,
+    Deny,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmPolicyServerView {
+    pub realm_id: RealmId,
+    pub policy_server_did: Did,
+    pub policy_server_url: String,
+    pub cache_ttl_seconds: u64,
+    pub timeout_ms: u64,
+    pub on_timeout: RealmPolicyServerOnTimeout,
+    pub updated_at: DateTime<Utc>,
+    pub from_org_fallback: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmPolicyServerReplaceRequestBody {
+    pub policy_server_did: Did,
+    pub policy_server_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_ttl_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_timeout: Option<RealmPolicyServerOnTimeout>,
+}
+
 /// Typed payload for the `ck.realm.inheritance_policy` event.
 ///
 /// Cell family: `ck.component.realm.inheritance_policy.v1` (cas-register).

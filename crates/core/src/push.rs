@@ -160,7 +160,9 @@ pub fn format_push_payload(
 pub fn notification_from_gateway_request(
     request: PushNotifyRequestBody,
 ) -> Option<PushNotification> {
-    serde_json::from_value(request.notification).ok()
+    serde_json::to_value(request.notification)
+        .ok()
+        .and_then(|notification| serde_json::from_value(notification).ok())
 }
 
 pub fn rejected_response(

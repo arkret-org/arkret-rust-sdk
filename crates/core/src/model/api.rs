@@ -489,6 +489,103 @@ impl fmt::Display for ErrorEnvelope {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountDataReplaceRequestBody {
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub content: Value,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountDataEntry {
+    pub data_type: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub content: Value,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountDataList {
+    #[serde(default)]
+    pub entries: Vec<AccountDataEntry>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountDataDeleteOutcome {
+    pub ok: bool,
+    pub data_type: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ConsentState {
+    Active,
+    Pending,
+    Revoked,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ConsentCellView {
+    pub ok: bool,
+    pub cell_id: String,
+    pub holder_did: Did,
+    pub peer_did: Did,
+    pub consent_scope: ConsentScope,
+    pub state: ConsentState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requested_at: Option<DateTime<Utc>>,
+    pub updated_at: DateTime<Utc>,
+    #[serde(default)]
+    pub active_grant_dots: Vec<String>,
+    #[serde(default)]
+    pub grant_dots: Vec<String>,
+    #[serde(default)]
+    pub revoked_dots: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ConsentCellList {
+    pub ok: bool,
+    #[serde(default)]
+    pub cells: Vec<ConsentCellView>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ConsentUpdateRequestBody {
+    pub peer_did: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub consent_scope: Option<ConsentScope>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ConsentRequestRequestBody {
+    pub holder_did: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub peer_did: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub consent_scope: Option<ConsentScope>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountDeviceSummary {
     pub device_id: DeviceId,
     pub status: String,
@@ -2793,6 +2890,7 @@ pub struct BlobPresignOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct PushRegisterDeviceRequestBody {
     pub device_id: DeviceId,
     pub push_gateway: String,
@@ -2819,6 +2917,7 @@ pub struct PushRegisterDeviceOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct PushUnregisterDeviceRequestBody {
     pub device_id: DeviceId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2835,21 +2934,257 @@ pub struct PushUnregisterDeviceOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct OkOutcome {
     pub ok: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PushNotifyRequestBody {
-    pub notification: Value,
+#[serde(deny_unknown_fields)]
+pub struct PushCounts {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub badge: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unread_increment: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub missed_call: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unread: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub missed_calls: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub highlight_count: Option<u64>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PushDeviceTweaks {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PushDecisionHint {
+    #[serde(default = "default_push_deliver")]
+    pub deliver: bool,
+    #[serde(default)]
+    pub blind_wakeup: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+}
+
+impl Default for PushDecisionHint {
+    fn default() -> Self {
+        Self {
+            deliver: true,
+            blind_wakeup: false,
+            reason_code: None,
+        }
+    }
+}
+
+fn default_push_deliver() -> bool {
+    true
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PushDeviceRoute {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub push_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub app_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub platform: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_actor_id: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<BTreeMap<String, Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tweaks: Option<PushDeviceTweaks>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub push_decision: Option<PushDecisionHint>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PushRoutingMetadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub circle_id: Option<CircleId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope_circle_id: Option<CircleId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_scope: Option<EffectiveScope>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mention_redirect_target_actor_ids: Vec<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delivery_binding_frontier: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PushNotificationEnvelope {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub push_target_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wakeup_kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub push_hint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub push_hint_l10n_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evaluation_locus_unresolved: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub counts: Option<PushCounts>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub routing_metadata: Option<PushRoutingMetadata>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub devices: Vec<PushDeviceRoute>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_actor_id: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_actor_display_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<BTreeMap<String, Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flow_id: Option<FlowId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<MessageId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flow_title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_is_target: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub priority: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub membership: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PushAuditEnvelopeMetadata {
+    pub access_kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub late_recovery_original_event_id: Option<EventId>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PushNotifyRequestBody {
+    pub notification: PushNotificationEnvelope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit_envelope: Option<PushAuditEnvelopeMetadata>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct PushNotifyOutcome {
     #[serde(default)]
     pub rejected: Vec<Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PushNotifyRejection {
+    pub push_target_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    pub reason_code: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
+pub const PEER_CONTACT_DELIVERY_REQUEST_SCHEMA: &str =
+    "ck.schema.peer_contact_delivery_request.v1";
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PeerContactAddress {
+    pub subject_id: Did,
+    pub recipient_service_did: Did,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recipient_service_type: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PeerContactDeliveryRequest {
+    pub schema: String,
+    pub contact_event: Event,
+    pub contact_address: PeerContactAddress,
+    pub fact_kind: String,
+    pub idempotency_key: String,
+}
+
+impl PeerContactDeliveryRequest {
+    pub fn new(
+        contact_event: Event,
+        contact_address: PeerContactAddress,
+        fact_kind: impl Into<String>,
+        idempotency_key: impl Into<String>,
+    ) -> Self {
+        Self {
+            schema: PEER_CONTACT_DELIVERY_REQUEST_SCHEMA.to_owned(),
+            contact_event,
+            contact_address,
+            fact_kind: fact_kind.into(),
+            idempotency_key: idempotency_key.into(),
+        }
+    }
+
+    pub fn validate_minimal(&self) -> Result<()> {
+        if self.schema != PEER_CONTACT_DELIVERY_REQUEST_SCHEMA {
+            return Err(Error::Protocol(
+                "peer_contact_delivery_request.schema mismatch".to_owned(),
+            ));
+        }
+        if self.fact_kind.trim().is_empty() {
+            return Err(Error::Protocol(
+                "peer_contact_delivery_request.fact_kind must not be empty".to_owned(),
+            ));
+        }
+        if self.contact_event.kind.as_str() != self.fact_kind {
+            return Err(Error::Protocol(
+                "peer_contact_delivery_request.fact_kind must equal contact_event.kind"
+                    .to_owned(),
+            ));
+        }
+        if self.idempotency_key.trim().is_empty() {
+            return Err(Error::Protocol(
+                "peer_contact_delivery_request.idempotency_key must not be empty".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -3424,6 +3759,8 @@ pub struct DeviceMessagesPutRequestBody {
     pub messages: BTreeMap<Did, BTreeMap<DeviceId, DeviceMessageTarget>>,
 }
 
+pub type DeviceMessagesSendRequestBody = DeviceMessagesPutRequestBody;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DeviceMessageTarget {
@@ -3458,6 +3795,8 @@ pub struct DeviceMessagesPutOutcome {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub unknown_devices: BTreeMap<String, Value>,
 }
+
+pub type DeviceMessagesSendOutcome = DeviceMessagesPutOutcome;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -3580,9 +3919,27 @@ pub struct KeysBackupsList {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(untagged)]
+pub enum KeyBackupDeleteProof {
+    DetachedJws(KeyBackupDeleteDetachedJwsProof),
+    Development(String),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct KeyBackupDeleteDetachedJwsProof {
+    pub kind: String,
+    pub issuer: Did,
+    pub verification_method: String,
+    pub jws: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct KeysBackupsDeleteRequestBody {
-    pub backup_id: BackupId,
-    pub proof: Proof,
+    pub proof: KeyBackupDeleteProof,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
@@ -3616,6 +3973,8 @@ pub struct KeysBackupsPutOutcome {
     pub backup_id: BackupId,
     pub ciphertext_digest: String,
 }
+
+pub type KeysBackupsReplaceOutcome = KeysBackupsPutOutcome;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

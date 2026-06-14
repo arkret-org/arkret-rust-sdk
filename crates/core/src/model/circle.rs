@@ -24,6 +24,7 @@ use super::*;
 /// Top-level Circle directory visibility (spec circle.schema.json
 /// `directory_visibility` enum).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleDirectoryVisibility {
     /// Only Circle members see this Circle in any directory listing.
@@ -37,6 +38,7 @@ pub enum CircleDirectoryVisibility {
 /// How an actor becomes a Circle member (spec circle.schema.json
 /// `join_rule` enum).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleJoinRule {
     /// Admin must invite or add.
@@ -186,6 +188,127 @@ pub struct Circle {
     pub extra: BTreeMap<String, Value>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CircleView {
+    pub circle_id: CircleId,
+    pub realm_id: RealmId,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    pub directory_visibility: CircleDirectoryVisibility,
+    pub join_rule: CircleJoinRule,
+    pub history_visibility: HistoryVisibility,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_encryption_floor: Option<EncryptionFloor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_encryption_floor: Option<EncryptionFloor>,
+    pub encryption_profile: EncryptionProfile,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mls_group_ref: Option<String>,
+    pub state: CircleState,
+    #[serde(default)]
+    pub members: Vec<Did>,
+    pub created_by: Did,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CircleCreateRequestBody {
+    pub realm_id: RealmId,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub directory_visibility: Option<CircleDirectoryVisibility>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub join_rule: Option<CircleJoinRule>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub history_visibility: Option<HistoryVisibility>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_encryption_floor: Option<EncryptionFloor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_encryption_floor: Option<EncryptionFloor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encryption_profile: Option<EncryptionProfile>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CircleList {
+    pub realm_id: RealmId,
+    #[serde(default)]
+    pub circles: Vec<CircleView>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum CircleMembership {
+    Join,
+    Invite,
+    Knock,
+    Leave,
+    Ban,
+}
+
+impl CircleMembership {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Join => "join",
+            Self::Invite => "invite",
+            Self::Knock => "knock",
+            Self::Leave => "leave",
+            Self::Ban => "ban",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CircleMemberRequestBody {
+    pub actor_id: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub membership: Option<CircleMembership>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CircleMembershipOutcome {
+    pub circle_id: CircleId,
+    pub actor_id: Did,
+    pub membership: CircleMembership,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CircleScopeRotateOutcome {
+    pub circle_id: CircleId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mls_group_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct CircleLifecycleRequestBody {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+}
+
 /// Circle lifecycle state. Mirrors spec circle.schema.json `state` enum.
 ///
 /// This enum is intentionally **distinct** from [`ObjectState`]. Both happen
@@ -209,6 +332,7 @@ pub struct Circle {
 /// (`ck.circle.tombstone`) and per-object redaction events (`ck.redaction`)
 /// run on independent state machines.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleState {
     Active,
