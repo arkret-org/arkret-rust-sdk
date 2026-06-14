@@ -1,0 +1,102 @@
+//! Object and productivity schema artifact counterparts.
+
+use super::*;
+
+/// Counterpart for `spec/v1/artifacts/schemas/circle.schema.json#/$defs/display`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DisplaySymbol {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub emoji: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub glyph: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Display {
+    pub short_name: String,
+    pub color_token: String,
+    pub symbol: DisplaySymbol,
+}
+
+/// Counterpart for `spec/v1/artifacts/schemas/flow.schema.json#/$defs/flow_track`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FlowTrack {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_primary: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub template: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<BTreeMap<String, Value>>,
+}
+
+/// Counterpart for `spec/v1/artifacts/schemas/flow.schema.json#/$defs/metadata_fields`.
+pub type MetadataFields = BTreeMap<String, Value>;
+
+/// Counterpart for `spec/v1/artifacts/schemas/morph-customer-risk.schema.json`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MorphCustomerRiskFields {
+    pub status: String,
+    pub severity: String,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MorphCustomerRisk {
+    pub morph_type: String,
+    pub fields: MorphCustomerRiskFields,
+}
+
+/// Counterpart for `spec/v1/artifacts/schemas/morph.schema.json#/$defs/facet_config`.
+pub type FacetConfig = BTreeMap<String, Value>;
+
+/// Counterpart for `spec/v1/artifacts/schemas/personal-productivity.schema.json`.
+pub type PersonalProductivity = PersonalProductivityValue;
+
+/// Counterpart for `spec/v1/artifacts/schemas/personal-productivity.schema.json#/$defs/reminder`.
+pub type Reminder = ReminderValue;
+
+/// Counterpart for `spec/v1/artifacts/schemas/personal-productivity.schema.json#/$defs/saved_item`.
+pub type SavedItem = SavedItemValue;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/personal-productivity.schema.json#/$defs/scheduled_send`.
+pub type ScheduledSend = ScheduledSendValue;
+
+/// Counterpart for `spec/v1/artifacts/schemas/personal-productivity.schema.json#/$defs/snooze`.
+pub type Snooze = SnoozeValue;
+
+/// Counterpart for `spec/v1/artifacts/schemas/pin.schema.json`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Pin {
+    PinAddPayload(PinAddPayload),
+    PinRemovePayload(PinRemovePayload),
+    PinReorderPayload(PinReorderPayload),
+}
+
+/// Counterpart for `spec/v1/artifacts/schemas/query.schema.json`.
+pub type Query = BTreeMap<String, Value>;
+
+/// Counterpart for `spec/v1/artifacts/schemas/relation.schema.json#/$defs/ref`.
+pub type Ref = String;
+
+/// Counterpart for `spec/v1/artifacts/schemas/rsvp.schema.json`.
+pub type Rsvp = RsvpSetPayload;
+
+/// Counterpart for `spec/v1/artifacts/schemas/search-service.schema.json`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SearchService {
+    EncryptedIndexManifest(EncryptedIndexManifest),
+    BlindIndexQuery(BlindIndexQuery),
+    SearchPolicy(SearchPolicy),
+}
