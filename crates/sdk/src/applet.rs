@@ -140,10 +140,53 @@ impl AppletWireNamespaces {
     }
 }
 
-/// Optional inbound-webhook auth metadata. Open-shape (`Value`) so
-/// receivers can round-trip future extensions; today the spec leaves
-/// the inner shape Applet-defined.
-pub type WebhookAuth = Value;
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum WebhookAuthType {
+    HttpMessageSignature,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum WebhookSignatureAlg {
+    #[serde(rename = "EdDSA")]
+    EdDsa,
+    #[serde(rename = "ES256")]
+    Es256,
+    #[serde(rename = "ML-DSA-65")]
+    MlDsa65,
+}
+
+/// Optional inbound-webhook auth metadata. Wire shape mirrors
+/// `applet-package.schema.json#/$defs/webhook_auth`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct WebhookAuth {
+    #[serde(rename = "type")]
+    pub r#type: WebhookAuthType,
+    pub key_ref: String,
+    pub accepted_algs: Vec<WebhookSignatureAlg>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature_header: Option<String>,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
+impl WebhookAuth {
+    pub fn http_message_signature(
+        key_ref: impl Into<String>,
+        accepted_algs: Vec<WebhookSignatureAlg>,
+    ) -> Self {
+        Self {
+            r#type: WebhookAuthType::HttpMessageSignature,
+            key_ref: key_ref.into(),
+            accepted_algs,
+            signature_header: None,
+            extra: BTreeMap::new(),
+        }
+    }
+}
 
 /// Wire-format `ck.applet.registration` Event content per spec
 /// `applet-schema.md` §1 (authoritative `applet_registration_payload`).
@@ -305,8 +348,8 @@ pub struct AppletPackage {
     /// Renamed `endpoint_set` → `endpoint_policy` (2026-06-10, hard_reject;
     /// `normative-language.md` §7 forbids `*_set` wire suffixes).
     pub endpoint_policy: Value,
-    /// HTTP message signature key ref / accepted algorithms (open shape).
-    pub webhook_auth: Value,
+    /// HTTP message signature key ref / accepted algorithms.
+    pub webhook_auth: WebhookAuth,
     pub receive_events: bool,
     pub receive_ephemeral: bool,
     pub rate_limited: bool,
@@ -355,6 +398,7 @@ impl AppletPackage {
         namespaces: AppletWireNamespaces,
         registration_epoch: crate::Hash,
     ) -> Self {
+        let webhook_key_ref = format!("{}#applet-webhook", controller_did.as_str());
         Self {
             schema: Self::SCHEMA.to_owned(),
             package_id: package_id.into(),
@@ -368,7 +412,10 @@ impl AppletPackage {
             namespaces,
             requested_scopes: Vec::new(),
             endpoint_policy: Value::Object(Default::default()),
-            webhook_auth: Value::Object(Default::default()),
+            webhook_auth: WebhookAuth::http_message_signature(
+                webhook_key_ref,
+                vec![WebhookSignatureAlg::EdDsa],
+            ),
             receive_events: false,
             receive_ephemeral: false,
             rate_limited: true,

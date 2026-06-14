@@ -1,4 +1,5 @@
 use super::*;
+use crate::{BottomKind, CellRef, SealId};
 
 /// Verification state for a device.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -152,13 +153,72 @@ pub type ActorDid = Did;
 pub type ServiceDid = Did;
 pub type AccountId = String;
 pub type ServiceDescribe = ServerDescription;
-pub type BottomDiagnostic = Value;
-pub type AppletInstallPlan = Value;
 pub type EventSubmitEnvelope = Event;
 pub type FacetName = Facet;
 pub type ObjectRef = String;
 pub type BooleanFilter = Filter;
 pub type QueryFilter = Filter;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct BottomDiagnosticSealView {
+    pub leaves: Vec<SealId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_root: Option<Hash>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct BottomDiagnostic {
+    pub kind: BottomKind,
+    pub cells: Vec<CellRef>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub event_ids: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seal_view: Option<BottomDiagnosticSealView>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub heads: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub details: Option<BTreeMap<String, Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub escalated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(untagged)]
+pub enum AppletInstallAppletId {
+    Did(Did),
+    AppletId(AppletId),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AppletInstallPlan {
+    pub schema: String,
+    pub plan_id: String,
+    pub applet_id: AppletInstallAppletId,
+    pub package_digest: Hash,
+    pub registration_epoch: Hash,
+    pub effective_scope: EffectiveScope,
+    pub requested_scopes: Vec<String>,
+    pub approved_scopes: Vec<ScopeGrant>,
+    pub denied_scopes: Vec<DeniedScope>,
+    pub events_to_submit: Vec<EventSubmission>,
+    pub capability_constraints: Vec<CapabilityConstraint>,
+    pub namespace_conflicts: Vec<NamespaceConflict>,
+    pub e2ee_effect: E2eeEffect,
+    pub widget_effect: WidgetEffect,
+    pub warnings: Vec<String>,
+    pub plan_digest: Hash,
+}
+
+impl AppletInstallPlan {
+    pub const SCHEMA: &'static str = "ck.schema.applet_install_plan.v1";
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -2024,8 +2084,8 @@ pub struct CellQueryEnvelope {
     pub value: Value,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub heads: Vec<Value>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub bottom: BottomDiagnostic,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bottom: Option<BottomDiagnostic>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seal_view: Option<CellQuerySealView>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
@@ -2051,8 +2111,8 @@ pub struct EventStateView {
     pub event_id: EventId,
     pub event_digest: String,
     pub event_state: EventProtocolState,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub bottom: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bottom: Option<BottomDiagnostic>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -3336,6 +3396,7 @@ pub struct AppletTransactionOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AppletApprovalRequest {
     pub approve_actions: Vec<String>,
     pub allow_ghost_actors: bool,
@@ -3344,27 +3405,67 @@ pub struct AppletApprovalRequest {
     pub allow_widget: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AppletBotMembership {
+    Invite,
+    Join,
+    Disabled,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AppletGhostActorMode {
+    Disallowed,
+    ControllerApproved,
+    PolicyDeclared,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AppletActorPolicy {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bot_membership: Option<AppletBotMembership>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ghost_actor_mode: Option<AppletGhostActorMode>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AppletWidgetPolicy {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_widget: Option<bool>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AppletInstallPreviewRequestBody {
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub applet_package: Value,
-    pub effective_scope: Value,
+    pub effective_scope: EffectiveScope,
     pub approval_request: AppletApprovalRequest,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AppletInstallRequestBody {
     pub plan_digest: Hash,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub applet_package: Value,
-    pub effective_scope: Value,
-    pub approved_scopes: Vec<Value>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub actor_policy: Value,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub e2ee_policy: Value,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub widget_policy: Value,
+    pub effective_scope: EffectiveScope,
+    pub approved_scopes: Vec<ScopeGrant>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor_policy: Option<AppletActorPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub e2ee_policy: Option<E2eePolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub widget_policy: Option<AppletWidgetPolicy>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -3413,8 +3514,9 @@ pub enum AppletRevokeMode {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AppletRevokeRequestBody {
-    pub effective_scope: Value,
+    pub effective_scope: EffectiveScope,
     pub reason_code: String,
     pub revoke_mode: AppletRevokeMode,
 }

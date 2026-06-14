@@ -98,6 +98,7 @@ pub enum AppletInstallOperations {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-operations.schema.json#/$defs/e2ee_policy`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct E2eePolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -107,6 +108,7 @@ pub struct E2eePolicy {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-operations.schema.json#/$defs/scope_grant`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ScopeGrant {
     pub actions: Vec<String>,
@@ -123,6 +125,7 @@ pub type TypedRef = String;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/capability_constraint`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CapabilityConstraint {
     pub constraint_type: String,
@@ -132,6 +135,7 @@ pub struct CapabilityConstraint {
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/denied_scope`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeniedScope {
     pub requested_scope: String,
@@ -140,6 +144,7 @@ pub struct DeniedScope {
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/e2ee_effect`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct E2eeEffect {
     pub requires_mls_join: bool,
@@ -151,6 +156,7 @@ pub struct E2eeEffect {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/event_submission`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventSubmission {
     pub event_kind: String,
@@ -162,6 +168,7 @@ pub struct EventSubmission {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/namespace_conflict`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct NamespaceConflict {
     pub namespace: String,
@@ -173,6 +180,7 @@ pub struct NamespaceConflict {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/widget_effect`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct WidgetEffect {
     pub allow_widget: bool,
