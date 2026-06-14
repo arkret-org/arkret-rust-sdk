@@ -3046,6 +3046,8 @@ pub struct SessionGrantExchangeRequestBody {
     pub grant_jwt: String,
     pub principal_id: Did,
     pub device_id: DeviceId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_public_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
