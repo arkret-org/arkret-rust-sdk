@@ -32,7 +32,8 @@ use helpers::*;
 pub use helpers::{host_is_safe_for_outbound, ip_is_public};
 pub use primary_handle::{
     DidDocumentSnapshotResolver, MentionRender, NoHolderPreferenceResolver,
-    PrimaryHandleSelectInput, claim_digest, render_mention, select_primary_handle,
+    PrimaryHandleSelectInput, SubjectRender, claim_digest, render_mention, render_subject,
+    select_primary_handle, select_primary_handle_string,
 };
 pub use records::*;
 pub use resolvers::*;
