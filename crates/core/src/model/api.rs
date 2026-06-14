@@ -3224,15 +3224,24 @@ impl PeerContactDeliveryRequest {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum MediaIceMode {
+    P2p,
+    Sfu,
+    Turn,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct MediaIceConfigRequestBody {
     pub realm_id: RealmId,
     pub call_id: String,
     pub actor_id: Did,
     pub device_id: DeviceId,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub context: Value,
+    pub mode: MediaIceMode,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -2661,7 +2661,7 @@ pub struct KeyPackagesUploadOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejected: Vec<Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub key_package_refs: Vec<KeyEventId>,
+    pub key_package_refs: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2702,11 +2702,19 @@ pub struct KeyPackagesClaimOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesConsumeRequestBody {
     #[serde(default)]
-    pub key_package_refs: Vec<KeyEventId>,
+    pub key_package_refs: Vec<String>,
     pub consumer_device_id: DeviceId,
     pub signature: Value,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub claim_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub welcome_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub flow_id: Option<FlowId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mls_group_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub epoch: Option<u64>,
 }
@@ -2715,7 +2723,7 @@ pub struct KeyPackagesConsumeRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesConsumeOutcome {
     #[serde(default)]
-    pub consumed: Vec<KeyEventId>,
+    pub consumed: Vec<String>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub failures: Value,
 }
@@ -2724,7 +2732,7 @@ pub struct KeyPackagesConsumeOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesRevokeRequestBody {
     #[serde(default)]
-    pub key_package_refs: Vec<KeyEventId>,
+    pub key_package_refs: Vec<String>,
     pub device_id: DeviceId,
     pub signature: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2735,7 +2743,7 @@ pub struct KeyPackagesRevokeRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesRevokeOutcome {
     #[serde(default)]
-    pub revoked: Vec<KeyEventId>,
+    pub revoked: Vec<String>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub failures: Value,
 }
@@ -2757,6 +2765,10 @@ pub struct MimiKeyMaterialRequestBody {
     pub requester: Did,
     pub flow_id: FlowId,
     pub device_id: DeviceId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mimi_room_uri: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2805,7 +2817,7 @@ pub struct MimiRoomUpdateOutcome {
 pub struct MimiNotifyRequestBody {
     pub notification: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub origin_provider: Option<String>,
+    pub origin_provider: Option<Did>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub routing: Value,
 }

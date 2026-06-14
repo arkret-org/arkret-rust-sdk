@@ -708,6 +708,7 @@ pub struct InstallRevokeRequestBody {
 /// authz service; the server still re-checks `applet_id`/`service_did`/
 /// `realm_id` against the installed package before minting anything.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct GhostActorProvisionRequestBody {
     /// Always [`GhostActorProvisionRequestBody::SCHEMA`].
     pub schema: String,
@@ -766,6 +767,7 @@ impl GhostActorProvisionRequestBody {
 /// (also surfaced as the delegated `authorization_ref` for subsequent ghost
 /// events).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct GhostActorProvisionOutcome {
     pub ghost_actor_id: Did,
     pub profile_event_ref: String,
