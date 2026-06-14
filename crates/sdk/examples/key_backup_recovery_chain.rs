@@ -26,9 +26,10 @@ use std::collections::BTreeMap;
 
 use cokret::model::{
     BackupClass, KeyBackup, KeyBackupAead, KeyBackupAuthData, KeyBackupContentItem,
-    KeyBackupEncryption, KeyBackupKdf, KeyBackupRecipientMethod,
+    KeyBackupDomainSeparation, KeyBackupDomainSeparationAad, KeyBackupEncryption,
+    KeyBackupFrontierRef, KeyBackupKdf, KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm,
 };
-use cokret::{BackupId, BackupSeriesId, DeviceId, Did};
+use cokret::{BackupId, BackupSeriesId, DeviceId, Did, Hash};
 use serde_json::json;
 
 fn build_envelope(
@@ -53,6 +54,7 @@ fn build_envelope(
     );
     let supersedes = predecessor.map(|p| p.backup_id.clone());
     let supersedes_digest = predecessor.map(|p| p.ciphertext_digest.clone());
+    let created_at = chrono::Utc::now();
 
     KeyBackup {
         backup_id: BackupId::new(&backup_id_str).expect("valid backup_id"),
@@ -61,7 +63,7 @@ fn build_envelope(
         backup_class: BackupClass::SecretStorage,
         mixed_secret_storage: false,
         backup_version: "kb_1".to_owned(),
-        created_at: chrono::Utc::now(),
+        created_at,
         updated_at: None,
         expires_at: None,
         encryption: KeyBackupEncryption {
@@ -79,9 +81,33 @@ fn build_envelope(
                 aead_profile: Some("ck.aead.xchacha20_poly1305.v1".to_owned()),
                 nonce: Some(format!("nonce-{seq}")),
                 nonce_salt: Some(format!("nonce-salt-{seq}")),
+                enc: None,
                 extra: BTreeMap::new(),
             },
-            key_commitment: None,
+            key_commitment: Some(format!(
+                "sha256:{:0>64}",
+                format!("{seq:02x}")
+                    .repeat(32)
+                    .chars()
+                    .rev()
+                    .take(64)
+                    .collect::<String>()
+            )),
+            extra: BTreeMap::new(),
+        },
+        domain_separation: KeyBackupDomainSeparation {
+            hkdf_info: "cokret-key-backup/secret_storage/recovery/v1".to_owned(),
+            subdomain: "recovery".to_owned(),
+            aead_aad: KeyBackupDomainSeparationAad {
+                schema: "ck.schema.key_backup.v1".to_owned(),
+                actor_id: actor_id.clone(),
+                device_id: device_id.as_str().to_owned(),
+                backup_class: BackupClass::SecretStorage,
+                backup_version: "kb_1".to_owned(),
+                created_at,
+                item_types: vec!["recovery_secret".to_owned()],
+                extra: BTreeMap::new(),
+            },
             extra: BTreeMap::new(),
         },
         contents: vec![KeyBackupContentItem {
@@ -100,11 +126,17 @@ fn build_envelope(
         auth_data: Some(KeyBackupAuthData {
             device_id: device_id.clone(),
             verification_method: "did:web:alice.example#device-1".to_owned(),
-            signature_algorithm: "ed25519".to_owned(),
+            signature_algorithm: KeyBackupSignatureAlgorithm::Ed25519,
             signature: format!("sig-{seq}"),
             ssk_generation: Some(1),
             signed_fields: vec![
                 "backup_id".to_owned(),
+                "actor_id".to_owned(),
+                "backup_class".to_owned(),
+                "backup_version".to_owned(),
+                "encryption".to_owned(),
+                "domain_separation".to_owned(),
+                "contents".to_owned(),
                 "ciphertext_digest".to_owned(),
                 "series_id".to_owned(),
                 "series_seq".to_owned(),
@@ -116,7 +148,13 @@ fn build_envelope(
         series_seq: seq,
         supersedes,
         supersedes_digest,
-        frontier_ref: Some(format!("did:recovery:frontier:{seq}")),
+        frontier_ref: Some(KeyBackupFrontierRef {
+            frontier_digest: Hash::new(format!("sha256:{:0>64}", format!("{seq:02x}")))
+                .expect("valid frontier digest"),
+            seal_ref: None,
+            ssk_generation: Some(1),
+        }),
+        recovery_policy_ref: None,
         extra: BTreeMap::new(),
     }
 }

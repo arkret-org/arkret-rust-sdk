@@ -3653,6 +3653,7 @@ pub struct KeyBackup {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     pub encryption: KeyBackupEncryption,
+    pub domain_separation: KeyBackupDomainSeparation,
     pub contents: Vec<KeyBackupContentItem>,
     pub ciphertext: String,
     pub ciphertext_digest: String,
@@ -3688,7 +3689,11 @@ pub struct KeyBackup {
     /// epoch frontier). Reducer rejects stale frontiers with
     /// `backup_frontier_stale`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub frontier_ref: Option<String>,
+    pub frontier_ref: Option<KeyBackupFrontierRef>,
+    /// Recovery policy tuple under which this envelope was produced. Required
+    /// for `backup_class=did_recovery`; optional signed hint for other classes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovery_policy_ref: Option<RecoveryPolicyRef>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
@@ -3711,6 +3716,17 @@ impl KeyBackup {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct KeyBackupFrontierRef {
+    pub frontier_digest: Hash,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seal_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ssk_generation: Option<u64>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -3731,6 +3747,33 @@ pub struct KeyBackupEncryption {
     pub aead: KeyBackupAead,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_commitment: Option<String>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupDomainSeparation {
+    pub hkdf_info: String,
+    pub subdomain: String,
+    pub aead_aad: KeyBackupDomainSeparationAad,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupDomainSeparationAad {
+    pub schema: String,
+    pub actor_id: Did,
+    pub device_id: String,
+    pub backup_class: BackupClass,
+    pub backup_version: String,
+    pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub item_types: Vec<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
@@ -3802,6 +3845,10 @@ pub struct KeyBackupAead {
     pub nonce_salt: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nonce: Option<String>,
+    /// HPKE KEM encapsulated key for `recipient_method=recovery_public_key`
+    /// (key-backup.schema.json `encryption.aead.enc`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enc: Option<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
@@ -3833,7 +3880,7 @@ pub struct KeyBackupContentItem {
 pub struct KeyBackupAuthData {
     pub device_id: DeviceId,
     pub verification_method: String,
-    pub signature_algorithm: String,
+    pub signature_algorithm: KeyBackupSignatureAlgorithm,
     pub signature: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ssk_generation: Option<u64>,
@@ -3841,6 +3888,26 @@ pub struct KeyBackupAuthData {
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum KeyBackupSignatureAlgorithm {
+    Ed25519,
+    #[serde(rename = "ES256")]
+    Es256,
+    #[serde(rename = "ML-DSA-65")]
+    MlDsa65,
+}
+
+impl KeyBackupSignatureAlgorithm {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Ed25519 => "Ed25519",
+            Self::Es256 => "ES256",
+            Self::MlDsa65 => "ML-DSA-65",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
