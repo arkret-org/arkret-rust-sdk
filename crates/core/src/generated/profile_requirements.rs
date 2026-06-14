@@ -2186,6 +2186,28 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             },
         );
         map.insert(
+            "ck.profile.search.forward_private.v1",
+            ProfileRequirements {
+                profile_id: "ck.profile.search.forward_private.v1",
+                inherits: &["ck.profile.search.blind_index.v1"],
+                required_operations: &["ck.server.query.describe", "ck.self.events.query.scan"],
+                required_event_kinds: &["ck.realm.search_policy"],
+                required_schemas: &["ck.schema.search_service.v1"],
+                rejected_event_kinds: &[],
+                required_fixtures: &["privacy-security-fixture.json"],
+                required_capability_actions: &[],
+                required_features: &[
+                    "search_policy.leakage_class.forward_private",
+                    "server_assisted_oprf_token_derivation",
+                    "generation_bound_revocation",
+                    "stale_posting_fail_closed",
+                ],
+                required_cell_namespaces: &[],
+                required_cells: &[],
+                required_constraint_kinds: &[],
+            },
+        );
+        map.insert(
             "ck.profile.small_team.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.small_team.v1",
