@@ -2350,7 +2350,11 @@ pub enum UserSearchMembership {
 pub struct UserSearchOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
-    pub did: Did,
+    /// `discovery-directory.md` §9: `results[].did` is **conditional** —
+    /// the directory MAY omit it when the caller is not authorized to learn
+    /// the subject DID (returning a handle / display preview only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
