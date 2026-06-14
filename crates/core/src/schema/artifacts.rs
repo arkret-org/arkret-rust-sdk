@@ -893,6 +893,38 @@ pub fn embedded_error_code_reason_codes() -> Result<BTreeSet<String>> {
         .collect())
 }
 
+/// The union of every error identifier declared in the embedded
+/// `error-code-registry.json` snapshot — both the top-level `codes`
+/// (canonical error codes) and the `reason_codes` (sub-reasons).
+///
+/// The spec registry splits identifiers across two arrays: canonical error
+/// codes carry an `http_status` and live under `codes`, while finer-grained
+/// sub-reasons carry `applies_to` and live under `reason_codes`. Some curated
+/// `REASON_*` constants (e.g. the Reaction and direct-conversation sub-reasons)
+/// are registered by the spec under `codes` rather than `reason_codes`, so the
+/// cross-check in [`crate::error`] resolves against this union to avoid false
+/// drift on the array a given identifier happens to be filed under.
+pub fn embedded_error_code_identifiers() -> Result<BTreeSet<String>> {
+    let registry = read_embedded_json_artifact("registry/error-code-registry.json")?;
+    let mut identifiers = BTreeSet::new();
+    for array_field in ["codes", "reason_codes"] {
+        if let Some(entries) = registry.get(array_field).and_then(Value::as_array) {
+            identifiers.extend(
+                entries
+                    .iter()
+                    .filter_map(|entry| entry.get("code").and_then(Value::as_str))
+                    .map(str::to_owned),
+            );
+        }
+    }
+    if identifiers.is_empty() {
+        return Err(Error::Protocol(
+            "embedded error-code-registry.json declared no codes or reason_codes".to_owned(),
+        ));
+    }
+    Ok(identifiers)
+}
+
 fn missing_registry_values(
     registry: &Value,
     array_field: &str,

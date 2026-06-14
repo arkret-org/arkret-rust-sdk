@@ -495,10 +495,15 @@ mod tests {
     #[test]
     fn push_gateway_permits_current_edge_push_operations() {
         let service_type = ServiceType::PushGateway;
+        // The three `ck.edge.push.*` operations registered in
+        // `operation-registry.json` MUST all be advertisable by a push gateway.
         assert!(service_type.permits_operation("ck.edge.push.command.register_device"));
         assert!(service_type.permits_operation("ck.edge.push.command.unregister_device"));
         assert!(service_type.permits_operation("ck.edge.push.command.notify"));
-        assert!(!service_type.permits_operation("ck.edge.push.command.notify"));
+        // Operations outside the `ck.edge.push.` surface (e.g. applet or
+        // self-API operations) MUST NOT be advertisable by a push gateway.
+        assert!(!service_type.permits_operation("ck.edge.applet.command.invoke"));
+        assert!(!service_type.permits_operation("ck.self.events.query.sync"));
     }
 
     #[test]

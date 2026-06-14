@@ -700,7 +700,13 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_CROSS_SIGNING_RESET,
     REASON_TTL_EXPIRED,
     REASON_NOT_PROVISIONED,
-    REASON_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE,
+    // NB: `REASON_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE` is intentionally NOT a
+    // member of this curated registry-subset set. While v1 is still in design
+    // there are no legacy single-endpoint clients, so the spec lint
+    // (`check_design_phase_legacy_compat_removed`) forbids the reason code from
+    // `error-code-registry.json#reason_codes`. The constant remains defined for
+    // downstream emitters that normalize the deprecated wire form, but it must
+    // not be asserted as a registry-declared reason code.
     REASON_MORPH_SCHEMA_REFS_EVOLUTION_UNAUTHORIZED,
     REASON_MORPH_SCHEMA_REFS_TRANSFORMATION_UNSUPPORTED,
     REASON_MORPH_SCHEMA_VERSION_BINDING_MISSING,
@@ -1810,15 +1816,21 @@ mod tests {
     }
 
     /// Guard against the manual-mirror drift fixed in SDK-01-001: every
-    /// hand-maintained `REASON_*` constant MUST exist in the embedded
-    /// `error-code-registry.json` snapshot's `reason_codes`. This pins the
+    /// hand-maintained `REASON_*` constant MUST exist as a declared identifier
+    /// in the embedded `error-code-registry.json` snapshot. This pins the
     /// previously-missing `federation_trust_domain_mismatch` /
     /// `invalid_ack_token` and catches any future reason code added as a
     /// constant without a matching registry entry (or vice versa).
+    ///
+    /// The spec registry files identifiers across two arrays: canonical error
+    /// codes under `codes` and finer sub-reasons under `reason_codes`. Several
+    /// curated constants (the Reaction and direct-conversation sub-reasons) are
+    /// registered by the spec under `codes`, so the cross-check resolves
+    /// against the union of both arrays rather than `reason_codes` alone.
     #[test]
     fn reason_constants_are_declared_in_embedded_registry() {
-        let registry = crate::schema::embedded_error_code_reason_codes()
-            .expect("embedded error-code-registry reason_codes must load");
+        let registry = crate::schema::embedded_error_code_identifiers()
+            .expect("embedded error-code-registry identifiers must load");
 
         // The two reason codes restored in SDK-01-001 must be present.
         assert!(
@@ -1843,7 +1855,7 @@ mod tests {
             assert!(
                 registry.contains(*reason),
                 "REASON constant {reason:?} not present in embedded \
-                 error-code-registry.json reason_codes",
+                 error-code-registry.json (codes or reason_codes)",
             );
         }
     }
