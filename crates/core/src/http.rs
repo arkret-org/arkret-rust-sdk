@@ -2277,6 +2277,11 @@ pub struct ProjectionFlowRow {
     pub created_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
+    /// COT-06-004 — derived flag: `true` when this Flow is the Realm's
+    /// default Flow (`flow_id == Realm.default_flow_id`). Computed at query
+    /// time from the Realm projection; never stored as a per-Flow column.
+    #[serde(default)]
+    pub is_default: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
