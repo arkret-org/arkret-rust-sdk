@@ -212,9 +212,7 @@ pub fn verify_eddsa_detached_jws_proof(
             "detached JWS declares unsupported `crit` extensions".to_owned(),
         ));
     }
-    if let Some(typ) = header.typ.as_deref()
-        && typ != "JWT"
-    {
+    if let Some(typ) = header.typ.as_deref() {
         return Err(VerifierError::Encoding(format!(
             "unsupported detached JWS typ '{typ}'"
         )));
@@ -693,11 +691,7 @@ mod ed25519_jws {
                     "detached JWS declares unsupported `crit` extensions".to_owned(),
                 ));
             }
-            // Legacy producers may have emitted `typ:"JWT"`; accept it for
-            // backward verification but the SDK-canonical header omits `typ`.
-            if let Some(typ) = header.typ.as_deref()
-                && typ != "JWT"
-            {
+            if let Some(typ) = header.typ.as_deref() {
                 return Err(VerifierError::Encoding(format!(
                     "unsupported detached JWS typ '{typ}'"
                 )));

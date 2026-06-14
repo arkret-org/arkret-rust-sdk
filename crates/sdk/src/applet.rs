@@ -161,7 +161,6 @@ pub enum WebhookSignatureAlg {
 /// Optional inbound-webhook auth metadata. Wire shape mirrors
 /// `applet-package.schema.json#/$defs/webhook_auth`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct WebhookAuth {
     #[serde(rename = "type")]
     pub r#type: WebhookAuthType,
@@ -171,6 +170,28 @@ pub struct WebhookAuth {
     pub signature_header: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
+}
+
+#[cfg(feature = "salvo")]
+impl salvo::oapi::ToSchema for WebhookAuth {
+    fn to_schema(
+        components: &mut salvo::oapi::Components,
+    ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
+        use salvo::oapi::Object;
+
+        Object::new()
+            .property("type", WebhookAuthType::to_schema(components))
+            .required("type")
+            .property("key_ref", String::to_schema(components))
+            .required("key_ref")
+            .property(
+                "accepted_algs",
+                Vec::<WebhookSignatureAlg>::to_schema(components),
+            )
+            .required("accepted_algs")
+            .property("signature_header", String::to_schema(components))
+            .into()
+    }
 }
 
 impl WebhookAuth {

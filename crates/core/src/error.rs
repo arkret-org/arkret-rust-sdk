@@ -632,8 +632,6 @@ pub const REASON_CROSS_SIGNING_RESET: &str = "cross_signing_reset";
 // Bounded-lifetime / provisioning generic reasons.
 pub const REASON_TTL_EXPIRED: &str = "ttl_expired";
 pub const REASON_NOT_PROVISIONED: &str = "not_provisioned";
-pub const REASON_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE: &str =
-    "legacy_single_endpoint_media_service";
 
 // Morph schema evolution (zh/models/morph.md §4.1).
 pub const REASON_MORPH_SCHEMA_REFS_EVOLUTION_UNAUTHORIZED: &str =
@@ -700,13 +698,6 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_CROSS_SIGNING_RESET,
     REASON_TTL_EXPIRED,
     REASON_NOT_PROVISIONED,
-    // NB: `REASON_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE` is intentionally NOT a
-    // member of this curated registry-subset set. While v1 is still in design
-    // there are no legacy single-endpoint clients, so the spec lint
-    // (`check_design_phase_legacy_compat_removed`) forbids the reason code from
-    // `error-code-registry.json#reason_codes`. The constant remains defined for
-    // downstream emitters that normalize the deprecated wire form, but it must
-    // not be asserted as a registry-declared reason code.
     REASON_MORPH_SCHEMA_REFS_EVOLUTION_UNAUTHORIZED,
     REASON_MORPH_SCHEMA_REFS_TRANSFORMATION_UNSUPPORTED,
     REASON_MORPH_SCHEMA_VERSION_BINDING_MISSING,
