@@ -2,7 +2,7 @@
 
 use cokret_http_client::Client;
 
-use crate::{ProtocolKeyBackup, Result as SdkResult};
+use crate::{BackupId, KeysBackupsDeleteRequestBody, ProtocolKeyBackup, Result as SdkResult};
 
 /// Typed key-backup HTTP client wrapping a [`cokret_http_client::Client`].
 ///
@@ -53,9 +53,10 @@ impl KeyBackupClient {
     pub async fn delete_key_backup(
         &self,
         backup_id: &str,
+        request: &KeysBackupsDeleteRequestBody,
     ) -> SdkResult<cokret_core::KeysBackupsDeleteOutcome> {
-        let path = format!("/_cokret/self/keys/backups/{backup_id}");
-        self.client.delete(&path).await
+        let backup_id = BackupId::new(backup_id.to_owned())?;
+        self.client.delete_key_backup(&backup_id, request).await
     }
 }
 
