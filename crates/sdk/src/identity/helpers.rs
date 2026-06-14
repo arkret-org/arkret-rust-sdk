@@ -11,7 +11,10 @@ pub(super) use crate::canonical::sha256_hex;
 /// `127.0.0.1`, or `10.x.x.x` must never trigger an internal request. Bare
 /// `localhost` is also blocked. Registered domain names are allowed (DNS
 /// rebinding is out of scope for this static check).
-pub(super) fn host_is_safe_for_outbound(host: &str) -> bool {
+///
+/// 公开导出:供 starid 等下游复用同一套出站 SSRF 判定,避免各仓重复实现
+/// 私网/元数据/CGN/NAT64/link-local 黑名单(见 STA-05-001)。
+pub fn host_is_safe_for_outbound(host: &str) -> bool {
     let candidate = host
         .strip_prefix('[')
         .and_then(|h| h.strip_suffix(']'))
@@ -27,7 +30,18 @@ pub(super) fn host_is_safe_for_outbound(host: &str) -> bool {
     true
 }
 
-fn ip_is_public(ip: IpAddr) -> bool {
+/// Returns `true` only if `ip` is in globally-routable public address space.
+///
+/// Rejects every range an SSRF egress guard must block: loopback, private
+/// (RFC 1918 / ULA `fc00::/7`), link-local (incl. `169.254.169.254` cloud
+/// metadata), CGN/shared `100.64.0.0/10`, broadcast, documentation,
+/// unspecified, and multicast. IPv4-mapped IPv6 (`::ffff:0:0/96`) is folded
+/// to its v4 form before classification so a mapped private address is still
+/// rejected.
+///
+/// 公开导出:供 starid 等下游复用,见 [`host_is_safe_for_outbound`] /
+/// STA-05-001。
+pub fn ip_is_public(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => {
             !(v4.is_private()
