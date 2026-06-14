@@ -520,6 +520,7 @@ impl AppletPackage {
 /// `kind="circle"` is bounded to one Circle. A single install operation
 /// MUST target exactly one scope (spec §1b / §4b).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum EffectiveScope {
     Realm {
@@ -693,6 +694,7 @@ pub struct InstallCommitOutcome {
 /// `registration_epoch` (spec §4b): all active grants, widget scoped
 /// token, delegated session and (where required) bot/ghost membership.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct InstallRevokeRequestBody {
     pub effective_scope: EffectiveScope,
     pub registration_epoch: crate::Hash,
