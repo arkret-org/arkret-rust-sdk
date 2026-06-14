@@ -7,7 +7,7 @@ This SDK audit checklist is intended for release review.
 - Attackers may control network transport, replay old sync responses, submit
   malformed events and attempt to correlate private identifiers.
 - Attackers may compromise a device after historical encrypted events were
-  received; recovery and backup flows must preserve forward-secret boundaries.
+  received; recovery and backup strands must preserve forward-secret boundaries.
 - Servers are not trusted to forge actor intent. Signed protocol objects,
   capability checks and canonical digests are the authority boundary.
 - Local storage may be copied while the application is stopped; production
@@ -20,7 +20,7 @@ This SDK audit checklist is intended for release review.
 
 - All signed protocol objects must use `canonical` helpers.
 - Floating point JSON values are rejected for canonical digests.
-- Identifier constructors validate DID, Realm, Space, ActorProfile, Flow,
+- Identifier constructors validate DID, Realm, Space, ActorProfile, Strand,
   Message, Morph, Relation, Event, Operation, Device, Blob and Cursor forms
   before use.
 
@@ -155,13 +155,13 @@ have a grant for.
 bounded by the controller's existing membership in the parent
 `CircleId`; the reducer cross-checks the bound circle's policy before
 creating the thread. The sidecar's audit log is isolated from the parent
-Circle's audit log even though both flow through the same store, so
+Circle's audit log even though both strand through the same store, so
 visibility violations are loud failures rather than silent join-and-leak.
 
 ### First-backup gate
 
 *Threat model.* Without a first-backup gate, a malicious party who steals an
-unbacked-up device can complete a recovery flow that produces a valid
+unbacked-up device can complete a recovery strand that produces a valid
 controller switch with no historical state to compare against — the attacker
 becomes the canonical history.
 

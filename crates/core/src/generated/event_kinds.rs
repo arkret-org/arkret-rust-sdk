@@ -142,24 +142,24 @@ pub enum EventKind {
     DidProof,
     /// `ck.direct_conversation.bound`
     DirectConversationBound,
-    /// `ck.flow.archive`
-    FlowArchive,
-    /// `ck.flow.create`
-    FlowCreate,
-    /// `ck.flow.move`
-    FlowMove,
-    /// `ck.flow.reorder`
-    FlowReorder,
-    /// `ck.flow.restore`
-    FlowRestore,
-    /// `ck.flow.stage.set`
-    FlowStageSet,
-    /// `ck.flow.tracks.update`
-    FlowTracksUpdate,
-    /// `ck.flow.update`
-    FlowUpdate,
-    /// `ck.flow.watch.set`
-    FlowWatchSet,
+    /// `ck.strand.archive`
+    StrandArchive,
+    /// `ck.strand.create`
+    StrandCreate,
+    /// `ck.strand.move`
+    StrandMove,
+    /// `ck.strand.reorder`
+    StrandReorder,
+    /// `ck.strand.restore`
+    StrandRestore,
+    /// `ck.strand.stage.set`
+    StrandStageSet,
+    /// `ck.strand.tracks.update`
+    StrandTracksUpdate,
+    /// `ck.strand.update`
+    StrandUpdate,
+    /// `ck.strand.watch.set`
+    StrandWatchSet,
     /// `ck.handle.discovery`
     HandleDiscovery,
     /// `ck.identity.accountability_grant`
@@ -467,15 +467,15 @@ impl EventKind {
             Self::DeviceRevoke => "ck.device.revoke",
             Self::DidProof => "ck.did.proof",
             Self::DirectConversationBound => "ck.direct_conversation.bound",
-            Self::FlowArchive => "ck.flow.archive",
-            Self::FlowCreate => "ck.flow.create",
-            Self::FlowMove => "ck.flow.move",
-            Self::FlowReorder => "ck.flow.reorder",
-            Self::FlowRestore => "ck.flow.restore",
-            Self::FlowStageSet => "ck.flow.stage.set",
-            Self::FlowTracksUpdate => "ck.flow.tracks.update",
-            Self::FlowUpdate => "ck.flow.update",
-            Self::FlowWatchSet => "ck.flow.watch.set",
+            Self::StrandArchive => "ck.strand.archive",
+            Self::StrandCreate => "ck.strand.create",
+            Self::StrandMove => "ck.strand.move",
+            Self::StrandReorder => "ck.strand.reorder",
+            Self::StrandRestore => "ck.strand.restore",
+            Self::StrandStageSet => "ck.strand.stage.set",
+            Self::StrandTracksUpdate => "ck.strand.tracks.update",
+            Self::StrandUpdate => "ck.strand.update",
+            Self::StrandWatchSet => "ck.strand.watch.set",
             Self::HandleDiscovery => "ck.handle.discovery",
             Self::IdentityAccountabilityGrant => "ck.identity.accountability_grant",
             Self::IdentityDisclosurePolicy => "ck.identity.disclosure_policy",
@@ -663,15 +663,15 @@ impl EventKind {
             "ck.device.revoke" => Self::DeviceRevoke,
             "ck.did.proof" => Self::DidProof,
             "ck.direct_conversation.bound" => Self::DirectConversationBound,
-            "ck.flow.archive" => Self::FlowArchive,
-            "ck.flow.create" => Self::FlowCreate,
-            "ck.flow.move" => Self::FlowMove,
-            "ck.flow.reorder" => Self::FlowReorder,
-            "ck.flow.restore" => Self::FlowRestore,
-            "ck.flow.stage.set" => Self::FlowStageSet,
-            "ck.flow.tracks.update" => Self::FlowTracksUpdate,
-            "ck.flow.update" => Self::FlowUpdate,
-            "ck.flow.watch.set" => Self::FlowWatchSet,
+            "ck.strand.archive" => Self::StrandArchive,
+            "ck.strand.create" => Self::StrandCreate,
+            "ck.strand.move" => Self::StrandMove,
+            "ck.strand.reorder" => Self::StrandReorder,
+            "ck.strand.restore" => Self::StrandRestore,
+            "ck.strand.stage.set" => Self::StrandStageSet,
+            "ck.strand.tracks.update" => Self::StrandTracksUpdate,
+            "ck.strand.update" => Self::StrandUpdate,
+            "ck.strand.watch.set" => Self::StrandWatchSet,
             "ck.handle.discovery" => Self::HandleDiscovery,
             "ck.identity.accountability_grant" => Self::IdentityAccountabilityGrant,
             "ck.identity.disclosure_policy" => Self::IdentityDisclosurePolicy,

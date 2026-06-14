@@ -1,10 +1,10 @@
-//! Production typed key-verification flow per `crypto-media/device-lifecycle.md` §4.
+//! Production typed key-verification strand per `crypto-media/device-lifecycle.md` §4.
 //!
 //! Provides a typed envelope-per-step API on top of
 //! [`crate::devices::DeviceVerificationMessageContent`], plus a state
 //! machine that enforces the protocol's strict step ordering.
 //!
-//! Mirrors the Matrix-style `start → accept → key → mac → done` flow with
+//! Mirrors the Matrix-style `start → accept → key → mac → done` strand with
 //! a typed envelope per step:
 //!
 //! - [`KeyVerificationStart`]
@@ -14,22 +14,22 @@
 //! - [`KeyVerificationDone`]
 //! - [`KeyVerificationCancel`]
 //!
-//! and a [`KeyVerificationFlow`] state machine that consumes them in
+//! and a [`KeyVerificationStrand`] state machine that consumes them in
 //! strict order. Every transition is validated and an out-of-order
 //! call returns `Error::Protocol(...)` rather than silently accepting it.
 //!
-//! Beyond step ordering the flow enforces the two cryptographic binding
+//! Beyond step ordering the strand enforces the two cryptographic binding
 //! points of `device-lifecycle.md` §10.3:
 //!
 //! - **Commitment** — `accept.commitment` is a SHA-256 commitment over the responder's ephemeral
 //!   public key and the canonical `start` message (see [`compute_key_commitment`]). When the
-//!   responder's `key` envelope arrives, [`KeyVerificationFlow::on_key`] recomputes the commitment
+//!   responder's `key` envelope arrives, [`KeyVerificationStrand::on_key`] recomputes the commitment
 //!   and cancels with `code=mismatched_commitment` on mismatch.
-//! - **MAC** — [`KeyVerificationFlow::on_mac`] verifies the sender's MAC envelope against the full
+//! - **MAC** — [`KeyVerificationStrand::on_mac`] verifies the sender's MAC envelope against the full
 //!   negotiated transcript (both parties, transaction id, method, algorithm selection, both
 //!   ephemeral keys and the verified key ids/values) using an HKDF-derived MAC key, and cancels
 //!   with `code=mismatched_mac` on any mismatch. Producers build matching envelopes with
-//!   [`KeyVerificationFlow::build_mac`].
+//!   [`KeyVerificationStrand::build_mac`].
 
 use std::collections::BTreeMap;
 
@@ -47,7 +47,7 @@ use crate::{DeviceId, Did, Error, Result};
 // ════════════════════════════════════════════════════════════════════
 // X25519 key agreement.
 //
-// `KeyVerificationFlow::on_key` carries each party's ephemeral public
+// `KeyVerificationStrand::on_key` carries each party's ephemeral public
 // key as a base64 string (the `key` field). Two devices doing the SAS
 // exchange MUST end up with the same shared secret bytes — that's the
 // whole point of the protocol — and that secret is the input to
@@ -57,12 +57,12 @@ use crate::{DeviceId, Did, Error, Result};
 // Spec: `crypto-media/device-lifecycle.md` §4.5; we use the
 // `curve25519-hkdf-sha256` agreement protocol the existing
 // KeyVerificationAccept already advertises (line ~395). The ephemeral
-// keypair is generated per flow via `EphemeralX25519Keypair::generate`
+// keypair is generated per strand via `EphemeralX25519Keypair::generate`
 // and consumed by `compute_shared_secret` once the peer's public key
 // arrives.
 // ════════════════════════════════════════════════════════════════════
 
-/// Ephemeral X25519 keypair used for a single key-verification flow.
+/// Ephemeral X25519 keypair used for a single key-verification strand.
 /// The private side never leaves the in-memory structure; the public
 /// side is base64-encoded and shipped as the `KeyVerificationKey.key`
 /// payload to the peer.
@@ -75,7 +75,7 @@ pub struct EphemeralX25519Keypair {
 impl EphemeralX25519Keypair {
     /// Generate a fresh keypair from OS randomness via `getrandom`. The
     /// keypair is scoped to a single SAS verification round and MUST NOT
-    /// be reused across flows.
+    /// be reused across strands.
     ///
     /// Returns `Err(Error::Crypto(..))` when the OS RNG is unavailable
     /// (early boot, restricted sandbox, seccomp-blocked `getrandom`),
@@ -138,7 +138,7 @@ impl std::fmt::Debug for EphemeralX25519Keypair {
 // computed a shared secret out-of-band, the SAS bytes are derived
 // deterministically from `(shared_secret, info)` via HKDF-SHA256
 // (RFC 5869), with `info` carrying the transaction id + per-party DIDs /
-// device ids so the result is bound to the flow context.
+// device ids so the result is bound to the strand context.
 //
 // Two outputs are supported (matches the Matrix SAS modes both clients
 // have to support):
@@ -177,7 +177,7 @@ pub const SAS_EMOJI_TABLE: [(&str, &str); 64] = [
     ("\u{1F41F}", "Fish"),
     ("\u{1F419}", "Octopus"),
     ("\u{1F98B}", "Butterfly"),
-    ("\u{1F337}", "Flower"),
+    ("\u{1F337}", "Strander"),
     ("\u{1F333}", "Tree"),
     ("\u{1F335}", "Cactus"),
     ("\u{1F344}", "Mushroom"),
@@ -363,7 +363,7 @@ fn hkdf_expand_sha256(prk: &[u8; 32], info: &[u8], output: &mut [u8]) {
 /// "`accept.commitment` MUST 是对本端 ephemeral public key 与 canonical
 /// `start` 消息的哈希承诺"). The responder calls this when building the
 /// `accept` envelope; the initiator recomputes it in
-/// [`KeyVerificationFlow::on_key`] once the responder reveals its key.
+/// [`KeyVerificationStrand::on_key`] once the responder reveals its key.
 ///
 /// Construction: `"sha256:" + hex(SHA256(key_b64 || canonical_json(start)))`.
 pub fn compute_key_commitment(
@@ -459,7 +459,7 @@ pub struct KeyVerificationDone {
     pub sent_at: DateTime<Utc>,
 }
 
-/// Cancellation envelope (may arrive at any state and aborts the flow).
+/// Cancellation envelope (may arrive at any state and aborts the strand).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeyVerificationCancel {
     pub transaction_id: String,
@@ -490,14 +490,14 @@ pub enum KeyVerificationState {
     MacsReceived,
     /// First `done` accepted; waiting for the second.
     DoneHalfReceived,
-    /// Flow completed successfully.
+    /// Strand completed successfully.
     Done,
-    /// Flow cancelled or aborted.
+    /// Strand cancelled or aborted.
     Cancelled,
 }
 
 impl KeyVerificationState {
-    /// Whether the flow has reached a terminal state.
+    /// Whether the strand has reached a terminal state.
     pub fn is_terminal(&self) -> bool {
         matches!(self, Self::Done | Self::Cancelled)
     }
@@ -511,7 +511,7 @@ impl KeyVerificationState {
 /// returns `Err(Error::Protocol(...))` and the state is moved to
 /// [`KeyVerificationState::Cancelled`].
 #[derive(Clone, Debug)]
-pub struct KeyVerificationFlow {
+pub struct KeyVerificationStrand {
     state: KeyVerificationState,
     transaction_id: Option<String>,
     initiator: Option<(Did, DeviceId)>,
@@ -537,7 +537,7 @@ pub struct KeyVerificationFlow {
     ephemeral: Option<EphemeralX25519Keypair>,
 }
 
-impl Default for KeyVerificationFlow {
+impl Default for KeyVerificationStrand {
     fn default() -> Self {
         Self {
             state: KeyVerificationState::Idle,
@@ -555,15 +555,15 @@ impl Default for KeyVerificationFlow {
     }
 }
 
-impl KeyVerificationFlow {
-    /// Create an `Idle` flow.
+impl KeyVerificationStrand {
+    /// Create an `Idle` strand.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Install this side's ephemeral X25519 keypair. Builder-style so
     /// call sites stay readable:
-    /// `KeyVerificationFlow::new().with_ephemeral_key(EphemeralX25519Keypair::generate()?)`.
+    /// `KeyVerificationStrand::new().with_ephemeral_key(EphemeralX25519Keypair::generate()?)`.
     /// MUST be called before the first `on_key` step or
     /// [`Self::compute_sas`] will refuse with `Error::Protocol`.
     pub fn with_ephemeral_key(mut self, key: EphemeralX25519Keypair) -> Self {
@@ -581,7 +581,7 @@ impl KeyVerificationFlow {
             .map(EphemeralX25519Keypair::public_base64)
     }
 
-    /// Compute the SAS pair for this flow. Steps:
+    /// Compute the SAS pair for this strand. Steps:
     ///   1. Look up the peer's public key in `keys_exchanged` — the `self_device` argument is OUR
     ///      `DeviceId`, so the peer's key is the only entry not keyed by `self_device`.
     ///   2. Run X25519 between our ephemeral private + the peer's public to produce the 32-byte
@@ -686,7 +686,7 @@ impl KeyVerificationFlow {
     /// When the responder's key arrives, the commitment from the
     /// `accept` envelope is recomputed over the revealed key + canonical
     /// `start` message and compared fail-closed; a mismatch cancels the
-    /// flow with `code=mismatched_commitment` (§10.3).
+    /// strand with `code=mismatched_commitment` (§10.3).
     pub fn on_key(&mut self, msg: &KeyVerificationKey) -> Result<()> {
         let next = match self.state {
             KeyVerificationState::Accepted => KeyVerificationState::KeyHalfExchanged,
@@ -700,7 +700,7 @@ impl KeyVerificationFlow {
         if !self.is_known_party(&msg.from_user, &msg.from_device) {
             return self.fail(
                 "invalid_param",
-                "key.from_user/device not part of this flow",
+                "key.from_user/device not part of this strand",
             );
         }
         if self.keys_exchanged.contains_key(&msg.from_device) {
@@ -867,7 +867,7 @@ impl KeyVerificationFlow {
     /// sender claims to MAC (`key_id -> public key`); each per-key MAC
     /// and the key-id list MAC are recomputed with the transcript-bound
     /// MAC key and compared fail-closed. Any mismatch (including an
-    /// unknown key id or a missing ephemeral keypair) cancels the flow
+    /// unknown key id or a missing ephemeral keypair) cancels the strand
     /// with `code=mismatched_mac` (§10.3).
     pub fn on_mac(
         &mut self,
@@ -891,7 +891,7 @@ impl KeyVerificationFlow {
         if !self.is_known_party(&msg.from_user, &msg.from_device) {
             return self.fail(
                 "invalid_param",
-                "mac.from_user/device not part of this flow",
+                "mac.from_user/device not part of this strand",
             );
         }
         if self.macs_received.contains_key(&msg.from_device) {
@@ -937,7 +937,7 @@ impl KeyVerificationFlow {
         Ok(())
     }
 
-    /// Step 5: accept `done` envelopes (one per side) — closes the flow.
+    /// Step 5: accept `done` envelopes (one per side) — closes the strand.
     pub fn on_done(&mut self, msg: &KeyVerificationDone) -> Result<()> {
         let next = match self.state {
             KeyVerificationState::MacsReceived => KeyVerificationState::DoneHalfReceived,
@@ -953,7 +953,7 @@ impl KeyVerificationFlow {
         if !self.is_known_party(&msg.from_user, &msg.from_device) {
             return self.fail(
                 "invalid_param",
-                "done.from_user/device not part of this flow",
+                "done.from_user/device not part of this strand",
             );
         }
         if self.done_received.contains_key(&msg.from_device) {
@@ -968,11 +968,11 @@ impl KeyVerificationFlow {
         Ok(())
     }
 
-    /// Cancel the flow at any non-terminal state.
+    /// Cancel the strand at any non-terminal state.
     pub fn on_cancel(&mut self, msg: &KeyVerificationCancel) -> Result<()> {
         if self.state.is_terminal() {
             return Err(Error::Protocol(
-                "cannot cancel terminal verification flow".to_owned(),
+                "cannot cancel terminal verification strand".to_owned(),
             ));
         }
         if let Some(ref txn) = self.transaction_id
@@ -1057,8 +1057,8 @@ mod tests {
     #[test]
     fn derive_sas_bytes_is_deterministic_and_bounded() {
         let secret = b"shared-ECDH-secret-bytes-32-long-pad";
-        let info_a = b"flow-1|alice|alice-device|bob|bob-device";
-        let info_b = b"flow-2|alice|alice-device|bob|bob-device";
+        let info_a = b"strand-1|alice|alice-device|bob|bob-device";
+        let info_b = b"strand-2|alice|alice-device|bob|bob-device";
 
         let sas_a1 = derive_sas_bytes(secret, info_a);
         let sas_a2 = derive_sas_bytes(secret, info_a);
@@ -1117,7 +1117,7 @@ mod tests {
 
     /// The SAS pair derived from the X25519 shared secret MUST match
     /// on both sides — that's the whole point of the verification
-    /// flow. The `info` parameter here is the canonical binding
+    /// strand. The `info` parameter here is the canonical binding
     /// string both sides agree on (transaction id + per-party DIDs +
     /// per-party device ids).
     #[test]
@@ -1130,7 +1130,7 @@ mod tests {
         let bob_shared = bob
             .compute_shared_secret(&alice.public_base64())
             .expect("bob shared");
-        let info = b"flow-7|did:web:alice|alice-device|did:web:bob|bob-device";
+        let info = b"strand-7|did:web:alice|alice-device|did:web:bob|bob-device";
         let sas_alice = derive_sas_bytes(&alice_shared, info);
         let sas_bob = derive_sas_bytes(&bob_shared, info);
         assert_eq!(sas_alice, sas_bob);
@@ -1141,27 +1141,27 @@ mod tests {
     /// Malformed peer public keys surface as `Error::Protocol`
     /// rather than panicking, so the verify-device UI can render a
     /// "cancel" outcome instead of crashing. Full integration test:
-    /// two `KeyVerificationFlow` instances install their own
+    /// two `KeyVerificationStrand` instances install their own
     /// ephemeral keypairs, swap the public halves through `on_key`,
     /// and `compute_sas` on both sides yields **the same** SAS pair.
     /// This is the contract the verify-device UI relies on.
     #[test]
-    fn key_verification_flow_compute_sas_matches_across_both_sides() {
+    fn key_verification_strand_compute_sas_matches_across_both_sides() {
         let alice_did = did("alice");
         let alice_dev = dev("alice-dev");
         let bob_did = did("bob");
         let bob_dev = dev("bob-dev");
-        let txn = "txn-flow-7";
+        let txn = "txn-strand-7";
 
         let alice_kp = EphemeralX25519Keypair::generate().unwrap();
         let bob_kp = EphemeralX25519Keypair::generate().unwrap();
         let alice_public_b64 = alice_kp.public_base64();
         let bob_public_b64 = bob_kp.public_base64();
 
-        let mut alice = KeyVerificationFlow::new().with_ephemeral_key(alice_kp);
-        let mut bob = KeyVerificationFlow::new().with_ephemeral_key(bob_kp);
+        let mut alice = KeyVerificationStrand::new().with_ephemeral_key(alice_kp);
+        let mut bob = KeyVerificationStrand::new().with_ephemeral_key(bob_kp);
 
-        // Drive both flows through start -> accept -> key.
+        // Drive both strands through start -> accept -> key.
         let start = KeyVerificationStart {
             transaction_id: txn.to_owned(),
             from_user: alice_did.clone(),
@@ -1206,7 +1206,7 @@ mod tests {
             key: bob_public_b64,
             sent_at: now(),
         };
-        // Each side records its own key + the peer's key (the flow
+        // Each side records its own key + the peer's key (the strand
         // state machine accepts both `on_key` envelopes regardless of
         // order; `keys_exchanged` ends up keyed by device_id).
         alice.on_key(&alice_key_msg).unwrap();
@@ -1235,15 +1235,15 @@ mod tests {
     #[test]
     fn compute_sas_refuses_when_prerequisites_missing() {
         let alice_dev = dev("alice-dev");
-        let flow = KeyVerificationFlow::new();
-        let err = flow
+        let strand = KeyVerificationStrand::new();
+        let err = strand
             .compute_sas(&alice_dev, b"info")
             .expect_err("no keypair installed");
         assert!(format!("{err}").contains("ephemeral keypair"));
 
-        let flow = KeyVerificationFlow::new()
+        let strand = KeyVerificationStrand::new()
             .with_ephemeral_key(EphemeralX25519Keypair::generate().unwrap());
-        let err = flow
+        let err = strand
             .compute_sas(&alice_dev, b"info")
             .expect_err("no peer key received");
         assert!(format!("{err}").contains("peer public key not received"));
@@ -1343,10 +1343,10 @@ mod tests {
         ])
     }
 
-    /// Drive a flow (holding alice's ephemeral keypair) through
+    /// Drive a strand (holding alice's ephemeral keypair) through
     /// start -> accept -> key/key with a real commitment, ending in
-    /// `KeysExchanged`. Returns the flow plus bob's public key.
-    fn flow_at_keys_exchanged(txn: &str) -> (KeyVerificationFlow, String) {
+    /// `KeysExchanged`. Returns the strand plus bob's public key.
+    fn strand_at_keys_exchanged(txn: &str) -> (KeyVerificationStrand, String) {
         let alice_kp = EphemeralX25519Keypair::generate().unwrap();
         let bob_kp = EphemeralX25519Keypair::generate().unwrap();
         let alice_pub = alice_kp.public_base64();
@@ -1354,39 +1354,39 @@ mod tests {
         let start_msg = start(txn);
         let mut accept_msg = accept(txn);
         accept_msg.commitment = compute_key_commitment(&bob_pub, &start_msg).unwrap();
-        let mut flow = KeyVerificationFlow::new().with_ephemeral_key(alice_kp);
-        flow.on_start(&start_msg).unwrap();
-        flow.on_accept(&accept_msg).unwrap();
-        flow.on_key(&key(txn, &did("alice"), &dev("alice_phone"), &alice_pub))
+        let mut strand = KeyVerificationStrand::new().with_ephemeral_key(alice_kp);
+        strand.on_start(&start_msg).unwrap();
+        strand.on_accept(&accept_msg).unwrap();
+        strand.on_key(&key(txn, &did("alice"), &dev("alice_phone"), &alice_pub))
             .unwrap();
-        flow.on_key(&key(txn, &did("bob"), &dev("bob_laptop"), &bob_pub))
+        strand.on_key(&key(txn, &did("bob"), &dev("bob_laptop"), &bob_pub))
             .unwrap();
-        assert_eq!(flow.state(), KeyVerificationState::KeysExchanged);
-        (flow, bob_pub)
+        assert_eq!(strand.state(), KeyVerificationState::KeysExchanged);
+        (strand, bob_pub)
     }
 
     #[test]
-    fn full_flow_runs_to_done() {
+    fn full_strand_runs_to_done() {
         let txn = "txn-1";
-        let (mut flow, _) = flow_at_keys_exchanged(txn);
+        let (mut strand, _) = strand_at_keys_exchanged(txn);
         let keys = verify_keys();
-        // The shared secret is symmetric, so one flow can produce both
+        // The shared secret is symmetric, so one strand can produce both
         // sides' MAC envelopes for the round trip.
-        let alice_mac = flow
+        let alice_mac = strand
             .build_mac(&did("alice"), &dev("alice_phone"), &keys)
             .unwrap();
-        let bob_mac = flow
+        let bob_mac = strand
             .build_mac(&did("bob"), &dev("bob_laptop"), &keys)
             .unwrap();
-        flow.on_mac(&alice_mac, &keys).unwrap();
-        flow.on_mac(&bob_mac, &keys).unwrap();
-        assert_eq!(flow.state(), KeyVerificationState::MacsReceived);
-        flow.on_done(&done(txn, &did("alice"), &dev("alice_phone")))
+        strand.on_mac(&alice_mac, &keys).unwrap();
+        strand.on_mac(&bob_mac, &keys).unwrap();
+        assert_eq!(strand.state(), KeyVerificationState::MacsReceived);
+        strand.on_done(&done(txn, &did("alice"), &dev("alice_phone")))
             .unwrap();
-        flow.on_done(&done(txn, &did("bob"), &dev("bob_laptop")))
+        strand.on_done(&done(txn, &did("bob"), &dev("bob_laptop")))
             .unwrap();
-        assert_eq!(flow.state(), KeyVerificationState::Done);
-        assert!(flow.state().is_terminal());
+        assert_eq!(strand.state(), KeyVerificationState::Done);
+        assert!(strand.state().is_terminal());
     }
 
     /// §10.3: a responder key that does not match `accept.commitment`
@@ -1394,14 +1394,14 @@ mod tests {
     #[test]
     fn on_key_rejects_mismatched_commitment() {
         let txn = "txn-commit";
-        let mut flow = KeyVerificationFlow::new();
-        flow.on_start(&start(txn)).unwrap();
+        let mut strand = KeyVerificationStrand::new();
+        strand.on_start(&start(txn)).unwrap();
         // accept() carries a bogus commitment ("sha256:cafe").
-        flow.on_accept(&accept(txn)).unwrap();
-        flow.on_key(&key(txn, &did("alice"), &dev("alice_phone"), "AKEY"))
+        strand.on_accept(&accept(txn)).unwrap();
+        strand.on_key(&key(txn, &did("alice"), &dev("alice_phone"), "AKEY"))
             .unwrap();
         let bob_kp = EphemeralX25519Keypair::generate().unwrap();
-        let err = flow
+        let err = strand
             .on_key(&key(
                 txn,
                 &did("bob"),
@@ -1410,24 +1410,24 @@ mod tests {
             ))
             .unwrap_err();
         assert!(format!("{err}").contains("mismatched_commitment"));
-        assert_eq!(flow.state(), KeyVerificationState::Cancelled);
-        assert_eq!(flow.cancel_record().unwrap().code, "mismatched_commitment");
+        assert_eq!(strand.state(), KeyVerificationState::Cancelled);
+        assert_eq!(strand.cancel_record().unwrap().code, "mismatched_commitment");
     }
 
     /// §10.3: a tampered MAC MUST cancel with `code=mismatched_mac`.
     #[test]
     fn on_mac_rejects_tampered_mac() {
         let txn = "txn-mac";
-        let (mut flow, _) = flow_at_keys_exchanged(txn);
+        let (mut strand, _) = strand_at_keys_exchanged(txn);
         let keys = verify_keys();
-        let mut tampered = flow
+        let mut tampered = strand
             .build_mac(&did("alice"), &dev("alice_phone"), &keys)
             .unwrap();
         tampered.keys = STANDARD_NO_PAD.encode([0u8; 32]);
-        let err = flow.on_mac(&tampered, &keys).unwrap_err();
+        let err = strand.on_mac(&tampered, &keys).unwrap_err();
         assert!(format!("{err}").contains("mismatched_mac"));
-        assert_eq!(flow.state(), KeyVerificationState::Cancelled);
-        assert_eq!(flow.cancel_record().unwrap().code, "mismatched_mac");
+        assert_eq!(strand.state(), KeyVerificationState::Cancelled);
+        assert_eq!(strand.cancel_record().unwrap().code, "mismatched_mac");
     }
 
     /// §10.3: a per-key MAC over a key value the receiver does not
@@ -1435,33 +1435,33 @@ mod tests {
     #[test]
     fn on_mac_rejects_unexpected_key_value() {
         let txn = "txn-mac-key";
-        let (mut flow, _) = flow_at_keys_exchanged(txn);
+        let (mut strand, _) = strand_at_keys_exchanged(txn);
         let mut forged_keys = verify_keys();
         forged_keys.insert(
             "ed25519:bob_laptop".to_owned(),
             "attacker-substituted-key".to_owned(),
         );
         // Sender MACs the forged key; receiver checks against its own view.
-        let mac = flow
+        let mac = strand
             .build_mac(&did("bob"), &dev("bob_laptop"), &forged_keys)
             .unwrap();
-        let err = flow.on_mac(&mac, &verify_keys()).unwrap_err();
+        let err = strand.on_mac(&mac, &verify_keys()).unwrap_err();
         assert!(format!("{err}").contains("mismatched_mac"));
-        assert_eq!(flow.state(), KeyVerificationState::Cancelled);
+        assert_eq!(strand.state(), KeyVerificationState::Cancelled);
     }
 
     /// Without an ephemeral keypair the MAC cannot be verified — the
-    /// flow MUST fail closed instead of passing unverified MACs.
+    /// strand MUST fail closed instead of passing unverified MACs.
     #[test]
     fn on_mac_fails_closed_without_ephemeral_keypair() {
         let txn = "txn-mac-eph";
-        let (reference_flow, bob_pub) = flow_at_keys_exchanged(txn);
+        let (reference_strand, bob_pub) = strand_at_keys_exchanged(txn);
         let keys = verify_keys();
-        let mac = reference_flow
+        let mac = reference_strand
             .build_mac(&did("bob"), &dev("bob_laptop"), &keys)
             .unwrap();
-        // Rebuild the same transcript in a flow with no keypair installed.
-        let alice_pub = reference_flow
+        // Rebuild the same transcript in a strand with no keypair installed.
+        let alice_pub = reference_strand
             .keys_exchanged
             .get(&dev("alice_phone"))
             .unwrap()
@@ -1469,7 +1469,7 @@ mod tests {
         let start_msg = start(txn);
         let mut accept_msg = accept(txn);
         accept_msg.commitment = compute_key_commitment(&bob_pub, &start_msg).unwrap();
-        let mut observer = KeyVerificationFlow::new();
+        let mut observer = KeyVerificationStrand::new();
         observer.on_start(&start_msg).unwrap();
         observer.on_accept(&accept_msg).unwrap();
         observer
@@ -1485,39 +1485,39 @@ mod tests {
 
     #[test]
     fn rejects_out_of_order_accept_without_start() {
-        let mut flow = KeyVerificationFlow::new();
-        let err = flow.on_accept(&accept("txn-x")).unwrap_err();
+        let mut strand = KeyVerificationStrand::new();
+        let err = strand.on_accept(&accept("txn-x")).unwrap_err();
         assert!(format!("{err}").contains("invalid_transition"));
-        assert_eq!(flow.state(), KeyVerificationState::Cancelled);
+        assert_eq!(strand.state(), KeyVerificationState::Cancelled);
     }
 
     #[test]
     fn rejects_transaction_id_mismatch() {
-        let mut flow = KeyVerificationFlow::new();
-        flow.on_start(&start("txn-1")).unwrap();
-        let err = flow.on_accept(&accept("txn-2")).unwrap_err();
+        let mut strand = KeyVerificationStrand::new();
+        strand.on_start(&start("txn-1")).unwrap();
+        let err = strand.on_accept(&accept("txn-2")).unwrap_err();
         assert!(format!("{err}").contains("transaction_id"));
     }
 
     #[test]
     fn rejects_unknown_party_key() {
         let txn = "txn-1";
-        let mut flow = KeyVerificationFlow::new();
-        flow.on_start(&start(txn)).unwrap();
-        flow.on_accept(&accept(txn)).unwrap();
-        let err = flow
+        let mut strand = KeyVerificationStrand::new();
+        strand.on_start(&start(txn)).unwrap();
+        strand.on_accept(&accept(txn)).unwrap();
+        let err = strand
             .on_key(&key(txn, &did("eve"), &dev("eve_box"), "EKEY"))
             .unwrap_err();
-        assert!(format!("{err}").contains("not part of this flow"));
-        assert_eq!(flow.state(), KeyVerificationState::Cancelled);
+        assert!(format!("{err}").contains("not part of this strand"));
+        assert_eq!(strand.state(), KeyVerificationState::Cancelled);
     }
 
     #[test]
     fn cancel_records_reason_and_terminates() {
         let txn = "txn-1";
-        let mut flow = KeyVerificationFlow::new();
-        flow.on_start(&start(txn)).unwrap();
-        flow.on_cancel(&KeyVerificationCancel {
+        let mut strand = KeyVerificationStrand::new();
+        strand.on_start(&start(txn)).unwrap();
+        strand.on_cancel(&KeyVerificationCancel {
             transaction_id: txn.to_owned(),
             from_user: did("alice"),
             from_device: dev("alice_phone"),
@@ -1526,16 +1526,16 @@ mod tests {
             sent_at: now(),
         })
         .unwrap();
-        assert_eq!(flow.state(), KeyVerificationState::Cancelled);
-        assert_eq!(flow.cancel_record().unwrap().code, "user_cancel");
+        assert_eq!(strand.state(), KeyVerificationState::Cancelled);
+        assert_eq!(strand.cancel_record().unwrap().code, "user_cancel");
     }
 
     #[test]
-    fn cannot_cancel_terminal_flow() {
+    fn cannot_cancel_terminal_strand() {
         let txn = "txn-1";
-        let mut flow = KeyVerificationFlow::new();
-        flow.on_start(&start(txn)).unwrap();
-        flow.on_cancel(&KeyVerificationCancel {
+        let mut strand = KeyVerificationStrand::new();
+        strand.on_start(&start(txn)).unwrap();
+        strand.on_cancel(&KeyVerificationCancel {
             transaction_id: txn.to_owned(),
             from_user: did("alice"),
             from_device: dev("alice_phone"),
@@ -1544,7 +1544,7 @@ mod tests {
             sent_at: now(),
         })
         .unwrap();
-        let err = flow
+        let err = strand
             .on_cancel(&KeyVerificationCancel {
                 transaction_id: txn.to_owned(),
                 from_user: did("alice"),

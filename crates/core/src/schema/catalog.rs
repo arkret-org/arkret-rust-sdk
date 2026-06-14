@@ -68,11 +68,11 @@ pub struct SchemaValidationVector {
 pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
     vec![
         SchemaValidationVector {
-            name: "flow minimal valid".to_owned(),
-            schema_id: FLOW_SCHEMA.to_owned(),
+            name: "strand minimal valid".to_owned(),
+            schema_id: STRAND_SCHEMA.to_owned(),
             input: json!({
-                "schema": "ck.schema.flow.v1",
-                "id": "ck:flow:01904100-0000-7000-8000-b30c13414158",
+                "schema": "ck.schema.strand.v1",
+                "id": "ck:strand:01904100-0000-7000-8000-b30c13414158",
                 "realm_id": "ck:realm:01904100-0000-7000-8000-65c7feb295d7",
                 "metadata": {"title": "Payment refactor"},
                 "stage": "draft",

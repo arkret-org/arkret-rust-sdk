@@ -34,22 +34,22 @@ pub struct SpaceObjectTombstonePayload {
     pub successor_space_id: Option<SpaceId>,
 }
 
-/// Cell family for `ck.flow.update` / `ck.flow.tracks.update`
+/// Cell family for `ck.strand.update` / `ck.strand.tracks.update`
 /// CAS-register cells. `bottom=reject` semantics — concurrent writes
 /// to the same cell are not joinable (CAS contention).
-pub const FLOW_FIELDS_CELL_FAMILY: &str = "ck.component.flow.metadata.v1";
+pub const STRAND_FIELDS_CELL_FAMILY: &str = "ck.component.strand.metadata.v1";
 
-/// Round 4 — build the cell_subject for `ck.flow.update`.
-/// `(family=FLOW_FIELDS_CELL_FAMILY, subject=flow_id)`, CAS-register
+/// Round 4 — build the cell_subject for `ck.strand.update`.
+/// `(family=STRAND_FIELDS_CELL_FAMILY, subject=strand_id)`, CAS-register
 /// semantics, bottom=reject.
-pub fn flow_update_cell_subject(flow_id: &FlowId) -> String {
-    flow_id.as_str().to_owned()
+pub fn strand_update_cell_subject(strand_id: &StrandId) -> String {
+    strand_id.as_str().to_owned()
 }
 
-/// Round 4 — build the cell_subject for `ck.flow.tracks_patch`. Same
-/// cell family and bottom semantics as [`flow_update_cell_subject`];
+/// Round 4 — build the cell_subject for `ck.strand.tracks_patch`. Same
+/// cell family and bottom semantics as [`strand_update_cell_subject`];
 /// the two events share the cell so they compete via CAS rather than
 /// silently overwriting each other.
-pub fn flow_tracks_patch_cell_subject(flow_id: &FlowId) -> String {
-    flow_id.as_str().to_owned()
+pub fn strand_tracks_patch_cell_subject(strand_id: &StrandId) -> String {
+    strand_id.as_str().to_owned()
 }

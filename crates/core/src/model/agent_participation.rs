@@ -2,7 +2,7 @@
 //!
 //! Three orthogonal autonomous-behavior bits a native personal agent's
 //! controller may enable in a scope, each capped by a monotone
-//! `deployment ⊇ Realm ⊇ Circle ⊇ Flow` ceiling. The effective
+//! `deployment ⊇ Realm ⊇ Circle ⊇ Strand` ceiling. The effective
 //! participation in a scope is `effective_ceiling ∩ controller_selection`,
 //! where `effective_ceiling` is the bitwise AND of every enclosing
 //! level's ceiling (CKP-0010 §3–§5).
@@ -15,7 +15,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{CircleId, FlowId, RealmId};
+use crate::{CircleId, StrandId, RealmId};
 
 /// Controller-owned account-data type carrying a per-scope participation
 /// selection (CKP-0010 §5.1).
@@ -81,7 +81,7 @@ impl AgentParticipation {
 }
 
 /// The scope a participation selection / ceiling applies to. Realm,
-/// Circle, or Flow — the three levels at which a controller can set a
+/// Circle, or Strand — the three levels at which a controller can set a
 /// selection and at which governance can declare a ceiling.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -94,16 +94,16 @@ pub enum AgentParticipationScope {
         realm_id: RealmId,
         circle_id: CircleId,
     },
-    Flow {
+    Strand {
         realm_id: RealmId,
-        flow_id: FlowId,
+        strand_id: StrandId,
     },
 }
 
 impl AgentParticipationScope {
     /// Canonical account-data scope_key suffix (CKP-0010 §5.1):
     /// `realm:<realm_uuid>` / `circle:<realm_uuid>:<circle_uuid>` /
-    /// `flow:<realm_uuid>:<flow_uuid>`. The uuid part is the segment
+    /// `strand:<realm_uuid>:<strand_uuid>`. The uuid part is the segment
     /// after the last `:` of each typed id.
     #[must_use]
     pub fn scope_key(&self) -> String {
@@ -119,11 +119,11 @@ impl AgentParticipationScope {
                     uuid_part(circle_id.as_str())
                 )
             }
-            Self::Flow { realm_id, flow_id } => {
+            Self::Strand { realm_id, strand_id } => {
                 format!(
-                    "flow:{}:{}",
+                    "strand:{}:{}",
                     uuid_part(realm_id.as_str()),
-                    uuid_part(flow_id.as_str())
+                    uuid_part(strand_id.as_str())
                 )
             }
         }
@@ -135,7 +135,7 @@ impl AgentParticipationScope {
         match self {
             Self::Realm { realm_id }
             | Self::Circle { realm_id, .. }
-            | Self::Flow { realm_id, .. } => realm_id,
+            | Self::Strand { realm_id, .. } => realm_id,
         }
     }
 }
@@ -310,12 +310,12 @@ mod tests {
 
     #[test]
     fn ceiling_chain_folds_by_intersection() {
-        // deployment ⊇ realm ⊇ circle ⊇ flow.
+        // deployment ⊇ realm ⊇ circle ⊇ strand.
         let chain = [
             p(true, true, true),   // deployment
             p(true, true, false),  // realm
             p(true, false, false), // circle
-            p(true, false, false), // flow
+            p(true, false, false), // strand
         ];
         assert_eq!(fold_ceiling_chain(chain), p(true, false, false));
     }
@@ -324,14 +324,14 @@ mod tests {
     fn scope_key_canonical() {
         let realm =
             RealmId::new("ck:realm:01970000-0000-7000-8000-000000000000".to_owned()).unwrap();
-        let flow = FlowId::new("ck:flow:01970000-0000-7000-8000-000000000001".to_owned()).unwrap();
-        let scope = AgentParticipationScope::Flow {
+        let strand = StrandId::new("ck:strand:01970000-0000-7000-8000-000000000001".to_owned()).unwrap();
+        let scope = AgentParticipationScope::Strand {
             realm_id: realm,
-            flow_id: flow,
+            strand_id: strand,
         };
         assert_eq!(
             scope.scope_key(),
-            "flow:01970000-0000-7000-8000-000000000000:01970000-0000-7000-8000-000000000001"
+            "strand:01970000-0000-7000-8000-000000000000:01970000-0000-7000-8000-000000000001"
         );
     }
 }

@@ -46,7 +46,7 @@ pub enum ServiceOperationDtos {
     ModerationReportOutcome(ModerationReportOutcome),
     PolicyCheckRequestBody(PolicyCheckRequestBody),
     PolicyCheckOutcome(PolicyCheckOutcome),
-    ProjectionFlowList(crate::ProjectionFlowList),
+    ProjectionStrandList(crate::ProjectionStrandList),
     ProjectionMorphList(crate::ProjectionMorphList),
     ProjectionSpaceList(crate::ProjectionSpaceList),
     SessionGrantRequestBody(crate::SessionGrantRequestBody),

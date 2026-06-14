@@ -13,7 +13,7 @@ use crate::{
     ActorProfileId, AgentInteropSessionId, AnnounceId, AppletId, AttestationId, AuditBindingId,
     AuditReleaseId, AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId,
     CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId,
-    Did, EventId, FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId,
+    Did, EventId, FilterId, StrandId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId,
     KeyEventId, MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId,
     PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId,
     ReportId, RequestId, RtcParticipantId, SealId, SnapshotId, SpaceId, TransactionId,
@@ -135,8 +135,8 @@ impl_string_schema!(
     r"^ck:device_message:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
-    FlowId,
-    r"^ck:flow:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    StrandId,
+    r"^ck:strand:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
     FilterId,

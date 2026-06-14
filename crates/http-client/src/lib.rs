@@ -1241,7 +1241,7 @@ impl Client {
     }
 
     /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — `ck.find.directory.query.resolve_target`.
-    /// Resolve a client-agnostic shareable object address (Realm / Flow /
+    /// Resolve a client-agnostic shareable object address (Realm / Strand /
     /// Message) to a preview. The `address` and any `token` should be derived
     /// from [`cokret_core::model::parse_address`]; invite and preview tokens
     /// MUST be bound to the resolved object server-side via
@@ -2109,7 +2109,7 @@ mod tests {
     mod events_submit_tests {
         use std::collections::BTreeMap;
 
-        use cokret_core::{Did, EventId, EventRequirements, FlowId, Hlc, RealmId};
+        use cokret_core::{Did, EventId, EventRequirements, StrandId, Hlc, RealmId};
         use serde_json::json;
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         use tokio::net::TcpListener;
@@ -2373,7 +2373,7 @@ mod tests {
             let canned = r#"{
                 "state":"found",
                 "realm_id":"ck:realm:01904100-0000-7000-8000-d10000000001",
-                "main_flow_id":"ck:flow:01904100-0000-7000-8000-d10000000002",
+                "main_strand_id":"ck:strand:01904100-0000-7000-8000-d10000000002",
                 "binding_event_ref":"ck:event:01904100-0000-7000-8000-d10000000003",
                 "created":false
             }"#;
@@ -2436,7 +2436,7 @@ mod tests {
             )
             .await;
             let request = MimiReportAbuseRequestBody {
-                flow_id: FlowId::new("ck:flow:01904100-0000-7000-8000-f571eead1fc4").unwrap(),
+                strand_id: StrandId::new("ck:strand:01904100-0000-7000-8000-f571eead1fc4").unwrap(),
                 target_ref: "mimi://provider/rooms/room-1/messages/msg-1".to_owned(),
                 reporter: Did::new("did:web:alice.example").unwrap(),
                 abuse_reason_code: "spam".to_owned(),

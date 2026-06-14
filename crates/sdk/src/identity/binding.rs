@@ -10,7 +10,7 @@
 //! tuple.
 //!
 //! The shape is intentionally narrow — no JWS envelope, no DID document
-//! resolve. Higher-level flows that need a JWS envelope (e.g. coauth's
+//! resolve. Higher-level strands that need a JWS envelope (e.g. coauth's
 //! `ck.did_binding.control_proof.v1` JWT over a resolved DID doc) layer
 //! on top of this primitive but still call back into
 //! [`verify_binding_proof`] for the final cryptographic check once

@@ -1108,7 +1108,7 @@ mod tests {
     #[test]
     fn parses_standard_spec_content() {
         let payload = json!({
-            "flow_id": "ck:flow:01904100-0000-7000-8000-fb8cfd35e274",
+            "strand_id": "ck:strand:01904100-0000-7000-8000-fb8cfd35e274",
             "track_name": "main",
             "content": { "body": "hello" }
         });
@@ -1162,7 +1162,7 @@ mod tests {
             1,
             hlc,
             json!({
-                "flow_id": "ck:flow:01904100-0000-7000-8000-fb8cfd35e274",
+                "strand_id": "ck:strand:01904100-0000-7000-8000-fb8cfd35e274",
                 "track_name": "main",
                 "content": { "body": "hello" }
             }),

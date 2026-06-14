@@ -10,7 +10,7 @@ This crate is the Cokret v1 SDK entry point. It exposes the protocol model
 directly and re-exports the shared contracts crate as `cokret::api`:
 
 - DID principal identity
-- Realm / Space / ActorProfile / Flow / Morph / Message / Relation / Event / View graph
+- Realm / Space / ActorProfile / Strand / Morph / Message / Relation / Event / View graph
 - append-only Repo commits, canonical Operations and signed Operation envelopes
 - capability-based authorization
 - OpenMLS-backed MLS RFC 9420 group E2EE

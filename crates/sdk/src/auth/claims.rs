@@ -192,7 +192,7 @@ pub struct ClaimDisclosureRequirement {
     pub required: bool,
 }
 
-/// Policy describing the minimum claims to disclose for a flow.
+/// Policy describing the minimum claims to disclose for a strand.
 ///
 /// Named `ClaimDisclosurePolicy` (not `DisclosurePolicy`) to avoid
 /// colliding with the unrelated invite tiered-disclosure

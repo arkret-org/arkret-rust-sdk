@@ -66,7 +66,7 @@ proofs, signatures or private key references.
 
 ### Model Capability Facets
 
-Use `Flow` for the stable semantic center of work and link Views, Morphs or
+Use `Strand` for the stable semantic center of work and link Views, Morphs or
 other surfaces as explicit `has_surface` relations. `EntityFacet` remains
 available for open projections and capability constraints, but standard
 objects should use their protocol type and resource selector directly.

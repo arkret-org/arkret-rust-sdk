@@ -1,4 +1,4 @@
-//! Authentication flow and session management helpers.
+//! Authentication strand and session management helpers.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt;

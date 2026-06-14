@@ -7,7 +7,7 @@ use crate::{BackupId, KeysBackupsDeleteRequestBody, ProtocolKeyBackup, Result as
 /// Typed key-backup HTTP client wrapping a [`cokret_http_client::Client`].
 ///
 /// All methods return `Result<_, cokret_http_client::Error>` so the API and
-/// retry/backoff config flow through the underlying client builder. The
+/// retry/backoff config strand through the underlying client builder. The
 /// caller is expected to construct the inner [`Client`] with the
 /// appropriate auth (Bearer / DeviceProof / ServiceSignature).
 #[derive(Clone, Debug)]

@@ -2130,7 +2130,7 @@ mod tests {
         // payload_digest at encryption time.
         let mismatch = EncryptedEnvelopeV1::from_payload(
             &payload,
-            EncryptedEnvelopeAadV1::hidden(realm_id, "ck.flow.update"),
+            EncryptedEnvelopeAadV1::hidden(realm_id, "ck.strand.update"),
             AadVisibility::Hidden,
             commit_ref,
         );

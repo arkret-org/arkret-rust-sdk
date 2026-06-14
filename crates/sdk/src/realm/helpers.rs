@@ -204,7 +204,7 @@ pub(super) fn relation_is_active(relation: &Relation) -> bool {
 }
 
 pub(super) fn parse_object_state(value: &str) -> Option<ObjectState> {
-    // C47 (spec e10b6ad): `deleted` is no longer a valid Flow / Morph
+    // C47 (spec e10b6ad): `deleted` is no longer a valid Strand / Morph
     // lifecycle state; the only terminal is `redacted`.
     match value {
         "active" => Some(ObjectState::Active),

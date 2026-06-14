@@ -152,7 +152,7 @@ mod tests {
             device_id: device(),
             realm_id: realm(),
             trust_domain: TypedTrustDomainId::new("ck:trust_domain:example").unwrap(),
-            flow_id: None,
+            strand_id: None,
             track: None,
             mls_group_id: Some("group-1".to_owned()),
             mls_leaf_index: 7,

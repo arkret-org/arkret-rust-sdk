@@ -91,7 +91,7 @@ mod tests {
                 "stability": "active",
                 "todo": "pin provider_capabilities_version"
             }],
-            "examples": {"compose_flow": {"step_1": {"service": "soland"}}}
+            "examples": {"compose_strand": {"step_1": {"service": "soland"}}}
         });
 
         let manifest: IntegrationDescribeOutcome =
@@ -101,6 +101,6 @@ mod tests {
 
         let encoded = serde_json::to_value(manifest).expect("integration manifest encodes");
         assert!(encoded.get("todos").is_none());
-        assert!(encoded["examples"].get("compose_flow").is_some());
+        assert!(encoded["examples"].get("compose_strand").is_some());
     }
 }

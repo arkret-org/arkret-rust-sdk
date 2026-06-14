@@ -154,12 +154,12 @@ pub struct InteractiveAuthStage {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct InteractiveAuthFlow {
-    pub flow_id: String,
+pub struct InteractiveAuthStrand {
+    pub strand_id: String,
     pub stages: Vec<InteractiveAuthStage>,
 }
 
-impl InteractiveAuthFlow {
+impl InteractiveAuthStrand {
     pub fn is_satisfied_by(&self, completed: &BTreeSet<InteractiveAuthStageKind>) -> bool {
         self.stages
             .iter()
@@ -172,7 +172,7 @@ impl InteractiveAuthFlow {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct InteractiveAuthChallengeOutcome {
     pub session: String,
-    pub flows: Vec<InteractiveAuthFlow>,
+    pub strands: Vec<InteractiveAuthStrand>,
     pub completed: BTreeSet<InteractiveAuthStageKind>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -180,10 +180,10 @@ pub struct InteractiveAuthChallengeOutcome {
 }
 
 impl InteractiveAuthChallengeOutcome {
-    pub fn select_satisfied_flow(&self) -> Option<&InteractiveAuthFlow> {
-        self.flows
+    pub fn select_satisfied_strand(&self) -> Option<&InteractiveAuthStrand> {
+        self.strands
             .iter()
-            .find(|flow| flow.is_satisfied_by(&self.completed))
+            .find(|strand| strand.is_satisfied_by(&self.completed))
     }
 }
 
@@ -265,7 +265,7 @@ pub enum VerificationMethod {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DeviceVerificationFlow {
+pub struct DeviceVerificationStrand {
     pub transaction_id: String,
     pub from_device: DeviceId,
     pub to_device: DeviceId,
@@ -1185,11 +1185,11 @@ mod tests {
     }
 
     #[test]
-    fn interactive_auth_selects_satisfied_flow() {
+    fn interactive_auth_selects_satisfied_strand() {
         let challenge = InteractiveAuthChallengeOutcome {
             session: "sess".to_owned(),
-            flows: vec![InteractiveAuthFlow {
-                flow_id: "password-passkey".to_owned(),
+            strands: vec![InteractiveAuthStrand {
+                strand_id: "password-passkey".to_owned(),
                 stages: vec![
                     InteractiveAuthStage {
                         kind: InteractiveAuthStageKind::Password,
@@ -1208,7 +1208,7 @@ mod tests {
             params: BTreeMap::new(),
         };
         assert_eq!(
-            challenge.select_satisfied_flow().unwrap().flow_id,
+            challenge.select_satisfied_strand().unwrap().strand_id,
             "password-passkey"
         );
     }

@@ -182,8 +182,8 @@ pub enum RelationKind {
     PromotedFromDiscussion,
     AttachedTo,
     HasDefaultView,
-    /// CKP-0007 (spec b7d35be) — couples a "wide synthesis" Flow (often
-    /// Realm-default scope) to a "narrow discussion" Flow bound to a
+    /// CKP-0007 (spec b7d35be) — couples a "wide synthesis" Strand (often
+    /// Realm-default scope) to a "narrow discussion" Strand bound to a
     /// `scope_circle_id` Circle. The discussion side carries the confidential
     /// conversation; the synthesis side stays in the Realm scope. See
     /// zh/models/circle.md §7.2.
@@ -269,11 +269,11 @@ pub enum ViewVisibility {
     Shared,
 }
 
-/// Lifecycle state for Flow / Morph (and other objects sharing this lattice).
+/// Lifecycle state for Strand / Morph (and other objects sharing this lattice).
 ///
 /// Round C47 (spec e10b6ad): the `deleted` terminal state was dropped from
-/// both `flow.schema.json` and `morph.schema.json`. Only `redacted` is a
-/// terminal state now; `ck.flow.tombstone` / `ck.flow.delete` / equivalent
+/// both `strand.schema.json` and `morph.schema.json`. Only `redacted` is a
+/// terminal state now; `ck.strand.tombstone` / `ck.strand.delete` / equivalent
 /// kinds collapse into a single `ck.redaction` event targeting the object.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -284,7 +284,7 @@ pub enum ObjectState {
     Redacted,
 }
 
-/// Business progression stage shared by Flow and Morph objects.
+/// Business progression stage shared by Strand and Morph objects.
 ///
 /// This is distinct from physical lifecycle [`ObjectState`]. The stage
 /// lattice is mutated only through the dedicated `ck.<object>.stage.set`
@@ -437,7 +437,7 @@ pub enum NotificationState {
 #[serde(rename_all = "snake_case")]
 pub enum ReadScopeKind {
     Realm,
-    Flow,
+    Strand,
     Thread,
     View,
     Message,
@@ -448,7 +448,7 @@ impl ReadScopeKind {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Realm => "realm",
-            Self::Flow => "flow",
+            Self::Strand => "strand",
             Self::Thread => "thread",
             Self::View => "view",
             Self::Message => "message",
@@ -487,19 +487,19 @@ impl ReadScope {
         }
     }
 
-    pub fn flow(flow_id: impl Into<String>, track: Option<impl Into<String>>) -> Self {
+    pub fn strand(strand_id: impl Into<String>, track: Option<impl Into<String>>) -> Self {
         Self {
-            kind: ReadScopeKind::Flow,
-            object_ref: Some(flow_id.into()),
+            kind: ReadScopeKind::Strand,
+            object_ref: Some(strand_id.into()),
             track: track.map(Into::into),
             track_scope: None,
         }
     }
 
-    pub fn flow_all(flow_id: impl Into<String>) -> Self {
+    pub fn strand_all(strand_id: impl Into<String>) -> Self {
         Self {
-            kind: ReadScopeKind::Flow,
-            object_ref: Some(flow_id.into()),
+            kind: ReadScopeKind::Strand,
+            object_ref: Some(strand_id.into()),
             track: None,
             track_scope: Some(ReadScopeTrackScope::All),
         }
@@ -561,7 +561,7 @@ impl ReadScope {
         }
 
         match self.kind {
-            ReadScopeKind::Flow => match (self.track.as_deref(), self.track_scope.as_ref()) {
+            ReadScopeKind::Strand => match (self.track.as_deref(), self.track_scope.as_ref()) {
                 (Some(track), None) => validate_read_scope_track(track)?,
                 (None, Some(ReadScopeTrackScope::All)) => {}
                 (Some(_), Some(_)) => {
@@ -571,13 +571,13 @@ impl ReadScope {
                 }
                 (None, None) => {
                     return Err(Error::Protocol(
-                        "read_scope kind=flow requires track_name or track_scope=all".to_owned(),
+                        "read_scope kind=strand requires track_name or track_scope=all".to_owned(),
                     ));
                 }
             },
             _ if self.track.is_some() || self.track_scope.is_some() => {
                 return Err(Error::Protocol(
-                    "read_scope.track_name/track_scope is only valid when kind is flow".to_owned(),
+                    "read_scope.track_name/track_scope is only valid when kind is strand".to_owned(),
                 ));
             }
             _ => {}

@@ -323,14 +323,14 @@ fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> 
     }
     match (child, parent) {
         (
-            ResourceSelector::Flow { realm_id, flow_id },
-            ResourceSelector::Flow {
+            ResourceSelector::Strand { realm_id, strand_id },
+            ResourceSelector::Strand {
                 realm_id: parent_realm,
-                flow_id: parent_id,
+                strand_id: parent_id,
             },
         ) => {
             realm_narrowed(realm_id, parent_realm)
-                && option_narrowed(flow_id.as_ref(), parent_id.as_ref())
+                && option_narrowed(strand_id.as_ref(), parent_id.as_ref())
         }
         (
             ResourceSelector::Object {
@@ -649,8 +649,8 @@ pub(crate) fn constraint_entries_from_spec(value: &Value) -> Result<Vec<Constrai
                 });
             }
             let scope = Constraint::ScopeLimitation {
-                allowed_flow_ids: string_list(object, "allowed_flow_ids"),
-                denied_flow_ids: string_list(object, "denied_flow_ids"),
+                allowed_strand_ids: string_list(object, "allowed_strand_ids"),
+                denied_strand_ids: string_list(object, "denied_strand_ids"),
                 allowed_tracks: string_list(object, "allowed_tracks"),
                 denied_tracks: string_list(object, "denied_tracks"),
                 allowed_view_kinds: string_list(object, "allowed_view_kinds"),
@@ -661,16 +661,16 @@ pub(crate) fn constraint_entries_from_spec(value: &Value) -> Result<Vec<Constrai
             let scope_is_empty = matches!(
                 &scope,
                 Constraint::ScopeLimitation {
-                    allowed_flow_ids,
-                    denied_flow_ids,
+                    allowed_strand_ids,
+                    denied_strand_ids,
                     allowed_tracks,
                     denied_tracks,
                     allowed_view_kinds,
                     allowed_view_renderers,
                     denied_view_kinds,
                     denied_view_renderers,
-                } if allowed_flow_ids.is_empty()
-                    && denied_flow_ids.is_empty()
+                } if allowed_strand_ids.is_empty()
+                    && denied_strand_ids.is_empty()
                     && allowed_tracks.is_empty()
                     && denied_tracks.is_empty()
                     && allowed_view_kinds.is_empty()
@@ -814,7 +814,7 @@ pub(crate) fn constraint_entries_from_spec(value: &Value) -> Result<Vec<Constrai
                     // The spec approval_mode enum (before_commit /
                     // proposal_then_approve / after_commit_review) describes
                     // timing, not quorum; the engine quorum mode is supplied
-                    // by the caller via ApprovalFlowManager.
+                    // by the caller via ApprovalStrandManager.
                     approval_mode: None,
                     approval_relation: str_field("approval_relation"),
                     guardian_approval_required: bool_field("guardian_approval_required"),

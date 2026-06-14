@@ -1,6 +1,6 @@
 use super::*;
 
-/// Generic create-event payload used by Realm / Space / Flow / Morph creates.
+/// Generic create-event payload used by Realm / Space / Strand / Morph creates.
 ///
 /// The concrete object type is schema-specific, but the event payload envelope
 /// is shared: `{ "object": ... }` plus optional initial relations.
@@ -153,16 +153,16 @@ impl SpaceCreateObject {
     }
 }
 
-/// Current wire object carried by `ck.flow.create`.
+/// Current wire object carried by `ck.strand.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FlowCreateObject {
-    pub id: FlowId,
+pub struct StrandCreateObject {
+    pub id: StrandId,
     pub schema: String,
     pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_circle_id: Option<CircleId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<FlowMetadata>,
+    pub metadata: Option<StrandMetadata>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encrypted_metadata: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -170,7 +170,7 @@ pub struct FlowCreateObject {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encrypted_content: Option<Value>,
     #[serde(default)]
-    pub tracks: BTreeMap<String, FlowTrackConfig>,
+    pub tracks: BTreeMap<String, StrandTrackConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<ObjectState>,
     pub stage: ObjectStage,
@@ -184,11 +184,11 @@ pub struct FlowCreateObject {
     pub extra: BTreeMap<String, Value>,
 }
 
-impl FlowCreateObject {
-    pub fn new(id: FlowId, realm_id: RealmId, created_by: Did) -> Self {
+impl StrandCreateObject {
+    pub fn new(id: StrandId, realm_id: RealmId, created_by: Did) -> Self {
         Self {
             id,
-            schema: FLOW_SCHEMA.to_owned(),
+            schema: STRAND_SCHEMA.to_owned(),
             realm_id,
             scope_circle_id: None,
             metadata: None,
@@ -208,20 +208,20 @@ impl FlowCreateObject {
 
     pub fn with_metadata_title(mut self, title: impl Into<String>) -> Self {
         self.metadata
-            .get_or_insert_with(FlowMetadata::default)
+            .get_or_insert_with(StrandMetadata::default)
             .title = Some(title.into());
         self
     }
 
     pub fn with_metadata_field(mut self, key: impl Into<String>, value: Value) -> Self {
         self.metadata
-            .get_or_insert_with(FlowMetadata::default)
+            .get_or_insert_with(StrandMetadata::default)
             .fields
             .insert(key.into(), value);
         self
     }
 
-    pub fn with_track(mut self, name: impl Into<String>, track: FlowTrackConfig) -> Self {
+    pub fn with_track(mut self, name: impl Into<String>, track: StrandTrackConfig) -> Self {
         self.tracks.insert(name.into(), track);
         self
     }
@@ -232,20 +232,20 @@ impl FlowCreateObject {
     }
 }
 
-/// Payload shared by `ck.flow.update` and `ck.flow.tracks.update`.
+/// Payload shared by `ck.strand.update` and `ck.strand.tracks.update`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FlowPatchPayload {
-    pub flow_id: FlowId,
+pub struct StrandPatchPayload {
+    pub strand_id: StrandId,
     pub patch: Patch,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected_state_digest: Option<Hash>,
 }
 
-impl FlowPatchPayload {
-    pub fn for_flow(flow_id: FlowId, patch: Patch) -> Result<Self> {
+impl StrandPatchPayload {
+    pub fn for_strand(strand_id: StrandId, patch: Patch) -> Result<Self> {
         patch.validate()?;
         Ok(Self {
-            flow_id,
+            strand_id,
             patch,
             expected_state_digest: None,
         })
@@ -253,7 +253,7 @@ impl FlowPatchPayload {
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("flow patch payload serialize: {err}")))
+            .map_err(|err| Error::Protocol(format!("strand patch payload serialize: {err}")))
     }
 }
 
@@ -344,7 +344,7 @@ pub enum MembershipPayloadState {
 pub struct MembershipPayload {
     pub membership: MembershipPayloadState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub flow_id: Option<FlowId>,
+    pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -385,7 +385,7 @@ impl MembershipPayload {
     ) -> Self {
         Self {
             membership,
-            flow_id: None,
+            strand_id: None,
             realm_id: None,
             actor_id: Some(actor_id),
             delivery_status: None,
@@ -407,7 +407,7 @@ impl MembershipPayload {
     ) -> Self {
         Self {
             membership: MembershipPayloadState::Join,
-            flow_id: None,
+            strand_id: None,
             realm_id: Some(realm_id),
             actor_id: Some(actor_id),
             delivery_status: Some(delivery_status),
@@ -673,8 +673,8 @@ impl RealmDestroyPayload {
     }
 }
 
-/// Optional CAS guard carried on `ck.flow.move`
-/// (`event-payload.schema.json#/$defs/flow_move_payload` `expected_position`).
+/// Optional CAS guard carried on `ck.strand.move`
+/// (`event-payload.schema.json#/$defs/strand_move_payload` `expected_position`).
 ///
 /// Compiles to a `head_eq` precondition against the current position cell.
 /// All three fields are optional in the spec sub-schema; `additionalProperties
@@ -682,7 +682,7 @@ impl RealmDestroyPayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct FlowMoveExpectedPosition {
+pub struct StrandMoveExpectedPosition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub space_id: Option<SpaceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -691,39 +691,39 @@ pub struct FlowMoveExpectedPosition {
     pub relation_id: Option<RelationId>,
 }
 
-/// Strong type for `ck.flow.move` payloads
-/// (`event-payload.schema.json#/$defs/flow_move_payload`).
+/// Strong type for `ck.strand.move` payloads
+/// (`event-payload.schema.json#/$defs/strand_move_payload`).
 ///
-/// Moves a Flow between List Spaces. The destination is single-sourced by
+/// Moves a Strand between List Spaces. The destination is single-sourced by
 /// `target_space_id` — writers MUST NOT put `list_space_id` directly on the
 /// payload (`additionalProperties:false` enforces this; the reducer compiles
 /// `target_space_id` into the position cell). `from_space_id` is an optional
-/// hint the reducer can infer. Required: `board_space_id`, `flow_id`,
+/// hint the reducer can infer. Required: `board_space_id`, `strand_id`,
 /// `target_space_id`, `rank`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct FlowMovePayload {
+pub struct StrandMovePayload {
     pub board_space_id: SpaceId,
-    pub flow_id: FlowId,
+    pub strand_id: StrandId,
     pub target_space_id: SpaceId,
     pub rank: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_space_id: Option<SpaceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_position: Option<FlowMoveExpectedPosition>,
+    pub expected_position: Option<StrandMoveExpectedPosition>,
 }
 
-impl FlowMovePayload {
+impl StrandMovePayload {
     pub fn new(
         board_space_id: SpaceId,
-        flow_id: FlowId,
+        strand_id: StrandId,
         target_space_id: SpaceId,
         rank: impl Into<String>,
     ) -> Self {
         Self {
             board_space_id,
-            flow_id,
+            strand_id,
             target_space_id,
             rank: rank.into(),
             from_space_id: None,
@@ -736,141 +736,141 @@ impl FlowMovePayload {
         self
     }
 
-    pub fn with_expected_position(mut self, expected: FlowMoveExpectedPosition) -> Self {
+    pub fn with_expected_position(mut self, expected: StrandMoveExpectedPosition) -> Self {
         self.expected_position = Some(expected);
         self
     }
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("flow move payload serialize: {err}")))
+            .map_err(|err| Error::Protocol(format!("strand move payload serialize: {err}")))
     }
 }
 
-/// Optional CAS guard carried on `ck.flow.reorder`
-/// (`event-payload.schema.json#/$defs/flow_reorder_payload` `expected_position`).
+/// Optional CAS guard carried on `ck.strand.reorder`
+/// (`event-payload.schema.json#/$defs/strand_reorder_payload` `expected_position`).
 ///
 /// The reorder happens within a single List Space, so unlike
-/// [`FlowMoveExpectedPosition`] there is no `space_id` field here.
+/// [`StrandMoveExpectedPosition`] there is no `space_id` field here.
 /// `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct FlowReorderExpectedPosition {
+pub struct StrandReorderExpectedPosition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rank: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub relation_id: Option<RelationId>,
 }
 
-/// Strong type for `ck.flow.reorder` payloads
-/// (`event-payload.schema.json#/$defs/flow_reorder_payload`).
+/// Strong type for `ck.strand.reorder` payloads
+/// (`event-payload.schema.json#/$defs/strand_reorder_payload`).
 ///
-/// Re-ranks a Flow within a single List Space (`space_id`); the Space is not
-/// changed. Required: `board_space_id`, `flow_id`, `space_id`, `rank`.
+/// Re-ranks a Strand within a single List Space (`space_id`); the Space is not
+/// changed. Required: `board_space_id`, `strand_id`, `space_id`, `rank`.
 /// `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct FlowReorderPayload {
+pub struct StrandReorderPayload {
     pub board_space_id: SpaceId,
-    pub flow_id: FlowId,
+    pub strand_id: StrandId,
     pub space_id: SpaceId,
     pub rank: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_position: Option<FlowReorderExpectedPosition>,
+    pub expected_position: Option<StrandReorderExpectedPosition>,
 }
 
-impl FlowReorderPayload {
+impl StrandReorderPayload {
     pub fn new(
         board_space_id: SpaceId,
-        flow_id: FlowId,
+        strand_id: StrandId,
         space_id: SpaceId,
         rank: impl Into<String>,
     ) -> Self {
         Self {
             board_space_id,
-            flow_id,
+            strand_id,
             space_id,
             rank: rank.into(),
             expected_position: None,
         }
     }
 
-    pub fn with_expected_position(mut self, expected: FlowReorderExpectedPosition) -> Self {
+    pub fn with_expected_position(mut self, expected: StrandReorderExpectedPosition) -> Self {
         self.expected_position = Some(expected);
         self
     }
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("flow reorder payload serialize: {err}")))
+            .map_err(|err| Error::Protocol(format!("strand reorder payload serialize: {err}")))
     }
 }
 
-/// Watch level for `ck.flow.watch.set`
-/// (`event-payload.schema.json#/$defs/flow_watch_set_payload` `level`).
+/// Watch level for `ck.strand.watch.set`
+/// (`event-payload.schema.json#/$defs/strand_watch_set_payload` `level`).
 ///
 /// `null` on the wire (a cleared cell) is modeled as `None` on the
-/// [`FlowWatchSetPayload::level`] field rather than a variant here.
+/// [`StrandWatchSetPayload::level`] field rather than a variant here.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum FlowWatchLevel {
+pub enum StrandWatchLevel {
     MentionsOnly,
     Participating,
     All,
     Muted,
 }
 
-/// CAS guard for `ck.flow.watch.set`
-/// (`event-payload.schema.json#/$defs/flow_watch_set_payload` `expected_value`).
+/// CAS guard for `ck.strand.watch.set`
+/// (`event-payload.schema.json#/$defs/strand_watch_set_payload` `expected_value`).
 ///
 /// Carries the prior cell value `{ level, level_public? }` for a `head_eq`
 /// compare. `additionalProperties:false`; `level` is required when present.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct FlowWatchExpectedValue {
-    pub level: FlowWatchLevel,
+pub struct StrandWatchExpectedValue {
+    pub level: StrandWatchLevel,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub level_public: Option<bool>,
 }
 
-/// Strong type for `ck.flow.watch.set` payloads
-/// (`event-payload.schema.json#/$defs/flow_watch_set_payload`).
+/// Strong type for `ck.strand.watch.set` payloads
+/// (`event-payload.schema.json#/$defs/strand_watch_set_payload`).
 ///
-/// Sets or clears the `(flow_id, watcher_actor_id)` watch cell. Required:
-/// `flow_id`, `watcher_actor_id`, `level` (the last may be `null` to clear).
+/// Sets or clears the `(strand_id, watcher_actor_id)` watch cell. Required:
+/// `strand_id`, `watcher_actor_id`, `level` (the last may be `null` to clear).
 /// Per the schema `allOf`, `level_public` MUST be omitted when `level` is
-/// `null`; [`FlowWatchSetPayload::clear`] enforces this and the constructors
+/// `null`; [`StrandWatchSetPayload::clear`] enforces this and the constructors
 /// keep `level_public` separate from the clearing path.
 /// `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct FlowWatchSetPayload {
-    pub flow_id: FlowId,
+pub struct StrandWatchSetPayload {
+    pub strand_id: StrandId,
     pub watcher_actor_id: Did,
     /// `None` serializes as JSON `null`, clearing the cell.
-    pub level: Option<FlowWatchLevel>,
+    pub level: Option<StrandWatchLevel>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub level_public: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_value: Option<Option<FlowWatchExpectedValue>>,
+    pub expected_value: Option<Option<StrandWatchExpectedValue>>,
 }
 
-impl FlowWatchSetPayload {
+impl StrandWatchSetPayload {
     /// Set a concrete watch level. `level_public` opts the level into
     /// non-self projection (ignored for `muted` by the reducer).
     pub fn set(
-        flow_id: FlowId,
+        strand_id: StrandId,
         watcher_actor_id: Did,
-        level: FlowWatchLevel,
+        level: StrandWatchLevel,
         level_public: Option<bool>,
     ) -> Self {
         Self {
-            flow_id,
+            strand_id,
             watcher_actor_id,
             level: Some(level),
             level_public,
@@ -880,9 +880,9 @@ impl FlowWatchSetPayload {
 
     /// Clear the watch cell (`level: null`). Per the schema `allOf`,
     /// `level_public` is forced off on this path.
-    pub fn clear(flow_id: FlowId, watcher_actor_id: Did) -> Self {
+    pub fn clear(strand_id: StrandId, watcher_actor_id: Did) -> Self {
         Self {
-            flow_id,
+            strand_id,
             watcher_actor_id,
             level: None,
             level_public: None,
@@ -890,22 +890,22 @@ impl FlowWatchSetPayload {
         }
     }
 
-    pub fn with_expected_value(mut self, expected: Option<FlowWatchExpectedValue>) -> Self {
+    pub fn with_expected_value(mut self, expected: Option<StrandWatchExpectedValue>) -> Self {
         self.expected_value = Some(expected);
         self
     }
 
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|err| Error::Protocol(format!("flow watch set payload serialize: {err}")))
+            .map_err(|err| Error::Protocol(format!("strand watch set payload serialize: {err}")))
     }
 }
 
 /// Strong type for `object_lifecycle_payload`
 /// (`event-payload.schema.json#/$defs/object_lifecycle_payload`).
 ///
-/// Generic archive / restore / tombstone-style payload for Flow, Circle, and
-/// Morph lifecycle events (e.g. `ck.flow.archive` / `ck.flow.restore`). The
+/// Generic archive / restore / tombstone-style payload for Strand, Circle, and
+/// Morph lifecycle events (e.g. `ck.strand.archive` / `ck.strand.restore`). The
 /// target object is single-sourced by `target_ref`. Required: `target_ref`.
 /// `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1022,7 +1022,7 @@ impl HistoryVisibilityPayload {
 #[serde(rename_all = "snake_case")]
 pub enum PlaintextDataClassKind {
     MessageContent,
-    FlowContent,
+    StrandContent,
     AttachmentPlaintext,
     AttachmentPreview,
     Thumbnail,
@@ -1292,7 +1292,7 @@ impl MorphCreateObject {
     }
 }
 
-/// Extensible ContentBlock used by message, Flow, and Morph content fields.
+/// Extensible ContentBlock used by message, Strand, and Morph content fields.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ContentBlock {
     pub kind: String,
@@ -1338,7 +1338,7 @@ impl ContentBlock {
 /// Producers must choose exactly one of `content` or `encrypted_content`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MessageCreatePayload {
-    pub flow_id: FlowId,
+    pub strand_id: StrandId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message_id: Option<String>,
     pub track_name: String,
@@ -1357,9 +1357,9 @@ pub struct MessageCreatePayload {
 }
 
 impl MessageCreatePayload {
-    pub fn with_content(flow_id: FlowId, track_name: impl Into<String>, content: Value) -> Self {
+    pub fn with_content(strand_id: StrandId, track_name: impl Into<String>, content: Value) -> Self {
         Self {
-            flow_id,
+            strand_id,
             message_id: None,
             track_name: track_name.into(),
             content: Some(content),
@@ -1372,12 +1372,12 @@ impl MessageCreatePayload {
     }
 
     pub fn with_encrypted_content(
-        flow_id: FlowId,
+        strand_id: StrandId,
         track_name: impl Into<String>,
         encrypted_content: Value,
     ) -> Self {
         Self {
-            flow_id,
+            strand_id,
             message_id: None,
             track_name: track_name.into(),
             content: None,
@@ -1432,12 +1432,12 @@ mod tests {
     fn object_create_payload_wraps_object() {
         let actor = Did::new("did:web:alice.example".to_owned()).unwrap();
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
-        let flow_id = FlowId::new("ck:flow:01904100-0000-7000-8000-000000000002").unwrap();
-        let flow = FlowCreateObject::new(flow_id, realm_id, actor)
+        let strand_id = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000002").unwrap();
+        let strand = StrandCreateObject::new(strand_id, realm_id, actor)
             .with_metadata_title("Incident")
-            .with_track("discussion", FlowTrackConfig::discussion_primary());
-        let payload = ObjectCreatePayload::new(flow).to_value().unwrap();
-        assert_eq!(payload["object"]["schema"], FLOW_SCHEMA);
+            .with_track("discussion", StrandTrackConfig::discussion_primary());
+        let payload = ObjectCreatePayload::new(strand).to_value().unwrap();
+        assert_eq!(payload["object"]["schema"], STRAND_SCHEMA);
         assert_eq!(payload["object"]["stage"], "draft");
         assert_eq!(payload["object"]["metadata"]["title"], "Incident");
         canonical::validate_timestamp_canonical(payload["object"]["created_at"].as_str().unwrap())
@@ -1477,9 +1477,9 @@ mod tests {
 
     #[test]
     fn message_create_payload_requires_exactly_one_content_carrier() {
-        let flow_id = FlowId::new("ck:flow:01904100-0000-7000-8000-000000000002").unwrap();
+        let strand_id = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000002").unwrap();
         let payload = MessageCreatePayload::with_content(
-            flow_id,
+            strand_id,
             "discussion",
             ContentBlock::text("hello").to_value().unwrap(),
         )

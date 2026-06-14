@@ -337,7 +337,7 @@ uuid_id_type!(ChunkId, "ck:chunk:");
 uuid_id_type!(CircleId, "ck:circle:");
 uuid_id_type!(ClaimId, "ck:claim:");
 uuid_id_type!(DeviceMessageId, "ck:device_message:");
-uuid_id_type!(FlowId, "ck:flow:");
+uuid_id_type!(StrandId, "ck:strand:");
 uuid_id_type!(FilterId, "ck:filter:");
 uuid_id_type!(FrameId, "ck:frame:");
 uuid_id_type!(FrankingProofId, "ck:franking_proof:");
@@ -603,7 +603,7 @@ mod tests {
         assert_id!(DeviceMessageId, "ck:device_message:");
         assert_id!(EventId, "ck:event:");
         assert_id!(FilterId, "ck:filter:");
-        assert_id!(FlowId, "ck:flow:");
+        assert_id!(StrandId, "ck:strand:");
         assert_id!(FrameId, "ck:frame:");
         assert_id!(FrankingProofId, "ck:franking_proof:");
         assert_id!(GrantId, "ck:grant:");
@@ -647,12 +647,12 @@ mod tests {
     }
 
     #[test]
-    fn flow_id_accepts_active_flow_prefix() {
-        assert!(FlowId::new("ck:flow:01904100-0000-7000-8000-000000000001").is_ok());
-        assert!(FlowId::new("ck:space:01904100-0000-7000-8000-000000000001").is_err());
+    fn strand_id_accepts_active_strand_prefix() {
+        assert!(StrandId::new("ck:strand:01904100-0000-7000-8000-000000000001").is_ok());
+        assert!(StrandId::new("ck:space:01904100-0000-7000-8000-000000000001").is_err());
         // Mixed-case ULID-form rejected by the strict UUIDv7 validator.
         // (Suffix intentionally non-UUIDv7 to exercise the rejection path.)
-        assert!(FlowId::new("ck:flow:01js0ke000000000000000000").is_err());
+        assert!(StrandId::new("ck:strand:01js0ke000000000000000000").is_err());
     }
 
     #[test]

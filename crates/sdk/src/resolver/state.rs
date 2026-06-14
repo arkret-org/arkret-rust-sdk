@@ -1,9 +1,9 @@
 use super::snapshot::{
-    StateHashInput, canonicalize_flow_ref, membership_rank, object_state_from_str, patch_fields,
+    StateHashInput, canonicalize_strand_ref, membership_rank, object_state_from_str, patch_fields,
     patch_state, patch_string, space_state_from_str, state_digest_payload, state_merkle_root,
 };
 use super::*;
-use crate::events::kinds::FLOW_TRACKS_UPDATE as OP_FLOW_TRACKS_UPDATE;
+use crate::events::kinds::STRAND_TRACKS_UPDATE as OP_STRAND_TRACKS_UPDATE;
 
 /// Current reducer state of a Realm.
 #[derive(Clone, Debug)]
@@ -12,8 +12,8 @@ pub struct RealmState {
     pub realm_id: RealmId,
     /// Reducer profile used for this state.
     pub reducer_profile: String,
-    /// Current flows by ID
-    pub subjects: BTreeMap<String, Flow>,
+    /// Current strands by ID
+    pub subjects: BTreeMap<String, Strand>,
     /// Current Morph objects by ID.
     pub morphs: BTreeMap<String, Morph>,
     /// Current Space (container) objects by ID.
@@ -176,12 +176,12 @@ impl RealmState {
     /// Process the content of an event and update state.
     fn process_event_content(&mut self, event: &Event) -> Result<()> {
         match event.kind.as_str() {
-            OP_FLOW_CREATE => self.create_flow(event)?,
-            OP_FLOW_UPDATE => self.update_flow(event)?,
-            OP_FLOW_ARCHIVE => self.archive_flow(event)?,
-            OP_FLOW_RESTORE => self.restore_flow(event)?,
-            OP_FLOW_MOVE | OP_FLOW_REORDER => self.touch_flow(event)?,
-            OP_FLOW_TRACKS_UPDATE => self.update_flow_tracks(event)?,
+            OP_STRAND_CREATE => self.create_strand(event)?,
+            OP_STRAND_UPDATE => self.update_strand(event)?,
+            OP_STRAND_ARCHIVE => self.archive_strand(event)?,
+            OP_STRAND_RESTORE => self.restore_strand(event)?,
+            OP_STRAND_MOVE | OP_STRAND_REORDER => self.touch_strand(event)?,
+            OP_STRAND_TRACKS_UPDATE => self.update_strand_tracks(event)?,
 
             OP_MORPH_CREATE => self.create_morph(event)?,
             OP_MORPH_UPDATE => self.update_morph(event)?,
@@ -253,10 +253,10 @@ impl RealmState {
             // Realm upgrade
             "ck.realm.upgrade" => self.upgrade_realm(event)?,
 
-            // Generic redaction. Round 11 (2026-05-16): also flips Flow /
+            // Generic redaction. Round 11 (2026-05-16): also flips Strand /
             // Morph subject state to Redacted per spec common-fields.md
             // §5.1 when the event content carries an `object_ref` pointing
-            // to a `ck:flow:` / `ck:morph:` typed-id. State-machine guard
+            // to a `ck:strand:` / `ck:morph:` typed-id. State-machine guard
             // rejects already-terminal source with `<kind>_already_terminal`.
             // Space is excluded — spec note "Space has no redacted state" routes
             // Space removal through `ck.space.tombstone` only.
@@ -456,10 +456,10 @@ impl RealmState {
     }
 
     // Reducer for `ck.morph.restore`: same state-machine contract as
-    // `restore_flow` / `restore_space` — current state MUST == archived.
+    // `restore_strand` / `restore_space` — current state MUST == archived.
     // Active / Deleted / Redacted / unset → `morph_not_archived`. Unknown
     // Morph is tolerated for causal / backfill ordering. Morph has no
-    // `state_changed_at` field (unlike Flow / Space), so on success we
+    // `state_changed_at` field (unlike Strand / Space), so on success we
     // only flip `state` and updated_by/at — matching set_morph_state.
     fn restore_morph(&mut self, event: &Event) -> Result<()> {
         let morph_id_str = self.extract_morph_id(&event.content)?;
@@ -758,21 +758,21 @@ impl RealmState {
         Ok(())
     }
 
-    fn create_flow(&mut self, event: &Event) -> Result<()> {
+    fn create_strand(&mut self, event: &Event) -> Result<()> {
         let object = event.content.get("object").unwrap_or(&event.content);
-        let flow_id_str = self.extract_flow_id(object)?;
-        let flow_id = FlowId::new(flow_id_str.clone())?;
-        reject_legacy_flow_metadata_fields(object)?;
+        let strand_id_str = self.extract_strand_id(object)?;
+        let strand_id = StrandId::new(strand_id_str.clone())?;
+        reject_legacy_strand_metadata_fields(object)?;
         let metadata = self
-            .extract_optional_field::<crate::FlowMetadata>(object, "metadata")
+            .extract_optional_field::<crate::StrandMetadata>(object, "metadata")
             .unwrap_or_default();
         let tracks = self
-            .extract_optional_field::<BTreeMap<String, crate::FlowTrackConfig>>(object, "tracks")
+            .extract_optional_field::<BTreeMap<String, crate::StrandTrackConfig>>(object, "tracks")
             .unwrap_or_else(|| {
                 let mut tracks = BTreeMap::new();
                 tracks.insert(
-                    crate::FLOW_TRACK_NAME_SYNTHESIS.to_owned(),
-                    crate::FlowTrackConfig::synthesis(),
+                    crate::STRAND_TRACK_NAME_SYNTHESIS.to_owned(),
+                    crate::StrandTrackConfig::synthesis(),
                 );
                 tracks
             });
@@ -786,9 +786,9 @@ impl RealmState {
             .map(|state| object_state_from_str(&state))
             .transpose()?
             .unwrap_or(crate::ObjectState::Active);
-        let subject = Flow {
-            id: flow_id,
-            schema: crate::FLOW_SCHEMA.to_owned(),
+        let subject = Strand {
+            id: strand_id,
+            schema: crate::STRAND_SCHEMA.to_owned(),
             realm_id: event.realm_id.clone(),
             scope_circle_id,
             metadata: Some(metadata),
@@ -809,28 +809,28 @@ impl RealmState {
             extra: BTreeMap::new(),
         };
         subject.validate_title()?;
-        self.subjects.insert(flow_id_str, subject);
+        self.subjects.insert(strand_id_str, subject);
         Ok(())
     }
 
-    fn update_flow(&mut self, event: &Event) -> Result<()> {
-        let flow_id_str = self.extract_flow_id(&event.content)?;
+    fn update_strand(&mut self, event: &Event) -> Result<()> {
+        let strand_id_str = self.extract_strand_id(&event.content)?;
         // Spec common-fields.md §5.1 final paragraph: update on a non-active
         // object MUST fail — otherwise an edit would silently revive an
-        // archived / tombstoned / redacted Flow, conflicting with the
-        // `ck.flow.restore` semantic. Unknown Flow is tolerated below
+        // archived / tombstoned / redacted Strand, conflicting with the
+        // `ck.strand.restore` semantic. Unknown Strand is tolerated below
         // (extract step succeeds, lookup returns None, current code returns
-        // Err with "flow not found" — this guard runs before that).
-        if let Some(subject) = self.subjects.get(&flow_id_str)
+        // Err with "strand not found" — this guard runs before that).
+        if let Some(subject) = self.subjects.get(&strand_id_str)
             && subject.state != Some(crate::ObjectState::Active)
         {
-            return Err(Error::Protocol("flow_not_active".to_owned()));
+            return Err(Error::Protocol("strand_not_active".to_owned()));
         }
-        reject_legacy_flow_metadata_fields(&event.content)?;
+        reject_legacy_strand_metadata_fields(&event.content)?;
         let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
-        reject_legacy_flow_patch_fields(&patch)?;
+        reject_legacy_strand_patch_fields(&patch)?;
         let metadata =
-            self.extract_optional_field::<crate::FlowMetadata>(&event.content, "metadata");
+            self.extract_optional_field::<crate::StrandMetadata>(&event.content, "metadata");
         let encrypted_metadata =
             self.extract_optional_field::<Value>(&event.content, "encrypted_metadata");
         let body = self.extract_optional_field::<Value>(&event.content, "content");
@@ -843,14 +843,14 @@ impl RealmState {
             .transpose()?;
         let patched_state = patch_state(&patch).transpose()?;
         let tracks = self
-            .extract_optional_field::<BTreeMap<String, crate::FlowTrackConfig>>(
+            .extract_optional_field::<BTreeMap<String, crate::StrandTrackConfig>>(
                 &event.content,
                 "tracks",
             )
             .or_else(|| {
-                // Patch path is a JSON object map: track_name → FlowTrackConfig.
+                // Patch path is a JSON object map: track_name → StrandTrackConfig.
                 patch.as_ref().and_then(|p| p.get("tracks")).and_then(|v| {
-                    serde_json::from_value::<BTreeMap<String, crate::FlowTrackConfig>>(v.clone())
+                    serde_json::from_value::<BTreeMap<String, crate::StrandTrackConfig>>(v.clone())
                         .ok()
                 })
             });
@@ -863,8 +863,8 @@ impl RealmState {
 
         let subject = self
             .subjects
-            .get_mut(&flow_id_str)
-            .ok_or_else(|| Error::Protocol(format!("flow not found: {}", flow_id_str)))?;
+            .get_mut(&strand_id_str)
+            .ok_or_else(|| Error::Protocol(format!("strand not found: {}", strand_id_str)))?;
 
         if let Some(metadata) = metadata {
             subject.metadata = Some(metadata);
@@ -872,19 +872,19 @@ impl RealmState {
         if let Some(title) = patch_metadata_string(&patch, "title") {
             subject
                 .metadata
-                .get_or_insert_with(crate::FlowMetadata::default)
+                .get_or_insert_with(crate::StrandMetadata::default)
                 .title = Some(title);
         }
         if let Some(summary) = patch_metadata_string(&patch, "summary") {
             subject
                 .metadata
-                .get_or_insert_with(crate::FlowMetadata::default)
+                .get_or_insert_with(crate::StrandMetadata::default)
                 .summary = Some(summary);
         }
         if let Some(fields) = fields.or_else(|| patch_metadata_fields(&patch)) {
             subject
                 .metadata
-                .get_or_insert_with(crate::FlowMetadata::default)
+                .get_or_insert_with(crate::StrandMetadata::default)
                 .fields = fields;
         }
         if let Some(encrypted_metadata) = encrypted_metadata {
@@ -912,42 +912,42 @@ impl RealmState {
         Ok(())
     }
 
-    // Reducer for `ck.flow.archive`: validate current state == active per
+    // Reducer for `ck.strand.archive`: validate current state == active per
     // cokret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Deleted / Redacted / unset MUST be rejected with
-    // `flow_not_active`; unknown Flow is tolerated (causal / backfill not
+    // `strand_not_active`; unknown Strand is tolerated (causal / backfill not
     // yet caught up — mirrors archive_morph / archive_space).
-    fn archive_flow(&mut self, event: &Event) -> Result<()> {
-        let flow_id_str = self.extract_flow_id(&event.content)?;
-        let Some(subject) = self.subjects.get(&flow_id_str) else {
+    fn archive_strand(&mut self, event: &Event) -> Result<()> {
+        let strand_id_str = self.extract_strand_id(&event.content)?;
+        let Some(subject) = self.subjects.get(&strand_id_str) else {
             return Ok(());
         };
         if subject.state != Some(crate::ObjectState::Active) {
-            return Err(Error::Protocol("flow_not_active".to_owned()));
+            return Err(Error::Protocol("strand_not_active".to_owned()));
         }
-        self.set_flow_state(event, crate::ObjectState::Archived)
+        self.set_strand_state(event, crate::ObjectState::Archived)
     }
 
-    // Reducer for `ck.flow.restore`: validate current state == archived per
+    // Reducer for `ck.strand.restore`: validate current state == archived per
     // cokret-spec common-fields.md §5 (`*.restore` is the canonical
     // archived -> active path; tombstoned / deleted / redacted MUST NOT be
     // restored). Active / Deleted / Redacted / unset MUST be rejected with
-    // `flow_not_archived`; unknown Flow is tolerated (causal / backfill
+    // `strand_not_archived`; unknown Strand is tolerated (causal / backfill
     // not yet caught up — mirrors restore_space).
-    fn restore_flow(&mut self, event: &Event) -> Result<()> {
-        let flow_id_str = self.extract_flow_id(&event.content)?;
-        let Some(subject) = self.subjects.get(&flow_id_str) else {
+    fn restore_strand(&mut self, event: &Event) -> Result<()> {
+        let strand_id_str = self.extract_strand_id(&event.content)?;
+        let Some(subject) = self.subjects.get(&strand_id_str) else {
             return Ok(());
         };
         if subject.state != Some(crate::ObjectState::Archived) {
-            return Err(Error::Protocol("flow_not_archived".to_owned()));
+            return Err(Error::Protocol("strand_not_archived".to_owned()));
         }
-        self.set_flow_state(event, crate::ObjectState::Active)
+        self.set_strand_state(event, crate::ObjectState::Active)
     }
 
-    fn set_flow_state(&mut self, event: &Event, state: crate::ObjectState) -> Result<()> {
-        let flow_id_str = self.extract_flow_id(&event.content)?;
-        if let Some(subject) = self.subjects.get_mut(&flow_id_str) {
+    fn set_strand_state(&mut self, event: &Event, state: crate::ObjectState) -> Result<()> {
+        let strand_id_str = self.extract_strand_id(&event.content)?;
+        if let Some(subject) = self.subjects.get_mut(&strand_id_str) {
             subject.state = Some(state);
             subject.state_changed_at = Some(event.created_at);
             subject.updated_by = Some(event.actor_id.clone());
@@ -956,22 +956,22 @@ impl RealmState {
         Ok(())
     }
 
-    fn touch_flow(&mut self, event: &Event) -> Result<()> {
-        let flow_id_str = self.extract_flow_id(&event.content)?;
-        if let Some(subject) = self.subjects.get_mut(&flow_id_str) {
+    fn touch_strand(&mut self, event: &Event) -> Result<()> {
+        let strand_id_str = self.extract_strand_id(&event.content)?;
+        if let Some(subject) = self.subjects.get_mut(&strand_id_str) {
             subject.updated_by = Some(event.actor_id.clone());
             subject.updated_at = Some(event.created_at);
         }
         Ok(())
     }
 
-    /// Reducer for canonical `ck.flow.tracks.update`: merge a batch of
-    /// `FlowTrackConfig` entries into `Flow.tracks`. Accepts either a top-level
+    /// Reducer for canonical `ck.strand.tracks.update`: merge a batch of
+    /// `StrandTrackConfig` entries into `Strand.tracks`. Accepts either a top-level
     /// `tracks` map or `patch.tracks`.
-    fn update_flow_tracks(&mut self, event: &Event) -> Result<()> {
-        let flow_id_str = self.extract_flow_id(&event.content)?;
+    fn update_strand_tracks(&mut self, event: &Event) -> Result<()> {
+        let strand_id_str = self.extract_strand_id(&event.content)?;
         let mut tracks = self
-            .extract_optional_field::<BTreeMap<String, crate::FlowTrackConfig>>(
+            .extract_optional_field::<BTreeMap<String, crate::StrandTrackConfig>>(
                 &event.content,
                 "tracks",
             )
@@ -981,7 +981,7 @@ impl RealmState {
             .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch")
             .and_then(|patch| patch.get("tracks").cloned())
             .and_then(|value| {
-                serde_json::from_value::<BTreeMap<String, crate::FlowTrackConfig>>(value).ok()
+                serde_json::from_value::<BTreeMap<String, crate::StrandTrackConfig>>(value).ok()
             })
         {
             tracks.extend(patch_tracks);
@@ -989,18 +989,18 @@ impl RealmState {
 
         if tracks.is_empty() {
             return Err(Error::Protocol(
-                "flow tracks update requires tracks".to_owned(),
+                "strand tracks update requires tracks".to_owned(),
             ));
         }
         for track_id in tracks.keys() {
-            crate::validate_flow_track_name(track_id)?;
+            crate::validate_strand_track_name(track_id)?;
         }
 
-        let Some(subject) = self.subjects.get_mut(&flow_id_str) else {
+        let Some(subject) = self.subjects.get_mut(&strand_id_str) else {
             return Ok(());
         };
         if subject.state != Some(crate::ObjectState::Active) {
-            return Err(Error::Protocol("flow_not_active".to_owned()));
+            return Err(Error::Protocol("strand_not_active".to_owned()));
         }
         for (track_id, track) in tracks {
             subject.tracks.insert(track_id, track);
@@ -1225,7 +1225,7 @@ impl RealmState {
 
     /// Round 11 (2026-05-16) — Object-level redaction state-machine
     /// guard for `ck.redaction` events. Looks at the redaction event's
-    /// content for `object_ref`, and when that points to a Flow / Morph
+    /// content for `object_ref`, and when that points to a Strand / Morph
     /// subject, flips the projection state to `ObjectState::Redacted` per
     /// spec common-fields.md §5.1. Source state MUST be `Active` or
     /// `Archived`; terminal source (`Deleted` / `Redacted`) MUST
@@ -1243,7 +1243,7 @@ impl RealmState {
         if let Some(subject) = self.subjects.get_mut(&object_ref) {
             match subject.state {
                 Some(crate::ObjectState::Active) | Some(crate::ObjectState::Archived) => {}
-                _ => return Err(Error::Protocol("flow_already_terminal".to_owned())),
+                _ => return Err(Error::Protocol("strand_already_terminal".to_owned())),
             }
             subject.state = Some(crate::ObjectState::Redacted);
             subject.state_changed_at = Some(event.created_at);
@@ -1266,7 +1266,7 @@ impl RealmState {
         // hit here when `object_ref` is `ck:space:...` and Space is
         // unmaterialised; that's also fine because ck.redaction targeting
         // a Space is undefined per spec (no `Redacted` variant), and
-        // any space removal flow uses `ck.space.tombstone` directly.
+        // any space removal strand uses `ck.space.tombstone` directly.
         Ok(())
     }
 
@@ -1339,12 +1339,12 @@ impl RealmState {
             .ok_or_else(|| Error::Protocol("morph event requires morph_id or id".to_owned()))
     }
 
-    /// Extract flow_id from event content.
-    fn extract_flow_id(&self, content: &Value) -> Result<String> {
-        self.extract_optional_field::<String>(content, "flow_id")
+    /// Extract strand_id from event content.
+    fn extract_strand_id(&self, content: &Value) -> Result<String> {
+        self.extract_optional_field::<String>(content, "strand_id")
             .or_else(|| self.extract_optional_field::<String>(content, "id"))
-            .map(|value| canonicalize_flow_ref(&value))
-            .ok_or_else(|| Error::Protocol("flow event requires flow_id".to_owned()))
+            .map(|value| canonicalize_strand_ref(&value))
+            .ok_or_else(|| Error::Protocol("strand event requires strand_id".to_owned()))
     }
 
     /// Extract the container `space_id` from event content.
@@ -1653,28 +1653,28 @@ impl RealmState {
     }
 }
 
-fn reject_legacy_flow_metadata_fields(value: &Value) -> Result<()> {
+fn reject_legacy_strand_metadata_fields(value: &Value) -> Result<()> {
     let Some(object) = value.as_object() else {
         return Ok(());
     };
     for field in ["title", "summary", "fields", "body", "encrypted_payload"] {
         if object.contains_key(field) {
             return Err(Error::Protocol(format!(
-                "flow payload field '{field}' is retired; use metadata.*, content, or encrypted_content"
+                "strand payload field '{field}' is retired; use metadata.*, content, or encrypted_content"
             )));
         }
     }
     Ok(())
 }
 
-fn reject_legacy_flow_patch_fields(patch: &Option<BTreeMap<String, Value>>) -> Result<()> {
+fn reject_legacy_strand_patch_fields(patch: &Option<BTreeMap<String, Value>>) -> Result<()> {
     let Some(patch) = patch else {
         return Ok(());
     };
     for field in ["title", "summary", "fields", "body", "encrypted_payload"] {
         if patch.contains_key(field) {
             return Err(Error::Protocol(format!(
-                "flow patch path '{field}' is retired; use metadata.*, content, or encrypted_content"
+                "strand patch path '{field}' is retired; use metadata.*, content, or encrypted_content"
             )));
         }
     }

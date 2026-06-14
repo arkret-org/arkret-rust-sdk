@@ -20,14 +20,14 @@ fn schema_vectors_include_negative_security_extension_case() {
 #[test]
 fn event_payload_catalog_validates_known_payload_fields() {
     let catalog = event_payload_validator_catalog();
-    // `ck.flow.move` payload requires Space container ids:
+    // `ck.strand.move` payload requires Space container ids:
     // `board_space_id` (ck:space prefix) + `target_space_id`.
     catalog
         .validate_payload(
-            "ck.flow.move",
+            "ck.strand.move",
             &json!({
                 "board_space_id": "ck:space:01904100-0000-7000-8000-111111111111",
-                "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+                "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
                 "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
                 "rank": "U"
             }),
@@ -35,9 +35,9 @@ fn event_payload_catalog_validates_known_payload_fields() {
         .unwrap();
     assert!(matches!(
         catalog.validate_payload(
-            "ck.flow.move",
+            "ck.strand.move",
             &json!({
-                "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+                "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
                 "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
                 "rank": "U"
             })
@@ -51,8 +51,8 @@ fn relation_create_payload_strong_type_passes_spec_validator() {
     let catalog = event_payload_validator_catalog();
     let payload = crate::model::RelationCreatePayload::new(
         "ck.relation.parent_of",
-        "ck:flow:01904100-0000-7000-8000-111111111111",
-        "ck:flow:01904100-0000-7000-8000-222222222222",
+        "ck:strand:01904100-0000-7000-8000-111111111111",
+        "ck:strand:01904100-0000-7000-8000-222222222222",
     )
     .with_rank("U");
     catalog
@@ -190,96 +190,96 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
 }
 
 #[test]
-fn flow_lifecycle_payloads_strong_types_pass_spec_validator() {
+fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     use crate::model::{
-        Did, FlowId, FlowMovePayload, FlowReorderExpectedPosition, FlowReorderPayload,
-        FlowWatchExpectedValue, FlowWatchLevel, FlowWatchSetPayload, ObjectLifecyclePayload,
+        Did, StrandId, StrandMovePayload, StrandReorderExpectedPosition, StrandReorderPayload,
+        StrandWatchExpectedValue, StrandWatchLevel, StrandWatchSetPayload, ObjectLifecyclePayload,
         SpaceId,
     };
     let catalog = event_payload_validator_catalog();
     let board = || SpaceId::new("ck:space:01904100-0000-7000-8000-111111111111").unwrap();
     let target = || SpaceId::new("ck:space:01904100-0000-7000-8000-222222222222").unwrap();
-    let flow = || FlowId::new("ck:flow:01904100-0000-7000-8000-6c663fa0205f").unwrap();
+    let strand = || StrandId::new("ck:strand:01904100-0000-7000-8000-6c663fa0205f").unwrap();
     let actor = || Did::new("did:web:alice.example").unwrap();
 
-    // ck.flow.move — board/target Space ids + rank; from_space_id +
+    // ck.strand.move — board/target Space ids + rank; from_space_id +
     // expected_position optional. Destination is single-sourced by
     // target_space_id (a stray `list_space_id` would be rejected).
-    let mv = FlowMovePayload::new(board(), flow(), target(), "U")
+    let mv = StrandMovePayload::new(board(), strand(), target(), "U")
         .with_from_space_id(board())
-        .with_expected_position(crate::model::FlowMoveExpectedPosition {
+        .with_expected_position(crate::model::StrandMoveExpectedPosition {
             space_id: Some(board()),
             rank: Some("T".to_owned()),
             relation_id: None,
         });
     catalog
-        .validate_payload("ck.flow.move", &mv.to_value().unwrap())
+        .validate_payload("ck.strand.move", &mv.to_value().unwrap())
         .unwrap();
 
-    // ck.flow.reorder — single List Space (`space_id`); no destination field.
-    let reorder = FlowReorderPayload::new(board(), flow(), target(), "V").with_expected_position(
-        FlowReorderExpectedPosition {
+    // ck.strand.reorder — single List Space (`space_id`); no destination field.
+    let reorder = StrandReorderPayload::new(board(), strand(), target(), "V").with_expected_position(
+        StrandReorderExpectedPosition {
             rank: Some("U".to_owned()),
             relation_id: None,
         },
     );
     catalog
-        .validate_payload("ck.flow.reorder", &reorder.to_value().unwrap())
+        .validate_payload("ck.strand.reorder", &reorder.to_value().unwrap())
         .unwrap();
 
-    // ck.flow.watch.set — concrete level + clear (level:null) + CAS guard.
-    let set = FlowWatchSetPayload::set(flow(), actor(), FlowWatchLevel::All, Some(true));
+    // ck.strand.watch.set — concrete level + clear (level:null) + CAS guard.
+    let set = StrandWatchSetPayload::set(strand(), actor(), StrandWatchLevel::All, Some(true));
     catalog
-        .validate_payload("ck.flow.watch.set", &set.to_value().unwrap())
+        .validate_payload("ck.strand.watch.set", &set.to_value().unwrap())
         .unwrap();
-    let cleared = FlowWatchSetPayload::clear(flow(), actor());
+    let cleared = StrandWatchSetPayload::clear(strand(), actor());
     let cleared_value = cleared.to_value().unwrap();
     assert!(cleared_value["level"].is_null());
     // allOf: level_public MUST be omitted when level is null.
     assert!(cleared_value.get("level_public").is_none());
     catalog
-        .validate_payload("ck.flow.watch.set", &cleared_value)
+        .validate_payload("ck.strand.watch.set", &cleared_value)
         .unwrap();
-    let guarded = FlowWatchSetPayload::set(flow(), actor(), FlowWatchLevel::Participating, None)
-        .with_expected_value(Some(FlowWatchExpectedValue {
-            level: FlowWatchLevel::Muted,
+    let guarded = StrandWatchSetPayload::set(strand(), actor(), StrandWatchLevel::Participating, None)
+        .with_expected_value(Some(StrandWatchExpectedValue {
+            level: StrandWatchLevel::Muted,
             level_public: None,
         }));
     catalog
-        .validate_payload("ck.flow.watch.set", &guarded.to_value().unwrap())
+        .validate_payload("ck.strand.watch.set", &guarded.to_value().unwrap())
         .unwrap();
     // expected_value may also assert "no prior cell" via null.
-    let guarded_null = FlowWatchSetPayload::set(flow(), actor(), FlowWatchLevel::All, None)
+    let guarded_null = StrandWatchSetPayload::set(strand(), actor(), StrandWatchLevel::All, None)
         .with_expected_value(None);
     let guarded_null_value = guarded_null.to_value().unwrap();
     assert!(guarded_null_value["expected_value"].is_null());
     catalog
-        .validate_payload("ck.flow.watch.set", &guarded_null_value)
+        .validate_payload("ck.strand.watch.set", &guarded_null_value)
         .unwrap();
 
-    // ck.flow.archive / ck.flow.restore — object_lifecycle_payload, single
+    // ck.strand.archive / ck.strand.restore — object_lifecycle_payload, single
     // truth source `target_ref`.
-    let archive = ObjectLifecyclePayload::new("ck:flow:01904100-0000-7000-8000-6c663fa0205f")
+    let archive = ObjectLifecyclePayload::new("ck:strand:01904100-0000-7000-8000-6c663fa0205f")
         .with_target_state("archived")
         .with_reason("season closed");
     catalog
-        .validate_payload("ck.flow.archive", &archive.to_value().unwrap())
+        .validate_payload("ck.strand.archive", &archive.to_value().unwrap())
         .unwrap();
     catalog
         .validate_payload(
-            "ck.flow.restore",
-            &ObjectLifecyclePayload::new("ck:flow:01904100-0000-7000-8000-6c663fa0205f")
+            "ck.strand.restore",
+            &ObjectLifecyclePayload::new("ck:strand:01904100-0000-7000-8000-6c663fa0205f")
                 .to_value()
                 .unwrap(),
         )
         .unwrap();
 
-    // deny_unknown_fields: a stray destination key on ck.flow.move is rejected
-    // (additionalProperties:false on flow_move_payload).
+    // deny_unknown_fields: a stray destination key on ck.strand.move is rejected
+    // (additionalProperties:false on strand_move_payload).
     let mut leaky = mv.to_value().unwrap();
     leaky["list_space_id"] = json!("ck:space:01904100-0000-7000-8000-222222222222");
     assert!(matches!(
-        catalog.validate_payload("ck.flow.move", &leaky),
+        catalog.validate_payload("ck.strand.move", &leaky),
         Err(Error::Protocol(_))
     ));
 }
@@ -355,14 +355,14 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
         return;
     };
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
-    // `ck.flow.move` requires current Space container ids:
+    // `ck.strand.move` requires current Space container ids:
     // `board_space_id` and `target_space_id`.
     catalog
         .validate_payload(
-            crate::events::FLOW_MOVE,
+            crate::events::STRAND_MOVE,
             &json!({
                 "board_space_id": "ck:space:01904100-0000-7000-8000-111111111111",
-                "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+                "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
                 "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
                 "rank": "U"
             }),
@@ -371,10 +371,10 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
     assert!(
         catalog
             .validate_payload(
-                crate::events::FLOW_MOVE,
+                crate::events::STRAND_MOVE,
                 &json!({
                     "board_space_id": "not-a-space-id",
-                    "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+                    "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
                     "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
                     "rank": "U"
                 }),
@@ -384,10 +384,10 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
     assert!(
         catalog
             .validate_payload(
-                crate::events::FLOW_MOVE,
+                crate::events::STRAND_MOVE,
                 &json!({
                     "board_space_id": "ck:space:01904100-0000-7000-8000-111111111111",
-                    "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+                    "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
                     "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
                     "rank": "U",
                     "unexpected": true
@@ -441,13 +441,13 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
     let object_patch_kinds = [
         "ck.realm.update",
-        "ck.flow.update",
+        "ck.strand.update",
         "ck.morph.update",
         "ck.space.update",
         "ck.profile.update",
     ];
     for event_kind in object_patch_kinds {
-        let patch = if matches!(event_kind, "ck.flow.update" | "ck.morph.update") {
+        let patch = if matches!(event_kind, "ck.strand.update" | "ck.morph.update") {
             json!({ "metadata.title": { "$op": "set", "value": "Roadmap" } })
         } else {
             json!({ "title": { "$op": "set", "value": "Roadmap" } })
@@ -489,32 +489,32 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
             panic!("ck.profile.realm_override should accept profile_realm_override_payload: {err}")
         });
     assert_eq!(
-        catalog.rules["ck.flow.tracks.update"].payload_schema_id,
+        catalog.rules["ck.strand.tracks.update"].payload_schema_id,
         format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/generic_standard_payload"),
-        "ck.flow.tracks.update has dedicated track-table semantics and must not be folded into object_patch_payload"
+        "ck.strand.tracks.update has dedicated track-table semantics and must not be folded into object_patch_payload"
     );
     catalog
         .validate_payload(
-            "ck.flow.tracks.update",
+            "ck.strand.tracks.update",
             &json!({
-                "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001",
+                "strand_id": "ck:strand:0196419b-0000-7000-8000-000000000001",
                 "tracks": {
                     "main": { "title": "Main", "rank": "a0" }
                 }
             }),
         )
-        .unwrap_or_else(|err| panic!("ck.flow.tracks.update should accept track payloads: {err}"));
+        .unwrap_or_else(|err| panic!("ck.strand.tracks.update should accept track payloads: {err}"));
     assert!(
         catalog
             .validate_payload(
-                "ck.flow.tracks.update",
+                "ck.strand.tracks.update",
                 &json!({
-                    "type": "ck.flow.tracks.update",
-                    "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001"
+                    "type": "ck.strand.tracks.update",
+                    "strand_id": "ck:strand:0196419b-0000-7000-8000-000000000001"
                 }),
             )
             .is_err(),
-        "ck.flow.tracks.update must still reject the retired type discriminator"
+        "ck.strand.tracks.update must still reject the retired type discriminator"
     );
 }
 

@@ -288,9 +288,9 @@ mod protocol_wire {
     }
 
     #[test]
-    fn flow_cell_subject_helpers_return_flow_id() {
-        let flow = FlowId::new("ck:flow:01904100-0000-7000-8000-000000000004").unwrap();
-        assert_eq!(flow_update_cell_subject(&flow), flow.as_str());
-        assert_eq!(flow_tracks_patch_cell_subject(&flow), flow.as_str());
+    fn strand_cell_subject_helpers_return_strand_id() {
+        let strand = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000004").unwrap();
+        assert_eq!(strand_update_cell_subject(&strand), strand.as_str());
+        assert_eq!(strand_tracks_patch_cell_subject(&strand), strand.as_str());
     }
 }

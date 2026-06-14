@@ -37,7 +37,7 @@ the same invariants as constructors so malformed wire identifiers fail at the
 edge.
 
 `crates/core/src/model/` owns object state enums, Realm /
-ActorProfile / Flow / Message / Morph / Relation / View objects, signed
+ActorProfile / Strand / Message / Morph / Relation / View objects, signed
 Events, canonical Operations, signed Operation envelopes, Commits, capability
 grants, policies, invites, read markers, notifications, blob metadata and
 service request/response envelopes.
@@ -100,7 +100,7 @@ reused with a different digest.
 Persistent stores should implement the same trait contract as the in-memory
 store before they are exposed publicly.
 
-## Data Flow
+## Data Strand
 
 ```text
 HTTP client / federation / push

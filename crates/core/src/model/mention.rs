@@ -2,7 +2,7 @@ use super::*;
 
 /// Structured `@mention` node embedded in message body.
 ///
-/// Spec source: `models/flow-and-message.md §9.4` + `identity/identity-handles.md §3.8.1`
+/// Spec source: `models/strand-and-message.md §9.4` + `identity/identity-handles.md §3.8.1`
 /// (cokret-spec @ b56cab1, 2026-05-28).
 ///
 /// R3.2 wire-breaking change: the authoritative reference field is
@@ -51,16 +51,16 @@ pub struct Mention {
 
 /// Canonical audience variants for an `audience_mention` AST node.
 ///
-/// `FlowEngaged` is the v1 mapping for common UI token `@here`; it means
-/// `flow_participants ∪ flow_watchers` and is never presence-filtered.
+/// `StrandEngaged` is the v1 mapping for common UI token `@here`; it means
+/// `strand_participants ∪ strand_watchers` and is never presence-filtered.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AudienceMentionAudience {
     EffectiveScopeMembers,
-    FlowParticipants,
-    FlowWatchers,
-    FlowEngaged,
+    StrandParticipants,
+    StrandWatchers,
+    StrandEngaged,
     AssignedActors,
 }
 
@@ -73,9 +73,9 @@ impl AudienceMentionAudience {
             .as_str()
         {
             "all" => Some(Self::EffectiveScopeMembers),
-            "participants" => Some(Self::FlowParticipants),
-            "watchers" => Some(Self::FlowWatchers),
-            "here" => Some(Self::FlowEngaged),
+            "participants" => Some(Self::StrandParticipants),
+            "watchers" => Some(Self::StrandWatchers),
+            "here" => Some(Self::StrandEngaged),
             "assigned" | "assignees" => Some(Self::AssignedActors),
             _ => None,
         }
@@ -84,9 +84,9 @@ impl AudienceMentionAudience {
     pub fn as_wire(self) -> &'static str {
         match self {
             Self::EffectiveScopeMembers => "effective_scope_members",
-            Self::FlowParticipants => "flow_participants",
-            Self::FlowWatchers => "flow_watchers",
-            Self::FlowEngaged => "flow_engaged",
+            Self::StrandParticipants => "strand_participants",
+            Self::StrandWatchers => "strand_watchers",
+            Self::StrandEngaged => "strand_engaged",
             Self::AssignedActors => "assigned_actors",
         }
     }
@@ -144,8 +144,8 @@ impl AudienceMention {
         self
     }
 
-    pub fn is_flow_engaged_here(&self) -> bool {
-        self.audience == AudienceMentionAudience::FlowEngaged
+    pub fn is_strand_engaged_here(&self) -> bool {
+        self.audience == AudienceMentionAudience::StrandEngaged
     }
 }
 
@@ -235,13 +235,13 @@ mod tests {
     }
 
     #[test]
-    fn audience_mention_here_maps_to_flow_engaged() {
+    fn audience_mention_here_maps_to_strand_engaged() {
         let node = AudienceMention::from_ui_token("@here").expect("@here should be known");
-        assert_eq!(node.audience, AudienceMentionAudience::FlowEngaged);
-        assert!(node.is_flow_engaged_here());
+        assert_eq!(node.audience, AudienceMentionAudience::StrandEngaged);
+        assert!(node.is_strand_engaged_here());
         let json = serde_json::to_value(&node).unwrap();
         assert_eq!(json["kind"], "audience_mention");
-        assert_eq!(json["audience"], "flow_engaged");
+        assert_eq!(json["audience"], "strand_engaged");
     }
 
     #[test]

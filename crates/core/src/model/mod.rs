@@ -6,7 +6,7 @@ pub use cokret_identifiers::{
     ActorProfileId, AgentInteropSessionId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
     AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
     CapabilityId, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId, Did, EventId,
-    FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
+    FilterId, StrandId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
     MessageId, ModerationQueueItemId, MorphId, NotificationId, OperationId, PolicyId,
     PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
     RequestId, RtcParticipantId, SnapshotId, SpaceId, TransactionId, TypedAppealId,
@@ -32,7 +32,7 @@ mod ephemeral;
 mod event_sync;
 mod events;
 mod federation_wire;
-mod flow;
+mod strand;
 mod governance_payloads;
 mod handle;
 mod identity_link_cache;
@@ -81,7 +81,7 @@ pub use ephemeral::*;
 pub use event_sync::*;
 pub use events::*;
 pub use federation_wire::*;
-pub use flow::*;
+pub use strand::*;
 pub use governance_payloads::*;
 pub use handle::*;
 pub use identity_link_cache::*;

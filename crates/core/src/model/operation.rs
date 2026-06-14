@@ -629,7 +629,7 @@ pub struct Notification {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub flow_id: Option<FlowId>,
+    pub strand_id: Option<StrandId>,
     #[serde(rename = "track_name", skip_serializing_if = "Option::is_none")]
     pub track: Option<String>,
     pub source_event_id: EventId,

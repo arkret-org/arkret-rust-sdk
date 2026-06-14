@@ -108,7 +108,7 @@ pub use identifiers::{
     ActorProfileId, AgentInteropSessionId, AnnounceId, AppletId, AttestationId, AuditBindingId,
     AuditReleaseId, AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId,
     CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, DeviceId, DeviceMessageId, Did,
-    EventId, FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
+    EventId, FilterId, StrandId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
     MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId, PolicyId,
     PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
     RequestId, RtcParticipantId, SealId, SnapshotId, SpaceId, TransactionId, TypedAppealId,

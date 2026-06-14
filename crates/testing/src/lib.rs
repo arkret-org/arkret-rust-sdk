@@ -389,10 +389,10 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Crypto,
-            operation_id: "ck.crypto.verification_flow".to_owned(),
+            operation_id: "ck.crypto.verification_strand".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "cokret-crypto://verification-flow".to_owned(),
-            request_schema: "DeviceVerificationFlow".to_owned(),
+            path: "cokret-crypto://verification-strand".to_owned(),
+            request_schema: "DeviceVerificationStrand".to_owned(),
             response_schema: "DeviceTrustState".to_owned(),
         },
         EndpointCoverageRow {

@@ -126,21 +126,21 @@ fn realm_creates_relation_operation() {
 }
 
 #[test]
-fn realm_creates_flow_operations_and_reads_default_view_relations() {
+fn realm_creates_strand_operations_and_reads_default_view_relations() {
     let base_client = sessioned_base();
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let realm = Realm::new(realm_id.clone(), base_client.clone());
 
     let create = realm
-        .create_flow_operation(
+        .create_strand_operation(
             "Payment refactor",
-            Some("Unify payment flows".to_owned()),
+            Some("Unify payment strands".to_owned()),
             BTreeMap::new(),
         )
         .unwrap();
-    let flow_id = FlowId::new(create.payload["object"]["id"].as_str().unwrap()).unwrap();
+    let strand_id = StrandId::new(create.payload["object"]["id"].as_str().unwrap()).unwrap();
     assert_eq!(create.operation_type, OperationType::Create);
-    assert_eq!(create.object_type, crate::OP_FLOW_CREATE);
+    assert_eq!(create.object_type, crate::OP_STRAND_CREATE);
     assert!(create.payload["object"]["tracks"]["synthesis"].is_object());
 
     base_client
@@ -148,13 +148,13 @@ fn realm_creates_flow_operations_and_reads_default_view_relations() {
             &realm_id,
             vec![
                 event(
-                    crate::OP_FLOW_CREATE,
+                    crate::OP_STRAND_CREATE,
                     1,
                     &realm_id,
                     json!({
                         "object": {
-                            "id": flow_id.as_str(),
-                            "schema": crate::FLOW_SCHEMA,
+                            "id": strand_id.as_str(),
+                            "schema": crate::STRAND_SCHEMA,
                             "realm_id": realm_id.as_str(),
                             "metadata": {"title": "Payment refactor"},
                             "tracks": {"synthesis": {}},
@@ -173,7 +173,7 @@ fn realm_creates_flow_operations_and_reads_default_view_relations() {
                             "schema": crate::RELATION_SCHEMA,
                             "realm_id": realm_id.as_str(),
                             "relation_kind": "has_default_view",
-                            "from_ref": flow_id.as_str(),
+                            "from_ref": strand_id.as_str(),
                             "to_ref": "ck:view:01904100-0000-7000-8000-08ca7b733afd",
                             "created_by": "did:web:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z",
@@ -186,26 +186,26 @@ fn realm_creates_flow_operations_and_reads_default_view_relations() {
         .unwrap();
 
     let refreshed = Realm::new(realm_id, base_client);
-    assert_eq!(refreshed.flows().len(), 1);
-    assert_eq!(refreshed.flow_default_views(&flow_id).len(), 1);
+    assert_eq!(refreshed.strands().len(), 1);
+    assert_eq!(refreshed.strand_default_views(&strand_id).len(), 1);
 }
 
 #[test]
-fn realm_flow_move_operation_uses_target_space_id() {
+fn realm_strand_move_operation_uses_target_space_id() {
     let base_client = sessioned_base();
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let realm = Realm::new(realm_id.clone(), base_client);
-    let flow_id = FlowId::new("ck:flow:01904100-0000-7000-8000-000000000010").unwrap();
+    let strand_id = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000010").unwrap();
     let board_space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000020").unwrap();
     let target_space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000030").unwrap();
 
     let op = realm
-        .move_flow_operation(flow_id, board_space_id, target_space_id, "a0", None)
+        .move_strand_operation(strand_id, board_space_id, target_space_id, "a0", None)
         .unwrap();
 
     assert_eq!(op.operation_type, OperationType::Update);
     assert_eq!(op.realm_id.as_str(), realm_id.as_str());
-    assert_eq!(op.object_type, crate::OP_FLOW_MOVE);
+    assert_eq!(op.object_type, crate::OP_STRAND_MOVE);
     assert_eq!(
         op.payload["target_space_id"],
         "ck:space:01904100-0000-7000-8000-000000000030"

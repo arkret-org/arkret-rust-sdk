@@ -830,12 +830,12 @@ mod tests {
         let parts = [
             "did:web:alice.example",
             "discussion",
-            "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+            "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
         ];
         let encoded = encode_state_subject(&parts);
         assert_eq!(
             encoded,
-            "did:web:alice.example|discussion|ck:flow:01904100-0000-7000-8000-6c663fa0205f"
+            "did:web:alice.example|discussion|ck:strand:01904100-0000-7000-8000-6c663fa0205f"
         );
         let decoded = decode_state_subject_parts(&encoded).unwrap();
         assert_eq!(decoded, parts);

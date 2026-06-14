@@ -43,7 +43,7 @@ pub enum CircleDirectoryVisibility {
 pub enum CircleJoinRule {
     /// Admin must invite or add.
     Invite,
-    /// Profile-defined apply/approve flow.
+    /// Profile-defined apply/approve strand.
     Request,
     /// Any active parent-Realm member self-joins.
     Open,
@@ -466,7 +466,7 @@ pub fn validate_member_transition(
     })
 }
 
-/// Reducer-pure validator: a Flow / Space / Morph object's
+/// Reducer-pure validator: a Strand / Space / Morph object's
 /// `scope_circle_id` MUST NOT change between two sequential states
 /// (`prev`, `next`). CKP-0007 §3.4 — default profile rejects all scope
 /// rebinds with `failed_precondition` reason
@@ -588,7 +588,7 @@ pub fn validate_circle_encryption_floor(
     }
 }
 
-/// Reducer-pure validator for Flow / Message / Morph / Blob content writes
+/// Reducer-pure validator for Strand / Message / Morph / Blob content writes
 /// under `Realm.content_encryption_floor`.
 pub fn validate_content_encryption_floor(
     content_encryption_floor: EncryptionFloor,

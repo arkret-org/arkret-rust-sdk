@@ -1,7 +1,7 @@
 use serde_json::json;
 
 use super::*;
-use crate::events::kinds::FLOW_TRACKS_UPDATE as OP_FLOW_TRACKS_UPDATE;
+use crate::events::kinds::STRAND_TRACKS_UPDATE as OP_STRAND_TRACKS_UPDATE;
 use crate::{EventRequirements, Hlc, RealmId};
 
 fn realm_id() -> RealmId {
@@ -214,14 +214,14 @@ fn space_restore_rejected_when_tombstoned() {
     assert_eq!(space.state_changed_at, Some(tombstone_at));
 }
 
-fn flow_create_event(seq: u64, flow_id: &str) -> Event {
+fn strand_create_event(seq: u64, strand_id: &str) -> Event {
     event(
-        OP_FLOW_CREATE,
+        OP_STRAND_CREATE,
         seq,
         json!({
             "object": {
-                "id": flow_id,
-                "schema": crate::FLOW_SCHEMA,
+                "id": strand_id,
+                "schema": crate::STRAND_SCHEMA,
                 "realm_id": realm_id().as_str(),
                 "metadata": {"title": "Payment refactor"},
                 "tracks": {"synthesis": {}},
@@ -233,47 +233,47 @@ fn flow_create_event(seq: u64, flow_id: &str) -> Event {
 }
 
 #[test]
-fn flow_archive_then_restore_round_trip() {
-    let flow_id = "ck:flow:01904100-0000-7000-8000-1fb50799ad50";
-    let create = flow_create_event(1, flow_id);
+fn strand_archive_then_restore_round_trip() {
+    let strand_id = "ck:strand:01904100-0000-7000-8000-1fb50799ad50";
+    let create = strand_create_event(1, strand_id);
 
-    let mut archive = event(OP_FLOW_ARCHIVE, 2, json!({ "flow_id": flow_id }));
+    let mut archive = event(OP_STRAND_ARCHIVE, 2, json!({ "strand_id": strand_id }));
     archive.prev_refs.push(create.event_id.clone());
 
-    let mut restore = event(OP_FLOW_RESTORE, 3, json!({ "flow_id": flow_id }));
+    let mut restore = event(OP_STRAND_RESTORE, 3, json!({ "strand_id": strand_id }));
     restore.prev_refs.push(archive.event_id.clone());
     let restore_at = restore.created_at;
 
     let mut state = RealmState::new(realm_id());
     state.apply_events(&[create, archive, restore]).unwrap();
 
-    let flow = state.subjects.get(flow_id).unwrap();
-    assert_eq!(flow.state, Some(crate::ObjectState::Active));
-    assert_eq!(flow.state_changed_at, Some(restore_at));
+    let strand = state.subjects.get(strand_id).unwrap();
+    assert_eq!(strand.state, Some(crate::ObjectState::Active));
+    assert_eq!(strand.state_changed_at, Some(restore_at));
 }
 
 #[test]
-fn flow_restore_rejected_when_active() {
-    let flow_id = "ck:flow:01904100-0000-7000-8000-1fb50799ad51";
-    let create = flow_create_event(1, flow_id);
+fn strand_restore_rejected_when_active() {
+    let strand_id = "ck:strand:01904100-0000-7000-8000-1fb50799ad51";
+    let create = strand_create_event(1, strand_id);
 
-    let mut restore = event(OP_FLOW_RESTORE, 2, json!({ "flow_id": flow_id }));
+    let mut restore = event(OP_STRAND_RESTORE, 2, json!({ "strand_id": strand_id }));
     restore.prev_refs.push(create.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, restore]).unwrap_err();
     assert!(
-        err.to_string().contains("flow_not_archived"),
+        err.to_string().contains("strand_not_archived"),
         "unexpected error: {err}"
     );
 
-    // create_flow defaults the Flow to Active. The failed restore must
+    // create_strand defaults the Strand to Active. The failed restore must
     // be a no-op — state stays Active, state_changed_at stays unset
     // (only create touched it, which doesn't set state_changed_at).
-    let flow = state.subjects.get(flow_id).unwrap();
-    assert_eq!(flow.state, Some(crate::ObjectState::Active));
+    let strand = state.subjects.get(strand_id).unwrap();
+    assert_eq!(strand.state, Some(crate::ObjectState::Active));
     assert!(
-        flow.state_changed_at.is_none(),
+        strand.state_changed_at.is_none(),
         "restore must not write state_changed_at when rejected"
     );
 }
@@ -393,12 +393,12 @@ fn space_tombstone_rejected_when_already_terminal() {
 }
 
 #[test]
-fn flow_archive_rejected_when_already_archived() {
-    let flow_id = "ck:flow:01904100-0000-7000-8000-2fb50799ad50";
-    let create = flow_create_event(1, flow_id);
-    let mut archive1 = event(OP_FLOW_ARCHIVE, 2, json!({ "flow_id": flow_id }));
+fn strand_archive_rejected_when_already_archived() {
+    let strand_id = "ck:strand:01904100-0000-7000-8000-2fb50799ad50";
+    let create = strand_create_event(1, strand_id);
+    let mut archive1 = event(OP_STRAND_ARCHIVE, 2, json!({ "strand_id": strand_id }));
     archive1.prev_refs.push(create.event_id.clone());
-    let mut archive2 = event(OP_FLOW_ARCHIVE, 3, json!({ "flow_id": flow_id }));
+    let mut archive2 = event(OP_STRAND_ARCHIVE, 3, json!({ "strand_id": strand_id }));
     archive2.prev_refs.push(archive1.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
@@ -406,11 +406,11 @@ fn flow_archive_rejected_when_already_archived() {
         .apply_events(&[create, archive1, archive2])
         .unwrap_err();
     assert!(
-        err.to_string().contains("flow_not_active"),
+        err.to_string().contains("strand_not_active"),
         "unexpected error: {err}"
     );
     assert_eq!(
-        state.subjects.get(flow_id).unwrap().state,
+        state.subjects.get(strand_id).unwrap().state,
         Some(crate::ObjectState::Archived)
     );
 }
@@ -462,26 +462,26 @@ fn space_update_rejected_when_archived() {
 }
 
 #[test]
-fn flow_update_rejected_when_archived() {
-    let flow_id = "ck:flow:01904100-0000-7000-8000-3fb50799ad50";
-    let create = flow_create_event(1, flow_id);
-    let mut archive = event(OP_FLOW_ARCHIVE, 2, json!({ "flow_id": flow_id }));
+fn strand_update_rejected_when_archived() {
+    let strand_id = "ck:strand:01904100-0000-7000-8000-3fb50799ad50";
+    let create = strand_create_event(1, strand_id);
+    let mut archive = event(OP_STRAND_ARCHIVE, 2, json!({ "strand_id": strand_id }));
     archive.prev_refs.push(create.event_id.clone());
     let mut update = event(
-        OP_FLOW_UPDATE,
+        OP_STRAND_UPDATE,
         3,
-        json!({ "flow_id": flow_id, "patch": { "metadata": {"title": "New title"} } }),
+        json!({ "strand_id": strand_id, "patch": { "metadata": {"title": "New title"} } }),
     );
     update.prev_refs.push(archive.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, archive, update]).unwrap_err();
     assert!(
-        err.to_string().contains("flow_not_active"),
+        err.to_string().contains("strand_not_active"),
         "unexpected error: {err}"
     );
     assert_eq!(
-        state.subjects.get(flow_id).unwrap().metadata_title(),
+        state.subjects.get(strand_id).unwrap().metadata_title(),
         Some("Payment refactor")
     );
 }
@@ -512,24 +512,24 @@ fn morph_update_rejected_when_archived() {
 }
 
 #[test]
-fn flow_events_create_update_and_default_view_relation() {
-    let flow_id = "ck:flow:01904100-0000-7000-8000-1fb50799ad3f";
+fn strand_events_create_update_and_default_view_relation() {
+    let strand_id = "ck:strand:01904100-0000-7000-8000-1fb50799ad3f";
     let view_ref = "ck:view:01904100-0000-7000-8000-08ca7b733afd";
 
     let create = Event::new(
-        OP_FLOW_CREATE,
+        OP_STRAND_CREATE,
         realm_id(),
         actor_id(),
         1,
         Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         json!({
             "object": {
-                "id": flow_id,
-                "schema": crate::FLOW_SCHEMA,
+                "id": strand_id,
+                "schema": crate::STRAND_SCHEMA,
                 "realm_id": realm_id().as_str(),
                 "metadata": {
                     "title": "Payment refactor",
-                    "summary": "Unify payment flows"
+                    "summary": "Unify payment strands"
                 },
                 "tracks": {"synthesis": {}},
                 "created_by": actor_id().as_str(),
@@ -539,13 +539,13 @@ fn flow_events_create_update_and_default_view_relation() {
     )
     .unwrap();
     let mut update = Event::new(
-        OP_FLOW_UPDATE,
+        OP_STRAND_UPDATE,
         realm_id(),
         actor_id(),
         2,
         Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
         json!({
-            "flow_id": flow_id,
+            "strand_id": strand_id,
             "patch": {
                 "metadata": {
                     "summary": "Risk, refunds and callbacks are tracked together.",
@@ -568,7 +568,7 @@ fn flow_events_create_update_and_default_view_relation() {
                 "schema": crate::RELATION_SCHEMA,
                 "realm_id": realm_id().as_str(),
                 "relation_kind": "has_default_view",
-                "from_ref": flow_id,
+                "from_ref": strand_id,
                 "to_ref": view_ref,
                 "fields": {"primary": true},
                 "created_by": actor_id().as_str(),
@@ -582,20 +582,20 @@ fn flow_events_create_update_and_default_view_relation() {
     let mut state = RealmState::new(realm_id());
     state.apply_events(&[relation, update, create]).unwrap();
 
-    let flow = state.subjects.get(flow_id).unwrap();
-    assert_eq!(flow.metadata_title(), Some("Payment refactor"));
+    let strand = state.subjects.get(strand_id).unwrap();
+    assert_eq!(strand.metadata_title(), Some("Payment refactor"));
     assert_eq!(
-        flow.metadata_summary(),
+        strand.metadata_summary(),
         Some("Risk, refunds and callbacks are tracked together.")
     );
-    assert_eq!(flow.metadata_fields().unwrap()["priority"], "high");
+    assert_eq!(strand.metadata_fields().unwrap()["priority"], "high");
 
     let relation = state
         .relations
         .get("ck:relation:01904100-0000-7000-8000-4da53c8b9e89")
         .unwrap();
     assert_eq!(relation.relation_kind, crate::RelationKind::HasDefaultView);
-    assert_eq!(relation.from_ref, flow_id);
+    assert_eq!(relation.from_ref, strand_id);
     assert_eq!(relation.to_ref, view_ref);
     assert_eq!(relation.fields["primary"], true);
 }
@@ -828,9 +828,9 @@ fn reducer_convergence_is_order_independent() {
     assert_eq!(state_a.frontier, state_b.frontier);
 }
 
-// ── SDK Round 11 (2026-05-16): ck.redaction → Flow / Morph state flip ──
+// ── SDK Round 11 (2026-05-16): ck.redaction → Strand / Morph state flip ──
 // Mirror of soland round 14b. When ck.redaction event content carries
-// `object_ref` pointing to a Flow / Morph, the reducer flips the subject
+// `object_ref` pointing to a Strand / Morph, the reducer flips the subject
 // state to Redacted (terminal). State-machine guard rejects already-
 // terminal source with `<kind>_already_terminal`.
 
@@ -856,19 +856,19 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
 }
 
 #[test]
-fn redaction_with_flow_object_ref_flips_subject_to_redacted() {
-    let flow_id = "ck:flow:01904100-0000-7000-8000-3fb50799ad50";
-    let create = flow_create_event(1, flow_id);
-    let mut redact = redaction_event(2, flow_id);
+fn redaction_with_strand_object_ref_flips_subject_to_redacted() {
+    let strand_id = "ck:strand:01904100-0000-7000-8000-3fb50799ad50";
+    let create = strand_create_event(1, strand_id);
+    let mut redact = redaction_event(2, strand_id);
     redact.prev_refs.push(create.event_id.clone());
     let redact_at = redact.created_at;
 
     let mut state = RealmState::new(realm_id());
     state.apply_events(&[create, redact]).unwrap();
 
-    let flow = state.subjects.get(flow_id).unwrap();
-    assert_eq!(flow.state, Some(crate::ObjectState::Redacted));
-    assert_eq!(flow.state_changed_at, Some(redact_at));
+    let strand = state.subjects.get(strand_id).unwrap();
+    assert_eq!(strand.state, Some(crate::ObjectState::Redacted));
+    assert_eq!(strand.state_changed_at, Some(redact_at));
 }
 
 #[test]
@@ -886,35 +886,35 @@ fn redaction_with_morph_object_ref_flips_subject_to_redacted() {
 }
 
 #[test]
-fn redaction_against_already_redacted_flow_rejects() {
-    let flow_id = "ck:flow:01904100-0000-7000-8000-3fb50799ad51";
-    let create = flow_create_event(1, flow_id);
-    let mut redact1 = redaction_event(2, flow_id);
+fn redaction_against_already_redacted_strand_rejects() {
+    let strand_id = "ck:strand:01904100-0000-7000-8000-3fb50799ad51";
+    let create = strand_create_event(1, strand_id);
+    let mut redact1 = redaction_event(2, strand_id);
     redact1.prev_refs.push(create.event_id.clone());
-    let mut redact2 = redaction_event(3, flow_id);
+    let mut redact2 = redaction_event(3, strand_id);
     redact2.prev_refs.push(redact1.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, redact1, redact2]).unwrap_err();
     assert!(
-        err.to_string().contains("flow_already_terminal"),
+        err.to_string().contains("strand_already_terminal"),
         "unexpected error: {err}"
     );
     assert_eq!(
-        state.subjects.get(flow_id).unwrap().state,
+        state.subjects.get(strand_id).unwrap().state,
         Some(crate::ObjectState::Redacted)
     );
 }
 
 #[test]
-fn flow_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
-    let flow_id = "ck:flow:01904100-0000-7000-8000-4fb50799ad55";
-    let create = flow_create_event(1, flow_id);
+fn strand_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
+    let strand_id = "ck:strand:01904100-0000-7000-8000-4fb50799ad55";
+    let create = strand_create_event(1, strand_id);
     let mut update = event(
-        OP_FLOW_TRACKS_UPDATE,
+        OP_STRAND_TRACKS_UPDATE,
         2,
         json!({
-            "flow_id": flow_id,
+            "strand_id": strand_id,
             "tracks": {
                 "discussion": {
                     "profile": "discussion",
@@ -936,15 +936,15 @@ fn flow_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
     let mut state = RealmState::new(realm_id());
     state.apply_events(&[create, update]).unwrap();
 
-    let flow = state.subjects.get(flow_id).unwrap();
-    assert!(flow.tracks.contains_key(crate::FLOW_TRACK_NAME_SYNTHESIS));
+    let strand = state.subjects.get(strand_id).unwrap();
+    assert!(strand.tracks.contains_key(crate::STRAND_TRACK_NAME_SYNTHESIS));
     assert_eq!(
-        flow.tracks["discussion"].profile.as_deref(),
+        strand.tracks["discussion"].profile.as_deref(),
         Some("discussion")
     );
-    assert_eq!(flow.tracks["discussion"].metadata["capacity"], 25);
-    assert_eq!(flow.tracks["review"].profile.as_deref(), Some("review"));
-    assert_eq!(flow.tracks["review"].template.as_deref(), Some("Review"));
+    assert_eq!(strand.tracks["discussion"].metadata["capacity"], 25);
+    assert_eq!(strand.tracks["review"].profile.as_deref(), Some("review"));
+    assert_eq!(strand.tracks["review"].template.as_deref(), Some("Review"));
 }
 
 #[test]

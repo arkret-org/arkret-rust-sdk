@@ -113,7 +113,7 @@ pub struct Event {
     /// `$defs.effective_scope`) â€” reducer-stamped immutable scope binding.
     /// `Realm` for events emitted in Realm-default scope; `Circle` for
     /// events emitted in a Circle scope. SDK helpers that mint envelopes
-    /// for a Flow / Morph / Space carrying `scope_circle_id` MUST set the
+    /// for a Strand / Morph / Space carrying `scope_circle_id` MUST set the
     /// `Circle` variant; envelopes for scope-unaware events MAY omit the
     /// field (deserializes as `None`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -498,7 +498,7 @@ impl Event {
 fn payload_context_for_event_kind(kind: &str) -> Option<crate::WireContext> {
     let suffix = kind.strip_prefix("ck.").unwrap_or(kind);
     match suffix.split('.').next()? {
-        "flow" => Some(crate::WireContext::FlowPayload),
+        "strand" => Some(crate::WireContext::StrandPayload),
         "morph" => Some(crate::WireContext::MorphPayload),
         "space" => Some(crate::WireContext::SpacePayload),
         "relation" => Some(crate::WireContext::RelationPayload),
@@ -511,7 +511,7 @@ fn payload_context_for_event_kind(kind: &str) -> Option<crate::WireContext> {
 fn patch_context_for_event_kind(kind: &str) -> Option<crate::WireContext> {
     let suffix = kind.strip_prefix("ck.").unwrap_or(kind);
     match suffix {
-        "flow.update" | "flow.tracks.update" => Some(crate::WireContext::FlowPatchPath),
+        "strand.update" | "strand.tracks.update" => Some(crate::WireContext::StrandPatchPath),
         "morph.update" | "morph.schema_migrate" => Some(crate::WireContext::MorphPatchPath),
         _ => None,
     }
@@ -548,7 +548,7 @@ fn forbidden_patch_path_match<'a>(path: &'a str, context: crate::WireContext) ->
 
 fn forbidden_patch_path_prefixes(context: crate::WireContext) -> &'static [&'static str] {
     match context {
-        crate::WireContext::FlowPatchPath => &[
+        crate::WireContext::StrandPatchPath => &[
             "stage",
             "stage_changed_at",
             "metadata.fields.assignee",
@@ -576,8 +576,8 @@ fn validate_forbidden_patch_value(
         .filter(|_| patch_op.get("$op").is_some())
         .unwrap_or(patch_op);
     match context {
-        crate::WireContext::FlowPatchPath => {
-            validate_flow_patch_parent_value(label, path, patch_value)?;
+        crate::WireContext::StrandPatchPath => {
+            validate_strand_patch_parent_value(label, path, patch_value)?;
         }
         crate::WireContext::MorphPatchPath => {
             validate_morph_patch_parent_value(label, path, patch_value)?;
@@ -587,21 +587,21 @@ fn validate_forbidden_patch_value(
     Ok(())
 }
 
-fn validate_flow_patch_parent_value(label: &str, path: &str, value: &Value) -> Result<()> {
+fn validate_strand_patch_parent_value(label: &str, path: &str, value: &Value) -> Result<()> {
     match path {
         "metadata.fields" => validate_forbidden_map_value_keys(
             label,
             path,
             value,
             "metadata.fields",
-            crate::WireContext::FlowPayload,
+            crate::WireContext::StrandPayload,
         ),
         "fields" => validate_forbidden_map_value_keys(
             label,
             path,
             value,
             "fields",
-            crate::WireContext::FlowPatchPath,
+            crate::WireContext::StrandPatchPath,
         ),
         "metadata" => {
             if let Some(fields) = value.get("fields") {
@@ -610,7 +610,7 @@ fn validate_flow_patch_parent_value(label: &str, path: &str, value: &Value) -> R
                     "metadata.fields",
                     fields,
                     "metadata.fields",
-                    crate::WireContext::FlowPayload,
+                    crate::WireContext::StrandPayload,
                 )?;
             }
             Ok(())
@@ -858,7 +858,7 @@ mod event_wire_surface_tests {
         value
             .as_object_mut()
             .unwrap()
-            .insert("kind".to_owned(), json!("ck.flow.create"));
+            .insert("kind".to_owned(), json!("ck.strand.create"));
         value.as_object_mut().unwrap().insert(
             "payload".to_owned(),
             json!({"discussion_space_ref": "ck:space:old"}),
@@ -869,7 +869,7 @@ mod event_wire_surface_tests {
     }
 
     #[test]
-    fn flow_update_rejects_forbidden_patch_paths() {
+    fn strand_update_rejects_forbidden_patch_paths() {
         for path in [
             "stage",
             "metadata.fields.assignee",
@@ -877,14 +877,14 @@ mod event_wire_surface_tests {
             "fields.assignee",
         ] {
             let mut event = base_event();
-            event.kind = "ck.flow.update".into();
+            event.kind = "ck.strand.update".into();
             let mut patch = serde_json::Map::new();
             patch.insert(
                 path.to_owned(),
                 json!({ "$op": "set", "value": "did:web:bob.example" }),
             );
             event.content = json!({
-                "target_ref": "ck:flow:01904100-0000-7000-8000-000000000001",
+                "target_ref": "ck:strand:01904100-0000-7000-8000-000000000001",
                 "patch": Value::Object(patch)
             });
 
@@ -908,11 +908,11 @@ mod event_wire_surface_tests {
             ("fields", json!({"assignee": "did:web:bob.example"})),
         ] {
             let mut event = base_event();
-            event.kind = "ck.flow.update".into();
+            event.kind = "ck.strand.update".into();
             let mut patch = serde_json::Map::new();
             patch.insert(path.to_owned(), json!({ "$op": "set", "value": value }));
             event.content = json!({
-                "target_ref": "ck:flow:01904100-0000-7000-8000-000000000001",
+                "target_ref": "ck:strand:01904100-0000-7000-8000-000000000001",
                 "patch": Value::Object(patch)
             });
 

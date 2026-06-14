@@ -56,7 +56,7 @@ pub struct Realm {
     /// Initial notary cell value (data-structures.md §4). Reducer-derived
     /// after Realm creation; this field is the **create-time hint** so
     /// servers can populate the notary cell without an extra round-trip.
-    /// Subsequent notary changes flow through Move on the
+    /// Subsequent notary changes strand through Move on the
     /// `ck:cell:ck.component.notary.v1:<realm_id>` cell.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notary: Option<crate::notary::NotaryValue>,
@@ -211,7 +211,7 @@ impl Realm {
 
     /// Builder: declare the initial notary cell value. Servers seed the
     /// `ck:cell:ck.component.notary.v1:<realm_id>` cell from this hint at
-    /// Realm creation time. Subsequent rotations flow through Move.
+    /// Realm creation time. Subsequent rotations strand through Move.
     pub fn with_notary(mut self, notary: crate::notary::NotaryValue) -> Self {
         self.notary = Some(notary);
         self

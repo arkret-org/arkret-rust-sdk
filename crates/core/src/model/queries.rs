@@ -120,7 +120,7 @@ pub struct ViewQueryOutcome<T = Value> {
 // Per `models/views.md` §6.3.
 //
 // Unlike `ViewQueryOutcome<T>`'s flat item list, a collection projection is
-// nested: `groups` (Lists / status columns) each contain `items` (Flows
+// nested: `groups` (Lists / status columns) each contain `items` (Strands
 // with rank + locked-discussion metadata). This shape lets a kanban
 // renderer paint the board in one pass without correlating two response
 // vectors.
@@ -177,20 +177,20 @@ pub struct CollectionProjectionGroup {
     pub hidden_count: Option<u32>,
 }
 
-/// A single item (typically a Flow card) inside a projection group.
+/// A single item (typically a Strand card) inside a projection group.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CollectionProjectionItem {
-    /// The materialised object — usually a Flow but MAY be a Morph or
+    /// The materialised object — usually a Strand but MAY be a Morph or
     /// Message depending on `View.collection.item_object_types`. The
-    /// shape is whatever `Flow` / `Morph` / `Message` deserialise to.
+    /// shape is whatever `Strand` / `Morph` / `Message` deserialise to.
     pub object: Value,
     /// Position metadata: which `contains` Relation places this item
     /// in this group, and at what rank.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<CollectionProjectionPosition>,
     /// Card-vs-discussion visibility split. When `Some`, indicates the
-    /// item has a Circle-scoped private discussion Flow linked by
+    /// item has a Circle-scoped private discussion Strand linked by
     /// `confidential_discussion_of`; when the discussion is locked
     /// (visibility != "readable"), `lazy_link=true` MUST hold and no
     /// discussion metadata beyond opaque hash MAY be exposed.
@@ -212,7 +212,7 @@ pub struct CollectionProjectionPosition {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CollectionProjectionDiscussion {
-    /// Whether the discussion track is enabled on this Flow.
+    /// Whether the discussion track is enabled on this Strand.
     pub enabled: bool,
     /// `readable` (caller MAY render thread / member preview) or
     /// `locked` (caller MUST treat as opaque link only).

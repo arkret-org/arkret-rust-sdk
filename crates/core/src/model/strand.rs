@@ -1,10 +1,10 @@
-//! Flow model and shared object metadata.
+//! Strand model and shared object metadata.
 
 use super::*;
 
 /// Shared `metadata` shape for materialised objects that carry
-/// `metadata.title` / `metadata.summary` (Flow, Morph). Field set matches
-/// `flow.schema.json#/$defs/metadata` (common-fields §3): `title`, `summary`,
+/// `metadata.title` / `metadata.summary` (Strand, Morph). Field set matches
+/// `strand.schema.json#/$defs/metadata` (common-fields §3): `title`, `summary`,
 /// `fields`, plus a `#[serde(flatten)]` `extra` catch-all. Empty `fields` is
 /// omitted from the wire (`skip_serializing_if`), so objects that do not use
 /// `metadata.fields` (e.g. Morph, which carries top-level `fields`) serialise
@@ -32,8 +32,8 @@ impl ObjectMetadata {
     }
 }
 
-/// Flow `metadata` shape — see [`ObjectMetadata`].
-pub type FlowMetadata = ObjectMetadata;
+/// Strand `metadata` shape — see [`ObjectMetadata`].
+pub type StrandMetadata = ObjectMetadata;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -47,38 +47,38 @@ pub struct MessageMetadata {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct Flow {
-    pub id: FlowId,
+pub struct Strand {
+    pub id: StrandId,
     pub schema: String,
     pub realm_id: RealmId,
     /// CKP-0007 (spec b7d35be) — optional Circle scope binding. When set, all
-    /// Flow tracks share the referenced Circle's MLS group, membership and
-    /// history visibility; when unset the Flow lives in the Realm-default
+    /// Strand tracks share the referenced Circle's MLS group, membership and
+    /// history visibility; when unset the Strand lives in the Realm-default
     /// scope. Rebinding `scope_circle_id` is forbidden by default (reducer
     /// reason `scope_rebind_forbidden`). The Circle's parent Realm MUST
-    /// equal the Flow's Realm.
+    /// equal the Strand's Realm.
     ///
-    /// Declaration order mirrors `spec/v1/artifacts/schemas/flow.schema.json`
+    /// Declaration order mirrors `spec/v1/artifacts/schemas/strand.schema.json`
     /// (common-fields §3.2): `id, schema, realm_id, scope_circle_id, …`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_circle_id: Option<CircleId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<FlowMetadata>,
+    pub metadata: Option<StrandMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypted_metadata: Option<Value>,
     #[serde(rename = "content", skip_serializing_if = "Option::is_none")]
     pub body: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encrypted_content: Option<Value>,
-    /// Active Flow tracks keyed by canonical track name.
+    /// Active Strand tracks keyed by canonical track name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub tracks: BTreeMap<String, FlowTrackConfig>,
+    pub tracks: BTreeMap<String, StrandTrackConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<ObjectState>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_changed_at: Option<DateTime<Utc>>,
-    /// Business-progression stage (spec `flow.schema.json` required `stage`).
-    /// Orthogonal to lifecycle `state`. Mutated only via `ck.flow.stage.set`;
+    /// Business-progression stage (spec `strand.schema.json` required `stage`).
+    /// Orthogonal to lifecycle `state`. Mutated only via `ck.strand.stage.set`;
     /// constructors default to [`ObjectStage::Draft`], consistent with Morph.
     pub stage: ObjectStage,
     /// Reducer-derived timestamp of the most recent `stage` transition;
@@ -96,19 +96,19 @@ pub struct Flow {
     pub extra: BTreeMap<String, Value>,
 }
 
-impl Flow {
-    pub fn new(id: FlowId, realm_id: RealmId, title: impl Into<String>, created_by: Did) -> Self {
+impl Strand {
+    pub fn new(id: StrandId, realm_id: RealmId, title: impl Into<String>, created_by: Did) -> Self {
         let mut tracks = BTreeMap::new();
         tracks.insert(
-            FLOW_TRACK_NAME_SYNTHESIS.to_owned(),
-            FlowTrackConfig::synthesis(),
+            STRAND_TRACK_NAME_SYNTHESIS.to_owned(),
+            StrandTrackConfig::synthesis(),
         );
         Self {
             id,
-            schema: FLOW_SCHEMA.to_owned(),
+            schema: STRAND_SCHEMA.to_owned(),
             realm_id,
             scope_circle_id: None,
-            metadata: Some(FlowMetadata::with_title(title)),
+            metadata: Some(StrandMetadata::with_title(title)),
             encrypted_metadata: None,
             body: None,
             encrypted_content: None,
@@ -127,7 +127,7 @@ impl Flow {
 
     pub fn with_metadata_title(mut self, title: impl Into<String>) -> Self {
         self.metadata
-            .get_or_insert_with(FlowMetadata::default)
+            .get_or_insert_with(StrandMetadata::default)
             .title = Some(title.into());
         self
     }
@@ -148,32 +148,32 @@ impl Flow {
         self.metadata.as_ref().map(|metadata| &metadata.fields)
     }
 
-    /// Construct a Flow whose primary entry point is the `discussion` track.
+    /// Construct a Strand whose primary entry point is the `discussion` track.
     pub fn discussion(
-        id: FlowId,
+        id: StrandId,
         realm_id: RealmId,
         title: impl Into<String>,
         created_by: Did,
     ) -> Self {
-        let mut flow = Self::new(id, realm_id, title, created_by);
+        let mut strand = Self::new(id, realm_id, title, created_by);
         let mut tracks = BTreeMap::new();
         tracks.insert(
-            FLOW_TRACK_NAME_SYNTHESIS.to_owned(),
-            FlowTrackConfig::synthesis(),
+            STRAND_TRACK_NAME_SYNTHESIS.to_owned(),
+            StrandTrackConfig::synthesis(),
         );
         tracks.insert(
-            FLOW_TRACK_NAME_DISCUSSION.to_owned(),
-            FlowTrackConfig::discussion_primary(),
+            STRAND_TRACK_NAME_DISCUSSION.to_owned(),
+            StrandTrackConfig::discussion_primary(),
         );
-        flow.tracks = tracks;
-        flow
+        strand.tracks = tracks;
+        strand
     }
 
     pub fn is_conversational(&self) -> bool {
         resolve_primary_track(&self.tracks, None)
             .ok()
             .flatten()
-            .is_some_and(|(name, _)| name == FLOW_TRACK_NAME_DISCUSSION)
+            .is_some_and(|(name, _)| name == STRAND_TRACK_NAME_DISCUSSION)
     }
 
     pub fn validate_title(&self) -> Result<()> {
@@ -181,13 +181,13 @@ impl Flow {
             .metadata_title()
             .is_none_or(|title| title.trim().is_empty())
         {
-            return Err(Error::Protocol("flow title must not be empty".to_owned()));
+            return Err(Error::Protocol("strand title must not be empty".to_owned()));
         }
         if self.tracks.is_empty() {
-            return Err(Error::Protocol("flow tracks must not be empty".to_owned()));
+            return Err(Error::Protocol("strand tracks must not be empty".to_owned()));
         }
         for track_name in self.tracks.keys() {
-            validate_flow_track_name(track_name)?;
+            validate_strand_track_name(track_name)?;
         }
         Ok(())
     }

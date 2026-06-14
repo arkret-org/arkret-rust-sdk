@@ -7,7 +7,7 @@ pub struct StateSnapshot {
     pub reducer_profile: String,
     pub frontier: Vec<EventId>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub subjects: BTreeMap<String, Flow>,
+    pub subjects: BTreeMap<String, Strand>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub morphs: BTreeMap<String, Morph>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -165,7 +165,7 @@ pub(super) fn membership_rank(content: &Value) -> u8 {
 
 pub(super) fn object_state_from_str(state: &str) -> Result<crate::ObjectState> {
     // C47 (spec e10b6ad): `deleted` is no longer a valid lifecycle state for
-    // Flow / Morph; the only terminal state is `redacted`. Receivers MUST
+    // Strand / Morph; the only terminal state is `redacted`. Receivers MUST
     // reject the legacy `deleted` literal.
     match state {
         "active" => Ok(crate::ObjectState::Active),
@@ -200,7 +200,7 @@ pub(super) fn patch_state(
     patch_string(patch, "state").map(|state| object_state_from_str(&state))
 }
 
-pub(super) fn canonicalize_flow_ref(value: &str) -> String {
+pub(super) fn canonicalize_strand_ref(value: &str) -> String {
     value.to_owned()
 }
 
@@ -464,7 +464,7 @@ pub(super) struct StateHashInput<'a> {
     pub(super) realm_id: &'a RealmId,
     pub(super) reducer_profile: &'a str,
     pub(super) frontier: &'a [EventId],
-    pub(super) subjects: &'a BTreeMap<String, Flow>,
+    pub(super) subjects: &'a BTreeMap<String, Strand>,
     pub(super) morphs: &'a BTreeMap<String, Morph>,
     pub(super) spaces: &'a BTreeMap<String, Space>,
     pub(super) relations: &'a BTreeMap<String, Relation>,

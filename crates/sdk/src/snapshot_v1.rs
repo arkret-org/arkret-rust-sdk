@@ -148,11 +148,11 @@ mod tests {
         signing_key: &SigningKey,
     ) -> (SnapshotManifest, Vec<SnapshotChunkPayload>, DidWebResolver) {
         let item = SnapshotMaterializedItem {
-            kind: "flow".to_owned(),
-            id: "ck:flow:01904100-0000-7000-8000-000000000001".to_owned(),
+            kind: "strand".to_owned(),
+            id: "ck:strand:01904100-0000-7000-8000-000000000001".to_owned(),
             object: json!({
-                "id": "ck:flow:01904100-0000-7000-8000-000000000001",
-                "kind": "flow",
+                "id": "ck:strand:01904100-0000-7000-8000-000000000001",
+                "kind": "strand",
                 "schema": "ck.schema.test.v1"
             }),
             source_event_id: event_id("000000000001"),

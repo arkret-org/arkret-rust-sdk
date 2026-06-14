@@ -243,7 +243,7 @@ pub struct Message {
     pub id: MessageId,
     pub schema: String,
     pub realm_id: RealmId,
-    pub flow_id: FlowId,
+    pub strand_id: StrandId,
     pub track_name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_scope: Option<Value>,

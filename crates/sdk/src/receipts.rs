@@ -9,7 +9,7 @@
 //! `discovery/read-receipts.md` §2.4-§2.5 and
 //! `discovery/client-preferences.md` §3.6.
 //!
-//! Note: the `ck.flow.track.read_receipt_policy` cell was REMOVED in
+//! Note: the `ck.strand.track.read_receipt_policy` cell was REMOVED in
 //! cokret-spec revision `0a5ab85` (see
 //! `cokret-spec/spec/v1/artifacts/registry/removed-event-kinds.json`).
 //! Read receipts evaluate at the Realm level; create a child Realm or Circle
@@ -28,7 +28,7 @@ pub use cokret_core::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{DeviceId, Did, EventId, FlowId, Hlc, RealmId, Result};
+use crate::{DeviceId, Did, EventId, StrandId, Hlc, RealmId, Result};
 
 /// Build the [`ReadScope`] for an optional thread position.
 fn scope_for_thread(thread_id: Option<&str>) -> ReadScope {
@@ -255,8 +255,8 @@ pub enum ReadReceiptVisibility {
 /// Typed value of the read-receipt disclosure policy cell.
 ///
 /// Carried only by the Realm-level cell
-/// `ck.component.realm.read_receipt_policy.v1`. The Flow-track variant
-/// (`ck.flow.track.read_receipt_policy`) was removed from spec
+/// `ck.component.realm.read_receipt_policy.v1`. The Strand-track variant
+/// (`ck.strand.track.read_receipt_policy`) was removed from spec
 /// revision `0a5ab85`; create a child Realm or Circle for an independent
 /// disclosure boundary instead.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -286,7 +286,7 @@ impl ScopePref {
 
 /// Account-data value for `ck.read_receipt.preferences`.
 ///
-/// Resolution order is (flow -> Realm -> default); the first non-`None`
+/// Resolution order is (strand -> Realm -> default); the first non-`None`
 /// `send` field wins.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReadReceiptPreferences {
@@ -295,20 +295,20 @@ pub struct ReadReceiptPreferences {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub realms: BTreeMap<RealmId, ScopePref>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub flows: BTreeMap<FlowId, ScopePref>,
+    pub strands: BTreeMap<StrandId, ScopePref>,
 }
 
 impl ReadReceiptPreferences {
     /// Standard account-data key.
     pub const ACCOUNT_DATA_KEY: &'static str = "ck.read_receipt.preferences";
 
-    /// Effective `send` for a `(flow, Realm)` scope. If neither flow
+    /// Effective `send` for a `(strand, Realm)` scope. If neither strand
     /// nor Realm declares an override, falls back to `default.send`,
     /// then to the protocol-wide default `true` (from spec §2.4 the
     /// global default sends receipts unless the user opts out).
-    pub fn effective_send(&self, flow_id: Option<&FlowId>, realm_id: Option<&RealmId>) -> bool {
-        if let Some(fid) = flow_id
-            && let Some(pref) = self.flows.get(fid)
+    pub fn effective_send(&self, strand_id: Option<&StrandId>, realm_id: Option<&RealmId>) -> bool {
+        if let Some(fid) = strand_id
+            && let Some(pref) = self.strands.get(fid)
             && let Some(send) = pref.send
         {
             return send;
@@ -330,9 +330,9 @@ pub enum ReceiptDecision {
     Send,
     /// User opted out AND policy is `Optional` or absent.
     Skip,
-    /// Realm/Flow policy is `Required` — overrides any user preference.
+    /// Realm/Strand policy is `Required` — overrides any user preference.
     ForcedSend,
-    /// Realm/Flow policy is `Disabled` — overrides any user preference.
+    /// Realm/Strand policy is `Disabled` — overrides any user preference.
     ForcedSkip,
 }
 
@@ -357,7 +357,7 @@ impl ReceiptDecision {
 pub fn should_send_receipt(
     prefs: &ReadReceiptPreferences,
     policy: Option<&ReadReceiptPolicy>,
-    flow_id: Option<&FlowId>,
+    strand_id: Option<&StrandId>,
     realm_id: Option<&RealmId>,
 ) -> ReceiptDecision {
     let disclosure = policy.map(|p| p.disclosure).unwrap_or_default();
@@ -365,7 +365,7 @@ pub fn should_send_receipt(
         ReadReceiptDisclosure::Required => ReceiptDecision::ForcedSend,
         ReadReceiptDisclosure::Disabled => ReceiptDecision::ForcedSkip,
         ReadReceiptDisclosure::Optional => {
-            if prefs.effective_send(flow_id, realm_id) {
+            if prefs.effective_send(strand_id, realm_id) {
                 ReceiptDecision::Send
             } else {
                 ReceiptDecision::Skip
@@ -438,8 +438,8 @@ mod tests {
         RealmId::new("ck:realm:01904100-0000-7000-8000-906bb8c30a80").unwrap()
     }
 
-    fn flow() -> FlowId {
-        FlowId::new("ck:flow:01904100-0000-7000-8000-c1fe7e18f6fe").unwrap()
+    fn strand() -> StrandId {
+        StrandId::new("ck:strand:01904100-0000-7000-8000-c1fe7e18f6fe").unwrap()
     }
 
     #[test]
@@ -456,15 +456,15 @@ mod tests {
     }
 
     #[test]
-    fn prefs_resolution_flow_overrides_realm_overrides_default() {
+    fn prefs_resolution_strand_overrides_realm_overrides_default() {
         let mut prefs = ReadReceiptPreferences::default();
         prefs.default.send = Some(true);
         prefs.realms.insert(realm(), ScopePref::send(false));
-        prefs.flows.insert(flow(), ScopePref::send(true));
+        prefs.strands.insert(strand(), ScopePref::send(true));
 
-        // flow overrides Realm
-        assert!(prefs.effective_send(Some(&flow()), Some(&realm())));
-        // Realm overrides default when no flow override
+        // strand overrides Realm
+        assert!(prefs.effective_send(Some(&strand()), Some(&realm())));
+        // Realm overrides default when no strand override
         assert!(!prefs.effective_send(None, Some(&realm())));
         // default applies when nothing else matches
         let other_realm = RealmId::new("ck:realm:01904100-0000-7000-8000-de7b2d3c4472").unwrap();
@@ -527,8 +527,8 @@ mod tests {
         prefs.default.send = Some(true);
         prefs.realms.insert(realm(), ScopePref::send(false));
         let json = serde_json::to_string(&prefs).unwrap();
-        // Empty `flows` map MUST be omitted by `skip_serializing_if`.
-        assert!(!json.contains("\"flows\""));
+        // Empty `strands` map MUST be omitted by `skip_serializing_if`.
+        assert!(!json.contains("\"strands\""));
         let back: ReadReceiptPreferences = serde_json::from_str(&json).unwrap();
         assert_eq!(back, prefs);
     }

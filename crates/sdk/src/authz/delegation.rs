@@ -127,7 +127,7 @@ pub enum GrantConstraint {
         allowed_circle_ids: BTreeSet<CircleId>,
     },
     /// Resource must carry at least one of the listed facets. soland uses
-    /// this on `ck:flow:` / `ck:realm:` / `ck:morph:` projections; an
+    /// this on `ck:strand:` / `ck:realm:` / `ck:morph:` projections; an
     /// unfaceted target falls outside scope (fail-closed).
     AllowedObjectFacets { facets: Vec<String> },
     /// Runtime mirror of the spec `max_operations` + `period` constraint

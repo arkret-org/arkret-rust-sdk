@@ -110,15 +110,15 @@ impl Default for OperationKindRegistry {
 
 pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
     match kind {
-        OP_FLOW_CREATE => vec!["object".to_owned()],
-        OP_FLOW_UPDATE => vec!["flow_id".to_owned(), "patch".to_owned()],
-        OP_FLOW_ARCHIVE | OP_FLOW_RESTORE => vec!["flow_id".to_owned()],
-        OP_FLOW_STAGE_SET => vec!["flow_id".to_owned(), "stage".to_owned()],
-        OP_FLOW_MOVE => ["board_space_id", "flow_id", "target_space_id", "rank"]
+        OP_STRAND_CREATE => vec!["object".to_owned()],
+        OP_STRAND_UPDATE => vec!["strand_id".to_owned(), "patch".to_owned()],
+        OP_STRAND_ARCHIVE | OP_STRAND_RESTORE => vec!["strand_id".to_owned()],
+        OP_STRAND_STAGE_SET => vec!["strand_id".to_owned(), "stage".to_owned()],
+        OP_STRAND_MOVE => ["board_space_id", "strand_id", "target_space_id", "rank"]
             .into_iter()
             .map(str::to_owned)
             .collect(),
-        OP_FLOW_REORDER => ["board_space_id", "flow_id", "space_id", "rank"]
+        OP_STRAND_REORDER => ["board_space_id", "strand_id", "space_id", "rank"]
             .into_iter()
             .map(str::to_owned)
             .collect(),
@@ -221,7 +221,7 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .into_iter()
         .map(str::to_owned)
         .collect(),
-        OP_MESSAGE_CREATE => vec!["flow_id".to_owned(), "track_name".to_owned()],
+        OP_MESSAGE_CREATE => vec!["strand_id".to_owned(), "track_name".to_owned()],
         OP_DEVICE_MESSAGES_PUT => [
             "kind",
             "recipient_principal_id",
@@ -1025,7 +1025,7 @@ impl Default for ProtocolSchemaRegistry {
                 ],
             ),
         );
-        registry.register(FLOW_SCHEMA, flow_schema_document());
+        registry.register(STRAND_SCHEMA, strand_schema_document());
         registry.register(MORPH_SCHEMA, morph_schema_document());
         registry.register(SPACE_SCHEMA, space_schema_document());
         registry.register(VIEW_SCHEMA, view_schema_document());
@@ -1192,10 +1192,10 @@ fn object_schema(schema_id: &str, required: &[&str], properties: &[(&str, &str)]
     })
 }
 
-fn flow_schema_document() -> Value {
+fn strand_schema_document() -> Value {
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": FLOW_SCHEMA,
+        "$id": STRAND_SCHEMA,
         "type": "object",
         "required": ["id", "schema", "realm_id", "stage", "tracks", "created_by", "created_at"],
         "not": {

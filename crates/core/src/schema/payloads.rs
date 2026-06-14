@@ -101,10 +101,10 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
         validate_known_fields(event_kind, object, allowed_fields)?;
     }
     match event_kind {
-        "ck.flow.create" => validate_create_object_fallback_payload(
+        "ck.strand.create" => validate_create_object_fallback_payload(
             event_kind,
             object,
-            crate::WireContext::FlowPayload,
+            crate::WireContext::StrandPayload,
         ),
         "ck.morph.create" => validate_create_object_fallback_payload(
             event_kind,
@@ -151,13 +151,13 @@ const OBJECT_PATCH_FALLBACK_FIELDS: &[&str] = &["target_ref", "patch", "expected
 /// spec artifacts are available (dev / CI).
 const FALLBACK_FIELD_ALLOWLISTS: &[(&str, &[&str])] = &[
     ("ck.realm.update", OBJECT_PATCH_FALLBACK_FIELDS),
-    ("ck.flow.update", OBJECT_PATCH_FALLBACK_FIELDS),
+    ("ck.strand.update", OBJECT_PATCH_FALLBACK_FIELDS),
     ("ck.morph.update", OBJECT_PATCH_FALLBACK_FIELDS),
     ("ck.space.update", OBJECT_PATCH_FALLBACK_FIELDS),
     (
         "ck.member.state",
         &[
-            "flow_id",
+            "strand_id",
             "realm_id",
             "actor_id",
             "membership",
@@ -172,7 +172,7 @@ const FALLBACK_FIELD_ALLOWLISTS: &[(&str, &[&str])] = &[
     (
         "ck.message.create",
         &[
-            "flow_id",
+            "strand_id",
             "message_id",
             "track_name",
             "content",
@@ -521,7 +521,7 @@ fn event_payload_validator_catalog_from_bundle(
 
 fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
     let rules = [
-        ("ck.flow.create", EVENT_PAYLOAD_SCHEMA, &["object"][..]),
+        ("ck.strand.create", EVENT_PAYLOAD_SCHEMA, &["object"][..]),
         ("ck.morph.create", EVENT_PAYLOAD_SCHEMA, &["object"][..]),
         (
             "ck.realm.update",
@@ -529,7 +529,7 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
             &["target_ref", "patch"][..],
         ),
         (
-            "ck.flow.update",
+            "ck.strand.update",
             EVENT_PAYLOAD_SCHEMA,
             &["target_ref", "patch"][..],
         ),
@@ -544,19 +544,19 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
             &["target_ref", "patch"][..],
         ),
         (
-            "ck.flow.move",
+            "ck.strand.move",
             EVENT_PAYLOAD_SCHEMA,
-            &["board_space_id", "flow_id", "target_space_id", "rank"][..],
+            &["board_space_id", "strand_id", "target_space_id", "rank"][..],
         ),
         (
-            "ck.flow.reorder",
+            "ck.strand.reorder",
             EVENT_PAYLOAD_SCHEMA,
-            &["board_space_id", "flow_id", "space_id", "rank"][..],
+            &["board_space_id", "strand_id", "space_id", "rank"][..],
         ),
         (
             "ck.message.create",
             EVENT_PAYLOAD_SCHEMA,
-            &["flow_id", "track_name"][..],
+            &["strand_id", "track_name"][..],
         ),
         (
             "ck.rsvp.set",
@@ -711,15 +711,15 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["space", "destroy"] => candidates.push("space_destroy_payload".to_owned()),
         ["space", "update"] => candidates.push("object_patch_payload".to_owned()),
         ["realm", "update"] => candidates.push("object_patch_payload".to_owned()),
-        ["flow", "create"] => candidates.push("flow_create_payload".to_owned()),
-        ["flow", "move"] => candidates.push("flow_move_payload".to_owned()),
-        ["flow", "reorder"] => candidates.push("flow_reorder_payload".to_owned()),
-        ["flow", "update"] => candidates.push("object_patch_payload".to_owned()),
-        ["flow", "archive" | "restore"] => candidates.push("object_lifecycle_payload".to_owned()),
-        ["flow", "track", "enable" | "disable" | "set_primary"] => {
+        ["strand", "create"] => candidates.push("strand_create_payload".to_owned()),
+        ["strand", "move"] => candidates.push("strand_move_payload".to_owned()),
+        ["strand", "reorder"] => candidates.push("strand_reorder_payload".to_owned()),
+        ["strand", "update"] => candidates.push("object_patch_payload".to_owned()),
+        ["strand", "archive" | "restore"] => candidates.push("object_lifecycle_payload".to_owned()),
+        ["strand", "track", "enable" | "disable" | "set_primary"] => {
             candidates.push("state_payload".to_owned());
         }
-        ["flow", "track" | "tracks", "update"] => {
+        ["strand", "track" | "tracks", "update"] => {
             candidates.push("generic_standard_payload".to_owned())
         }
         ["message", "create"] => candidates.push("message_create_payload".to_owned()),
@@ -1004,20 +1004,20 @@ mod tests {
     }
 
     #[test]
-    fn fallback_catalog_accepts_flow_create_payload_wrapper() {
+    fn fallback_catalog_accepts_strand_create_payload_wrapper() {
         let catalog = fallback_event_payload_validator_catalog();
 
         assert_eq!(
-            catalog.rules["ck.flow.create"].payload_schema_id,
+            catalog.rules["ck.strand.create"].payload_schema_id,
             EVENT_PAYLOAD_SCHEMA
         );
         catalog
             .validate_payload(
-                "ck.flow.create",
+                "ck.strand.create",
                 &json!({
                     "object": {
-                        "id": "ck:flow:0196419b-0000-7000-8000-000000000001",
-                        "schema": FLOW_SCHEMA,
+                        "id": "ck:strand:0196419b-0000-7000-8000-000000000001",
+                        "schema": STRAND_SCHEMA,
                         "realm_id": "ck:realm:0196419b-0000-7000-8000-000000000010",
                         "metadata": { "title": "Move-backed card" },
                         "stage": "draft",
@@ -1056,15 +1056,15 @@ mod tests {
     }
 
     #[test]
-    fn fallback_catalog_accepts_current_flow_move_keys() {
+    fn fallback_catalog_accepts_current_strand_move_keys() {
         let catalog = fallback_event_payload_validator_catalog();
 
         catalog
             .validate_payload(
-                "ck.flow.move",
+                "ck.strand.move",
                 &json!({
                     "board_space_id": "ck:space:0196419b-0000-7000-8000-000000000010",
-                    "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001",
+                    "strand_id": "ck:strand:0196419b-0000-7000-8000-000000000001",
                     "target_space_id": "ck:space:0196419b-0000-7000-8000-000000000020",
                     "rank": "U"
                 }),
@@ -1078,7 +1078,7 @@ mod tests {
 
         for event_kind in [
             "ck.realm.update",
-            "ck.flow.update",
+            "ck.strand.update",
             "ck.morph.update",
             "ck.space.update",
         ] {
@@ -1086,7 +1086,7 @@ mod tests {
                 .validate_payload(
                     event_kind,
                     &json!({
-                        "target_ref": "ck:flow:01904100-0000-7000-8000-000000000001",
+                        "target_ref": "ck:strand:01904100-0000-7000-8000-000000000001",
                         "patch": {
                             "title": { "$op": "set", "value": "Roadmap" }
                         }
@@ -1108,7 +1108,7 @@ mod tests {
             .validate_payload(
                 "ck.message.create",
                 &json!({
-                    "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001",
+                    "strand_id": "ck:strand:0196419b-0000-7000-8000-000000000001",
                     "track_name": "discussion",
                     "content": {
                         "kind": "ck.content.text",
@@ -1125,7 +1125,7 @@ mod tests {
                     &json!({
                         "kind": "ck.message.create",
                         "payload": {
-                            "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001",
+                            "strand_id": "ck:strand:0196419b-0000-7000-8000-000000000001",
                             "track_name": "discussion"
                         }
                     }),
@@ -1199,7 +1199,7 @@ mod tests {
             .validate_payload(
                 "ck.message.create",
                 &json!({
-                    "flow_id": "ck:flow:01904100-0000-7000-8000-000000000001",
+                    "strand_id": "ck:strand:01904100-0000-7000-8000-000000000001",
                     "track_name": "discussion",
                     "content": {
                         "kind": "ck.content.text",
@@ -1213,7 +1213,7 @@ mod tests {
             .validate_payload(
                 "ck.message.create",
                 &json!({
-                    "flow_id": "ck:flow:01904100-0000-7000-8000-000000000001",
+                    "strand_id": "ck:strand:01904100-0000-7000-8000-000000000001",
                     "track_name": "discussion",
                     "content": {
                         "kind": "ck.content.text",

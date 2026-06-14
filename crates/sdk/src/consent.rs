@@ -36,7 +36,7 @@ pub const CONSENT_CELL_FAMILY: &str = "ck.component.consent.grant.v1";
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Scope {
-    /// Peer MAY send Space / Flow invites to the holder.
+    /// Peer MAY send Space / Strand invites to the holder.
     Invite,
     /// Peer MAY initiate a 1:1 message Space / DM with the holder.
     DirectMessage,

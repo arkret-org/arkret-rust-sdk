@@ -155,7 +155,7 @@ cokret_native}.v1` profile entries gate which arms a client will negotiate.
 
 ### Recovery (policy + receipt)
 
-R3 lifts recovery from a soland-internal flow to a first-class wire surface.
+R3 lifts recovery from a soland-internal strand to a first-class wire surface.
 
 `RecoveryPolicy`:
 

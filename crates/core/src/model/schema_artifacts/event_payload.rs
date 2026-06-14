@@ -189,7 +189,7 @@ pub struct AgentInteropSessionResultPayload {
 pub struct AgentInteropSessionStartPayload {
     pub session_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub task_flow_id: Option<FlowId>,
+    pub task_strand_id: Option<StrandId>,
     pub counterparty_agent: Did,
     pub protocol: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -691,7 +691,7 @@ pub struct CallPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub call_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub flow_id: Option<FlowId>,
+    pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1019,10 +1019,10 @@ pub struct DirectConversationBoundPayload {
     pub pair_key: Value,
     pub participants_unordered: Vec<Did>,
     pub realm_id: RealmId,
-    pub main_flow_id: FlowId,
+    pub main_strand_id: StrandId,
     pub contact_refs: ContactEventRefs,
     pub member_event_refs: Value,
-    pub main_flow_create_ref: EventRef,
+    pub main_strand_create_ref: EventRef,
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binding_state: Option<String>,
@@ -1038,39 +1038,39 @@ pub type EncryptedMetadata = EncryptedEnvelope;
 pub type ErasureReceiptPayload = ErasureReceipt;
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/flow_create_payload`.
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/strand_create_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct FlowCreatePayload {
-    pub object: Flow,
+pub struct StrandCreatePayload {
+    pub object: Strand,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_relations: Option<Vec<BTreeMap<String, Value>>>,
 }
 
-// `flow_move_payload` now has a strong type:
-// `model::operation_payloads::FlowMovePayload` (replaces the former
+// `strand_move_payload` now has a strong type:
+// `model::operation_payloads::StrandMovePayload` (replaces the former
 // `= Value` alias as part of the wire strong-type migration; flat
 // board/target Space ids + rank with an optional `expected_position`
 // CAS guard, `additionalProperties:false`).
 
-// `flow_reorder_payload` now has a strong type:
-// `model::operation_payloads::FlowReorderPayload` (single List-Space
+// `strand_reorder_payload` now has a strong type:
+// `model::operation_payloads::StrandReorderPayload` (single List-Space
 // re-rank; `additionalProperties:false`).
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/flow_stage_set_payload`.
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/strand_stage_set_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct FlowStageSetPayload {
-    pub flow_id: FlowId,
+pub struct StrandStageSetPayload {
+    pub strand_id: StrandId,
     pub stage: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_stage: Option<String>,
 }
 
-// `flow_watch_set_payload` now has a strong type:
-// `model::operation_payloads::FlowWatchSetPayload` (carries the
-// `FlowWatchLevel` enum / nullable `level` clear path and the
+// `strand_watch_set_payload` now has a strong type:
+// `model::operation_payloads::StrandWatchSetPayload` (carries the
+// `StrandWatchLevel` enum / nullable `level` clear path and the
 // `level_public`/`expected_value` CAS fields; `additionalProperties:false`).
 
 /// Counterpart for
@@ -1314,7 +1314,7 @@ pub struct MessageRevisePayload {
 #[serde(deny_unknown_fields)]
 pub struct MimiRoomBindingPayloadBindingScope {
     pub realm_id: RealmId,
-    pub flow_id: FlowId,
+    pub strand_id: StrandId,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1599,7 +1599,7 @@ pub struct MorphStageSetPayload {
 pub type NullableTimestamp = Option<DateTime<Utc>>;
 
 // `object_lifecycle_payload` now has a strong type:
-// `model::operation_payloads::ObjectLifecyclePayload` (generic Flow / Circle /
+// `model::operation_payloads::ObjectLifecyclePayload` (generic Strand / Circle /
 // Morph archive·restore·tombstone shape, single-sourced by `target_ref`;
 // `additionalProperties:false`).
 

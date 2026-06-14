@@ -8,8 +8,8 @@ pub enum Resource {
     Realm { realm_id: String },
     /// Space resource.
     Space { space_id: String },
-    /// Flow resource
-    Flow { realm_id: String, flow_id: String },
+    /// Strand resource
+    Strand { realm_id: String, strand_id: String },
     /// Message resource.
     Message {
         realm_id: String,
@@ -62,7 +62,7 @@ impl Resource {
     pub fn realm_id(&self) -> &str {
         match self {
             Self::Realm { realm_id } => realm_id,
-            Self::Flow { realm_id, .. } => realm_id,
+            Self::Strand { realm_id, .. } => realm_id,
             Self::Message { realm_id, .. } => realm_id,
             Self::Relation { realm_id, .. } => realm_id,
             Self::View { realm_id, .. } => realm_id,
@@ -227,9 +227,9 @@ pub enum Constraint {
     /// See `constraint-schema.md` §6.1 / §6.2.
     ScopeLimitation {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        allowed_flow_ids: Vec<String>,
+        allowed_strand_ids: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        denied_flow_ids: Vec<String>,
+        denied_strand_ids: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         allowed_tracks: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -308,7 +308,7 @@ pub enum RateLimitScope {
 #[serde(rename_all = "snake_case")]
 pub enum ScopeLimitation {
     Space,
-    Flow,
+    Strand,
     Message,
     Morph,
     View,

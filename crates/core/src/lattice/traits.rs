@@ -82,8 +82,8 @@ impl LatticeKind {
                 "ck.realm.freeze",
                 "ck.realm.tombstone",
                 "ck.realm.destroy",
-                "ck.flow.move",
-                "ck.flow.reorder",
+                "ck.strand.move",
+                "ck.strand.reorder",
                 "ck.space.parent",
             ],
             Self::Fsm => &[
@@ -220,7 +220,7 @@ mod kind_tests {
     fn cas_register_handles_mls_commit_and_creates() {
         let kinds = LatticeKind::CasRegister.event_kinds();
         assert!(kinds.contains(&"ck.realm.policy"));
-        assert!(kinds.contains(&"ck.flow.move"));
+        assert!(kinds.contains(&"ck.strand.move"));
         assert!(kinds.contains(&"ck.space.parent"));
     }
 

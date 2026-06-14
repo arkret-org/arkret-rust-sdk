@@ -399,7 +399,7 @@ fn validate_object_patch_ref(field: &str, value: &str) -> Result<()> {
     static OBJECT_REF: OnceLock<regex::Regex> = OnceLock::new();
     let object_ref = OBJECT_REF.get_or_init(|| {
         regex::Regex::new(
-            r"^(ck:(realm|space|actor_profile|flow|message|morph|relation|view|policy|grant|invite|call|agent_interop_session|blob|snapshot|event|frank|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|ck:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
+            r"^(ck:(realm|space|actor_profile|strand|message|morph|relation|view|policy|grant|invite|call|agent_interop_session|blob|snapshot|event|frank|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|ck:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
         )
         .expect("object_ref regex compiles")
     });
@@ -523,14 +523,14 @@ mod tests {
             .unwrap();
 
         let payload =
-            ObjectPatchPayload::for_target("ck:flow:0196419b-0000-7000-8000-000000000001", patch)
+            ObjectPatchPayload::for_target("ck:strand:0196419b-0000-7000-8000-000000000001", patch)
                 .unwrap();
         let value = payload.to_value().unwrap();
 
         assert_eq!(
             value,
             json!({
-                "target_ref": "ck:flow:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ck:strand:0196419b-0000-7000-8000-000000000001",
                 "patch": {
                     "fields.document": {
                         "$op": "set",
@@ -546,20 +546,20 @@ mod tests {
         let mut patch = Patch::new();
         patch.insert_op("title", PatchOp::set("Roadmap")).unwrap();
         let payload =
-            ObjectPatchPayload::for_target("ck:flow:0196419b-0000-7000-8000-000000000002", patch)
+            ObjectPatchPayload::for_target("ck:strand:0196419b-0000-7000-8000-000000000002", patch)
                 .unwrap()
                 .to_value()
                 .unwrap();
 
         crate::schema::event_payload_validator_catalog()
-            .validate_payload("ck.flow.update", &payload)
+            .validate_payload("ck.strand.update", &payload)
             .unwrap();
     }
 
     #[test]
     fn object_patch_payload_deserialize_rejects_empty_patch() {
         let err = serde_json::from_value::<ObjectPatchPayload>(json!({
-            "target_ref": "ck:flow:0196419b-0000-7000-8000-000000000003",
+            "target_ref": "ck:strand:0196419b-0000-7000-8000-000000000003",
             "patch": {}
         }))
         .unwrap_err();
@@ -570,7 +570,7 @@ mod tests {
     fn object_patch_payload_rejects_non_schema_object_ref() {
         let mut patch = Patch::new();
         patch.insert_op("title", PatchOp::set("Roadmap")).unwrap();
-        let err = ObjectPatchPayload::for_target("ck:flow:not-a-uuid7", patch).unwrap_err();
+        let err = ObjectPatchPayload::for_target("ck:strand:not-a-uuid7", patch).unwrap_err();
         assert!(err.to_string().contains("object_ref"));
     }
 }

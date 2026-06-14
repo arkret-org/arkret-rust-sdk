@@ -845,7 +845,7 @@ pub struct SyncOutcome {
     pub cursor: String,
     /// Realm sync bodies keyed by `ck:realm:*`. Kept as `Value` so the HTTP
     /// layer doesn't constrain per-realm extra
-    /// fields (e.g. `state_after`, `flows`) that the spec leaves open.
+    /// fields (e.g. `state_after`, `strands`) that the spec leaves open.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub realms: BTreeMap<String, Value>,
     /// Realms the viewer no longer has access to after the supplied
@@ -1213,7 +1213,7 @@ fn is_false(value: &bool) -> bool {
 pub struct AuthzCheckRequestBody {
     pub actor_id: Did,
     pub action: String,
-    /// Optional resource selector (Realm / Flow / Space / Morph / etc.).
+    /// Optional resource selector (Realm / Strand / Space / Morph / etc.).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resource: Option<Value>,
     /// Optional decision context — claim presentations, frontier reference,
@@ -1481,7 +1481,7 @@ pub enum ProjectionObjectKind {
     Realm,
     Space,
     Circle,
-    Flow,
+    Strand,
     Message,
     Morph,
 }
@@ -1632,7 +1632,7 @@ pub struct ObjectLookupOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct FlowDiscussionTimelineView {
+pub struct StrandDiscussionTimelineView {
     pub entries: Vec<TimelineProjectionEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub messages: Vec<ProjectionObject>,
@@ -1644,8 +1644,8 @@ pub struct FlowDiscussionTimelineView {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct FlowDiscussionSummary {
-    pub flow: ProjectionObject,
+pub struct StrandDiscussionSummary {
+    pub strand: ProjectionObject,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub relation: Value,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -1656,8 +1656,8 @@ pub struct FlowDiscussionSummary {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct FlowDiscussionList {
-    pub flows: Vec<FlowDiscussionSummary>,
+pub struct StrandDiscussionList {
+    pub strands: Vec<StrandDiscussionSummary>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub summaries: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2184,7 +2184,7 @@ pub enum RealmJoinCandidateRole {
     ReviewerIngress,
 }
 
-/// Join-side flow supported by a Realm join candidate.
+/// Join-side strand supported by a Realm join candidate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -2268,13 +2268,13 @@ pub struct DirectoryRealmResolutionOutcome {
 
 /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — the resolved object class of a
 /// shareable address. The address grammar (`crate::model::object_address`)
-/// fixes the hierarchy `realm` ⊃ `flow` ⊃ `m` (message).
+/// fixes the hierarchy `realm` ⊃ `strand` ⊃ `m` (message).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum TargetKind {
     Realm,
-    Flow,
+    Strand,
     Message,
 }
 
@@ -2302,7 +2302,7 @@ pub struct DirectoryResolveTargetRequestBody {
 /// Common §9.1 directory fields (`as_of`, `source_refs`, `join_candidates`,
 /// `policy_revision`, `stale`, `divergent`) mirror the other directory
 /// responses. `object_preview` is a target-kind-dependent opaque preview
-/// (a stripped Flow / Message projection); it stays a `serde_json::Value`
+/// (a stripped Strand / Message projection); it stays a `serde_json::Value`
 /// because its shape varies by `target_kind`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -3062,11 +3062,11 @@ pub struct PushNotificationEnvelope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub flow_id: Option<FlowId>,
+    pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message_id: Option<MessageId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub flow_title: Option<String>,
+    pub strand_title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3681,7 +3681,7 @@ pub struct AgentSidecarThreadEnsureRequestBody {
 pub struct AgentSidecarThreadEnsureOutcome {
     pub ok: bool,
     pub private_circle_id: CircleId,
-    pub private_flow_id: FlowId,
+    pub private_strand_id: StrandId,
     pub private_relation_id: RelationId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pending_member_reconciliations: Vec<Value>,
@@ -4393,7 +4393,7 @@ pub struct RecoveryPolicy {
     /// Two-person-rule / cooldown enforcement layered on the proofs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_requirement: Option<RecoveryApprovalRequirement>,
-    /// Where the recovery flow MUST emit auditable records.
+    /// Where the recovery strand MUST emit auditable records.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audit: Option<RecoveryAuditConfig>,
     pub issued_at: DateTime<Utc>,
@@ -4605,7 +4605,7 @@ impl RecoveryProofKind {
 
 /// REC-1 (spec head, `recovery-receipt.schema.json`) — Rust shape for
 /// `ck.schema.recovery_receipt.v1`. Signed completion receipt for a principal
-/// recovery flow, bound to the `recovery_session_id` used by every proof,
+/// recovery strand, bound to the `recovery_session_id` used by every proof,
 /// backup unlock, and MLS Welcome replay action.
 ///
 /// Required surface: `schema`, `receipt_id`, `principal_id`,
@@ -4713,7 +4713,7 @@ pub struct RecoveryReceiptAuthData {
     pub signed_fields: Vec<String>,
 }
 
-// ─── DID-proof session grant flow ──────────────────────────────────────────
+// ─── DID-proof session grant strand ──────────────────────────────────────────
 //
 // The wire shapes for `POST /_cokret/gate/account/session-grants`
 // (`ck.gate.account.command.issue_session_grant`) live in `crate::http` as

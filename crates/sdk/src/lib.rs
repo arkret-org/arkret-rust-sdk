@@ -26,7 +26,7 @@
 //!     Hlc::new("01970e589d21-0001-a13f9c2e")?,
 //! )
 //! .with_content(json!({
-//!     "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+//!     "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
 //!     "track_name": "main",
 //!     "content": {"kind": "ck.content.text", "body": "hello"}
 //! }))
@@ -302,7 +302,7 @@ pub use auth::{
 };
 #[cfg(feature = "full-surface")]
 pub use authz::{
-    ApprovalFlowManager, ApprovalMode, AuthzContext, AuthzEngine, CapabilityFrontierValidation,
+    ApprovalStrandManager, ApprovalMode, AuthzContext, AuthzEngine, CapabilityFrontierValidation,
     CapabilityGrantBuilder, ClaimRequirement, Constraint, ConstraintDuration, ConstraintEffect,
     ConstraintEntry, EngineDecision, FieldScope, GrantProposal, ModerationReport,
     PolicyEvaluationRequest, PolicyEvaluationResult, PolicyServerEffect, ProposalApproval,
@@ -410,7 +410,7 @@ pub use identity_link::{IdentityLinkCache, IdentityLinkCacheEntry};
 pub use key_backup_client::KeyBackupClient;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use key_verification::{
-    KeyVerificationAccept, KeyVerificationCancel, KeyVerificationDone, KeyVerificationFlow,
+    KeyVerificationAccept, KeyVerificationCancel, KeyVerificationDone, KeyVerificationStrand,
     KeyVerificationKey, KeyVerificationMac, KeyVerificationStart, KeyVerificationState,
     compute_key_commitment,
 };
@@ -478,7 +478,7 @@ pub use secret_share::{
 };
 #[cfg(all(feature = "full-surface", feature = "server"))]
 pub use server::{
-    EndpointHandler, ProtocolFixtureFlow, ProtocolFixtureReport, ProtocolFixtureStep,
+    EndpointHandler, ProtocolFixtureStrand, ProtocolFixtureReport, ProtocolFixtureStep,
     ProtocolGoldenVector, ProtocolServerFixture, ServerOutcome, ServerRequestBody,
     WireConformanceVector, protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
 };

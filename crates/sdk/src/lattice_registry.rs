@@ -17,7 +17,7 @@
 //!   session.grant, device.authorized, device.list_update, agent.key, covered_seals (MLS).
 //! - **CasRegister** (last-writer-wins, conflict→Bottom): realm.policy, realm.read_receipt_policy,
 //!   realm.history_visibility, realm.join_rule, realm.discovery, realm.organization, realm.upgrade,
-//!   flow.position, flow.stage, morph.stage, space.parent, device.push_route, notary (Move/Seal
+//!   strand.position, strand.stage, morph.stage, space.parent, device.push_route, notary (Move/Seal
 //!   authority cell), mls_epoch.
 //! - **Fsm** (legal transitions only): member.state, agent.status.
 //! - **OrderedLog** (per-issuer monotonic append): account.status, policy.rule,
@@ -81,7 +81,7 @@ pub struct ComponentDescriptor {
 ///   cell return `bottom` rather than choosing a winner. This is the v1 default for safety-critical
 ///   cells (capability, consent, notary).
 /// - `Expose`: callers are expected to render the multi-value set directly (e.g. UI shows "two
-///   concurrent edits, please reconcile" rather than blocking). Suitable for advisory cells (Flow
+///   concurrent edits, please reconcile" rather than blocking). Suitable for advisory cells (Strand
 ///   titles, user profile fields).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BottomPolicy {
@@ -112,7 +112,7 @@ impl BottomPolicy {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LatticeKindError {
     /// The Move's effects[] is missing the typed field used to derive the
-    /// cell subject (e.g. `payload.flow_id` for a flow-position cell).
+    /// cell subject (e.g. `payload.strand_id` for a strand-position cell).
     MissingSubjectField {
         cell_family: &'static str,
         field: &'static str,
@@ -597,23 +597,23 @@ singleton_lattice!(
 );
 
 per_subject_lattice!(
-    FlowPosition,
-    "ck.component.flow.position.v1",
+    StrandPosition,
+    "ck.component.strand.position.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    "flow_id",
-    &["ck.flow.move", "ck.flow.reorder"]
+    "strand_id",
+    &["ck.strand.move", "ck.strand.reorder"]
 );
 
 per_subject_lattice!(
-    FlowStage,
-    "ck.component.flow.stage.v1",
+    StrandStage,
+    "ck.component.strand.stage.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    "flow_id",
-    &["ck.flow.stage.set"]
+    "strand_id",
+    &["ck.strand.stage.set"]
 );
 
 per_subject_lattice!(
@@ -626,16 +626,16 @@ per_subject_lattice!(
     &["ck.morph.stage.set"]
 );
 
-// Flow notification subscription cell, keyed by (flow_id, watcher_actor_id).
-// Spec: cokret-spec/spec/v1/zh/models/flow-and-message.md §8.
+// Strand notification subscription cell, keyed by (strand_id, watcher_actor_id).
+// Spec: cokret-spec/spec/v1/zh/models/strand-and-message.md §8.
 // SDK's subject derivation composes both keys into a single string so the
 // existing per-subject lattice infra (single Option<String>) works without
-// growing tuple support; the cell store still treats each (flow, actor)
+// growing tuple support; the cell store still treats each (strand, actor)
 // pair as an independent slot.
-pub struct FlowWatch;
-impl LatticeKind for FlowWatch {
+pub struct StrandWatch;
+impl LatticeKind for StrandWatch {
     fn cell_family(&self) -> &'static str {
-        "ck.component.flow.watch.v1"
+        "ck.component.strand.watch.v1"
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::CasRegister
@@ -645,7 +645,7 @@ impl LatticeKind for FlowWatch {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ck.component.flow.watch.v1",
+            component_type: "ck.component.strand.watch.v1",
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -654,24 +654,24 @@ impl LatticeKind for FlowWatch {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        let flow_id = effect_payload
-            .get("flow_id")
+        let strand_id = effect_payload
+            .get("strand_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ck.component.flow.watch.v1",
-                field: "flow_id",
+                cell_family: "ck.component.strand.watch.v1",
+                field: "strand_id",
             })?;
         let watcher_actor_id = effect_payload
             .get("watcher_actor_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ck.component.flow.watch.v1",
+                cell_family: "ck.component.strand.watch.v1",
                 field: "watcher_actor_id",
             })?;
-        Ok(Some(format!("{flow_id}::{watcher_actor_id}")))
+        Ok(Some(format!("{strand_id}::{watcher_actor_id}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
-        &["ck.flow.watch.set"]
+        &["ck.strand.watch.set"]
     }
 }
 
@@ -1224,12 +1224,12 @@ singleton_lattice!(
     &["ck.realm.link"]
 );
 
-// ── New Flow facet families (per-subject by Flow id) ──
+// ── New Strand facet families (per-subject by Strand id) ──
 
-pub struct FlowMetadata;
-impl LatticeKind for FlowMetadata {
+pub struct StrandMetadata;
+impl LatticeKind for StrandMetadata {
     fn cell_family(&self) -> &'static str {
-        "ck.component.flow.metadata.v1"
+        "ck.component.strand.metadata.v1"
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::CasRegister
@@ -1239,7 +1239,7 @@ impl LatticeKind for FlowMetadata {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "ck.component.flow.metadata.v1",
+            component_type: "ck.component.strand.metadata.v1",
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -1250,27 +1250,27 @@ impl LatticeKind for FlowMetadata {
     ) -> Result<Option<String>, LatticeKindError> {
         effect_payload
             .get("target_ref")
-            .or_else(|| effect_payload.get("flow_id"))
+            .or_else(|| effect_payload.get("strand_id"))
             .and_then(Value::as_str)
             .map(|s| Some(s.to_owned()))
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "ck.component.flow.metadata.v1",
+                cell_family: "ck.component.strand.metadata.v1",
                 field: "target_ref",
             })
     }
     fn event_kinds(&self) -> &'static [&'static str] {
-        &["ck.flow.update"]
+        &["ck.strand.update"]
     }
 }
 
 per_subject_lattice!(
-    FlowTracks,
-    "ck.component.flow.tracks.v1",
+    StrandTracks,
+    "ck.component.strand.tracks.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    "flow_id",
-    &["ck.flow.tracks.update"]
+    "strand_id",
+    &["ck.strand.tracks.update"]
 );
 
 // ───────────────────────── Factory ─────────────────────────
@@ -1302,10 +1302,10 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     // CasRegister
     registry.register(CircleTombstone);
     registry.register(CircleMember);
-    registry.register(FlowPosition);
-    registry.register(FlowStage);
+    registry.register(StrandPosition);
+    registry.register(StrandStage);
     registry.register(MorphStage);
-    registry.register(FlowWatch);
+    registry.register(StrandWatch);
     registry.register(CrossSigningPublish);
     registry.register(NotaryCell);
     registry.register(MlsEpoch);
@@ -1357,8 +1357,8 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(RealmUpgrade);
     registry.register(RealmCreate);
     registry.register(RealmLink);
-    registry.register(FlowMetadata);
-    registry.register(FlowTracks);
+    registry.register(StrandMetadata);
+    registry.register(StrandTracks);
 
     registry
 }
@@ -1386,10 +1386,10 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         // CasRegister
         "ck.component.circle.tombstone.v1",
         "ck.component.circle.member.v1",
-        "ck.component.flow.position.v1",
-        "ck.component.flow.stage.v1",
+        "ck.component.strand.position.v1",
+        "ck.component.strand.stage.v1",
         "ck.component.morph.stage.v1",
-        "ck.component.flow.watch.v1",
+        "ck.component.strand.watch.v1",
         "ck.component.cross_signing.publish.v1",
         "ck.component.notary.v1",
         "ck.component.mls.epoch.v1",
@@ -1411,7 +1411,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ck.component.view.update.v1",
         "ck.component.view.reconcile.v1",
         "ck.component.mimi.room_binding.v1",
-        // Realm + spec-new flow facet families.
+        // Realm + spec-new strand facet families.
         "ck.component.realm.policy.v1",
         "ck.component.realm.read_receipt_policy.v1",
         "ck.component.realm.history_visibility.v1",
@@ -1438,8 +1438,8 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ck.component.realm.upgrade.v1",
         "ck.component.realm.create.v1",
         "ck.component.realm.link.v1",
-        "ck.component.flow.metadata.v1",
-        "ck.component.flow.tracks.v1",
+        "ck.component.strand.metadata.v1",
+        "ck.component.strand.tracks.v1",
     ];
     FAMILIES
         .iter()
@@ -1620,14 +1620,14 @@ mod tests {
     #[test]
     fn missing_subject_field_surfaces_typed_error() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("ck.component.flow.position.v1").unwrap();
+        let kind = registry.lookup("ck.component.strand.position.v1").unwrap();
         let err = kind
             .subject_for_effect(&json!({"unrelated": "x"}))
             .unwrap_err();
         match err {
             LatticeKindError::MissingSubjectField { cell_family, field } => {
-                assert_eq!(cell_family, "ck.component.flow.position.v1");
-                assert_eq!(field, "flow_id");
+                assert_eq!(cell_family, "ck.component.strand.position.v1");
+                assert_eq!(field, "strand_id");
             }
             other => panic!("unexpected error: {other:?}"),
         }
@@ -1649,11 +1649,11 @@ mod tests {
     #[test]
     fn lattice_kind_error_display_is_stable() {
         let err = LatticeKindError::MissingSubjectField {
-            cell_family: "ck.component.flow.position.v1",
-            field: "flow_id",
+            cell_family: "ck.component.strand.position.v1",
+            field: "strand_id",
         };
         let msg = format!("{err}");
-        assert!(msg.contains("ck.component.flow.position.v1"));
-        assert!(msg.contains("flow_id"));
+        assert!(msg.contains("ck.component.strand.position.v1"));
+        assert!(msg.contains("strand_id"));
     }
 }

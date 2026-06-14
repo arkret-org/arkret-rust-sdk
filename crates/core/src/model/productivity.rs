@@ -88,7 +88,7 @@ pub struct SavedItemValue {
 #[serde(rename_all = "snake_case")]
 pub enum DraftKind {
     Message,
-    FlowField,
+    StrandField,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -197,7 +197,7 @@ pub enum RsvpStatus {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RsvpSetPayload {
-    pub event_ref: FlowId,
+    pub event_ref: StrandId,
     pub status: RsvpStatus,
     pub occurrence: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -238,7 +238,7 @@ pub struct DisappearingPolicy {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum PinScope {
-    Flow { id: FlowId },
+    Strand { id: StrandId },
     Realm { id: RealmId },
     Circle { id: CircleId },
     Space { id: SpaceId },
@@ -611,7 +611,7 @@ pub fn draft_account_data_key(
     validate_key_segment("draft_slot", draft_slot)?;
     let kind = match kind {
         DraftKind::Message => "message",
-        DraftKind::FlowField => "flow_field",
+        DraftKind::StrandField => "strand_field",
     };
     Ok(format!(
         "{ACCOUNT_DATA_TYPE_DRAFT}:{kind}:{}:{draft_slot}",
@@ -720,7 +720,7 @@ pub fn validate_private_account_data_key(key: &str) -> Result<()> {
     }
     if let Some(rest) = key.strip_prefix("ck.draft.v1:") {
         let parts = rest.split(':').collect::<Vec<_>>();
-        return if matches!(parts.as_slice(), ["message" | "flow_field", target_key, slot_key] if looks_derived_key(target_key) && !slot_key.is_empty() && !contains_raw_object_ref(slot_key))
+        return if matches!(parts.as_slice(), ["message" | "strand_field", target_key, slot_key] if looks_derived_key(target_key) && !slot_key.is_empty() && !contains_raw_object_ref(slot_key))
         {
             Ok(())
         } else {
@@ -753,7 +753,7 @@ fn private_key_error() -> Result<()> {
 
 fn contains_raw_object_ref(value: &str) -> bool {
     [
-        "ck:flow:",
+        "ck:strand:",
         "ck:message:",
         "ck:realm:",
         "ck:space:",
@@ -781,7 +781,7 @@ fn validate_object_ref_string(field: &str, value: &str) -> Result<()> {
     let valid = [
         "ck:realm:",
         "ck:space:",
-        "ck:flow:",
+        "ck:strand:",
         "ck:message:",
         "ck:morph:",
         "ck:relation:",
@@ -879,7 +879,7 @@ mod tests {
     fn scheduled_send_validates_payload_id_and_digest() {
         let message_id = MessageId::new("ck:message:01904100-0000-7000-8000-000000000001").unwrap();
         let payload = json!({
-            "flow_id": "ck:flow:01904100-0000-7000-8000-000000000002",
+            "strand_id": "ck:strand:01904100-0000-7000-8000-000000000002",
             "track_name": "discussion",
             "message_id": message_id.as_str(),
             "content": {"body": "hello"}

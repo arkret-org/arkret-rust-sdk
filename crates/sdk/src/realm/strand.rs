@@ -1,77 +1,77 @@
 use super::*;
 
-/// Optional Flow create metadata accepted by [`Space::create_flow_operation_with_metadata`].
+/// Optional Strand create metadata accepted by [`Space::create_strand_operation_with_metadata`].
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct FlowCreateMetadata {
+pub struct StrandCreateMetadata {
     pub content: Option<Value>,
     pub encrypted_content: Option<Value>,
     pub encrypted_metadata: Option<Value>,
-    pub tracks: BTreeMap<String, crate::FlowTrackConfig>,
-    /// CKP-0007 — optional Circle that defines this Flow's encryption scope.
+    pub tracks: BTreeMap<String, crate::StrandTrackConfig>,
+    /// CKP-0007 — optional Circle that defines this Strand's encryption scope.
     pub scope_circle_id: Option<cokret_core::CircleId>,
 }
 
-/// Optional Flow patch metadata accepted by [`Space::update_flow_operation_with_metadata`].
+/// Optional Strand patch metadata accepted by [`Space::update_strand_operation_with_metadata`].
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct FlowUpdateMetadata {
+pub struct StrandUpdateMetadata {
     pub content: Option<Value>,
     pub encrypted_content: Option<Value>,
     pub encrypted_metadata: Option<Value>,
-    pub tracks: Option<BTreeMap<String, crate::FlowTrackConfig>>,
+    pub tracks: Option<BTreeMap<String, crate::StrandTrackConfig>>,
 }
 
 impl Realm {
-    /// Create a spec-shaped `ck.flow.create` operation.
-    pub fn create_flow_operation(
+    /// Create a spec-shaped `ck.strand.create` operation.
+    pub fn create_strand_operation(
         &self,
         title: impl Into<String>,
         summary: Option<String>,
         fields: BTreeMap<String, Value>,
     ) -> Result<Operation> {
-        self.create_flow_operation_with_metadata(
+        self.create_strand_operation_with_metadata(
             title,
             summary,
             fields,
-            FlowCreateMetadata::default(),
+            StrandCreateMetadata::default(),
         )
     }
 
-    /// Create a spec-shaped `ck.flow.create` operation with extended Flow fields.
-    pub fn create_flow_operation_with_metadata(
+    /// Create a spec-shaped `ck.strand.create` operation with extended Strand fields.
+    pub fn create_strand_operation_with_metadata(
         &self,
         title: impl Into<String>,
         summary: Option<String>,
         fields: BTreeMap<String, Value>,
-        metadata: FlowCreateMetadata,
+        metadata: StrandCreateMetadata,
     ) -> Result<Operation> {
         let session_meta = self
             .base_client
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let flow_id = FlowId::new(generate_id("ck:flow:"))?;
+        let strand_id = StrandId::new(generate_id("ck:strand:"))?;
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let now = Utc::now();
         let tracks = if metadata.tracks.is_empty() {
-            default_flow_tracks()
+            default_strand_tracks()
         } else {
             metadata.tracks
         };
 
-        let mut flow_metadata = serde_json::Map::new();
-        flow_metadata.insert("title".to_owned(), json!(title.into()));
+        let mut strand_metadata = serde_json::Map::new();
+        strand_metadata.insert("title".to_owned(), json!(title.into()));
         if let Some(summary) = summary {
-            flow_metadata.insert("summary".to_owned(), json!(summary));
+            strand_metadata.insert("summary".to_owned(), json!(summary));
         }
         if !fields.is_empty() {
-            flow_metadata.insert("fields".to_owned(), json!(fields));
+            strand_metadata.insert("fields".to_owned(), json!(fields));
         }
 
         let mut object = json!({
-            "id": flow_id.as_str(),
-            "schema": crate::FLOW_SCHEMA,
+            "id": strand_id.as_str(),
+            "schema": crate::STRAND_SCHEMA,
             "realm_id": self.realm_id.as_str(),
-            "metadata": Value::Object(flow_metadata),
+            "metadata": Value::Object(strand_metadata),
             "tracks": tracks,
             "created_by": session_meta.user_id.as_str(),
             "created_at": now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
@@ -93,36 +93,36 @@ impl Realm {
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
-            crate::OP_FLOW_CREATE,
+            crate::OP_STRAND_CREATE,
             json!({ "object": object }),
         ))
     }
 
-    /// Create a spec-shaped `ck.flow.update` operation.
-    pub fn update_flow_operation(
+    /// Create a spec-shaped `ck.strand.update` operation.
+    pub fn update_strand_operation(
         &self,
-        flow_id: FlowId,
+        strand_id: StrandId,
         title: Option<String>,
         summary: Option<String>,
         fields: Option<BTreeMap<String, Value>>,
     ) -> Result<Operation> {
-        self.update_flow_operation_with_metadata(
-            flow_id,
+        self.update_strand_operation_with_metadata(
+            strand_id,
             title,
             summary,
             fields,
-            FlowUpdateMetadata::default(),
+            StrandUpdateMetadata::default(),
         )
     }
 
-    /// Create a spec-shaped `ck.flow.update` operation with extended Flow fields.
-    pub fn update_flow_operation_with_metadata(
+    /// Create a spec-shaped `ck.strand.update` operation with extended Strand fields.
+    pub fn update_strand_operation_with_metadata(
         &self,
-        flow_id: FlowId,
+        strand_id: StrandId,
         title: Option<String>,
         summary: Option<String>,
         fields: Option<BTreeMap<String, Value>>,
-        metadata: FlowUpdateMetadata,
+        metadata: StrandUpdateMetadata,
     ) -> Result<Operation> {
         self.base_client
             .session_meta()
@@ -163,30 +163,30 @@ impl Realm {
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
-            crate::OP_FLOW_UPDATE,
+            crate::OP_STRAND_UPDATE,
             json!({
-                "target_ref": flow_id.as_str(),
+                "target_ref": strand_id.as_str(),
                 "patch": Value::Object(patch),
             }),
         );
         operation.operation_type = OperationType::Update;
-        operation.object_id = Some(flow_id.as_str().to_owned());
+        operation.object_id = Some(strand_id.as_str().to_owned());
         Ok(operation)
     }
 
-    /// Create a Flow archive operation.
-    pub fn archive_flow_operation(&self, flow_id: FlowId) -> Result<Operation> {
-        self.flow_lifecycle_operation(flow_id, crate::OP_FLOW_ARCHIVE, OperationType::Delete)
+    /// Create a Strand archive operation.
+    pub fn archive_strand_operation(&self, strand_id: StrandId) -> Result<Operation> {
+        self.strand_lifecycle_operation(strand_id, crate::OP_STRAND_ARCHIVE, OperationType::Delete)
     }
 
-    /// Create a Flow restore operation.
-    pub fn restore_flow_operation(&self, flow_id: FlowId) -> Result<Operation> {
-        self.flow_lifecycle_operation(flow_id, crate::OP_FLOW_RESTORE, OperationType::Update)
+    /// Create a Strand restore operation.
+    pub fn restore_strand_operation(&self, strand_id: StrandId) -> Result<Operation> {
+        self.strand_lifecycle_operation(strand_id, crate::OP_STRAND_RESTORE, OperationType::Update)
     }
 
-    fn flow_lifecycle_operation(
+    fn strand_lifecycle_operation(
         &self,
-        flow_id: FlowId,
+        strand_id: StrandId,
         kind: &str,
         operation_type: OperationType,
     ) -> Result<Operation> {
@@ -199,25 +199,25 @@ impl Realm {
             operation_id,
             self.realm_id()?,
             kind,
-            json!({ "target_ref": flow_id.as_str() }),
+            json!({ "target_ref": strand_id.as_str() }),
         );
         operation.operation_type = operation_type;
-        operation.object_id = Some(flow_id.as_str().to_owned());
+        operation.object_id = Some(strand_id.as_str().to_owned());
         Ok(operation)
     }
 
-    /// Create a `ck.flow.move` operation.
-    pub fn move_flow_operation(
+    /// Create a `ck.strand.move` operation.
+    pub fn move_strand_operation(
         &self,
-        flow_id: FlowId,
+        strand_id: StrandId,
         board_space_id: SpaceId,
         target_space_id: SpaceId,
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {
-        self.flow_position_operation(
-            crate::OP_FLOW_MOVE,
-            flow_id,
+        self.strand_position_operation(
+            crate::OP_STRAND_MOVE,
+            strand_id,
             board_space_id,
             ("target_space_id", target_space_id),
             rank,
@@ -225,18 +225,18 @@ impl Realm {
         )
     }
 
-    /// Create a `ck.flow.reorder` operation.
-    pub fn reorder_flow_operation(
+    /// Create a `ck.strand.reorder` operation.
+    pub fn reorder_strand_operation(
         &self,
-        flow_id: FlowId,
+        strand_id: StrandId,
         board_space_id: SpaceId,
         space_id: SpaceId,
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {
-        self.flow_position_operation(
-            crate::OP_FLOW_REORDER,
-            flow_id,
+        self.strand_position_operation(
+            crate::OP_STRAND_REORDER,
+            strand_id,
             board_space_id,
             ("space_id", space_id),
             rank,
@@ -244,10 +244,10 @@ impl Realm {
         )
     }
 
-    fn flow_position_operation(
+    fn strand_position_operation(
         &self,
         kind: &str,
-        flow_id: FlowId,
+        strand_id: StrandId,
         board_space_id: SpaceId,
         space_field: (&str, SpaceId),
         rank: impl Into<String>,
@@ -259,7 +259,7 @@ impl Realm {
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let mut payload = json!({
-            "flow_id": flow_id.as_str(),
+            "strand_id": strand_id.as_str(),
             "board_space_id": board_space_id.as_str(),
             "rank": rank.into(),
         });
@@ -270,16 +270,16 @@ impl Realm {
 
         let mut operation = Operation::create(operation_id, self.realm_id()?, kind, payload);
         operation.operation_type = OperationType::Update;
-        operation.object_id = Some(flow_id.as_str().to_owned());
+        operation.object_id = Some(strand_id.as_str().to_owned());
         Ok(operation)
     }
 }
 
-fn default_flow_tracks() -> BTreeMap<String, crate::FlowTrackConfig> {
+fn default_strand_tracks() -> BTreeMap<String, crate::StrandTrackConfig> {
     let mut tracks = BTreeMap::new();
     tracks.insert(
-        crate::FLOW_TRACK_NAME_SYNTHESIS.to_owned(),
-        crate::FlowTrackConfig::synthesis(),
+        crate::STRAND_TRACK_NAME_SYNTHESIS.to_owned(),
+        crate::StrandTrackConfig::synthesis(),
     );
     tracks
 }

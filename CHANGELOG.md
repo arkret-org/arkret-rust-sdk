@@ -20,7 +20,7 @@ release, GitHub release, or release tag.
 - **Top-level `delegable` removed** per spec: resolved `ck.capability.grant`/`ck.capability.delegate` content carrying `delegable` is rejected as `schema_violation`. Delegation is expressed via `constraint_type="delegation_control"` + `max_delegation_depth` (absent ⇒ not delegable). `CapabilityGrantBuilder::with_delegable` is replaced by `with_delegation_control(max_delegation_depth, prohibit_subdelegation)`; the delegation-chain validator enforces the depth budget along the chain.
 - **Spec-shaped constraint/selector parsing**: new wire→engine projections for `grant-constraint.schema.json` objects (8 families, ISO 8601 durations → engine durations, calendar-ambiguous components fail closed) and `resource-selector.schema.json` objects (`ResourceSelector::from_spec_value` / `to_spec_value`). `ProtocolResourceSelectorKind::Wildcard` now (de)serializes as the spec's `"*"` instead of `"wildcard"`.
 - **`capability_grants_from_realm_state` is strict**: event content must deserialize into the core form (the old `capability_id`/`grant_id` aliasing and implicit realm-wide resource default are gone; missing `realm_id` is still defaulted from the Realm state).
-- **Approval flow**: approval requirements are detected on the wire form (`constraint_type="claim_based"`, `subtype="approval"`, `approval_required=true`); `ApprovalFlowManager` proposals embed the core grant.
+- **Approval strand**: approval requirements are detected on the wire form (`constraint_type="claim_based"`, `subtype="approval"`, `approval_required=true`); `ApprovalStrandManager` proposals embed the core grant.
 
 > No version tag, no publish — git commit only.
 
@@ -71,9 +71,9 @@ release, GitHub release, or release tag.
 ### R3.3 — Spec sync 2026-05-28 (cokret-spec @ cced4b8, CKP-0011)
 
 - **New operation**: `ck.find.directory.query.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `ck.find.directory.query.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `ck.schema.*`, or wire/reducer changes.
-- **Wire types**: `DirectoryResolveTargetRequestBody { address, requester, proofs, token }` + `DirectoryTargetResolutionOutcome { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Flow, Message }`. http-client method `directory_resolve_target`.
-- **Object-addressing grammar** (`cokret_core::model::object_address`): client-agnostic shareable address pointing at a Realm / Flow / Message. `parse_address` accepts both the `web+cokret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `flow` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid flow/message segment, or a flow/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
-- **Invite-token target binding** (scope-confusion defence): `TargetDescriptor { realm_id, flow_id?, message_id?, link_type }` with absent hierarchy fields OMITTED (never `null`) and typed canonical id values (`ck:realm:` / `ck:flow:` / `ck:message:`). `target_digest` reuses the shared canonicalizer (`canonical::canonical_sha256`) and covers ONLY the identity tuple + `link_type` — never `via` / `action` / `tok` / `lt`. `verify_token_target` recomputes + compares the digest so a token minted for object A cannot be replayed onto a different object B (and fails closed when the realm is still an unresolved alias).
+- **Wire types**: `DirectoryResolveTargetRequestBody { address, requester, proofs, token }` + `DirectoryTargetResolutionOutcome { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Strand, Message }`. http-client method `directory_resolve_target`.
+- **Object-addressing grammar** (`cokret_core::model::object_address`): client-agnostic shareable address pointing at a Realm / Strand / Message. `parse_address` accepts both the `web+cokret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `strand` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid strand/message segment, or a strand/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
+- **Invite-token target binding** (scope-confusion defence): `TargetDescriptor { realm_id, strand_id?, message_id?, link_type }` with absent hierarchy fields OMITTED (never `null`) and typed canonical id values (`ck:realm:` / `ck:strand:` / `ck:message:`). `target_digest` reuses the shared canonicalizer (`canonical::canonical_sha256`) and covers ONLY the identity tuple + `link_type` — never `via` / `action` / `tok` / `lt`. `verify_token_target` recomputes + compares the digest so a token minted for object A cannot be replayed onto a different object B (and fails closed when the realm is still an unresolved alias).
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
@@ -218,7 +218,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
   context)` distinguishes e.g. `policy_ref` (forbidden on `handle_claim`
   and `member_delivery_binding`, legal as a generic reference name on a
   Policy object itself) and `stage` (forbidden as a JSON-Patch op path
-  on Flow/Morph patch payloads, canonical as a top-level field). New
+  on Strand/Morph patch payloads, canonical as a top-level field). New
   `is_forbidden_id_prefix(id)` covers the spec's `typed_id_prefix`
   context (`ck:notif:`, `ck:devmsg:`, `ck:keyevt:`, `ck:modq:`,
   `ck:req:`, `ck:txn:`, `ck:frank:`). 60+ in-Rust entries now mirror
@@ -245,9 +245,9 @@ section will roll into the next published release.
 
 #### Breaking
 
-- `Flow.discussion_realm_ref` is removed outright. No serde alias, no
-  `#[deprecated]` shim. The replacement is `Flow.scope_circle_id:
-  Option<CircleId>` per `spec/v1/artifacts/schemas/flow.schema.json`.
+- `Strand.discussion_realm_ref` is removed outright. No serde alias, no
+  `#[deprecated]` shim. The replacement is `Strand.scope_circle_id:
+  Option<CircleId>` per `spec/v1/artifacts/schemas/strand.schema.json`.
 - `crates/sdk/src/authz/constraints.rs::Constraint` gains an
   `AllowedCircleIds { allowed_circle_ids: BTreeSet<CircleId> }`
   variant. The SDK fallback engine returns `Deny` for the new variant
@@ -259,7 +259,7 @@ section will roll into the next published release.
   `parent_ref`, `default_realm_ref`, `scope_ref`, `default_scope_ref`,
   `retention_policy_ref`, `disclosure_policy_ref`,
   `rate_limit_policy_ref`, plus the deleted `discussion_realm_ref` /
-  `discussion_space_ref` Flow scope fields.
+  `discussion_space_ref` Strand scope fields.
 - `Event` envelope grows a required-positionally `effective_scope:
   Option<EffectiveScope>` field. Struct literals across the workspace
   pick up `effective_scope: None`; downstream consumers building
@@ -275,7 +275,7 @@ section will roll into the next published release.
 - `Circle::assert_members_strict_subset` strict-subset member
   validator covering the CKP-0007 `circle_member_must_be_realm_member`
   reducer invariant.
-- `Flow.scope_circle_id`, `Space.scope_circle_id` /
+- `Strand.scope_circle_id`, `Space.scope_circle_id` /
   `default_scope_circle_id` / `child_scope_policy`, `Morph.scope_circle_id`.
   The `ChildScopePolicy` enum mirrors
   `spec/v1/artifacts/schemas/space.schema.json` 4-kind discriminator.
@@ -324,7 +324,7 @@ section will roll into the next published release.
 - Recorded local interop evidence in `docs/release-evidence-1.0.0.md` using
   cotest release-gate run `artifacts/runs/20260525-055932` from the sibling
   `cotest` checkout.
-- Kept the release flow local-only: no crates.io publish, no GitHub release,
+- Kept the release strand local-only: no crates.io publish, no GitHub release,
   and no release tag.
 - Promoted
   `cargo semver-checks check-release --workspace --baseline-rev HEAD~1` to a
@@ -392,9 +392,9 @@ wire-breaking list.
   `_HANDED_OVER` / `_HISTORICAL_ONLY`) and 1 new capability action
   (`CAPABILITY_ACTION_MORPH_CREATE = "cx.morph.create"`, medium risk,
   required-constraints `[allowed_morph_types]`).
-- **Added** `ck:space:<uuidv7>` accepted in `object_ref`; flow cell-metadata
-  helpers `flow_update_cell_subject(flow_id)` / `flow_tracks_patch_cell_subject(flow_id)`
-  (cell-family `ck.component.flow.fields.v1`, CAS-register, bottom=reject).
+- **Added** `ck:space:<uuidv7>` accepted in `object_ref`; strand cell-metadata
+  helpers `strand_update_cell_subject(strand_id)` / `strand_tracks_patch_cell_subject(strand_id)`
+  (cell-family `ck.component.strand.fields.v1`, CAS-register, bottom=reject).
 
 ### Added — Round R2/R3 spec round 2+3 cleanup (wire-breaking) (2026-05-20)
 
@@ -404,7 +404,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 `CHANGELOG.md` Round R2/R3 entries for the normative source.
 
 - **Event kinds**: 4 new active `durable_event` kinds — `ck.moderation.appeal.submit`
-  / `.review` / `.decision` / `.close` — extending the moderation flow.
+  / `.review` / `.decision` / `.close` — extending the moderation strand.
   Helpers `is_ephemeral_kind` (recognises the 12 ephemeral wire kinds:
   `ck.call.signal`, `ck.presence`, `ck.typing`, `ck.receipt.read`, and the
   `ck.key.verification.*` family) and `is_receipt_object_only`
@@ -721,7 +721,7 @@ abstraction as the rest of the reducer-input event family.
     service operations — so they intentionally do NOT appear in
     `BUILT_IN_OPERATION_KINDS` (which mirrors `operation-registry.json`
     and is gated by `SpecArtifactBundle::drift_report`). Same convention
-    as the lifecycle event ops (`OP_FLOW_CREATE`, `OP_FLOW_TRACK_*`, etc.)
+    as the lifecycle event ops (`OP_STRAND_CREATE`, `OP_STRAND_TRACK_*`, etc.)
     that have always been kept out of the built-in list.
   - `registry.rs::required_fields_for_operation_kind` gets 9 new arms:
     `OP_APPLET_REGISTRATION` → `[service_did, namespace]`
@@ -733,7 +733,7 @@ abstraction as the rest of the reducer-input event family.
     `OP_AGENT_PROTOCOL_SESSION_START` → `[session_id, counterparty_agent, protocol, capability_grant]`
     `OP_AGENT_PROTOCOL_SESSION_STATUS` → `[session_id, status]`
     `OP_AGENT_PROTOCOL_SESSION_RESULT` → `[session_id, result, audit_binding]`
-    Mirrors soland round 14f `FLOW_TRACK_REQUIREMENTS` shape exactly.
+    Mirrors soland round 14f `STRAND_TRACK_REQUIREMENTS` shape exactly.
 
 - **`cokret` (sdk)** — no changes. These events don't affect
   client-side projection state (applet bridge state machine lives in
@@ -756,100 +756,100 @@ abstraction as the rest of the reducer-input event family.
     state living at the applet / agent endpoint itself. If spec adds
     canonical session state tracking, SDK reducer can mirror that.
 
-### Added — `ck.flow.track.*` reducer handlers (2026-05-16)
+### Added — `ck.strand.track.*` reducer handlers (2026-05-16)
 
-Round 12. SDK previously declared the four `ck.flow.track.*` event-kind
-constants (`FLOW_TRACK_DISABLE` / `FLOW_TRACK_ENABLE` /
-`FLOW_TRACK_SET_PRIMARY` / `FLOW_TRACK_UPDATE`) in
+Round 12. SDK previously declared the four `ck.strand.track.*` event-kind
+constants (`STRAND_TRACK_DISABLE` / `STRAND_TRACK_ENABLE` /
+`STRAND_TRACK_SET_PRIMARY` / `STRAND_TRACK_UPDATE`) in
 `crates/core/src/events/kinds.rs` but had no `OP_*` operation constants,
 no operation-registry required-fields entries, and no resolver
 dispatcher branches — events landed and dispatched as "Unknown event
 type" no-ops. This round wires the full reducer surface so client-side
-state machines correctly maintain `Flow.tracks` from the event log.
+state machines correctly maintain `Strand.tracks` from the event log.
 
 - **`cokret-core`**:
-  - `crates/core/src/model/constants.rs`: new `OP_FLOW_TRACK_DISABLE` /
-    `OP_FLOW_TRACK_ENABLE` / `OP_FLOW_TRACK_SET_PRIMARY` /
-    `OP_FLOW_TRACK_UPDATE` constants (alphabetically grouped under the
-    Flow header, after `OP_FLOW_REORDER`).
+  - `crates/core/src/model/constants.rs`: new `OP_STRAND_TRACK_DISABLE` /
+    `OP_STRAND_TRACK_ENABLE` / `OP_STRAND_TRACK_SET_PRIMARY` /
+    `OP_STRAND_TRACK_UPDATE` constants (alphabetically grouped under the
+    Strand header, after `OP_STRAND_REORDER`).
   - `crates/core/src/model/registry.rs::required_fields_for_operation_kind`
-    new arms: `OP_FLOW_TRACK_DISABLE | OP_FLOW_TRACK_ENABLE |
-    OP_FLOW_TRACK_SET_PRIMARY` → `[flow_id, track_id]`;
-    `OP_FLOW_TRACK_UPDATE` → `[flow_id, track_id, patch]`.
+    new arms: `OP_STRAND_TRACK_DISABLE | OP_STRAND_TRACK_ENABLE |
+    OP_STRAND_TRACK_SET_PRIMARY` → `[strand_id, track_id]`;
+    `OP_STRAND_TRACK_UPDATE` → `[strand_id, track_id, patch]`.
 
 - **`cokret` (sdk)**:
   - `crates/sdk/src/resolver/mod.rs`: re-export the four new `OP_*` from
     the `model::*` use list.
   - `crates/sdk/src/resolver/state.rs`:
     - `process_event_content` dispatcher gets four new arms calling new
-      helpers `enable_flow_track` / `disable_flow_track` /
-      `update_flow_track` / `set_primary_flow_track`.
-    - New helper `extract_flow_track_id` reads `track_id` (fallback
-      `track_name`) from event content; returns `Err(Protocol("flow
+      helpers `enable_strand_track` / `disable_strand_track` /
+      `update_strand_track` / `set_primary_strand_track`.
+    - New helper `extract_strand_track_id` reads `track_id` (fallback
+      `track_name`) from event content; returns `Err(Protocol("strand
       track event requires track_id"))` if absent — same convention as
-      the existing `extract_flow_id` / `extract_morph_id` helpers.
+      the existing `extract_strand_id` / `extract_morph_id` helpers.
     - All four track helpers enforce the spec common-fields.md §5.1
-      "update on non-active object MUST fail" rule: parent Flow's
+      "update on non-active object MUST fail" rule: parent Strand's
       `state` MUST be `Some(ObjectState::Active)`; otherwise
-      `failed_precondition` with `flow_not_active` and the reducer
-      makes no mutations. Unknown Flow tolerated (causal / backfill —
+      `failed_precondition` with `strand_not_active` and the reducer
+      makes no mutations. Unknown Strand tolerated (causal / backfill —
       same convention as `restore_*` and `archive_*` guards).
-    - `enable_flow_track`: validate track name against
-      `validate_flow_track_name`, then `tracks.entry(track_id)
-      .or_insert_with(FlowTrackConfig::default)` — re-enable is a
+    - `enable_strand_track`: validate track name against
+      `validate_strand_track_name`, then `tracks.entry(track_id)
+      .or_insert_with(StrandTrackConfig::default)` — re-enable is a
       no-op on the config but still bumps `updated_at` for audit.
-    - `disable_flow_track`: `tracks.remove(track_id)`; unknown track
+    - `disable_strand_track`: `tracks.remove(track_id)`; unknown track
       tolerated.
-    - `update_flow_track`: reads `patch` object from event content;
+    - `update_strand_track`: reads `patch` object from event content;
       merges `is_primary` / `profile` / `template` / `fields`. Unknown
-      track is created (matches existing `update_flow` upsert
+      track is created (matches existing `update_strand` upsert
       behaviour for new fields).
-    - `set_primary_flow_track`: clears `is_primary` on every track,
+    - `set_primary_strand_track`: clears `is_primary` on every track,
       then sets it on the named one. Validates track exists in the
-      Flow's tracks map; if absent, the primary swap is a no-op (causal
+      Strand's tracks map; if absent, the primary swap is a no-op (causal
       tolerance) but `updated_at` still advances.
   - Five resolver tests added in `crates/sdk/src/resolver/tests.rs`:
-    `flow_track_enable_inserts_into_tracks_map`,
-    `flow_track_disable_removes_from_tracks_map`,
-    `flow_track_update_patches_track_config`,
-    `flow_track_set_primary_clears_others_and_marks_named`,
-    `flow_track_event_rejected_when_flow_archived`.
+    `strand_track_enable_inserts_into_tracks_map`,
+    `strand_track_disable_removes_from_tracks_map`,
+    `strand_track_update_patches_track_config`,
+    `strand_track_set_primary_clears_others_and_marks_named`,
+    `strand_track_event_rejected_when_strand_archived`.
 
 - **Spec references**:
-  - Spec event-kind-registry: `ck.flow.track.{enable,disable,update,set_primary}`
-    (`category: flow`, `wire_scope: durable_event`, `reducer_input: true`).
+  - Spec event-kind-registry: `ck.strand.track.{enable,disable,update,set_primary}`
+    (`category: strand`, `wire_scope: durable_event`, `reducer_input: true`).
   - `common-fields.md §5.1` final paragraph — update on non-active
     object MUST fail.
 
 - **Out of scope (follow-up)**:
   - **soland canonical registry + wire validator** — soland's
     server-side admission (`event_log::submit_event`) currently treats
-    `ck.flow.track.*` as opaque envelopes (canonical-kind registry
+    `ck.strand.track.*` as opaque envelopes (canonical-kind registry
     doesn't recognise them). soland round 14d adds the canonical
     registration + state-machine preflight in parallel with this round.
-  - **Place tracks** — Place doesn't have a `tracks` field; Flow is
+  - **Place tracks** — Place doesn't have a `tracks` field; Strand is
     the only canonical object with sub-event-managed track membership.
 
-### Tightened — `ck.redaction` flips Flow / Morph subject state (2026-05-16)
+### Tightened — `ck.redaction` flips Strand / Morph subject state (2026-05-16)
 
-Completes spec `common-fields.md §5.1` redaction row for Flow / Morph.
+Completes spec `common-fields.md §5.1` redaction row for Strand / Morph.
 Round 10 closed the archive / tombstone / update source-state matrix;
-this round (round 11) extends `ck.redaction` so that targeting a Flow /
+this round (round 11) extends `ck.redaction` so that targeting a Strand /
 Morph object via the event content's `object_ref` field flips the
 subject's projection state to `ObjectState::Redacted` (terminal). Until
 this round, `redact_event` only cleared the target event's content while
-the corresponding Flow / Morph subject's `state` remained `Active` —
+the corresponding Strand / Morph subject's `state` remained `Active` —
 soland round 14b had to add the same logic server-side to enforce the
 spec rule, and SDK was the divergent side. Now the two are symmetric.
 
 - **`cokret` (sdk)** — all changes in `crates/sdk/src/resolver/state.rs`:
   - New helper `redact_object_for_event(event)` extracts `object_ref`
     (fallback `target_object_ref`) from the redaction event's `content`.
-    When that names a Flow / Morph subject (`ck:flow:` / `ck:morph:`),
+    When that names a Strand / Morph subject (`ck:strand:` / `ck:morph:`),
     the helper validates `state ∈ {Active, Archived}` and flips it to
     `Redacted` along with `state_changed_at`, `updated_by`, `updated_at`.
     Terminal source (`Deleted` / `Redacted`) MUST `failed_precondition`
-    with `flow_already_terminal` / `morph_already_terminal`. Unknown
+    with `strand_already_terminal` / `morph_already_terminal`. Unknown
     subject is tolerated (causal / backfill ordering — same convention
     as `restore_*` and `archive_*` guards).
   - `process_event_content` `ck.redaction` arm now invokes
@@ -862,9 +862,9 @@ spec rule, and SDK was the divergent side. Now the two are symmetric.
     "unknown subject" tolerance branch silently (Place isn't kept in
     `subjects` / `morphs`).
   - Four resolver tests added in `crates/sdk/src/resolver/tests.rs`:
-    `redaction_with_flow_object_ref_flips_subject_to_redacted`,
+    `redaction_with_strand_object_ref_flips_subject_to_redacted`,
     `redaction_with_morph_object_ref_flips_subject_to_redacted`,
-    `redaction_against_already_redacted_flow_rejects`,
+    `redaction_against_already_redacted_strand_rejects`,
     `redaction_against_already_redacted_morph_rejects`. Each asserts
     the canonical reason code in the error AND that the failed
     reducer write left no side effects.
@@ -879,8 +879,8 @@ spec rule, and SDK was the divergent side. Now the two are symmetric.
     `ck.place.tombstone` instead of `ck.redaction`.
 
 - **Out of scope (follow-up)**:
-  - **un-redaction for Flow / Morph** — `ck.message.redact` supports
-    a `redaction_value: null` un-redact path for messages. Flow /
+  - **un-redaction for Strand / Morph** — `ck.message.redact` supports
+    a `redaction_value: null` un-redact path for messages. Strand /
     Morph `Redacted` is a terminal state by spec, so the current
     behaviour (no un-redact path) is correct; no SDK change needed.
   - **Place redaction via `ck.redaction`** — see above. Future spec
@@ -889,8 +889,8 @@ spec rule, and SDK was the divergent side. Now the two are symmetric.
 ### Tightened — Archive / tombstone / update source-state guards (2026-05-16)
 
 Completes spec `common-fields.md §5.1` canonical state-transition table
-across all three lifecycle families (Flow / Morph / Place). Round 8 added
-`*.restore` source-state guard for Place; round 9 mirrored that for Flow
+across all three lifecycle families (Strand / Morph / Place). Round 8 added
+`*.restore` source-state guard for Place; round 9 mirrored that for Strand
 and Morph; this round (round 10) closes the remaining matrix: archive on
 non-active source, tombstone on a terminal source, and the §5.1 final
 paragraph rule that `*.update` MUST fail on a non-active object (otherwise
@@ -898,10 +898,10 @@ edits would silently revive an archived/tombstoned object, conflicting
 with `*.restore` semantics).
 
 - **`cokret` (sdk)** — all changes in `crates/sdk/src/resolver/state.rs`:
-  - `archive_flow` previously delegated unconditionally to
-    `set_flow_state(Archived)`. It now validates
+  - `archive_strand` previously delegated unconditionally to
+    `set_strand_state(Archived)`. It now validates
     `state == Some(ObjectState::Active)` first; non-Active source MUST
-    `failed_precondition` with `flow_not_active`. Unknown Flow is
+    `failed_precondition` with `strand_not_active`. Unknown Strand is
     tolerated (causal / backfill) — same as the restore guards.
   - `archive_morph` (a new helper; previously the dispatcher inlined
     `set_morph_state(Archived)`) and `archive_place` (a new helper;
@@ -913,11 +913,11 @@ with `*.restore` semantics).
     `set_place_state(Tombstoned)`). Per §5.1, `ck.<kind>.tombstone` is
     legal from `active` OR `archived`; reject `tombstoned` (terminal
     self-transition) with `place_already_terminal`. Note that `*.tombstone`
-    events exist for Place only in the spec registry; Flow / Morph
+    events exist for Place only in the spec registry; Strand / Morph
     don't have dedicated tombstone events.
-  - `update_flow`, `update_morph`, and `update_place` now reject when the
+  - `update_strand`, `update_morph`, and `update_place` now reject when the
     target's current state is non-Active (per `common-fields.md §5.1`
-    final paragraph). Reasons mirror archive: `flow_not_active`,
+    final paragraph). Reasons mirror archive: `strand_not_active`,
     `morph_not_active`, `place_not_active`. This is a behavioural
     tightening — prior code allowed updating archived objects, silently
     bypassing the canonical `*.restore` re-entry path.
@@ -925,10 +925,10 @@ with `*.restore` semantics).
     `place_archive_rejected_when_already_archived`,
     `place_archive_rejected_when_tombstoned`,
     `place_tombstone_rejected_when_already_terminal`,
-    `flow_archive_rejected_when_already_archived`,
+    `strand_archive_rejected_when_already_archived`,
     `morph_archive_rejected_when_already_archived`,
     `place_update_rejected_when_archived`,
-    `flow_update_rejected_when_archived`,
+    `strand_update_rejected_when_archived`,
     `morph_update_rejected_when_archived`. Each asserts the canonical
     reason_code is present in the error AND that the failed reducer
     write left no side effects.
@@ -943,39 +943,39 @@ with `*.restore` semantics).
     only state checks on materialised objects run.
 
 - **Out of scope (follow-up)**:
-  - `ck.redaction` source-state guard for Flow / Morph / Message — spec
+  - `ck.redaction` source-state guard for Strand / Morph / Message — spec
     §5.1 also covers `ck.<kind>.redact` / `ck.redaction` with the same
     `<kind>_already_terminal` semantics, but the redaction reducer path
     lives in a different code surface than the lifecycle dispatcher.
 
-### Tightened — Flow / Morph restore state-machine guards (2026-05-15)
+### Tightened — Strand / Morph restore state-machine guards (2026-05-15)
 
 Completes the spec `common-fields.md §5` symmetry across all three lifecycle
-families (Flow / Morph / Place). Prior to this round, only `ck.place.restore`
-validated source state (added in the cx.place.restore round); `ck.flow.restore`
+families (Strand / Morph / Place). Prior to this round, only `ck.place.restore`
+validated source state (added in the cx.place.restore round); `ck.strand.restore`
 and `ck.morph.restore` unconditionally flipped state to Active regardless of
 source. Spec is explicit: `*.restore` is the canonical `archived → active`
 path, and `tombstoned` / `deleted` / `redacted` MUST NOT be restored. This
-round pins that invariant in the reducer for Flow and Morph as well.
+round pins that invariant in the reducer for Strand and Morph as well.
 
 - **`cokret` (sdk)**:
-  - `restore_flow` in `crates/sdk/src/resolver/state.rs` now validates
+  - `restore_strand` in `crates/sdk/src/resolver/state.rs` now validates
     `state == Some(ObjectState::Archived)` before delegating to
-    `set_flow_state(Active)`. Source state Active / Deleted / Redacted /
-    unset MUST `failed_precondition` with `flow_not_archived` and the
-    reducer makes no mutations. Unknown Flow (causal / backfill not yet
+    `set_strand_state(Active)`. Source state Active / Deleted / Redacted /
+    unset MUST `failed_precondition` with `strand_not_archived` and the
+    reducer makes no mutations. Unknown Strand (causal / backfill not yet
     caught up) is tolerated — same policy as `restore_place`.
   - `OP_MORPH_RESTORE` dispatcher branch in the same file no longer
     routes directly to `set_morph_state(Active)`; it now calls a new
-    `restore_morph` helper. Same contract as `restore_flow`: validate
+    `restore_morph` helper. Same contract as `restore_strand`: validate
     `state == Some(ObjectState::Archived)`, reject otherwise with
     `morph_not_archived`. Morph has no `state_changed_at` field so the
     success path is symmetric only on what Morph actually carries.
   - Four resolver tests added in `crates/sdk/src/resolver/tests.rs`:
-    `flow_archive_then_restore_round_trip` (state transitions back to
+    `strand_archive_then_restore_round_trip` (state transitions back to
     Active, `state_changed_at` matches the restore Event's `created_at`),
-    `flow_restore_rejected_when_active` (verifies error contains
-    `flow_not_archived` AND that the failed reducer write doesn't
+    `strand_restore_rejected_when_active` (verifies error contains
+    `strand_not_archived` AND that the failed reducer write doesn't
     promote `state_changed_at`), `morph_archive_then_restore_round_trip`,
     and `morph_restore_rejected_when_active`. The "reject when
     tombstoned" path is logically equivalent to the "reject when active"
@@ -989,11 +989,11 @@ round pins that invariant in the reducer for Flow and Morph as well.
 
 - **Wire compat**: backward-compatible. New rejection paths only fire on
   inputs that were silently being miscategorized before (e.g. an
-  attacker's attempt to restore a tombstoned Flow); well-behaved clients
+  attacker's attempt to restore a tombstoned Strand); well-behaved clients
   emit restore only after archive, which still works.
 
 - **Out of scope (follow-up)**:
-  - `ck.flow.archive` / `ck.morph.archive` / `ck.place.archive` /
+  - `ck.strand.archive` / `ck.morph.archive` / `ck.place.archive` /
     `ck.*.tombstone` themselves still don't validate source state. Spec
     doesn't have explicit MUST for those transitions — likely needs spec
     work first to nail down (e.g. is archive-of-tombstoned a
@@ -1059,7 +1059,7 @@ implements the canonical `archived -> active` transition end-to-end.
 - **Out of scope (follow-up)**:
   - `ck.place.archive` / `ck.place.tombstone` themselves still don't
     validate the source state (a pre-existing gap not introduced here);
-    same is true for `ck.flow.restore` / `ck.morph.restore`. Addressing
+    same is true for `ck.strand.restore` / `ck.morph.restore`. Addressing
     that surface is a separate PR.
 
 ### Added — round 8 (2026-05-15): MAL-11 + snapshot v2 + per-admin signing
@@ -1231,32 +1231,32 @@ legacy-form fallback in `Deserialize`.
 
 ### Breaking
 
-- **`Flow.tracks` is now an object/map**, not an array.
-  - `Flow.tracks: Vec<FlowTrack>` → `Flow.tracks: BTreeMap<String,
-    FlowTrackConfig>`. The track name is the map key and is no longer
+- **`Strand.tracks` is now an object/map**, not an array.
+  - `Strand.tracks: Vec<StrandTrack>` → `Strand.tracks: BTreeMap<String,
+    StrandTrackConfig>`. The track name is the map key and is no longer
     carried as a struct field.
-  - Renamed `FlowTrack` → `FlowTrackConfig` and dropped the `name`
+  - Renamed `StrandTrack` → `StrandTrackConfig` and dropped the `name`
     field. Custom `Deserialize` impl (which accepted bare-string and
     full-object forms) is removed; the struct now derives
     `Deserialize` directly.
-  - Helper constructors return a `FlowTrackConfig` to be inserted
-    under the canonical map key (`FLOW_TRACK_NAME_SYNTHESIS` /
-    `FLOW_TRACK_NAME_DISCUSSION`):
-    `FlowTrackConfig::synthesis()`, `FlowTrackConfig::discussion()`,
-    `FlowTrackConfig::discussion_primary()`, plus the chainable
+  - Helper constructors return a `StrandTrackConfig` to be inserted
+    under the canonical map key (`STRAND_TRACK_NAME_SYNTHESIS` /
+    `STRAND_TRACK_NAME_DISCUSSION`):
+    `StrandTrackConfig::synthesis()`, `StrandTrackConfig::discussion()`,
+    `StrandTrackConfig::discussion_primary()`, plus the chainable
     `with_profile(..)` / `primary()` builders.
-  - `FlowTrack::validate_name` (instance method) is replaced by the
-    free function `validate_flow_track_name(name: &str)` that validates
+  - `StrandTrack::validate_name` (instance method) is replaced by the
+    free function `validate_strand_track_name(name: &str)` that validates
     a candidate map key against `^[a-z][a-z0-9_]{0,63}$`.
   - `resolve_primary_track` signature is now
-    `fn(&BTreeMap<String, FlowTrackConfig>, Option<&str>) ->
-     Result<Option<(&String, &FlowTrackConfig)>>`. Same fail-closed
+    `fn(&BTreeMap<String, StrandTrackConfig>, Option<&str>) ->
+     Result<Option<(&String, &StrandTrackConfig)>>`. Same fail-closed
     rule when more than one track sets `is_primary=true`; fallback
     rules (synthesis-by-default, single-track, profile_default) match
     against the map key.
-  - `Flow::discussion(..)` constructs the chat-style room form by
-    inserting `FlowTrackConfig::synthesis()` and
-    `FlowTrackConfig::discussion_primary()` under the canonical names.
+  - `Strand::discussion(..)` constructs the chat-style room form by
+    inserting `StrandTrackConfig::synthesis()` and
+    `StrandTrackConfig::discussion_primary()` under the canonical names.
 - **`/device_messages` is now `POST` + `Idempotency-Key` header**.
   - Endpoint registry: `ck.self.device_messages.command.send` is `POST
     /api/v1/device_messages` (was `PUT
@@ -1459,7 +1459,7 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
 - **Old `Proof` extensions**: `Proof::host_did`, `Proof::endorsed_at`,
   `proof_kind::HOST_ENDORSEMENT`. Move signatures use detached JWS
   exclusively now (signatures are notary-side concerns for
-  multi/threshold flows, not Move-issuer concerns).
+  multi/threshold strands, not Move-issuer concerns).
 - **`SpaceWriterModel`** enum + `Space.space_writer_model` /
   `Space.space_host` fields + `derived_writer_model()` /
   `validate_writer_model()` helpers. Seal authority is determined
@@ -1558,8 +1558,8 @@ Initial release candidate for Cokret v1 SDK.
 - Workspace of 22 focused crates plus an umbrella `cokret` crate
   re-exporting the public SDK surface (high-level state managers, sync
   client, MLS encryption, identity, federation, push, presence, …).
-- Wire models for Space / Flow / Message / Morph / Relation / Event / View
-  matching the Cokret v1 `data-structures.md` shape, including `FlowBranch`
+- Wire models for Space / Strand / Message / Morph / Relation / Event / View
+  matching the Cokret v1 `data-structures.md` shape, including `StrandBranch`
   end-to-end migration and `Morph` as a canonical object.
 - Canonical JSON encoder + SHA-256 digest helpers; signed payloads use this
   module so different clients compute identical hashes.

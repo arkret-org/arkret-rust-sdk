@@ -135,7 +135,7 @@ pub enum MentionTarget {
     Audience,
     Actor,
     Space,
-    Flow,
+    Strand,
     Message,
     Morph,
 }
@@ -440,8 +440,8 @@ fn classify_mention_token(token: &str) -> (Option<MentionTarget>, Option<String>
         (Some(MentionTarget::Actor), Some(token.to_owned()))
     } else if token.starts_with("ck:space:") {
         (Some(MentionTarget::Space), Some(token.to_owned()))
-    } else if token.starts_with("ck:flow:") {
-        (Some(MentionTarget::Flow), Some(token.to_owned()))
+    } else if token.starts_with("ck:strand:") {
+        (Some(MentionTarget::Strand), Some(token.to_owned()))
     } else if token.starts_with("ck:message:") {
         (Some(MentionTarget::Message), Some(token.to_owned()))
     } else if token.starts_with("ck:morph:") {

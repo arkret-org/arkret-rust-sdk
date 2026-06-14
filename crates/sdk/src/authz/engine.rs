@@ -59,10 +59,10 @@ pub struct AuthzContext {
     /// Creation time of the target object (for `EditWindow`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_created_at: Option<DateTime<Utc>>,
-    /// Active Flow track (`discussion` / `synthesis` / profile-defined)
-    /// when the operation targets a Flow.
+    /// Active Strand track (`discussion` / `synthesis` / profile-defined)
+    /// when the operation targets a Strand.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub flow_track: Option<String>,
+    pub strand_track: Option<String>,
     /// View kind when targeting a View resource.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub view_kind: Option<String>,
@@ -116,7 +116,7 @@ impl AuthzContext {
             scope_blob_total_bytes: None,
             scope_resource_count: None,
             target_created_at: None,
-            flow_track: None,
+            strand_track: None,
             view_kind: None,
             view_renderer: None,
             relation_kind: None,
@@ -342,7 +342,7 @@ impl AuthzEngine {
     }
 
     /// Check authorization, filtering out grants that require approval but have
-    /// not been approved through the given `ApprovalFlowManager`.
+    /// not been approved through the given `ApprovalStrandManager`.
     ///
     /// Grants with `ApprovalWorkflow { approval_required: true }` are only
     /// included if a matching approved proposal exists. Once approved, the
@@ -352,7 +352,7 @@ impl AuthzEngine {
         &mut self,
         ctx: &AuthzContext,
         grants: &[cokret_core::CapabilityGrant],
-        approvals: &ApprovalFlowManager,
+        approvals: &ApprovalStrandManager,
     ) -> EngineDecision {
         let eligible_grants: Vec<cokret_core::CapabilityGrant> = grants
             .iter()
@@ -614,7 +614,7 @@ impl AuthzEngine {
                     let scope_matches = matches!(
                         (scope_limitation, &ctx.resource),
                         (ScopeLimitation::Space, Resource::Space { .. })
-                            | (ScopeLimitation::Flow, Resource::Flow { .. })
+                            | (ScopeLimitation::Strand, Resource::Strand { .. })
                             | (ScopeLimitation::Morph, Resource::Morph { .. })
                             | (ScopeLimitation::Message, Resource::Message { .. })
                             | (ScopeLimitation::Relation, Resource::Relation { .. })
@@ -632,7 +632,7 @@ impl AuthzEngine {
                     }
                 }
                 let (object_type, morph_type) = match &ctx.resource {
-                    Resource::Flow { .. } => (Some("flow"), None),
+                    Resource::Strand { .. } => (Some("strand"), None),
                     Resource::Message { .. } => (Some("message"), None),
                     Resource::Morph { morph_type, .. } => {
                         (Some("morph"), Some(morph_type.as_str()))
@@ -1068,8 +1068,8 @@ impl AuthzEngine {
                 EngineDecision::Allow
             }
             Constraint::ScopeLimitation {
-                allowed_flow_ids,
-                denied_flow_ids,
+                allowed_strand_ids,
+                denied_strand_ids,
                 allowed_tracks,
                 denied_tracks,
                 allowed_view_kinds,
@@ -1077,21 +1077,21 @@ impl AuthzEngine {
                 denied_view_kinds,
                 denied_view_renderers,
             } => {
-                if let Resource::Flow { flow_id, .. } = &ctx.resource {
-                    if denied_flow_ids.iter().any(|v| v == flow_id) {
+                if let Resource::Strand { strand_id, .. } = &ctx.resource {
+                    if denied_strand_ids.iter().any(|v| v == strand_id) {
                         return EngineDecision::Deny {
-                            reason: format!("flow '{}' is denied", flow_id),
+                            reason: format!("strand '{}' is denied", strand_id),
                         };
                     }
-                    if !allowed_flow_ids.is_empty()
-                        && !allowed_flow_ids.iter().any(|v| v == flow_id)
+                    if !allowed_strand_ids.is_empty()
+                        && !allowed_strand_ids.iter().any(|v| v == strand_id)
                     {
                         return EngineDecision::Deny {
-                            reason: format!("flow '{}' not in allow list", flow_id),
+                            reason: format!("strand '{}' not in allow list", strand_id),
                         };
                     }
                 }
-                if let Some(track) = ctx.flow_track.as_deref() {
+                if let Some(track) = ctx.strand_track.as_deref() {
                     if denied_tracks.iter().any(|b| b == track) {
                         return EngineDecision::Deny {
                             reason: format!("track '{}' is denied", track),
@@ -1295,7 +1295,7 @@ pub fn apply_policy_response(
     }
 }
 
-/// Check if a grant requires approval through the proposal flow.
+/// Check if a grant requires approval through the proposal strand.
 ///
 /// Operates on the spec wire form: an approval requirement is a constraint
 /// with `constraint_type = "claim_based"`, `subtype = "approval"` and
@@ -1438,7 +1438,7 @@ mod engine_wire_tests {
         })]);
         assert!(grant_requires_approval(&grant));
 
-        let mut approvals = ApprovalFlowManager::new();
+        let mut approvals = ApprovalStrandManager::new();
         let decision =
             engine.check_authorization_with_approvals(&ctx(), &[grant.clone()], &approvals);
         assert!(matches!(decision, EngineDecision::Deny { .. }));

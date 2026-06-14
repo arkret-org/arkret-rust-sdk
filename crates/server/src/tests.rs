@@ -53,35 +53,35 @@ fn protocol_golden_vectors_pass_real_validators() {
 }
 
 #[test]
-fn protocol_server_fixture_covers_core_flow_groups() {
+fn protocol_server_fixture_covers_core_strand_groups() {
     let report = ProtocolServerFixture::default().run().unwrap();
 
-    for flow in [
-        ProtocolFixtureFlow::Server,
-        ProtocolFixtureFlow::Identity,
-        ProtocolFixtureFlow::Sync,
-        ProtocolFixtureFlow::Blob,
-        ProtocolFixtureFlow::Authz,
-        ProtocolFixtureFlow::Directory,
-        ProtocolFixtureFlow::Push,
-        ProtocolFixtureFlow::DeviceMessages,
-        ProtocolFixtureFlow::Keys,
-        ProtocolFixtureFlow::Policy,
-        ProtocolFixtureFlow::Media,
-        ProtocolFixtureFlow::Moderation,
-        ProtocolFixtureFlow::Applet,
+    for strand in [
+        ProtocolFixtureStrand::Server,
+        ProtocolFixtureStrand::Identity,
+        ProtocolFixtureStrand::Sync,
+        ProtocolFixtureStrand::Blob,
+        ProtocolFixtureStrand::Authz,
+        ProtocolFixtureStrand::Directory,
+        ProtocolFixtureStrand::Push,
+        ProtocolFixtureStrand::DeviceMessages,
+        ProtocolFixtureStrand::Keys,
+        ProtocolFixtureStrand::Policy,
+        ProtocolFixtureStrand::Media,
+        ProtocolFixtureStrand::Moderation,
+        ProtocolFixtureStrand::Applet,
     ] {
-        assert!(report.covers(flow));
+        assert!(report.covers(strand));
     }
     assert!(
         report
             .steps
             .iter()
-            .any(|step| step.flow == ProtocolFixtureFlow::Blob
+            .any(|step| step.strand == ProtocolFixtureStrand::Blob
                 && step.operation_id == "ck.self.blob.resource.get")
     );
     assert!(report.steps.iter().any(|step| {
-        step.flow == ProtocolFixtureFlow::Sync
+        step.strand == ProtocolFixtureStrand::Sync
             && step.operation_id == "ck.self.events.command.submit"
     }));
 }

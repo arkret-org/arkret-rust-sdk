@@ -244,7 +244,7 @@ fn main() -> cokret::Result<()> {
     validate_chain(&chain).expect("chain must be well-formed");
     println!("chain validates cleanly");
 
-    // The real recovery flow: GET /_cokret/self/keys/backups?series_id=<sid>,
+    // The real recovery strand: GET /_cokret/self/keys/backups?series_id=<sid>,
     // sort by series_seq, walk genesis → head verifying supersedes_digest
     // against the prior envelope's ciphertext_digest at each step.
     let recovery_path = format!(

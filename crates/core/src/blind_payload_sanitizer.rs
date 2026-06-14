@@ -30,7 +30,7 @@
 //! Any presence of these top-level or nested keys triggers a
 //! [`BlindPayloadReasonCode::ForbiddenField`]:
 //!
-//! - Correlation identifiers: `event_id`, `message_id`, `flow_id`, `realm_id`, `space_id`,
+//! - Correlation identifiers: `event_id`, `message_id`, `strand_id`, `realm_id`, `space_id`,
 //!   `thread_id`, `correlation_id`, `request_id`, `txn_id`.
 //! - Sender identity: `sender`, `sender_did`, `sender_handle`, `sender_actor_display_name`,
 //!   `sender_display_name`, `sender_name`, `user_name`, `display_name`, `from`, `to`, `target_did`.
@@ -42,7 +42,7 @@
 //!   `target_ref`, `collection_title`, `message_payload`, `blind_tokens`, `shard_key`.
 //! - Attachment metadata: `filename`, `file_name`, `attachment_name`, `attachment_filename`,
 //!   `attachment_preview`, `mime_type`, `media_url`.
-//! - Space / flow / room names: `space_name`, `flow_name`, `room_name`, `room_display_name`.
+//! - Space / strand / room names: `space_name`, `strand_name`, `room_name`, `room_display_name`.
 //! - Provider escape hatches: `provider_payload`, `provider_data`, `notification_payload`,
 //!   `payload`, `aps`, `android`, `webpush`, `encrypted_content`, `ciphertext`.
 //! - Call setup: `sdp`, `offer`, `candidate`, `ice`, `ice_candidate`, `ice_candidates`, `turn`,
@@ -408,7 +408,7 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
         // Correlation identifiers.
         "event_id"
             | "message_id"
-            | "flow_id"
+            | "strand_id"
             // Realm and Space identifiers are forbidden in blind push payloads
             // since either leaks correlatable scope.
             | "realm_id"
@@ -498,9 +498,9 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
             | "attachment_preview"
             | "mime_type"
             | "media_url"
-            // Space / flow / room names.
+            // Space / strand / room names.
             | "space_name"
-            | "flow_name"
+            | "strand_name"
             | "room_name"
             | "room_display_name"
             // Provider escape hatches.
@@ -679,7 +679,7 @@ mod tests {
             "expanded_recipients",
         ] {
             let mut v = ok_notification();
-            v["notification"][field] = json!("flow_engaged");
+            v["notification"][field] = json!("strand_engaged");
             let err = sanitize_blind_payload(&v).unwrap_err();
             assert_eq!(err.reason_code, BlindPayloadReasonCode::ForbiddenField);
             assert_eq!(err.field_path, field);

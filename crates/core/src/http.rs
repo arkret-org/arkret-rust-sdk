@@ -1489,7 +1489,7 @@ pub struct MimiKeyMaterialParams {
 )]
 pub struct MimiRoomUpdateParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
-    pub flow_id: FlowId,
+    pub strand_id: StrandId,
 
     #[serde(
         default,
@@ -1514,7 +1514,7 @@ pub struct MimiRoomUpdateParams {
 )]
 pub struct MimiNotifyParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
-    pub flow_id: FlowId,
+    pub strand_id: StrandId,
 
     #[serde(
         default,
@@ -1539,7 +1539,7 @@ pub struct MimiNotifyParams {
 )]
 pub struct MimiSubmitMessageParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
-    pub flow_id: FlowId,
+    pub strand_id: StrandId,
 
     #[serde(
         default,
@@ -1564,7 +1564,7 @@ pub struct MimiSubmitMessageParams {
 )]
 pub struct MimiGroupInfoParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
-    pub flow_id: FlowId,
+    pub strand_id: StrandId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
     pub epoch: Option<u64>,
@@ -2240,8 +2240,8 @@ pub struct ProjectionSpaceList {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ProjectionFlowRow {
-    pub flow_id: FlowId,
+pub struct ProjectionStrandRow {
+    pub strand_id: StrandId,
     pub realm_id: RealmId,
     pub state: ProjectionObjectState,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2250,20 +2250,20 @@ pub struct ProjectionFlowRow {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
-    /// Derived board Space id from `ck.component.flow.position.v1`.
-    /// This is read-model state, not canonical Flow object state.
+    /// Derived board Space id from `ck.component.strand.position.v1`.
+    /// This is read-model state, not canonical Strand object state.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub board_space_id: Option<SpaceId>,
-    /// Derived list Space id from `ck.component.flow.position.v1`.
-    /// This is read-model state, not canonical Flow object state.
+    /// Derived list Space id from `ck.component.strand.position.v1`.
+    /// This is read-model state, not canonical Strand object state.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub list_space_id: Option<SpaceId>,
     /// Derived rank inside `list_space_id` from
-    /// `ck.component.flow.position.v1`.
+    /// `ck.component.strand.position.v1`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rank: Option<String>,
     /// Derived current assignee Actor DIDs from visible active
-    /// `assigned_to` Relations. Empty means the Flow is unassigned for
+    /// `assigned_to` Relations. Empty means the Strand is unassigned for
     /// this projection caller.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub assigned_actor_ids: Vec<Did>,
@@ -2277,9 +2277,9 @@ pub struct ProjectionFlowRow {
     pub created_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
-    /// COT-06-004 — derived flag: `true` when this Flow is the Realm's
-    /// default Flow (`flow_id == Realm.default_flow_id`). Computed at query
-    /// time from the Realm projection; never stored as a per-Flow column.
+    /// COT-06-004 — derived flag: `true` when this Strand is the Realm's
+    /// default Strand (`strand_id == Realm.default_strand_id`). Computed at query
+    /// time from the Realm projection; never stored as a per-Strand column.
     #[serde(default)]
     pub is_default: bool,
 }
@@ -2293,10 +2293,10 @@ pub struct ProjectionAssignedToRelation {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ProjectionFlowList {
+pub struct ProjectionStrandList {
     pub realm_id: RealmId,
     #[serde(default)]
-    pub flows: Vec<ProjectionFlowRow>,
+    pub strands: Vec<ProjectionStrandRow>,
     pub total: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -2443,7 +2443,7 @@ pub enum DirectConversationResolveState {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectConversationSummary {
     pub realm_id: RealmId,
-    pub main_flow_id: FlowId,
+    pub main_strand_id: StrandId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binding_event_ref: Option<EventId>,
     pub state: DirectConversationBindingState,
@@ -2611,7 +2611,7 @@ pub struct DirectConversationResolveOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub main_flow_id: Option<FlowId>,
+    pub main_strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binding_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2654,7 +2654,7 @@ pub struct KeyPackagesUploadRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub flow_id: Option<FlowId>,
+    pub strand_id: Option<StrandId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
 }
@@ -2685,7 +2685,7 @@ pub struct KeyPackagesClaimRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub flow_id: Option<FlowId>,
+    pub strand_id: Option<StrandId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -2717,7 +2717,7 @@ pub struct KeyPackagesConsumeRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub flow_id: Option<FlowId>,
+    pub strand_id: Option<StrandId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2768,7 +2768,7 @@ pub struct MimiProviderDirectory {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiKeyMaterialRequestBody {
     pub requester: Did,
-    pub flow_id: FlowId,
+    pub strand_id: StrandId,
     pub device_id: DeviceId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mimi_room_uri: Option<String>,
@@ -2878,7 +2878,7 @@ pub struct MimiRequestConsentRequestBody {
     pub target: Value,
     pub purpose: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub flow_id: Option<FlowId>,
+    pub strand_id: Option<StrandId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -2951,7 +2951,7 @@ pub struct MimiIdentifierQueryOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiReportAbuseRequestBody {
-    pub flow_id: FlowId,
+    pub strand_id: StrandId,
     pub target_ref: String,
     pub reporter: Did,
     pub abuse_reason_code: String,
@@ -2969,7 +2969,7 @@ pub struct MimiProxyDownloadRequestBody {
     pub asset_ref: String,
     pub requester: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub flow_id: Option<FlowId>,
+    pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub ohttp_context: Value,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 use crate::base::{BaseClient, RealmMembershipState};
 use crate::media::{Attachment, MediaMetadata};
 use crate::model::{
-    BlobRef, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, Flow,
+    BlobRef, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, Strand,
     MemberDeliveryBinding, MessageId, Morph, MorphId, NullsOrder, OP_INVITE_CREATE,
     OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE,
     OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_TOMBSTONE, ObjectState,
@@ -23,10 +23,10 @@ use crate::model::{
     SortDirection, SortSpec, Space,
 };
 use crate::resolver::RealmState;
-use crate::{FlowId, RealmId, Result, SpaceId};
+use crate::{StrandId, RealmId, Result, SpaceId};
 
 /// Generate a new UUIDv7-based wire ID with the given Cokret typed prefix.
-mod flow;
+mod strand;
 mod helpers;
 mod membership;
 mod morph;
@@ -36,7 +36,7 @@ mod space;
 #[cfg(test)]
 mod tests;
 
-pub use flow::{FlowCreateMetadata, FlowUpdateMetadata};
+pub use strand::{StrandCreateMetadata, StrandUpdateMetadata};
 use helpers::*;
 pub use relation::RelationOperationInput;
 pub use space::{SpaceCreateMetadata, SpaceUpdateMetadata};
@@ -268,23 +268,23 @@ impl Realm {
             .collect()
     }
 
-    /// Get all flows in this space.
-    pub fn flows(&self) -> BTreeMap<String, Flow> {
+    /// Get all strands in this space.
+    pub fn strands(&self) -> BTreeMap<String, Strand> {
         self.state.subjects.clone()
     }
 
-    /// Get a specific flow by ID.
-    pub fn get_flow(&self, flow_id: &FlowId) -> Option<Flow> {
-        self.state.subjects.get(flow_id.as_str()).cloned()
+    /// Get a specific strand by ID.
+    pub fn get_strand(&self, strand_id: &StrandId) -> Option<Strand> {
+        self.state.subjects.get(strand_id.as_str()).cloned()
     }
 
-    /// Find flows that have a track with the given profile.
-    pub fn find_flows_by_track_profile(&self, track_profile: &str) -> Vec<Flow> {
+    /// Find strands that have a track with the given profile.
+    pub fn find_strands_by_track_profile(&self, track_profile: &str) -> Vec<Strand> {
         self.state
             .subjects
             .values()
-            .filter(|flow| {
-                flow.tracks
+            .filter(|strand| {
+                strand.tracks
                     .values()
                     .any(|track| track.profile.as_deref() == Some(track_profile))
             })
@@ -292,14 +292,14 @@ impl Realm {
             .collect()
     }
 
-    /// Return active default view relations for a flow.
-    pub fn flow_default_views(&self, flow_id: &FlowId) -> Vec<Relation> {
+    /// Return active default view relations for a strand.
+    pub fn strand_default_views(&self, strand_id: &StrandId) -> Vec<Relation> {
         self.state
             .relations
             .values()
             .filter(|relation| {
                 relation.relation_kind == RelationKind::HasDefaultView
-                    && relation.from_ref == flow_id.as_str()
+                    && relation.from_ref == strand_id.as_str()
                     && relation_is_active(relation)
             })
             .cloned()
@@ -398,7 +398,7 @@ impl Realm {
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
             "message_id": generate_id("ck:message:"),
-            "flow_id": generate_id("ck:flow:"),
+            "strand_id": generate_id("ck:strand:"),
             "track_name": "discussion",
             "content": content,
         });

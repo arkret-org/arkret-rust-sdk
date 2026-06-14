@@ -16,7 +16,7 @@ fn umbrella_crate_builds_client_signs_event_and_verifies_binding() {
         Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         json!({
             "message_id": "ck:message:01904100-0000-7000-8000-000000000001",
-            "flow_id": "ck:flow:01904100-0000-7000-8000-000000000001",
+            "strand_id": "ck:strand:01904100-0000-7000-8000-000000000001",
             "track_name": "discussion",
             "content": {"kind": "ck.content.text", "body": "hello"}
         }),

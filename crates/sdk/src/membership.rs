@@ -569,10 +569,10 @@ impl MembershipManager {
     }
 }
 
-// Track-scoped membership (`ck.flow.track.member` and
-// `FlowTrackMembership` / `FlowTrackMembershipManager`) was REMOVED in
+// Track-scoped membership (`ck.strand.track.member` and
+// `StrandTrackMembership` / `StrandTrackMembershipManager`) was REMOVED in
 // cokret-spec revision `0a5ab85`. Track no longer carries independent
-// membership; access semantics inherit from the Flow's Realm. Use
+// membership; access semantics inherit from the Strand's Realm. Use
 // `ck.member.state` at the Realm or child Realm level instead.
 //
 // See `cokret-spec/spec/v1/artifacts/registry/removed-event-kinds.json`.

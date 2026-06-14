@@ -254,7 +254,7 @@ fn operation_kind_registry_accepts_only_canonical_kinds() {
 }
 
 #[test]
-fn operation_kind_registry_rejects_removed_flow_alias_kinds() {
+fn operation_kind_registry_rejects_removed_strand_alias_kinds() {
     let registry = OperationKindRegistry::default();
     for kind in [
         "cx.subject.create",
@@ -288,7 +288,7 @@ fn operation_kind_registry_drives_envelope_semantics() {
             actor_seq: 1,
         },
         content: json!({
-            "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+            "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
             "content": {"kind": "ck.content.text", "body": "hello"}
         }),
@@ -299,9 +299,9 @@ fn operation_kind_registry_drives_envelope_semantics() {
     let validation = registry.validate_envelope(&envelope).unwrap();
     assert_eq!(validation.canonical_kind, OP_MESSAGE_CREATE);
 
-    let mut missing_flow = envelope;
-    missing_flow.content = json!({"track_name": "discussion"});
-    assert!(registry.validate_envelope(&missing_flow).is_err());
+    let mut missing_strand = envelope;
+    missing_strand.content = json!({"track_name": "discussion"});
+    assert!(registry.validate_envelope(&missing_strand).is_err());
 }
 
 #[test]
@@ -344,8 +344,8 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
     assert!(builder.clone().build(&registry).is_err());
     let envelope = builder
         .with_content_field(
-            "flow_id",
-            json!("ck:flow:01904100-0000-7000-8000-6c663fa0205f"),
+            "strand_id",
+            json!("ck:strand:01904100-0000-7000-8000-6c663fa0205f"),
         )
         .with_content_field("track_name", json!("discussion"))
         .build(&registry)
@@ -381,7 +381,7 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
     let registry = ProtocolSchemaRegistry::default();
     for schema_id in [
         CURSOR_SCHEMA,
-        FLOW_SCHEMA,
+        STRAND_SCHEMA,
         SPACE_SCHEMA,
         VIEW_SCHEMA,
         EVENT_SCHEMA,
@@ -405,10 +405,10 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
     );
     registry
         .validate_value(
-            FLOW_SCHEMA,
+            STRAND_SCHEMA,
             &json!({
-                "schema": FLOW_SCHEMA,
-                "id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+                "schema": STRAND_SCHEMA,
+                "id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
                 "realm_id": "ck:realm:01904100-0000-7000-8000-fd3637e8361f",
                 "metadata": {"title": "Topic"},
                 "stage": "draft",
@@ -1244,7 +1244,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     )
     .with_content(json!({
-        "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+        "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
         "track_name": "discussion",
         "content": {"kind": "ck.content.text", "body": "hello"}
     }))
@@ -1259,7 +1259,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
     assert_eq!(
         event.content,
         json!({
-            "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+            "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
             "content": {"kind": "ck.content.text", "body": "hello"}
         })
@@ -1296,15 +1296,15 @@ fn rank_helpers_generate_between_and_rebalance_assignments() {
 }
 
 #[test]
-fn flow_constructor_sets_protocol_shape() {
-    let mut subject = Flow::new(
-        FlowId::new("ck:flow:01904100-0000-7000-8000-6c663fa0205f").unwrap(),
+fn strand_constructor_sets_protocol_shape() {
+    let mut subject = Strand::new(
+        StrandId::new("ck:strand:01904100-0000-7000-8000-6c663fa0205f").unwrap(),
         RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         "Payment refactor",
         Did::new("did:web:alice.example").unwrap(),
     );
 
-    assert_eq!(subject.schema, FLOW_SCHEMA);
+    assert_eq!(subject.schema, STRAND_SCHEMA);
     assert!(
         serde_json::to_value(&subject)
             .unwrap()
@@ -1319,25 +1319,25 @@ fn flow_constructor_sets_protocol_shape() {
     assert!(subject.validate_title().is_err());
 }
 
-/// T21 — typed Flow::discussion shorthand for chat-style flows.
+/// T21 — typed Strand::discussion shorthand for chat-style strands.
 #[test]
-fn flow_discussion_constructor_sets_room_shape() {
-    let flow = Flow::discussion(
-        FlowId::new("ck:flow:01904100-0000-7000-8000-58754cf88c25").unwrap(),
+fn strand_discussion_constructor_sets_room_shape() {
+    let strand = Strand::discussion(
+        StrandId::new("ck:strand:01904100-0000-7000-8000-58754cf88c25").unwrap(),
         RealmId::new("ck:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
         "Launch board discussion",
         Did::new("did:web:alice.example").unwrap(),
     );
-    assert!(flow.is_conversational());
-    assert_eq!(flow.tracks.len(), 2, "synthesis + discussion expected");
+    assert!(strand.is_conversational());
+    assert_eq!(strand.tracks.len(), 2, "synthesis + discussion expected");
 
-    let synthesis = flow
+    let synthesis = strand
         .tracks
         .get("synthesis")
         .expect("synthesis track present");
     assert!(synthesis.is_primary != Some(true));
 
-    let discussion = flow
+    let discussion = strand
         .tracks
         .get("discussion")
         .expect("discussion track present");
@@ -1346,9 +1346,9 @@ fn flow_discussion_constructor_sets_room_shape() {
 }
 
 #[test]
-fn read_scope_flow_track_uses_explicit_track_field() {
-    let scope = ReadScope::flow(
-        "ck:flow:01904100-0000-7000-8000-58754cf88c25",
+fn read_scope_strand_track_uses_explicit_track_field() {
+    let scope = ReadScope::strand(
+        "ck:strand:01904100-0000-7000-8000-58754cf88c25",
         Some("discussion"),
     );
     scope.validate().unwrap();
@@ -1357,8 +1357,8 @@ fn read_scope_flow_track_uses_explicit_track_field() {
     assert_eq!(
         value,
         serde_json::json!({
-            "kind": "flow",
-            "ref": "ck:flow:01904100-0000-7000-8000-58754cf88c25",
+            "kind": "strand",
+            "ref": "ck:strand:01904100-0000-7000-8000-58754cf88c25",
             "track_name": "discussion"
         })
     );
@@ -1366,43 +1366,43 @@ fn read_scope_flow_track_uses_explicit_track_field() {
 
 #[test]
 fn read_scope_rejects_removed_track_kind_variants() {
-    let old = serde_json::json!("flow_discussion");
+    let old = serde_json::json!("strand_discussion");
     assert!(serde_json::from_value::<ReadScope>(old).is_err());
 }
 
-/// T21 — synthesis-only Flows are not conversational.
+/// T21 — synthesis-only Strands are not conversational.
 #[test]
-fn synthesis_flow_is_not_conversational() {
-    let flow = Flow::new(
-        FlowId::new("ck:flow:01904100-0000-7000-8000-58754cf88c25").unwrap(),
+fn synthesis_strand_is_not_conversational() {
+    let strand = Strand::new(
+        StrandId::new("ck:strand:01904100-0000-7000-8000-58754cf88c25").unwrap(),
         RealmId::new("ck:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
         "Launch board synthesis",
         Did::new("did:web:alice.example").unwrap(),
     );
-    assert!(!flow.is_conversational());
+    assert!(!strand.is_conversational());
 }
 
-/// T21 — FlowTrackConfig typed constructors honour the standard
+/// T21 — StrandTrackConfig typed constructors honour the standard
 /// profile from spec §6.1; track names live in the parent map keys.
 #[test]
-fn flow_track_typed_constructors() {
-    let synth = FlowTrackConfig::synthesis();
+fn strand_track_typed_constructors() {
+    let synth = StrandTrackConfig::synthesis();
     assert!(synth.profile.is_none());
     assert!(synth.is_primary.is_none());
-    validate_flow_track_name(FLOW_TRACK_NAME_SYNTHESIS).unwrap();
+    validate_strand_track_name(STRAND_TRACK_NAME_SYNTHESIS).unwrap();
 
-    let disc = FlowTrackConfig::discussion();
+    let disc = StrandTrackConfig::discussion();
     assert_eq!(disc.profile.as_deref(), Some("discussion"));
     assert!(disc.is_primary.is_none());
-    validate_flow_track_name(FLOW_TRACK_NAME_DISCUSSION).unwrap();
+    validate_strand_track_name(STRAND_TRACK_NAME_DISCUSSION).unwrap();
 
-    let primary = FlowTrackConfig::discussion_primary();
+    let primary = StrandTrackConfig::discussion_primary();
     assert_eq!(primary.is_primary, Some(true));
 
-    let custom = FlowTrackConfig::new().with_profile("review").primary();
+    let custom = StrandTrackConfig::new().with_profile("review").primary();
     assert_eq!(custom.profile.as_deref(), Some("review"));
     assert_eq!(custom.is_primary, Some(true));
-    validate_flow_track_name("review").unwrap();
+    validate_strand_track_name("review").unwrap();
 }
 
 /// Realm seal fields default to None (notary cell is the source
@@ -1436,7 +1436,7 @@ fn realm_anchor_fields_default_none_and_builders_apply() {
         })
         .with_revocation_freshness_window(60_000)
         .with_cell_lattice(
-            "ck.component.flow.track.v1",
+            "ck.component.strand.track.v1",
             "or_set",
             Some("reject".to_owned()),
         )
@@ -1451,7 +1451,7 @@ fn realm_anchor_fields_default_none_and_builders_apply() {
     assert_eq!(realm.cell_lattices.len(), 1);
     assert_eq!(
         realm.cell_lattices[0].cell_family,
-        "ck.component.flow.track.v1"
+        "ck.component.strand.track.v1"
     );
     assert_eq!(realm.cell_lattices[0].lattice, "or_set");
     assert_eq!(realm.cell_lattices[0].bottom.as_deref(), Some("reject"));
@@ -1464,7 +1464,7 @@ fn realm_anchor_fields_default_none_and_builders_apply() {
     assert_eq!(json["co_write_policy"], "causal_only");
     assert_eq!(
         json["cell_lattices"][0]["cell_family"],
-        "ck.component.flow.track.v1"
+        "ck.component.strand.track.v1"
     );
 
     let restored: Realm = serde_json::from_value(json).unwrap();
@@ -1513,8 +1513,8 @@ fn collection_projection_response_serde_round_trip() {
                 "items": [
                     {
                         "object": {
-                            "id": "ck:flow:01d2b330-0000-7000-8000-000000000000",
-                            "type": "flow",
+                            "id": "ck:strand:01d2b330-0000-7000-8000-000000000000",
+                            "type": "strand",
                             "title": "Legal review"
                         },
                         "position": {
@@ -1552,7 +1552,7 @@ fn collection_projection_response_serde_round_trip() {
     let item = &group.items[0];
     assert_eq!(
         item.object.get("id").and_then(|v| v.as_str()),
-        Some("ck:flow:01d2b330-0000-7000-8000-000000000000")
+        Some("ck:strand:01d2b330-0000-7000-8000-000000000000")
     );
     let position = item.position.as_ref().expect("position");
     assert_eq!(
@@ -1767,20 +1767,20 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     let updated_by = Did::new("did:web:bob.example").unwrap();
     let now = Utc::now();
 
-    // Flow — id, schema, …, state, state_changed_at, stage, stage_changed_at, audit.
-    let mut flow = Flow::new(
-        FlowId::new("ck:flow:01904100-0000-7000-8000-0000000000f0").unwrap(),
+    // Strand — id, schema, …, state, state_changed_at, stage, stage_changed_at, audit.
+    let mut strand = Strand::new(
+        StrandId::new("ck:strand:01904100-0000-7000-8000-0000000000f0").unwrap(),
         RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000f1").unwrap(),
-        "Order guard flow",
+        "Order guard strand",
         created_by.clone(),
     );
-    flow.state_changed_at = Some(now);
-    flow.stage_changed_at = Some(now);
-    flow.updated_by = Some(updated_by.clone());
-    flow.updated_at = Some(now);
+    strand.state_changed_at = Some(now);
+    strand.stage_changed_at = Some(now);
+    strand.updated_by = Some(updated_by.clone());
+    strand.updated_at = Some(now);
     assert_field_order(
-        "Flow",
-        &top_level_keys(&serde_json::to_string(&flow).unwrap()),
+        "Strand",
+        &top_level_keys(&serde_json::to_string(&strand).unwrap()),
     );
 
     // Morph — scope/container cluster `scope_circle_id` precedes lifecycle `state`.

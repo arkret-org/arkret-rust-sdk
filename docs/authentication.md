@@ -1,4 +1,4 @@
-# Authentication Flows
+# Authentication Strands
 
 `auth::AuthManager` models local authentication and session state:
 

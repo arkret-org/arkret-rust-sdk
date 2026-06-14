@@ -32,7 +32,7 @@ const PROPTEST_CASES: u32 = 64;
 const FORBIDDEN_NAMES: &[&str] = &[
     "event_id",
     "message_id",
-    "flow_id",
+    "strand_id",
     "realm_id",
     "space_id",
     "thread_id",
@@ -83,7 +83,7 @@ const FORBIDDEN_NAMES: &[&str] = &[
     "mime_type",
     "media_url",
     "space_name",
-    "flow_name",
+    "strand_name",
     "room_name",
     "room_display_name",
     "provider_payload",

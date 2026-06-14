@@ -154,7 +154,7 @@ pub const MAX_ALGORITHMS_PER_BUNDLE: usize = 32;
 pub const MAX_ONE_TIME_KEY_CLAIM_COUNT: u32 = 1000;
 
 /// Maximum number of verification-method names attached to a single
-/// `DeviceVerificationFlow`.
+/// `DeviceVerificationStrand`.
 pub const MAX_VERIFICATION_METHODS: usize = 32;
 
 /// Maximum number of device-quorum signatures attached to a single
@@ -678,11 +678,11 @@ fn canonical_device_trust_binding_input(
     Ok(out)
 }
 
-/// Interactive verification-flow state machine
+/// Interactive verification-strand state machine
 /// (`ck.device.verification.v1`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum VerificationFlowState {
+pub enum VerificationStrandState {
     /// Initial state — request sent, awaiting peer ready.
     Requested,
     /// Peer accepted; negotiation can start.
@@ -699,23 +699,23 @@ pub enum VerificationFlowState {
     TimedOut,
 }
 
-/// Active interactive-verification flow between two of the principal's
+/// Active interactive-verification strand between two of the principal's
 /// own devices (or a peer and a verifier).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DeviceVerificationFlow {
+pub struct DeviceVerificationStrand {
     pub transaction_id: String,
     pub user_id: Did,
     pub from_device: DeviceId,
     pub to_device: DeviceId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub methods: Vec<String>,
-    pub state: VerificationFlowState,
+    pub state: VerificationStrandState,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-impl DeviceVerificationFlow {
+impl DeviceVerificationStrand {
     pub fn validate(&self) -> Result<()> {
         validate_nonempty_key("verification transaction id", &self.transaction_id)?;
         validate_max_length(
@@ -742,26 +742,26 @@ impl DeviceVerificationFlow {
         Ok(())
     }
 
-    pub fn advance(&mut self, next: VerificationFlowState) -> Result<()> {
+    pub fn advance(&mut self, next: VerificationStrandState) -> Result<()> {
         let allowed = matches!(
             (self.state, next),
             (
-                VerificationFlowState::Requested,
-                VerificationFlowState::Ready
+                VerificationStrandState::Requested,
+                VerificationStrandState::Ready
             ) | (
-                VerificationFlowState::Ready,
-                VerificationFlowState::SasStarted
+                VerificationStrandState::Ready,
+                VerificationStrandState::SasStarted
             ) | (
-                VerificationFlowState::Ready,
-                VerificationFlowState::QrScanned
+                VerificationStrandState::Ready,
+                VerificationStrandState::QrScanned
             ) | (
-                VerificationFlowState::SasStarted,
-                VerificationFlowState::Done
+                VerificationStrandState::SasStarted,
+                VerificationStrandState::Done
             ) | (
-                VerificationFlowState::QrScanned,
-                VerificationFlowState::Done
-            ) | (_, VerificationFlowState::Cancelled)
-                | (_, VerificationFlowState::TimedOut)
+                VerificationStrandState::QrScanned,
+                VerificationStrandState::Done
+            ) | (_, VerificationStrandState::Cancelled)
+                | (_, VerificationStrandState::TimedOut)
         );
         if allowed {
             self.state = next;
@@ -1278,14 +1278,14 @@ impl CryptoMachinePlan {
 }
 
 /// Aggregate local cache of every per-device crypto fact this client
-/// has observed (device keys, trust verdicts, verification flows,
+/// has observed (device keys, trust verdicts, verification strands,
 /// sessions, secret backup, withheld notices, UTD records, lifecycle
 /// journal).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CryptoStoreBinding {
     pub device_keys: BTreeMap<DeviceId, DeviceKeyBundle>,
     pub device_trust: BTreeMap<DeviceId, DeviceTrustState>,
-    pub verification_flows: BTreeMap<String, DeviceVerificationFlow>,
+    pub verification_strands: BTreeMap<String, DeviceVerificationStrand>,
     pub sessions: BTreeMap<String, CryptoSessionRecord>,
     pub backup: Option<SecretBackupDescriptor>,
     pub withheld_keys: BTreeMap<String, WithheldKeyRecord>,
@@ -1304,10 +1304,10 @@ impl CryptoStoreBinding {
         self.device_trust.insert(device_id, trust);
     }
 
-    pub fn record_verification_flow(&mut self, flow: DeviceVerificationFlow) -> Result<()> {
-        flow.validate()?;
-        self.verification_flows
-            .insert(flow.transaction_id.clone(), flow);
+    pub fn record_verification_strand(&mut self, strand: DeviceVerificationStrand) -> Result<()> {
+        strand.validate()?;
+        self.verification_strands
+            .insert(strand.transaction_id.clone(), strand);
         Ok(())
     }
 
@@ -1452,20 +1452,20 @@ mod tests {
     #[test]
     fn verification_session_and_withheld_key_state_are_tracked() {
         let mut binding = CryptoStoreBinding::default();
-        let mut flow = DeviceVerificationFlow {
+        let mut strand = DeviceVerificationStrand {
             transaction_id: "verif1".to_owned(),
             user_id: did("alice"),
             from_device: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
             to_device: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000004").unwrap(),
             methods: vec!["sas".to_owned(), "qr".to_owned()],
-            state: VerificationFlowState::Requested,
+            state: VerificationStrandState::Requested,
             created_at: Utc::now(),
             expires_at: None,
         };
-        flow.advance(VerificationFlowState::Ready).unwrap();
-        flow.advance(VerificationFlowState::SasStarted).unwrap();
-        flow.advance(VerificationFlowState::Done).unwrap();
-        binding.record_verification_flow(flow).unwrap();
+        strand.advance(VerificationStrandState::Ready).unwrap();
+        strand.advance(VerificationStrandState::SasStarted).unwrap();
+        strand.advance(VerificationStrandState::Done).unwrap();
+        binding.record_verification_strand(strand).unwrap();
         binding.set_device_trust(
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000004").unwrap(),
             DeviceTrustState::Verified,
@@ -1535,33 +1535,33 @@ mod tests {
     }
 
     #[test]
-    fn validate_rejects_invalid_device_verification_flow() {
-        let mut flow = DeviceVerificationFlow {
+    fn validate_rejects_invalid_device_verification_strand() {
+        let mut strand = DeviceVerificationStrand {
             transaction_id: String::new(),
             user_id: did("alice"),
             from_device: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
             to_device: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000002").unwrap(),
             methods: Vec::new(),
-            state: VerificationFlowState::Requested,
+            state: VerificationStrandState::Requested,
             created_at: Utc::now(),
             expires_at: None,
         };
 
         // Empty transaction id.
-        assert!(flow.validate().is_err());
+        assert!(strand.validate().is_err());
 
         // Same device on both sides.
-        flow.transaction_id = "tx".to_owned();
-        flow.to_device = flow.from_device.clone();
-        let message = protocol_message(flow.validate().unwrap_err());
+        strand.transaction_id = "tx".to_owned();
+        strand.to_device = strand.from_device.clone();
+        let message = protocol_message(strand.validate().unwrap_err());
         assert!(message.contains("two distinct devices"), "{message}");
 
         // Too many methods → bounds error.
-        flow.to_device = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000002").unwrap();
-        flow.methods = (0..(MAX_VERIFICATION_METHODS + 1))
+        strand.to_device = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000002").unwrap();
+        strand.methods = (0..(MAX_VERIFICATION_METHODS + 1))
             .map(|i| format!("m{i}"))
             .collect();
-        let message = protocol_message(flow.validate().unwrap_err());
+        let message = protocol_message(strand.validate().unwrap_err());
         assert!(message.contains("verification methods"), "{message}");
     }
 

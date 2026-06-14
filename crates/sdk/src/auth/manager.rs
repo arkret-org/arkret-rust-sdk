@@ -67,7 +67,7 @@ impl AuthManager {
         }
     }
 
-    /// Set an application-supplied rate-limit hook for login, MFA and recovery flows.
+    /// Set an application-supplied rate-limit hook for login, MFA and recovery strands.
     pub fn set_rate_limit_hook(&mut self, hook: Option<AuthRateLimitHook>) {
         self.rate_limit_hook = hook;
     }
@@ -833,7 +833,7 @@ impl AuthManager {
     }
 }
 
-/// One-shot DID-proof login flow that drives the single registered
+/// One-shot DID-proof login strand that drives the single registered
 /// `POST /_cokret/gate/account/session-grants`
 /// (`ck.gate.account.command.issue_session_grant`) operation.
 ///

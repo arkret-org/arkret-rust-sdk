@@ -20,10 +20,10 @@ pub struct Display {
     pub symbol: DisplaySymbol,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/flow.schema.json#/$defs/flow_track`.
+/// Counterpart for `spec/v1/artifacts/schemas/strand.schema.json#/$defs/strand_track`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct FlowTrack {
+pub struct StrandTrack {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -36,7 +36,7 @@ pub struct FlowTrack {
     pub metadata: Option<BTreeMap<String, Value>>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/flow.schema.json#/$defs/metadata_fields`.
+/// Counterpart for `spec/v1/artifacts/schemas/strand.schema.json#/$defs/metadata_fields`.
 pub type MetadataFields = BTreeMap<String, Value>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/morph-customer-risk.schema.json`.

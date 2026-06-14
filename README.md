@@ -15,7 +15,7 @@ This repository contains the Rust SDK for Cokret v1. The public SDK surface is
 centered on:
 
 - DID principals
-- Realm / Space / Flow / Message / Morph / Relation / Event / View
+- Realm / Space / Strand / Message / Morph / Relation / Event / View
 - signed Event Envelopes as the canonical wire facts for durable history
 - Operations as SDK builders and offline draft objects before Event Envelope wrapping
 - capability grants and policy checks
@@ -23,7 +23,7 @@ centered on:
 - Principal Server, Events, Index, Blob, Directory and Authz service surfaces
 
 The active v1 wire contract follows `cokret-spec/spec/v1/zh` plus `cokret-spec/spec/v1/artifacts`.
-All public SDK surfaces are expected to use `flow`, `track`, relation and
+All public SDK surfaces are expected to use `strand`, `track`, relation and
 message semantics directly.
 
 ## Realm vs Space
@@ -70,7 +70,7 @@ cargo test
 
 - [Quick start](docs/quick-start.md)
 - [API and error handling](docs/api-and-errors.md)
-- [Authentication flows](docs/authentication.md)
+- [Authentication strands](docs/authentication.md)
 - [Sync best practices](docs/sync-best-practices.md)
 - [Deployment](docs/deployment.md)
 - [Feature matrix](docs/feature-matrix.md)
@@ -133,7 +133,7 @@ The first Cokret crate currently includes:
 
 - v1 identifiers and protocol constants
 - canonical JSON and SHA-256 digest helpers
-- Space, ActorProfile, Flow, Message, Morph, Relation, Event Envelope, View, Operation draft and Capability models
+- Space, ActorProfile, Strand, Message, Morph, Relation, Event Envelope, View, Operation draft and Capability models
 - protocol-shaped Query and Client Sync response models (`space_ids`, filter arrays, `spaces`)
 - Event Envelope digest payload calculation
 - HLC parsing and deterministic ordering

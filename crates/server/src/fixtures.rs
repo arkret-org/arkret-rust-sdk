@@ -26,7 +26,7 @@ pub struct WireConformanceVector {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ProtocolFixtureFlow {
+pub enum ProtocolFixtureStrand {
     Server,
     Identity,
     Sync,
@@ -44,7 +44,7 @@ pub enum ProtocolFixtureFlow {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProtocolFixtureStep {
-    pub flow: ProtocolFixtureFlow,
+    pub strand: ProtocolFixtureStrand,
     pub operation_id: String,
     pub method: String,
     pub path: String,
@@ -56,38 +56,38 @@ pub struct ProtocolFixtureReport {
 }
 
 impl ProtocolFixtureReport {
-    pub fn covers(&self, flow: ProtocolFixtureFlow) -> bool {
-        self.steps.iter().any(|step| step.flow == flow)
+    pub fn covers(&self, strand: ProtocolFixtureStrand) -> bool {
+        self.steps.iter().any(|step| step.strand == strand)
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProtocolServerFixture {
-    flows: BTreeSet<ProtocolFixtureFlow>,
+    strands: BTreeSet<ProtocolFixtureStrand>,
 }
 
 impl ProtocolServerFixture {
-    pub fn new(flows: impl IntoIterator<Item = ProtocolFixtureFlow>) -> Self {
+    pub fn new(strands: impl IntoIterator<Item = ProtocolFixtureStrand>) -> Self {
         Self {
-            flows: flows.into_iter().collect(),
+            strands: strands.into_iter().collect(),
         }
     }
 
-    pub fn all_flows() -> Self {
+    pub fn all_strands() -> Self {
         Self::new([
-            ProtocolFixtureFlow::Server,
-            ProtocolFixtureFlow::Identity,
-            ProtocolFixtureFlow::Sync,
-            ProtocolFixtureFlow::Blob,
-            ProtocolFixtureFlow::Authz,
-            ProtocolFixtureFlow::Directory,
-            ProtocolFixtureFlow::Push,
-            ProtocolFixtureFlow::DeviceMessages,
-            ProtocolFixtureFlow::Keys,
-            ProtocolFixtureFlow::Policy,
-            ProtocolFixtureFlow::Media,
-            ProtocolFixtureFlow::Moderation,
-            ProtocolFixtureFlow::Applet,
+            ProtocolFixtureStrand::Server,
+            ProtocolFixtureStrand::Identity,
+            ProtocolFixtureStrand::Sync,
+            ProtocolFixtureStrand::Blob,
+            ProtocolFixtureStrand::Authz,
+            ProtocolFixtureStrand::Directory,
+            ProtocolFixtureStrand::Push,
+            ProtocolFixtureStrand::DeviceMessages,
+            ProtocolFixtureStrand::Keys,
+            ProtocolFixtureStrand::Policy,
+            ProtocolFixtureStrand::Media,
+            ProtocolFixtureStrand::Moderation,
+            ProtocolFixtureStrand::Applet,
         ])
     }
 
@@ -97,15 +97,15 @@ impl ProtocolServerFixture {
             .map(|route| (route.operation_id, route))
             .collect();
         let mut steps = Vec::new();
-        for flow in &self.flows {
-            for operation_id in fixture_operations(*flow) {
+        for strand in &self.strands {
+            for operation_id in fixture_operations(*strand) {
                 let route = routes_by_operation.get(operation_id).ok_or_else(|| {
                     cokret_core::Error::Protocol(format!(
                         "fixture operation '{operation_id}' is missing from service route registry"
                     ))
                 })?;
                 steps.push(ProtocolFixtureStep {
-                    flow: *flow,
+                    strand: *strand,
                     operation_id: (*operation_id).to_owned(),
                     method: route.method.to_owned(),
                     path: route.path.to_owned(),
@@ -118,14 +118,14 @@ impl ProtocolServerFixture {
 
 impl Default for ProtocolServerFixture {
     fn default() -> Self {
-        Self::all_flows()
+        Self::all_strands()
     }
 }
 
-fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
-    match flow {
-        ProtocolFixtureFlow::Server => &["ck.server.query.describe"],
-        ProtocolFixtureFlow::Identity => &[
+fn fixture_operations(strand: ProtocolFixtureStrand) -> &'static [&'static str] {
+    match strand {
+        ProtocolFixtureStrand::Server => &["ck.server.query.describe"],
+        ProtocolFixtureStrand::Identity => &[
             "ck.root.identity.registry.query.describe",
             "ck.root.identity.query.resolve",
             "ck.root.identity.document.resource.get",
@@ -133,7 +133,7 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             "ck.root.identity.command.submit_did_operation",
             "ck.root.identity.receipts.query.list",
         ],
-        ProtocolFixtureFlow::Sync => &[
+        ProtocolFixtureStrand::Sync => &[
             "ck.self.account.query.describe",
             "ck.self.account.stream.subscribe",
             "ck.self.account.command.revoke_cursor",
@@ -146,17 +146,17 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             "ck.self.events.query.scan",
             "ck.self.snapshot.query.manifest_head",
         ],
-        ProtocolFixtureFlow::Blob => &[
+        ProtocolFixtureStrand::Blob => &[
             "ck.self.blob.upload.create",
             "ck.self.blob.resource.head",
             "ck.self.blob.resource.get",
         ],
-        ProtocolFixtureFlow::Authz => &[
+        ProtocolFixtureStrand::Authz => &[
             "ck.self.authz.grants.query.effective",
             "ck.self.authz.invites.query.list",
             "ck.self.authz.query.check",
         ],
-        ProtocolFixtureFlow::Directory => &[
+        ProtocolFixtureStrand::Directory => &[
             "ck.find.directory.query.describe",
             "ck.find.directory.query.search_realms",
             "ck.find.directory.query.resolve_realm",
@@ -167,24 +167,24 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             "ck.find.directory.query.resolve_handle",
             "ck.find.directory.push.command.register",
         ],
-        ProtocolFixtureFlow::Push => &[
+        ProtocolFixtureStrand::Push => &[
             "ck.edge.push.command.register_device",
             "ck.edge.push.command.unregister_device",
             "ck.edge.push.command.notify",
         ],
-        ProtocolFixtureFlow::DeviceMessages => &[
+        ProtocolFixtureStrand::DeviceMessages => &[
             "ck.self.device_messages.command.send",
             "ck.self.device_messages.query.list",
         ],
-        ProtocolFixtureFlow::Keys => &[
+        ProtocolFixtureStrand::Keys => &[
             "ck.self.keys.upload.create",
             "ck.self.keys.query.lookup",
             "ck.self.keys.command.claim",
         ],
-        ProtocolFixtureFlow::Policy => &["ck.self.policy.query.check"],
-        ProtocolFixtureFlow::Media => &["ck.self.media.query.ice_config"],
-        ProtocolFixtureFlow::Moderation => &["ck.self.moderation.command.report"],
-        ProtocolFixtureFlow::Applet => &[
+        ProtocolFixtureStrand::Policy => &["ck.self.policy.query.check"],
+        ProtocolFixtureStrand::Media => &["ck.self.media.query.ice_config"],
+        ProtocolFixtureStrand::Moderation => &["ck.self.moderation.command.report"],
+        ProtocolFixtureStrand::Applet => &[
             "ck.edge.applet.query.ping",
             "ck.edge.applet.query.describe",
             "ck.edge.applet.command.transaction",

@@ -228,7 +228,7 @@ pub const EXPECTED_SPEC_VERSION: &str = "cokret-spec@2026-05-26";
 ///
 /// This is a product-local push-gateway contract shared by the gateway
 /// implementation and clients that probe it before registration / notify
-/// flows. It intentionally lives in `cokret-core` rather than individual
+/// strands. It intentionally lives in `cokret-core` rather than individual
 /// services so bridge producers and consumers cannot drift silently.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

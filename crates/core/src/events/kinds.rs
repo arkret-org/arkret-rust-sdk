@@ -82,15 +82,15 @@ pub const DID_PROOF: &str = "ck.did.proof";
 // CKP-0015 contact enhancement — direct-conversation Realm binding emitted
 // when a contact request is accepted (category `contact`).
 pub const DIRECT_CONVERSATION_BOUND: &str = "ck.direct_conversation.bound";
-pub const FLOW_ARCHIVE: &str = "ck.flow.archive";
-pub const FLOW_CREATE: &str = "ck.flow.create";
-pub const FLOW_MOVE: &str = "ck.flow.move";
-pub const FLOW_REORDER: &str = "ck.flow.reorder";
-pub const FLOW_RESTORE: &str = "ck.flow.restore";
-pub const FLOW_STAGE_SET: &str = "ck.flow.stage.set";
-pub const FLOW_TRACKS_UPDATE: &str = "ck.flow.tracks.update";
-pub const FLOW_UPDATE: &str = "ck.flow.update";
-pub const FLOW_WATCH_SET: &str = "ck.flow.watch.set";
+pub const STRAND_ARCHIVE: &str = "ck.strand.archive";
+pub const STRAND_CREATE: &str = "ck.strand.create";
+pub const STRAND_MOVE: &str = "ck.strand.move";
+pub const STRAND_REORDER: &str = "ck.strand.reorder";
+pub const STRAND_RESTORE: &str = "ck.strand.restore";
+pub const STRAND_STAGE_SET: &str = "ck.strand.stage.set";
+pub const STRAND_TRACKS_UPDATE: &str = "ck.strand.tracks.update";
+pub const STRAND_UPDATE: &str = "ck.strand.update";
+pub const STRAND_WATCH_SET: &str = "ck.strand.watch.set";
 pub const HANDLE_DISCOVERY: &str = "ck.handle.discovery";
 pub const IDENTITY_ACCOUNTABILITY_GRANT: &str = "ck.identity.accountability_grant";
 pub const IDENTITY_DISCLOSURE_POLICY: &str = "ck.identity.disclosure_policy";
@@ -374,15 +374,15 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     DEVICE_REVOKED,
     DID_PROOF,
     DIRECT_CONVERSATION_BOUND,
-    FLOW_ARCHIVE,
-    FLOW_CREATE,
-    FLOW_MOVE,
-    FLOW_REORDER,
-    FLOW_RESTORE,
-    FLOW_STAGE_SET,
-    FLOW_TRACKS_UPDATE,
-    FLOW_UPDATE,
-    FLOW_WATCH_SET,
+    STRAND_ARCHIVE,
+    STRAND_CREATE,
+    STRAND_MOVE,
+    STRAND_REORDER,
+    STRAND_RESTORE,
+    STRAND_STAGE_SET,
+    STRAND_TRACKS_UPDATE,
+    STRAND_UPDATE,
+    STRAND_WATCH_SET,
     HANDLE_DISCOVERY,
     IDENTITY_ACCOUNTABILITY_GRANT,
     IDENTITY_DISCLOSURE_POLICY,
@@ -590,7 +590,7 @@ pub enum EventClass {
     Contact,
     Device,
     E2ee,
-    Flow,
+    Strand,
     Handle,
     Identity,
     Invite,
@@ -690,8 +690,8 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | REALM_KEY_SHARE
         | REALM_KEY_SHARE_AUDIT
         | REALM_KEY_WITHHELD => EventClass::E2ee,
-        FLOW_ARCHIVE | FLOW_CREATE | FLOW_MOVE | FLOW_REORDER | FLOW_RESTORE | FLOW_STAGE_SET
-        | FLOW_TRACKS_UPDATE | FLOW_UPDATE | FLOW_WATCH_SET => EventClass::Flow,
+        STRAND_ARCHIVE | STRAND_CREATE | STRAND_MOVE | STRAND_REORDER | STRAND_RESTORE | STRAND_STAGE_SET
+        | STRAND_TRACKS_UPDATE | STRAND_UPDATE | STRAND_WATCH_SET => EventClass::Strand,
         HANDLE_DISCOVERY => EventClass::Handle,
         DID_PROOF
         | IDENTITY_ACCOUNTABILITY_GRANT
@@ -751,7 +751,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | NOTARY_FAULT_EQUIVOCATION => EventClass::Realm,
         CONTAINER_MOVE_ITEM | CONTAINER_REBALANCE | RELATION_CREATE | RELATION_DELETE
         | RELATION_UPDATE => EventClass::Relation,
-        RSVP_SET => EventClass::Flow,
+        RSVP_SET => EventClass::Strand,
         SCHEMA_DEFINE | SCHEMA_UPDATE => EventClass::Schema,
         SOVEREIGN_DID_POLICY => EventClass::Sovereign,
         SPACE_ARCHIVE | SPACE_CREATE | SPACE_PARENT | SPACE_RESTORE | SPACE_TOMBSTONE

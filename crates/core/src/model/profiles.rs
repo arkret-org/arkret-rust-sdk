@@ -5,13 +5,13 @@ fn now_utc_seconds() -> DateTime<Utc> {
 }
 
 /// Standard track profile names.
-pub const FLOW_TRACK_NAME_SYNTHESIS: &str = "synthesis";
-pub const FLOW_TRACK_NAME_DISCUSSION: &str = "discussion";
+pub const STRAND_TRACK_NAME_SYNTHESIS: &str = "synthesis";
+pub const STRAND_TRACK_NAME_DISCUSSION: &str = "discussion";
 
-/// Per-track configuration carried as the value side of the `Flow.tracks` map.
+/// Per-track configuration carried as the value side of the `Strand.tracks` map.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct FlowTrackConfig {
+pub struct StrandTrackConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -28,14 +28,14 @@ pub struct FlowTrackConfig {
     pub fields: BTreeMap<String, Value>,
 }
 
-impl<'de> Deserialize<'de> for FlowTrackConfig {
+impl<'de> Deserialize<'de> for StrandTrackConfig {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
-        struct FlowTrackConfigWire {
+        struct StrandTrackConfigWire {
             #[serde(default)]
             enabled: Option<bool>,
             #[serde(default)]
@@ -48,7 +48,7 @@ impl<'de> Deserialize<'de> for FlowTrackConfig {
             metadata: BTreeMap<String, Value>,
         }
 
-        let wire = FlowTrackConfigWire::deserialize(deserializer)?;
+        let wire = StrandTrackConfigWire::deserialize(deserializer)?;
         Ok(Self {
             enabled: wire.enabled,
             is_primary: wire.is_primary,
@@ -60,7 +60,7 @@ impl<'de> Deserialize<'de> for FlowTrackConfig {
     }
 }
 
-impl FlowTrackConfig {
+impl StrandTrackConfig {
     pub fn new() -> Self {
         Self::default()
     }
@@ -78,7 +78,7 @@ impl FlowTrackConfig {
         }
     }
 
-    /// Standard `discussion` track config marked as the Flow's primary entry point.
+    /// Standard `discussion` track config marked as the Strand's primary entry point.
     pub fn discussion_primary() -> Self {
         Self {
             is_primary: Some(true),
@@ -86,7 +86,7 @@ impl FlowTrackConfig {
         }
     }
 
-    /// Set the track as the Flow's primary entry point.
+    /// Set the track as the Strand's primary entry point.
     pub fn primary(mut self) -> Self {
         self.is_primary = Some(true);
         self
@@ -105,38 +105,38 @@ impl FlowTrackConfig {
     }
 }
 
-/// Validate a `FlowTrack` map key against `^[a-z][a-z0-9_]{0,63}$`.
-pub fn validate_flow_track_name(name: &str) -> Result<()> {
+/// Validate a `StrandTrack` map key against `^[a-z][a-z0-9_]{0,63}$`.
+pub fn validate_strand_track_name(name: &str) -> Result<()> {
     if name.is_empty() || name.len() > 64 {
         return Err(Error::Protocol(
-            "FlowTrack name must be 1..=64 chars".to_owned(),
+            "StrandTrack name must be 1..=64 chars".to_owned(),
         ));
     }
     let mut chars = name.chars();
     let first = chars
         .next()
-        .ok_or_else(|| Error::Protocol("FlowTrack name must not be empty".to_owned()))?;
+        .ok_or_else(|| Error::Protocol("StrandTrack name must not be empty".to_owned()))?;
     if !first.is_ascii_lowercase() {
         return Err(Error::Protocol(
-            "FlowTrack name must start with [a-z]".to_owned(),
+            "StrandTrack name must start with [a-z]".to_owned(),
         ));
     }
     for c in chars {
         if !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
             return Err(Error::Protocol(format!(
-                "FlowTrack name contains invalid character '{c}'"
+                "StrandTrack name contains invalid character '{c}'"
             )));
         }
     }
     Ok(())
 }
 
-/// Resolve the primary track of a Flow.
+/// Resolve the primary track of a Strand.
 pub fn resolve_primary_track<'a>(
-    tracks: &'a BTreeMap<String, FlowTrackConfig>,
+    tracks: &'a BTreeMap<String, StrandTrackConfig>,
     profile_default: Option<&str>,
-) -> Result<Option<(&'a String, &'a FlowTrackConfig)>> {
-    let explicit: Vec<(&String, &FlowTrackConfig)> = tracks
+) -> Result<Option<(&'a String, &'a StrandTrackConfig)>> {
+    let explicit: Vec<(&String, &StrandTrackConfig)> = tracks
         .iter()
         .filter(|(_, cfg)| cfg.is_primary == Some(true))
         .collect();
@@ -145,11 +145,11 @@ pub fn resolve_primary_track<'a>(
         1 => return Ok(Some(explicit[0])),
         _ => {
             return Err(Error::Protocol(
-                "Flow has more than one track with is_primary=true".to_owned(),
+                "Strand has more than one track with is_primary=true".to_owned(),
             ));
         }
     }
-    if let Some((k, v)) = tracks.get_key_value(FLOW_TRACK_NAME_SYNTHESIS) {
+    if let Some((k, v)) = tracks.get_key_value(STRAND_TRACK_NAME_SYNTHESIS) {
         return Ok(Some((k, v)));
     }
     if tracks.len() == 1 {
@@ -163,7 +163,7 @@ pub fn resolve_primary_track<'a>(
     Ok(None)
 }
 
-/// Morph `metadata` shape — shares [`ObjectMetadata`] with Flow. Morph carries
+/// Morph `metadata` shape — shares [`ObjectMetadata`] with Strand. Morph carries
 /// its data in the top-level `Morph.fields`, so `metadata.fields` stays empty
 /// and is omitted from the wire (preserving the prior `MorphMetadata` shape of
 /// `{title?, summary?, ...extra}`).
@@ -251,7 +251,7 @@ pub struct Morph {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_changed_at: Option<DateTime<Utc>>,
     /// Business progress axis (spec `morph.schema.json` required `stage`).
-    /// Only Flow/Morph carry a `stage`. Distinct from `state` (lifecycle).
+    /// Only Strand/Morph carry a `stage`. Distinct from `state` (lifecycle).
     pub stage: ObjectStage,
     /// Reducer-derived timestamp of the last `stage` transition; preserved on
     /// deserialize, omitted by producers (servers populate it).
@@ -583,7 +583,7 @@ pub struct IdentityLink {
     pub realm_id: RealmId,
     pub trust_domain: TypedTrustDomainId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub flow_id: Option<FlowId>,
+    pub strand_id: Option<StrandId>,
     #[serde(
         rename = "track_name",
         default,
@@ -611,13 +611,13 @@ impl IdentityLink {
                 "identity_link schema must be ck.schema.identity_link.v1".to_owned(),
             ));
         }
-        if self.flow_id.is_some() && self.track.as_deref().is_none_or(str::is_empty) {
+        if self.strand_id.is_some() && self.track.as_deref().is_none_or(str::is_empty) {
             return Err(Error::Protocol(
-                "identity_link flow_id requires track_name".to_owned(),
+                "identity_link strand_id requires track_name".to_owned(),
             ));
         }
         if let Some(track_name) = self.track.as_deref() {
-            validate_flow_track_name(track_name)?;
+            validate_strand_track_name(track_name)?;
         }
         if self.proof.verification_method.trim().is_empty()
             || self.proof.signature_algorithm.trim().is_empty()

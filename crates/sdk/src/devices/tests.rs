@@ -150,7 +150,7 @@ fn devices_verifies_blocks_and_deletes() {
 }
 
 #[test]
-fn devices_run_challenge_response_verification_flow() {
+fn devices_run_challenge_response_verification_strand() {
     let alice = did("alice");
     let device_id = device("desktop");
     let mut manager = DeviceManager::new();
@@ -166,10 +166,10 @@ fn devices_run_challenge_response_verification_flow() {
     );
 
     let challenge = manager
-        .begin_verification_flow(&alice, &device_id, "sas", "123456")
+        .begin_verification_strand(&alice, &device_id, "sas", "123456")
         .unwrap();
     manager
-        .confirm_verification_flow(&challenge.transaction_id, "123456", Some(fake_binding(1)))
+        .confirm_verification_strand(&challenge.transaction_id, "123456", Some(fake_binding(1)))
         .unwrap();
 
     assert_eq!(
@@ -219,7 +219,7 @@ fn devices_support_sas_qr_mismatch_with_trust_chain_propagation() {
     DeviceManager::validate_qr_verification_payload(&qr, &alice, &phone).unwrap();
     assert!(
         manager
-            .confirm_verification_flow(&challenge.transaction_id, "000000", None)
+            .confirm_verification_strand(&challenge.transaction_id, "000000", None)
             .is_err()
     );
     assert_eq!(
@@ -536,7 +536,7 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
     // In-flight transaction MUST have been cancelled.
     assert!(
         manager
-            .confirm_verification_flow(&challenge.transaction_id, "000000", None)
+            .confirm_verification_strand(&challenge.transaction_id, "000000", None)
             .is_err()
     );
     let dev = manager.device(&alice, &phone).unwrap();

@@ -543,7 +543,7 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!(
         "ck.open.mimi.query.group_info",
         Get,
-        "/_cokret/open/mimi/flows/{flow_id}/group-info"
+        "/_cokret/open/mimi/strands/{strand_id}/group-info"
     ),
     endpoint!(
         "ck.open.mimi.query.identifiers",
@@ -558,7 +558,7 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!(
         "ck.open.mimi.command.notify",
         Post,
-        "/_cokret/open/mimi/flows/{flow_id}/notify"
+        "/_cokret/open/mimi/strands/{strand_id}/notify"
     ),
     endpoint!(
         "ck.open.mimi.query.provider_directory",
@@ -583,12 +583,12 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!(
         "ck.open.mimi.command.update_room",
         Put,
-        "/_cokret/open/mimi/flows/{flow_id}/update"
+        "/_cokret/open/mimi/strands/{strand_id}/update"
     ),
     endpoint!(
         "ck.open.mimi.command.submit_message",
         Post,
-        "/_cokret/open/mimi/flows/{flow_id}/messages"
+        "/_cokret/open/mimi/strands/{strand_id}/messages"
     ),
     endpoint!(
         "ck.open.mimi.command.update_consent",
@@ -606,9 +606,9 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/self/policy/check"
     ),
     endpoint!(
-        "ck.self.projection.flows.query.list",
+        "ck.self.projection.strands.query.list",
         Get,
-        "/_cokret/self/projection/flows"
+        "/_cokret/self/projection/strands"
     ),
     endpoint!(
         "ck.self.projection.morphs.query.list",

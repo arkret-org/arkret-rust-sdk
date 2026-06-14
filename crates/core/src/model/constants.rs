@@ -12,7 +12,7 @@ pub const REALM_JOIN_CANDIDATE_SCHEMA: &str = "ck.schema.realm_join_candidate.v1
 pub const SPACE_SCHEMA: &str = "ck.schema.space.v1";
 pub const ACTOR_PROFILE_SCHEMA: &str = "ck.schema.actor_profile.v1";
 pub const AGENT_SELECTOR_CLAIM_SCHEMA: &str = "ck.schema.agent_selector_claim.v1";
-pub const FLOW_SCHEMA: &str = "ck.schema.flow.v1";
+pub const STRAND_SCHEMA: &str = "ck.schema.strand.v1";
 pub const RELATION_SCHEMA: &str = "ck.schema.relation.v1";
 pub const EVENT_SCHEMA: &str = "ck.schema.event.v1";
 pub const EVENT_PAYLOAD_SCHEMA: &str = "ck.schema.event_payload.v1";
@@ -59,7 +59,7 @@ pub const CALENDAR_EVENT_SCHEMA: &str = "ck.schema.calendar_event.v1";
 pub const DISAPPEARING_MESSAGES_SCHEMA: &str = "ck.schema.disappearing_messages.v1";
 pub const SEARCH_SERVICE_SCHEMA: &str = "ck.schema.search_service.v1";
 
-// Round R2/R3 (2026-05-20) — new schema ids for the moderation appeal flow,
+// Round R2/R3 (2026-05-20) — new schema ids for the moderation appeal strand,
 // the broadcast ephemeral envelope, and structured attestation evidence.
 pub const EPHEMERAL_ENVELOPE_SCHEMA: &str = "ck.schema.ephemeral_envelope.v1";
 pub const MODERATION_APPEAL_SCHEMA: &str = "ck.schema.moderation_appeal.v1";
@@ -67,14 +67,14 @@ pub const ATTESTATION_EVIDENCE_SCHEMA: &str = "ck.schema.attestation_evidence.v1
 pub const CROSS_SIGNING_RESET_SCHEMA: &str = "ck.schema.cross_signing_reset.v1";
 
 // ── Canonical ck.* event kinds ──────────────────────────────────────────────
-/// Flow event kinds.
-pub const OP_FLOW_CREATE: &str = "ck.flow.create";
-pub const OP_FLOW_UPDATE: &str = "ck.flow.update";
-pub const OP_FLOW_ARCHIVE: &str = "ck.flow.archive";
-pub const OP_FLOW_RESTORE: &str = "ck.flow.restore";
-pub const OP_FLOW_MOVE: &str = "ck.flow.move";
-pub const OP_FLOW_REORDER: &str = "ck.flow.reorder";
-pub const OP_FLOW_STAGE_SET: &str = "ck.flow.stage.set";
+/// Strand event kinds.
+pub const OP_STRAND_CREATE: &str = "ck.strand.create";
+pub const OP_STRAND_UPDATE: &str = "ck.strand.update";
+pub const OP_STRAND_ARCHIVE: &str = "ck.strand.archive";
+pub const OP_STRAND_RESTORE: &str = "ck.strand.restore";
+pub const OP_STRAND_MOVE: &str = "ck.strand.move";
+pub const OP_STRAND_REORDER: &str = "ck.strand.reorder";
+pub const OP_STRAND_STAGE_SET: &str = "ck.strand.stage.set";
 
 /// CKP-0007 (spec b7d35be) — Circle event kinds. The 7th kind
 /// (`ck.circle.seal_commit`) is reducer-derived and MUST NOT be
@@ -148,7 +148,7 @@ pub const AGENT_CAPABILITY_ACTIONS: &[&str] = &[
 pub const AGENT_SIDECAR_THREAD_ENSURE_TARGET_EVENT_KINDS: &[&str] = &[
     "ck.circle.create",
     "ck.circle.member.state",
-    "ck.flow.create",
+    "ck.strand.create",
     "ck.relation.create",
 ];
 pub const AGENT_SIDECAR_THREAD_WRITE_TARGET_EVENT_KINDS: &[&str] = &["ck.message.create"];
@@ -291,7 +291,7 @@ pub const OP_PIN_REMOVE: &str = "ck.pin.remove";
 pub const OP_PIN_REORDER: &str = "ck.pin.reorder";
 /// High-risk capability required in addition to `ck.message.create` or
 /// `ck.message.revise` whenever a Message introduces an `audience_mention`
-/// node such as `@all` or v1 `@here` (`audience="flow_engaged"`).
+/// node such as `@all` or v1 `@here` (`audience="strand_engaged"`).
 pub const CAP_ACTION_MESSAGE_MENTION_BROADCAST: &str = "ck.message.mention.broadcast";
 pub const CAP_ACTION_RSVP_SET: &str = "ck.rsvp.set";
 pub const CAP_ACTION_PIN_ADD: &str = "ck.pin.add";
@@ -308,7 +308,7 @@ pub const CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS: &str = "allowed_write_fields";
 pub const CAP_ACTION_OBJECT_ARCHIVE: &str = "ck.object.archive";
 pub const CAP_ACTION_EVENT_READ: &str = "ck.event.read";
 pub const CAP_ACTION_MODERATION_DECISION_LIFT: &str = "ck.moderation.decision.lift";
-pub const CAP_ACTION_FLOW_UPDATE: &str = "ck.flow.update";
+pub const CAP_ACTION_STRAND_UPDATE: &str = "ck.strand.update";
 pub const CAP_ACTION_APPROVAL_VOTE: &str = "ck.approval.vote";
 pub const CAP_ACTION_AUDIT_ACCESSED: &str = "ck.audit.accessed";
 
@@ -331,13 +331,13 @@ pub struct CapabilityActionDefinition {
 }
 
 pub const CAP_ACTION_OBJECT_ARCHIVE_TARGET_EVENT_KINDS: &[&str] =
-    &[OP_FLOW_ARCHIVE, OP_MORPH_ARCHIVE];
+    &[OP_STRAND_ARCHIVE, OP_MORPH_ARCHIVE];
 pub const CAP_ACTION_EVENT_READ_TARGET_EVENT_KINDS: &[&str] = &[];
 pub const CAP_ACTION_MODERATION_DECISION_LIFT_TARGET_EVENT_KINDS: &[&str] =
     &[CAP_ACTION_MODERATION_DECISION_LIFT];
-pub const CAP_ACTION_FLOW_UPDATE_REQUIRED_CONSTRAINTS: &[&str] =
+pub const CAP_ACTION_STRAND_UPDATE_REQUIRED_CONSTRAINTS: &[&str] =
     &[CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS];
-pub const CAP_ACTION_FLOW_UPDATE_TARGET_EVENT_KINDS: &[&str] = &[OP_FLOW_UPDATE];
+pub const CAP_ACTION_STRAND_UPDATE_TARGET_EVENT_KINDS: &[&str] = &[OP_STRAND_UPDATE];
 pub const CAP_ACTION_APPROVAL_VOTE_TARGET_EVENT_KINDS: &[&str] = &[];
 pub const CAP_ACTION_AUDIT_ACCESSED_TARGET_EVENT_KINDS: &[&str] = &[CAP_ACTION_AUDIT_ACCESSED];
 
@@ -370,11 +370,11 @@ pub const REVIEWED_CAPABILITY_ACTION_DEFINITIONS: &[CapabilityActionDefinition] 
         event_mapping_kind: "same_name",
     },
     CapabilityActionDefinition {
-        action: CAP_ACTION_FLOW_UPDATE,
-        category: "flow",
+        action: CAP_ACTION_STRAND_UPDATE,
+        category: "strand",
         risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: CAP_ACTION_FLOW_UPDATE_REQUIRED_CONSTRAINTS,
-        target_event_kinds: CAP_ACTION_FLOW_UPDATE_TARGET_EVENT_KINDS,
+        required_constraints: CAP_ACTION_STRAND_UPDATE_REQUIRED_CONSTRAINTS,
+        target_event_kinds: CAP_ACTION_STRAND_UPDATE_TARGET_EVENT_KINDS,
         profile: None,
         event_mapping_kind: "same_name",
     },
@@ -528,7 +528,7 @@ pub const OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT: &str =
 pub const OP_DIRECTORY_RESOLVE_ORGANIZATION: &str = "ck.find.directory.query.resolve_organization";
 pub const OP_DIRECTORY_RESOLVE_REALM: &str = "ck.find.directory.query.resolve_realm";
 /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — resolve a client-agnostic
-/// shareable object address (Realm / Flow / Message) to a preview. Pure ADD;
+/// shareable object address (Realm / Strand / Message) to a preview. Pure ADD;
 /// `resolve_realm` is retained and NOT deprecated.
 pub const OP_DIRECTORY_RESOLVE_TARGET: &str = "ck.find.directory.query.resolve_target";
 pub const OP_DIRECTORY_SEARCH_ACTORS: &str = "ck.find.directory.query.search_actors";
@@ -563,7 +563,7 @@ pub const OP_DIRECT_CONVERSATION_RESOLVE: &str = "ck.self.direct_conversation.co
 
 /// Projection read-model operations.
 pub const OP_PROJECTION_SPACES: &str = "ck.self.projection.spaces.query.list";
-pub const OP_PROJECTION_FLOWS: &str = "ck.self.projection.flows.query.list";
+pub const OP_PROJECTION_STRANDS: &str = "ck.self.projection.strands.query.list";
 pub const OP_PROJECTION_MORPHS: &str = "ck.self.projection.morphs.query.list";
 pub const OP_PROJECTION_DOCUMENT: &str = "ck.self.projection.document.resource.get";
 pub const OP_VIEW_COLLECTION_PROJECTION: &str =
@@ -599,7 +599,7 @@ pub const OP_MIMI_UPDATE_CONSENT: &str = "ck.open.mimi.command.update_consent";
 pub const OP_MODERATION_REPORT: &str = "ck.self.moderation.command.report";
 
 /// Round R2/R3 (2026-05-20) — capability actions for the moderation appeal
-/// flow. `submit` is low-risk (any member may appeal); `review` is
+/// strand. `submit` is low-risk (any member may appeal); `review` is
 /// medium-risk and gates the review / decision / close transitions.
 /// Spec: capability-action-registry.json.
 pub const CAP_ACTION_MODERATION_APPEAL_SUBMIT: &str = "ck.moderation.appeal.submit";
@@ -793,7 +793,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     // mirrors spec `operation-registry.json` (RPC service surface) and
     // the drift report (`SpecArtifactBundle::drift_report`) fails if
     // event kinds leak in. Same convention as the lifecycle event ops
-    // (`OP_FLOW_CREATE`, etc.).
+    // (`OP_STRAND_CREATE`, etc.).
     OP_AUTHZ_CHECK,
     OP_AUTHZ_GET_EFFECTIVE_GRANTS,
     OP_AUTHZ_GET_INVITES,
@@ -831,7 +831,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_EVENTS_SUBMIT,
     OP_EPHEMERAL_SEND,
     OP_PROJECTION_SPACES,
-    OP_PROJECTION_FLOWS,
+    OP_PROJECTION_STRANDS,
     OP_PROJECTION_MORPHS,
     OP_PROJECTION_DOCUMENT,
     OP_VIEW_COLLECTION_PROJECTION,
@@ -936,21 +936,21 @@ mod tests {
 
     #[test]
     fn reviewed_capability_action_definitions_cover_randmon_sample() {
-        let flow_update = capability_action_definition(CAP_ACTION_FLOW_UPDATE)
-            .expect("ck.flow.update definition");
-        assert_eq!(flow_update.risk_tier, CapabilityRiskTier::Medium);
+        let strand_update = capability_action_definition(CAP_ACTION_STRAND_UPDATE)
+            .expect("ck.strand.update definition");
+        assert_eq!(strand_update.risk_tier, CapabilityRiskTier::Medium);
         assert_eq!(
-            capability_action_required_constraints(CAP_ACTION_FLOW_UPDATE),
+            capability_action_required_constraints(CAP_ACTION_STRAND_UPDATE),
             &[CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS]
         );
         assert_eq!(
-            capability_action_target_event_kinds(CAP_ACTION_FLOW_UPDATE),
-            &[OP_FLOW_UPDATE]
+            capability_action_target_event_kinds(CAP_ACTION_STRAND_UPDATE),
+            &[OP_STRAND_UPDATE]
         );
 
         assert_eq!(
             capability_action_target_event_kinds(CAP_ACTION_OBJECT_ARCHIVE),
-            &[OP_FLOW_ARCHIVE, OP_MORPH_ARCHIVE]
+            &[OP_STRAND_ARCHIVE, OP_MORPH_ARCHIVE]
         );
         assert!(capability_action_target_event_kinds(CAP_ACTION_APPROVAL_VOTE).is_empty());
         assert!(capability_action_definition("ck.unknown.action").is_none());

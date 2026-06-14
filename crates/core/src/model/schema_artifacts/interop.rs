@@ -96,7 +96,7 @@ pub struct ProviderDirectory {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RoomBindingPayloadBindingScope {
     pub realm_id: RealmId,
-    pub flow_id: FlowId,
+    pub strand_id: StrandId,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
 }

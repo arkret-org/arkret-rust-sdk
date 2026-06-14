@@ -61,12 +61,12 @@ pub struct ProposalApproval {
 
 /// Manages the lifecycle of grant proposals and approvals.
 #[derive(Clone, Debug, Default)]
-pub struct ApprovalFlowManager {
+pub struct ApprovalStrandManager {
     proposals: BTreeMap<String, GrantProposal>,
 }
 
-impl ApprovalFlowManager {
-    /// Create a new approval flow manager.
+impl ApprovalStrandManager {
+    /// Create a new approval strand manager.
     pub fn new() -> Self {
         Self::default()
     }

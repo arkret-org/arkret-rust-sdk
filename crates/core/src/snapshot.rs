@@ -1397,11 +1397,11 @@ mod tests {
     #[test]
     fn snapshot_v1_manifest_and_chunk_verify() {
         let item = SnapshotMaterializedItem {
-            kind: "flow".to_owned(),
-            id: "ck:flow:01904100-0000-7000-8000-000000000001".to_owned(),
+            kind: "strand".to_owned(),
+            id: "ck:strand:01904100-0000-7000-8000-000000000001".to_owned(),
             object: serde_json::json!({
-                "id": "ck:flow:01904100-0000-7000-8000-000000000001",
-                "schema": "ck.schema.flow.v1"
+                "id": "ck:strand:01904100-0000-7000-8000-000000000001",
+                "schema": "ck.schema.strand.v1"
             }),
             source_event_id: snapshot_v1_event_id("000000000001"),
         };
@@ -1806,8 +1806,8 @@ mod tests {
                 "000000000002",
             ),
             state_item(
-                "flow",
-                "ck:flow:01904100-0000-7000-8000-000000000001",
+                "strand",
+                "ck:strand:01904100-0000-7000-8000-000000000001",
                 "000000000001",
             ),
         ];
@@ -1838,8 +1838,8 @@ mod tests {
     #[test]
     fn state_digest_rejects_duplicate_kind_id() {
         let item = state_item(
-            "flow",
-            "ck:flow:01904100-0000-7000-8000-000000000001",
+            "strand",
+            "ck:strand:01904100-0000-7000-8000-000000000001",
             "000000000001",
         );
         let err = state_digest_from_items(&[item.clone(), item]).unwrap_err();

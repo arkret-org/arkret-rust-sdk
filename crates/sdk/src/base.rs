@@ -283,7 +283,7 @@ impl BaseClient {
         Ok(())
     }
 
-    /// Create and store session metadata after an authentication flow succeeds.
+    /// Create and store session metadata after an authentication strand succeeds.
     pub fn login_with_session(
         &self,
         user_id: Did,

@@ -33,8 +33,8 @@ pub enum WireContext {
     /// Generic top-level Event Envelope / payload object property. Most
     /// callers use this for an initial coarse scan.
     EventEnvelopeOrPayloadTopLevel,
-    /// Flow payload object property.
-    FlowPayload,
+    /// Strand payload object property.
+    StrandPayload,
     /// Morph payload object property.
     MorphPayload,
     /// Space payload object property.
@@ -86,10 +86,10 @@ pub enum WireContext {
     AccountSubscribeFrameSchemaDef,
     /// Agent audit binding property.
     AgentAuditBinding,
-    /// JSON-Patch op path on a Flow patch payload.
+    /// JSON-Patch op path on a Strand patch payload.
     /// Pass the patch *path* (e.g. "stage", "stage_changed_at"), NOT a
     /// `patch:` prefix; the checker re-prefixes internally.
-    FlowPatchPath,
+    StrandPatchPath,
     /// JSON-Patch op path on a Morph patch payload.
     MorphPatchPath,
     /// Event proof property.
@@ -143,17 +143,17 @@ pub enum WireContext {
     PolicyCheckBoundTo,
     // 2026-06 registry sync — contexts the spec registry names that the
     // mirror previously collapsed away or lacked entirely (SDK-06-003).
-    /// Flow track key field (registry `flow_track_key_field`).
-    FlowTrackKeyField,
+    /// Strand track key field (registry `strand_track_key_field`).
+    StrandTrackKeyField,
     /// Content carrier that has an encrypted-content counterpart
     /// (registry `content_carrier_with_content_counterpart`).
     ContentCarrierWithContentCounterpart,
-    /// Flow or Morph payload top-level property
-    /// (registry `flow_or_morph_payload_top_level`).
-    FlowOrMorphPayloadTopLevel,
-    /// Flow or Message payload top-level property
-    /// (registry `flow_or_message_payload_top_level`).
-    FlowOrMessagePayloadTopLevel,
+    /// Strand or Morph payload top-level property
+    /// (registry `strand_or_morph_payload_top_level`).
+    StrandOrMorphPayloadTopLevel,
+    /// Strand or Message payload top-level property
+    /// (registry `strand_or_message_payload_top_level`).
+    StrandOrMessagePayloadTopLevel,
     /// Composite content block container property
     /// (registry `content_block_composite`).
     ContentBlockComposite,
@@ -210,7 +210,7 @@ pub const FORBIDDEN_WIRE_FIELDS: &[&str] = &[
     // Removed timeline and scope fields.
     "branch",
     "room_kind",
-    // CKP-0007 Flow scope field — spec renamed to `scope_circle_id`.
+    // CKP-0007 Strand scope field — spec renamed to `scope_circle_id`.
     "discussion_realm_ref",
     "discussion_space_ref",
     // CKP-0007 batch-renamed identifier fields.
@@ -242,9 +242,9 @@ pub const FORBIDDEN_WIRE_FIELDS: &[&str] = &[
     "prev_frontier_hash",
     "constraint_hash",
     "allowed_view_refs",
-    "allowed_flow_refs",
+    "allowed_strand_refs",
     "allowed_circle_refs",
-    "denied_flow_refs",
+    "denied_strand_refs",
     "allowed_space_refs",
     "denied_space_refs",
     "realm_refs",
@@ -304,22 +304,22 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
         field: "room_kind",
         context: WireContext::EventEnvelopeOrPayloadTopLevel,
     },
-    // Flow / Morph / Space / Relation payload guards
+    // Strand / Morph / Space / Relation payload guards
     ForbiddenEntry {
         field: "title",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "summary",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "fields",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "encrypted_payload",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "title",
@@ -343,11 +343,11 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     },
     ForbiddenEntry {
         field: "discussion_space_ref",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "discussion_realm_ref",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "fields.rank",
@@ -359,43 +359,43 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     },
     ForbiddenEntry {
         field: "metadata.fields.stage",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "metadata.fields.stage_changed_at",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "metadata.fields.stage_reason",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "metadata.fields.stage_note",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "metadata.fields.lifecycle",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "metadata.fields.progress_state",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "metadata.fields.assignee",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "metadata.fields.assignees",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "metadata.fields.assigned_to",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "metadata.fields.assigned_actor_ids",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     ForbiddenEntry {
         field: "fields.stage",
@@ -444,43 +444,43 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     // Patch-path guards
     ForbiddenEntry {
         field: "stage",
-        context: WireContext::FlowPatchPath,
+        context: WireContext::StrandPatchPath,
     },
     ForbiddenEntry {
         field: "stage_changed_at",
-        context: WireContext::FlowPatchPath,
+        context: WireContext::StrandPatchPath,
     },
     ForbiddenEntry {
         field: "metadata.fields.assignee",
-        context: WireContext::FlowPatchPath,
+        context: WireContext::StrandPatchPath,
     },
     ForbiddenEntry {
         field: "metadata.fields.assignees",
-        context: WireContext::FlowPatchPath,
+        context: WireContext::StrandPatchPath,
     },
     ForbiddenEntry {
         field: "metadata.fields.assigned_to",
-        context: WireContext::FlowPatchPath,
+        context: WireContext::StrandPatchPath,
     },
     ForbiddenEntry {
         field: "metadata.fields.assigned_actor_ids",
-        context: WireContext::FlowPatchPath,
+        context: WireContext::StrandPatchPath,
     },
     ForbiddenEntry {
         field: "fields.assignee",
-        context: WireContext::FlowPatchPath,
+        context: WireContext::StrandPatchPath,
     },
     ForbiddenEntry {
         field: "fields.assignees",
-        context: WireContext::FlowPatchPath,
+        context: WireContext::StrandPatchPath,
     },
     ForbiddenEntry {
         field: "fields.assigned_to",
-        context: WireContext::FlowPatchPath,
+        context: WireContext::StrandPatchPath,
     },
     ForbiddenEntry {
         field: "fields.assigned_actor_ids",
-        context: WireContext::FlowPatchPath,
+        context: WireContext::StrandPatchPath,
     },
     ForbiddenEntry {
         field: "stage",
@@ -767,10 +767,10 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
         field: "cx.schema.read_marker.v1",
         context: WireContext::SchemaId,
     },
-    // Flow kind value
+    // Strand kind value
     ForbiddenEntry {
         field: "kind=room",
-        context: WireContext::FlowPayload,
+        context: WireContext::StrandPayload,
     },
     // R3.4 naming hard rejects.
     ForbiddenEntry {
@@ -863,7 +863,7 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
         context: WireContext::GrantConstraint,
     },
     ForbiddenEntry {
-        field: "allowed_flow_refs",
+        field: "allowed_strand_refs",
         context: WireContext::GrantConstraint,
     },
     ForbiddenEntry {
@@ -871,7 +871,7 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
         context: WireContext::GrantConstraint,
     },
     ForbiddenEntry {
-        field: "denied_flow_refs",
+        field: "denied_strand_refs",
         context: WireContext::GrantConstraint,
     },
     ForbiddenEntry {
@@ -980,7 +980,7 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     // lacked or carried under a collapsed context.
     ForbiddenEntry {
         field: "track",
-        context: WireContext::FlowTrackKeyField,
+        context: WireContext::StrandTrackKeyField,
     },
     ForbiddenEntry {
         field: "encrypted_payload",
@@ -988,15 +988,15 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     },
     ForbiddenEntry {
         field: "title",
-        context: WireContext::FlowOrMorphPayloadTopLevel,
+        context: WireContext::StrandOrMorphPayloadTopLevel,
     },
     ForbiddenEntry {
         field: "summary",
-        context: WireContext::FlowOrMorphPayloadTopLevel,
+        context: WireContext::StrandOrMorphPayloadTopLevel,
     },
     ForbiddenEntry {
         field: "fields",
-        context: WireContext::FlowOrMessagePayloadTopLevel,
+        context: WireContext::StrandOrMessagePayloadTopLevel,
     },
     ForbiddenEntry {
         field: "blocks",
@@ -1152,26 +1152,26 @@ mod tests {
 
     #[test]
     fn context_aware_patch_path_distinguishes_field_vs_path() {
-        // `stage` as a JSON-Patch path on a Flow patch payload is
-        // forbidden (single-source via ck.flow.stage.set).
-        assert!(is_forbidden_in_context("stage", WireContext::FlowPatchPath));
+        // `stage` as a JSON-Patch path on a Strand patch payload is
+        // forbidden (single-source via ck.strand.stage.set).
+        assert!(is_forbidden_in_context("stage", WireContext::StrandPatchPath));
         assert!(is_forbidden_in_context(
             "stage_changed_at",
-            WireContext::FlowPatchPath
+            WireContext::StrandPatchPath
         ));
         assert!(is_forbidden_in_context(
             "stage",
             WireContext::MorphPatchPath
         ));
-        // But `stage` as a top-level Flow payload field is canonical.
-        assert!(!is_forbidden_in_context("stage", WireContext::FlowPayload));
+        // But `stage` as a top-level Strand payload field is canonical.
+        assert!(!is_forbidden_in_context("stage", WireContext::StrandPayload));
     }
 
     #[test]
-    fn context_aware_fields_dot_stage_rejected_on_flow_and_morph() {
+    fn context_aware_fields_dot_stage_rejected_on_strand_and_morph() {
         assert!(is_forbidden_in_context(
             "metadata.fields.stage",
-            WireContext::FlowPayload
+            WireContext::StrandPayload
         ));
         assert!(is_forbidden_in_context(
             "fields.stage",
@@ -1179,23 +1179,23 @@ mod tests {
         ));
         assert!(is_forbidden_in_context(
             "metadata.fields.stage_changed_at",
-            WireContext::FlowPayload
+            WireContext::StrandPayload
         ));
         assert!(is_forbidden_in_context(
             "metadata.fields.assignee",
-            WireContext::FlowPayload
+            WireContext::StrandPayload
         ));
         assert!(is_forbidden_in_context(
             "metadata.fields.assigned_to",
-            WireContext::FlowPayload
+            WireContext::StrandPayload
         ));
         assert!(is_forbidden_in_context(
             "metadata.fields.assignee",
-            WireContext::FlowPatchPath
+            WireContext::StrandPatchPath
         ));
         assert!(is_forbidden_in_context(
             "fields.assignee",
-            WireContext::FlowPatchPath
+            WireContext::StrandPatchPath
         ));
         // Not flagged on unrelated payload contexts.
         assert!(!is_forbidden_in_context(

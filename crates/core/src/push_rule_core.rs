@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Receiver-level watch state. Mirrors `ck.flow.watch.set`'s `level` field
+/// Receiver-level watch state. Mirrors `ck.strand.watch.set`'s `level` field
 /// wire encoding.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -17,7 +17,7 @@ pub enum WatchLevel {
     /// Only deliver when the receiver is explicitly mentioned or assigned.
     #[default]
     MentionsOnly,
-    /// Deliver when the receiver participated in the surrounding flow/thread.
+    /// Deliver when the receiver participated in the surrounding strand/thread.
     Participating,
     /// Deliver every event in the watched scope.
     All,
@@ -105,7 +105,7 @@ impl ShouldNotify {
 
 /// Stable wire reason codes returned alongside [`ShouldNotify`].
 pub mod reason_code {
-    /// Receiver explicitly muted the flow.
+    /// Receiver explicitly muted the strand.
     pub const MUTED: &str = "muted";
     /// `mentions_only` and the event is not directed at the receiver.
     pub const NOT_MENTIONED: &str = "not_mentioned";

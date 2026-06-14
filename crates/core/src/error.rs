@@ -75,7 +75,7 @@ pub const ERROR_CODE_PROFILE_UNSUPPORTED: &str = "profile_unsupported";
 //
 // Spec: `error-code-registry.json` (dc01ad7..5ed365c).
 // `failed_precondition` carries the round-C45 state-machine reason families
-// (flow_not_active, space_not_archived, morph_already_terminal, ...). See the
+// (strand_not_active, space_not_archived, morph_already_terminal, ...). See the
 // `REASON_*` constants further below.
 pub const ERROR_CODE_CURSOR_INTEGRITY_INVALID: &str = "cursor_integrity_invalid";
 pub const ERROR_CODE_FAILED_PRECONDITION: &str = "failed_precondition";
@@ -97,7 +97,7 @@ pub const ERROR_CODE_STALE_PEER: &str = "stale_peer";
 //
 // Round-23 wire breakers spanning the e2ee_relaxed window ceiling, the
 // cross-domain replay guard on cross-signing reset, the moderation appeal
-// flow, the audit-agent attestation pipeline, realm-terminal lifecycle,
+// strand, the audit-agent attestation pipeline, realm-terminal lifecycle,
 // legal hold / blob redaction, MLS governance, invite token expiry, and
 // late-recovery membership rejection.
 pub const ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING: &str = "relaxed_window_exceeds_ceiling";
@@ -519,10 +519,10 @@ pub const REASON_CLAIM_FAILED: &str = "claim_failed";
 // recovery witness, range completeness, and deprecation timeline. Spec:
 // `error-code-registry.json#reason_codes`.
 
-// Lifecycle state-machine guards (Flow / Space / Morph / Message / Relation).
-pub const REASON_FLOW_NOT_ACTIVE: &str = "flow_not_active";
-pub const REASON_FLOW_NOT_ARCHIVED: &str = "flow_not_archived";
-pub const REASON_FLOW_ALREADY_TERMINAL: &str = "flow_already_terminal";
+// Lifecycle state-machine guards (Strand / Space / Morph / Message / Relation).
+pub const REASON_STRAND_NOT_ACTIVE: &str = "strand_not_active";
+pub const REASON_STRAND_NOT_ARCHIVED: &str = "strand_not_archived";
+pub const REASON_STRAND_ALREADY_TERMINAL: &str = "strand_already_terminal";
 pub const REASON_SPACE_NOT_ACTIVE: &str = "space_not_active";
 pub const REASON_SPACE_NOT_ARCHIVED: &str = "space_not_archived";
 pub const REASON_SPACE_ALREADY_TERMINAL: &str = "space_already_terminal";
@@ -608,7 +608,7 @@ pub const REASON_LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND: &str =
     "lite_profile_writes_disallowed_event_kind";
 pub const REASON_CROSS_SPACE_STRUCTURAL_RELATION: &str = "cross_space_structural_relation";
 
-// Watch state capabilities (zh/models/flow-and-message.md §8.4–8.5).
+// Watch state capabilities (zh/models/strand-and-message.md §8.4–8.5).
 //
 // `mixed_secret_storage_disallowed_by_profile` was dropped from the registry
 // in round C47 (spec e10b6ad). The mixed-secret-storage check is no longer
@@ -650,9 +650,9 @@ pub const REASON_WITNESS_DISAGREEMENT: &str = "witness_disagreement";
 
 /// Known `failed_precondition` reason codes registered in round C45.
 pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
-    REASON_FLOW_NOT_ACTIVE,
-    REASON_FLOW_NOT_ARCHIVED,
-    REASON_FLOW_ALREADY_TERMINAL,
+    REASON_STRAND_NOT_ACTIVE,
+    REASON_STRAND_NOT_ARCHIVED,
+    REASON_STRAND_ALREADY_TERMINAL,
     REASON_SPACE_NOT_ACTIVE,
     REASON_SPACE_NOT_ARCHIVED,
     REASON_SPACE_ALREADY_TERMINAL,
@@ -785,7 +785,7 @@ pub const KNOWN_REASON_CODES_ROUND_C44: &[&str] = &[
     REASON_CLAIM_FAILED,
 ];
 
-// ── Reaction model (spec flow-and-message.md §9.8) reason codes.
+// ── Reaction model (spec strand-and-message.md §9.8) reason codes.
 //
 // Sub-reasons registered against `schema_violation` / `failed_precondition`
 // for the v1 Reaction target-scope invariants.
@@ -794,12 +794,12 @@ pub const KNOWN_REASON_CODES_ROUND_C44: &[&str] = &[
 /// `schema_violation` sub-reason: a `ck.reaction.add` / `ck.reaction.remove`
 /// `target_ref` points at an object kind that the deployment does not allow
 /// reactions on. v1 core only allows `ck:message:` targets; profiles MAY
-/// register additional target kinds. See zh/models/flow-and-message.md §9.8.2.
+/// register additional target kinds. See zh/models/strand-and-message.md §9.8.2.
 pub const REASON_REACTION_TARGET_UNSUPPORTED: &str = "reaction_target_unsupported";
 /// `failed_precondition` sub-reason: a `ck.reaction.*` `target_ref` resolves
 /// to an object outside the reaction event's stamped effective scope.
 /// Reactions MUST target an object within their own effective scope. See
-/// zh/models/flow-and-message.md §9.8.2.
+/// zh/models/strand-and-message.md §9.8.2.
 pub const REASON_REACTION_SCOPE_MISMATCH: &str = "reaction_scope_mismatch";
 
 /// Reaction reason codes registered for the §9.8 Reaction model.

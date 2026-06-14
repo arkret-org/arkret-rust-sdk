@@ -165,7 +165,7 @@ impl DeviceManager {
         )
     }
 
-    pub fn begin_verification_flow(
+    pub fn begin_verification_strand(
         &mut self,
         user_id: &Did,
         device_id: &DeviceId,
@@ -203,14 +203,14 @@ impl DeviceManager {
         Ok(challenge)
     }
 
-    /// Start a SAS-style verification flow with a canonical commitment.
+    /// Start a SAS-style verification strand with a canonical commitment.
     pub fn begin_sas_verification(
         &mut self,
         user_id: &Did,
         device_id: &DeviceId,
         sas_code: impl Into<String>,
     ) -> Result<DeviceVerificationChallenge> {
-        self.begin_verification_flow(user_id, device_id, "sas_v1", sas_code)
+        self.begin_verification_strand(user_id, device_id, "sas_v1", sas_code)
     }
 
     /// Return a scanner-facing QR payload for a pending verification transaction.
@@ -253,7 +253,7 @@ impl DeviceManager {
         Ok(())
     }
 
-    pub fn confirm_verification_flow(
+    pub fn confirm_verification_strand(
         &mut self,
         transaction_id: &str,
         response: &str,
@@ -306,8 +306,8 @@ impl DeviceManager {
         )
     }
 
-    /// Cancel a pending verification flow.
-    pub fn cancel_verification_flow(&mut self, transaction_id: &str) -> Result<()> {
+    /// Cancel a pending verification strand.
+    pub fn cancel_verification_strand(&mut self, transaction_id: &str) -> Result<()> {
         let challenge = self
             .verification_challenges
             .remove(transaction_id)
@@ -319,7 +319,7 @@ impl DeviceManager {
         )
     }
 
-    /// Mark all expired pending verification flows as expired.
+    /// Mark all expired pending verification strands as expired.
     pub fn expire_verification_challenges(&mut self, now: DateTime<Utc>) -> Result<usize> {
         let expired = self
             .verification_challenges
@@ -606,7 +606,7 @@ impl DeviceManager {
             })
             .collect();
         for id in cancel_ids {
-            let _ = self.cancel_verification_flow(&id);
+            let _ = self.cancel_verification_strand(&id);
         }
         Ok(())
     }

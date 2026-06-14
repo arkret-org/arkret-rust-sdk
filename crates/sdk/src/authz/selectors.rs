@@ -33,10 +33,10 @@ pub enum ResourceSelector {
     Realm { realm_id: String },
     /// Space selector.
     Space { space_id: String },
-    /// Flow selector (flow_id)
-    Flow {
+    /// Strand selector (strand_id)
+    Strand {
         realm_id: String,
-        flow_id: Option<String>,
+        strand_id: Option<String>,
     },
     /// Generic object selector.
     Object {
@@ -134,19 +134,19 @@ impl ResourceSelector {
             ) => space_id == target_id || space_id == "*",
             (Self::Space { .. }, _) => false,
 
-            // Flow selector
+            // Strand selector
             (
-                Self::Flow { realm_id, flow_id },
-                Resource::Flow {
+                Self::Strand { realm_id, strand_id },
+                Resource::Strand {
                     realm_id: target_realm,
-                    flow_id: target_id,
+                    strand_id: target_id,
                 },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
-                let id_match = flow_id.as_ref().is_none_or(|id| id == target_id);
+                let id_match = strand_id.as_ref().is_none_or(|id| id == target_id);
                 realm_match && id_match
             }
-            (Self::Flow { .. }, _) => false,
+            (Self::Strand { .. }, _) => false,
 
             // Object selector
             (
@@ -155,13 +155,13 @@ impl ResourceSelector {
                     object_type,
                     object_ref,
                 },
-                Resource::Flow {
+                Resource::Strand {
                     realm_id: target_realm,
-                    flow_id: target_id,
+                    strand_id: target_id,
                 },
             ) => {
                 let realm_match = realm_id == target_realm || realm_id == "*";
-                let type_match = object_type.as_ref().is_none_or(|t| t == "flow");
+                let type_match = object_type.as_ref().is_none_or(|t| t == "strand");
                 let ref_match = object_ref.as_ref().is_none_or(|id| id == target_id);
                 realm_match && type_match && ref_match
             }
@@ -419,9 +419,9 @@ impl ResourceSelector {
                     .map_err(|err| Error::Protocol(format!("invalid circle selector: {err}")))?;
                 Ok(Self::Circle { circle_id })
             }
-            "flow" => Ok(Self::Flow {
+            "strand" => Ok(Self::Strand {
                 realm_id: realm_or_wildcard(),
-                flow_id: field("flow_id"),
+                strand_id: field("strand_id"),
             }),
             "message" => Ok(Self::Message {
                 realm_id: realm_or_wildcard(),
@@ -527,12 +527,12 @@ impl ResourceSelector {
                 put("kind", "circle");
                 put("circle_id", circle_id.as_ref());
             }
-            Self::Flow { realm_id, flow_id } => {
-                put("kind", "flow");
+            Self::Strand { realm_id, strand_id } => {
+                put("kind", "strand");
                 if realm_id != "*" {
                     put("realm_id", realm_id);
                 }
-                put_opt(&mut object, "flow_id", flow_id);
+                put_opt(&mut object, "strand_id", strand_id);
             }
             Self::Message {
                 realm_id,
@@ -680,9 +680,9 @@ impl ResourceSelector {
             "space" => Ok(Self::Space {
                 space_id: remainder.to_owned(),
             }),
-            "flow" => {
-                let (realm_id, flow_id) = split_realm_tail(remainder, selector)?;
-                Ok(Self::Flow { realm_id, flow_id })
+            "strand" => {
+                let (realm_id, strand_id) = split_realm_tail(remainder, selector)?;
+                Ok(Self::Strand { realm_id, strand_id })
             }
             "object" => {
                 let (realm_id, tail) = split_realm_tail(remainder, selector)?;
@@ -775,7 +775,7 @@ impl ResourceSelector {
 pub enum ProtocolResourceSelectorKind {
     Realm,
     Space,
-    Flow,
+    Strand,
     Message,
     Morph,
     Object,
@@ -822,7 +822,7 @@ pub struct ProtocolResourceSelector {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub object_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub flow_id: Option<String>,
+    pub strand_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -865,10 +865,10 @@ impl ProtocolResourceSelector {
                 out.space_id = Some(space_id.clone());
                 out
             }
-            ResourceSelector::Flow { realm_id, flow_id } => {
-                let mut out = Self::empty(ProtocolResourceSelectorKind::Flow);
+            ResourceSelector::Strand { realm_id, strand_id } => {
+                let mut out = Self::empty(ProtocolResourceSelectorKind::Strand);
                 out.realm_id = Some(realm_id.clone());
-                out.flow_id = flow_id.clone();
+                out.strand_id = strand_id.clone();
                 out
             }
             ResourceSelector::Object {
@@ -997,7 +997,7 @@ impl ProtocolResourceSelector {
             circle_id: None,
             object_type: None,
             object_ref: None,
-            flow_id: None,
+            strand_id: None,
             message_id: None,
             morph_id: None,
             morph_type: None,
@@ -1025,7 +1025,7 @@ impl ProtocolResourceSelector {
                 event_id: Some("ck:event:01904100-0000-7000-8000-51495aba0a08".to_owned()),
                 object_type: None,
                 object_ref: None,
-                flow_id: None,
+                strand_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -1047,7 +1047,7 @@ impl ProtocolResourceSelector {
                 actor_id: Some("did:web:alice.example".to_owned()),
                 object_type: None,
                 object_ref: None,
-                flow_id: None,
+                strand_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -1069,7 +1069,7 @@ impl ProtocolResourceSelector {
                 actor_id: Some("did:web:alice.example".to_owned()),
                 object_type: Some("device_verification".to_owned()),
                 object_ref: Some("ck:notify:01JS0NT000000000000000000".to_owned()),
-                flow_id: Some("ck:flow:01904100-0000-7000-8000-a1fffe3a8cc9".to_owned()),
+                strand_id: Some("ck:strand:01904100-0000-7000-8000-a1fffe3a8cc9".to_owned()),
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -1091,7 +1091,7 @@ impl ProtocolResourceSelector {
                 blob_ref: Some("ck:blob:sha256:0123456789abcdef".to_owned()),
                 object_type: Some("encrypted_backup".to_owned()),
                 object_ref: Some("backup-scaffold-current-device".to_owned()),
-                flow_id: None,
+                strand_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -1120,14 +1120,14 @@ mod spec_selector_tests {
         let spec = json!({
             "kind": "object",
             "realm_id": "ck:realm:01904100-0000-7000-8000-65c7feb295d7",
-            "object_type": "flow"
+            "object_type": "strand"
         });
         let selector = ResourceSelector::from_spec_value(&spec).unwrap();
         assert_eq!(
             selector,
             ResourceSelector::Object {
                 realm_id: "ck:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
-                object_type: Some("flow".to_owned()),
+                object_type: Some("strand".to_owned()),
                 object_ref: None,
             }
         );
