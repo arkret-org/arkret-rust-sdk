@@ -1319,6 +1319,24 @@ impl ContentBlock {
         self
     }
 
+    pub fn with_mentions(mut self, mentions: Vec<Mention>) -> Result<Self> {
+        let value = serde_json::to_value(mentions)
+            .map_err(|err| Error::Protocol(format!("content mentions serialize: {err}")))?;
+        self.extra.insert("mentions".to_owned(), value);
+        Ok(self)
+    }
+
+    pub fn with_audience_mentions(
+        mut self,
+        audience_mentions: Vec<AudienceMention>,
+    ) -> Result<Self> {
+        let value = serde_json::to_value(audience_mentions).map_err(|err| {
+            Error::Protocol(format!("content audience_mentions serialize: {err}"))
+        })?;
+        self.extra.insert("audience_mentions".to_owned(), value);
+        Ok(self)
+    }
+
     pub fn with_part(mut self, part: ContentBlock) -> Self {
         self.parts.push(part);
         self

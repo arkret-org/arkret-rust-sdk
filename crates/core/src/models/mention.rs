@@ -11,10 +11,18 @@ use super::*;
 /// `mention_text_original`) and MUST NOT be used as the current display
 /// value or for actor attribution — verifier / reducer / policy engine
 /// MUST ignore them and read `subject_id` exclusively.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum MentionKind {
+    #[serde(rename = "mention")]
+    Mention,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Mention {
+    pub kind: MentionKind,
     /// Principal DID of the mentioned subject. The ONLY field that
     /// participates in actor attribution, authorization, resolution and
     /// render lookup.
@@ -117,6 +125,19 @@ pub struct AudienceMention {
     pub resolved_at: Option<DateTime<Utc>>,
 }
 
+/// Message content AST mention node.
+///
+/// The v1 wire currently admits direct actor mentions and audience mentions.
+/// Entity/object references are modeled separately as links or relation refs,
+/// not as `mentions[]` entries.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(untagged)]
+pub enum MentionNode {
+    Mention(Mention),
+    AudienceMention(AudienceMention),
+}
+
 impl AudienceMention {
     pub fn new(audience: AudienceMentionAudience) -> Self {
         Self {
@@ -154,6 +175,7 @@ impl Mention {
     /// metadata is attached via the builder setters.
     pub fn new(subject_id: Did) -> Self {
         Self {
+            kind: MentionKind::Mention,
             subject_id,
             display_name_at_time: None,
             handle_at_time: None,
@@ -198,6 +220,44 @@ impl Mention {
     }
 }
 
+impl MentionNode {
+    pub fn mention(mention: Mention) -> Self {
+        Self::Mention(mention)
+    }
+
+    pub fn audience_mention(audience_mention: AudienceMention) -> Self {
+        Self::AudienceMention(audience_mention)
+    }
+
+    pub fn as_mention(&self) -> Option<&Mention> {
+        match self {
+            Self::Mention(mention) => Some(mention),
+            Self::AudienceMention(_) => None,
+        }
+    }
+
+    pub fn as_audience_mention(&self) -> Option<&AudienceMention> {
+        match self {
+            Self::Mention(_) => None,
+            Self::AudienceMention(mention) => Some(mention),
+        }
+    }
+
+    pub fn target_id(&self) -> &str {
+        match self {
+            Self::Mention(mention) => mention.subject_id.as_str(),
+            Self::AudienceMention(mention) => mention.audience.as_wire(),
+        }
+    }
+
+    pub fn mention_text_original(&self) -> Option<&str> {
+        match self {
+            Self::Mention(mention) => mention.mention_text_original.as_deref(),
+            Self::AudienceMention(mention) => mention.mention_text_original.as_deref(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,6 +266,7 @@ mod tests {
     fn mention_minimal_shape_round_trips() {
         let m = Mention::new(Did::new("did:web:alice.example".to_owned()).unwrap());
         let json = serde_json::to_value(&m).unwrap();
+        assert_eq!(json["kind"], "mention");
         assert!(json.get("subject_id").is_some());
         // Audit metadata omitted when unset.
         assert!(json.get("handle_at_time").is_none());
@@ -242,6 +303,25 @@ mod tests {
         let json = serde_json::to_value(&node).unwrap();
         assert_eq!(json["kind"], "audience_mention");
         assert_eq!(json["audience"], "strand_engaged");
+    }
+
+    #[test]
+    fn mention_node_round_trips_actor_and_audience_variants() {
+        let actor = MentionNode::mention(Mention::new(
+            Did::new("did:web:alice.example".to_owned()).unwrap(),
+        ));
+        let actor_json = serde_json::to_value(&actor).unwrap();
+        assert_eq!(actor_json["kind"], "mention");
+        let decoded_actor: MentionNode = serde_json::from_value(actor_json).unwrap();
+        assert!(decoded_actor.as_mention().is_some());
+
+        let audience = MentionNode::audience_mention(
+            AudienceMention::from_ui_token("@all").expect("@all should be known"),
+        );
+        let audience_json = serde_json::to_value(&audience).unwrap();
+        assert_eq!(audience_json["kind"], "audience_mention");
+        let decoded_audience: MentionNode = serde_json::from_value(audience_json).unwrap();
+        assert!(decoded_audience.as_audience_mention().is_some());
     }
 
     #[test]
