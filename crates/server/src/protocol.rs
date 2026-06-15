@@ -126,7 +126,7 @@ pub enum ServerOutcome {
     SyncDescription(SyncDescription),
     AccountCursorRevoke(AccountCursorRevokeOutcome),
     SyncBackfill(SyncBackfillOutcome),
-    SyncSnapshotHead(SnapshotHeadState),
+    SyncSnapshotHead(SnapshotManifest),
     FederationTransaction(FederationTransactionOutcome),
     FederationPushOperations(FederationPushOperationsOutcome),
     FederationPullOperations(FederationPullOperationsOutcome),

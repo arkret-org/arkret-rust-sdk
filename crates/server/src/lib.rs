@@ -28,8 +28,8 @@ use cokret_core::{
     MediaIceConfigRequestBody, ModerationReportOutcome, ModerationReportRequestBody, OkOutcome,
     PolicyCheckOutcome, PolicyCheckRequestBody, PushNotifyOutcome, PushNotifyRequestBody,
     PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody,
-    Result, ServerDescription, SnapshotHeadState, SyncBackfillOutcome, SyncDescription,
-    SyncOutcome, SyncRequestBody,
+    Result, ServerDescription, SnapshotManifest, SyncBackfillOutcome, SyncDescription, SyncOutcome,
+    SyncRequestBody,
 };
 pub use cokret_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
 // Shared protocol/product wire contracts now live in `cokret-core`; re-export

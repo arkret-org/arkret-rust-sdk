@@ -33,7 +33,7 @@ use cokret_core::{
     PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, PolicyCheckOutcome,
     PolicyCheckRequestBody, PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
     PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, Result, ServerDescription,
-    ServiceRequirements, SessionGrantOutcome, SessionGrantRequestBody, SnapshotHeadState,
+    ServiceRequirements, SessionGrantOutcome, SessionGrantRequestBody, SnapshotManifest,
     SyncBackfillOutcome, SyncDescription, SyncOutcome, SyncRequestBody,
 };
 use reqwest::header::{HeaderMap, HeaderValue, RETRY_AFTER, USER_AGENT};
@@ -1006,7 +1006,7 @@ impl Client {
         self.post("/_cokret/self/events", &Batch { events }).await
     }
 
-    pub async fn snapshot_head(&self, realm_id: &str) -> Result<SnapshotHeadState> {
+    pub async fn snapshot_head(&self, realm_id: &str) -> Result<SnapshotManifest> {
         let builder = self
             .request(Method::GET, "/_cokret/self/snapshot/head")?
             .query(&[("realm_id", realm_id)]);

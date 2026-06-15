@@ -594,5 +594,4 @@ mod event_wire_surface_tests {
             "unexpected error: {err}"
         );
     }
-
 }
