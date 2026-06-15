@@ -277,7 +277,7 @@ impl RealmState {
 
     fn create_morph(&mut self, event: &Event) -> Result<()> {
         let object = event.content.get("object").unwrap_or(&event.content);
-        reject_legacy_morph_metadata_fields(object)?;
+        reject_removed_morph_metadata_fields(object)?;
         let morph_id_str = self.extract_morph_id(object)?;
         let morph_id = MorphId::new(morph_id_str.clone())?;
         let morph_type = self.extract_field::<String>(object, "morph_type")?;
@@ -338,9 +338,9 @@ impl RealmState {
         {
             return Err(Error::Protocol("morph_not_active".to_owned()));
         }
-        reject_legacy_morph_metadata_fields(&event.content)?;
+        reject_removed_morph_metadata_fields(&event.content)?;
         let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
-        reject_legacy_morph_patch_fields(&patch)?;
+        reject_removed_morph_patch_fields(&patch)?;
         let metadata =
             self.extract_optional_field::<crate::MorphMetadata>(&event.content, "metadata");
         let encrypted_metadata =
@@ -763,7 +763,7 @@ impl RealmState {
         let object = event.content.get("object").unwrap_or(&event.content);
         let strand_id_str = self.extract_strand_id(object)?;
         let strand_id = StrandId::new(strand_id_str.clone())?;
-        reject_legacy_strand_metadata_fields(object)?;
+        reject_removed_strand_metadata_fields(object)?;
         let metadata = self
             .extract_optional_field::<crate::StrandMetadata>(object, "metadata")
             .unwrap_or_default();
@@ -827,9 +827,9 @@ impl RealmState {
         {
             return Err(Error::Protocol("strand_not_active".to_owned()));
         }
-        reject_legacy_strand_metadata_fields(&event.content)?;
+        reject_removed_strand_metadata_fields(&event.content)?;
         let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
-        reject_legacy_strand_patch_fields(&patch)?;
+        reject_removed_strand_patch_fields(&patch)?;
         let metadata =
             self.extract_optional_field::<crate::StrandMetadata>(&event.content, "metadata");
         let encrypted_metadata =
@@ -1352,8 +1352,6 @@ impl RealmState {
     fn extract_space_id(&self, content: &Value) -> Result<String> {
         self.extract_optional_field::<String>(content, "space_id")
             .or_else(|| self.extract_optional_field::<String>(content, "id"))
-            .or_else(|| self.extract_optional_field::<String>(content, "target_ref"))
-            .or_else(|| self.extract_optional_field::<String>(content, "object_ref"))
             .ok_or_else(|| Error::Protocol("container event requires space_id".to_owned()))
     }
 
@@ -1654,7 +1652,7 @@ impl RealmState {
     }
 }
 
-fn reject_legacy_strand_metadata_fields(value: &Value) -> Result<()> {
+fn reject_removed_strand_metadata_fields(value: &Value) -> Result<()> {
     let Some(object) = value.as_object() else {
         return Ok(());
     };
@@ -1668,7 +1666,7 @@ fn reject_legacy_strand_metadata_fields(value: &Value) -> Result<()> {
     Ok(())
 }
 
-fn reject_legacy_strand_patch_fields(patch: &Option<BTreeMap<String, Value>>) -> Result<()> {
+fn reject_removed_strand_patch_fields(patch: &Option<BTreeMap<String, Value>>) -> Result<()> {
     let Some(patch) = patch else {
         return Ok(());
     };
@@ -1682,7 +1680,7 @@ fn reject_legacy_strand_patch_fields(patch: &Option<BTreeMap<String, Value>>) ->
     Ok(())
 }
 
-fn reject_legacy_morph_metadata_fields(value: &Value) -> Result<()> {
+fn reject_removed_morph_metadata_fields(value: &Value) -> Result<()> {
     let Some(object) = value.as_object() else {
         return Ok(());
     };
@@ -1706,7 +1704,7 @@ fn reject_legacy_morph_metadata_fields(value: &Value) -> Result<()> {
     Ok(())
 }
 
-fn reject_legacy_morph_patch_fields(patch: &Option<BTreeMap<String, Value>>) -> Result<()> {
+fn reject_removed_morph_patch_fields(patch: &Option<BTreeMap<String, Value>>) -> Result<()> {
     let Some(patch) = patch else {
         return Ok(());
     };

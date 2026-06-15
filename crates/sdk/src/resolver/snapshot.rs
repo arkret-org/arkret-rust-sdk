@@ -24,7 +24,7 @@ pub struct StateSnapshot {
     pub manifest: Option<ReducerSnapshotManifest>,
 }
 
-/// Dev-only legacy reducer snapshot container.
+/// Dev-only reducer snapshot container.
 ///
 /// Current production snapshot bootstrap uses
 /// `ck.schema.snapshot.v1` [`cokret_core::SnapshotManifest`].
@@ -44,7 +44,7 @@ pub struct ReducerSnapshotManifest {
     pub signatures: Vec<SnapshotSignature>,
 }
 
-/// Dev-only legacy reducer snapshot chunk descriptor.
+/// Dev-only reducer snapshot chunk descriptor.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SnapshotChunkManifest {
     pub index: u32,
@@ -165,8 +165,7 @@ pub(super) fn membership_rank(content: &Value) -> u8 {
 
 pub(super) fn object_state_from_str(state: &str) -> Result<crate::ObjectState> {
     // C47 (spec e10b6ad): `deleted` is no longer a valid lifecycle state for
-    // Strand / Morph; the only terminal state is `redacted`. Receivers MUST
-    // reject the legacy `deleted` literal.
+    // Strand / Morph; the only terminal state is `redacted`.
     match state {
         "active" => Ok(crate::ObjectState::Active),
         "archived" => Ok(crate::ObjectState::Archived),

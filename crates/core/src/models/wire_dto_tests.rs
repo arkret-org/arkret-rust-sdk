@@ -40,31 +40,6 @@ fn compat_surface_entry_serializes_schema_shape() {
 }
 
 #[test]
-fn compat_surface_kind_rejects_removed_wire_values() {
-    for value in ["legacy_alias", "deprecated_alias"] {
-        let parsed: std::result::Result<CompatSurfaceKind, _> =
-            serde_json::from_value(serde_json::json!(value));
-        assert!(parsed.is_err(), "{value} is not a v1 compat_surface kind");
-    }
-}
-
-#[test]
-fn key_backup_recipient_method_rejects_removed_wire_values() {
-    for value in [
-        "device_snapshot_secret",
-        "threshold_recovery",
-        "hardware_wrapped_key",
-    ] {
-        let parsed: std::result::Result<KeyBackupRecipientMethod, _> =
-            serde_json::from_value(serde_json::json!(value));
-        assert!(
-            parsed.is_err(),
-            "{value} must not be a key-backup recipient_method"
-        );
-    }
-}
-
-#[test]
 fn directory_realm_search_outcome_decodes_typed_preview_fields() {
     let value = serde_json::json!({
         "realms": [

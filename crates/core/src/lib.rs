@@ -14,7 +14,6 @@ pub mod cursor;
 pub mod error;
 pub mod events;
 pub mod federation;
-pub mod forbidden_wire_fields;
 pub mod generated;
 pub mod http;
 pub mod identity;
@@ -97,10 +96,6 @@ pub use error::{
     ERROR_CODE_UNSUPPORTED_LATTICE_TYPE, Error, ErrorCode, KNOWN_ERROR_CODES,
     KNOWN_REASON_CODES_CONTACT_DIRECT_CONVERSATION, REASON_CONTACT_CONSENT_MISSING,
     REASON_CONTACT_NOT_ACCEPTED, Result, error_code_http_status, is_known_error_code,
-};
-pub use forbidden_wire_fields::{
-    FORBIDDEN_ID_PREFIXES, FORBIDDEN_WIRE_FIELDS, WireContext, is_forbidden_id_prefix,
-    is_forbidden_in_context, is_forbidden_wire_field,
 };
 pub use generated::profiles::{PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role};
 pub use http::*;

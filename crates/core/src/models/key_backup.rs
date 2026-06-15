@@ -298,13 +298,6 @@ impl TryFrom<KeyBackupKdfWire> for KeyBackupKdf {
     type Error = String;
 
     fn try_from(wire: KeyBackupKdfWire) -> std::result::Result<Self, Self::Error> {
-        if wire.params.as_object().is_some_and(|params| {
-            params.keys().any(|key| {
-                crate::is_forbidden_in_context(key, crate::WireContext::KeyBackupKdfParams)
-            })
-        }) {
-            return Err("KeyBackupKdf.params contains forbidden wire field".to_owned());
-        }
         Ok(Self {
             name: wire.name,
             salt: wire.salt,

@@ -51,7 +51,7 @@ brought into line:
 - **`applet` convenience feature added** (`applet-runtime` + `client` +
   `server` + `salvo`) so `cargo add cokret --features applet` is all an
   Applet service needs.
-- **Legacy parallel models removed** (compatibility intentionally
+- **Parallel models removed** (compatibility intentionally
   dropped): `SignedAppletRegistration`, the pre-wire `AppletSchema` /
   `AppletPermission` / `OpenApiBinding` triple, and
   `AppletNamespaceDeclaration` / `AppletNamespaceKind` are gone.
@@ -89,7 +89,7 @@ new bytes.
 
 **Status:** **Resolved (S-13): `SignedAppletRegistration` removed.**
 
-The legacy SDK-internal `SignedAppletRegistration` (plus its
+The SDK-internal `SignedAppletRegistration` (plus its
 `AppletSchema` / `AppletNamespaceDeclaration` dependencies and the
 test-only `AppletRegistry`) has been deleted. `ck.applet.registration`
 has exactly one representation:

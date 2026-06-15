@@ -65,7 +65,7 @@ Wire shape ownership is strict:
 
 ## Naming Conventions
 
-Request/response DTO suffixes are unified workspace-wide (no legacy aliases):
+Request/response DTO suffixes are unified workspace-wide (no removed aliases):
 
 - Endpoint request bodies use `*RequestBody` (e.g. `SyncRequestBody`,
   `AccountRegisterRequestBody`). Do not introduce new `*ReqBody` names.

@@ -570,8 +570,8 @@ pub fn is_valid_wakeup_kind(value: &str) -> bool {
     ALLOWED_WAKEUP_KINDS.contains(&value)
 }
 
-/// Legacy helper retained for callers that need to validate private extension
-/// tokens before mapping them onto the closed v1 wakeup_kind enum.
+/// Helper for callers that need to validate private extension tokens before
+/// mapping them onto the closed v1 wakeup_kind enum.
 pub fn is_valid_custom_wakeup_kind(value: &str) -> bool {
     if value.is_empty() || value.len() > 32 {
         return false;

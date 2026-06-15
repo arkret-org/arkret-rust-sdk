@@ -232,7 +232,7 @@ pub enum EventsSubscribeFrameBody {
 /// root over the ordered chunk digests. Consumers still fetch and verify each
 /// chunk by its declared digest before applying the snapshot.
 ///
-/// Dev-only legacy shape. Current production snapshot bootstrap uses
+/// Dev-only shape. Current production snapshot bootstrap uses
 /// `ck.schema.snapshot.v1` [`crate::SnapshotManifest`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -248,7 +248,7 @@ pub struct SnapshotBootstrap {
     pub chunks: Vec<SnapshotBootstrapChunk>,
 }
 
-/// Dev-only legacy bootstrap signature for [`SnapshotBootstrap`].
+/// Dev-only bootstrap signature for [`SnapshotBootstrap`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotBootstrapSignature {
@@ -304,7 +304,7 @@ impl SnapshotBootstrap {
     }
 }
 
-/// Dev-only legacy bootstrap chunk descriptor for [`SnapshotBootstrap`].
+/// Dev-only bootstrap chunk descriptor for [`SnapshotBootstrap`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotBootstrapChunk {

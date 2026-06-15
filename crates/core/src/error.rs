@@ -166,7 +166,7 @@ pub const ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT: &str = "member_identity_un
 
 // ── Key-backup hardening (B-C, spec head 37ce729) — 11 new wire-level error
 // codes covering the key-backup series chain, recovery-policy alignment,
-// share commitment, frontier staleness, legacy secret_storage rejection,
+// share commitment, frontier staleness, removed secret_storage rejection,
 // recovery evidence binding, AEAD profile gating, and attestation presence.
 pub const ERROR_CODE_SERIES_CHAIN_BROKEN: &str = "series_chain_broken";
 pub const ERROR_CODE_SERIES_SEQ_NOT_MONOTONIC: &str = "series_seq_not_monotonic";

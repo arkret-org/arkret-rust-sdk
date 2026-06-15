@@ -264,9 +264,6 @@ impl TryFrom<EventWire> for Event {
             proofs: wire.proofs,
         };
         event.validate_applet_provenance_invariants()?;
-        event
-            .validate_forbidden_wire_surface()
-            .map_err(|err| err.to_string())?;
         Ok(event)
     }
 }
@@ -389,7 +386,6 @@ impl Event {
     }
 
     pub fn validate_wire_schema(&self) -> Result<()> {
-        self.validate_forbidden_wire_surface()?;
         let value = serde_json::to_value(self)?;
         let registry = crate::schema::schema_registry_from_default_spec_artifacts()?
             .unwrap_or_else(ProtocolSchemaRegistry::default);
@@ -413,29 +409,6 @@ impl Event {
             );
         }
         Ok(())
-    }
-
-    pub fn validate_forbidden_wire_surface(&self) -> Result<()> {
-        validate_forbidden_object_keys(
-            "Event.payload",
-            &self.content,
-            crate::WireContext::EventEnvelopeOrPayloadTopLevel,
-        )?;
-        if let Some(context) = payload_context_for_event_kind(self.kind.as_str()) {
-            validate_forbidden_object_keys("Event.payload", &self.content, context)?;
-            if let Some(object) = self.content.get("object") {
-                validate_forbidden_object_keys("Event.payload.object", object, context)?;
-            }
-            if let Some(patch) = self.content.get("patch") {
-                validate_forbidden_object_keys("Event.payload.patch", patch, context)?;
-            }
-            if let Some(patch_context) = patch_context_for_event_kind(self.kind.as_str())
-                && let Some(patch) = self.content.get("patch")
-            {
-                validate_forbidden_patch_paths("Event.payload.patch", patch, patch_context)?;
-            }
-        }
-        validate_forbidden_id_prefixes("Event.payload", &self.content)
     }
 
     /// Validate that all proofs bind to this event's digest.
@@ -495,241 +468,12 @@ impl Event {
     }
 }
 
-fn payload_context_for_event_kind(kind: &str) -> Option<crate::WireContext> {
-    let suffix = kind.strip_prefix("ck.").unwrap_or(kind);
-    match suffix.split('.').next()? {
-        "strand" => Some(crate::WireContext::StrandPayload),
-        "morph" => Some(crate::WireContext::MorphPayload),
-        "space" => Some(crate::WireContext::SpacePayload),
-        "relation" => Some(crate::WireContext::RelationPayload),
-        "message" if suffix == "message.create" => Some(crate::WireContext::MessageCreatePayload),
-        "realm" if suffix == "realm.freeze" => Some(crate::WireContext::RealmFreezePayload),
-        _ => None,
-    }
-}
-
-fn patch_context_for_event_kind(kind: &str) -> Option<crate::WireContext> {
-    let suffix = kind.strip_prefix("ck.").unwrap_or(kind);
-    match suffix {
-        "strand.update" | "strand.tracks.update" => Some(crate::WireContext::StrandPatchPath),
-        "morph.update" | "morph.schema_migrate" => Some(crate::WireContext::MorphPatchPath),
-        _ => None,
-    }
-}
-
-fn validate_forbidden_patch_paths(
-    label: &str,
-    value: &Value,
-    context: crate::WireContext,
-) -> Result<()> {
-    let Some(object) = value.as_object() else {
-        return Ok(());
-    };
-    for (key, patch_op) in object {
-        if let Some(forbidden_path) = forbidden_patch_path_match(key, context) {
-            return Err(Error::Protocol(format!(
-                "{label} contains forbidden patch path '{key}' matching '{forbidden_path}' in context {context:?}"
-            )));
-        }
-        validate_forbidden_patch_value(label, key, patch_op, context)?;
-    }
-    Ok(())
-}
-
-fn forbidden_patch_path_match<'a>(path: &'a str, context: crate::WireContext) -> Option<&'a str> {
-    if let Some(entry) = forbidden_patch_path_prefixes(context)
-        .iter()
-        .find(|entry| path == **entry || path.starts_with(&format!("{entry}.")))
-    {
-        return Some(entry);
-    }
-    crate::is_forbidden_in_context(path, context).then_some(path)
-}
-
-fn forbidden_patch_path_prefixes(context: crate::WireContext) -> &'static [&'static str] {
-    match context {
-        crate::WireContext::StrandPatchPath => &[
-            "stage",
-            "stage_changed_at",
-            "metadata.fields.assignee",
-            "metadata.fields.assignees",
-            "metadata.fields.assigned_to",
-            "metadata.fields.assigned_actor_ids",
-            "fields.assignee",
-            "fields.assignees",
-            "fields.assigned_to",
-            "fields.assigned_actor_ids",
-        ],
-        crate::WireContext::MorphPatchPath => &["stage", "stage_changed_at"],
-        _ => &[],
-    }
-}
-
-fn validate_forbidden_patch_value(
-    label: &str,
-    path: &str,
-    patch_op: &Value,
-    context: crate::WireContext,
-) -> Result<()> {
-    let patch_value = patch_op
-        .get("value")
-        .filter(|_| patch_op.get("$op").is_some())
-        .unwrap_or(patch_op);
-    match context {
-        crate::WireContext::StrandPatchPath => {
-            validate_strand_patch_parent_value(label, path, patch_value)?;
-        }
-        crate::WireContext::MorphPatchPath => {
-            validate_morph_patch_parent_value(label, path, patch_value)?;
-        }
-        _ => {}
-    }
-    Ok(())
-}
-
-fn validate_strand_patch_parent_value(label: &str, path: &str, value: &Value) -> Result<()> {
-    match path {
-        "metadata.fields" => validate_forbidden_map_value_keys(
-            label,
-            path,
-            value,
-            "metadata.fields",
-            crate::WireContext::StrandPayload,
-        ),
-        "fields" => validate_forbidden_map_value_keys(
-            label,
-            path,
-            value,
-            "fields",
-            crate::WireContext::StrandPatchPath,
-        ),
-        "metadata" => {
-            if let Some(fields) = value.get("fields") {
-                validate_forbidden_map_value_keys(
-                    label,
-                    "metadata.fields",
-                    fields,
-                    "metadata.fields",
-                    crate::WireContext::StrandPayload,
-                )?;
-            }
-            Ok(())
-        }
-        _ => Ok(()),
-    }
-}
-
-fn validate_morph_patch_parent_value(label: &str, path: &str, value: &Value) -> Result<()> {
-    match path {
-        "fields" => validate_forbidden_map_value_keys(
-            label,
-            path,
-            value,
-            "fields",
-            crate::WireContext::MorphPayload,
-        ),
-        _ => Ok(()),
-    }
-}
-
-fn validate_forbidden_map_value_keys(
-    label: &str,
-    path: &str,
-    value: &Value,
-    key_prefix: &str,
-    context: crate::WireContext,
-) -> Result<()> {
-    let Some(object) = value.as_object() else {
-        return Ok(());
-    };
-    for nested_key in object.keys() {
-        let nested = format!("{key_prefix}.{nested_key}");
-        if crate::is_forbidden_in_context(&nested, context)
-            || forbidden_patch_path_match(&nested, context).is_some()
-        {
-            return Err(Error::Protocol(format!(
-                "{label}.{path} value contains forbidden wire field '{nested}' in context {context:?}"
-            )));
-        }
-    }
-    Ok(())
-}
-
-fn validate_forbidden_object_keys(
-    label: &str,
-    value: &Value,
-    context: crate::WireContext,
-) -> Result<()> {
-    let Some(object) = value.as_object() else {
-        return Ok(());
-    };
-    for (key, child) in object {
-        if crate::is_forbidden_in_context(key, context) {
-            return Err(Error::Protocol(format!(
-                "{label} contains forbidden wire field '{key}' in context {context:?}"
-            )));
-        }
-        if let Some(fields) = child.as_object().filter(|_| key == "fields") {
-            for nested_key in fields.keys() {
-                let nested = format!("fields.{nested_key}");
-                if crate::is_forbidden_in_context(&nested, context) {
-                    return Err(Error::Protocol(format!(
-                        "{label}.fields contains forbidden wire field '{nested}' in context {context:?}"
-                    )));
-                }
-            }
-        }
-        if let Some(metadata) = child.as_object().filter(|_| key == "metadata")
-            && let Some(fields) = metadata.get("fields").and_then(Value::as_object)
-        {
-            for nested_key in fields.keys() {
-                let nested = format!("metadata.fields.{nested_key}");
-                if crate::is_forbidden_in_context(&nested, context) {
-                    return Err(Error::Protocol(format!(
-                        "{label}.metadata.fields contains forbidden wire field '{nested}' in context {context:?}"
-                    )));
-                }
-            }
-        }
-        if key == "kind"
-            && child.as_str() == Some("room")
-            && crate::is_forbidden_in_context("kind=room", context)
-        {
-            return Err(Error::Protocol(format!(
-                "{label}.kind contains forbidden value 'room' in context {context:?}"
-            )));
-        }
-    }
-    Ok(())
-}
-
-fn validate_forbidden_id_prefixes(label: &str, value: &Value) -> Result<()> {
-    match value {
-        Value::String(s) if crate::is_forbidden_id_prefix(s) => Err(Error::Protocol(format!(
-            "{label} contains forbidden typed-id prefix in value '{s}'"
-        ))),
-        Value::Array(items) => {
-            for item in items {
-                validate_forbidden_id_prefixes(label, item)?;
-            }
-            Ok(())
-        }
-        Value::Object(map) => {
-            for value in map.values() {
-                validate_forbidden_id_prefixes(label, value)?;
-            }
-            Ok(())
-        }
-        _ => Ok(()),
-    }
-}
-
 /// Canonical signed Event Envelope wire model.
 pub type EventEnvelope = Event;
 
 #[cfg(test)]
 mod event_wire_surface_tests {
-    //! Guard the Event Envelope wire surface against legacy non-spec fields.
+    //! Guard the Event Envelope wire surface against removed non-spec fields.
 
     use serde_json::json;
 
@@ -851,90 +595,4 @@ mod event_wire_surface_tests {
         );
     }
 
-    #[test]
-    fn event_deserialize_rejects_forbidden_payload_fields() {
-        let event = base_event();
-        let mut value = serde_json::to_value(&event).unwrap();
-        value
-            .as_object_mut()
-            .unwrap()
-            .insert("kind".to_owned(), json!("ck.strand.create"));
-        value.as_object_mut().unwrap().insert(
-            "payload".to_owned(),
-            json!({"discussion_space_ref": "ck:space:old"}),
-        );
-
-        let err = serde_json::from_value::<Event>(value).unwrap_err();
-        assert!(err.to_string().contains("forbidden wire field"));
-    }
-
-    #[test]
-    fn strand_update_rejects_forbidden_patch_paths() {
-        for path in [
-            "stage",
-            "metadata.fields.assignee",
-            "metadata.fields.assignee.name",
-            "fields.assignee",
-        ] {
-            let mut event = base_event();
-            event.kind = "ck.strand.update".into();
-            let mut patch = serde_json::Map::new();
-            patch.insert(
-                path.to_owned(),
-                json!({ "$op": "set", "value": "did:web:bob.example" }),
-            );
-            event.content = json!({
-                "target_ref": "ck:strand:01904100-0000-7000-8000-000000000001",
-                "patch": Value::Object(patch)
-            });
-
-            let err = event.validate_forbidden_wire_surface().unwrap_err();
-            assert!(
-                err.to_string().contains("forbidden patch path")
-                    || err.to_string().contains("forbidden wire field"),
-                "unexpected error for {path}: {err}"
-            );
-        }
-
-        for (path, value) in [
-            (
-                "metadata.fields",
-                json!({"assignee": "did:web:bob.example"}),
-            ),
-            (
-                "metadata",
-                json!({"fields": {"assignee": "did:web:bob.example"}}),
-            ),
-            ("fields", json!({"assignee": "did:web:bob.example"})),
-        ] {
-            let mut event = base_event();
-            event.kind = "ck.strand.update".into();
-            let mut patch = serde_json::Map::new();
-            patch.insert(path.to_owned(), json!({ "$op": "set", "value": value }));
-            event.content = json!({
-                "target_ref": "ck:strand:01904100-0000-7000-8000-000000000001",
-                "patch": Value::Object(patch)
-            });
-
-            let err = event.validate_forbidden_wire_surface().unwrap_err();
-            assert!(
-                err.to_string().contains("forbidden wire field")
-                    || err.to_string().contains("forbidden patch path"),
-                "unexpected error for {path}: {err}"
-            );
-        }
-    }
-
-    #[test]
-    fn event_deserialize_rejects_forbidden_typed_id_prefixes() {
-        let event = base_event();
-        let mut value = serde_json::to_value(&event).unwrap();
-        value.as_object_mut().unwrap().insert(
-            "payload".to_owned(),
-            json!({"participant_identity": "ck:rtcpart:0198c2f4-0000-7000-8000-000000000000"}),
-        );
-
-        let err = serde_json::from_value::<Event>(value).unwrap_err();
-        assert!(err.to_string().contains("forbidden typed-id prefix"));
-    }
 }

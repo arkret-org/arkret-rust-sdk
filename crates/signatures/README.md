@@ -56,7 +56,7 @@ verifier.verify(&bytes, &signature, &public).unwrap();
 ## Feature flags
 
 - `signer`: enables `Ed25519DetachedJwsSigner` / `Ed25519DetachedJwsVerifier`
-  and the legacy `Ed25519MoveSigner`. Pulls in `ed25519-dalek` and `sha2`.
+  and `Ed25519MoveSigner`. Pulls in `ed25519-dalek` and `sha2`.
 
 ## Test vectors
 

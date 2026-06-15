@@ -130,8 +130,6 @@ Errors:
   the MLS-Exporter derivation.
 - `recording_artifact_pipeline_bypassed` — recording artifact written without
   going through the canonical pipeline.
-- `legacy_single_endpoint_media_service` — realm still advertises the v1.0
-  `sfu_endpoint` shape; client must reject under R3.
 - `focus_unavailable_for_client` — client doesn't ship the required backend
   profile (e.g. asked for Mediasoup but only ships LiveKit).
 

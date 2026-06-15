@@ -650,7 +650,7 @@ impl CokretMlsGroup {
     /// want to know "which principals does this commit reach".
     ///
     /// Credentials that don't parse as a [`Did`] (e.g. opaque BasicCredential
-    /// payloads from legacy groups) are silently skipped — the caller can
+    /// payloads) are silently skipped — the caller can
     /// detect this case by comparing `member_principal_ids().len()` against
     /// the group's true member count if it cares.
     pub fn member_principal_ids(&self) -> Vec<Did> {

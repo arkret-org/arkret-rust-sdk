@@ -385,19 +385,15 @@ impl ResourceSelector {
     }
 
     /// Parse a spec-shaped selector object (`resource-selector.schema.json`:
-    /// `{"kind": "...", ...}`) into the engine selector model. String values
-    /// fall back to the legacy compact grammar via [`Self::parse`].
+    /// `{"kind": "...", ...}`) into the engine selector model.
     ///
     /// This is the wire → engine direction used when projecting a
     /// [`cokret_core::CapabilityGrant`] (whose `resources` are untyped spec
     /// values) for evaluation. Unknown `kind` values fail closed.
     pub fn from_spec_value(value: &Value) -> Result<Self> {
-        if let Some(selector) = value.as_str() {
-            return Self::parse(selector);
-        }
-        let object = value.as_object().ok_or_else(|| {
-            Error::Protocol("resource selector must be an object or string".to_owned())
-        })?;
+        let object = value
+            .as_object()
+            .ok_or_else(|| Error::Protocol("resource selector must be an object".to_owned()))?;
         let field = |name: &str| -> Option<String> {
             object
                 .get(name)

@@ -262,10 +262,7 @@ impl StrandPatchPayload {
 ///
 /// The spec `anyOf` allows either an embedded `{relation: <object_snapshot>}`
 /// or the flat `{kind, from_ref, to_ref}` triple; this strong type models the
-/// flat form (the only shape yougen constructs). `additionalProperties:false`
-/// — so the legacy `relation_id` / `scope_circle_id` / `fields` keys that
-/// older call sites tried to emit are intentionally NOT representable here;
-/// the relation id is routed via the operation `target_ref`.
+/// flat form (the only shape yougen constructs).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -326,7 +323,7 @@ pub enum MembershipPayloadState {
 /// Strong type for `ck.member.state` payloads
 /// (`event-payload.schema.json#/$defs/membership_payload`).
 ///
-/// `additionalProperties:false`: the legacy `handle` / `from` keys that older
+/// `additionalProperties:false`: the removed `handle` / `from` keys that older
 /// yougen call sites tried to emit are intentionally NOT representable here —
 /// `handle` has no spec-legal home in this payload (the member identity is
 /// carried by `actor_id`; handle evidence lives in signed `HandleClaim`

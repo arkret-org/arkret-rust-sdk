@@ -39,7 +39,7 @@ release, GitHub release, or release tag.
 ### R4.2 — Policy check `actor` → `actor_id` 2026-06-10 (cokret-spec @ fb4c970)
 
 - **Wire-breaking rename**: `PolicyCheckRequestBody.actor` → `actor_id` and `PolicyCheckOutcome.bound_to.actor` → `actor_id` (spec `did_id_suffix` rule: responsibility subjects use the `_id` suffix even when the value is a DID). No compatibility shim — payloads carrying the bare `actor` field no longer deserialize.
-- **Forbidden-wire-fields mirror**: new `WireContext::PolicyCheckBoundTo` + hard-reject entry `bound_to.actor`. The bare token `actor` stays a legitimate enum value / prose noun and is NOT added to the coarse flat list.
+- **Wire-breaking rename follow-through**: the bare token `actor` stays a legitimate enum value / prose noun; wire DTOs use `actor_id` for DID-bearing responsibility subjects.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
@@ -58,7 +58,7 @@ release, GitHub release, or release tag.
 - **New install aggregate objects**: `InstallPreviewRequest`, `InstallPlan` (`seal` / `compute_plan_digest`), `InstallCommitRequest`, `InstallCommitResponse`, `InstallRevokeRequest`, `EffectiveScope` (realm / circle), `ApprovalRequest`, `ApprovedScope`, `ActorPolicy`, `InstallE2eePolicy`, `WidgetPolicy`.
 - **`ck.applet.bridge_error` reshaped**: `AppletBridgeErrorBuilder` binds the spec §7 required fields (`realm_id`, `failed_transaction_ref`, `error_class`, `error_code`, `retriable`, `visibility_scope`); `severity` / `target_ref` and `AppletBridgeErrorSeverity` removed in favor of `AppletBridgeErrorVisibility`.
 - **Namespace matcher aligned to §2**: `namespace_pattern_matches` is now `(AppletNamespaceDomain, pattern, candidate)` — domain-dependent separators, `**` crosses `/` but never `:` and never matches an empty segment, DID `#fragment` ignored. Exclusive-overlap detection moved to `AppletWireNamespaces::conflicts_with` (`AppletNamespaceConflict` now `{ domain, pattern, conflicting_pattern }`).
-- **Legacy removed** (no compatibility shim): `SignedAppletRegistration`, `AppletSchema` / `AppletPermission` / `OpenApiBinding`, `AppletNamespaceDeclaration` / `AppletNamespaceKind`, and the test-only `AppletRegistry` / `AppletEndpointRegistration`.
+- **Removed without compatibility shim**: `SignedAppletRegistration`, `AppletSchema` / `AppletPermission` / `OpenApiBinding`, `AppletNamespaceDeclaration` / `AppletNamespaceKind`, and the test-only `AppletRegistry` / `AppletEndpointRegistration`.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
@@ -146,7 +146,6 @@ Aggressive spec-sync round; no version bump, `git commit` only.
   `participant_binding_invalid`, `participant_identity_unrecognised`,
   `session_focus_already_committed`, `e2ee_key_source_unauthorised`,
   `recording_artifact_pipeline_bypassed`,
-  `legacy_single_endpoint_media_service`,
   `focus_unavailable_for_client`,
   `recovery_witness_revoke_lagging`,
   `handle_homograph_forbidden`). `KNOWN_ERROR_CODES.len()` now 121.
@@ -213,16 +212,6 @@ Aggressive spec-sync round; no version bump, `git commit` only.
 
 #### Added
 
-- `crates/core/src/forbidden_wire_fields.rs` grows a context-aware
-  checker. New `WireContext` enum + `is_forbidden_in_context(field,
-  context)` distinguishes e.g. `policy_ref` (forbidden on `handle_claim`
-  and `member_delivery_binding`, legal as a generic reference name on a
-  Policy object itself) and `stage` (forbidden as a JSON-Patch op path
-  on Strand/Morph patch payloads, canonical as a top-level field). New
-  `is_forbidden_id_prefix(id)` covers the spec's `typed_id_prefix`
-  context (`ck:notif:`, `ck:devmsg:`, `ck:keyevt:`, `ck:modq:`,
-  `ck:req:`, `ck:txn:`, `ck:frank:`). 60+ in-Rust entries now mirror
-  the spec's `forbidden-wire-fields.json` hard-reject set.
 - `AuthzContext.circle_id: Option<CircleId>` plus
   `AuthzContext::with_circle_id`. The SDK `AuthzEngine` now evaluates
   `Constraint::AllowedCircleRefs` precisely (allow when
@@ -232,10 +221,8 @@ Aggressive spec-sync round; no version bump, `git commit` only.
 
 #### Fixed
 
-- `TODO(circle-rollout-P1.3)` in `crates/sdk/src/authz/engine.rs` and
-  `TODO(circle-rollout-P1.5)` in
-  `crates/core/src/forbidden_wire_fields.rs` are both closed by this
-  round.
+- `TODO(circle-rollout-P1.3)` in `crates/sdk/src/authz/engine.rs` is
+  closed by this round.
 
 ### CKP-0007 — Circle primitive rollout (wire-breaking, no release)
 
@@ -253,13 +240,6 @@ section will roll into the next published release.
   variant. The SDK fallback engine returns `Deny` for the new variant
   until the resource-selector grammar grows a `circle_id` selector
   (see TODO in `crates/sdk/src/authz/engine.rs`).
-- The forbidden-wire receiver path (new
-  `crates/core/src/forbidden_wire_fields.rs`) hard-rejects the spec's
-  `identifier_suffix_ref_to_id_batch` entries — including the legacy
-  `parent_ref`, `default_realm_ref`, `scope_ref`, `default_scope_ref`,
-  `retention_policy_ref`, `disclosure_policy_ref`,
-  `rate_limit_policy_ref`, plus the deleted `discussion_realm_ref` /
-  `discussion_space_ref` Strand scope fields.
 - `Event` envelope grows a required-positionally `effective_scope:
   Option<EffectiveScope>` field. Struct literals across the workspace
   pick up `effective_scope: None`; downstream consumers building
@@ -295,9 +275,8 @@ section will roll into the next published release.
 - `ck.schema.circle.v1` added to `ARTIFACT_BACKED_SCHEMA_IDS` so the
   spec-drift gate covers the new schema.
 - Public re-exports: `cokret::Circle`, `cokret::CircleId`,
-  `cokret::CIRCLE_SCHEMA_ID`, `cokret::FORBIDDEN_WIRE_FIELDS`,
-  `cokret::is_forbidden_wire_field`, plus the kind / capability /
-  reason constants above.
+  `cokret::CIRCLE_SCHEMA_ID`, plus the kind / capability / reason
+  constants above.
 - `docs/circle-integration.md` integration guide.
 - `MIGRATING-FROM-0.7.md` § "CKP-0007 follow-up" migration cookbook.
 
@@ -310,10 +289,7 @@ section will roll into the next published release.
 #### Notes
 
 - No version bump. No tag. No crates.io publish.
-- Three TODO markers left in tree for follow-up rounds:
-  `TODO(circle-rollout-P1.3)` in `crates/sdk/src/authz/engine.rs`,
-  `TODO(circle-rollout-P1.5)` in `crates/core/src/forbidden_wire_fields.rs`
-  (path-shaped + prefix-shaped forbidden entries).
+- Follow-up TODO markers remain in tree for later rounds.
 
 ## [Local v1 readiness snapshot] - 2026-05-25
 
@@ -460,8 +436,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 
 - Old `Space` (security boundary) → **Realm**, old `Place` (container) →
   **Space**. SDK public types, builders, and resolver paths are renamed
-  end-to-end; legacy names remain reachable as serde aliases on incoming
-  events for back-compat with older servers. New typed cells
+  end-to-end; removed names are not accepted on incoming events. New typed cells
   `ck.realm.link`, `ck.realm.inheritance_policy`, and
   `ck.capability.derived` model the boundary graph.
 
@@ -1227,7 +1202,7 @@ the bump is for the SDK API surface adjustments described below.
 
 Wire-breaking spec alignment pass. v1 is unreleased so this is a hard
 break with no compat shims, no `#[deprecated]` adapters, and no
-legacy-form fallback in `Deserialize`.
+removed-form fallback in `Deserialize`.
 
 ### Breaking
 
@@ -1397,7 +1372,7 @@ from 0.4.0; this is an additive SDK API release.
 This release rebases the SDK onto the Move/Seal/Lattice three-primitive
 state-convergence model introduced by `cokret-spec` 2026-05-08. The
 v1 wire surface is **incompatible** with 0.1.0: `ck.consent.*` events,
-the legacy `StateReducer` API, and the host-endorsement / writer-model
+the old `StateReducer` API, and the host-endorsement / writer-model
 typed model are all gone. v1 was unreleased; no compat shim is provided.
 
 ### Added
@@ -1470,8 +1445,8 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
   `Absent`) and the typed `ConsentGrantPayload` /
   `ConsentRevokePayload` envelopes. Effective consent is now derived
   from the consent cell's or-set join via `evaluate_consent`.
-- All legacy `state_key` fields, `LegacyStateKey` errors, and
-  `assert_no_legacy_state_key` helpers across the workspace.
+- All removed `state_key` fields and related validation helpers across the
+  workspace.
 
 ### Changed
 

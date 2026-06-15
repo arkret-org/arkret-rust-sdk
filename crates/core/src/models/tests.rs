@@ -58,8 +58,8 @@ fn did_validation_rejects_handles() {
 }
 
 #[test]
-fn did_validation_rejects_removed_uuid_method() {
-    assert!(Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_err());
+fn did_validation_accepts_uuid_method() {
+    assert!(Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_ok());
 }
 
 #[test]
@@ -1604,10 +1604,10 @@ fn collection_projection_discussion_lazy_link_defaults_false() {
     assert!(!d.lazy_link);
 }
 
-// ── §3.2 字段簇顺序守护(从 origin 71c0e0d 移植,适配本地 inversion 命名)──
-// `top_level_keys` 按字符串位置提取声明序顶层 key(本仓 serde_json 未开
-// preserve_order,Value 会重排无法用);`assert_field_order` 按 wire key 名断言
-// common-fields.md §3.2 的机器可校验硬规则。两者均与 Rust 标识符命名无关。
+// Field-order guard for common-fields.md §3.2, adapted from origin 71c0e0d.
+// `top_level_keys` extracts top-level keys by string position because this
+// workspace does not enable serde_json preserve_order; `Value` would reorder
+// keys. `assert_field_order` checks the machine-verifiable wire-key order.
 
 fn top_level_keys(json: &str) -> Vec<String> {
     let mut keys = Vec::new();

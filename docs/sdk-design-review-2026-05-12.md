@@ -15,7 +15,7 @@ state and feature helpers out of the protocol core.
 
 The strongest parts are the spec-drift checks, canonical JSON/digest handling,
 typed identifier validation, service profile checks, and the separation between
-canonical service APIs and product-local/legacy surfaces. The canonical OpenAPI
+canonical service APIs and product-local surfaces. The canonical OpenAPI
 document is loaded from spec artifacts; Salvo support is kept on the Rust DTO
 types themselves through `ToSchema` / `ToParameters` derives.
 

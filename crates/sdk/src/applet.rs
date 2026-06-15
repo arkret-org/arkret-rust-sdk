@@ -22,7 +22,7 @@ use crate::{
 /// (`applet-schema.md` §1.namespaces) groups claims into exactly
 /// `actors` / `realms` / `handles`; the bucket — not a separate `kind`
 /// field — determines the segment separator set used for pattern
-/// matching (§2). Replaces the legacy `AppletNamespaceKind`.
+/// matching (§2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]

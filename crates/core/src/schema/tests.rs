@@ -59,7 +59,7 @@ fn relation_create_payload_strong_type_passes_spec_validator() {
         .validate_payload("ck.relation.create", &payload.to_value().unwrap())
         .unwrap();
 
-    // deny_unknown_fields: the legacy illegal keys (relation_id / fields /
+    // deny_unknown_fields: the removed illegal keys (relation_id / fields /
     // scope_circle_id) are not representable and would be rejected by the
     // spec validator if injected.
     let mut leaky = payload.to_value().unwrap();
@@ -103,7 +103,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
     bad.delivery_status = None;
     assert!(matches!(bad.to_value(), Err(Error::Protocol(_))));
 
-    // deny_unknown_fields: the legacy illegal `handle` key would be rejected
+    // deny_unknown_fields: the removed illegal `handle` key would be rejected
     // by the spec validator (membership_payload is additionalProperties:false).
     let mut leaky = invite.to_value().unwrap();
     leaky["handle"] = json!("bob:example.com");
@@ -152,7 +152,7 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
     let catalog = event_payload_validator_catalog();
 
     // ck.realm.archive: reversible boolean register; `archived:false` un-archives.
-    let archive = RealmArchivePayload::new(true).with_reason("retiring legacy realm");
+    let archive = RealmArchivePayload::new(true).with_reason("retiring inactive realm");
     catalog
         .validate_payload("ck.realm.archive", &archive.to_value().unwrap())
         .unwrap();

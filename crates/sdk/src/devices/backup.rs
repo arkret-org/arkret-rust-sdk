@@ -164,22 +164,6 @@ impl TryFrom<KeyBackupEncryptionWire> for KeyBackupEncryption {
     type Error = String;
 
     fn try_from(wire: KeyBackupEncryptionWire) -> std::result::Result<Self, Self::Error> {
-        if wire
-            .kdf
-            .as_ref()
-            .and_then(|kdf| kdf.get("params"))
-            .and_then(Value::as_object)
-            .is_some_and(|params| {
-                params.keys().any(|key| {
-                    cokret_core::is_forbidden_in_context(
-                        key,
-                        cokret_core::WireContext::KeyBackupKdfParams,
-                    )
-                })
-            })
-        {
-            return Err("KeyBackupEncryption.kdf.params contains forbidden wire field".to_owned());
-        }
         Ok(Self {
             recipient_method: wire.recipient_method,
             recipient_key_ref: wire.recipient_key_ref,

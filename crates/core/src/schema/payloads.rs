@@ -101,16 +101,8 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
         validate_known_fields(event_kind, object, allowed_fields)?;
     }
     match event_kind {
-        "ck.strand.create" => validate_create_object_fallback_payload(
-            event_kind,
-            object,
-            crate::WireContext::StrandPayload,
-        ),
-        "ck.morph.create" => validate_create_object_fallback_payload(
-            event_kind,
-            object,
-            crate::WireContext::MorphPayload,
-        ),
+        "ck.strand.create" => validate_create_object_fallback_payload(event_kind, object),
+        "ck.morph.create" => validate_create_object_fallback_payload(event_kind, object),
         "ck.message.create" => {
             // `message_create_payload` top-level `not` — `metadata` and
             // `encrypted_metadata` are mutually exclusive.
@@ -257,7 +249,6 @@ fn validate_required_object_fields(
 fn validate_create_object_fallback_payload(
     event_kind: &str,
     wrapper: &serde_json::Map<String, Value>,
-    context: crate::WireContext,
 ) -> Result<()> {
     let object = wrapper
         .get("object")
@@ -267,13 +258,6 @@ fn validate_create_object_fallback_payload(
                 "event kind '{event_kind}' payload object must be an object"
             ))
         })?;
-    for key in object.keys() {
-        if crate::is_forbidden_in_context(key, context) {
-            return Err(Error::Protocol(format!(
-                "event kind '{event_kind}' payload object contains forbidden wire field '{key}'"
-            )));
-        }
-    }
     if object.contains_key("content") && object.contains_key("encrypted_content") {
         return Err(Error::Protocol(format!(
             "event kind '{event_kind}' payload object must not carry both content and encrypted_content"

@@ -6,9 +6,6 @@ use super::*;
 
 /// Round 4 (commit 369f544) — typed payload for
 /// `ck.space.archive` and `ck.space.restore`.
-///
-/// Reducers MUST reject the legacy top-level `target_ref` form with
-/// `schema_violation` and consume this shape exclusively.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SpaceStateTransitionPayload {

@@ -127,18 +127,12 @@ unconstrained Realm-wide grants for the gated actions MUST be rejected.
 
 Receivers (soland, sodmin, yougen, …) integrating the SDK MUST:
 
-1. Hard-reject any payload that carries a top-level field listed in
-   [`forbidden_wire_fields::FORBIDDEN_WIRE_FIELDS`](../crates/core/src/forbidden_wire_fields.rs).
-   The CKP-0007 entries are `discussion_realm_ref`, `discussion_space_ref`,
-   `parent_ref`, `default_realm_ref`, `scope_ref`, `default_scope_ref`,
-   `retention_policy_ref`, `disclosure_policy_ref`,
-   `rate_limit_policy_ref`.
-2. Validate `Event.effective_scope` matches the resource's
+1. Validate `Event.effective_scope` matches the resource's
    `scope_circle_id` (or absence thereof) before applying any reducer
    state change. Mismatch is `schema_violation`
    reason=`circle_realm_mismatch`
    ([`REASON_CIRCLE_REALM_MISMATCH`](../crates/core/src/error.rs)).
-3. Enforce `Circle.members ⊆ Realm.members` (strict subset). The SDK
+2. Enforce `Circle.members ⊆ Realm.members` (strict subset). The SDK
    exposes `Circle::assert_members_strict_subset(circle, realm)` for
    the membership check; reducer reason is
    `circle_member_must_be_realm_member`.

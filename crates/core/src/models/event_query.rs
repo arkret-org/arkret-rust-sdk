@@ -24,5 +24,5 @@ pub struct EventsQueryPostRequestBody {
 ///
 /// The v1 wire returns the full signed `ck.schema.snapshot.v1` manifest, not a
 /// pointer DTO. The alias keeps older type references source-compatible while
-/// removing the legacy shape from the SDK surface.
+/// removing the old shape from the SDK surface.
 pub type SnapshotHeadState = crate::SnapshotManifest;

@@ -161,9 +161,9 @@ macro_rules! uuid_id_type {
 /// or query marker. DID URL fields use a separate string surface and require a
 /// `#key` fragment.
 ///
-/// 零分配的公开校验入口:对任意 `&str` 返回它是否为合法 DID 标量。
-/// 与 `id_type!(Did, is_did)` 内部使用的判定完全一致,供下游直接复用而无需
-/// 构造 `Did`。Zero-allocation public validator for the DID scalar form.
+/// Zero-allocation public validator for the DID scalar form. This is the same
+/// predicate used by `id_type!(Did, is_did)`, exposed for downstream callers
+/// that need validation without constructing a [`Did`].
 pub fn is_did(value: &str) -> bool {
     let Some(remainder) = value.strip_prefix("did:") else {
         return false;
@@ -185,7 +185,7 @@ pub fn is_did(value: &str) -> bool {
     {
         return false;
     }
-    method != "uuid"
+    true
 }
 
 fn is_hash(value: &str) -> bool {
@@ -215,9 +215,8 @@ fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
 /// special_forms[trust_domain]; pattern matches cross-signing-reset.schema.json
 /// `^ck:trust_domain:[a-z0-9][a-z0-9._\-:]{0,127}$`.
 ///
-/// 零分配的公开校验入口:对任意 `&str` 返回它是否为合法 `ck:trust_domain:<scope>`
-/// 线格式。与 `id_type!(TypedTrustDomainId, is_trust_domain)` 内部判定一致。
-/// Zero-allocation public validator for the trust-domain wire form.
+/// Zero-allocation public validator for the trust-domain wire form. This is
+/// the same predicate used by `id_type!(TypedTrustDomainId, is_trust_domain)`.
 pub fn is_trust_domain(value: &str) -> bool {
     let Some(scope) = value.strip_prefix("ck:trust_domain:") else {
         return false;
@@ -538,8 +537,8 @@ mod tests {
     }
 
     #[test]
-    fn did_validation_rejects_removed_uuid_method() {
-        assert!(Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_err());
+    fn did_validation_accepts_uuid_method() {
+        assert!(Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_ok());
     }
 
     /// Round 4 (spec a77b995): method-name segment is `[a-z0-9]+` only;

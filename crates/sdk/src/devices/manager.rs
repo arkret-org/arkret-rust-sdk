@@ -416,8 +416,7 @@ impl DeviceManager {
     /// Propagate trust from an already verified, cross-signed device to
     /// another device of the same user.
     ///
-    /// Unlike the legacy "copy a field" implementation, this now requires
-    /// a valid `cross_signing_binding` on the target device AND a current
+    /// Requires a valid `cross_signing_binding` on the target device AND a current
     /// `ck.cross_signing.publish.v1` for the principal — otherwise it
     /// returns `Error::Protocol`. This implements spec §5.2.1 step 4:
     /// "cross-signed" status MUST come from a SSK signature over the
@@ -677,8 +676,8 @@ impl DeviceManager {
         };
 
         let Some(publish) = self.cross_signing_publishes.get(user_id) else {
-            // Spec §5.2.1 step 4: missing publish + binding = legacy /
-            // unbootstrapped state. We treat it as unverified because no
+            // Spec §5.2.1 step 4: missing publish + binding means the device
+            // is unbootstrapped. We treat it as unverified because no
             // SSK is on record to evaluate against.
             return Ok(DeviceTrustChainOutcome::Unverified);
         };

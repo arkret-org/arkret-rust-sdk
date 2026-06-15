@@ -61,7 +61,7 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
   `token_issuer_unauthorised`, `participant_binding_invalid`,
   `participant_identity_unrecognised`, `session_focus_already_committed`,
   `e2ee_key_source_unauthorised`, `recording_artifact_pipeline_bypassed`,
-  `legacy_single_endpoint_media_service`, `focus_unavailable_for_client`,
+  `focus_unavailable_for_client`,
   `recovery_witness_revoke_lagging`, `handle_homograph_forbidden`.
 
 ### HTTP client (`crates/http-client/`)
