@@ -11,8 +11,10 @@
 //!   focus_id, epoch_id, participant_identity, device_id}`.
 //! - Recording key: label `ck-rtc-recording-key/v1`, Context = canonical JSON of `{realm_id,
 //!   call_id, focus_id, recording_id, media_service_did, recording_start_event_id}`.
+//! - Transcript key: label `ck-rtc-transcript-key/v1`, Context = canonical JSON of `{realm_id,
+//!   call_id, focus_id, recording_id, media_service_did, transcript_start_event_id}`.
 //!
-//! Both derivations output `KDF.Nh = 32` bytes (RFC 9420 §8 `MLS-Exporter`).
+//! All derivations output `KDF.Nh = 32` bytes (RFC 9420 §8 `MLS-Exporter`).
 
 use serde::Serialize;
 
@@ -28,6 +30,12 @@ pub const FRAME_KEY_LABEL: &str = "ck-rtc-frame-key/v1";
 /// (`call-state.md` §5). Distinct from [`FRAME_KEY_LABEL`]; reusing the SFrame
 /// label for a recording key is a wire violation.
 pub const RECORDING_KEY_LABEL: &str = "ck-rtc-recording-key/v1";
+
+/// Fixed canonical wire label for backend-generated transcription artifact keys
+/// (`call-state.md` §5.1). Distinct from [`FRAME_KEY_LABEL`] and
+/// [`RECORDING_KEY_LABEL`]; reusing either of those labels for a transcript key
+/// is a wire violation.
+pub const TRANSCRIPT_KEY_LABEL: &str = "ck-rtc-transcript-key/v1";
 
 /// Output length of every media key derivation, in bytes (`KDF.Nh = 32`).
 pub const MEDIA_KEY_LEN: usize = 32;
@@ -106,6 +114,34 @@ impl RecordingKeyContext {
     }
 }
 
+/// Context for a backend-generated transcription artifact key
+/// (`call-state.md` §5.1). Mirrors [`RecordingKeyContext`] but binds
+/// `transcript_start_event_id` instead of `recording_start_event_id`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct TranscriptKeyContext {
+    pub realm_id: RealmId,
+    pub call_id: CallId,
+    pub focus_id: String,
+    pub recording_id: String,
+    pub media_service_did: Did,
+    pub transcript_start_event_id: String,
+}
+
+impl TranscriptKeyContext {
+    fn ensure_bound(&self) -> Result<()> {
+        if self.focus_id.trim().is_empty()
+            || self.recording_id.trim().is_empty()
+            || self.transcript_start_event_id.trim().is_empty()
+        {
+            return Err(Error::Protocol(format!(
+                "{}: transcript key context missing transcript binding",
+                cokret_core::error::ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED
+            )));
+        }
+        Ok(())
+    }
+}
+
 /// Derive the 32-byte SFrame frame key for one sender at one epoch.
 ///
 /// `source` MUST be a live Cokret MLS group: any non-MLS key source is
@@ -131,6 +167,22 @@ pub fn derive_recording_key(
     context.ensure_bound()?;
     let context_bytes = canonical_json_bytes(context)?;
     let key = source.export_secret(RECORDING_KEY_LABEL, &context_bytes, MEDIA_KEY_LEN)?;
+    ensure_key_len(&key)?;
+    Ok(key)
+}
+
+/// Derive the 32-byte transcription artifact key (`call-state.md` §5.1).
+///
+/// Mirrors [`derive_recording_key`]: `source` MUST be a live Cokret MLS group,
+/// the label is the byte-for-byte [`TRANSCRIPT_KEY_LABEL`], and the Context is
+/// the canonical JSON of `context`.
+pub fn derive_transcript_key(
+    source: &impl MlsExporterSource,
+    context: &TranscriptKeyContext,
+) -> Result<Vec<u8>> {
+    context.ensure_bound()?;
+    let context_bytes = canonical_json_bytes(context)?;
+    let key = source.export_secret(TRANSCRIPT_KEY_LABEL, &context_bytes, MEDIA_KEY_LEN)?;
     ensure_key_len(&key)?;
     Ok(key)
 }
@@ -266,6 +318,75 @@ mod tests {
             recording_start_event_id: "ck:event:01904100-0000-7000-8000-0000000000aa".to_owned(),
         };
         assert!(derive_recording_key(&exporter, &context).is_err());
+    }
+
+    fn transcript_context() -> TranscriptKeyContext {
+        TranscriptKeyContext {
+            realm_id: realm(),
+            call_id: call(),
+            focus_id: "fra-1".to_owned(),
+            recording_id: "rtc-transcript-1".to_owned(),
+            media_service_did: Did::new("did:web:media.example").unwrap(),
+            transcript_start_event_id: "ck:event:01904100-0000-7000-8000-0000000000bb".to_owned(),
+        }
+    }
+
+    #[test]
+    fn transcript_key_is_deterministic_and_domain_separated() {
+        let exporter = FixedExporter { seed: b"epoch-7" };
+        let context = transcript_context();
+        let a = derive_transcript_key(&exporter, &context).unwrap();
+        let b = derive_transcript_key(&exporter, &context).unwrap();
+        assert_eq!(a.len(), MEDIA_KEY_LEN);
+        assert_eq!(a, b, "same exporter + context MUST be deterministic");
+
+        // The transcript label is distinct from frame and recording labels, so a
+        // recording key over the same exporter + same Context MUST diverge.
+        let recording = derive_recording_key(
+            &exporter,
+            &RecordingKeyContext {
+                realm_id: realm(),
+                call_id: call(),
+                focus_id: "fra-1".to_owned(),
+                recording_id: "rtc-transcript-1".to_owned(),
+                media_service_did: Did::new("did:web:media.example").unwrap(),
+                recording_start_event_id: "ck:event:01904100-0000-7000-8000-0000000000bb"
+                    .to_owned(),
+            },
+        )
+        .unwrap();
+        assert_ne!(
+            a, recording,
+            "transcript and recording labels MUST domain-separate"
+        );
+    }
+
+    #[test]
+    fn transcript_key_requires_transcript_binding() {
+        let exporter = FixedExporter { seed: b"epoch-7" };
+        let mut no_event = transcript_context();
+        no_event.transcript_start_event_id = String::new();
+        let err = derive_transcript_key(&exporter, &no_event).unwrap_err();
+        assert!(err.to_string().contains("e2ee_key_source_unauthorised"));
+
+        let mut no_recording = transcript_context();
+        no_recording.recording_id = String::new();
+        assert!(derive_transcript_key(&exporter, &no_recording).is_err());
+    }
+
+    #[test]
+    fn transcript_context_canonical_bytes_are_key_sorted_and_stable() {
+        let bytes = canonical_json_bytes(&transcript_context()).unwrap();
+        let text = String::from_utf8(bytes).unwrap();
+        assert_eq!(
+            text,
+            "{\"call_id\":\"ck:call:0196441c-0000-7000-8000-000000000000\",\
+             \"focus_id\":\"fra-1\",\
+             \"media_service_did\":\"did:web:media.example\",\
+             \"realm_id\":\"ck:realm:01904100-0000-7000-8000-9b64700c6ee8\",\
+             \"recording_id\":\"rtc-transcript-1\",\
+             \"transcript_start_event_id\":\"ck:event:01904100-0000-7000-8000-0000000000bb\"}"
+        );
     }
 
     #[test]
