@@ -98,7 +98,7 @@ impl EphemeralEnvelope {
 ///
 /// The pre-round-4 envelope carried an open `Value` payload; the round-4
 /// wire requires the three fields `call_id` + `signal_type` + `seq` and
-/// validates `signal_type` against [`crate::CALL_SIGNAL_TYPES`] (13
+/// validates `signal_type` against [`crate::CALL_SIGNAL_TYPES`] (14
 /// values). `seq` is monotonic per `(realm, call, actor, device)` —
 /// see [`validate_signal_seq`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -116,7 +116,7 @@ pub struct CallSignalPayload {
 
 impl CallSignalPayload {
     /// Returns `true` when `signal_type` is in the round-4 canonical
-    /// 13-value enum.
+    /// 14-value enum.
     pub fn signal_type_is_canonical(&self) -> bool {
         CALL_SIGNAL_TYPES.contains(&self.signal_type.as_str())
     }
@@ -125,7 +125,7 @@ impl CallSignalPayload {
     pub fn validate_signal_type(&self) -> Result<()> {
         if !self.signal_type_is_canonical() {
             return Err(Error::Protocol(format!(
-                "ck.call.signal payload.signal_type {:?} not in canonical 13-value enum \
+                "ck.call.signal payload.signal_type {:?} not in canonical 14-value enum \
                  ({})",
                 self.signal_type,
                 crate::ERROR_CODE_SCHEMA_VIOLATION

@@ -673,7 +673,7 @@ pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[
 /// Round 4 (2026-05-20) — canonical signal_type enum values carried in the
 /// `ck.call.signal` ephemeral envelope payload. Wire-break: the
 /// pre-round-4 6-value enum (`invite, answer, candidate, renegotiate,
-/// hangup, ack`) is replaced by this 13-value set. Spec
+/// hangup, ack`) is replaced by this 14-value set. Spec
 /// `schemas/ephemeral-envelope.schema.json` (Round 4 commit 58c5926).
 pub const CALL_SIGNAL_TYPE_INVITE: &str = "invite";
 pub const CALL_SIGNAL_TYPE_ANSWER: &str = "answer";
@@ -687,6 +687,7 @@ pub const CALL_SIGNAL_TYPE_MEDIA_STATE: &str = "media_state";
 pub const CALL_SIGNAL_TYPE_SPEAKING: &str = "speaking";
 pub const CALL_SIGNAL_TYPE_FOCUS_JOIN: &str = "focus_join";
 pub const CALL_SIGNAL_TYPE_FOCUS_LEAVE: &str = "focus_leave";
+pub const CALL_SIGNAL_TYPE_MODERATION: &str = "moderation";
 pub const CALL_SIGNAL_TYPE_ERROR: &str = "error";
 
 /// All canonical `ck.call.signal` signal_type values. Round 4 (spec a77b995).
@@ -705,6 +706,7 @@ pub const CALL_SIGNAL_TYPES: &[&str] = &[
     CALL_SIGNAL_TYPE_SPEAKING,
     CALL_SIGNAL_TYPE_FOCUS_JOIN,
     CALL_SIGNAL_TYPE_FOCUS_LEAVE,
+    CALL_SIGNAL_TYPE_MODERATION,
     CALL_SIGNAL_TYPE_ERROR,
 ];
 

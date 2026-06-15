@@ -341,6 +341,26 @@ pub fn verify_ice_config_outcome(
         ));
     }
 
+    // TURN pseudonym bucket — issued_at_bucket MUST equal
+    // floor(issued_at / bucket_seconds) * bucket_seconds so usernames cannot be
+    // correlated across buckets by rewriting metadata (ice-config-response
+    // schema). v1 fixes bucket_seconds at 300s.
+    if outcome.bucket_seconds == 0 {
+        return Err(Error::Protocol(
+            "ice_config_denied: bucket_seconds must be positive".to_owned(),
+        ));
+    }
+    let bucket = i64::from(outcome.bucket_seconds);
+    let expected_bucket_secs = (outcome.issued_at.timestamp().div_euclid(bucket)) * bucket;
+    if outcome.issued_at_bucket.timestamp() != expected_bucket_secs
+        || outcome.issued_at_bucket.timestamp_subsec_nanos() != 0
+    {
+        return Err(Error::Protocol(
+            "ice_config_denied: issued_at_bucket must equal floor(issued_at / bucket_seconds)"
+                .to_owned(),
+        ));
+    }
+
     let mut ice_servers = Vec::with_capacity(outcome.ice_servers.len());
     for entry in &outcome.ice_servers {
         let server = ice_server_from_value(entry)?;
@@ -884,7 +904,9 @@ mod tests {
             ],
             ttl_seconds: 300,
             refresh_lead_seconds: 60,
-            issued_at: Utc::now(),
+            issued_at: "2026-05-27T12:29:56Z".parse().unwrap(),
+            issued_at_bucket: "2026-05-27T12:25:00Z".parse().unwrap(),
+            bucket_seconds: 300,
             expires_at: None,
             force_turn: false,
             signature: serde_json::json!({

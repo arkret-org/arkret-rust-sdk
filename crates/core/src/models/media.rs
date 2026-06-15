@@ -32,6 +32,8 @@ pub struct MediaIceConfigOutcome {
     pub ttl_seconds: u32,
     pub refresh_lead_seconds: u32,
     pub issued_at: DateTime<Utc>,
+    pub issued_at_bucket: DateTime<Utc>,
+    pub bucket_seconds: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "is_false")]
@@ -76,11 +78,23 @@ pub struct CallMediaParticipantBinding {
     pub actor_id: Did,
     pub device_id: DeviceId,
     pub participant_identity: String,
+    pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
 }
 
 impl CallMediaParticipantBinding {
     pub const SCHEME: &'static str = PARTICIPANT_BINDING_SCHEMA;
+}
+
+/// Detached service signature over the token-exchange response, carried as a
+/// typed `{kid, sig}` object (`media-service-binding.md` §3). The `kid` MUST
+/// resolve to a realm media-service anchor; `sig` is the backend-specific
+/// detached signature.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct CallMediaServiceSignature {
+    pub kid: String,
+    pub sig: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -94,5 +108,5 @@ pub struct CallMediaTokenExchangeOutcome {
     pub participant_identity: String,
     pub participant_binding: CallMediaParticipantBinding,
     pub expires_at: DateTime<Utc>,
-    pub service_signature: String,
+    pub service_signature: CallMediaServiceSignature,
 }

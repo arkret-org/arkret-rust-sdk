@@ -137,33 +137,17 @@ fn did_from_kid(kid: &str) -> &str {
     kid.split('#').next().unwrap_or(kid)
 }
 
-/// Extract the issuer `kid` carried in a `service_signature` string.
-///
-/// The wire form is transport-specific but always carries the issuer `kid` as
-/// the leading `did:...#...:` segment before the algorithm tag (soland emits
-/// `"{kid}:eddsa-ed25519:{sig}"`). Returns the `kid` substring up to (but not
-/// including) the algorithm tag, or the whole string when no tag is present.
-fn service_signature_kid(service_signature: &str) -> Option<&str> {
-    if !service_signature.starts_with("did:") {
-        return None;
-    }
-    // The kid ends at the algorithm tag boundary (`:eddsa-` / `:ed25519`...).
-    // Split on `:` and re-join until we hit a segment that looks like an alg
-    // tag, keeping `did:web:host#frag` intact.
-    let tag = service_signature.find(":eddsa-")?;
-    Some(&service_signature[..tag])
-}
-
 /// Verify a media token-exchange response against the issuing request and the
 /// realm media-service anchors (`media-service-binding.md` §3 client rules).
 ///
 /// Checks performed (all fail closed):
 /// - required fields present (`connect_url`, `backend_token`, `participant_identity`,
 ///   `participant_binding.sig`, `issuer_kid`);
-/// - `participant_binding.issuer_kid` (and the `service_signature` kid, when it carries one)
+/// - `participant_binding.issuer_kid` and the `service_signature.kid`
 ///   resolve to an anchored `ck.realm.media_service.service_id` → else `token_issuer_unauthorised`;
 /// - the binding's `(realm_id, call_id, focus_id, actor_id, device_id)` six-tuple matches the
 ///   request and `participant_identity` matches the top-level one;
+/// - the binding's `expires_at` is after its `issued_at`;
 /// - TTL ≤ 600s and not already expired (via [`validate_token_ttl`]).
 ///
 /// Cryptographic signature verification over the binding bytes is the media
@@ -196,21 +180,19 @@ pub fn verify_call_media_token_outcome(
         )));
     }
 
-    // Issuer DID anchoring — the binding issuer and (when present) the
-    // service_signature kid MUST both resolve to an anchored service_id.
+    // Issuer DID anchoring — the binding issuer and the service_signature kid
+    // MUST both resolve to an anchored service_id.
     let issuer_did = did_from_kid(&binding.issuer_kid);
     if anchors.is_empty() || !anchors.contains(issuer_did) {
         return Err(Error::Protocol(format!(
             "token_issuer_unauthorised: participant_binding issuer {issuer_did} not in realm media_service anchors"
         )));
     }
-    if let Some(kid) = service_signature_kid(&outcome.service_signature) {
-        let service_did = did_from_kid(kid);
-        if !anchors.contains(service_did) {
-            return Err(Error::Protocol(format!(
-                "token_issuer_unauthorised: service_signature issuer {service_did} not in realm media_service anchors"
-            )));
-        }
+    let service_did = did_from_kid(&outcome.service_signature.kid);
+    if !anchors.contains(service_did) {
+        return Err(Error::Protocol(format!(
+            "token_issuer_unauthorised: service_signature issuer {service_did} not in realm media_service anchors"
+        )));
     }
 
     // Six-tuple binding MUST match the request the client made.
@@ -228,6 +210,14 @@ pub fn verify_call_media_token_outcome(
         return Err(Error::Protocol(
             "participant_binding_invalid: participant_identity mismatch between binding and outcome"
                 .to_owned(),
+        ));
+    }
+
+    // The binding's issued_at MUST precede its expiry (a non-positive TTL
+    // window is a malformed binding).
+    if binding.expires_at <= binding.issued_at {
+        return Err(Error::Protocol(
+            "participant_binding_invalid: binding expires_at not after issued_at".to_owned(),
         ));
     }
 
@@ -775,10 +765,14 @@ mod tests {
                 actor_id: request.actor_id.clone(),
                 device_id: request.device_id.clone(),
                 participant_identity: identity,
+                issued_at: expires_at - chrono::Duration::minutes(5),
                 expires_at,
             },
             expires_at,
-            service_signature: "did:web:media.example#media-token:eddsa-ed25519:BBBB".to_owned(),
+            service_signature: cokret_core::CallMediaServiceSignature {
+                kid: "did:web:media.example#media-token".to_owned(),
+                sig: "BBBB".to_owned(),
+            },
         }
     }
 
