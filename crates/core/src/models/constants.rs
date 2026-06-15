@@ -612,14 +612,19 @@ pub const CAP_ACTION_MORPH_CREATE: &str = "ck.morph.create";
 
 /// CKP-0010 (R3 spec-sync 2026-05-27, cokret-spec b47ff6ec) — call /
 /// media capability actions registered in
-/// `capability-action-registry.json`. Five actions gate the join,
-/// screen-share, recording, transcription, and moderation surfaces of
-/// the ck.call.* feature.
+/// `capability-action-registry.json`. These actions gate the join,
+/// screen-share, recording, transcription, moderation, and signal-send
+/// surfaces of the ck.call.* feature.
 pub const CAP_ACTION_CALL_JOIN: &str = "ck.call.join";
 pub const CAP_ACTION_CALL_SCREEN_SHARE: &str = "ck.call.screen_share";
 pub const CAP_ACTION_CALL_RECORD: &str = "ck.call.record";
 pub const CAP_ACTION_CALL_TRANSCRIBE: &str = "ck.call.transcribe";
 pub const CAP_ACTION_CALL_MODERATE: &str = "ck.call.moderate";
+/// `service-http-binding.md` §162 — sending a `ck.call.signal` ephemeral
+/// envelope via `POST /_cokret/self/ephemeral` requires the actor to hold
+/// this realm-scoped capability. Registered in
+/// `capability-action-registry.json`.
+pub const CAP_CALL_SIGNAL_SEND: &str = "ck.call.signal.send";
 
 /// CKP-0010 — full call/media capability-action list.
 pub const CALL_CAPABILITY_ACTIONS: &[&str] = &[
@@ -628,6 +633,7 @@ pub const CALL_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_CALL_RECORD,
     CAP_ACTION_CALL_TRANSCRIBE,
     CAP_ACTION_CALL_MODERATE,
+    CAP_CALL_SIGNAL_SEND,
 ];
 
 /// CKP-0010 — `ck.self.call.media.exchange.issue_token` operation id. HTTP route:
