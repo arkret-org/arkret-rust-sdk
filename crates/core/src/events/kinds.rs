@@ -47,6 +47,7 @@ pub const AUDIT_SESSION_REQUEST: &str = "ck.audit.session.request";
 pub const CALL_RECORDING_START: &str = "ck.call.recording.start";
 pub const CALL_SIGNAL: &str = "ck.call.signal";
 pub const CALL_STATE: &str = "ck.call.state";
+pub const CALL_SUMMARY: &str = "ck.call.summary";
 pub const CAPABILITY_DELEGATE: &str = "ck.capability.delegate";
 pub const CAPABILITY_DERIVED: &str = "ck.capability.derived";
 pub const CAPABILITY_GRANT: &str = "ck.capability.grant";
@@ -347,6 +348,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     CALL_RECORDING_START,
     CALL_SIGNAL,
     CALL_STATE,
+    CALL_SUMMARY,
     CAPABILITY_DELEGATE,
     CAPABILITY_DERIVED,
     CAPABILITY_GRANT,
@@ -374,15 +376,6 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     DEVICE_REVOKED,
     DID_PROOF,
     DIRECT_CONVERSATION_BOUND,
-    STRAND_ARCHIVE,
-    STRAND_CREATE,
-    STRAND_MOVE,
-    STRAND_REORDER,
-    STRAND_RESTORE,
-    STRAND_STAGE_SET,
-    STRAND_TRACKS_UPDATE,
-    STRAND_UPDATE,
-    STRAND_WATCH_SET,
     HANDLE_DISCOVERY,
     IDENTITY_ACCOUNTABILITY_GRANT,
     IDENTITY_DISCLOSURE_POLICY,
@@ -498,6 +491,15 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     SPACE_RESTORE,
     SPACE_TOMBSTONE,
     SPACE_UPDATE,
+    STRAND_ARCHIVE,
+    STRAND_CREATE,
+    STRAND_MOVE,
+    STRAND_REORDER,
+    STRAND_RESTORE,
+    STRAND_STAGE_SET,
+    STRAND_TRACKS_UPDATE,
+    STRAND_UPDATE,
+    STRAND_WATCH_SET,
     TYPING,
     VIEW_CREATE,
     VIEW_RECONCILE,
@@ -655,7 +657,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | AUDIT_SESSION_REQUEST => EventClass::Audit,
         CAPABILITY_DELEGATE | CAPABILITY_DERIVED | CAPABILITY_GRANT | CAPABILITY_REVOKE
         | SESSION_GRANT => EventClass::Authz,
-        CALL_RECORDING_START | CALL_SIGNAL | CALL_STATE => EventClass::Call,
+        CALL_RECORDING_START | CALL_SIGNAL | CALL_STATE | CALL_SUMMARY => EventClass::Call,
         CIRCLE_CREATE | CIRCLE_UPDATE | CIRCLE_ARCHIVE | CIRCLE_RESTORE | CIRCLE_TOMBSTONE
         | CIRCLE_MEMBER_STATE | CIRCLE_SEAL_COMMIT => EventClass::Circle,
         CONSENT_GRANT | CONSENT_REVOKE => EventClass::Consent,

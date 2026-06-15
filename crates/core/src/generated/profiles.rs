@@ -26,6 +26,7 @@ pub const PROFILE_IDS: &[&str] = &[
     "ck.profile.circle_conformance.v1",
     "ck.profile.circle_seal_cadence.fixed_5m.v1",
     "ck.profile.collaborative_text.v1",
+    "ck.profile.conformance_harness.v1",
     "ck.profile.constraint.approval_workflow.v1",
     "ck.profile.constraint.claim_based.v1",
     "ck.profile.constraint.encryption_requirement.v1",

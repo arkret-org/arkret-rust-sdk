@@ -276,6 +276,20 @@ pub const ERROR_CODE_RECORDING_DENIED: &str = "recording_denied";
 pub const ERROR_CODE_MORPH_PROFILE_WIDENS_SCHEMA_REF: &str = "morph_profile_widens_schema_ref";
 pub const ERROR_CODE_MORPH_TYPE_IMMUTABLE: &str = "morph_type_immutable";
 
+// ── WebRTC call moderation / transcription / summary (spec
+// crypto-media/webrtc-signaling.md §3a / §11 + call-state.md §5 / §7) —
+// wire-level codes for moderation (kick / ban / end-for-all), the
+// transcription artifact pipeline, recording / transcription consent gating,
+// and call summary terminal-state validation. `legal_hold_active` already
+// exists above as ERROR_CODE_LEGAL_HOLD_ACTIVE.
+pub const ERROR_CODE_TRANSCRIPTION_DENIED: &str = "transcription_denied";
+pub const ERROR_CODE_TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED: &str =
+    "transcription_artifact_pipeline_bypassed";
+pub const ERROR_CODE_RECORDING_CONSENT_REQUIRED: &str = "recording_consent_required";
+pub const ERROR_CODE_CALL_MODERATION_UNAUTHORISED: &str = "call_moderation_unauthorised";
+pub const ERROR_CODE_CALL_PARTICIPANT_REMOVED: &str = "call_participant_removed";
+pub const ERROR_CODE_CALL_SUMMARY_INVALID: &str = "call_summary_invalid";
+
 /// All canonical error codes recognised by the registry. The order matches
 /// `error-code-registry.json`. Use [`is_known_error_code`] before populating
 /// `ErrorEnvelope.code` from arbitrary input.
@@ -475,6 +489,14 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_RECORDING_DENIED,
     ERROR_CODE_MORPH_PROFILE_WIDENS_SCHEMA_REF,
     ERROR_CODE_MORPH_TYPE_IMMUTABLE,
+    // WebRTC call moderation / transcription / summary (spec
+    // webrtc-signaling.md §3a / §11 + call-state.md §5 / §7).
+    ERROR_CODE_TRANSCRIPTION_DENIED,
+    ERROR_CODE_TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED,
+    ERROR_CODE_RECORDING_CONSENT_REQUIRED,
+    ERROR_CODE_CALL_MODERATION_UNAUTHORISED,
+    ERROR_CODE_CALL_PARTICIPANT_REMOVED,
+    ERROR_CODE_CALL_SUMMARY_INVALID,
 ];
 
 // ── Failed-precondition reason codes (sub-codes inside `failed_precondition`)
@@ -898,7 +920,11 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_ICE_CONFIG_DENIED
         | ERROR_CODE_SFU_NOT_ALLOWED
         | ERROR_CODE_E2EE_REQUIRED
-        | ERROR_CODE_RECORDING_DENIED => 403,
+        | ERROR_CODE_RECORDING_DENIED
+        | ERROR_CODE_TRANSCRIPTION_DENIED
+        | ERROR_CODE_TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED
+        | ERROR_CODE_CALL_MODERATION_UNAUTHORISED
+        | ERROR_CODE_CALL_PARTICIPANT_REMOVED => 403,
         ERROR_CODE_NOT_FOUND
         | ERROR_CODE_UNRECOGNIZED_ENDPOINT
         | ERROR_CODE_SEAL_REF_UNKNOWN
@@ -968,6 +994,8 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_CONTACT_REQUEST_EXPIRED
         | ERROR_CODE_DELIVERY_BINDING_UNRESOLVABLE
         | ERROR_CODE_APPLET_INSTALL_PLAN_MISMATCH
+        | ERROR_CODE_RECORDING_CONSENT_REQUIRED
+        | ERROR_CODE_CALL_SUMMARY_INVALID
         | ERROR_CODE_CALL_ALREADY_ANSWERED => 409,
         ERROR_CODE_HISTORICAL_ONLY => 200,
         ERROR_CODE_CURSOR_EXPIRED
@@ -1324,6 +1352,12 @@ pub enum ErrorCode {
     RecordingDenied,
     MorphProfileWidensSchemaRef,
     MorphTypeImmutable,
+    TranscriptionDenied,
+    TranscriptionArtifactPipelineBypassed,
+    RecordingConsentRequired,
+    CallModerationUnauthorised,
+    CallParticipantRemoved,
+    CallSummaryInvalid,
 }
 
 impl ErrorCode {
@@ -1519,6 +1553,12 @@ impl ErrorCode {
         Self::RecordingDenied,
         Self::MorphProfileWidensSchemaRef,
         Self::MorphTypeImmutable,
+        Self::TranscriptionDenied,
+        Self::TranscriptionArtifactPipelineBypassed,
+        Self::RecordingConsentRequired,
+        Self::CallModerationUnauthorised,
+        Self::CallParticipantRemoved,
+        Self::CallSummaryInvalid,
     ];
 
     /// Canonical wire-form code (snake_case string).
@@ -1726,6 +1766,14 @@ impl ErrorCode {
             Self::RecordingDenied => ERROR_CODE_RECORDING_DENIED,
             Self::MorphProfileWidensSchemaRef => ERROR_CODE_MORPH_PROFILE_WIDENS_SCHEMA_REF,
             Self::MorphTypeImmutable => ERROR_CODE_MORPH_TYPE_IMMUTABLE,
+            Self::TranscriptionDenied => ERROR_CODE_TRANSCRIPTION_DENIED,
+            Self::TranscriptionArtifactPipelineBypassed => {
+                ERROR_CODE_TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED
+            }
+            Self::RecordingConsentRequired => ERROR_CODE_RECORDING_CONSENT_REQUIRED,
+            Self::CallModerationUnauthorised => ERROR_CODE_CALL_MODERATION_UNAUTHORISED,
+            Self::CallParticipantRemoved => ERROR_CODE_CALL_PARTICIPANT_REMOVED,
+            Self::CallSummaryInvalid => ERROR_CODE_CALL_SUMMARY_INVALID,
         }
     }
 

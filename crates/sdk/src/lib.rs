@@ -232,6 +232,8 @@ pub mod search;
 #[cfg(feature = "full-surface")]
 pub mod settings;
 #[cfg(feature = "full-surface")]
+pub mod sframe;
+#[cfg(feature = "full-surface")]
 pub mod snapshot_v1;
 #[cfg(feature = "full-surface")]
 pub mod store;
@@ -416,9 +418,10 @@ pub use key_verification::{
 };
 #[cfg(feature = "full-surface")]
 pub use media::{
-    Attachment, AuthenticatedDownloadGrant, DownloadGrantScope, EncryptedAttachment,
-    MediaBackendType, MediaMetadata, MemoryBlobStore, Thumbnail, call_media_token_exchange,
-    safe_content_disposition, safe_content_type, validate_token_ttl,
+    Attachment, AuthenticatedDownloadGrant, CallMediaTokenVerification, DownloadGrantScope,
+    EncryptedAttachment, MediaBackendType, MediaMetadata, MediaServiceAnchors, MemoryBlobStore,
+    Thumbnail, call_media_token_exchange, safe_content_disposition, safe_content_type,
+    validate_token_ttl, verify_call_media_token_outcome,
 };
 #[cfg(feature = "full-surface")]
 pub use membership::{
@@ -487,6 +490,11 @@ pub use settings::{
     ClientSettings, NotificationPreferences, PrivacySettings, SettingsManager, ThemeSetting,
 };
 #[cfg(feature = "full-surface")]
+pub use sframe::{
+    FRAME_KEY_LABEL, FrameKeyContext, MEDIA_KEY_LEN, MlsExporterSource, RECORDING_KEY_LABEL,
+    RecordingKeyContext, derive_frame_key, derive_recording_key,
+};
+#[cfg(feature = "full-surface")]
 pub use snapshot_v1::{
     sign_snapshot_manifest_ed25519, verify_snapshot_manifest as verify_snapshot_manifest_v1,
     verify_snapshot_manifest_signature,
@@ -517,7 +525,10 @@ pub use timeline::{
 pub use typing::{TypingManager, TypingNotification};
 #[cfg(feature = "full-surface")]
 pub use webrtc::{
-    CallSessionDescription, CallState, ConferenceMode, ConferenceSession, IceCandidate, IceServer,
-    IceServerKind, MediaTrack, MediaTrackKind, SdpType, WebRtcCall, WebRtcManager,
-    WebRtcSignalKind, WebRtcSignalMessage,
+    CallSessionDescription, CallState, ConferenceMode, ConferenceSession, IceCandidate, IceConfig,
+    IceServer, IceServerKind, MediaStateData, MediaTrack, MediaTrackKind, MediaTrackSet,
+    ModeratePayload, ModerationAction, MuteSource, MuteStateData, RecordingMode, RecordingResult,
+    RecordingStartPayload, RecordingState, RenegotiateData, RenegotiateReason, ScreenShareState,
+    SdpType, SpeakingData, TranscribePayload, WebRtcCall, WebRtcManager, WebRtcSignalKind,
+    WebRtcSignalMessage, verify_ice_config_outcome,
 };

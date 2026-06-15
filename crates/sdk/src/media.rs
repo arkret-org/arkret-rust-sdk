@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
-use cokret_core::CallMediaTokenExchangeRequestBody;
+use cokret_core::{CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody};
 use serde::{Deserialize, Serialize};
 
 use crate::canonical::sha256_hex;
@@ -63,16 +63,15 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
 
 /// Client helper that builds a `ck.self.call.media.exchange.issue_token` request body.
 ///
-/// Implementations using a concrete HTTP transport (e.g. [`reqwest`])
-/// POST the body to `/_cokret/self/rtc/token` and feed the JSON response
-/// to [`crate::CallMediaTokenExchangeOutcome`] / [`validate_token_ttl`]. This helper keeps
-/// the SDK transport-agnostic; downstream crates wrap it with their own
-/// HTTP client.
-///
-/// Transport-backed clients MUST sign the request, perform the POST, validate
-/// the response `service_signature.kid` against the current
-/// `ck.realm.media_service.service_id`, call [`validate_token_ttl`], and
-/// reject unknown focus types via [`MediaBackendType::ensure_known`].
+/// The reqwest-backed transport (`cokret_http_client::Client::media_token_exchange`)
+/// POSTs this body to `/_cokret/self/rtc/token` and returns the raw
+/// [`CallMediaTokenExchangeOutcome`]. Callers MUST then pass the response through
+/// [`verify_call_media_token_outcome`], which anchors `participant_binding.issuer_kid`
+/// and the `service_signature` issuer to the current
+/// `ck.realm.media_service.service_id` ([`MediaServiceAnchors`]), enforces the
+/// ≤ 600s TTL ([`validate_token_ttl`]), and checks the binding six-tuple against
+/// this request. Focus backend labels are rejected up front via
+/// [`MediaBackendType::ensure_known`].
 pub fn call_media_token_exchange(
     realm_id: RealmId,
     call_id: CallId,
@@ -89,6 +88,157 @@ pub fn call_media_token_exchange(
         capability_refs: Vec::new(),
         desired_media: None,
     }
+}
+
+/// The set of media-service DIDs anchored by the current epoch's
+/// `ck.realm.media_service.service_id` (`media-service-binding.md` §2.1 / §3).
+/// Token issuer `kid`s MUST resolve to one of these DIDs, otherwise the client
+/// rejects the token with `token_issuer_unauthorised`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct MediaServiceAnchors {
+    service_ids: BTreeMap<String, ()>,
+}
+
+impl MediaServiceAnchors {
+    /// Build an anchor set from the current epoch's media-service DIDs.
+    pub fn new(service_ids: impl IntoIterator<Item = Did>) -> Self {
+        Self {
+            service_ids: service_ids
+                .into_iter()
+                .map(|did| (did.as_str().to_owned(), ()))
+                .collect(),
+        }
+    }
+
+    /// True when `did` (a bare DID, no `#fragment`) is anchored.
+    pub fn contains(&self, did: &str) -> bool {
+        self.service_ids.contains_key(did)
+    }
+
+    /// True when the anchor set is empty (no media service declared); callers
+    /// MUST treat this as fail-closed for issuer anchoring.
+    pub fn is_empty(&self) -> bool {
+        self.service_ids.is_empty()
+    }
+}
+
+/// Outcome of verifying a [`CallMediaTokenExchangeOutcome`] against the request
+/// and the realm media-service anchors.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CallMediaTokenVerification {
+    /// The anchored media-service DID that issued the participant binding.
+    pub issuer_did: Did,
+    /// The verified participant identity (SFU-local handle).
+    pub participant_identity: String,
+}
+
+/// Extract the bare DID from a `kid` of the form `did:...#fragment`.
+fn did_from_kid(kid: &str) -> &str {
+    kid.split('#').next().unwrap_or(kid)
+}
+
+/// Extract the issuer `kid` carried in a `service_signature` string.
+///
+/// The wire form is transport-specific but always carries the issuer `kid` as
+/// the leading `did:...#...:` segment before the algorithm tag (soland emits
+/// `"{kid}:eddsa-ed25519:{sig}"`). Returns the `kid` substring up to (but not
+/// including) the algorithm tag, or the whole string when no tag is present.
+fn service_signature_kid(service_signature: &str) -> Option<&str> {
+    if !service_signature.starts_with("did:") {
+        return None;
+    }
+    // The kid ends at the algorithm tag boundary (`:eddsa-` / `:ed25519`...).
+    // Split on `:` and re-join until we hit a segment that looks like an alg
+    // tag, keeping `did:web:host#frag` intact.
+    let tag = service_signature.find(":eddsa-")?;
+    Some(&service_signature[..tag])
+}
+
+/// Verify a media token-exchange response against the issuing request and the
+/// realm media-service anchors (`media-service-binding.md` §3 client rules).
+///
+/// Checks performed (all fail closed):
+/// - required fields present (`connect_url`, `backend_token`, `participant_identity`,
+///   `participant_binding.sig`, `issuer_kid`);
+/// - `participant_binding.issuer_kid` (and the `service_signature` kid, when it carries one)
+///   resolve to an anchored `ck.realm.media_service.service_id` → else `token_issuer_unauthorised`;
+/// - the binding's `(realm_id, call_id, focus_id, actor_id, device_id)` six-tuple matches the
+///   request and `participant_identity` matches the top-level one;
+/// - TTL ≤ 600s and not already expired (via [`validate_token_ttl`]).
+///
+/// Cryptographic signature verification over the binding bytes is the media
+/// service's backend-specific signing convention; this helper anchors trust to
+/// the realm policy and enforces structural integrity. Callers holding the
+/// media-service verifying key SHOULD additionally verify `participant_binding.sig`.
+pub fn verify_call_media_token_outcome(
+    request: &CallMediaTokenExchangeRequestBody,
+    outcome: &CallMediaTokenExchangeOutcome,
+    anchors: &MediaServiceAnchors,
+    now: DateTime<Utc>,
+) -> Result<CallMediaTokenVerification> {
+    let binding = &outcome.participant_binding;
+
+    if outcome.connect_url.trim().is_empty()
+        || outcome.backend_token.trim().is_empty()
+        || outcome.participant_identity.trim().is_empty()
+        || binding.sig.trim().is_empty()
+        || binding.issuer_kid.trim().is_empty()
+    {
+        return Err(Error::Protocol(
+            "participant_binding_invalid: token response missing required fields".to_owned(),
+        ));
+    }
+
+    if binding.scheme != cokret_core::PARTICIPANT_BINDING_SCHEMA {
+        return Err(Error::Protocol(format!(
+            "participant_binding_invalid: unexpected scheme {:?}",
+            binding.scheme
+        )));
+    }
+
+    // Issuer DID anchoring — the binding issuer and (when present) the
+    // service_signature kid MUST both resolve to an anchored service_id.
+    let issuer_did = did_from_kid(&binding.issuer_kid);
+    if anchors.is_empty() || !anchors.contains(issuer_did) {
+        return Err(Error::Protocol(format!(
+            "token_issuer_unauthorised: participant_binding issuer {issuer_did} not in realm media_service anchors"
+        )));
+    }
+    if let Some(kid) = service_signature_kid(&outcome.service_signature) {
+        let service_did = did_from_kid(kid);
+        if !anchors.contains(service_did) {
+            return Err(Error::Protocol(format!(
+                "token_issuer_unauthorised: service_signature issuer {service_did} not in realm media_service anchors"
+            )));
+        }
+    }
+
+    // Six-tuple binding MUST match the request the client made.
+    if binding.realm_id != request.realm_id
+        || binding.call_id != request.call_id
+        || binding.focus_id != request.focus_id
+        || binding.actor_id != request.actor_id
+        || binding.device_id != request.device_id
+    {
+        return Err(Error::Protocol(
+            "participant_binding_invalid: binding tuple does not match the request".to_owned(),
+        ));
+    }
+    if binding.participant_identity != outcome.participant_identity {
+        return Err(Error::Protocol(
+            "participant_binding_invalid: participant_identity mismatch between binding and outcome"
+                .to_owned(),
+        ));
+    }
+
+    // TTL ceiling — both the binding and the outcome expiry MUST be ≤ 600s.
+    validate_token_ttl(now, binding.expires_at)?;
+    validate_token_ttl(now, outcome.expires_at)?;
+
+    Ok(CallMediaTokenVerification {
+        issuer_did: Did::new(issuer_did.to_owned())?,
+        participant_identity: outcome.participant_identity.clone(),
+    })
 }
 
 /// Stored media metadata.
@@ -592,6 +742,107 @@ mod tests {
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:web:{name}.example")).unwrap()
+    }
+
+    fn token_request() -> CallMediaTokenExchangeRequestBody {
+        call_media_token_exchange(
+            RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            CallId::new("ck:call:0196441c-0000-7000-8000-000000000000").unwrap(),
+            did("alice"),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
+            "fra-1",
+        )
+    }
+
+    fn token_outcome(
+        request: &CallMediaTokenExchangeRequestBody,
+        expires_at: DateTime<Utc>,
+    ) -> CallMediaTokenExchangeOutcome {
+        let identity = "ck:rtc_participant:0198c2f4-0000-7000-8000-000000000000".to_owned();
+        CallMediaTokenExchangeOutcome {
+            focus_id: request.focus_id.clone(),
+            backend_type: "livekit".to_owned(),
+            connect_url: "wss://livekit-fra.example.com".to_owned(),
+            backend_token: "opaque-backend-token".to_owned(),
+            participant_identity: identity.clone(),
+            participant_binding: cokret_core::CallMediaParticipantBinding {
+                scheme: cokret_core::PARTICIPANT_BINDING_SCHEMA.to_owned(),
+                sig: "eddsa-ed25519:AAAA".to_owned(),
+                issuer_kid: "did:web:media.example#media-token".to_owned(),
+                realm_id: request.realm_id.clone(),
+                call_id: request.call_id.clone(),
+                focus_id: request.focus_id.clone(),
+                actor_id: request.actor_id.clone(),
+                device_id: request.device_id.clone(),
+                participant_identity: identity,
+                expires_at,
+            },
+            expires_at,
+            service_signature: "did:web:media.example#media-token:eddsa-ed25519:BBBB".to_owned(),
+        }
+    }
+
+    #[test]
+    fn media_token_outcome_roundtrips_and_verifies() {
+        let request = token_request();
+        let now = Utc::now();
+        let expires_at = now + chrono::Duration::minutes(5);
+        let outcome = token_outcome(&request, expires_at);
+
+        // Wire roundtrip: request + outcome survive a JSON round-trip.
+        let request_json = serde_json::to_string(&request).unwrap();
+        let request_back: CallMediaTokenExchangeRequestBody =
+            serde_json::from_str(&request_json).unwrap();
+        assert_eq!(request_back.focus_id, "fra-1");
+        let outcome_json = serde_json::to_string(&outcome).unwrap();
+        let outcome_back: CallMediaTokenExchangeOutcome =
+            serde_json::from_str(&outcome_json).unwrap();
+        assert_eq!(
+            outcome_back.participant_identity,
+            outcome.participant_identity
+        );
+
+        let anchors = MediaServiceAnchors::new([did("media")]);
+        let verified = verify_call_media_token_outcome(&request, &outcome, &anchors, now).unwrap();
+        assert_eq!(verified.issuer_did, did("media"));
+        assert_eq!(verified.participant_identity, outcome.participant_identity);
+    }
+
+    #[test]
+    fn media_token_rejects_unanchored_issuer() {
+        let request = token_request();
+        let now = Utc::now();
+        let outcome = token_outcome(&request, now + chrono::Duration::minutes(5));
+
+        let anchors = MediaServiceAnchors::new([did("other")]);
+        let err = verify_call_media_token_outcome(&request, &outcome, &anchors, now).unwrap_err();
+        assert!(err.to_string().contains("token_issuer_unauthorised"));
+
+        // Empty anchor set is fail-closed.
+        let empty = MediaServiceAnchors::default();
+        assert!(verify_call_media_token_outcome(&request, &outcome, &empty, now).is_err());
+    }
+
+    #[test]
+    fn media_token_rejects_ttl_over_ceiling_and_tuple_mismatch() {
+        let request = token_request();
+        let now = Utc::now();
+        let anchors = MediaServiceAnchors::new([did("media")]);
+
+        // TTL over 600s ceiling.
+        let long = token_outcome(&request, now + chrono::Duration::minutes(20));
+        assert!(verify_call_media_token_outcome(&request, &long, &anchors, now).is_err());
+
+        // Focus mismatch in the binding tuple.
+        let mut tampered = token_outcome(&request, now + chrono::Duration::minutes(5));
+        tampered.participant_binding.focus_id = "fra-2".to_owned();
+        let err = verify_call_media_token_outcome(&request, &tampered, &anchors, now).unwrap_err();
+        assert!(err.to_string().contains("participant_binding_invalid"));
+
+        // participant_identity mismatch between binding and outcome.
+        let mut id_mismatch = token_outcome(&request, now + chrono::Duration::minutes(5));
+        id_mismatch.participant_identity = "ck:rtc_participant:elsewhere".to_owned();
+        assert!(verify_call_media_token_outcome(&request, &id_mismatch, &anchors, now).is_err());
     }
 
     #[test]

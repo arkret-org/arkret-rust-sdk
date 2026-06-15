@@ -11,7 +11,7 @@ use crate::events::kinds::{
 
 /// Count of standard ck.* event kinds the registry declares active.
 /// Excludes the [EventKind::Unknown] catch-all.
-pub const EVENT_KIND_COUNT: usize = 188;
+pub const EVENT_KIND_COUNT: usize = 190;
 
 /// Strongly-typed Cokret event kind. One variant per active ck.* kind in
 /// `event-kind-registry.json`, plus [EventKind::Unknown] which preserves
@@ -88,6 +88,8 @@ pub enum EventKind {
     CallSignal,
     /// `ck.call.state`
     CallState,
+    /// `ck.call.summary`
+    CallSummary,
     /// `ck.capability.delegate`
     CapabilityDelegate,
     /// `ck.capability.derived`
@@ -142,24 +144,6 @@ pub enum EventKind {
     DidProof,
     /// `ck.direct_conversation.bound`
     DirectConversationBound,
-    /// `ck.strand.archive`
-    StrandArchive,
-    /// `ck.strand.create`
-    StrandCreate,
-    /// `ck.strand.move`
-    StrandMove,
-    /// `ck.strand.reorder`
-    StrandReorder,
-    /// `ck.strand.restore`
-    StrandRestore,
-    /// `ck.strand.stage.set`
-    StrandStageSet,
-    /// `ck.strand.tracks.update`
-    StrandTracksUpdate,
-    /// `ck.strand.update`
-    StrandUpdate,
-    /// `ck.strand.watch.set`
-    StrandWatchSet,
     /// `ck.handle.discovery`
     HandleDiscovery,
     /// `ck.identity.accountability_grant`
@@ -334,6 +318,8 @@ pub enum EventKind {
     RealmSchema,
     /// `ck.realm.search_policy`
     RealmSearchPolicy,
+    /// `ck.realm.set_default_strand`
+    RealmSetDefaultStrand,
     /// `ck.realm.tombstone`
     RealmTombstone,
     /// `ck.realm.update`
@@ -390,6 +376,24 @@ pub enum EventKind {
     SpaceTombstone,
     /// `ck.space.update`
     SpaceUpdate,
+    /// `ck.strand.archive`
+    StrandArchive,
+    /// `ck.strand.create`
+    StrandCreate,
+    /// `ck.strand.move`
+    StrandMove,
+    /// `ck.strand.reorder`
+    StrandReorder,
+    /// `ck.strand.restore`
+    StrandRestore,
+    /// `ck.strand.stage.set`
+    StrandStageSet,
+    /// `ck.strand.tracks.update`
+    StrandTracksUpdate,
+    /// `ck.strand.update`
+    StrandUpdate,
+    /// `ck.strand.watch.set`
+    StrandWatchSet,
     /// `ck.typing`
     Typing,
     /// `ck.view.create`
@@ -440,6 +444,7 @@ impl EventKind {
             Self::CallRecordingStart => "ck.call.recording.start",
             Self::CallSignal => "ck.call.signal",
             Self::CallState => "ck.call.state",
+            Self::CallSummary => "ck.call.summary",
             Self::CapabilityDelegate => "ck.capability.delegate",
             Self::CapabilityDerived => "ck.capability.derived",
             Self::CapabilityGrant => "ck.capability.grant",
@@ -467,15 +472,6 @@ impl EventKind {
             Self::DeviceRevoke => "ck.device.revoke",
             Self::DidProof => "ck.did.proof",
             Self::DirectConversationBound => "ck.direct_conversation.bound",
-            Self::StrandArchive => "ck.strand.archive",
-            Self::StrandCreate => "ck.strand.create",
-            Self::StrandMove => "ck.strand.move",
-            Self::StrandReorder => "ck.strand.reorder",
-            Self::StrandRestore => "ck.strand.restore",
-            Self::StrandStageSet => "ck.strand.stage.set",
-            Self::StrandTracksUpdate => "ck.strand.tracks.update",
-            Self::StrandUpdate => "ck.strand.update",
-            Self::StrandWatchSet => "ck.strand.watch.set",
             Self::HandleDiscovery => "ck.handle.discovery",
             Self::IdentityAccountabilityGrant => "ck.identity.accountability_grant",
             Self::IdentityDisclosurePolicy => "ck.identity.disclosure_policy",
@@ -563,6 +559,7 @@ impl EventKind {
             Self::RealmReadReceiptPolicy => "ck.realm.read_receipt_policy",
             Self::RealmSchema => "ck.realm.schema",
             Self::RealmSearchPolicy => "ck.realm.search_policy",
+            Self::RealmSetDefaultStrand => "ck.realm.set_default_strand",
             Self::RealmTombstone => "ck.realm.tombstone",
             Self::RealmUpdate => "ck.realm.update",
             Self::RealmUpgrade => "ck.realm.upgrade",
@@ -591,6 +588,15 @@ impl EventKind {
             Self::SpaceRestore => "ck.space.restore",
             Self::SpaceTombstone => "ck.space.tombstone",
             Self::SpaceUpdate => "ck.space.update",
+            Self::StrandArchive => "ck.strand.archive",
+            Self::StrandCreate => "ck.strand.create",
+            Self::StrandMove => "ck.strand.move",
+            Self::StrandReorder => "ck.strand.reorder",
+            Self::StrandRestore => "ck.strand.restore",
+            Self::StrandStageSet => "ck.strand.stage.set",
+            Self::StrandTracksUpdate => "ck.strand.tracks.update",
+            Self::StrandUpdate => "ck.strand.update",
+            Self::StrandWatchSet => "ck.strand.watch.set",
             Self::Typing => "ck.typing",
             Self::ViewCreate => "ck.view.create",
             Self::ViewReconcile => "ck.view.reconcile",
@@ -636,6 +642,7 @@ impl EventKind {
             "ck.call.recording.start" => Self::CallRecordingStart,
             "ck.call.signal" => Self::CallSignal,
             "ck.call.state" => Self::CallState,
+            "ck.call.summary" => Self::CallSummary,
             "ck.capability.delegate" => Self::CapabilityDelegate,
             "ck.capability.derived" => Self::CapabilityDerived,
             "ck.capability.grant" => Self::CapabilityGrant,
@@ -663,15 +670,6 @@ impl EventKind {
             "ck.device.revoke" => Self::DeviceRevoke,
             "ck.did.proof" => Self::DidProof,
             "ck.direct_conversation.bound" => Self::DirectConversationBound,
-            "ck.strand.archive" => Self::StrandArchive,
-            "ck.strand.create" => Self::StrandCreate,
-            "ck.strand.move" => Self::StrandMove,
-            "ck.strand.reorder" => Self::StrandReorder,
-            "ck.strand.restore" => Self::StrandRestore,
-            "ck.strand.stage.set" => Self::StrandStageSet,
-            "ck.strand.tracks.update" => Self::StrandTracksUpdate,
-            "ck.strand.update" => Self::StrandUpdate,
-            "ck.strand.watch.set" => Self::StrandWatchSet,
             "ck.handle.discovery" => Self::HandleDiscovery,
             "ck.identity.accountability_grant" => Self::IdentityAccountabilityGrant,
             "ck.identity.disclosure_policy" => Self::IdentityDisclosurePolicy,
@@ -759,6 +757,7 @@ impl EventKind {
             "ck.realm.read_receipt_policy" => Self::RealmReadReceiptPolicy,
             "ck.realm.schema" => Self::RealmSchema,
             "ck.realm.search_policy" => Self::RealmSearchPolicy,
+            "ck.realm.set_default_strand" => Self::RealmSetDefaultStrand,
             "ck.realm.tombstone" => Self::RealmTombstone,
             "ck.realm.update" => Self::RealmUpdate,
             "ck.realm.upgrade" => Self::RealmUpgrade,
@@ -787,6 +786,15 @@ impl EventKind {
             "ck.space.restore" => Self::SpaceRestore,
             "ck.space.tombstone" => Self::SpaceTombstone,
             "ck.space.update" => Self::SpaceUpdate,
+            "ck.strand.archive" => Self::StrandArchive,
+            "ck.strand.create" => Self::StrandCreate,
+            "ck.strand.move" => Self::StrandMove,
+            "ck.strand.reorder" => Self::StrandReorder,
+            "ck.strand.restore" => Self::StrandRestore,
+            "ck.strand.stage.set" => Self::StrandStageSet,
+            "ck.strand.tracks.update" => Self::StrandTracksUpdate,
+            "ck.strand.update" => Self::StrandUpdate,
+            "ck.strand.watch.set" => Self::StrandWatchSet,
             "ck.typing" => Self::Typing,
             "ck.view.create" => Self::ViewCreate,
             "ck.view.reconcile" => Self::ViewReconcile,

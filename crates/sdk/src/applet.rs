@@ -2383,7 +2383,10 @@ mod tests {
             sample_epoch(),
         );
         package.requested_scopes = vec!["ck.message.create".to_owned()];
-        package.webhook_auth = json!({"type": "http_message_signature"});
+        package.webhook_auth = WebhookAuth::http_message_signature(
+            "ck:keyref:webhook",
+            vec![WebhookSignatureAlg::EdDsa],
+        );
 
         // Unsealed / unsigned package fails validation and derivation.
         assert!(package.validate().is_err());

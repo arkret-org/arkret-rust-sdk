@@ -5,11 +5,12 @@ use cokret_core::{
     AppletActorView, AppletDescription, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
     AppletTransactionOutcome, AppletTransactionRequestBody, AuthzCheckOutcome,
     AuthzCheckRequestBody, AuthzInviteList, BackupId, BlobMetadata, BlobRef, BlobUploadMetadata,
-    BlobUploadOutcome, ContactList, ContactRequestOutcome, ContactRequestRequestBody,
-    ContactRespondOutcome, ContactRespondRequestBody, ContactTombstone,
-    ContactTombstoneRequestBody, DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody,
-    DeviceMessagesGetOutcome, DeviceMessagesPutOutcome, DeviceMessagesPutRequestBody,
-    DidOperationSubmitOutcome, DidOperationSubmitRequestBody, DirectConversationResolveOutcome,
+    BlobUploadOutcome, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
+    ContactList, ContactRequestOutcome, ContactRequestRequestBody, ContactRespondOutcome,
+    ContactRespondRequestBody, ContactTombstone, ContactTombstoneRequestBody,
+    DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome,
+    DeviceMessagesPutOutcome, DeviceMessagesPutRequestBody, DidOperationSubmitOutcome,
+    DidOperationSubmitRequestBody, DirectConversationResolveOutcome,
     DirectConversationResolveRequestBody, DirectoryActorSearchOutcome,
     DirectoryAgentSelectorResolutionOutcome, DirectoryDescription,
     DirectoryHandleResolutionOutcome, DirectoryListHandlesForSubjectRequestBody,
@@ -1370,6 +1371,23 @@ impl Client {
         request: &MediaIceConfigRequestBody,
     ) -> Result<MediaIceConfigOutcome> {
         self.post("/_cokret/self/rtc/ice-config", request).await
+    }
+
+    /// CKP-0010 — exchange a committed `session_focus` for a backend media
+    /// token + `participant_binding` via
+    /// `ck.self.call.media.exchange.issue_token` (`POST /_cokret/self/rtc/token`,
+    /// `media-service-binding.md` §3).
+    ///
+    /// Returns the raw signed outcome; callers MUST verify the response against
+    /// the realm media-service anchors and the issuing request before use (the
+    /// `cokret` crate provides `verify_call_media_token_outcome`): check that
+    /// `service_signature` / `participant_binding.issuer_kid` resolve to an
+    /// anchored `service_id`, the TTL is ≤ 600s, and the binding tuple matches.
+    pub async fn media_token_exchange(
+        &self,
+        request: &CallMediaTokenExchangeRequestBody,
+    ) -> Result<CallMediaTokenExchangeOutcome> {
+        self.post("/_cokret/self/rtc/token", request).await
     }
 
     pub async fn moderation_report(

@@ -220,6 +220,8 @@ const FALLBACK_FIELD_ALLOWLISTS: &[(&str, &[&str])] = &[
             "data_classes",
             "index_retention_ms",
             "revocation_behavior",
+            "leakage_class",
+            "token_rotation_cadence_ms",
         ],
     ),
 ];
@@ -758,9 +760,7 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["realm_key", "share_audit"] => candidates.push("realm_key_share_audit_payload".to_owned()),
         ["moderation", "report"] => candidates.push("moderation_report_payload".to_owned()),
         ["audit", "accessed" | "ryw_receipt"] => candidates.push("audit_payload".to_owned()),
-        ["call", "state"] | ["call", "recording", "start"] => {
-            candidates.push("call_payload".to_owned());
-        }
+        ["call", "signal"] => candidates.push("call_payload".to_owned()),
         ["invite", ..] => candidates.push("invite_payload".to_owned()),
         ["profile", "update" | "realm_override"] => {
             candidates.push("object_patch_payload".to_owned());

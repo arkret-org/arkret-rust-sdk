@@ -644,6 +644,15 @@ pub const MEDIA_TOKEN_TTL_MAX_SECS: u64 = 600;
 /// CKP-0010 — SHOULD-bound (recommended) TTL for media tokens.
 pub const MEDIA_TOKEN_TTL_SHOULD_SECS: u64 = 300;
 
+/// MLS exporter label for the per-call recording artifact key
+/// (`call-state.md` §5). Used as the `scheme` of the recording blob's
+/// encryption descriptor.
+pub const EXPORTER_LABEL_RTC_RECORDING_KEY: &str = "ck-rtc-recording-key/v1";
+/// MLS exporter label for the per-call transcription artifact key
+/// (`call-state.md` §5.1). Mirrors the recording-key label for the
+/// transcription pipeline.
+pub const EXPORTER_LABEL_RTC_TRANSCRIPT_KEY: &str = "ck-rtc-transcript-key/v1";
+
 /// CKP-0008 / CKP-0009 (R3 spec-sync 2026-05-27) — agent_runtime
 /// surface tier: list of operations that live under the
 /// `ck.profile.agent_runtime.v1` server-profile surface.
