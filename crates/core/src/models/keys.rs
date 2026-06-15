@@ -27,10 +27,50 @@ pub struct KeysQueryRequestBody {
     pub timeout_ms: Option<u64>,
 }
 
+/// Directory status of a `(principal_id, device_id)` pair at query time.
+///
+/// `active` = a `ck.device.authorize` is in effect and the device is not
+/// revoked; `revoked` = a `ck.device.revoke` is in effect. Servers MUST omit
+/// [`QueryDeviceRecord::device_signing_key`] for any non-active device.
+/// Mirrors `keys-operations.schema.json#/$defs/device_status`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DeviceStatus {
+    Active,
+    Revoked,
+}
+
+/// Per-`(principal_id, device_id)` entry in [`KeysQueryOutcome::device_keys`].
+///
+/// The prekey bundle is carried under `algorithms` (algorithm name →
+/// `key_record`); the device signing-key directory facet
+/// (`device_signing_key` / `device_status`) sits at the same level as the
+/// algorithm dimension, not repeated per algorithm. The directory facet is
+/// populated only for verified, non-revoked devices. Mirrors
+/// `keys-operations.schema.json#/$defs/query_device_record`.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct QueryDeviceRecord {
+    /// Prekey bundle keyed by algorithm name. The demo projection carries the
+    /// opaque uploaded key payload here; each value matches the schema
+    /// `key_record` once real prekey records are published.
+    #[serde(default)]
+    pub algorithms: BTreeMap<String, Value>,
+    /// Authoritative device verify key as an Ed25519 `did:key`
+    /// (multibase base58btc, multicodec ed25519-pub). Present only for
+    /// verified, non-revoked devices.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_signing_key: Option<String>,
+    /// Directory status of the device at query time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_status: Option<DeviceStatus>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeysQueryOutcome {
-    pub device_keys: BTreeMap<Did, BTreeMap<DeviceId, Value>>,
+    pub device_keys: BTreeMap<Did, BTreeMap<DeviceId, QueryDeviceRecord>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Value>,
 }
