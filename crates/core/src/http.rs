@@ -3071,6 +3071,143 @@ pub struct SessionGrantExchangeRequestBody {
     pub introspection_proof: Option<SessionGrantIntrospectionProof>,
 }
 
+// ─── DPoP-bound session-grant lifecycle (account-lifecycle §4.1) ─────────────
+//
+// Wire shapes for the `/_cokret/gate/account/session-grants/{refresh,logout,
+// introspect}` and `/_cokret/gate/account/logout` operations. These mirror
+// `service-operation-dtos.schema.json#/$defs/SessionGrant{Refresh,Logout,
+// Introspect}*` and `AccountLogout*` so callers (soland, yougen) bind to the
+// same strong types the spec/OpenAPI declare instead of hand-rolled structs.
+
+/// `ck.gate.account.command.refresh_session_grant` request.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantRefreshRequestBody {
+    pub grant_jwt: String,
+    /// MUST equal the grant's bound audience if present (audience MUST NOT
+    /// change across rotation, else `audience_mismatch`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audience: Option<String>,
+}
+
+/// `ck.gate.account.command.refresh_session_grant` outcome.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantRefreshOutcome {
+    pub grant_id: String,
+    pub grant_jwt: String,
+    /// JWK the rotated grant is bound to (the device holder key); the server
+    /// does not mint a fresh session private key on rotation.
+    pub session_public_key: String,
+    pub expires_at: DateTime<Utc>,
+    pub audience: String,
+    #[serde(default)]
+    pub scopes: Vec<String>,
+    /// RFC 7638 thumbprint of the holder key (equals the grant's `cnf.jkt`).
+    pub dpop_jkt: String,
+    /// The prior grant, single-use revoked on success.
+    pub previous_grant_id: String,
+}
+
+/// `ck.gate.account.command.logout_session_grant` request (Auth Server hard
+/// logout via DPoP holder proof).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantLogoutRequestBody {
+    pub grant_jwt: String,
+}
+
+/// `ck.gate.account.command.logout_session_grant` outcome.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantLogoutOutcome {
+    pub revoked: bool,
+    pub browser_session_finished: bool,
+}
+
+/// Standardized status returned by session-grant introspection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum SessionGrantIntrospectStatus {
+    Active,
+    Revoked,
+    Expired,
+    Locked,
+    Suspended,
+    AudienceMismatch,
+    ProofRequired,
+    InvalidProof,
+    NotFound,
+}
+
+/// Non-secret grant metadata returned to a validating Principal Server. Never
+/// includes the grant JWT, refresh token, or session private key. Fields are
+/// plain strings to match the introspection wire form verbatim.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantIntrospectGrant {
+    pub id: String,
+    pub issuer: String,
+    pub subject: String,
+    pub service_account_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<String>,
+    pub audience: String,
+    #[serde(default)]
+    pub scopes: Vec<String>,
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub revocation_ref: String,
+    /// Session signing key (JWK) for RFC 9421 PoP verification on
+    /// `/_cokret/self/*`. Server-to-server only.
+    pub session_public_key: String,
+}
+
+/// `ck.gate.account.command.introspect_session_grant` request. Exactly one of
+/// `id` / `grant_jwt` identifies the grant.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantIntrospectRequestBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grant_jwt: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audience: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof: Option<SessionGrantIntrospectionProof>,
+}
+
+/// `ck.gate.account.command.introspect_session_grant` outcome. READ-ONLY:
+/// introspection never consumes the grant.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantIntrospectOutcome {
+    pub active: bool,
+    pub status: SessionGrantIntrospectStatus,
+    pub proof_required: bool,
+    /// Always false: introspection never consumes single-use state.
+    pub one_time_use_consumed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grant: Option<SessionGrantIntrospectGrant>,
+}
+
+/// `ck.gate.account.command.logout` request (Principal Server device logout).
+/// Empty body — the session bearer identifies the device session to terminate.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AccountLogoutRequestBody {}
+
+/// `ck.gate.account.command.logout` outcome.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AccountLogoutOutcome {
+    pub ok: bool,
+    pub revoked: bool,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountDevicePairRequestBody {
