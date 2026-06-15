@@ -492,7 +492,8 @@ pub use settings::{
 #[cfg(feature = "full-surface")]
 pub use sframe::{
     FRAME_KEY_LABEL, FrameKeyContext, MEDIA_KEY_LEN, MlsExporterSource, RECORDING_KEY_LABEL,
-    RecordingKeyContext, derive_frame_key, derive_recording_key,
+    RecordingKeyContext, TRANSCRIPT_KEY_LABEL, TranscriptKeyContext, derive_frame_key,
+    derive_recording_key, derive_transcript_key,
 };
 #[cfg(feature = "full-surface")]
 pub use snapshot_v1::{
