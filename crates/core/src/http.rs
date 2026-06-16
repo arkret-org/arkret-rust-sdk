@@ -2989,7 +2989,12 @@ pub struct MimiProxyDownloadOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantRequestBody {
-    pub principal_id: Did,
+    /// Optional for `proof_kind = oidc_code_exchange` first sign-in: the client
+    /// may omit it and the Account Authority derives/returns the principal DID
+    /// (see `SessionGrantOutcome.principal_id`). Other proof kinds still supply
+    /// it; the server enforces presence per the spec's conditional.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub principal_id: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -3182,6 +3187,11 @@ pub struct SessionGrantIntrospectGrant {
     /// Session signing key (JWK) for RFC 9421 PoP verification on
     /// `/_cokret/self/*`. Server-to-server only.
     pub session_public_key: String,
+    /// RFC 7638 JWK SHA-256 thumbprint of the holder (DPoP) key the grant is
+    /// bound to (the grant's `cnf.jkt`); the Principal Server uses it to verify
+    /// the per-request DPoP proof on `/_cokret/self/*`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cnf_jkt: Option<String>,
 }
 
 /// `ck.gate.account.command.introspect_session_grant` request. Exactly one of
