@@ -408,7 +408,7 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
-    use crate::{Did, RealmId};
+    use crate::{AuthMetadata, Did, RealmId};
 
     #[test]
     fn verifies_required_service_profile_and_operation() {
@@ -421,7 +421,7 @@ mod tests {
             supported_features: vec![],
             supported_operations: vec!["ck.find.directory.query.search_realms".to_owned()],
             supported_bindings: vec![],
-            auth_metadata: Value::Null,
+            auth_metadata: AuthMetadata::minimal("development"),
             limits: Value::Null,
             plaintext_visibility: Value::Null,
             implemented_features: vec![],
@@ -470,7 +470,7 @@ mod tests {
             supported_features: vec![],
             supported_operations: vec!["ck.find.directory.query.search_realms".to_owned()],
             supported_bindings: vec![],
-            auth_metadata: Value::Null,
+            auth_metadata: AuthMetadata::minimal("development"),
             limits: Value::Null,
             plaintext_visibility: Value::Null,
             implemented_features: vec![],

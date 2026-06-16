@@ -1,4 +1,5 @@
 use super::*;
+use crate::http::SessionGrantProofKind;
 
 /// Round 4 (2026-05-20, spec a77b995) — `ServiceDescribe` v2 has 17
 /// REQUIRED top-level fields plus a discriminated `rate_limit`. The
@@ -29,7 +30,7 @@ pub struct ServerDescription {
     pub supported_operations: Vec<String>,
     pub supported_bindings: Vec<Value>,
     pub supported_features: Vec<String>,
-    pub auth_metadata: Value,
+    pub auth_metadata: AuthMetadata,
     pub limits: Value,
     /// Round 4 — plaintext visibility advertisement. Receivers MUST
     /// treat a missing value as `untrusted` (fail-closed for the
@@ -119,6 +120,112 @@ impl ServerDescription {
     pub fn supports_cokret_v1(&self) -> bool {
         self.protocol_version == PROTOCOL_VERSION
     }
+}
+
+/// Strongly-typed `auth_metadata` block of the service-describe response.
+/// Mirrors `service-describe.schema.json#/properties/auth_metadata`. Every
+/// field other than `mode` is optional or defaulted so older / sparser wire
+/// payloads still deserialize; the `extra` flatten captures `x_*` and any
+/// future unknown keys (`additionalProperties: true`) without data loss.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AuthMetadata {
+    pub mode: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_authority: Option<AccountAuthority>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub methods: Vec<AuthMethod>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_server_url: Option<String>,
+    /// Compatibility alias for legacy clients (`methods[].issuer`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oauth_issuer: Option<String>,
+    /// Compatibility alias for legacy clients (`methods[].openid_configuration`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub openid_configuration: Option<String>,
+    /// Compatibility alias for legacy clients (`methods[].method`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supported_auth_methods: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub did_binding_methods: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub read: Option<String>,
+    /// Captures `x_*` and any other `additionalProperties: true` keys so the
+    /// SDK round-trips future / vendor-specific fields without dropping them.
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
+}
+
+impl AuthMetadata {
+    /// Convenience constructor for tests / mocks: fills `mode` and leaves
+    /// every other field empty / `None`.
+    pub fn minimal(mode: impl Into<String>) -> Self {
+        Self {
+            mode: mode.into(),
+            account_authority: None,
+            methods: Vec::new(),
+            auth_server_url: None,
+            oauth_issuer: None,
+            openid_configuration: None,
+            supported_auth_methods: Vec::new(),
+            did_binding_methods: Vec::new(),
+            read: None,
+            extra: std::collections::BTreeMap::new(),
+        }
+    }
+}
+
+/// Mirrors `service-describe.schema.json#/$defs/account_authority`. Carries
+/// the client-visible Account Authority origin and the gate/account base URL
+/// from which all `/_cokret/gate/account/*` endpoints are derived.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AccountAuthority {
+    pub origin: String,
+    pub gate_account_base: String,
+}
+
+/// Mirrors `service-describe.schema.json#/$defs/auth_method`. Describes a
+/// single proof provider, its discovery metadata and the proof kind accepted
+/// by the Account Authority.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AuthMethod {
+    pub method: AuthMethodKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issuer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub openid_configuration: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scopes: Vec<String>,
+    pub grant_exchange: AuthGrantExchange,
+}
+
+/// `method` discriminant for [`AuthMethod`]. Mirrors the closed enum in
+/// `service-describe.schema.json#/$defs/auth_method/properties/method`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AuthMethodKind {
+    Oidc,
+    Passkey,
+    DevicePairing,
+    RecoveryChallenge,
+    Gnap,
+}
+
+/// Mirrors `service-describe.schema.json#/$defs/auth_grant_exchange`. The
+/// `proof_kind` reuses the authoritative [`SessionGrantProofKind`] enum so
+/// the describe surface and the session-grant request surface stay in lockstep.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AuthGrantExchange {
+    pub proof_kind: SessionGrantProofKind,
 }
 
 pub type ActorDid = Did;

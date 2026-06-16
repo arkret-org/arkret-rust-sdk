@@ -918,6 +918,13 @@ impl AuthManager {
                     audience: audience.to_owned(),
                     expires_at: Some(expires_at),
                     signature: move_sig.jws,
+                    issuer: None,
+                    client_id: None,
+                    redirect_uri: None,
+                    state: None,
+                    nonce: None,
+                    authorization_code: None,
+                    code_verifier: None,
                 },
             })
             .await
