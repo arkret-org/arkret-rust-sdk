@@ -349,10 +349,12 @@ pub use devices::{
     CrossSigningBinding, CrossSigningKeyKind, CrossSigningKeyRecord, CrossSigningPublishContent,
     CrossSigningResetContent, CrossSigningResetProof, Device, DeviceBootstrapBinding, DeviceChange,
     DeviceManager, DeviceMetadata, DeviceQuorumSignature, DeviceTrustBinding,
-    DeviceTrustChainOutcome, DeviceVerificationChallenge, DeviceVerificationMessageContent,
-    DeviceVerificationMessageKind, KeyBackupClass, KeyBackupContentItem, KeyBackupEncryption,
-    ProtocolDeviceMessageEnvelope, ProtocolKeyBackup, QrVerificationPayload, SignedCrossSigningKey,
-    ToDeviceEnvelope, cross_signing_publish_cell_subject, device_verification_commitment,
+    DeviceTrustChainOutcome, DeviceTrustState, DeviceVerificationChallenge,
+    DeviceVerificationMessageContent, DeviceVerificationMessageKind, KeyBackupClass,
+    KeyBackupContentItem, KeyBackupEncryption, ProtocolDeviceMessageEnvelope, ProtocolKeyBackup,
+    QrVerificationPayload, SignedCrossSigningKey, ToDeviceEnvelope,
+    cross_signing_publish_cell_subject, device_verification_commitment,
+    verify_device_cross_signing_chain,
 };
 #[cfg(feature = "full-surface")]
 pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};

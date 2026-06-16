@@ -223,6 +223,42 @@ pub fn verify_eddsa_detached_jws_proof(
     verify_eddsa_signing_input(&signing_input, &sig_bytes, public_key)
 }
 
+/// Verify a raw detached Ed25519 signature over `message` with `public_key`.
+///
+/// Unlike [`verify_eddsa_detached_jws_proof`] (which reconstructs a JWS
+/// signing input and a proof binding object), this is the bare primitive: the
+/// signature is computed directly over `message` bytes. It is the verification
+/// half used by the cross-signing chain check
+/// (`cokret_crypto::verify_device_cross_signing_chain`), where the message is a
+/// `ck-cross-signing-bind-v1` / `ck-device-trust-bind-v1` canonical input and
+/// the signature is base64url(-no-pad).
+///
+/// Uses `ed25519-dalek` `verify_strict` (rejects malleable / non-canonical
+/// signatures). Returns `false` on any decode or verification failure — it
+/// never panics and never returns `true` for malformed material (fail-closed).
+pub fn verify_detached_ed25519_signature(
+    public_key: &PublicKeyMaterial,
+    message: &[u8],
+    signature_b64url: &str,
+) -> bool {
+    let Ok(key_bytes) = public_key.ed25519_bytes() else {
+        return false;
+    };
+    let Ok(verifying) = ed25519_dalek::VerifyingKey::from_bytes(&key_bytes) else {
+        return false;
+    };
+    let Ok(raw) = base64url_decode(signature_b64url) else {
+        return false;
+    };
+    if raw.len() != 64 {
+        return false;
+    }
+    let mut sig_arr = [0u8; 64];
+    sig_arr.copy_from_slice(&raw);
+    let sig = ed25519_dalek::Signature::from_bytes(&sig_arr);
+    verifying.verify_strict(message, &sig).is_ok()
+}
+
 fn verify_eddsa_signing_input(
     signing_input: &str,
     signature: &[u8],

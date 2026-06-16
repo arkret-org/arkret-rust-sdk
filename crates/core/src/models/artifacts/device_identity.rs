@@ -4,6 +4,7 @@ use super::*;
 
 /// Counterpart for `spec/v1/artifacts/schemas/cross-signing-publish.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CrossSigningPublish {
     pub principal_id: Did,
@@ -28,6 +29,7 @@ pub type Kid = String;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/cross-signing-publish.schema.json#/$defs/published_key`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PublishedKey {
     pub kid: Kid,
@@ -39,6 +41,7 @@ pub struct PublishedKey {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/cross-signing-publish.schema.json#/$defs/subordinate_signed_key`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SubordinateSignedKeyBinding {
     pub verification_method: String,
@@ -47,6 +50,7 @@ pub struct SubordinateSignedKeyBinding {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SubordinateSignedKey {
     pub kid: Kid,

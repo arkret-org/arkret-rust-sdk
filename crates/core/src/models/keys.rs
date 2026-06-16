@@ -41,6 +41,32 @@ pub enum DeviceStatus {
     Revoked,
 }
 
+/// Tier-2 per-device cross-signing binding echoed from
+/// `ck.device.authorize.payload.cross_signing_binding`
+/// (`crypto-media/device-lifecycle.md` §5.2). The accepted-generation SSK signs
+/// `"ck-device-trust-bind-v1\n" + canonical_json({principal_id, device_id,
+/// device_public_key, ssk_generation})`. Absent for inception bootstrap devices
+/// (§5.0.1). Mirrors `keys-operations.schema.json#/$defs/cross_signing_binding`.
+///
+/// Shape-identical to `cokret_crypto::DeviceTrustBinding` (the SDK chain
+/// verifier's input type), but defined here in `core` because `core` cannot
+/// depend on `crypto`; `alg` is optional per schema.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct QueryDeviceCrossSigningBinding {
+    /// DID URL of the self-signing key (SSK) that produced the binding
+    /// signature, e.g. `did:webvh:...#ck_self_signing_v1`.
+    pub verification_method: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alg: Option<String>,
+    /// `cross_signing.publish` generation under which the SSK signed this
+    /// device binding; compared to the principal's accepted generation per
+    /// §5.2.1.
+    pub ssk_generation: u64,
+    pub signature: String,
+}
+
 /// Per-`(principal_id, device_id)` entry in [`KeysQueryOutcome::device_keys`].
 ///
 /// The prekey bundle is carried under `algorithms` (algorithm name →
@@ -65,6 +91,12 @@ pub struct QueryDeviceRecord {
     /// Directory status of the device at query time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_status: Option<DeviceStatus>,
+    /// Tier-2: the device's authoritative `cross_signing_binding` echoed
+    /// verbatim, so the client can independently verify the
+    /// device-key ← SSK link (`device-lifecycle.md` §8.3). Absent for
+    /// inception bootstrap devices.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cross_signing_binding: Option<QueryDeviceCrossSigningBinding>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -73,6 +105,13 @@ pub struct KeysQueryOutcome {
     pub device_keys: BTreeMap<Did, BTreeMap<DeviceId, QueryDeviceRecord>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Value>,
+    /// Tier-2: per-principal current accepted-generation
+    /// `ck.cross_signing.publish` payload (`device-lifecycle.md` §5.1), letting
+    /// the client anchor the SSK to the DID control set before trusting any
+    /// `cross_signing_binding` (§8.3). Reuses the schema-counterpart type
+    /// [`CrossSigningPublish`].
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub cross_signing: BTreeMap<Did, CrossSigningPublish>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

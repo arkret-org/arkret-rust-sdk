@@ -37,7 +37,7 @@ pub use proof::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier};
 pub use proof::{
     EventProofBuilder, EventSigner, EventVerifier, ProductionVerifier, ProofType,
     PublicKeyMaterial, SignedPayload, SignerError, VerifierError, build_proof_envelope,
-    detached_jws_kind, verify_eddsa_detached_jws_proof,
+    detached_jws_kind, verify_detached_ed25519_signature, verify_eddsa_detached_jws_proof,
 };
 use serde::{Deserialize, Serialize};
 

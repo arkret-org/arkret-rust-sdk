@@ -547,6 +547,286 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
     ));
 }
 
+// ---- Tier-2 stateless chain verifier (`verify_device_cross_signing_chain`) ----
+
+/// Build a fully-signed `(publish, device binding)` pair plus the raw PSK key
+/// material a DID-anchoring caller would supply, using real Ed25519 keys and the
+/// SAME canonical-input constructors the verifier uses. `psk_seed` / `ssk_seed`
+/// pick the keypairs; `publish_generation` is the accepted publish generation;
+/// `binding_generation` is the `ssk_generation` baked into the device binding.
+#[allow(clippy::type_complexity)]
+fn signed_chain_fixture(
+    principal: &Did,
+    device_id: &DeviceId,
+    device_public_key: &str,
+    psk_seed: [u8; 32],
+    ssk_seed: [u8; 32],
+    publish_generation: u64,
+    binding_generation: u64,
+) -> (
+    CrossSigningPublishContent,
+    DeviceTrustBinding,
+    cokret_signatures::PublicKeyMaterial,
+) {
+    use ed25519_dalek::{Signer, SigningKey};
+
+    let psk = SigningKey::from_bytes(&psk_seed);
+    let ssk = SigningKey::from_bytes(&ssk_seed);
+    let psk_multibase =
+        cokret_core::ed25519_pubkey_to_did_key_multibase(&psk.verifying_key().to_bytes());
+    let ssk_multibase =
+        cokret_core::ed25519_pubkey_to_did_key_multibase(&ssk.verifying_key().to_bytes());
+
+    // The published SSK record (PSK signs this over the §5.1 canonical input).
+    let mut publish = CrossSigningPublishContent {
+        principal_id: principal.clone(),
+        trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        principal_signing_key: CrossSigningKeyRecord {
+            kid: format!("{principal}#ck_principal_signing_v1"),
+            alg: "EdDSA".to_owned(),
+            public_key: psk_multibase,
+            key_format: "multibase".to_owned(),
+        },
+        self_signing_key: SignedCrossSigningKey {
+            key: CrossSigningKeyRecord {
+                kid: format!("{principal}#ck_self_signing_v1"),
+                alg: "EdDSA".to_owned(),
+                public_key: ssk_multibase,
+                key_format: "multibase".to_owned(),
+            },
+            binding: CrossSigningBinding {
+                verification_method: format!("{principal}#ck_principal_signing_v1"),
+                alg: "EdDSA".to_owned(),
+                signature: String::new(),
+            },
+        },
+        user_signing_key: SignedCrossSigningKey {
+            key: CrossSigningKeyRecord {
+                kid: format!("{principal}#ck_user_signing_v1"),
+                alg: "EdDSA".to_owned(),
+                public_key: "z6MkUserDistinct".to_owned(),
+                key_format: "multibase".to_owned(),
+            },
+            binding: CrossSigningBinding {
+                verification_method: format!("{principal}#ck_principal_signing_v1"),
+                alg: "EdDSA".to_owned(),
+                signature: "unused".to_owned(),
+            },
+        },
+        expected_previous_generation: publish_generation.saturating_sub(1),
+        generation: publish_generation,
+        issued_at: Utc::now(),
+    };
+    // PSK signs the SSK record over the canonical §5.1 input.
+    let ssk_input = publish.self_signing_binding_input().unwrap();
+    publish.self_signing_key.binding.signature =
+        cokret_core::base64url_encode(psk.sign(&ssk_input).to_bytes());
+
+    // SSK signs the device binding over the canonical §5.2 input.
+    let device_input =
+        DeviceTrustBinding::canonical_input(principal, device_id, device_public_key, binding_generation)
+            .unwrap();
+    let binding = DeviceTrustBinding {
+        verification_method: format!("{principal}#ck_self_signing_v1"),
+        alg: "EdDSA".to_owned(),
+        ssk_generation: binding_generation,
+        signature: cokret_core::base64url_encode(ssk.sign(&device_input).to_bytes()),
+    };
+
+    let anchored_psk = cokret_signatures::PublicKeyMaterial::Ed25519Raw {
+        bytes: psk.verifying_key().to_bytes().to_vec(),
+    };
+    (publish, binding, anchored_psk)
+}
+
+#[test]
+fn verify_chain_accepts_well_formed_cross_signed_device() {
+    let alice = did("alice");
+    let phone = device("phone");
+    let device_public_key = "z6MkDevicePhoneVerifyKey";
+    let (publish, binding, anchored_psk) = signed_chain_fixture(
+        &alice,
+        &phone,
+        device_public_key,
+        [11u8; 32],
+        [22u8; 32],
+        1,
+        1,
+    );
+    let state = verify_device_cross_signing_chain(
+        &publish,
+        &binding,
+        &alice,
+        &phone,
+        device_public_key,
+        &anchored_psk,
+    );
+    assert_eq!(state, DeviceTrustState::CrossSigned);
+}
+
+#[test]
+fn verify_chain_rejects_tampered_device_binding() {
+    let alice = did("alice");
+    let phone = device("phone");
+    let device_public_key = "z6MkDevicePhoneVerifyKey";
+    let (publish, mut binding, anchored_psk) = signed_chain_fixture(
+        &alice,
+        &phone,
+        device_public_key,
+        [11u8; 32],
+        [22u8; 32],
+        1,
+        1,
+    );
+    // Flip a byte in the device-binding signature → SSK→device check fails.
+    let mut raw = cokret_core::base64url_decode(&binding.signature).unwrap();
+    raw[0] ^= 0xff;
+    binding.signature = cokret_core::base64url_encode(&raw);
+    let state = verify_device_cross_signing_chain(
+        &publish,
+        &binding,
+        &alice,
+        &phone,
+        device_public_key,
+        &anchored_psk,
+    );
+    assert_eq!(state, DeviceTrustState::Unverified);
+}
+
+#[test]
+fn verify_chain_rejects_device_key_substitution() {
+    let alice = did("alice");
+    let phone = device("phone");
+    let signed_key = "z6MkDevicePhoneVerifyKey";
+    let (publish, binding, anchored_psk) =
+        signed_chain_fixture(&alice, &phone, signed_key, [11u8; 32], [22u8; 32], 1, 1);
+    // The binding was signed over `signed_key`; verifying against a DIFFERENT
+    // device_public_key must fail (closes "directory key ⇔ cross-signed key").
+    let state = verify_device_cross_signing_chain(
+        &publish,
+        &binding,
+        &alice,
+        &phone,
+        "z6MkAttackerSubstituteKey",
+        &anchored_psk,
+    );
+    assert_eq!(state, DeviceTrustState::Unverified);
+}
+
+#[test]
+fn verify_chain_rejects_tampered_ssk_binding() {
+    let alice = did("alice");
+    let phone = device("phone");
+    let device_public_key = "z6MkDevicePhoneVerifyKey";
+    let (mut publish, binding, anchored_psk) = signed_chain_fixture(
+        &alice,
+        &phone,
+        device_public_key,
+        [11u8; 32],
+        [22u8; 32],
+        1,
+        1,
+    );
+    // Corrupt the PSK→SSK binding signature → first check fails.
+    let mut raw = cokret_core::base64url_decode(&publish.self_signing_key.binding.signature).unwrap();
+    raw[5] ^= 0xff;
+    publish.self_signing_key.binding.signature = cokret_core::base64url_encode(&raw);
+    let state = verify_device_cross_signing_chain(
+        &publish,
+        &binding,
+        &alice,
+        &phone,
+        device_public_key,
+        &anchored_psk,
+    );
+    assert_eq!(state, DeviceTrustState::Unverified);
+}
+
+#[test]
+fn verify_chain_rejects_wrong_anchored_psk() {
+    let alice = did("alice");
+    let phone = device("phone");
+    let device_public_key = "z6MkDevicePhoneVerifyKey";
+    let (publish, binding, _) = signed_chain_fixture(
+        &alice,
+        &phone,
+        device_public_key,
+        [11u8; 32],
+        [22u8; 32],
+        1,
+        1,
+    );
+    // Caller anchors a DIFFERENT PSK than the one that signed the SSK record.
+    let wrong_psk = ed25519_dalek::SigningKey::from_bytes(&[99u8; 32]);
+    let wrong = cokret_signatures::PublicKeyMaterial::Ed25519Raw {
+        bytes: wrong_psk.verifying_key().to_bytes().to_vec(),
+    };
+    let state = verify_device_cross_signing_chain(
+        &publish,
+        &binding,
+        &alice,
+        &phone,
+        device_public_key,
+        &wrong,
+    );
+    assert_eq!(state, DeviceTrustState::Unverified);
+}
+
+#[test]
+fn verify_chain_stale_generation_needs_reverification() {
+    let alice = did("alice");
+    let phone = device("phone");
+    let device_public_key = "z6MkDevicePhoneVerifyKey";
+    // Accepted publish is generation 2, but the device binding was signed under
+    // generation 1 (cross-signing reset since). SSK binding is valid → the
+    // generation comparison drives the verdict to NeedsReverification.
+    let (publish, binding, anchored_psk) = signed_chain_fixture(
+        &alice,
+        &phone,
+        device_public_key,
+        [11u8; 32],
+        [22u8; 32],
+        2,
+        1,
+    );
+    let state = verify_device_cross_signing_chain(
+        &publish,
+        &binding,
+        &alice,
+        &phone,
+        device_public_key,
+        &anchored_psk,
+    );
+    assert_eq!(state, DeviceTrustState::NeedsReverification);
+}
+
+#[test]
+fn verify_chain_future_generation_unverified() {
+    let alice = did("alice");
+    let phone = device("phone");
+    let device_public_key = "z6MkDevicePhoneVerifyKey";
+    // Binding references generation 3 but only generation 1 is accepted → future
+    // generation → Unverified (caller must re-sync the control stream).
+    let (publish, binding, anchored_psk) = signed_chain_fixture(
+        &alice,
+        &phone,
+        device_public_key,
+        [11u8; 32],
+        [22u8; 32],
+        1,
+        3,
+    );
+    let state = verify_device_cross_signing_chain(
+        &publish,
+        &binding,
+        &alice,
+        &phone,
+        device_public_key,
+        &anchored_psk,
+    );
+    assert_eq!(state, DeviceTrustState::Unverified);
+}
+
 #[test]
 fn devices_revoke_and_fail_closed() {
     let alice = did("alice");

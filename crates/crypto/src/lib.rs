@@ -678,6 +678,90 @@ fn canonical_device_trust_binding_input(
     Ok(out)
 }
 
+/// Stateless Tier-2 device cross-signing chain verifier
+/// (`crypto-media/device-lifecycle.md` §5.2.1 steps 3 + 5 / §8.3 steps 2–3).
+///
+/// This is **pure cryptography**: no DID resolution and no network. Steps 1–2
+/// of §5.2.1 (DID-anchoring the PSK into the principal's current control set)
+/// are the caller's responsibility — the caller resolves the principal DID,
+/// confirms `publish.principal_signing_key` equals the DID-resolved key
+/// byte-for-byte, and passes the **already-anchored PSK** in via
+/// `anchored_psk`. This primitive then:
+///
+///   * (a) verifies `publish.self_signing_key.binding.signature` with the
+///     anchored PSK over the §5.1 self-signing canonical input (PSK→SSK);
+///   * (b) compares `binding.ssk_generation` to `publish.generation`:
+///     equal ⇒ continue, less ⇒ [`DeviceTrustState::NeedsReverification`],
+///     greater ⇒ [`DeviceTrustState::Unverified`];
+///   * (c) when generations match, verifies `binding.signature` with the
+///     published SSK public key over the §5.2 `ck-device-trust-bind-v1`
+///     canonical input (SSK→device).
+///
+/// `device_public_key` is the bare multibase Ed25519 key the directory exposes
+/// (the inner key of the directory `device_signing_key` did:key); it enters
+/// the device-binding canonical input verbatim, closing "the key the directory
+/// gave us ⇔ the key the SSK cross-signed" (§8.3 step 5).
+///
+/// The canonical signing inputs come from the **same** constructors used
+/// everywhere else in the ecosystem — [`CrossSigningPublishContent::self_signing_binding_input`]
+/// and [`DeviceTrustBinding::canonical_input`] — so soland's
+/// `check_device_cross_signing_binding` and this client-side primitive sign and
+/// verify byte-identical bytes.
+///
+/// Returns [`DeviceTrustState`]. Malformed key material / decode failures map to
+/// [`DeviceTrustState::Unverified`] (fail-closed), never `Ok(CrossSigned)`.
+pub fn verify_device_cross_signing_chain(
+    publish: &CrossSigningPublishContent,
+    binding: &DeviceTrustBinding,
+    principal_id: &Did,
+    device_id: &DeviceId,
+    device_public_key: &str,
+    anchored_psk: &cokret_signatures::PublicKeyMaterial,
+) -> DeviceTrustState {
+    // (a) PSK→SSK: the anchored PSK MUST sign the published SSK record over
+    // the §5.1 self-signing canonical input.
+    let Ok(ssk_input) = publish.self_signing_binding_input() else {
+        return DeviceTrustState::Unverified;
+    };
+    if !cokret_signatures::verify_detached_ed25519_signature(
+        anchored_psk,
+        &ssk_input,
+        &publish.self_signing_key.binding.signature,
+    ) {
+        return DeviceTrustState::Unverified;
+    }
+
+    // (b) generation comparison (§5.2.1 step 5).
+    match binding.ssk_generation.cmp(&publish.generation) {
+        std::cmp::Ordering::Less => return DeviceTrustState::NeedsReverification,
+        std::cmp::Ordering::Greater => return DeviceTrustState::Unverified,
+        std::cmp::Ordering::Equal => {}
+    }
+
+    // (c) SSK→device: the published SSK public key MUST sign the device
+    // binding over the §5.2 ck-device-trust-bind-v1 canonical input.
+    let ssk_key = cokret_signatures::PublicKeyMaterial::Ed25519Multibase {
+        value: publish.self_signing_key.key.public_key.clone(),
+    };
+    let Ok(device_input) = DeviceTrustBinding::canonical_input(
+        principal_id,
+        device_id,
+        device_public_key,
+        binding.ssk_generation,
+    ) else {
+        return DeviceTrustState::Unverified;
+    };
+    if !cokret_signatures::verify_detached_ed25519_signature(
+        &ssk_key,
+        &device_input,
+        &binding.signature,
+    ) {
+        return DeviceTrustState::Unverified;
+    }
+
+    DeviceTrustState::CrossSigned
+}
+
 /// Interactive verification-strand state machine
 /// (`ck.device.verification.v1`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
