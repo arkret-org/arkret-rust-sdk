@@ -3027,6 +3027,12 @@ pub struct SessionGrantRequestProof {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     pub signature: String,
+    // `ck.profile.agent_auth.v1` overlay (CKP-0008 §4.6): the agent runtime
+    // key the proof is signed with. Required at runtime when
+    // `proof_kind == agent_key_proof`; the server enforces presence and binds
+    // it to the active `ck.agent.key.authorize`. Absent for human proof kinds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_method: Option<String>,
     // OIDC code-exchange fields. Required at runtime when
     // `proof_kind == oidc_code_exchange` (per
     // `service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody`),

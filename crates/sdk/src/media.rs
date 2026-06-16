@@ -140,10 +140,7 @@ impl MediaServiceAnchors {
 
     /// Register an issuer verifying key under its full `kid`
     /// (`did:...#fragment`). Returns `self` for builder-style chaining.
-    pub fn with_keys(
-        mut self,
-        keys: impl IntoIterator<Item = (String, VerifyingKey)>,
-    ) -> Self {
+    pub fn with_keys(mut self, keys: impl IntoIterator<Item = (String, VerifyingKey)>) -> Self {
         for (kid, key) in keys {
             self.keys.insert(kid, key);
         }
@@ -219,9 +216,7 @@ struct ParticipantBindingSigningFields<'a> {
 /// the SDK verifier byte-for-byte: the bytes returned here are exactly what
 /// `participant_binding.sig` and `service_signature.sig` cover, so a
 /// cross-implementation test can assert the issuer's signing input equals this.
-pub fn participant_binding_signing_input(
-    binding: &CallMediaParticipantBinding,
-) -> Result<Vec<u8>> {
+pub fn participant_binding_signing_input(binding: &CallMediaParticipantBinding) -> Result<Vec<u8>> {
     let fields = ParticipantBindingSigningFields {
         actor_id: &binding.actor_id,
         call_id: &binding.call_id,
@@ -283,19 +278,18 @@ fn verify_issuer_signature(
 /// Checks performed (all fail closed):
 /// - required fields present (`connect_url`, `backend_token`, `participant_identity`,
 ///   `participant_binding.sig`, `issuer_kid`);
-/// - `participant_binding.issuer_kid` and the `service_signature.kid`
-///   resolve to an anchored `ck.realm.media_service.service_id` → else `token_issuer_unauthorised`;
+/// - `participant_binding.issuer_kid` and the `service_signature.kid` resolve to an anchored
+///   `ck.realm.media_service.service_id` → else `token_issuer_unauthorised`;
 /// - the binding's `(realm_id, call_id, focus_id, actor_id, device_id)` six-tuple matches the
 ///   request and `participant_identity` matches the top-level one;
 /// - the binding's `expires_at` is after its `issued_at`;
 /// - TTL ≤ 600s and not already expired (via [`validate_token_ttl`]);
-/// - **both** `participant_binding.sig` and `service_signature.sig` verify as
-///   EdDSA(ed25519) signatures over the normative `signing_input`
-///   ([`participant_binding_signing_input`]) under the issuer verifying keys in
-///   `anchors`. Per `media-service-binding.md` §3 the default verification path
-///   MUST verify both signatures; either failing — or a missing key — rejects
-///   with `token_issuer_unauthorised`. Because the signature covers the seven
-///   authoritative fields, tampering with any of them fails verification.
+/// - **both** `participant_binding.sig` and `service_signature.sig` verify as EdDSA(ed25519)
+///   signatures over the normative `signing_input` ([`participant_binding_signing_input`]) under
+///   the issuer verifying keys in `anchors`. Per `media-service-binding.md` §3 the default
+///   verification path MUST verify both signatures; either failing — or a missing key — rejects
+///   with `token_issuer_unauthorised`. Because the signature covers the seven authoritative fields,
+///   tampering with any of them fails verification.
 ///
 /// The caller resolves the media-service service DID document and supplies the
 /// `kid -> ed25519 public key` map through [`MediaServiceAnchors::with_keys`] /
@@ -1051,8 +1045,7 @@ mod tests {
         // A different issuer key produces a signature that does not verify.
         let other = SigningKey::from_bytes(&[22u8; 32]);
         let wrong_key = signed_outcome(&request, &other, expires_at);
-        let err =
-            verify_call_media_token_outcome(&request, &wrong_key, &anchors, now).unwrap_err();
+        let err = verify_call_media_token_outcome(&request, &wrong_key, &anchors, now).unwrap_err();
         assert!(err.to_string().contains("token_issuer_unauthorised"));
 
         // Tamper each of the seven authoritative fields AFTER signing → the
@@ -1086,8 +1079,7 @@ mod tests {
         t_service.service_signature.sig = signed_outcome(&request, &other, expires_at)
             .service_signature
             .sig;
-        let err =
-            verify_call_media_token_outcome(&request, &t_service, &anchors, now).unwrap_err();
+        let err = verify_call_media_token_outcome(&request, &t_service, &anchors, now).unwrap_err();
         assert!(err.to_string().contains("token_issuer_unauthorised"));
         assert!(err.to_string().contains("service_signature"));
     }

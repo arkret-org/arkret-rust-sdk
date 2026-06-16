@@ -623,9 +623,13 @@ fn signed_chain_fixture(
         cokret_core::base64url_encode(psk.sign(&ssk_input).to_bytes());
 
     // SSK signs the device binding over the canonical §5.2 input.
-    let device_input =
-        DeviceTrustBinding::canonical_input(principal, device_id, device_public_key, binding_generation)
-            .unwrap();
+    let device_input = DeviceTrustBinding::canonical_input(
+        principal,
+        device_id,
+        device_public_key,
+        binding_generation,
+    )
+    .unwrap();
     let binding = DeviceTrustBinding {
         verification_method: format!("{principal}#ck_self_signing_v1"),
         alg: "EdDSA".to_owned(),
@@ -728,7 +732,8 @@ fn verify_chain_rejects_tampered_ssk_binding() {
         1,
     );
     // Corrupt the PSK→SSK binding signature → first check fails.
-    let mut raw = cokret_core::base64url_decode(&publish.self_signing_key.binding.signature).unwrap();
+    let mut raw =
+        cokret_core::base64url_decode(&publish.self_signing_key.binding.signature).unwrap();
     raw[5] ^= 0xff;
     publish.self_signing_key.binding.signature = cokret_core::base64url_encode(&raw);
     let state = verify_device_cross_signing_chain(
