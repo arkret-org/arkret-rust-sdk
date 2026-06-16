@@ -956,7 +956,30 @@ pub struct DeviceAuthorizePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bootstrap_binding: Option<DeviceBootstrapBinding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enrollment_authority_binding: Option<DeviceEnrollmentAuthorityBinding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_session_id: Option<RecoverySessionId>,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/device_enrollment_authority_binding`.
+///
+/// Delegated-authority binding for a `service_attested` `ck.device.authorize`
+/// (managed-DID / account-authority onboarding). The cryptographic signer is the
+/// envelope proof (`verification_method` maps to `executed_by`); this object
+/// records the trust root. See `zh/crypto-media/device-lifecycle.md` §5.4.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeviceEnrollmentAuthorityBinding {
+    /// MUST be `"service_attested"`.
+    pub kind: String,
+    /// DID of the enrollment authority that attested this device (equals the
+    /// envelope `executed_by`); designated by the principal DID document.
+    pub authority_did: Did,
+    /// Reference to the delegation designating `authority_did` (DID-document
+    /// service delegation, materialized grant, or delegation event id); equals
+    /// the envelope `authorization_ref`.
+    pub authorization_ref: String,
 }
 
 /// Counterpart for
