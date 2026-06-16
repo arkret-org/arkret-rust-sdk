@@ -3009,6 +3009,7 @@ pub enum SessionGrantProofKind {
     PairedDeviceProof,
     PasskeyAssertion,
     OidcCodeExchange,
+    AgentKeyProof,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -3021,6 +3022,24 @@ pub struct SessionGrantRequestProof {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     pub signature: String,
+    // OIDC code-exchange fields. Required at runtime when
+    // `proof_kind == oidc_code_exchange` (per
+    // `service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody`),
+    // but kept `Option` here — validation is the server's job.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issuer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub redirect_uri: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorization_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code_verifier: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

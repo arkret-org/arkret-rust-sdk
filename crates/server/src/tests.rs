@@ -109,7 +109,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                             .map(|route| route.operation_id.to_owned())
                             .collect(),
                         supported_bindings: vec![],
-                        auth_metadata: Value::Null,
+                        auth_metadata: cokret_core::AuthMetadata::minimal("development"),
                         limits: Value::Null,
                         plaintext_visibility: Value::Null,
                         implemented_features: vec![],
