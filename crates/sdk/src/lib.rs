@@ -422,8 +422,9 @@ pub use key_verification::{
 pub use media::{
     Attachment, AuthenticatedDownloadGrant, CallMediaTokenVerification, DownloadGrantScope,
     EncryptedAttachment, MediaBackendType, MediaMetadata, MediaServiceAnchors, MemoryBlobStore,
-    Thumbnail, call_media_token_exchange, safe_content_disposition, safe_content_type,
-    validate_token_ttl, verify_call_media_token_outcome,
+    Thumbnail, call_media_token_exchange, participant_binding_signing_input,
+    safe_content_disposition, safe_content_type, validate_token_ttl,
+    verify_call_media_token_outcome,
 };
 #[cfg(feature = "full-surface")]
 pub use membership::{

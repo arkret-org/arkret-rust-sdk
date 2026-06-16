@@ -214,7 +214,14 @@ struct ParticipantBindingSigningFields<'a> {
 /// The first segment is the fixed ASCII label, then a single `0x00`, then the
 /// canonical JSON of exactly the seven authoritative fields. Implementations
 /// MUST NOT introduce a private domain prefix or fold metadata into the input.
-fn participant_binding_signing_input(binding: &CallMediaParticipantBinding) -> Result<Vec<u8>> {
+///
+/// This is `pub` so issuers (e.g. soland) can lock their construction against
+/// the SDK verifier byte-for-byte: the bytes returned here are exactly what
+/// `participant_binding.sig` and `service_signature.sig` cover, so a
+/// cross-implementation test can assert the issuer's signing input equals this.
+pub fn participant_binding_signing_input(
+    binding: &CallMediaParticipantBinding,
+) -> Result<Vec<u8>> {
     let fields = ParticipantBindingSigningFields {
         actor_id: &binding.actor_id,
         call_id: &binding.call_id,
@@ -997,6 +1004,13 @@ mod tests {
         let verified = verify_call_media_token_outcome(&request, &outcome, &anchors, now).unwrap();
         assert_eq!(verified.issuer_did, did("media"));
         assert_eq!(verified.participant_identity, outcome.participant_identity);
+
+        // Anchor: the signing input is label-prefixed (`media-service-binding.md`
+        // §3). soland's cross-implementation lock asserts byte equality against
+        // this same function.
+        let signing_input =
+            participant_binding_signing_input(&outcome.participant_binding).unwrap();
+        assert!(signing_input.starts_with(b"ck.media.participant_binding.v1\x00"));
     }
 
     #[test]
