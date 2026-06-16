@@ -529,10 +529,9 @@ pub use timeline::{
 pub use typing::{TypingManager, TypingNotification};
 #[cfg(feature = "full-surface")]
 pub use webrtc::{
-    CallSessionDescription, CallState, ConferenceMode, ConferenceSession, IceCandidate, IceConfig,
-    IceServer, IceServerKind, MediaStateData, MediaTrack, MediaTrackKind, MediaTrackSet,
-    ModeratePayload, ModerationAction, MuteSource, MuteStateData, RecordingMode, RecordingResult,
-    RecordingStartPayload, RecordingState, RenegotiateData, RenegotiateReason, ScreenShareState,
-    SdpType, SpeakingData, TranscribePayload, WebRtcCall, WebRtcManager, WebRtcSignalKind,
+    CallSessionDescription, IceCandidate, IceConfig, IceServer, IceServerKind, MediaStateData,
+    MediaTrackSet, ModeratePayload, ModerationAction, MuteSource, MuteStateData, RecordingMode,
+    RecordingResult, RecordingStartPayload, RecordingState, RenegotiateData, RenegotiateReason,
+    ScreenShareState, SdpType, SpeakingData, TranscribePayload, WebRtcSignalKind,
     WebRtcSignalMessage, verify_ice_config_outcome,
 };
