@@ -1,0 +1,203 @@
+//! Strand-create/stage, history-sharing policy, join-policy, and key-backup payloads.
+
+use std::collections::BTreeMap;
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::*;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/strand_create_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StrandCreatePayload {
+    pub object: Strand,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub initial_relations: Option<Vec<BTreeMap<String, Value>>>,
+}
+
+// `strand_move_payload` now has a strong type:
+// `models::operation_payloads::StrandMovePayload` (replaces the former
+// `= Value` alias as part of the wire strong-type migration; flat
+// board/target Space ids + rank with an optional `expected_position`
+// CAS guard, `additionalProperties:false`).
+
+// `strand_reorder_payload` now has a strong type:
+// `models::operation_payloads::StrandReorderPayload` (single List-Space
+// re-rank; `additionalProperties:false`).
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/strand_stage_set_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StrandStageSetPayload {
+    pub strand_id: StrandId,
+    pub stage: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_stage: Option<String>,
+}
+
+// `strand_watch_set_payload` now has a strong type:
+// `models::operation_payloads::StrandWatchSetPayload` (carries the
+// `StrandWatchLevel` enum / nullable `level` clear path and the
+// `level_public`/`expected_value` CAS fields; `additionalProperties:false`).
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/generic_standard_payload`.
+pub type GenericStandardPayload = BTreeMap<String, Value>;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/hierarchy_link_status`.
+pub type HierarchyLinkStatus = String;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/history_sharing_policy_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistorySharingPolicyPayloadValueAudit {
+    pub share_audit_event_required: bool,
+    pub access_audit_required: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistorySharingPolicyPayloadValue {
+    pub version: u64,
+    pub default_key_share: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pre_join_history: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub post_removal_recovery: Option<String>,
+    pub allowed_key_sources: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_receiver_states: Option<Vec<String>>,
+    pub audit: HistorySharingPolicyPayloadValueAudit,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restricted_rules: Option<Vec<HistorySharingRestrictedRule>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistorySharingPolicyPayload {
+    pub value: HistorySharingPolicyPayloadValue,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/history_sharing_restricted_rule`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistorySharingRestrictedRuleHistoryScope {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub circle_id: Option<CircleId>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistorySharingRestrictedRule {
+    pub rule_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_scope: Option<HistorySharingRestrictedRuleHistoryScope>,
+    pub receiver_classes: Vec<String>,
+    pub allowed_history_visibility_values: Vec<HistoryVisibilityValue>,
+    pub range: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_epoch_span: Option<u64>,
+    pub key_sources: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit_required: Option<bool>,
+}
+
+// `history_visibility_payload` now has a strong type:
+// `models::operation_payloads::HistoryVisibilityPayload` (`{value,
+// restricted_policy_digest?, reason?}`, deny_unknown_fields, with the
+// `value==restricted ⇒ restricted_policy_digest` conditional enforced by
+// `to_value`). NB: the kind→def resolver still routes
+// `ck.realm.history_visibility` to `generic_standard_payload` (no resolver arm
+// / no `realm_history_visibility_payload` def) — see the type's doc comment.
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/history_visibility_value`.
+pub type HistoryVisibilityValue = String;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/inheritance_policy_status`.
+pub type InheritancePolicyStatus = String;
+
+// `invite_payload` anyOf branches now have strong types in
+// `models::operation_payloads`: `InviteCreatePayload` (directed-create) and
+// `InviteRefPayload` (invite_id ref, for accept/cancel). The full union is
+// not modeled as one type (the remaining anyOf branches — `invite`,
+// `third_party_id`, claim-proof — are not constructed by the client wire).
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/join_policy_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct JoinPolicyPayloadGatesItem {
+    pub gate_id: String,
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_resolve: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_did_methods: Option<Vec<Did>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_principal_dids: Option<Vec<Did>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub denied_principal_dids: Option<Vec<Did>>,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct JoinPolicyPayload {
+    pub gates: Vec<JoinPolicyPayloadGatesItem>,
+    pub combinator: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_capability: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reviewer_quorum: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub application_ttl: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cooldown_after_reject: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_open_applications_per_actor: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applicant_visibility: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub directory_hint: Option<BTreeMap<String, Value>>,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/key_backup_active_series_payload`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyBackupActiveSeriesAuthData {
+    pub verification_method: Did,
+    pub signature_algorithm: String,
+    pub signature: String,
+    pub signed_fields: Vec<String>,
+    pub ssk_generation: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KeyBackupActiveSeries {
+    pub schema: String,
+    pub actor_id: Did,
+    pub backup_class: BackupClass,
+    pub active_series_id: BackupSeriesId,
+    pub previous_series_ids: Vec<BackupSeriesId>,
+    pub frontier_ref: Value,
+    pub issued_at: DateTime<Utc>,
+    pub auth_data: KeyBackupActiveSeriesAuthData,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
+pub type KeyBackupActiveSeriesPayload = KeyBackupActiveSeries;

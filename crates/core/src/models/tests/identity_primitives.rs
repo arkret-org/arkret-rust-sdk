@@ -1,0 +1,131 @@
+use serde_json::{Value, json};
+
+use super::super::*;
+
+#[test]
+fn directory_search_realms_request_uses_source_realm_id() {
+    let source_realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
+    let request = DirectorySearchRealmsRequestBody {
+        query: Some("release".to_owned()),
+        organization_did: None,
+        source_realm_id: Some(source_realm_id.clone()),
+        requester: None,
+        proofs: Vec::new(),
+        cursor: None,
+        limit: Some(20),
+    };
+    let value = serde_json::to_value(&request).unwrap();
+    assert_eq!(value["source_realm_id"], source_realm_id.as_str());
+    assert!(value.get("parent_space_id").is_none());
+
+    let parsed: DirectorySearchRealmsRequestBody = serde_json::from_value(value).unwrap();
+    assert_eq!(parsed.source_realm_id, Some(source_realm_id));
+}
+
+#[test]
+fn session_login_outcome_uses_typed_wire_fields() {
+    let value = json!({
+        "access_token": "sx_token",
+        "token_type": "Bearer",
+        "actor": "did:web:alice.example",
+        "device_id": "ck:device:01964137-0000-7000-8000-000000000001",
+        "expires_at": "2026-04-28T12:00:00Z"
+    });
+    let outcome: crate::SessionLoginOutcome = serde_json::from_value(value).unwrap();
+    assert_eq!(outcome.actor.as_str(), "did:web:alice.example");
+    assert_eq!(
+        outcome.device_id.as_str(),
+        "ck:device:01964137-0000-7000-8000-000000000001"
+    );
+
+    let serialized = serde_json::to_value(outcome).unwrap();
+    assert_eq!(serialized["token_type"], "Bearer");
+    assert_eq!(serialized["actor"], "did:web:alice.example");
+    assert_eq!(
+        serialized["device_id"],
+        "ck:device:01964137-0000-7000-8000-000000000001"
+    );
+}
+
+#[test]
+fn did_validation_rejects_handles() {
+    assert!(Did::new("did:web:alice.example").is_ok());
+    assert!(Did::new("alice.example").is_err());
+}
+
+#[test]
+fn did_validation_accepts_uuid_method() {
+    assert!(Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_ok());
+}
+
+#[test]
+fn device_id_accepts_protocol_device_forms() {
+    assert!(DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").is_ok());
+    assert!(DeviceId::new("ck:device:01904100-0000-7000-8000-8b3ad8ecac70").is_ok());
+    assert!(DeviceId::new("device-1").is_err());
+}
+
+#[test]
+fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
+    let value = json!({
+        "id": "ck:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa",
+        "schema": ACTOR_PROFILE_SCHEMA,
+        "principal_id": "did:web:ghost.example",
+        "actor_kind": "integration",
+        "display_name": "Ghost",
+        "status": "locked",
+        "accountable_principal_ids": ["did:web:owner.example"],
+        "profile_fields": {
+            "managed_by_applet": "ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
+        },
+        "created_at": "2026-04-30T00:00:00Z",
+        "updated_by": "did:web:owner.example",
+        "updated_at": "2026-04-30T00:01:00Z"
+    });
+    let profile: ActorProfile = serde_json::from_value(value).unwrap();
+    assert_eq!(profile.status, Some(ActorStatus::Locked));
+    assert_eq!(profile.actor_kind, ActorKind::Integration);
+
+    let bad = json!({
+        "id": "ck:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa",
+        "schema": ACTOR_PROFILE_SCHEMA,
+        "principal_id": "did:web:ghost.example",
+        "actor_kind": "integration",
+        "display_name": "Ghost",
+        "created_at": "2026-04-30T00:00:00Z",
+        "managed_by_applet": "ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
+    });
+    assert!(serde_json::from_value::<ActorProfile>(bad).is_err());
+}
+
+#[test]
+fn server_description_checks_protocol_version() {
+    let desc = ServerDescription {
+        service_did: Did::new("did:web:svc.example").unwrap(),
+        trust_domain: TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        service_type: "principal_server".to_owned(),
+        protocol_version: "1.0".to_owned(),
+        supported_profiles: vec![],
+        supported_features: vec![],
+        supported_operations: vec![],
+        supported_bindings: vec![],
+        auth_metadata: AuthMetadata::minimal("development"),
+        limits: Value::Null,
+        plaintext_visibility: Value::Null,
+        implemented_features: vec![],
+        claimed_profiles: vec![],
+        verified_profiles: vec![],
+        experimental_features: vec![],
+        compat_surfaces: vec![],
+        development_mode: false,
+        rate_limit: Value::Null,
+        egress_network_policy: Some(EgressNetworkPolicy::deny_private_defaults()),
+        supported_reducer_profiles: vec![],
+        supported_schema_profiles: vec![],
+        frontier: Vec::new(),
+        snapshot_frontier: Vec::new(),
+        reducer_profile: None,
+        last_materialized_at: None,
+    };
+    assert!(desc.supports_cokret_v1());
+}

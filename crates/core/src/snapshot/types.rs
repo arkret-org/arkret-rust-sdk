@@ -1,0 +1,379 @@
+use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use super::constants::{DETACHED_JWS_ALG_EDDSA, DETACHED_JWS_PROOF_KIND};
+use super::merkle::sha256_digest;
+use crate::error::{ERROR_CODE_SNAPSHOT_AUTHORITY_UNVERIFIED, ERROR_CODE_SNAPSHOT_UNAVAILABLE};
+use crate::{BlobRef, Did, Error, EventId, Hash, Hlc, RealmId, Result, SnapshotId};
+
+mod base64_url {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    use crate::base64url::{base64url_decode, base64url_encode};
+
+    pub fn serialize<S: Serializer>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&base64url_encode(bytes))
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        base64url_decode(&s).map_err(serde::de::Error::custom)
+    }
+}
+
+/// Full `ck.schema.snapshot.v1` manifest returned by `ck.self.snapshot.query.manifest_head`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SnapshotManifest {
+    pub id: SnapshotId,
+    pub realm_id: RealmId,
+    pub reducer_profile: String,
+    #[serde(default)]
+    pub schema_profile_refs: Vec<String>,
+    pub state_digest: Hash,
+    pub frontier: SnapshotFrontier,
+    pub event_set_commitment: EventSetCommitment,
+    #[serde(default)]
+    pub chunks: Vec<SnapshotChunkDescriptor>,
+    pub security_class: SnapshotSecurityClass,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_hints: Option<SnapshotVerificationHints>,
+    pub created_by: Did,
+    pub created_at: DateTime<Utc>,
+    pub authority_binding: AuthorityBinding,
+    pub signature: DetachedJwsProof,
+}
+
+/// Snapshot manifest view used for canonical signing bytes.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct UnsignedSnapshotManifest<'a> {
+    pub id: &'a SnapshotId,
+    pub realm_id: &'a RealmId,
+    pub reducer_profile: &'a str,
+    pub schema_profile_refs: &'a [String],
+    pub state_digest: &'a Hash,
+    pub frontier: &'a SnapshotFrontier,
+    pub event_set_commitment: &'a EventSetCommitment,
+    pub chunks: &'a [SnapshotChunkDescriptor],
+    pub security_class: &'a SnapshotSecurityClass,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_hints: Option<&'a SnapshotVerificationHints>,
+    pub created_by: &'a Did,
+    pub created_at: DateTime<Utc>,
+    pub authority_binding: &'a AuthorityBinding,
+}
+
+impl SnapshotManifest {
+    pub fn unsigned_view(&self) -> UnsignedSnapshotManifest<'_> {
+        UnsignedSnapshotManifest {
+            id: &self.id,
+            realm_id: &self.realm_id,
+            reducer_profile: &self.reducer_profile,
+            schema_profile_refs: &self.schema_profile_refs,
+            state_digest: &self.state_digest,
+            frontier: &self.frontier,
+            event_set_commitment: &self.event_set_commitment,
+            chunks: &self.chunks,
+            security_class: &self.security_class,
+            verification_hints: self.verification_hints.as_ref(),
+            created_by: &self.created_by,
+            created_at: self.created_at,
+            authority_binding: &self.authority_binding,
+        }
+    }
+
+    pub fn unsigned_canonical_bytes(&self) -> Result<Vec<u8>> {
+        self.unsigned_view().canonical_bytes()
+    }
+
+    pub fn signature_payload_value(&self) -> Result<Value> {
+        serde_json::to_value(self.unsigned_view()).map_err(Error::from)
+    }
+
+    pub fn signature_payload_bytes(&self) -> Result<Vec<u8>> {
+        self.unsigned_canonical_bytes()
+    }
+
+    pub fn expected_signature_digest(&self) -> Result<Hash> {
+        self.unsigned_view().payload_digest()
+    }
+
+    pub fn signature_as_proof(&self) -> crate::models::Proof {
+        crate::models::Proof {
+            kind: self.signature.kind.clone(),
+            alg: self.signature.alg.clone(),
+            verification_method: self.signature.verification_method.clone(),
+            event_digest: self.signature.payload_digest.clone(),
+            created_at: self.signature.created_at,
+            domain: None,
+            audience: None,
+            jws: self.signature.jws.clone(),
+        }
+    }
+}
+
+impl UnsignedSnapshotManifest<'_> {
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
+        crate::canonical::canonical_json_bytes(self)
+    }
+
+    pub fn payload_digest(&self) -> Result<Hash> {
+        Ok(sha256_digest(&self.canonical_bytes()?))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SnapshotFrontier {
+    #[serde(default)]
+    pub event_ids: Vec<EventId>,
+    pub timeline_hlc: Hlc,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum SnapshotSecurityClass {
+    Standard,
+    HighAssurance,
+}
+
+impl SnapshotSecurityClass {
+    pub fn max_acceptance_age(&self) -> Duration {
+        match self {
+            Self::Standard => Duration::days(30),
+            Self::HighAssurance => Duration::days(7),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SnapshotChunkDescriptor {
+    pub chunk_ref: BlobRef,
+    pub digest: Hash,
+    pub size_bytes: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct EventSetCommitment {
+    pub algorithm: EventSetCommitmentAlgorithm,
+    pub root: Hash,
+    pub covered_event_count: u64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub covered_seals: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub actor_seq_ranges: Vec<ActorSeqRangeCommitment>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum EventSetCommitmentAlgorithm {
+    OrderedEventIdSha256V1,
+    MerkleEventSetV1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ActorSeqRangeCommitment {
+    pub actor_id: Did,
+    pub from_seq: u64,
+    pub to_seq: u64,
+    pub root: Hash,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct EventSetLeaf {
+    pub event_id: EventId,
+    pub event_digest: Hash,
+    pub actor_id: Did,
+    pub actor_seq: u64,
+    pub hlc: Hlc,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AuthorityBinding {
+    pub issuer: Did,
+    pub authority_kind: SnapshotAuthorityKind,
+    pub auth_state_digest: Hash,
+    #[serde(default)]
+    pub auth_frontier: Vec<EventId>,
+    pub checked_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub witness_attestations: Vec<crate::models::Proof>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum SnapshotAuthorityKind {
+    RealmOwner,
+    RealmPolicySnapshotIssuer,
+    WitnessQuorum,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DetachedJwsProof {
+    pub kind: String,
+    pub alg: String,
+    pub verification_method: String,
+    pub payload_digest: Hash,
+    pub created_at: DateTime<Utc>,
+    pub jws: String,
+}
+
+impl DetachedJwsProof {
+    pub fn eddsa(
+        verification_method: String,
+        payload_digest: Hash,
+        created_at: DateTime<Utc>,
+        jws: String,
+    ) -> Self {
+        Self {
+            kind: DETACHED_JWS_PROOF_KIND.to_owned(),
+            alg: DETACHED_JWS_ALG_EDDSA.to_owned(),
+            verification_method,
+            payload_digest,
+            created_at,
+            jws,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SnapshotVerificationHints {
+    pub verification_profile: SnapshotSecurityClass,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inclusion_proof_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub challenge_window_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub witness_quorum: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conflict_records_digest: Option<Hash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub soft_failed_digest: Option<Hash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quarantined_digest: Option<Hash>,
+}
+
+/// Materialized reducer output item stored inside spec snapshot chunks.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SnapshotMaterializedItem {
+    pub kind: String,
+    pub id: String,
+    pub object: Value,
+    pub source_event_id: EventId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SnapshotChunkPayload {
+    #[serde(rename = "type")]
+    pub chunk_type: String,
+    pub snapshot_ref: SnapshotId,
+    pub index: u32,
+    pub reducer_profile: String,
+    #[serde(default)]
+    pub items: Vec<SnapshotMaterializedItem>,
+    #[serde(default)]
+    pub conflict_records: Vec<Value>,
+    #[serde(default)]
+    pub soft_failed: Vec<Value>,
+    #[serde(default)]
+    pub quarantined: Vec<Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BuiltSnapshotChunk {
+    pub payload: SnapshotChunkPayload,
+    pub canonical_bytes: Vec<u8>,
+    pub descriptor: SnapshotChunkDescriptor,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SnapshotValidationCode {
+    DigestMismatch,
+    SnapshotAuthorityUnverified,
+    SnapshotIssuerRevoked,
+    InclusionProofFailed,
+    SnapshotUnavailable,
+}
+
+impl SnapshotValidationCode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::DigestMismatch => crate::ERROR_CODE_DIGEST_MISMATCH,
+            Self::SnapshotAuthorityUnverified => ERROR_CODE_SNAPSHOT_AUTHORITY_UNVERIFIED,
+            Self::SnapshotIssuerRevoked => "snapshot_issuer_revoked",
+            Self::InclusionProofFailed => "inclusion_proof_failed",
+            Self::SnapshotUnavailable => ERROR_CODE_SNAPSHOT_UNAVAILABLE,
+        }
+    }
+}
+
+#[derive(Clone, Debug, thiserror::Error, PartialEq, Eq)]
+#[error("{code:?}: {message}")]
+pub struct SnapshotValidationError {
+    pub code: SnapshotValidationCode,
+    pub message: String,
+}
+
+impl SnapshotValidationError {
+    pub fn new(code: SnapshotValidationCode, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SnapshotVerifyOptions {
+    pub now: DateTime<Utc>,
+    pub expected_reducer_profile: String,
+    pub allow_high_assurance: bool,
+}
+
+impl SnapshotVerifyOptions {
+    pub fn standard(now: DateTime<Utc>, expected_reducer_profile: impl Into<String>) -> Self {
+        Self {
+            now,
+            expected_reducer_profile: expected_reducer_profile.into(),
+            allow_high_assurance: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SnapshotVerifyReport {
+    pub item_count: usize,
+    pub chunk_count: usize,
+    pub state_digest: Hash,
+    pub source_event_ids: Vec<EventId>,
+}
+
+/// One byte range of a snapshot, addressable by `chunk_id`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SnapshotChunk {
+    /// Ordinal index starting at 0. Chunks MUST be delivered in
+    /// `chunk_id` order when streaming the whole snapshot.
+    pub chunk_id: u32,
+    /// Raw chunk bytes. The producer is responsible for the encoding
+    /// (typically the canonical-JSON bytes of the snapshot blob); the
+    /// chunker treats them as opaque.
+    #[serde(with = "base64_url")]
+    pub bytes: Vec<u8>,
+    /// `sha256:<hex>` digest of `bytes`. Receivers recompute this
+    /// before trusting the chunk.
+    pub digest: Hash,
+}
