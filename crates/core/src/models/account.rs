@@ -149,6 +149,13 @@ pub struct AccountView {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountRegisterRequestBody {
     pub principal_id: Did,
+    /// Optional canonical registration handle (`<localpart>:<domain>`) the
+    /// Account Authority asserts. When present and the localpart is available,
+    /// the Principal Server issues the first signed handle claim and returns it
+    /// as `AccountRegisterOutcome.primary_handle_claim` (identity-handles.md
+    /// §3.7.1; never an unsigned bare handle).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub handle: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
