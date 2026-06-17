@@ -688,14 +688,12 @@ fn canonical_device_trust_binding_input(
 /// byte-for-byte, and passes the **already-anchored PSK** in via
 /// `anchored_psk`. This primitive then:
 ///
-///   * (a) verifies `publish.self_signing_key.binding.signature` with the
-///     anchored PSK over the §5.1 self-signing canonical input (PSK→SSK);
-///   * (b) compares `binding.ssk_generation` to `publish.generation`:
-///     equal ⇒ continue, less ⇒ [`DeviceTrustState::NeedsReverification`],
-///     greater ⇒ [`DeviceTrustState::Unverified`];
-///   * (c) when generations match, verifies `binding.signature` with the
-///     published SSK public key over the §5.2 `ck-device-trust-bind-v1`
-///     canonical input (SSK→device).
+///   * (a) verifies `publish.self_signing_key.binding.signature` with the anchored PSK over the
+///     §5.1 self-signing canonical input (PSK→SSK);
+///   * (b) compares `binding.ssk_generation` to `publish.generation`: equal ⇒ continue, less ⇒
+///     [`DeviceTrustState::NeedsReverification`], greater ⇒ [`DeviceTrustState::Unverified`];
+///   * (c) when generations match, verifies `binding.signature` with the published SSK public key
+///     over the §5.2 `ck-device-trust-bind-v1` canonical input (SSK→device).
 ///
 /// `device_public_key` is the bare multibase Ed25519 key the directory exposes
 /// (the inner key of the directory `device_signing_key` did:key); it enters

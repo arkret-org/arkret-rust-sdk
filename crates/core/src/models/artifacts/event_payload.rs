@@ -962,7 +962,8 @@ pub struct DeviceAuthorizePayload {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/device_enrollment_authority_binding`.
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
+/// device_enrollment_authority_binding`.
 ///
 /// Delegated-authority binding for a `service_attested` `ck.device.authorize`
 /// (managed-DID / account-authority onboarding). The cryptographic signer is the

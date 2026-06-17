@@ -120,8 +120,22 @@ pub struct KeyBackupSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     pub ciphertext_digest: String,
+    /// Non-secret recipient metadata so the client can categorize a backup
+    /// (recovery_public_key vs passphrase_kdf vs secret_storage_key) without
+    /// downloading the ciphertext. The aead/kdf material is withheld here.
+    pub encryption: KeyBackupSummaryEncryption,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub contents: Vec<KeyBackupContentItem>,
+}
+
+/// The list-summary projection of [`KeyBackupEncryption`]: only the non-secret
+/// recipient fields survive into `ck.self.keys.backups.list` responses.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupSummaryEncryption {
+    pub recipient_method: KeyBackupRecipientMethod,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipient_key_ref: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -199,6 +213,10 @@ impl KeyBackup {
             updated_at: self.updated_at,
             expires_at: self.expires_at,
             ciphertext_digest: self.ciphertext_digest.clone(),
+            encryption: KeyBackupSummaryEncryption {
+                recipient_method: self.encryption.recipient_method,
+                recipient_key_ref: self.encryption.recipient_key_ref.clone(),
+            },
             contents: self.contents.clone(),
         }
     }

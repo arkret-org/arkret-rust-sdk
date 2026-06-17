@@ -248,7 +248,6 @@ pub fn is_strict_typed_id(value: &str, prefix: &str) -> bool {
     }
 }
 
-
 /// Generate a fresh canonical `<prefix><uuidv7>` identifier string using a
 /// freshly generated RFC 9562 UUIDv7. The output is always lowercase hex per
 /// `conformance/encoding.md` §4 and is the canonical wire form for typed
@@ -570,7 +569,6 @@ mod tests {
         // (Suffix intentionally non-UUIDv7 to exercise the rejection path.)
         assert!(DeviceId::new("ck:device:01js0ke000000000000000000").is_err());
     }
-
 
     #[test]
     fn active_id_kind_wrappers_accept_uuidv7_wire_forms() {

@@ -36,7 +36,8 @@ pub const MOVE_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
 /// A bare `#[serde(default)] Option<Value>` cannot distinguish three wire
 /// states the protocol genuinely needs to tell apart:
 /// - field **absent**            → `None`            (e.g. `head_in` carries no `value`)
-/// - field present as **`null`** → `Some(Value::Null)` (e.g. genesis `head_eq` asserting an empty cell)
+/// - field present as **`null`** → `Some(Value::Null)` (e.g. genesis `head_eq` asserting an empty
+///   cell)
 /// - field present as a value    → `Some(value)`
 ///
 /// serde's default `Option` deserializer maps a present `null` to `None`, which
