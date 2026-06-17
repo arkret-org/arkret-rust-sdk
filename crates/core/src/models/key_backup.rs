@@ -353,7 +353,7 @@ pub struct KeyBackupAead {
     pub extra: BTreeMap<String, Value>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupContentItem {
     pub item_type: String,
@@ -369,6 +369,12 @@ pub struct KeyBackupContentItem {
     pub last_event_id: Option<EventId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub secret_id: Option<String>,
+    /// Monotonic version of the backed-up secret (e.g. `mls_account_secret`),
+    /// used for deterministic preferred-backup selection and anti-rollback
+    /// ordering (key-management.md §9.1). Present on versioned secret items;
+    /// absent on share-style items (e.g. `recovery_key_share`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secret_version: Option<u32>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
