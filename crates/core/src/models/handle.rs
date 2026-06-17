@@ -458,7 +458,7 @@ pub struct HandleClaim {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Value>,
+    pub proofs: Vec<PayloadProof>,
 }
 
 impl Default for HandleClaim {

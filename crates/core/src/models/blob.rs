@@ -26,8 +26,8 @@ pub struct BlobUploadOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_type: Option<String>,
     pub content_digest: Hash,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub upload_receipt: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upload_receipt: Option<UploadReceipt>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

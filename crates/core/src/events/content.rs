@@ -922,16 +922,24 @@ pub struct KeyRequestContent {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SecretRequestContent {
-    pub action: KeyRequestAction,
     pub request_id: String,
-    pub name: String,
+    pub secret_id: String,
+    pub from_device: DeviceId,
+    pub recipient_hpke_public_key: String,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SecretSendContent {
     pub request_id: String,
-    pub name: String,
-    pub encrypted_secret: EncryptedContent,
+    pub secret_id: String,
+    pub from_device: DeviceId,
+    pub scheme: String,
+    pub enc: String,
+    pub ciphertext: String,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

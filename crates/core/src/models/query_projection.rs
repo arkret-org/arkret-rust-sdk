@@ -189,6 +189,35 @@ pub enum CollectionGroupSource {
     Crosstab(CollectionCrosstabGroupSource),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum CollectionProjectionGroupWipState {
+    Ok,
+    OverLimit,
+    Unknown,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct CollectionProjectionGroupView {
+    pub key: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rank: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<CollectionGroupSource>,
+    #[serde(default)]
+    pub items: Vec<ProjectionItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<Cursor>,
+    pub limited: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wip_state: Option<CollectionProjectionGroupWipState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_estimate: Option<u64>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CollectionFieldValuePosition {
@@ -420,7 +449,7 @@ pub struct CollectionProjectionView {
     pub realm_id: Option<RealmId>,
     pub frontier: StateFrontier,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub groups: Vec<Value>,
+    pub groups: Vec<CollectionProjectionGroupView>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub items: Vec<ProjectionItem>,
     #[serde(skip_serializing_if = "Option::is_none")]

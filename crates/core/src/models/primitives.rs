@@ -706,7 +706,7 @@ impl EncryptedPayloadScheme {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum Audience {
@@ -722,6 +722,22 @@ pub struct Proof {
     pub alg: String,
     pub verification_method: String,
     pub event_digest: Hash,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub domain: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audience: Option<Audience>,
+    pub jws: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PayloadProof {
+    pub kind: String,
+    pub alg: String,
+    pub verification_method: String,
+    pub payload_digest: Hash,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,

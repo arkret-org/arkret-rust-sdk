@@ -15,6 +15,7 @@ pub type MediaType = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/blob-operations.schema.json#/$defs/upload_receipt`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SignatureValue {
     pub kid: Did,
@@ -23,9 +24,10 @@ pub struct SignatureValue {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct UploadReceipt {
-    pub blob_ref: BlobId,
+    pub blob_ref: BlobRef,
     pub content_digest: Hash,
     pub size_bytes: u64,
     pub received_at: DateTime<Utc>,
