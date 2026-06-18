@@ -811,6 +811,7 @@ impl SyncClient {
         SyncUpdates {
             realm_updates,
             to_device: project_typed_vec(response.to_device),
+            to_device_lost: response.to_device_lost.unwrap_or(false),
             device_lists: serde_json::from_value(response.device_lists).unwrap_or_default(),
             presence: project_typed_vec(response.presence),
             account_data: project_typed_vec(response.account_data),
@@ -854,6 +855,8 @@ pub struct SyncUpdates {
     pub realm_updates: Vec<RealmUpdate>,
     /// To-device messages
     pub to_device: Vec<ToDeviceMessage>,
+    /// Whether the server reports an unacknowledged to-device queue gap.
+    pub to_device_lost: bool,
     /// Device list changes
     pub device_lists: DeviceListChanges,
     /// Presence events
@@ -965,8 +968,9 @@ mod tests {
             partial: false,
         };
 
-        client.process_response(response);
+        let updates = client.process_response(response);
         assert_eq!(client.current_token(), Some("token456"));
+        assert!(!updates.to_device_lost);
     }
 
     #[test]

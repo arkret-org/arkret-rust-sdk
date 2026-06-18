@@ -59,6 +59,7 @@ impl SyncResponseProcessor {
             });
         }
 
+        let to_device_lost = response.to_device_lost.unwrap_or(false);
         let to_device: Vec<ToDeviceMessage> = project_typed_vec(response.to_device);
         let device_lists: DeviceListChanges =
             serde_json::from_value(response.device_lists).unwrap_or_default();
@@ -91,6 +92,7 @@ impl SyncResponseProcessor {
         Ok(SyncUpdates {
             realm_updates,
             to_device,
+            to_device_lost,
             device_lists,
             presence,
             account_data,

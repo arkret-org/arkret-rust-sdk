@@ -207,6 +207,7 @@ fn processor_dispatches_all_update_categories() {
         })
         .unwrap(),
     );
+    response.to_device_lost = Some(true);
     response.device_lists = json!({"changed": ["did:web:alice.example"], "left": []});
     response.presence.push(
         serde_json::to_value(PresenceEvent {
@@ -248,6 +249,7 @@ fn processor_dispatches_all_update_categories() {
         3
     );
     assert_eq!(processor.drain_to_device().len(), 1);
+    assert!(updates.to_device_lost);
     assert!(processor.presence("did:web:alice.example").is_some());
     assert!(processor.account_data("ck.settings").is_some());
     assert!(processor.notification("n1").is_some());
