@@ -155,6 +155,7 @@ pub mod discovery;
 pub mod e2ee;
 #[cfg(feature = "full-surface")]
 pub mod federation;
+pub mod fixtures;
 #[cfg(feature = "full-surface")]
 pub mod hlc;
 // S-5 (savfox SDK gap): `(source_service_did, Idempotency-Key)`
@@ -372,6 +373,10 @@ pub use federation::{
     VerifyActorChallengeSignature, WellKnownCokretServer, content_digest_sha256,
     did_document_service_endpoint_matches, duplicate_transaction_quarantine,
     fork_quarantine_record, rfc9530_content_digest_sha256, verify_rfc9530_content_digest,
+};
+pub use fixtures::{
+    CANONICAL_FIXTURE_DEFAULT_KIND, CanonicalFixtureBuilder, CanonicalFixtureSuite,
+    CanonicalFixtureVector,
 };
 #[cfg(feature = "full-surface")]
 pub use hlc::{
