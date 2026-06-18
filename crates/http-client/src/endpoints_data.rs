@@ -4,9 +4,12 @@ use cokret_core::{
     BackupId, BlobMetadata, BlobRef, BlobUploadMetadata, BlobUploadOutcome,
     DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome,
     DeviceMessagesPutOutcome, DeviceMessagesPutRequestBody, KeyBackup, KeyBackupSummary,
-    KeyBackupsListQuery, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody, KeysBackupsList,
-    KeysBackupsPutOutcome, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
-    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody, Result,
+    KeyBackupsListQuery, KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody,
+    KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody, KeyPackagesRevokeOutcome,
+    KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody,
+    KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody, KeysBackupsList, KeysBackupsPutOutcome,
+    KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody,
+    KeysUploadOutcome, KeysUploadRequestBody, Result,
 };
 use reqwest::Method;
 use reqwest::header::HeaderMap;
@@ -77,6 +80,38 @@ impl Client {
 
     pub async fn keys_claim(&self, request: &KeysClaimRequestBody) -> Result<KeysClaimOutcome> {
         self.post("/_cokret/self/keys/claim", request).await
+    }
+
+    pub async fn keypackages_upload(
+        &self,
+        request: &KeyPackagesUploadRequestBody,
+    ) -> Result<KeyPackagesUploadOutcome> {
+        self.post("/_cokret/self/keys/keypackages/upload", request)
+            .await
+    }
+
+    pub async fn keypackages_claim(
+        &self,
+        request: &KeyPackagesClaimRequestBody,
+    ) -> Result<KeyPackagesClaimOutcome> {
+        self.post("/_cokret/self/keys/keypackages/claim", request)
+            .await
+    }
+
+    pub async fn keypackages_consume(
+        &self,
+        request: &KeyPackagesConsumeRequestBody,
+    ) -> Result<KeyPackagesConsumeOutcome> {
+        self.post("/_cokret/self/keys/keypackages/consume", request)
+            .await
+    }
+
+    pub async fn keypackages_revoke(
+        &self,
+        request: &KeyPackagesRevokeRequestBody,
+    ) -> Result<KeyPackagesRevokeOutcome> {
+        self.post("/_cokret/self/keys/keypackages/revoke", request)
+            .await
     }
 
     /// Upload (create or update) an encrypted [`KeyBackup`] envelope.

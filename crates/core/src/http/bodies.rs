@@ -588,9 +588,11 @@ pub struct KeyPackagesUploadRequestBody {
 pub struct KeyPackagesUploadOutcome {
     pub accepted: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<Value>,
+    pub rejected: Vec<Failure>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub key_package_refs: Vec<String>,
+    pub key_package_refs: KeypackageRefArray,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub available_count: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -620,9 +622,9 @@ pub struct KeyPackagesClaimRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesClaimOutcome {
     #[serde(default)]
-    pub claims: Vec<Value>,
+    pub claims: Vec<KeypackageClaimRecord>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub failures: Vec<Value>,
+    pub failures: Vec<Failure>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub available_count: Option<u64>,
 }
@@ -652,9 +654,9 @@ pub struct KeyPackagesConsumeRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesConsumeOutcome {
     #[serde(default)]
-    pub consumed: Vec<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub failures: Value,
+    pub consumed: KeypackageRefArray,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub failures: Vec<Failure>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -672,9 +674,9 @@ pub struct KeyPackagesRevokeRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesRevokeOutcome {
     #[serde(default)]
-    pub revoked: Vec<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub failures: Value,
+    pub revoked: KeypackageRefArray,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub failures: Vec<Failure>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -96,6 +96,7 @@ pub enum KeypackageOperations {
 
 /// Counterpart for `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/failure`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Failure {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -110,6 +111,7 @@ pub struct Failure {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/keypackage_claim_record`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Signature2 {
     pub kid: String,
@@ -119,6 +121,7 @@ pub struct Signature2 {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeypackageClaimRecord {
     pub claim_id: String,
