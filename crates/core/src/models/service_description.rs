@@ -28,7 +28,7 @@ pub struct ServerDescription {
     /// declares conformance to. Empty array is valid; missing is not.
     pub supported_profiles: Vec<String>,
     pub supported_operations: Vec<String>,
-    pub supported_bindings: Vec<Value>,
+    pub supported_bindings: Vec<SupportedBinding>,
     pub supported_features: Vec<String>,
     pub auth_metadata: AuthMetadata,
     pub limits: Value,
@@ -36,7 +36,7 @@ pub struct ServerDescription {
     /// treat a missing value as `untrusted` (fail-closed for the
     /// mention-redirect / late-recovery paths). Wire shape per
     /// `service-describe.schema.json#plaintext_visibility`.
-    pub plaintext_visibility: Value,
+    pub plaintext_visibility: PlaintextVisibility,
     /// Round 4 — features the service has actually implemented (subset
     /// of `supported_features`). Tracks the difference between
     /// announce and run-time implementation.
@@ -65,11 +65,17 @@ pub struct ServerDescription {
     /// mode; receivers MUST refuse to advertise `verified_profiles`
     /// and SHOULD warn on connection.
     pub development_mode: bool,
-    /// Round 4 — `oneOf` rate-limit declaration (windowed / token /
-    /// adaptive). Left as `Value` here so the SDK doesn't pin to one
-    /// variant; service-specific helpers may parse further.
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub rate_limit: Value,
+    /// Inline rate-limit policy. The describe schema requires either
+    /// `rate_limit_policy` or `rate_limit_policy_id`; producers MUST set
+    /// one of the two. Wire shape per
+    /// `service-describe.schema.json#/properties/rate_limit_policy`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limit_policy: Option<RateLimitPolicy>,
+    /// Identifier for a cacheable, verifiable rate-limit policy object
+    /// (alternative to inlining [`Self::rate_limit_policy`]). Wire shape
+    /// per `service-describe.schema.json#/properties/rate_limit_policy_id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limit_policy_id: Option<String>,
     /// R3.4 — coarse outbound network policy for SSRF-sensitive service
     /// calls such as DID resolution, federation, media fetch, snapshots,
     /// webhooks, applets, agents, directory and push.
@@ -103,11 +109,19 @@ pub struct ServerDescription {
 impl ServerDescription {
     /// Round 4 — validate the cross-field invariants:
     /// - `verified_profiles` MUST be empty when `development_mode = true`.
-    /// - `protocol_version` MUST equal [`crate::PROTOCOL_VERSION`].
+    /// - the describe `anyOf` requires `rate_limit_policy` or
+    ///   `rate_limit_policy_id`.
     pub fn validate(&self) -> Result<()> {
         if self.development_mode && !self.verified_profiles.is_empty() {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: development_mode=true forbids non-empty verified_profiles \
+                 ({})",
+                crate::ERROR_CODE_SCHEMA_VIOLATION
+            )));
+        }
+        if self.rate_limit_policy.is_none() && self.rate_limit_policy_id.is_none() {
+            return Err(Error::Protocol(format!(
+                "ServiceDescribe: one of rate_limit_policy or rate_limit_policy_id is required \
                  ({})",
                 crate::ERROR_CODE_SCHEMA_VIOLATION
             )));
@@ -534,4 +548,180 @@ pub enum CompatSurfaceKind {
     MatrixPassthrough,
     MimiPassthrough,
     ExternalInterop,
+}
+
+/// Strongly-typed entry of [`ServerDescription::supported_bindings`].
+/// Mirrors `service-describe.schema.json#/properties/supported_bindings/items`:
+/// `kind` is required, `base_url` optional, and the item is
+/// `additionalProperties: true` so the `extra` flatten round-trips any
+/// transport-specific keys without loss.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SupportedBinding {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+impl SupportedBinding {
+    pub fn new(kind: impl Into<String>) -> Self {
+        Self {
+            kind: kind.into(),
+            base_url: None,
+            extra: BTreeMap::new(),
+        }
+    }
+
+    pub fn with_base_url(mut self, base_url: impl Into<String>) -> Self {
+        self.base_url = Some(base_url.into());
+        self
+    }
+
+    pub fn with_extra(mut self, key: impl Into<String>, value: Value) -> Self {
+        self.extra.insert(key.into(), value);
+        self
+    }
+}
+
+/// Strongly-typed [`ServerDescription::plaintext_visibility`]. Mirrors
+/// `service-describe.schema.json#/properties/plaintext_visibility`: the
+/// object is closed (`additionalProperties: false`) apart from `x_*`
+/// extensions, which the `extra` flatten captures. An all-empty value
+/// (`PlaintextVisibility::default()`) means the service claims no plaintext
+/// classes.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PlaintextVisibility {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub data_classes: Vec<PlaintextDataClassKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_visibility: Option<PlaintextMaxVisibility>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub event_kinds: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub payload_paths: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub blob_purposes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub projection_outputs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    /// `x_*` extension keys (`additionalProperties: false` otherwise).
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+impl PlaintextVisibility {
+    /// The service receives no plaintext or reversible-derived content.
+    pub fn none() -> Self {
+        Self::default()
+    }
+}
+
+/// `max_visibility` discriminant for [`PlaintextVisibility`]. Mirrors the
+/// closed enum in
+/// `service-describe.schema.json#/properties/plaintext_visibility/properties/max_visibility`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum PlaintextMaxVisibility {
+    None,
+    DerivedPlaintext,
+    PrivatePlaintext,
+}
+
+/// Strongly-typed [`ServerDescription::rate_limit_policy`]. Mirrors
+/// `service-describe.schema.json#/properties/rate_limit_policy`
+/// (`additionalProperties: true`).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RateLimitPolicy {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub entries: Vec<RateLimitEntry>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_ttl_seconds: Option<u32>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+impl RateLimitPolicy {
+    /// An empty policy: no predictable endpoint-level rate limit beyond
+    /// generic abuse protection (schema: empty `entries[]`).
+    pub fn unspecified() -> Self {
+        Self {
+            policy_version: Some("1".to_string()),
+            ..Self::default()
+        }
+    }
+
+    /// Convenience: a single service-wide windowed limit of
+    /// `max_requests` per 60s.
+    pub fn windowed_per_minute(max_requests: u32) -> Self {
+        Self {
+            policy_version: Some("1".to_string()),
+            entries: vec![RateLimitEntry {
+                endpoint: Some("*".to_string()),
+                rate_limit_scope: Some(RateLimitScope::Single("service".to_string())),
+                window_seconds: Some(60),
+                max_requests: Some(max_requests),
+                ..RateLimitEntry::default()
+            }],
+            ..Self::default()
+        }
+    }
+}
+
+/// One entry of [`RateLimitPolicy::entries`]. Mirrors the
+/// `additionalProperties: true` entry object; every documented field is
+/// optional and the `extra` flatten preserves the rest.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RateLimitEntry {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endpoint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limit_scope: Option<RateLimitScope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window_seconds: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_requests: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub burst: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_events_per_batch: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_body_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backoff_hint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_retry_at: Option<DateTime<Utc>>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+/// `rate_limit_scope` is `string | string[]` in the schema.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(untagged)]
+pub enum RateLimitScope {
+    Single(String),
+    Multiple(Vec<String>),
 }
