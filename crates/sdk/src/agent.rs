@@ -8,9 +8,16 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::Did;
 #[cfg(test)]
-use crate::{Error, Result};
+use crate::Error;
+use crate::{
+    AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyPairRequestBody,
+    AgentPauseRequestBody, AgentProvisionRequestBody, AgentResumeRequestBody,
+    AgentRotateKeyRequestBody, AgentSidecarThreadEnsureRequestBody, CapabilityGrant, Did, GrantId,
+    OP_ACCOUNT_AGENT_KEY_PAIR, OP_AGENT_DEACTIVATE, OP_AGENT_GET, OP_AGENT_GRANT_ATTACH,
+    OP_AGENT_GRANT_DETACH, OP_AGENT_LIST, OP_AGENT_PAUSE, OP_AGENT_PROVISION, OP_AGENT_RESUME,
+    OP_AGENT_ROTATE_KEY, OP_AGENT_SIDECAR_THREAD_ENSURE, Result,
+};
 
 /// Agent principal profile.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -37,6 +44,300 @@ impl AgentPrincipal {
             created_at: Utc::now(),
         }
     }
+}
+
+/// HTTP method used by a Cokret personal-agent operation plan.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AgentHttpMethod {
+    Get,
+    Post,
+    Put,
+    Delete,
+}
+
+impl AgentHttpMethod {
+    /// Return the wire method token.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Get => "GET",
+            Self::Post => "POST",
+            Self::Put => "PUT",
+            Self::Delete => "DELETE",
+        }
+    }
+}
+
+/// A transport-neutral plan for one standard `/_cokret/...` personal-agent
+/// HTTP operation.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AgentRequestPlan<B> {
+    pub operation_id: &'static str,
+    pub method: AgentHttpMethod,
+    pub path: String,
+    pub body: Option<B>,
+}
+
+impl<B> AgentRequestPlan<B> {
+    fn with_body(
+        operation_id: &'static str,
+        method: AgentHttpMethod,
+        path: impl Into<String>,
+        body: B,
+    ) -> Self {
+        Self {
+            operation_id,
+            method,
+            path: path.into(),
+            body: Some(body),
+        }
+    }
+
+    fn without_body(
+        operation_id: &'static str,
+        method: AgentHttpMethod,
+        path: impl Into<String>,
+    ) -> Self {
+        Self {
+            operation_id,
+            method,
+            path: path.into(),
+            body: None,
+        }
+    }
+}
+
+impl<B: Serialize> AgentRequestPlan<B> {
+    /// Serialize the typed body for generic HTTP clients.
+    pub fn body_value(&self) -> Result<Option<Value>> {
+        self.body
+            .as_ref()
+            .map(serde_json::to_value)
+            .transpose()
+            .map_err(Into::into)
+    }
+}
+
+pub const AGENT_KEY_PAIR_PATH: &str = "/_cokret/gate/account/agent-key-pair";
+pub const AGENTS_PATH: &str = "/_cokret/self/agents";
+pub const AGENT_SIDECAR_THREAD_ENSURE_PATH: &str = "/_cokret/self/agent-sidecar-threads:ensure";
+
+/// Percent-encode one path component for the personal-agent HTTP surface.
+pub fn agent_path_component(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            use std::fmt::Write as _;
+            let _ = write!(&mut encoded, "%{byte:02X}");
+        }
+    }
+    encoded
+}
+
+/// Builder for `ck.self.agent.command.provision` request bodies.
+#[derive(Clone, Debug, Default)]
+pub struct AgentProvisionRequestBuilder {
+    display_name: Option<String>,
+    agent_slug: Option<String>,
+    requested_scope: Option<crate::AgentKeyScope>,
+    accountability: Value,
+    pairing_ttl_ms: Option<u64>,
+}
+
+impl AgentProvisionRequestBuilder {
+    pub fn new() -> Self {
+        Self {
+            display_name: None,
+            agent_slug: None,
+            requested_scope: None,
+            accountability: Value::Null,
+            pairing_ttl_ms: None,
+        }
+    }
+
+    pub fn display_name(mut self, display_name: impl Into<String>) -> Self {
+        self.display_name = Some(display_name.into());
+        self
+    }
+
+    pub fn agent_slug(mut self, agent_slug: impl Into<String>) -> Self {
+        self.agent_slug = Some(agent_slug.into());
+        self
+    }
+
+    pub fn requested_scope(mut self, requested_scope: crate::AgentKeyScope) -> Self {
+        self.requested_scope = Some(requested_scope);
+        self
+    }
+
+    pub fn accountability(mut self, accountability: Value) -> Self {
+        self.accountability = accountability;
+        self
+    }
+
+    pub fn pairing_ttl_ms(mut self, pairing_ttl_ms: u64) -> Self {
+        self.pairing_ttl_ms = Some(pairing_ttl_ms);
+        self
+    }
+
+    pub fn build(self) -> AgentProvisionRequestBody {
+        AgentProvisionRequestBody {
+            display_name: self.display_name,
+            agent_slug: self.agent_slug,
+            requested_scope: self.requested_scope,
+            accountability: self.accountability,
+            pairing_ttl_ms: self.pairing_ttl_ms,
+        }
+    }
+}
+
+pub fn capability_grant_attach_body(
+    grant: &CapabilityGrant,
+) -> Result<AgentGrantAttachRequestBody> {
+    Ok(AgentGrantAttachRequestBody {
+        grant: serde_json::to_value(grant)?,
+    })
+}
+
+pub fn plan_agent_key_pair(
+    body: AgentKeyPairRequestBody,
+) -> AgentRequestPlan<AgentKeyPairRequestBody> {
+    AgentRequestPlan::with_body(
+        OP_ACCOUNT_AGENT_KEY_PAIR,
+        AgentHttpMethod::Post,
+        AGENT_KEY_PAIR_PATH,
+        body,
+    )
+}
+
+pub fn plan_agent_provision(
+    body: AgentProvisionRequestBody,
+) -> AgentRequestPlan<AgentProvisionRequestBody> {
+    AgentRequestPlan::with_body(OP_AGENT_PROVISION, AgentHttpMethod::Post, AGENTS_PATH, body)
+}
+
+pub fn plan_agent_list() -> AgentRequestPlan<()> {
+    AgentRequestPlan::without_body(OP_AGENT_LIST, AgentHttpMethod::Get, AGENTS_PATH)
+}
+
+pub fn plan_agent_get(agent_principal_id: &str) -> AgentRequestPlan<()> {
+    AgentRequestPlan::without_body(
+        OP_AGENT_GET,
+        AgentHttpMethod::Get,
+        format!(
+            "{}/{}",
+            AGENTS_PATH,
+            agent_path_component(agent_principal_id)
+        ),
+    )
+}
+
+pub fn plan_agent_pause(
+    agent_principal_id: &str,
+    body: AgentPauseRequestBody,
+) -> AgentRequestPlan<AgentPauseRequestBody> {
+    AgentRequestPlan::with_body(
+        OP_AGENT_PAUSE,
+        AgentHttpMethod::Post,
+        format!(
+            "{}/{}/pause",
+            AGENTS_PATH,
+            agent_path_component(agent_principal_id)
+        ),
+        body,
+    )
+}
+
+pub fn plan_agent_resume(
+    agent_principal_id: &str,
+    body: AgentResumeRequestBody,
+) -> AgentRequestPlan<AgentResumeRequestBody> {
+    AgentRequestPlan::with_body(
+        OP_AGENT_RESUME,
+        AgentHttpMethod::Post,
+        format!(
+            "{}/{}/resume",
+            AGENTS_PATH,
+            agent_path_component(agent_principal_id)
+        ),
+        body,
+    )
+}
+
+pub fn plan_agent_deactivate(
+    agent_principal_id: &str,
+    body: AgentDeactivateRequestBody,
+) -> AgentRequestPlan<AgentDeactivateRequestBody> {
+    AgentRequestPlan::with_body(
+        OP_AGENT_DEACTIVATE,
+        AgentHttpMethod::Post,
+        format!(
+            "{}/{}/deactivate",
+            AGENTS_PATH,
+            agent_path_component(agent_principal_id)
+        ),
+        body,
+    )
+}
+
+pub fn plan_agent_rotate_key(
+    agent_principal_id: &str,
+    body: AgentRotateKeyRequestBody,
+) -> AgentRequestPlan<AgentRotateKeyRequestBody> {
+    AgentRequestPlan::with_body(
+        OP_AGENT_ROTATE_KEY,
+        AgentHttpMethod::Post,
+        format!(
+            "{}/{}/rotate-key",
+            AGENTS_PATH,
+            agent_path_component(agent_principal_id)
+        ),
+        body,
+    )
+}
+
+pub fn plan_agent_grant_attach(
+    agent_principal_id: &str,
+    body: AgentGrantAttachRequestBody,
+) -> AgentRequestPlan<AgentGrantAttachRequestBody> {
+    AgentRequestPlan::with_body(
+        OP_AGENT_GRANT_ATTACH,
+        AgentHttpMethod::Post,
+        format!(
+            "{}/{}/grants",
+            AGENTS_PATH,
+            agent_path_component(agent_principal_id)
+        ),
+        body,
+    )
+}
+
+pub fn plan_agent_grant_detach(
+    agent_principal_id: &str,
+    grant_id: &GrantId,
+) -> AgentRequestPlan<()> {
+    AgentRequestPlan::without_body(
+        OP_AGENT_GRANT_DETACH,
+        AgentHttpMethod::Delete,
+        format!(
+            "{}/{}/grants/{}",
+            AGENTS_PATH,
+            agent_path_component(agent_principal_id),
+            agent_path_component(grant_id.as_str())
+        ),
+    )
+}
+
+pub fn plan_agent_sidecar_thread_ensure(
+    body: AgentSidecarThreadEnsureRequestBody,
+) -> AgentRequestPlan<AgentSidecarThreadEnsureRequestBody> {
+    AgentRequestPlan::with_body(
+        OP_AGENT_SIDECAR_THREAD_ENSURE,
+        AgentHttpMethod::Post,
+        AGENT_SIDECAR_THREAD_ENSURE_PATH,
+        body,
+    )
 }
 
 /// Delegated actor relationship for an agent.
@@ -332,6 +633,38 @@ mod tests {
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:web:{name}.example")).unwrap()
+    }
+
+    #[test]
+    fn personal_agent_request_plans_use_standard_paths() {
+        let provision = AgentProvisionRequestBuilder::new()
+            .display_name("summary agent")
+            .agent_slug("summary")
+            .requested_scope(crate::AgentKeyScope::Limited)
+            .build();
+        let plan = plan_agent_provision(provision);
+        assert_eq!(plan.operation_id, OP_AGENT_PROVISION);
+        assert_eq!(plan.method.as_str(), "POST");
+        assert_eq!(plan.path, "/_cokret/self/agents");
+        let body = plan.body_value().unwrap().unwrap();
+        assert_eq!(body["display_name"], "summary agent");
+        assert_eq!(body["agent_slug"], "summary");
+        assert_eq!(body["requested_scope"], "limited");
+
+        let get = plan_agent_get("did:web:agent.example");
+        assert_eq!(get.operation_id, OP_AGENT_GET);
+        assert_eq!(get.method.as_str(), "GET");
+        assert_eq!(get.path, "/_cokret/self/agents/did%3Aweb%3Aagent.example");
+
+        let grant_id =
+            GrantId::new("ck:grant:01964137-0000-7000-8000-000000000010".to_owned()).unwrap();
+        let detach = plan_agent_grant_detach("did:web:agent.example", &grant_id);
+        assert_eq!(detach.operation_id, OP_AGENT_GRANT_DETACH);
+        assert_eq!(detach.method.as_str(), "DELETE");
+        assert_eq!(
+            detach.path,
+            "/_cokret/self/agents/did%3Aweb%3Aagent.example/grants/ck%3Agrant%3A01964137-0000-7000-8000-000000000010"
+        );
     }
 
     #[test]

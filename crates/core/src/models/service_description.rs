@@ -109,8 +109,7 @@ pub struct ServerDescription {
 impl ServerDescription {
     /// Round 4 — validate the cross-field invariants:
     /// - `verified_profiles` MUST be empty when `development_mode = true`.
-    /// - the describe `anyOf` requires `rate_limit_policy` or
-    ///   `rate_limit_policy_id`.
+    /// - the describe `anyOf` requires `rate_limit_policy` or `rate_limit_policy_id`.
     pub fn validate(&self) -> Result<()> {
         if self.development_mode && !self.verified_profiles.is_empty() {
             return Err(Error::Protocol(format!(
