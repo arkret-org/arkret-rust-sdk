@@ -583,6 +583,7 @@ pub fn build_key_backup_envelope(
             first_event_id: None,
             last_event_id: None,
             secret_id: secret_id.map(|s| s.to_owned()),
+            secret_version: None,
             extra: Default::default(),
         })
         .collect();
