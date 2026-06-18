@@ -403,10 +403,117 @@ pub fn sync_filter_digest(
     filter: Option<&SyncFilter>,
     subscriptions: Option<&SubscriptionConfig>,
 ) -> Result<String> {
-    canonical::canonical_sha256(&serde_json::json!({
-        "filter": filter,
-        "subscriptions": subscriptions,
-    }))
+    let mut binding = serde_json::Map::new();
+    binding.insert("filter".to_owned(), normalized_sync_filter(filter));
+    if let Some(subscriptions) = subscriptions {
+        binding.insert(
+            "subscriptions".to_owned(),
+            normalized_subscription_config(subscriptions)?,
+        );
+    }
+    canonical::canonical_sha256(&Value::Object(binding))
+}
+
+fn sorted_unique_strings<'a>(values: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    values
+        .into_iter()
+        .map(ToOwned::to_owned)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn normalized_sync_filter(filter: Option<&SyncFilter>) -> Value {
+    let Some(filter) = filter else {
+        return serde_json::json!({});
+    };
+    let mut object = filter
+        .extra
+        .clone()
+        .into_iter()
+        .collect::<serde_json::Map<_, _>>();
+
+    let realms = sorted_unique_strings(filter.realms.iter().map(RealmId::as_str));
+    if !realms.is_empty() {
+        object.insert("realms".to_owned(), serde_json::json!(realms));
+    }
+    if let Some(timeline_limit) = filter.timeline_limit {
+        object.insert(
+            "timeline_limit".to_owned(),
+            serde_json::json!(timeline_limit),
+        );
+    }
+    if filter.lazy_load_members {
+        object.insert("lazy_load_members".to_owned(), Value::Bool(true));
+    }
+    if filter.include_redundant_members {
+        object.insert("include_redundant_members".to_owned(), Value::Bool(true));
+    }
+    let event_types = sorted_unique_strings(filter.event_types.iter().map(String::as_str));
+    if !event_types.is_empty() {
+        object.insert("event_types".to_owned(), serde_json::json!(event_types));
+    }
+    let not_event_types = sorted_unique_strings(filter.not_event_types.iter().map(String::as_str));
+    if !not_event_types.is_empty() {
+        object.insert(
+            "not_event_types".to_owned(),
+            serde_json::json!(not_event_types),
+        );
+    }
+
+    Value::Object(object)
+}
+
+fn normalized_subscription_config(subscriptions: &SubscriptionConfig) -> Result<Value> {
+    let mut object = serde_json::Map::new();
+    let mut subscription_entries = Vec::with_capacity(subscriptions.subscriptions.len());
+    for subscription in &subscriptions.subscriptions {
+        let value = normalized_realm_subscription(subscription);
+        let canonical = canonical::canonical_json_bytes(&value)?;
+        subscription_entries.push((canonical, value));
+    }
+    subscription_entries.sort_by(|left, right| left.0.cmp(&right.0));
+    subscription_entries.dedup_by(|left, right| left.0 == right.0);
+    let normalized_subscriptions = subscription_entries
+        .into_iter()
+        .map(|(_, value)| value)
+        .collect::<Vec<_>>();
+    if !normalized_subscriptions.is_empty() {
+        object.insert(
+            "subscriptions".to_owned(),
+            Value::Array(normalized_subscriptions),
+        );
+    }
+    if let Some(batch_size) = subscriptions.batch_size {
+        object.insert("batch_size".to_owned(), serde_json::json!(batch_size));
+    }
+    if let Some(timeline_filter) = &subscriptions.timeline_filter {
+        object.insert("timeline_filter".to_owned(), timeline_filter.clone());
+    }
+    Ok(Value::Object(object))
+}
+
+fn normalized_realm_subscription(subscription: &RealmSubscription) -> Value {
+    let mut object = serde_json::Map::new();
+    object.insert(
+        "realm_id".to_owned(),
+        Value::String(subscription.realm_id.as_str().to_owned()),
+    );
+    if let Some(timeline_filter) = &subscription.timeline_filter {
+        object.insert(
+            "timeline_filter".to_owned(),
+            serde_json::to_value(timeline_filter).unwrap_or(Value::Null),
+        );
+    }
+    let required_state =
+        sorted_unique_strings(subscription.required_state.iter().map(String::as_str));
+    if !required_state.is_empty() {
+        object.insert(
+            "required_state".to_owned(),
+            serde_json::json!(required_state),
+        );
+    }
+    Value::Object(object)
 }
 
 /// Sync token binding context.
@@ -1044,6 +1151,89 @@ mod tests {
                     Utc::now(),
                 )
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn sync_filter_digest_normalizes_collection_fields() {
+        let realm_a = RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000a1").unwrap();
+        let realm_b = RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000b2").unwrap();
+        let filter_a = SyncFilter {
+            realms: vec![realm_b.clone(), realm_a.clone(), realm_a.clone()],
+            timeline_limit: Some(20),
+            lazy_load_members: true,
+            include_redundant_members: false,
+            event_types: vec![
+                "ck.reaction.add".to_owned(),
+                "ck.message.create".to_owned(),
+                "ck.message.create".to_owned(),
+            ],
+            not_event_types: vec!["ck.audit.accessed".to_owned(), "ck.redaction".to_owned()],
+            extra: BTreeMap::new(),
+        };
+        let filter_b = SyncFilter {
+            realms: vec![realm_a.clone(), realm_b.clone()],
+            timeline_limit: Some(20),
+            lazy_load_members: true,
+            include_redundant_members: false,
+            event_types: vec!["ck.message.create".to_owned(), "ck.reaction.add".to_owned()],
+            not_event_types: vec!["ck.redaction".to_owned(), "ck.audit.accessed".to_owned()],
+            extra: BTreeMap::new(),
+        };
+        let subscriptions_a = SubscriptionConfig {
+            subscriptions: vec![
+                RealmSubscription {
+                    realm_id: realm_b.clone(),
+                    timeline_filter: Some(TimelineFilter::MessagesOnly),
+                    required_state: vec!["m.room.name".to_owned(), "m.room.topic".to_owned()],
+                },
+                RealmSubscription {
+                    realm_id: realm_a.clone(),
+                    timeline_filter: None,
+                    required_state: vec![
+                        "ck.member.state".to_owned(),
+                        "ck.realm.policy".to_owned(),
+                    ],
+                },
+                RealmSubscription {
+                    realm_id: realm_b.clone(),
+                    timeline_filter: Some(TimelineFilter::MessagesOnly),
+                    required_state: vec!["m.room.topic".to_owned(), "m.room.name".to_owned()],
+                },
+            ],
+            batch_size: Some(20),
+            timeline_filter: None,
+        };
+        let subscriptions_b = SubscriptionConfig {
+            subscriptions: vec![
+                RealmSubscription {
+                    realm_id: realm_a,
+                    timeline_filter: None,
+                    required_state: vec![
+                        "ck.realm.policy".to_owned(),
+                        "ck.member.state".to_owned(),
+                    ],
+                },
+                RealmSubscription {
+                    realm_id: realm_b,
+                    timeline_filter: Some(TimelineFilter::MessagesOnly),
+                    required_state: vec!["m.room.topic".to_owned(), "m.room.name".to_owned()],
+                },
+            ],
+            batch_size: Some(20),
+            timeline_filter: None,
+        };
+
+        assert_eq!(
+            sync_filter_digest(Some(&filter_a), Some(&subscriptions_a)).unwrap(),
+            sync_filter_digest(Some(&filter_b), Some(&subscriptions_b)).unwrap()
+        );
+
+        let mut changed = filter_b;
+        changed.event_types = vec!["ck.message.create".to_owned()];
+        assert_ne!(
+            sync_filter_digest(Some(&filter_a), Some(&subscriptions_a)).unwrap(),
+            sync_filter_digest(Some(&changed), Some(&subscriptions_b)).unwrap()
         );
     }
 
