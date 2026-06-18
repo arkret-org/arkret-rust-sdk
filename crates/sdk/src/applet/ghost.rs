@@ -262,6 +262,7 @@ impl GhostActorProfileRequest {
             actor_kind: ActorKind::Integration,
             display_name: self.display_name.clone(),
             handle: self.handle.clone(),
+            agent_slug: None,
             avatar_blob_ref: self.avatar_blob_ref.clone(),
             status: None,
             accountable_principal_ids: self.accountable_principal_ids.clone(),

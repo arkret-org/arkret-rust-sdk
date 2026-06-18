@@ -393,6 +393,11 @@ pub enum InviteState {
     Rejected,
     Revoked,
     Expired,
+    Claimed,
+    SendFailed,
+    RevokedByCapabilityLoss,
+    RevokedByInviterLeft,
+    InvalidatedByRateLimit,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -437,6 +442,8 @@ pub enum NotificationState {
 #[serde(rename_all = "snake_case")]
 pub enum ReadScopeKind {
     Realm,
+    Circle,
+    Space,
     Strand,
     Thread,
     View,
@@ -448,12 +455,32 @@ impl ReadScopeKind {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Realm => "realm",
+            Self::Circle => "circle",
+            Self::Space => "space",
             Self::Strand => "strand",
             Self::Thread => "thread",
             Self::View => "view",
             Self::Message => "message",
             Self::Morph => "morph",
         }
+    }
+
+    /// Read-scope kinds valid for a `ck.read_cursor` object
+    /// (`read-cursor.schema.json`: realm/circle/space/strand/thread).
+    pub fn valid_for_read_cursor(&self) -> bool {
+        matches!(
+            self,
+            Self::Realm | Self::Circle | Self::Space | Self::Strand | Self::Thread
+        )
+    }
+
+    /// Read-scope kinds valid for a `ck.read_receipt` object
+    /// (`read-receipt.schema.json`: realm/strand/thread/view/message/morph).
+    pub fn valid_for_read_receipt(&self) -> bool {
+        matches!(
+            self,
+            Self::Realm | Self::Strand | Self::Thread | Self::View | Self::Message | Self::Morph
+        )
     }
 }
 

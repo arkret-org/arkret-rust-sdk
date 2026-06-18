@@ -32,6 +32,7 @@ pub enum EventsSubmitStatus {
     Accepted,
     Duplicate,
     Partial,
+    HistoricalOnly,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -260,6 +260,10 @@ pub struct View {
     pub sort: Vec<SortSpec>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

@@ -16,6 +16,8 @@ pub struct ActorProfile {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_slug: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<ActorStatus>,

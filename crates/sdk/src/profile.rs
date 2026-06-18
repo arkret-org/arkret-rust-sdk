@@ -394,6 +394,7 @@ pub struct ProfileCreateBuilder {
     profile_id: ActorProfileId,
     display_name: Option<String>,
     handle: Option<String>,
+    agent_slug: Option<String>,
     avatar_blob_ref: Option<BlobRef>,
     actor_kind: Option<ActorKind>,
     status: Option<ActorStatus>,
@@ -416,6 +417,7 @@ impl ProfileCreateBuilder {
             profile_id: new_actor_profile_id(),
             display_name: None,
             handle: None,
+            agent_slug: None,
             avatar_blob_ref: None,
             actor_kind: None,
             status: None,
@@ -447,6 +449,15 @@ impl ProfileCreateBuilder {
 
     pub fn with_handle(mut self, handle: impl Into<String>) -> Self {
         self.handle = Some(handle.into());
+        self
+    }
+
+    /// Set the controller-scoped agent selector slug. Only meaningful when
+    /// `actor_kind=agent` under `ck.profile.personal_agent_provisioning.v1`;
+    /// it is a projection hint, never an authorization or discovery handle
+    /// (`actor-profile.schema.json` `agent_slug`).
+    pub fn with_agent_slug(mut self, agent_slug: impl Into<String>) -> Self {
+        self.agent_slug = Some(agent_slug.into());
         self
     }
 
@@ -579,6 +590,7 @@ impl ProfileCreateBuilder {
             actor_kind: self.actor_kind.clone().unwrap_or(ActorKind::User),
             display_name,
             handle: self.handle.clone(),
+            agent_slug: self.agent_slug.clone(),
             avatar_blob_ref: self.avatar_blob_ref.clone(),
             status: self.status.clone(),
             accountable_principal_ids: self.accountable_principal_ids.clone(),

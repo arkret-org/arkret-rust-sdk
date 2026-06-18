@@ -439,6 +439,10 @@ pub struct Policy {
     pub expires_at: Option<DateTime<Utc>>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 /// Discriminator for a [`PolicyRule`] (mirrors `policy.schema.json`
@@ -639,6 +643,8 @@ pub struct Notification {
     #[serde(rename = "track_name", skip_serializing_if = "Option::is_none")]
     pub track: Option<String>,
     pub source_event_id: EventId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_ref: Option<String>,
     pub notification_type: NotificationType,
     pub priority: NotificationPriority,
     pub state: NotificationState,

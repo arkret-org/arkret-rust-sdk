@@ -157,6 +157,8 @@ fn view_supports_renderer_and_facet_config_facades() {
         sort: Vec::new(),
         created_by: Did::new("did:web:alice.example").unwrap(),
         created_at: Utc::now(),
+        updated_by: None,
+        updated_at: None,
     };
 
     let value = serde_json::to_value(view).unwrap();
