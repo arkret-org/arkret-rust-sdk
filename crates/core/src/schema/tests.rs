@@ -1,5 +1,17 @@
 use super::*;
 
+fn fixture_artifact(name: &str) -> Value {
+    if let Some(artifacts_dir) = default_spec_artifacts_dir() {
+        let path = artifacts_dir.join("fixtures").join(name);
+        let text = fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+        serde_json::from_str(&text)
+            .unwrap_or_else(|error| panic!("failed to parse {}: {error}", path.display()))
+    } else {
+        read_embedded_json_artifact(&format!("fixtures/{name}")).unwrap()
+    }
+}
+
 #[test]
 fn schema_catalog_reports_all_registered_schemas() {
     let catalog = schema_catalog();
@@ -15,6 +27,34 @@ fn schema_catalog_reports_all_registered_schemas() {
 #[test]
 fn schema_vectors_include_negative_security_extension_case() {
     validate_schema_vectors(&built_in_schema_vectors()).unwrap();
+}
+
+#[test]
+fn federation_fixture_expected_digest_matches_sdk_canonicalizer() {
+    let fixture = fixture_artifact("federation-fixture.json");
+    let cases = fixture
+        .get("cases")
+        .and_then(Value::as_array)
+        .expect("federation fixture missing cases");
+    let case = cases
+        .iter()
+        .find(|case| {
+            case.get("name").and_then(Value::as_str)
+                == Some("reducer_profile_digest_federation_minimal")
+        })
+        .expect("federation fixture missing reducer_profile_digest_federation_minimal");
+    let canonical_input = case
+        .get("canonical_input")
+        .expect("federation reducer profile fixture missing canonical_input");
+    let expected_digest = case
+        .get("expected_digest")
+        .and_then(Value::as_str)
+        .expect("federation reducer profile fixture missing expected_digest");
+
+    assert_eq!(
+        crate::canonical::canonical_sha256(canonical_input).unwrap(),
+        expected_digest
+    );
 }
 
 #[test]

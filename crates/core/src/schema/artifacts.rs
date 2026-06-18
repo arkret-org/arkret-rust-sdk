@@ -862,7 +862,7 @@ fn embedded_spec_artifacts() -> Result<&'static BTreeMap<String, Value>> {
     }
 }
 
-fn read_embedded_json_artifact(path: &str) -> Result<Value> {
+pub(super) fn read_embedded_json_artifact(path: &str) -> Result<Value> {
     embedded_spec_artifacts()?
         .get(path)
         .cloned()
