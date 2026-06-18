@@ -427,6 +427,8 @@ pub use media::{
     safe_content_disposition, safe_content_type, validate_token_ttl,
     verify_call_media_token_outcome,
 };
+#[cfg(all(feature = "full-surface", feature = "client"))]
+pub use media::{MediaClient, VerifiedCallMediaTokenExchange, VerifiedMediaIceConfig};
 #[cfg(feature = "full-surface")]
 pub use membership::{
     Invite, Member, MemberChange, MemberProfile, MemberRole, MembershipManager, MembershipState,

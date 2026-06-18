@@ -7,6 +7,7 @@ use cokret_core::base64url::base64url_decode;
 use cokret_core::canonical::canonical_json_bytes;
 use cokret_core::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
+    MediaIceConfigOutcome, MediaIceConfigRequestBody,
 };
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
@@ -177,6 +178,91 @@ pub struct CallMediaTokenVerification {
     pub issuer_did: Did,
     /// The verified participant identity (SFU-local handle).
     pub participant_identity: String,
+}
+
+/// Verified result returned by [`MediaClient::call_media_token_exchange`].
+#[cfg(feature = "client")]
+#[derive(Clone, Debug)]
+pub struct VerifiedCallMediaTokenExchange {
+    /// Raw server response for callers that need backend-specific fields such
+    /// as the LiveKit JWT or SFU connection URL.
+    pub outcome: CallMediaTokenExchangeOutcome,
+    /// SDK verification summary proving the binding tuple, issuer anchoring,
+    /// service signature and TTL have already been checked.
+    pub verification: CallMediaTokenVerification,
+}
+
+/// Verified ICE config returned by [`MediaClient::media_ice_config`].
+#[cfg(feature = "client")]
+#[derive(Clone, Debug)]
+pub struct VerifiedMediaIceConfig {
+    /// Raw server response, including the server signature object.
+    pub outcome: MediaIceConfigOutcome,
+    /// Strongly typed projection after issuer anchoring, TTL and TURN privacy
+    /// checks.
+    pub config: crate::webrtc::IceConfig,
+}
+
+/// High-level media client that combines transport with fail-closed SDK
+/// verification.
+///
+/// This wrapper intentionally keeps DID resolution outside the transport:
+/// callers resolve the current `ck.realm.media_service.service_id` documents
+/// and pass the anchored keys in [`MediaServiceAnchors`]. The methods below
+/// then perform the HTTP request and reject unanchored, expired or tampered
+/// responses before returning them to media setup code.
+#[cfg(feature = "client")]
+#[derive(Clone, Debug)]
+pub struct MediaClient {
+    client: cokret_http_client::Client,
+}
+
+#[cfg(feature = "client")]
+impl MediaClient {
+    /// Wrap an authenticated [`cokret_http_client::Client`].
+    pub fn new(client: cokret_http_client::Client) -> Self {
+        Self { client }
+    }
+
+    /// Borrow the underlying HTTP client for shared connection-pool use.
+    pub fn client(&self) -> &cokret_http_client::Client {
+        &self.client
+    }
+
+    /// `POST /_cokret/self/rtc/token`, followed by participant-binding and
+    /// service-signature verification.
+    pub async fn call_media_token_exchange(
+        &self,
+        request: &CallMediaTokenExchangeRequestBody,
+        anchors: &MediaServiceAnchors,
+        now: DateTime<Utc>,
+    ) -> Result<VerifiedCallMediaTokenExchange> {
+        let outcome = self.client.media_token_exchange(request).await?;
+        let verification = verify_call_media_token_outcome(request, &outcome, anchors, now)?;
+        Ok(VerifiedCallMediaTokenExchange {
+            outcome,
+            verification,
+        })
+    }
+
+    /// `POST /_cokret/self/rtc/ice-config`, followed by issuer, TTL and TURN
+    /// credential privacy checks.
+    pub async fn media_ice_config(
+        &self,
+        request: &MediaIceConfigRequestBody,
+        anchors: &MediaServiceAnchors,
+    ) -> Result<VerifiedMediaIceConfig> {
+        let outcome = self.client.media_ice_config(request).await?;
+        let config = crate::webrtc::verify_ice_config_outcome(&outcome, anchors)?;
+        Ok(VerifiedMediaIceConfig { outcome, config })
+    }
+}
+
+#[cfg(feature = "client")]
+impl From<cokret_http_client::Client> for MediaClient {
+    fn from(client: cokret_http_client::Client) -> Self {
+        Self::new(client)
+    }
 }
 
 /// Extract the bare DID from a `kid` of the form `did:...#fragment`.
@@ -906,6 +992,20 @@ mod tests {
     fn anchors_with_issuer_key(key: &SigningKey) -> MediaServiceAnchors {
         MediaServiceAnchors::new([did("media")])
             .with_keys([(ISSUER_KID.to_owned(), key.verifying_key())])
+    }
+
+    #[cfg(feature = "client")]
+    #[test]
+    fn media_client_wraps_authenticated_http_client() {
+        let http = cokret_http_client::Client::new(
+            reqwest::Url::parse("https://alice.example/cokret/").unwrap(),
+        )
+        .unwrap();
+        let media = MediaClient::new(http.clone());
+        let _: &cokret_http_client::Client = media.client();
+
+        let media_from: MediaClient = http.into();
+        let _: &cokret_http_client::Client = media_from.client();
     }
 
     fn token_request() -> CallMediaTokenExchangeRequestBody {
