@@ -1189,6 +1189,39 @@ pub struct AccountDevicePairOutcome {
     pub key_backup_hint: Value,
 }
 
+/// Request body for `ck.gate.account.command.enroll_device`
+/// (`POST /_cokret/gate/account/device-enroll`). The authenticated session
+/// asks its designated enrollment authority to mint a `service_attested`
+/// `ck.device.authorize` for this session's own device (device-lifecycle.md
+/// §5.4, key-management.md §5.0.6). Mirrors
+/// `agent-operations.schema.json#/$defs/account_device_enroll_request_body`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AccountDeviceEnrollRequestBody {
+    pub device_id: DeviceId,
+    /// did:key multibase (`z6Mk…`) or base64 of this session's device public key.
+    pub device_public_key: String,
+    pub actor_seq: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_before: Option<DateTime<Utc>>,
+}
+
+/// Outcome for `ck.gate.account.command.enroll_device`. The account authority
+/// does not contact the Principal Server; the caller submits `authorized_event`
+/// verbatim to `POST /_cokret/self/events`. Mirrors
+/// `agent-operations.schema.json#/$defs/account_device_enroll_outcome`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AccountDeviceEnrollOutcome {
+    pub principal_id: Did,
+    pub device_id: DeviceId,
+    /// Enrollment authority DID (= `executed_by` /
+    /// `enrollment_authority_binding.authority_did`).
+    pub authority_did: Did,
+    /// Fully-signed `service_attested` `ck.device.authorize` Event envelope.
+    pub authorized_event: Event,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountOidcCallbackRequestBody {

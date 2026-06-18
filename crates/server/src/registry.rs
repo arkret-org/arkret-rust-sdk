@@ -50,6 +50,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/gate/account/device-pair"
     ),
     endpoint!(
+        "ck.gate.account.command.enroll_device",
+        Post,
+        "/_cokret/gate/account/device-enroll"
+    ),
+    endpoint!(
         "ck.gate.account.command.issue_session_grant",
         Post,
         "/_cokret/gate/account/session-grants"

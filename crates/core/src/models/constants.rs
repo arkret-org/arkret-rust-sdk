@@ -470,6 +470,7 @@ pub const OP_AUTHZ_GET_INVITES: &str = "ck.self.authz.invites.query.list";
 
 /// Account / auth-server operations.
 pub const OP_ACCOUNT_DEVICE_PAIR: &str = "ck.gate.account.command.pair_device";
+pub const OP_ACCOUNT_DEVICE_ENROLL: &str = "ck.gate.account.command.enroll_device";
 pub const OP_ACCOUNT_ISSUE_SESSION_GRANT: &str = "ck.gate.account.command.issue_session_grant";
 pub const OP_ACCOUNT_OIDC_CALLBACK: &str = "ck.gate.account.exchange.complete_oidc";
 
@@ -779,6 +780,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_ACCOUNT_AGENT_KEY_PAIR,
     OP_ACCOUNT_DESCRIBE,
     OP_ACCOUNT_DEVICE_PAIR,
+    OP_ACCOUNT_DEVICE_ENROLL,
     OP_ACCOUNT_ISSUE_SESSION_GRANT,
     OP_ACCOUNT_OIDC_CALLBACK,
     OP_ACCOUNT_SUBSCRIBE,
