@@ -775,6 +775,8 @@ mod tests {
             .await;
             let request = MimiReportAbuseRequestBody {
                 strand_id: StrandId::new("ck:strand:01904100-0000-7000-8000-f571eead1fc4").unwrap(),
+                mimi_room_uri: Some("mimi://provider/rooms/room-1".to_owned()),
+                realm_id: None,
                 target_ref: "mimi://provider/rooms/room-1/messages/msg-1".to_owned(),
                 reporter: Did::new("did:web:alice.example").unwrap(),
                 abuse_reason_code: "spam".to_owned(),

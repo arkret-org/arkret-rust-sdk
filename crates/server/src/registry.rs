@@ -587,7 +587,7 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     ),
     endpoint!(
         "ck.open.mimi.command.update_room",
-        Put,
+        Post,
         "/_cokret/open/mimi/strands/{strand_id}/update"
     ),
     endpoint!(

@@ -878,6 +878,10 @@ pub struct MimiIdentifierQueryOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiReportAbuseRequestBody {
     pub strand_id: StrandId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mimi_room_uri: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
     pub target_ref: String,
     pub reporter: Did,
     pub abuse_reason_code: String,

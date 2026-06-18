@@ -8,8 +8,8 @@ use cokret_core::{
     KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody, KeyPackagesRevokeOutcome,
     KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody,
     KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody, KeysBackupsList, KeysBackupsPutOutcome,
-    KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody,
-    KeysUploadOutcome, KeysUploadRequestBody, Result,
+    KeysBackupsUnlockRequestBody, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
+    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody, Result,
 };
 use reqwest::Method;
 use reqwest::header::HeaderMap;
@@ -163,14 +163,17 @@ impl Client {
         Ok(response.backups)
     }
 
-    /// Fetch a single encrypted [`KeyBackup`] envelope for local
-    /// decryption. The server never returns plaintext; decryption
-    /// requires the passphrase + the envelope's KDF/AEAD parameters and
-    /// is performed via [`crate`]-adjacent helpers
-    /// (`cokret_crypto::backup::decrypt_vault`).
-    pub async fn get_key_backup(&self, backup_id: &BackupId) -> Result<KeyBackup> {
-        let path = format!("/_cokret/self/keys/backups/{}", backup_id.as_str());
-        self.get(&path).await
+    /// Unlock and fetch a single encrypted [`KeyBackup`] envelope for local
+    /// decryption. The full ciphertext is returned only through the
+    /// proof-bearing command body registered as
+    /// `POST /_cokret/self/keys/backups/{backup_id}/unlock`.
+    pub async fn unlock_key_backup(
+        &self,
+        backup_id: &BackupId,
+        request: &KeysBackupsUnlockRequestBody,
+    ) -> Result<KeyBackup> {
+        let path = format!("/_cokret/self/keys/backups/{}/unlock", backup_id.as_str());
+        self.post(&path, request).await
     }
 
     /// Delete an existing key backup envelope. Spec §7.4 marks this as a
