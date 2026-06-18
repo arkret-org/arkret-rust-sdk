@@ -3,7 +3,7 @@
 //! This module implements the Cokret v1 HLC specification with:
 //! - Strict format validation: `^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$`
 //! - Fixed-width hex encoding for correct lexicographic ordering
-//! - Clock skew handling up to ±5 minutes
+//! - Future-clock drift handling with a 30s soft-fail tier and 5m hard cap
 //! - Realm-scoped pseudonymous node id derivation (`encoding.md` §7)
 //! - Monotonic HLC generation
 
@@ -22,15 +22,21 @@ pub fn validate_hlc_format(hlc: &str) -> Result<()> {
     if re.is_match(hlc) {
         Ok(())
     } else {
-        Err(Error::InvalidId(format!(
-            "invalid HLC format: {} (expected format: ^[0-9a-f]{{12}}-[0-9a-f]{{4}}-[0-9a-f]{{8}}$)",
+        Err(Error::Protocol(format!(
+            "schema_violation: invalid HLC format: {} (expected format: ^[0-9a-f]{{12}}-[0-9a-f]{{4}}-[0-9a-f]{{8}}$)",
             hlc
         )))
     }
 }
 
-/// Maximum allowed clock skew (5 minutes in milliseconds)
-const MAX_SKEW_MS: i64 = 5 * 60 * 1000;
+/// Soft future-drift threshold from encoding.md §7.2.
+pub const EXPECTED_FUTURE_SKEW_MS: i64 = 30 * 1000;
+
+/// Hard future-drift cap from encoding.md §7.2.
+pub const HARD_FUTURE_SKEW_MS: i64 = 5 * 60 * 1000;
+
+/// Maximum allowed absolute clock skew kept for the legacy boolean helper.
+const MAX_SKEW_MS: i64 = HARD_FUTURE_SKEW_MS;
 
 /// Physical time maximum value (48-bit: 0xffffffffffff ms ≈ 8,925 years)
 const MAX_PHYSICAL: u64 = 0xffffffffffff;
@@ -47,6 +53,15 @@ pub struct HlcComponents {
     pub logical: u32,
     /// Node identifier (8 hex chars)
     pub node_id: String,
+}
+
+/// Receiver decision for HLC physical-time drift.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HlcFutureDrift {
+    /// HLC is within the expected future skew threshold or not in the future.
+    Accept,
+    /// HLC is above the expected threshold but below the hard cap.
+    SoftFail,
 }
 
 /// Domain separator for the §7 `node_id_hash` derivation.
@@ -170,24 +185,15 @@ impl HlcGenerator {
     ///
     /// Checks:
     /// - Format is valid
-    /// - Physical time is not too far in the future (clock skew check)
+    /// - Physical time is not beyond the hard future-skew cap
     pub fn validate_incoming(&self, hlc: &HlcType) -> Result<()> {
-        // Check format
-        validate_hlc_format(hlc.as_str())?;
+        self.validate_incoming_future_drift(hlc).map(|_| ())
+    }
 
-        // Check clock skew
-        let parts = parse_hlc(hlc.as_str())?;
-        let now = Self::current_time_ms();
-
-        if parts.physical_ms > now && (parts.physical_ms - now) as i64 > MAX_SKEW_MS {
-            return Err(Error::Protocol(format!(
-                "HLC physical time too far in future: {} ms ahead (max {} ms)",
-                parts.physical_ms - now,
-                MAX_SKEW_MS
-            )));
-        }
-
-        Ok(())
+    /// Validate an incoming HLC and return whether callers should soft-fail
+    /// or quarantine while waiting for causal closure / clock convergence.
+    pub fn validate_incoming_future_drift(&self, hlc: &HlcType) -> Result<HlcFutureDrift> {
+        validate_hlc_future_drift(hlc.as_str(), Self::current_time_ms())
     }
 
     /// Get current HLC value without advancing.
@@ -287,17 +293,25 @@ pub fn parse_hlc(hlc: &str) -> Result<HlcComponents> {
 
     let parts: Vec<&str> = hlc.split('-').collect();
     if parts.len() != 3 {
-        return Err(Error::InvalidId(format!(
-            "invalid HLC: wrong number of parts: {}",
+        return Err(Error::Protocol(format!(
+            "schema_violation: invalid HLC: wrong number of parts: {}",
             hlc
         )));
     }
 
-    let physical_ms = u64::from_str_radix(parts[0], 16)
-        .map_err(|_| Error::InvalidId(format!("invalid physical time: {}", parts[0])))?;
+    let physical_ms = u64::from_str_radix(parts[0], 16).map_err(|_| {
+        Error::Protocol(format!(
+            "schema_violation: invalid physical time: {}",
+            parts[0]
+        ))
+    })?;
 
-    let logical = u32::from_str_radix(parts[1], 16)
-        .map_err(|_| Error::InvalidId(format!("invalid logical counter: {}", parts[1])))?;
+    let logical = u32::from_str_radix(parts[1], 16).map_err(|_| {
+        Error::Protocol(format!(
+            "schema_violation: invalid logical counter: {}",
+            parts[1]
+        ))
+    })?;
 
     let node_id = parts[2].to_owned();
 
@@ -306,6 +320,26 @@ pub fn parse_hlc(hlc: &str) -> Result<HlcComponents> {
         logical,
         node_id,
     })
+}
+
+/// Validate future drift against the spec's two-tier HLC model.
+pub fn validate_hlc_future_drift(hlc: &str, current_time_ms: u64) -> Result<HlcFutureDrift> {
+    let parts = parse_hlc(hlc)?;
+    if parts.physical_ms <= current_time_ms {
+        return Ok(HlcFutureDrift::Accept);
+    }
+
+    let future_drift_ms = (parts.physical_ms - current_time_ms) as i64;
+    if future_drift_ms > HARD_FUTURE_SKEW_MS {
+        return Err(Error::Protocol(format!(
+            "hlc_hard_future_skew: HLC physical time is {future_drift_ms} ms ahead (hard cap {HARD_FUTURE_SKEW_MS} ms)"
+        )));
+    }
+    if future_drift_ms > EXPECTED_FUTURE_SKEW_MS {
+        return Ok(HlcFutureDrift::SoftFail);
+    }
+
+    Ok(HlcFutureDrift::Accept)
 }
 
 /// Compare two HLC values.
@@ -378,6 +412,12 @@ mod tests {
         assert!(validate_hlc_format("01970e589d21-0001-a13f").is_err());
         // Invalid logical hex
         assert!(validate_hlc_format("01970e589d21-000g-a13f9c2e").is_err());
+    }
+
+    #[test]
+    fn hlc_format_validation_reports_schema_violation() {
+        let err = validate_hlc_format("01970e589d21-000g-a13f9c2e").unwrap_err();
+        assert!(err.to_string().contains("schema_violation"));
     }
 
     #[test]
@@ -500,6 +540,33 @@ mod tests {
 
         assert!(is_clock_skew_acceptable(&within_skew, current).unwrap());
         assert!(!is_clock_skew_acceptable(&beyond_skew, current).unwrap());
+    }
+
+    #[test]
+    fn future_drift_has_soft_fail_tier_before_hard_reject() {
+        let current = 0x01970e589d21;
+        let within_expected = format!(
+            "{:012x}-0001-a13f9c2e",
+            current + EXPECTED_FUTURE_SKEW_MS as u64
+        );
+        let soft_fail = format!(
+            "{:012x}-0001-a13f9c2e",
+            current + EXPECTED_FUTURE_SKEW_MS as u64 + 1
+        );
+        let hard_reject = format!(
+            "{:012x}-0001-a13f9c2e",
+            current + HARD_FUTURE_SKEW_MS as u64 + 1
+        );
+
+        assert_eq!(
+            validate_hlc_future_drift(&within_expected, current).unwrap(),
+            HlcFutureDrift::Accept
+        );
+        assert_eq!(
+            validate_hlc_future_drift(&soft_fail, current).unwrap(),
+            HlcFutureDrift::SoftFail
+        );
+        assert!(validate_hlc_future_drift(&hard_reject, current).is_err());
     }
 
     #[test]

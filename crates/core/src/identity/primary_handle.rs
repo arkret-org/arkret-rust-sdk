@@ -340,7 +340,8 @@ fn truncate_did(did: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::Handle;
+    use crate::Hash;
+    use crate::models::{Handle, PayloadProof};
 
     fn issuer(s: &str) -> String {
         s.to_owned()
@@ -367,6 +368,19 @@ mod tests {
 
     fn subject() -> Did {
         Did::new("did:web:alice.example".to_owned()).unwrap()
+    }
+
+    fn placeholder_payload_proof() -> PayloadProof {
+        PayloadProof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:issuer.example#key-1".to_owned(),
+            payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            created_at: Utc::now(),
+            domain: None,
+            audience: None,
+            jws: "placeholder".to_owned(),
+        }
     }
 
     #[test]
@@ -461,7 +475,7 @@ mod tests {
         // Mutating non-semantic hint fields MUST NOT change the digest.
         a.verified_at = Some(now);
         a.challenge = Some("nonce-1".to_owned());
-        a.proofs = vec![serde_json::json!({"kind": "detached_jws"})];
+        a.proofs = vec![placeholder_payload_proof()];
         b.verified_at = Some(now - chrono::Duration::hours(5));
         b.challenge = Some("nonce-2".to_owned());
         b.proofs = vec![];

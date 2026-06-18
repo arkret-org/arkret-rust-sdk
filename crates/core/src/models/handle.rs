@@ -531,6 +531,19 @@ impl HandleClaim {
 mod tests {
     use super::*;
 
+    fn placeholder_payload_proof() -> PayloadProof {
+        PayloadProof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:issuer.example#key-1".to_owned(),
+            payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            created_at: Utc::now(),
+            domain: None,
+            audience: None,
+            jws: "placeholder".to_owned(),
+        }
+    }
+
     #[test]
     fn parses_canonical_handle() {
         let h = Handle::parse("alice:example.com").unwrap();
@@ -609,7 +622,7 @@ mod tests {
             claim_kind: Some(HandleClaimKind::HandleBinding),
             created_at: Some(Utc::now()),
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
-            proofs: vec![serde_json::json!({"kind":"detached_jws"})],
+            proofs: vec![placeholder_payload_proof()],
             member_delivery_binding: Some(DeliveryBindingHint {
                 recipient_service_did: Did::new("did:web:rs.example".to_owned()).unwrap(),
                 recipient_service_type: RecipientServiceType::PrincipalServer,

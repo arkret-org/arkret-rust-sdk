@@ -375,8 +375,9 @@ pub use federation::{
 };
 #[cfg(feature = "full-surface")]
 pub use hlc::{
-    HlcComponents, HlcGenerator, compare_hlc, is_clock_skew_acceptable, parse_hlc, time_until_hlc,
-    validate_hlc_format,
+    EXPECTED_FUTURE_SKEW_MS, HARD_FUTURE_SKEW_MS, HlcComponents, HlcFutureDrift, HlcGenerator,
+    compare_hlc, is_clock_skew_acceptable, parse_hlc, time_until_hlc, validate_hlc_format,
+    validate_hlc_future_drift,
 };
 #[cfg(feature = "client")]
 pub use http_client::{Auth, Client, ClientBuilder, ClientRequestOptions, RetryConfig};

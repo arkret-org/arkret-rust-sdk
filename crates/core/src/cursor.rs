@@ -38,6 +38,7 @@ pub fn generate_cursor_handle() -> Result<String> {
 /// specific point in the event stream. They are encoded as JSON and then
 /// Base64URL-encoded for transport.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Cursor {
     /// Cursor version. Must be "1" for Cokret v1.
@@ -158,18 +159,27 @@ impl Cursor {
         })
     }
 
-    /// Bind a `filter_digest` to this cursor. Servers MUST refuse to
-    /// reuse the cursor when the next request carries a different
-    /// digest. The digest is opaque to the SDK; callers typically pass
-    /// [`crate::sync::sync_filter_digest`].
+    /// Bind a `filter_digest` to this cursor.
+    ///
+    /// Deprecated for the v1 core wire shape: filter binding is server-side
+    /// state keyed by `h`, and [`Self::encode`] rejects inline digests.
+    #[deprecated(
+        since = "0.1.0",
+        note = "v1 core cursors must not carry inline filter_digest; bind filters server-side by h"
+    )]
     pub fn with_filter_digest(mut self, digest: impl Into<String>) -> Self {
         self.filter_digest = Some(digest.into());
         self
     }
 
     /// Verify that the cursor's `filter_digest` matches `expected`.
-    /// Returns an error when the cursor is unbound or was issued for a
-    /// different filter.
+    ///
+    /// Deprecated for the v1 core wire shape: conformant cursor tokens do
+    /// not carry inline filter digests.
+    #[deprecated(
+        since = "0.1.0",
+        note = "v1 core cursors must not carry inline filter_digest; bind filters server-side by h"
+    )]
     pub fn assert_filter_digest(&self, expected: &str) -> Result<()> {
         match self.filter_digest.as_deref() {
             None => Err(Error::Protocol("filter_digest_missing".to_owned())),
@@ -204,9 +214,12 @@ impl Cursor {
 
     /// Replace the stateless integrity MAC on this cursor.
     ///
-    /// The caller MUST set [`Self::with_issuer_kid`] for the cursor to be a
-    /// valid stateless wire form; this builder no longer injects a dev
-    /// placeholder issuer kid.
+    /// Deprecated for the v1 core wire shape: SDK core cursors are
+    /// stateful-handle cursors, and [`Self::encode`] rejects inline MACs.
+    #[deprecated(
+        since = "0.1.0",
+        note = "v1 core cursors must not carry inline _mac; use stateful cursor handles"
+    )]
     pub fn with_mac(mut self, mac: impl Into<String>) -> Self {
         self.h = None;
         self.mac = Some(mac.into());
@@ -216,9 +229,13 @@ impl Cursor {
 
     /// Replace the stateless integrity signature on this cursor.
     ///
-    /// The caller MUST set [`Self::with_issuer_kid`] for the cursor to be a
-    /// valid stateless wire form; this builder no longer injects a dev
-    /// placeholder issuer kid.
+    /// Deprecated for the v1 core wire shape: SDK core cursors are
+    /// stateful-handle cursors, and [`Self::encode`] rejects inline
+    /// signatures.
+    #[deprecated(
+        since = "0.1.0",
+        note = "v1 core cursors must not carry inline _sig; use stateful cursor handles"
+    )]
     pub fn with_signature(mut self, signature: impl Into<String>) -> Self {
         self.h = None;
         self.mac = None;
@@ -227,6 +244,13 @@ impl Cursor {
     }
 
     /// Set the stateless cursor issuer key id.
+    ///
+    /// Deprecated for the v1 core wire shape: SDK core cursors are
+    /// stateful-handle cursors, and [`Self::encode`] rejects issuer metadata.
+    #[deprecated(
+        since = "0.1.0",
+        note = "v1 core cursors must not carry issuer_kid; use stateful cursor handles"
+    )]
     pub fn with_issuer_kid(mut self, issuer_kid: impl Into<String>) -> Self {
         self.issuer_kid = Some(issuer_kid.into());
         self
@@ -398,9 +422,6 @@ impl Cursor {
             }
         }
 
-        if let Some(mac) = &self.mac {
-            Self::validate_cursor_mac(mac)?;
-        }
         if let Some(sig) = &self.sig
             && sig.trim().is_empty()
         {
@@ -539,21 +560,10 @@ impl Cursor {
                 "core stateful cursor must not carry s, d, or target".to_owned(),
             ));
         }
-        Ok(())
-    }
-
-    fn validate_cursor_mac(mac: &str) -> Result<()> {
-        let Some(digest) = mac.strip_prefix("hmac-sha256:") else {
+        if self.filter_digest.is_some() {
             return Err(Error::Protocol(
-                "cursor _mac must use hmac-sha256".to_owned(),
+                "core cursor must not carry inline _filter_digest".to_owned(),
             ));
-        };
-        if digest.len() != 64
-            || !digest
-                .bytes()
-                .all(|b| b.is_ascii_digit() || matches!(b, b'a'..=b'f'))
-        {
-            return Err(Error::Protocol("invalid cursor _mac digest".to_owned()));
         }
         Ok(())
     }
@@ -797,6 +807,24 @@ mod tests {
         let json = br#"{"v":"1","v":"1","purpose":"stream","t":"2026-06-06T00:00:00Z","s":{},"x":4102444800000,"h":"ABCDEFGHIJKLMNOPQRSTUV"}"#;
         let encoded = format!("ck:cursor:{}", crate::base64url_encode(json));
         assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
+    }
+
+    #[test]
+    fn cursor_decode_rejects_additional_properties() {
+        let json = br#"{"v":"1","purpose":"stream","t":"2099-12-30T23:59:59Z","x":4102444799000,"h":"abcdefghijklmnopqrstuv","_compression":"none"}"#;
+        let encoded = format!("ck:cursor:{}", crate::base64url_encode(json));
+        assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
+    }
+
+    #[test]
+    fn cursor_decode_rejects_inline_filter_digest_fields() {
+        for json in [
+            br#"{"v":"1","purpose":"stream","t":"2099-12-30T23:59:59Z","x":4102444799000,"h":"abcdefghijklmnopqrstuv","_filter_digest":"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}"#.as_slice(),
+            br#"{"v":"1","purpose":"stream","t":"2099-12-30T23:59:59Z","x":4102444799000,"h":"abcdefghijklmnopqrstuv","filter_digest":"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}"#.as_slice(),
+        ] {
+            let encoded = format!("ck:cursor:{}", crate::base64url_encode(json));
+            assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
+        }
     }
 
     #[test]
