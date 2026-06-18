@@ -518,7 +518,7 @@ pub use sync_client::{
     RealmListEntry, RealmListFilter, RealmListService, RealmListSnapshot, RealmListSort, SendQueue,
     SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus, SlidingSync,
     SlidingWindow, SyncGapStrategy, SyncLoop, SyncLoopControl, SyncLoopSnapshot, SyncLoopStep,
-    SyncResponseProcessor, SyncTransport,
+    SyncRecoveryAction, SyncResponseProcessor, SyncTransport,
 };
 #[cfg(all(feature = "full-surface", feature = "timeline-runtime"))]
 pub use timeline::{

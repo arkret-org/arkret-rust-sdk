@@ -66,6 +66,29 @@ fn sync_loop_recovers_after_failure() {
     assert_eq!(sync_loop.token(), Some("s1"));
 }
 
+#[test]
+fn sync_loop_exposes_to_device_loss_recovery_actions() {
+    let mut transport = |_request: SyncRequestBody| {
+        let mut response = sync_response("loss1");
+        response.to_device_lost = Some(true);
+        Ok(response)
+    };
+    let mut sync_loop = SyncLoop::new();
+
+    match sync_loop.step(&mut transport) {
+        SyncLoopStep::Updates(updates) => assert!(updates.to_device_lost),
+        other => panic!("expected sync updates, got {other:?}"),
+    }
+    let expected = vec![
+        SyncRecoveryAction::RefetchDeviceLists,
+        SyncRecoveryAction::RequestMissingMlsMaterial,
+        SyncRecoveryAction::RestoreFromKeyBackup,
+    ];
+    assert_eq!(sync_loop.recovery_actions(), expected);
+    assert_eq!(sync_loop.take_recovery_actions(), expected);
+    assert!(sync_loop.recovery_actions().is_empty());
+}
+
 #[tokio::test]
 async fn async_sync_loop_uses_transport_and_persists_token() {
     let transport = |request: SyncRequestBody| async move {
@@ -250,6 +273,14 @@ fn processor_dispatches_all_update_categories() {
     );
     assert_eq!(processor.drain_to_device().len(), 1);
     assert!(updates.to_device_lost);
+    let expected_recovery_actions = vec![
+        SyncRecoveryAction::RefetchDeviceLists,
+        SyncRecoveryAction::RequestMissingMlsMaterial,
+        SyncRecoveryAction::RestoreFromKeyBackup,
+    ];
+    assert_eq!(processor.recovery_actions(), expected_recovery_actions);
+    assert_eq!(processor.take_recovery_actions(), expected_recovery_actions);
+    assert!(processor.recovery_actions().is_empty());
     assert!(processor.presence("did:web:alice.example").is_some());
     assert!(processor.account_data("ck.settings").is_some());
     assert!(processor.notification("n1").is_some());

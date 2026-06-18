@@ -506,6 +506,16 @@ impl SyncLoop {
         self.token.as_deref()
     }
 
+    /// Pending recovery actions accumulated from processed sync responses.
+    pub fn recovery_actions(&self) -> Vec<SyncRecoveryAction> {
+        self.processor.recovery_actions()
+    }
+
+    /// Drain pending recovery actions after the application schedules them.
+    pub fn take_recovery_actions(&mut self) -> Vec<SyncRecoveryAction> {
+        self.processor.take_recovery_actions()
+    }
+
     /// Export durable sync loop state.
     pub fn snapshot(&self) -> SyncLoopSnapshot {
         SyncLoopSnapshot {

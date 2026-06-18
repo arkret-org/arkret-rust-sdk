@@ -9,10 +9,34 @@ pub struct SyncResponseProcessor {
     to_device_acks: BTreeMap<String, ToDeviceAck>,
     changed_device_lists: BTreeSet<String>,
     left_device_lists: BTreeSet<String>,
+    pending_recovery_actions: BTreeSet<SyncRecoveryAction>,
     presence: BTreeMap<String, PresenceEvent>,
     account_data: BTreeMap<String, AccountData>,
     notifications: BTreeMap<String, NotificationDelta>,
     last_token: Option<String>,
+}
+
+/// Recovery work the application must schedule after sync detects that
+/// reliable to-device delivery was lost for this device.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SyncRecoveryAction {
+    /// Refresh tracked device lists before sending or re-requesting E2EE material.
+    RefetchDeviceLists,
+    /// Re-request missing MLS Welcomes, secret shares, or verification messages from peers.
+    RequestMissingMlsMaterial,
+    /// Restore locally missing room secrets from the configured key-backup path.
+    RestoreFromKeyBackup,
+}
+
+impl SyncRecoveryAction {
+    fn to_device_loss_actions() -> [Self; 3] {
+        [
+            Self::RefetchDeviceLists,
+            Self::RequestMissingMlsMaterial,
+            Self::RestoreFromKeyBackup,
+        ]
+    }
 }
 
 impl SyncResponseProcessor {
@@ -60,6 +84,10 @@ impl SyncResponseProcessor {
         }
 
         let to_device_lost = response.to_device_lost.unwrap_or(false);
+        if to_device_lost {
+            self.pending_recovery_actions
+                .extend(SyncRecoveryAction::to_device_loss_actions());
+        }
         let to_device: Vec<ToDeviceMessage> = project_typed_vec(response.to_device);
         let device_lists: DeviceListChanges =
             serde_json::from_value(response.device_lists).unwrap_or_default();
@@ -165,6 +193,18 @@ impl SyncResponseProcessor {
             changed: self.changed_device_lists.iter().cloned().collect(),
             left: self.left_device_lists.iter().cloned().collect(),
         }
+    }
+
+    /// Pending recovery actions accumulated from processed sync responses.
+    pub fn recovery_actions(&self) -> Vec<SyncRecoveryAction> {
+        self.pending_recovery_actions.iter().cloned().collect()
+    }
+
+    /// Drain pending recovery actions after the application schedules them.
+    pub fn take_recovery_actions(&mut self) -> Vec<SyncRecoveryAction> {
+        let actions = self.recovery_actions();
+        self.pending_recovery_actions.clear();
+        actions
     }
 
     /// Clear all cached processor state.
