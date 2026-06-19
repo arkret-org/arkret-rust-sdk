@@ -253,6 +253,55 @@ pub struct MlsWelcomePayloadClaimRef {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct MlsWelcomeClaimEnvelope {
+    pub keypackage_ref: ObjectRef,
+    pub keypackage_digest: Hash,
+    pub intended_realm_id: RealmId,
+    pub claim_id: String,
+    pub requester_did: Did,
+    pub ssk_generation: u64,
+    pub nonce: String,
+    pub welcome_digest: Hash,
+    pub created_at: DateTime<Utc>,
+    pub signature: Signature2,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsWelcomeClaimEnvelopeSigningInput {
+    pub keypackage_ref: ObjectRef,
+    pub keypackage_digest: Hash,
+    pub intended_realm_id: RealmId,
+    pub claim_id: String,
+    pub requester_did: Did,
+    pub ssk_generation: u64,
+    pub nonce: String,
+    pub welcome_digest: Hash,
+    pub created_at: DateTime<Utc>,
+}
+
+impl MlsWelcomeClaimEnvelope {
+    pub fn signing_input(&self) -> MlsWelcomeClaimEnvelopeSigningInput {
+        MlsWelcomeClaimEnvelopeSigningInput {
+            keypackage_ref: self.keypackage_ref.clone(),
+            keypackage_digest: self.keypackage_digest.clone(),
+            intended_realm_id: self.intended_realm_id.clone(),
+            claim_id: self.claim_id.clone(),
+            requester_did: self.requester_did.clone(),
+            ssk_generation: self.ssk_generation,
+            nonce: self.nonce.clone(),
+            welcome_digest: self.welcome_digest.clone(),
+            created_at: self.created_at,
+        }
+    }
+
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        canonical::canonical_json_bytes(&self.signing_input())
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MlsWelcomePayload {
     pub mls_group_id: String,
     pub epoch: u64,
@@ -264,6 +313,7 @@ pub struct MlsWelcomePayload {
     pub keypackage_digest: Value,
     pub claim_id: String,
     pub claim_ref: MlsWelcomePayloadClaimRef,
+    pub claim_envelope: MlsWelcomeClaimEnvelope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub welcome_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -275,4 +325,57 @@ pub struct MlsWelcomePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub governance_binding: Option<MlsGovernanceBinding>,
     pub expires_at: DateTime<Utc>,
+}
+
+pub fn validate_mls_welcome_claim_envelope(
+    welcome: &MlsWelcomePayload,
+    claim: &KeypackageClaimRecord,
+    published: &MlsKeypackagePayload,
+    intended_realm_id: &RealmId,
+    requester_did: &Did,
+    welcome_digest: &Hash,
+    claim_nonce: &str,
+    current_ssk_generation: u64,
+) -> std::result::Result<(), &'static str> {
+    let Some(welcome_keypackage_digest) = welcome.keypackage_digest.as_str() else {
+        return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+    };
+    let Some(published_keypackage_digest) = published.keypackage_digest.as_str() else {
+        return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+    };
+    if welcome.keypackage_ref != claim.keypackage_ref
+        || welcome.claim_id != claim.claim_id
+        || welcome.claim_ref.claim_id != claim.claim_id
+        || welcome.claim_ref.keypackage_ref != claim.keypackage_ref
+        || published.keypackage_ref != claim.keypackage_ref
+        || welcome_keypackage_digest != claim.keypackage_digest.as_str()
+        || welcome.claim_ref.keypackage_digest.as_str() != claim.keypackage_digest.as_str()
+        || published_keypackage_digest != claim.keypackage_digest.as_str()
+        || welcome.claim_ref.capabilities_digest.as_str() != claim.capabilities_digest.as_str()
+        || welcome.claim_ref.ssk_generation != claim.ssk_generation
+        || welcome.claim_ref.ssk_generation != current_ssk_generation
+    {
+        return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+    }
+
+    let envelope = &welcome.claim_envelope;
+    if envelope.keypackage_ref != claim.keypackage_ref
+        || envelope.keypackage_digest.as_str() != claim.keypackage_digest.as_str()
+        || envelope.intended_realm_id != *intended_realm_id
+        || envelope.claim_id != claim.claim_id
+        || envelope.requester_did != *requester_did
+        || envelope.ssk_generation != claim.ssk_generation
+        || envelope.ssk_generation != current_ssk_generation
+        || envelope.nonce != claim_nonce
+        || envelope.welcome_digest.as_str() != welcome_digest.as_str()
+        || envelope.signature.kid.is_empty()
+        || !envelope.signature.kid.starts_with(requester_did.as_str())
+        || envelope.signature.sig.is_empty()
+    {
+        return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+    }
+    if envelope.created_at > claim.expires_at || welcome.expires_at > claim.expires_at {
+        return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+    }
+    Ok(())
 }
