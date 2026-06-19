@@ -568,6 +568,34 @@ pub fn validate_metadata_floor_tightens(
     }
 }
 
+/// Reducer-pure validator for the one-way content encryption floor ratchet.
+/// Tightening or preserving the floor is accepted; lowering it returns
+/// [`CircleScopeError::ContentEncryptionFloorDowngrade`].
+pub fn validate_content_encryption_floor_ratchet(
+    previous: EncryptionFloor,
+    next: EncryptionFloor,
+) -> std::result::Result<(), CircleScopeError> {
+    if metadata_floor_rank(next) >= metadata_floor_rank(previous) {
+        Ok(())
+    } else {
+        Err(CircleScopeError::ContentEncryptionFloorDowngrade { previous, next })
+    }
+}
+
+/// Reducer-pure validator for the one-way metadata encryption floor ratchet.
+/// Tightening or preserving the floor is accepted; lowering it returns
+/// [`CircleScopeError::MetadataEncryptionFloorDowngrade`].
+pub fn validate_metadata_encryption_floor_ratchet(
+    previous: EncryptionFloor,
+    next: EncryptionFloor,
+) -> std::result::Result<(), CircleScopeError> {
+    if metadata_floor_rank(next) >= metadata_floor_rank(previous) {
+        Ok(())
+    } else {
+        Err(CircleScopeError::MetadataEncryptionFloorDowngrade { previous, next })
+    }
+}
+
 /// Reducer-pure validator: Circle encryption MUST NOT fall below the
 /// parent Realm or effective content encryption floor.
 pub fn validate_circle_encryption_floor(
@@ -742,6 +770,24 @@ pub enum CircleScopeError {
     MetadataEncryptionFloorViolation {
         realm_floor: EncryptionFloor,
         circle_floor: EncryptionFloor,
+    },
+    /// A content encryption floor update lowered the effective floor.
+    #[error(
+        "reason=content_encryption_floor_downgrade: content_encryption_floor ratchet \
+         attempted to lower from {previous:?} to {next:?}"
+    )]
+    ContentEncryptionFloorDowngrade {
+        previous: EncryptionFloor,
+        next: EncryptionFloor,
+    },
+    /// A metadata encryption floor update lowered the effective floor.
+    #[error(
+        "reason=metadata_encryption_floor_downgrade: metadata_encryption_floor ratchet \
+         attempted to lower from {previous:?} to {next:?}"
+    )]
+    MetadataEncryptionFloorDowngrade {
+        previous: EncryptionFloor,
+        next: EncryptionFloor,
     },
     /// Circle encryption profile would be weaker than the Realm content floor.
     #[error(
@@ -1028,6 +1074,26 @@ mod tests {
         assert!(matches!(
             validate_metadata_floor_tightens(E2eeRequired, AllowPlaintext),
             Err(CircleScopeError::MetadataEncryptionFloorViolation { .. })
+        ));
+    }
+
+    #[test]
+    fn encryption_floor_ratchets_reject_downgrade() {
+        use EncryptionFloor::*;
+        validate_content_encryption_floor_ratchet(AllowPlaintext, AllowPlaintext).unwrap();
+        validate_content_encryption_floor_ratchet(AllowPlaintext, E2eeRequired).unwrap();
+        validate_content_encryption_floor_ratchet(E2eeRequired, E2eeRequired).unwrap();
+        assert!(matches!(
+            validate_content_encryption_floor_ratchet(E2eeRequired, AllowPlaintext),
+            Err(CircleScopeError::ContentEncryptionFloorDowngrade { .. })
+        ));
+
+        validate_metadata_encryption_floor_ratchet(AllowPlaintext, AllowPlaintext).unwrap();
+        validate_metadata_encryption_floor_ratchet(AllowPlaintext, E2eeRequired).unwrap();
+        validate_metadata_encryption_floor_ratchet(E2eeRequired, E2eeRequired).unwrap();
+        assert!(matches!(
+            validate_metadata_encryption_floor_ratchet(E2eeRequired, AllowPlaintext),
+            Err(CircleScopeError::MetadataEncryptionFloorDowngrade { .. })
         ));
     }
 
