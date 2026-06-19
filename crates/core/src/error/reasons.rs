@@ -90,6 +90,7 @@ pub const REASON_PATCH_SELECTOR_AMBIGUOUS: &str = "patch_selector_ambiguous";
 // AEAD nonce derivation invariants.
 pub const REASON_AEAD_NONCE_COUNTER_REPLAY: &str = "aead_nonce_counter_replay";
 pub const REASON_AEAD_NONCE_DERIVATION_INVALID: &str = "aead_nonce_derivation_invalid";
+pub const REASON_AEAD_NONCE_SENDER_DOMAIN_COLLISION: &str = "aead_nonce_sender_domain_collision";
 
 // Accountability grant verification (zh/models/actor.md §3.3.1).
 pub const REASON_ACCOUNTABILITY_GRANT_MISSING: &str = "accountability_grant_missing";
