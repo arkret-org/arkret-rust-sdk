@@ -132,7 +132,7 @@ pub struct AccountLifecycleProof {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountView {
     pub principal_id: Did,
-    pub state: String,
+    pub state: AccountStatus,
     #[serde(default)]
     pub devices: Vec<AccountDeviceSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -168,7 +168,7 @@ pub struct AccountRegisterRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountRegisterOutcome {
     pub principal_id: Did,
-    pub state: String,
+    pub state: AccountStatus,
     #[serde(default)]
     pub devices: Vec<AccountDeviceSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

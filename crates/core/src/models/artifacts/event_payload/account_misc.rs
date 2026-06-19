@@ -15,7 +15,7 @@ pub type EventPayload = GenericStandardPayload;
 #[serde(deny_unknown_fields)]
 pub struct AccountStatusPayload {
     pub principal_id: Did,
-    pub status: String,
+    pub status: AccountStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

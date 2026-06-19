@@ -357,6 +357,29 @@ pub enum AccountStatus {
 }
 
 impl AccountStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AccountStatus::Active => "active",
+            AccountStatus::SoftLoggedOut => "soft_logged_out",
+            AccountStatus::Locked => "locked",
+            AccountStatus::Suspended => "suspended",
+            AccountStatus::Deactivated => "deactivated",
+            AccountStatus::ErasurePending => "erasure_pending",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "active" => Some(AccountStatus::Active),
+            "soft_logged_out" => Some(AccountStatus::SoftLoggedOut),
+            "locked" => Some(AccountStatus::Locked),
+            "suspended" => Some(AccountStatus::Suspended),
+            "deactivated" => Some(AccountStatus::Deactivated),
+            "erasure_pending" => Some(AccountStatus::ErasurePending),
+            _ => None,
+        }
+    }
+
     /// Return whether new writes are allowed in this state.
     pub fn allows_writes(self) -> bool {
         matches!(self, AccountStatus::Active)
