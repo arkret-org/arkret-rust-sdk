@@ -1128,6 +1128,14 @@ pub struct SessionGrantIntrospectGrant {
     /// the per-request DPoP proof on `/_cokret/self/*`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cnf_jkt: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_kind: Option<SessionGrantProofKind>,
+    /// Materialized scope details for `agent_key_proof` sessions. Human session
+    /// grants omit this field.
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub scope_details: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub freshness_state: Option<FreshnessState>,
 }
 
 /// `ck.gate.account.command.introspect_session_grant` request. Exactly one of
