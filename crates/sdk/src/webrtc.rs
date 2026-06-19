@@ -479,10 +479,19 @@ impl SpeakingData {
 
 /// Recording capture mode (`ck.call.recording.start`, `call-state.md` §5).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum RecordingMode {
+    #[serde(rename = "audio")]
     AudioOnly,
+    #[serde(rename = "audio_video")]
     AudioVideo,
+}
+
+/// Capture dimension selected by `ck.call.recording.start`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecordingCaptureKind {
+    Recording,
+    Transcript,
 }
 
 /// `ck.call.recording.start` payload (`call-state.md` §5). Field names are
@@ -496,10 +505,12 @@ pub struct RecordingStartPayload {
     pub recording_id: String,
     /// Service DID performing the capture (backend egress agent).
     pub recording_agent: Did,
-    pub mode: RecordingMode,
-    /// Capability grant proving the initiator holds `ck.call.record`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recording_initiator_capability_ref: Option<String>,
+    pub capture_kind: Option<RecordingCaptureKind>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<RecordingMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visible_notice: Option<bool>,
 }
 
 /// Recording lifecycle state published on `ck.call.state.recording_state`
@@ -832,11 +843,14 @@ mod tests {
             call_id: crate::CallId::new("ck:call:0196441c-0000-7000-8000-000000000000").unwrap(),
             recording_id: "rtc-recording-1".to_owned(),
             recording_agent: did("recorder"),
-            mode: RecordingMode::AudioVideo,
-            recording_initiator_capability_ref: Some("ck:grant:rec".to_owned()),
+            capture_kind: Some(RecordingCaptureKind::Recording),
+            mode: Some(RecordingMode::AudioVideo),
+            visible_notice: Some(true),
         };
         let value = serde_json::to_value(&start).unwrap();
+        assert_eq!(value["capture_kind"], "recording");
         assert_eq!(value["mode"], "audio_video");
+        assert_eq!(value["visible_notice"], true);
         assert_eq!(value["recording_id"], "rtc-recording-1");
         let back: RecordingStartPayload = serde_json::from_value(value).unwrap();
         assert_eq!(back, start);

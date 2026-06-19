@@ -542,8 +542,8 @@ pub use typing::{TypingManager, TypingNotification};
 #[cfg(feature = "full-surface")]
 pub use webrtc::{
     CallSessionDescription, IceCandidate, IceConfig, IceServer, IceServerKind, MediaStateData,
-    MediaTrackSet, ModeratePayload, ModerationAction, MuteSource, MuteStateData, RecordingMode,
-    RecordingResult, RecordingStartPayload, RecordingState, RenegotiateData, RenegotiateReason,
-    ScreenShareState, SdpType, SpeakingData, TranscribePayload, WebRtcSignalKind,
-    WebRtcSignalMessage, verify_ice_config_outcome,
+    MediaTrackSet, ModeratePayload, ModerationAction, MuteSource, MuteStateData,
+    RecordingCaptureKind, RecordingMode, RecordingResult, RecordingStartPayload, RecordingState,
+    RenegotiateData, RenegotiateReason, ScreenShareState, SdpType, SpeakingData, TranscribePayload,
+    WebRtcSignalKind, WebRtcSignalMessage, verify_ice_config_outcome,
 };
