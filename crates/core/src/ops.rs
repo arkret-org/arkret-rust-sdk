@@ -19,6 +19,12 @@ pub struct HardeningStatus {
     #[serde(default)]
     pub tls_enabled: bool,
     #[serde(default)]
+    pub pq_hybrid_tls_required_group: String,
+    #[serde(default)]
+    pub pq_hybrid_tls_probe_artifact: String,
+    #[serde(default)]
+    pub pq_hybrid_tls_probe_verified: bool,
+    #[serde(default)]
     pub csp_header_configured: bool,
     #[serde(default)]
     pub cors_strict: bool,

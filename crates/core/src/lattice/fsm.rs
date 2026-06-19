@@ -88,6 +88,7 @@ impl Lattice for Fsm {
 
     fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
         let mut current: Option<Value> = self.initial_state.clone();
+        let mut seen_transitions: Vec<(Value, Value)> = Vec::new();
         for entry in sealed_ops {
             let op = &entry.op;
             // Skip ops that don't pass shape (defensive — same rule as
@@ -104,6 +105,26 @@ impl Lattice for Fsm {
             }
             let from = op.from.clone().unwrap();
             let to = op.to.clone().unwrap();
+            if seen_transitions
+                .iter()
+                .any(|(seen_from, seen_to)| seen_from == &from && seen_to == &to)
+            {
+                continue;
+            }
+            if seen_transitions
+                .iter()
+                .any(|(seen_from, seen_to)| seen_from == &from && seen_to != &to)
+            {
+                let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
+                bottom.move_ids = vec![entry.move_id.clone()];
+                bottom.details = Some(json!({
+                    "from": from,
+                    "to": to,
+                    "current": current,
+                    "reason": "same_from_different_to",
+                }));
+                return CellState::Bottom(bottom);
+            }
             // If we have a current state, the op's `from` must match it.
             // A None current means we accept the first transition's
             // `from` only if it matches the declared initial state (if
@@ -121,6 +142,7 @@ impl Lattice for Fsm {
                 }));
                 return CellState::Bottom(bottom);
             }
+            seen_transitions.push((from.clone(), to.clone()));
             current = Some(to);
         }
         match current {
