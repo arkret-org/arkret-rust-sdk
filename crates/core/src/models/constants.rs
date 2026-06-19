@@ -31,6 +31,7 @@ pub const NOTIFICATION_SCHEMA: &str = "ck.schema.notification.v1";
 /// schema and must be materialized as Event envelopes before submission.
 pub const OPERATION_SCHEMA: &str = "ck.local.operation_draft.v1";
 pub const BLOB_SCHEMA: &str = "ck.schema.blob.v1";
+pub const CALL_RECORDING_ARTIFACT_SCHEMA: &str = "ck.schema.call_recording_artifact.v1";
 pub const ANCHOR_SCHEMA: &str = "ck.schema.seal.v1";
 pub const BOTTOM_SCHEMA: &str = "ck.schema.bottom.v1";
 pub const SNAPSHOT_SCHEMA: &str = "ck.schema.snapshot.v1";

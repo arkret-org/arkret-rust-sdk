@@ -519,16 +519,24 @@ pub enum RecordingState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordingResult {
     /// `ck.call.recording.start` event id this segment derives from.
-    pub recording_start_event_id: String,
+    pub recording_start_event_id: crate::EventId,
     /// Content digest of the encrypted recording blob.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub content_digest: Option<String>,
+    pub content_digest: Option<crate::Hash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub duration_seconds: Option<u64>,
+    pub retention_policy_id: Option<crate::PolicyId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub retention_policy: Option<String>,
+    pub retention: Option<crate::CallRecordingRetention>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artifact: Option<crate::CallRecordingArtifact>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_reason_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_message: Option<String>,
 }
 
 /// `ck.call.transcribe` request payload (`webrtc-signaling.md` §3 capability,
@@ -846,15 +854,27 @@ mod tests {
         );
 
         let result = RecordingResult {
-            recording_start_event_id: "ck:event:01".to_owned(),
-            content_digest: Some("sha256:abcd".to_owned()),
+            recording_start_event_id: crate::EventId::new(
+                "ck:event:019a7360-0000-7000-8000-000000000003",
+            )
+            .unwrap(),
+            content_digest: Some(
+                crate::Hash::new(
+                    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                )
+                .unwrap(),
+            ),
+            duration_ms: Some(120_000),
             media_type: Some("video/webm".to_owned()),
-            duration_seconds: Some(120),
-            retention_policy: None,
+            retention_policy_id: None,
+            retention: None,
+            artifact: None,
+            failure_reason_code: None,
+            failure_message: None,
         };
         assert_eq!(
             serde_json::to_value(&result).unwrap()["recording_start_event_id"],
-            "ck:event:01"
+            "ck:event:019a7360-0000-7000-8000-000000000003"
         );
     }
 
