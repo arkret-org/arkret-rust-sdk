@@ -112,6 +112,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         auth_metadata: cokret_core::AuthMetadata::minimal("development"),
                         limits: Value::Null,
                         plaintext_visibility: cokret_core::PlaintextVisibility::none(),
+                        privacy_derivation: None,
                         implemented_features: vec![],
                         claimed_profiles: vec![],
                         verified_profiles: vec![],

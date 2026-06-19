@@ -112,6 +112,7 @@ fn server_description_checks_protocol_version() {
         auth_metadata: AuthMetadata::minimal("development"),
         limits: Value::Null,
         plaintext_visibility: PlaintextVisibility::none(),
+        privacy_derivation: None,
         implemented_features: vec![],
         claimed_profiles: vec![],
         verified_profiles: vec![],

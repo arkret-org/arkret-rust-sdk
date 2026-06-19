@@ -37,6 +37,12 @@ pub struct ServerDescription {
     /// mention-redirect / late-recovery paths). Wire shape per
     /// `service-describe.schema.json#plaintext_visibility`.
     pub plaintext_visibility: PlaintextVisibility,
+    /// Machine-readable privacy-preserving identifier derivation claims.
+    /// Secret material is never published here; producers expose only the
+    /// public derivation profile and epoch metadata needed by clients and
+    /// conformance tools.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy_derivation: Option<Value>,
     /// Round 4 — features the service has actually implemented (subset
     /// of `supported_features`). Tracks the difference between
     /// announce and run-time implementation.

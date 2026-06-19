@@ -432,6 +432,7 @@ mod tests {
             auth_metadata: AuthMetadata::minimal("development"),
             limits: Value::Null,
             plaintext_visibility: crate::PlaintextVisibility::none(),
+            privacy_derivation: None,
             implemented_features: vec![],
             claimed_profiles: vec![crate::ClaimedProfileEntry::self_claimed(
                 crate::PROFILE_DIRECTORY_SERVICE,
@@ -482,6 +483,7 @@ mod tests {
             auth_metadata: AuthMetadata::minimal("development"),
             limits: Value::Null,
             plaintext_visibility: crate::PlaintextVisibility::none(),
+            privacy_derivation: None,
             implemented_features: vec![],
             claimed_profiles: vec![],
             verified_profiles: vec![],
