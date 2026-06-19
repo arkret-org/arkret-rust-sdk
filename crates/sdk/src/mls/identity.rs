@@ -1,4 +1,5 @@
 use chrono::Utc;
+use cokret_core::base64url_encode;
 use openmls::prelude::{
     BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,
     MlsGroupCreateConfig, OpenMlsProvider, ProtocolVersion,
@@ -7,9 +8,14 @@ use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 
-use super::group::{CokretMlsGroup, decode, encode, mls_error};
+use super::group::{
+    CokretMlsGroup, decode, encode, governance_binding_group_context_extensions,
+    governance_binding_openmls_capabilities, mls_error,
+};
 use super::recovery::{MlsDeviceWorkflowAction, MlsDeviceWorkflowStep};
-use crate::{DeviceId, Did, Error, Hash, MlsKeyPackageRecord, Result, canonical};
+use crate::{
+    DeviceId, Did, Error, Hash, MlsGovernanceBindingPayload, MlsKeyPackageRecord, Result, canonical,
+};
 
 pub const COKRET_MLS_CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -44,6 +50,7 @@ impl CokretMlsIdentity {
 
     pub fn key_package_record(&self) -> Result<MlsKeyPackageRecord> {
         let key_package = KeyPackage::builder()
+            .leaf_node_capabilities(governance_binding_openmls_capabilities())
             .build(
                 COKRET_MLS_CIPHERSUITE,
                 &self.provider,
@@ -85,6 +92,8 @@ impl CokretMlsIdentity {
     pub fn create_group(self, group_id: impl AsRef<[u8]>) -> Result<CokretMlsGroup> {
         let config = MlsGroupCreateConfig::builder()
             .ciphersuite(COKRET_MLS_CIPHERSUITE)
+            .capabilities(governance_binding_openmls_capabilities())
+            .with_group_context_extensions(governance_binding_group_context_extensions(None)?)
             .use_ratchet_tree_extension(true)
             .build();
         let group = MlsGroup::new_with_group_id(
@@ -92,6 +101,47 @@ impl CokretMlsIdentity {
             &self.signer,
             &config,
             GroupId::from_slice(group_id.as_ref()),
+            self.credential.clone(),
+        )
+        .map_err(mls_error)?;
+
+        Ok(CokretMlsGroup {
+            identity: self,
+            group,
+        })
+    }
+
+    pub fn create_group_with_governance_binding(
+        self,
+        group_id: impl AsRef<[u8]>,
+        binding: &MlsGovernanceBindingPayload,
+    ) -> Result<CokretMlsGroup> {
+        let group_id_bytes = group_id.as_ref();
+        binding.validate()?;
+        if binding.mls_group_id() != base64url_encode(group_id_bytes) {
+            return Err(Error::Protocol(
+                "mls_governance_binding.mls_group_id does not match new MLS group".to_owned(),
+            ));
+        }
+        if binding.previous_epoch() != 0 || binding.next_epoch() != 0 {
+            return Err(Error::Protocol(
+                "initial mls_governance_binding epoch must be 0".to_owned(),
+            ));
+        }
+
+        let config = MlsGroupCreateConfig::builder()
+            .ciphersuite(COKRET_MLS_CIPHERSUITE)
+            .capabilities(governance_binding_openmls_capabilities())
+            .with_group_context_extensions(governance_binding_group_context_extensions(Some(
+                binding,
+            ))?)
+            .use_ratchet_tree_extension(true)
+            .build();
+        let group = MlsGroup::new_with_group_id(
+            &self.provider,
+            &self.signer,
+            &config,
+            GroupId::from_slice(group_id_bytes),
             self.credential.clone(),
         )
         .map_err(mls_error)?;

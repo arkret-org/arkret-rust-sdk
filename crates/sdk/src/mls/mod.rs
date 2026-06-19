@@ -17,7 +17,46 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
-    use crate::{CryptoStore, DeviceId, Did, EncryptedPayloadScheme, Error, OperationId, RealmId};
+    use crate::error::{ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE, ERROR_CODE_PROFILE_UNSUPPORTED};
+    use crate::{
+        CryptoStore, DeviceId, Did, EncryptedPayloadScheme, Error, EventId, Hash,
+        MLS_GOVERNANCE_BINDING_FULL_PROFILE, MLS_GOVERNANCE_BINDING_RELAXED_PROFILE,
+        MlsGovernanceBindingPayload, MlsGovernanceBindingValidationContext, OperationId, RealmId,
+        base64url_encode,
+    };
+
+    const GOVERNANCE_REDUCER_PROFILE: &str = "ck.reducer.v1";
+
+    fn governance_realm() -> RealmId {
+        RealmId::new("ck:realm:01904100-0000-7000-8000-00000000f1c0").unwrap()
+    }
+
+    fn governance_event(n: u8) -> EventId {
+        EventId::new(format!("ck:event:01904100-0000-7000-8000-00000000f1c{n}")).unwrap()
+    }
+
+    fn governance_hash(byte: char) -> Hash {
+        Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
+    }
+
+    fn governance_binding(
+        group_id: &str,
+        previous_epoch: u64,
+        next_epoch: u64,
+        policy_root: Hash,
+    ) -> MlsGovernanceBindingPayload {
+        MlsGovernanceBindingPayload::realm(
+            governance_realm(),
+            group_id.to_owned(),
+            previous_epoch,
+            next_epoch,
+            vec![governance_event(1)],
+            policy_root,
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            GOVERNANCE_REDUCER_PROFILE,
+        )
+        .unwrap()
+    }
 
     #[test]
     fn minimal_metadata_max_epoch_lifetime_is_one_hour() {
@@ -63,6 +102,161 @@ mod tests {
             started,
             started - chrono::Duration::minutes(5)
         ));
+    }
+
+    #[test]
+    fn create_group_with_governance_binding_stores_group_context_extension() {
+        let group_id_bytes = b"ck:realm:01904100-0000-7000-8000-f1c000000001";
+        let group_id = base64url_encode(group_id_bytes);
+        let binding = governance_binding(&group_id, 0, 0, governance_hash('1'));
+        let alice = CokretMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c1").unwrap(),
+        )
+        .unwrap();
+
+        let group = alice
+            .create_group_with_governance_binding(group_id_bytes, &binding)
+            .unwrap();
+        let current = group.current_governance_binding().unwrap().unwrap();
+        let current_group_id = group.group_id();
+        let mut expected = MlsGovernanceBindingValidationContext::for_commit(
+            &current_group_id,
+            0,
+            0,
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            GOVERNANCE_REDUCER_PROFILE,
+        );
+        expected.policy_root = Some(binding.policy_root());
+
+        assert_eq!(current, binding);
+        group.verify_current_governance_binding(&expected).unwrap();
+    }
+
+    #[test]
+    fn update_governance_binding_enters_group_context_extension() {
+        let alice = CokretMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c2").unwrap(),
+        )
+        .unwrap();
+        let mut group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-f1c000000002")
+            .unwrap();
+        let group_id = group.group_id();
+        let binding = governance_binding(
+            &group_id,
+            group.epoch(),
+            group.epoch() + 1,
+            governance_hash('2'),
+        );
+
+        let commit = group.update_governance_binding(&binding).unwrap();
+        let mut expected = MlsGovernanceBindingValidationContext::for_commit(
+            &group_id,
+            0,
+            1,
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            GOVERNANCE_REDUCER_PROFILE,
+        );
+        expected.policy_root = Some(binding.policy_root());
+
+        assert_eq!(commit.group_id, group_id);
+        assert_eq!(commit.epoch, 1);
+        assert_eq!(
+            group.current_governance_binding().unwrap(),
+            Some(binding.clone())
+        );
+        group.verify_current_governance_binding(&expected).unwrap();
+    }
+
+    #[test]
+    fn governance_binding_verification_fails_closed_when_extension_missing() {
+        let alice = CokretMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c3").unwrap(),
+        )
+        .unwrap();
+        let group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-f1c000000003")
+            .unwrap();
+        let group_id = group.group_id();
+        let expected = MlsGovernanceBindingValidationContext::for_commit(
+            &group_id,
+            0,
+            1,
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            GOVERNANCE_REDUCER_PROFILE,
+        );
+
+        let err = group
+            .verify_current_governance_binding(&expected)
+            .unwrap_err();
+
+        assert!(err.to_string().contains(ERROR_CODE_PROFILE_UNSUPPORTED));
+    }
+
+    #[test]
+    fn governance_binding_verification_rejects_profile_downgrade() {
+        let alice = CokretMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c4").unwrap(),
+        )
+        .unwrap();
+        let mut group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-f1c000000004")
+            .unwrap();
+        let group_id = group.group_id();
+        let binding = governance_binding(&group_id, 0, 1, governance_hash('3'))
+            .with_binding_profile(MLS_GOVERNANCE_BINDING_RELAXED_PROFILE)
+            .unwrap();
+        group.update_governance_binding(&binding).unwrap();
+        let expected = MlsGovernanceBindingValidationContext::for_commit(
+            &group_id,
+            0,
+            1,
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            GOVERNANCE_REDUCER_PROFILE,
+        );
+
+        let err = group
+            .verify_current_governance_binding(&expected)
+            .unwrap_err();
+
+        assert!(err.to_string().contains(ERROR_CODE_PROFILE_UNSUPPORTED));
+    }
+
+    #[test]
+    fn governance_binding_verification_rejects_stale_policy_root() {
+        let alice = CokretMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c5").unwrap(),
+        )
+        .unwrap();
+        let mut group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-f1c000000005")
+            .unwrap();
+        let group_id = group.group_id();
+        let binding = governance_binding(&group_id, 0, 1, governance_hash('4'));
+        group.update_governance_binding(&binding).unwrap();
+        let stale_policy_root = governance_hash('9');
+        let mut expected = MlsGovernanceBindingValidationContext::for_commit(
+            &group_id,
+            0,
+            1,
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            GOVERNANCE_REDUCER_PROFILE,
+        );
+        expected.policy_root = Some(&stale_policy_root);
+
+        let err = group
+            .verify_current_governance_binding(&expected)
+            .unwrap_err();
+
+        assert!(
+            err.to_string()
+                .contains(ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE)
+        );
     }
 
     #[test]

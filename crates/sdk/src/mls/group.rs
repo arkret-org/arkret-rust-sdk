@@ -3,9 +3,10 @@ use std::collections::BTreeMap;
 use chrono::Utc;
 use cokret_core::{base64url_decode, base64url_encode};
 use openmls::prelude::{
-    BasicCredential, CredentialWithKey, GroupId, LeafNodeIndex, LeafNodeParameters, MlsGroup,
-    MlsGroupJoinConfig, MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider, ProcessedMessageContent,
-    RatchetTreeIn, StagedWelcome,
+    BasicCredential, Capabilities, CredentialWithKey, Extension, ExtensionType, Extensions,
+    GroupContext, GroupId, LeafNodeIndex, LeafNodeParameters, MlsGroup, MlsGroupJoinConfig,
+    MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider, ProcessedMessageContent, RatchetTreeIn,
+    RequiredCapabilitiesExtension, StagedWelcome, UnknownExtension,
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
@@ -17,8 +18,10 @@ use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTra
 use super::identity::{COKRET_MLS_CIPHERSUITE, CokretMlsIdentity, decode_key_package};
 use crate::{
     CryptoStore, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, Hash,
-    MlsCommitEnvelope, MlsGroupStateRecord, MlsKeyPackageRecord, MlsWelcomeEnvelope, Operation,
-    OperationId, RealmId, Result, ToDeviceMessage, canonical,
+    MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsCommitEnvelope, MlsGovernanceBindingExtension,
+    MlsGovernanceBindingPayload, MlsGovernanceBindingValidationContext, MlsGroupStateRecord,
+    MlsKeyPackageRecord, MlsWelcomeEnvelope, Operation, OperationId, RealmId, Result,
+    ToDeviceMessage, canonical, verify_mls_governance_binding_extension,
 };
 
 const COKRET_OPENMLS_STATE_SNAPSHOT: &str = "cokret-openmls-provider-state-v1";
@@ -144,6 +147,77 @@ impl CokretMlsGroup {
             .tls_serialize_detached()
             .map_err(mls_error)?;
         Ok(encode(&bytes))
+    }
+
+    pub fn governance_binding_extension(&self) -> Option<MlsGovernanceBindingExtension> {
+        self.group
+            .extensions()
+            .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
+            .map(|extension| MlsGovernanceBindingExtension {
+                extension_type: MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
+                extension_data: extension.0.clone(),
+            })
+    }
+
+    pub fn current_governance_binding(&self) -> Result<Option<MlsGovernanceBindingPayload>> {
+        self.governance_binding_extension()
+            .map(|extension| extension.decode_payload())
+            .transpose()
+    }
+
+    pub fn verify_current_governance_binding(
+        &self,
+        expected: &MlsGovernanceBindingValidationContext<'_>,
+    ) -> Result<MlsGovernanceBindingPayload> {
+        let extension = self.governance_binding_extension();
+        verify_mls_governance_binding_extension(extension.as_ref(), expected)
+    }
+
+    pub fn update_governance_binding(
+        &mut self,
+        binding: &MlsGovernanceBindingPayload,
+    ) -> Result<MlsCommitEnvelope> {
+        binding.validate()?;
+        if binding.mls_group_id() != self.group_id() {
+            return Err(Error::Protocol(
+                "mls_governance_binding.mls_group_id does not match current MLS group".to_owned(),
+            ));
+        }
+        if binding.previous_epoch() != self.epoch() || binding.next_epoch() != self.epoch() + 1 {
+            return Err(Error::Protocol(
+                "mls_governance_binding epoch does not match current MLS group".to_owned(),
+            ));
+        }
+
+        let mut extensions = self.group.extensions().clone();
+        extensions
+            .add_or_replace(governance_binding_required_capabilities_extension())
+            .map_err(mls_error)?;
+        extensions
+            .add_or_replace(governance_binding_openmls_extension(binding)?)
+            .map_err(mls_error)?;
+        let (commit, _welcome, _group_info) = self
+            .group
+            .update_group_context_extensions(
+                &self.identity.provider,
+                extensions,
+                &self.identity.signer,
+            )
+            .map_err(mls_error)?;
+        self.group
+            .merge_pending_commit(&self.identity.provider)
+            .map_err(mls_error)?;
+
+        let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
+        let ratchet_tree = Some(self.ratchet_tree()?);
+        Ok(MlsCommitEnvelope {
+            group_id: self.group_id(),
+            epoch: self.epoch(),
+            commit: encode(&commit_bytes),
+            commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
+            ratchet_tree,
+            app_state_ref: None,
+        })
     }
 
     /// Content hash of the group's current key schedule, suitable for use as
@@ -711,6 +785,43 @@ fn hex_lower(bytes: &[u8]) -> String {
 
 pub(super) fn decode(value: &str) -> Result<Vec<u8>> {
     base64url_decode(value)
+}
+
+pub(super) fn governance_binding_openmls_extension(
+    binding: &MlsGovernanceBindingPayload,
+) -> Result<Extension> {
+    Ok(Extension::Unknown(
+        MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
+        UnknownExtension(binding.to_deterministic_cbor()?),
+    ))
+}
+
+pub(super) fn governance_binding_required_capabilities_extension() -> Extension {
+    Extension::RequiredCapabilities(RequiredCapabilitiesExtension::new(
+        &[ExtensionType::Unknown(
+            MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
+        )],
+        &[],
+        &[],
+    ))
+}
+
+pub(super) fn governance_binding_openmls_capabilities() -> Capabilities {
+    Capabilities::builder()
+        .extensions(vec![ExtensionType::Unknown(
+            MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
+        )])
+        .build()
+}
+
+pub(super) fn governance_binding_group_context_extensions(
+    binding: Option<&MlsGovernanceBindingPayload>,
+) -> Result<Extensions<GroupContext>> {
+    let mut extensions = vec![governance_binding_required_capabilities_extension()];
+    if let Some(binding) = binding {
+        extensions.push(governance_binding_openmls_extension(binding)?);
+    }
+    Extensions::from_vec(extensions).map_err(mls_error)
 }
 
 pub(super) fn mls_error(error: impl std::fmt::Debug) -> Error {

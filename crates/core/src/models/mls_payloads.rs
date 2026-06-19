@@ -1,16 +1,24 @@
 //! MLS event payloads from `ck.schema.event_payload.v1`.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
 use regex::Regex;
 
 use super::*;
+use crate::error::{
+    ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE, ERROR_CODE_PROFILE_UNSUPPORTED,
+    ERROR_CODE_REDUCER_PROFILE_MISMATCH, ERROR_CODE_SCHEMA_VIOLATION, ERROR_CODE_STATE_MISMATCH,
+};
 use crate::events::MLS_COMMIT;
-use crate::{ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE, ERROR_CODE_SCHEMA_VIOLATION};
+use crate::{base64url_decode, base64url_encode};
 
 pub const MLS_GOVERNANCE_BINDING_VERSION: u8 = 1;
 pub const MLS_GOVERNANCE_BINDING_ENCODING_PROFILE: &str = "cbor-deterministic-rfc8949-v1";
+pub const MLS_GOVERNANCE_BINDING_EXTENSION_TYPE: u16 = 0xF1C0;
+pub const MLS_GOVERNANCE_BINDING_EXTENSION_NAME: &str = "mls_governance_binding";
+pub const MLS_GOVERNANCE_BINDING_FULL_PROFILE: &str = "ck.profile.mls_governance_binding.full.v1";
+pub const MLS_GOVERNANCE_BINDING_RELAXED_PROFILE: &str = "ck.profile.e2ee_relaxed.v1";
 
 /// `event-payload.schema.json#/$defs/mls_governance_binding`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,10 +40,8 @@ pub struct MlsGovernanceBindingPayload {
     capability_root: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     discussion_metadata_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    binding_profile: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    reducer_profile: Option<String>,
+    binding_profile: String,
+    reducer_profile: String,
 }
 
 impl MlsGovernanceBindingPayload {
@@ -46,6 +52,8 @@ impl MlsGovernanceBindingPayload {
         next_epoch: u64,
         membership_frontier: Vec<EventId>,
         policy_root: Hash,
+        binding_profile: impl Into<String>,
+        reducer_profile: impl Into<String>,
     ) -> Result<Self> {
         let payload = Self {
             binding_version: MLS_GOVERNANCE_BINDING_VERSION,
@@ -60,8 +68,8 @@ impl MlsGovernanceBindingPayload {
             policy_root,
             capability_root: None,
             discussion_metadata_digest: None,
-            binding_profile: None,
-            reducer_profile: None,
+            binding_profile: binding_profile.into(),
+            reducer_profile: reducer_profile.into(),
         };
         payload.validate()?;
         Ok(payload)
@@ -75,6 +83,8 @@ impl MlsGovernanceBindingPayload {
         next_epoch: u64,
         membership_frontier: Vec<EventId>,
         policy_root: Hash,
+        binding_profile: impl Into<String>,
+        reducer_profile: impl Into<String>,
     ) -> Result<Self> {
         let payload = Self {
             binding_version: MLS_GOVERNANCE_BINDING_VERSION,
@@ -92,8 +102,8 @@ impl MlsGovernanceBindingPayload {
             policy_root,
             capability_root: None,
             discussion_metadata_digest: None,
-            binding_profile: None,
-            reducer_profile: None,
+            binding_profile: binding_profile.into(),
+            reducer_profile: reducer_profile.into(),
         };
         payload.validate()?;
         Ok(payload)
@@ -110,13 +120,13 @@ impl MlsGovernanceBindingPayload {
     }
 
     pub fn with_binding_profile(mut self, profile: impl Into<String>) -> Result<Self> {
-        self.binding_profile = Some(profile.into());
+        self.binding_profile = profile.into();
         self.validate()?;
         Ok(self)
     }
 
     pub fn with_reducer_profile(mut self, profile: impl Into<String>) -> Result<Self> {
-        self.reducer_profile = Some(profile.into());
+        self.reducer_profile = profile.into();
         self.validate()?;
         Ok(self)
     }
@@ -142,14 +152,11 @@ impl MlsGovernanceBindingPayload {
                 "mls_governance_binding.membership_frontier must be non-empty ({ERROR_CODE_SCHEMA_VIOLATION})"
             )));
         }
-        if let Some(binding_profile) = &self.binding_profile {
-            validate_profile_id("mls_governance_binding.binding_profile", binding_profile)?;
-        }
-        if self
-            .reducer_profile
-            .as_ref()
-            .is_some_and(|profile| profile.is_empty())
-        {
+        validate_profile_id(
+            "mls_governance_binding.binding_profile",
+            &self.binding_profile,
+        )?;
+        if self.reducer_profile.is_empty() {
             return Err(Error::Protocol(format!(
                 "mls_governance_binding.reducer_profile must be non-empty ({ERROR_CODE_SCHEMA_VIOLATION})"
             )));
@@ -174,6 +181,150 @@ impl MlsGovernanceBindingPayload {
             }
         }
         Ok(())
+    }
+
+    pub fn validate_against(
+        &self,
+        expected: &MlsGovernanceBindingValidationContext<'_>,
+    ) -> Result<()> {
+        self.validate()?;
+        if self.mls_group_id != expected.mls_group_id {
+            return Err(Error::Protocol(format!(
+                "mls_governance_binding.mls_group_id does not match expected commit group ({ERROR_CODE_STATE_MISMATCH})"
+            )));
+        }
+        if self.previous_epoch != expected.previous_epoch || self.next_epoch != expected.next_epoch
+        {
+            return Err(Error::Protocol(format!(
+                "mls_governance_binding epoch does not match expected commit epoch ({ERROR_CODE_STATE_MISMATCH})"
+            )));
+        }
+        if self.binding_profile != expected.binding_profile {
+            return Err(Error::Protocol(format!(
+                "mls_governance_binding.binding_profile mismatch: expected {} got {} ({ERROR_CODE_PROFILE_UNSUPPORTED})",
+                expected.binding_profile, self.binding_profile
+            )));
+        }
+        if self.reducer_profile != expected.reducer_profile {
+            return Err(Error::Protocol(format!(
+                "mls_governance_binding.reducer_profile mismatch: expected {} got {} ({ERROR_CODE_REDUCER_PROFILE_MISMATCH})",
+                expected.reducer_profile, self.reducer_profile
+            )));
+        }
+        if let Some(scope) = expected.effective_scope
+            && &self.effective_scope != scope
+        {
+            return Err(Error::Protocol(format!(
+                "mls_governance_binding.effective_scope mismatch ({ERROR_CODE_STATE_MISMATCH})"
+            )));
+        }
+        if let Some(frontier) = expected.membership_frontier
+            && self.membership_frontier.as_slice() != frontier
+        {
+            return Err(Error::Protocol(format!(
+                "mls_governance_binding.membership_frontier is stale ({ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE})"
+            )));
+        }
+        if let Some(policy_root) = expected.policy_root
+            && &self.policy_root != policy_root
+        {
+            return Err(Error::Protocol(format!(
+                "mls_governance_binding.policy_root is stale ({ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE})"
+            )));
+        }
+        if let Some(capability_root) = expected.capability_root
+            && self.capability_root.as_ref() != Some(capability_root)
+        {
+            return Err(Error::Protocol(format!(
+                "mls_governance_binding.capability_root is stale ({ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE})"
+            )));
+        }
+        if let Some(digest) = expected.discussion_metadata_digest
+            && self.discussion_metadata_digest.as_ref() != Some(digest)
+        {
+            return Err(Error::Protocol(format!(
+                "mls_governance_binding.discussion_metadata_digest is stale ({ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE})"
+            )));
+        }
+        Ok(())
+    }
+
+    pub fn to_deterministic_cbor(&self) -> Result<Vec<u8>> {
+        self.validate()?;
+        let mut out = Vec::new();
+        cbor_put_map_len(&mut out, self.cbor_field_count());
+        cbor_put_tstr(&mut out, "binding_profile");
+        cbor_put_tstr(&mut out, &self.binding_profile);
+        cbor_put_tstr(&mut out, "binding_version");
+        cbor_put_uint(&mut out, u64::from(self.binding_version));
+        if let Some(capability_root) = &self.capability_root {
+            cbor_put_tstr(&mut out, "capability_root");
+            cbor_put_bstr(
+                &mut out,
+                &hash_digest_bytes("capability_root", capability_root)?,
+            );
+        }
+        if let Some(circle_id) = &self.circle_id {
+            cbor_put_tstr(&mut out, "circle_id");
+            cbor_put_tstr(&mut out, circle_id.as_str());
+        }
+        if let Some(digest) = &self.discussion_metadata_digest {
+            cbor_put_tstr(&mut out, "discussion_metadata_digest");
+            cbor_put_bstr(
+                &mut out,
+                &hash_digest_bytes("discussion_metadata_digest", digest)?,
+            );
+        }
+        cbor_put_tstr(&mut out, "effective_scope");
+        encode_effective_scope(&mut out, &self.effective_scope);
+        cbor_put_tstr(&mut out, "encoding_profile");
+        cbor_put_tstr(&mut out, &self.encoding_profile);
+        cbor_put_tstr(&mut out, "membership_frontier");
+        cbor_put_array_len(&mut out, self.membership_frontier.len() as u64);
+        for event_id in &self.membership_frontier {
+            cbor_put_bstr(&mut out, event_id.as_str().as_bytes());
+        }
+        cbor_put_tstr(&mut out, "mls_group_id");
+        cbor_put_bstr(&mut out, &base64url_decode(&self.mls_group_id).map_err(|err| {
+            Error::Protocol(format!(
+                "mls_governance_binding.mls_group_id must be base64url for CBOR bstr encoding: {err} ({ERROR_CODE_SCHEMA_VIOLATION})"
+            ))
+        })?);
+        cbor_put_tstr(&mut out, "next_epoch");
+        cbor_put_uint(&mut out, self.next_epoch);
+        cbor_put_tstr(&mut out, "policy_root");
+        cbor_put_bstr(
+            &mut out,
+            &hash_digest_bytes("policy_root", &self.policy_root)?,
+        );
+        cbor_put_tstr(&mut out, "previous_epoch");
+        cbor_put_uint(&mut out, self.previous_epoch);
+        cbor_put_tstr(&mut out, "realm_id");
+        cbor_put_tstr(&mut out, self.realm_id.as_str());
+        cbor_put_tstr(&mut out, "reducer_profile");
+        cbor_put_tstr(&mut out, &self.reducer_profile);
+        Ok(out)
+    }
+
+    pub fn from_deterministic_cbor(bytes: &[u8]) -> Result<Self> {
+        let mut reader = CborReader::new(bytes);
+        let fields = reader.read_map()?;
+        reader.finish()?;
+        let payload = Self::from_cbor_fields(fields)?;
+        let canonical = payload.to_deterministic_cbor()?;
+        if canonical != bytes {
+            return Err(Error::Protocol(format!(
+                "mls_governance_binding CBOR is not deterministic canonical encoding ({ERROR_CODE_SCHEMA_VIOLATION})"
+            )));
+        }
+        Ok(payload)
+    }
+
+    pub fn to_group_context_extension(&self) -> Result<MlsGovernanceBindingExtension> {
+        Ok(MlsGovernanceBindingExtension {
+            extension_type: MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
+            extension_data: self.to_deterministic_cbor()?,
+        })
     }
 
     pub fn realm_id(&self) -> &RealmId {
@@ -207,6 +358,166 @@ impl MlsGovernanceBindingPayload {
     pub fn policy_root(&self) -> &Hash {
         &self.policy_root
     }
+
+    pub fn capability_root(&self) -> Option<&Hash> {
+        self.capability_root.as_ref()
+    }
+
+    pub fn discussion_metadata_digest(&self) -> Option<&Hash> {
+        self.discussion_metadata_digest.as_ref()
+    }
+
+    pub fn binding_profile(&self) -> &str {
+        &self.binding_profile
+    }
+
+    pub fn reducer_profile(&self) -> &str {
+        &self.reducer_profile
+    }
+
+    fn cbor_field_count(&self) -> u64 {
+        11 + self.capability_root.is_some() as u64
+            + self.circle_id.is_some() as u64
+            + self.discussion_metadata_digest.is_some() as u64
+    }
+
+    fn from_cbor_fields(mut fields: BTreeMap<String, CborValue>) -> Result<Self> {
+        let binding_profile = take_tstr(&mut fields, "binding_profile")?;
+        let binding_version = take_uint(&mut fields, "binding_version")?;
+        if binding_version > u64::from(u8::MAX) {
+            return Err(cbor_error("binding_version is out of range"));
+        }
+        let capability_root = take_optional_hash(&mut fields, "capability_root")?;
+        let circle_id = take_optional_tstr(&mut fields, "circle_id")?
+            .map(CircleId::new)
+            .transpose()
+            .map_err(|err| cbor_error_message(format!("circle_id is invalid: {err}")))?;
+        let discussion_metadata_digest =
+            take_optional_hash(&mut fields, "discussion_metadata_digest")?;
+        let effective_scope = take_effective_scope(&mut fields)?;
+        let encoding_profile = take_tstr(&mut fields, "encoding_profile")?;
+        let membership_frontier = take_bstr_array(&mut fields, "membership_frontier")?
+            .into_iter()
+            .map(|bytes| {
+                std::str::from_utf8(&bytes)
+                    .map_err(|err| {
+                        cbor_error_message(format!("membership_frontier is not UTF-8: {err}"))
+                    })
+                    .and_then(|value| {
+                        EventId::new(value.to_owned()).map_err(|err| {
+                            cbor_error_message(format!(
+                                "membership_frontier item is invalid: {err}"
+                            ))
+                        })
+                    })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let mls_group_id = base64url_encode(&take_bstr(&mut fields, "mls_group_id")?);
+        let next_epoch = take_uint(&mut fields, "next_epoch")?;
+        let policy_root = take_hash(&mut fields, "policy_root")?;
+        let previous_epoch = take_uint(&mut fields, "previous_epoch")?;
+        let realm_id = RealmId::new(take_tstr(&mut fields, "realm_id")?)
+            .map_err(|err| cbor_error_message(format!("realm_id is invalid: {err}")))?;
+        let reducer_profile = take_tstr(&mut fields, "reducer_profile")?;
+        if let Some(extra) = fields.keys().next() {
+            return Err(cbor_error_message(format!(
+                "unexpected mls_governance_binding CBOR key `{extra}`"
+            )));
+        }
+        let payload = Self {
+            binding_version: binding_version as u8,
+            encoding_profile,
+            realm_id,
+            circle_id,
+            effective_scope,
+            mls_group_id,
+            previous_epoch,
+            next_epoch,
+            membership_frontier,
+            policy_root,
+            capability_root,
+            discussion_metadata_digest,
+            binding_profile,
+            reducer_profile,
+        };
+        payload.validate()?;
+        Ok(payload)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MlsGovernanceBindingExtension {
+    pub extension_type: u16,
+    pub extension_data: Vec<u8>,
+}
+
+impl MlsGovernanceBindingExtension {
+    pub fn decode_payload(&self) -> Result<MlsGovernanceBindingPayload> {
+        decode_mls_governance_binding_extension(self.extension_type, &self.extension_data)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct MlsGovernanceBindingValidationContext<'a> {
+    pub mls_group_id: &'a str,
+    pub previous_epoch: u64,
+    pub next_epoch: u64,
+    pub binding_profile: &'a str,
+    pub reducer_profile: &'a str,
+    pub effective_scope: Option<&'a EffectiveScope>,
+    pub membership_frontier: Option<&'a [EventId]>,
+    pub policy_root: Option<&'a Hash>,
+    pub capability_root: Option<&'a Hash>,
+    pub discussion_metadata_digest: Option<&'a Hash>,
+}
+
+impl<'a> MlsGovernanceBindingValidationContext<'a> {
+    pub fn for_commit(
+        mls_group_id: &'a str,
+        previous_epoch: u64,
+        next_epoch: u64,
+        binding_profile: &'a str,
+        reducer_profile: &'a str,
+    ) -> Self {
+        Self {
+            mls_group_id,
+            previous_epoch,
+            next_epoch,
+            binding_profile,
+            reducer_profile,
+            effective_scope: None,
+            membership_frontier: None,
+            policy_root: None,
+            capability_root: None,
+            discussion_metadata_digest: None,
+        }
+    }
+}
+
+pub fn decode_mls_governance_binding_extension(
+    extension_type: u16,
+    extension_data: &[u8],
+) -> Result<MlsGovernanceBindingPayload> {
+    if extension_type != MLS_GOVERNANCE_BINDING_EXTENSION_TYPE {
+        return Err(Error::Protocol(format!(
+            "expected {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension codepoint 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X}, got 0x{extension_type:04X} ({ERROR_CODE_PROFILE_UNSUPPORTED})"
+        )));
+    }
+    MlsGovernanceBindingPayload::from_deterministic_cbor(extension_data)
+}
+
+pub fn verify_mls_governance_binding_extension(
+    extension: Option<&MlsGovernanceBindingExtension>,
+    expected: &MlsGovernanceBindingValidationContext<'_>,
+) -> Result<MlsGovernanceBindingPayload> {
+    let extension = extension.ok_or_else(|| {
+        Error::Protocol(format!(
+            "missing {MLS_GOVERNANCE_BINDING_EXTENSION_NAME} GroupContext extension 0x{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE:04X} ({ERROR_CODE_PROFILE_UNSUPPORTED})"
+        ))
+    })?;
+    let payload = extension.decode_payload()?;
+    payload.validate_against(expected)?;
+    Ok(payload)
 }
 
 /// `event-payload.schema.json#/$defs/mls_commit_payload`.
@@ -467,6 +778,345 @@ fn validate_profile_id(field: &str, value: &str) -> Result<()> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum CborValue {
+    UInt(u64),
+    Bstr(Vec<u8>),
+    Tstr(String),
+    Array(Vec<CborValue>),
+    Map(BTreeMap<String, CborValue>),
+}
+
+struct CborReader<'a> {
+    bytes: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> CborReader<'a> {
+    fn new(bytes: &'a [u8]) -> Self {
+        Self { bytes, pos: 0 }
+    }
+
+    fn finish(&self) -> Result<()> {
+        if self.pos == self.bytes.len() {
+            Ok(())
+        } else {
+            Err(cbor_error("trailing bytes after CBOR object"))
+        }
+    }
+
+    fn read_map(&mut self) -> Result<BTreeMap<String, CborValue>> {
+        match self.read_value()? {
+            CborValue::Map(map) => Ok(map),
+            _ => Err(cbor_error("expected top-level CBOR map")),
+        }
+    }
+
+    fn read_value(&mut self) -> Result<CborValue> {
+        let initial = self.read_u8()?;
+        let major = initial >> 5;
+        let additional = initial & 0x1f;
+        match major {
+            0 => Ok(CborValue::UInt(self.read_len(additional)?)),
+            2 => {
+                let len = self.read_len(additional)? as usize;
+                Ok(CborValue::Bstr(self.read_bytes(len)?.to_vec()))
+            }
+            3 => {
+                let len = self.read_len(additional)? as usize;
+                let bytes = self.read_bytes(len)?;
+                let value = std::str::from_utf8(bytes).map_err(|err| {
+                    cbor_error_message(format!("invalid CBOR text string: {err}"))
+                })?;
+                Ok(CborValue::Tstr(value.to_owned()))
+            }
+            4 => {
+                let len = self.read_len(additional)?;
+                let mut values = Vec::with_capacity(len as usize);
+                for _ in 0..len {
+                    values.push(self.read_value()?);
+                }
+                Ok(CborValue::Array(values))
+            }
+            5 => {
+                let len = self.read_len(additional)?;
+                let mut map = BTreeMap::new();
+                for _ in 0..len {
+                    let key = match self.read_value()? {
+                        CborValue::Tstr(key) => key,
+                        _ => {
+                            return Err(cbor_error(
+                                "mls_governance_binding CBOR map key is not tstr",
+                            ));
+                        }
+                    };
+                    let value = self.read_value()?;
+                    if map.insert(key.clone(), value).is_some() {
+                        return Err(cbor_error_message(format!(
+                            "duplicate mls_governance_binding CBOR key `{key}`"
+                        )));
+                    }
+                }
+                Ok(CborValue::Map(map))
+            }
+            _ => Err(cbor_error(
+                "unsupported CBOR type in mls_governance_binding",
+            )),
+        }
+    }
+
+    fn read_len(&mut self, additional: u8) -> Result<u64> {
+        match additional {
+            0..=23 => Ok(u64::from(additional)),
+            24 => Ok(u64::from(self.read_u8()?)),
+            25 => {
+                let bytes = self.read_fixed::<2>()?;
+                Ok(u64::from(u16::from_be_bytes(bytes)))
+            }
+            26 => {
+                let bytes = self.read_fixed::<4>()?;
+                Ok(u64::from(u32::from_be_bytes(bytes)))
+            }
+            27 => Ok(u64::from_be_bytes(self.read_fixed::<8>()?)),
+            _ => Err(cbor_error("indefinite-length CBOR is not allowed")),
+        }
+    }
+
+    fn read_u8(&mut self) -> Result<u8> {
+        let Some(value) = self.bytes.get(self.pos) else {
+            return Err(cbor_error("unexpected end of CBOR input"));
+        };
+        self.pos += 1;
+        Ok(*value)
+    }
+
+    fn read_fixed<const N: usize>(&mut self) -> Result<[u8; N]> {
+        let bytes = self.read_bytes(N)?;
+        let mut out = [0u8; N];
+        out.copy_from_slice(bytes);
+        Ok(out)
+    }
+
+    fn read_bytes(&mut self, len: usize) -> Result<&'a [u8]> {
+        let end = self
+            .pos
+            .checked_add(len)
+            .ok_or_else(|| cbor_error("CBOR length overflow"))?;
+        if end > self.bytes.len() {
+            return Err(cbor_error("CBOR item length exceeds input"));
+        }
+        let bytes = &self.bytes[self.pos..end];
+        self.pos = end;
+        Ok(bytes)
+    }
+}
+
+fn cbor_put_uint(out: &mut Vec<u8>, value: u64) {
+    cbor_put_type_len(out, 0, value);
+}
+
+fn cbor_put_bstr(out: &mut Vec<u8>, bytes: &[u8]) {
+    cbor_put_type_len(out, 2, bytes.len() as u64);
+    out.extend_from_slice(bytes);
+}
+
+fn cbor_put_tstr(out: &mut Vec<u8>, value: &str) {
+    cbor_put_type_len(out, 3, value.len() as u64);
+    out.extend_from_slice(value.as_bytes());
+}
+
+fn cbor_put_array_len(out: &mut Vec<u8>, len: u64) {
+    cbor_put_type_len(out, 4, len);
+}
+
+fn cbor_put_map_len(out: &mut Vec<u8>, len: u64) {
+    cbor_put_type_len(out, 5, len);
+}
+
+fn cbor_put_type_len(out: &mut Vec<u8>, major: u8, value: u64) {
+    let head = major << 5;
+    if value < 24 {
+        out.push(head | value as u8);
+    } else if value <= u64::from(u8::MAX) {
+        out.push(head | 24);
+        out.push(value as u8);
+    } else if value <= u64::from(u16::MAX) {
+        out.push(head | 25);
+        out.extend_from_slice(&(value as u16).to_be_bytes());
+    } else if value <= u64::from(u32::MAX) {
+        out.push(head | 26);
+        out.extend_from_slice(&(value as u32).to_be_bytes());
+    } else {
+        out.push(head | 27);
+        out.extend_from_slice(&value.to_be_bytes());
+    }
+}
+
+fn encode_effective_scope(out: &mut Vec<u8>, scope: &EffectiveScope) {
+    match scope {
+        EffectiveScope::Realm { realm_id } => {
+            cbor_put_map_len(out, 2);
+            cbor_put_tstr(out, "kind");
+            cbor_put_tstr(out, "realm");
+            cbor_put_tstr(out, "realm_id");
+            cbor_put_tstr(out, realm_id.as_str());
+        }
+        EffectiveScope::Circle {
+            realm_id,
+            circle_id,
+        } => {
+            cbor_put_map_len(out, 3);
+            cbor_put_tstr(out, "circle_id");
+            cbor_put_tstr(out, circle_id.as_str());
+            cbor_put_tstr(out, "kind");
+            cbor_put_tstr(out, "circle");
+            cbor_put_tstr(out, "realm_id");
+            cbor_put_tstr(out, realm_id.as_str());
+        }
+    }
+}
+
+fn take_tstr(fields: &mut BTreeMap<String, CborValue>, key: &str) -> Result<String> {
+    match fields.remove(key) {
+        Some(CborValue::Tstr(value)) => Ok(value),
+        Some(_) => Err(cbor_error_message(format!("CBOR key `{key}` must be tstr"))),
+        None => Err(cbor_error_message(format!("missing CBOR key `{key}`"))),
+    }
+}
+
+fn take_optional_tstr(
+    fields: &mut BTreeMap<String, CborValue>,
+    key: &str,
+) -> Result<Option<String>> {
+    match fields.remove(key) {
+        Some(CborValue::Tstr(value)) => Ok(Some(value)),
+        Some(_) => Err(cbor_error_message(format!("CBOR key `{key}` must be tstr"))),
+        None => Ok(None),
+    }
+}
+
+fn take_uint(fields: &mut BTreeMap<String, CborValue>, key: &str) -> Result<u64> {
+    match fields.remove(key) {
+        Some(CborValue::UInt(value)) => Ok(value),
+        Some(_) => Err(cbor_error_message(format!("CBOR key `{key}` must be uint"))),
+        None => Err(cbor_error_message(format!("missing CBOR key `{key}`"))),
+    }
+}
+
+fn take_bstr(fields: &mut BTreeMap<String, CborValue>, key: &str) -> Result<Vec<u8>> {
+    match fields.remove(key) {
+        Some(CborValue::Bstr(value)) => Ok(value),
+        Some(_) => Err(cbor_error_message(format!("CBOR key `{key}` must be bstr"))),
+        None => Err(cbor_error_message(format!("missing CBOR key `{key}`"))),
+    }
+}
+
+fn take_bstr_array(fields: &mut BTreeMap<String, CborValue>, key: &str) -> Result<Vec<Vec<u8>>> {
+    match fields.remove(key) {
+        Some(CborValue::Array(values)) => values
+            .into_iter()
+            .map(|value| match value {
+                CborValue::Bstr(bytes) => Ok(bytes),
+                _ => Err(cbor_error_message(format!(
+                    "CBOR key `{key}` array items must be bstr"
+                ))),
+            })
+            .collect(),
+        Some(_) => Err(cbor_error_message(format!(
+            "CBOR key `{key}` must be array"
+        ))),
+        None => Err(cbor_error_message(format!("missing CBOR key `{key}`"))),
+    }
+}
+
+fn take_hash(fields: &mut BTreeMap<String, CborValue>, key: &str) -> Result<Hash> {
+    hash_from_digest_bytes(key, &take_bstr(fields, key)?)
+}
+
+fn take_optional_hash(fields: &mut BTreeMap<String, CborValue>, key: &str) -> Result<Option<Hash>> {
+    match fields.remove(key) {
+        Some(CborValue::Bstr(bytes)) => Ok(Some(hash_from_digest_bytes(key, &bytes)?)),
+        Some(_) => Err(cbor_error_message(format!("CBOR key `{key}` must be bstr"))),
+        None => Ok(None),
+    }
+}
+
+fn take_effective_scope(fields: &mut BTreeMap<String, CborValue>) -> Result<EffectiveScope> {
+    let Some(CborValue::Map(mut map)) = fields.remove("effective_scope") else {
+        return Err(cbor_error("missing or invalid CBOR key `effective_scope`"));
+    };
+    let kind = take_tstr(&mut map, "kind")?;
+    let realm_id = RealmId::new(take_tstr(&mut map, "realm_id")?)
+        .map_err(|err| cbor_error_message(format!("effective_scope.realm_id is invalid: {err}")))?;
+    match kind.as_str() {
+        "realm" => {
+            if let Some(extra) = map.keys().next() {
+                return Err(cbor_error_message(format!(
+                    "unexpected effective_scope realm key `{extra}`"
+                )));
+            }
+            Ok(EffectiveScope::Realm { realm_id })
+        }
+        "circle" => {
+            let circle_id = CircleId::new(take_tstr(&mut map, "circle_id")?).map_err(|err| {
+                cbor_error_message(format!("effective_scope.circle_id is invalid: {err}"))
+            })?;
+            if let Some(extra) = map.keys().next() {
+                return Err(cbor_error_message(format!(
+                    "unexpected effective_scope circle key `{extra}`"
+                )));
+            }
+            Ok(EffectiveScope::Circle {
+                realm_id,
+                circle_id,
+            })
+        }
+        _ => Err(cbor_error("effective_scope.kind must be realm or circle")),
+    }
+}
+
+fn hash_digest_bytes(field: &str, hash: &Hash) -> Result<Vec<u8>> {
+    let Some(hex_value) = hash.as_str().strip_prefix("sha256:") else {
+        return Err(Error::Protocol(format!(
+            "mls_governance_binding.{field} must be sha256:<hex> ({ERROR_CODE_SCHEMA_VIOLATION})"
+        )));
+    };
+    let bytes = hex::decode(hex_value).map_err(|err| {
+        Error::Protocol(format!(
+            "mls_governance_binding.{field} hash is not hex: {err} ({ERROR_CODE_SCHEMA_VIOLATION})"
+        ))
+    })?;
+    if bytes.len() != 32 {
+        return Err(Error::Protocol(format!(
+            "mls_governance_binding.{field} hash must be 32 bytes ({ERROR_CODE_SCHEMA_VIOLATION})"
+        )));
+    }
+    Ok(bytes)
+}
+
+fn hash_from_digest_bytes(field: &str, bytes: &[u8]) -> Result<Hash> {
+    if bytes.len() != 32 {
+        return Err(cbor_error_message(format!(
+            "CBOR key `{field}` hash bstr must be 32 bytes"
+        )));
+    }
+    Hash::new(format!("sha256:{}", hex::encode(bytes))).map_err(|err| {
+        cbor_error_message(format!(
+            "CBOR key `{field}` cannot be converted to Hash: {err}"
+        ))
+    })
+}
+
+fn cbor_error(message: &str) -> Error {
+    cbor_error_message(message.to_owned())
+}
+
+fn cbor_error_message(message: String) -> Error {
+    Error::Protocol(format!(
+        "mls_governance_binding CBOR decode failed: {message} ({ERROR_CODE_SCHEMA_VIOLATION})"
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -485,19 +1135,45 @@ mod tests {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
     }
 
-    #[test]
-    fn mls_commit_payload_matches_registered_event_schema() {
-        let binding = MlsGovernanceBindingPayload::realm(
+    fn group_id() -> String {
+        base64url_encode(b"cokret-mls-test-group")
+    }
+
+    fn reducer_profile() -> &'static str {
+        "ck.reducer.v1"
+    }
+
+    fn full_binding() -> MlsGovernanceBindingPayload {
+        MlsGovernanceBindingPayload::realm(
             realm(),
-            "ck:mls_group:test",
+            group_id(),
             0,
             1,
             vec![event(2)],
             hash('2'),
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            reducer_profile(),
+        )
+        .unwrap()
+        .with_capability_root(hash('3'))
+        .with_discussion_metadata_digest(hash('4'))
+    }
+
+    #[test]
+    fn mls_commit_payload_matches_registered_event_schema() {
+        let binding = MlsGovernanceBindingPayload::realm(
+            realm(),
+            group_id(),
+            0,
+            1,
+            vec![event(2)],
+            hash('2'),
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            reducer_profile(),
         )
         .unwrap();
         let payload = MlsCommitPayload::new(
-            "ck:mls_group:test",
+            group_id(),
             0,
             event(1).to_string(),
             Vec::new(),
@@ -528,6 +1204,8 @@ mod tests {
             "next_epoch": 1,
             "membership_frontier": [event(2)],
             "policy_root": hash('2'),
+            "binding_profile": MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            "reducer_profile": reducer_profile(),
             "unexpected_field": true
         }))
         .unwrap_err();
@@ -538,11 +1216,13 @@ mod tests {
     fn mls_governance_binding_validates_optional_profile_fields() {
         let binding = MlsGovernanceBindingPayload::realm(
             realm(),
-            "ck:mls_group:test",
+            group_id(),
             0,
             1,
             vec![event(2)],
             hash('2'),
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            reducer_profile(),
         )
         .unwrap();
 
@@ -552,6 +1232,163 @@ mod tests {
             .unwrap();
         assert!(binding.clone().with_binding_profile("mls.full").is_err());
         assert!(binding.with_reducer_profile("").is_err());
+    }
+
+    #[test]
+    fn mls_governance_binding_cbor_round_trips_realm_payload() {
+        let binding = full_binding();
+        let bytes = binding.to_deterministic_cbor().unwrap();
+        let decoded = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap();
+
+        assert_eq!(decoded, binding);
+        assert_eq!(
+            decoded.to_group_context_extension().unwrap().extension_type,
+            MLS_GOVERNANCE_BINDING_EXTENSION_TYPE
+        );
+        assert!(!bytes.windows(7).any(|window| window == b"track"));
+        assert!(!bytes.windows(9).any(|window| window == b"strand_id"));
+    }
+
+    #[test]
+    fn mls_governance_binding_cbor_round_trips_circle_payload() {
+        let circle_id = CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000009").unwrap();
+        let binding = MlsGovernanceBindingPayload::circle(
+            realm(),
+            circle_id.clone(),
+            group_id(),
+            7,
+            8,
+            vec![event(2), event(3)],
+            hash('5'),
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            reducer_profile(),
+        )
+        .unwrap();
+        let decoded = MlsGovernanceBindingPayload::from_deterministic_cbor(
+            &binding.to_deterministic_cbor().unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(decoded.circle_id(), Some(&circle_id));
+        assert_eq!(decoded, binding);
+    }
+
+    #[test]
+    fn mls_governance_binding_rejects_missing_or_wrong_extension_codepoint() {
+        let binding = full_binding();
+        let mut expected = MlsGovernanceBindingValidationContext::for_commit(
+            binding.mls_group_id(),
+            binding.previous_epoch(),
+            binding.next_epoch(),
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            reducer_profile(),
+        );
+        expected.policy_root = Some(binding.policy_root());
+
+        let missing = verify_mls_governance_binding_extension(None, &expected).unwrap_err();
+        assert!(missing.to_string().contains(ERROR_CODE_PROFILE_UNSUPPORTED));
+
+        let wrong = MlsGovernanceBindingExtension {
+            extension_type: MLS_GOVERNANCE_BINDING_EXTENSION_TYPE + 1,
+            extension_data: binding.to_deterministic_cbor().unwrap(),
+        };
+        let err = verify_mls_governance_binding_extension(Some(&wrong), &expected).unwrap_err();
+        assert!(err.to_string().contains(ERROR_CODE_PROFILE_UNSUPPORTED));
+    }
+
+    #[test]
+    fn mls_governance_binding_rejects_profile_downgrade_in_full_context() {
+        let relaxed = full_binding()
+            .with_binding_profile(MLS_GOVERNANCE_BINDING_RELAXED_PROFILE)
+            .unwrap();
+        let expected = MlsGovernanceBindingValidationContext::for_commit(
+            relaxed.mls_group_id(),
+            relaxed.previous_epoch(),
+            relaxed.next_epoch(),
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            reducer_profile(),
+        );
+        let extension = relaxed.to_group_context_extension().unwrap();
+        let err = verify_mls_governance_binding_extension(Some(&extension), &expected).unwrap_err();
+
+        assert!(err.to_string().contains(ERROR_CODE_PROFILE_UNSUPPORTED));
+    }
+
+    #[test]
+    fn mls_governance_binding_rejects_stale_policy_root() {
+        let binding = full_binding();
+        let mut expected = MlsGovernanceBindingValidationContext::for_commit(
+            binding.mls_group_id(),
+            binding.previous_epoch(),
+            binding.next_epoch(),
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            reducer_profile(),
+        );
+        let stale_policy_root = hash('9');
+        expected.policy_root = Some(&stale_policy_root);
+        let extension = binding.to_group_context_extension().unwrap();
+        let err = verify_mls_governance_binding_extension(Some(&extension), &expected).unwrap_err();
+
+        assert!(
+            err.to_string()
+                .contains(ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE)
+        );
+    }
+
+    #[test]
+    fn mls_governance_binding_rejects_noncanonical_cbor_order() {
+        let binding = full_binding();
+        let mut bytes = Vec::new();
+        cbor_put_map_len(&mut bytes, binding.cbor_field_count());
+        cbor_put_tstr(&mut bytes, "binding_version");
+        cbor_put_uint(&mut bytes, u64::from(binding.binding_version));
+        cbor_put_tstr(&mut bytes, "binding_profile");
+        cbor_put_tstr(&mut bytes, &binding.binding_profile);
+        cbor_put_tstr(&mut bytes, "capability_root");
+        cbor_put_bstr(
+            &mut bytes,
+            &hash_digest_bytes("capability_root", binding.capability_root().unwrap()).unwrap(),
+        );
+        cbor_put_tstr(&mut bytes, "discussion_metadata_digest");
+        cbor_put_bstr(
+            &mut bytes,
+            &hash_digest_bytes(
+                "discussion_metadata_digest",
+                binding.discussion_metadata_digest().unwrap(),
+            )
+            .unwrap(),
+        );
+        cbor_put_tstr(&mut bytes, "effective_scope");
+        encode_effective_scope(&mut bytes, binding.effective_scope());
+        cbor_put_tstr(&mut bytes, "encoding_profile");
+        cbor_put_tstr(&mut bytes, &binding.encoding_profile);
+        cbor_put_tstr(&mut bytes, "membership_frontier");
+        cbor_put_array_len(&mut bytes, binding.membership_frontier().len() as u64);
+        for event_id in binding.membership_frontier() {
+            cbor_put_bstr(&mut bytes, event_id.as_str().as_bytes());
+        }
+        cbor_put_tstr(&mut bytes, "mls_group_id");
+        cbor_put_bstr(
+            &mut bytes,
+            &base64url_decode(binding.mls_group_id()).unwrap(),
+        );
+        cbor_put_tstr(&mut bytes, "next_epoch");
+        cbor_put_uint(&mut bytes, binding.next_epoch());
+        cbor_put_tstr(&mut bytes, "policy_root");
+        cbor_put_bstr(
+            &mut bytes,
+            &hash_digest_bytes("policy_root", binding.policy_root()).unwrap(),
+        );
+        cbor_put_tstr(&mut bytes, "previous_epoch");
+        cbor_put_uint(&mut bytes, binding.previous_epoch());
+        cbor_put_tstr(&mut bytes, "realm_id");
+        cbor_put_tstr(&mut bytes, binding.realm_id().as_str());
+        cbor_put_tstr(&mut bytes, "reducer_profile");
+        cbor_put_tstr(&mut bytes, binding.reducer_profile());
+
+        let err = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap_err();
+
+        assert!(err.to_string().contains(ERROR_CODE_SCHEMA_VIOLATION));
     }
 
     fn media_service(host: &str) -> MediaPlaintextService {
