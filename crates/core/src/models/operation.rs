@@ -16,6 +16,8 @@ pub struct Operation {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
     pub created_at: DateTime<Utc>,
+    #[serde(skip)]
+    pub canonical_event_digest: Option<String>,
 }
 
 impl Operation {
@@ -36,6 +38,7 @@ impl Operation {
             payload,
             idempotency_key: None,
             created_at: Utc::now(),
+            canonical_event_digest: None,
         }
     }
 
