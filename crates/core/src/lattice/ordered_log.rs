@@ -13,6 +13,7 @@
 //! the Move verifier; the lattice receives the joined ops post-verify.
 
 use std::collections::BTreeMap;
+use std::collections::btree_map::Entry;
 
 use serde_json::{Value, json};
 
@@ -29,19 +30,27 @@ pub struct IssuedOp {
     pub op: SealedOp,
 }
 
+/// Diagnostic for an append withheld behind a per-issuer sequence gap.
+#[derive(Clone, Debug, PartialEq)]
+pub struct OrderedLogPendingGap {
+    pub issuer: String,
+    pub missing_seq: u64,
+    pub pending_seq: u64,
+    pub reason: String,
+    pub value: Value,
+}
+
+/// Ordered-log join report: materialized contiguous prefix plus gaps.
+#[derive(Clone, Debug, PartialEq)]
+pub struct OrderedLogJoinReport {
+    pub entries: Vec<Value>,
+    pub pending_gaps: Vec<OrderedLogPendingGap>,
+}
+
 impl OrderedLog {
-    /// Join with explicit issuer attribution.
-    ///
-    /// Use this entry point when materialising effective state from a
-    /// store that knows each Move's issuer. The plain [`Lattice::join`]
-    /// path (no issuer) treats every op as having issuer
-    /// `did:unknown:_` — useful for tests but loses dedup behaviour
-    /// across issuers.
-    pub fn join_with_issuers(&self, _cell: &CellRef, ops: &[IssuedOp]) -> CellState {
-        // Dedup by (issuer, issuer_seq), keeping the first entry seen.
-        // Sealed order is the canonical input order, so "first" is
-        // deterministic.
-        let mut entries: BTreeMap<(String, u64), Value> = BTreeMap::new();
+    /// Join with explicit issuer attribution and gap diagnostics.
+    pub fn join_with_issuer_report(&self, ops: &[IssuedOp]) -> OrderedLogJoinReport {
+        let mut by_issuer: BTreeMap<String, BTreeMap<u64, Value>> = BTreeMap::new();
         for entry in ops {
             if Self.validate_op(&entry.op.op).is_err() {
                 continue;
@@ -52,22 +61,67 @@ impl OrderedLog {
             let Some(value) = entry.op.op.value.clone() else {
                 continue;
             };
-            entries
-                .entry((entry.issuer.as_str().to_owned(), seq))
-                .or_insert(value);
+
+            let issuer_entries = by_issuer
+                .entry(entry.issuer.as_str().to_owned())
+                .or_default();
+            match issuer_entries.entry(seq) {
+                Entry::Vacant(slot) => {
+                    slot.insert(value);
+                }
+                Entry::Occupied(mut slot) => {
+                    if entry_id(&value) < entry_id(slot.get()) {
+                        slot.insert(value);
+                    }
+                }
+            }
         }
-        let arr: Vec<Value> = entries
-            .into_iter()
-            .map(|((issuer, seq), value)| {
-                json!({
-                    "issuer": issuer,
-                    "issuer_seq": seq,
-                    "value": value,
-                })
-            })
-            .collect();
-        CellState::Value(json!(arr))
+
+        let mut entries = Vec::new();
+        let mut pending_gaps = Vec::new();
+        for (issuer, seq_entries) in by_issuer {
+            let mut expected_seq = None;
+            for (seq, value) in seq_entries {
+                let expected = expected_seq.unwrap_or(seq);
+                if seq == expected {
+                    entries.push(json!({
+                        "issuer": issuer,
+                        "issuer_seq": seq,
+                        "value": value,
+                    }));
+                    expected_seq = Some(seq + 1);
+                } else {
+                    pending_gaps.push(OrderedLogPendingGap {
+                        issuer: issuer.clone(),
+                        missing_seq: expected,
+                        pending_seq: seq,
+                        reason: "dependency_missing".to_owned(),
+                        value,
+                    });
+                }
+            }
+        }
+
+        OrderedLogJoinReport {
+            entries,
+            pending_gaps,
+        }
     }
+
+    /// Join with explicit issuer attribution.
+    ///
+    /// Use this entry point when materialising effective state from a
+    /// store that knows each Move's issuer. The plain [`Lattice::join`]
+    /// path (no issuer) treats every op as having issuer
+    /// `did:unknown:_` — useful for tests but loses dedup behaviour
+    /// across issuers.
+    pub fn join_with_issuers(&self, _cell: &CellRef, ops: &[IssuedOp]) -> CellState {
+        CellState::Value(json!(self.join_with_issuer_report(ops).entries))
+    }
+}
+
+fn entry_id(value: &Value) -> Option<&str> {
+    value.get("entry_id").and_then(Value::as_str)
 }
 
 impl Lattice for OrderedLog {
@@ -234,6 +288,110 @@ mod tests {
             }
             _ => panic!("expected value"),
         }
+    }
+
+    #[test]
+    fn join_reports_gaps_and_recomputes_after_backfill() {
+        let gap_ops = vec![
+            issued(
+                "did:web:alice.example",
+                0,
+                json!({"entry_id": "entry-0000", "kind": "start"}),
+                1,
+            ),
+            issued(
+                "did:web:alice.example",
+                1,
+                json!({"entry_id": "entry-0001", "kind": "next"}),
+                2,
+            ),
+            issued(
+                "did:web:alice.example",
+                3,
+                json!({"entry_id": "entry-0003-b", "kind": "late-b"}),
+                3,
+            ),
+        ];
+        let gap_report = OrderedLog.join_with_issuer_report(&gap_ops);
+        assert_eq!(gap_report.entries.len(), 2);
+        assert_eq!(gap_report.pending_gaps.len(), 1);
+        assert_eq!(gap_report.pending_gaps[0].missing_seq, 2);
+        assert_eq!(gap_report.pending_gaps[0].pending_seq, 3);
+        assert_eq!(gap_report.pending_gaps[0].reason, "dependency_missing");
+
+        let backfilled_a = vec![
+            issued(
+                "did:web:alice.example",
+                0,
+                json!({"entry_id": "entry-0000", "kind": "start"}),
+                1,
+            ),
+            issued(
+                "did:web:alice.example",
+                1,
+                json!({"entry_id": "entry-0001", "kind": "next"}),
+                2,
+            ),
+            issued(
+                "did:web:alice.example",
+                3,
+                json!({"entry_id": "entry-0003-b", "kind": "late-b"}),
+                3,
+            ),
+            issued(
+                "did:web:alice.example",
+                2,
+                json!({"entry_id": "entry-0002", "kind": "backfill"}),
+                4,
+            ),
+            issued(
+                "did:web:alice.example",
+                3,
+                json!({"entry_id": "entry-0003-a", "kind": "late-a"}),
+                5,
+            ),
+        ];
+        let backfilled_b = vec![
+            issued(
+                "did:web:alice.example",
+                0,
+                json!({"entry_id": "entry-0000", "kind": "start"}),
+                1,
+            ),
+            issued(
+                "did:web:alice.example",
+                1,
+                json!({"entry_id": "entry-0001", "kind": "next"}),
+                2,
+            ),
+            issued(
+                "did:web:alice.example",
+                2,
+                json!({"entry_id": "entry-0002", "kind": "backfill"}),
+                4,
+            ),
+            issued(
+                "did:web:alice.example",
+                3,
+                json!({"entry_id": "entry-0003-a", "kind": "late-a"}),
+                5,
+            ),
+            issued(
+                "did:web:alice.example",
+                3,
+                json!({"entry_id": "entry-0003-b", "kind": "late-b"}),
+                3,
+            ),
+        ];
+        let report_a = OrderedLog.join_with_issuer_report(&backfilled_a);
+        let report_b = OrderedLog.join_with_issuer_report(&backfilled_b);
+        assert!(report_a.pending_gaps.is_empty());
+        assert_eq!(report_a.entries, report_b.entries);
+        assert_eq!(report_a.entries.len(), 4);
+        assert_eq!(
+            report_a.entries[3]["value"],
+            json!({"entry_id": "entry-0003-a", "kind": "late-a"})
+        );
     }
 
     #[test]
