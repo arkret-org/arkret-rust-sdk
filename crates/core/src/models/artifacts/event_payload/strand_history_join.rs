@@ -179,7 +179,7 @@ pub struct JoinPolicyPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupActiveSeriesAuthData {
-    pub verification_method: Did,
+    pub verification_method: DidUrl,
     pub signature_algorithm: String,
     pub signature: String,
     pub signed_fields: Vec<String>,
