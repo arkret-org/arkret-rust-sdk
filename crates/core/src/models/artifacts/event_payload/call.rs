@@ -330,6 +330,33 @@ impl CallStatePayloadRecordingResult {
     }
 }
 
+/// Counterpart for `call_state_payload.transcript_result`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallStatePayloadTranscriptResult {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub media_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retention_policy_id: Option<PolicyId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retention: Option<CallRecordingRetention>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transcript_start_event_id: Option<EventId>,
+}
+
+impl CallStatePayloadTranscriptResult {
+    fn consent_confirmed(&self) -> bool {
+        self.retention
+            .as_ref()
+            .and_then(|retention| retention.consent_confirmed)
+            .unwrap_or(false)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallStatePayload {
@@ -345,6 +372,10 @@ pub struct CallStatePayload {
     pub recording_state: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recording_result: Option<CallStatePayloadRecordingResult>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transcript_state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transcript_result: Option<CallStatePayloadTranscriptResult>,
 }
 
 impl CallStatePayload {
@@ -372,6 +403,35 @@ impl CallStatePayload {
                 Ok(())
             }
             _ => Ok(()),
+        }
+    }
+
+    pub fn validate_transcript_result_storage(&self) -> std::result::Result<(), &'static str> {
+        let Some(transcript_state) = self.transcript_state.as_deref() else {
+            return Ok(());
+        };
+        match transcript_state {
+            "transcribing" => {
+                if !self
+                    .transcript_result
+                    .as_ref()
+                    .is_some_and(CallStatePayloadTranscriptResult::consent_confirmed)
+                {
+                    return Err(ERROR_CODE_RECORDING_CONSENT_REQUIRED);
+                }
+                Ok(())
+            }
+            "stopped" | "ready" | "failed" => {
+                let result = self
+                    .transcript_result
+                    .as_ref()
+                    .ok_or(ERROR_CODE_SCHEMA_VIOLATION)?;
+                if result.transcript_start_event_id.is_none() {
+                    return Err(ERROR_CODE_SCHEMA_VIOLATION);
+                }
+                Ok(())
+            }
+            _ => Err(ERROR_CODE_SCHEMA_VIOLATION),
         }
     }
 }
@@ -444,4 +504,68 @@ fn recording_artifact_pipeline_bypassed(message: impl Into<String>) -> Result<()
         "{ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED}: {}",
         message.into()
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn call_state_transcript_result_round_trips_and_validates() {
+        let value = json!({
+            "call_id": "ck:call:019a7360-0000-7000-8000-000000000001",
+            "state": "ended",
+            "transcript_state": "ready",
+            "transcript_result": {
+                "content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "media_type": "text/vtt",
+                "language": "en-US",
+                "retention_policy_id": "ck:policy:019a7360-0000-7000-8000-000000000005",
+                "retention": {
+                    "consent_confirmed": true
+                },
+                "transcript_start_event_id": "ck:event:019a7360-0000-7000-8000-000000000003"
+            }
+        });
+        let payload: CallStatePayload = serde_json::from_value(value).unwrap();
+
+        payload.validate_transcript_result_storage().unwrap();
+        let encoded = serde_json::to_value(payload).unwrap();
+        assert_eq!(encoded["transcript_result"]["media_type"], "text/vtt");
+        assert_eq!(
+            encoded["transcript_result"]["transcript_start_event_id"],
+            "ck:event:019a7360-0000-7000-8000-000000000003"
+        );
+    }
+
+    #[test]
+    fn call_state_transcript_result_rejects_direct_backend_refs() {
+        let value = json!({
+            "call_id": "ck:call:019a7360-0000-7000-8000-000000000001",
+            "state": "ended",
+            "transcript_state": "ready",
+            "transcript_result": {
+                "transcript_artifact_url": "https://backend.example/transcript.vtt"
+            }
+        });
+
+        assert!(serde_json::from_value::<CallStatePayload>(value).is_err());
+    }
+
+    #[test]
+    fn call_state_transcribing_requires_second_consent() {
+        let value = json!({
+            "call_id": "ck:call:019a7360-0000-7000-8000-000000000001",
+            "state": "active",
+            "transcript_state": "transcribing"
+        });
+        let payload: CallStatePayload = serde_json::from_value(value).unwrap();
+
+        assert_eq!(
+            payload.validate_transcript_result_storage(),
+            Err(ERROR_CODE_RECORDING_CONSENT_REQUIRED)
+        );
+    }
 }
