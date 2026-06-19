@@ -4,6 +4,8 @@ use super::*;
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ModerationReportRequestBody {
     pub realm_id: RealmId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_scope: Option<EffectiveScope>,
     pub target_ref: String,
     pub report_reason_code: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -11,6 +13,10 @@ pub struct ModerationReportRequestBody {
     pub reporter: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub evidence_package: Value,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub franking_proof: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
