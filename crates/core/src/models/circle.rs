@@ -207,6 +207,8 @@ pub struct CircleView {
     pub encryption_profile: EncryptionProfile,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pending_mls_removals: Vec<Did>,
     pub state: CircleState,
     #[serde(default)]
     pub members: Vec<Did>,
