@@ -11,6 +11,7 @@ pub const PROFILE_PINNED_ITEMS: &str = "ck.profile.pinned_items.v1";
 pub const PROFILE_DISAPPEARING_MESSAGES: &str = "ck.profile.disappearing_messages.v1";
 pub const PROFILE_SEARCH_CLIENT_INDEX: &str = "ck.profile.search.client_index.v1";
 pub const PROFILE_SEARCH_BLIND_INDEX: &str = "ck.profile.search.blind_index.v1";
+pub const PROFILE_SEARCH_FORWARD_PRIVATE: &str = "ck.profile.search.forward_private.v1";
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -273,15 +274,17 @@ pub struct PinReorderPayload {
     pub expected_rank: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum SearchProfileRef {
     #[serde(rename = "ck.profile.search.client_index.v1")]
     ClientIndex,
     #[serde(rename = "ck.profile.search.blind_index.v1")]
     BlindIndex,
+    #[serde(rename = "ck.profile.search.forward_private.v1")]
+    ForwardPrivate,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SearchDataClass {
     EncryptedIndex,
@@ -290,11 +293,19 @@ pub enum SearchDataClass {
     ReversibleSummary,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SearchRevocationBehavior {
     FailClosed,
     DropStale,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SearchLeakageClass {
+    DeterministicToken,
+    ForwardPrivate,
+    AccessHiding,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -307,6 +318,63 @@ pub struct SearchPolicy {
     pub index_retention_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revocation_behavior: Option<SearchRevocationBehavior>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub leakage_class: Option<SearchLeakageClass>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_rotation_cadence_ms: Option<u64>,
+}
+
+impl SearchPolicy {
+    pub fn validate(&self) -> Result<()> {
+        require_unique("enabled_profile_refs", &self.enabled_profile_refs)?;
+        require_unique("allowed_service_dids", &self.allowed_service_dids)?;
+        require_unique("data_classes", &self.data_classes)?;
+        if self.data_classes.is_empty() {
+            return Err(Error::Protocol(
+                "search_policy.data_classes must not be empty".to_owned(),
+            ));
+        }
+        let forward_private_enabled = self
+            .enabled_profile_refs
+            .contains(&SearchProfileRef::ForwardPrivate);
+        if forward_private_enabled
+            && !self
+                .enabled_profile_refs
+                .contains(&SearchProfileRef::BlindIndex)
+        {
+            return Err(Error::Protocol(
+                "search_policy forward_private profile requires the blind_index profile".to_owned(),
+            ));
+        }
+        let leakage_class = self
+            .leakage_class
+            .unwrap_or(SearchLeakageClass::DeterministicToken);
+        if leakage_class == SearchLeakageClass::AccessHiding {
+            return Err(Error::Protocol(
+                "search_policy.leakage_class access_hiding requires an explicit access-hiding profile"
+                    .to_owned(),
+            ));
+        }
+        if forward_private_enabled && leakage_class != SearchLeakageClass::ForwardPrivate {
+            return Err(Error::Protocol(
+                "search_policy forward_private profile requires leakage_class forward_private"
+                    .to_owned(),
+            ));
+        }
+        if leakage_class == SearchLeakageClass::ForwardPrivate && !forward_private_enabled {
+            return Err(Error::Protocol(
+                "search_policy leakage_class forward_private requires the forward_private profile"
+                    .to_owned(),
+            ));
+        }
+        if forward_private_enabled && self.token_rotation_cadence_ms.is_none() {
+            return Err(Error::Protocol(
+                "search_policy forward_private profile requires token_rotation_cadence_ms"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -315,6 +383,18 @@ pub struct EncryptedShardRef {
     pub shard_key: String,
     pub blob_ref: BlobId,
     pub ciphertext_digest: String,
+}
+
+impl EncryptedShardRef {
+    pub fn validate(&self) -> Result<()> {
+        if !looks_derived_key(&self.shard_key) {
+            return Err(Error::Protocol(
+                "encrypted shard shard_key must be an opaque derived key".to_owned(),
+            ));
+        }
+        Hash::new(self.ciphertext_digest.clone())?;
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -326,14 +406,68 @@ pub struct EncryptedIndexManifest {
     pub updated_hlc: String,
 }
 
+impl EncryptedIndexManifest {
+    pub fn validate(&self) -> Result<()> {
+        if self.shards.is_empty() {
+            return Err(Error::Protocol(
+                "encrypted index manifest requires at least one shard".to_owned(),
+            ));
+        }
+        let mut shard_keys = BTreeSet::new();
+        for shard in &self.shards {
+            shard.validate()?;
+            if !shard_keys.insert(&shard.shard_key) {
+                return Err(Error::Protocol(
+                    "encrypted index manifest shard_key values must be unique".to_owned(),
+                ));
+            }
+        }
+        if self.updated_hlc.trim().is_empty() {
+            return Err(Error::Protocol(
+                "encrypted index manifest updated_hlc must not be empty".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BlindIndexQuery {
     pub realm_id: RealmId,
-    pub effective_scope: Value,
+    pub effective_scope: EffectiveScope,
     pub epoch_id: u64,
     pub index_generation: u64,
     pub blind_tokens: Vec<String>,
+}
+
+impl BlindIndexQuery {
+    pub fn validate(&self) -> Result<()> {
+        if self.effective_scope.realm_id() != &self.realm_id {
+            return Err(Error::Protocol(
+                "blind_index_query.effective_scope must be bound to realm_id".to_owned(),
+            ));
+        }
+        if self.blind_tokens.is_empty() {
+            return Err(Error::Protocol(
+                "blind_index_query.blind_tokens must not be empty".to_owned(),
+            ));
+        }
+        let mut seen = BTreeSet::new();
+        for token in &self.blind_tokens {
+            if !looks_derived_key(token) {
+                return Err(Error::Protocol(
+                    "blind_index_query.blind_tokens must be opaque derived tokens".to_owned(),
+                ));
+            }
+            if !seen.insert(token) {
+                return Err(Error::Protocol(
+                    "blind_index_query.blind_tokens must be unique".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -629,6 +763,95 @@ pub fn search_index_manifest_account_data_key(
     ))
 }
 
+pub fn search_index_shard_key(
+    index_key: &[u8],
+    realm_id: &RealmId,
+    index_generation: u64,
+    shard_seed: &[u8],
+) -> Result<String> {
+    validate_search_index_key(index_key)?;
+    if shard_seed.is_empty() {
+        return Err(Error::Protocol(
+            "search index shard_seed must not be empty".to_owned(),
+        ));
+    }
+    let material = json!({
+        "profile": PROFILE_SEARCH_CLIENT_INDEX,
+        "realm_id": realm_id.as_str(),
+        "index_generation": index_generation,
+        "shard_seed_digest": canonical::sha256_digest(shard_seed),
+    });
+    Ok(base64url_encode(hmac_sha256(
+        index_key,
+        &canonical::canonical_json_bytes(&material)?,
+    )))
+}
+
+pub fn blind_index_token(
+    index_key: &[u8],
+    realm_id: &RealmId,
+    effective_scope: &EffectiveScope,
+    epoch_id: u64,
+    index_generation: u64,
+    term: &str,
+) -> Result<String> {
+    validate_search_index_key(index_key)?;
+    if effective_scope.realm_id() != realm_id {
+        return Err(Error::Protocol(
+            "blind index token effective_scope must be bound to realm_id".to_owned(),
+        ));
+    }
+    let normalized_term = normalize_search_term(term)?;
+    let material = json!({
+        "profile": PROFILE_SEARCH_BLIND_INDEX,
+        "realm_id": realm_id.as_str(),
+        "effective_scope": effective_scope,
+        "epoch_id": epoch_id,
+        "index_generation": index_generation,
+        "term_digest": canonical::sha256_digest(normalized_term.as_bytes()),
+    });
+    Ok(base64url_encode(hmac_sha256(
+        index_key,
+        &canonical::canonical_json_bytes(&material)?,
+    )))
+}
+
+pub fn build_blind_index_query<I, S>(
+    index_key: &[u8],
+    realm_id: RealmId,
+    effective_scope: EffectiveScope,
+    epoch_id: u64,
+    index_generation: u64,
+    terms: I,
+) -> Result<BlindIndexQuery>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let blind_tokens = terms
+        .into_iter()
+        .map(|term| {
+            blind_index_token(
+                index_key,
+                &realm_id,
+                &effective_scope,
+                epoch_id,
+                index_generation,
+                term.as_ref(),
+            )
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let query = BlindIndexQuery {
+        realm_id,
+        effective_scope,
+        epoch_id,
+        index_generation,
+        blind_tokens,
+    };
+    query.validate()?;
+    Ok(query)
+}
+
 pub fn file_transfer_account_data_key(namespace_key: &[u8], transfer_id: &str) -> Result<String> {
     validate_file_transfer_id(transfer_id)?;
     Ok(format!(
@@ -824,11 +1047,44 @@ fn validate_file_transfer_id(value: &str) -> Result<()> {
     }
 }
 
+fn validate_search_index_key(index_key: &[u8]) -> Result<()> {
+    if index_key.is_empty() {
+        Err(Error::Protocol(
+            "search index key material must not be empty".to_owned(),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn normalize_search_term(term: &str) -> Result<String> {
+    let normalized = term.trim().nfc().collect::<String>();
+    if normalized.is_empty() {
+        Err(Error::Protocol(
+            "blind index search term must not be empty".to_owned(),
+        ))
+    } else {
+        Ok(normalized)
+    }
+}
+
 fn looks_derived_key(value: &str) -> bool {
     value.len() >= 16
         && value
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+fn require_unique<T: Ord>(field: &str, values: &[T]) -> Result<()> {
+    let mut seen = BTreeSet::new();
+    for value in values {
+        if !seen.insert(value) {
+            return Err(Error::Protocol(format!(
+                "{field} must not contain duplicates"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn is_false(value: &bool) -> bool {
@@ -867,6 +1123,14 @@ mod tests {
 
     fn test_realm_id(seed: &str) -> RealmId {
         RealmId::new(format!("ck:realm:01904100-0000-7000-8000-{seed}")).unwrap()
+    }
+
+    fn test_circle_id(seed: &str) -> CircleId {
+        CircleId::new(format!("ck:circle:01904100-0000-7000-8000-{seed}")).unwrap()
+    }
+
+    fn test_blob_id(seed: &str) -> BlobId {
+        BlobId::new(format!("ck:blob:01904100-0000-7000-8000-{seed}")).unwrap()
     }
 
     fn test_time(second: u32) -> DateTime<Utc> {
@@ -1033,14 +1297,131 @@ mod tests {
         assert!(wire.get("device_origin").is_none());
 
         let search = SearchPolicy {
-            enabled_profile_refs: vec![SearchProfileRef::ClientIndex],
+            enabled_profile_refs: vec![
+                SearchProfileRef::ClientIndex,
+                SearchProfileRef::BlindIndex,
+                SearchProfileRef::ForwardPrivate,
+            ],
             allowed_service_dids: vec![Did::new("did:web:search.example").unwrap()],
-            data_classes: vec![SearchDataClass::EncryptedIndex],
+            data_classes: vec![
+                SearchDataClass::EncryptedIndex,
+                SearchDataClass::BlindTokens,
+            ],
             index_retention_ms: Some(86_400_000),
             revocation_behavior: Some(SearchRevocationBehavior::FailClosed),
+            leakage_class: Some(SearchLeakageClass::ForwardPrivate),
+            token_rotation_cadence_ms: Some(3_600_000),
         };
+        search.validate().unwrap();
         let wire = serde_json::to_value(search).unwrap();
         assert!(wire.get("enabled_profile_refs").is_some());
         assert!(wire.get("profile_refs").is_none());
+        assert_eq!(
+            wire["enabled_profile_refs"],
+            json!([
+                PROFILE_SEARCH_CLIENT_INDEX,
+                PROFILE_SEARCH_BLIND_INDEX,
+                PROFILE_SEARCH_FORWARD_PRIVATE
+            ])
+        );
+        assert!(wire.get("epoch_id").is_none());
+        assert_eq!(wire["leakage_class"], "forward_private");
+        assert_eq!(wire["token_rotation_cadence_ms"], 3_600_000);
+    }
+
+    #[test]
+    fn blind_index_tokens_bind_realm_scope_epoch_and_generation() {
+        let index_key = b"realm local search index key";
+        let realm_a = test_realm_id("000000000401");
+        let realm_b = test_realm_id("000000000402");
+        let scope_a = EffectiveScope::Realm {
+            realm_id: realm_a.clone(),
+        };
+        let scope_b = EffectiveScope::Realm {
+            realm_id: realm_b.clone(),
+        };
+        let token_a =
+            blind_index_token(index_key, &realm_a, &scope_a, 7, 11, "Release Plan").unwrap();
+        let token_b =
+            blind_index_token(index_key, &realm_b, &scope_b, 7, 11, "Release Plan").unwrap();
+        assert_ne!(token_a, token_b);
+        assert_ne!(
+            token_a,
+            blind_index_token(index_key, &realm_a, &scope_a, 8, 11, "Release Plan").unwrap()
+        );
+        assert_ne!(
+            token_a,
+            blind_index_token(index_key, &realm_a, &scope_a, 7, 12, "Release Plan").unwrap()
+        );
+
+        let circle_scope = EffectiveScope::Circle {
+            realm_id: realm_a.clone(),
+            circle_id: test_circle_id("000000000501"),
+        };
+        assert_ne!(
+            token_a,
+            blind_index_token(index_key, &realm_a, &circle_scope, 7, 11, "Release Plan").unwrap()
+        );
+        assert!(blind_index_token(index_key, &realm_b, &scope_a, 7, 11, "Release Plan").is_err());
+    }
+
+    #[test]
+    fn blind_index_query_uses_integer_epoch_and_unique_tokens() {
+        let realm_id = test_realm_id("000000000601");
+        let query = build_blind_index_query(
+            b"query search index key",
+            realm_id.clone(),
+            EffectiveScope::Realm {
+                realm_id: realm_id.clone(),
+            },
+            42,
+            3,
+            ["alpha", "beta"],
+        )
+        .unwrap();
+        query.validate().unwrap();
+        let wire = serde_json::to_value(&query).unwrap();
+        assert_eq!(wire["epoch_id"].as_u64(), Some(42));
+        assert!(wire["epoch_id"].as_str().is_none());
+        assert_eq!(wire["blind_tokens"].as_array().unwrap().len(), 2);
+
+        let duplicate = build_blind_index_query(
+            b"query search index key",
+            realm_id.clone(),
+            EffectiveScope::Realm { realm_id },
+            42,
+            3,
+            ["alpha", "alpha"],
+        );
+        assert!(duplicate.is_err());
+    }
+
+    #[test]
+    fn encrypted_search_shard_keys_are_opaque_and_realm_bound() {
+        let index_key = b"manifest search index key";
+        let realm_a = test_realm_id("000000000701");
+        let realm_b = test_realm_id("000000000702");
+        let shard_a = search_index_shard_key(index_key, &realm_a, 1, b"random shard seed").unwrap();
+        let shard_b = search_index_shard_key(index_key, &realm_b, 1, b"random shard seed").unwrap();
+        assert_ne!(shard_a, shard_b);
+        assert_ne!(
+            shard_a,
+            search_index_shard_key(index_key, &realm_a, 2, b"random shard seed").unwrap()
+        );
+        assert!(!shard_a.contains(realm_a.as_str()));
+
+        let manifest = EncryptedIndexManifest {
+            realm_id: realm_a,
+            index_generation: 1,
+            shards: vec![EncryptedShardRef {
+                shard_key: shard_a,
+                blob_ref: test_blob_id("000000000801"),
+                ciphertext_digest:
+                    "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+                        .to_owned(),
+            }],
+            updated_hlc: "01970e589d21-0000-a13f9c2e".to_owned(),
+        };
+        manifest.validate().unwrap();
     }
 }
