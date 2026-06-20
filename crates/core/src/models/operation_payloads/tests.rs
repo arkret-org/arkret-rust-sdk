@@ -65,6 +65,70 @@ fn message_create_payload_requires_exactly_one_content_carrier() {
 }
 
 #[test]
+fn message_expiry_serializes_disappearing_wire_shape() {
+    assert_eq!(DisappearingMessageExpiryTrigger::OnSend.as_str(), "on_send");
+    assert_eq!(
+        DisappearingMessageExpiryTrigger::OnFirstRead.as_str(),
+        "on_first_read"
+    );
+    assert_eq!(
+        DisappearingMessageExpiryTrigger::OnLastRead.as_str(),
+        "on_last_read"
+    );
+
+    let expiry =
+        DisappearingMessageExpiry::new(60_000, DisappearingMessageExpiryTrigger::OnFirstRead)
+            .unwrap()
+            .with_seal_hlc("01970e589d21-0001-a13f9c2e")
+            .unwrap()
+            .with_grace_ms(5_000);
+    let value = serde_json::to_value(&expiry).unwrap();
+
+    assert_eq!(value["ttl_ms"], 60_000);
+    assert_eq!(value["trigger"], "on_first_read");
+    assert_eq!(value["seal_hlc"], "01970e589d21-0001-a13f9c2e");
+    assert_eq!(value["grace_ms"], 5_000);
+}
+
+#[test]
+fn message_expiry_rejects_non_positive_ttl_and_empty_anchor() {
+    let err =
+        DisappearingMessageExpiry::new(0, DisappearingMessageExpiryTrigger::OnSend).unwrap_err();
+    assert!(err.to_string().contains("ttl_ms"));
+
+    let err = DisappearingMessageExpiry::new(1, DisappearingMessageExpiryTrigger::OnLastRead)
+        .unwrap()
+        .with_seal_hlc(" ")
+        .unwrap_err();
+    assert!(err.to_string().contains("seal_hlc"));
+}
+
+#[test]
+fn message_create_payload_carries_disappearing_expiry() {
+    let strand_id = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let expiry =
+        DisappearingMessageExpiry::new(60_000, DisappearingMessageExpiryTrigger::OnLastRead)
+            .unwrap()
+            .with_grace_ms(5_000);
+    let payload = MessageCreatePayload::with_content(
+        strand_id,
+        "discussion",
+        ContentBlock::text("hello").to_value().unwrap(),
+    )
+    .with_message_id("ck:message:01904100-0000-7000-8000-000000000003")
+    .with_expiry(expiry)
+    .to_value()
+    .unwrap();
+
+    assert_eq!(payload["expiry"]["ttl_ms"], 60_000);
+    assert_eq!(payload["expiry"]["trigger"], "on_last_read");
+    assert_eq!(payload["expiry"]["grace_ms"], 5_000);
+    schema::event_payload_validator_catalog()
+        .validate_payload("ck.message.create", &payload)
+        .unwrap();
+}
+
+#[test]
 fn morph_create_object_rejects_both_content_carriers() {
     let actor = Did::new("did:web:alice.example".to_owned()).unwrap();
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();

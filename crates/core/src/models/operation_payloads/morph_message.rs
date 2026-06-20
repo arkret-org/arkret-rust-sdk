@@ -201,6 +201,78 @@ impl ContentBlock {
     }
 }
 
+/// Expiry anchor trigger for `ck.profile.disappearing.v1` messages.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DisappearingMessageExpiryTrigger {
+    OnSend,
+    OnFirstRead,
+    OnLastRead,
+}
+
+impl DisappearingMessageExpiryTrigger {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::OnSend => "on_send",
+            Self::OnFirstRead => "on_first_read",
+            Self::OnLastRead => "on_last_read",
+        }
+    }
+}
+
+/// Disappearing-message expiry contract for `ck.message.create.payload.expiry`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DisappearingMessageExpiry {
+    pub ttl_ms: u64,
+    pub trigger: DisappearingMessageExpiryTrigger,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seal_hlc: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grace_ms: Option<u64>,
+}
+
+impl DisappearingMessageExpiry {
+    pub fn new(ttl_ms: u64, trigger: DisappearingMessageExpiryTrigger) -> Result<Self> {
+        let expiry = Self {
+            ttl_ms,
+            trigger,
+            seal_hlc: None,
+            grace_ms: None,
+        };
+        expiry.validate()?;
+        Ok(expiry)
+    }
+
+    pub fn with_seal_hlc(mut self, seal_hlc: impl Into<String>) -> Result<Self> {
+        self.seal_hlc = Some(seal_hlc.into());
+        self.validate()?;
+        Ok(self)
+    }
+
+    pub fn with_grace_ms(mut self, grace_ms: u64) -> Self {
+        self.grace_ms = Some(grace_ms);
+        self
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.ttl_ms == 0 {
+            return Err(Error::Protocol(
+                "message expiry ttl_ms must be greater than zero".to_owned(),
+            ));
+        }
+        if self
+            .seal_hlc
+            .as_deref()
+            .is_some_and(|seal_hlc| seal_hlc.trim().is_empty())
+        {
+            return Err(Error::Protocol(
+                "message expiry seal_hlc must not be empty".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Payload for `ck.message.create`.
 ///
 /// Producers must choose exactly one of `content` or `encrypted_content`.
@@ -222,6 +294,8 @@ pub struct MessageCreatePayload {
     pub blob_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_to: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expiry: Option<DisappearingMessageExpiry>,
 }
 
 impl MessageCreatePayload {
@@ -240,6 +314,7 @@ impl MessageCreatePayload {
             encrypted_metadata: None,
             blob_refs: Vec::new(),
             reply_to: None,
+            expiry: None,
         }
     }
 
@@ -258,6 +333,7 @@ impl MessageCreatePayload {
             encrypted_metadata: None,
             blob_refs: Vec::new(),
             reply_to: None,
+            expiry: None,
         }
     }
 
@@ -271,6 +347,11 @@ impl MessageCreatePayload {
         self
     }
 
+    pub fn with_expiry(mut self, expiry: DisappearingMessageExpiry) -> Self {
+        self.expiry = Some(expiry);
+        self
+    }
+
     pub fn content_mut(&mut self) -> Option<&mut Value> {
         self.content.as_mut()
     }
@@ -281,6 +362,9 @@ impl MessageCreatePayload {
                 "message create payload must not carry both metadata and encrypted_metadata"
                     .to_owned(),
             ));
+        }
+        if let Some(expiry) = self.expiry.as_ref() {
+            expiry.validate()?;
         }
         match (self.content.is_some(), self.encrypted_content.is_some()) {
             (true, false) | (false, true) => serde_json::to_value(self)
