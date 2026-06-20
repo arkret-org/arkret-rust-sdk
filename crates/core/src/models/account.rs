@@ -1,5 +1,147 @@
 use super::*;
 
+fn is_default_registration_verification_policy(
+    value: &AccountRegistrationVerificationPolicy,
+) -> bool {
+    !value.required && value.code_digest.is_none()
+}
+
+fn is_default_registration_invitation_policy(value: &AccountRegistrationInvitationPolicy) -> bool {
+    !value.required && value.token_digests.is_empty()
+}
+
+fn registration_policy_enabled_default() -> bool {
+    true
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountRegistrationVerificationPolicy {
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub required: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code_digest: Option<Hash>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountRegistrationInvitationPolicy {
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub required: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub token_digests: Vec<Hash>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountRegistrationRateLimitPolicy {
+    pub max_attempts: u32,
+    pub window_seconds: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountRegistrationPolicy {
+    #[serde(default = "registration_policy_enabled_default")]
+    pub enabled: bool,
+    #[serde(
+        default,
+        skip_serializing_if = "is_default_registration_verification_policy"
+    )]
+    pub verification_code: AccountRegistrationVerificationPolicy,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub organization_allowlist: Vec<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "is_default_registration_invitation_policy"
+    )]
+    pub invitation: AccountRegistrationInvitationPolicy,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limit: Option<AccountRegistrationRateLimitPolicy>,
+}
+
+impl Default for AccountRegistrationPolicy {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            verification_code: AccountRegistrationVerificationPolicy::default(),
+            organization_allowlist: Vec::new(),
+            invitation: AccountRegistrationInvitationPolicy::default(),
+            rate_limit: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountRegistrationPolicyEvidence {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub organization: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invitation_token: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AccountRegistrationAuditOutcome {
+    Accepted,
+    RegistrationClosed,
+    VerificationCodeRequired,
+    VerificationCodeInvalid,
+    OrganizationNotAllowed,
+    InvitationRequired,
+    InvitationInvalid,
+    RateLimited,
+    DuplicateConflict,
+}
+
+impl AccountRegistrationAuditOutcome {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Accepted => "accepted",
+            Self::RegistrationClosed => "registration_closed",
+            Self::VerificationCodeRequired => "verification_code_required",
+            Self::VerificationCodeInvalid => "verification_code_invalid",
+            Self::OrganizationNotAllowed => "organization_not_allowed",
+            Self::InvitationRequired => "invitation_required",
+            Self::InvitationInvalid => "invitation_invalid",
+            Self::RateLimited => "rate_limited",
+            Self::DuplicateConflict => "duplicate_conflict",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountRegistrationEvidenceSummary {
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub verification_code_present: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub invitation_token_present: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub organization: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountRegistrationAudit {
+    pub outcome: AccountRegistrationAuditOutcome,
+    pub policy_digest: Hash,
+    pub evidence: AccountRegistrationEvidenceSummary,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -162,6 +304,8 @@ pub struct AccountRegisterRequestBody {
     pub device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<AccountLifecycleProof>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_evidence: Option<AccountRegistrationPolicyEvidence>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -179,6 +323,8 @@ pub struct AccountRegisterOutcome {
     pub handle_claim_digests: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile: Option<ActorProfile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub registration_audit: Option<AccountRegistrationAudit>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

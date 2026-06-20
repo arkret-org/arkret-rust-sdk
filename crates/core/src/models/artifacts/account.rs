@@ -16,6 +16,44 @@ pub enum AccountOperations {
 }
 
 /// Counterpart for
+/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/account_registration_audit`.
+pub type AccountRegistrationAuditDto = AccountRegistrationAudit;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/
+/// account_registration_audit_outcome`.
+pub type AccountRegistrationAuditOutcomeDto = AccountRegistrationAuditOutcome;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/
+/// account_registration_evidence_summary`.
+pub type AccountRegistrationEvidenceSummaryDto = AccountRegistrationEvidenceSummary;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/
+/// account_registration_invitation_policy`.
+pub type AccountRegistrationInvitationPolicyDto = AccountRegistrationInvitationPolicy;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/account_registration_policy`.
+pub type AccountRegistrationPolicyDto = AccountRegistrationPolicy;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/
+/// account_registration_policy_evidence`.
+pub type AccountRegistrationPolicyEvidenceDto = AccountRegistrationPolicyEvidence;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/
+/// account_registration_rate_limit_policy`.
+pub type AccountRegistrationRateLimitPolicyDto = AccountRegistrationRateLimitPolicy;
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/
+/// account_registration_verification_policy`.
+pub type AccountRegistrationVerificationPolicyDto = AccountRegistrationVerificationPolicy;
+
+/// Counterpart for
 /// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/device_summaries`.
 pub type DeviceSummaries = Vec<DeviceSummary>;
 
