@@ -20,8 +20,8 @@ use crate::{
     CryptoStore, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, Hash,
     MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsCommitEnvelope, MlsGovernanceBindingExtension,
     MlsGovernanceBindingPayload, MlsGovernanceBindingValidationContext, MlsGroupStateRecord,
-    MlsKeyPackageRecord, MlsWelcomeEnvelope, Operation, OperationId, RealmId, Result,
-    ToDeviceMessage, canonical, verify_mls_governance_binding_extension,
+    MlsKeyPackageRecord, MlsProposalEnvelope, MlsWelcomeEnvelope, Operation, OperationId, RealmId,
+    Result, ToDeviceMessage, canonical, verify_mls_governance_binding_extension,
 };
 
 const COKRET_OPENMLS_STATE_SNAPSHOT: &str = "cokret-openmls-provider-state-v1";
@@ -46,6 +46,7 @@ pub struct MlsAddMemberResult {
 /// events.
 #[derive(Clone, Debug)]
 pub struct MlsRemoveMemberResult {
+    pub proposals: Vec<MlsProposalEnvelope>,
     pub commit: MlsCommitEnvelope,
     /// Raw OpenMLS leaf indices that were removed by this commit, in the
     /// order they appeared in the original group state.
@@ -523,16 +524,36 @@ impl CokretMlsGroup {
             )));
         }
 
+        let base_epoch = self.epoch();
+        let ratchet_tree = Some(self.ratchet_tree()?);
+        let mut proposals = Vec::with_capacity(leaves.len());
+        for leaf in leaves {
+            let (proposal_message, _proposal_ref) = self
+                .group
+                .propose_remove_member(&self.identity.provider, &self.identity.signer, *leaf)
+                .map_err(mls_error)?;
+            let proposal_bytes = proposal_message
+                .tls_serialize_detached()
+                .map_err(mls_error)?;
+            proposals.push(MlsProposalEnvelope {
+                group_id: self.group_id(),
+                epoch: base_epoch,
+                proposal_type: "remove".to_owned(),
+                proposal: encode(&proposal_bytes),
+                proposal_digest: Hash::new(canonical::sha256_digest(&proposal_bytes))?,
+                ratchet_tree: ratchet_tree.clone(),
+            });
+        }
+
         let (commit, _welcome_opt, _) = self
             .group
-            .remove_members(&self.identity.provider, &self.identity.signer, leaves)
+            .commit_to_pending_proposals(&self.identity.provider, &self.identity.signer)
             .map_err(mls_error)?;
         self.group
             .merge_pending_commit(&self.identity.provider)
             .map_err(mls_error)?;
 
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
-        let ratchet_tree = Some(self.ratchet_tree()?);
 
         let mut removed_leaves: Vec<u32> = Vec::with_capacity(pre_commit.len());
         let mut removed_principals: Vec<Did> = Vec::with_capacity(pre_commit.len());
@@ -554,6 +575,7 @@ impl CokretMlsGroup {
         }
 
         Ok(MlsRemoveMemberResult {
+            proposals,
             commit: MlsCommitEnvelope {
                 group_id: self.group_id(),
                 epoch: self.epoch(),
