@@ -23,7 +23,7 @@ pub mod verify;
 pub use compaction::{CompactionPolicy, PruneCandidate, PruneEligibility};
 pub use seal::{
     SealEffect, SealReject, apply_seal, control_event_set_root, deterministic_order,
-    effective_seal_view, union_predecessor_covered_events, view_hash,
+    effective_seal_view, effective_state_at, union_predecessor_covered_events, view_hash,
 };
 pub use state_root::{EMPTY_STATE_ROOT, compute_state_root, leaf_hash};
 pub use store::memory::{MemoryCellRegistry, MemoryCellStore, MemoryMoveStore, MemorySealStore};

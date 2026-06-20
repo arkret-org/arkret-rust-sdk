@@ -108,7 +108,8 @@ where
         });
     }
 
-    let pre_state = effective_state_at(&seal.predecessor_refs, &seal.realm_id, cells, registry)?;
+    let pre_state =
+        effective_state_for_covered_events(&pred_covered, &seal.realm_id, cells, registry)?;
 
     let mut new_moves: Vec<Move> = Vec::with_capacity(seal.delta.len());
     for mid in &seal.delta {
@@ -143,13 +144,7 @@ where
     }
     cells.append_sealed_effects(&seal.realm_id, &seal.id, &new_ops)?;
 
-    let post_state = effective_state_at(
-        std::slice::from_ref(&seal.id),
-        &seal.realm_id,
-        cells,
-        registry,
-    )
-    .unwrap_or_else(|_| compute_post_state_direct(&seal.realm_id, cells, registry));
+    let post_state = effective_state_for_covered_events(&covered, &seal.realm_id, cells, registry)?;
     let recomputed_state = compute_state_root(&post_state)
         .map_err(|e| SealReject::Store(format!("state_root recompute failed: {e}")))?;
     if recomputed_state.as_str() != seal.state_root.as_str() {
@@ -185,7 +180,7 @@ pub fn effective_seal_view(
     let covered = union_predecessor_covered_events(&sorted, seals)?;
     let covered_event_digests: Vec<MoveId> = covered.iter().cloned().collect();
     let control_event_set_root = control_event_set_root(&covered)?;
-    let post_state = effective_state_at(&sorted, realm_id, cells, registry)?;
+    let post_state = effective_state_at(&sorted, realm_id, seals, cells, registry)?;
     let state_root = compute_state_root(&post_state)
         .map_err(|e| SealReject::Store(format!("state_root: {e}")))?;
 
@@ -248,40 +243,37 @@ pub fn control_event_set_root(covered: &BTreeSet<MoveId>) -> Result<Hash, SealRe
 }
 
 pub fn effective_state_at(
-    _leaves: &[SealId],
+    leaves: &[SealId],
+    realm_id: &RealmId,
+    seals: &dyn SealStore,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+) -> Result<BTreeMap<CellRef, CellState>, SealReject> {
+    let covered = union_predecessor_covered_events(leaves, seals)?;
+    effective_state_for_covered_events(&covered, realm_id, cells, registry)
+}
+
+fn effective_state_for_covered_events(
+    covered: &BTreeSet<MoveId>,
     realm_id: &RealmId,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
 ) -> Result<BTreeMap<CellRef, CellState>, SealReject> {
     let mut out = BTreeMap::new();
     for cell in cells.list_cells(realm_id)? {
-        let ops = cells.sealed_ops_for_cell(realm_id, &cell)?;
+        let ops: Vec<SealedOp> = cells
+            .sealed_ops_for_cell(realm_id, &cell)?
+            .into_iter()
+            .filter(|op| covered.contains(&op.move_id))
+            .collect();
+        if ops.is_empty() {
+            continue;
+        }
         let binding = registry.resolve(realm_id, &cell)?;
         let state = binding.lattice.join(&cell, &ops);
         out.insert(cell, state);
     }
     Ok(out)
-}
-
-fn compute_post_state_direct(
-    realm_id: &RealmId,
-    cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
-) -> BTreeMap<CellRef, CellState> {
-    let mut out = BTreeMap::new();
-    let Ok(cell_list) = cells.list_cells(realm_id) else {
-        return out;
-    };
-    for cell in cell_list {
-        let Ok(ops) = cells.sealed_ops_for_cell(realm_id, &cell) else {
-            continue;
-        };
-        let Ok(binding) = registry.resolve(realm_id, &cell) else {
-            continue;
-        };
-        out.insert(cell.clone(), binding.lattice.join(&cell, &ops));
-    }
-    out
 }
 
 pub fn deterministic_order(mut moves: Vec<Move>) -> Vec<Move> {
@@ -304,4 +296,160 @@ pub fn view_hash(leaves: &[SealId]) -> Result<Hash, crate::Error> {
     let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
     Hash::new(format!("sha256:{hex}"))
         .map_err(|e| crate::Error::Protocol(format!("invalid view_hash: {e}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::{TimeZone, Utc};
+    use serde_json::json;
+
+    use super::*;
+    use crate::lattice::SealedOp;
+    use crate::state::store::memory::{MemoryCellRegistry, MemoryCellStore, MemorySealStore};
+    use crate::state::store::{CellStore, SealStore};
+    use crate::{Hlc, LatticeOp, LatticeOpType, MoveSignature, NotarySig, SealKind};
+
+    fn realm() -> RealmId {
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    }
+
+    fn seal_id(byte: u8) -> SealId {
+        SealId::new(format!(
+            "ck:seal:sha256:{}",
+            format!("{byte:02x}").repeat(32)
+        ))
+        .unwrap()
+    }
+
+    fn move_id(byte: u8) -> MoveId {
+        MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    }
+
+    fn hash(byte: u8) -> Hash {
+        Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    }
+
+    fn capability_cell() -> CellRef {
+        CellRef::new(
+            "ck:cell:ck.component.capability.grant.v1:ck:grant:0196410c-0000-7000-8000-000000000000"
+                .to_owned(),
+        )
+        .unwrap()
+    }
+
+    fn add_op(tag: &str, marker: &str) -> LatticeOp {
+        LatticeOp {
+            op_type: LatticeOpType::Add,
+            tag: Some(tag.to_owned()),
+            value: Some(json!({ "marker": marker })),
+            from: None,
+            to: None,
+            reason: None,
+            issuer_seq: None,
+        }
+    }
+
+    fn dummy_signature() -> MoveSignature {
+        MoveSignature {
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:notary.example#k1".to_owned(),
+            payload_digest: hash(0xff),
+            created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
+            jws: "AAAA.BBBB.CCCC".to_owned(),
+        }
+    }
+
+    fn materialized_seal(id: SealId, covered: Vec<MoveId>) -> Seal {
+        Seal {
+            id,
+            realm_id: realm(),
+            predecessor_refs: Vec::new(),
+            delta: Vec::new(),
+            control_event_set_root: hash(0x22),
+            state_root: hash(0x77),
+            completeness_root: hash(0x33),
+            notary_seq: 1,
+            data_view_root: None,
+            data_event_set_root: None,
+            availability_root: None,
+            coverage_scope: None,
+            covered_event_digests: covered,
+            previous_state_root: None,
+            previous_digest_algorithm: None,
+            notary_signature: NotarySig::Single(dummy_signature()),
+            sealed_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
+            hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
+            kind: SealKind::Normal,
+        }
+    }
+
+    #[test]
+    fn effective_state_at_filters_ops_by_seal_coverage() {
+        let seals = MemorySealStore::default();
+        let cells = MemoryCellStore::default();
+        let registry = MemoryCellRegistry::default();
+        let realm = realm();
+        let cell = capability_cell();
+        let move_a = move_id(0xaa);
+        let move_b = move_id(0xbb);
+        let seal_a = materialized_seal(seal_id(0xa1), vec![move_a.clone()]);
+        let seal_b = materialized_seal(seal_id(0xb1), vec![move_b.clone()]);
+
+        cells
+            .append_sealed_effects(
+                &realm,
+                &seal_a.id,
+                &[(
+                    cell.clone(),
+                    SealedOp::new(move_a.clone(), add_op("a", "visible-at-a")),
+                )],
+            )
+            .unwrap();
+        cells
+            .append_sealed_effects(
+                &realm,
+                &seal_b.id,
+                &[(
+                    cell.clone(),
+                    SealedOp::new(move_b.clone(), add_op("b", "visible-at-b")),
+                )],
+            )
+            .unwrap();
+        seals.put(&seal_a).unwrap();
+        seals.put(&seal_b).unwrap();
+
+        let state_a = effective_state_at(
+            std::slice::from_ref(&seal_a.id),
+            &realm,
+            &seals,
+            &cells,
+            &registry,
+        )
+        .unwrap();
+        let value_a = state_a
+            .get(&cell)
+            .and_then(|state| state.clone().into_value())
+            .unwrap();
+        assert_eq!(
+            value_a,
+            json!([{ "tag": "a", "value": { "marker": "visible-at-a" } }])
+        );
+
+        let state_b = effective_state_at(
+            std::slice::from_ref(&seal_b.id),
+            &realm,
+            &seals,
+            &cells,
+            &registry,
+        )
+        .unwrap();
+        let value_b = state_b
+            .get(&cell)
+            .and_then(|state| state.clone().into_value())
+            .unwrap();
+        assert_eq!(
+            value_b,
+            json!([{ "tag": "b", "value": { "marker": "visible-at-b" } }])
+        );
+    }
 }
