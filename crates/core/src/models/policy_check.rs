@@ -100,6 +100,7 @@ pub struct PolicyCheckOutcome {
     pub decision: AuthzDecision,
     pub bound_to: PolicyCheckBoundTo,
     pub reason_code: String,
+    pub freshness_state: FreshnessState,
     pub expires_at: DateTime<Utc>,
     pub auth_state_digest: Hash,
     pub policy_frontier_digest: Hash,
