@@ -13,6 +13,9 @@ const EMBEDDED_SPEC_ARTIFACTS_JSON: &str = include_str!("embedded_artifacts.json
 
 static EMBEDDED_SPEC_ARTIFACTS: OnceLock<std::result::Result<BTreeMap<String, Value>, String>> =
     OnceLock::new();
+static EMBEDDED_CAPABILITY_ACTIONS: OnceLock<
+    std::result::Result<BTreeMap<String, CapabilityActionDescriptor>, String>,
+> = OnceLock::new();
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SpecArtifactBundle {
@@ -20,6 +23,8 @@ pub struct SpecArtifactBundle {
     pub event_kind_registry: Value,
     pub operation_registry: Value,
     pub id_kind_registry: Value,
+    #[serde(default)]
+    pub capability_action_registry: Value,
     #[serde(default)]
     pub conformance_profiles: Value,
     #[serde(skip)]
@@ -92,6 +97,42 @@ pub struct ComponentDescriptor {
     pub component_slot_alias_of: Option<String>,
 }
 
+/// Risk tier for a capability action as declared by
+/// `registry/capability-action-registry.json`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CapabilityRiskTier {
+    Low,
+    Medium,
+    High,
+}
+
+impl CapabilityRiskTier {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
+        }
+    }
+}
+
+/// Machine-readable descriptor for one capability action registry entry.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CapabilityActionDescriptor {
+    pub action: String,
+    pub category: String,
+    pub risk_tier: CapabilityRiskTier,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub required_constraints: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub required_evaluator_checks: Vec<String>,
+    pub target_event_kinds: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
+    pub event_mapping_kind: String,
+}
+
 impl SpecArtifactBundle {
     pub fn load(artifacts_dir: impl AsRef<Path>) -> Result<Self> {
         let requested_dir = artifacts_dir.as_ref();
@@ -111,6 +152,9 @@ impl SpecArtifactBundle {
             )?,
             operation_registry: read_json_artifact(&registry_dir.join("operation-registry.json"))?,
             id_kind_registry: read_json_artifact(&registry_dir.join("id-kind-registry.json"))?,
+            capability_action_registry: read_json_artifact(
+                &registry_dir.join("capability-action-registry.json"),
+            )?,
             conformance_profiles: read_json_artifact(
                 &artifacts_dir
                     .join("profiles")
@@ -126,6 +170,9 @@ impl SpecArtifactBundle {
             event_kind_registry: read_embedded_json_artifact("registry/event-kind-registry.json")?,
             operation_registry: read_embedded_json_artifact("registry/operation-registry.json")?,
             id_kind_registry: read_embedded_json_artifact("registry/id-kind-registry.json")?,
+            capability_action_registry: read_embedded_json_artifact(
+                "registry/capability-action-registry.json",
+            )?,
             conformance_profiles: read_embedded_json_artifact(
                 "profiles/conformance-profiles.json",
             )?,
@@ -140,6 +187,7 @@ impl SpecArtifactBundle {
                 "registry/event-kind-registry.json".to_owned(),
                 "registry/operation-registry.json".to_owned(),
                 "registry/id-kind-registry.json".to_owned(),
+                "registry/capability-action-registry.json".to_owned(),
                 "profiles/conformance-profiles.json".to_owned(),
             ],
             missing_schemas: missing_registry_values(
@@ -392,6 +440,14 @@ impl SpecArtifactBundle {
             criticality,
             component_slot_alias_of,
         }))
+    }
+
+    /// Look up a capability action descriptor from the loaded spec artifact.
+    ///
+    /// Returns `Ok(None)` for actions absent from the registry. The caller can
+    /// then apply the spec's fail-closed default for unknown actions.
+    pub fn capability_action(&self, action: &str) -> Result<Option<CapabilityActionDescriptor>> {
+        capability_action_from_registry(&self.capability_action_registry, action)
     }
 }
 
@@ -764,6 +820,127 @@ pub fn schema_registry_from_default_spec_artifacts() -> Result<Option<ProtocolSc
     }
 }
 
+/// Look up a capability action descriptor from the embedded spec artifact.
+///
+/// This is the runtime-friendly path for services that need to fail closed on
+/// unknown or unsupported capability actions without reading `cokret-spec` from
+/// the local filesystem.
+pub fn embedded_capability_action(
+    action: &str,
+) -> Result<Option<&'static CapabilityActionDescriptor>> {
+    match EMBEDDED_CAPABILITY_ACTIONS.get_or_init(|| {
+        let artifacts = embedded_spec_artifacts().map_err(|error| error.to_string())?;
+        let registry = artifacts
+            .get("registry/capability-action-registry.json")
+            .ok_or_else(|| {
+                "embedded spec artifact registry/capability-action-registry.json is missing"
+                    .to_owned()
+            })?;
+        capability_actions_from_registry(registry).map_err(|error| error.to_string())
+    }) {
+        Ok(actions) => Ok(actions.get(action)),
+        Err(error) => Err(Error::Protocol(error.clone())),
+    }
+}
+
+fn capability_action_from_registry(
+    registry: &Value,
+    action: &str,
+) -> Result<Option<CapabilityActionDescriptor>> {
+    let Some(entry) = registry_entry(registry, "actions", "action", action) else {
+        return Ok(None);
+    };
+    Ok(Some(capability_action_from_entry(entry, action)?))
+}
+
+fn capability_actions_from_registry(
+    registry: &Value,
+) -> Result<BTreeMap<String, CapabilityActionDescriptor>> {
+    let entries = registry
+        .get("actions")
+        .and_then(Value::as_array)
+        .ok_or_else(|| Error::Protocol("capability action registry missing actions".to_owned()))?;
+    let mut actions = BTreeMap::new();
+    for entry in entries {
+        let action = required_registry_string(entry, "action", "capability action")?;
+        let descriptor = capability_action_from_entry(entry, action)?;
+        actions.insert(action.to_owned(), descriptor);
+    }
+    Ok(actions)
+}
+
+fn capability_action_from_entry(entry: &Value, action: &str) -> Result<CapabilityActionDescriptor> {
+    let action_field = required_registry_string(entry, "action", action)?;
+    if action_field != action {
+        return Err(Error::Protocol(format!(
+            "capability action registry lookup for {action} returned {action_field}"
+        )));
+    }
+    let risk_tier = match required_registry_string(entry, "risk_tier", action)? {
+        "low" => CapabilityRiskTier::Low,
+        "medium" => CapabilityRiskTier::Medium,
+        "high" => CapabilityRiskTier::High,
+        other => {
+            return Err(Error::Protocol(format!(
+                "capability action {action} has unknown risk_tier {other:?}"
+            )));
+        }
+    };
+    let profile = match entry.get("profile") {
+        Some(Value::String(profile)) => Some(profile.clone()),
+        Some(Value::Null) | None => None,
+        Some(_) => {
+            return Err(Error::Protocol(format!(
+                "capability action {action} field profile must be string or null"
+            )));
+        }
+    };
+    Ok(CapabilityActionDescriptor {
+        action: action.to_owned(),
+        category: required_registry_string(entry, "category", action)?.to_owned(),
+        risk_tier,
+        required_constraints: registry_string_array(entry, "required_constraints", action)?,
+        required_evaluator_checks: registry_string_array(
+            entry,
+            "required_evaluator_checks",
+            action,
+        )?,
+        target_event_kinds: registry_string_array(entry, "target_event_kinds", action)?,
+        profile,
+        event_mapping_kind: required_registry_string(entry, "event_mapping_kind", action)?
+            .to_owned(),
+    })
+}
+
+fn required_registry_string<'a>(entry: &'a Value, field: &str, label: &str) -> Result<&'a str> {
+    entry.get(field).and_then(Value::as_str).ok_or_else(|| {
+        Error::Protocol(format!(
+            "registry entry {label} field {field} must be a string"
+        ))
+    })
+}
+
+fn registry_string_array(entry: &Value, field: &str, label: &str) -> Result<Vec<String>> {
+    let Some(raw) = entry.get(field) else {
+        return Ok(Vec::new());
+    };
+    let array = raw.as_array().ok_or_else(|| {
+        Error::Protocol(format!(
+            "registry entry {label} field {field} must be an array"
+        ))
+    })?;
+    array
+        .iter()
+        .map(|item| {
+            item.as_str().map(str::to_owned).ok_or_else(|| {
+                Error::Protocol(format!(
+                    "registry entry {label} field {field} contains a non-string"
+                ))
+            })
+        })
+        .collect()
+}
+
 fn collect_profile_ids(value: &Value, out: &mut BTreeSet<String>) {
     match value {
         Value::String(text) if is_profile_id(text) => {
@@ -978,4 +1155,46 @@ pub(super) fn registry_entry<'a>(
         .as_array()?
         .iter()
         .find(|entry| entry[key_field].as_str() == Some(expected_key))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn embedded_capability_action_reads_core_write_surface() {
+        let message = embedded_capability_action("ck.message.create")
+            .expect("embedded registry should parse")
+            .expect("message create should be registered");
+        assert_eq!(message.risk_tier, CapabilityRiskTier::Medium);
+        assert_eq!(message.profile, None);
+        assert_eq!(message.target_event_kinds, vec!["ck.message.create"]);
+
+        let policy = embedded_capability_action("ck.policy.manage")
+            .expect("embedded registry should parse")
+            .expect("policy manage should be registered");
+        assert_eq!(policy.risk_tier, CapabilityRiskTier::High);
+        assert_eq!(policy.event_mapping_kind, "aggregate_admin");
+    }
+
+    #[test]
+    fn embedded_capability_action_exposes_candidate_profile_gate() {
+        let action = embedded_capability_action("ck.realm.join.review")
+            .expect("embedded registry should parse")
+            .expect("candidate action should be registered");
+        assert_eq!(
+            action.profile.as_deref(),
+            Some("ck.profile.candidate.join_policy.v1")
+        );
+        assert_eq!(action.risk_tier, CapabilityRiskTier::Medium);
+    }
+
+    #[test]
+    fn embedded_capability_action_returns_none_for_unknown_action() {
+        assert!(
+            embedded_capability_action("member.application.create")
+                .expect("embedded registry should parse")
+                .is_none()
+        );
+    }
 }
