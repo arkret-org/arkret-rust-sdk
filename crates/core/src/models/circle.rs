@@ -293,12 +293,32 @@ pub struct CircleMembershipOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
+pub struct CircleScopeRotateRequestBody {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub events: Vec<EventEnvelope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct CircleScopeRotateOutcome {
     pub circle_id: CircleId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_ref: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub accepted: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub duplicate: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rejected: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub quarantine: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cleared_pending_removals: Vec<Did>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
