@@ -442,6 +442,76 @@ mod tests {
         let mut event_changed = content.clone();
         event_changed.reset_event_id = "ck:event:01964137-0000-7000-8000-0000000000bb".to_owned();
         assert_ne!(base, event_changed.reset_signing_input().unwrap());
+        // issued_at is bound (clock-skew and replay window protection).
+        let mut issued_changed = content.clone();
+        issued_changed.issued_at = issued_changed.issued_at + chrono::Duration::seconds(1);
+        assert_ne!(base, issued_changed.reset_signing_input().unwrap());
+        // proof kind/body are bound, excluding only signature material.
+        let mut proof_changed = content.clone();
+        proof_changed.proof = CrossSigningResetProof::RecoveryUnlock {
+            recovery_session_id: "ck:recovery_session:01964137-0000-7000-8000-0000000000cc"
+                .to_owned(),
+            recovery_secret_ref: "did:web:alice.example#recovery-1".to_owned(),
+            unlock_commitment: "sha256:00".to_owned(),
+            alg: "EdDSA".to_owned(),
+            signature: "AAAA".to_owned(),
+        };
+        assert_ne!(base, proof_changed.reset_signing_input().unwrap());
+        let mut signature_changed = content.clone();
+        signature_changed.proof = CrossSigningResetProof::PrincipalSigning {
+            verification_method: "did:web:alice.example#psk".to_owned(),
+            alg: "EdDSA".to_owned(),
+            signature: "BBBB".to_owned(),
+        };
+        assert_eq!(base, signature_changed.reset_signing_input().unwrap());
+    }
+
+    #[test]
+    fn recovery_unlock_commitment_binds_reset_without_self_reference() {
+        let content = CrossSigningResetContent {
+            principal_id: did("alice"),
+            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net")
+                .unwrap(),
+            reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
+            previous_generation: 1,
+            new_generation: 2,
+            reset_reason: "rotation".to_owned(),
+            proof: CrossSigningResetProof::RecoveryUnlock {
+                recovery_session_id: "ck:recovery_session:01964137-0000-7000-8000-0000000000cc"
+                    .to_owned(),
+                recovery_secret_ref: "did:web:alice.example#recovery-1".to_owned(),
+                unlock_commitment: "sha256:placeholder".to_owned(),
+                alg: "EdDSA".to_owned(),
+                signature: "AAAA".to_owned(),
+            },
+            issued_at: Utc::now(),
+        };
+        let commitment = content.recovery_unlock_commitment().unwrap();
+        assert!(commitment.starts_with("sha256:"));
+        let mut with_commitment = content.clone();
+        if let CrossSigningResetProof::RecoveryUnlock {
+            unlock_commitment, ..
+        } = &mut with_commitment.proof
+        {
+            *unlock_commitment = commitment.clone();
+        }
+        assert_eq!(
+            commitment,
+            with_commitment.recovery_unlock_commitment().unwrap()
+        );
+
+        let mut changed_ref = with_commitment.clone();
+        if let CrossSigningResetProof::RecoveryUnlock {
+            recovery_secret_ref,
+            ..
+        } = &mut changed_ref.proof
+        {
+            *recovery_secret_ref = "did:web:alice.example#recovery-2".to_owned();
+        }
+        assert_ne!(
+            commitment,
+            changed_ref.recovery_unlock_commitment().unwrap()
+        );
     }
 
     #[test]
@@ -518,6 +588,8 @@ mod tests {
         // RecoveryUnlock with blank `unlock_commitment` is rejected.
         let blank_unlock = CrossSigningResetContent {
             proof: CrossSigningResetProof::RecoveryUnlock {
+                recovery_session_id: "ck:recovery_session:01964137-0000-7000-8000-0000000000cc"
+                    .to_owned(),
                 recovery_secret_ref: "ref".to_owned(),
                 unlock_commitment: "  ".to_owned(),
                 alg: "EdDSA".to_owned(),

@@ -4,6 +4,8 @@
 use chrono::{DateTime, Utc};
 use cokret_core::{DeviceId, Did, Error, Result};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use crate::device::DeviceTrustState;
 use crate::errors::{
@@ -214,6 +216,7 @@ pub enum CrossSigningResetProof {
     },
     /// Unlock of secret storage with the recovery key.
     RecoveryUnlock {
+        recovery_session_id: String,
         recovery_secret_ref: String,
         unlock_commitment: String,
         alg: String,
@@ -332,20 +335,27 @@ impl CrossSigningResetContent {
                 validate_max_length("reset proof signature", signature, MAX_KEY_FIELD_LEN)?;
             }
             CrossSigningResetProof::RecoveryUnlock {
+                recovery_session_id,
                 recovery_secret_ref,
                 unlock_commitment,
                 alg,
                 signature,
             } => {
-                if recovery_secret_ref.trim().is_empty()
+                if recovery_session_id.trim().is_empty()
+                    || recovery_secret_ref.trim().is_empty()
                     || unlock_commitment.trim().is_empty()
                     || alg.trim().is_empty()
                     || signature.trim().is_empty()
                 {
                     return Err(Error::Protocol(
-                        "recovery_unlock proof requires recovery_secret_ref + unlock_commitment + alg + signature".to_owned(),
+                        "recovery_unlock proof requires recovery_session_id + recovery_secret_ref + unlock_commitment + alg + signature".to_owned(),
                     ));
                 }
+                validate_max_length(
+                    "recovery_unlock recovery_session_id",
+                    recovery_session_id,
+                    MAX_IDENTIFIER_LEN,
+                )?;
                 validate_max_length(
                     "recovery_unlock recovery_secret_ref",
                     recovery_secret_ref,
@@ -363,24 +373,150 @@ impl CrossSigningResetContent {
         Ok(())
     }
 
-    /// Canonical signing input for a `ck.cross_signing.reset` proof
-    /// (`ck-cross-signing-reset-v1`, spec crypto-media/device-lifecycle.md §14.1).
-    ///
-    /// Binds the reset's principal + generation transition + reason so the proof
-    /// cannot be replayed onto a different reset. Both the proving client and the
-    /// verifying receiver MUST reconstruct this byte-identically.
-    pub fn reset_signing_input(&self) -> Result<Vec<u8>> {
-        let body = serde_json::json!({
-            "principal_id": self.principal_id.as_str(),
+    fn reset_proof_kind(&self) -> &'static str {
+        match &self.proof {
+            CrossSigningResetProof::PrincipalSigning { .. } => "principal_signing",
+            CrossSigningResetProof::RecoveryUnlock { .. } => "recovery_unlock",
+            CrossSigningResetProof::DeviceQuorum { .. } => "device_quorum",
+            CrossSigningResetProof::TrustedRecoveryService { .. } => "trusted_recovery_service",
+        }
+    }
+
+    fn reset_proof_body(&self, include_unlock_commitment: bool) -> Value {
+        match &self.proof {
+            CrossSigningResetProof::PrincipalSigning {
+                verification_method,
+                alg,
+                ..
+            } => serde_json::json!({
+                "verification_method": verification_method,
+                "alg": alg,
+            }),
+            CrossSigningResetProof::RecoveryUnlock {
+                recovery_session_id,
+                recovery_secret_ref,
+                unlock_commitment,
+                alg,
+                ..
+            } => {
+                let mut body = serde_json::json!({
+                    "recovery_session_id": recovery_session_id,
+                    "recovery_secret_ref": recovery_secret_ref,
+                    "alg": alg,
+                });
+                if include_unlock_commitment && let Some(object) = body.as_object_mut() {
+                    object.insert(
+                        "unlock_commitment".to_owned(),
+                        Value::String(unlock_commitment.clone()),
+                    );
+                }
+                body
+            }
+            CrossSigningResetProof::DeviceQuorum {
+                threshold,
+                signatures,
+            } => {
+                let signatures = signatures
+                    .iter()
+                    .map(|signature| {
+                        serde_json::json!({
+                            "device_id": signature.device_id.as_str(),
+                            "verification_method": signature.verification_method,
+                            "alg": signature.alg,
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                serde_json::json!({
+                    "threshold": threshold,
+                    "signatures": signatures,
+                })
+            }
+            CrossSigningResetProof::TrustedRecoveryService {
+                service_did,
+                verification_method,
+                alg,
+                attestation_ref,
+                ..
+            } => {
+                let mut body = serde_json::json!({
+                    "service_did": service_did.as_str(),
+                    "verification_method": verification_method,
+                    "alg": alg,
+                });
+                if let Some(attestation_ref) = attestation_ref
+                    && let Some(object) = body.as_object_mut()
+                {
+                    object.insert(
+                        "attestation_ref".to_owned(),
+                        Value::String(attestation_ref.clone()),
+                    );
+                }
+                body
+            }
+        }
+    }
+
+    fn reset_signing_body(&self, include_unlock_commitment: bool) -> Value {
+        serde_json::json!({
             "trust_domain": self.trust_domain.as_str(),
             "reset_event_id": self.reset_event_id,
+            "principal_id": self.principal_id.as_str(),
             "previous_generation": self.previous_generation,
             "new_generation": self.new_generation,
             "reset_reason_code": self.reset_reason,
-        });
+            "issued_at": self.issued_at,
+            "proof_kind": self.reset_proof_kind(),
+            "proof_body": self.reset_proof_body(include_unlock_commitment),
+        })
+    }
+
+    /// Canonical signing input for a `ck.cross_signing.reset` proof
+    /// (`ck-cross-signing-reset-v1`, spec crypto-media/device-lifecycle.md §14.1).
+    ///
+    /// Binds the reset's principal + generation transition + reason + issued
+    /// time + proof family/body so the proof cannot be replayed onto a different
+    /// reset or another proof shell.
+    pub fn reset_signing_input(&self) -> Result<Vec<u8>> {
         let mut out = b"ck-cross-signing-reset-v1\n".to_vec();
-        out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(&body)?);
+        out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(
+            &self.reset_signing_body(true),
+        )?);
         Ok(out)
+    }
+
+    /// Canonical JSON bytes used inside the public `recovery_unlock`
+    /// commitment. This mirrors the reset signing body, except the proof body
+    /// excludes both `signature` and `unlock_commitment` to avoid self-reference.
+    pub fn recovery_unlock_binding_input(&self) -> Result<Vec<u8>> {
+        cokret_core::canonical::canonical_json_bytes(&self.reset_signing_body(false))
+    }
+
+    /// Expected `recovery_unlock.unlock_commitment` for this reset payload.
+    ///
+    /// Wire form is `sha256:<lowercase_hex>` over:
+    /// `ck-cross-signing-reset-unlock-binding-v1\n || recovery_secret_ref ||
+    /// recovery_unlock_binding_input`.
+    pub fn recovery_unlock_commitment(&self) -> Result<String> {
+        let CrossSigningResetProof::RecoveryUnlock {
+            recovery_secret_ref,
+            ..
+        } = &self.proof
+        else {
+            return Err(Error::Protocol(
+                "recovery_unlock_commitment requires recovery_unlock proof".to_owned(),
+            ));
+        };
+        let mut hasher = Sha256::new();
+        hasher.update(b"ck-cross-signing-reset-unlock-binding-v1\n");
+        hasher.update(recovery_secret_ref.as_bytes());
+        hasher.update(self.recovery_unlock_binding_input()?);
+        let digest = hasher.finalize();
+        let mut hex = String::with_capacity(digest.len() * 2);
+        for byte in digest {
+            use std::fmt::Write as _;
+            let _ = write!(&mut hex, "{byte:02x}");
+        }
+        Ok(format!("sha256:{hex}"))
     }
 }
 
