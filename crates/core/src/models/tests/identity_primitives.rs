@@ -10,16 +10,21 @@ fn directory_search_realms_request_uses_source_realm_id() {
         organization_did: None,
         source_realm_id: Some(source_realm_id.clone()),
         requester: None,
-        proofs: Vec::new(),
+        proof_challenge: Some("challenge-1".to_owned()),
+        claim_presentations: Vec::new(),
         cursor: None,
         limit: Some(20),
     };
     let value = serde_json::to_value(&request).unwrap();
     assert_eq!(value["source_realm_id"], source_realm_id.as_str());
+    assert_eq!(value["proof_challenge"], "challenge-1");
+    assert!(value.get("proofs").is_none());
     assert!(value.get("parent_space_id").is_none());
 
     let parsed: DirectorySearchRealmsRequestBody = serde_json::from_value(value).unwrap();
     assert_eq!(parsed.source_realm_id, Some(source_realm_id));
+    assert_eq!(parsed.proof_challenge.as_deref(), Some("challenge-1"));
+    assert!(parsed.claim_presentations.is_empty());
 }
 
 #[test]

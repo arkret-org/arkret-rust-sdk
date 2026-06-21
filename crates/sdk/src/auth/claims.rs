@@ -180,6 +180,40 @@ impl PresentedClaim {
     }
 }
 
+impl From<cokret_core::DirectoryPresentedClaim> for PresentedClaim {
+    fn from(claim: cokret_core::DirectoryPresentedClaim) -> Self {
+        Self {
+            claim_id: claim.claim_id,
+            subject: claim.subject,
+            issuer: claim.issuer,
+            claim_kind: claim.claim_kind,
+            value: claim.value,
+            issued_at: claim.issued_at,
+            refreshed_at: claim.refreshed_at,
+            expires_at: claim.expires_at,
+            revoked_at: claim.revoked_at,
+            disclosed_fields: claim.disclosed_fields,
+        }
+    }
+}
+
+impl From<PresentedClaim> for cokret_core::DirectoryPresentedClaim {
+    fn from(claim: PresentedClaim) -> Self {
+        Self {
+            claim_id: claim.claim_id,
+            subject: claim.subject,
+            issuer: claim.issuer,
+            claim_kind: claim.claim_kind,
+            value: claim.value,
+            issued_at: claim.issued_at,
+            refreshed_at: claim.refreshed_at,
+            expires_at: claim.expires_at,
+            revoked_at: claim.revoked_at,
+            disclosed_fields: claim.disclosed_fields,
+        }
+    }
+}
+
 /// One claim requested by a progressive disclosure policy.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimDisclosureRequirement {

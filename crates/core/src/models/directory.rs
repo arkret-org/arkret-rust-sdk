@@ -4,6 +4,45 @@ use super::*;
 /// contract with the registered directory-service overlay fields populated.
 pub type DirectoryDescription = ServiceDescribe;
 
+pub const DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND: &str =
+    "ck.directory.restricted_claim_presentation.v1";
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct DirectoryPresentedClaim {
+    pub claim_id: String,
+    pub subject: Did,
+    pub issuer: Did,
+    pub claim_kind: String,
+    pub value: Value,
+    pub issued_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refreshed_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub disclosed_fields: BTreeSet<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct DirectoryRestrictedClaimPresentation {
+    pub kind: String,
+    pub iss: Did,
+    pub verification_method: String,
+    pub audience: Did,
+    pub nonce: String,
+    pub claim: DirectoryPresentedClaim,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub jws: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchRealmsRequestBody {
@@ -15,8 +54,10 @@ pub struct DirectorySearchRealmsRequestBody {
     pub source_realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requester: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub claim_presentations: Vec<DirectoryRestrictedClaimPresentation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -199,8 +240,10 @@ pub struct DirectoryResolveRealmRequestBody {
     pub signed_link: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requester: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub claim_presentations: Vec<DirectoryRestrictedClaimPresentation>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
