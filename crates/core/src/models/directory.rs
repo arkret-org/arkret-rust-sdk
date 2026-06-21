@@ -1,16 +1,8 @@
 use super::*;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DirectoryDescription {
-    pub service_did: Did,
-    #[serde(default)]
-    pub resource_types: Vec<String>,
-    #[serde(default)]
-    pub discovery_profiles: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub restricted_query_proof: Option<bool>,
-}
+/// `ck.find.directory.query.describe` returns the shared ServiceDescribe
+/// contract with the registered directory-service overlay fields populated.
+pub type DirectoryDescription = ServiceDescribe;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

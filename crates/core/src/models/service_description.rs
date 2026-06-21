@@ -87,6 +87,51 @@ pub struct ServerDescription {
     /// webhooks, applets, agents, directory and push.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub egress_network_policy: Option<EgressNetworkPolicy>,
+    /// Directory-service overlay: resource classes indexed by
+    /// `ck.find.directory.query.describe`. Required when
+    /// `service_type == "directory_service"`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub resource_types: Vec<DirectoryResourceKind>,
+    /// Directory-service overlay: discovery profiles and extension
+    /// profile ids advertised by the directory surface.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub discovery_profiles: Vec<String>,
+    /// Directory-service overlay: whether restricted or privacy-sensitive
+    /// queries require holder-approved proof.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restricted_query_proof: Option<bool>,
+    /// Directory-service overlay: supported ingest modes.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ingest_modes: Vec<DirectoryIngestMode>,
+    /// Directory-service overlay: resource acceptance policy kind.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accept_policy_kind: Option<DirectoryAcceptPolicyKind>,
+    /// Directory-service overlay: optional governance or human-readable
+    /// reference for obtaining acceptance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accept_policy_ref: Option<Value>,
+    /// Directory-service overlay: default entry TTL in seconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_ttl_seconds: Option<u64>,
+    /// Directory-service overlay: maximum accepted entry TTL in seconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_ttl_seconds: Option<u64>,
+    /// Directory-service overlay: refresh grace period in seconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revalidation_grace_seconds: Option<u64>,
+    /// Directory-service overlay: resource kinds accepted by this instance.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub accepted_resource_kinds: Vec<DirectoryResourceKind>,
+    /// Directory-service overlay: accepted principal/governance DID methods.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub accepted_did_methods: Vec<String>,
+    /// Directory-service overlay: takedown notification or appeal contact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub takedown_contact: Option<String>,
+    /// Directory-service overlay: readable per-DID/per-org/per-IP quota
+    /// limits that do not fit the global `rate_limit_policy` shape.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limits: Option<Value>,
     /// Reducer profiles supported (kept for back-compat — populated
     /// by the producer alongside `supported_profiles`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -130,6 +175,45 @@ impl ServerDescription {
                  ({})",
                 crate::ERROR_CODE_SCHEMA_VIOLATION
             )));
+        }
+        if self.service_type == "directory_service" {
+            if !self
+                .supported_profiles
+                .iter()
+                .any(|profile| profile == "ck.profile.directory_service.v1")
+            {
+                return Err(Error::Protocol(format!(
+                    "ServiceDescribe: service_type=directory_service requires \
+                     supported_profiles to include ck.profile.directory_service.v1 ({})",
+                    crate::ERROR_CODE_SCHEMA_VIOLATION
+                )));
+            }
+            if self.resource_types.is_empty()
+                || self.discovery_profiles.is_empty()
+                || self.ingest_modes.is_empty()
+                || self.accept_policy_kind.is_none()
+                || self.default_ttl_seconds.is_none()
+                || self.max_ttl_seconds.is_none()
+                || self.revalidation_grace_seconds.is_none()
+                || self.accepted_resource_kinds.is_empty()
+                || self.accepted_did_methods.is_empty()
+                || self.rate_limits.is_none()
+            {
+                return Err(Error::Protocol(format!(
+                    "ServiceDescribe: service_type=directory_service requires the directory \
+                     describe overlay fields ({})",
+                    crate::ERROR_CODE_SCHEMA_VIOLATION
+                )));
+            }
+            let default_ttl = self.default_ttl_seconds.unwrap_or_default();
+            let max_ttl = self.max_ttl_seconds.unwrap_or_default();
+            if max_ttl > 2_592_000 || default_ttl > max_ttl {
+                return Err(Error::Protocol(format!(
+                    "ServiceDescribe: directory TTL fields must satisfy \
+                     default_ttl_seconds <= max_ttl_seconds <= 2592000 ({})",
+                    crate::ERROR_CODE_SCHEMA_VIOLATION
+                )));
+            }
         }
         Ok(())
     }
@@ -404,6 +488,26 @@ pub struct EgressPrivateException {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub development_mode_only: Option<bool>,
     pub expires_at: DateTime<Utc>,
+}
+
+/// Ingest mode vocabulary for the directory-service describe overlay.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DirectoryIngestMode {
+    Push,
+    Pull,
+}
+
+/// Acceptance policy vocabulary for the directory-service describe overlay.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DirectoryAcceptPolicyKind {
+    Open,
+    Allowlist,
+    TrustRootSigned,
+    OperatorReview,
 }
 
 /// Round 4 — wire-level entry in
