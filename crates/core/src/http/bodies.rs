@@ -1003,7 +1003,7 @@ pub struct SessionGrantOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SessionLoginOutcome {
-    pub access_token: String,
+    pub session_credential: String,
     pub token_type: String,
     pub actor: Did,
     pub device_id: DeviceId,
@@ -1018,28 +1018,14 @@ pub struct SessionGrantIntrospectionProof {
     pub proof_jwt: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct SessionGrantExchangeRequestBody {
-    pub grant_jwt: String,
-    pub principal_id: Did,
-    pub device_id: DeviceId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_public_key: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub introspection_proof: Option<SessionGrantIntrospectionProof>,
-}
-
 // ─── DPoP-bound session-grant lifecycle (account-lifecycle §4.1) ─────────────
 //
-// Wire shapes for the `/_cokret/gate/account/session-grants/{refresh,logout,
-// introspect}` and `/_cokret/gate/account/logout` operations. These mirror
-// `service-operation-dtos.schema.json#/$defs/SessionGrant{Refresh,Logout,
-// Introspect}*` and `AccountLogout*` so callers (soland, yougen) bind to the
-// same strong types the spec/OpenAPI declare instead of hand-rolled structs.
+// Wire shapes for the `/_cokret/gate/account/session-grants/{refresh,
+// introspect}`, `/_cokret/gate/account/auth-sessions/logout`, and
+// `/_cokret/gate/account/logout` operations. These mirror
+// `service-operation-dtos.schema.json#/$defs/SessionGrant{Refresh,Introspect}*`,
+// `AuthSessionLogout*`, and `AccountLogout*` so callers bind to the same strong
+// types the spec/OpenAPI declare instead of hand-rolled structs.
 
 /// `ck.gate.account.command.refresh_session_grant` request.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1071,20 +1057,26 @@ pub struct SessionGrantRefreshOutcome {
     pub previous_grant_id: String,
 }
 
-/// `ck.gate.account.command.logout_session_grant` request (Auth Server hard
-/// logout via DPoP holder proof).
+/// `ck.gate.account.command.logout_auth_session` request.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SessionGrantLogoutRequestBody {
+pub struct AuthSessionLogoutRequestBody {
     pub grant_jwt: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub logout_request_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub validated_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
 }
 
-/// `ck.gate.account.command.logout_session_grant` outcome.
+/// `ck.gate.account.command.logout_auth_session` outcome.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SessionGrantLogoutOutcome {
-    pub revoked: bool,
-    pub browser_session_finished: bool,
+pub struct AuthSessionLogoutOutcome {
+    pub ok: bool,
+    pub grant_chain_terminated: bool,
+    pub auth_session_logged_out: bool,
 }
 
 /// Standardized status returned by session-grant introspection.

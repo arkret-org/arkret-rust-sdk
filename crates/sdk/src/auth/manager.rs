@@ -10,8 +10,8 @@ pub struct AuthSession {
     pub user_id: Did,
     pub principal_id: Did,
     pub device_id: DeviceId,
-    pub access_token: String,
-    pub refresh_token: String,
+    pub session_credential: String,
+    pub renewal_credential: String,
     pub expires_at: DateTime<Utc>,
     pub revoked: bool,
     pub created_at: DateTime<Utc>,
@@ -24,8 +24,8 @@ impl fmt::Debug for AuthSession {
             .field("user_id", &self.user_id)
             .field("principal_id", &self.principal_id)
             .field("device_id", &self.device_id)
-            .field("access_token", &"<redacted>")
-            .field("refresh_token", &"<redacted>")
+            .field("session_credential", &"<redacted>")
+            .field("renewal_credential", &"<redacted>")
             .field("expires_at", &self.expires_at)
             .field("revoked", &self.revoked)
             .field("created_at", &self.created_at)
@@ -40,7 +40,7 @@ pub struct AuthManager {
     sessions: BTreeMap<String, AuthSession>,
     sessions_by_user: BTreeMap<Did, VecDeque<String>>,
     account_states: BTreeMap<Did, AccountAuthState>,
-    refresh_tokens: BTreeMap<String, RefreshTokenMetadata>,
+    renewal_credentials: BTreeMap<String, RenewalCredentialMetadata>,
     revoked_sessions: BTreeMap<String, SessionRevocation>,
     passkey_challenges: BTreeMap<Did, PasskeyChallenge>,
     mfa_challenges: BTreeMap<Did, MfaChallenge>,
@@ -57,7 +57,7 @@ impl AuthManager {
             sessions: BTreeMap::new(),
             sessions_by_user: BTreeMap::new(),
             account_states: BTreeMap::new(),
-            refresh_tokens: BTreeMap::new(),
+            renewal_credentials: BTreeMap::new(),
             revoked_sessions: BTreeMap::new(),
             passkey_challenges: BTreeMap::new(),
             mfa_challenges: BTreeMap::new(),
@@ -389,8 +389,8 @@ impl AuthManager {
         let now = Utc::now();
         let session = AuthSession {
             session_id: format!("sess_{}", uuid::Uuid::now_v7()),
-            access_token: format!("atk_{}", uuid::Uuid::now_v7()),
-            refresh_token: format!("rtk_{}", uuid::Uuid::now_v7()),
+            session_credential: format!("sc_{}", uuid::Uuid::now_v7()),
+            renewal_credential: format!("rc_{}", uuid::Uuid::now_v7()),
             expires_at: now + Duration::hours(1),
             revoked: false,
             created_at: now,
@@ -398,14 +398,14 @@ impl AuthManager {
             principal_id: user_id.clone(),
             device_id: device_id.clone(),
         };
-        self.refresh_tokens.insert(
+        self.renewal_credentials.insert(
             session.session_id.clone(),
-            RefreshTokenMetadata {
+            RenewalCredentialMetadata {
                 session_id: session.session_id.clone(),
                 user_id: user_id.clone(),
                 device_id,
-                access_token_hash: sha256_hex(session.access_token.as_bytes()),
-                refresh_token_hash: sha256_hex(session.refresh_token.as_bytes()),
+                session_credential_hash: sha256_hex(session.session_credential.as_bytes()),
+                renewal_credential_hash: sha256_hex(session.renewal_credential.as_bytes()),
                 issued_at: now,
                 expires_at: session.expires_at,
                 revoked_at: None,
@@ -420,7 +420,7 @@ impl AuthManager {
                 && let Some(session) = self.sessions.get_mut(&oldest)
             {
                 session.revoked = true;
-                if let Some(metadata) = self.refresh_tokens.get_mut(&oldest) {
+                if let Some(metadata) = self.renewal_credentials.get_mut(&oldest) {
                     metadata.revoked_at = Some(now);
                 }
                 self.revoked_sessions.insert(
@@ -438,11 +438,11 @@ impl AuthManager {
         Ok(session)
     }
 
-    /// Refresh a session token.
+    /// Refresh a session credential.
     pub fn refresh_session(
         &mut self,
         session_id: &str,
-        refresh_token: &str,
+        renewal_credential: &str,
     ) -> Result<AuthSession> {
         let snapshot = self
             .sessions
@@ -455,29 +455,29 @@ impl AuthManager {
         if snapshot.expires_at <= Utc::now() {
             return Err(Error::Protocol("session expired".to_owned()));
         }
-        let supplied_hash = sha256_hex(refresh_token.as_bytes());
-        if let Some(metadata) = self.refresh_tokens.get(session_id) {
+        let supplied_hash = sha256_hex(renewal_credential.as_bytes());
+        if let Some(metadata) = self.renewal_credentials.get(session_id) {
             if metadata.revoked_at.is_some() {
                 return Err(Error::Protocol("session revoked".to_owned()));
             }
-            if !constant_time_eq(&metadata.refresh_token_hash, &supplied_hash) {
-                return Err(Error::Protocol("invalid refresh token".to_owned()));
+            if !constant_time_eq(&metadata.renewal_credential_hash, &supplied_hash) {
+                return Err(Error::Protocol("invalid renewal credential".to_owned()));
             }
-        } else if !constant_time_eq(&snapshot.refresh_token, refresh_token) {
-            return Err(Error::Protocol("invalid refresh token".to_owned()));
+        } else if !constant_time_eq(&snapshot.renewal_credential, renewal_credential) {
+            return Err(Error::Protocol("invalid renewal credential".to_owned()));
         }
         let session = self
             .sessions
             .get_mut(session_id)
             .ok_or_else(|| Error::Protocol("session not found".to_owned()))?;
-        session.access_token = format!("atk_{}", uuid::Uuid::now_v7());
-        if session.refresh_token == "<redacted>" {
-            session.refresh_token = refresh_token.to_owned();
+        session.session_credential = format!("sc_{}", uuid::Uuid::now_v7());
+        if session.renewal_credential == "<redacted>" {
+            session.renewal_credential = renewal_credential.to_owned();
         }
         session.expires_at = Utc::now() + Duration::hours(1);
-        if let Some(metadata) = self.refresh_tokens.get_mut(session_id) {
-            metadata.access_token_hash = sha256_hex(session.access_token.as_bytes());
-            metadata.refresh_token_hash = supplied_hash;
+        if let Some(metadata) = self.renewal_credentials.get_mut(session_id) {
+            metadata.session_credential_hash = sha256_hex(session.session_credential.as_bytes());
+            metadata.renewal_credential_hash = supplied_hash;
             metadata.expires_at = session.expires_at;
         }
         Ok(session.clone())
@@ -491,7 +491,7 @@ impl AuthManager {
             .ok_or_else(|| Error::Protocol("session not found".to_owned()))?;
         session.revoked = true;
         let revoked_at = Utc::now();
-        if let Some(metadata) = self.refresh_tokens.get_mut(session_id) {
+        if let Some(metadata) = self.renewal_credentials.get_mut(session_id) {
             metadata.revoked_at = Some(revoked_at);
         }
         self.revoked_sessions.insert(
@@ -543,7 +543,7 @@ impl AuthManager {
     pub fn validate_session(
         &self,
         session_id: &str,
-        access_token: &str,
+        session_credential: &str,
         device_id: &DeviceId,
     ) -> Result<SessionPrincipalBinding> {
         let session = self
@@ -562,13 +562,13 @@ impl AuthManager {
                 "session device binding mismatch".to_owned(),
             ));
         }
-        let supplied_hash = sha256_hex(access_token.as_bytes());
-        if let Some(metadata) = self.refresh_tokens.get(session_id) {
-            if !constant_time_eq(&metadata.access_token_hash, &supplied_hash) {
-                return Err(Error::Protocol("invalid access token".to_owned()));
+        let supplied_hash = sha256_hex(session_credential.as_bytes());
+        if let Some(metadata) = self.renewal_credentials.get(session_id) {
+            if !constant_time_eq(&metadata.session_credential_hash, &supplied_hash) {
+                return Err(Error::Protocol("invalid session credential".to_owned()));
             }
-        } else if !constant_time_eq(&session.access_token, access_token) {
-            return Err(Error::Protocol("invalid access token".to_owned()));
+        } else if !constant_time_eq(&session.session_credential, session_credential) {
+            return Err(Error::Protocol("invalid session credential".to_owned()));
         }
         self.session_principal_binding(session_id)
     }
@@ -586,13 +586,13 @@ impl AuthManager {
             .unwrap_or(AccountAuthState::Suspended)
     }
 
-    /// Export durable auth state without raw access or refresh token material.
+    /// Export durable auth state without raw access or renewal credential material.
     pub fn export_state(&self) -> AuthStateSnapshot {
         let sessions = self
             .sessions
             .values()
             .map(|session| {
-                let metadata = self.refresh_tokens.get(&session.session_id);
+                let metadata = self.renewal_credentials.get(&session.session_id);
                 PersistedAuthSession {
                     session_id: session.session_id.clone(),
                     user_id: session.user_id.clone(),
@@ -601,12 +601,12 @@ impl AuthManager {
                     expires_at: session.expires_at,
                     revoked: session.revoked,
                     created_at: session.created_at,
-                    access_token_hash: metadata
-                        .map(|metadata| metadata.access_token_hash.clone())
-                        .unwrap_or_else(|| sha256_hex(session.access_token.as_bytes())),
-                    refresh_token_hash: metadata
-                        .map(|metadata| metadata.refresh_token_hash.clone())
-                        .unwrap_or_else(|| sha256_hex(session.refresh_token.as_bytes())),
+                    session_credential_hash: metadata
+                        .map(|metadata| metadata.session_credential_hash.clone())
+                        .unwrap_or_else(|| sha256_hex(session.session_credential.as_bytes())),
+                    renewal_credential_hash: metadata
+                        .map(|metadata| metadata.renewal_credential_hash.clone())
+                        .unwrap_or_else(|| sha256_hex(session.renewal_credential.as_bytes())),
                 }
             })
             .collect();
@@ -614,7 +614,7 @@ impl AuthManager {
             password_users: self.password_users.clone(),
             sessions,
             account_states: self.account_states.clone(),
-            refresh_tokens: self.refresh_tokens.clone(),
+            renewal_credentials: self.renewal_credentials.clone(),
             revoked_sessions: self.revoked_sessions.clone(),
             recovery_requests: self.recovery_requests.clone(),
         }
@@ -626,7 +626,7 @@ impl AuthManager {
         self.sessions.clear();
         self.sessions_by_user.clear();
         self.account_states = snapshot.account_states;
-        self.refresh_tokens = snapshot.refresh_tokens;
+        self.renewal_credentials = snapshot.renewal_credentials;
         self.revoked_sessions = snapshot.revoked_sessions;
         self.recovery_requests = snapshot.recovery_requests;
 
@@ -636,20 +636,20 @@ impl AuthManager {
                 user_id: persisted.user_id.clone(),
                 principal_id: persisted.principal_id,
                 device_id: persisted.device_id.clone(),
-                access_token: "<redacted>".to_owned(),
-                refresh_token: "<redacted>".to_owned(),
+                session_credential: "<redacted>".to_owned(),
+                renewal_credential: "<redacted>".to_owned(),
                 expires_at: persisted.expires_at,
                 revoked: persisted.revoked,
                 created_at: persisted.created_at,
             };
-            self.refresh_tokens
+            self.renewal_credentials
                 .entry(persisted.session_id.clone())
-                .or_insert(RefreshTokenMetadata {
+                .or_insert(RenewalCredentialMetadata {
                     session_id: persisted.session_id.clone(),
                     user_id: persisted.user_id.clone(),
                     device_id: persisted.device_id,
-                    access_token_hash: persisted.access_token_hash,
-                    refresh_token_hash: persisted.refresh_token_hash,
+                    session_credential_hash: persisted.session_credential_hash,
+                    renewal_credential_hash: persisted.renewal_credential_hash,
                     issued_at: persisted.created_at,
                     expires_at: persisted.expires_at,
                     revoked_at: if persisted.revoked {

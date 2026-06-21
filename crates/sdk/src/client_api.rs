@@ -75,8 +75,8 @@ pub struct LoginRequestBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct TokenRefreshRequestBody {
-    pub refresh_token: String,
+pub struct SessionCredentialRefreshRequestBody {
+    pub renewal_credential: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,8 +92,8 @@ pub struct LogoutRequestBody {
 pub struct SessionOutcome {
     pub user_id: Did,
     pub device_id: DeviceId,
-    pub access_token: String,
-    pub refresh_token: String,
+    pub session_credential: String,
+    pub renewal_credential: String,
     pub expires_at: DateTime<Utc>,
 }
 

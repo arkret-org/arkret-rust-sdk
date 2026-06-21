@@ -30,7 +30,7 @@ fn directory_search_realms_request_uses_source_realm_id() {
 #[test]
 fn session_login_outcome_uses_typed_wire_fields() {
     let value = json!({
-        "access_token": "sx_token",
+        "session_credential": "sx_token",
         "token_type": "Bearer",
         "actor": "did:web:alice.example",
         "device_id": "ck:device:01964137-0000-7000-8000-000000000001",

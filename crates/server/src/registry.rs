@@ -70,9 +70,9 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/gate/account/session-grants/refresh"
     ),
     endpoint!(
-        "ck.gate.account.command.logout_session_grant",
+        "ck.gate.account.command.logout_auth_session",
         Post,
-        "/_cokret/gate/account/session-grants/logout"
+        "/_cokret/gate/account/auth-sessions/logout"
     ),
     endpoint!(
         "ck.gate.account.command.introspect_session_grant",

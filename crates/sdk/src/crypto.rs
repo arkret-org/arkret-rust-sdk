@@ -240,7 +240,7 @@ pub fn is_sensitive_log_key(key: &str) -> bool {
     let key = key.to_ascii_lowercase();
     matches!(
         key.as_str(),
-        "access_token"
+        "session_credential"
             | "authorization"
             | "bearer"
             | "code"
@@ -252,11 +252,10 @@ pub fn is_sensitive_log_key(key: &str) -> bool {
             | "password_hash"
             | "private_key"
             | "proof"
-            | "refresh_token"
+            | "renewal_credential"
             | "reset_token"
             | "secret"
             | "service_signature"
-            | "session_token"
             | "signature"
             | "token"
     ) || key.ends_with("_token")
@@ -780,9 +779,9 @@ mod tests {
     #[test]
     fn redact_log_value_removes_nested_secret_material() {
         let value = serde_json::json!({
-            "access_token": "access-secret",
+            "session_credential": "access-secret",
             "nested": {
-                "refresh_token": "refresh-secret",
+                "renewal_credential": "refresh-secret",
                 "safe": "visible"
             },
             "events": [
@@ -797,8 +796,8 @@ mod tests {
         assert!(!serialized.contains("refresh-secret"));
         assert!(!serialized.contains("proof-secret"));
         assert!(serialized.contains("visible"));
-        assert_eq!(redacted["access_token"], REDACTED_SECRET);
-        assert_eq!(redacted["nested"]["refresh_token"], REDACTED_SECRET);
+        assert_eq!(redacted["session_credential"], REDACTED_SECRET);
+        assert_eq!(redacted["nested"]["renewal_credential"], REDACTED_SECRET);
         assert_eq!(redacted["events"][0]["device_proof"], REDACTED_SECRET);
     }
 

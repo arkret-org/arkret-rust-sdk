@@ -36,8 +36,8 @@ pub struct SessionMeta {
     pub user_id: Did,
     /// Device ID
     pub device_id: DeviceId,
-    /// Access token (if using token-based auth)
-    pub access_token: Option<String>,
+    /// Session credential (if using token-based auth)
+    pub session_credential: Option<String>,
     /// Session expiration
     pub expires_at: Option<DateTime<Utc>>,
 }
@@ -48,7 +48,7 @@ impl SessionMeta {
         Self {
             user_id,
             device_id,
-            access_token: None,
+            session_credential: None,
             expires_at: None,
         }
     }
@@ -288,13 +288,13 @@ impl BaseClient {
         &self,
         user_id: Did,
         device_id: DeviceId,
-        access_token: Option<String>,
+        session_credential: Option<String>,
         expires_at: Option<DateTime<Utc>>,
     ) -> Result<SessionMeta> {
         let meta = SessionMeta {
             user_id,
             device_id,
-            access_token,
+            session_credential,
             expires_at,
         };
         self.set_session_meta(meta.clone())?;
@@ -711,7 +711,7 @@ mod tests {
         let meta = SessionMeta {
             user_id: Did::new("did:web:alice.example.com").unwrap(),
             device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
-            access_token: Some("token".to_owned()),
+            session_credential: Some("token".to_owned()),
             expires_at: Some(Utc::now() - chrono::Duration::hours(1)),
         };
 
@@ -723,7 +723,7 @@ mod tests {
         let meta = SessionMeta {
             user_id: Did::new("did:web:alice.example.com").unwrap(),
             device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
-            access_token: Some("token".to_owned()),
+            session_credential: Some("token".to_owned()),
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
         };
 
