@@ -172,6 +172,7 @@ const FALLBACK_FIELD_ALLOWLISTS: &[(&str, &[&str])] = &[
             "metadata",
             "encrypted_metadata",
             "blob_refs",
+            "mention_sidecar_hash",
             "reply_to",
             "expiry",
         ],
