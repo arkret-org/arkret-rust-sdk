@@ -37,10 +37,12 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(CrossSigningPublish);
     registry.register(NotaryCell);
     registry.register(MlsEpoch);
+    registry.register(CallSummary);
 
     // Fsm
     registry.register(MemberState);
     registry.register(AgentStatus);
+    registry.register(CallState);
 
     // OrderedLog
     registry.register(CircleCreate);
@@ -121,9 +123,11 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ck.component.cross_signing.publish.v1",
         "ck.component.notary.v1",
         "ck.component.mls.epoch.v1",
+        "ck.component.call.summary.v1",
         // Fsm
         "ck.component.member.state.v1",
         "ck.component.agent.status.v1",
+        "ck.component.call.state.v1",
         // OrderedLog
         "ck.component.circle.create.v1",
         "ck.component.space.parent.v1",
@@ -228,6 +232,28 @@ pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
             (json!("active"), json!("deactivated")),
             (json!("paused"), json!("deactivated")),
             (json!("pairing_expired"), json!("deactivated")),
+        ],
+        BottomMode::Reject,
+    );
+    sdk_registry.register_fsm(
+        "ck.component.call.state.v1",
+        None,
+        vec![
+            (json!("scheduled"), json!("ringing")),
+            (json!("scheduled"), json!("connecting")),
+            (json!("scheduled"), json!("cancelled")),
+            (json!("scheduled"), json!("missed")),
+            (json!("scheduled"), json!("failed")),
+            (json!("ringing"), json!("connecting")),
+            (json!("ringing"), json!("active")),
+            (json!("ringing"), json!("missed")),
+            (json!("ringing"), json!("cancelled")),
+            (json!("ringing"), json!("failed")),
+            (json!("connecting"), json!("active")),
+            (json!("connecting"), json!("failed")),
+            (json!("connecting"), json!("ended")),
+            (json!("active"), json!("ended")),
+            (json!("active"), json!("failed")),
         ],
         BottomMode::Reject,
     );

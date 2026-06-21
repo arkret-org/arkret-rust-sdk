@@ -56,11 +56,11 @@ mod tests {
 
     #[test]
     fn default_registry_kind_count_matches_expected_total() {
-        // The registry covers the 60 cell families declared by
+        // The registry covers the 62 cell families declared by
         // event-kind-registry plus the three reducer-local seal/MLS
         // families (`notary`, `mls.epoch`, `covered_seals`).
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 63);
+        assert_eq!(registry.len(), 65);
     }
 
     #[test]
@@ -82,6 +82,29 @@ mod tests {
         let payload = json!({"actor_id": "did:example:alice"});
         let subject = kind.subject_for_effect(&payload).unwrap();
         assert_eq!(subject.as_deref(), Some("did:example:alice"));
+    }
+
+    #[test]
+    fn call_state_and_summary_use_call_id_subjects() {
+        let registry = default_lattice_registry();
+        let state = registry.lookup("ck.component.call.state.v1").unwrap();
+        assert_eq!(state.lattice(), SdkLatticeKind::Fsm);
+        assert_eq!(
+            state
+                .subject_for_effect(&json!({"call_id": "ck:call:01"}))
+                .unwrap()
+                .as_deref(),
+            Some("ck:call:01")
+        );
+        let summary = registry.lookup("ck.component.call.summary.v1").unwrap();
+        assert_eq!(summary.lattice(), SdkLatticeKind::CasRegister);
+        assert_eq!(
+            summary
+                .subject_for_effect(&json!({"call_id": "ck:call:01"}))
+                .unwrap()
+                .as_deref(),
+            Some("ck:call:01")
+        );
     }
 
     #[test]

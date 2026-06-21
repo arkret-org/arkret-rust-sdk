@@ -493,15 +493,6 @@ pub struct ReadScope {
     pub object_ref: Option<String>,
     #[serde(rename = "track_name", skip_serializing_if = "Option::is_none")]
     pub track: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub track_scope: Option<ReadScopeTrackScope>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum ReadScopeTrackScope {
-    All,
 }
 
 impl ReadScope {
@@ -510,7 +501,6 @@ impl ReadScope {
             kind: ReadScopeKind::Realm,
             object_ref: None,
             track: None,
-            track_scope: None,
         }
     }
 
@@ -519,16 +509,6 @@ impl ReadScope {
             kind: ReadScopeKind::Strand,
             object_ref: Some(strand_id.into()),
             track: track.map(Into::into),
-            track_scope: None,
-        }
-    }
-
-    pub fn strand_all(strand_id: impl Into<String>) -> Self {
-        Self {
-            kind: ReadScopeKind::Strand,
-            object_ref: Some(strand_id.into()),
-            track: None,
-            track_scope: Some(ReadScopeTrackScope::All),
         }
     }
 
@@ -537,7 +517,6 @@ impl ReadScope {
             kind: ReadScopeKind::Thread,
             object_ref: Some(thread_id.into()),
             track: None,
-            track_scope: None,
         }
     }
 
@@ -546,7 +525,6 @@ impl ReadScope {
             kind: ReadScopeKind::View,
             object_ref: Some(view_id.into()),
             track: None,
-            track_scope: None,
         }
     }
 
@@ -555,7 +533,6 @@ impl ReadScope {
             kind: ReadScopeKind::Message,
             object_ref: Some(message_id.into()),
             track: None,
-            track_scope: None,
         }
     }
 
@@ -564,7 +541,6 @@ impl ReadScope {
             kind: ReadScopeKind::Morph,
             object_ref: Some(morph_id.into()),
             track: None,
-            track_scope: None,
         }
     }
 
@@ -575,10 +551,9 @@ impl ReadScope {
                     "read_scope.ref must be omitted when kind is realm".to_owned(),
                 ));
             }
-            if self.track.is_some() || self.track_scope.is_some() {
+            if self.track.is_some() {
                 return Err(Error::Protocol(
-                    "read_scope.track_name/track_scope must be omitted when kind is realm"
-                        .to_owned(),
+                    "read_scope.track_name must be omitted when kind is realm".to_owned(),
                 ));
             }
         } else if self.object_ref.as_deref().unwrap_or("").trim().is_empty() {
@@ -588,24 +563,14 @@ impl ReadScope {
         }
 
         match self.kind {
-            ReadScopeKind::Strand => match (self.track.as_deref(), self.track_scope.as_ref()) {
-                (Some(track), None) => validate_read_scope_track(track)?,
-                (None, Some(ReadScopeTrackScope::All)) => {}
-                (Some(_), Some(_)) => {
-                    return Err(Error::Protocol(
-                        "read_scope must not carry both track_name and track_scope".to_owned(),
-                    ));
+            ReadScopeKind::Strand => {
+                if let Some(track) = self.track.as_deref() {
+                    validate_read_scope_track(track)?;
                 }
-                (None, None) => {
-                    return Err(Error::Protocol(
-                        "read_scope kind=strand requires track_name or track_scope=all".to_owned(),
-                    ));
-                }
-            },
-            _ if self.track.is_some() || self.track_scope.is_some() => {
+            }
+            _ if self.track.is_some() => {
                 return Err(Error::Protocol(
-                    "read_scope.track_name/track_scope is only valid when kind is strand"
-                        .to_owned(),
+                    "read_scope.track_name is only valid when kind is strand".to_owned(),
                 ));
             }
             _ => {}

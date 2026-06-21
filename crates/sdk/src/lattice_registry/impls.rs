@@ -465,6 +465,16 @@ singleton_lattice!(
     Criticality::Required
 );
 
+per_subject_lattice!(
+    CallSummary,
+    "ck.component.call.summary.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "call_id",
+    &["ck.call.summary"]
+);
+
 // ────────────────────────── Fsm families ──────────────────────────
 
 per_subject_lattice!(
@@ -489,6 +499,16 @@ per_subject_lattice!(
         "ck.self.agent.resume",
         "ck.self.agent.deactivate"
     ]
+);
+
+per_subject_lattice!(
+    CallState,
+    "ck.component.call.state.v1",
+    SdkLatticeKind::Fsm,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "call_id",
+    &["ck.call.state"]
 );
 
 pub struct CircleMember;
