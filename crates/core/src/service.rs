@@ -433,6 +433,7 @@ mod tests {
             limits: Value::Null,
             plaintext_visibility: crate::PlaintextVisibility::none(),
             privacy_derivation: None,
+            receive_policy_constraints: None,
             implemented_features: vec![],
             claimed_profiles: vec![crate::ClaimedProfileEntry::self_claimed(
                 crate::PROFILE_DIRECTORY_SERVICE,
@@ -509,6 +510,7 @@ mod tests {
             limits: Value::Null,
             plaintext_visibility: crate::PlaintextVisibility::none(),
             privacy_derivation: None,
+            receive_policy_constraints: None,
             implemented_features: vec![],
             claimed_profiles: vec![],
             verified_profiles: vec![],

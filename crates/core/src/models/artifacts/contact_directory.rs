@@ -97,7 +97,7 @@ pub struct FreshnessFields {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/intent`.
-pub type Intent = String;
+pub type Intent = DirectoryIntent;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/directory-operations.schema.json#/$defs/invite_consent_handoff_stub`.

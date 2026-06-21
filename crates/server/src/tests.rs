@@ -155,6 +155,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         limits: Value::Null,
                         plaintext_visibility: cokret_core::PlaintextVisibility::none(),
                         privacy_derivation: None,
+                        receive_policy_constraints: None,
                         implemented_features: vec![],
                         claimed_profiles: vec![],
                         verified_profiles: vec![],

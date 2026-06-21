@@ -421,6 +421,8 @@ pub struct ContactRequestRequestBody {
     /// `ck.peer.contacts.command.submit`. Omit for same-server requests.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recipient_service_did: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub introduction_evidence: Option<ContactIntroductionEvidence>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

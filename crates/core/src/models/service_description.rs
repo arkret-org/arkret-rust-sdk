@@ -43,6 +43,8 @@ pub struct ServerDescription {
     /// conformance tools.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub privacy_derivation: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receive_policy_constraints: Option<ReceivePolicyConstraints>,
     /// Round 4 — features the service has actually implemented (subset
     /// of `supported_features`). Tracks the difference between
     /// announce and run-time implementation.
@@ -268,6 +270,7 @@ mod tests {
             limits: json!({}),
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,
+            receive_policy_constraints: None,
             implemented_features: vec![],
             claimed_profiles: vec![ClaimedProfileEntry::self_claimed(PROFILE_DIRECTORY_SERVICE)],
             verified_profiles: vec![],

@@ -35,7 +35,7 @@ where
         .map_err(serde::de::Error::custom)
 }
 
-fn serialize_optional_canonical_timestamp<S>(
+pub(super) fn serialize_optional_canonical_timestamp<S>(
     value: &Option<DateTime<Utc>>,
     serializer: S,
 ) -> std::result::Result<S::Ok, S::Error>
@@ -50,7 +50,7 @@ where
     }
 }
 
-fn deserialize_optional_canonical_timestamp<'de, D>(
+pub(super) fn deserialize_optional_canonical_timestamp<'de, D>(
     deserializer: D,
 ) -> std::result::Result<Option<DateTime<Utc>>, D::Error>
 where
@@ -306,6 +306,21 @@ pub enum IntroductionEvidence {
         inviter_member_ref: EventId,
         invitee_member_ref: EventId,
     },
+    HandleClaim {
+        handle: Handle,
+        handle_claim: Box<HandleClaim>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        member_delivery_binding_candidate: Option<Box<MemberDeliveryBindingCandidate>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        resolved_by: Option<Did>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            serialize_with = "serialize_optional_canonical_timestamp",
+            deserialize_with = "deserialize_optional_canonical_timestamp"
+        )]
+        resolved_at: Option<DateTime<Utc>>,
+    },
     SamePrincipalServer,
     ExplicitAddress,
 }
@@ -316,6 +331,7 @@ impl IntroductionEvidence {
             Self::LocatorRef { .. } => "locator_ref",
             Self::ConsentGrant { .. } => "consent_grant",
             Self::SharedRealm { .. } => "shared_realm",
+            Self::HandleClaim { .. } => "handle_claim",
             Self::SamePrincipalServer => "same_principal_server",
             Self::ExplicitAddress => "explicit_address",
         }
@@ -425,7 +441,17 @@ pub struct InviteReceivePolicy {
     pub subject_id: Did,
     pub allowed_introduction_kinds: Vec<String>,
     pub explicit_address_behavior: InviteReceiveAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub handle_claim_behavior: Option<InviteReceiveAction>,
     pub unknown_invites: UnknownInviteAction,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_handle_domains: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub blocked_handle_domains: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trusted_handle_issuers: Vec<Did>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trusted_directory_services: Vec<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trusted_realm_ids: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -436,6 +462,46 @@ pub struct InviteReceivePolicy {
     pub blocked_subjects: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disclosure: Option<DisclosurePolicy>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ReceivePolicySurface {
+    InviteDelivery,
+    ContactRequest,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ReceivePolicyConstraints {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applies_to: Option<Vec<ReceivePolicySurface>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub permitted_introduction_kinds: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub forbidden_introduction_kinds: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub handle_claim_max_behavior: Option<InviteReceiveAction>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub explicit_address_max_behavior: Option<InviteReceiveAction>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unknown_invites_max_behavior: Option<UnknownInviteAction>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_handle_domains: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trusted_handle_issuers: Option<Vec<Did>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trusted_directory_services: Option<Vec<Did>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trusted_principal_services: Option<Vec<Did>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blocked_principal_services: Option<Vec<Did>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accepted_subject_did_methods: Option<Vec<String>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -452,6 +518,8 @@ pub enum DisclosureLevel {
 pub struct DisclosurePolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub high_trust: Option<DisclosureLevel>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub discovery_trust: Option<DisclosureLevel>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub low_trust: Option<DisclosureLevel>,
 }
@@ -571,7 +639,12 @@ mod tests {
             subject_id: Did::new("did:web:bob.example").unwrap(),
             allowed_introduction_kinds: vec!["consent_grant".to_owned()],
             explicit_address_behavior: InviteReceiveAction::Quarantine,
+            handle_claim_behavior: None,
             unknown_invites: UnknownInviteAction::Drop,
+            allowed_handle_domains: Vec::new(),
+            blocked_handle_domains: Vec::new(),
+            trusted_handle_issuers: Vec::new(),
+            trusted_directory_services: Vec::new(),
             trusted_realm_ids: Vec::new(),
             trusted_principal_services: Vec::new(),
             blocked_principal_services: Vec::new(),
@@ -586,13 +659,80 @@ mod tests {
             blocked_subjects: vec![Did::new("did:web:mallory.example").unwrap()],
             disclosure: Some(DisclosurePolicy {
                 high_trust: Some(DisclosureLevel::Outcome),
+                discovery_trust: Some(DisclosureLevel::Opaque),
                 low_trust: Some(DisclosureLevel::Opaque),
             }),
             ..policy
         };
         let value = serde_json::to_value(&policy).expect("serialize policy");
         assert_eq!(value["disclosure"]["high_trust"], "outcome");
+        assert_eq!(value["disclosure"]["discovery_trust"], "opaque");
         assert_eq!(value["disclosure"]["low_trust"], "opaque");
         assert!(serde_json::from_value::<InviteReceivePolicy>(value).is_ok());
+    }
+
+    #[test]
+    fn introduction_evidence_handle_claim_roundtrips_wire_kind() {
+        let handle = Handle::parse("alice:example.com").unwrap();
+        let expires_at = test_time() + chrono::Duration::hours(1);
+        let resolved_at = DateTime::parse_from_rfc3339("2026-06-07T10:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let claim = HandleClaim {
+            handle: Some(handle.clone()),
+            subject: Some(Did::new("did:web:alice.example").unwrap()),
+            binding_state: Some(HandleBindingState::Verified),
+            expires_at: Some(expires_at),
+            proofs: vec![PayloadProof {
+                kind: "detached_jws".to_owned(),
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:web:issuer.example#key-1".to_owned(),
+                payload_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
+                created_at: test_time(),
+                domain: None,
+                audience: None,
+                jws: "header..sig".to_owned(),
+            }],
+            ..Default::default()
+        };
+        let evidence = IntroductionEvidence::HandleClaim {
+            handle,
+            handle_claim: Box::new(claim),
+            member_delivery_binding_candidate: None,
+            resolved_by: Some(Did::new("did:web:directory.example").unwrap()),
+            resolved_at: Some(resolved_at),
+        };
+        assert_eq!(evidence.kind(), "handle_claim");
+        let value = serde_json::to_value(&evidence).expect("serialize handle_claim evidence");
+        assert_eq!(value["kind"], "handle_claim");
+        assert_eq!(value["resolved_at"], "2026-06-07T10:00:00Z");
+        let parsed: IntroductionEvidence =
+            serde_json::from_value(value).expect("deserialize handle_claim evidence");
+        assert_eq!(parsed, evidence);
+    }
+
+    #[test]
+    fn receive_policy_constraints_preserve_omitted_vs_empty_caps() {
+        let constraints = ReceivePolicyConstraints {
+            policy_version: Some("default".to_owned()),
+            applies_to: Some(vec![ReceivePolicySurface::InviteDelivery]),
+            permitted_introduction_kinds: Some(Vec::new()),
+            forbidden_introduction_kinds: vec!["explicit_address".to_owned()],
+            handle_claim_max_behavior: Some(InviteReceiveAction::Quarantine),
+            explicit_address_max_behavior: None,
+            unknown_invites_max_behavior: Some(UnknownInviteAction::Drop),
+            allowed_handle_domains: None,
+            trusted_handle_issuers: None,
+            trusted_directory_services: None,
+            trusted_principal_services: None,
+            blocked_principal_services: None,
+            accepted_subject_did_methods: Some(Vec::new()),
+        };
+        let value = serde_json::to_value(&constraints).expect("serialize constraints");
+        assert_eq!(value["applies_to"], serde_json::json!(["invite_delivery"]));
+        assert_eq!(value["permitted_introduction_kinds"], serde_json::json!([]));
+        assert!(value.get("allowed_handle_domains").is_none());
+        assert_eq!(value["accepted_subject_did_methods"], serde_json::json!([]));
+        assert!(serde_json::from_value::<ReceivePolicyConstraints>(value).is_ok());
     }
 }

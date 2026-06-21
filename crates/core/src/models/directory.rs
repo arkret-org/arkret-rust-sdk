@@ -409,6 +409,52 @@ pub struct ActorPreview {
     pub preview: Value,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DirectoryIntent {
+    Lookup,
+    Mention,
+    Invite,
+    MemberAdd,
+    ContactRequest,
+}
+
+impl DirectoryIntent {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Lookup => "lookup",
+            Self::Mention => "mention",
+            Self::Invite => "invite",
+            Self::MemberAdd => "member_add",
+            Self::ContactRequest => "contact_request",
+        }
+    }
+}
+
+impl fmt::Display for DirectoryIntent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl std::str::FromStr for DirectoryIntent {
+    type Err = Error;
+
+    fn from_str(value: &str) -> Result<Self> {
+        match value.trim() {
+            "lookup" => Ok(Self::Lookup),
+            "mention" => Ok(Self::Mention),
+            "invite" => Ok(Self::Invite),
+            "member_add" => Ok(Self::MemberAdd),
+            "contact_request" => Ok(Self::ContactRequest),
+            other => Err(Error::Protocol(format!(
+                "unsupported directory intent: {other}"
+            ))),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchUsersRequestBody {
@@ -420,7 +466,7 @@ pub struct DirectorySearchUsersRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub intent: Option<String>,
+    pub intent: Option<DirectoryIntent>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -478,7 +524,7 @@ pub struct DirectoryResolveHandleRequestBody {
     /// identity data; `member_add` / `invite` request a Realm/audience-bound
     /// membership candidate per `identity-handles.md` §3.7.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub intent: Option<String>,
+    pub intent: Option<DirectoryIntent>,
     /// DID or service DID of the requester. Required by directory policy for
     /// `member_add` / `invite` disclosure.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -585,7 +631,7 @@ pub struct DirectoryResolveAgentSelectorRequestBody {
     pub expected_agent_did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
-    pub intent: String,
+    pub intent: DirectoryIntent,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     pub requester: Did,
