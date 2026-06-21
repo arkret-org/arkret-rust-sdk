@@ -214,14 +214,133 @@ impl ServerDescription {
                     crate::ERROR_CODE_SCHEMA_VIOLATION
                 )));
             }
+            if self
+                .accepted_did_methods
+                .iter()
+                .any(|method| !is_valid_directory_did_method(method))
+            {
+                return Err(Error::Protocol(format!(
+                    "ServiceDescribe: directory accepted_did_methods entries must match \
+                     did:<method> with lowercase alphanumeric method names ({})",
+                    crate::ERROR_CODE_SCHEMA_VIOLATION
+                )));
+            }
         }
         Ok(())
     }
 }
 
+fn is_valid_directory_did_method(value: &str) -> bool {
+    value.strip_prefix("did:").is_some_and(|method| {
+        !method.is_empty()
+            && method
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+    })
+}
+
 impl ServerDescription {
     pub fn supports_cokret_v1(&self) -> bool {
         self.protocol_version == PROTOCOL_VERSION
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+    use crate::{
+        Did, PROFILE_DIRECTORY_SERVICE, PROTOCOL_VERSION, RateLimitPolicy, TypedTrustDomainId,
+    };
+
+    fn directory_description() -> ServerDescription {
+        ServerDescription {
+            service_did: Did::new("did:web:directory.example").unwrap(),
+            trust_domain: TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+            service_type: "directory_service".to_owned(),
+            protocol_version: PROTOCOL_VERSION.to_owned(),
+            supported_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
+            supported_operations: vec!["ck.find.directory.query.describe".to_owned()],
+            supported_bindings: vec![],
+            supported_features: vec![],
+            auth_metadata: AuthMetadata::minimal("development"),
+            limits: json!({}),
+            plaintext_visibility: PlaintextVisibility::none(),
+            privacy_derivation: None,
+            implemented_features: vec![],
+            claimed_profiles: vec![ClaimedProfileEntry::self_claimed(PROFILE_DIRECTORY_SERVICE)],
+            verified_profiles: vec![],
+            experimental_features: vec![],
+            compat_surfaces: vec![],
+            development_mode: false,
+            rate_limit_policy: Some(RateLimitPolicy::unspecified()),
+            rate_limit_policy_id: None,
+            egress_network_policy: None,
+            resource_types: vec![
+                DirectoryResourceKind::Realm,
+                DirectoryResourceKind::Organization,
+                DirectoryResourceKind::Actor,
+                DirectoryResourceKind::Applet,
+                DirectoryResourceKind::Handle,
+            ],
+            discovery_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
+            restricted_query_proof: Some(true),
+            ingest_modes: vec![DirectoryIngestMode::Push],
+            accept_policy_kind: Some(DirectoryAcceptPolicyKind::Open),
+            accept_policy_ref: None,
+            default_ttl_seconds: Some(86_400),
+            max_ttl_seconds: Some(604_800),
+            revalidation_grace_seconds: Some(3_600),
+            accepted_resource_kinds: vec![
+                DirectoryResourceKind::Realm,
+                DirectoryResourceKind::Organization,
+                DirectoryResourceKind::Actor,
+                DirectoryResourceKind::Applet,
+                DirectoryResourceKind::Handle,
+            ],
+            accepted_did_methods: vec!["did:web".to_owned(), "did:webvh".to_owned()],
+            takedown_contact: None,
+            rate_limits: Some(json!({"per_ip_per_minute": 60})),
+            supported_reducer_profiles: vec![],
+            supported_schema_profiles: vec![],
+            frontier: vec![],
+            snapshot_frontier: vec![],
+            reducer_profile: None,
+            last_materialized_at: None,
+        }
+    }
+
+    #[test]
+    fn directory_service_overlay_validates() {
+        directory_description().validate().unwrap();
+    }
+
+    #[test]
+    fn directory_service_requires_overlay_fields() {
+        let mut description = directory_description();
+        description.resource_types.clear();
+
+        let error = description.validate().unwrap_err().to_string();
+        assert!(error.contains("directory describe overlay"));
+    }
+
+    #[test]
+    fn directory_service_rejects_invalid_did_method_tokens() {
+        let mut description = directory_description();
+        description.accepted_did_methods = vec!["web".to_owned()];
+
+        let error = description.validate().unwrap_err().to_string();
+        assert!(error.contains("accepted_did_methods"));
+    }
+
+    #[test]
+    fn directory_service_rejects_invalid_ttl_order() {
+        let mut description = directory_description();
+        description.default_ttl_seconds = Some(604_801);
+
+        let error = description.validate().unwrap_err().to_string();
+        assert!(error.contains("default_ttl_seconds <= max_ttl_seconds"));
     }
 }
 
@@ -257,7 +376,7 @@ pub struct AuthMetadata {
     /// SDK round-trips future / vendor-specific fields without dropping them.
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
-    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
+    pub extra: BTreeMap<String, Value>,
 }
 
 impl AuthMetadata {
@@ -274,7 +393,7 @@ impl AuthMetadata {
             supported_auth_methods: Vec::new(),
             did_binding_methods: Vec::new(),
             read: None,
-            extra: std::collections::BTreeMap::new(),
+            extra: BTreeMap::new(),
         }
     }
 }
