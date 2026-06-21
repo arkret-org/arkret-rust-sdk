@@ -75,11 +75,11 @@ fn auth_handles_password_mfa_and_sessions() {
     let binding = auth.session_principal_binding(&second.session_id).unwrap();
     assert_eq!(binding.principal_id, alice);
     assert!(
-        auth.refresh_session(&second.session_id, &second.refresh_token)
+        auth.refresh_session(&second.session_id, &second.renewal_credential)
             .is_ok()
     );
     assert!(
-        auth.refresh_session(&first.session_id, &first.refresh_token)
+        auth.refresh_session(&first.session_id, &first.renewal_credential)
             .is_err()
     );
     auth.revoke_session(&second.session_id).unwrap();
@@ -297,13 +297,17 @@ fn auth_exports_safe_state_and_enforces_device_binding_and_account_state() {
         .unwrap();
     auth.validate_session(
         &session.session_id,
-        &session.access_token,
+        &session.session_credential,
         &device("desktop"),
     )
     .unwrap();
     assert!(
-        auth.validate_session(&session.session_id, &session.access_token, &device("phone"))
-            .is_err()
+        auth.validate_session(
+            &session.session_id,
+            &session.session_credential,
+            &device("phone")
+        )
+        .is_err()
     );
 
     let snapshot = auth.export_state();
@@ -311,7 +315,7 @@ fn auth_exports_safe_state_and_enforces_device_binding_and_account_state() {
     assert!(
         !serde_json::to_string(&snapshot)
             .unwrap()
-            .contains(&session.refresh_token)
+            .contains(&session.renewal_credential)
     );
 
     let mut restored = AuthManager::default();
@@ -319,14 +323,14 @@ fn auth_exports_safe_state_and_enforces_device_binding_and_account_state() {
     restored
         .validate_session(
             &session.session_id,
-            &session.access_token,
+            &session.session_credential,
             &device("desktop"),
         )
         .unwrap();
     restored.set_account_state(alice, AccountAuthState::Locked);
     assert!(
         restored
-            .refresh_session(&session.session_id, &session.refresh_token)
+            .refresh_session(&session.session_id, &session.renewal_credential)
             .is_err()
     );
 }
@@ -724,8 +728,8 @@ fn auth_redacts_secrets_in_debug_output() {
     let challenge = auth.issue_mfa(alice);
 
     assert!(!format!("{user:?}").contains(&user.password_hash));
-    assert!(!format!("{session:?}").contains(&session.access_token));
-    assert!(!format!("{session:?}").contains(&session.refresh_token));
+    assert!(!format!("{session:?}").contains(&session.session_credential));
+    assert!(!format!("{session:?}").contains(&session.renewal_credential));
     assert!(!format!("{challenge:?}").contains(&challenge.code));
 }
 

@@ -360,17 +360,6 @@ pub struct AuthMetadata {
     pub account_authority: Option<AccountAuthority>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub methods: Vec<AuthMethod>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auth_server_url: Option<String>,
-    /// Compatibility alias for legacy clients (`methods[].issuer`).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub oauth_issuer: Option<String>,
-    /// Compatibility alias for legacy clients (`methods[].openid_configuration`).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub openid_configuration: Option<String>,
-    /// Compatibility alias for legacy clients (`methods[].method`).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub supported_auth_methods: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub did_binding_methods: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -390,10 +379,6 @@ impl AuthMetadata {
             mode: mode.into(),
             account_authority: None,
             methods: Vec::new(),
-            auth_server_url: None,
-            oauth_issuer: None,
-            openid_configuration: None,
-            supported_auth_methods: Vec::new(),
             did_binding_methods: Vec::new(),
             read: None,
             extra: BTreeMap::new(),

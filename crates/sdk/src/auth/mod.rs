@@ -144,14 +144,14 @@ impl AccountAuthState {
     }
 }
 
-/// Refresh/access token metadata safe for durable storage.
+/// Refresh/session credential metadata safe for durable storage.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RefreshTokenMetadata {
+pub struct RenewalCredentialMetadata {
     pub session_id: String,
     pub user_id: Did,
     pub device_id: DeviceId,
-    pub access_token_hash: String,
-    pub refresh_token_hash: String,
+    pub session_credential_hash: String,
+    pub renewal_credential_hash: String,
     pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -178,8 +178,8 @@ pub struct PersistedAuthSession {
     pub expires_at: DateTime<Utc>,
     pub revoked: bool,
     pub created_at: DateTime<Utc>,
-    pub access_token_hash: String,
-    pub refresh_token_hash: String,
+    pub session_credential_hash: String,
+    pub renewal_credential_hash: String,
 }
 
 /// Auth state contract for applications that back `AuthManager` with durable storage.
@@ -188,7 +188,7 @@ pub struct AuthStateSnapshot {
     pub password_users: BTreeMap<String, PasswordUser>,
     pub sessions: Vec<PersistedAuthSession>,
     pub account_states: BTreeMap<Did, AccountAuthState>,
-    pub refresh_tokens: BTreeMap<String, RefreshTokenMetadata>,
+    pub renewal_credentials: BTreeMap<String, RenewalCredentialMetadata>,
     pub revoked_sessions: BTreeMap<String, SessionRevocation>,
     pub recovery_requests: BTreeMap<String, AccountRecoveryRequestBody>,
 }

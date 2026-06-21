@@ -94,7 +94,7 @@ pub struct OidcJwks {
 pub enum OidcCredential {
     AuthorizationCode { code: String, redirect_uri: String },
     IdToken { id_token: String },
-    AccessToken { access_token: String },
+    AccessToken { session_credential: String },
 }
 
 /// OIDC verification request with issuer metadata and JWKS hooks already resolved by the app.

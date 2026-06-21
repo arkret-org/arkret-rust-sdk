@@ -64,7 +64,7 @@ fn end_to_end_auth_session_realm_query_and_notifications() {
     base.set_session_meta(SessionMeta {
         user_id: session.user_id,
         device_id: session.device_id,
-        access_token: Some(session.access_token),
+        session_credential: Some(session.session_credential),
         expires_at: Some(session.expires_at),
     })
     .unwrap();
