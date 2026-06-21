@@ -390,25 +390,34 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
 
 #[test]
 fn realm_state_payloads_strong_types_match_named_spec_defs() {
-    // The kind→def resolver routes these realm-state kinds to the lenient
-    // `generic_standard_payload`, so we validate the strong types DIRECTLY
-    // against their named `$defs/*_payload` schema_ref (the shape these defs
-    // describe) rather than via `validate_payload(kind, …)`.
+    // Validate the strong types directly against the named `$defs/*_payload`
+    // schema_ref so this test stays pinned to the exact artifact shape.
     use crate::models::{
-        Did, HistoryVisibility, HistoryVisibilityPayload, PlaintextDataClassKind,
-        PlaintextServiceVisibility, PlaintextVisibleService, PlaintextVisibleServicesPayload,
+        Did, HistoryKeyShareDefault, HistoryKeySource, HistorySharingPolicyPayload,
+        HistorySharingPolicyPayloadValue, HistorySharingPolicyPayloadValueAudit, HistoryVisibility,
+        HistoryVisibilityPayload, PlaintextDataClassKind, PlaintextServiceVisibility,
+        PlaintextVisibleService, PlaintextVisibleServicesPayload,
     };
     let Some(artifacts_dir) = default_spec_artifacts_dir() else {
         return;
     };
-    let registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
+    let registry = schema_registry_from_spec_artifacts(&artifacts_dir).unwrap();
+    let catalog = event_payload_validator_catalog_from_spec_artifacts(&artifacts_dir).unwrap();
     let history_ref = format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/history_visibility_payload");
+    let history_policy_ref =
+        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/history_sharing_policy_payload");
     let services_ref = format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/plaintext_visible_services_payload");
 
     // history_visibility: non-restricted value carries just `{value}`.
     let shared = HistoryVisibilityPayload::new(HistoryVisibility::Shared);
     registry
         .validate_value(&history_ref, &shared.to_value().unwrap())
+        .unwrap();
+    catalog
+        .validate_payload(
+            crate::events::REALM_HISTORY_VISIBILITY,
+            &shared.to_value().unwrap(),
+        )
         .unwrap();
     // restricted requires restricted_policy_digest (schema allOf); to_value
     // refuses to emit a non-conformant restricted payload.
@@ -426,6 +435,33 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
     let mut leaky = shared.to_value().unwrap();
     leaky["unexpected"] = json!(true);
     assert!(registry.validate_value(&history_ref, &leaky).is_err());
+
+    let history_policy = HistorySharingPolicyPayload {
+        value: HistorySharingPolicyPayloadValue {
+            version: 1,
+            default_key_share: HistoryKeyShareDefault::EventTimeVisibility,
+            pre_join_history: None,
+            post_removal_recovery: None,
+            allowed_key_sources: vec![HistoryKeySource::VerifiedMemberDevice],
+            allowed_receiver_states: None,
+            audit: HistorySharingPolicyPayloadValueAudit {
+                share_audit_event_required: false,
+                access_audit_required: false,
+            },
+            restricted_rules: None,
+        },
+        reason: None,
+    };
+    let history_policy_value = serde_json::to_value(&history_policy).unwrap();
+    registry
+        .validate_value(&history_policy_ref, &history_policy_value)
+        .unwrap();
+    catalog
+        .validate_payload(
+            crate::events::REALM_HISTORY_SHARING_POLICY,
+            &history_policy_value,
+        )
+        .unwrap();
 
     // plaintext_visible_services: required item fields strongly typed.
     let services = PlaintextVisibleServicesPayload::new(vec![PlaintextVisibleService::new(

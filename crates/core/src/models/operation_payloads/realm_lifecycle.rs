@@ -188,12 +188,9 @@ impl ObjectLifecyclePayload {
 /// when `value == restricted`; [`HistoryVisibilityPayload::to_value`] enforces
 /// that conditional.
 ///
-/// Note: the SDK event-payload validator currently resolves
-/// `ck.realm.history_visibility` to the lenient `generic_standard_payload`
-/// (the kind→def resolver has no `realm.history_visibility` arm and there is no
-/// `realm_history_visibility_payload` def). This strong type still gives yougen
-/// compile-time field safety and `additionalProperties:false` at serialize
-/// time; a guard test validates it directly against the named def schema_ref.
+/// The event-payload validator resolves `ck.realm.history_visibility` to this
+/// named schema def, so producers and validators share the same fail-closed
+/// shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]

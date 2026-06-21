@@ -726,6 +726,12 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["realm", "inheritance_policy"] => {
             candidates.push("realm_inheritance_policy_payload".to_owned());
         }
+        ["realm", "history_visibility"] => {
+            candidates.push("history_visibility_payload".to_owned());
+        }
+        ["realm", "history_sharing_policy"] => {
+            candidates.push("history_sharing_policy_payload".to_owned());
+        }
         ["realm", "disappearing_policy"] => {
             candidates.push("realm_disappearing_policy_payload".to_owned());
         }

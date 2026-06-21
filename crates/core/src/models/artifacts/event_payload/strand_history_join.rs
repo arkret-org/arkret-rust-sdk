@@ -6,6 +6,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::models::{
+    HistoryKeyShareDefault, HistoryKeySource, HistorySharingPostRemovalRecoveryPolicy,
+    HistorySharingPreJoinPolicy, HistorySharingRange, HistorySharingReceiverClass,
+    HistorySharingScopeKind,
+};
 use crate::*;
 
 /// Counterpart for
@@ -65,17 +70,26 @@ pub struct HistorySharingPolicyPayloadValueAudit {
 #[serde(deny_unknown_fields)]
 pub struct HistorySharingPolicyPayloadValue {
     pub version: u64,
-    pub default_key_share: String,
+    pub default_key_share: HistoryKeyShareDefault,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pre_join_history: Option<String>,
+    pub pre_join_history: Option<HistorySharingPreJoinPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub post_removal_recovery: Option<String>,
-    pub allowed_key_sources: Vec<String>,
+    pub post_removal_recovery: Option<HistorySharingPostRemovalRecoveryPolicy>,
+    pub allowed_key_sources: Vec<HistoryKeySource>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allowed_receiver_states: Option<Vec<String>>,
+    pub allowed_receiver_states: Option<Vec<HistorySharingReceiverClass>>,
     pub audit: HistorySharingPolicyPayloadValueAudit,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub restricted_rules: Option<Vec<HistorySharingRestrictedRule>>,
+}
+
+impl HistorySharingPolicyPayloadValue {
+    pub fn receiver_state_allowed(&self, receiver_class: HistorySharingReceiverClass) -> bool {
+        self.allowed_receiver_states
+            .as_ref()
+            .map(|states| states.contains(&receiver_class))
+            .unwrap_or(receiver_class == HistorySharingReceiverClass::ActiveMember)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -91,7 +105,7 @@ pub struct HistorySharingPolicyPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HistorySharingRestrictedRuleHistoryScope {
-    pub kind: String,
+    pub kind: HistorySharingScopeKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub circle_id: Option<CircleId>,
 }
@@ -102,12 +116,12 @@ pub struct HistorySharingRestrictedRule {
     pub rule_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history_scope: Option<HistorySharingRestrictedRuleHistoryScope>,
-    pub receiver_classes: Vec<String>,
+    pub receiver_classes: Vec<HistorySharingReceiverClass>,
     pub allowed_history_visibility_values: Vec<HistoryVisibilityValue>,
-    pub range: String,
+    pub range: HistorySharingRange,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_epoch_span: Option<u64>,
-    pub key_sources: Vec<String>,
+    pub key_sources: Vec<HistoryKeySource>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audit_required: Option<bool>,
 }
@@ -116,13 +130,11 @@ pub struct HistorySharingRestrictedRule {
 // `models::operation_payloads::HistoryVisibilityPayload` (`{value,
 // restricted_policy_digest?, reason?}`, deny_unknown_fields, with the
 // `value==restricted ⇒ restricted_policy_digest` conditional enforced by
-// `to_value`). NB: the kind→def resolver still routes
-// `ck.realm.history_visibility` to `generic_standard_payload` (no resolver arm
-// / no `realm_history_visibility_payload` def) — see the type's doc comment.
+// `to_value`).
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/history_visibility_value`.
-pub type HistoryVisibilityValue = String;
+pub type HistoryVisibilityValue = HistoryVisibility;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/inheritance_policy_status`.

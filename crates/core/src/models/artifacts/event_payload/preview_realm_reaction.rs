@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::models::RealmKeyWithheldReasonCode;
 use crate::*;
 
 /// Counterpart for
@@ -249,7 +250,7 @@ pub struct RealmKeyWithheldPayload {
     pub sender_device_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_scope: Option<RealmKeyScope>,
-    pub withheld_reason_code: Value,
+    pub withheld_reason_code: RealmKeyWithheldReasonCode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub created_at: Option<DateTime<Utc>>,
 }
