@@ -209,18 +209,11 @@ pub struct RealmJoinCandidate {
     pub source_refs: Vec<EventId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frontier_ref: Option<String>,
-    /// Current accepted Realm Seal head id at `as_of`, disclosed only to
-    /// resolvers the directory has already authorized to resolve this Realm
-    /// (membership, valid `invite_token`, or signed link). An invitee who is
-    /// not yet a member cannot read the membership-gated
-    /// `ck.self.events.query.frontier` Realm Seal view, so this carries the
-    /// seal head they MUST stamp as the `seal_ref` (DataEvent) / `seal_basis`
-    /// leaf (Control Move) of their `ck.member.state` invite→join (or
-    /// `ck.invite.accept`) event before signing. It is a routing/anchoring
-    /// hint, not membership authorization: the receiving service still
-    /// validates the submitted seal reference and the invite.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_head_ref: Option<crate::SealId>,
+    /// Full single-leaf Control Move basis for the current accepted Realm Seal
+    /// head at `as_of`. Principal server candidates MUST include this for
+    /// pre-join join / invite acceptance because the invitee cannot read the
+    /// membership-gated frontier view before joining.
+    pub seal_basis: crate::SealBasis,
     pub as_of: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
