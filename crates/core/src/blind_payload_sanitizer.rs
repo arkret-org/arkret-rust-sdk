@@ -19,8 +19,8 @@
 //! - `push_target_id` — opaque pseudonym token (see [`is_valid_push_target_id`]).
 //! - `wakeup_kind` — closed enum (`message`, `mention`, `reaction`, `call_invite`, `reminder`,
 //!   `scheduled_send`, `expiry_invalidation`).
-//! - `badge`, `unread_count`, `count`, `unread` — small non-negative integers (≤
-//!   `MAX_COUNT_VALUE`). May be carried inside a `counts` object.
+//! - `badge`, `unread_count`, `count` — small non-negative integers (≤ `MAX_COUNT_VALUE`). May be
+//!   carried inside a `counts` object.
 //! - `push_hint` — closed enum (`new_message`, `incoming_call`, `mention_self`) **or** the form
 //!   `l10n_key:<token>` where the token is ASCII alphanumeric/`._-`, ≤ 64 chars, and never contains
 //!   PII.
@@ -92,7 +92,6 @@ pub const ALLOWED_BLIND_FIELDS: &[&str] = &[
     "badge",
     "unread_count",
     "count",
-    "unread",
     "counts",
 ];
 
@@ -135,7 +134,7 @@ impl std::fmt::Display for BlindPayloadReasonCode {
 /// Error returned by [`sanitize_blind_payload`].
 ///
 /// `field_path` is a dotted/indexed JSON path (e.g.
-/// `notification.devices[0].data.default_payload.title`) so callers can
+/// `notification.counts.unread_count`) so callers can
 /// point operators at the exact offending field.
 #[derive(Clone, Debug, Error, Eq, PartialEq)]
 #[error("blind payload {reason_code} at `{field_path}`: {message}")]
@@ -317,7 +316,7 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
                 "push_hint must be a string",
             )),
         },
-        "badge" | "unread_count" | "count" | "unread" => validate_count_number(key, value),
+        "badge" | "unread_count" | "count" => validate_count_number(key, value),
         "counts" => validate_counts_tree(key, value),
         _ => Ok(()),
     }
@@ -617,7 +616,7 @@ mod tests {
                 "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
                 "push_hint": "new_message",
-                "counts": { "unread": 1 },
+                "counts": { "unread_count": 1 },
             }
         })
     }
@@ -740,7 +739,7 @@ mod tests {
     #[test]
     fn rejects_oversized_count() {
         let mut v = ok_notification();
-        v["notification"]["counts"] = json!({ "unread": MAX_COUNT_VALUE + 1 });
+        v["notification"]["counts"] = json!({ "unread_count": MAX_COUNT_VALUE + 1 });
         let err = sanitize_blind_payload(&v).unwrap_err();
         assert_eq!(err.reason_code, BlindPayloadReasonCode::InvalidFieldValue);
     }

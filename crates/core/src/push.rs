@@ -405,8 +405,8 @@ pub struct ProviderCapabilityDescriptor {
     /// Whether the provider has first-class badge / unread count support.
     #[serde(default)]
     pub supports_badge: bool,
-    /// Default outbound payload shape.
-    pub default_payload_shape: String,
+    /// Outbound provider payload shape.
+    pub provider_payload_shape: String,
     /// Credential material this provider expects.
     #[serde(default)]
     pub credential_kinds: Vec<String>,
@@ -650,7 +650,7 @@ mod tests {
             "ttl_seconds_max": 28u64 * 24 * 60 * 60,
             "supports_collapse": true,
             "supports_badge": true,
-            "default_payload_shape": "data_only_blind_wakeup",
+            "provider_payload_shape": "data_only_blind_wakeup",
             "credential_kinds": ["service_account_v1"],
             "credential_rotation": "rotate_service_account_yearly_or_on_compromise",
             "blind_wakeup_required": true,

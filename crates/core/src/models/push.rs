@@ -61,54 +61,13 @@ pub struct PushCounts {
     pub unread_increment: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub missed_call: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub unread: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub missed_calls: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub highlight_count: Option<u64>,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct PushDeviceTweaks {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sound: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct PushDecisionHint {
-    #[serde(default = "default_push_deliver")]
-    pub deliver: bool,
-    #[serde(default)]
-    pub blind_wakeup: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<String>,
-}
-
-impl Default for PushDecisionHint {
-    fn default() -> Self {
-        Self {
-            deliver: true,
-            blind_wakeup: false,
-            reason_code: None,
-        }
-    }
-}
-
-fn default_push_deliver() -> bool {
-    true
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
 pub struct PushDeviceRoute {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<DeviceId>,
+    pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -117,12 +76,6 @@ pub struct PushDeviceRoute {
     pub platform: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_actor_id: Option<Did>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub data: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tweaks: Option<PushDeviceTweaks>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_decision: Option<PushDecisionHint>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -171,8 +124,6 @@ pub struct PushNotificationEnvelope {
     pub sender_actor_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sender_actor_display_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

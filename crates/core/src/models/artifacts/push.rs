@@ -141,8 +141,6 @@ pub struct VisibleNotification {
     pub realm_id: RealmId,
     pub sender_actor_id: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message_id: Option<MessageId>,
