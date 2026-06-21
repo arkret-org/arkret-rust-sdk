@@ -1046,6 +1046,37 @@ pub(super) fn read_embedded_json_artifact(path: &str) -> Result<Value> {
         .ok_or_else(|| Error::Protocol(format!("embedded spec artifact {path} is missing")))
 }
 
+#[cfg(test)]
+pub(super) fn embedded_spec_artifact_paths() -> Result<Vec<String>> {
+    Ok(embedded_spec_artifacts()?.keys().cloned().collect())
+}
+
+/// Canonical error code strings declared in the embedded
+/// `error-code-registry.json` snapshot, in registry order.
+pub fn embedded_error_code_codes() -> Result<Vec<String>> {
+    let registry = read_embedded_json_artifact("registry/error-code-registry.json")?;
+    let codes = registry
+        .get("codes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            Error::Protocol("embedded error-code-registry.json missing codes array".to_owned())
+        })?;
+    codes
+        .iter()
+        .map(|entry| {
+            entry
+                .get("code")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .ok_or_else(|| {
+                    Error::Protocol(
+                        "embedded error-code-registry.json code entry missing code".to_owned(),
+                    )
+                })
+        })
+        .collect()
+}
+
 /// The set of `reason_code` strings declared in the embedded
 /// `error-code-registry.json` snapshot.
 ///

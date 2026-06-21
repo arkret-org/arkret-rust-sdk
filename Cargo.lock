@@ -490,6 +490,7 @@ dependencies = [
  "tracing",
  "unicode-normalization",
  "url",
+ "zeroize",
 ]
 
 [[package]]
@@ -498,7 +499,6 @@ version = "0.3.0"
 dependencies = [
  "anyhow",
  "argon2",
- "base64",
  "chacha20poly1305",
  "chrono",
  "cokret-core",

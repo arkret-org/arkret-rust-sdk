@@ -4,7 +4,7 @@
 //! feature is disabled. Constructors return [`KeyStoreError::Unsupported`];
 //! trait methods do the same so naive callers don't panic.
 
-use cokret_core::Result;
+use cokret_core::{KeyBytes, Result};
 
 use crate::{KeyStore, KeyStoreError};
 
@@ -26,7 +26,7 @@ impl WindowsCredentialKeyStore {
 }
 
 impl KeyStore for WindowsCredentialKeyStore {
-    fn load(&self, _id: &str) -> Result<Vec<u8>> {
+    fn load(&self, _id: &str) -> Result<KeyBytes> {
         Err(KeyStoreError::unsupported("WindowsCredentialKeyStore (stub)").into())
     }
 

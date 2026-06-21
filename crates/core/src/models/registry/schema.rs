@@ -1,11 +1,11 @@
-use regex::Regex;
 use serde_json::{Value, json};
 
 use super::super::*;
 use super::validators::{
-    is_security_sensitive_extension, validate_json_schema_array_sizes, validate_json_schema_format,
-    validate_json_schema_numbers, validate_json_schema_object_sizes, validate_json_schema_pattern,
-    validate_json_schema_string_lengths, validate_json_schema_type_value,
+    cached_json_schema_regex, is_security_sensitive_extension, validate_json_schema_array_sizes,
+    validate_json_schema_format, validate_json_schema_numbers, validate_json_schema_object_sizes,
+    validate_json_schema_pattern, validate_json_schema_string_lengths,
+    validate_json_schema_type_value,
 };
 
 /// Protocol JSON Schema registry.
@@ -406,7 +406,7 @@ impl ProtocolSchemaRegistry {
                 .and_then(Value::as_object)
             {
                 for (pattern, pattern_schema) in pattern_properties {
-                    let regex = Regex::new(pattern).map_err(|error| {
+                    let regex = cached_json_schema_regex(pattern).map_err(|error| {
                         Error::Protocol(format!(
                             "schema '{root_id}' has invalid patternProperties regex at {path}: {error}"
                         ))

@@ -397,23 +397,21 @@ pub fn verify_snapshot_inclusion(
     proof: &[MerkleProofStep],
     root: &str,
 ) -> Result<()> {
-    let leaf_hash = canonical_sha256(&serde_json::json!({
+    let leaf_hash = crate::Hash::new(canonical_sha256(&serde_json::json!({
         "key": event_id,
         "value": event_id,
-    }))?;
+    }))?)?;
     let mut running = leaf_hash;
     for step in proof {
-        let (left, right) = if step.is_left {
-            (step.sibling.as_str(), running.as_str())
+        let sibling = crate::Hash::new(step.sibling.clone())?;
+        let leaves = if step.is_left {
+            vec![sibling, running]
         } else {
-            (running.as_str(), step.sibling.as_str())
+            vec![running, sibling]
         };
-        running = canonical_sha256(&serde_json::json!({
-            "left": left,
-            "right": right,
-        }))?;
+        running = cokret_core::merkle_root_from_hashes(leaves)?;
     }
-    if running == root {
+    if running.as_str() == root {
         Ok(())
     } else {
         Err(Error::Protocol(format!(
@@ -440,23 +438,12 @@ pub fn state_merkle_root(payload: &Value) -> Result<String> {
     merkle_root(leaves)
 }
 
-pub fn merkle_root(mut leaves: Vec<String>) -> Result<String> {
-    if leaves.is_empty() {
-        return Ok(sha256_digest([]));
-    }
-    leaves.sort();
-    while leaves.len() > 1 {
-        let mut next = Vec::with_capacity(leaves.len().div_ceil(2));
-        for pair in leaves.chunks(2) {
-            let right = pair.get(1).unwrap_or(&pair[0]);
-            next.push(canonical_sha256(&serde_json::json!({
-                "left": pair[0],
-                "right": right,
-            }))?);
-        }
-        leaves = next;
-    }
-    Ok(leaves.remove(0))
+pub fn merkle_root(leaves: Vec<String>) -> Result<String> {
+    let leaves = leaves
+        .into_iter()
+        .map(crate::Hash::new)
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(cokret_core::merkle_root_from_hashes(leaves)?.into_string())
 }
 
 pub(super) struct StateHashInput<'a> {

@@ -122,17 +122,40 @@ pub enum FederationReplayDecision {
     QuarantinedConflict,
 }
 
-#[derive(Clone, Debug, Default)]
+pub const DEFAULT_FEDERATION_REPLAY_TTL_SECS: i64 = 10 * 60;
+pub const DEFAULT_FEDERATION_REPLAY_CAPACITY: usize = 4096;
+
+#[derive(Clone, Debug)]
 pub struct MemoryFederationReplayStore {
     records: BTreeMap<String, FederationReplayRecord>,
+    ttl: chrono::Duration,
+    capacity: usize,
 }
 
 impl MemoryFederationReplayStore {
+    pub fn with_limits(ttl: chrono::Duration, capacity: usize) -> Self {
+        Self {
+            records: BTreeMap::new(),
+            ttl,
+            capacity: capacity.max(1),
+        }
+    }
+
     pub fn remember(
         &mut self,
         transaction_id: impl Into<String>,
         content_digest: Hash,
     ) -> FederationReplayDecision {
+        self.remember_at(transaction_id, content_digest, Utc::now())
+    }
+
+    pub fn remember_at(
+        &mut self,
+        transaction_id: impl Into<String>,
+        content_digest: Hash,
+        now: DateTime<Utc>,
+    ) -> FederationReplayDecision {
+        self.evict_expired(now);
         let transaction_id = transaction_id.into();
         match self.records.get(&transaction_id) {
             Some(record) if record.content_digest == content_digest => {
@@ -140,17 +163,55 @@ impl MemoryFederationReplayStore {
             }
             Some(_) => FederationReplayDecision::QuarantinedConflict,
             None => {
+                self.evict_to_capacity();
                 self.records.insert(
                     transaction_id.clone(),
                     FederationReplayRecord {
                         transaction_id,
                         content_digest,
-                        first_seen_at: Utc::now(),
+                        first_seen_at: now,
                     },
                 );
                 FederationReplayDecision::AcceptedNew
             }
         }
+    }
+
+    pub fn len(&self) -> usize {
+        self.records.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.records.is_empty()
+    }
+
+    fn evict_expired(&mut self, now: DateTime<Utc>) {
+        let ttl = self.ttl;
+        self.records
+            .retain(|_, record| now.signed_duration_since(record.first_seen_at) <= ttl);
+    }
+
+    fn evict_to_capacity(&mut self) {
+        while self.records.len() >= self.capacity {
+            let Some(oldest_transaction_id) = self
+                .records
+                .values()
+                .min_by_key(|record| record.first_seen_at)
+                .map(|record| record.transaction_id.clone())
+            else {
+                return;
+            };
+            self.records.remove(&oldest_transaction_id);
+        }
+    }
+}
+
+impl Default for MemoryFederationReplayStore {
+    fn default() -> Self {
+        Self::with_limits(
+            chrono::Duration::seconds(DEFAULT_FEDERATION_REPLAY_TTL_SECS),
+            DEFAULT_FEDERATION_REPLAY_CAPACITY,
+        )
     }
 }
 
@@ -405,6 +466,55 @@ mod tests {
             store.remember("txn", other),
             FederationReplayDecision::QuarantinedConflict
         );
+    }
+
+    #[test]
+    fn replay_store_evicts_expired_records_by_first_seen_at() {
+        let digest =
+            Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                .unwrap();
+        let other =
+            Hash::new("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+                .unwrap();
+        let now = Utc::now();
+        let mut store = MemoryFederationReplayStore::with_limits(Duration::seconds(5), 8);
+
+        assert_eq!(
+            store.remember_at("txn", digest, now),
+            FederationReplayDecision::AcceptedNew
+        );
+        assert_eq!(
+            store.remember_at("txn", other, now + Duration::seconds(6)),
+            FederationReplayDecision::AcceptedNew
+        );
+        assert_eq!(store.len(), 1);
+    }
+
+    #[test]
+    fn replay_store_evicts_oldest_record_when_capacity_is_full() {
+        let digest =
+            Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                .unwrap();
+        let now = Utc::now();
+        let mut store = MemoryFederationReplayStore::with_limits(Duration::minutes(5), 2);
+
+        assert_eq!(
+            store.remember_at("txn_1", digest.clone(), now),
+            FederationReplayDecision::AcceptedNew
+        );
+        assert_eq!(
+            store.remember_at("txn_2", digest.clone(), now + Duration::seconds(1)),
+            FederationReplayDecision::AcceptedNew
+        );
+        assert_eq!(
+            store.remember_at("txn_3", digest.clone(), now + Duration::seconds(2)),
+            FederationReplayDecision::AcceptedNew
+        );
+
+        assert_eq!(store.len(), 2);
+        assert!(!store.records.contains_key("txn_1"));
+        assert!(store.records.contains_key("txn_2"));
+        assert!(store.records.contains_key("txn_3"));
     }
 
     #[test]

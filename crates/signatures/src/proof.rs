@@ -259,6 +259,22 @@ pub fn verify_detached_ed25519_signature(
     verifying.verify_strict(message, &sig).is_ok()
 }
 
+/// Produce the canonical EdDSA detached-JWS wire form over payload bytes.
+///
+/// The signing input is `b64u({"alg":"EdDSA"}).b64u(canonical_bytes)` and
+/// the serialized JWS carries an empty detached payload segment.
+pub fn sign_eddsa_detached_jws(
+    signing_key: &ed25519_dalek::SigningKey,
+    canonical_bytes: &[u8],
+) -> std::result::Result<String, SignerError> {
+    if canonical_bytes.is_empty() {
+        return Err(SignerError::Backend(
+            "canonical bytes must not be empty".to_owned(),
+        ));
+    }
+    Ok(ed25519_jws::detached_jws_over(signing_key, canonical_bytes))
+}
+
 fn verify_eddsa_signing_input(
     signing_input: &str,
     signature: &[u8],
@@ -523,7 +539,6 @@ impl<V: EventVerifier> EventVerifier for ProductionVerifier<V> {
     }
 }
 
-#[cfg(feature = "signer")]
 mod ed25519_jws {
     use chrono::Utc;
     use cokret_core::{
@@ -534,10 +549,9 @@ mod ed25519_jws {
 
     /// SDK-canonical detached-JWS protected header (`{"alg":"EdDSA"}`).
     ///
-    /// 这是全生态(spec fixtures、soland `move_seal_wire`、cotest、teabay
-    /// `sdk::jws`)统一的 detached JWS header 字节;Move/Seal/event-proof
-    /// 三类签名共用同一 header,使 signing input 字节唯一,跨实现可互验。
-    /// **不含** `typ`(spec §6 default proof 不声明 `typ`)。
+    /// This is the single header byte string shared by fixtures and services
+    /// for Move, Seal, and event-proof signatures. It intentionally omits
+    /// `typ`; the default v1 proof profile does not declare one.
     pub(super) const PROTECTED_HEADER_EDDSA: &str = r#"{"alg":"EdDSA"}"#;
 
     use super::{
@@ -809,7 +823,6 @@ mod ed25519_jws {
     }
 }
 
-#[cfg(feature = "signer")]
 pub use ed25519_jws::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier};
 
 /// Construct a [`Proof`] envelope for an already-signed payload. The

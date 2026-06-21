@@ -69,7 +69,7 @@ mod serde_bytes_32_hex {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn serialize<S: Serializer>(value: &[u8; 32], s: S) -> Result<S::Ok, S::Error> {
-        let hex: String = value.iter().map(|b| format!("{b:02x}")).collect();
+        let hex = hex::encode(value);
 
         hex.serialize(s)
     }

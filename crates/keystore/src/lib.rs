@@ -39,7 +39,7 @@
 // The pure storage contract is re-exported from `cokret-core` so consumers
 // of `cokret-keystore` get the trait + in-memory backend + error type from a
 // single import surface alongside the platform backends below.
-pub use cokret_core::keystore::{InMemoryKeyStore, KeyStore, KeyStoreError};
+pub use cokret_core::keystore::{InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError};
 
 #[cfg(all(target_os = "macos", feature = "keystore-macos"))]
 mod macos;
@@ -140,7 +140,10 @@ mod tests {
                 .as_nanos()
         );
         store.store(&id, b"platform-default-secret").unwrap();
-        assert_eq!(store.load(&id).unwrap(), b"platform-default-secret");
+        assert_eq!(
+            store.load(&id).unwrap().as_slice(),
+            b"platform-default-secret"
+        );
         store.delete(&id).unwrap();
     }
 }

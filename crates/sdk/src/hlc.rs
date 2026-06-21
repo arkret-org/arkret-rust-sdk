@@ -17,16 +17,14 @@ use crate::{Error, Hlc as HlcType, Result};
 ///
 /// Format: `^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$`
 pub fn validate_hlc_format(hlc: &str) -> Result<()> {
-    use regex::Regex;
-    let re = Regex::new(r"^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$").unwrap();
-    if re.is_match(hlc) {
-        Ok(())
-    } else {
-        Err(Error::Protocol(format!(
+    HlcType::new(hlc.to_owned())
+        .map(|_| ())
+        .map_err(|_| {
+            Error::Protocol(format!(
             "schema_violation: invalid HLC format: {} (expected format: ^[0-9a-f]{{12}}-[0-9a-f]{{4}}-[0-9a-f]{{8}}$)",
             hlc
-        )))
-    }
+            ))
+        })
 }
 
 /// Soft future-drift threshold from encoding.md §7.2.
@@ -124,28 +122,30 @@ impl HlcGenerator {
     /// Generate the next HLC value.
     ///
     /// Advances the HLC based on current physical time and ensures
-    /// monotonicity.
+    /// monotonicity. If the 16-bit logical counter is exhausted within the
+    /// current millisecond, this synchronous API waits until physical time
+    /// advances instead of wrapping the counter.
     pub fn generate(&mut self) -> HlcType {
-        let now = Self::current_time_ms();
-
-        // Handle clock rollback or equal time
-        if now > self.physical {
-            self.physical = now;
-            self.logical = 0;
-        } else if now == self.physical {
-            self.advance_logical_or_wait();
-        } else {
-            // Clock went backwards, advance logical
+        if self
+            .advance_for_now_or_error(Self::current_time_ms())
+            .is_err()
+        {
             self.advance_logical_or_wait();
         }
-
-        // Ensure physical time doesn't exceed maximum
-        if self.physical > MAX_PHYSICAL {
-            self.physical = MAX_PHYSICAL;
-            self.logical = MAX_LOGICAL;
-        }
+        self.clamp_physical();
 
         HlcType::new(self.format()).expect("HLC format is valid")
+    }
+
+    /// Generate the next HLC value without blocking.
+    ///
+    /// Returns `hlc_logical_overflow` when the local clock has not advanced
+    /// beyond the generator's current physical millisecond and the 16-bit
+    /// logical counter is already saturated.
+    pub fn try_generate(&mut self) -> Result<HlcType> {
+        self.advance_for_now_or_error(Self::current_time_ms())?;
+        self.clamp_physical();
+        Ok(HlcType::new(self.format())?)
     }
 
     /// Generate the next HLC value, adjusting for a received remote HLC.
@@ -153,7 +153,7 @@ impl HlcGenerator {
     /// When receiving an event from another node, advance local HLC
     /// to at least the remote HLC to maintain global monotonicity.
     pub fn generate_with_remote(&mut self, remote_hlc: &HlcType) -> Result<HlcType> {
-        let remote_parts = parse_hlc(remote_hlc.as_str())?;
+        let remote_parts = parse_typed_hlc(remote_hlc)?;
 
         let now = Self::current_time_ms();
 
@@ -285,35 +285,53 @@ impl HlcGenerator {
             ))
         }
     }
+
+    fn advance_for_now_or_error(&mut self, now: u64) -> Result<()> {
+        if now > self.physical {
+            self.physical = now;
+            self.logical = 0;
+        } else {
+            self.advance_logical_or_error()?;
+        }
+        Ok(())
+    }
+
+    fn clamp_physical(&mut self) {
+        if self.physical > MAX_PHYSICAL {
+            self.physical = MAX_PHYSICAL;
+            self.logical = MAX_LOGICAL;
+        }
+    }
 }
 
 /// Parse HLC string into components.
 pub fn parse_hlc(hlc: &str) -> Result<HlcComponents> {
-    validate_hlc_format(hlc)?;
-
-    let parts: Vec<&str> = hlc.split('-').collect();
-    if parts.len() != 3 {
-        return Err(Error::Protocol(format!(
-            "schema_violation: invalid HLC: wrong number of parts: {}",
+    let typed = HlcType::new(hlc.to_owned()).map_err(|_| {
+        Error::Protocol(format!(
+            "schema_violation: invalid HLC format: {} (expected format: ^[0-9a-f]{{12}}-[0-9a-f]{{4}}-[0-9a-f]{{8}}$)",
             hlc
-        )));
-    }
+        ))
+    })?;
+    parse_typed_hlc(&typed)
+}
 
-    let physical_ms = u64::from_str_radix(parts[0], 16).map_err(|_| {
+fn parse_typed_hlc(hlc: &HlcType) -> Result<HlcComponents> {
+    let value = hlc.as_str();
+    let physical_ms = u64::from_str_radix(&value[0..12], 16).map_err(|_| {
         Error::Protocol(format!(
             "schema_violation: invalid physical time: {}",
-            parts[0]
+            &value[0..12]
         ))
     })?;
 
-    let logical = u32::from_str_radix(parts[1], 16).map_err(|_| {
+    let logical = u32::from_str_radix(&value[13..17], 16).map_err(|_| {
         Error::Protocol(format!(
             "schema_violation: invalid logical counter: {}",
-            parts[1]
+            &value[13..17]
         ))
     })?;
 
-    let node_id = parts[2].to_owned();
+    let node_id = value[18..26].to_owned();
 
     Ok(HlcComponents {
         physical_ms,
@@ -350,15 +368,20 @@ pub fn validate_hlc_future_drift(hlc: &str, current_time_ms: u64) -> Result<HlcF
 /// - `Some(Equal)` if hlc1 == hlc2
 /// - `None` if either HLC is invalid
 pub fn compare_hlc(hlc1: &str, hlc2: &str) -> Result<std::cmp::Ordering> {
-    let parts1 = parse_hlc(hlc1)?;
-    let parts2 = parse_hlc(hlc2)?;
+    let left = HlcType::new(hlc1.to_owned()).map_err(|_| {
+        Error::Protocol(format!(
+            "schema_violation: invalid HLC format: {} (expected format: ^[0-9a-f]{{12}}-[0-9a-f]{{4}}-[0-9a-f]{{8}}$)",
+            hlc1
+        ))
+    })?;
+    let right = HlcType::new(hlc2.to_owned()).map_err(|_| {
+        Error::Protocol(format!(
+            "schema_violation: invalid HLC format: {} (expected format: ^[0-9a-f]{{12}}-[0-9a-f]{{4}}-[0-9a-f]{{8}}$)",
+            hlc2
+        ))
+    })?;
 
-    // Lexicographic comparison: physical, then logical, then node_id
-    Ok(parts1
-        .physical_ms
-        .cmp(&parts2.physical_ms)
-        .then_with(|| parts1.logical.cmp(&parts2.logical))
-        .then_with(|| parts1.node_id.cmp(&parts2.node_id)))
+    Ok(left.cmp(&right))
 }
 
 /// Check if HLC is within acceptable clock skew window.
@@ -482,6 +505,35 @@ mod tests {
 
         assert!(compare_hlc(hlc1.as_str(), hlc2.as_str()).unwrap() == std::cmp::Ordering::Less);
         assert!(compare_hlc(hlc2.as_str(), hlc3.as_str()).unwrap() == std::cmp::Ordering::Less);
+    }
+
+    #[test]
+    fn hlc_generator_try_generate_reports_logical_overflow_without_waiting() {
+        let mut hlc_gen = HlcGenerator::with_initial_time(
+            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "device-1",
+            b"test-secret",
+            HlcGenerator::current_time_ms() + 60_000,
+        );
+        hlc_gen.logical = MAX_LOGICAL;
+
+        let err = hlc_gen.try_generate().unwrap_err();
+        assert!(err.to_string().contains("hlc_logical_overflow"));
+    }
+
+    #[test]
+    fn hlc_generator_try_generate_advances_logical_when_not_saturated() {
+        let mut hlc_gen = HlcGenerator::with_initial_time(
+            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "device-1",
+            b"test-secret",
+            HlcGenerator::current_time_ms() + 60_000,
+        );
+        hlc_gen.logical = MAX_LOGICAL - 1;
+
+        let hlc = hlc_gen.try_generate().unwrap();
+        let parts = parse_hlc(hlc.as_str()).unwrap();
+        assert_eq!(parts.logical, MAX_LOGICAL);
     }
 
     #[test]

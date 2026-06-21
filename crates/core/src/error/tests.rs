@@ -1,4 +1,19 @@
+use std::path::PathBuf;
+
 use super::*;
+
+fn local_spec_artifacts_dir() -> Option<PathBuf> {
+    if let Some(dir) = crate::schema::default_spec_artifacts_dir() {
+        return Some(dir);
+    }
+    let candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../..")
+        .join("cokret-spec")
+        .join("spec")
+        .join("v1")
+        .join("artifacts");
+    candidate.is_dir().then_some(candidate)
+}
 
 #[test]
 fn every_known_error_code_has_http_status() {
@@ -8,6 +23,41 @@ fn every_known_error_code_has_http_status() {
             "known error code {code:?} has no HTTP status mapping",
         );
     }
+}
+
+#[test]
+fn known_error_codes_match_embedded_registry() {
+    let embedded = crate::schema::embedded_error_code_codes()
+        .expect("embedded error-code-registry codes must load");
+    assert_eq!(KNOWN_ERROR_CODES, embedded.as_slice());
+}
+
+#[test]
+fn known_error_codes_match_live_registry_when_available() {
+    let Some(artifacts_dir) = local_spec_artifacts_dir() else {
+        return;
+    };
+    let registry_path = artifacts_dir
+        .join("registry")
+        .join("error-code-registry.json");
+    let text = std::fs::read_to_string(&registry_path)
+        .unwrap_or_else(|error| panic!("failed to read {}: {error}", registry_path.display()));
+    let registry: serde_json::Value = serde_json::from_str(&text)
+        .unwrap_or_else(|error| panic!("failed to parse {}: {error}", registry_path.display()));
+    let live: Vec<String> = registry
+        .get("codes")
+        .and_then(serde_json::Value::as_array)
+        .expect("live error-code-registry missing codes array")
+        .iter()
+        .map(|entry| {
+            entry
+                .get("code")
+                .and_then(serde_json::Value::as_str)
+                .expect("live error-code-registry code entry missing code")
+                .to_owned()
+        })
+        .collect();
+    assert_eq!(KNOWN_ERROR_CODES, live.as_slice());
 }
 
 /// `ErrorCode::ALL` MUST contain one variant per entry in
@@ -24,7 +74,7 @@ fn error_code_enum_matches_registry() {
         );
         assert_eq!(
             ErrorCode::from_wire(wire),
-            Some(*code),
+            Some(code),
             "round-trip mismatch for ErrorCode::{:?}",
             code,
         );

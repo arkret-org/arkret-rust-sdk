@@ -1,8 +1,34 @@
+use std::collections::BTreeMap;
+use std::result::Result as StdResult;
+use std::sync::{OnceLock, RwLock};
+
 use chrono::DateTime;
 use regex::Regex;
 use serde_json::Value;
 
 use super::super::*;
+
+static JSON_SCHEMA_REGEX_CACHE: OnceLock<RwLock<BTreeMap<String, StdResult<Regex, String>>>> =
+    OnceLock::new();
+
+pub(crate) fn cached_json_schema_regex(pattern: &str) -> StdResult<Regex, String> {
+    let cache = JSON_SCHEMA_REGEX_CACHE.get_or_init(|| RwLock::new(BTreeMap::new()));
+    if let Some(cached) = cache
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(pattern)
+        .cloned()
+    {
+        return cached;
+    }
+
+    let compiled = Regex::new(pattern).map_err(|error| error.to_string());
+    cache
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(pattern.to_owned(), compiled.clone());
+    compiled
+}
 
 pub(crate) fn is_security_sensitive_extension(field: &str) -> bool {
     matches!(
@@ -66,7 +92,7 @@ pub(crate) fn validate_json_schema_pattern(
     let Some(text) = value.as_str() else {
         return Ok(());
     };
-    let regex = Regex::new(pattern).map_err(|error| {
+    let regex = cached_json_schema_regex(pattern).map_err(|error| {
         Error::Protocol(format!(
             "schema '{schema_id}' has invalid regex at {path}: {error}"
         ))

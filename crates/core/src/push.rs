@@ -722,7 +722,7 @@ mod tests {
                 service: "soland".to_owned(),
                 purpose: "register-device".to_owned(),
                 required_contract: "ck.auth.bridge.v1".to_owned(),
-                discovery_path: "/_cokret/gate/auth/bridge/describe".to_owned(),
+                discovery_path: "/_soland/gate/auth/bridge/describe".to_owned(),
                 mode: "required".to_owned(),
             }],
             surfaces: Vec::new(),

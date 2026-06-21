@@ -240,7 +240,7 @@ impl CokretMlsGroup {
     pub fn schedule_hash(&self) -> Hash {
         let authenticator = self.group.epoch_authenticator();
         let digest = Sha256::digest(authenticator.as_slice());
-        Hash::new(format!("sha256:{}", hex_lower(&digest)))
+        Hash::new(format!("sha256:{}", hex::encode(digest)))
             .expect("sha256:<hex> is always a valid Hash typed-id")
     }
 
@@ -795,14 +795,6 @@ fn restore_provider_storage(
 
 pub(super) fn encode(bytes: &[u8]) -> String {
     base64url_encode(bytes)
-}
-
-fn hex_lower(bytes: &[u8]) -> String {
-    let mut s = String::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        s.push_str(&format!("{byte:02x}"));
-    }
-    s
 }
 
 pub(super) fn decode(value: &str) -> Result<Vec<u8>> {

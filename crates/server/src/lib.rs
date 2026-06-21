@@ -36,7 +36,7 @@ pub use cokret_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountS
 // them under stable `*_api` aliases for server-side consumers.
 pub use cokret_core::{
     federation as federation_api, identity as identity_api, integration as integration_api,
-    ops as ops_api, principal as principal_api, push as push_gateway_api,
+    ops as ops_api, push as push_gateway_api,
 };
 pub use cokret_signatures as signatures;
 use serde::{Deserialize, Serialize};

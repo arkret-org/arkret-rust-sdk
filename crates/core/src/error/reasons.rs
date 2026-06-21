@@ -332,6 +332,17 @@ pub const REASON_CONTACT_CONSENT_MISSING: &str = "contact_consent_missing";
 pub const KNOWN_REASON_CODES_CONTACT_DIRECT_CONVERSATION: &[&str] =
     &[REASON_CONTACT_NOT_ACCEPTED, REASON_CONTACT_CONSENT_MISSING];
 
+// MLS / media reason codes from error-code-registry.json#reason_codes.
+pub const REASON_REDUCER_PROFILE_MISMATCH: &str = "reducer_profile_mismatch";
+pub const REASON_MLS_GOVERNANCE_BINDING_STALE: &str = "mls_governance_binding_stale";
+pub const REASON_RECORDING_ARTIFACT_PIPELINE_BYPASSED: &str =
+    "recording_artifact_pipeline_bypassed";
+pub const REASON_RECORDING_CONSENT_REQUIRED: &str = "recording_consent_required";
+pub const REASON_RELAXED_WINDOW_EXCEEDS_CEILING: &str = "relaxed_window_exceeds_ceiling";
+pub const REASON_LEGAL_HOLD_ACTIVE: &str = "legal_hold_active";
+pub const REASON_TOKEN_ISSUER_UNAUTHORISED: &str = "token_issuer_unauthorised";
+pub const REASON_E2EE_KEY_SOURCE_UNAUTHORISED: &str = "e2ee_key_source_unauthorised";
+
 // ── Federation / to-device reason codes (error-code-registry.json#reason_codes).
 
 /// `federation_transaction` / `service_call` audit-only reason:

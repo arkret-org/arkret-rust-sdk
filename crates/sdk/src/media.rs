@@ -333,19 +333,19 @@ fn verify_issuer_signature(
     let key = anchors.verifying_key(kid).ok_or_else(|| {
         Error::Protocol(format!(
             "{}: no verifying key registered for {what} kid {kid}",
-            cokret_core::error::ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED
+            cokret_core::error::REASON_TOKEN_ISSUER_UNAUTHORISED
         ))
     })?;
     let sig_bytes = base64url_decode(sig_b64).map_err(|err| {
         Error::Protocol(format!(
             "{}: {what} signature is not base64url: {err}",
-            cokret_core::error::ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED
+            cokret_core::error::REASON_TOKEN_ISSUER_UNAUTHORISED
         ))
     })?;
     let sig_array: [u8; 64] = sig_bytes.as_slice().try_into().map_err(|_| {
         Error::Protocol(format!(
             "{}: {what} signature must be 64 bytes, got {}",
-            cokret_core::error::ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED,
+            cokret_core::error::REASON_TOKEN_ISSUER_UNAUTHORISED,
             sig_bytes.len()
         ))
     })?;
@@ -353,7 +353,7 @@ fn verify_issuer_signature(
     key.verify_strict(signing_input, &signature).map_err(|err| {
         Error::Protocol(format!(
             "{}: {what} signature verification failed: {err}",
-            cokret_core::error::ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED
+            cokret_core::error::REASON_TOKEN_ISSUER_UNAUTHORISED
         ))
     })
 }

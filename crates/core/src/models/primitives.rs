@@ -1027,8 +1027,13 @@ impl FactChainEcho {
         canonical::canonical_sha256(&self.digest_payload()?)
     }
 
-    /// Validate server proofs against this echo's digest.
-    pub fn validate_server_proofs(&self) -> Result<()> {
+    /// Precheck server proof structure and echo digest binding.
+    ///
+    /// This does not verify detached JWS signatures because `cokret-core`
+    /// deliberately has no DID/public-key resolver. Callers that need a
+    /// trusted fact-chain echo must verify every proof with the signatures
+    /// crate after this structural precheck.
+    pub fn precheck_server_proofs(&self) -> Result<()> {
         if self.proofs.is_empty() {
             return Err(Error::Protocol(
                 "fact-chain echo has no server proof".to_owned(),

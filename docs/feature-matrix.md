@@ -10,7 +10,7 @@ Cokret SDK uses additive Cargo features.
 | Salvo OAPI | `--features salvo` | Server feature plus Salvo OAPI derives on Cokret DTO and identifier types. |
 | Applet | `--features applet` | Convenience umbrella for Applet developers: `applet-runtime` + `client` + `server` + `salvo`. One flag turns on the applet wire surface (`AppletPackage`, `WireAppletRegistration`, install objects, bridge-error builder), the HTTP client, the `AppletHandler` contracts and the ready-made `applet_router` Salvo factory. |
 | MLS | `--features mls` | OpenMLS-backed group creation, Welcome/Commit envelopes and payload encryption/decryption. |
-| Default | `client,mls` | Application SDK default: HTTP client plus MLS crypto primitives. |
+| Default | `client, mls, full-surface, applet-runtime, device-runtime, sync-runtime, timeline-runtime` | Umbrella `cokret` crate application default for the active `0.3.x` development line: HTTP client, MLS crypto primitives and the high-level runtime/module surface. Leaf crates keep `default = []` unless their own `Cargo.toml` says otherwise. |
 | All features | `--all-features` | Release and conformance validation build. |
 
 ## Support Levels
@@ -28,12 +28,12 @@ storage and service-level interoperability tests.
 
 ## Conformance Profile Coverage
 
-This table mirrors `ck.profile.*.vN` IDs the SDK 1.0 line implements. New
+This table mirrors `ck.profile.*.vN` IDs the SDK `0.3.x` development line implements. New
 profiles introduced in P5 (spec head 37ce729) are listed first; the
 remainder of the catalog is represented by the generated
 `generated::profile_requirements` table.
 
-| Profile ID | SDK 1.0 | Notes |
+| Profile ID | SDK 0.3.x | Notes |
 | --- | --- | --- |
 | `ck.profile.personal_agent_provisioning.v1` | ✓ implemented | Full `ck.gate.account.command.pair_agent_key` + `ck.agent.*` (provision / list / get / pause / resume / rotate-key / grant.attach / grant.detach / sidecar_thread.ensure / deactivate) wiring; example: `personal_agent_provision.rs`. |
 | `ck.profile.agent_auth.v1` | ✓ implemented | S-1 signing-key + S-2 session-key binding via `agent_binding::{sign,verify}_ed25519_audit_binding`; controller-grant verification on every agent envelope. |

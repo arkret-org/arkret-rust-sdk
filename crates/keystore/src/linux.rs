@@ -13,8 +13,8 @@
 //! Collisions on `(service, account)` are resolved by overwriting the
 //! existing item (the Secret Service `replace` flag).
 
-use cokret_core::Result;
 use cokret_core::keystore::{service_name, validate_id};
+use cokret_core::{KeyBytes, Result};
 use secret_service::EncryptionType;
 use secret_service::blocking::SecretService;
 
@@ -75,7 +75,7 @@ impl LinuxSecretServiceKeyStore {
 }
 
 impl KeyStore for LinuxSecretServiceKeyStore {
-    fn load(&self, id: &str) -> Result<Vec<u8>> {
+    fn load(&self, id: &str) -> Result<KeyBytes> {
         validate_id(id)?;
         let ss = Self::connect()?;
         let collection = ss
@@ -103,7 +103,7 @@ impl KeyStore for LinuxSecretServiceKeyStore {
         let secret = item
             .get_secret()
             .map_err(|err| KeyStoreError::backend(format!("get secret: {err}")))?;
-        Ok(secret)
+        Ok(KeyBytes::new(secret))
     }
 
     fn store(&self, id: &str, key: &[u8]) -> Result<()> {
@@ -192,7 +192,7 @@ mod tests {
         let store = LinuxSecretServiceKeyStore::new(&unique_app_id()).unwrap();
         let id = "cokret:signer:alice:k1";
         store.store(id, b"linux-secret-1").unwrap();
-        assert_eq!(store.load(id).unwrap(), b"linux-secret-1");
+        assert_eq!(store.load(id).unwrap().as_slice(), b"linux-secret-1");
         store.delete(id).unwrap();
         let err = store.load(id).unwrap_err();
         assert!(format!("{err}").contains("key not found"));
@@ -207,7 +207,7 @@ mod tests {
         let id = "cokret:signer:bob:k1";
         store.store(id, b"first").unwrap();
         store.store(id, b"second").unwrap();
-        assert_eq!(store.load(id).unwrap(), b"second");
+        assert_eq!(store.load(id).unwrap().as_slice(), b"second");
         store.delete(id).unwrap();
     }
 

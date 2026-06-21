@@ -274,11 +274,11 @@ impl CallStatePayloadRecordingResult {
         };
         if let Err(error) = artifact.validate() {
             let message = error.to_string();
-            if message.contains(ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED) {
-                return Err(ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED);
+            if message.contains(REASON_RECORDING_ARTIFACT_PIPELINE_BYPASSED) {
+                return Err(REASON_RECORDING_ARTIFACT_PIPELINE_BYPASSED);
             }
-            if message.contains(ERROR_CODE_LEGAL_HOLD_ACTIVE) {
-                return Err(ERROR_CODE_LEGAL_HOLD_ACTIVE);
+            if message.contains(REASON_LEGAL_HOLD_ACTIVE) {
+                return Err(REASON_LEGAL_HOLD_ACTIVE);
             }
             return Err(ERROR_CODE_SCHEMA_VIOLATION);
         }
@@ -398,7 +398,7 @@ impl CallStatePayload {
                             .as_deref()
                             .is_some_and(contains_backend_direct_recording_ref))
                 {
-                    return Err(ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED);
+                    return Err(REASON_RECORDING_ARTIFACT_PIPELINE_BYPASSED);
                 }
                 Ok(())
             }
@@ -417,7 +417,7 @@ impl CallStatePayload {
                     .as_ref()
                     .is_some_and(CallStatePayloadTranscriptResult::consent_confirmed)
                 {
-                    return Err(ERROR_CODE_RECORDING_CONSENT_REQUIRED);
+                    return Err(REASON_RECORDING_CONSENT_REQUIRED);
                 }
                 Ok(())
             }
@@ -444,7 +444,7 @@ fn validate_recording_deletion_audit(
         && audit.outcome == CallRecordingDeletionOutcome::Completed
     {
         return Err(Error::Protocol(format!(
-            "{ERROR_CODE_LEGAL_HOLD_ACTIVE}: recording deletion cannot complete under audit_lock"
+            "{REASON_LEGAL_HOLD_ACTIVE}: recording deletion cannot complete under audit_lock"
         )));
     }
     let Some(deletion_trigger) = retention.deletion_trigger else {
@@ -467,7 +467,7 @@ fn validate_recording_deletion_audit(
         && audit.legal_hold_ref.as_deref().is_none_or(str::is_empty)
     {
         return Err(Error::Protocol(format!(
-            "{ERROR_CODE_LEGAL_HOLD_ACTIVE}: blocked recording deletion requires legal_hold_ref"
+            "{REASON_LEGAL_HOLD_ACTIVE}: blocked recording deletion requires legal_hold_ref"
         )));
     }
     Ok(())
@@ -501,7 +501,7 @@ fn schema_violation(message: impl Into<String>) -> Result<()> {
 
 fn recording_artifact_pipeline_bypassed(message: impl Into<String>) -> Result<()> {
     Err(Error::Protocol(format!(
-        "{ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED}: {}",
+        "{REASON_RECORDING_ARTIFACT_PIPELINE_BYPASSED}: {}",
         message.into()
     )))
 }
@@ -565,7 +565,7 @@ mod tests {
 
         assert_eq!(
             payload.validate_transcript_result_storage(),
-            Err(ERROR_CODE_RECORDING_CONSENT_REQUIRED)
+            Err(REASON_RECORDING_CONSENT_REQUIRED)
         );
     }
 }

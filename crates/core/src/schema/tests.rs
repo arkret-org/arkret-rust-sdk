@@ -1,5 +1,69 @@
 use super::*;
 
+fn local_spec_artifacts_dir() -> Option<PathBuf> {
+    if let Some(dir) = default_spec_artifacts_dir() {
+        return Some(dir);
+    }
+    let candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../..")
+        .join("cokret-spec")
+        .join("spec")
+        .join("v1")
+        .join("artifacts");
+    candidate.is_dir().then_some(candidate)
+}
+
+fn collect_json_artifact_paths(root: &Path, dir: &Path, out: &mut BTreeSet<String>) {
+    let entries = fs::read_dir(dir)
+        .unwrap_or_else(|error| panic!("failed to read {}: {error}", dir.display()));
+    for entry in entries {
+        let path = entry
+            .unwrap_or_else(|error| panic!("failed to read entry in {}: {error}", dir.display()))
+            .path();
+        if path.is_dir() {
+            collect_json_artifact_paths(root, &path, out);
+        } else if path.extension().and_then(|ext| ext.to_str()) == Some("json") {
+            let rel = path
+                .strip_prefix(root)
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "failed to strip {} from {}: {error}",
+                        root.display(),
+                        path.display()
+                    )
+                })
+                .to_string_lossy()
+                .replace('\\', "/");
+            out.insert(rel);
+        }
+    }
+}
+
+#[test]
+fn embedded_spec_artifacts_match_live_spec_when_available() {
+    let Some(artifacts_dir) = local_spec_artifacts_dir() else {
+        return;
+    };
+    let embedded: BTreeSet<String> = embedded_spec_artifact_paths()
+        .expect("embedded artifacts must load")
+        .into_iter()
+        .collect();
+    let mut live = BTreeSet::new();
+    collect_json_artifact_paths(&artifacts_dir, &artifacts_dir, &mut live);
+
+    assert_eq!(embedded, live, "embedded spec artifact path set drifted");
+    for path in live {
+        let live_path = artifacts_dir.join(&path);
+        let live_text = fs::read_to_string(&live_path)
+            .unwrap_or_else(|error| panic!("failed to read {}: {error}", live_path.display()));
+        let live_value: Value = serde_json::from_str(&live_text)
+            .unwrap_or_else(|error| panic!("failed to parse {}: {error}", live_path.display()));
+        let embedded_value = read_embedded_json_artifact(&path)
+            .unwrap_or_else(|error| panic!("embedded artifact {path} failed to load: {error}"));
+        assert_eq!(embedded_value, live_value, "artifact {path} drifted");
+    }
+}
+
 fn fixture_artifact(name: &str) -> Value {
     if let Some(artifacts_dir) = default_spec_artifacts_dir() {
         let path = artifacts_dir.join("fixtures").join(name);

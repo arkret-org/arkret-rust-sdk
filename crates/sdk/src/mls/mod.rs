@@ -17,7 +17,7 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
-    use crate::error::{ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE, ERROR_CODE_PROFILE_UNSUPPORTED};
+    use crate::error::{ERROR_CODE_PROFILE_UNSUPPORTED, REASON_MLS_GOVERNANCE_BINDING_STALE};
     use crate::{
         CryptoStore, DeviceId, Did, EncryptedPayloadScheme, Error, EventId, Hash,
         MLS_GOVERNANCE_BINDING_FULL_PROFILE, MLS_GOVERNANCE_BINDING_RELAXED_PROFILE,
@@ -255,7 +255,7 @@ mod tests {
 
         assert!(
             err.to_string()
-                .contains(ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE)
+                .contains(REASON_MLS_GOVERNANCE_BINDING_STALE)
         );
     }
 

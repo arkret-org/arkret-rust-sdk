@@ -14,8 +14,8 @@
 //! - `delete()` is idempotent — a "not found" error from the underlying `delete_generic_password`
 //!   is swallowed.
 
-use cokret_core::Result;
 use cokret_core::keystore::{service_name, validate_id};
+use cokret_core::{KeyBytes, Result};
 use security_framework::base::Error as SfError;
 use security_framework::passwords::{
     delete_generic_password, get_generic_password, set_generic_password,
@@ -62,10 +62,10 @@ impl MacOsKeychainKeyStore {
 }
 
 impl KeyStore for MacOsKeychainKeyStore {
-    fn load(&self, id: &str) -> Result<Vec<u8>> {
+    fn load(&self, id: &str) -> Result<KeyBytes> {
         validate_id(id)?;
         match get_generic_password(&self.service, id) {
-            Ok(bytes) => Ok(bytes),
+            Ok(bytes) => Ok(KeyBytes::new(bytes)),
             Err(err) if is_not_found(&err) => Err(KeyStoreError::not_found(id).into()),
             Err(err) => Err(KeyStoreError::backend(format!("keychain: {err}")).into()),
         }
@@ -159,7 +159,7 @@ mod tests {
         let store = MacOsKeychainKeyStore::new(&unique_app_id()).unwrap();
         let id = "cokret:signer:alice:k1";
         store.store(id, b"keychain-secret-1").unwrap();
-        assert_eq!(store.load(id).unwrap(), b"keychain-secret-1");
+        assert_eq!(store.load(id).unwrap().as_slice(), b"keychain-secret-1");
         store.delete(id).unwrap();
         let err = store.load(id).unwrap_err();
         assert!(format!("{err}").contains("key not found"));
@@ -171,7 +171,7 @@ mod tests {
         let id = "cokret:signer:bob:k1";
         store.store(id, b"first").unwrap();
         store.store(id, b"second").unwrap();
-        assert_eq!(store.load(id).unwrap(), b"second");
+        assert_eq!(store.load(id).unwrap().as_slice(), b"second");
         store.delete(id).unwrap();
     }
 

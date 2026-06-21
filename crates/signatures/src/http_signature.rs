@@ -148,6 +148,13 @@ pub enum HttpMessageVerificationError {
 }
 
 /// Successful raw HTTP message signature verification result.
+///
+/// This result proves the RFC 9421 signature, the optional RFC 9530
+/// `Content-Digest`, and the configured validity window. It does not prove
+/// request freshness by itself: this layer does not maintain replay state.
+/// Consumers MUST keep a seen-message cache keyed by deployment policy, for
+/// example by `(key_id, created, expires, nonce or canonical_message digest)`,
+/// and reject duplicate verified requests within the accepted window.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedHttpMessageSignature {
     /// Parsed `Signature-Input` parameters that were verified.
@@ -670,6 +677,12 @@ pub fn verify_content_digest(parsed: &ContentDigest, body: &[u8]) -> Result<(), 
 ///    window).
 /// 4. RFC 9421 canonical message construction.
 /// 5. Ed25519 verification against the supplied public key.
+///
+/// This helper is intentionally stateless and does not perform replay
+/// deduplication. Services that accept signed HTTP messages MUST maintain their
+/// own seen-message cache for the accepted validity window, including any
+/// `nonce` parameter carried in the preserved [`SignatureInput::params_value`]
+/// when their deployment profile requires nonce-based replay protection.
 pub fn verify_signed_http_message<I, N, V>(
     method: &str,
     target_uri: &str,

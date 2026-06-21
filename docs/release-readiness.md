@@ -1,10 +1,12 @@
 # Release Readiness
 
-Current target: `1.0.0`.
+Current target: active Cokret v1 SDK `0.3.x` development line. Workspace crate
+versions remain `0.3.0` until an explicit release cut.
 
-This repository is ready for local `1.0.0` freeze only when these gates pass:
+This repository is ready for a local `0.3.x` release-candidate cut only when
+these gates pass:
 
-- `cargo fmt --all -- --check`
+- `cargo +nightly fmt --all -- --check`
 - `cargo check --no-default-features`
 - `cargo check --no-default-features --features client`
 - `cargo check --no-default-features --features server`
@@ -19,9 +21,9 @@ This repository is ready for local `1.0.0` freeze only when these gates pass:
 - `cargo audit --deny warnings --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2026-0124`
 - `cargo run --example spec_drift_report`
 - `cargo semver-checks check-release --workspace --baseline-rev HEAD~1` is a
-  blocking CI gate for the 1.0 API freeze. During pre-commit local validation,
-  use `--baseline-rev HEAD` to compare the dirty working tree against the last
-  committed local baseline.
+  blocking CI gate for release-candidate API compatibility evidence. During
+  pre-commit local validation, use `--baseline-rev HEAD` to compare the dirty
+  working tree against the last committed local baseline.
 - `cargo tarpaulin --config tarpaulin.toml --out Xml` uploads coverage to
   Codecov without a hard threshold.
 - README and crate docs clearly state the local security-review packet and
@@ -29,8 +31,8 @@ This repository is ready for local `1.0.0` freeze only when these gates pass:
 - Local encryption helpers use authenticated encryption and no obsolete placeholder encryption remains.
 - Mobile bindings stay unpublished until the runtime-facing FFI and callback
   contracts have real downstream consumers and release commitments.
-- Basic interoperability smoke is recorded in `docs/release-evidence-1.0.0.md`
-  for `soland`, `starid`, `floria`, `chime`, and federation endpoints.
+- Basic interoperability smoke is recorded under `docs/` for `soland`,
+  `starid`, `floria`, `chime`, and federation endpoints.
 - The two `cargo audit` ignores are tracked upstream-dependency exceptions:
   `instant` is pulled through OpenMLS's wasm timer path, and
   `libcrux-chacha20poly1305` is present only through hpke-rs's optional
@@ -38,7 +40,7 @@ This repository is ready for local `1.0.0` freeze only when these gates pass:
 - This local readiness workflow does not publish crates, create GitHub
   releases, or require release tags.
 
-Security notes for the local 1.0 line:
+Security notes for the `0.3.x` development line:
 
 - Back production MLS state with a platform key store and durable crypto store implementation.
 - Run protocol conformance tests against at least one real server implementation.

@@ -17,10 +17,9 @@ pub mod proof;
 pub mod event_signer;
 pub use event_signer::{SignEventOptions, sign_event};
 
-// 报告 03 #5 / 09 #2 收敛:RFC 9421 HTTP Message Signatures + RFC 9530
-// Content-Digest 的**唯一**真源实现。floria(push)、teabay(ingest)、soland
-// (federation)、chime 全部消费这一套(此前下沉前位于 `sdk::http_signature`);
-// `sdk` 现以 `pub use cokret_signatures::http_signature` re-export。
+// Single source of truth for RFC 9421 HTTP Message Signatures + RFC 9530
+// Content-Digest. floria, teabay, soland, and chime all consume this module;
+// the SDK crate re-exports it for compatibility.
 pub mod http_signature;
 pub mod jwt;
 
@@ -32,12 +31,11 @@ use cokret_core::{Audience, Did, Error, Hash, Proof, Result, SignatureBindingPay
 pub use jwt::{
     JwtVerificationError, JwtVerificationPolicy, VerifiedJwt, verify_eddsa_jwt_with_jwks,
 };
-#[cfg(feature = "signer")]
-pub use proof::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier};
 pub use proof::{
-    EventProofBuilder, EventSigner, EventVerifier, ProductionVerifier, ProofType,
-    PublicKeyMaterial, SignedPayload, SignerError, VerifierError, build_proof_envelope,
-    detached_jws_kind, verify_detached_ed25519_signature, verify_eddsa_detached_jws_proof,
+    Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier, EventProofBuilder, EventSigner,
+    EventVerifier, ProductionVerifier, ProofType, PublicKeyMaterial, SignedPayload, SignerError,
+    VerifierError, build_proof_envelope, detached_jws_kind, sign_eddsa_detached_jws,
+    verify_detached_ed25519_signature, verify_eddsa_detached_jws_proof,
 };
 use serde::{Deserialize, Serialize};
 

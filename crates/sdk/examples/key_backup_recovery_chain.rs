@@ -118,6 +118,7 @@ fn build_envelope(
             first_event_id: None,
             last_event_id: None,
             secret_id: Some(format!("recovery-{seq}")),
+            secret_version: Some(seq as u32),
             extra: BTreeMap::new(),
         }],
         ciphertext: ciphertext.to_owned(),

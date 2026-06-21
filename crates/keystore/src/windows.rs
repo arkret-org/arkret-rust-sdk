@@ -10,8 +10,8 @@
 use std::ffi::OsString;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 
-use cokret_core::Result;
 use cokret_core::keystore::{service_name, validate_id};
+use cokret_core::{KeyBytes, Result};
 use windows::Win32::Foundation::ERROR_NOT_FOUND;
 use windows::Win32::Security::Credentials::{
     CRED_PERSIST_SESSION, CRED_TYPE_GENERIC, CREDENTIALW, CredDeleteW, CredEnumerateW, CredFree,
@@ -53,7 +53,7 @@ impl WindowsCredentialKeyStore {
 }
 
 impl KeyStore for WindowsCredentialKeyStore {
-    fn load(&self, id: &str) -> Result<Vec<u8>> {
+    fn load(&self, id: &str) -> Result<KeyBytes> {
         validate_id(id)?;
         let target = wide(&self.target_name(id));
         let mut cred_ptr: *mut CREDENTIALW = std::ptr::null_mut();
@@ -78,9 +78,9 @@ impl KeyStore for WindowsCredentialKeyStore {
                     let cred = &*cred_ptr;
                     let len = cred.CredentialBlobSize as usize;
                     if len == 0 || cred.CredentialBlob.is_null() {
-                        Vec::new()
+                        KeyBytes::new(Vec::new())
                     } else {
-                        std::slice::from_raw_parts(cred.CredentialBlob, len).to_vec()
+                        KeyBytes::new(std::slice::from_raw_parts(cred.CredentialBlob, len).to_vec())
                     }
                 };
                 // SAFETY: cred_ptr was allocated by CredReadW and is freed exactly once here.
@@ -101,7 +101,7 @@ impl KeyStore for WindowsCredentialKeyStore {
         validate_id(id)?;
         let target = wide(&self.target_name(id));
         let user = wide(id);
-        let mut blob = key.to_vec();
+        let mut blob = KeyBytes::new(key.to_vec());
         let cred = CREDENTIALW {
             Flags: windows::Win32::Security::Credentials::CRED_FLAGS(0),
             Type: CRED_TYPE_GENERIC,
@@ -241,7 +241,7 @@ mod tests {
         let store = WindowsCredentialKeyStore::new(&unique_app_id()).unwrap();
         let id = "cokret:signer:alice:k1";
         store.store(id, b"win-secret-1").unwrap();
-        assert_eq!(store.load(id).unwrap(), b"win-secret-1");
+        assert_eq!(store.load(id).unwrap().as_slice(), b"win-secret-1");
         store.delete(id).unwrap();
         let err = store.load(id).unwrap_err();
         assert!(format!("{err}").contains("key not found"));
@@ -253,7 +253,7 @@ mod tests {
         let id = "cokret:signer:bob:k1";
         store.store(id, b"first").unwrap();
         store.store(id, b"second").unwrap();
-        assert_eq!(store.load(id).unwrap(), b"second");
+        assert_eq!(store.load(id).unwrap().as_slice(), b"second");
         store.delete(id).unwrap();
     }
 

@@ -45,9 +45,8 @@ pub use strand::*;
 mod tests {
     use std::collections::BTreeMap;
 
-    use base64::Engine as _;
-    use base64::engine::general_purpose::STANDARD_NO_PAD;
     use chrono::{DateTime, Utc};
+    use cokret_core::base64url::base64url_encode;
 
     use super::*;
     use crate::{DeviceId, Did};
@@ -135,8 +134,8 @@ mod tests {
             .compute_shared_secret(&alice.public_base64())
             .expect("bob shared");
         let info = b"strand-7|did:web:alice|alice-device|did:web:bob|bob-device";
-        let sas_alice = derive_sas_bytes(&alice_shared, info);
-        let sas_bob = derive_sas_bytes(&bob_shared, info);
+        let sas_alice = derive_sas_bytes(&alice_shared[..], info);
+        let sas_bob = derive_sas_bytes(&bob_shared[..], info);
         assert_eq!(sas_alice, sas_bob);
         assert_eq!(sas_alice.emoji_indices, sas_bob.emoji_indices);
         assert_eq!(sas_alice.decimal_digits, sas_bob.decimal_digits);
@@ -257,7 +256,7 @@ mod tests {
     fn compute_shared_secret_rejects_malformed_peer_public_key() {
         let alice = EphemeralX25519Keypair::generate().unwrap();
         // base64 of 31 bytes — wrong length.
-        let too_short = STANDARD_NO_PAD.encode(&[0u8; 31][..]);
+        let too_short = base64url_encode(&[0u8; 31][..]);
         let err = alice
             .compute_shared_secret(&too_short)
             .expect_err("31 bytes must reject");
@@ -266,6 +265,11 @@ mod tests {
             .compute_shared_secret("not-base64-@@!!")
             .expect_err("invalid base64 must reject");
         assert!(format!("{err}").contains("base64"));
+        let zero_public = base64url_encode([0u8; 32]);
+        let err = alice
+            .compute_shared_secret(&zero_public)
+            .expect_err("all-zero shared secret must reject");
+        assert!(format!("{err}").contains("all zero"));
     }
 
     fn did(name: &str) -> Did {
@@ -435,7 +439,7 @@ mod tests {
         let mut tampered = strand
             .build_mac(&did("alice"), &dev("alice_phone"), &keys)
             .unwrap();
-        tampered.keys = STANDARD_NO_PAD.encode([0u8; 32]);
+        tampered.keys = base64url_encode([0u8; 32]);
         let err = strand.on_mac(&tampered, &keys).unwrap_err();
         assert!(format!("{err}").contains("mismatched_mac"));
         assert_eq!(strand.state(), KeyVerificationState::Cancelled);

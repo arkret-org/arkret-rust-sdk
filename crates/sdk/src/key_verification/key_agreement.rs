@@ -1,7 +1,7 @@
-use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD_NO_PAD;
+use cokret_core::base64url::{base64url_decode, base64url_encode};
 use sha2::{Digest, Sha256};
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
+use zeroize::{Zeroize, Zeroizing};
 
 use crate::{Error, Result};
 
@@ -46,6 +46,7 @@ impl EphemeralX25519Keypair {
         let mut seed = [0u8; 32];
         getrandom::fill(&mut seed).map_err(|error| Error::Crypto(error.to_string()))?;
         let secret = StaticSecret::from(seed);
+        seed.zeroize();
         let public = X25519PublicKey::from(&secret);
         Ok(Self { secret, public })
     }
@@ -53,19 +54,17 @@ impl EphemeralX25519Keypair {
     /// Base64 (no-pad) encoding of the public key — the on-the-wire
     /// form for `KeyVerificationKey.key`.
     pub fn public_base64(&self) -> String {
-        STANDARD_NO_PAD.encode(self.public.as_bytes())
+        base64url_encode(self.public.as_bytes())
     }
 
     /// Compute the X25519 shared secret between this side's private
     /// key and the peer's base64-encoded public key. Returns 32 bytes
     /// suitable as the `shared_secret` argument to
     /// [`derive_sas_bytes`].
-    pub fn compute_shared_secret(&self, peer_public_b64: &str) -> Result<[u8; 32]> {
-        let peer_bytes = STANDARD_NO_PAD
-            .decode(peer_public_b64.as_bytes())
-            .map_err(|err| {
-                Error::Protocol(format!("peer x25519 public key base64 decode: {err}"))
-            })?;
+    pub fn compute_shared_secret(&self, peer_public_b64: &str) -> Result<Zeroizing<[u8; 32]>> {
+        let peer_bytes = base64url_decode(peer_public_b64.as_bytes()).map_err(|err| {
+            Error::Protocol(format!("peer x25519 public key base64url decode: {err}"))
+        })?;
         if peer_bytes.len() != 32 {
             return Err(Error::Protocol(format!(
                 "peer x25519 public key must be 32 bytes, got {}",
@@ -76,7 +75,13 @@ impl EphemeralX25519Keypair {
         buf.copy_from_slice(&peer_bytes);
         let peer_public = X25519PublicKey::from(buf);
         let shared = self.secret.diffie_hellman(&peer_public);
-        Ok(*shared.as_bytes())
+        let shared = Zeroizing::new(*shared.as_bytes());
+        if shared.iter().all(|byte| *byte == 0) {
+            return Err(Error::Protocol(
+                "x25519 shared secret must not be all zero".to_owned(),
+            ));
+        }
+        Ok(shared)
     }
 }
 
@@ -221,9 +226,9 @@ impl ShortAuthenticationString {
 /// emoji indices (7 × 6 bits); the next 5 feed the three decimal
 /// digits (3 × 13 bits each, mapped into `[1000, 9999]`).
 pub fn derive_sas_bytes(shared_secret: &[u8], info: &[u8]) -> ShortAuthenticationString {
-    let prk = hmac_sha256(&[0u8; 32], shared_secret);
-    let mut okm = [0u8; SAS_OUTPUT_LEN];
-    hkdf_expand_sha256(&prk, info, &mut okm);
+    let prk = Zeroizing::new(hmac_sha256(&[0u8; 32], shared_secret));
+    let mut okm = Zeroizing::new([0u8; SAS_OUTPUT_LEN]);
+    hkdf_expand_sha256(&prk, info, &mut okm[..]);
 
     // Emoji indices — 7 × 6-bit values packed big-endian into bytes
     // [0..6) (48 bits = 8 × 6 bits, we take the first seven).
@@ -269,15 +274,15 @@ pub fn derive_sas_bytes(shared_secret: &[u8], info: &[u8]) -> ShortAuthenticatio
 /// `hmac` crate.
 pub(super) fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
     const BLOCK_SIZE: usize = 64;
-    let mut key_block = [0u8; BLOCK_SIZE];
+    let mut key_block = Zeroizing::new([0u8; BLOCK_SIZE]);
     if key.len() > BLOCK_SIZE {
         let digest = Sha256::digest(key);
         key_block[..32].copy_from_slice(&digest);
     } else {
         key_block[..key.len()].copy_from_slice(key);
     }
-    let mut ipad = [0u8; BLOCK_SIZE];
-    let mut opad = [0u8; BLOCK_SIZE];
+    let mut ipad = Zeroizing::new([0u8; BLOCK_SIZE]);
+    let mut opad = Zeroizing::new([0u8; BLOCK_SIZE]);
     for i in 0..BLOCK_SIZE {
         ipad[i] = key_block[i] ^ 0x36;
         opad[i] = key_block[i] ^ 0x5c;
@@ -303,16 +308,16 @@ pub(super) fn hkdf_expand_sha256(prk: &[u8; 32], info: &[u8], output: &mut [u8])
         n <= 255,
         "HKDF-Expand SHA-256 output limited to 255 * 32 bytes"
     );
-    let mut prev: [u8; 32] = [0u8; 32];
+    let mut prev = Zeroizing::new([0u8; 32]);
     let mut produced = 0usize;
     for i in 1..=n {
-        let mut buf: Vec<u8> = Vec::with_capacity(32 + info.len() + 1);
+        let mut buf = Zeroizing::new(Vec::with_capacity(32 + info.len() + 1));
         if i > 1 {
-            buf.extend_from_slice(&prev);
+            buf.extend_from_slice(&prev[..]);
         }
         buf.extend_from_slice(info);
         buf.push(i as u8);
-        prev = hmac_sha256(prk, &buf);
+        prev = Zeroizing::new(hmac_sha256(prk, &buf));
         let take = std::cmp::min(32, output.len() - produced);
         output[produced..produced + take].copy_from_slice(&prev[..take]);
         produced += take;

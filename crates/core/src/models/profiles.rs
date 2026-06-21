@@ -438,11 +438,11 @@ pub fn is_e2ee_relaxed_compatible_with_compliance<S: AsRef<str>>(active_profiles
 }
 
 /// Round R2/R3 — validate a relaxed-window value against the absolute hard
-/// ceiling. Returns `Err(ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING)` when
+/// ceiling. Returns `Err(REASON_RELAXED_WINDOW_EXCEEDS_CEILING)` when
 /// `ms > ABSOLUTE_HARD_CEILING_MS`.
 pub fn validate_relaxed_window_ms(ms: u32) -> std::result::Result<(), &'static str> {
     if ms > ABSOLUTE_HARD_CEILING_MS {
-        return Err(crate::ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING);
+        return Err(crate::REASON_RELAXED_WINDOW_EXCEEDS_CEILING);
     }
     Ok(())
 }

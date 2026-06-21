@@ -88,8 +88,8 @@ pub use cokret_core::{
     InMemoryKeyStore, KeyRefObject, KeyStore, KeyStoreError, canonical, cursor, error, events,
     federation as federation_api, identifiers, identity as identity_api,
     integration as integration_api, keystore, lattice, models, operations, ops as ops_api,
-    principal as principal_api, push as push_gateway_api, push_rule_core, schema,
-    schema as schema_contracts, service, state, state as state_res, sync, *,
+    push as push_gateway_api, push_rule_core, schema, schema as schema_contracts, service, state,
+    state as state_res, sync, *,
 };
 pub use cokret_crypto as crypto_protocol;
 pub use cokret_ffi as ffi;
@@ -163,9 +163,9 @@ pub mod hlc;
 // any inbound handler can use it without dragging in `full-surface`.
 pub mod idempotency;
 // RFC 9421 HTTP Message Signatures (Ed25519) + RFC 9530 Content-Digest.
-// 报告 03 #5 / 09 #2 收敛:唯一真源实现已下沉到 `cokret-signatures`;此处
-// re-export 保持 `cokret::http_signature::*` / `cokret_sdk::http_signature::*`
-// 调用路径不变(floria / teabay / chime 仍直接消费这一套)。
+// The single source of truth now lives in `cokret-signatures`; this re-export
+// keeps the existing `cokret::http_signature::*` / `cokret_sdk::http_signature::*`
+// call paths stable.
 #[cfg(feature = "full-surface")]
 pub use cokret_signatures::http_signature;
 // HttpDidResolver leans on a live Tokio runtime, blocking off-thread

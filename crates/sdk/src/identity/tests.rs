@@ -768,10 +768,14 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
 
     // Tampering with the JWS itself fails Ed25519 verification.
     let mut bad_jws = inception.clone();
-    bad_jws.proofs[0].jws = format!(
-        "{}A",
-        &bad_jws.proofs[0].jws[..bad_jws.proofs[0].jws.len() - 1]
-    );
+    let mut parts: Vec<String> = bad_jws.proofs[0]
+        .jws
+        .split('.')
+        .map(ToOwned::to_owned)
+        .collect();
+    let replacement = if parts[2].starts_with('A') { "B" } else { "A" };
+    parts[2].replace_range(0..1, replacement);
+    bad_jws.proofs[0].jws = parts.join(".");
     assert!(verify_did_key_log(&[bad_jws], &resolver).is_err());
 
     // seq=0 must not carry prev_event_digest (schema allOf rule).

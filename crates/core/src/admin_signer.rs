@@ -26,7 +26,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::keystore::KeyStoreError;
-use crate::{Did, KeyStore, Result};
+use crate::{Did, KeyBytes, KeyStore, Result};
 
 /// Conventional admin-scope identifiers. These mirror the operations
 /// soland already gates on `require_admin_principal`. Servers MAY add
@@ -83,7 +83,7 @@ impl AdminKeyStore {
     /// Load the raw signing seed for `admin_did`. Returns
     /// `KeyStoreError::NotFound` (wrapped in [`crate::Error::Protocol`])
     /// when no key has been provisioned.
-    pub fn load_admin_key(&self, admin_did: &Did) -> Result<Vec<u8>> {
+    pub fn load_admin_key(&self, admin_did: &Did) -> Result<KeyBytes> {
         let id = Self::key_id(&self.application_id, admin_did);
         self.inner.load(&id)
     }
@@ -225,7 +225,10 @@ mod tests {
         assert!(!store.has_admin_key(&did).unwrap());
         store.store_admin_key(&did, &seed).unwrap();
         assert!(store.has_admin_key(&did).unwrap());
-        assert_eq!(store.load_admin_key(&did).unwrap(), seed);
+        assert_eq!(
+            store.load_admin_key(&did).unwrap().as_slice(),
+            seed.as_slice()
+        );
         store.delete_admin_key(&did).unwrap();
         assert!(!store.has_admin_key(&did).unwrap());
     }

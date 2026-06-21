@@ -3,17 +3,17 @@
 
 use cokret_core::{
     AppletActorView, AppletDescription, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
-    AppletTransactionOutcome, AppletTransactionRequestBody, CallMediaTokenExchangeOutcome,
-    CallMediaTokenExchangeRequestBody, MediaIceConfigOutcome, MediaIceConfigRequestBody,
-    MimiProviderDirectory, MimiReportAbuseOutcome, MimiReportAbuseRequestBody,
-    ModerationReportOutcome, ModerationReportRequestBody, OkOutcome, PolicyCheckOutcome,
-    PolicyCheckRequestBody, PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
+    AppletThirdPartyLocationList, AppletThirdPartyUserList, AppletTransactionOutcome,
+    AppletTransactionRequestBody, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
+    MediaIceConfigOutcome, MediaIceConfigRequestBody, MimiProviderDirectory,
+    MimiReportAbuseOutcome, MimiReportAbuseRequestBody, ModerationReportOutcome,
+    ModerationReportRequestBody, OkOutcome, PolicyCheckOutcome, PolicyCheckRequestBody,
+    PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
     PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, Result,
 };
 use reqwest::Method;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use serde_json::Value;
 
 use crate::{Client, ClientRequestOptions, reject_path_segment};
 
@@ -135,12 +135,12 @@ impl Client {
     }
 
     /// Query third-party users for an applet.
-    pub async fn applet_third_party_users(&self) -> Result<Value> {
+    pub async fn applet_third_party_users(&self) -> Result<AppletThirdPartyUserList> {
         self.get("/_cokret/edge/applet/third_party/users").await
     }
 
     /// Query third-party locations for an applet.
-    pub async fn applet_third_party_locations(&self) -> Result<Value> {
+    pub async fn applet_third_party_locations(&self) -> Result<AppletThirdPartyLocationList> {
         self.get("/_cokret/edge/applet/third_party/locations").await
     }
 

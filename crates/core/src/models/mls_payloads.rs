@@ -7,8 +7,8 @@ use regex::Regex;
 
 use super::*;
 use crate::error::{
-    ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE, ERROR_CODE_PROFILE_UNSUPPORTED,
-    ERROR_CODE_REDUCER_PROFILE_MISMATCH, ERROR_CODE_SCHEMA_VIOLATION, ERROR_CODE_STATE_MISMATCH,
+    ERROR_CODE_PROFILE_UNSUPPORTED, ERROR_CODE_SCHEMA_VIOLATION, ERROR_CODE_STATE_MISMATCH,
+    REASON_MLS_GOVERNANCE_BINDING_STALE, REASON_REDUCER_PROFILE_MISMATCH,
 };
 use crate::events::MLS_COMMIT;
 use crate::{base64url_decode, base64url_encode};
@@ -207,7 +207,7 @@ impl MlsGovernanceBindingPayload {
         }
         if self.reducer_profile != expected.reducer_profile {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.reducer_profile mismatch: expected {} got {} ({ERROR_CODE_REDUCER_PROFILE_MISMATCH})",
+                "mls_governance_binding.reducer_profile mismatch: expected {} got {} ({REASON_REDUCER_PROFILE_MISMATCH})",
                 expected.reducer_profile, self.reducer_profile
             )));
         }
@@ -222,28 +222,28 @@ impl MlsGovernanceBindingPayload {
             && self.membership_frontier.as_slice() != frontier
         {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.membership_frontier is stale ({ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE})"
+                "mls_governance_binding.membership_frontier is stale ({REASON_MLS_GOVERNANCE_BINDING_STALE})"
             )));
         }
         if let Some(policy_root) = expected.policy_root
             && &self.policy_root != policy_root
         {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.policy_root is stale ({ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE})"
+                "mls_governance_binding.policy_root is stale ({REASON_MLS_GOVERNANCE_BINDING_STALE})"
             )));
         }
         if let Some(capability_root) = expected.capability_root
             && self.capability_root.as_ref() != Some(capability_root)
         {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.capability_root is stale ({ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE})"
+                "mls_governance_binding.capability_root is stale ({REASON_MLS_GOVERNANCE_BINDING_STALE})"
             )));
         }
         if let Some(digest) = expected.discussion_metadata_digest
             && self.discussion_metadata_digest.as_ref() != Some(digest)
         {
             return Err(Error::Protocol(format!(
-                "mls_governance_binding.discussion_metadata_digest is stale ({ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE})"
+                "mls_governance_binding.discussion_metadata_digest is stale ({REASON_MLS_GOVERNANCE_BINDING_STALE})"
             )));
         }
         Ok(())
@@ -725,7 +725,7 @@ pub fn derive_media_decrypt_metadata_digest(value: &MediaDecryptPolicyValue) -> 
 /// local policy view disagrees with what the binding attests, so per
 /// §10.5.1 rule 5 the member MUST treat the binding as stale and refuse media
 /// negotiation. The mismatch returns [`Error::Protocol`] tagged with
-/// [`ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE`].
+/// [`REASON_MLS_GOVERNANCE_BINDING_STALE`].
 pub fn verify_media_decrypt_metadata(
     binding_covered_digest: &Hash,
     recomputed: &Hash,
@@ -735,7 +735,7 @@ pub fn verify_media_decrypt_metadata(
     } else {
         Err(Error::Protocol(format!(
             "media_service_decrypts metadata digest does not match governance binding; \
-             refusing media negotiation ({ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE})"
+             refusing media negotiation ({REASON_MLS_GOVERNANCE_BINDING_STALE})"
         )))
     }
 }
@@ -1331,7 +1331,7 @@ mod tests {
 
         assert!(
             err.to_string()
-                .contains(ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE)
+                .contains(REASON_MLS_GOVERNANCE_BINDING_STALE)
         );
     }
 
@@ -1441,7 +1441,7 @@ mod tests {
         let err = verify_media_decrypt_metadata(&digest, &recomputed).unwrap_err();
         assert!(
             err.to_string()
-                .contains(ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE)
+                .contains(REASON_MLS_GOVERNANCE_BINDING_STALE)
         );
     }
 }

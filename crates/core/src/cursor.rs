@@ -62,23 +62,6 @@ pub struct Cursor {
     /// inline state or stateless integrity material.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub h: Option<String>,
-    /// Key identifier for the stateless cursor MAC/signature key.
-    /// Required whenever `h` is absent and forbidden for stateful handle form.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub issuer_kid: Option<String>,
-    /// Stateless cursor MAC over the canonical cursor body.
-    #[serde(default, rename = "_mac", skip_serializing_if = "Option::is_none")]
-    pub mac: Option<String>,
-    /// Stateless cursor detached signature over the canonical cursor body.
-    #[serde(default, rename = "_sig", skip_serializing_if = "Option::is_none")]
-    pub sig: Option<String>,
-    /// Server-private filter digest binding.
-    #[serde(
-        default,
-        rename = "_filter_digest",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub filter_digest: Option<String>,
 }
 
 /// Cursor purpose discriminator.
@@ -152,42 +135,7 @@ impl Cursor {
             target: None,
             x: t_ms + Self::DEFAULT_EXPIRATION_MS,
             h: Some(generate_cursor_handle()?),
-            issuer_kid: None,
-            mac: None,
-            sig: None,
-            filter_digest: None,
         })
-    }
-
-    /// Bind a `filter_digest` to this cursor.
-    ///
-    /// Deprecated for the v1 core wire shape: filter binding is server-side
-    /// state keyed by `h`, and [`Self::encode`] rejects inline digests.
-    #[deprecated(
-        since = "0.1.0",
-        note = "v1 core cursors must not carry inline filter_digest; bind filters server-side by h"
-    )]
-    pub fn with_filter_digest(mut self, digest: impl Into<String>) -> Self {
-        self.filter_digest = Some(digest.into());
-        self
-    }
-
-    /// Verify that the cursor's `filter_digest` matches `expected`.
-    ///
-    /// Deprecated for the v1 core wire shape: conformant cursor tokens do
-    /// not carry inline filter digests.
-    #[deprecated(
-        since = "0.1.0",
-        note = "v1 core cursors must not carry inline filter_digest; bind filters server-side by h"
-    )]
-    pub fn assert_filter_digest(&self, expected: &str) -> Result<()> {
-        match self.filter_digest.as_deref() {
-            None => Err(Error::Protocol("filter_digest_missing".to_owned())),
-            Some(found) if found == expected => Ok(()),
-            Some(found) => Err(Error::Protocol(format!(
-                "filter_digest_mismatch: cursor was issued for '{found}', current request is '{expected}'"
-            ))),
-        }
     }
 
     /// Set a Realm position in the cursor.
@@ -212,59 +160,12 @@ impl Cursor {
         self
     }
 
-    /// Replace the stateless integrity MAC on this cursor.
-    ///
-    /// Deprecated for the v1 core wire shape: SDK core cursors are
-    /// stateful-handle cursors, and [`Self::encode`] rejects inline MACs.
-    #[deprecated(
-        since = "0.1.0",
-        note = "v1 core cursors must not carry inline _mac; use stateful cursor handles"
-    )]
-    pub fn with_mac(mut self, mac: impl Into<String>) -> Self {
-        self.h = None;
-        self.mac = Some(mac.into());
-        self.sig = None;
-        self
-    }
-
-    /// Replace the stateless integrity signature on this cursor.
-    ///
-    /// Deprecated for the v1 core wire shape: SDK core cursors are
-    /// stateful-handle cursors, and [`Self::encode`] rejects inline
-    /// signatures.
-    #[deprecated(
-        since = "0.1.0",
-        note = "v1 core cursors must not carry inline _sig; use stateful cursor handles"
-    )]
-    pub fn with_signature(mut self, signature: impl Into<String>) -> Self {
-        self.h = None;
-        self.mac = None;
-        self.sig = Some(signature.into());
-        self
-    }
-
-    /// Set the stateless cursor issuer key id.
-    ///
-    /// Deprecated for the v1 core wire shape: SDK core cursors are
-    /// stateful-handle cursors, and [`Self::encode`] rejects issuer metadata.
-    #[deprecated(
-        since = "0.1.0",
-        note = "v1 core cursors must not carry issuer_kid; use stateful cursor handles"
-    )]
-    pub fn with_issuer_kid(mut self, issuer_kid: impl Into<String>) -> Self {
-        self.issuer_kid = Some(issuer_kid.into());
-        self
-    }
-
     /// Convert this cursor to stateful-handle form.
     pub fn with_stateful_handle(mut self, handle: impl Into<String>) -> Self {
         self.h = Some(handle.into());
         self.s.clear();
         self.d = None;
         self.target = None;
-        self.issuer_kid = None;
-        self.mac = None;
-        self.sig = None;
         self
     }
 
@@ -422,12 +323,6 @@ impl Cursor {
             }
         }
 
-        if let Some(sig) = &self.sig
-            && sig.trim().is_empty()
-        {
-            return Err(Error::Protocol("cursor _sig must not be empty".to_owned()));
-        }
-
         Ok(())
     }
 
@@ -545,24 +440,9 @@ impl Cursor {
             ));
         };
         Self::validate_cursor_handle(handle)?;
-        if self.mac.is_some() || self.sig.is_some() {
-            return Err(Error::Protocol(
-                "core stateful cursor must not carry _mac or _sig".to_owned(),
-            ));
-        }
-        if self.issuer_kid.is_some() {
-            return Err(Error::Protocol(
-                "core stateful cursor must not carry issuer_kid".to_owned(),
-            ));
-        }
         if !self.s.is_empty() || self.d.is_some() || self.target.is_some() {
             return Err(Error::Protocol(
                 "core stateful cursor must not carry s, d, or target".to_owned(),
-            ));
-        }
-        if self.filter_digest.is_some() {
-            return Err(Error::Protocol(
-                "core cursor must not carry inline _filter_digest".to_owned(),
             ));
         }
         Ok(())
@@ -774,10 +654,6 @@ mod tests {
             target: None,
             x: 1714080000000,
             h: Some(generate_cursor_handle().unwrap()),
-            issuer_kid: None,
-            mac: None,
-            sig: None,
-            filter_digest: None,
         };
 
         let encoded = cursor.encode().unwrap();
@@ -814,17 +690,6 @@ mod tests {
         let json = br#"{"v":"1","purpose":"stream","t":"2099-12-30T23:59:59Z","x":4102444799000,"h":"abcdefghijklmnopqrstuv","_compression":"none"}"#;
         let encoded = format!("ck:cursor:{}", crate::base64url_encode(json));
         assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
-    }
-
-    #[test]
-    fn cursor_decode_rejects_inline_filter_digest_fields() {
-        for json in [
-            br#"{"v":"1","purpose":"stream","t":"2099-12-30T23:59:59Z","x":4102444799000,"h":"abcdefghijklmnopqrstuv","_filter_digest":"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}"#.as_slice(),
-            br#"{"v":"1","purpose":"stream","t":"2099-12-30T23:59:59Z","x":4102444799000,"h":"abcdefghijklmnopqrstuv","filter_digest":"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}"#.as_slice(),
-        ] {
-            let encoded = format!("ck:cursor:{}", crate::base64url_encode(json));
-            assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
-        }
     }
 
     #[test]
@@ -889,7 +754,5 @@ mod tests {
         assert_eq!(decoded.h.as_deref(), Some("cursor_handle_12345678"));
         assert!(decoded.s.is_empty());
         assert!(decoded.d.is_none());
-        assert!(decoded.issuer_kid.is_none());
-        assert!(decoded.mac.is_none());
     }
 }

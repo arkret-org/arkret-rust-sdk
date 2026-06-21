@@ -3,7 +3,7 @@
 //! The trait stays small — `load` / `store` / `list` / `delete` only — so it
 //! can wrap any backend (in-process map, OS keyring, HSM) behind a single
 //! signing surface. This module holds only the **pure contract** — the
-//! [`KeyStore`] trait, the typed [`KeyStoreError`], and the dependency-free
+//! [`KeyStore`] trait, the typed [`KeyStoreError`], and the zeroizing
 //! [`InMemoryKeyStore`]. OS-native backends (macOS Keychain, Linux Secret
 //! Service, Windows Credential Manager) and the
 //! `platform_default_keystore` constructor live in the separate
@@ -31,8 +31,16 @@ use std::collections::BTreeMap;
 use std::sync::{Mutex, PoisonError};
 
 use thiserror::Error;
+use zeroize::Zeroizing;
 
 use crate::{Error, Result};
+
+/// Key material loaded from a [`KeyStore`].
+///
+/// The backing allocation is zeroized when dropped so callers do not
+/// accidentally leave plaintext signing seeds in process memory longer
+/// than their lexical lifetime.
+pub type KeyBytes = Zeroizing<Vec<u8>>;
 
 /// Pluggable key storage interface.
 ///
@@ -49,7 +57,7 @@ pub trait KeyStore: Send + Sync {
     ///
     /// Returns the bytes verbatim; the caller is responsible for any
     /// envelope decoding (PKCS#8, raw seed, etc.).
-    fn load(&self, id: &str) -> Result<Vec<u8>>;
+    fn load(&self, id: &str) -> Result<KeyBytes>;
 
     /// Persist `key` under `id`. Existing entries with the same id MUST be
     /// overwritten.
@@ -136,7 +144,7 @@ pub fn service_name(application_id: &str) -> String {
 /// for short-lived ephemeral signers. Not encrypted at rest.
 #[derive(Default)]
 pub struct InMemoryKeyStore {
-    inner: Mutex<BTreeMap<String, Vec<u8>>>,
+    inner: Mutex<BTreeMap<String, KeyBytes>>,
 }
 
 impl InMemoryKeyStore {
@@ -146,7 +154,7 @@ impl InMemoryKeyStore {
 
     fn with_lock<F, T>(&self, f: F) -> Result<T>
     where
-        F: FnOnce(&mut BTreeMap<String, Vec<u8>>) -> T,
+        F: FnOnce(&mut BTreeMap<String, KeyBytes>) -> T,
     {
         let mut guard = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
         Ok(f(&mut guard))
@@ -154,7 +162,7 @@ impl InMemoryKeyStore {
 }
 
 impl KeyStore for InMemoryKeyStore {
-    fn load(&self, id: &str) -> Result<Vec<u8>> {
+    fn load(&self, id: &str) -> Result<KeyBytes> {
         validate_id(id)?;
         let bytes = self.with_lock(|map| map.get(id).cloned())?;
         bytes.ok_or_else(|| KeyStoreError::not_found(id).into())
@@ -163,7 +171,7 @@ impl KeyStore for InMemoryKeyStore {
     fn store(&self, id: &str, key: &[u8]) -> Result<()> {
         validate_id(id)?;
         self.with_lock(|map| {
-            map.insert(id.to_owned(), key.to_vec());
+            map.insert(id.to_owned(), KeyBytes::new(key.to_vec()));
         })
     }
 
@@ -194,7 +202,7 @@ mod tests {
             .unwrap();
 
         let loaded = store.load("cokret:signer:alice:key-1").unwrap();
-        assert_eq!(loaded, b"secret-bytes-1");
+        assert_eq!(loaded.as_slice(), b"secret-bytes-1");
 
         let mut listed = store.list().unwrap();
         listed.sort();
@@ -216,7 +224,7 @@ mod tests {
         let store = InMemoryKeyStore::new();
         store.store("k", b"first").unwrap();
         store.store("k", b"second").unwrap();
-        assert_eq!(store.load("k").unwrap(), b"second");
+        assert_eq!(store.load("k").unwrap().as_slice(), b"second");
     }
 
     #[test]

@@ -336,13 +336,13 @@ fn fact_chain_echo_validates_server_proof_binding() {
         jws: "server.signature".to_owned(),
     });
 
-    echo.validate_server_proofs().unwrap();
+    echo.precheck_server_proofs().unwrap();
 
     let mut tampered = echo;
     tampered.proofs[0].event_digest =
         Hash::new("sha256:3333333333333333333333333333333333333333333333333333333333333333")
             .unwrap();
-    assert!(tampered.validate_server_proofs().is_err());
+    assert!(tampered.precheck_server_proofs().is_err());
 }
 
 #[test]

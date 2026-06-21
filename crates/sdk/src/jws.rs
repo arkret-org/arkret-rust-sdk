@@ -41,17 +41,12 @@
 //! 4xx responses.
 
 use chrono::{DateTime, Duration, Utc};
-use cokret_core::{base64url_decode, base64url_encode, canonical};
-use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
+use cokret_core::{Hash, canonical};
+use cokret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_eddsa_detached_jws};
+use ed25519_dalek::{SigningKey, VerifyingKey};
 
 use crate::identity::DidResolver;
 use crate::{Did, Hlc};
-
-/// Protected JOSE header for SDK-issued detached JWS. The verifier in
-/// [`verify_jws_ed25519`] only requires `alg == "EdDSA"`; this constant
-/// keeps the produced byte string stable across signers (so test
-/// fixtures and federation transcripts compare byte-for-byte).
-const PROTECTED_HEADER_EDDSA: &[u8] = br#"{"alg":"EdDSA"}"#;
 
 /// Produce a detached Ed25519 JWS over `canonical_bytes`.
 ///
@@ -83,15 +78,7 @@ pub fn sign_jws_ed25519(
     canonical_bytes: &[u8],
     signing_key: &SigningKey,
 ) -> Result<String, String> {
-    if canonical_bytes.is_empty() {
-        return Err("empty canonical bytes".to_owned());
-    }
-    let protected_b64 = base64url_encode(PROTECTED_HEADER_EDDSA);
-    let payload_b64 = base64url_encode(canonical_bytes);
-    let signing_input = format!("{protected_b64}.{payload_b64}");
-    let signature = signing_key.sign(signing_input.as_bytes());
-    let signature_b64 = base64url_encode(signature.to_bytes());
-    Ok(format!("{protected_b64}..{signature_b64}"))
+    sign_eddsa_detached_jws(signing_key, canonical_bytes).map_err(|error| error.to_string())
 }
 
 /// Verify a detached Ed25519 JWS against `canonical_bytes`.
@@ -108,8 +95,6 @@ pub fn verify_jws_ed25519(
     issuer: &str,
     resolver: &dyn DidResolver,
 ) -> Result<(), String> {
-    // Step 1: shape validation.
-    let (protected_b64, signature_b64) = parse_detached_jws(jws)?;
     if verification_method.is_empty() {
         return Err("empty verification_method".to_owned());
     }
@@ -120,50 +105,26 @@ pub fn verify_jws_ed25519(
         return Err("empty canonical bytes".to_owned());
     }
 
-    // Step 2: protected header must declare alg=EdDSA and MUST NOT declare
-    // any `crit` extensions (RFC 7515 §4.1.11 — Cokret v1 understands none).
-    let header_bytes =
-        base64url_decode(protected_b64).map_err(|e| format!("JWS header is not base64url: {e}"))?;
-    let header: serde_json::Value = canonical::from_canonical_json_slice(&header_bytes)
-        .map_err(|e| format!("JWS header is not JSON: {e}"))?;
-    let alg = header
-        .get("alg")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("");
-    if alg != "EdDSA" {
-        return Err(format!("JWS alg `{alg}` is not EdDSA"));
-    }
-    if header.get("crit").is_some() {
-        return Err("JWS protected header declares unsupported `crit` extensions".to_owned());
-    }
-
-    // Step 3: signature segment must decode to a 64-byte Ed25519 signature.
-    if signature_b64.bytes().all(|b| b == b'A') {
-        return Err("JWS signature is the all-zero sentinel".to_owned());
-    }
-    let signature_bytes = base64url_decode(signature_b64)
-        .map_err(|e| format!("JWS signature is not base64url: {e}"))?;
-    if signature_bytes.len() != 64 {
-        return Err(format!(
-            "Ed25519 signature must be 64 bytes, got {}",
-            signature_bytes.len()
-        ));
-    }
-    let signature_array: [u8; 64] = signature_bytes.try_into().expect("len checked above");
-    let signature = Signature::from_bytes(&signature_array);
-
-    // Step 4: resolve verification_method via the supplied resolver chain.
+    // Resolve verification_method via the supplied resolver chain. All JWS
+    // shape/header/signature checks are delegated to cokret-signatures.
     let public_key = resolve_ed25519_pubkey(resolver, verification_method)?;
-
-    // Step 5: reconstruct the signing input per RFC 7515 §5.2 with the
-    // (now known) canonical_bytes payload.
-    let payload_b64 = base64url_encode(canonical_bytes);
-    let signing_input = format!("{protected_b64}.{payload_b64}");
-
-    // Step 6: verify.
-    public_key
-        .verify_strict(signing_input.as_bytes(), &signature)
-        .map_err(|e| format!("Ed25519 verify failed: {e}"))
+    let proof = cokret_core::Proof {
+        kind: "detached_jws".to_owned(),
+        alg: "EdDSA".to_owned(),
+        verification_method: verification_method.to_owned(),
+        event_digest: Hash::new(canonical::sha256_digest(canonical_bytes))
+            .map_err(|error| error.to_string())?,
+        created_at: Utc::now(),
+        domain: None,
+        audience: None,
+        jws: jws.to_owned(),
+    };
+    let material = PublicKeyMaterial::Ed25519Raw {
+        bytes: public_key.to_bytes().to_vec(),
+    };
+    Ed25519DetachedJwsVerifier::new()
+        .verify_proof(&proof, canonical_bytes, &material)
+        .map_err(|error| error.to_string())
 }
 
 /// Resolve a DID URL (`<did>#<key_id>` or just a fragment-less DID) to
@@ -362,32 +323,11 @@ pub fn verify_replay_window_at(
     Ok(())
 }
 
-/// Parse the detached JWS shape and return `(protected_b64, signature_b64)`.
-fn parse_detached_jws(jws: &str) -> Result<(&str, &str), String> {
-    if jws.is_empty() {
-        return Err("empty JWS string".to_owned());
-    }
-    let parts: Vec<&str> = jws.split('.').collect();
-    if parts.len() != 3 {
-        return Err(format!(
-            "JWS must have 3 dot-separated segments, got {}",
-            parts.len()
-        ));
-    }
-    let (header_b64u, payload_b64u, signature_b64u) = (parts[0], parts[1], parts[2]);
-    if !payload_b64u.is_empty() {
-        return Err("detached JWS payload segment must be empty".to_owned());
-    }
-    if signature_b64u.is_empty() {
-        return Err("JWS signature segment is empty".to_owned());
-    }
-    Ok((header_b64u, signature_b64u))
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
 
+    use cokret_core::{base64url_decode, base64url_encode};
     use ed25519_dalek::SigningKey;
 
     use super::*;
@@ -456,25 +396,6 @@ mod tests {
     fn decode_rejects_missing_z_prefix() {
         let err = decode_ed25519_multibase("not-multibase").unwrap_err();
         assert!(err.contains("missing 'z' prefix"));
-    }
-
-    #[test]
-    fn parse_detached_jws_accepts_canonical_shape() {
-        let (h, s) = parse_detached_jws("aaa..bbb").unwrap();
-        assert_eq!(h, "aaa");
-        assert_eq!(s, "bbb");
-    }
-
-    #[test]
-    fn parse_detached_jws_rejects_non_empty_payload() {
-        let err = parse_detached_jws("aaa.bbb.ccc").unwrap_err();
-        assert!(err.contains("payload segment must be empty"));
-    }
-
-    #[test]
-    fn parse_detached_jws_rejects_too_few_segments() {
-        let err = parse_detached_jws("aaa.bbb").unwrap_err();
-        assert!(err.contains("3 dot-separated segments"));
     }
 
     // -- Replay-window tests --
@@ -641,7 +562,7 @@ mod tests {
         assert!(parts[1].is_empty(), "payload segment must be empty");
         // Header decodes to the SDK-canonical EdDSA marker.
         let header = base64url_decode(parts[0]).expect("header decode");
-        assert_eq!(header.as_slice(), PROTECTED_HEADER_EDDSA);
+        assert_eq!(header.as_slice(), br#"{"alg":"EdDSA"}"#);
         // Signature decodes to exactly 64 bytes.
         let sig = base64url_decode(parts[2]).expect("sig decode");
         assert_eq!(sig.len(), 64);
@@ -651,7 +572,10 @@ mod tests {
     fn sign_jws_ed25519_rejects_empty_payload() {
         let signing = SigningKey::from_bytes(&[2u8; 32]);
         let err = sign_jws_ed25519(b"", &signing).unwrap_err();
-        assert!(err.contains("empty canonical bytes"), "got `{err}`");
+        assert!(
+            err.contains("canonical bytes must not be empty"),
+            "got `{err}`"
+        );
     }
 
     #[test]
@@ -731,7 +655,7 @@ mod tests {
             &resolver,
         )
         .unwrap_err();
-        assert!(err.contains("verify failed"), "got `{err}`");
+        assert!(err.contains("signature verification failed"), "got `{err}`");
     }
 
     #[test]

@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
-use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD_NO_PAD;
 use chrono::Utc;
+use cokret_core::base64url::base64url_encode;
+use zeroize::Zeroizing;
 
 use super::commitment::{compute_key_commitment, ct_eq};
 use super::envelopes::{
@@ -126,7 +126,7 @@ impl KeyVerificationStrand {
                 )
             })?;
         let shared = ephemeral.compute_shared_secret(peer_key_b64)?;
-        Ok(derive_sas_bytes(&shared, info))
+        Ok(derive_sas_bytes(&shared[..], info))
     }
 
     /// Read the current state.
@@ -315,7 +315,7 @@ impl KeyVerificationStrand {
     /// HKDF-derived MAC key for `sender_device`, bound to the full SAS
     /// transcript: `HKDF-Expand(HMAC(0, shared_secret),
     /// "cokret-sas-mac-v1|<transcript>|<sender_device>", 32)`.
-    fn mac_key_for(&self, sender_device: &DeviceId) -> Result<[u8; 32]> {
+    fn mac_key_for(&self, sender_device: &DeviceId) -> Result<Zeroizing<[u8; 32]>> {
         let ephemeral = self
             .ephemeral
             .as_ref()
@@ -327,11 +327,11 @@ impl KeyVerificationStrand {
             .find(|key| key.as_str() != own_public)
             .ok_or_else(|| Error::Protocol("peer public key not received yet".to_owned()))?;
         let shared = ephemeral.compute_shared_secret(peer_public)?;
-        let prk = hmac_sha256(&[0u8; 32], &shared);
+        let prk = Zeroizing::new(hmac_sha256(&[0u8; 32], &shared[..]));
         let transcript = self.sas_transcript()?;
         let info = format!("cokret-sas-mac-v1|{transcript}|{}", sender_device.as_str());
-        let mut mac_key = [0u8; 32];
-        hkdf_expand_sha256(&prk, info.as_bytes(), &mut mac_key);
+        let mut mac_key = Zeroizing::new([0u8; 32]);
+        hkdf_expand_sha256(&prk, info.as_bytes(), &mut mac_key[..]);
         Ok(mac_key)
     }
 
@@ -361,11 +361,11 @@ impl KeyVerificationStrand {
         let mac_key = self.mac_key_for(from_device)?;
         let mut mac = BTreeMap::new();
         for (key_id, key_value) in verify_keys {
-            let tag = hmac_sha256(&mac_key, format!("{key_id}|{key_value}").as_bytes());
-            mac.insert(key_id.clone(), STANDARD_NO_PAD.encode(tag));
+            let tag = hmac_sha256(&mac_key[..], format!("{key_id}|{key_value}").as_bytes());
+            mac.insert(key_id.clone(), base64url_encode(tag));
         }
         let key_ids = verify_keys.keys().cloned().collect::<Vec<_>>().join(",");
-        let keys = STANDARD_NO_PAD.encode(hmac_sha256(&mac_key, key_ids.as_bytes()));
+        let keys = base64url_encode(hmac_sha256(&mac_key[..], key_ids.as_bytes()));
         Ok(KeyVerificationMac {
             transaction_id: txn,
             from_user: from_user.clone(),
@@ -424,7 +424,7 @@ impl KeyVerificationStrand {
             }
         };
         let key_ids = msg.mac.keys().cloned().collect::<Vec<_>>().join(",");
-        let expected_keys_mac = STANDARD_NO_PAD.encode(hmac_sha256(&mac_key, key_ids.as_bytes()));
+        let expected_keys_mac = base64url_encode(hmac_sha256(&mac_key[..], key_ids.as_bytes()));
         if !ct_eq(&expected_keys_mac, &msg.keys) {
             return self.fail("mismatched_mac", "mac.keys does not match the transcript");
         }
@@ -435,8 +435,8 @@ impl KeyVerificationStrand {
                     &format!("mac covers unknown key id {key_id:?}"),
                 );
             };
-            let expected = STANDARD_NO_PAD.encode(hmac_sha256(
-                &mac_key,
+            let expected = base64url_encode(hmac_sha256(
+                &mac_key[..],
                 format!("{key_id}|{key_value}").as_bytes(),
             ));
             if !ct_eq(&expected, mac_value) {

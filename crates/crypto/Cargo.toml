@@ -16,12 +16,11 @@ default = []
 # Client-side key-backup helpers: Argon2id KDF + XChaCha20-Poly1305 AEAD +
 # typed `ck.schema.key_backup.v1` envelope builder + recovery-key codec.
 # Spec: crypto-media/key-management.md §7. Pulls in `argon2`,
-# `chacha20poly1305`, `base64`, `getrandom`, `anyhow` only when enabled
+# `chacha20poly1305`, `getrandom`, `anyhow` only when enabled
 # so the bare `cokret-crypto` types crate stays light.
 backup = [
     "dep:anyhow",
     "dep:argon2",
-    "dep:base64",
     "dep:chacha20poly1305",
     "dep:getrandom",
     "dep:hkdf",
@@ -33,7 +32,6 @@ backup = [
 # Feature-gated client crypto for key-backup envelopes.
 anyhow = {workspace = true,optional = true}
 argon2 = {workspace = true,default-features = false,features = ["alloc"],optional = true}
-base64 = {workspace = true,optional = true}
 chacha20poly1305 = {workspace = true,optional = true}
 chrono = {workspace = true,features = ["serde"]}
 cokret-core = {workspace = true}

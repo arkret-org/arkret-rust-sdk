@@ -1159,17 +1159,12 @@ mod spec_selector_tests {
     }
 
     #[test]
-    fn string_selector_falls_back_to_compact_grammar() {
-        let selector = ResourceSelector::from_spec_value(&json!(
+    fn spec_value_rejects_compact_string_selector() {
+        let err = ResourceSelector::from_spec_value(&json!(
             "realm:ck:realm:01904100-0000-7000-8000-65c7feb295d7"
         ))
-        .unwrap();
-        assert_eq!(
-            selector,
-            ResourceSelector::Realm {
-                realm_id: "ck:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
-            }
-        );
+        .unwrap_err();
+        assert!(format!("{err}").contains("resource selector must be an object"));
     }
 }
 

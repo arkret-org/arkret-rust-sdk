@@ -35,8 +35,8 @@ pub(crate) struct ServiceRoute {
     pub path: &'static str,
 }
 
-// HTTP/JSON bindings for every operation in the canonical spec operation
-// registry (`cokret-spec/spec/v1/artifacts/registry/operation-registry.json`),
+// HTTP/JSON bindings generated from the canonical spec operation registry
+// (`cokret-spec/spec/v1/artifacts/registry/operation-registry.json`),
 // kept in the registry's own file order.
 const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!(
@@ -63,6 +63,26 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "ck.gate.account.command.revoke_session",
         Post,
         "/_cokret/gate/account/session-grants/revoke"
+    ),
+    endpoint!(
+        "ck.gate.account.command.refresh_session_grant",
+        Post,
+        "/_cokret/gate/account/session-grants/refresh"
+    ),
+    endpoint!(
+        "ck.gate.account.command.logout_session_grant",
+        Post,
+        "/_cokret/gate/account/session-grants/logout"
+    ),
+    endpoint!(
+        "ck.gate.account.command.introspect_session_grant",
+        Post,
+        "/_cokret/gate/account/session-grants/introspect"
+    ),
+    endpoint!(
+        "ck.gate.account.command.logout",
+        Post,
+        "/_cokret/gate/account/logout"
     ),
     endpoint!(
         "ck.gate.account.command.pair_agent_key",
@@ -146,11 +166,6 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/self/applets/install"
     ),
     endpoint!(
-        "ck.self.applet.ghost.command.provision",
-        Post,
-        "/_cokret/self/applets/{applet_id}/ghosts/provision"
-    ),
-    endpoint!(
         "ck.edge.applet.query.ping",
         Get,
         "/_cokret/edge/applet/ping"
@@ -174,6 +189,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "ck.self.applet.command.revoke",
         Post,
         "/_cokret/self/applets/{applet_id}/revoke"
+    ),
+    endpoint!(
+        "ck.self.applet.ghost.command.provision",
+        Post,
+        "/_cokret/self/applets/{applet_id}/ghosts/provision"
     ),
     endpoint!(
         "ck.edge.applet.third_party_locations.query.list",
@@ -255,13 +275,49 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     ),
     endpoint!(
         "ck.self.invite_receive_policy.resource.replace",
-        Post,
+        Put,
         "/_cokret/self/invite-receive-policy"
     ),
     endpoint!(
         "ck.self.direct_conversation.command.resolve",
         Post,
         "/_cokret/self/direct-conversations/resolve"
+    ),
+    endpoint!(
+        "ck.self.circle.command.create",
+        Post,
+        "/_cokret/self/circles"
+    ),
+    endpoint!("ck.self.circle.query.list", Get, "/_cokret/self/circles"),
+    endpoint!(
+        "ck.self.circle.resource.get",
+        Get,
+        "/_cokret/self/circles/{circle_id}"
+    ),
+    endpoint!(
+        "ck.self.circle.member.command.add",
+        Post,
+        "/_cokret/self/circles/{circle_id}/members"
+    ),
+    endpoint!(
+        "ck.self.circle.member.resource.delete",
+        Delete,
+        "/_cokret/self/circles/{circle_id}/members/{actor_id}"
+    ),
+    endpoint!(
+        "ck.self.circle.command.rotate_scope",
+        Post,
+        "/_cokret/self/circles/{circle_id}/scope-rotate"
+    ),
+    endpoint!(
+        "ck.self.circle.command.archive",
+        Post,
+        "/_cokret/self/circles/{circle_id}/archive"
+    ),
+    endpoint!(
+        "ck.self.circle.command.tombstone",
+        Post,
+        "/_cokret/self/circles/{circle_id}/tombstone"
     ),
     endpoint!(
         "ck.find.directory.command.announce",
@@ -282,6 +338,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "ck.find.directory.query.resolve_handle",
         Post,
         "/_cokret/find/directory/resolve-handle"
+    ),
+    endpoint!(
+        "ck.find.directory.query.resolve_agent_selector",
+        Post,
+        "/_cokret/find/directory/resolve-agent-selector"
     ),
     endpoint!(
         "ck.find.directory.query.list_handles_for_subject",
@@ -441,16 +502,6 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/root/identity/receipts"
     ),
     endpoint!(
-        "ck.root.identity.recovery_policy.resource.get",
-        Get,
-        "/_cokret/root/identity/recovery-policy"
-    ),
-    endpoint!(
-        "ck.root.identity.recovery_policy.command.publish",
-        Post,
-        "/_cokret/root/identity/recovery-policy"
-    ),
-    endpoint!(
         "ck.root.identity.query.resolve",
         Post,
         "/_cokret/root/identity/resolve"
@@ -459,6 +510,16 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "ck.root.identity.command.submit_did_operation",
         Post,
         "/_cokret/root/identity/submit-did-operation"
+    ),
+    endpoint!(
+        "ck.root.identity.recovery_policy.resource.get",
+        Get,
+        "/_cokret/root/identity/recovery-policy"
+    ),
+    endpoint!(
+        "ck.root.identity.recovery_policy.command.publish",
+        Post,
+        "/_cokret/root/identity/recovery-policy"
     ),
     endpoint!(
         "ck.root.identity.recovery_session.command.create",
@@ -611,6 +672,116 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/self/policy/check"
     ),
     endpoint!(
+        "ck.self.realm_link.query.list",
+        Get,
+        "/_cokret/self/realms/{realm_id}/links"
+    ),
+    endpoint!(
+        "ck.self.realm_link.command.create",
+        Post,
+        "/_cokret/self/realms/{realm_id}/links"
+    ),
+    endpoint!(
+        "ck.self.realm_link.resource.delete",
+        Delete,
+        "/_cokret/self/realms/{realm_id}/links/{target_realm_id}"
+    ),
+    endpoint!(
+        "ck.self.realm_link.query.effective_policy",
+        Get,
+        "/_cokret/self/realms/{realm_id}/effective-policy"
+    ),
+    endpoint!(
+        "ck.self.realm_policy_server.resource.get",
+        Get,
+        "/_cokret/self/realms/{realm_id}/policy-server"
+    ),
+    endpoint!(
+        "ck.self.realm_policy_server.resource.replace",
+        Put,
+        "/_cokret/self/realms/{realm_id}/policy-server"
+    ),
+    endpoint!(
+        "ck.self.realm_policy_server.resource.delete",
+        Delete,
+        "/_cokret/self/realms/{realm_id}/policy-server"
+    ),
+    endpoint!(
+        "ck.self.realm.resource.get",
+        Get,
+        "/_cokret/self/realms/{realm_id}"
+    ),
+    endpoint!(
+        "ck.self.realm.query.export",
+        Get,
+        "/_cokret/self/realms/{realm_id}/export"
+    ),
+    endpoint!(
+        "ck.self.realm.moderation_policy.query.effective",
+        Get,
+        "/_cokret/self/realms/{realm_id}/moderation-policy/effective"
+    ),
+    endpoint!(
+        "ck.self.realm.moderation_policy.resource.replace",
+        Put,
+        "/_cokret/self/realms/{realm_id}/moderation-policy"
+    ),
+    endpoint!(
+        "ck.self.consent.query.list",
+        Get,
+        "/_cokret/self/consent/cells"
+    ),
+    endpoint!(
+        "ck.self.consent.resource.get",
+        Get,
+        "/_cokret/self/consent/cells/{holder_did}"
+    ),
+    endpoint!(
+        "ck.self.consent.command.grant",
+        Post,
+        "/_cokret/self/consent/cells/{holder_did}/grant"
+    ),
+    endpoint!(
+        "ck.self.consent.command.revoke",
+        Post,
+        "/_cokret/self/consent/cells/{holder_did}/revoke"
+    ),
+    endpoint!(
+        "ck.self.consent.command.request",
+        Post,
+        "/_cokret/self/consent/request"
+    ),
+    endpoint!(
+        "ck.self.account_data.query.list",
+        Get,
+        "/_cokret/self/account_data"
+    ),
+    endpoint!(
+        "ck.self.account_data.resource.get",
+        Get,
+        "/_cokret/self/account_data/{data_type}"
+    ),
+    endpoint!(
+        "ck.self.account_data.resource.replace",
+        Put,
+        "/_cokret/self/account_data/{data_type}"
+    ),
+    endpoint!(
+        "ck.self.account_data.resource.delete",
+        Delete,
+        "/_cokret/self/account_data/{data_type}"
+    ),
+    endpoint!(
+        "ck.self.read_cursor.command.advance",
+        Post,
+        "/_cokret/self/read-cursors"
+    ),
+    endpoint!(
+        "ck.self.read_cursor.query.list",
+        Get,
+        "/_cokret/self/read-cursors"
+    ),
+    endpoint!(
         "ck.self.projection.strands.query.list",
         Get,
         "/_cokret/self/projection/strands"
@@ -621,11 +792,6 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/self/projection/morphs"
     ),
     endpoint!(
-        "ck.self.projection.document.resource.get",
-        Get,
-        "/_cokret/self/projection/documents/{morph_id}"
-    ),
-    endpoint!(
         "ck.self.projection.spaces.query.list",
         Get,
         "/_cokret/self/projection/spaces"
@@ -634,6 +800,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "ck.self.views.collection_projection.command.materialize",
         Post,
         "/_cokret/self/views/{view_id}/projection"
+    ),
+    endpoint!(
+        "ck.self.projection.document.resource.get",
+        Get,
+        "/_cokret/self/projection/documents/{morph_id}"
     ),
     endpoint!(
         "ck.edge.push.command.notify",

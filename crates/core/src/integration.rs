@@ -70,7 +70,7 @@ mod tests {
     #[test]
     fn integration_describe_round_trips_common_wire_shape() {
         let value = json!({
-            "contract": "cokret.rest.integration_manifest.v1",
+            "contract": "ck.integration.manifest.v1",
             "version": "2026-05-07",
             "service": "floria",
             "service_kind": "push_gateway",
@@ -79,8 +79,8 @@ mod tests {
             "dependencies": [{
                 "service": "soland",
                 "purpose": "principal_outbound_push_delivery",
-                "required_contract": "cokret.rest.outbound_push_bridge.v1",
-                "discovery_path": "/_soland/edge/push/outbound/bridge/describe",
+                "required_contract": "ck.push.bridge.v1",
+                "discovery_path": "/_floria/push/bridge/describe",
                 "mode": "remote_principal_contract"
             }],
             "surfaces": [{

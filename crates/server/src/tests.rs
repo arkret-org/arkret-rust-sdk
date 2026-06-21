@@ -87,6 +87,48 @@ fn protocol_server_fixture_covers_core_strand_groups() {
 }
 
 #[test]
+fn service_routes_match_embedded_operation_registry() {
+    let registry = cokret_core::schema::SpecArtifactBundle::load_embedded()
+        .unwrap()
+        .operation_registry;
+    let expected: Vec<(String, String, String)> = registry
+        .get("operations")
+        .and_then(Value::as_array)
+        .expect("operation registry missing operations")
+        .iter()
+        .map(|operation| {
+            let operation_id = operation
+                .get("operation_id")
+                .and_then(Value::as_str)
+                .expect("operation missing operation_id");
+            let http = operation
+                .get("http")
+                .and_then(Value::as_str)
+                .expect("operation missing http binding");
+            let (method, path) = http
+                .split_once(' ')
+                .expect("operation http binding must be '<METHOD> <path>'");
+            (
+                operation_id.to_owned(),
+                method.to_ascii_lowercase(),
+                path.to_owned(),
+            )
+        })
+        .collect();
+    let actual: Vec<(String, String, String)> = service_routes()
+        .iter()
+        .map(|route| {
+            (
+                route.operation_id.to_owned(),
+                route.method.to_owned(),
+                route.path.to_owned(),
+            )
+        })
+        .collect();
+    assert_eq!(actual, expected);
+}
+
+#[test]
 fn framework_independent_handler_shape_can_be_mocked() {
     struct MockHandler;
 

@@ -758,7 +758,7 @@ fn snapshot_chunk_manifest_verifies_digests() {
 }
 
 #[test]
-fn merkle_root_is_order_independent_for_leaf_hashes() {
+fn merkle_root_preserves_caller_leaf_order() {
     let a = merkle_root(vec![
         "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
         "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
@@ -770,7 +770,26 @@ fn merkle_root_is_order_independent_for_leaf_hashes() {
     ])
     .unwrap();
 
-    assert_eq!(a, b);
+    assert_ne!(a, b);
+}
+
+#[test]
+fn merkle_root_promotes_odd_tail_without_duplication() {
+    let three = merkle_root(vec![
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
+        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
+        "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
+    ])
+    .unwrap();
+    let duplicate_tail = merkle_root(vec![
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
+        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
+        "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
+        "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
+    ])
+    .unwrap();
+
+    assert_ne!(three, duplicate_tail);
 }
 
 #[test]

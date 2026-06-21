@@ -641,6 +641,9 @@ fn build_anchor(
 ) -> Result<cokret_core::Seal> {
     use chrono::{TimeZone, Utc};
     use cokret_core::{MoveSignature, NotarySig, Seal};
+    let covered: BTreeSet<MoveId> = delta.iter().cloned().collect();
+    let control_event_set_root = cokret_core::state::control_event_set_root(&covered)
+        .map_err(|e| Error::Protocol(format!("control_event_set_root: {e}")))?;
     let sig = MoveSignature {
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:notary.example#k1".to_owned(),
@@ -655,8 +658,7 @@ fn build_anchor(
         realm_id: realm_id.clone(),
         predecessor_refs: predecessor_refs.to_vec(),
         delta: delta.to_vec(),
-        control_event_set_root: Hash::new(format!("sha256:{}", "22".repeat(32)))
-            .map_err(|e| Error::Protocol(format!("hash: {e}")))?,
+        control_event_set_root,
         state_root: state_root.clone(),
         completeness_root: Hash::new(format!("sha256:{}", "33".repeat(32)))
             .map_err(|e| Error::Protocol(format!("hash: {e}")))?,
@@ -665,7 +667,7 @@ fn build_anchor(
         data_event_set_root: None,
         availability_root: None,
         coverage_scope: None,
-        covered_event_digests: Vec::new(),
+        covered_event_digests: delta.to_vec(),
         previous_state_root: None,
         previous_digest_algorithm: None,
         notary_signature: NotarySig::Single(sig),

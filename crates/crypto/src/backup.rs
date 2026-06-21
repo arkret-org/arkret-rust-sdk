@@ -34,16 +34,17 @@
 
 use anyhow::{Context, Result, anyhow};
 use argon2::{Algorithm, Argon2, Params, Version};
-use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD_NO_PAD as B64;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use chrono::{SubsecRound, Utc};
-use cokret_core::canonical::{canonical_json_bytes, format_timestamp_canonical};
+use cokret_core::canonical::{
+    canonical_json_bytes, format_timestamp_canonical, sha256_digest, sha256_hex,
+};
 use cokret_core::{
     BackupClass, BackupId, DeviceId, Did, Hash, KeyBackup, KeyBackupAead, KeyBackupContentItem,
     KeyBackupDomainSeparation, KeyBackupDomainSeparationAad, KeyBackupEncryption,
-    KeyBackupFrontierRef, KeyBackupKdf, KeyBackupRecipientMethod,
+    KeyBackupFrontierRef, KeyBackupKdf, KeyBackupRecipientMethod, base64url_decode,
+    base64url_encode,
 };
 use getrandom::fill;
 use hkdf::Hkdf;
@@ -143,7 +144,7 @@ impl std::fmt::Debug for VaultKek {
 
 /// Outcome of [`encrypt_vault`]: the ciphertext (Poly1305 tag appended
 /// by the AEAD), the deterministic nonce + producer salt, and the
-/// base64-encoded views the caller hands straight to
+/// base64url-encoded views the caller hands straight to
 /// [`build_key_backup_envelope`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VaultCiphertext {
@@ -306,7 +307,7 @@ pub fn encrypt_vault(
 ) -> Result<VaultCiphertext> {
     let mut nonce_salt = [0u8; VAULT_NONCE_SALT_LEN];
     fill(&mut nonce_salt).map_err(|err| anyhow!("nonce_salt rng: {err}"))?;
-    let nonce_salt_b64 = B64.encode(nonce_salt);
+    let nonce_salt_b64 = base64url_encode(nonce_salt);
 
     let mut aead_key = binding.subkey(&kek.key, "aead");
     let cipher = XChaCha20Poly1305::new((&aead_key).into());
@@ -323,13 +324,12 @@ pub fn encrypt_vault(
         )
         .map_err(|err| anyhow!("xchacha20poly1305 encrypt: {err}"))?;
     aead_key.zeroize();
-    let digest = Sha256::digest(&ciphertext);
     Ok(VaultCiphertext {
-        ciphertext_b64: B64.encode(&ciphertext),
-        nonce_b64: B64.encode(nonce_bytes),
+        ciphertext_b64: base64url_encode(&ciphertext),
+        nonce_b64: base64url_encode(nonce_bytes),
         nonce_salt_b64,
-        salt_b64: B64.encode(kek.salt),
-        digest_sha256: format!("sha256:{}", hex_lower(&digest)),
+        salt_b64: base64url_encode(kek.salt),
+        digest_sha256: sha256_digest(&ciphertext),
         ciphertext,
         nonce: nonce_bytes,
     })
@@ -355,21 +355,16 @@ pub fn decrypt_vault(
     nonce_salt_b64: &str,
     ciphertext_b64: &str,
 ) -> Result<Zeroizing<Vec<u8>>> {
-    let salt_bytes = B64
-        .decode(salt_b64.trim_end_matches('='))
-        .context("salt base64")?;
+    let salt_bytes = base64url_decode(salt_b64.trim_end_matches('=')).context("salt base64")?;
     let salt: [u8; VAULT_SALT_LEN] = salt_bytes
         .try_into()
         .map_err(|_| anyhow!("salt must be {VAULT_SALT_LEN} bytes"))?;
-    let nonce_bytes = B64
-        .decode(nonce_b64.trim_end_matches('='))
-        .context("nonce base64")?;
+    let nonce_bytes = base64url_decode(nonce_b64.trim_end_matches('=')).context("nonce base64")?;
     let nonce_array: [u8; VAULT_NONCE_LEN] = nonce_bytes
         .try_into()
         .map_err(|_| anyhow!("nonce must be {VAULT_NONCE_LEN} bytes"))?;
-    let ciphertext = B64
-        .decode(ciphertext_b64.trim_end_matches('='))
-        .context("ciphertext base64")?;
+    let ciphertext =
+        base64url_decode(ciphertext_b64.trim_end_matches('=')).context("ciphertext base64")?;
     let kek = derive_vault_kek_with_salt(passphrase, &salt)?;
 
     // §7.2: receiver MUST recompute the nonce and reject a mismatch.
@@ -437,8 +432,7 @@ pub fn format_recovery_key(bytes: &[u8]) -> String {
 /// the digest is persisted on disk so the plaintext is gone the moment
 /// the user dismisses the "copy / print" affordance.
 pub fn fingerprint_recovery_key(recovery_key: &str) -> String {
-    let digest = Sha256::digest(recovery_key.as_bytes());
-    format!("sha256:{}", hex_lower(&digest))
+    sha256_digest(recovery_key.as_bytes())
 }
 
 /// Heuristic passphrase strength on a 0..=5 scale. Pure function so a
@@ -551,7 +545,7 @@ pub fn build_key_backup_envelope(
         aead,
         key_commitment: Some(format!(
             "sha256:{}",
-            hex_lower(&commitment_digest(&kek.key, backup_class))
+            sha256_hex(&commitment_digest(&kek.key, backup_class))
         )),
         extra: Default::default(),
     };
@@ -683,14 +677,6 @@ fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_class: BackupClas
     digest
 }
 
-fn hex_lower(bytes: &[u8]) -> String {
-    let mut s = String::with_capacity(bytes.len() * 2);
-    for b in bytes {
-        s.push_str(&format!("{b:02x}"));
-    }
-    s
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -789,7 +775,7 @@ mod tests {
         let kek = derive_vault_kek_with_salt(b"pp", &[4u8; VAULT_SALT_LEN]).unwrap();
         let binding = test_binding(BackupClass::SecretStorage, "recovery_secret");
         let ct = encrypt_vault(&kek, &binding, b"secret").unwrap();
-        let bad_nonce = B64.encode([0u8; VAULT_NONCE_LEN]);
+        let bad_nonce = base64url_encode([0u8; VAULT_NONCE_LEN]);
         let err = decrypt_vault(
             b"pp",
             &binding,
@@ -806,7 +792,7 @@ mod tests {
     fn nonce_is_deterministic_for_fixed_transcript() {
         let kek = derive_vault_kek_with_salt(b"pp", &[1u8; VAULT_SALT_LEN]).unwrap();
         let binding = test_binding(BackupClass::SecretStorage, "recovery_secret");
-        let salt_b64 = B64.encode([2u8; VAULT_NONCE_SALT_LEN]);
+        let salt_b64 = base64url_encode([2u8; VAULT_NONCE_SALT_LEN]);
         let a = binding.derive_nonce(&kek.key, &salt_b64).unwrap();
         let b = binding.derive_nonce(&kek.key, &salt_b64).unwrap();
         assert_eq!(a, b);
