@@ -138,10 +138,7 @@ impl FrankingProofEventTimeAnchor {
 impl FrankingProof {
     pub const TIME_ANCHOR_MAX_SKEW_SECS: i64 = 300;
 
-    pub fn validate_event_time_anchor(
-        &self,
-        anchor: &FrankingProofEventTimeAnchor,
-    ) -> Result<()> {
+    pub fn validate_event_time_anchor(&self, anchor: &FrankingProofEventTimeAnchor) -> Result<()> {
         if self.kind != MODERATION_FRANKING_PROOF_KIND {
             return Err(Error::Protocol(
                 "franking proof kind must be ck.moderation.franking_proof".to_owned(),
@@ -164,7 +161,8 @@ impl FrankingProof {
         }
         if self.ciphertext_digest != anchor.ciphertext_digest {
             return Err(Error::Protocol(
-                "franking proof ciphertext_digest does not match accepted encrypted event".to_owned(),
+                "franking proof ciphertext_digest does not match accepted encrypted event"
+                    .to_owned(),
             ));
         }
         let skew_secs = self
@@ -210,8 +208,7 @@ mod tests {
     fn proof() -> FrankingProof {
         FrankingProof {
             kind: MODERATION_FRANKING_PROOF_KIND.to_owned(),
-            franking_proof_id: "ck:franking_proof:01904100-0000-7000-8000-000000000111"
-                .to_owned(),
+            franking_proof_id: "ck:franking_proof:01904100-0000-7000-8000-000000000111".to_owned(),
             realm_id: realm_id(),
             event_id: event_id("ck:event:01904100-0000-7000-8000-000000000222"),
             routing_metadata_digest: Value::String(hash('c').to_string()),

@@ -321,7 +321,10 @@ fn realm_anchor_fields_include_required_notary() {
     assert_eq!(json["notary"]["did"], "did:web:alice.example");
     assert!(!obj.contains_key("revocation_freshness_window_ms"));
     assert_eq!(obj.get("digest_algorithm"), Some(&json!("sha256")));
-    assert_eq!(obj.get("max_delegation_lifetime_ms"), Some(&json!(86_400_000)));
+    assert_eq!(
+        obj.get("max_delegation_lifetime_ms"),
+        Some(&json!(86_400_000))
+    );
     assert!(!obj.contains_key("bottom_escalation_after_ms"));
     assert!(!obj.contains_key("cell_lattices"));
     assert!(!obj.contains_key("co_write_policy"));

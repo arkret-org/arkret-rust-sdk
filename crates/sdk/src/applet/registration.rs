@@ -240,7 +240,10 @@ impl std::fmt::Display for AppletEpochEvidenceError {
             Self::SigningKeySetEmpty => write!(f, "accepted signing key set is empty"),
             Self::SigningKeySetMismatch => write!(f, "accepted signing key set mismatch"),
             Self::SigningKeyMissing(key_ref) => {
-                write!(f, "accepted signing key is missing from DID document: {key_ref}")
+                write!(
+                    f,
+                    "accepted signing key is missing from DID document: {key_ref}"
+                )
             }
             Self::DidDocumentDigestFailed(error) => {
                 write!(f, "DID document digest failed: {error}")

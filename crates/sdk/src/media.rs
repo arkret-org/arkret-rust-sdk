@@ -1302,7 +1302,12 @@ mod tests {
             .generate_thumbnail(&metadata.blob_ref, 64, 64)
             .unwrap();
         assert_eq!(thumbnail.source_blob_ref, metadata.blob_ref);
-        assert!(thumbnail.thumbnail_blob_ref.as_str().starts_with("ck:blob:"));
+        assert!(
+            thumbnail
+                .thumbnail_blob_ref
+                .as_str()
+                .starts_with("ck:blob:")
+        );
         let expected_source_digest = format!("sha256:{}", metadata.sha256);
         assert_eq!(
             thumbnail.source_ciphertext_digest.as_deref(),
@@ -1315,10 +1320,7 @@ mod tests {
                 .is_some_and(|digest| digest.starts_with("sha256:"))
         );
         assert_eq!(thumbnail.visibility, MediaVisibility::Public);
-        assert_eq!(
-            thumbnail.derivation_profile,
-            THUMBNAIL_DERIVATION_PROFILE
-        );
+        assert_eq!(thumbnail.derivation_profile, THUMBNAIL_DERIVATION_PROFILE);
         assert!(store.thumbnail(&thumbnail.source_blob_ref).is_some());
 
         let service_thumbnail = store

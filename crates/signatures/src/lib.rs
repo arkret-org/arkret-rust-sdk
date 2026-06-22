@@ -446,8 +446,8 @@ mod tests {
             Audience::Single("did:web:service.example".to_owned()),
         );
 
-        let error = verify_proof_with_resolver(&proof, &context, &resolver, |_, _| Ok(true))
-            .unwrap_err();
+        let error =
+            verify_proof_with_resolver(&proof, &context, &resolver, |_, _| Ok(true)).unwrap_err();
         assert!(
             error.to_string().contains("proof_binding_missing"),
             "{error}"

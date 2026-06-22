@@ -950,12 +950,10 @@ fn require_proof_domain(proof: Option<&str>, expected: Option<&str>) -> Result<(
         return Err(proof_binding_missing("domain"));
     }
     if expected.map(str::trim).map(str::is_empty).unwrap_or(true) {
-        return Err(Error::Protocol(
-            format!(
-                "{}: expected domain is required",
-                crate::error::REASON_PROOF_BINDING_MISSING
-            ),
-        ));
+        return Err(Error::Protocol(format!(
+            "{}: expected domain is required",
+            crate::error::REASON_PROOF_BINDING_MISSING
+        )));
     }
     Ok(())
 }
@@ -965,20 +963,15 @@ fn require_proof_audience(proof: Option<&Audience>, expected: Option<&Audience>)
         return Err(proof_binding_missing("audience"));
     }
     if expected.is_none() {
-        return Err(Error::Protocol(
-            format!(
-                "{}: expected audience is required",
-                crate::error::REASON_PROOF_BINDING_MISSING
-            ),
-        ));
+        return Err(Error::Protocol(format!(
+            "{}: expected audience is required",
+            crate::error::REASON_PROOF_BINDING_MISSING
+        )));
     }
     Ok(())
 }
 
-fn proof_audience_covers_expected(
-    proof: Option<&Audience>,
-    expected: Option<&Audience>,
-) -> bool {
+fn proof_audience_covers_expected(proof: Option<&Audience>, expected: Option<&Audience>) -> bool {
     match (proof, expected) {
         (_, None) => true,
         (Some(proof), Some(expected)) => proof.covers(expected),
@@ -1151,10 +1144,12 @@ impl Proof {
         if self.kind.is_empty() {
             return Err(Error::Protocol("proof kind must not be empty".to_owned()));
         }
-        if self.domain.as_deref().is_some_and(str::trim().is_empty) {
-            return Err(Error::Protocol(
-                "proof domain must not be empty".to_owned(),
-            ));
+        if self
+            .domain
+            .as_deref()
+            .is_some_and(|domain| domain.trim().is_empty())
+        {
+            return Err(Error::Protocol("proof domain must not be empty".to_owned()));
         }
         if let Some(audience) = &self.audience {
             audience.validate_binding_value()?;
@@ -1196,10 +1191,7 @@ impl Proof {
         self.validate_binding_with_requirements(expected, ProofBindingRequirements::local())
     }
 
-    pub fn validate_cross_domain_binding(
-        &self,
-        expected: &SignatureBindingPayload,
-    ) -> Result<()> {
+    pub fn validate_cross_domain_binding(&self, expected: &SignatureBindingPayload) -> Result<()> {
         self.validate_binding_with_requirements(expected, ProofBindingRequirements::cross_domain())
     }
 

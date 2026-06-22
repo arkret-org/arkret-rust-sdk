@@ -15,8 +15,7 @@ pub const PROFILE_SEARCH_CLIENT_INDEX: &str = "ck.profile.search.client_index.v1
 pub const PROFILE_SEARCH_BLIND_INDEX: &str = "ck.profile.search.blind_index.v1";
 pub const PROFILE_SEARCH_FORWARD_PRIVATE: &str = "ck.profile.search.forward_private.v1";
 pub const FILE_TRANSFER_KEY_MESSAGE_KIND: &str = "ck.file_transfer.key.v1";
-pub const FILE_TRANSFER_KEY_ENVELOPE_SCHEME: &str =
-    "ck.hpke_x25519_aead_xchacha20poly1305.v1";
+pub const FILE_TRANSFER_KEY_ENVELOPE_SCHEME: &str = "ck.hpke_x25519_aead_xchacha20poly1305.v1";
 
 pub const MAX_CALENDAR_ATTENDEES: usize = 1_000;
 pub const MAX_CALENDAR_RECURRENCE_COUNT: u64 = 10_000;
@@ -1557,13 +1556,14 @@ pub fn validate_file_transfer_id(value: &str) -> Result<()> {
 
 fn validate_blob_ref(value: &str) -> Result<()> {
     let valid_uuid = value.strip_prefix("ck:blob:").is_some_and(is_uuid_v7);
-    let valid_digest = ["ck:blob:sha256:", "ck:blob:blake3:"]
-        .iter()
-        .any(|prefix| {
-            value
-                .strip_prefix(prefix)
-                .is_some_and(|hex| hex.len() == 64 && hex.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()))
-        });
+    let valid_digest = ["ck:blob:sha256:", "ck:blob:blake3:"].iter().any(|prefix| {
+        value.strip_prefix(prefix).is_some_and(|hex| {
+            hex.len() == 64
+                && hex
+                    .bytes()
+                    .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        })
+    });
     if valid_uuid || valid_digest {
         Ok(())
     } else {

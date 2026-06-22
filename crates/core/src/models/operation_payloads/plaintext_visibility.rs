@@ -7,7 +7,7 @@ use crate::*;
 /// Closed machine-checkable class of plaintext / reversible-derived content a
 /// service may receive
 /// (`event-payload.schema.json#/$defs/plaintext_data_class`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PlaintextDataClassKind {

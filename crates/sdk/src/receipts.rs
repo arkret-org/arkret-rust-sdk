@@ -623,9 +623,11 @@ mod tests {
         let mut prefs = ReadReceiptPreferences::default();
         prefs.default.send = Some(true);
         prefs.default.display = Some(true);
-        prefs.realms
+        prefs
+            .realms
             .insert(realm(), ScopePref::send_and_display(false, false));
-        prefs.strands
+        prefs
+            .strands
             .insert(strand(), ScopePref::send_and_display(true, true));
 
         // strand overrides Realm
@@ -792,7 +794,8 @@ mod tests {
         let mut prefs = ReadReceiptPreferences::default();
         prefs.default.send = Some(true);
         prefs.default.display = Some(false);
-        prefs.realms
+        prefs
+            .realms
             .insert(realm(), ScopePref::send_and_display(false, true));
         prefs.strands.insert(strand(), ScopePref::display(false));
         let json = serde_json::to_string(&prefs).unwrap();

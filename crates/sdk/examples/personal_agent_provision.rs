@@ -126,6 +126,7 @@ fn main() -> cokret::Result<()> {
             "signature": "ed25519-pop-signature",
         }),
         runtime_attestation: None,
+        authorize_event: None,
     };
     let _key = send_plan(plan_agent_key_pair(key_pair_body))?;
 

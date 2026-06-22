@@ -23,6 +23,7 @@ tracing = ["dep:tracing"]
 [dependencies]
 chrono = {workspace = true,features = ["serde"]}
 cokret-core = {workspace = true,features = ["client"]}
+cokret-signatures = {workspace = true}
 futures-util = {workspace = true,default-features = false,features = ["std"]}
 reqwest = {workspace = true,features = ["json", "gzip", "http2", "stream"]}
 serde = {workspace = true}

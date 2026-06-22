@@ -531,6 +531,66 @@ impl HandleClaim {
         Ok(())
     }
 
+    /// Validate a handle claim before it is consumed as a remote directory or
+    /// Principal Server resolution result.
+    pub fn validate_remote_resolution(
+        &self,
+        expected_audience: Option<&str>,
+        expected_recipient_service_did: Option<&Did>,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        self.validate()?;
+        if self.schema != HANDLE_CLAIM_SCHEMA {
+            return Err(Error::Protocol("handle claim schema mismatch".to_owned()));
+        }
+        if self.handle.is_none() {
+            return Err(Error::Protocol("handle claim requires handle".to_owned()));
+        }
+        if self.subject.is_none() {
+            return Err(Error::Protocol("handle claim requires subject".to_owned()));
+        }
+        if self.issuer.as_deref().is_none_or(str::is_empty) {
+            return Err(Error::Protocol("handle claim requires issuer".to_owned()));
+        }
+        if self.binding_state != Some(HandleBindingState::Verified) {
+            return Err(Error::Protocol("handle claim must be verified".to_owned()));
+        }
+        let expires_at = self
+            .expires_at
+            .ok_or_else(|| Error::Protocol("handle claim requires expires_at".to_owned()))?;
+        if expires_at <= now {
+            return Err(Error::Protocol("handle claim expired".to_owned()));
+        }
+        if self.proofs.is_empty() {
+            return Err(Error::Protocol("handle claim requires proof".to_owned()));
+        }
+        if let Some(expected_audience) = expected_audience {
+            match self.audience.as_deref() {
+                Some(audience) if audience == expected_audience => {}
+                _ => {
+                    return Err(Error::Protocol("handle claim audience mismatch".to_owned()));
+                }
+            }
+        }
+        if let Some(expected_recipient_service_did) = expected_recipient_service_did {
+            match self.member_delivery_binding.as_ref() {
+                Some(binding)
+                    if &binding.recipient_service_did == expected_recipient_service_did => {}
+                Some(_) => {
+                    return Err(Error::Protocol(
+                        "handle claim delivery binding mismatch".to_owned(),
+                    ));
+                }
+                None => {
+                    return Err(Error::Protocol(
+                        "handle claim requires member_delivery_binding".to_owned(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Canonical handle wire form, if any. R3.1 helper exported so
     /// soland / yougen / cotest all agree on the bytes used for
     /// signature / digest transcripts.
@@ -659,5 +719,51 @@ mod tests {
             "ck:event:01890000-0000-7000-8000-000000000002"
         );
         assert!(value["member_delivery_binding"].get("policy_ref").is_none());
+    }
+
+    #[test]
+    fn remote_resolution_requires_proof_audience_and_delivery_binding() {
+        let audience = "ck:realm:01904100-0000-7000-8000-000000000001";
+        let recipient = Did::new("did:web:rs.example".to_owned()).unwrap();
+        let claim = HandleClaim {
+            handle: Some(Handle::parse("alice:example.com").unwrap()),
+            subject: Some(Did::new("did:web:alice.example".to_owned()).unwrap()),
+            issuer: Some("did:web:issuer.example".to_owned()),
+            binding_state: Some(HandleBindingState::Verified),
+            audience: Some(audience.to_owned()),
+            expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
+            member_delivery_binding: Some(DeliveryBindingHint {
+                recipient_service_did: recipient.clone(),
+                recipient_service_type: RecipientServiceType::PrincipalServer,
+                binding_source: HandleHintBindingSource::OrganizationPolicy,
+                delivery_modes: BTreeSet::from([DeliveryMode::Events]),
+                service_acceptance_ref: None,
+                policy_event_ref: None,
+            }),
+            proofs: vec![placeholder_payload_proof()],
+            ..Default::default()
+        };
+
+        assert!(
+            claim
+                .validate_remote_resolution(Some(audience), Some(&recipient), Utc::now())
+                .is_ok()
+        );
+        assert!(
+            claim
+                .validate_remote_resolution(
+                    Some("did:web:other.example"),
+                    Some(&recipient),
+                    Utc::now(),
+                )
+                .is_err()
+        );
+        let mut unsigned = claim.clone();
+        unsigned.proofs.clear();
+        assert!(
+            unsigned
+                .validate_remote_resolution(Some(audience), Some(&recipient), Utc::now())
+                .is_err()
+        );
     }
 }

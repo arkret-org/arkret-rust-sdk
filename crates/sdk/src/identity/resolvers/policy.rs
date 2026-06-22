@@ -46,7 +46,7 @@ impl Default for ResolverPolicy {
             allowed_methods: Vec::new(),
             default_principal_method: None,
             trust_roots: Vec::new(),
-            ttl: Some(chrono::Duration::minutes(15)),
+            ttl: Some(chrono::Duration::days(7)),
             fail_mode: ResolverFailMode::FailClosed,
         }
     }

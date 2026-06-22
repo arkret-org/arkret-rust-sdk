@@ -241,12 +241,8 @@ mod tests {
             Err(crate::error::REASON_CROSS_REALM_STRUCTURAL_RELATION)
         );
         assert!(
-            validate_structural_relation_same_realm(
-                "vendor_custom",
-                "ck:realm:a",
-                ["ck:realm:b"],
-            )
-            .is_ok()
+            validate_structural_relation_same_realm("vendor_custom", "ck:realm:a", ["ck:realm:b"],)
+                .is_ok()
         );
     }
 
@@ -265,8 +261,9 @@ mod tests {
 
     #[test]
     fn standard_relation_kind_metadata_matches_embedded_registry() {
-        let registry = crate::schema::embedded_json_artifact("registry/relation-kind-registry.json")
-            .expect("embedded relation registry");
+        let registry =
+            crate::schema::embedded_json_artifact("registry/relation-kind-registry.json")
+                .expect("embedded relation registry");
         let relation_kinds = registry["relation_kinds"]
             .as_array()
             .expect("relation_kinds array");
@@ -291,7 +288,10 @@ mod tests {
             );
             assert_eq!(
                 metadata.truth_source_class,
-                match row["truth_source_class"].as_str().expect("truth_source_class") {
+                match row["truth_source_class"]
+                    .as_str()
+                    .expect("truth_source_class")
+                {
                     "canonical" => RelationTruthSourceClass::Canonical,
                     "derived_projection" => RelationTruthSourceClass::DerivedProjection,
                     "shape_dependent" => RelationTruthSourceClass::ShapeDependent,

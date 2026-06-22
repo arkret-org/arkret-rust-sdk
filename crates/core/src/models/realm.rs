@@ -284,10 +284,19 @@ impl Realm {
         self.notary.validate()?;
         if !matches!(
             (&self.notary_profile, &self.notary),
-            (NotaryProfile::SingleDid, crate::notary::NotaryValue::SingleDid { .. })
-                | (NotaryProfile::Threshold, crate::notary::NotaryValue::Threshold { .. })
-                | (NotaryProfile::OpenSet, crate::notary::NotaryValue::OpenSet { .. })
-                | (NotaryProfile::Mixed, crate::notary::NotaryValue::Mixed { .. })
+            (
+                NotaryProfile::SingleDid,
+                crate::notary::NotaryValue::SingleDid { .. }
+            ) | (
+                NotaryProfile::Threshold,
+                crate::notary::NotaryValue::Threshold { .. }
+            ) | (
+                NotaryProfile::OpenSet,
+                crate::notary::NotaryValue::OpenSet { .. }
+            ) | (
+                NotaryProfile::Mixed,
+                crate::notary::NotaryValue::Mixed { .. }
+            )
         ) {
             return Err(Error::Protocol(
                 "Realm notary_profile must match notary.type".to_owned(),

@@ -5,17 +5,32 @@ use cokret_core::{
     AppletActorView, AppletDescription, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
     AppletThirdPartyLocationList, AppletThirdPartyUserList, AppletTransactionOutcome,
     AppletTransactionRequestBody, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
-    MediaIceConfigOutcome, MediaIceConfigRequestBody, MimiProviderDirectory,
+    Did, Error, MediaIceConfigOutcome, MediaIceConfigRequestBody, MimiProviderDirectory,
     MimiReportAbuseOutcome, MimiReportAbuseRequestBody, ModerationReportOutcome,
     ModerationReportRequestBody, OkOutcome, PolicyCheckOutcome, PolicyCheckRequestBody,
     PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
-    PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, Result,
+    PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, Result, canonical,
+};
+use cokret_signatures::http_signature::{
+    Component, ContentDigest, ContentDigestAlgorithm, Ed25519SigningKey, SignedRequestParts,
+    canonical_message, format_signature_header, format_signature_input_component_list,
+    parse_signature_input, sign_message,
 };
 use reqwest::Method;
+use reqwest::header::CONTENT_TYPE;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use crate::{Client, ClientRequestOptions, reject_path_segment};
+
+pub struct SignedAppletTransactionOptions<'a> {
+    pub source_service_did: &'a Did,
+    pub destination_service_did: &'a Did,
+    pub key_id: &'a str,
+    pub signing_key: &'a Ed25519SigningKey,
+    pub created: Option<i64>,
+    pub expires: Option<i64>,
+}
 
 impl Client {
     pub async fn push_register_device(
@@ -116,6 +131,95 @@ impl Client {
             .await
     }
 
+    pub async fn applet_transaction_signed(
+        &self,
+        idempotency_key: &str,
+        request: &AppletTransactionRequestBody,
+        signature: SignedAppletTransactionOptions<'_>,
+    ) -> Result<AppletTransactionOutcome> {
+        if &request.source_service_did != signature.source_service_did {
+            return Err(Error::Protocol(
+                "applet transaction source_service_did must match signing source".to_owned(),
+            ));
+        }
+        let path = "/_cokret/edge/applet/transactions";
+        let url = self.base_url.join(path.trim_start_matches('/'))?;
+        let target_uri = url.to_string();
+        let authority = request_authority(&url)?;
+        let body_bytes = canonical::canonical_json_bytes(request)?;
+        let content_digest = ContentDigest::compute(&body_bytes, ContentDigestAlgorithm::Sha256);
+        let created = signature
+            .created
+            .unwrap_or_else(|| chrono::Utc::now().timestamp());
+        let expires = signature.expires.unwrap_or(created + 300);
+        if expires < created || expires - created > 300 {
+            return Err(Error::Protocol(
+                "applet transaction signature validity window must be within 300 seconds"
+                    .to_owned(),
+            ));
+        }
+        let covered_components = vec![
+            Component::Method,
+            Component::TargetUri,
+            Component::Authority,
+            Component::Header("content-digest".to_owned()),
+            Component::Header("source-service-did".to_owned()),
+            Component::Header("destination-service-did".to_owned()),
+            Component::Header("idempotency-key".to_owned()),
+        ];
+        let signature_input_header =
+            format_signature_input_component_list("sig1", &covered_components)
+                .map_err(|error| Error::Protocol(format!("signature input: {error}")))?;
+        let signature_input_header = format!(
+            "{signature_input_header};created={created};expires={expires};keyid=\"{}\";alg=\"ed25519\"",
+            signature.key_id
+        );
+        let signature_input = parse_signature_input(&signature_input_header)
+            .map_err(|error| Error::Protocol(format!("signature input: {error}")))?;
+        let headers = vec![
+            (
+                "source-service-did".to_owned(),
+                signature.source_service_did.to_string(),
+            ),
+            (
+                "destination-service-did".to_owned(),
+                signature.destination_service_did.to_string(),
+            ),
+            ("idempotency-key".to_owned(), idempotency_key.to_owned()),
+        ];
+        let parts = SignedRequestParts {
+            method: "POST".to_owned(),
+            target_uri,
+            authority,
+            path: url.path().to_owned(),
+            headers,
+            body_digest: Some(content_digest.wire_value.clone()),
+        };
+        let message = canonical_message(&parts, &signature_input)
+            .map_err(|error| Error::Protocol(format!("canonical signature message: {error}")))?;
+        let signature_header =
+            format_signature_header("sig1", &sign_message(&message, signature.signing_key))
+                .map_err(|error| Error::Protocol(format!("signature header: {error}")))?;
+
+        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
+        let builder = self.apply_request_options(self.request(Method::POST, path)?, &options)?;
+        let builder = builder
+            .header(CONTENT_TYPE, "application/json")
+            .header("Content-Digest", content_digest.wire_value)
+            .header(
+                "Source-Service-DID",
+                signature.source_service_did.to_string(),
+            )
+            .header(
+                "Destination-Service-DID",
+                signature.destination_service_did.to_string(),
+            )
+            .header("Signature-Input", signature_input_header)
+            .header("Signature", signature_header)
+            .body(body_bytes);
+        self.send_json(builder).await
+    }
+
     pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorView> {
         reject_path_segment(actor_id)?;
         let path = format!("/_cokret/edge/applet/actors/{actor_id}");
@@ -192,4 +296,14 @@ impl Client {
         let builder = self.request(Method::DELETE, path)?;
         self.send_json(builder).await
     }
+}
+
+fn request_authority(url: &url::Url) -> Result<String> {
+    let host = url
+        .host_str()
+        .ok_or_else(|| Error::Protocol("applet transaction URL has no host".to_owned()))?;
+    Ok(match url.port() {
+        Some(port) => format!("{host}:{port}"),
+        None => host.to_owned(),
+    })
 }

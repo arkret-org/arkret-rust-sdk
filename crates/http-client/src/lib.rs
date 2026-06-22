@@ -20,6 +20,7 @@ pub use builder::RedirectPolicy;
 // can reach the internal helpers. `pub(crate)` keeps them out of the public
 // API.
 pub(crate) use client_internals::{reject_path_segment, validate_request_builder};
+pub use endpoints_misc::SignedAppletTransactionOptions;
 
 pub const HEADER_REQUEST_ID: &str = "X-Cokret-Request-Id";
 pub const HEADER_WAIT_FOR: &str = "X-Cokret-Wait-For";

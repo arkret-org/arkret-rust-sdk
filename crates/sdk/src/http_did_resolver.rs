@@ -6,7 +6,7 @@
 //! - fetches `https://<host>/.well-known/did.json` for `did:web`,
 //! - fetches `https://<host>/.well-known/did.jsonl` and `did.json` for `did:webvh` and validates
 //!   the SCID + chain via the existing [`DidWebvhResolver`] helpers,
-//! - caches results behind a configurable TTL (default 5min),
+//! - caches results behind a configurable TTL (default 7d),
 //! - applies the [`ResolverPolicy`] allow-list and fail-mode,
 //! - bounds responses by [`DID_WEB_MAX_DOCUMENT_BYTES`] and rejects non-JSON content types.
 //!
@@ -30,7 +30,11 @@ use crate::{Did, Error, Result};
 
 /// Default TTL applied to cached documents when the policy does not
 /// override it.
-pub const DEFAULT_HTTP_DID_RESOLVER_TTL_SECS: i64 = 300;
+pub const DEFAULT_HTTP_DID_RESOLVER_TTL_SECS: i64 = 60 * 60 * 24 * 7;
+
+/// Maximum additional outage window for returning a previously verified
+/// cache entry after live resolution fails.
+pub const DEFAULT_HTTP_DID_RESOLVER_OUTAGE_SECS: i64 = 60 * 60 * 24;
 
 /// Default request timeout (2s) per spec recommendation.
 pub const DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS: u64 = 2_000;
@@ -42,11 +46,21 @@ struct CacheEntry {
     fetched_at: DateTime<Utc>,
 }
 
+/// Last externally visible resolver health signal.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HttpDidResolverHealthSignal {
+    Healthy,
+    DegradedHostingUnreachable,
+    StaleHistory,
+    Untrusted,
+}
+
 /// Reqwest-backed DID resolver covering `did:web` and `did:webvh`.
 pub struct HttpDidResolver {
     http: HttpClient,
     policy: ResolverPolicy,
     cache: Mutex<std::collections::BTreeMap<Did, CacheEntry>>,
+    health_signal: Mutex<HttpDidResolverHealthSignal>,
     runtime: tokio::runtime::Handle,
 }
 
@@ -104,6 +118,7 @@ impl HttpDidResolver {
             http,
             policy,
             cache: Mutex::new(std::collections::BTreeMap::new()),
+            health_signal: Mutex::new(HttpDidResolverHealthSignal::Healthy),
             runtime,
         })
     }
@@ -111,6 +126,14 @@ impl HttpDidResolver {
     /// Read the active policy.
     pub fn policy(&self) -> &ResolverPolicy {
         &self.policy
+    }
+
+    /// Return the last health signal observed by resolution.
+    pub fn health_signal(&self) -> HttpDidResolverHealthSignal {
+        self.health_signal
+            .lock()
+            .map(|signal| *signal)
+            .unwrap_or(HttpDidResolverHealthSignal::Untrusted)
     }
 
     /// Drop every cached entry.
@@ -134,6 +157,17 @@ impl HttpDidResolver {
             .unwrap_or(DEFAULT_HTTP_DID_RESOLVER_TTL_SECS)
     }
 
+    fn max_stale_secs(&self) -> i64 {
+        self.ttl_secs()
+            .saturating_add(DEFAULT_HTTP_DID_RESOLVER_OUTAGE_SECS)
+    }
+
+    fn set_health_signal(&self, signal: HttpDidResolverHealthSignal) {
+        if let Ok(mut health_signal) = self.health_signal.lock() {
+            *health_signal = signal;
+        }
+    }
+
     fn cached(&self, did: &Did) -> Option<DidDocument> {
         let cache = self.cache.lock().ok()?;
         let entry = cache.get(did)?;
@@ -141,6 +175,19 @@ impl HttpDidResolver {
             .signed_duration_since(entry.fetched_at)
             .num_seconds();
         if age >= 0 && age < self.ttl_secs() {
+            Some(entry.document.clone())
+        } else {
+            None
+        }
+    }
+
+    fn stale_within_outage(&self, did: &Did) -> Option<DidDocument> {
+        let cache = self.cache.lock().ok()?;
+        let entry = cache.get(did)?;
+        let age = Utc::now()
+            .signed_duration_since(entry.fetched_at)
+            .num_seconds();
+        if age >= 0 && age <= self.max_stale_secs() {
             Some(entry.document.clone())
         } else {
             None
@@ -157,11 +204,6 @@ impl HttpDidResolver {
                 },
             );
         }
-    }
-
-    fn stale(&self, did: &Did) -> Option<DidDocument> {
-        let cache = self.cache.lock().ok()?;
-        cache.get(did).map(|entry| entry.document.clone())
     }
 
     /// Fetch `url` with an enforced response-size ceiling.
@@ -323,17 +365,25 @@ impl DidResolver for HttpDidResolver {
         match self.fetch_now(did) {
             Ok(document) => {
                 self.cache_put(did, &document);
+                self.set_health_signal(HttpDidResolverHealthSignal::Healthy);
                 Ok(document)
             }
             Err(err) => match self.policy.fail_mode {
                 ResolverFailMode::AllowCachedOnError => {
-                    if let Some(stale) = self.stale(did) {
+                    if let Some(stale) = self.stale_within_outage(did) {
+                        self.set_health_signal(HttpDidResolverHealthSignal::StaleHistory);
                         Ok(stale)
                     } else {
+                        self.set_health_signal(
+                            HttpDidResolverHealthSignal::DegradedHostingUnreachable,
+                        );
                         Err(err)
                     }
                 }
-                ResolverFailMode::FailClosed => Err(err),
+                ResolverFailMode::FailClosed => {
+                    self.set_health_signal(HttpDidResolverHealthSignal::Untrusted);
+                    Err(err)
+                }
             },
         }
     }

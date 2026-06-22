@@ -208,8 +208,7 @@ pub fn morph_schema_refs_additive_only(
         validate_field_is_not_tightened(field_name, from_field, to_field)?;
     }
     for (field_name, to_field) in to_fields {
-        if !from_fields.contains_key(field_name)
-            && (to_field.required || to_field.non_null_default)
+        if !from_fields.contains_key(field_name) && (to_field.required || to_field.non_null_default)
         {
             return Err(MorphSchemaAdditiveViolation::NewRequiredField(
                 field_name.clone(),

@@ -395,10 +395,8 @@ pub const REASON_TOKEN_ISSUER_UNAUTHORISED: &str = "token_issuer_unauthorised";
 pub const REASON_E2EE_KEY_SOURCE_UNAUTHORISED: &str = "e2ee_key_source_unauthorised";
 
 // Late key recovery transition guards.
-pub const REASON_LATE_RECOVERY_REJECTED_MEMBERSHIP: &str =
-    "late_recovery_rejected_membership";
-pub const REASON_LATE_RECOVERY_SHARE_NOT_AUTHORIZED: &str =
-    "late_recovery_share_not_authorized";
+pub const REASON_LATE_RECOVERY_REJECTED_MEMBERSHIP: &str = "late_recovery_rejected_membership";
+pub const REASON_LATE_RECOVERY_SHARE_NOT_AUTHORIZED: &str = "late_recovery_share_not_authorized";
 pub const REASON_LATE_RECOVERY_REJECTED_EXPIRED: &str = "late_recovery_rejected_expired";
 pub const KNOWN_REASON_CODES_LATE_RECOVERY: &[&str] = &[
     REASON_LATE_RECOVERY_REJECTED_MEMBERSHIP,

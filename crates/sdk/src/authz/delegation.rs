@@ -231,6 +231,9 @@ pub enum DelegationError {
     /// subsumption lands when typed resource selectors arrive
     /// (authz/resource-selector-grammar.md).
     ResourceOutOfScope,
+    /// Parent grant's `max_delegation_depth` leaves no room for another
+    /// child, or the child failed to seal the decremented depth.
+    DelegationDepthExceeded,
 }
 
 /// Returns the effective expiry for a grant, taking the stricter of the
@@ -265,20 +268,42 @@ pub fn is_grant_expired(grant: &Grant, now: DateTime<Utc>) -> bool {
     grant_effective_expiry(grant).is_some_and(|expiry| now >= expiry)
 }
 
+/// Returns the strictest delegation-depth ceiling carried by a grant.
+///
+/// `None` means the grant did not opt into a finite delegation-depth seal.
+/// When present, child grants must carry a `DelegationControl` constraint no
+/// greater than `parent_depth - 1`; a parent depth of zero cannot delegate.
+pub fn max_delegation_depth(grant: &Grant) -> Option<u32> {
+    grant
+        .constraints
+        .iter()
+        .filter_map(|constraint| match constraint {
+            GrantConstraint::DelegationControl {
+                max_delegation_depth,
+            } => *max_delegation_depth,
+            _ => None,
+        })
+        .min()
+}
+
 pub fn validate_applet_delegation_binding(
     grant: &Grant,
     applet_id: &str,
     executed_by: &str,
     registration_epoch: &str,
 ) -> std::result::Result<(), AppletDelegationBindingError> {
-    let Some(binding) = grant.constraints.iter().find_map(|constraint| match constraint {
-        GrantConstraint::AppletDelegationBinding {
-            applet_id,
-            executed_by,
-            registration_epoch,
-        } => Some((applet_id, executed_by, registration_epoch)),
-        _ => None,
-    }) else {
+    let Some(binding) = grant
+        .constraints
+        .iter()
+        .find_map(|constraint| match constraint {
+            GrantConstraint::AppletDelegationBinding {
+                applet_id,
+                executed_by,
+                registration_epoch,
+            } => Some((applet_id, executed_by, registration_epoch)),
+            _ => None,
+        })
+    else {
         return Err(AppletDelegationBindingError::Missing);
     };
     if binding.0 != applet_id {
@@ -415,6 +440,29 @@ pub fn create_delegated_grant(
 
     if !resource_within(&parent.resource, &requested.resource) {
         return Err(DelegationError::ResourceOutOfScope);
+    }
+
+    if let Some(parent_depth) = max_delegation_depth(parent) {
+        if parent_depth == 0 {
+            return Err(DelegationError::DelegationDepthExceeded);
+        }
+        let child = Grant {
+            grant_id: String::new(),
+            realm_id: requested.realm_id.clone(),
+            issuer: requested.issuer.clone(),
+            subject: requested.subject.clone(),
+            resource: requested.resource.clone(),
+            actions: requested.actions.clone(),
+            constraints: requested.constraints.clone(),
+            revoked: false,
+            created_at: now,
+            delegated_from: Some(parent_id.to_owned()),
+            expires_at: requested.expires_at,
+        };
+        match max_delegation_depth(&child) {
+            Some(child_depth) if child_depth <= parent_depth.saturating_sub(1) => {}
+            _ => return Err(DelegationError::DelegationDepthExceeded),
+        }
     }
 
     if let Some(parent_expiry) = parent_effective_expiry {
@@ -674,6 +722,64 @@ mod tests {
         assert!(matches!(
             create_delegated_grant("g1", &req, &parents, now),
             Err(DelegationError::ResourceOutOfScope)
+        ));
+    }
+
+    #[test]
+    fn create_delegated_grant_decrements_max_delegation_depth() {
+        let now = Utc::now();
+        let mut root = root_grant("g1", &["read"], "ck:realm:1");
+        root.constraints.push(GrantConstraint::DelegationControl {
+            max_delegation_depth: Some(1),
+        });
+        let parents = vec![root];
+        let base_req = GrantRequestDraft {
+            realm_id: "ck:realm:1".to_owned(),
+            issuer: "did:web:bob".to_owned(),
+            subject: "did:web:carol".to_owned(),
+            resource: "ck:realm:1".to_owned(),
+            actions: vec!["read".to_owned()],
+            constraints: Vec::new(),
+            expires_at: None,
+        };
+        assert!(matches!(
+            create_delegated_grant("g1", &base_req, &parents, now),
+            Err(DelegationError::DelegationDepthExceeded)
+        ));
+
+        let narrowed_req = GrantRequestDraft {
+            constraints: vec![GrantConstraint::DelegationControl {
+                max_delegation_depth: Some(0),
+            }],
+            ..base_req
+        };
+        let child =
+            create_delegated_grant("g1", &narrowed_req, &parents, now).expect("depth sealed");
+        assert_eq!(max_delegation_depth(&child), Some(0));
+    }
+
+    #[test]
+    fn create_delegated_grant_rejects_when_parent_depth_is_exhausted() {
+        let now = Utc::now();
+        let mut root = root_grant("g1", &["read"], "ck:realm:1");
+        root.constraints.push(GrantConstraint::DelegationControl {
+            max_delegation_depth: Some(0),
+        });
+        let parents = vec![root];
+        let req = GrantRequestDraft {
+            realm_id: "ck:realm:1".to_owned(),
+            issuer: "did:web:bob".to_owned(),
+            subject: "did:web:carol".to_owned(),
+            resource: "ck:realm:1".to_owned(),
+            actions: vec!["read".to_owned()],
+            constraints: vec![GrantConstraint::DelegationControl {
+                max_delegation_depth: Some(0),
+            }],
+            expires_at: None,
+        };
+        assert!(matches!(
+            create_delegated_grant("g1", &req, &parents, now),
+            Err(DelegationError::DelegationDepthExceeded)
         ));
     }
 

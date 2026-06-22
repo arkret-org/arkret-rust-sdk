@@ -505,9 +505,7 @@ pub fn project_account_status_heads<'a>(
                 continue;
             }
 
-            if let Some(superseded) = heads
-                .iter()
-                .find(|head| &head.event_id == superseded_id)
+            if let Some(superseded) = heads.iter().find(|head| &head.event_id == superseded_id)
                 && candidate.status.is_less_strict_than(superseded.status)
             {
                 match superseded
@@ -1026,6 +1024,76 @@ impl ErasureReceipt {
             ));
         }
         Ok(())
+    }
+
+    /// Validate a received receipt against the retained verification stub bytes.
+    pub fn validate_with_retained_stub(&self, retained_stub: &Value) -> Result<()> {
+        self.validate_minimal()?;
+        let retained_stub_digest =
+            crate::Hash::new(crate::canonical::canonical_sha256(retained_stub)?)?;
+        if retained_stub_digest != self.retained_stub_digest {
+            return Err(Error::Protocol(
+                "erasure_receipt_stub_digest_mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod erasure_receipt_tests {
+    use super::*;
+
+    fn receipt(stub: &Value) -> ErasureReceipt {
+        ErasureReceipt {
+            receipt_id: "ck:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
+            schema: ErasureReceipt::SCHEMA.to_owned(),
+            issuer: Did::new("did:web:erasure.example".to_owned()).unwrap(),
+            subject: ErasureSubject {
+                kind: ErasureSubjectKind::Event,
+                reference: "ck:event:01970e58-0004-7000-8000-000000000004".to_owned(),
+            },
+            scope: ErasureScope {
+                storage_boundary: ErasureStorageBoundary::CanonicalLogMinimization,
+                realm_id: None,
+                target_refs: Vec::new(),
+                retention_policy_id: None,
+                service_scope: None,
+            },
+            outcome: ErasureOutcome::Completed,
+            erased_classes: vec![ErasedClass::CanonicalPayloadBytes],
+            retained_stub_digest: Hash::new(crate::canonical::canonical_sha256(stub).unwrap())
+                .unwrap(),
+            legal_hold_ref: None,
+            completed_at: Utc::now(),
+            issued_at: None,
+            proofs: vec![ErasureReceiptProof {
+                verification_method: "did:web:erasure.example#key-1".to_owned(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                signature: "zplaceholder".to_owned(),
+                extra: BTreeMap::new(),
+            }],
+            fanout_status: None,
+            peer_receipts: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn retained_stub_digest_mismatch_fails_closed() {
+        let stub = serde_json::json!({
+            "stub_schema": "ck.schema.erasure_verification_stub.v1",
+            "subject": {"kind": "event", "ref": "ck:event:01970e58-0004-7000-8000-000000000004"},
+            "receipt_id": "ck:receipt:01970e58-0004-7000-8000-000000000010"
+        });
+        let receipt = receipt(&stub);
+        assert!(receipt.validate_with_retained_stub(&stub).is_ok());
+
+        let tampered = serde_json::json!({
+            "stub_schema": "ck.schema.erasure_verification_stub.v1",
+            "subject": {"kind": "event", "ref": "ck:event:01970e58-0004-7000-8000-ffffffffffff"},
+            "receipt_id": "ck:receipt:01970e58-0004-7000-8000-000000000010"
+        });
+        assert!(receipt.validate_with_retained_stub(&tampered).is_err());
     }
 }
 

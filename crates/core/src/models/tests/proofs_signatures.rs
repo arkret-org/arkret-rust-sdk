@@ -393,7 +393,10 @@ fn proof_validate_rejects_empty_domain_or_audience() {
     assert!(proof.validate().is_err());
 
     let mut proof = valid_proof();
-    proof.audience = Some(Audience::Multiple(vec!["svc-a".to_owned(), "svc-a".to_owned()]));
+    proof.audience = Some(Audience::Multiple(vec![
+        "svc-a".to_owned(),
+        "svc-a".to_owned(),
+    ]));
     assert!(proof.validate().is_err());
 }
 

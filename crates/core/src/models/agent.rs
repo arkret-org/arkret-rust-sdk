@@ -9,6 +9,8 @@ pub struct AgentKeyPairRequestBody {
     pub proof_of_possession: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorize_event: Option<Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
