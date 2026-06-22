@@ -54,6 +54,8 @@ pub const REASON_MORPH_NOT_ARCHIVED: &str = "morph_not_archived";
 pub const REASON_MORPH_ALREADY_TERMINAL: &str = "morph_already_terminal";
 pub const REASON_MESSAGE_ALREADY_TERMINAL: &str = "message_already_terminal";
 pub const REASON_RELATION_ALREADY_TERMINAL: &str = "relation_already_terminal";
+pub const REASON_RELATION_CONFLICT_FANOUT_EXCEEDED: &str = "relation_conflict_fanout_exceeded";
+pub const REASON_RELATION_KIND_WATCHES_DERIVED: &str = "relation_kind_watches_derived";
 
 // Moderation report standard categories (alongside C44's spam/harassment).
 pub const REASON_HATE_SPEECH: &str = "hate_speech";

@@ -58,13 +58,10 @@ pub fn to_nfc(s: &str) -> String {
 /// - every string value / object key rejected if non-NFC or containing an (escaped) `U+FEFF`;
 /// - every JSON number rejected if it falls outside the canonical integer profile or the JSON
 ///   safe-integer range (reuses [`write_number`]).
-///
-/// Object-key *ordering* is enforced for emitters by [`canonical_json_bytes`];
-/// a standalone ingress key-order check needs the raw key sequence (serde_json
-/// reorders into a map) and is tracked as a follow-up.
+/// - raw input bytes MUST exactly equal the canonical serialization of the parsed value, rejecting
+///   unsorted object keys, whitespace, alternate string escapes, and non-minimal number forms.
 pub fn validate_canonical_bytes(bytes: &[u8]) -> Result<()> {
-    let value = parse_canonical_json(bytes)?;
-    validate_canonical_value(&value)
+    parse_canonical_json(bytes).map(|_| ())
 }
 
 /// Deserialize typed inbound canonical JSON after applying the receiver-side
@@ -74,7 +71,6 @@ where
     T: DeserializeOwned,
 {
     let value = parse_canonical_json(bytes)?;
-    validate_canonical_value(&value)?;
     serde_json::from_value(value).map_err(Error::from)
 }
 
@@ -131,10 +127,9 @@ fn validate_canonical_string(s: &str) -> Result<()> {
 /// envelope / proof / cursor / receipt path MUST go through this entry point
 /// instead of a bare `serde_json::from_slice`.
 ///
-/// This rejects duplicate keys at **any** nesting depth. It does not by itself
-/// re-canonicalize numbers or strings — pair it with [`canonical_json_bytes`]
-/// (which rejects floats and out-of-safe-range integers) when producing the
-/// bytes that feed a digest.
+/// This rejects duplicate keys at **any** nesting depth, then re-canonicalizes
+/// the parsed value and compares the result to the original bytes. Any mismatch
+/// means the ingress bytes were not the unique Cokret canonical JSON form.
 pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
     // encoding.md §2: reject any UTF-8 BOM / U+FEFF — at the stream start *or*
     // embedded inside a string value. U+FEFF is `EF BB BF` in UTF-8 and the
@@ -150,7 +145,19 @@ pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
     let value = serde::de::DeserializeSeed::deserialize(CanonicalValueSeed, &mut de)
         .map_err(canonical_parse_error)?;
     de.end().map_err(canonical_parse_error)?;
+    validate_canonical_bytes_match(bytes, &value)?;
     Ok(value)
+}
+
+fn validate_canonical_bytes_match(bytes: &[u8], value: &Value) -> Result<()> {
+    validate_canonical_value(value)?;
+    let canonical = canonical_json_bytes(value)?;
+    if canonical.as_slice() == bytes {
+        return Ok(());
+    }
+    Err(Error::Protocol(
+        "canonical JSON input is not byte-for-byte canonical".to_owned(),
+    ))
 }
 
 /// Map a parser error into the right [`Error`] variant. A duplicate key is
@@ -725,6 +732,42 @@ mod tests {
     fn validate_canonical_bytes_accepts_nfc() {
         let json = r#"{"a":1,"name":"abc"}"#;
         assert!(validate_canonical_bytes(json.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn validate_canonical_bytes_rejects_unsorted_object_keys() {
+        let bytes = br#"{"b":2,"a":1}"#;
+        let err = validate_canonical_bytes(bytes).unwrap_err();
+        assert!(matches!(err, Error::Protocol(_)));
+
+        let err = from_canonical_json_slice::<Value>(bytes).unwrap_err();
+        assert!(matches!(err, Error::Protocol(_)));
+    }
+
+    #[test]
+    fn validate_canonical_bytes_accepts_byte_for_byte_canonical_json() {
+        let value = json!({ "b": 2, "a": { "d": 4, "c": 3 } });
+        let bytes = canonical_json_bytes(&value).unwrap();
+        assert_eq!(
+            std::str::from_utf8(&bytes).unwrap(),
+            r#"{"a":{"c":3,"d":4},"b":2}"#
+        );
+
+        validate_canonical_bytes(&bytes).unwrap();
+        let parsed = from_canonical_json_slice::<Value>(&bytes).unwrap();
+        assert_eq!(parsed, value);
+    }
+
+    #[test]
+    fn validate_canonical_bytes_rejects_whitespace() {
+        let err = validate_canonical_bytes(br#"{ "a":1}"#).unwrap_err();
+        assert!(matches!(err, Error::Protocol(_)));
+    }
+
+    #[test]
+    fn validate_canonical_bytes_rejects_alternate_string_escape() {
+        let err = validate_canonical_bytes(br#"{"a":"\u0062"}"#).unwrap_err();
+        assert!(matches!(err, Error::Protocol(_)));
     }
 
     #[test]

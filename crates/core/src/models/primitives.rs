@@ -182,6 +182,7 @@ pub enum RelationKind {
     PromotedFromDiscussion,
     AttachedTo,
     HasDefaultView,
+    Watches,
     /// CKP-0007 (spec b7d35be) — couples a "wide synthesis" Strand (often
     /// Realm-default scope) to a "narrow discussion" Strand bound to a
     /// `scope_circle_id` Circle. The discussion side carries the confidential
