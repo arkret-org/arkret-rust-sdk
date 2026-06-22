@@ -34,7 +34,7 @@ use cokret::agent::{
 use cokret::{
     AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyPairRequestBody,
     AgentKeyScope, AgentPauseRequestBody, AgentResumeRequestBody, AgentRotateKeyRequestBody,
-    AgentSidecarThreadEnsureRequestBody, Did, GrantId, RealmId,
+    AgentSidecarContextRef, AgentSidecarThreadEnsureRequestBody, Did, GrantId, RealmId, StrandId,
 };
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -182,11 +182,12 @@ fn main() -> cokret::Result<()> {
 
     // 10. sidecar_thread.ensure
     let realm_id = RealmId::new("ck:realm:01964137-0000-7000-8000-000000000030")?;
+    let context_strand_id = StrandId::new("ck:strand:01964137-0000-7000-8000-000000000031")?;
     let _sidecar = send_plan(plan_agent_sidecar_thread_ensure(
         AgentSidecarThreadEnsureRequestBody {
-            realm_id,
-            agent_principal_id: Did::new(agent_principal_id.clone())?,
             controller_principal_id: controller,
+            addressed_agent_principal_ids: vec![Did::new(agent_principal_id.clone())?],
+            context_ref: AgentSidecarContextRef::strand(realm_id, context_strand_id),
         },
     ))?;
 

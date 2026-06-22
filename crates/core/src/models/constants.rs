@@ -1,3 +1,5 @@
+use sha2::{Digest, Sha256};
+
 pub const PROTOCOL_VERSION: &str = "1.0";
 pub const CORE_SCHEMA_PROFILE: &str = "ck.schema.core.v1";
 pub const CORE_REDUCER_PROFILE: &str = "ck.reducer.v1";
@@ -214,19 +216,54 @@ pub const RECOVERY_RECEIPT_SCHEMA: &str = "ck.schema.recovery_receipt.v1";
 
 /// CKP-0008 / CKP-0009 — agent sidecar thread profile id.
 ///
-/// Per spec head 37ce729 §B-F, the default home policy for the
-/// agent sidecar thread is **"context realm preferred"**: the sidecar
-/// Circle is provisioned in the context Realm of the controller's
-/// current focused conversation when available, falling back to the
-/// controller's home Realm only when no context Realm exists.
+/// Per CKP-0009, the sidecar home is derived from `context_ref.realm_id`.
+/// The profile label remains `context_realm_preferred` for registry
+/// compatibility, but v1 ensure requests carry a required context Realm and
+/// do not fall back to the controller's home Realm.
 pub const PROFILE_AGENT_SIDECAR_THREAD: &str = "ck.profile.agent_sidecar_thread.v1";
 pub const AGENT_SIDECAR_HOME_POLICY_CONTEXT_REALM_PREFERRED: &str = "context_realm_preferred";
 
 pub fn select_agent_sidecar_home_realm<'a>(
     context_realm_id: Option<&'a str>,
-    controller_home_realm_id: &'a str,
-) -> &'a str {
-    context_realm_id.unwrap_or(controller_home_realm_id)
+    _controller_home_realm_id: &'a str,
+) -> Option<&'a str> {
+    context_realm_id
+}
+
+fn base32_lower_no_pad(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
+    let mut out = String::new();
+    let mut buffer: u16 = 0;
+    let mut bits: u8 = 0;
+    for byte in bytes {
+        buffer = (buffer << 8) | u16::from(*byte);
+        bits += 8;
+        while bits >= 5 {
+            let index = ((buffer >> (bits - 5)) & 0x1f) as usize;
+            out.push(ALPHABET[index] as char);
+            bits -= 5;
+        }
+    }
+    if bits > 0 {
+        let index = ((buffer << (5 - bits)) & 0x1f) as usize;
+        out.push(ALPHABET[index] as char);
+    }
+    out
+}
+
+pub fn agent_sidecar_circle_key(realm_id: &str, controller_principal_id: &str) -> String {
+    let transcript = format!("ck.agent_sidecar_circle.v1\n{realm_id}\n{controller_principal_id}");
+    let digest = Sha256::digest(transcript.as_bytes());
+    base32_lower_no_pad(&digest).chars().take(24).collect()
+}
+
+pub fn agent_sidecar_short_name(controller_agent_circle_key: &str) -> String {
+    let suffix = controller_agent_circle_key
+        .chars()
+        .take(12)
+        .collect::<String>()
+        .to_ascii_uppercase();
+    format!("AI-{suffix}")
 }
 
 /// Morph event kinds.
@@ -946,11 +983,22 @@ mod tests {
     fn agent_sidecar_home_prefers_context_realm() {
         assert_eq!(
             select_agent_sidecar_home_realm(Some("ck:realm:context"), "ck:realm:home"),
-            "ck:realm:context"
+            Some("ck:realm:context")
+        );
+        assert_eq!(select_agent_sidecar_home_realm(None, "ck:realm:home"), None);
+    }
+
+    #[test]
+    fn agent_sidecar_circle_key_is_stable_and_short_name_derives() {
+        let key = agent_sidecar_circle_key("ck:realm:context", "did:web:example.com:users:alice");
+        assert_eq!(key.len(), 24);
+        assert!(
+            key.chars()
+                .all(|ch| { ch.is_ascii_lowercase() || matches!(ch, '2'..='7') })
         );
         assert_eq!(
-            select_agent_sidecar_home_realm(None, "ck:realm:home"),
-            "ck:realm:home"
+            agent_sidecar_short_name(&key),
+            format!("AI-{}", key[..12].to_ascii_uppercase())
         );
     }
 

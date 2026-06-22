@@ -262,7 +262,10 @@ fn invite_payload_strong_types_pass_spec_validator() {
 
 #[test]
 fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
-    use crate::models::{RealmArchivePayload, RealmDestroyPayload, RealmId, RealmTombstonePayload};
+    use crate::models::{
+        RealmArchivePayload, RealmDestroyPayload, RealmFreezePayload, RealmId,
+        RealmTombstonePayload,
+    };
     let catalog = event_payload_validator_catalog();
 
     // ck.realm.archive: reversible boolean register; `archived:false` un-archives.
@@ -274,6 +277,18 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
         .validate_payload(
             "ck.realm.archive",
             &RealmArchivePayload::new(false).to_value().unwrap(),
+        )
+        .unwrap();
+
+    // ck.realm.freeze: reversible boolean register; `frozen:false` unfreezes.
+    let freeze = RealmFreezePayload::new(true).with_reason("incident response hold");
+    catalog
+        .validate_payload("ck.realm.freeze", &freeze.to_value().unwrap())
+        .unwrap();
+    catalog
+        .validate_payload(
+            "ck.realm.freeze",
+            &RealmFreezePayload::new(false).to_value().unwrap(),
         )
         .unwrap();
 

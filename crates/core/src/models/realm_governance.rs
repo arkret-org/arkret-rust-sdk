@@ -245,6 +245,16 @@ pub struct RealmLifecycleView {
     #[serde(default)]
     pub members: Vec<Did>,
     pub deleted: bool,
+    #[serde(default)]
+    pub archived: bool,
+    #[serde(default)]
+    pub frozen: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub successor_realm_id: Option<RealmId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub freeze_expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

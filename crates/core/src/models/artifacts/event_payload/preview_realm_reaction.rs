@@ -144,7 +144,8 @@ pub struct RealmDisappearingPolicyPayload {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_freeze_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmFreezePayload {
     pub frozen: bool,
@@ -154,6 +155,35 @@ pub struct RealmFreezePayload {
     pub effective_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub freeze_expires_at: Option<DateTime<Utc>>,
+}
+
+impl RealmFreezePayload {
+    pub fn new(frozen: bool) -> Self {
+        Self {
+            frozen,
+            reason: None,
+            effective_at: None,
+            freeze_expires_at: None,
+        }
+    }
+
+    pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
+        let reason = reason.into();
+        if !reason.trim().is_empty() {
+            self.reason = Some(reason);
+        }
+        self
+    }
+
+    pub fn with_freeze_expires_at(mut self, expires_at: DateTime<Utc>) -> Self {
+        self.freeze_expires_at = Some(expires_at);
+        self
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("realm freeze payload serialize: {err}")))
+    }
 }
 
 /// Counterpart for
