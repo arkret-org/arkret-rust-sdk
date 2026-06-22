@@ -38,6 +38,34 @@ pub const PATCH_PATH_MAX_BYTES: usize = 1024;
 /// Maximum patch-path nesting depth (segments separated by `.`).
 pub const PATCH_PATH_MAX_SEGMENTS: usize = 16;
 
+const REDUCER_MANAGED_PATCH_FIELDS: &[&str] = &[
+    "id",
+    "schema",
+    "realm_id",
+    "created_by",
+    "created_at",
+    "updated_by",
+    "updated_at",
+    "state",
+    "state_changed_at",
+    "stage_changed_at",
+    "deleted_at",
+    "effective_scope",
+    "actor_kind",
+];
+
+const REDACTABLE_UNSET_PATCH_PATHS: &[&str] = &[
+    "content",
+    "encrypted_content",
+    "encrypted_metadata",
+    "encrypted_payload",
+    "body",
+    "attachments",
+    "summary",
+    "metadata.summary",
+    "metadata.fields.summary",
+];
+
 /// Explicit op discriminator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -267,6 +295,58 @@ pub fn validate_path(path: &str) -> Result<()> {
     Ok(())
 }
 
+/// Validate the cross-object patch safety rules that do not require reducer
+/// state. Object-specific reducers may add stricter checks, but they must not
+/// accept reducer-managed paths or direct removal of redactable content.
+pub fn validate_patch_semantic_safety(patch: &Patch) -> Result<()> {
+    patch.validate()?;
+    for (path, op) in patch.iter() {
+        if patch_path_targets_reducer_managed(path) {
+            return Err(Error::Protocol(
+                crate::error::REASON_PATCH_PATH_REDUCER_MANAGED.to_owned(),
+            ));
+        }
+        if matches!(op.op(), PatchOpKind::Unset | PatchOpKind::Remove)
+            && patch_path_targets_redactable_unset(path)
+        {
+            return Err(Error::Protocol(
+                crate::error::REASON_PATCH_UNSET_REDACTABLE_FIELD.to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn patch_path_targets_reducer_managed(path: &str) -> bool {
+    let Some(root) = normalized_patch_segment_head(path.split('.').next().unwrap_or_default())
+    else {
+        return false;
+    };
+    if root == "object" {
+        let second = path.split('.').nth(1).unwrap_or_default();
+        return normalized_patch_segment_head(second)
+            .is_some_and(|field| REDUCER_MANAGED_PATCH_FIELDS.contains(&field));
+    }
+    REDUCER_MANAGED_PATCH_FIELDS.contains(&root)
+}
+
+fn patch_path_targets_redactable_unset(path: &str) -> bool {
+    if path == "metadata" {
+        return true;
+    }
+    REDACTABLE_UNSET_PATCH_PATHS
+        .iter()
+        .any(|redactable| path == *redactable || path.starts_with(&format!("{redactable}.")))
+}
+
+fn normalized_patch_segment_head(segment: &str) -> Option<&str> {
+    if segment.starts_with('`') {
+        return None;
+    }
+    let head = segment.split_once('[').map_or(segment, |(head, _)| head);
+    (!head.is_empty()).then_some(head)
+}
+
 impl Serialize for Patch {
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
         let mut map = serializer.serialize_map(Some(self.entries.len()))?;
@@ -360,7 +440,7 @@ impl ObjectPatchPayload {
                 "object_patch_payload.object_ref is not canonical; use target_ref".to_owned(),
             ));
         }
-        self.patch.validate()
+        validate_patch_semantic_safety(&self.patch)
     }
 
     /// Serialize after validating the same constraints enforced by the
@@ -572,5 +652,48 @@ mod tests {
         patch.insert_op("title", PatchOp::set("Roadmap")).unwrap();
         let err = ObjectPatchPayload::for_target("ck:strand:not-a-uuid7", patch).unwrap_err();
         assert!(err.to_string().contains("object_ref"));
+    }
+
+    #[test]
+    fn object_patch_payload_rejects_reducer_managed_path() {
+        let mut patch = Patch::new();
+        patch
+            .insert_op("state", PatchOp::set(json!("archived")))
+            .unwrap();
+
+        let err =
+            ObjectPatchPayload::for_target("ck:strand:0196419b-0000-7000-8000-000000000004", patch)
+                .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains(crate::error::REASON_PATCH_PATH_REDUCER_MANAGED)
+        );
+    }
+
+    #[test]
+    fn object_patch_payload_rejects_direct_redactable_unset() {
+        let mut patch = Patch::new();
+        patch
+            .insert_op("encrypted_content", PatchOp::unset())
+            .unwrap();
+
+        let err = ObjectPatchPayload::for_target(
+            "ck:message:0196419b-0000-7000-8000-000000000005",
+            patch,
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains(crate::error::REASON_PATCH_UNSET_REDACTABLE_FIELD)
+        );
+    }
+
+    #[test]
+    fn object_patch_payload_allows_non_redactable_metadata_unset() {
+        let mut patch = Patch::new();
+        patch.insert_op("metadata.title", PatchOp::unset()).unwrap();
+
+        ObjectPatchPayload::for_target("ck:strand:0196419b-0000-7000-8000-000000000006", patch)
+            .unwrap();
     }
 }

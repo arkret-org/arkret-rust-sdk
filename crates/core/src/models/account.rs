@@ -270,6 +270,48 @@ pub struct AccountLifecycleProof {
     pub signature: String,
 }
 
+pub const ACCOUNT_LIFECYCLE_PROOF_SCHEMA: &str = "ck.schema.account_lifecycle_proof.v1";
+pub const SESSION_REVOKE_LIFECYCLE_PROOF_KIND: &str =
+    "ck.account.lifecycle_proof.session_revoke.v1";
+pub const SESSION_REVOKE_OPERATION_ID: &str = "ck.gate.account.command.revoke_session";
+
+impl AccountLifecycleProof {
+    pub fn session_revoke_request_digest(
+        actor_id: &Did,
+        service_did: &Did,
+        session_device_id: &DeviceId,
+        target_grant_id: Option<&GrantId>,
+        target_device_id: Option<&DeviceId>,
+        all_sessions: bool,
+    ) -> Result<Hash> {
+        let request = json!({
+            "schema": "ck.schema.session_revoke.request.v1",
+            "operation": SESSION_REVOKE_OPERATION_ID,
+            "actor_id": actor_id,
+            "service_did": service_did,
+            "session_device_id": session_device_id,
+            "target_grant_id": target_grant_id,
+            "target_device_id": target_device_id,
+            "all_sessions": all_sessions,
+        });
+        Ok(Hash::new(canonical::canonical_sha256(&request)?)?)
+    }
+
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        let signing_input = json!({
+            "schema": ACCOUNT_LIFECYCLE_PROOF_SCHEMA,
+            "proof_kind": &self.proof_kind,
+            "challenge": &self.challenge,
+            "request_canonical_digest": &self.request_canonical_digest,
+            "audience": &self.audience,
+            "issued_at": &self.issued_at,
+            "expires_at": &self.expires_at,
+            "verification_method": &self.verification_method,
+        });
+        canonical::canonical_json_bytes(&signing_input)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountView {

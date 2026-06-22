@@ -263,11 +263,34 @@ impl<'de> serde::de::Visitor<'de> for CanonicalValueVisitor {
     }
 }
 
-/// Compute the SHA-256 of `bytes` and return the **bare** 64-character
-/// lowercase hex digest (no `sha256:` prefix).
-///
-/// 返回不带 `sha256:` 前缀的裸 hex 摘要(固定 64 位小写十六进制),供需要
-/// 原始 hash 原语的下游直接使用。[`sha256_digest`] 在此之上加前缀。
+/// Active canonical JSON digest suites for v1 typed digest values.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DigestSuite {
+    Sha256,
+    Blake3,
+}
+
+impl DigestSuite {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Sha256 => "sha256",
+            Self::Blake3 => "blake3",
+        }
+    }
+}
+
+pub fn digest_suite(suite: &str) -> Result<DigestSuite> {
+    match suite {
+        "sha256" => Ok(DigestSuite::Sha256),
+        "blake3" => Ok(DigestSuite::Blake3),
+        _ => Err(Error::Protocol(format!(
+            "unsupported digest algorithm: {suite}"
+        ))),
+    }
+}
+
+/// Compute the SHA-256 of `bytes` and return the bare 64-character lowercase
+/// hex digest (no `sha256:` prefix).
 pub fn sha256_hex(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     hex::encode(digest)
@@ -275,6 +298,29 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 
 pub fn sha256_digest(bytes: impl AsRef<[u8]>) -> String {
     format!("sha256:{}", sha256_hex(bytes.as_ref()))
+}
+
+pub fn blake3_hex(bytes: &[u8]) -> String {
+    hex::encode(blake3::hash(bytes).as_bytes())
+}
+
+pub fn blake3_digest(bytes: impl AsRef<[u8]>) -> String {
+    format!("blake3:{}", blake3_hex(bytes.as_ref()))
+}
+
+pub fn digest_hex(suite: DigestSuite, bytes: &[u8]) -> String {
+    match suite {
+        DigestSuite::Sha256 => sha256_hex(bytes),
+        DigestSuite::Blake3 => blake3_hex(bytes),
+    }
+}
+
+pub fn digest(suite: DigestSuite, bytes: impl AsRef<[u8]>) -> String {
+    format!("{}:{}", suite.as_str(), digest_hex(suite, bytes.as_ref()))
+}
+
+pub fn digest_with_suite(suite: &str, bytes: impl AsRef<[u8]>) -> Result<String> {
+    Ok(digest(digest_suite(suite)?, bytes))
 }
 
 /// Canonical digest helper for already-canonicalized JSON byte streams.
@@ -298,6 +344,29 @@ pub fn canonical_digest(bytes: &[u8]) -> String {
 
 pub fn canonical_sha256<T: Serialize>(value: &T) -> Result<String> {
     Ok(sha256_digest(canonical_json_bytes(value)?))
+}
+
+pub fn canonical_digest_with_suite(bytes: &[u8], suite: &str) -> Result<String> {
+    digest_with_suite(suite, bytes)
+}
+
+pub fn canonical_hash<T: Serialize>(value: &T, suite: &str) -> Result<String> {
+    let bytes = canonical_json_bytes(value)?;
+    canonical_digest_with_suite(&bytes, suite)
+}
+
+pub fn verify_digest(bytes: &[u8], expected_digest: &str) -> Result<()> {
+    let Some((suite, _)) = expected_digest.split_once(':') else {
+        return Err(Error::Protocol(
+            "digest must use <suite>:<lowercase_hex> wire form".to_owned(),
+        ));
+    };
+    let actual = digest_with_suite(suite, bytes)?;
+    if actual == expected_digest {
+        Ok(())
+    } else {
+        Err(Error::Protocol("digest mismatch".to_owned()))
+    }
 }
 
 /// Encode a composite **cell subject** from its parts.
@@ -887,6 +956,20 @@ mod tests {
     fn canonical_digest_matches_sha256_digest_alias() {
         let bytes = canonical_json_bytes(&json!({ "b": 2, "a": 1 })).unwrap();
         assert_eq!(canonical_digest(&bytes), sha256_digest(&bytes));
+    }
+
+    #[test]
+    fn blake3_digest_matches_known_vectors_and_verifies() {
+        assert_eq!(
+            blake3_digest(b""),
+            "blake3:af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+        );
+        assert_eq!(
+            blake3_digest(b"abc"),
+            "blake3:6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85"
+        );
+        verify_digest(b"abc", &blake3_digest(b"abc")).unwrap();
+        assert!(verify_digest(b"abd", &blake3_digest(b"abc")).is_err());
     }
 
     #[test]

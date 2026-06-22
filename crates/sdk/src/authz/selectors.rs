@@ -1,5 +1,31 @@
 use super::*;
 
+const SELECTOR_JSON_MAX_BYTES: usize = 64 * 1024;
+const SELECTOR_FIELD_MAX_BYTES: usize = 1024;
+const SELECTOR_UNKNOWN_FIELDS_MAX: usize = 256;
+const RESOURCE_SELECTOR_KNOWN_FIELDS: &[&str] = &[
+    "kind",
+    "realm_id",
+    "space_id",
+    "circle_id",
+    "object_type",
+    "object_ref",
+    "strand_id",
+    "message_id",
+    "morph_id",
+    "morph_type",
+    "relation_kind",
+    "relation_id",
+    "view_id",
+    "event_id",
+    "actor_id",
+    "schema_ref",
+    "policy_id",
+    "invite_id",
+    "blob_ref",
+    "match_scope",
+];
+
 /// Authorization decision result produced by the runtime `AuthzEngine`.
 ///
 /// Named `EngineDecision` (not `AuthzDecision`) to avoid colliding with
@@ -367,7 +393,7 @@ impl ResourceSelector {
                 Resource::Actor {
                     actor_id: target_actor,
                 },
-            ) => actor_id == target_actor || actor_id == "*",
+            ) => actor_id != "*" && actor_id == target_actor,
             (Self::Actor { .. }, _) => false,
 
             // Circle selector
@@ -394,6 +420,7 @@ impl ResourceSelector {
         let object = value
             .as_object()
             .ok_or_else(|| Error::Protocol("resource selector must be an object".to_owned()))?;
+        validate_spec_selector_object(object)?;
         let field = |name: &str| -> Option<String> {
             object
                 .get(name)
@@ -454,11 +481,17 @@ impl ResourceSelector {
                 event_kind: field("object_type"),
                 event_id: field("event_id"),
             }),
-            "actor" => Ok(Self::Actor {
-                actor_id: field("actor_id").ok_or_else(|| {
+            "actor" => {
+                let actor_id = field("actor_id").ok_or_else(|| {
                     Error::Protocol("actor selector requires actor_id".to_owned())
-                })?,
-            }),
+                })?;
+                if actor_id == "*" {
+                    return Err(Error::Protocol(
+                        "selector_actor_wildcard_forbidden".to_owned(),
+                    ));
+                }
+                Ok(Self::Actor { actor_id })
+            }
             "schema" => Ok(Self::Schema {
                 realm_id: realm_or_wildcard(),
                 schema_id: field("schema_ref"),
@@ -1117,6 +1150,92 @@ impl ProtocolResourceSelector {
     }
 }
 
+fn validate_spec_selector_object(object: &serde_json::Map<String, Value>) -> Result<()> {
+    let encoded = serde_json::to_vec(object)
+        .map_err(|_| Error::Protocol("selector_too_complex".to_owned()))?;
+    if encoded.len() > SELECTOR_JSON_MAX_BYTES {
+        return Err(Error::Protocol("selector_too_complex".to_owned()));
+    }
+    let unknown_fields = object
+        .keys()
+        .filter(|key| !RESOURCE_SELECTOR_KNOWN_FIELDS.contains(&key.as_str()))
+        .count();
+    if unknown_fields > SELECTOR_UNKNOWN_FIELDS_MAX {
+        return Err(Error::Protocol("selector_too_complex".to_owned()));
+    }
+    for value in object.values() {
+        validate_spec_selector_field_value(value)?;
+    }
+    if object.get("actor_id").and_then(Value::as_str) == Some("*") {
+        return Err(Error::Protocol(
+            "selector_actor_wildcard_forbidden".to_owned(),
+        ));
+    }
+    if selector_uses_governance_wildcard(object) {
+        return Err(Error::Protocol(
+            "selector_governance_wildcard_forbidden".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_spec_selector_field_value(value: &Value) -> Result<()> {
+    match value {
+        Value::String(value) if value.len() > SELECTOR_FIELD_MAX_BYTES => {
+            Err(Error::Protocol("selector_too_complex".to_owned()))
+        }
+        Value::Array(values) => {
+            for value in values {
+                validate_spec_selector_field_value(value)?;
+            }
+            Ok(())
+        }
+        Value::Object(object) => {
+            for value in object.values() {
+                validate_spec_selector_field_value(value)?;
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+fn selector_uses_governance_wildcard(object: &serde_json::Map<String, Value>) -> bool {
+    match object.get("kind").and_then(Value::as_str) {
+        Some("policy") => {
+            selector_field_missing_or_wildcard(object, "policy_id")
+                || selector_field_missing_or_wildcard(object, "realm_id")
+        }
+        Some("schema") => {
+            selector_field_missing_or_wildcard(object, "schema_ref")
+                || selector_field_missing_or_wildcard(object, "realm_id")
+        }
+        Some("object") => {
+            let object_type = object.get("object_type").and_then(Value::as_str);
+            let object_ref = object.get("object_ref").and_then(Value::as_str);
+            let governance_type = matches!(object_type, Some("policy" | "schema"));
+            let governance_ref = object_ref.is_some_and(|value| {
+                value.starts_with("ck:policy:") || value.starts_with("ck:schema:")
+            });
+            (governance_type
+                && (selector_field_missing_or_wildcard(object, "object_ref")
+                    || selector_field_missing_or_wildcard(object, "realm_id")))
+                || (governance_ref && selector_field_missing_or_wildcard(object, "realm_id"))
+        }
+        _ => false,
+    }
+}
+
+fn selector_field_missing_or_wildcard(
+    object: &serde_json::Map<String, Value>,
+    field: &str,
+) -> bool {
+    object
+        .get(field)
+        .and_then(Value::as_str)
+        .is_none_or(|value| value == "*")
+}
+
 #[cfg(test)]
 mod spec_selector_tests {
     use serde_json::json;
@@ -1156,6 +1275,31 @@ mod spec_selector_tests {
     fn unknown_kind_fails_closed() {
         let err = ResourceSelector::from_spec_value(&json!({"kind": "board"})).unwrap_err();
         assert!(format!("{err}").contains("unknown resource selector kind"));
+    }
+
+    #[test]
+    fn actor_wildcard_fails_closed() {
+        let err = ResourceSelector::from_spec_value(&json!({"kind": "actor", "actor_id": "*"}))
+            .unwrap_err();
+        assert!(format!("{err}").contains("selector_actor_wildcard_forbidden"));
+        assert!(
+            !(ResourceSelector::Actor {
+                actor_id: "*".to_owned(),
+            }
+            .matches(&Resource::Actor {
+                actor_id: "did:web:alice.example".to_owned(),
+            }))
+        );
+    }
+
+    #[test]
+    fn governance_wildcard_fails_closed() {
+        let err = ResourceSelector::from_spec_value(&json!({
+            "kind": "policy",
+            "realm_id": "ck:realm:01904100-0000-7000-8000-65c7feb295d7"
+        }))
+        .unwrap_err();
+        assert!(format!("{err}").contains("selector_governance_wildcard_forbidden"));
     }
 
     #[test]

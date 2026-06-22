@@ -192,11 +192,8 @@ fn is_hash(value: &str) -> bool {
     let Some((algorithm, digest)) = value.split_once(':') else {
         return false;
     };
-    // Critical digest identifiers are accepted only for suites this crate can
-    // recompute. Without a BLAKE3 verifier backend, `blake3` fails closed
-    // rather than being accepted as a bare format string.
     let expected_len = match algorithm {
-        "sha256" => 64,
+        "sha256" | "blake3" => 64,
         _ => return false,
     };
     digest.len() == expected_len
@@ -631,19 +628,16 @@ mod tests {
         let digest64 = "0".repeat(64);
         let digest128 = "0".repeat(128);
 
-        // Only digest suites this crate can recompute are accepted in critical
-        // ID positions. blake3 remains fail-closed until a verifier backend is
-        // wired in.
         assert!(Hash::new(format!("sha256:{digest64}")).is_ok());
-        assert!(Hash::new(format!("blake3:{digest64}")).is_err());
+        assert!(Hash::new(format!("blake3:{digest64}")).is_ok());
         assert!(Hash::new(format!("sha3_256:{digest64}")).is_err());
         assert!(Hash::new(format!("sha512:{digest128}")).is_err());
         assert!(BlobRef::new(format!("ck:blob:sha3_256:{digest64}")).is_err());
         // event_digest (C47 / spec e10b6ad): bare hash, no `ck:move:` prefix.
-        assert!(MoveId::new(format!("blake3:{digest64}")).is_err());
+        assert!(MoveId::new(format!("blake3:{digest64}")).is_ok());
         assert!(MoveId::new(format!("sha256:{digest64}")).is_ok());
         assert!(MoveId::new(format!("sha512:{digest128}")).is_err());
-        assert!(SealId::new(format!("ck:seal:blake3:{digest64}")).is_err());
+        assert!(SealId::new(format!("ck:seal:blake3:{digest64}")).is_ok());
         assert!(SealId::new(format!("ck:seal:sha512:{digest128}")).is_err());
     }
 

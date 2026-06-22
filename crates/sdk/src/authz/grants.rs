@@ -633,6 +633,16 @@ pub(crate) fn constraint_entries_from_spec(value: &Value) -> Result<Vec<Constrai
                     })?;
                 constraints.push(Constraint::AllowedCircleIds { allowed_circle_ids });
             }
+            if let Some(session_ids) = object.get("allowed_session_ids") {
+                let allowed_session_ids: std::collections::BTreeSet<
+                    cokret_core::AgentInteropSessionId,
+                > = serde_json::from_value(session_ids.clone()).map_err(|err| {
+                    Error::Protocol(format!("invalid allowed_session_ids: {err}"))
+                })?;
+                constraints.push(Constraint::AllowedSessionIds {
+                    allowed_session_ids,
+                });
+            }
             let allowed_relation_kinds = string_list(object, "allowed_relation_kinds");
             let allowed_view_ids = string_list(object, "allowed_view_ids");
             let allowed_from = string_list(object, "allowed_from_container_refs");

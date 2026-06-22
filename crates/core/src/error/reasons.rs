@@ -193,6 +193,7 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_NAMING_CONVENTION_VIOLATION,
     REASON_APPROVAL_NONCE_REUSED,
     REASON_EXECUTED_BY_MISSING,
+    REASON_ACTOR_KIND_REDUCER_MANAGED,
     REASON_THIRD_PARTY_INVITE_TOKEN_IN_QUERY,
     REASON_PATCH_PATH_INVALID,
     REASON_PATCH_PATH_REDUCER_MANAGED,
@@ -257,6 +258,9 @@ pub const REASON_SCOPE_REBIND_FORBIDDEN: &str = "scope_rebind_forbidden";
 /// `schema_violation` sub-reason: actor-side submit payload supplied the
 /// reducer-managed `effective_scope` field directly.
 pub const REASON_EFFECTIVE_SCOPE_REDUCER_MANAGED: &str = "effective_scope_reducer_managed";
+/// `schema_violation` sub-reason: actor-side submit payload supplied the
+/// reducer-managed Envelope runtime classifier directly.
+pub const REASON_ACTOR_KIND_REDUCER_MANAGED: &str = "actor_kind_reducer_managed";
 /// `failed_precondition` sub-reason: a write would expose metadata below
 /// the effective `metadata_encryption_floor` floor (max of parent
 /// Realm, Circle, Space child-scope-policy, and object profile floors).

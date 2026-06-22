@@ -91,6 +91,9 @@ pub struct AuthzContext {
     /// grant's allow-list.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub circle_id: Option<cokret_core::CircleId>,
+    /// Agent interop session id for session-scoped status/result writes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_interop_session_id: Option<cokret_core::AgentInteropSessionId>,
 }
 
 impl AuthzContext {
@@ -125,6 +128,7 @@ impl AuthzContext {
             to_container_id: None,
             wip_over_limit: None,
             circle_id: None,
+            agent_interop_session_id: None,
         }
     }
 
@@ -133,6 +137,15 @@ impl AuthzContext {
     /// capability (`ck.circle.*`).
     pub fn with_circle_id(mut self, circle_id: cokret_core::CircleId) -> Self {
         self.circle_id = Some(circle_id);
+        self
+    }
+
+    /// Set the target agent interop session id for `AllowedSessionIds`.
+    pub fn with_agent_interop_session_id(
+        mut self,
+        session_id: cokret_core::AgentInteropSessionId,
+    ) -> Self {
+        self.agent_interop_session_id = Some(session_id);
         self
     }
 
@@ -1166,6 +1179,31 @@ impl AuthzEngine {
                     }
                     // Constraint is Circle-scoped — non-Circle-targeted
                     // operations are out of scope; pass through.
+                    None => EngineDecision::Allow,
+                }
+            }
+            Constraint::AllowedSessionIds {
+                allowed_session_ids,
+            } => {
+                if allowed_session_ids.is_empty() {
+                    return EngineDecision::Deny {
+                        reason: "allowed_session_ids constraint requires a non-empty allow list"
+                            .to_owned(),
+                    };
+                }
+                match &ctx.agent_interop_session_id {
+                    Some(session_id) => {
+                        if allowed_session_ids.contains(session_id) {
+                            EngineDecision::Allow
+                        } else {
+                            EngineDecision::Deny {
+                                reason: format!(
+                                    "agent interop session '{}' not in allowed_session_ids allow list",
+                                    session_id.as_ref()
+                                ),
+                            }
+                        }
+                    }
                     None => EngineDecision::Allow,
                 }
             }

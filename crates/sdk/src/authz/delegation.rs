@@ -30,7 +30,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
-use cokret_core::CircleId;
+use cokret_core::{AgentInteropSessionId, CircleId};
 use serde::{Deserialize, Serialize};
 
 use crate::authz::constraints::ConstraintDuration;
@@ -125,6 +125,10 @@ pub enum GrantConstraint {
     /// rejected by the grant-issue guard.
     AllowedCircleIds {
         allowed_circle_ids: BTreeSet<CircleId>,
+    },
+    /// Limits agent interop-session status/result writes to explicit session ids.
+    AllowedSessionIds {
+        allowed_session_ids: BTreeSet<AgentInteropSessionId>,
     },
     /// Resource must carry at least one of the listed facets. soland uses
     /// this on `ck:strand:` / `ck:realm:` / `ck:morph:` projections; an
@@ -772,6 +776,23 @@ mod tests {
         let json = serde_json::to_string(&constraint).expect("serde round trip");
         assert!(json.contains("allowed_circle_ids"));
         assert!(json.contains("ck:circle:01904100-0000-7000-8000-000000000000"));
+        let round_tripped: GrantConstraint =
+            serde_json::from_str(&json).expect("deserialize typed");
+        assert_eq!(constraint, round_tripped);
+    }
+
+    #[test]
+    fn allowed_session_ids_constraint_round_trips_through_serde() {
+        let session = AgentInteropSessionId::new(
+            "ck:agent_interop_session:01904100-0000-7000-8000-000000000000".to_owned(),
+        )
+        .expect("valid AgentInteropSessionId");
+        let constraint = GrantConstraint::AllowedSessionIds {
+            allowed_session_ids: BTreeSet::from([session]),
+        };
+        let json = serde_json::to_string(&constraint).expect("serde round trip");
+        assert!(json.contains("allowed_session_ids"));
+        assert!(json.contains("ck:agent_interop_session:01904100-0000-7000-8000-000000000000"));
         let round_tripped: GrantConstraint =
             serde_json::from_str(&json).expect("deserialize typed");
         assert_eq!(constraint, round_tripped);

@@ -326,14 +326,19 @@ impl Event {
     }
 
     pub fn validate_for_submit(&self) -> Result<()> {
+        if self.effective_scope.is_some() {
+            return Err(Error::Protocol(
+                crate::error::REASON_EFFECTIVE_SCOPE_REDUCER_MANAGED.to_owned(),
+            ));
+        }
+        if self.actor_kind.is_some() {
+            return Err(Error::Protocol(
+                crate::error::REASON_ACTOR_KIND_REDUCER_MANAGED.to_owned(),
+            ));
+        }
         self.validate_wire_schema()?;
         self.validate_applet_provenance_invariants()
             .map_err(Error::Protocol)?;
-        if self.effective_scope.is_some() {
-            return Err(Error::Protocol(
-                "event effective_scope is reducer-managed on actor submit".to_owned(),
-            ));
-        }
         if self.proofs.is_empty() {
             return Err(Error::Protocol(
                 "event proofs must contain at least one proof".to_owned(),
@@ -591,6 +596,32 @@ mod event_wire_surface_tests {
         assert!(
             err.to_string()
                 .contains("applet_id requires authorization_ref"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn submit_rejects_actor_supplied_actor_kind() {
+        let mut event = base_event();
+        event.actor_kind = Some(EnvelopeActorKind::Agent);
+
+        let err = event.validate_for_submit().unwrap_err();
+        assert!(
+            err.to_string()
+                .contains(crate::error::REASON_ACTOR_KIND_REDUCER_MANAGED),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn submit_rejects_actor_supplied_effective_scope_with_reason() {
+        let mut event = base_event();
+        event.effective_scope = Some(EffectiveScope::Realm { realm_id: realm() });
+
+        let err = event.validate_for_submit().unwrap_err();
+        assert!(
+            err.to_string()
+                .contains(crate::error::REASON_EFFECTIVE_SCOPE_REDUCER_MANAGED),
             "unexpected error: {err}"
         );
     }

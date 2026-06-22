@@ -298,6 +298,21 @@ impl MlsWelcomeClaimEnvelope {
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
         canonical::canonical_json_bytes(&self.signing_input())
     }
+
+    pub fn validate_signature_shape(&self) -> std::result::Result<(), &'static str> {
+        if self.signature.kid.is_empty()
+            || !self.signature.kid.starts_with(self.requester_did.as_str())
+            || self.signature.sig.is_empty()
+        {
+            return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+        }
+        if let Some(alg) = self.signature.alg.as_deref()
+            && !matches!(alg, "EdDSA" | "Ed25519")
+        {
+            return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -368,12 +383,10 @@ pub fn validate_mls_welcome_claim_envelope(
         || envelope.ssk_generation != current_ssk_generation
         || envelope.nonce != claim_nonce
         || envelope.welcome_digest.as_str() != welcome_digest.as_str()
-        || envelope.signature.kid.is_empty()
-        || !envelope.signature.kid.starts_with(requester_did.as_str())
-        || envelope.signature.sig.is_empty()
     {
         return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
+    envelope.validate_signature_shape()?;
     if envelope.created_at > claim.expires_at || welcome.expires_at > claim.expires_at {
         return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }

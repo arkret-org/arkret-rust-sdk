@@ -386,8 +386,8 @@ fn verify_ice_config_signature(
 /// - the top-level `signature.kid` resolves to an anchored media-service DID → else
 ///   `ice_config_denied`;
 /// - `refresh_lead_seconds < ttl_seconds` (§4.1) and `ttl_seconds > 0`;
-/// - `signature.sig` verifies as EdDSA(ed25519) over
-///   `ck.media.ice_config.v1 || 0x00 || canonical_json(response minus signature)`;
+/// - `signature.sig` verifies as EdDSA(ed25519) over `ck.media.ice_config.v1 || 0x00 ||
+///   canonical_json(response minus signature)`;
 /// - every `ice_servers[]` TURN credential passes the pairwise-pseudonym privacy guard (no embedded
 ///   DID, B-14).
 pub fn verify_ice_config_outcome(
@@ -730,9 +730,10 @@ impl ModeratePayload {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use cokret_core::base64url::base64url_encode;
     use ed25519_dalek::{Signer, SigningKey};
+
+    use super::*;
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:web:{name}.example")).unwrap()

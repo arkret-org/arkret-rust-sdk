@@ -202,6 +202,26 @@ pub struct KeyBackup {
 }
 
 impl KeyBackup {
+    pub fn is_first_did_recovery_backup(&self) -> bool {
+        self.backup_class == BackupClass::DidRecovery && self.series_seq == 0
+    }
+
+    pub fn satisfies_first_did_recovery_backup_gate(&self) -> bool {
+        self.is_first_did_recovery_backup()
+            && self.recovery_policy_ref.is_some()
+            && self.auth_data.as_ref().is_some_and(|auth| {
+                !auth.device_id.as_str().is_empty()
+                    && !auth.verification_method.as_str().is_empty()
+                    && !auth.signature.is_empty()
+                    && auth
+                        .signed_fields
+                        .iter()
+                        .any(|field| field == "recovery_policy_ref")
+            })
+            && !self.contents.is_empty()
+            && !self.ciphertext_digest.as_str().is_empty()
+    }
+
     pub fn summary(&self) -> KeyBackupSummary {
         KeyBackupSummary {
             backup_id: self.backup_id.clone(),

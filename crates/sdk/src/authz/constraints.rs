@@ -252,6 +252,10 @@ pub enum Constraint {
     AllowedCircleIds {
         allowed_circle_ids: std::collections::BTreeSet<cokret_core::CircleId>,
     },
+    /// Limits agent interop-session status/result writes to explicit session ids.
+    AllowedSessionIds {
+        allowed_session_ids: std::collections::BTreeSet<cokret_core::AgentInteropSessionId>,
+    },
 }
 
 /// Constraint effect.
@@ -757,6 +761,7 @@ impl ConstraintEntry {
             Constraint::ContainerMove { .. } => ConstraintEffect::Allow,
             Constraint::ScopeLimitation { .. } => ConstraintEffect::Allow,
             Constraint::AllowedCircleIds { .. } => ConstraintEffect::Allow,
+            Constraint::AllowedSessionIds { .. } => ConstraintEffect::Allow,
         }
     }
 
@@ -794,6 +799,7 @@ impl ConstraintEntry {
             // grant body. Evaluator only needs to membership-test against the
             // request's circle_id; no Realm state or external lookup.
             Constraint::AllowedCircleIds { .. } => EvaluationClass::GrantLocal,
+            Constraint::AllowedSessionIds { .. } => EvaluationClass::GrantLocal,
         }
     }
 }

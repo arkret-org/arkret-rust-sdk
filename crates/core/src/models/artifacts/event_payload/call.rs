@@ -51,6 +51,17 @@ pub struct CallParticipant {
     pub media: Option<CallParticipantMedia>,
 }
 
+/// Removed participant trace in `ck.call.state.removed_participants[]`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RemovedCallParticipant {
+    pub actor_id: Did,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<String>,
+    pub action: String,
+    pub removed_at: DateTime<Utc>,
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -369,6 +380,8 @@ pub struct CallStatePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub participants: Option<Vec<CallParticipant>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub removed_participants: Option<Vec<RemovedCallParticipant>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recording_state: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recording_result: Option<CallStatePayloadRecordingResult>,
@@ -537,6 +550,34 @@ mod tests {
         assert_eq!(
             encoded["transcript_result"]["transcript_start_event_id"],
             "ck:event:019a7360-0000-7000-8000-000000000003"
+        );
+    }
+
+    #[test]
+    fn call_state_removed_participants_round_trips() {
+        let value = json!({
+            "call_id": "ck:call:019a7360-0000-7000-8000-000000000001",
+            "state": "active",
+            "removed_participants": [{
+                "actor_id": "did:web:bob.example",
+                "action": "ban",
+                "removed_at": "2026-06-22T00:00:00Z"
+            }]
+        });
+        let payload: CallStatePayload = serde_json::from_value(value).unwrap();
+
+        assert_eq!(
+            payload
+                .removed_participants
+                .as_ref()
+                .and_then(|removed| removed.first())
+                .map(|removed| removed.action.as_str()),
+            Some("ban")
+        );
+        let encoded = serde_json::to_value(payload).unwrap();
+        assert_eq!(
+            encoded["removed_participants"][0]["actor_id"],
+            "did:web:bob.example"
         );
     }
 
