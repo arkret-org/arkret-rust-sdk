@@ -398,6 +398,15 @@ mod tests {
         crate::Hash::new(format!("sha256:{}", "bb".repeat(32))).unwrap()
     }
 
+    fn sample_epoch_evidence(service_did: &Did) -> AppletRegistrationEpochEvidence {
+        let document = crate::identity::DidDocument::new(
+            service_did.clone(),
+            format!("{service_did}#key-1"),
+            "z6MkrJVnaZkeF7EsnJQ9xQY4bqG9tbeFqTzL7uTVs11FwUjT",
+        );
+        AppletRegistrationEpochEvidence::from_did_document(&document, None).unwrap()
+    }
+
     fn sample_wire_registration() -> WireAppletRegistration {
         WireAppletRegistration::new(
             "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
@@ -541,6 +550,7 @@ mod tests {
             "ck:keyref:webhook",
             vec![WebhookSignatureAlg::EdDsa],
         );
+        package.registration_epoch_evidence = Some(sample_epoch_evidence(&package.service_did));
 
         // Unsealed / unsigned package fails validation and derivation.
         assert!(package.validate().is_err());
@@ -563,6 +573,13 @@ mod tests {
         assert_eq!(reg.requested_scopes, package.requested_scopes);
         assert_eq!(reg.namespaces, package.namespaces);
         assert!(reg.manifest.is_some());
+        assert!(
+            reg.manifest
+                .as_ref()
+                .unwrap()
+                .get("registration_epoch_evidence")
+                .is_some()
+        );
 
         // Package digest excludes itself and proof.
         let recomputed = package.compute_package_digest().unwrap();

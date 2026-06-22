@@ -108,6 +108,8 @@ pub struct ReadReceiptPolicyPayload {
     pub allow_child_privacy_tightening_against_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub allow_public_receipts_on_world_readable: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_forced_public_world_readable_receipts: Option<bool>,
 }
 
 // `realm_archive_payload` now has a strong type:

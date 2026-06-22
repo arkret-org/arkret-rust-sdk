@@ -261,18 +261,20 @@ pub use agent::{
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet::{
     AccountabilityGrantPayload, AccountabilityGrantStatus, AccountabilityScope, ActorPolicy,
-    AppletBridgeErrorBuilder, AppletBridgeErrorVisibility, AppletDelegatedEventAuthorization,
-    AppletNamespaceConflict, AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage,
-    AppletPortal, AppletServiceIntent, AppletServiceTransaction, AppletWireNamespaces,
-    ApprovalRequest, ApprovedScope, EffectiveScope, GhostActorProfileFields,
+    AppletAcceptedSigningKeyEvidence, AppletBridgeErrorBuilder, AppletBridgeErrorVisibility,
+    AppletDelegatedEventAuthorization, AppletEpochEvidenceError, AppletNamespaceConflict,
+    AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage, AppletPortal,
+    AppletRegistrationEpochEvidence, AppletServiceIntent, AppletServiceTransaction,
+    AppletWireNamespaces, ApprovalRequest, ApprovedScope, EffectiveScope, GhostActorProfileFields,
     GhostActorProfileRequest, GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
     InstallCapabilityConstraint, InstallCommitOutcome, InstallCommitRequestBody,
     InstallDeniedScope, InstallE2eeEffect, InstallE2eePolicy, InstallEventSubmission,
     InstallNamespaceConflict, InstallPlan, InstallPreviewRequestBody, InstallRevokeRequestBody,
     InstallWidgetEffect, PortalMode, PortalRealmMapping, RemoteRealmMapping, RemoteUserMapping,
     ThirdPartyLookupKind, ThirdPartyLookupOutcome, ThirdPartyLookupRequestBody, VirtualActor,
-    WebhookAuth, WidgetPolicy, WireAppletRegistration, namespace_pattern_matches,
-    sign_registration,
+    WebhookAuth, WidgetPolicy, WireAppletRegistration, applet_did_document_digest,
+    applet_signing_key_material_digest, namespace_pattern_matches,
+    normalize_applet_signing_key_ref, sign_registration,
 };
 #[cfg(all(
     feature = "full-surface",
@@ -411,8 +413,9 @@ pub use identity::{
     StaridRegistryAdapter, StaridRegistryRecord, VerifiedDidKeyLog, handle_claim_proof,
     handle_dns_txt_name, handle_well_known_url, pairwise_resolution_proof,
     resolve_verification_method_key, resolve_verification_method_key_from_document,
-    starid_control_proof, verification_method_did, verify_canonical_proof_with_did_resolver,
-    verify_did_key_log, verify_event_proof_with_did_resolver,
+    starid_control_proof, verification_method_did, event_proof_verification_context,
+    verify_canonical_proof_with_did_resolver, verify_did_key_log,
+    verify_event_proof_with_did_resolver, verify_event_proof_with_did_resolver_context,
 };
 #[cfg(feature = "full-surface")]
 pub use identity_link::{IdentityLinkCache, IdentityLinkCacheEntry};
@@ -477,8 +480,9 @@ pub use realm::{
 };
 #[cfg(feature = "full-surface")]
 pub use receipts::{
-    ReadMarker, ReadReceipt, ReadReceiptDisclosure, ReadReceiptPolicy, ReadReceiptPreferences,
-    ReadReceiptVisibility, ReceiptDecision, ReceiptManager, ScopePref, should_send_receipt,
+    ReadMarker, ReadReceipt, ReadReceiptDisclosure, ReadReceiptPolicy,
+    ReadReceiptPolicyChildViolation, ReadReceiptPreferences, ReadReceiptVisibility,
+    ReceiptDecision, ReceiptManager, ScopePref, should_send_receipt,
 };
 #[cfg(feature = "full-surface")]
 pub use resolver::{

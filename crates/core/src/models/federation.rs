@@ -1,5 +1,9 @@
 use super::*;
 
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FederationTransactionRequestBody {
@@ -24,6 +28,12 @@ pub struct FederationTransactionOutcome {
     pub rejected: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_retry_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub historical_only: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub original_outcome: Option<Box<FederationTransactionOutcome>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -124,6 +124,10 @@ pub struct KeyBackupSummary {
     /// (recovery_public_key vs passphrase_kdf vs secret_storage_key) without
     /// downloading the ciphertext. The aead/kdf material is withheld here.
     pub encryption: KeyBackupSummaryEncryption,
+    pub series_id: BackupSeriesId,
+    pub series_seq: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovery_policy_ref: Option<RecoveryPolicyRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub contents: Vec<KeyBackupContentItem>,
 }
@@ -237,6 +241,9 @@ impl KeyBackup {
                 recipient_method: self.encryption.recipient_method,
                 recipient_key_ref: self.encryption.recipient_key_ref.clone(),
             },
+            series_id: self.series_id.clone(),
+            series_seq: self.series_seq,
+            recovery_policy_ref: self.recovery_policy_ref.clone(),
             contents: self.contents.clone(),
         }
     }

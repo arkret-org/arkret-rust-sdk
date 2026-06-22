@@ -1036,6 +1036,34 @@ pub struct SessionGrantRefreshRequestBody {
     /// change across rotation, else `audience_mismatch`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
+    /// Required when recovering from `soft_logged_out`; binds the signed
+    /// challenge to the concrete authorized device that owns this grant chain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    /// Fresh DID/device proof for `soft_logged_out -> active` recovery.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof: Option<SessionGrantRefreshProof>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantRefreshProof {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_kind: Option<SessionGrantProofKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub challenge: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_canonical_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audience: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issued_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, alias = "proof_jws", skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_method: Option<String>,
 }
 
 /// `ck.gate.account.command.refresh_session_grant` outcome.

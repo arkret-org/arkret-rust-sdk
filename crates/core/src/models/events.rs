@@ -554,6 +554,27 @@ impl Event {
         Ok(())
     }
 
+    pub fn validate_proof_bindings_with_context(
+        &self,
+        domain: Option<String>,
+        audience: Option<Audience>,
+        requirements: ProofBindingRequirements,
+    ) -> Result<()> {
+        let expected_hash = Hash::new(self.event_digest()?)?;
+        for proof in &self.proofs {
+            let expected = SignatureBindingPayload {
+                payload_digest: expected_hash.clone(),
+                actor_id: self.actor_id.clone(),
+                verification_method: proof.verification_method.clone(),
+                created_at: proof.created_at,
+                domain: domain.clone(),
+                audience: audience.clone(),
+            };
+            proof.validate_binding_with_requirements(&expected, requirements)?;
+        }
+        Ok(())
+    }
+
     pub fn new(
         kind: impl Into<String>,
         realm_id: RealmId,

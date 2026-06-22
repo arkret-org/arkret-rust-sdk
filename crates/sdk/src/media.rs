@@ -21,6 +21,9 @@ use crate::{AEAD_ALGORITHM, BlobRef, CallId, DeviceId, Did, Error, RealmId, Resu
 /// JSON of the seven authoritative fields.
 pub const PARTICIPANT_BINDING_LABEL: &str = "ck.media.participant_binding.v1";
 
+/// Derivation profile for the SDK's deterministic local thumbnail preview.
+pub const THUMBNAIL_DERIVATION_PROFILE: &str = "ck.profile.media.thumbnail_preview.v1";
+
 // ─── CKP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
 
 /// Backend type for a call's media focus. Wire enum mirrors
@@ -477,6 +480,22 @@ pub fn verify_call_media_token_outcome(
     })
 }
 
+/// Blob visibility class used by media metadata and thumbnails.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaVisibility {
+    Public,
+    RealmBound,
+    ActorPrivate,
+    DeviceBound,
+}
+
+/// Access metadata for an uploaded blob.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MediaAccess {
+    pub visibility: MediaVisibility,
+}
+
 /// Stored media metadata.
 ///
 /// `realm_id` is the Realm seal used by `media-and-blob.md` §5 to scope
@@ -506,25 +525,36 @@ pub struct MediaMetadata {
     /// `media-and-blob.md` §2). `None` only for global blobs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
+    /// Visibility policy inherited by derived media such as thumbnails.
+    pub access: MediaAccess,
 }
 
 /// Thumbnail metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Thumbnail {
-    /// Thumbnail blob reference.
-    pub blob_ref: BlobRef,
     /// Source blob reference.
     pub source_blob_ref: BlobRef,
-    /// Thumbnail media type.
-    pub media_type: String,
+    /// Optional digest for encrypted source media.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_ciphertext_digest: Option<String>,
+    /// Thumbnail blob reference.
+    pub thumbnail_blob_ref: BlobRef,
+    /// Optional digest for encrypted thumbnail media.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thumbnail_ciphertext_digest: Option<String>,
     /// Maximum width requested.
     pub width: u32,
     /// Maximum height requested.
     pub height: u32,
-    /// Thumbnail size in bytes.
-    ///
-    /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
-    pub size_bytes: u64,
+    /// Thumbnail media type.
+    pub media_type: String,
+    /// Service DID that derived the thumbnail, when server-generated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generated_by_service_did: Option<Did>,
+    /// Visibility inherited from the source blob metadata.
+    pub visibility: MediaVisibility,
+    /// Profile describing the deterministic thumbnail derivation.
+    pub derivation_profile: String,
 }
 
 /// Attachment metadata.
@@ -651,6 +681,11 @@ impl MemoryBlobStore {
     ) -> Result<MediaMetadata> {
         let bytes = bytes.as_ref();
         let blob_ref = blob_ref_for(bytes)?;
+        let visibility = if realm_id.is_some() {
+            MediaVisibility::RealmBound
+        } else {
+            MediaVisibility::Public
+        };
         let metadata = MediaMetadata {
             blob_ref: blob_ref.clone(),
             sha256: sha256_hex(bytes),
@@ -660,6 +695,7 @@ impl MemoryBlobStore {
             uploaded_by,
             uploaded_at: Utc::now(),
             realm_id,
+            access: MediaAccess { visibility },
         };
         self.blobs.insert(blob_ref.clone(), bytes.to_vec());
         self.metadata.insert(blob_ref, metadata.clone());
@@ -687,22 +723,54 @@ impl MemoryBlobStore {
         width: u32,
         height: u32,
     ) -> Result<Thumbnail> {
+        self.generate_thumbnail_with_service(source_blob_ref, width, height, None)
+    }
+
+    /// Generate and store a thumbnail derived by a plaintext-visible media service.
+    pub fn generate_thumbnail_by_service(
+        &mut self,
+        source_blob_ref: &BlobRef,
+        width: u32,
+        height: u32,
+        service_did: Did,
+    ) -> Result<Thumbnail> {
+        self.generate_thumbnail_with_service(source_blob_ref, width, height, Some(service_did))
+    }
+
+    fn generate_thumbnail_with_service(
+        &mut self,
+        source_blob_ref: &BlobRef,
+        width: u32,
+        height: u32,
+        generated_by_service_did: Option<Did>,
+    ) -> Result<Thumbnail> {
         let source = self
             .blobs
             .get(source_blob_ref)
             .ok_or_else(|| Error::Protocol("source blob not found".to_owned()))?;
+        let source_ciphertext_digest = format!("sha256:{}", sha256_hex(source));
         let mut preview = format!("thumbnail:{width}x{height}:").into_bytes();
         preview.extend(source.iter().take(256));
         let blob_ref = blob_ref_for(&preview)?;
         self.blobs.insert(blob_ref.clone(), preview.clone());
+        let thumbnail_ciphertext_digest = format!("sha256:{}", sha256_hex(&preview));
+        let visibility = self
+            .metadata
+            .get(source_blob_ref)
+            .map(|metadata| metadata.access.visibility)
+            .unwrap_or(MediaVisibility::Public);
 
         let thumbnail = Thumbnail {
-            blob_ref,
             source_blob_ref: source_blob_ref.clone(),
-            media_type: "image/preview".to_owned(),
+            source_ciphertext_digest: Some(source_ciphertext_digest),
+            thumbnail_blob_ref: blob_ref,
+            thumbnail_ciphertext_digest: Some(thumbnail_ciphertext_digest),
             width,
             height,
-            size_bytes: preview.len() as u64,
+            media_type: "image/preview".to_owned(),
+            generated_by_service_did,
+            visibility,
+            derivation_profile: THUMBNAIL_DERIVATION_PROFILE.to_owned(),
         };
         self.thumbnails
             .insert(source_blob_ref.clone(), thumbnail.clone());
@@ -1234,7 +1302,38 @@ mod tests {
             .generate_thumbnail(&metadata.blob_ref, 64, 64)
             .unwrap();
         assert_eq!(thumbnail.source_blob_ref, metadata.blob_ref);
+        assert!(thumbnail.thumbnail_blob_ref.as_str().starts_with("ck:blob:"));
+        let expected_source_digest = format!("sha256:{}", metadata.sha256);
+        assert_eq!(
+            thumbnail.source_ciphertext_digest.as_deref(),
+            Some(expected_source_digest.as_str())
+        );
+        assert!(
+            thumbnail
+                .thumbnail_ciphertext_digest
+                .as_deref()
+                .is_some_and(|digest| digest.starts_with("sha256:"))
+        );
+        assert_eq!(thumbnail.visibility, MediaVisibility::Public);
+        assert_eq!(
+            thumbnail.derivation_profile,
+            THUMBNAIL_DERIVATION_PROFILE
+        );
         assert!(store.thumbnail(&thumbnail.source_blob_ref).is_some());
+
+        let service_thumbnail = store
+            .generate_thumbnail_by_service(
+                &metadata.blob_ref,
+                32,
+                32,
+                Did::new("did:web:media.example".to_owned()).unwrap(),
+            )
+            .unwrap();
+        let media_service_did = Did::new("did:web:media.example".to_owned()).unwrap();
+        assert_eq!(
+            service_thumbnail.generated_by_service_did.as_ref(),
+            Some(&media_service_did)
+        );
     }
 
     #[test]

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::namespace_match::namespace_patterns_overlap;
+use crate::identity::DidDocument;
 use crate::{Did, Error, Proof, Result, canonical};
 
 /// Which namespace bucket a claim lives in. The wire model
@@ -198,6 +199,175 @@ impl WebhookAuth {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AppletAcceptedSigningKeyEvidence {
+    pub key_ref: String,
+    pub public_key_digest: crate::Hash,
+}
+
+/// Captured DID-document and signing-key evidence for an Applet registration
+/// epoch. Reducers expand this snapshot when checking delegated Applet grants
+/// and fail closed if the service DID document or accepted signing key set no
+/// longer matches the install-time epoch.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AppletRegistrationEpochEvidence {
+    pub service_did: Did,
+    pub did_document_digest: crate::Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub method_version_evidence: Option<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AppletEpochEvidenceError {
+    ServiceDidMismatch,
+    DidDocumentDigestMismatch,
+    SigningKeySetEmpty,
+    SigningKeySetMismatch,
+    SigningKeyMissing(String),
+    DidDocumentDigestFailed(String),
+    SigningKeyDigestFailed(String),
+}
+
+impl std::fmt::Display for AppletEpochEvidenceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ServiceDidMismatch => write!(f, "service DID does not match DID document"),
+            Self::DidDocumentDigestMismatch => write!(f, "DID document digest mismatch"),
+            Self::SigningKeySetEmpty => write!(f, "accepted signing key set is empty"),
+            Self::SigningKeySetMismatch => write!(f, "accepted signing key set mismatch"),
+            Self::SigningKeyMissing(key_ref) => {
+                write!(f, "accepted signing key is missing from DID document: {key_ref}")
+            }
+            Self::DidDocumentDigestFailed(error) => {
+                write!(f, "DID document digest failed: {error}")
+            }
+            Self::SigningKeyDigestFailed(error) => {
+                write!(f, "signing key digest failed: {error}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for AppletEpochEvidenceError {}
+
+impl AppletRegistrationEpochEvidence {
+    pub fn new(
+        service_did: Did,
+        did_document_digest: crate::Hash,
+        accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
+    ) -> Self {
+        Self {
+            service_did,
+            did_document_digest,
+            method_version_evidence: None,
+            accepted_signing_keys,
+        }
+    }
+
+    pub fn from_did_document(
+        document: &DidDocument,
+        method_version_evidence: Option<Value>,
+    ) -> Result<Self> {
+        let did_document_digest = applet_did_document_digest(document)?;
+        let mut accepted_signing_keys = Vec::with_capacity(document.verification_methods.len());
+        for (key_ref, public_key_material) in &document.verification_methods {
+            accepted_signing_keys.push(AppletAcceptedSigningKeyEvidence {
+                key_ref: normalize_applet_signing_key_ref(&document.id, key_ref),
+                public_key_digest: applet_signing_key_material_digest(public_key_material)?,
+            });
+        }
+        if accepted_signing_keys.is_empty() {
+            return Err(Error::Protocol(
+                "applet registration_epoch evidence has no signing keys".to_owned(),
+            ));
+        }
+        Ok(Self {
+            service_did: document.id.clone(),
+            did_document_digest,
+            method_version_evidence,
+            accepted_signing_keys,
+        })
+    }
+
+    pub fn validate_against_did_document(
+        &self,
+        document: &DidDocument,
+    ) -> std::result::Result<(), AppletEpochEvidenceError> {
+        if self.service_did != document.id {
+            return Err(AppletEpochEvidenceError::ServiceDidMismatch);
+        }
+        let actual_document_digest = applet_did_document_digest(document).map_err(|error| {
+            AppletEpochEvidenceError::DidDocumentDigestFailed(error.to_string())
+        })?;
+        if self.did_document_digest != actual_document_digest {
+            return Err(AppletEpochEvidenceError::DidDocumentDigestMismatch);
+        }
+        if self.accepted_signing_keys.is_empty() {
+            return Err(AppletEpochEvidenceError::SigningKeySetEmpty);
+        }
+
+        let mut captured = BTreeMap::new();
+        for key in &self.accepted_signing_keys {
+            if captured
+                .insert(key.key_ref.clone(), key.public_key_digest.clone())
+                .is_some()
+            {
+                return Err(AppletEpochEvidenceError::SigningKeySetMismatch);
+            }
+        }
+        let mut current = BTreeMap::new();
+        for (key_ref, public_key_material) in &document.verification_methods {
+            let normalized = normalize_applet_signing_key_ref(&self.service_did, key_ref);
+            let digest =
+                applet_signing_key_material_digest(public_key_material).map_err(|error| {
+                    AppletEpochEvidenceError::SigningKeyDigestFailed(error.to_string())
+                })?;
+            current.insert(normalized, digest);
+        }
+        for key_ref in captured.keys() {
+            if !current.contains_key(key_ref) {
+                return Err(AppletEpochEvidenceError::SigningKeyMissing(key_ref.clone()));
+            }
+        }
+        if captured != current {
+            return Err(AppletEpochEvidenceError::SigningKeySetMismatch);
+        }
+        Ok(())
+    }
+
+    pub fn contains_signing_key(&self, verification_method: &str) -> bool {
+        let key_ref = normalize_applet_signing_key_ref(&self.service_did, verification_method);
+        self.accepted_signing_keys
+            .iter()
+            .any(|key| key.key_ref == key_ref)
+    }
+}
+
+pub fn applet_did_document_digest(document: &DidDocument) -> Result<crate::Hash> {
+    crate::Hash::new(canonical::canonical_sha256(document)?).map_err(Into::into)
+}
+
+pub fn applet_signing_key_material_digest(public_key_material: &str) -> Result<crate::Hash> {
+    if let Ok(value) = serde_json::from_str::<Value>(public_key_material) {
+        return crate::Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into);
+    }
+    crate::Hash::new(canonical::sha256_digest(public_key_material.as_bytes())).map_err(Into::into)
+}
+
+pub fn normalize_applet_signing_key_ref(service_did: &Did, key_ref: &str) -> String {
+    if key_ref.starts_with("did:") {
+        key_ref.to_owned()
+    } else if key_ref.starts_with('#') {
+        format!("{}{}", service_did.as_str(), key_ref)
+    } else {
+        format!("{}#{}", service_did.as_str(), key_ref)
+    }
+}
+
 /// Wire-format `ck.applet.registration` Event content per spec
 /// `applet-schema.md` §1 (authoritative `applet_registration_payload`).
 ///
@@ -374,6 +544,10 @@ pub struct AppletPackage {
     /// Widget origin / CSP / token scope / consent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub widget: Option<Value>,
+    /// Captured DID document + signing-key evidence covered by
+    /// `registration_epoch`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub registration_epoch_evidence: Option<AppletRegistrationEpochEvidence>,
     /// Canonical package hash (excludes `package_digest` + `proof`).
     /// `None` until [`seal`](Self::seal).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -434,6 +608,7 @@ impl AppletPackage {
             delegation_policy: Value::Object(Default::default()),
             e2ee_policy: Value::Object(Default::default()),
             widget: None,
+            registration_epoch_evidence: None,
             package_digest: None,
             registration_epoch,
             created_at: Utc::now(),
@@ -515,6 +690,19 @@ impl AppletPackage {
                 "applet package requested_scopes are empty".to_owned(),
             ));
         }
+        let evidence = self.registration_epoch_evidence.as_ref().ok_or_else(|| {
+            Error::Protocol("applet package registration_epoch_evidence is missing".to_owned())
+        })?;
+        if evidence.service_did != self.service_did {
+            return Err(Error::Protocol(
+                "applet package registration_epoch_evidence service_did mismatch".to_owned(),
+            ));
+        }
+        if evidence.accepted_signing_keys.is_empty() {
+            return Err(Error::Protocol(
+                "applet package registration_epoch_evidence signing keys are empty".to_owned(),
+            ));
+        }
         if self.package_digest.is_none() {
             return Err(Error::Protocol("applet package is not sealed".to_owned()));
         }
@@ -547,6 +735,11 @@ impl AppletPackage {
         manifest.insert("e2ee_policy".to_owned(), self.e2ee_policy.clone());
         if let Some(widget) = &self.widget {
             manifest.insert("widget".to_owned(), widget.clone());
+        }
+        if let Some(evidence) = &self.registration_epoch_evidence
+            && let Ok(value) = serde_json::to_value(evidence)
+        {
+            manifest.insert("registration_epoch_evidence".to_owned(), value);
         }
         Value::Object(manifest)
     }

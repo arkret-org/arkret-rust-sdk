@@ -3,6 +3,12 @@ use serde_json::json;
 
 use super::super::*;
 
+fn single_did_notary(did: &str) -> crate::notary::NotaryValue {
+    crate::notary::NotaryValue::SingleDid {
+        did: Did::new(did).unwrap(),
+    }
+}
+
 #[test]
 fn rank_helpers_generate_between_and_rebalance_assignments() {
     let first = rank_between(None, None).unwrap();
@@ -155,10 +161,10 @@ fn strand_track_typed_constructors() {
     validate_strand_track_name("review").unwrap();
 }
 
-/// Realm seal fields default to None (notary cell is the source
-/// of truth) and the builders set them to expected values.
+/// Realm seal fields are explicit genesis values and the builders set them to
+/// expected overrides.
 #[test]
-fn realm_anchor_fields_default_none_and_builders_apply() {
+fn realm_anchor_fields_are_required_and_builders_apply() {
     use crate::notary::NotaryValue;
 
     let mut realm = Realm::new(
@@ -166,12 +172,26 @@ fn realm_anchor_fields_default_none_and_builders_apply() {
         "Seal Test",
         Did::new("did:web:alice.example").unwrap(),
         TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        NotaryProfile::SingleDid,
+        single_did_notary("did:web:alice.example"),
     );
-    assert!(realm.notary_profile.is_none());
-    assert!(realm.notary.is_none());
+    assert!(realm.preview_policy_id.is_none());
+    assert!(realm.sync_endpoints.is_empty());
+    assert_eq!(realm.notary_profile, NotaryProfile::SingleDid);
+    assert_eq!(
+        realm.digest_algorithm,
+        crate::canonical::DigestSuite::Sha256
+    );
+    assert!(matches!(
+        &realm.notary,
+        NotaryValue::SingleDid { did } if did.as_str() == "did:web:alice.example"
+    ));
     assert!(realm.revocation_freshness_window_ms.is_none());
+    assert_eq!(realm.max_delegation_lifetime_ms, 86_400_000);
+    assert!(realm.bottom_escalation_after_ms.is_none());
     assert!(realm.cell_lattices.is_empty());
     assert!(realm.co_write_policy.is_none());
+    assert!(realm.updated_by.is_none());
 
     realm = realm
         .with_notary_profile(NotaryProfile::Threshold)
@@ -191,13 +211,40 @@ fn realm_anchor_fields_default_none_and_builders_apply() {
             Some("reject".to_owned()),
         )
         .with_co_write_policy(CoWritePolicy::CausalOnly);
+    realm.preview_policy_id =
+        Some(PolicyId::new("ck:policy:0196419b-0000-7000-8000-000000000003").unwrap());
+    realm.sync_endpoints.push(SyncEndpoint {
+        did: Did::new("did:web:sync.example").unwrap(),
+        endpoint: "https://sync.example/_cokret".to_owned(),
+        role: "primary".to_owned(),
+        service_type: "principal_server".to_owned(),
+        plaintext_visible: false,
+        visibility_scope: Some("members".to_owned()),
+        policy_id: realm.preview_policy_id.clone(),
+        expires_at: None,
+    });
+    realm.digest_algorithm = crate::canonical::DigestSuite::Blake3;
+    realm.max_delegation_lifetime_ms = 3_600_000;
+    realm.bottom_escalation_after_ms = Some(120_000);
+    realm.updated_by = Some(Did::new("did:web:bob.example").unwrap());
 
-    assert_eq!(realm.notary_profile, Some(NotaryProfile::Threshold));
+    assert_eq!(
+        realm.preview_policy_id.as_ref().map(PolicyId::as_str),
+        Some("ck:policy:0196419b-0000-7000-8000-000000000003")
+    );
+    assert_eq!(realm.sync_endpoints.len(), 1);
+    assert_eq!(realm.notary_profile, NotaryProfile::Threshold);
+    assert_eq!(
+        realm.digest_algorithm,
+        crate::canonical::DigestSuite::Blake3
+    );
     assert!(matches!(
-        realm.notary,
-        Some(NotaryValue::Threshold { k: 2, n: 3, .. })
+        &realm.notary,
+        NotaryValue::Threshold { k: 2, n: 3, .. }
     ));
     assert_eq!(realm.revocation_freshness_window_ms, Some(60_000));
+    assert_eq!(realm.max_delegation_lifetime_ms, 3_600_000);
+    assert_eq!(realm.bottom_escalation_after_ms, Some(120_000));
     assert_eq!(realm.cell_lattices.len(), 1);
     assert_eq!(
         realm.cell_lattices[0].cell_family,
@@ -209,40 +256,117 @@ fn realm_anchor_fields_default_none_and_builders_apply() {
 
     // Round-trip through serde to confirm wire shape.
     let json = serde_json::to_value(&realm).unwrap();
+    assert_eq!(
+        json["preview_policy_id"],
+        "ck:policy:0196419b-0000-7000-8000-000000000003"
+    );
+    assert_eq!(json["sync_endpoints"][0]["did"], "did:web:sync.example");
     assert_eq!(json["notary_profile"], "threshold");
+    assert_eq!(json["digest_algorithm"], "blake3");
     assert_eq!(json["revocation_freshness_window_ms"], 60_000);
+    assert_eq!(json["max_delegation_lifetime_ms"], 3_600_000);
+    assert_eq!(json["bottom_escalation_after_ms"], 120_000);
     assert_eq!(json["co_write_policy"], "causal_only");
+    assert_eq!(json["updated_by"], "did:web:bob.example");
     assert_eq!(
         json["cell_lattices"][0]["cell_family"],
         "ck.component.strand.track.v1"
     );
 
     let restored: Realm = serde_json::from_value(json).unwrap();
+    assert_eq!(
+        restored.preview_policy_id.as_ref().map(PolicyId::as_str),
+        realm.preview_policy_id.as_ref().map(PolicyId::as_str)
+    );
+    assert_eq!(restored.sync_endpoints.len(), 1);
     assert_eq!(restored.notary_profile, realm.notary_profile);
+    assert_eq!(restored.digest_algorithm, realm.digest_algorithm);
     assert_eq!(
         restored.revocation_freshness_window_ms,
         realm.revocation_freshness_window_ms
     );
+    assert_eq!(
+        restored.max_delegation_lifetime_ms,
+        realm.max_delegation_lifetime_ms
+    );
+    assert_eq!(
+        restored.bottom_escalation_after_ms,
+        realm.bottom_escalation_after_ms
+    );
     assert_eq!(restored.co_write_policy, realm.co_write_policy);
+    assert_eq!(
+        restored.updated_by.as_ref().map(Did::as_str),
+        realm.updated_by.as_ref().map(Did::as_str)
+    );
 }
 
-/// `Realm::new` omits seal fields from the wire when they're
-/// `None` (skip_serializing_if), so sparse fixtures stay clean.
+/// `Realm::new` keeps the required genesis seal fields on the wire while
+/// still omitting optional seal health hints.
 #[test]
-fn realm_anchor_fields_omitted_when_none() {
+fn realm_anchor_fields_include_required_notary() {
     let realm = Realm::new(
         RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000002").unwrap(),
         "No Seal Hint",
         Did::new("did:web:alice.example").unwrap(),
         TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        NotaryProfile::SingleDid,
+        single_did_notary("did:web:alice.example"),
     );
     let json = serde_json::to_value(&realm).unwrap();
     let obj = json.as_object().unwrap();
-    assert!(!obj.contains_key("notary_profile"));
-    assert!(!obj.contains_key("notary"));
+    assert!(!obj.contains_key("preview_policy_id"));
+    assert!(!obj.contains_key("sync_endpoints"));
+    assert_eq!(obj.get("notary_profile"), Some(&json!("single_did")));
+    assert_eq!(json["notary"]["type"], "single_did");
+    assert_eq!(json["notary"]["did"], "did:web:alice.example");
     assert!(!obj.contains_key("revocation_freshness_window_ms"));
+    assert_eq!(obj.get("digest_algorithm"), Some(&json!("sha256")));
+    assert_eq!(obj.get("max_delegation_lifetime_ms"), Some(&json!(86_400_000)));
+    assert!(!obj.contains_key("bottom_escalation_after_ms"));
     assert!(!obj.contains_key("cell_lattices"));
     assert!(!obj.contains_key("co_write_policy"));
+    assert!(!obj.contains_key("updated_by"));
+}
+
+#[test]
+fn realm_notary_profile_must_match_notary_type() {
+    let realm = Realm::new(
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000005").unwrap(),
+        "Mismatched Notary",
+        Did::new("did:web:alice.example").unwrap(),
+        TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        NotaryProfile::Threshold,
+        single_did_notary("did:web:notary.example"),
+    );
+
+    let err = realm.validate_kind_invariants().unwrap_err();
+    assert!(format!("{err}").contains("notary_profile must match notary.type"));
+}
+
+#[test]
+fn realm_digest_algorithm_defaults_and_rejects_unknown_values() {
+    let realm = Realm::new(
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000004").unwrap(),
+        "Digest Defaults",
+        Did::new("did:web:alice.example").unwrap(),
+        TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        NotaryProfile::SingleDid,
+        single_did_notary("did:web:alice.example"),
+    );
+    let mut json = serde_json::to_value(&realm).unwrap();
+    let obj = json.as_object_mut().unwrap();
+    obj.remove("digest_algorithm");
+    obj.remove("max_delegation_lifetime_ms");
+
+    let parsed: Realm = serde_json::from_value(json.clone()).unwrap();
+    assert_eq!(
+        parsed.digest_algorithm,
+        crate::canonical::DigestSuite::Sha256
+    );
+    assert_eq!(parsed.max_delegation_lifetime_ms, 86_400_000);
+
+    json["digest_algorithm"] = json!("md5");
+    assert!(serde_json::from_value::<Realm>(json).is_err());
 }
 
 /// T20 — CollectionProjectionOutcome round-trips through serde with
@@ -532,6 +656,53 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         "Strand",
         &top_level_keys(&serde_json::to_string(&strand).unwrap()),
     );
+
+    let mut realm = Realm::new(
+        RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000f2").unwrap(),
+        "Order guard realm",
+        created_by.clone(),
+        TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        NotaryProfile::SingleDid,
+        single_did_notary("did:web:notary.example"),
+    );
+    realm.policy_id =
+        Some(PolicyId::new("ck:policy:01904100-0000-7000-8000-0000000000f3").unwrap());
+    realm.preview_policy_id =
+        Some(PolicyId::new("ck:policy:01904100-0000-7000-8000-0000000000f4").unwrap());
+    realm.federation_policy = Some(FederationPolicy::Restricted);
+    realm.sync_endpoints.push(SyncEndpoint {
+        did: Did::new("did:web:sync.example").unwrap(),
+        endpoint: "https://sync.example/_cokret".to_owned(),
+        role: "primary".to_owned(),
+        service_type: "principal_server".to_owned(),
+        plaintext_visible: false,
+        visibility_scope: None,
+        policy_id: None,
+        expires_at: None,
+    });
+    realm.digest_algorithm = crate::canonical::DigestSuite::Blake3;
+    realm.revocation_freshness_window_ms = Some(30_000);
+    realm.max_delegation_lifetime_ms = 3_600_000;
+    realm.bottom_escalation_after_ms = Some(120_000);
+    realm.cell_lattices.push(CellLatticeDeclaration {
+        cell_family: "ck.component.strand.track.v1".to_owned(),
+        lattice: "or_set".to_owned(),
+        bottom: Some("reject".to_owned()),
+    });
+    realm.updated_by = Some(updated_by.clone());
+    realm.updated_at = Some(now);
+    let realm_keys = top_level_keys(&serde_json::to_string(&realm).unwrap());
+    assert_field_order("Realm", &realm_keys);
+    let realm_pos = |name: &str| realm_keys.iter().position(|k| k == name).unwrap();
+    assert!(realm_pos("policy_id") < realm_pos("preview_policy_id"));
+    assert!(realm_pos("preview_policy_id") < realm_pos("default_discoverability"));
+    assert!(realm_pos("federation_policy") < realm_pos("sync_endpoints"));
+    assert!(realm_pos("sync_endpoints") < realm_pos("notary_profile"));
+    assert!(realm_pos("notary_profile") < realm_pos("digest_algorithm"));
+    assert!(realm_pos("digest_algorithm") < realm_pos("notary"));
+    assert!(realm_pos("revocation_freshness_window_ms") < realm_pos("max_delegation_lifetime_ms"));
+    assert!(realm_pos("max_delegation_lifetime_ms") < realm_pos("bottom_escalation_after_ms"));
+    assert!(realm_pos("bottom_escalation_after_ms") < realm_pos("cell_lattices"));
 
     // Morph — scope/container cluster `scope_circle_id` precedes lifecycle `state`.
     let mut morph = Morph::new(

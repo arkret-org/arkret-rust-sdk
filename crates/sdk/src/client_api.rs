@@ -23,7 +23,7 @@ use chrono::{DateTime, Utc};
 use cokret_core::push::{PushPriority, PushRule, PushRuleSet, Pusher};
 use cokret_core::{
     BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId, Notification,
-    RealmId, Result,
+    RealmId, Result, ThirdPartyInviteOobKind,
 };
 use cokret_crypto::MediaEncryptionInfo;
 use cokret_html::RichTextDocument;
@@ -1140,11 +1140,84 @@ impl CallSignalRequestBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ThirdPartyInviteMedium {
+    Email,
+    Phone,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ThirdPartyInviteRequestBody {
-    pub invite_id: InviteId,
-    pub medium: String,
-    pub address: String,
     pub realm_id: RealmId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invite_id: Option<InviteId>,
+    pub medium: ThirdPartyInviteMedium,
+    pub oob_code_kind: ThirdPartyInviteOobKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name_hint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_entropy_bits: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_service_did: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_public_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_claims: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub join_rule_snapshot: Option<Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ThirdPartyInviteTokenTransport {
+    UrlFragment,
+    OobCode,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ThirdPartyInviteTokenHandoff {
+    pub transport: ThirdPartyInviteTokenTransport,
+    pub url: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ThirdPartyInviteIssueOutcome {
+    pub invite_id: InviteId,
+    pub realm_id: RealmId,
+    pub state: String,
+    pub event_id: EventId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    pub token_handoff: ThirdPartyInviteTokenHandoff,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ThirdPartyInviteClaimRequestBody {
+    pub invite_token: String,
+    pub claim_nonce: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject_id: Option<Did>,
+    pub binding_proof: Value,
+    pub subject_proof: Value,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ThirdPartyInviteClaimOutcome {
+    pub invite_id: InviteId,
+    pub realm_id: RealmId,
+    pub state: String,
+    pub invitee: Did,
+    pub claim_event_id: EventId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

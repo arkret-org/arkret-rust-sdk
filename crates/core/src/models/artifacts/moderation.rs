@@ -80,6 +80,8 @@ pub struct SubmitPayload {
 pub type TargetRef = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/moderation-report.schema.json#/$defs/franking_proof`.
+pub const MODERATION_FRANKING_PROOF_KIND: &str = "ck.moderation.franking_proof";
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FrankingProofSenderClaim {
@@ -94,7 +96,7 @@ pub struct FrankingProof {
     pub kind: String,
     pub franking_proof_id: String,
     pub realm_id: RealmId,
-    pub event_id: EventRef,
+    pub event_id: EventId,
     pub routing_metadata_digest: Value,
     pub ciphertext_digest: Hash,
     pub aad_digest: Hash,
@@ -103,4 +105,154 @@ pub struct FrankingProof {
     pub received_at: DateTime<Utc>,
     pub replay_nonce: String,
     pub signature: String,
+}
+
+/// Accepted-event anchor used to constrain a franking proof `received_at`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FrankingProofEventTimeAnchor {
+    pub event_id: EventId,
+    pub realm_id: RealmId,
+    pub received_by: Did,
+    pub received_at: DateTime<Utc>,
+    pub ciphertext_digest: Hash,
+}
+
+impl FrankingProofEventTimeAnchor {
+    pub fn new(
+        event_id: EventId,
+        realm_id: RealmId,
+        received_by: Did,
+        received_at: DateTime<Utc>,
+        ciphertext_digest: Hash,
+    ) -> Self {
+        Self {
+            event_id,
+            realm_id,
+            received_by,
+            received_at,
+            ciphertext_digest,
+        }
+    }
+}
+
+impl FrankingProof {
+    pub const TIME_ANCHOR_MAX_SKEW_SECS: i64 = 300;
+
+    pub fn validate_event_time_anchor(
+        &self,
+        anchor: &FrankingProofEventTimeAnchor,
+    ) -> Result<()> {
+        if self.kind != MODERATION_FRANKING_PROOF_KIND {
+            return Err(Error::Protocol(
+                "franking proof kind must be ck.moderation.franking_proof".to_owned(),
+            ));
+        }
+        if self.event_id != anchor.event_id {
+            return Err(Error::Protocol(
+                "franking proof event_id does not match accepted event anchor".to_owned(),
+            ));
+        }
+        if self.realm_id != anchor.realm_id {
+            return Err(Error::Protocol(
+                "franking proof realm_id does not match accepted event anchor".to_owned(),
+            ));
+        }
+        if self.received_by != anchor.received_by {
+            return Err(Error::Protocol(
+                "franking proof received_by does not match time anchor issuer".to_owned(),
+            ));
+        }
+        if self.ciphertext_digest != anchor.ciphertext_digest {
+            return Err(Error::Protocol(
+                "franking proof ciphertext_digest does not match accepted encrypted event".to_owned(),
+            ));
+        }
+        let skew_secs = self
+            .received_at
+            .signed_duration_since(anchor.received_at)
+            .num_seconds()
+            .abs();
+        if skew_secs > Self::TIME_ANCHOR_MAX_SKEW_SECS {
+            return Err(Error::Protocol(format!(
+                "franking proof received_at is not constrained by the accepted event time anchor: skew {skew_secs}s"
+            )));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn did(value: &str) -> Did {
+        Did::new(value).unwrap()
+    }
+
+    fn event_id(value: &str) -> EventId {
+        EventId::new(value).unwrap()
+    }
+
+    fn hash(ch: char) -> Hash {
+        Hash::new(format!("sha256:{}", ch.to_string().repeat(64))).unwrap()
+    }
+
+    fn timestamp(value: &str) -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(value)
+            .unwrap()
+            .with_timezone(&Utc)
+    }
+
+    fn realm_id() -> RealmId {
+        RealmId::new("ck:realm:01904100-0000-7000-8000-d0d0d0d0d0d0").unwrap()
+    }
+
+    fn proof() -> FrankingProof {
+        FrankingProof {
+            kind: MODERATION_FRANKING_PROOF_KIND.to_owned(),
+            franking_proof_id: "ck:franking_proof:01904100-0000-7000-8000-000000000111"
+                .to_owned(),
+            realm_id: realm_id(),
+            event_id: event_id("ck:event:01904100-0000-7000-8000-000000000222"),
+            routing_metadata_digest: Value::String(hash('c').to_string()),
+            ciphertext_digest: hash('d'),
+            aad_digest: hash('e'),
+            sender_claim: FrankingProofSenderClaim {
+                actor_id: did("did:web:alice.example"),
+                device_id: "ck:device:01904100-0000-7000-8000-000000000333".to_owned(),
+                mls_group_id_digest: hash('f'),
+            },
+            received_by: did("did:web:soland.local"),
+            received_at: timestamp("2026-04-30T00:00:00Z"),
+            replay_nonce: "nonce_0123456789".to_owned(),
+            signature: "sig".to_owned(),
+        }
+    }
+
+    fn anchor(received_at: DateTime<Utc>) -> FrankingProofEventTimeAnchor {
+        FrankingProofEventTimeAnchor::new(
+            event_id("ck:event:01904100-0000-7000-8000-000000000222"),
+            realm_id(),
+            did("did:web:soland.local"),
+            received_at,
+            hash('d'),
+        )
+    }
+
+    #[test]
+    fn franking_time_anchor_accepts_matching_event_record() {
+        let proof = proof();
+        proof
+            .validate_event_time_anchor(&anchor(timestamp("2026-04-30T00:00:01Z")))
+            .unwrap();
+    }
+
+    #[test]
+    fn franking_time_anchor_rejects_backdated_received_at() {
+        let proof = proof();
+        let err = proof
+            .validate_event_time_anchor(&anchor(timestamp("2026-04-30T00:10:01Z")))
+            .unwrap_err();
+        assert!(err.to_string().contains("time anchor"));
+    }
 }

@@ -75,23 +75,27 @@ pub struct RelationEdgeRef<'a> {
 }
 
 pub fn relation_kind_is_structural(relation_kind: &str) -> bool {
-    matches!(
-        relation_kind,
-        RELATION_KIND_CONTAINS | RELATION_KIND_BELONGS_TO
-    )
+    standard_relation_kind_metadata(relation_kind)
+        .map(|metadata| !metadata.weak_semantic)
+        .unwrap_or(false)
 }
 
 pub fn relation_direct_write_reject_reason(
     relation_kind: &str,
     from_ref: Option<&str>,
 ) -> Option<&'static str> {
-    match relation_kind {
-        RELATION_KIND_WATCHES => Some(crate::error::REASON_RELATION_KIND_WATCHES_DERIVED),
-        RELATION_KIND_CONTAINS if from_ref.is_some_and(|value| value.starts_with("ck:space:")) => {
-            Some(crate::error::REASON_RELATION_KIND_CONTAINS_DERIVED)
-        }
-        _ => None,
+    let metadata = standard_relation_kind_metadata(relation_kind)?;
+    if metadata.truth_source_class == RelationTruthSourceClass::DerivedProjection
+        && relation_kind == RELATION_KIND_WATCHES
+    {
+        return Some(crate::error::REASON_RELATION_KIND_WATCHES_DERIVED);
     }
+    if relation_kind == RELATION_KIND_CONTAINS
+        && from_ref.is_some_and(|value| value.starts_with("ck:space:"))
+    {
+        return Some(crate::error::REASON_RELATION_KIND_CONTAINS_DERIVED);
+    }
+    None
 }
 
 pub fn validate_relation_direct_write(
@@ -203,6 +207,7 @@ mod tests {
             validate_relation_direct_write(RELATION_KIND_CONTAINS, Some("ck:strand:a")).is_ok()
         );
         assert!(validate_relation_direct_write("references", Some("ck:space:a")).is_ok());
+        assert!(validate_relation_direct_write("vendor_custom", Some("ck:space:a")).is_ok());
     }
 
     #[test]
@@ -227,5 +232,76 @@ mod tests {
             validate_structural_relation_same_realm("references", "ck:realm:a", ["ck:realm:b"],)
                 .is_ok()
         );
+        assert_eq!(
+            validate_structural_relation_same_realm(
+                RELATION_KIND_WATCHES,
+                "ck:realm:a",
+                ["ck:realm:a", "ck:realm:b"],
+            ),
+            Err(crate::error::REASON_CROSS_REALM_STRUCTURAL_RELATION)
+        );
+        assert!(
+            validate_structural_relation_same_realm(
+                "vendor_custom",
+                "ck:realm:a",
+                ["ck:realm:b"],
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn relation_kind_custom_round_trips_without_standard_semantics() {
+        let kind: RelationKind = serde_json::from_value(serde_json::json!("vendor_custom"))
+            .expect("custom relation kind must deserialize");
+        assert_eq!(kind.as_str(), "vendor_custom");
+        assert!(!kind.is_standard());
+        assert!(!kind.is_structural());
+        assert_eq!(
+            serde_json::to_value(&kind).unwrap(),
+            serde_json::json!("vendor_custom")
+        );
+    }
+
+    #[test]
+    fn standard_relation_kind_metadata_matches_embedded_registry() {
+        let registry = crate::schema::embedded_json_artifact("registry/relation-kind-registry.json")
+            .expect("embedded relation registry");
+        let relation_kinds = registry["relation_kinds"]
+            .as_array()
+            .expect("relation_kinds array");
+        let registry_ids: Vec<&str> = relation_kinds
+            .iter()
+            .map(|row| row["canonical_id"].as_str().expect("canonical_id"))
+            .collect();
+        let sdk_ids: Vec<&str> = STANDARD_RELATION_KIND_METADATA
+            .iter()
+            .map(|metadata| metadata.canonical_id)
+            .collect();
+        assert_eq!(sdk_ids, registry_ids);
+
+        for row in relation_kinds {
+            let id = row["canonical_id"].as_str().expect("canonical_id");
+            let metadata = standard_relation_kind_metadata(id).expect("SDK metadata row");
+            assert_eq!(
+                metadata.default_cardinality,
+                row["default_cardinality"]
+                    .as_str()
+                    .expect("default_cardinality")
+            );
+            assert_eq!(
+                metadata.truth_source_class,
+                match row["truth_source_class"].as_str().expect("truth_source_class") {
+                    "canonical" => RelationTruthSourceClass::Canonical,
+                    "derived_projection" => RelationTruthSourceClass::DerivedProjection,
+                    "shape_dependent" => RelationTruthSourceClass::ShapeDependent,
+                    other => panic!("unexpected truth_source_class: {other}"),
+                }
+            );
+            assert_eq!(
+                metadata.weak_semantic,
+                row["weak_semantic"].as_bool().expect("weak_semantic")
+            );
+        }
     }
 }

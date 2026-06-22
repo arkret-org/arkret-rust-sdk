@@ -198,6 +198,166 @@ pub enum RelationKind {
     Custom(String),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RelationTruthSourceClass {
+    Canonical,
+    DerivedProjection,
+    ShapeDependent,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StandardRelationKindMetadata {
+    pub canonical_id: &'static str,
+    pub default_cardinality: &'static str,
+    pub truth_source_class: RelationTruthSourceClass,
+    pub weak_semantic: bool,
+}
+
+pub const STANDARD_RELATION_KIND_METADATA: &[StandardRelationKindMetadata] = &[
+    StandardRelationKindMetadata {
+        canonical_id: "contains",
+        default_cardinality: "shape_dependent",
+        truth_source_class: RelationTruthSourceClass::ShapeDependent,
+        weak_semantic: false,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "belongs_to",
+        default_cardinality: "many_to_one",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: false,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "replies_to",
+        default_cardinality: "many_to_one",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: true,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "depends_on",
+        default_cardinality: "many_to_many",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: true,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "blocks",
+        default_cardinality: "many_to_many",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: true,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "mentions",
+        default_cardinality: "many_to_many",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: true,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "assigned_to",
+        default_cardinality: "many_to_many",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: true,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "references",
+        default_cardinality: "many_to_many",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: true,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "derived_from",
+        default_cardinality: "many_to_many",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: true,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "attached_to",
+        default_cardinality: "many_to_many",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: true,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "has_default_view",
+        default_cardinality: "many_to_one",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: true,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "summarized_from",
+        default_cardinality: "many_to_many",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: true,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "promoted_from_discussion",
+        default_cardinality: "many_to_many",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: true,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "watches",
+        default_cardinality: "one_active_edge_per_pair",
+        truth_source_class: RelationTruthSourceClass::DerivedProjection,
+        weak_semantic: false,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "agent_sidecar_of",
+        default_cardinality: "many_to_one",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: true,
+    },
+    StandardRelationKindMetadata {
+        canonical_id: "confidential_discussion_of",
+        default_cardinality: "many_to_one",
+        truth_source_class: RelationTruthSourceClass::Canonical,
+        weak_semantic: true,
+    },
+];
+
+pub fn standard_relation_kind_metadata(
+    relation_kind: &str,
+) -> Option<&'static StandardRelationKindMetadata> {
+    STANDARD_RELATION_KIND_METADATA
+        .iter()
+        .find(|metadata| metadata.canonical_id == relation_kind)
+}
+
+impl RelationKind {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Contains => "contains",
+            Self::BelongsTo => "belongs_to",
+            Self::RepliesTo => "replies_to",
+            Self::DependsOn => "depends_on",
+            Self::Blocks => "blocks",
+            Self::Mentions => "mentions",
+            Self::AssignedTo => "assigned_to",
+            Self::References => "references",
+            Self::DerivedFrom => "derived_from",
+            Self::SummarizedFrom => "summarized_from",
+            Self::PromotedFromDiscussion => "promoted_from_discussion",
+            Self::AttachedTo => "attached_to",
+            Self::HasDefaultView => "has_default_view",
+            Self::Watches => "watches",
+            Self::ConfidentialDiscussionOf => "confidential_discussion_of",
+            Self::AgentSidecarOf => "agent_sidecar_of",
+            Self::Custom(value) => value.as_str(),
+        }
+    }
+
+    pub fn standard_metadata(&self) -> Option<&'static StandardRelationKindMetadata> {
+        standard_relation_kind_metadata(self.as_str())
+    }
+
+    pub fn is_standard(&self) -> bool {
+        self.standard_metadata().is_some()
+    }
+
+    pub fn is_structural(&self) -> bool {
+        self.standard_metadata()
+            .map(|metadata| !metadata.weak_semantic)
+            .unwrap_or(false)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -707,6 +867,125 @@ pub enum Audience {
     Multiple(Vec<String>),
 }
 
+impl Audience {
+    fn covers(&self, required: &Self) -> bool {
+        match (self, required) {
+            (Self::Single(actual), Self::Single(expected)) => actual == expected,
+            (Self::Multiple(actual), Self::Single(expected)) => actual.contains(expected),
+            (Self::Single(actual), Self::Multiple(expected)) => {
+                expected.len() == 1 && expected.first() == Some(actual)
+            }
+            (Self::Multiple(actual), Self::Multiple(expected)) => {
+                expected.iter().all(|value| actual.contains(value))
+            }
+        }
+    }
+
+    fn validate_binding_value(&self) -> Result<()> {
+        match self {
+            Self::Single(value) => {
+                if value.trim().is_empty() {
+                    return Err(Error::Protocol(
+                        "proof audience must not be empty".to_owned(),
+                    ));
+                }
+            }
+            Self::Multiple(values) => {
+                if values.is_empty() {
+                    return Err(Error::Protocol(
+                        "proof audience list must not be empty".to_owned(),
+                    ));
+                }
+                let mut seen = std::collections::BTreeSet::new();
+                for value in values {
+                    if value.trim().is_empty() {
+                        return Err(Error::Protocol(
+                            "proof audience entries must not be empty".to_owned(),
+                        ));
+                    }
+                    if !seen.insert(value) {
+                        return Err(Error::Protocol(
+                            "proof audience entries must be unique".to_owned(),
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ProofBindingRequirements {
+    pub require_domain: bool,
+    pub require_audience: bool,
+}
+
+impl ProofBindingRequirements {
+    pub const fn local() -> Self {
+        Self {
+            require_domain: false,
+            require_audience: false,
+        }
+    }
+
+    pub const fn cross_domain() -> Self {
+        Self {
+            require_domain: true,
+            require_audience: true,
+        }
+    }
+}
+
+fn proof_binding_missing(field: &str) -> Error {
+    Error::Protocol(format!(
+        "{}: proof {field} is required",
+        crate::error::REASON_PROOF_BINDING_MISSING
+    ))
+}
+
+fn require_proof_domain(proof: Option<&str>, expected: Option<&str>) -> Result<()> {
+    if proof.map(str::trim).map(str::is_empty).unwrap_or(true) {
+        return Err(proof_binding_missing("domain"));
+    }
+    if expected.map(str::trim).map(str::is_empty).unwrap_or(true) {
+        return Err(Error::Protocol(
+            format!(
+                "{}: expected domain is required",
+                crate::error::REASON_PROOF_BINDING_MISSING
+            ),
+        ));
+    }
+    Ok(())
+}
+
+fn require_proof_audience(proof: Option<&Audience>, expected: Option<&Audience>) -> Result<()> {
+    if proof.is_none() {
+        return Err(proof_binding_missing("audience"));
+    }
+    if expected.is_none() {
+        return Err(Error::Protocol(
+            format!(
+                "{}: expected audience is required",
+                crate::error::REASON_PROOF_BINDING_MISSING
+            ),
+        ));
+    }
+    Ok(())
+}
+
+fn proof_audience_covers_expected(
+    proof: Option<&Audience>,
+    expected: Option<&Audience>,
+) -> bool {
+    match (proof, expected) {
+        (_, None) => true,
+        (Some(proof), Some(expected)) => proof.covers(expected),
+        _ => false,
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -872,6 +1151,14 @@ impl Proof {
         if self.kind.is_empty() {
             return Err(Error::Protocol("proof kind must not be empty".to_owned()));
         }
+        if self.domain.as_deref().is_some_and(str::trim().is_empty) {
+            return Err(Error::Protocol(
+                "proof domain must not be empty".to_owned(),
+            ));
+        }
+        if let Some(audience) = &self.audience {
+            audience.validate_binding_value()?;
+        }
         Ok(())
     }
 
@@ -906,6 +1193,21 @@ impl Proof {
     /// Checks: verification_method, event_digest, created_at (within tolerance),
     /// domain, and audience.
     pub fn validate_binding(&self, expected: &SignatureBindingPayload) -> Result<()> {
+        self.validate_binding_with_requirements(expected, ProofBindingRequirements::local())
+    }
+
+    pub fn validate_cross_domain_binding(
+        &self,
+        expected: &SignatureBindingPayload,
+    ) -> Result<()> {
+        self.validate_binding_with_requirements(expected, ProofBindingRequirements::cross_domain())
+    }
+
+    pub fn validate_binding_with_requirements(
+        &self,
+        expected: &SignatureBindingPayload,
+        requirements: ProofBindingRequirements,
+    ) -> Result<()> {
         self.validate()?;
         if self.verification_method != expected.verification_method {
             return Err(Error::Protocol(format!(
@@ -932,13 +1234,23 @@ impl Proof {
                     .expect("proof skew constant fits seconds")
             )));
         }
-        if self.domain != expected.domain {
+        if requirements.require_domain {
+            require_proof_domain(self.domain.as_deref(), expected.domain.as_deref())?;
+        } else if expected.domain.is_some() && self.domain.is_none() {
+            return Err(proof_binding_missing("domain"));
+        }
+        if requirements.require_audience {
+            require_proof_audience(self.audience.as_ref(), expected.audience.as_ref())?;
+        } else if expected.audience.is_some() && self.audience.is_none() {
+            return Err(proof_binding_missing("audience"));
+        }
+        if expected.domain.is_some() && self.domain != expected.domain {
             return Err(Error::Protocol(format!(
                 "proof domain {:?} does not match expected {:?}",
                 self.domain, expected.domain
             )));
         }
-        if self.audience != expected.audience {
+        if !proof_audience_covers_expected(self.audience.as_ref(), expected.audience.as_ref()) {
             return Err(Error::Protocol(format!(
                 "proof audience {:?} does not match expected {:?}",
                 self.audience, expected.audience

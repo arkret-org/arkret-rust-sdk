@@ -330,6 +330,74 @@ fn proof_validate_binding_rejects_mismatched_audience() {
 }
 
 #[test]
+fn proof_validate_binding_accepts_multi_audience_covering_required_context() {
+    let mut proof = valid_proof();
+    proof.audience = Some(Audience::Multiple(vec![
+        "did:web:service-a.example".to_owned(),
+        "did:web:service-b.example".to_owned(),
+    ]));
+    let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+    expected.audience = Some(Audience::Single("did:web:service-b.example".to_owned()));
+    assert!(proof.validate_binding(&expected).is_ok());
+}
+
+#[test]
+fn proof_validate_binding_ignores_domain_and_audience_when_context_is_local() {
+    let mut proof = valid_proof();
+    proof.domain = Some("ck:trust_domain:example.net".to_owned());
+    proof.audience = Some(Audience::Single("did:web:service.example".to_owned()));
+    let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+    expected.domain = None;
+    expected.audience = None;
+    assert!(proof.validate_binding(&expected).is_ok());
+}
+
+#[test]
+fn proof_validate_cross_domain_binding_requires_domain_and_audience() {
+    let mut proof = valid_proof();
+    proof.audience = Some(Audience::Single("did:web:service.example".to_owned()));
+    let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+    expected.domain = Some("ck:trust_domain:example.net".to_owned());
+    expected.audience = Some(Audience::Single("did:web:service.example".to_owned()));
+    let error = proof.validate_cross_domain_binding(&expected).unwrap_err();
+    assert!(
+        error.to_string().contains("proof_binding_missing"),
+        "{error}"
+    );
+
+    proof.domain = Some("ck:trust_domain:example.net".to_owned());
+    assert!(proof.validate_cross_domain_binding(&expected).is_ok());
+}
+
+#[test]
+fn proof_validate_cross_domain_binding_requires_expected_context() {
+    let mut proof = valid_proof();
+    proof.domain = Some("ck:trust_domain:example.net".to_owned());
+    proof.audience = Some(Audience::Single("did:web:service.example".to_owned()));
+    let expected = valid_proof().binding_payload(&Did::new("did:web:alice.example").unwrap());
+    let error = proof.validate_cross_domain_binding(&expected).unwrap_err();
+    assert!(
+        error.to_string().contains("proof_binding_missing"),
+        "{error}"
+    );
+}
+
+#[test]
+fn proof_validate_rejects_empty_domain_or_audience() {
+    let mut proof = valid_proof();
+    proof.domain = Some(" ".to_owned());
+    assert!(proof.validate().is_err());
+
+    let mut proof = valid_proof();
+    proof.audience = Some(Audience::Multiple(vec![]));
+    assert!(proof.validate().is_err());
+
+    let mut proof = valid_proof();
+    proof.audience = Some(Audience::Multiple(vec!["svc-a".to_owned(), "svc-a".to_owned()]));
+    assert!(proof.validate().is_err());
+}
+
+#[test]
 fn proof_validate_binding_rejects_excessive_time_drift() {
     let proof = valid_proof();
     let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
@@ -395,6 +463,95 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
     let mut signed_event = event;
     signed_event.proofs = vec![bad_proof];
     assert!(signed_event.validate_proof_bindings().is_err());
+}
+
+#[test]
+fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
+    let event = Event::new(
+        "ck.message.create",
+        test_realm_id(),
+        Did::new("did:web:alice.example").unwrap(),
+        1,
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+        json!({ "body": "hello" }),
+    )
+    .unwrap();
+
+    let digest = event.event_digest().unwrap();
+    let proof = Proof {
+        kind: "detached_jws".to_owned(),
+        alg: "EdDSA".to_owned(),
+        verification_method: "did:web:alice.example#key-1".to_owned(),
+        event_digest: Hash::new(digest).unwrap(),
+        created_at: Utc::now(),
+        domain: None,
+        audience: Some(Audience::Single("did:web:service.example".to_owned())),
+        jws: "sig".to_owned(),
+    };
+    let mut signed_event = event;
+    signed_event.proofs = vec![proof];
+    let error = signed_event
+        .validate_proof_bindings_with_context(
+            Some("ck:trust_domain:example.net".to_owned()),
+            Some(Audience::Single("did:web:service.example".to_owned())),
+            ProofBindingRequirements::cross_domain(),
+        )
+        .unwrap_err();
+    assert!(
+        error.to_string().contains("proof_binding_missing"),
+        "{error}"
+    );
+    signed_event.proofs[0].domain = Some("ck:trust_domain:example.net".to_owned());
+    assert!(
+        signed_event
+            .validate_proof_bindings_with_context(
+                Some("ck:trust_domain:example.net".to_owned()),
+                Some(Audience::Single("did:web:service.example".to_owned())),
+                ProofBindingRequirements::cross_domain(),
+            )
+            .is_ok()
+    );
+}
+
+#[test]
+fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding() {
+    let mut operation = OperationEnvelopeBuilder::new(
+        OperationId::new("ck:operation:01904100-0000-7000-8000-9c5aa4740640").unwrap(),
+        test_realm_id(),
+        Did::new("did:web:alice.example").unwrap(),
+        OP_MESSAGE_CREATE,
+        7,
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+    )
+    .with_content(json!({
+        "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+        "content": {"kind": "ck.content.text", "body": "hello"}
+    }))
+    .build(&OperationKindRegistry::default())
+    .unwrap();
+    let digest = operation.operation_digest().unwrap();
+    operation.proofs = vec![Proof {
+        kind: "detached_jws".to_owned(),
+        alg: "EdDSA".to_owned(),
+        verification_method: "did:web:alice.example#key-1".to_owned(),
+        event_digest: Hash::new(digest).unwrap(),
+        created_at: Utc::now(),
+        domain: None,
+        audience: Some(Audience::Single("did:web:service.example".to_owned())),
+        jws: "sig".to_owned(),
+    }];
+
+    assert!(
+        operation
+            .validate_proof_bindings_with_context(
+                Some("ck:trust_domain:example.net".to_owned()),
+                Some(Audience::Single("did:web:service.example".to_owned())),
+                ProofBindingRequirements::cross_domain(),
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("proof_binding_missing")
+    );
 }
 
 #[test]

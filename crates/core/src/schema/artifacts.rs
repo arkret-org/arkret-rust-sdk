@@ -1046,6 +1046,10 @@ pub(super) fn read_embedded_json_artifact(path: &str) -> Result<Value> {
         .ok_or_else(|| Error::Protocol(format!("embedded spec artifact {path} is missing")))
 }
 
+pub fn embedded_json_artifact(path: &str) -> Result<Value> {
+    read_embedded_json_artifact(path)
+}
+
 #[cfg(test)]
 pub(super) fn embedded_spec_artifact_paths() -> Result<Vec<String>> {
     Ok(embedded_spec_artifacts()?.keys().cloned().collect())

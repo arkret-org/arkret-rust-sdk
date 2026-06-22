@@ -16,6 +16,7 @@
 //! if a discussion needs an independent boundary.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 
 use chrono::{DateTime, Utc};
 use cokret_core::ReadCursorId;
@@ -252,6 +253,16 @@ pub enum ReadReceiptVisibility {
     Private,
 }
 
+impl ReadReceiptVisibility {
+    fn privacy_rank(self) -> u8 {
+        match self {
+            Self::Public => 0,
+            Self::Members => 1,
+            Self::Private => 2,
+        }
+    }
+}
+
 /// Typed value of the read-receipt disclosure policy cell.
 ///
 /// Carried only by the Realm-level cell
@@ -259,35 +270,156 @@ pub enum ReadReceiptVisibility {
 /// (`ck.strand.track.read_receipt_policy`) was removed from spec
 /// revision `0a5ab85`; create a child Realm or Circle for an independent
 /// disclosure boundary instead.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ReadReceiptPolicy {
     #[serde(default)]
     pub disclosure: ReadReceiptDisclosure,
     #[serde(default)]
     pub visibility: ReadReceiptVisibility,
+    #[serde(default = "default_read_receipt_scope_overrides_allowed")]
+    pub scope_overrides_allowed: bool,
+    #[serde(default)]
+    pub allow_child_privacy_tightening_against_required: bool,
+    #[serde(default)]
+    pub allow_public_receipts_on_world_readable: bool,
+    #[serde(default)]
+    pub allow_forced_public_world_readable_receipts: bool,
+}
+
+impl Default for ReadReceiptPolicy {
+    fn default() -> Self {
+        Self {
+            disclosure: ReadReceiptDisclosure::Optional,
+            visibility: ReadReceiptVisibility::Members,
+            scope_overrides_allowed: true,
+            allow_child_privacy_tightening_against_required: false,
+            allow_public_receipts_on_world_readable: false,
+            allow_forced_public_world_readable_receipts: false,
+        }
+    }
+}
+
+fn default_read_receipt_scope_overrides_allowed() -> bool {
+    true
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReadReceiptPolicyChildViolation {
+    ScopeOverridesDisabled,
+    DisclosurePrivacyLoosened,
+    ComplianceFloorViolated,
+    VisibilityLoosened,
+}
+
+impl fmt::Display for ReadReceiptPolicyChildViolation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ScopeOverridesDisabled => {
+                f.write_str("child read-receipt policy must inherit parent exactly")
+            }
+            Self::DisclosurePrivacyLoosened => {
+                f.write_str("child read-receipt disclosure loosens parent privacy")
+            }
+            Self::ComplianceFloorViolated => {
+                f.write_str("child read-receipt policy crosses parent compliance floor")
+            }
+            Self::VisibilityLoosened => {
+                f.write_str("child read-receipt visibility loosens parent visibility")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ReadReceiptPolicyChildViolation {}
+
+impl ReadReceiptPolicy {
+    pub fn validate_child_policy(
+        &self,
+        child: &ReadReceiptPolicy,
+    ) -> std::result::Result<(), ReadReceiptPolicyChildViolation> {
+        if !self.scope_overrides_allowed && child != self {
+            return Err(ReadReceiptPolicyChildViolation::ScopeOverridesDisabled);
+        }
+        self.validate_child_disclosure(child.disclosure)?;
+        self.validate_child_visibility(child.visibility)
+    }
+
+    fn validate_child_disclosure(
+        &self,
+        child: ReadReceiptDisclosure,
+    ) -> std::result::Result<(), ReadReceiptPolicyChildViolation> {
+        match (self.disclosure, child) {
+            (ReadReceiptDisclosure::Required, ReadReceiptDisclosure::Required)
+            | (ReadReceiptDisclosure::Optional, ReadReceiptDisclosure::Optional)
+            | (ReadReceiptDisclosure::Optional, ReadReceiptDisclosure::Disabled)
+            | (ReadReceiptDisclosure::Disabled, ReadReceiptDisclosure::Disabled) => Ok(()),
+            (
+                ReadReceiptDisclosure::Required,
+                ReadReceiptDisclosure::Optional | ReadReceiptDisclosure::Disabled,
+            ) if self.allow_child_privacy_tightening_against_required => Ok(()),
+            (
+                ReadReceiptDisclosure::Required,
+                ReadReceiptDisclosure::Optional | ReadReceiptDisclosure::Disabled,
+            ) => Err(ReadReceiptPolicyChildViolation::ComplianceFloorViolated),
+            _ => Err(ReadReceiptPolicyChildViolation::DisclosurePrivacyLoosened),
+        }
+    }
+
+    fn validate_child_visibility(
+        &self,
+        child: ReadReceiptVisibility,
+    ) -> std::result::Result<(), ReadReceiptPolicyChildViolation> {
+        if child.privacy_rank() >= self.visibility.privacy_rank() {
+            Ok(())
+        } else {
+            Err(ReadReceiptPolicyChildViolation::VisibilityLoosened)
+        }
+    }
 }
 
 // ─── Account-data preferences (client-preferences.md §3.6) ─────────────
 
-/// One scope's worth of receipt-sending preference.
+/// One scope's worth of read-receipt preference.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScopePref {
     /// `None` = inherit (use the next layer up). `Some(true)` /
     /// `Some(false)` = explicit override.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub send: Option<bool>,
+    /// `None` = inherit (use the next layer up). `Some(true)` /
+    /// `Some(false)` = explicit local-rendering override.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display: Option<bool>,
 }
 
 impl ScopePref {
     pub fn send(send: bool) -> Self {
-        Self { send: Some(send) }
+        Self {
+            send: Some(send),
+            display: None,
+        }
+    }
+
+    pub fn display(display: bool) -> Self {
+        Self {
+            send: None,
+            display: Some(display),
+        }
+    }
+
+    pub fn send_and_display(send: bool, display: bool) -> Self {
+        Self {
+            send: Some(send),
+            display: Some(display),
+        }
     }
 }
 
 /// Account-data value for `ck.read_receipt.preferences`.
 ///
 /// Resolution order is (strand -> Realm -> default); the first non-`None`
-/// `send` field wins.
+/// field wins independently for `send` and `display`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReadReceiptPreferences {
     #[serde(default)]
@@ -320,6 +452,29 @@ impl ReadReceiptPreferences {
             return send;
         }
         self.default.send.unwrap_or(true)
+    }
+
+    /// Effective local rendering preference for displaying other members'
+    /// read receipts. This only gates UI rendering; it does not change
+    /// receipt subscription, fanout, unread calculation, or read cursors.
+    pub fn effective_display(
+        &self,
+        strand_id: Option<&StrandId>,
+        realm_id: Option<&RealmId>,
+    ) -> bool {
+        if let Some(fid) = strand_id
+            && let Some(pref) = self.strands.get(fid)
+            && let Some(display) = pref.display
+        {
+            return display;
+        }
+        if let Some(sid) = realm_id
+            && let Some(pref) = self.realms.get(sid)
+            && let Some(display) = pref.display
+        {
+            return display;
+        }
+        self.default.display.unwrap_or(true)
     }
 }
 
@@ -449,26 +604,40 @@ mod tests {
     }
 
     #[test]
+    fn prefs_default_display_when_unset_is_true() {
+        let prefs = ReadReceiptPreferences::default();
+        assert!(prefs.effective_display(None, None));
+    }
+
+    #[test]
     fn prefs_explicit_default_overrides_protocol_default() {
         let mut prefs = ReadReceiptPreferences::default();
         prefs.default.send = Some(false);
         assert!(!prefs.effective_send(None, None));
+        prefs.default.display = Some(false);
+        assert!(!prefs.effective_display(None, None));
     }
 
     #[test]
     fn prefs_resolution_strand_overrides_realm_overrides_default() {
         let mut prefs = ReadReceiptPreferences::default();
         prefs.default.send = Some(true);
-        prefs.realms.insert(realm(), ScopePref::send(false));
-        prefs.strands.insert(strand(), ScopePref::send(true));
+        prefs.default.display = Some(true);
+        prefs.realms
+            .insert(realm(), ScopePref::send_and_display(false, false));
+        prefs.strands
+            .insert(strand(), ScopePref::send_and_display(true, true));
 
         // strand overrides Realm
         assert!(prefs.effective_send(Some(&strand()), Some(&realm())));
+        assert!(prefs.effective_display(Some(&strand()), Some(&realm())));
         // Realm overrides default when no strand override
         assert!(!prefs.effective_send(None, Some(&realm())));
+        assert!(!prefs.effective_display(None, Some(&realm())));
         // default applies when nothing else matches
         let other_realm = RealmId::new("ck:realm:01904100-0000-7000-8000-de7b2d3c4472").unwrap();
         assert!(prefs.effective_send(None, Some(&other_realm)));
+        assert!(prefs.effective_display(None, Some(&other_realm)));
     }
 
     #[test]
@@ -522,13 +691,112 @@ mod tests {
     }
 
     #[test]
+    fn policy_default_matches_spec_defaults() {
+        let policy = ReadReceiptPolicy::default();
+        assert_eq!(policy.disclosure, ReadReceiptDisclosure::Optional);
+        assert_eq!(policy.visibility, ReadReceiptVisibility::Members);
+        assert!(policy.scope_overrides_allowed);
+        assert!(!policy.allow_child_privacy_tightening_against_required);
+    }
+
+    #[test]
+    fn policy_rejects_unknown_fields() {
+        let value = serde_json::json!({
+            "disclosure": "required",
+            "visibility": "members",
+            "allow_child_privacy_tightening_against_required_typo": true
+        });
+        assert!(serde_json::from_value::<ReadReceiptPolicy>(value).is_err());
+    }
+
+    #[test]
+    fn child_policy_allows_only_privacy_tightening_by_default() {
+        let parent = ReadReceiptPolicy {
+            disclosure: ReadReceiptDisclosure::Optional,
+            visibility: ReadReceiptVisibility::Members,
+            ..Default::default()
+        };
+        let child = ReadReceiptPolicy {
+            disclosure: ReadReceiptDisclosure::Disabled,
+            visibility: ReadReceiptVisibility::Private,
+            ..Default::default()
+        };
+        parent.validate_child_policy(&child).unwrap();
+
+        let looser_visibility = ReadReceiptPolicy {
+            visibility: ReadReceiptVisibility::Public,
+            ..child.clone()
+        };
+        assert_eq!(
+            parent.validate_child_policy(&looser_visibility),
+            Err(ReadReceiptPolicyChildViolation::VisibilityLoosened)
+        );
+
+        let looser_disclosure = ReadReceiptPolicy {
+            disclosure: ReadReceiptDisclosure::Required,
+            ..child
+        };
+        assert_eq!(
+            parent.validate_child_policy(&looser_disclosure),
+            Err(ReadReceiptPolicyChildViolation::DisclosurePrivacyLoosened)
+        );
+    }
+
+    #[test]
+    fn child_policy_respects_required_compliance_floor() {
+        let parent = ReadReceiptPolicy {
+            disclosure: ReadReceiptDisclosure::Required,
+            visibility: ReadReceiptVisibility::Members,
+            ..Default::default()
+        };
+        let child = ReadReceiptPolicy {
+            disclosure: ReadReceiptDisclosure::Disabled,
+            visibility: ReadReceiptVisibility::Private,
+            ..Default::default()
+        };
+        assert_eq!(
+            parent.validate_child_policy(&child),
+            Err(ReadReceiptPolicyChildViolation::ComplianceFloorViolated)
+        );
+
+        let parent_with_escape = ReadReceiptPolicy {
+            allow_child_privacy_tightening_against_required: true,
+            ..parent
+        };
+        parent_with_escape.validate_child_policy(&child).unwrap();
+    }
+
+    #[test]
+    fn child_policy_requires_exact_inheritance_when_overrides_disabled() {
+        let parent = ReadReceiptPolicy {
+            disclosure: ReadReceiptDisclosure::Optional,
+            visibility: ReadReceiptVisibility::Members,
+            scope_overrides_allowed: false,
+            ..Default::default()
+        };
+        parent.validate_child_policy(&parent).unwrap();
+
+        let child = ReadReceiptPolicy {
+            disclosure: ReadReceiptDisclosure::Disabled,
+            visibility: ReadReceiptVisibility::Members,
+            ..parent.clone()
+        };
+        assert_eq!(
+            parent.validate_child_policy(&child),
+            Err(ReadReceiptPolicyChildViolation::ScopeOverridesDisabled)
+        );
+    }
+
+    #[test]
     fn prefs_serde_roundtrip() {
         let mut prefs = ReadReceiptPreferences::default();
         prefs.default.send = Some(true);
-        prefs.realms.insert(realm(), ScopePref::send(false));
+        prefs.default.display = Some(false);
+        prefs.realms
+            .insert(realm(), ScopePref::send_and_display(false, true));
+        prefs.strands.insert(strand(), ScopePref::display(false));
         let json = serde_json::to_string(&prefs).unwrap();
-        // Empty `strands` map MUST be omitted by `skip_serializing_if`.
-        assert!(!json.contains("\"strands\""));
+        assert!(json.contains("\"display\""));
         let back: ReadReceiptPreferences = serde_json::from_str(&json).unwrap();
         assert_eq!(back, prefs);
     }

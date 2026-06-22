@@ -157,7 +157,7 @@ pub struct DeviceRevokePayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectConversationBoundPayload {
-    pub pair_key: Value,
+    pub pair_key: String,
     pub participants_unordered: Vec<Did>,
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,

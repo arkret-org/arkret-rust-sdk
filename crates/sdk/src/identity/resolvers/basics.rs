@@ -144,15 +144,21 @@ pub fn verify_event_proof_with_did_resolver<R>(
 where
     R: DidResolver + ?Sized,
 {
+    let context = event_proof_verification_context(event)?;
+    verify_event_proof_with_did_resolver_context(event, proof, resolver, context)
+}
+
+pub fn verify_event_proof_with_did_resolver_context<R>(
+    event: &crate::Event,
+    proof: &crate::Proof,
+    resolver: &R,
+    context: cokret_signatures::ProofVerificationContext,
+) -> Result<cokret_signatures::SignatureVerification>
+where
+    R: DidResolver + ?Sized,
+{
     let builder = cokret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(event)?;
-    let expected_digest =
-        crate::Hash::new(cokret_core::canonical::sha256_digest(&canonical_bytes))?;
-    let signing_actor = event
-        .executed_by
-        .clone()
-        .unwrap_or_else(|| event.actor_id.clone());
-    let context = cokret_signatures::ProofVerificationContext::new(signing_actor, expected_digest);
     // Binding object `actor_id` is the Event envelope's `actor_id` (spec §6
     // L201), independent of the controller actor (`executed_by`) above.
     verify_canonical_proof_with_did_resolver(
@@ -162,6 +168,23 @@ where
         &context,
         resolver,
     )
+}
+
+pub fn event_proof_verification_context(
+    event: &crate::Event,
+) -> Result<cokret_signatures::ProofVerificationContext> {
+    let builder = cokret_signatures::EventProofBuilder::new();
+    let canonical_bytes = builder.envelope_bytes(event)?;
+    let expected_digest =
+        crate::Hash::new(cokret_core::canonical::sha256_digest(&canonical_bytes))?;
+    let signing_actor = event
+        .executed_by
+        .clone()
+        .unwrap_or_else(|| event.actor_id.clone());
+    Ok(cokret_signatures::ProofVerificationContext::new(
+        signing_actor,
+        expected_digest,
+    ))
 }
 
 fn lookup_verification_method_value(

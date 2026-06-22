@@ -621,7 +621,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
         ),
         (
             "ck.morph.update",
-            "object_patch_payload",
+            "morph_update_payload",
             json!({
                 "target_ref": "ck:morph:0196419b-0000-7000-8000-000000000001",
                 "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
@@ -704,6 +704,48 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             )
             .is_err(),
         "ck.strand.tracks.update must still reject the retired type discriminator"
+    );
+}
+
+#[test]
+fn morph_update_payload_rejects_create_locked_morph_type() {
+    let Some(artifacts_dir) = default_spec_artifacts_dir() else {
+        return;
+    };
+    let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
+
+    catalog
+        .validate_payload(
+            "ck.morph.update",
+            &json!({
+                "target_ref": "ck:morph:0196419b-0000-7000-8000-000000000001",
+                "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
+            }),
+        )
+        .unwrap();
+    assert!(
+        catalog
+            .validate_payload(
+                "ck.morph.update",
+                &json!({
+                    "target_ref": "ck:morph:0196419b-0000-7000-8000-000000000001",
+                    "patch": { "morph_type": { "$op": "set", "value": "task" } }
+                }),
+            )
+            .is_err(),
+        "ck.morph.update must reject create-locked morph_type changes"
+    );
+    assert!(
+        catalog
+            .validate_payload(
+                "ck.morph.update",
+                &json!({
+                    "target_ref": "ck:strand:0196419b-0000-7000-8000-000000000001",
+                    "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
+                }),
+            )
+            .is_err(),
+        "ck.morph.update target_ref must be a Morph id"
     );
 }
 

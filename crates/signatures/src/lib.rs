@@ -27,7 +27,10 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Duration, Utc};
 pub use cokret_core::Proof as ProtocolProof;
-use cokret_core::{Audience, Did, Error, Hash, Proof, Result, SignatureBindingPayload, canonical};
+use cokret_core::{
+    Audience, Did, Error, Hash, Proof, ProofBindingRequirements, Result, SignatureBindingPayload,
+    canonical,
+};
 pub use jwt::{
     JwtVerificationError, JwtVerificationPolicy, VerifiedJwt, verify_eddsa_jwt_with_jwks,
 };
@@ -202,6 +205,8 @@ pub struct ProofVerificationContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_did: Option<Did>,
     pub replay_window: Duration,
+    #[serde(default)]
+    pub binding_requirements: ProofBindingRequirements,
 }
 
 impl ProofVerificationContext {
@@ -214,7 +219,15 @@ impl ProofVerificationContext {
             audience: None,
             service_did: None,
             replay_window: Duration::minutes(5),
+            binding_requirements: ProofBindingRequirements::local(),
         }
+    }
+
+    pub fn cross_domain(mut self, domain: impl Into<String>, audience: Audience) -> Self {
+        self.domain = Some(domain.into());
+        self.audience = Some(audience);
+        self.binding_requirements = ProofBindingRequirements::cross_domain();
+        self
     }
 }
 
@@ -234,12 +247,15 @@ where
             "proof event_digest does not match expected digest".to_owned(),
         ));
     }
-    if proof.domain != context.domain {
-        return Err(Error::Protocol("proof domain mismatch".to_owned()));
-    }
-    if proof.audience != context.audience {
-        return Err(Error::Protocol("proof audience mismatch".to_owned()));
-    }
+    let expected_binding = SignatureBindingPayload {
+        payload_digest: context.expected_payload_digest.clone(),
+        actor_id: context.actor_id.clone(),
+        verification_method: proof.verification_method.clone(),
+        created_at: proof.created_at,
+        domain: context.domain.clone(),
+        audience: context.audience.clone(),
+    };
+    proof.validate_binding_with_requirements(&expected_binding, context.binding_requirements)?;
     if proof.created_at > context.now + Duration::minutes(5) {
         return Err(Error::Protocol(
             "proof created_at is too far in the future".to_owned(),
@@ -400,5 +416,48 @@ mod tests {
             verify_proof_with_resolver(&proof, &stale, &resolver, |_, _| Ok(true)),
             Err(Error::Protocol(_))
         ));
+    }
+
+    #[test]
+    fn proof_verifier_cross_domain_context_requires_explicit_binding() {
+        let actor = did("alice");
+        let payload_digest =
+            Hash::new("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+                .unwrap();
+        let mut resolver = StaticDidVerificationMethodResolver::default();
+        resolver.insert(VerificationMethodDocument {
+            did: actor.clone(),
+            verification_method: "did:web:alice.example#key-1".to_owned(),
+            public_key_multibase: "zKey".to_owned(),
+            controller: None,
+        });
+        let mut proof = Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:alice.example#key-1".to_owned(),
+            event_digest: payload_digest.clone(),
+            created_at: Utc::now(),
+            domain: None,
+            audience: Some(Audience::Single("did:web:service.example".to_owned())),
+            jws: "sig".to_owned(),
+        };
+        let context = ProofVerificationContext::new(actor, payload_digest).cross_domain(
+            "ck:trust_domain:example.net",
+            Audience::Single("did:web:service.example".to_owned()),
+        );
+
+        let error = verify_proof_with_resolver(&proof, &context, &resolver, |_, _| Ok(true))
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("proof_binding_missing"),
+            "{error}"
+        );
+
+        proof.domain = Some("ck:trust_domain:example.net".to_owned());
+        assert!(
+            verify_proof_with_resolver(&proof, &context, &resolver, |_, _| Ok(true))
+                .unwrap()
+                .valid
+        );
     }
 }

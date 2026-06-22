@@ -146,6 +146,15 @@ pub enum GrantConstraint {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         max_delegation_depth: Option<u32>,
     },
+    /// Runtime projection constraint for Applet delegated execution. It is
+    /// installed by soland when an Applet package is accepted, then checked by
+    /// the event reducer before the grant can authorize Applet-originated
+    /// events.
+    AppletDelegationBinding {
+        applet_id: String,
+        executed_by: String,
+        registration_epoch: String,
+    },
 }
 
 /// Verdict carried by [`GrantConstraint::Decision`]. Mirrors the spec's
@@ -158,6 +167,29 @@ pub enum GrantDecisionVerdict {
     Quarantine,
     RequireReview,
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AppletDelegationBindingError {
+    Missing,
+    AppletIdMismatch,
+    ExecutedByMismatch,
+    RegistrationEpochMismatch,
+}
+
+impl std::fmt::Display for AppletDelegationBindingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Missing => write!(f, "applet delegation binding constraint is missing"),
+            Self::AppletIdMismatch => write!(f, "applet delegation applet_id mismatch"),
+            Self::ExecutedByMismatch => write!(f, "applet delegation executed_by mismatch"),
+            Self::RegistrationEpochMismatch => {
+                write!(f, "applet delegation registration_epoch mismatch")
+            }
+        }
+    }
+}
+
+impl std::error::Error for AppletDelegationBindingError {}
 
 /// A request to issue a delegated grant. See [`create_delegated_grant`].
 #[derive(Clone, Debug)]
@@ -231,6 +263,34 @@ fn is_false(value: &bool) -> bool {
 /// expiry. A grant with no expiry never expires.
 pub fn is_grant_expired(grant: &Grant, now: DateTime<Utc>) -> bool {
     grant_effective_expiry(grant).is_some_and(|expiry| now >= expiry)
+}
+
+pub fn validate_applet_delegation_binding(
+    grant: &Grant,
+    applet_id: &str,
+    executed_by: &str,
+    registration_epoch: &str,
+) -> std::result::Result<(), AppletDelegationBindingError> {
+    let Some(binding) = grant.constraints.iter().find_map(|constraint| match constraint {
+        GrantConstraint::AppletDelegationBinding {
+            applet_id,
+            executed_by,
+            registration_epoch,
+        } => Some((applet_id, executed_by, registration_epoch)),
+        _ => None,
+    }) else {
+        return Err(AppletDelegationBindingError::Missing);
+    };
+    if binding.0 != applet_id {
+        return Err(AppletDelegationBindingError::AppletIdMismatch);
+    }
+    if binding.1 != executed_by {
+        return Err(AppletDelegationBindingError::ExecutedByMismatch);
+    }
+    if binding.2 != registration_epoch {
+        return Err(AppletDelegationBindingError::RegistrationEpochMismatch);
+    }
+    Ok(())
 }
 
 /// Check whether `child` resource is within the scope `parent` permits.
@@ -808,5 +868,44 @@ mod tests {
         assert!(json.contains("require_review"));
         let round_tripped: GrantConstraint = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(constraint, round_tripped);
+    }
+
+    #[test]
+    fn applet_delegation_binding_must_match_epoch_subject_and_applet() {
+        let mut grant = root_grant("g1", &["ck.message.create"], "ck:realm:1");
+        assert!(matches!(
+            validate_applet_delegation_binding(
+                &grant,
+                "ck:applet:1",
+                "did:web:svc.example",
+                "sha256:abc"
+            ),
+            Err(AppletDelegationBindingError::Missing)
+        ));
+        grant
+            .constraints
+            .push(GrantConstraint::AppletDelegationBinding {
+                applet_id: "ck:applet:1".to_owned(),
+                executed_by: "did:web:svc.example".to_owned(),
+                registration_epoch: "sha256:abc".to_owned(),
+            });
+        assert!(
+            validate_applet_delegation_binding(
+                &grant,
+                "ck:applet:1",
+                "did:web:svc.example",
+                "sha256:abc"
+            )
+            .is_ok()
+        );
+        assert!(matches!(
+            validate_applet_delegation_binding(
+                &grant,
+                "ck:applet:1",
+                "did:web:svc.example",
+                "sha256:def"
+            ),
+            Err(AppletDelegationBindingError::RegistrationEpochMismatch)
+        ));
     }
 }

@@ -14,6 +14,9 @@ pub const PROFILE_DISAPPEARING_MESSAGES: &str = "ck.profile.disappearing_message
 pub const PROFILE_SEARCH_CLIENT_INDEX: &str = "ck.profile.search.client_index.v1";
 pub const PROFILE_SEARCH_BLIND_INDEX: &str = "ck.profile.search.blind_index.v1";
 pub const PROFILE_SEARCH_FORWARD_PRIVATE: &str = "ck.profile.search.forward_private.v1";
+pub const FILE_TRANSFER_KEY_MESSAGE_KIND: &str = "ck.file_transfer.key.v1";
+pub const FILE_TRANSFER_KEY_ENVELOPE_SCHEME: &str =
+    "ck.hpke_x25519_aead_xchacha20poly1305.v1";
 
 pub const MAX_CALENDAR_ATTENDEES: usize = 1_000;
 pub const MAX_CALENDAR_RECURRENCE_COUNT: u64 = 10_000;
@@ -581,6 +584,359 @@ impl EncryptedIndexManifest {
         }
         Ok(())
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FileTransferRecord {
+    pub kind: String,
+    pub transfer_id: String,
+    pub blob_ref: String,
+    pub content_digest: String,
+    pub blob_size_bytes: u64,
+    pub media_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filename: Option<String>,
+    pub plaintext_size_bytes: u64,
+    pub access: FileTransferAccess,
+    pub encryption: FileTransferEncryption,
+    pub origin_device_id: String,
+    pub created_at: String,
+    pub updated_hlc: String,
+    pub retention_expires_at: String,
+    pub state: FileTransferState,
+}
+
+impl FileTransferRecord {
+    pub fn validate(&self) -> Result<()> {
+        if self.kind != "file_transfer" {
+            return Err(Error::Protocol(
+                "file-transfer record kind must be file_transfer".to_owned(),
+            ));
+        }
+        validate_file_transfer_id(&self.transfer_id)?;
+        validate_blob_ref(&self.blob_ref)?;
+        Hash::new(self.content_digest.clone())?;
+        validate_file_transfer_blob_digest_binding(&self.blob_ref, &self.content_digest)?;
+        validate_media_type(&self.media_type)?;
+        if let Some(filename) = &self.filename {
+            let len = filename.chars().count();
+            if filename.trim().is_empty() || len > 255 {
+                return Err(Error::Protocol(
+                    "file-transfer filename must be 1-255 non-blank chars".to_owned(),
+                ));
+            }
+        }
+        self.access.validate()?;
+        self.encryption.validate()?;
+        DeviceId::new(self.origin_device_id.clone()).map_err(|_| {
+            Error::Protocol("file-transfer origin_device_id must be a ck:device id".to_owned())
+        })?;
+        canonical::validate_timestamp_canonical(&self.created_at)?;
+        Hlc::new(self.updated_hlc.clone()).map_err(|_| {
+            Error::Protocol("file-transfer updated_hlc must be a canonical HLC".to_owned())
+        })?;
+        canonical::validate_timestamp_canonical(&self.retention_expires_at)?;
+        self.validate_aad_binding()?;
+        self.validate_access_key_delivery_binding()
+    }
+
+    fn validate_aad_binding(&self) -> Result<()> {
+        let aad = &self.encryption.aad;
+        if aad.schema != FILE_TRANSFER_SCHEMA {
+            return Err(Error::Protocol(
+                "file-transfer AAD schema must be ck.schema.file_transfer.v1".to_owned(),
+            ));
+        }
+        if aad.purpose != "file_transfer" {
+            return Err(Error::Protocol(
+                "file-transfer AAD purpose must be file_transfer".to_owned(),
+            ));
+        }
+        if aad.transfer_id != self.transfer_id {
+            return Err(Error::Protocol(
+                "file-transfer AAD transfer_id must match record transfer_id".to_owned(),
+            ));
+        }
+        if aad.origin_device_id != self.origin_device_id {
+            return Err(Error::Protocol(
+                "file-transfer AAD origin_device_id must match record origin_device_id".to_owned(),
+            ));
+        }
+        if aad.created_at != self.created_at {
+            return Err(Error::Protocol(
+                "file-transfer AAD created_at must match record created_at".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_access_key_delivery_binding(&self) -> Result<()> {
+        match self.access.visibility {
+            FileTransferAccessVisibility::ActorPrivate => {
+                if !self.access.recipient_device_ids.is_empty() {
+                    return Err(Error::Protocol(
+                        "actor_private file-transfer access must not list recipient devices"
+                            .to_owned(),
+                    ));
+                }
+                if !matches!(
+                    &self.encryption.key_delivery,
+                    FileTransferKeyDelivery::AccountDataWrappedKey { .. }
+                ) {
+                    return Err(Error::Protocol(
+                        "actor_private file-transfer requires account_data_wrapped_key".to_owned(),
+                    ));
+                }
+            }
+            FileTransferAccessVisibility::DeviceBound => {
+                if self.access.recipient_device_ids.is_empty() {
+                    return Err(Error::Protocol(
+                        "device_bound file-transfer access requires recipient_device_ids"
+                            .to_owned(),
+                    ));
+                }
+                if !matches!(
+                    &self.encryption.key_delivery,
+                    FileTransferKeyDelivery::ToDeviceWrappedKey { .. }
+                ) {
+                    return Err(Error::Protocol(
+                        "device_bound file-transfer requires to_device_wrapped_key".to_owned(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FileTransferAccess {
+    pub visibility: FileTransferAccessVisibility,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub recipient_device_ids: Vec<String>,
+}
+
+impl FileTransferAccess {
+    pub fn validate(&self) -> Result<()> {
+        let mut seen = BTreeSet::new();
+        for device_id in &self.recipient_device_ids {
+            DeviceId::new(device_id.clone()).map_err(|_| {
+                Error::Protocol(
+                    "file-transfer recipient_device_ids must contain ck:device ids".to_owned(),
+                )
+            })?;
+            if !seen.insert(device_id) {
+                return Err(Error::Protocol(
+                    "file-transfer recipient_device_ids must be unique".to_owned(),
+                ));
+            }
+        }
+        if self.recipient_device_ids.len() > 1_000 {
+            return Err(Error::Protocol(
+                "file-transfer recipient_device_ids must have at most 1000 entries".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FileTransferAccessVisibility {
+    ActorPrivate,
+    DeviceBound,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FileTransferEncryption {
+    pub scheme: String,
+    pub aead_profile: String,
+    pub nonce: String,
+    pub aad: FileTransferAad,
+    pub key_delivery: FileTransferKeyDelivery,
+}
+
+impl FileTransferEncryption {
+    pub fn validate(&self) -> Result<()> {
+        if self.scheme != "ck.file_transfer.encrypted_blob.v1" {
+            return Err(Error::Protocol(
+                "file-transfer encryption scheme mismatch".to_owned(),
+            ));
+        }
+        if self.aead_profile != "ck.aead.xchacha20_poly1305.v1" {
+            return Err(Error::Protocol(
+                "file-transfer AEAD profile mismatch".to_owned(),
+            ));
+        }
+        validate_base64url("file-transfer nonce", &self.nonce)?;
+        self.aad.validate()?;
+        self.key_delivery.validate()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FileTransferAad {
+    pub schema: String,
+    pub purpose: String,
+    pub transfer_id: String,
+    pub origin_device_id: String,
+    pub created_at: String,
+}
+
+impl FileTransferAad {
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != FILE_TRANSFER_SCHEMA {
+            return Err(Error::Protocol(
+                "file-transfer AAD schema must be ck.schema.file_transfer.v1".to_owned(),
+            ));
+        }
+        if self.purpose != "file_transfer" {
+            return Err(Error::Protocol(
+                "file-transfer AAD purpose must be file_transfer".to_owned(),
+            ));
+        }
+        validate_file_transfer_id(&self.transfer_id)?;
+        DeviceId::new(self.origin_device_id.clone()).map_err(|_| {
+            Error::Protocol("file-transfer AAD origin_device_id must be a ck:device id".to_owned())
+        })?;
+        canonical::validate_timestamp_canonical(&self.created_at)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "method", rename_all = "snake_case", deny_unknown_fields)]
+pub enum FileTransferKeyDelivery {
+    AccountDataWrappedKey { content_key: String },
+    ToDeviceWrappedKey { key_message_kind: String },
+}
+
+impl FileTransferKeyDelivery {
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::AccountDataWrappedKey { content_key } => {
+                validate_base64url("file-transfer content_key", content_key)
+            }
+            Self::ToDeviceWrappedKey { key_message_kind } => {
+                if key_message_kind == FILE_TRANSFER_KEY_MESSAGE_KIND {
+                    Ok(())
+                } else {
+                    Err(Error::Protocol(
+                        "to_device_wrapped_key key_message_kind must be ck.file_transfer.key.v1"
+                            .to_owned(),
+                    ))
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FileTransferKeyMessage {
+    pub transfer_id: String,
+    pub blob_ref: String,
+    pub aead_profile: String,
+    pub nonce: String,
+    pub content_digest: String,
+    pub key_envelope: FileTransferKeyEnvelope,
+    pub expires_at: String,
+}
+
+impl FileTransferKeyMessage {
+    pub fn validate(&self) -> Result<()> {
+        validate_file_transfer_id(&self.transfer_id)?;
+        validate_blob_ref(&self.blob_ref)?;
+        Hash::new(self.content_digest.clone())?;
+        validate_file_transfer_blob_digest_binding(&self.blob_ref, &self.content_digest)?;
+        if self.aead_profile != "ck.aead.xchacha20_poly1305.v1" {
+            return Err(Error::Protocol(
+                "file-transfer key message AEAD profile mismatch".to_owned(),
+            ));
+        }
+        validate_base64url("file-transfer key message nonce", &self.nonce)?;
+        self.key_envelope.validate()?;
+        canonical::validate_timestamp_canonical(&self.expires_at)
+    }
+
+    pub fn validate_record_binding(&self, record: &FileTransferRecord) -> Result<()> {
+        self.validate()?;
+        if self.transfer_id != record.transfer_id {
+            return Err(Error::Protocol(
+                "file-transfer key message transfer_id mismatch".to_owned(),
+            ));
+        }
+        if self.blob_ref != record.blob_ref {
+            return Err(Error::Protocol(
+                "file-transfer key message blob_ref mismatch".to_owned(),
+            ));
+        }
+        if self.aead_profile != record.encryption.aead_profile {
+            return Err(Error::Protocol(
+                "file-transfer key message aead_profile mismatch".to_owned(),
+            ));
+        }
+        if self.nonce != record.encryption.nonce {
+            return Err(Error::Protocol(
+                "file-transfer key message nonce mismatch".to_owned(),
+            ));
+        }
+        if self.content_digest != record.content_digest {
+            return Err(Error::Protocol(
+                "file-transfer key message content_digest mismatch".to_owned(),
+            ));
+        }
+        if record.access.visibility != FileTransferAccessVisibility::DeviceBound {
+            return Err(Error::Protocol(
+                "file-transfer key message requires device_bound record".to_owned(),
+            ));
+        }
+        if !matches!(
+            &record.encryption.key_delivery,
+            FileTransferKeyDelivery::ToDeviceWrappedKey { key_message_kind }
+                if key_message_kind == FILE_TRANSFER_KEY_MESSAGE_KIND
+        ) {
+            return Err(Error::Protocol(
+                "device_bound file-transfer requires to_device_wrapped_key".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FileTransferKeyEnvelope {
+    pub scheme: String,
+    pub enc: String,
+    pub ciphertext: String,
+    pub aad_digest: String,
+}
+
+impl FileTransferKeyEnvelope {
+    pub fn validate(&self) -> Result<()> {
+        if self.scheme != FILE_TRANSFER_KEY_ENVELOPE_SCHEME {
+            return Err(Error::Protocol(
+                "file-transfer key envelope scheme mismatch".to_owned(),
+            ));
+        }
+        validate_base64url("file-transfer key envelope enc", &self.enc)?;
+        validate_base64url("file-transfer key envelope ciphertext", &self.ciphertext)?;
+        Hash::new(self.aad_digest.clone())?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FileTransferState {
+    Available,
+    Downloaded,
+    Dismissed,
+    Deleted,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1185,7 +1541,7 @@ fn validate_key_segment(field: &str, value: &str) -> Result<()> {
     }
 }
 
-fn validate_file_transfer_id(value: &str) -> Result<()> {
+pub fn validate_file_transfer_id(value: &str) -> Result<()> {
     let valid = (22..=128).contains(&value.len())
         && value.bytes().all(|byte| {
             byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'~' | b'=' | b'-')
@@ -1197,6 +1553,94 @@ fn validate_file_transfer_id(value: &str) -> Result<()> {
             "transfer_id must be 22-128 chars from the ck.file_transfer.v1 alphabet".to_owned(),
         ))
     }
+}
+
+fn validate_blob_ref(value: &str) -> Result<()> {
+    let valid_uuid = value.strip_prefix("ck:blob:").is_some_and(is_uuid_v7);
+    let valid_digest = ["ck:blob:sha256:", "ck:blob:blake3:"]
+        .iter()
+        .any(|prefix| {
+            value
+                .strip_prefix(prefix)
+                .is_some_and(|hex| hex.len() == 64 && hex.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()))
+        });
+    if valid_uuid || valid_digest {
+        Ok(())
+    } else {
+        Err(Error::Protocol(
+            "file-transfer blob_ref must be ck:blob:<uuidv7|digest>".to_owned(),
+        ))
+    }
+}
+
+fn validate_file_transfer_blob_digest_binding(blob_ref: &str, content_digest: &str) -> Result<()> {
+    for (prefix, digest_prefix) in [
+        ("ck:blob:sha256:", "sha256:"),
+        ("ck:blob:blake3:", "blake3:"),
+    ] {
+        if let Some(hex) = blob_ref.strip_prefix(prefix) {
+            let expected = format!("{digest_prefix}{hex}");
+            if content_digest != expected {
+                return Err(Error::Protocol(
+                    "file-transfer blob_ref digest must match content_digest".to_owned(),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_media_type(value: &str) -> Result<()> {
+    let Some((top, sub)) = value.split_once('/') else {
+        return Err(Error::Protocol(
+            "file-transfer media_type must be type/subtype".to_owned(),
+        ));
+    };
+    let valid_part = |part: &str| {
+        !part.is_empty()
+            && part.bytes().all(|byte| {
+                byte.is_ascii_lowercase()
+                    || byte.is_ascii_digit()
+                    || matches!(byte, b'.' | b'+' | b'-')
+            })
+    };
+    if valid_part(top) && valid_part(sub) {
+        Ok(())
+    } else {
+        Err(Error::Protocol(
+            "file-transfer media_type must match the v1 media type grammar".to_owned(),
+        ))
+    }
+}
+
+fn validate_base64url(field: &str, value: &str) -> Result<()> {
+    if !value.is_empty()
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    {
+        Ok(())
+    } else {
+        Err(Error::Protocol(format!("{field} must be base64url")))
+    }
+}
+
+fn is_uuid_v7(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 36 {
+        return false;
+    }
+    for index in [8, 13, 18, 23] {
+        if bytes[index] != b'-' {
+            return false;
+        }
+    }
+    bytes[14] == b'7'
+        && matches!(bytes[19], b'8' | b'9' | b'a' | b'b')
+        && bytes.iter().enumerate().all(|(index, byte)| {
+            matches!(index, 8 | 13 | 18 | 23)
+                || (byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        })
 }
 
 fn validate_search_index_key(index_key: &[u8]) -> Result<()> {
@@ -1529,6 +1973,125 @@ mod tests {
         assert!(file_transfer_account_data_key(b"ns", "short-transfer").is_err());
         assert!(
             validate_private_account_data_key("ck.file_transfer.v1:ck:blob:sha256:abc").is_err()
+        );
+    }
+
+    fn file_transfer_record() -> FileTransferRecord {
+        FileTransferRecord {
+            kind: "file_transfer".to_owned(),
+            transfer_id: "0123456789abcdefghijkl".to_owned(),
+            blob_ref: format!("ck:blob:sha256:{}", "ab".repeat(32)),
+            content_digest: format!("sha256:{}", "ab".repeat(32)),
+            blob_size_bytes: 42,
+            media_type: "text/plain".to_owned(),
+            filename: Some("notes.txt".to_owned()),
+            plaintext_size_bytes: 30,
+            access: FileTransferAccess {
+                visibility: FileTransferAccessVisibility::ActorPrivate,
+                recipient_device_ids: Vec::new(),
+            },
+            encryption: FileTransferEncryption {
+                scheme: "ck.file_transfer.encrypted_blob.v1".to_owned(),
+                aead_profile: "ck.aead.xchacha20_poly1305.v1".to_owned(),
+                nonce: "abc_DEF-012".to_owned(),
+                aad: FileTransferAad {
+                    schema: FILE_TRANSFER_SCHEMA.to_owned(),
+                    purpose: "file_transfer".to_owned(),
+                    transfer_id: "0123456789abcdefghijkl".to_owned(),
+                    origin_device_id: "ck:device:01904100-0000-7000-8000-000000000002".to_owned(),
+                    created_at: "2026-06-22T00:00:00Z".to_owned(),
+                },
+                key_delivery: FileTransferKeyDelivery::AccountDataWrappedKey {
+                    content_key: "abc_DEF-012".to_owned(),
+                },
+            },
+            origin_device_id: "ck:device:01904100-0000-7000-8000-000000000002".to_owned(),
+            created_at: "2026-06-22T00:00:00Z".to_owned(),
+            updated_hlc: "01970e589d21-0004-a13f9c2e".to_owned(),
+            retention_expires_at: "2026-06-29T00:00:00Z".to_owned(),
+            state: FileTransferState::Available,
+        }
+    }
+
+    #[test]
+    fn file_transfer_record_validates_and_serializes_canonical_shape() {
+        let record = file_transfer_record();
+        record.validate().unwrap();
+        let value = serde_json::to_value(&record).unwrap();
+        assert_eq!(value["kind"], "file_transfer");
+        assert_eq!(value["access"]["visibility"], "actor_private");
+        assert_eq!(
+            value["encryption"]["key_delivery"]["method"],
+            "account_data_wrapped_key"
+        );
+        assert_eq!(
+            value["encryption"]["key_delivery"]["content_key"],
+            "abc_DEF-012"
+        );
+        let decoded: FileTransferRecord = serde_json::from_value(value).unwrap();
+        assert_eq!(decoded, record);
+    }
+
+    #[test]
+    fn file_transfer_record_rejects_access_key_delivery_mismatch() {
+        let mut record = file_transfer_record();
+        record.access.visibility = FileTransferAccessVisibility::DeviceBound;
+        record.access.recipient_device_ids =
+            vec!["ck:device:01904100-0000-7000-8000-000000000003".to_owned()];
+        let err = record.validate().unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("device_bound file-transfer requires to_device_wrapped_key")
+        );
+    }
+
+    #[test]
+    fn file_transfer_key_message_validates_record_binding() {
+        let mut record = file_transfer_record();
+        record.access.visibility = FileTransferAccessVisibility::DeviceBound;
+        record.access.recipient_device_ids =
+            vec!["ck:device:01904100-0000-7000-8000-000000000003".to_owned()];
+        record.encryption.key_delivery = FileTransferKeyDelivery::ToDeviceWrappedKey {
+            key_message_kind: FILE_TRANSFER_KEY_MESSAGE_KIND.to_owned(),
+        };
+        record.validate().unwrap();
+
+        let message = FileTransferKeyMessage {
+            transfer_id: record.transfer_id.clone(),
+            blob_ref: record.blob_ref.clone(),
+            aead_profile: record.encryption.aead_profile.clone(),
+            nonce: record.encryption.nonce.clone(),
+            content_digest: record.content_digest.clone(),
+            key_envelope: FileTransferKeyEnvelope {
+                scheme: FILE_TRANSFER_KEY_ENVELOPE_SCHEME.to_owned(),
+                enc: "abc_DEF-012".to_owned(),
+                ciphertext: "def_ABC-345".to_owned(),
+                aad_digest: format!("sha256:{}", "cd".repeat(32)),
+            },
+            expires_at: "2026-06-22T00:30:00Z".to_owned(),
+        };
+
+        message.validate_record_binding(&record).unwrap();
+
+        let mut drifted = message.clone();
+        drifted.nonce = "other_nonce".to_owned();
+        assert!(
+            drifted
+                .validate_record_binding(&record)
+                .unwrap_err()
+                .to_string()
+                .contains("nonce mismatch")
+        );
+    }
+
+    #[test]
+    fn file_transfer_record_rejects_blob_digest_drift() {
+        let mut record = file_transfer_record();
+        record.blob_ref = format!("ck:blob:sha256:{}", "cd".repeat(32));
+        let err = record.validate().unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("blob_ref digest must match content_digest")
         );
     }
 

@@ -146,6 +146,7 @@ fn validate_fallback_payload_shape(
                 ))),
             }
         }
+        "ck.morph.update" => validate_morph_update_fallback_payload(event_kind, object),
         "ck.mls.commit" => validate_mls_commit_fallback_payload(event_kind, object, warnings),
         _ => Ok(()),
     }
@@ -187,6 +188,41 @@ fn validate_create_object_fallback_payload(
         return Err(Error::Protocol(format!(
             "event kind '{event_kind}' payload object must not carry both metadata and encrypted_metadata"
         )));
+    }
+    Ok(())
+}
+
+fn validate_morph_update_fallback_payload(
+    event_kind: &str,
+    object: &serde_json::Map<String, Value>,
+) -> Result<()> {
+    let target_ref = object
+        .get("target_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "event kind '{event_kind}' payload target_ref must be a string"
+            ))
+        })?;
+    if !target_ref.starts_with("ck:morph:") {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload target_ref must be a Morph id"
+        )));
+    }
+    let Some(patch) = object.get("patch").and_then(Value::as_object) else {
+        return Ok(());
+    };
+    for path in patch.keys() {
+        if path == "morph_type" {
+            return Err(Error::Protocol(format!(
+                "event kind '{event_kind}' payload patch.morph_type violates morph_type_immutable"
+            )));
+        }
+        if matches!(path.as_str(), "stage" | "stage_changed_at") {
+            return Err(Error::Protocol(format!(
+                "event kind '{event_kind}' payload patch.{path} is single-sourced by ck.morph.stage.set"
+            )));
+        }
     }
     Ok(())
 }
@@ -355,6 +391,7 @@ fn collect_unknown_field_warnings(
 
 /// `object_patch_payload` property set shared by generic object update kinds.
 const OBJECT_PATCH_FALLBACK_FIELDS: &[&str] = &["target_ref", "patch", "expected_state_digest"];
+const MORPH_UPDATE_FALLBACK_FIELDS: &[&str] = &["target_ref", "patch", "expected_state_digest"];
 const STRAND_PATCH_FALLBACK_FIELDS: &[&str] = &["strand_id", "patch", "expected_state_digest"];
 const SPACE_PATCH_FALLBACK_FIELDS: &[&str] = &["space_id", "patch", "expected_state_digest"];
 
@@ -367,7 +404,7 @@ const SPACE_PATCH_FALLBACK_FIELDS: &[&str] = &["space_id", "patch", "expected_st
 const FALLBACK_FIELD_ALLOWLISTS: &[(&str, &[&str])] = &[
     ("ck.realm.update", OBJECT_PATCH_FALLBACK_FIELDS),
     ("ck.strand.update", STRAND_PATCH_FALLBACK_FIELDS),
-    ("ck.morph.update", OBJECT_PATCH_FALLBACK_FIELDS),
+    ("ck.morph.update", MORPH_UPDATE_FALLBACK_FIELDS),
     ("ck.space.update", SPACE_PATCH_FALLBACK_FIELDS),
     (
         "ck.member.state",
@@ -792,7 +829,7 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["pin", "reorder"] => candidates.push("pin_reorder_payload".to_owned()),
         ["member", "state"] => candidates.push("membership_payload".to_owned()),
         ["morph", "create"] => candidates.push("morph_create_payload".to_owned()),
-        ["morph", "update"] => candidates.push("object_patch_payload".to_owned()),
+        ["morph", "update"] => candidates.push("morph_update_payload".to_owned()),
         ["morph", "archive" | "restore"] => {
             candidates.push("object_lifecycle_payload".to_owned());
         }
@@ -1134,19 +1171,28 @@ mod tests {
     fn fallback_catalog_accepts_object_patch_wire_shape() {
         let catalog = fallback_event_payload_validator_catalog();
 
-        for event_kind in ["ck.realm.update", "ck.morph.update"] {
-            catalog
-                .validate_payload(
-                    event_kind,
-                    &json!({
-                        "target_ref": "ck:strand:01904100-0000-7000-8000-000000000001",
-                        "patch": {
-                            "title": { "$op": "set", "value": "Roadmap" }
-                        }
-                    }),
-                )
-                .unwrap_or_else(|err| panic!("{event_kind} must accept object_patch: {err}"));
-        }
+        catalog
+            .validate_payload(
+                "ck.realm.update",
+                &json!({
+                    "target_ref": "ck:realm:01904100-0000-7000-8000-000000000001",
+                    "patch": {
+                        "title": { "$op": "set", "value": "Roadmap" }
+                    }
+                }),
+            )
+            .unwrap_or_else(|err| panic!("ck.realm.update must accept object_patch: {err}"));
+        catalog
+            .validate_payload(
+                "ck.morph.update",
+                &json!({
+                    "target_ref": "ck:morph:01904100-0000-7000-8000-000000000001",
+                    "patch": {
+                        "metadata.title": { "$op": "set", "value": "Roadmap" }
+                    }
+                }),
+            )
+            .unwrap_or_else(|err| panic!("ck.morph.update must accept morph_update_patch: {err}"));
         catalog
             .validate_payload(
                 "ck.strand.update",
@@ -1169,6 +1215,37 @@ mod tests {
                 }),
             )
             .unwrap_or_else(|err| panic!("ck.space.update must accept space_patch: {err}"));
+    }
+
+    #[test]
+    fn fallback_catalog_rejects_morph_update_morph_type_patch() {
+        let catalog = fallback_event_payload_validator_catalog();
+
+        let err = catalog
+            .validate_payload(
+                "ck.morph.update",
+                &json!({
+                    "target_ref": "ck:morph:01904100-0000-7000-8000-000000000001",
+                    "patch": {
+                        "morph_type": { "$op": "set", "value": "task" }
+                    }
+                }),
+            )
+            .unwrap_err();
+        assert!(err.to_string().contains("morph_type_immutable"));
+
+        let err = catalog
+            .validate_payload(
+                "ck.morph.update",
+                &json!({
+                    "target_ref": "ck:strand:01904100-0000-7000-8000-000000000001",
+                    "patch": {
+                        "metadata.title": { "$op": "set", "value": "Roadmap" }
+                    }
+                }),
+            )
+            .unwrap_err();
+        assert!(err.to_string().contains("Morph id"));
     }
 
     #[test]

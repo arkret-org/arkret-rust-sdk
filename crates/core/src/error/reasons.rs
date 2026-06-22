@@ -30,6 +30,7 @@ pub const REASON_MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE: &str =
 pub const REASON_CONFLICTING_E2EE_PROFILES: &str = "conflicting_e2ee_profiles";
 
 // Misc.
+pub const REASON_PROOF_BINDING_MISSING: &str = "proof_binding_missing";
 pub const REASON_CARDINALITY_VIOLATION: &str = "cardinality_violation";
 pub const REASON_CLAIM_FAILED: &str = "claim_failed";
 
@@ -44,6 +45,8 @@ pub const REASON_CLAIM_FAILED: &str = "claim_failed";
 pub const REASON_STRAND_NOT_ACTIVE: &str = "strand_not_active";
 pub const REASON_STRAND_NOT_ARCHIVED: &str = "strand_not_archived";
 pub const REASON_STRAND_ALREADY_TERMINAL: &str = "strand_already_terminal";
+pub const REASON_ERASURE_PENDING_IS_TERMINAL: &str = "erasure_pending_is_terminal";
+pub const REASON_ACCOUNT_STATUS_TRANSITION_INVALID: &str = "account_status_transition_invalid";
 pub const REASON_SPACE_NOT_ACTIVE: &str = "space_not_active";
 pub const REASON_SPACE_NOT_ARCHIVED: &str = "space_not_archived";
 pub const REASON_SPACE_ALREADY_TERMINAL: &str = "space_already_terminal";
@@ -184,6 +187,8 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_STRAND_NOT_ACTIVE,
     REASON_STRAND_NOT_ARCHIVED,
     REASON_STRAND_ALREADY_TERMINAL,
+    REASON_ERASURE_PENDING_IS_TERMINAL,
+    REASON_ACCOUNT_STATUS_TRANSITION_INVALID,
     REASON_SPACE_NOT_ACTIVE,
     REASON_SPACE_NOT_ARCHIVED,
     REASON_SPACE_ALREADY_TERMINAL,
@@ -202,6 +207,7 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_CURSOR_INTEGRITY_INVALID,
     REASON_CLAIM_RATE_LIMITED,
     REASON_NAMING_CONVENTION_VIOLATION,
+    REASON_PROOF_BINDING_MISSING,
     REASON_APPROVAL_NONCE_REUSED,
     REASON_EXECUTED_BY_MISSING,
     REASON_ACTOR_KIND_REDUCER_MANAGED,
@@ -368,8 +374,14 @@ pub const KNOWN_REASON_CODES_REACTION: &[&str] = &[
 
 pub const REASON_CONTACT_NOT_ACCEPTED: &str = "contact_not_accepted";
 pub const REASON_CONTACT_CONSENT_MISSING: &str = "contact_consent_missing";
-pub const KNOWN_REASON_CODES_CONTACT_DIRECT_CONVERSATION: &[&str] =
-    &[REASON_CONTACT_NOT_ACCEPTED, REASON_CONTACT_CONSENT_MISSING];
+pub const REASON_PEER_UNRESOLVABLE: &str = "peer_unresolvable";
+pub const REASON_KEYPACKAGE_UNKNOWN: &str = "keypackage_unknown";
+pub const KNOWN_REASON_CODES_CONTACT_DIRECT_CONVERSATION: &[&str] = &[
+    REASON_CONTACT_NOT_ACCEPTED,
+    REASON_CONTACT_CONSENT_MISSING,
+    REASON_PEER_UNRESOLVABLE,
+    REASON_KEYPACKAGE_UNKNOWN,
+];
 
 // MLS / media reason codes from error-code-registry.json#reason_codes.
 pub const REASON_REDUCER_PROFILE_MISMATCH: &str = "reducer_profile_mismatch";
@@ -381,6 +393,18 @@ pub const REASON_RELAXED_WINDOW_EXCEEDS_CEILING: &str = "relaxed_window_exceeds_
 pub const REASON_LEGAL_HOLD_ACTIVE: &str = "legal_hold_active";
 pub const REASON_TOKEN_ISSUER_UNAUTHORISED: &str = "token_issuer_unauthorised";
 pub const REASON_E2EE_KEY_SOURCE_UNAUTHORISED: &str = "e2ee_key_source_unauthorised";
+
+// Late key recovery transition guards.
+pub const REASON_LATE_RECOVERY_REJECTED_MEMBERSHIP: &str =
+    "late_recovery_rejected_membership";
+pub const REASON_LATE_RECOVERY_SHARE_NOT_AUTHORIZED: &str =
+    "late_recovery_share_not_authorized";
+pub const REASON_LATE_RECOVERY_REJECTED_EXPIRED: &str = "late_recovery_rejected_expired";
+pub const KNOWN_REASON_CODES_LATE_RECOVERY: &[&str] = &[
+    REASON_LATE_RECOVERY_REJECTED_MEMBERSHIP,
+    REASON_LATE_RECOVERY_SHARE_NOT_AUTHORIZED,
+    REASON_LATE_RECOVERY_REJECTED_EXPIRED,
+];
 
 // ── Federation / to-device reason codes (error-code-registry.json#reason_codes).
 

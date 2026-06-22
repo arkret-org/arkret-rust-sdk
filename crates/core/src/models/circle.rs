@@ -192,6 +192,64 @@ pub struct Circle {
     pub extra: BTreeMap<String, Value>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct CirclePendingMlsRemoval {
+    pub principal_id: Did,
+    /// Exact membership/device-trust frontier that caused this MLS-backed
+    /// Circle scope to require a Remove commit. For device revocation this
+    /// MUST name the accepted `ck.device.revoke` or the Realm governance
+    /// Control Move that imported that revocation.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub membership_frontier: Vec<EventId>,
+}
+
+impl CirclePendingMlsRemoval {
+    pub fn principal_id(&self) -> &Did {
+        &self.principal_id
+    }
+
+    pub fn membership_frontier(&self) -> &[EventId] {
+        &self.membership_frontier
+    }
+}
+
+impl<'de> Deserialize<'de> for CirclePendingMlsRemoval {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct DetailedWire {
+            principal_id: Did,
+            #[serde(default)]
+            membership_frontier: Vec<EventId>,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Wire {
+            Detailed(DetailedWire),
+            LegacyDid(Did),
+        }
+
+        match Wire::deserialize(deserializer)? {
+            Wire::Detailed(DetailedWire {
+                principal_id,
+                membership_frontier,
+            }) => Ok(Self {
+                principal_id,
+                membership_frontier,
+            }),
+            Wire::LegacyDid(principal_id) => Ok(Self {
+                principal_id,
+                membership_frontier: Vec::new(),
+            }),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -214,7 +272,7 @@ pub struct CircleView {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub pending_mls_removals: Vec<Did>,
+    pub pending_mls_removals: Vec<CirclePendingMlsRemoval>,
     pub state: CircleState,
     #[serde(default)]
     pub members: Vec<Did>,
@@ -968,6 +1026,32 @@ mod tests {
         );
         let parsed: Circle = serde_json::from_value(value).unwrap();
         assert_eq!(parsed.agent_participation, circle.agent_participation);
+    }
+
+    #[test]
+    fn pending_mls_removal_carries_precise_membership_frontier() {
+        let value = serde_json::json!({
+            "principal_id": "did:web:bob.example",
+            "membership_frontier": [
+                "ck:event:0196419b-0000-7000-8000-000000000001"
+            ]
+        });
+        let parsed: CirclePendingMlsRemoval = serde_json::from_value(value).unwrap();
+
+        assert_eq!(parsed.principal_id().as_str(), "did:web:bob.example");
+        assert_eq!(
+            parsed.membership_frontier()[0].as_str(),
+            "ck:event:0196419b-0000-7000-8000-000000000001"
+        );
+    }
+
+    #[test]
+    fn legacy_pending_mls_removal_has_no_frontier_evidence() {
+        let parsed: CirclePendingMlsRemoval =
+            serde_json::from_value(serde_json::json!("did:web:bob.example")).unwrap();
+
+        assert_eq!(parsed.principal_id().as_str(), "did:web:bob.example");
+        assert!(parsed.membership_frontier().is_empty());
     }
 
     #[test]
