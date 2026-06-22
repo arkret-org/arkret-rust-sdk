@@ -2,6 +2,10 @@
 
 use super::*;
 
+pub const RELATION_KIND_CONTAINS: &str = "contains";
+pub const RELATION_KIND_BELONGS_TO: &str = "belongs_to";
+pub const RELATION_KIND_WATCHES: &str = "watches";
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Relation {
@@ -70,6 +74,56 @@ pub struct RelationEdgeRef<'a> {
     pub to: &'a str,
 }
 
+pub fn relation_kind_is_structural(relation_kind: &str) -> bool {
+    matches!(
+        relation_kind,
+        RELATION_KIND_CONTAINS | RELATION_KIND_BELONGS_TO
+    )
+}
+
+pub fn relation_direct_write_reject_reason(
+    relation_kind: &str,
+    from_ref: Option<&str>,
+) -> Option<&'static str> {
+    match relation_kind {
+        RELATION_KIND_WATCHES => Some(crate::error::REASON_RELATION_KIND_WATCHES_DERIVED),
+        RELATION_KIND_CONTAINS if from_ref.is_some_and(|value| value.starts_with("ck:space:")) => {
+            Some(crate::error::REASON_RELATION_KIND_CONTAINS_DERIVED)
+        }
+        _ => None,
+    }
+}
+
+pub fn validate_relation_direct_write(
+    relation_kind: &str,
+    from_ref: Option<&str>,
+) -> std::result::Result<(), &'static str> {
+    if let Some(reason) = relation_direct_write_reject_reason(relation_kind, from_ref) {
+        Err(reason)
+    } else {
+        Ok(())
+    }
+}
+
+pub fn validate_structural_relation_same_realm<'a, I>(
+    relation_kind: &str,
+    relation_realm: &str,
+    endpoint_realms: I,
+) -> std::result::Result<(), &'static str>
+where
+    I: IntoIterator<Item = &'a str>,
+{
+    if relation_kind_is_structural(relation_kind)
+        && endpoint_realms
+            .into_iter()
+            .any(|endpoint_realm| endpoint_realm != relation_realm)
+    {
+        Err(crate::error::REASON_CROSS_REALM_STRUCTURAL_RELATION)
+    } else {
+        Ok(())
+    }
+}
+
 /// Enforce the cardinality declared by the matching `RelationProfile`.
 ///
 /// `existing` is the set of currently-active edges with the same
@@ -128,5 +182,50 @@ impl Relation {
         } else {
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn relation_direct_write_helper_rejects_derived_edges() {
+        assert_eq!(
+            validate_relation_direct_write(RELATION_KIND_WATCHES, Some("ck:strand:a")),
+            Err(crate::error::REASON_RELATION_KIND_WATCHES_DERIVED)
+        );
+        assert_eq!(
+            validate_relation_direct_write(RELATION_KIND_CONTAINS, Some("ck:space:a")),
+            Err(crate::error::REASON_RELATION_KIND_CONTAINS_DERIVED)
+        );
+        assert!(
+            validate_relation_direct_write(RELATION_KIND_CONTAINS, Some("ck:strand:a")).is_ok()
+        );
+        assert!(validate_relation_direct_write("references", Some("ck:space:a")).is_ok());
+    }
+
+    #[test]
+    fn structural_relation_helper_rejects_cross_realm_endpoints() {
+        assert_eq!(
+            validate_structural_relation_same_realm(
+                RELATION_KIND_CONTAINS,
+                "ck:realm:a",
+                ["ck:realm:a", "ck:realm:b"],
+            ),
+            Err(crate::error::REASON_CROSS_REALM_STRUCTURAL_RELATION)
+        );
+        assert!(
+            validate_structural_relation_same_realm(
+                RELATION_KIND_BELONGS_TO,
+                "ck:realm:a",
+                ["ck:realm:a", "ck:realm:a"],
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_structural_relation_same_realm("references", "ck:realm:a", ["ck:realm:b"],)
+                .is_ok()
+        );
     }
 }

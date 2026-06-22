@@ -1,8 +1,127 @@
+use std::collections::BTreeSet;
+
 use super::*;
 use crate::events::kinds::EventKind;
 use crate::{Effect, Precondition, SealBasis, SealId};
 
+pub const MAX_EVENT_ENVELOPE_BYTES: usize = 1024 * 1024;
+pub const MAX_EVENT_SUBMIT_BATCH: usize = 1_000;
+pub const MAX_EVENT_RESOLVE: usize = 100;
+pub const MAX_EVENT_PREV_REFS: usize = 128;
+pub const MAX_EVENT_REFS: usize = 128;
+pub const MAX_AUTHORIZED_BY_REFS: usize = 64;
+pub const MAX_ACTOR_SEQ_SIBLINGS: usize = 16;
+pub const MAX_DELEGATION_CHAIN_DEPTH: usize = 4;
+pub const MAX_DELEGATION_CONTROL_DEPTH: u32 = 64;
+
 pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
+
+pub fn validate_event_envelope_byte_len(byte_len: usize) -> Result<()> {
+    if byte_len > MAX_EVENT_ENVELOPE_BYTES {
+        return Err(Error::Protocol(format!(
+            "event envelope exceeds v1 maximum of {MAX_EVENT_ENVELOPE_BYTES} bytes"
+        )));
+    }
+    Ok(())
+}
+
+pub fn validate_event_submit_batch_count(count: usize) -> Result<()> {
+    if count > MAX_EVENT_SUBMIT_BATCH {
+        return Err(Error::Protocol(format!(
+            "event submit batch exceeds v1 maximum of {MAX_EVENT_SUBMIT_BATCH} events"
+        )));
+    }
+    Ok(())
+}
+
+pub fn validate_event_prev_ref_count(count: usize) -> Result<()> {
+    if count > MAX_EVENT_PREV_REFS {
+        return Err(Error::Protocol(format!(
+            "prev_refs exceeds v1 maximum of {MAX_EVENT_PREV_REFS} entries"
+        )));
+    }
+    Ok(())
+}
+
+pub fn validate_event_ref_count(count: usize) -> Result<()> {
+    if count > MAX_EVENT_REFS {
+        return Err(Error::Protocol(format!(
+            "refs exceeds v1 maximum of {MAX_EVENT_REFS} entries"
+        )));
+    }
+    Ok(())
+}
+
+pub fn validate_authorized_by_ref_count(count: usize) -> Result<()> {
+    if count > MAX_AUTHORIZED_BY_REFS {
+        return Err(Error::Protocol(format!(
+            "authorized_by refs exceeds v1 maximum of {MAX_AUTHORIZED_BY_REFS} entries"
+        )));
+    }
+    Ok(())
+}
+
+pub fn validate_actor_seq_sibling_count(count: usize) -> Result<()> {
+    if count > MAX_ACTOR_SEQ_SIBLINGS {
+        return Err(Error::Protocol(format!(
+            "actor_seq sibling fork count exceeds v1 maximum of {MAX_ACTOR_SEQ_SIBLINGS}"
+        )));
+    }
+    Ok(())
+}
+
+pub fn validate_delegation_chain_depth(depth: usize) -> Result<()> {
+    if depth > MAX_DELEGATION_CHAIN_DEPTH {
+        return Err(Error::Protocol(format!(
+            "delegation chain depth exceeds v1 maximum of {MAX_DELEGATION_CHAIN_DEPTH}"
+        )));
+    }
+    Ok(())
+}
+
+pub fn validate_delegation_control_depth(depth: u32) -> Result<()> {
+    if depth > MAX_DELEGATION_CONTROL_DEPTH {
+        return Err(Error::Protocol(format!(
+            "max_delegation_depth exceeds v1 field maximum of {MAX_DELEGATION_CONTROL_DEPTH}"
+        )));
+    }
+    Ok(())
+}
+
+pub fn validate_event_prev_refs<I, S>(prev_refs: I) -> Result<()>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let mut seen = BTreeSet::new();
+    let mut count = 0usize;
+    for prev_ref in prev_refs {
+        count += 1;
+        validate_event_prev_ref_count(count)?;
+        if !seen.insert(prev_ref.as_ref().to_owned()) {
+            return Err(Error::Protocol(
+                "prev_refs MUST NOT contain duplicate entries".to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub fn prev_frontier_digest<I, S>(prev_refs: I) -> Result<String>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let mut sorted = prev_refs
+        .into_iter()
+        .map(|prev_ref| prev_ref.as_ref().to_owned())
+        .collect::<Vec<_>>();
+    sorted.sort();
+    sorted.dedup();
+    canonical::canonical_sha256(&Value::Array(
+        sorted.into_iter().map(Value::String).collect(),
+    ))
+}
 
 /// CKP-0008 / CKP-0009 (spec head 37ce729) â€” runtime classifier stamped by
 /// the reducer on every Envelope. Distinct from the existing `ActorKind`

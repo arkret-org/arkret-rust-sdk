@@ -76,6 +76,8 @@ pub struct PushDeviceRoute {
     pub platform: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_actor_id: Option<Did>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub visible_notification_opt_in: bool,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

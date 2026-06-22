@@ -8,6 +8,8 @@ use serde_json::Value;
 
 use crate::*;
 
+pub const DEVICE_AUTHORIZE_BINDING_ONE_OF_REASON: &str = "device_authorize_binding_one_of";
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/cross_signing_publish_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -58,6 +60,22 @@ pub struct DeviceAuthorizePayload {
     pub enrollment_authority_binding: Option<DeviceEnrollmentAuthorityBinding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_session_id: Option<RecoverySessionId>,
+}
+
+impl DeviceAuthorizePayload {
+    pub fn authorization_binding_count(&self) -> usize {
+        self.cross_signing_binding.is_some() as usize
+            + self.bootstrap_binding.is_some() as usize
+            + self.enrollment_authority_binding.is_some() as usize
+    }
+
+    pub fn validate_authorization_binding_one_of(&self) -> std::result::Result<(), &'static str> {
+        if self.authorization_binding_count() == 1 {
+            Ok(())
+        } else {
+            Err(DEVICE_AUTHORIZE_BINDING_ONE_OF_REASON)
+        }
+    }
 }
 
 /// Counterpart for
@@ -159,3 +177,62 @@ pub type EncryptedMetadata = EncryptedEnvelope;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/erasure_receipt_payload`.
 pub type ErasureReceiptPayload = ErasureReceipt;
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn base_device_authorize_payload() -> DeviceAuthorizePayload {
+        DeviceAuthorizePayload {
+            principal_id: Did::new("did:web:alice.example").unwrap(),
+            device_id: "ck:device:01904100-0000-7000-8000-a11ce0000001".to_owned(),
+            device_public_key: "z6MkDeviceKey".to_owned(),
+            device_key_algorithm: None,
+            authorized_by: DeviceOrPrincipalRef::Did(Did::new("did:web:alice.example").unwrap()),
+            scopes: None,
+            not_before: "2026-05-30T00:00:00Z".parse().unwrap(),
+            expires_at: None,
+            device_signature: None,
+            proof: None,
+            cross_signing_binding: None,
+            bootstrap_binding: None,
+            enrollment_authority_binding: None,
+            recovery_session_id: None,
+        }
+    }
+
+    fn cross_signing_binding() -> DeviceCrossSigningBinding {
+        DeviceCrossSigningBinding {
+            verification_method: json!("did:web:alice.example#ssk"),
+            alg: "EdDSA".to_owned(),
+            ssk_generation: 1,
+            signature: "c2ln".to_owned(),
+        }
+    }
+
+    #[test]
+    fn device_authorize_requires_exactly_one_authorization_binding() {
+        let mut payload = base_device_authorize_payload();
+        assert_eq!(
+            payload.validate_authorization_binding_one_of(),
+            Err(DEVICE_AUTHORIZE_BINDING_ONE_OF_REASON)
+        );
+
+        payload.cross_signing_binding = Some(cross_signing_binding());
+        assert!(payload.validate_authorization_binding_one_of().is_ok());
+
+        payload.bootstrap_binding = Some(DeviceBootstrapBinding {
+            kind: "inception_key".to_owned(),
+            did_method_evidence_ref: "did:web:alice.example#inception".to_owned(),
+        });
+        assert_eq!(
+            payload.validate_authorization_binding_one_of(),
+            Err(DEVICE_AUTHORIZE_BINDING_ONE_OF_REASON)
+        );
+
+        payload.cross_signing_binding = None;
+        assert!(payload.validate_authorization_binding_one_of().is_ok());
+    }
+}

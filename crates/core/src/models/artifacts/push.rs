@@ -76,6 +76,8 @@ pub struct DeviceRoute {
     pub platform: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_actor_id: Option<Value>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub visible_notification_opt_in: bool,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/notify_rejection`.

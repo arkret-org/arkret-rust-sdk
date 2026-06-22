@@ -276,6 +276,10 @@ pub struct DirectoryResolveTargetRequestBody {
     pub address: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requester: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_challenge: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub claim_presentations: Vec<DirectoryRestrictedClaimPresentation>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<Proof>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -513,6 +517,8 @@ pub struct DirectoryResolveHandleRequestBody {
     pub expected_did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub claim_presentations: Vec<DirectoryRestrictedClaimPresentation>,
     /// Resolution purpose. `lookup` / `mention` return display-safe
     /// identity data; `member_add` / `invite` request a Realm/audience-bound
     /// membership candidate per `identity-handles.md` §3.7.

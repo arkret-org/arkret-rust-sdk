@@ -57,6 +57,75 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
 }
 
 #[test]
+fn prev_frontier_digest_sorts_and_deduplicates_refs() {
+    let refs_a = [
+        "ck:event:01904100-0000-7000-8000-000000000003",
+        "ck:event:01904100-0000-7000-8000-000000000001",
+        "ck:event:01904100-0000-7000-8000-000000000003",
+        "ck:event:01904100-0000-7000-8000-000000000002",
+    ];
+    let refs_b = [
+        "ck:event:01904100-0000-7000-8000-000000000001",
+        "ck:event:01904100-0000-7000-8000-000000000002",
+        "ck:event:01904100-0000-7000-8000-000000000003",
+    ];
+
+    assert_eq!(
+        prev_frontier_digest(refs_a).unwrap(),
+        prev_frontier_digest(refs_b).unwrap()
+    );
+    assert_ne!(
+        prev_frontier_digest(std::iter::empty::<&str>()).unwrap(),
+        prev_frontier_digest(refs_b).unwrap()
+    );
+    assert_eq!(MAX_ACTOR_SEQ_SIBLINGS, 16);
+}
+
+#[test]
+fn event_scalability_limits_match_v1_profile() {
+    assert_eq!(MAX_EVENT_ENVELOPE_BYTES, 1024 * 1024);
+    assert_eq!(MAX_EVENT_SUBMIT_BATCH, 1_000);
+    assert_eq!(MAX_EVENT_RESOLVE, 100);
+    assert_eq!(MAX_EVENT_PREV_REFS, 128);
+    assert_eq!(MAX_EVENT_REFS, 128);
+    assert_eq!(MAX_AUTHORIZED_BY_REFS, 64);
+    assert_eq!(MAX_DELEGATION_CHAIN_DEPTH, 4);
+    assert_eq!(MAX_DELEGATION_CONTROL_DEPTH, 64);
+}
+
+#[test]
+fn event_scalability_helpers_reject_over_limits() {
+    validate_event_envelope_byte_len(MAX_EVENT_ENVELOPE_BYTES).unwrap();
+    assert!(validate_event_envelope_byte_len(MAX_EVENT_ENVELOPE_BYTES + 1).is_err());
+
+    validate_event_submit_batch_count(MAX_EVENT_SUBMIT_BATCH).unwrap();
+    assert!(validate_event_submit_batch_count(MAX_EVENT_SUBMIT_BATCH + 1).is_err());
+
+    validate_event_ref_count(MAX_EVENT_REFS).unwrap();
+    assert!(validate_event_ref_count(MAX_EVENT_REFS + 1).is_err());
+
+    validate_authorized_by_ref_count(MAX_AUTHORIZED_BY_REFS).unwrap();
+    assert!(validate_authorized_by_ref_count(MAX_AUTHORIZED_BY_REFS + 1).is_err());
+
+    validate_actor_seq_sibling_count(MAX_ACTOR_SEQ_SIBLINGS).unwrap();
+    assert!(validate_actor_seq_sibling_count(MAX_ACTOR_SEQ_SIBLINGS + 1).is_err());
+
+    validate_delegation_chain_depth(MAX_DELEGATION_CHAIN_DEPTH).unwrap();
+    assert!(validate_delegation_chain_depth(MAX_DELEGATION_CHAIN_DEPTH + 1).is_err());
+
+    validate_delegation_control_depth(MAX_DELEGATION_CONTROL_DEPTH).unwrap();
+    assert!(validate_delegation_control_depth(MAX_DELEGATION_CONTROL_DEPTH + 1).is_err());
+
+    let prev_refs = (0..MAX_EVENT_PREV_REFS)
+        .map(|index| format!("ck:event:01904100-0000-7000-8000-{index:012x}"))
+        .collect::<Vec<_>>();
+    validate_event_prev_refs(prev_refs.iter().map(String::as_str)).unwrap();
+    let mut duplicate = prev_refs.clone();
+    duplicate.push(duplicate[0].clone());
+    assert!(validate_event_prev_refs(duplicate.iter().map(String::as_str)).is_err());
+}
+
+#[test]
 fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     let proof = Proof {
         kind: "detached_jws".to_owned(),
