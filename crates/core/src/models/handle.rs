@@ -142,7 +142,7 @@ impl From<Handle> for String {
     }
 }
 
-fn is_valid_localpart(s: &str) -> bool {
+pub(crate) fn is_valid_localpart(s: &str) -> bool {
     if s.is_empty() || s.len() > 128 {
         return false;
     }
@@ -164,13 +164,25 @@ fn is_valid_localpart(s: &str) -> bool {
 /// `handle_homograph_forbidden` wire code prefix so downstream HTTP
 /// adapters can map straight to the registry error.
 pub fn normalize_handle_localpart(input: &str) -> Result<String> {
+    normalize_localpart_with_code(input, "handle_homograph_forbidden")
+}
+
+/// Shared localpart normalize used by BOTH handle and realm-alias registrars
+/// (object-addressing.md §3.3 reuses identity-handles.md §17 discipline).
+///
+/// `code` is the wire error-code prefix carried on rejection — pass
+/// `handle_homograph_forbidden` for handles, `realm_alias_homograph_forbidden`
+/// for realm aliases — so downstream HTTP adapters map straight to the right
+/// registry error. Steps: length bound → zero-width / bidi reject → canonical
+/// ASCII alphabet → confusable-codepoint reject → lowercase.
+pub(crate) fn normalize_localpart_with_code(input: &str, code: &str) -> Result<String> {
     if input.is_empty() || input.len() > 128 {
         return Err(Error::Protocol(format!(
-            "handle_homograph_forbidden: localpart length out of range ({input:?})"
+            "{code}: localpart length out of range ({input:?})"
         )));
     }
 
-    // 2. Reject zero-width characters and bidi controls outright.
+    // Reject zero-width characters and bidi controls outright.
     for ch in input.chars() {
         let cp = ch as u32;
         if matches!(
@@ -178,21 +190,21 @@ pub fn normalize_handle_localpart(input: &str) -> Result<String> {
             0x200B..=0x200F | 0x202A..=0x202E | 0x2066..=0x2069 | 0xFEFF
         ) {
             return Err(Error::Protocol(format!(
-                "handle_homograph_forbidden: zero-width / bidi control rejected ({input:?})"
+                "{code}: zero-width / bidi control rejected ({input:?})"
             )));
         }
     }
 
     if input.chars().any(|c| !is_valid_localpart_char(c)) {
         return Err(Error::Protocol(format!(
-            "handle_homograph_forbidden: localpart outside canonical ASCII alphabet ({input:?})"
+            "{code}: localpart outside canonical ASCII alphabet ({input:?})"
         )));
     }
 
     for ch in input.chars() {
         if !ch.is_ascii() && minimal_confusable_for(ch).is_some() {
             return Err(Error::Protocol(format!(
-                "handle_homograph_forbidden: confusable codepoint ({input:?})"
+                "{code}: confusable codepoint ({input:?})"
             )));
         }
     }
@@ -284,7 +296,7 @@ mod handle_normalize_tests {
     }
 }
 
-fn is_valid_domain(s: &str) -> bool {
+pub(crate) fn is_valid_domain(s: &str) -> bool {
     if s.is_empty() {
         return false;
     }
