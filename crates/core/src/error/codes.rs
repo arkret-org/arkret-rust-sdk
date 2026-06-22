@@ -123,6 +123,7 @@ pub const ERROR_CODE_UNSUPPORTED_LATTICE_TYPE: &str = "unsupported_lattice_type"
 pub const ERROR_CODE_PROFILE_UNSUPPORTED: &str = "profile_unsupported";
 pub const ERROR_CODE_UNSUPPORTED_JOIN_RULE: &str = "unsupported_join_rule";
 pub const ERROR_CODE_FAILED_PRECONDITION: &str = "failed_precondition";
+pub const ERROR_CODE_FAILED_BOTTOM: &str = "failed_bottom";
 pub const ERROR_CODE_CONTACT_NOT_ACCEPTED: &str = "contact_not_accepted";
 pub const ERROR_CODE_CONTACT_CONSENT_MISSING: &str = "contact_consent_missing";
 pub const ERROR_CODE_PEER_UNRESOLVABLE: &str = "peer_unresolvable";

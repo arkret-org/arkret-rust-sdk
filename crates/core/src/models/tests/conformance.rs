@@ -153,12 +153,16 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
             "additionalProperties": false
         }),
     );
+    let warnings = registry
+        .generated_validator("ck.schema.strict.v1")
+        .unwrap()
+        .validate_with_warnings(&json!({"id": "1", "extra": true}))
+        .unwrap();
     assert!(
-        registry
-            .generated_validator("ck.schema.strict.v1")
-            .unwrap()
-            .validate(&json!({"id": "1", "extra": true}))
-            .is_err()
+        warnings
+            .iter()
+            .any(|warning| warning.contains("additional field") && warning.contains("extra")),
+        "expected additional field warning for strict schema, got {warnings:?}"
     );
 }
 

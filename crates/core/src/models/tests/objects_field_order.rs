@@ -39,13 +39,37 @@ fn strand_constructor_sets_protocol_shape() {
     );
     assert!(subject.tracks.contains_key("synthesis"));
     assert_eq!(subject.state, Some(ObjectState::Active));
+    assert_eq!(subject.stage, Some(ObjectStage::Draft));
     subject.validate_title().unwrap();
 
     subject = subject.with_metadata_title(" ");
     assert!(subject.validate_title().is_err());
 }
 
-/// T21 — typed Strand::discussion shorthand for chat-style strands.
+/// Optional Strand stage accepts sparse wire objects.
+#[test]
+fn strand_stage_is_optional_on_wire() {
+    let strand = Strand::new(
+        StrandId::new("ck:strand:01904100-0000-7000-8000-6c663fa0206f").unwrap(),
+        RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8362f").unwrap(),
+        "Payment refactor",
+        Did::new("did:web:alice.example").unwrap(),
+    );
+    let mut value = serde_json::to_value(&strand).unwrap();
+    assert_eq!(value.get("stage"), Some(&json!("draft")));
+    value.as_object_mut().unwrap().remove("stage");
+
+    let parsed: Strand = serde_json::from_value(value).unwrap();
+    assert_eq!(parsed.stage, None);
+    assert!(
+        serde_json::to_value(&parsed)
+            .unwrap()
+            .get("stage")
+            .is_none()
+    );
+}
+
+/// T21 - typed Strand::discussion shorthand for chat-style strands.
 #[test]
 fn strand_discussion_constructor_sets_room_shape() {
     let strand = Strand::discussion(

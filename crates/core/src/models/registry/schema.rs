@@ -93,9 +93,23 @@ pub struct GeneratedSchemaValidator {
 impl GeneratedSchemaValidator {
     /// Validate one JSON object using the generated field rules.
     pub fn validate(&self, value: &Value) -> Result<()> {
+        let warnings = self.validate_with_warnings(value)?;
+        for warning in warnings {
+            tracing::warn!(
+                schema_id = %self.schema_id,
+                warning = %warning,
+                "schema validation warning"
+            );
+        }
+        Ok(())
+    }
+
+    /// Validate one JSON object and return non-fatal schema warnings.
+    pub fn validate_with_warnings(&self, value: &Value) -> Result<Vec<String>> {
         let object = value
             .as_object()
             .ok_or_else(|| Error::Protocol("schema target must be a JSON object".to_owned()))?;
+        let mut warnings = Vec::new();
         for field in &self.fields {
             match object.get(&field.name) {
                 Some(field_value) if field.value_type.matches(field_value) => {}
@@ -120,10 +134,10 @@ impl GeneratedSchemaValidator {
         if !self.additional_properties {
             for field in object.keys() {
                 if !self.fields.iter().any(|known| known.name == *field) {
-                    return Err(Error::Protocol(format!(
-                        "schema '{}' rejects additional field '{}'",
+                    warnings.push(format!(
+                        "schema '{}' has additional field '{}'",
                         self.schema_id, field
-                    )));
+                    ));
                 }
             }
         }
@@ -143,7 +157,7 @@ impl GeneratedSchemaValidator {
                 )));
             }
         }
-        Ok(())
+        Ok(warnings)
     }
 }
 
@@ -231,6 +245,23 @@ impl ProtocolSchemaRegistry {
 
     /// Validate one value against the registered JSON Schema document.
     pub fn validate_value(&self, schema_id: &str, value: &Value) -> Result<()> {
+        let warnings = self.validate_value_with_warnings(schema_id, value)?;
+        for warning in warnings {
+            tracing::warn!(
+                schema_id = %schema_id,
+                warning = %warning,
+                "schema validation warning"
+            );
+        }
+        Ok(())
+    }
+
+    /// Validate one value and return non-fatal schema warnings.
+    pub fn validate_value_with_warnings(
+        &self,
+        schema_id: &str,
+        value: &Value,
+    ) -> Result<Vec<String>> {
         let root_id = schema_id
             .split_once('#')
             .map(|(base, _)| base)
@@ -242,11 +273,12 @@ impl ProtocolSchemaRegistry {
         let schema = self
             .schema(schema_id)
             .ok_or_else(|| Error::Protocol(format!("unknown schema '{schema_id}'")))?;
-        self.validate_schema(root_id, root, schema, value, "$", 0)?;
+        let mut warnings = Vec::new();
+        self.validate_schema(root_id, root, schema, value, "$", 0, &mut warnings)?;
         if let Some(object) = value.as_object() {
             self.validate_security_extensions(schema_id, object)?;
         }
-        Ok(())
+        Ok(warnings)
     }
 
     fn validate_schema(
@@ -257,6 +289,7 @@ impl ProtocolSchemaRegistry {
         value: &Value,
         path: &str,
         depth: usize,
+        warnings: &mut Vec<String>,
     ) -> Result<()> {
         if depth > 128 {
             return Err(Error::Protocol(format!(
@@ -277,6 +310,7 @@ impl ProtocolSchemaRegistry {
                 value,
                 path,
                 depth + 1,
+                warnings,
             );
         }
 
@@ -303,20 +337,33 @@ impl ProtocolSchemaRegistry {
         for keyword in ["allOf"] {
             if let Some(items) = schema_object.get(keyword).and_then(Value::as_array) {
                 for item in items {
-                    self.validate_schema(root_id, root, item, value, path, depth + 1)?;
+                    self.validate_schema(root_id, root, item, value, path, depth + 1, warnings)?;
                 }
             }
         }
 
         for keyword in ["oneOf", "anyOf"] {
             if let Some(items) = schema_object.get(keyword).and_then(Value::as_array) {
-                let matches = items
-                    .iter()
-                    .filter(|item| {
-                        self.validate_schema(root_id, root, item, value, path, depth + 1)
-                            .is_ok()
-                    })
-                    .count();
+                let mut matches = 0;
+                let mut matching_warnings = Vec::new();
+                for item in items {
+                    let mut branch_warnings = Vec::new();
+                    if self
+                        .validate_schema(
+                            root_id,
+                            root,
+                            item,
+                            value,
+                            path,
+                            depth + 1,
+                            &mut branch_warnings,
+                        )
+                        .is_ok()
+                    {
+                        matches += 1;
+                        matching_warnings.extend(branch_warnings);
+                    }
+                }
                 let valid = if keyword == "oneOf" {
                     matches == 1
                 } else {
@@ -327,13 +374,24 @@ impl ProtocolSchemaRegistry {
                         "schema '{root_id}' {keyword} matched {matches} branches at {path}"
                     )));
                 }
+                warnings.extend(matching_warnings);
             }
         }
 
         if let Some(not_schema) = schema_object.get("not")
-            && self
-                .validate_schema(root_id, root, not_schema, value, path, depth + 1)
+            && {
+                let mut branch_warnings = Vec::new();
+                self.validate_schema(
+                    root_id,
+                    root,
+                    not_schema,
+                    value,
+                    path,
+                    depth + 1,
+                    &mut branch_warnings,
+                )
                 .is_ok()
+            }
         {
             return Err(Error::Protocol(format!(
                 "schema '{root_id}' not schema matched at {path}"
@@ -341,16 +399,34 @@ impl ProtocolSchemaRegistry {
         }
 
         if let Some(if_schema) = schema_object.get("if") {
-            let branch = if self
-                .validate_schema(root_id, root, if_schema, value, path, depth + 1)
+            let if_matches = {
+                let mut branch_warnings = Vec::new();
+                self.validate_schema(
+                    root_id,
+                    root,
+                    if_schema,
+                    value,
+                    path,
+                    depth + 1,
+                    &mut branch_warnings,
+                )
                 .is_ok()
-            {
+            };
+            let branch = if if_matches {
                 schema_object.get("then")
             } else {
                 schema_object.get("else")
             };
             if let Some(branch_schema) = branch {
-                self.validate_schema(root_id, root, branch_schema, value, path, depth + 1)?;
+                self.validate_schema(
+                    root_id,
+                    root,
+                    branch_schema,
+                    value,
+                    path,
+                    depth + 1,
+                    warnings,
+                )?;
             }
         }
 
@@ -384,6 +460,7 @@ impl ProtocolSchemaRegistry {
                             field_value,
                             &format!("{path}.{field}"),
                             depth + 1,
+                            warnings,
                         )?;
                     }
                 }
@@ -397,6 +474,7 @@ impl ProtocolSchemaRegistry {
                         &Value::String(field.clone()),
                         &format!("{path} property name"),
                         depth + 1,
+                        warnings,
                     )?;
                 }
             }
@@ -421,6 +499,7 @@ impl ProtocolSchemaRegistry {
                                 field_value,
                                 &format!("{path}.{field}"),
                                 depth + 1,
+                                warnings,
                             )?;
                         }
                     }
@@ -439,9 +518,9 @@ impl ProtocolSchemaRegistry {
                     match additional {
                         Value::Bool(true) => {}
                         Value::Bool(false) => {
-                            return Err(Error::Protocol(format!(
-                                "schema '{root_id}' rejects additional field '{field}' at {path}"
-                            )));
+                            warnings.push(format!(
+                                "schema '{root_id}' has additional field '{field}' at {path}"
+                            ));
                         }
                         schema => {
                             self.validate_schema(
@@ -451,6 +530,7 @@ impl ProtocolSchemaRegistry {
                                 field_value,
                                 &format!("{path}.{field}"),
                                 depth + 1,
+                                warnings,
                             )?;
                         }
                     }
@@ -484,6 +564,7 @@ impl ProtocolSchemaRegistry {
                         item,
                         &format!("{path}[{index}]"),
                         depth + 1,
+                        warnings,
                     )?;
                 }
             }
@@ -502,6 +583,7 @@ impl ProtocolSchemaRegistry {
                     .iter()
                     .enumerate()
                     .filter(|(index, item)| {
+                        let mut branch_warnings = Vec::new();
                         self.validate_schema(
                             root_id,
                             root,
@@ -509,6 +591,7 @@ impl ProtocolSchemaRegistry {
                             item,
                             &format!("{path}[{index}]"),
                             depth + 1,
+                            &mut branch_warnings,
                         )
                         .is_ok()
                     })

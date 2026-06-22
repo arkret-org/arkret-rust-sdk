@@ -76,6 +76,15 @@ fn fixture_artifact(name: &str) -> Value {
     }
 }
 
+fn assert_warns_additional_field(warnings: &[String], field: &str) {
+    assert!(
+        warnings
+            .iter()
+            .any(|warning| warning.contains("additional field") && warning.contains(field)),
+        "expected warning for additional field {field:?}, got {warnings:?}"
+    );
+}
+
 #[test]
 fn schema_catalog_reports_all_registered_schemas() {
     let catalog = schema_catalog();
@@ -163,15 +172,13 @@ fn relation_create_payload_strong_type_passes_spec_validator() {
         .validate_payload("ck.relation.create", &payload.to_value().unwrap())
         .unwrap();
 
-    // deny_unknown_fields: the removed illegal keys (relation_id / fields /
-    // scope_circle_id) are not representable and would be rejected by the
-    // spec validator if injected.
+    // Unknown additive keys are reported but do not fail schema validation.
     let mut leaky = payload.to_value().unwrap();
     leaky["fields"] = json!({"role": "x"});
-    assert!(matches!(
-        catalog.validate_payload("ck.relation.create", &leaky),
-        Err(Error::Protocol(_))
-    ));
+    let warnings = catalog
+        .validate_payload_with_warnings("ck.relation.create", &leaky)
+        .unwrap();
+    assert_warns_additional_field(&warnings, "fields");
 }
 
 #[test]
@@ -207,14 +214,13 @@ fn membership_payload_strong_type_passes_spec_validator() {
     bad.delivery_status = None;
     assert!(matches!(bad.to_value(), Err(Error::Protocol(_))));
 
-    // deny_unknown_fields: the removed illegal `handle` key would be rejected
-    // by the spec validator (membership_payload is additionalProperties:false).
+    // Unknown additive keys are reported but do not fail schema validation.
     let mut leaky = invite.to_value().unwrap();
     leaky["handle"] = json!("bob:example.com");
-    assert!(matches!(
-        catalog.validate_payload("ck.member.state", &leaky),
-        Err(Error::Protocol(_))
-    ));
+    let warnings = catalog
+        .validate_payload_with_warnings("ck.member.state", &leaky)
+        .unwrap();
+    assert_warns_additional_field(&warnings, "handle");
 }
 
 #[test]
@@ -283,14 +289,13 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
         .validate_payload("ck.realm.destroy", &destroy.to_value().unwrap())
         .unwrap();
 
-    // deny_unknown_fields: an illegal key on any of these is rejected by the
-    // spec validator (all three defs are additionalProperties:false).
+    // Unknown additive keys are reported but do not fail schema validation.
     let mut leaky = archive.to_value().unwrap();
     leaky["successor_realm_id"] = json!("ck:realm:01904100-0000-7000-8000-444444444444");
-    assert!(matches!(
-        catalog.validate_payload("ck.realm.archive", &leaky),
-        Err(Error::Protocol(_))
-    ));
+    let warnings = catalog
+        .validate_payload_with_warnings("ck.realm.archive", &leaky)
+        .unwrap();
+    assert_warns_additional_field(&warnings, "successor_realm_id");
 }
 
 #[test]
@@ -308,7 +313,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // ck.strand.move — board/target Space ids + rank; from_space_id +
     // expected_position optional. Destination is single-sourced by
-    // target_space_id (a stray `list_space_id` would be rejected).
+    // target_space_id (a stray `list_space_id` is reported as additive).
     let mv = StrandMovePayload::new(board(), strand(), target(), "U")
         .with_from_space_id(board())
         .with_expected_position(crate::models::StrandMoveExpectedPosition {
@@ -378,14 +383,13 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
         )
         .unwrap();
 
-    // deny_unknown_fields: a stray destination key on ck.strand.move is rejected
-    // (additionalProperties:false on strand_move_payload).
+    // Unknown additive keys are reported but do not fail schema validation.
     let mut leaky = mv.to_value().unwrap();
     leaky["list_space_id"] = json!("ck:space:01904100-0000-7000-8000-222222222222");
-    assert!(matches!(
-        catalog.validate_payload("ck.strand.move", &leaky),
-        Err(Error::Protocol(_))
-    ));
+    let warnings = catalog
+        .validate_payload_with_warnings("ck.strand.move", &leaky)
+        .unwrap();
+    assert_warns_additional_field(&warnings, "list_space_id");
 }
 
 #[test]
@@ -430,11 +434,13 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
     registry
         .validate_value(&history_ref, &restricted.to_value().unwrap())
         .unwrap();
-    // deny_unknown_fields: an unknown key is rejected by the named def
-    // (additionalProperties:false).
+    // Unknown additive keys are reported but do not fail schema validation.
     let mut leaky = shared.to_value().unwrap();
     leaky["unexpected"] = json!(true);
-    assert!(registry.validate_value(&history_ref, &leaky).is_err());
+    let warnings = registry
+        .validate_value_with_warnings(&history_ref, &leaky)
+        .unwrap();
+    assert_warns_additional_field(&warnings, "unexpected");
 
     let history_policy = HistorySharingPolicyPayload {
         value: HistorySharingPolicyPayloadValue {
@@ -479,14 +485,13 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
     registry
         .validate_value(&services_ref, &services.to_value().unwrap())
         .unwrap();
-    // top-level additionalProperties:false on the payload.
+    // Top-level additive keys are warnings, not schema violations.
     let mut leaky_services = services.to_value().unwrap();
     leaky_services["unexpected"] = json!(true);
-    assert!(
-        registry
-            .validate_value(&services_ref, &leaky_services)
-            .is_err()
-    );
+    let warnings = registry
+        .validate_value_with_warnings(&services_ref, &leaky_services)
+        .unwrap();
+    assert_warns_additional_field(&warnings, "unexpected");
 }
 
 #[test]
@@ -521,20 +526,19 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
             )
             .is_err()
     );
-    assert!(
-        catalog
-            .validate_payload(
-                crate::events::STRAND_MOVE,
-                &json!({
-                    "board_space_id": "ck:space:01904100-0000-7000-8000-111111111111",
-                    "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
-                    "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
-                    "rank": "U",
-                    "unexpected": true
-                }),
-            )
-            .is_err()
-    );
+    let warnings = catalog
+        .validate_payload_with_warnings(
+            crate::events::STRAND_MOVE,
+            &json!({
+                "board_space_id": "ck:space:01904100-0000-7000-8000-111111111111",
+                "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+                "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
+                "rank": "U",
+                "unexpected": true
+            }),
+        )
+        .unwrap();
+    assert_warns_additional_field(&warnings, "unexpected");
 }
 
 #[test]
@@ -858,14 +862,13 @@ fn schema_registry_enforces_json_schema_composition_and_value_rules() {
             )
             .is_err()
     );
-    assert!(
-        registry
-            .validate_value(
-                "ck.schema.deep_test.v1",
-                &json!({"kind": "demo", "items": ["alpha"], "target": "user", "extra": true}),
-            )
-            .is_err()
-    );
+    let warnings = registry
+        .validate_value_with_warnings(
+            "ck.schema.deep_test.v1",
+            &json!({"kind": "demo", "items": ["alpha"], "target": "user", "extra": true}),
+        )
+        .unwrap();
+    assert_warns_additional_field(&warnings, "extra");
     assert!(
         registry
             .validate_value(

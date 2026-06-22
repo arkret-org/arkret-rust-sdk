@@ -40,25 +40,44 @@ impl EventPayloadValidatorCatalog {
     }
 
     pub fn validate_payload(&self, event_kind: &str, payload: &Value) -> Result<()> {
+        let warnings = self.validate_payload_with_warnings(event_kind, payload)?;
+        for warning in warnings {
+            tracing::warn!(
+                event_kind = %event_kind,
+                warning = %warning,
+                "event payload validation warning"
+            );
+        }
+        Ok(())
+    }
+
+    pub fn validate_payload_with_warnings(
+        &self,
+        event_kind: &str,
+        payload: &Value,
+    ) -> Result<Vec<String>> {
         let Some(rule) = self.rules.get(event_kind) else {
             return Err(Error::Protocol(format!(
                 "event kind '{event_kind}' has no payload validator"
             )));
         };
         validate_required_payload_fields(event_kind, payload, &rule.required_fields)?;
+        let mut warnings = Vec::new();
         if let Some(registry) = &self.registry {
-            registry
-                .validate_value(&rule.payload_schema_id, payload)
-                .map_err(|error| {
-                    Error::Protocol(format!(
-                        "event kind '{event_kind}' payload violates {}: {error}",
-                        rule.payload_schema_id
-                    ))
-                })?;
+            warnings.extend(
+                registry
+                    .validate_value_with_warnings(&rule.payload_schema_id, payload)
+                    .map_err(|error| {
+                        Error::Protocol(format!(
+                            "event kind '{event_kind}' payload violates {}: {error}",
+                            rule.payload_schema_id
+                        ))
+                    })?,
+            );
         } else {
-            validate_fallback_payload_shape(event_kind, payload)?;
+            validate_fallback_payload_shape(event_kind, payload, &mut warnings)?;
         }
-        Ok(())
+        Ok(warnings)
     }
 
     pub fn missing_payload_validators_for<'a>(
@@ -93,18 +112,22 @@ fn validate_required_payload_fields(
     Ok(())
 }
 
-fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<()> {
+fn validate_fallback_payload_shape(
+    event_kind: &str,
+    payload: &Value,
+    warnings: &mut Vec<String>,
+) -> Result<()> {
     let Some(object) = payload.as_object() else {
         return Ok(());
     };
     if let Some(allowed_fields) = fallback_allowed_fields(event_kind) {
-        validate_known_fields(event_kind, object, allowed_fields)?;
+        collect_unknown_field_warnings(event_kind, "$", object, allowed_fields, warnings);
     }
     match event_kind {
         "ck.strand.create" => validate_create_object_fallback_payload(event_kind, object),
         "ck.morph.create" => validate_create_object_fallback_payload(event_kind, object),
         "ck.message.create" => {
-            // `message_create_payload` top-level `not` — `metadata` and
+            // `message_create_payload` top-level `not` - `metadata` and
             // `encrypted_metadata` are mutually exclusive.
             if object.contains_key("metadata") && object.contains_key("encrypted_metadata") {
                 return Err(Error::Protocol(format!(
@@ -123,8 +146,210 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
                 ))),
             }
         }
-        "ck.mls.commit" => validate_mls_commit_fallback_payload(event_kind, object),
+        "ck.mls.commit" => validate_mls_commit_fallback_payload(event_kind, object, warnings),
         _ => Ok(()),
+    }
+}
+
+fn validate_required_object_fields(
+    event_kind: &str,
+    object: &serde_json::Map<String, Value>,
+    required_fields: &[&str],
+) -> Result<()> {
+    for field in required_fields {
+        if !object.contains_key(*field) {
+            return Err(Error::Protocol(format!(
+                "event kind '{event_kind}' payload requires field '{field}'"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_create_object_fallback_payload(
+    event_kind: &str,
+    wrapper: &serde_json::Map<String, Value>,
+) -> Result<()> {
+    let object = wrapper
+        .get("object")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "event kind '{event_kind}' payload object must be an object"
+            ))
+        })?;
+    if object.contains_key("content") && object.contains_key("encrypted_content") {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload object must not carry both content and encrypted_content"
+        )));
+    }
+    if object.contains_key("metadata") && object.contains_key("encrypted_metadata") {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload object must not carry both metadata and encrypted_metadata"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_mls_commit_fallback_payload(
+    event_kind: &str,
+    object: &serde_json::Map<String, Value>,
+    warnings: &mut Vec<String>,
+) -> Result<()> {
+    // Field allow-list is already checked via FALLBACK_FIELD_ALLOWLISTS in
+    // validate_fallback_payload_shape; this helper checks the semantic
+    // (cross-field) invariants only.
+    let base_epoch = object
+        .get("base_epoch")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "event kind '{event_kind}' payload base_epoch must be an integer"
+            ))
+        })?;
+    let next_epoch = object
+        .get("next_epoch")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "event kind '{event_kind}' payload next_epoch must be an integer"
+            ))
+        })?;
+    if base_epoch.checked_add(1) != Some(next_epoch) {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload next_epoch must equal base_epoch + 1"
+        )));
+    }
+    if object
+        .get("proposal_refs")
+        .and_then(Value::as_array)
+        .is_none()
+    {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload proposal_refs must be an array"
+        )));
+    }
+
+    let binding = object
+        .get("governance_binding")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "event kind '{event_kind}' payload governance_binding must be an object"
+            ))
+        })?;
+    validate_required_object_fields(
+        event_kind,
+        binding,
+        &[
+            "binding_version",
+            "encoding_profile",
+            "realm_id",
+            "effective_scope",
+            "mls_group_id",
+            "previous_epoch",
+            "next_epoch",
+            "membership_frontier",
+            "policy_root",
+        ],
+    )?;
+    collect_unknown_field_warnings(
+        event_kind,
+        "$.governance_binding",
+        binding,
+        &[
+            "binding_version",
+            "encoding_profile",
+            "realm_id",
+            "circle_id",
+            "effective_scope",
+            "mls_group_id",
+            "previous_epoch",
+            "next_epoch",
+            "membership_frontier",
+            "policy_root",
+            "capability_root",
+            "discussion_metadata_digest",
+            "binding_profile",
+            "reducer_profile",
+        ],
+        warnings,
+    );
+    if binding.get("binding_version").and_then(Value::as_u64) != Some(1) {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.binding_version must be 1"
+        )));
+    }
+    if binding.get("encoding_profile").and_then(Value::as_str)
+        != Some("cbor-deterministic-rfc8949-v1")
+    {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.encoding_profile is invalid"
+        )));
+    }
+    if binding
+        .get("membership_frontier")
+        .and_then(Value::as_array)
+        .is_none_or(Vec::is_empty)
+    {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.membership_frontier must be non-empty"
+        )));
+    }
+
+    let Some(payload_group_id) = object.get("mls_group_id").and_then(Value::as_str) else {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload mls_group_id must be a string"
+        )));
+    };
+    if binding.get("mls_group_id").and_then(Value::as_str) != Some(payload_group_id) {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.mls_group_id mismatch"
+        )));
+    }
+    if binding.get("previous_epoch").and_then(Value::as_u64) != Some(base_epoch)
+        || binding.get("next_epoch").and_then(Value::as_u64) != Some(next_epoch)
+    {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding epoch mismatch"
+        )));
+    }
+
+    let effective_scope = binding
+        .get("effective_scope")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "event kind '{event_kind}' payload governance_binding.effective_scope must be an object"
+            ))
+        })?;
+    match effective_scope.get("kind").and_then(Value::as_str) {
+        Some("realm") if binding.contains_key("circle_id") => Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.circle_id must be absent for realm scope"
+        ))),
+        Some("circle") if !binding.contains_key("circle_id") => Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.circle_id is required for circle scope"
+        ))),
+        Some("realm" | "circle") => Ok(()),
+        _ => Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.effective_scope.kind is invalid"
+        ))),
+    }
+}
+
+fn collect_unknown_field_warnings(
+    event_kind: &str,
+    path: &str,
+    object: &serde_json::Map<String, Value>,
+    allowed_fields: &[&str],
+    warnings: &mut Vec<String>,
+) {
+    for field in object.keys() {
+        if !allowed_fields.contains(&field.as_str()) {
+            warnings.push(format!(
+                "event kind '{event_kind}' payload has additional field '{field}' at {path}"
+            ));
+        }
     }
 }
 
@@ -133,16 +358,12 @@ const OBJECT_PATCH_FALLBACK_FIELDS: &[&str] = &["target_ref", "patch", "expected
 const STRAND_PATCH_FALLBACK_FIELDS: &[&str] = &["strand_id", "patch", "expected_state_digest"];
 const SPACE_PATCH_FALLBACK_FIELDS: &[&str] = &["space_id", "patch", "expected_state_digest"];
 
-/// Closed field allow-lists the fallback validator enforces per event kind.
+/// Field allow-lists the fallback validator mirrors per event kind.
 ///
 /// Each entry MUST mirror the property set of the corresponding
-/// `event-payload.schema.json` `$defs/*_payload` definition
-/// (`additionalProperties: false`): a property the strong schema accepts but
-/// this list omits makes registry-absent clients (wasm, prod without a spec
-/// checkout) reject their own well-formed events — e.g. `realm_id` /
-/// `gate_proofs` on `ck.member.state` join. Lockstep is enforced by the
-/// `fallback_allowlists_lockstep_with_event_payload_schema` test whenever
-/// spec artifacts are available (dev / CI).
+/// `event-payload.schema.json` `$defs/*_payload` definition. Extra fields are
+/// reported as warnings, so lockstep keeps the fallback warning surface aligned
+/// with the strong schema path.
 const FALLBACK_FIELD_ALLOWLISTS: &[(&str, &[&str])] = &[
     ("ck.realm.update", OBJECT_PATCH_FALLBACK_FIELDS),
     ("ck.strand.update", STRAND_PATCH_FALLBACK_FIELDS),
@@ -256,204 +477,6 @@ fn fallback_allowed_fields(event_kind: &str) -> Option<&'static [&'static str]> 
         .iter()
         .find(|(kind, _)| *kind == event_kind)
         .map(|(_, fields)| *fields)
-}
-
-fn validate_required_object_fields(
-    event_kind: &str,
-    object: &serde_json::Map<String, Value>,
-    required_fields: &[&str],
-) -> Result<()> {
-    for field in required_fields {
-        if !object.contains_key(*field) {
-            return Err(Error::Protocol(format!(
-                "event kind '{event_kind}' payload requires field '{field}'"
-            )));
-        }
-    }
-    Ok(())
-}
-
-fn validate_create_object_fallback_payload(
-    event_kind: &str,
-    wrapper: &serde_json::Map<String, Value>,
-) -> Result<()> {
-    let object = wrapper
-        .get("object")
-        .and_then(Value::as_object)
-        .ok_or_else(|| {
-            Error::Protocol(format!(
-                "event kind '{event_kind}' payload object must be an object"
-            ))
-        })?;
-    if object.contains_key("content") && object.contains_key("encrypted_content") {
-        return Err(Error::Protocol(format!(
-            "event kind '{event_kind}' payload object must not carry both content and encrypted_content"
-        )));
-    }
-    if object.contains_key("metadata") && object.contains_key("encrypted_metadata") {
-        return Err(Error::Protocol(format!(
-            "event kind '{event_kind}' payload object must not carry both metadata and encrypted_metadata"
-        )));
-    }
-    Ok(())
-}
-
-fn validate_mls_commit_fallback_payload(
-    event_kind: &str,
-    object: &serde_json::Map<String, Value>,
-) -> Result<()> {
-    // Field allow-list is already enforced via FALLBACK_FIELD_ALLOWLISTS in
-    // validate_fallback_payload_shape; this helper checks the semantic
-    // (cross-field) invariants only.
-    let base_epoch = object
-        .get("base_epoch")
-        .and_then(Value::as_u64)
-        .ok_or_else(|| {
-            Error::Protocol(format!(
-                "event kind '{event_kind}' payload base_epoch must be an integer"
-            ))
-        })?;
-    let next_epoch = object
-        .get("next_epoch")
-        .and_then(Value::as_u64)
-        .ok_or_else(|| {
-            Error::Protocol(format!(
-                "event kind '{event_kind}' payload next_epoch must be an integer"
-            ))
-        })?;
-    if base_epoch.checked_add(1) != Some(next_epoch) {
-        return Err(Error::Protocol(format!(
-            "event kind '{event_kind}' payload next_epoch must equal base_epoch + 1"
-        )));
-    }
-    if object
-        .get("proposal_refs")
-        .and_then(Value::as_array)
-        .is_none()
-    {
-        return Err(Error::Protocol(format!(
-            "event kind '{event_kind}' payload proposal_refs must be an array"
-        )));
-    }
-
-    let binding = object
-        .get("governance_binding")
-        .and_then(Value::as_object)
-        .ok_or_else(|| {
-            Error::Protocol(format!(
-                "event kind '{event_kind}' payload governance_binding must be an object"
-            ))
-        })?;
-    validate_required_object_fields(
-        event_kind,
-        binding,
-        &[
-            "binding_version",
-            "encoding_profile",
-            "realm_id",
-            "effective_scope",
-            "mls_group_id",
-            "previous_epoch",
-            "next_epoch",
-            "membership_frontier",
-            "policy_root",
-        ],
-    )?;
-    validate_known_fields(
-        event_kind,
-        binding,
-        &[
-            "binding_version",
-            "encoding_profile",
-            "realm_id",
-            "circle_id",
-            "effective_scope",
-            "mls_group_id",
-            "previous_epoch",
-            "next_epoch",
-            "membership_frontier",
-            "policy_root",
-            "capability_root",
-            "discussion_metadata_digest",
-            "binding_profile",
-            "reducer_profile",
-        ],
-    )?;
-    if binding.get("binding_version").and_then(Value::as_u64) != Some(1) {
-        return Err(Error::Protocol(format!(
-            "event kind '{event_kind}' payload governance_binding.binding_version must be 1"
-        )));
-    }
-    if binding.get("encoding_profile").and_then(Value::as_str)
-        != Some("cbor-deterministic-rfc8949-v1")
-    {
-        return Err(Error::Protocol(format!(
-            "event kind '{event_kind}' payload governance_binding.encoding_profile is invalid"
-        )));
-    }
-    if binding
-        .get("membership_frontier")
-        .and_then(Value::as_array)
-        .is_none_or(Vec::is_empty)
-    {
-        return Err(Error::Protocol(format!(
-            "event kind '{event_kind}' payload governance_binding.membership_frontier must be non-empty"
-        )));
-    }
-
-    let Some(payload_group_id) = object.get("mls_group_id").and_then(Value::as_str) else {
-        return Err(Error::Protocol(format!(
-            "event kind '{event_kind}' payload mls_group_id must be a string"
-        )));
-    };
-    if binding.get("mls_group_id").and_then(Value::as_str) != Some(payload_group_id) {
-        return Err(Error::Protocol(format!(
-            "event kind '{event_kind}' payload governance_binding.mls_group_id mismatch"
-        )));
-    }
-    if binding.get("previous_epoch").and_then(Value::as_u64) != Some(base_epoch)
-        || binding.get("next_epoch").and_then(Value::as_u64) != Some(next_epoch)
-    {
-        return Err(Error::Protocol(format!(
-            "event kind '{event_kind}' payload governance_binding epoch mismatch"
-        )));
-    }
-
-    let effective_scope = binding
-        .get("effective_scope")
-        .and_then(Value::as_object)
-        .ok_or_else(|| {
-            Error::Protocol(format!(
-                "event kind '{event_kind}' payload governance_binding.effective_scope must be an object"
-            ))
-        })?;
-    match effective_scope.get("kind").and_then(Value::as_str) {
-        Some("realm") if binding.contains_key("circle_id") => Err(Error::Protocol(format!(
-            "event kind '{event_kind}' payload governance_binding.circle_id must be absent for realm scope"
-        ))),
-        Some("circle") if !binding.contains_key("circle_id") => Err(Error::Protocol(format!(
-            "event kind '{event_kind}' payload governance_binding.circle_id is required for circle scope"
-        ))),
-        Some("realm" | "circle") => Ok(()),
-        _ => Err(Error::Protocol(format!(
-            "event kind '{event_kind}' payload governance_binding.effective_scope.kind is invalid"
-        ))),
-    }
-}
-
-fn validate_known_fields(
-    event_kind: &str,
-    object: &serde_json::Map<String, Value>,
-    allowed_fields: &[&str],
-) -> Result<()> {
-    for field in object.keys() {
-        if !allowed_fields.contains(&field.as_str()) {
-            return Err(Error::Protocol(format!(
-                "event kind '{event_kind}' payload field '{field}' is not allowed by fallback schema"
-            )));
-        }
-    }
-    Ok(())
 }
 
 pub fn event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
@@ -650,7 +673,7 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
             // `capability_grant_payload` only REQUIRES the cell subject
             // `grant_id` at the top level; the anyOf alternatives (embedded
             // `grant` artifact vs summary subject/actions/resources) are
-            // schema-level and the fallback must not over-require — the
+            // schema-level and the fallback must not over-require. The
             // canonical `{grant_id, grant}` wrapper carries none of
             // subject/actions/resources at the top level.
             &["grant_id"][..],
@@ -748,12 +771,14 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["strand", "move"] => candidates.push("strand_move_payload".to_owned()),
         ["strand", "reorder"] => candidates.push("strand_reorder_payload".to_owned()),
         ["strand", "update"] => candidates.push("strand_patch_payload".to_owned()),
-        ["strand", "archive" | "restore"] => candidates.push("object_lifecycle_payload".to_owned()),
+        ["strand", "archive" | "restore"] => {
+            candidates.push("object_lifecycle_payload".to_owned());
+        }
         ["strand", "track", "enable" | "disable" | "set_primary"] => {
             candidates.push("state_payload".to_owned());
         }
         ["strand", "track" | "tracks", "update"] => {
-            candidates.push("generic_standard_payload".to_owned())
+            candidates.push("generic_standard_payload".to_owned());
         }
         ["message", "create"] => candidates.push("message_create_payload".to_owned()),
         ["message", "revise"] => candidates.push("message_revise_payload".to_owned()),
@@ -768,7 +793,9 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["member", "state"] => candidates.push("membership_payload".to_owned()),
         ["morph", "create"] => candidates.push("morph_create_payload".to_owned()),
         ["morph", "update"] => candidates.push("object_patch_payload".to_owned()),
-        ["morph", "archive" | "restore"] => candidates.push("object_lifecycle_payload".to_owned()),
+        ["morph", "archive" | "restore"] => {
+            candidates.push("object_lifecycle_payload".to_owned());
+        }
         ["relation", "create"] => candidates.push("relation_create_payload".to_owned()),
         ["relation", "update"] => candidates.push("relation_update_payload".to_owned()),
         ["relation", "delete"] => candidates.push("object_lifecycle_payload".to_owned()),
@@ -953,8 +980,8 @@ mod tests {
 
     /// SDK-06-002 mitigation: the hand-written fallback allow-lists MUST stay
     /// lockstep with the `event-payload.schema.json` property sets, otherwise
-    /// registry-absent clients reject well-formed events the strong schema
-    /// accepts (or accept fields the schema closed off).
+    /// registry-absent clients warn on fields the strong schema accepts (or
+    /// fail to warn on fields the schema closed off).
     #[test]
     fn fallback_allowlists_lockstep_with_event_payload_schema() {
         let registry = schema_registry_from_embedded_spec_artifacts().unwrap();

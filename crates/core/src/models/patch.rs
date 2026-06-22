@@ -626,13 +626,13 @@ mod tests {
         let mut patch = Patch::new();
         patch.insert_op("title", PatchOp::set("Roadmap")).unwrap();
         let payload =
-            ObjectPatchPayload::for_target("ck:strand:0196419b-0000-7000-8000-000000000002", patch)
+            ObjectPatchPayload::for_target("ck:morph:0196419b-0000-7000-8000-000000000002", patch)
                 .unwrap()
                 .to_value()
                 .unwrap();
 
         crate::schema::event_payload_validator_catalog()
-            .validate_payload("ck.strand.update", &payload)
+            .validate_payload("ck.morph.update", &payload)
             .unwrap();
     }
 

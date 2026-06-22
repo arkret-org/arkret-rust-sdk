@@ -77,10 +77,11 @@ pub struct Strand {
     pub state: Option<ObjectState>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_changed_at: Option<DateTime<Utc>>,
-    /// Business-progression stage (spec `strand.schema.json` required `stage`).
-    /// Orthogonal to lifecycle `state`. Mutated only via `ck.strand.stage.set`;
-    /// constructors default to [`ObjectStage::Draft`], consistent with Morph.
-    pub stage: ObjectStage,
+    /// Optional business-progression stage. Orthogonal to lifecycle `state`.
+    /// Mutated only via `ck.strand.stage.set`; constructors fill `draft`,
+    /// while sparse wire objects may omit the field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stage: Option<ObjectStage>,
     /// Reducer-derived timestamp of the most recent `stage` transition;
     /// preserved on deserialize, omitted by producers (servers populate it).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -115,7 +116,7 @@ impl Strand {
             tracks,
             state: Some(ObjectState::Active),
             state_changed_at: None,
-            stage: ObjectStage::Draft,
+            stage: Some(ObjectStage::Draft),
             stage_changed_at: None,
             created_by,
             created_at: Utc::now(),

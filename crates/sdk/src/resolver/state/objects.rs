@@ -533,9 +533,10 @@ impl RealmState {
             tracks,
             state: Some(state),
             state_changed_at: None,
-            stage: self
-                .extract_optional_field::<crate::ObjectStage>(object, "stage")
-                .unwrap_or(crate::ObjectStage::Draft),
+            stage: Some(
+                self.extract_optional_field::<crate::ObjectStage>(object, "stage")
+                    .unwrap_or(crate::ObjectStage::Draft),
+            ),
             stage_changed_at: self.extract_optional_field(object, "stage_changed_at"),
             created_by: event.actor_id.clone(),
             created_at: event.created_at,

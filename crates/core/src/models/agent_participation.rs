@@ -25,6 +25,7 @@ pub const AGENT_PARTICIPATION_ACCOUNT_DATA_TYPE: &str = "ck.agent.participation.
 /// implication: `a ⊆ b` iff every bit set in `a` is set in `b`.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AgentParticipation {
     /// Agent may author `ck.message.create` / `ck.reaction.add` as
     /// itself (reply-as-agent) in this scope.
@@ -77,6 +78,44 @@ impl AgentParticipation {
         (!self.reply || other.reply)
             && (!self.accept_third_party_mention || other.accept_third_party_mention)
             && (!self.act_on_behalf || other.act_on_behalf)
+    }
+}
+
+/// Optional per-bit governance ceiling declaration for Circle / Strand
+/// objects. Omitted bits inherit the parent ceiling independently.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentParticipationCeiling {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reply: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accept_third_party_mention: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub act_on_behalf: Option<bool>,
+}
+
+impl AgentParticipationCeiling {
+    /// Materialize this declaration against its parent ceiling.
+    #[must_use]
+    pub fn materialize(self, parent: AgentParticipation) -> AgentParticipation {
+        AgentParticipation {
+            reply: self.reply.unwrap_or(parent.reply),
+            accept_third_party_mention: self
+                .accept_third_party_mention
+                .unwrap_or(parent.accept_third_party_mention),
+            act_on_behalf: self.act_on_behalf.unwrap_or(parent.act_on_behalf),
+        }
+    }
+}
+
+impl From<AgentParticipation> for AgentParticipationCeiling {
+    fn from(value: AgentParticipation) -> Self {
+        Self {
+            reply: Some(value.reply),
+            accept_third_party_mention: Some(value.accept_third_party_mention),
+            act_on_behalf: Some(value.act_on_behalf),
+        }
     }
 }
 
@@ -181,6 +220,17 @@ pub fn validate_agent_participation_tightens(
     } else {
         Err(AgentParticipationError::CeilingWiden { parent, child })
     }
+}
+
+/// Validate a partial child ceiling declaration against its parent and
+/// return the materialized child ceiling.
+pub fn validate_agent_participation_ceiling_tightens(
+    parent: AgentParticipation,
+    child: AgentParticipationCeiling,
+) -> Result<AgentParticipation, AgentParticipationError> {
+    let materialized = child.materialize(parent);
+    validate_agent_participation_tightens(parent, materialized)?;
+    Ok(materialized)
 }
 
 /// Fold a ceiling chain by intersection, seeded with [`AgentParticipation::ALL`].
@@ -289,6 +339,34 @@ mod tests {
         // Child that only drops bits is accepted.
         assert!(validate_agent_participation_tightens(parent, p(false, false, false)).is_ok());
         assert!(validate_agent_participation_tightens(parent, parent).is_ok());
+    }
+
+    #[test]
+    fn ceiling_declaration_inherits_omitted_bits() {
+        let parent = p(true, false, true);
+        let child = AgentParticipationCeiling {
+            reply: Some(false),
+            accept_third_party_mention: None,
+            act_on_behalf: None,
+        };
+        assert_eq!(
+            validate_agent_participation_ceiling_tightens(parent, child).unwrap(),
+            p(false, false, true)
+        );
+    }
+
+    #[test]
+    fn ceiling_declaration_rejects_explicit_widening() {
+        let parent = p(true, false, false);
+        let child = AgentParticipationCeiling {
+            reply: None,
+            accept_third_party_mention: Some(true),
+            act_on_behalf: None,
+        };
+        assert!(matches!(
+            validate_agent_participation_ceiling_tightens(parent, child),
+            Err(AgentParticipationError::CeilingWiden { .. })
+        ));
     }
 
     #[test]

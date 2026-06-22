@@ -100,8 +100,15 @@ pub const REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH: &str =
     "keypackage_welcome_envelope_mismatch";
 
 // Capability delegation safety (zh/authz/capabilities.md §10).
+pub const REASON_GRANT_EXCEEDS_ISSUER_AUTHORITY: &str = "grant_exceeds_issuer_authority";
+pub const REASON_GRANT_REVOKED_UPSTREAM: &str = "grant_revoked_upstream";
 pub const REASON_DELEGATION_CYCLE: &str = "delegation_cycle";
 pub const REASON_DELEGATION_EXPIRY_WIDENING: &str = "delegation_expiry_widening";
+
+// Event-auth / governance fail-closed reasons.
+pub const REASON_PLANE_CROSS_WRITE: &str = "plane_cross_write";
+pub const REASON_MODERATION_STATE_CONFLICT: &str = "moderation_state_conflict";
+pub const REASON_DELIVERY_BINDING_INVALID: &str = "delivery_binding_invalid";
 
 // Fork-conflict recovery witness (zh/authz/event-auth-state-resolution.md §8.1).
 pub const REASON_RECOVERY_WITNESS_MISSING: &str = "recovery_witness_missing";
@@ -229,6 +236,14 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_WITNESS_DISAGREEMENT,
 ];
 
+/// Authz / governance reason codes mirrored from the registry snapshot.
+pub const KNOWN_REASON_CODES_AUTHZ_GOVERNANCE: &[&str] = &[
+    REASON_GRANT_EXCEEDS_ISSUER_AUTHORITY,
+    REASON_GRANT_REVOKED_UPSTREAM,
+    REASON_MODERATION_STATE_CONFLICT,
+    REASON_DELIVERY_BINDING_INVALID,
+];
+
 // ── CKP-0007 (spec b7d35be) — Circle primitive reason codes.
 //
 // `failed_precondition` / `schema_violation` sub-codes for the Circle
@@ -261,6 +276,15 @@ pub const REASON_EFFECTIVE_SCOPE_REDUCER_MANAGED: &str = "effective_scope_reduce
 /// `schema_violation` sub-reason: actor-side submit payload supplied the
 /// reducer-managed Envelope runtime classifier directly.
 pub const REASON_ACTOR_KIND_REDUCER_MANAGED: &str = "actor_kind_reducer_managed";
+/// `failed_precondition` sub-reason: an inner Realm / Circle / Strand
+/// agent-participation ceiling would enable a bit disabled by its parent.
+pub const REASON_AGENT_PARTICIPATION_CEILING_WIDEN: &str = "agent_participation_ceiling_widen";
+/// `failed_precondition` sub-reason: a controller selection enables a
+/// participation bit disabled by the effective governance ceiling.
+pub const REASON_AGENT_PARTICIPATION_EXCEEDS_CEILING: &str = "agent_participation_exceeds_ceiling";
+/// `failed_precondition` / authorization sub-reason: a native personal
+/// agent action is denied by effective participation policy.
+pub const REASON_AGENT_PARTICIPATION_DENIED: &str = "agent_participation_denied";
 /// `failed_precondition` sub-reason: a write would expose metadata below
 /// the effective `metadata_encryption_floor` floor (max of parent
 /// Realm, Circle, Space child-scope-policy, and object profile floors).
@@ -293,6 +317,13 @@ pub const KNOWN_REASON_CODES_CKP_0007: &[&str] = &[
     REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION,
     REASON_CONTENT_ENCRYPTION_FLOOR_DOWNGRADE,
     REASON_METADATA_ENCRYPTION_FLOOR_DOWNGRADE,
+];
+
+/// Reason codes for the agent participation policy profile.
+pub const KNOWN_REASON_CODES_AGENT_PARTICIPATION: &[&str] = &[
+    REASON_AGENT_PARTICIPATION_CEILING_WIDEN,
+    REASON_AGENT_PARTICIPATION_EXCEEDS_CEILING,
+    REASON_AGENT_PARTICIPATION_DENIED,
 ];
 
 /// Known `failed_precondition` reason codes registered in round C44.

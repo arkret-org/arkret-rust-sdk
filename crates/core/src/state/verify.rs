@@ -62,7 +62,7 @@ pub fn reject_to_error_code(r: &MoveReject) -> &'static str {
         MoveReject::InvalidSignature(_) => crate::ERROR_CODE_INVALID_SIGNATURE,
         MoveReject::CapabilityDenied(_) => crate::ERROR_CODE_CAPABILITY_DENIED,
         MoveReject::FailedPrecondition { .. } => crate::ERROR_CODE_STATE_MISMATCH,
-        MoveReject::FailedBottom { .. } => "failed_bottom",
+        MoveReject::FailedBottom { .. } => crate::ERROR_CODE_FAILED_BOTTOM,
         MoveReject::Registry(_) => crate::ERROR_CODE_INTERNAL_ERROR,
     }
 }
@@ -760,7 +760,7 @@ mod tests {
                 cell: "x".into(),
                 kind: BottomKind::Conflict
             }),
-            "failed_bottom"
+            crate::ERROR_CODE_FAILED_BOTTOM
         );
         assert_eq!(
             reject_to_error_code(&MoveReject::Registry("x".into())),

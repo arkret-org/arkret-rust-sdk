@@ -170,6 +170,10 @@ pub struct Circle {
     /// parent Realm.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
+    /// Optional native-agent participation ceiling. Omitted bits inherit
+    /// the parent Realm ceiling independently.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_participation: Option<AgentParticipationCeiling>,
     pub encryption_profile: EncryptionProfile,
     /// Reducer-derived; populated by `ck.circle.create` reducer once the
     /// independent MLS group is bound. NOT actor-supplied on wire.
@@ -204,6 +208,8 @@ pub struct CircleView {
     pub content_encryption_floor: Option<EncryptionFloor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_participation: Option<AgentParticipationCeiling>,
     pub encryption_profile: EncryptionProfile,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_ref: Option<String>,
@@ -238,6 +244,8 @@ pub struct CircleCreateRequestBody {
     pub content_encryption_floor: Option<EncryptionFloor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_participation: Option<AgentParticipationCeiling>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encryption_profile: Option<EncryptionProfile>,
 }
@@ -857,6 +865,7 @@ impl Circle {
             history_visibility: HistoryVisibility::Joined,
             content_encryption_floor: None,
             metadata_encryption_floor: None,
+            agent_participation: None,
             encryption_profile: EncryptionProfile::None,
             mls_group_ref: None,
             state: CircleState::Active,
@@ -866,6 +875,18 @@ impl Circle {
             updated_by: None,
             updated_at: None,
             extra: BTreeMap::new(),
+        }
+    }
+
+    /// Validate this Circle's optional agent-participation ceiling against
+    /// its parent Realm ceiling and return the materialized effective ceiling.
+    pub fn validate_agent_participation_ceiling(
+        &self,
+        parent: AgentParticipation,
+    ) -> std::result::Result<AgentParticipation, AgentParticipationError> {
+        match self.agent_participation {
+            Some(child) => validate_agent_participation_ceiling_tightens(parent, child),
+            None => Ok(parent),
         }
     }
 
@@ -921,6 +942,76 @@ mod tests {
         assert_eq!(parsed.schema, CIRCLE_SCHEMA);
         assert_eq!(parsed.title, "Ops Circle");
         assert_eq!(parsed.state, CircleState::Active);
+    }
+
+    #[test]
+    fn circle_agent_participation_round_trips_partial_ceiling() {
+        let id =
+            CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000011".to_owned()).unwrap();
+        let realm_id =
+            RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000012".to_owned()).unwrap();
+        let actor: Did = "did:web:alice.example".parse().unwrap();
+        let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
+        circle.agent_participation = Some(AgentParticipationCeiling {
+            reply: Some(true),
+            accept_third_party_mention: None,
+            act_on_behalf: Some(false),
+        });
+
+        let value = serde_json::to_value(&circle).unwrap();
+        assert_eq!(
+            value.get("agent_participation"),
+            Some(&serde_json::json!({
+                "reply": true,
+                "act_on_behalf": false
+            }))
+        );
+        let parsed: Circle = serde_json::from_value(value).unwrap();
+        assert_eq!(parsed.agent_participation, circle.agent_participation);
+    }
+
+    #[test]
+    fn circle_agent_participation_validates_tighten_only() {
+        let id =
+            CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000021".to_owned()).unwrap();
+        let realm_id =
+            RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000022".to_owned()).unwrap();
+        let actor: Did = "did:web:alice.example".parse().unwrap();
+        let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
+        let parent = AgentParticipation {
+            reply: true,
+            accept_third_party_mention: false,
+            act_on_behalf: true,
+        };
+
+        assert_eq!(
+            circle.validate_agent_participation_ceiling(parent).unwrap(),
+            parent
+        );
+
+        circle.agent_participation = Some(AgentParticipationCeiling {
+            reply: Some(false),
+            accept_third_party_mention: None,
+            act_on_behalf: None,
+        });
+        assert_eq!(
+            circle.validate_agent_participation_ceiling(parent).unwrap(),
+            AgentParticipation {
+                reply: false,
+                accept_third_party_mention: false,
+                act_on_behalf: true,
+            }
+        );
+
+        circle.agent_participation = Some(AgentParticipationCeiling {
+            reply: None,
+            accept_third_party_mention: Some(true),
+            act_on_behalf: None,
+        });
+        assert!(matches!(
+            circle.validate_agent_participation_ceiling(parent),
+            Err(AgentParticipationError::CeilingWiden { .. })
+        ));
     }
 
     #[test]

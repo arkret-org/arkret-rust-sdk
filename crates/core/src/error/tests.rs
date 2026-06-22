@@ -133,7 +133,9 @@ fn reason_constants_are_declared_in_embedded_registry() {
     // absent from the snapshot signals manual-mirror drift.
     let curated = [
         KNOWN_REASON_CODES_ROUND_C45,
+        KNOWN_REASON_CODES_AUTHZ_GOVERNANCE,
         KNOWN_REASON_CODES_CKP_0007,
+        KNOWN_REASON_CODES_AGENT_PARTICIPATION,
         KNOWN_REASON_CODES_ROUND_C44,
         KNOWN_REASON_CODES_REACTION,
         KNOWN_REASON_CODES_CONTACT_DIRECT_CONVERSATION,
