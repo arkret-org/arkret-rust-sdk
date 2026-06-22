@@ -574,38 +574,62 @@ fn artifact_payload_catalog_prefers_registered_specialized_defs_over_name_matche
 }
 
 #[test]
-fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_payload() {
+fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
     let Some(artifacts_dir) = default_spec_artifacts_dir() else {
         return;
     };
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
-    let object_patch_kinds = [
-        "ck.realm.update",
-        "ck.strand.update",
-        "ck.morph.update",
-        "ck.space.update",
-        "ck.profile.update",
+    let patch_kinds = [
+        (
+            "ck.realm.update",
+            "object_patch_payload",
+            json!({
+                "target_ref": "ck:realm:0196419b-0000-7000-8000-000000000001",
+                "patch": { "title": { "$op": "set", "value": "Roadmap" } }
+            }),
+        ),
+        (
+            "ck.strand.update",
+            "strand_patch_payload",
+            json!({
+                "strand_id": "ck:strand:0196419b-0000-7000-8000-000000000001",
+                "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
+            }),
+        ),
+        (
+            "ck.morph.update",
+            "object_patch_payload",
+            json!({
+                "target_ref": "ck:morph:0196419b-0000-7000-8000-000000000001",
+                "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
+            }),
+        ),
+        (
+            "ck.space.update",
+            "space_patch_payload",
+            json!({
+                "space_id": "ck:space:0196419b-0000-7000-8000-000000000001",
+                "patch": { "title": { "$op": "set", "value": "Roadmap" } }
+            }),
+        ),
+        (
+            "ck.profile.update",
+            "object_patch_payload",
+            json!({
+                "target_ref": "ck:actor_profile:0196419b-0000-7000-8000-000000000001",
+                "patch": { "title": { "$op": "set", "value": "Roadmap" } }
+            }),
+        ),
     ];
-    for event_kind in object_patch_kinds {
-        let patch = if matches!(event_kind, "ck.strand.update" | "ck.morph.update") {
-            json!({ "metadata.title": { "$op": "set", "value": "Roadmap" } })
-        } else {
-            json!({ "title": { "$op": "set", "value": "Roadmap" } })
-        };
+    for (event_kind, payload_def, payload) in patch_kinds {
         assert_eq!(
             catalog.rules[event_kind].payload_schema_id,
-            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/object_patch_payload"),
-            "{event_kind} must use the shared object_patch_payload schema"
+            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/{payload_def}"),
+            "{event_kind} must use the canonical patch payload schema"
         );
         catalog
-            .validate_payload(
-                event_kind,
-                &json!({
-                    "target_ref": "ck:realm:0196419b-0000-7000-8000-000000000001",
-                "patch": patch
-                }),
-            )
-            .unwrap_or_else(|err| panic!("{event_kind} should accept object_patch_payload: {err}"));
+            .validate_payload(event_kind, &payload)
+            .unwrap_or_else(|err| panic!("{event_kind} should accept {payload_def}: {err}"));
     }
     // ck.profile.realm_override carries a Realm-scoped override and needs
     // target_realm_id in addition to target_ref+patch, so the spec gives it a

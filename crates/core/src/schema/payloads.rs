@@ -128,8 +128,10 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
     }
 }
 
-/// `object_patch_payload` property set shared by the `*.update` kinds.
+/// `object_patch_payload` property set shared by generic object update kinds.
 const OBJECT_PATCH_FALLBACK_FIELDS: &[&str] = &["target_ref", "patch", "expected_state_digest"];
+const STRAND_PATCH_FALLBACK_FIELDS: &[&str] = &["strand_id", "patch", "expected_state_digest"];
+const SPACE_PATCH_FALLBACK_FIELDS: &[&str] = &["space_id", "patch", "expected_state_digest"];
 
 /// Closed field allow-lists the fallback validator enforces per event kind.
 ///
@@ -143,9 +145,9 @@ const OBJECT_PATCH_FALLBACK_FIELDS: &[&str] = &["target_ref", "patch", "expected
 /// spec artifacts are available (dev / CI).
 const FALLBACK_FIELD_ALLOWLISTS: &[(&str, &[&str])] = &[
     ("ck.realm.update", OBJECT_PATCH_FALLBACK_FIELDS),
-    ("ck.strand.update", OBJECT_PATCH_FALLBACK_FIELDS),
+    ("ck.strand.update", STRAND_PATCH_FALLBACK_FIELDS),
     ("ck.morph.update", OBJECT_PATCH_FALLBACK_FIELDS),
-    ("ck.space.update", OBJECT_PATCH_FALLBACK_FIELDS),
+    ("ck.space.update", SPACE_PATCH_FALLBACK_FIELDS),
     (
         "ck.member.state",
         &[
@@ -540,7 +542,7 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
         (
             "ck.strand.update",
             EVENT_PAYLOAD_SCHEMA,
-            &["target_ref", "patch"][..],
+            &["strand_id", "patch"][..],
         ),
         (
             "ck.morph.update",
@@ -550,7 +552,7 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
         (
             "ck.space.update",
             EVENT_PAYLOAD_SCHEMA,
-            &["target_ref", "patch"][..],
+            &["space_id", "patch"][..],
         ),
         (
             "ck.strand.move",
@@ -740,12 +742,12 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         }
         ["space", "freeze"] => candidates.push("space_freeze_payload".to_owned()),
         ["space", "destroy"] => candidates.push("space_destroy_payload".to_owned()),
-        ["space", "update"] => candidates.push("object_patch_payload".to_owned()),
+        ["space", "update"] => candidates.push("space_patch_payload".to_owned()),
         ["realm", "update"] => candidates.push("object_patch_payload".to_owned()),
         ["strand", "create"] => candidates.push("strand_create_payload".to_owned()),
         ["strand", "move"] => candidates.push("strand_move_payload".to_owned()),
         ["strand", "reorder"] => candidates.push("strand_reorder_payload".to_owned()),
-        ["strand", "update"] => candidates.push("object_patch_payload".to_owned()),
+        ["strand", "update"] => candidates.push("strand_patch_payload".to_owned()),
         ["strand", "archive" | "restore"] => candidates.push("object_lifecycle_payload".to_owned()),
         ["strand", "track", "enable" | "disable" | "set_primary"] => {
             candidates.push("state_payload".to_owned());
@@ -1105,12 +1107,7 @@ mod tests {
     fn fallback_catalog_accepts_object_patch_wire_shape() {
         let catalog = fallback_event_payload_validator_catalog();
 
-        for event_kind in [
-            "ck.realm.update",
-            "ck.strand.update",
-            "ck.morph.update",
-            "ck.space.update",
-        ] {
+        for event_kind in ["ck.realm.update", "ck.morph.update"] {
             catalog
                 .validate_payload(
                     event_kind,
@@ -1123,6 +1120,28 @@ mod tests {
                 )
                 .unwrap_or_else(|err| panic!("{event_kind} must accept object_patch: {err}"));
         }
+        catalog
+            .validate_payload(
+                "ck.strand.update",
+                &json!({
+                    "strand_id": "ck:strand:01904100-0000-7000-8000-000000000001",
+                    "patch": {
+                        "metadata.title": { "$op": "set", "value": "Roadmap" }
+                    }
+                }),
+            )
+            .unwrap_or_else(|err| panic!("ck.strand.update must accept strand_patch: {err}"));
+        catalog
+            .validate_payload(
+                "ck.space.update",
+                &json!({
+                    "space_id": "ck:space:01904100-0000-7000-8000-000000000001",
+                    "patch": {
+                        "title": { "$op": "set", "value": "Roadmap" }
+                    }
+                }),
+            )
+            .unwrap_or_else(|err| panic!("ck.space.update must accept space_patch: {err}"));
     }
 
     #[test]

@@ -573,6 +573,7 @@ impl AuditRywReceipt {
     }
 }
 
+/// Constraint evaluation class (constraint-schema.md §2.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -885,6 +886,15 @@ pub enum BackupClass {
 }
 
 impl BackupClass {
+    /// Canonical snake_case wire token used by `ck.schema.key_backup.v1`.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            BackupClass::DidRecovery => "did_recovery",
+            BackupClass::SecretStorage => "secret_storage",
+            BackupClass::MlsHistory => "mls_history",
+        }
+    }
+
     /// HKDF info string per key-management.md §7.2.
     pub fn hkdf_info(self, subdomain: &str) -> String {
         let class = match self {
@@ -896,7 +906,20 @@ impl BackupClass {
     }
 }
 
-/// Constraint evaluation class (constraint-schema.md §2.1).
+/// Parse a `ck.schema.key_backup.v1` backup_class wire token.
+impl TryFrom<&str> for BackupClass {
+    type Error = String;
+
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+        match value {
+            "did_recovery" => Ok(Self::DidRecovery),
+            "secret_storage" => Ok(Self::SecretStorage),
+            "mls_history" => Ok(Self::MlsHistory),
+            other => Err(format!("unsupported backup_class {other}")),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
