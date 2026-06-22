@@ -247,6 +247,16 @@ impl InviteCreatePayload {
         self
     }
 
+    pub fn from_wire_value(value: &Value) -> Result<Self> {
+        schema::event_payload_validator_catalog()
+            .validate_payload(events::kinds::EventKind::InviteCreate.as_str(), value)
+            .map_err(|err| Error::Protocol(format!("invite create payload schema: {err}")))?;
+        let payload: Self = serde_json::from_value(value.clone())
+            .map_err(|err| Error::Protocol(format!("invite create payload decode: {err}")))?;
+        payload.invite_delivery_target.validate()?;
+        Ok(payload)
+    }
+
     pub fn to_value(&self) -> Result<Value> {
         self.invite_delivery_target.validate()?;
         serde_json::to_value(self)

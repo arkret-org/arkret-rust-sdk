@@ -245,6 +245,10 @@ fn invite_payload_strong_types_pass_spec_validator() {
     catalog
         .validate_payload("ck.invite.create", &create_value)
         .unwrap();
+    InviteCreatePayload::from_wire_value(&create_value).unwrap();
+    let mut leaky_create = create_value.clone();
+    leaky_create["hlc"] = json!("2026-06-14T10:00:00Z/node/1");
+    assert!(InviteCreatePayload::from_wire_value(&leaky_create).is_err());
 
     // invite_id ref form (accept / cancel).
     let cancel = InviteRefPayload::new(
