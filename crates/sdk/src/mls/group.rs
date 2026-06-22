@@ -765,7 +765,9 @@ impl CokretMlsGroup {
     }
 }
 
-fn snapshot_provider_storage(provider: &OpenMlsRustCrypto) -> Result<BTreeMap<String, String>> {
+pub(super) fn snapshot_provider_storage(
+    provider: &OpenMlsRustCrypto,
+) -> Result<BTreeMap<String, String>> {
     let values = provider
         .storage()
         .values
@@ -777,7 +779,7 @@ fn snapshot_provider_storage(provider: &OpenMlsRustCrypto) -> Result<BTreeMap<St
         .collect())
 }
 
-fn restore_provider_storage(
+pub(super) fn restore_provider_storage(
     provider: &OpenMlsRustCrypto,
     entries: &BTreeMap<String, String>,
 ) -> Result<()> {

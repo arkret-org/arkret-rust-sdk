@@ -300,6 +300,50 @@ mod tests {
     }
 
     #[test]
+    fn key_package_private_state_restores_welcome_join() {
+        let alice = CokretMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+        )
+        .unwrap();
+        let bob_principal = Did::new("did:web:bob.example").unwrap();
+        let bob_device = DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap();
+        let bob = CokretMlsIdentity::new_basic(bob_principal.clone(), bob_device.clone()).unwrap();
+        let bob_key_package = bob.key_package_record().unwrap();
+        assert!(
+            bob_key_package
+                .expires_at
+                .is_some_and(|expires_at| expires_at > bob_key_package.created_at),
+            "published KeyPackages must carry a finite expiry"
+        );
+        let bob_private_state = bob.export_private_state().unwrap();
+        let restored_bob = CokretMlsIdentity::restore_from_private_state(
+            bob_principal.clone(),
+            bob_device.clone(),
+            &bob_private_state,
+        )
+        .unwrap();
+        let fresh_bob = CokretMlsIdentity::new_basic(bob_principal, bob_device).unwrap();
+
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a43")
+            .unwrap();
+        let add_result = alice_group.add_member(&bob_key_package).unwrap();
+        let Err(fresh_error) = CokretMlsGroup::join_from_welcome(fresh_bob, &add_result.welcome)
+        else {
+            panic!("fresh identity should not consume a Welcome for a persisted KeyPackage");
+        };
+        assert!(
+            fresh_error.to_string().contains("NoMatchingKeyPackage"),
+            "{fresh_error}"
+        );
+
+        let bob_group =
+            CokretMlsGroup::join_from_welcome(restored_bob, &add_result.welcome).unwrap();
+        assert_eq!(alice_group.schedule_hash(), bob_group.schedule_hash());
+    }
+
+    #[test]
     fn export_secret_agrees_across_members_and_binds_label_context() {
         // RFC 9420 §8.5: members on the same epoch derive identical exporter
         // bytes; distinct (label, context) MUST yield distinct outputs. This

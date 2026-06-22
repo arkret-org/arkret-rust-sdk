@@ -1,4 +1,6 @@
-use chrono::Utc;
+use std::collections::BTreeMap;
+
+use chrono::{Duration, Utc};
 use cokret_core::base64url_encode;
 use openmls::prelude::{
     BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,
@@ -6,11 +8,13 @@ use openmls::prelude::{
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
+use serde::{Deserialize, Serialize};
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 
 use super::group::{
     CokretMlsGroup, decode, encode, governance_binding_group_context_extensions,
-    governance_binding_openmls_capabilities, mls_error,
+    governance_binding_openmls_capabilities, mls_error, restore_provider_storage,
+    snapshot_provider_storage,
 };
 use super::recovery::{MlsDeviceWorkflowAction, MlsDeviceWorkflowStep};
 use crate::{
@@ -20,12 +24,23 @@ use crate::{
 pub const COKRET_MLS_CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
 
+const COKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT: &str = "cokret-openmls-identity-state-v1";
+
 pub struct CokretMlsIdentity {
     pub principal_id: Did,
     pub device_id: DeviceId,
     pub(super) provider: OpenMlsRustCrypto,
     pub(super) signer: SignatureKeyPair,
     pub(super) credential: CredentialWithKey,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct OpenMlsIdentityStateSnapshot {
+    context: String,
+    principal_id: Did,
+    device_id: DeviceId,
+    signer_public_key: String,
+    storage_entries: BTreeMap<String, String>,
 }
 
 impl CokretMlsIdentity {
@@ -62,6 +77,7 @@ impl CokretMlsIdentity {
         let key_package_bytes = key_package.tls_serialize_detached().map_err(mls_error)?;
         let keypackage_ref = Hash::new(canonical::sha256_digest(&key_package_bytes))?;
 
+        let created_at = Utc::now();
         Ok(MlsKeyPackageRecord {
             keypackage_id: format!("ck:mls:kp:{}", uuid::Uuid::now_v7()),
             principal_id: self.principal_id.clone(),
@@ -72,9 +88,60 @@ impl CokretMlsIdentity {
             capabilities: Vec::new(),
             state: cokret_core::MlsKeyPackageState::Published,
             claim_id: None,
-            created_at: Utc::now(),
-            expires_at: None,
+            created_at,
+            expires_at: Some(created_at + Duration::days(7)),
             device_signature: None,
+        })
+    }
+
+    pub fn export_private_state(&self) -> Result<Vec<u8>> {
+        let snapshot = OpenMlsIdentityStateSnapshot {
+            context: COKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT.to_owned(),
+            principal_id: self.principal_id.clone(),
+            device_id: self.device_id.clone(),
+            signer_public_key: encode(self.signer.public()),
+            storage_entries: snapshot_provider_storage(&self.provider)?,
+        };
+        serde_json::to_vec(&snapshot).map_err(Into::into)
+    }
+
+    pub fn restore_from_private_state(
+        principal_id: Did,
+        device_id: DeviceId,
+        serialized_state: &[u8],
+    ) -> Result<Self> {
+        let snapshot: OpenMlsIdentityStateSnapshot = serde_json::from_slice(serialized_state)?;
+        if snapshot.context != COKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT {
+            return Err(Error::Protocol(
+                "unsupported OpenMLS identity state snapshot".to_owned(),
+            ));
+        }
+        if snapshot.principal_id != principal_id || snapshot.device_id != device_id {
+            return Err(Error::Protocol(
+                "OpenMLS identity state snapshot metadata mismatch".to_owned(),
+            ));
+        }
+
+        let provider = OpenMlsRustCrypto::default();
+        restore_provider_storage(&provider, &snapshot.storage_entries)?;
+        let signer_public_key = decode(&snapshot.signer_public_key)?;
+        let signer = SignatureKeyPair::read(
+            provider.storage(),
+            &signer_public_key,
+            COKRET_MLS_CIPHERSUITE.signature_algorithm(),
+        )
+        .ok_or_else(|| Error::Protocol("OpenMLS signer is missing from snapshot".to_owned()))?;
+        let credential = CredentialWithKey {
+            credential: BasicCredential::new(principal_id.as_str().as_bytes().to_vec()).into(),
+            signature_key: signer.public().into(),
+        };
+
+        Ok(Self {
+            principal_id,
+            device_id,
+            provider,
+            signer,
+            credential,
         })
     }
 
