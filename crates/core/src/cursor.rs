@@ -9,7 +9,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, Hlc, Result};
+use crate::{Error, Result};
 
 /// Round R2/R3 (2026-05-20) — minimum length of a stateful cursor handle's
 /// base64url alphabet representation. Schema `cursor.schema.json` raises
@@ -34,9 +34,9 @@ pub fn generate_cursor_handle() -> Result<String> {
 
 /// Cokret v1 sync cursor.
 ///
-/// Cursors contain all information needed to resume synchronization from a
-/// specific point in the event stream. They are encoded as JSON and then
-/// Base64URL-encoded for transport.
+/// Core v1 cursor bodies are stateful handles: `{v, purpose, t, x, h}`.
+/// Positions and barrier targets are bound server-side to `h` and never
+/// appear in the wire body.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -47,21 +47,10 @@ pub struct Cursor {
     pub purpose: CursorPurpose,
     /// Cursor generation timestamp (RFC 3339).
     pub t: String,
-    /// Realm positions map.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub s: BTreeMap<String, RealmPosition>,
-    /// Device positions map (optional).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub d: Option<BTreeMap<String, String>>,
-    /// Target event required for read-your-writes barrier cursors.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub target: Option<CursorTarget>,
     /// Expiration timestamp (Unix milliseconds).
     pub x: i64,
-    /// Stateful cursor handle. When present, the cursor MUST NOT carry
-    /// inline state or stateless integrity material.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub h: Option<String>,
+    /// Stateful cursor handle.
+    pub h: String,
 }
 
 /// Cursor purpose discriminator.
@@ -71,29 +60,6 @@ pub struct Cursor {
 pub enum CursorPurpose {
     Stream,
     Barrier,
-}
-
-/// Event target for barrier cursors.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct CursorTarget {
-    pub event_id: String,
-    pub event_digest: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<String>,
-}
-
-/// Position information for a single Realm.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct RealmPosition {
-    /// Causal frontier (event IDs).
-    pub p: Vec<String>,
-    /// Timeline order HLC.
-    #[serde(rename = "o")]
-    pub order: String,
-    /// State hash at this position.
-    pub h: String,
 }
 
 impl Cursor {
@@ -130,57 +96,24 @@ impl Cursor {
             v: "1".to_owned(),
             purpose: CursorPurpose::Stream,
             t,
-            s: BTreeMap::new(),
-            d: None,
-            target: None,
             x: t_ms + Self::DEFAULT_EXPIRATION_MS,
-            h: Some(generate_cursor_handle()?),
+            h: generate_cursor_handle()?,
         })
-    }
-
-    /// Set a Realm position in the cursor.
-    pub fn with_realm_position(
-        mut self,
-        realm_id: impl Into<String>,
-        position: RealmPosition,
-    ) -> Self {
-        self.s.insert(realm_id.into(), position);
-        self
-    }
-
-    /// Set a device position in the cursor.
-    pub fn with_device_position(
-        mut self,
-        device_id: impl Into<String>,
-        message_id: impl Into<String>,
-    ) -> Self {
-        self.d
-            .get_or_insert_with(BTreeMap::new)
-            .insert(device_id.into(), message_id.into());
-        self
     }
 
     /// Convert this cursor to stateful-handle form.
     pub fn with_stateful_handle(mut self, handle: impl Into<String>) -> Self {
-        self.h = Some(handle.into());
-        self.s.clear();
-        self.d = None;
-        self.target = None;
+        self.h = handle.into();
         self
     }
 
-    /// Convert this stream cursor into a barrier cursor for one target event.
+    /// Convert this stream cursor into a barrier cursor.
     ///
     /// Re-clamps `x` so the barrier TTL (`x - t`) does not exceed the §8.3
     /// rule-12 hard cap (1 hour) — a barrier cursor carrying the default
     /// 7-day stream expiry would otherwise be rejected by any conformant
     /// receiver.
-    pub fn with_barrier_target(
-        mut self,
-        event_id: impl Into<String>,
-        event_digest: impl Into<String>,
-        realm_id: Option<String>,
-    ) -> Self {
+    pub fn with_barrier(mut self) -> Self {
         self.purpose = CursorPurpose::Barrier;
         if let Ok(t_ms) =
             chrono::DateTime::parse_from_rfc3339(&self.t).map(|t| t.timestamp_millis())
@@ -190,11 +123,6 @@ impl Cursor {
                 self.x = max_x;
             }
         }
-        self.target = Some(CursorTarget {
-            event_id: event_id.into(),
-            event_digest: event_digest.into(),
-            realm_id,
-        });
         self
     }
 
@@ -297,32 +225,6 @@ impl Cursor {
         // §8.3 rule 12: `t` well-formedness + TTL hard upper bound.
         self.validate_ttl_bound(now_ms)?;
 
-        // Validate Realm positions
-        for (realm_id, pos) in &self.s {
-            Self::validate_realm_id(realm_id)?;
-            Self::validate_realm_position(pos)?;
-        }
-
-        // Validate device positions — keys are typed device ids
-        // (`ck:device:<uuidv7>`, see encoding.md §8.2 stream example),
-        // values are device-message ids.
-        if let Some(devices) = &self.d {
-            for (device_id, message_id) in devices {
-                Self::validate_device_id(device_id)?;
-                Self::validate_device_message_id(message_id)?;
-            }
-        }
-
-        if let Some(target) = &self.target {
-            Self::validate_event_id(&target.event_id)?;
-            if !is_digest(&target.event_digest) {
-                return Err(Error::InvalidId(target.event_digest.clone()));
-            }
-            if let Some(realm_id) = &target.realm_id {
-                Self::validate_realm_id(realm_id)?;
-            }
-        }
-
         Ok(())
     }
 
@@ -371,54 +273,6 @@ impl Cursor {
         Ok(())
     }
 
-    fn validate_realm_id(realm_id: &str) -> Result<()> {
-        if !has_prefixed_uuid7(realm_id, "ck:realm:") {
-            return Err(Error::InvalidId(realm_id.to_owned()));
-        }
-        Ok(())
-    }
-
-    fn validate_realm_position(pos: &RealmPosition) -> Result<()> {
-        // Validate HLC format
-        Hlc::new(&pos.order)?;
-
-        if !is_digest(&pos.h) {
-            return Err(Error::InvalidId(pos.h.clone()));
-        }
-
-        // Validate event IDs in causal frontier
-        for event_id in &pos.p {
-            Self::validate_event_id(event_id)?;
-        }
-
-        Ok(())
-    }
-
-    fn validate_event_id(event_id: &str) -> Result<()> {
-        let is_valid = has_prefixed_uuid7(event_id, "ck:event:");
-
-        if !is_valid {
-            return Err(Error::InvalidId(event_id.to_owned()));
-        }
-        Ok(())
-    }
-
-    fn validate_device_message_id(message_id: &str) -> Result<()> {
-        if has_prefixed_uuid7(message_id, "ck:device_message:") {
-            Ok(())
-        } else {
-            Err(Error::InvalidId(message_id.to_owned()))
-        }
-    }
-
-    fn validate_device_id(device_id: &str) -> Result<()> {
-        if has_prefixed_uuid7(device_id, "ck:device:") {
-            Ok(())
-        } else {
-            Err(Error::InvalidId(device_id.to_owned()))
-        }
-    }
-
     fn validate_cursor_handle(handle: &str) -> Result<()> {
         // Round R2/R3 (2026-05-20): schema raises minLength to 22 so the
         // base64url-decoded handle has ≥128 bits of entropy (128/6 = 21.33).
@@ -434,17 +288,7 @@ impl Cursor {
     }
 
     fn validate_core_wire_shape(&self) -> Result<()> {
-        let Some(handle) = &self.h else {
-            return Err(Error::Protocol(
-                "core cursor missing stateful handle h".to_owned(),
-            ));
-        };
-        Self::validate_cursor_handle(handle)?;
-        if !self.s.is_empty() || self.d.is_some() || self.target.is_some() {
-            return Err(Error::Protocol(
-                "core stateful cursor must not carry s, d, or target".to_owned(),
-            ));
-        }
+        Self::validate_cursor_handle(&self.h)?;
         Ok(())
     }
 
@@ -457,28 +301,8 @@ impl Cursor {
 
     /// Extract sync positions from the cursor.
     pub fn to_positions(&self) -> Result<SyncPositions> {
-        let mut realms = BTreeMap::new();
-
-        for (realm_id, pos) in &self.s {
-            realms.insert(
-                realm_id.clone(),
-                RealmSyncPosition {
-                    frontier: pos.p.clone(),
-                    timeline_order: pos.order.clone(),
-                    state_digest: pos.h.clone(),
-                },
-            );
-        }
-
-        let devices = self.d.as_ref().map(|d| {
-            let mut map = BTreeMap::new();
-            for (device_id, message_id) in d {
-                map.insert(device_id.clone(), message_id.clone());
-            }
-            map
-        });
-
-        Ok(SyncPositions { realms, devices })
+        self.validate_core_wire_shape()?;
+        Ok(SyncPositions::default())
     }
 
     /// Check if the cursor is expired.
@@ -503,61 +327,6 @@ fn unix_time_millis() -> Result<i64> {
         .duration_since(UNIX_EPOCH)
         .map_err(|error| Error::Protocol(format!("cursor_clock_before_unix_epoch: {error}")))?
         .as_millis() as i64)
-}
-
-/// Validate that `value` matches the typed-id wire form `<prefix><uuidv7>`.
-///
-/// Per spec `id-kind-registry.json` (2026-05-09 onward), typed wire ids use
-/// RFC 9562 UUID version 7 in canonical 36-char lowercase hex form
-/// `xxxxxxxx-xxxx-7xxx-Nxxx-xxxxxxxxxxxx` where N ∈ {8,9,a,b}.
-fn has_prefixed_uuid7(value: &str, prefix: &str) -> bool {
-    let Some(suffix) = value.strip_prefix(prefix) else {
-        return false;
-    };
-    is_uuid7(suffix)
-}
-
-fn is_uuid7(s: &str) -> bool {
-    let bytes = s.as_bytes();
-    if bytes.len() != 36 {
-        return false;
-    }
-    // Hyphens at fixed positions: 8, 13, 18, 23
-    if bytes[8] != b'-' || bytes[13] != b'-' || bytes[18] != b'-' || bytes[23] != b'-' {
-        return false;
-    }
-    // Version nibble = '7' at index 14
-    if bytes[14] != b'7' {
-        return false;
-    }
-    // Variant nibble ∈ {8,9,a,b} at index 19
-    if !matches!(bytes[19], b'8' | b'9' | b'a' | b'b') {
-        return false;
-    }
-    // Remaining positions must be lowercase hex
-    bytes.iter().enumerate().all(|(i, b)| {
-        if matches!(i, 8 | 13 | 18 | 23) {
-            *b == b'-'
-        } else {
-            b.is_ascii_digit() || matches!(b, b'a'..=b'f')
-        }
-    })
-}
-
-fn is_digest(value: &str) -> bool {
-    let Some((algorithm, digest)) = value.split_once(':') else {
-        return false;
-    };
-    // Only digest-suite-registry *active* suites (`sha256`, `blake3`) are
-    // valid; unregistered suites MUST fail closed in critical fields.
-    let expected_len = match algorithm {
-        "sha256" | "blake3" => 64,
-        _ => return false,
-    };
-    digest.len() == expected_len
-        && digest
-            .bytes()
-            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
 /// Sync positions extracted from a cursor.
@@ -636,8 +405,7 @@ mod tests {
         let encoded = cursor.encode().unwrap();
         let decoded = Cursor::decode(&encoded).unwrap();
 
-        assert!(decoded.s.is_empty());
-        assert!(decoded.h.is_some());
+        assert_eq!(decoded.h, cursor.h);
         assert_eq!(decoded.v, cursor.v);
         assert_eq!(decoded.purpose, CursorPurpose::Stream);
         assert!(encoded.starts_with("ck:cursor:"));
@@ -649,11 +417,8 @@ mod tests {
             v: "2".to_owned(),
             purpose: CursorPurpose::Stream,
             t: crate::canonical::format_timestamp_canonical(chrono::Utc::now()),
-            s: BTreeMap::new(),
-            d: None,
-            target: None,
             x: 1714080000000,
-            h: Some(generate_cursor_handle().unwrap()),
+            h: generate_cursor_handle().unwrap(),
         };
 
         let encoded = cursor.encode().unwrap();
@@ -662,7 +427,7 @@ mod tests {
 
     #[test]
     fn cursor_decode_rejects_non_nfc_json_string() {
-        let json = "{\"v\":\"1\",\"purpose\":\"stream\",\"t\":\"cafe\u{301}\",\"s\":{},\"x\":4102444800000,\"h\":\"ABCDEFGHIJKLMNOPQRSTUV\"}";
+        let json = "{\"v\":\"1\",\"purpose\":\"stream\",\"t\":\"cafe\u{301}\",\"x\":4102444800000,\"h\":\"ABCDEFGHIJKLMNOPQRSTUV\"}";
         let encoded = format!("ck:cursor:{}", crate::base64url_encode(json.as_bytes()));
         assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
     }
@@ -680,7 +445,7 @@ mod tests {
 
     #[test]
     fn cursor_decode_rejects_duplicate_json_key() {
-        let json = br#"{"v":"1","v":"1","purpose":"stream","t":"2026-06-06T00:00:00Z","s":{},"x":4102444800000,"h":"ABCDEFGHIJKLMNOPQRSTUV"}"#;
+        let json = br#"{"v":"1","v":"1","purpose":"stream","t":"2026-06-06T00:00:00Z","x":4102444800000,"h":"ABCDEFGHIJKLMNOPQRSTUV"}"#;
         let encoded = format!("ck:cursor:{}", crate::base64url_encode(json));
         assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
     }
@@ -694,17 +459,9 @@ mod tests {
 
     #[test]
     fn core_cursor_rejects_inline_positions() {
-        let mut cursor = Cursor::new().unwrap();
-        cursor = cursor.with_realm_position(
-            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
-            RealmPosition {
-                p: vec![],
-                order: "invalid-hlc".to_owned(),
-                h: "sha256:abc123...".to_owned(),
-            },
-        );
-
-        assert!(cursor.encode().is_err());
+        let json = br#"{"v":"1","purpose":"stream","t":"2026-06-06T00:00:00Z","x":4102444800000,"h":"ABCDEFGHIJKLMNOPQRSTUV","s":{}}"#;
+        let encoded = format!("ck:cursor:{}", crate::base64url_encode(json));
+        assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
     }
 
     #[test]
@@ -738,9 +495,8 @@ mod tests {
 
         let cursor = Cursor::from_positions(positions).unwrap();
 
-        assert!(cursor.h.is_some());
-        assert!(cursor.s.is_empty());
-        assert!(cursor.d.is_none());
+        assert!(cursor.h.len() >= CURSOR_HANDLE_MIN_LEN);
+        assert!(cursor.to_positions().unwrap().realms.is_empty());
     }
 
     #[test]
@@ -751,8 +507,6 @@ mod tests {
         let encoded = cursor.encode().unwrap();
         let decoded = Cursor::decode(&encoded).unwrap();
 
-        assert_eq!(decoded.h.as_deref(), Some("cursor_handle_12345678"));
-        assert!(decoded.s.is_empty());
-        assert!(decoded.d.is_none());
+        assert_eq!(decoded.h, "cursor_handle_12345678");
     }
 }

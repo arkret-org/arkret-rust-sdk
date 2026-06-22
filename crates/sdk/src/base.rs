@@ -819,8 +819,7 @@ mod tests {
 
         assert_eq!(client.sync_positions().realms.len(), 1);
         let current_cursor = client.current_cursor().unwrap();
-        assert!(current_cursor.h.is_some());
-        assert!(current_cursor.s.is_empty());
+        assert!(!current_cursor.h.is_empty());
         assert_eq!(
             client.sync_token_for("did:web:sync.example"),
             Some("sync-token".to_owned())

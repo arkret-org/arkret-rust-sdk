@@ -12,7 +12,7 @@
 //! - **Mixed** — primary notary + `recovery_members` who can step in only when primary is paused /
 //!   fails the staleness window.
 //!
-//! Wire shape uses internal tagging on `kind` so consumers can decode
+//! Wire shape uses internal tagging on `type` so consumers can decode
 //! without ambiguity.
 
 use serde::{Deserialize, Serialize};
@@ -22,7 +22,7 @@ use crate::{Did, Error, Result};
 /// Current value of the notary cell.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum NotaryValue {
     SingleDid {
         did: Did,
@@ -267,12 +267,12 @@ mod tests {
     }
 
     #[test]
-    fn serializes_with_kind_discriminator() {
+    fn serializes_with_type_discriminator() {
         let v = NotaryValue::SingleDid {
             did: did("did:web:a.example"),
         };
         let s = serde_json::to_string(&v).unwrap();
-        assert!(s.contains("\"kind\":\"single_did\""), "got {s}");
+        assert!(s.contains("\"type\":\"single_did\""), "got {s}");
 
         let v = NotaryValue::Threshold {
             k: 2,
@@ -284,13 +284,13 @@ mod tests {
             ],
         };
         let s = serde_json::to_string(&v).unwrap();
-        assert!(s.contains("\"kind\":\"threshold\""), "got {s}");
+        assert!(s.contains("\"type\":\"threshold\""), "got {s}");
     }
 
     #[test]
-    fn deserializes_from_kind_tagged_json() {
+    fn deserializes_from_type_tagged_json() {
         let raw = json!({
-            "kind": "mixed",
+            "type": "mixed",
             "primary": "did:web:soland.example",
             "recovery_members": ["did:web:backup.example"]
         });
@@ -308,9 +308,9 @@ mod tests {
     }
 
     #[test]
-    fn unknown_kind_rejected() {
-        let raw = json!({"kind": "future_unknown"});
+    fn unknown_type_rejected() {
+        let raw = json!({"type": "future_unknown"});
         let r: std::result::Result<NotaryValue, _> = serde_json::from_value(raw);
-        assert!(r.is_err(), "unknown notary kind must fail closed");
+        assert!(r.is_err(), "unknown notary type must fail closed");
     }
 }

@@ -52,7 +52,7 @@ pub use blind_payload_sanitizer::{
 pub use bottom::{Bottom, BottomKind, SealView};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};
 pub use cokret_identifiers as identifiers;
-pub use cursor::{Cursor, CursorPurpose, CursorTarget, RealmPosition, SyncPositions, SyncTracker};
+pub use cursor::{Cursor, CursorPurpose, SyncPositions, SyncTracker};
 pub use error::*;
 pub use generated::profiles::{PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role};
 pub use http::*;

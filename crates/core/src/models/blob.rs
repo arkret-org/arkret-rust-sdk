@@ -1,5 +1,27 @@
 use super::*;
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum BlobVisibility {
+    Public,
+    #[default]
+    RealmBound,
+    ActorPrivate,
+    DeviceBound,
+}
+
+impl BlobVisibility {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Public => "public",
+            Self::RealmBound => "realm_bound",
+            Self::ActorPrivate => "actor_private",
+            Self::DeviceBound => "device_bound",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BlobUploadMetadata {
@@ -51,4 +73,53 @@ pub struct BlobPresignOutcome {
     pub expires_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub purpose: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    pub nonce: String,
+    pub access_scope: BlobPresignAccessScope,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct BlobPresignAccessScope {
+    pub method: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub byte_range: Option<[u64; 2]>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct BlobPresignPayload {
+    pub scheme: String,
+    pub blob_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    pub issuer_service_did: Did,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub purpose: String,
+    pub nonce: String,
+    pub access_scope: BlobPresignAccessScope,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audience_hint: Option<Did>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct BlobPresignDetachedJwsProof {
+    pub kind: String,
+    pub alg: String,
+    pub kid: String,
+    pub jws: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct BlobPresignEnvelope {
+    pub payload: BlobPresignPayload,
+    pub proof: BlobPresignDetachedJwsProof,
 }

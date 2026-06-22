@@ -46,7 +46,7 @@ pub struct Realm {
     pub metadata_encryption_floor: Option<EncryptionFloor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
-    /// Seal profile (data-structures.md §4 — Move/Seal/Lattice). Hub /
+    /// Seal profile (data-structures.md §4 — Move/Seal/Lattice). Single-DID /
     /// threshold / open-set / mixed deployment shape. `None` means "use the
     /// `notary` cell value's runtime shape" (recommended default; the
     /// `notary` cell is the source of truth — this hint is purely
@@ -62,8 +62,8 @@ pub struct Realm {
     pub notary: Option<crate::notary::NotaryValue>,
     /// Soft cap on how stale the latest Seal leaf may be before clients
     /// SHOULD warn / re-fetch. `None` means "implementation default" (spec
-    /// suggests 30s for hub, longer for threshold). Reducer-derived field;
-    /// passing a value at create time is a hint only.
+    /// suggests 30s for single-DID, longer for threshold). Reducer-derived
+    /// field; passing a value at create time is a hint only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revocation_freshness_window_ms: Option<u64>,
     /// Lattice declarations per cell_family used in this Realm. Reducer-
@@ -75,7 +75,7 @@ pub struct Realm {
     /// Co-write policy (data-structures.md §4 — Move/Seal/Lattice). How
     /// the server orders concurrent Moves before they reach an Seal.
     /// `None` means "implementation default" (spec suggests
-    /// `deterministic_order` for hub, `causal_only` for threshold).
+    /// `deterministic_order` for single-DID, `causal_only` for threshold).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub co_write_policy: Option<CoWritePolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -112,7 +112,7 @@ pub struct Realm {
 pub enum NotaryProfile {
     /// Single DID notary signs every Seal. Lowest latency, single
     /// point of failure / governance.
-    Hub,
+    SingleDid,
     /// k-of-n threshold signature on each Seal. Higher governance,
     /// higher latency.
     Threshold,
@@ -148,7 +148,7 @@ pub struct CellLatticeDeclaration {
 #[serde(rename_all = "snake_case")]
 pub enum CoWritePolicy {
     /// Notary applies a deterministic order (HLC → issuer → id) before
-    /// folding into the next Seal. Best for hub deployments.
+    /// folding into the next Seal. Best for single-DID deployments.
     DeterministicOrder,
     /// Causal-only order; concurrent Moves on the same cell may produce
     /// `bottom`. Suitable for threshold / open-set deployments.
@@ -202,7 +202,7 @@ impl Realm {
     }
 
     /// Builder: declare the Seal deployment profile (data-structures.md §4).
-    /// `Hub` uses a single-DID notary; `Threshold` / `OpenSet` / `Mixed`
+    /// `SingleDid` uses a single-DID notary; `Threshold` / `OpenSet` / `Mixed`
     /// introduce multi-signer governance.
     pub fn with_notary_profile(mut self, profile: NotaryProfile) -> Self {
         self.notary_profile = Some(profile);

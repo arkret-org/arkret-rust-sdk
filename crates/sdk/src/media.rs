@@ -159,7 +159,7 @@ impl MediaServiceAnchors {
     }
 
     /// Look up the verifying key for a full `kid` (`did:...#fragment`).
-    fn verifying_key(&self, kid: &str) -> Option<&VerifyingKey> {
+    pub(crate) fn verifying_key(&self, kid: &str) -> Option<&VerifyingKey> {
         self.keys.get(kid)
     }
 

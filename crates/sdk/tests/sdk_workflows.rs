@@ -137,8 +137,7 @@ fn protocol_conformance_vectors_remain_stable() {
     let cursor = Cursor::new().unwrap().encode().unwrap();
     let decoded = Cursor::decode(&cursor).unwrap();
     assert_eq!(decoded.v, "1");
-    assert!(decoded.h.is_some());
-    assert!(decoded.s.is_empty());
+    assert!(!decoded.h.is_empty());
 }
 
 #[test]

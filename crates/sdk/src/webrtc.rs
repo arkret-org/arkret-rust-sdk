@@ -2,6 +2,9 @@
 
 use chrono::{DateTime, Utc};
 use cokret_core::MediaIceConfigOutcome;
+use cokret_core::base64url::base64url_decode;
+use cokret_core::canonical::canonical_json_bytes;
+use ed25519_dalek::Signature;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -10,6 +13,8 @@ use serde_json::Value;
 pub use crate::client_api::{CallSessionDescription, IceCandidate, SdpType};
 use crate::media::MediaServiceAnchors;
 use crate::{Did, Error, RealmId, Result};
+
+const ICE_CONFIG_SIGNING_LABEL: &str = "ck.media.ice_config.v1";
 
 /// To-device WebRTC signaling message kind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -263,6 +268,117 @@ fn ice_signature_kid(signature: &Value) -> Result<String> {
         .ok_or_else(|| Error::Protocol("ice_config_denied: signature missing kid".to_owned()))
 }
 
+fn ice_signature_alg(signature: &Value) -> Result<&str> {
+    signature
+        .get("alg")
+        .and_then(Value::as_str)
+        .filter(|alg| !alg.is_empty())
+        .ok_or_else(|| Error::Protocol("ice_config_denied: signature missing alg".to_owned()))
+}
+
+fn ice_signature_sig(signature: &Value) -> Result<&str> {
+    signature
+        .get("sig")
+        .and_then(Value::as_str)
+        .filter(|sig| !sig.is_empty())
+        .ok_or_else(|| Error::Protocol("ice_config_denied: signature missing sig".to_owned()))
+}
+
+#[derive(Serialize)]
+struct IceConfigSigningFields<'a> {
+    realm_id: &'a RealmId,
+    call_id: &'a str,
+    actor_id: &'a Did,
+    device_id: &'a crate::DeviceId,
+    ice_servers: &'a [Value],
+    ttl_seconds: u32,
+    refresh_lead_seconds: u32,
+    issued_at: DateTime<Utc>,
+    issued_at_bucket: DateTime<Utc>,
+    bucket_seconds: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expires_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    force_turn: Option<bool>,
+}
+
+fn ice_config_signing_input(
+    outcome: &MediaIceConfigOutcome,
+    include_default_force_turn: bool,
+) -> Result<Vec<u8>> {
+    let fields = IceConfigSigningFields {
+        realm_id: &outcome.realm_id,
+        call_id: &outcome.call_id,
+        actor_id: &outcome.actor_id,
+        device_id: &outcome.device_id,
+        ice_servers: &outcome.ice_servers,
+        ttl_seconds: outcome.ttl_seconds,
+        refresh_lead_seconds: outcome.refresh_lead_seconds,
+        issued_at: outcome.issued_at.clone(),
+        issued_at_bucket: outcome.issued_at_bucket.clone(),
+        bucket_seconds: outcome.bucket_seconds,
+        expires_at: outcome.expires_at.clone(),
+        force_turn: if outcome.force_turn || include_default_force_turn {
+            Some(outcome.force_turn)
+        } else {
+            None
+        },
+    };
+    let canonical = canonical_json_bytes(&fields).map_err(|err| {
+        Error::Protocol(format!("ice_config_denied: canonicalization failed: {err}"))
+    })?;
+    let mut input = Vec::with_capacity(ICE_CONFIG_SIGNING_LABEL.len() + canonical.len() + 1);
+    input.extend_from_slice(ICE_CONFIG_SIGNING_LABEL.as_bytes());
+    input.push(0x00);
+    input.extend_from_slice(&canonical);
+    Ok(input)
+}
+
+fn verify_ice_config_signature(
+    outcome: &MediaIceConfigOutcome,
+    anchors: &MediaServiceAnchors,
+    kid: &str,
+) -> Result<()> {
+    let alg = ice_signature_alg(&outcome.signature)?;
+    if alg != "EdDSA" {
+        return Err(Error::Protocol(format!(
+            "ice_config_denied: unsupported signature alg {alg}"
+        )));
+    }
+    let sig_b64 = ice_signature_sig(&outcome.signature)?;
+    let key = anchors.verifying_key(kid).ok_or_else(|| {
+        Error::Protocol(format!(
+            "ice_config_denied: no verifying key registered for ICE config kid {kid}"
+        ))
+    })?;
+    let sig_bytes = base64url_decode(sig_b64).map_err(|err| {
+        Error::Protocol(format!(
+            "ice_config_denied: signature.sig is not base64url: {err}"
+        ))
+    })?;
+    let sig_array: [u8; 64] = sig_bytes.as_slice().try_into().map_err(|_| {
+        Error::Protocol(format!(
+            "ice_config_denied: signature.sig must be 64 bytes, got {}",
+            sig_bytes.len()
+        ))
+    })?;
+    let signature = Signature::from_bytes(&sig_array);
+
+    let mut signing_inputs = vec![ice_config_signing_input(outcome, true)?];
+    if !outcome.force_turn {
+        signing_inputs.push(ice_config_signing_input(outcome, false)?);
+    }
+    if signing_inputs
+        .iter()
+        .any(|input| key.verify_strict(input, &signature).is_ok())
+    {
+        return Ok(());
+    }
+    Err(Error::Protocol(
+        "ice_config_denied: signature.sig verification failed".to_owned(),
+    ))
+}
+
 /// Verify an ICE config response and project it into a strongly-typed
 /// [`IceConfig`] (`webrtc-signaling.md` §4 client rules).
 ///
@@ -270,13 +386,10 @@ fn ice_signature_kid(signature: &Value) -> Result<String> {
 /// - the top-level `signature.kid` resolves to an anchored media-service DID → else
 ///   `ice_config_denied`;
 /// - `refresh_lead_seconds < ttl_seconds` (§4.1) and `ttl_seconds > 0`;
+/// - `signature.sig` verifies as EdDSA(ed25519) over
+///   `ck.media.ice_config.v1 || 0x00 || canonical_json(response minus signature)`;
 /// - every `ice_servers[]` TURN credential passes the pairwise-pseudonym privacy guard (no embedded
 ///   DID, B-14).
-///
-/// The media-service DID signs over the canonical config payload; callers
-/// holding the verifying key SHOULD additionally check `signature.sig` against
-/// the canonical bytes. This helper anchors issuer trust to realm policy and
-/// enforces the TTL / privacy invariants.
 pub fn verify_ice_config_outcome(
     outcome: &MediaIceConfigOutcome,
     anchors: &MediaServiceAnchors,
@@ -295,6 +408,7 @@ pub fn verify_ice_config_outcome(
                 .to_owned(),
         ));
     }
+    verify_ice_config_signature(outcome, anchors, &kid)?;
 
     // TURN pseudonym bucket — issued_at_bucket MUST equal
     // floor(issued_at / bucket_seconds) * bucket_seconds so usernames cannot be
@@ -617,6 +731,8 @@ impl ModeratePayload {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cokret_core::base64url::base64url_encode;
+    use ed25519_dalek::{Signer, SigningKey};
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:web:{name}.example")).unwrap()
@@ -624,6 +740,41 @@ mod tests {
 
     fn Realm() -> RealmId {
         RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+    }
+
+    const MEDIA_KID: &str = "did:web:media.example#notary-key";
+
+    fn issuer_key() -> SigningKey {
+        SigningKey::from_bytes(&[7u8; 32])
+    }
+
+    fn anchors_with_issuer_key(key: &SigningKey) -> MediaServiceAnchors {
+        MediaServiceAnchors::new([did("media")])
+            .with_keys([(MEDIA_KID.to_owned(), key.verifying_key())])
+    }
+
+    fn sign_ice_outcome(
+        mut outcome: MediaIceConfigOutcome,
+        kid: &str,
+        key: &SigningKey,
+    ) -> MediaIceConfigOutcome {
+        outcome.signature = serde_json::json!({
+            "alg": "EdDSA",
+            "kid": kid,
+            "sig": ""
+        });
+        let signing_input = ice_config_signing_input(&outcome, true).unwrap();
+        let signature = key.sign(&signing_input);
+        outcome.signature = serde_json::json!({
+            "alg": "EdDSA",
+            "kid": kid,
+            "sig": base64url_encode(signature.to_bytes())
+        });
+        outcome
+    }
+
+    fn signed_ice_outcome(kid: &str, key: &SigningKey) -> MediaIceConfigOutcome {
+        sign_ice_outcome(ice_outcome(kid), kid, key)
     }
 
     fn ice_outcome(kid: &str) -> MediaIceConfigOutcome {
@@ -658,8 +809,9 @@ mod tests {
 
     #[test]
     fn ice_config_verifies_parses_and_classifies_servers() {
-        let anchors = MediaServiceAnchors::new([did("media")]);
-        let outcome = ice_outcome("did:web:media.example#media-ice");
+        let key = issuer_key();
+        let anchors = anchors_with_issuer_key(&key);
+        let outcome = signed_ice_outcome(MEDIA_KID, &key);
         let config = verify_ice_config_outcome(&outcome, &anchors).unwrap();
 
         assert_eq!(config.issuer_did, did("media"));
@@ -671,27 +823,51 @@ mod tests {
 
     #[test]
     fn ice_config_rejects_unanchored_issuer_and_bad_ttl() {
-        let anchors = MediaServiceAnchors::new([did("media")]);
+        let key = issuer_key();
+        let anchors = anchors_with_issuer_key(&key);
 
-        let stranger = ice_outcome("did:web:evil.example#media-ice");
+        let stranger = signed_ice_outcome("did:web:evil.example#notary-key", &key);
         let err = verify_ice_config_outcome(&stranger, &anchors).unwrap_err();
         assert!(err.to_string().contains("ice_config_denied"));
 
-        let mut bad_ttl = ice_outcome("did:web:media.example#media-ice");
+        let mut bad_ttl = signed_ice_outcome(MEDIA_KID, &key);
         bad_ttl.refresh_lead_seconds = bad_ttl.ttl_seconds;
         assert!(verify_ice_config_outcome(&bad_ttl, &anchors).is_err());
     }
 
     #[test]
     fn ice_config_rejects_turn_credential_leaking_did() {
-        let anchors = MediaServiceAnchors::new([did("media")]);
-        let mut leaky = ice_outcome("did:web:media.example#media-ice");
+        let key = issuer_key();
+        let anchors = anchors_with_issuer_key(&key);
+        let mut leaky = ice_outcome(MEDIA_KID);
         leaky.ice_servers[1] = serde_json::json!({
             "urls": ["turn:turn.example.com"],
             "username": "did:web:alice.example",
             "credential": "secret"
         });
+        let leaky = sign_ice_outcome(leaky, MEDIA_KID, &key);
         assert!(verify_ice_config_outcome(&leaky, &anchors).is_err());
+    }
+
+    #[test]
+    fn ice_config_rejects_missing_or_bad_signature() {
+        let key = issuer_key();
+        let anchors = anchors_with_issuer_key(&key);
+
+        let mut missing_sig = ice_outcome(MEDIA_KID);
+        missing_sig.signature = serde_json::json!({
+            "alg": "EdDSA",
+            "kid": MEDIA_KID
+        });
+        assert!(verify_ice_config_outcome(&missing_sig, &anchors).is_err());
+
+        let mut tampered = signed_ice_outcome(MEDIA_KID, &key);
+        tampered.ttl_seconds += 1;
+        assert!(verify_ice_config_outcome(&tampered, &anchors).is_err());
+
+        let no_key = MediaServiceAnchors::new([did("media")]);
+        let signed = signed_ice_outcome(MEDIA_KID, &key);
+        assert!(verify_ice_config_outcome(&signed, &no_key).is_err());
     }
 
     #[test]

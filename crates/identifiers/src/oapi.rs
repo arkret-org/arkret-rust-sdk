@@ -174,10 +174,7 @@ impl_string_schema!(
     EventId,
     r"^ck:event:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
-impl_string_schema!(
-    OperationId,
-    r"^(ck:operation:.+|(?:sha256|blake3):[0-9a-f]{64})$"
-);
+impl_string_schema!(OperationId, r"^(ck:operation:.+|sha256:[0-9a-f]{64})$");
 impl_string_schema!(
     GrantId,
     r"^ck:grant:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
@@ -236,18 +233,18 @@ impl_string_schema!(
 );
 impl_string_schema!(
     BlobRef,
-    r"^(?:ck:blob:(?:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|(?:sha256|blake3):[0-9a-f]{64})|(?:sha256|blake3):[0-9a-f]{64})$"
+    r"^(?:ck:blob:(?:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|sha256:[0-9a-f]{64})|sha256:[0-9a-f]{64})$"
 );
 impl_string_schema!(
     ViewId,
     r"^ck:view:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
-impl_string_schema!(Hash, r"^(?:sha256|blake3):[0-9a-f]{64}$");
+impl_string_schema!(Hash, r"^sha256:[0-9a-f]{64}$");
 impl_string_schema!(Cursor, r"^ck:cursor:.+$");
 // Seal frontier event_digest: bare `<algo>:<hex>` hash (spec e10b6ad
 // dropped the `ck:move:` typed-id prefix). Same hex shape as `Hash` above.
-impl_string_schema!(MoveId, r"^(?:sha256|blake3):[0-9a-f]{64}$");
-impl_string_schema!(SealId, r"^ck:seal:(?:sha256|blake3):[0-9a-f]{64}$");
+impl_string_schema!(MoveId, r"^sha256:[0-9a-f]{64}$");
+impl_string_schema!(SealId, r"^ck:seal:sha256:[0-9a-f]{64}$");
 impl_string_schema!(
     CellRef,
     r"^ck:cell:[A-Za-z0-9._~=-]+(?::[A-Za-z0-9._~=-]+)*$"
