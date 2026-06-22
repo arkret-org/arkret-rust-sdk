@@ -340,14 +340,25 @@ pub struct DirectoryOrganizationSearchOutcome {
     pub has_more: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct OrganizationPreview {
     pub organization_did: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub preview: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+    pub as_of: DateTime<Utc>,
+    #[serde(default)]
+    pub source_refs: Vec<String>,
+    pub policy_revision: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stale: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub divergent: Option<bool>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

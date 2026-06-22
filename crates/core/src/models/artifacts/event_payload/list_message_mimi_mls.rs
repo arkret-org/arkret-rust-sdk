@@ -304,12 +304,12 @@ impl MlsWelcomeClaimEnvelope {
             || !self.signature.kid.starts_with(self.requester_did.as_str())
             || self.signature.sig.is_empty()
         {
-            return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+            return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
         }
         if let Some(alg) = self.signature.alg.as_deref()
             && !matches!(alg, "EdDSA" | "Ed25519")
         {
-            return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+            return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
         }
         Ok(())
     }
@@ -353,10 +353,10 @@ pub fn validate_mls_welcome_claim_envelope(
     current_ssk_generation: u64,
 ) -> std::result::Result<(), &'static str> {
     let Some(welcome_keypackage_digest) = welcome.keypackage_digest.as_str() else {
-        return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+        return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     };
     let Some(published_keypackage_digest) = published.keypackage_digest.as_str() else {
-        return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+        return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     };
     if welcome.keypackage_ref != claim.keypackage_ref
         || welcome.claim_id != claim.claim_id
@@ -370,7 +370,7 @@ pub fn validate_mls_welcome_claim_envelope(
         || welcome.claim_ref.ssk_generation != claim.ssk_generation
         || welcome.claim_ref.ssk_generation != current_ssk_generation
     {
-        return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+        return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
 
     let envelope = &welcome.claim_envelope;
@@ -384,11 +384,11 @@ pub fn validate_mls_welcome_claim_envelope(
         || envelope.nonce != claim_nonce
         || envelope.welcome_digest.as_str() != welcome_digest.as_str()
     {
-        return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+        return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
     envelope.validate_signature_shape()?;
     if envelope.created_at > claim.expires_at || welcome.expires_at > claim.expires_at {
-        return Err(error::REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
+        return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
     Ok(())
 }

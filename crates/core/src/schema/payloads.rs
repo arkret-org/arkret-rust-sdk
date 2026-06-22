@@ -794,6 +794,9 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["realm", "history_sharing_policy"] => {
             candidates.push("history_sharing_policy_payload".to_owned());
         }
+        ["realm", "read_receipt_policy"] => {
+            candidates.push("read_receipt_policy_payload".to_owned());
+        }
         ["realm", "disappearing_policy"] => {
             candidates.push("realm_disappearing_policy_payload".to_owned());
         }
@@ -1013,6 +1016,23 @@ mod tests {
                 .validator_source(),
             PayloadValidatorSource::Strong
         );
+    }
+
+    #[test]
+    fn strong_catalog_accepts_read_receipt_policy_payload() {
+        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        assert_eq!(
+            catalog.rules["ck.realm.read_receipt_policy"].payload_schema_id,
+            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/read_receipt_policy_payload")
+        );
+        catalog
+            .validate_payload(
+                "ck.realm.read_receipt_policy",
+                &json!({
+                    "disclosure": "required"
+                }),
+            )
+            .unwrap();
     }
 
     /// SDK-06-002 mitigation: the hand-written fallback allow-lists MUST stay

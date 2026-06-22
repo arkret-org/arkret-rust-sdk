@@ -896,7 +896,7 @@ impl Audience {
                         "proof audience list must not be empty".to_owned(),
                     ));
                 }
-                let mut seen = std::collections::BTreeSet::new();
+                let mut seen = BTreeSet::new();
                 for value in values {
                     if value.trim().is_empty() {
                         return Err(Error::Protocol(

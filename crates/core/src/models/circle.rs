@@ -192,8 +192,9 @@ pub struct Circle {
     pub extra: BTreeMap<String, Value>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct CirclePendingMlsRemoval {
     pub principal_id: Did,
     /// Exact membership/device-trust frontier that caused this MLS-backed
@@ -211,42 +212,6 @@ impl CirclePendingMlsRemoval {
 
     pub fn membership_frontier(&self) -> &[EventId] {
         &self.membership_frontier
-    }
-}
-
-impl<'de> Deserialize<'de> for CirclePendingMlsRemoval {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct DetailedWire {
-            principal_id: Did,
-            #[serde(default)]
-            membership_frontier: Vec<EventId>,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum Wire {
-            Detailed(DetailedWire),
-            LegacyDid(Did),
-        }
-
-        match Wire::deserialize(deserializer)? {
-            Wire::Detailed(DetailedWire {
-                principal_id,
-                membership_frontier,
-            }) => Ok(Self {
-                principal_id,
-                membership_frontier,
-            }),
-            Wire::LegacyDid(principal_id) => Ok(Self {
-                principal_id,
-                membership_frontier: Vec::new(),
-            }),
-        }
     }
 }
 
@@ -432,18 +397,16 @@ pub enum CircleState {
 /// `ck.circle.member.state` `membership` enum.
 ///
 /// The transition table is encoded in [`validate_member_transition`];
-/// `Active` is the steady-state "this actor is currently in the Circle",
-/// `Invited` is the pending-acceptance bucket, `Left` covers both
-/// self-departures and admin-removals (re-invitation is allowed), and
-/// `Banned` is the admin-blocked bucket (un-ban only via
-/// `member.manage`).
+/// Circle membership reuses the Realm `membership_state` enum exactly:
+/// `invite`, `join`, `knock`, `leave`, and `ban`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CircleMemberState {
-    Active,
-    Invited,
-    Left,
-    Banned,
+    Invite,
+    Join,
+    Knock,
+    Leave,
+    Ban,
 }
 
 impl CircleMemberState {
@@ -451,10 +414,11 @@ impl CircleMemberState {
     /// canonical strings in `ck.circle.member.state` payloads.
     pub fn as_str(self) -> &'static str {
         match self {
-            CircleMemberState::Active => "active",
-            CircleMemberState::Invited => "invited",
-            CircleMemberState::Left => "left",
-            CircleMemberState::Banned => "banned",
+            CircleMemberState::Invite => "invite",
+            CircleMemberState::Join => "join",
+            CircleMemberState::Knock => "knock",
+            CircleMemberState::Leave => "leave",
+            CircleMemberState::Ban => "ban",
         }
     }
 }
@@ -467,58 +431,50 @@ impl CircleMemberState {
 /// had a Circle membership row. The full transition table:
 ///
 /// ```text
-///   none    → invited
-///   left    → invited                    (re-invitation)
-///   banned  → invited                    (admin un-ban + re-invite)
-///   invited → active
-///   none    → active   (only when join_rule = open; else MUST transit invited)
-///   active  → left
-///   invited → left
-///   banned  → left                       (admin un-ban via member.manage)
-///   active  → banned
-///   invited → banned
-///   left    → banned
-///   none    → banned                     (admin bans before invite)
+///   none / leave                         → invite
+///   none / leave                         → knock (join_rule=request only)
+///   knock                                → invite / join / leave
+///   invite                               → join
+///   none / leave                         → join
+///   join                                 → leave
+///   none / invite / knock / join / leave → ban
+///   ban                                  → leave / invite
 /// ```
 ///
-/// Everything else — in particular `banned → active`, `active → invited`,
-/// `left → active` (under non-open join_rule), and self-loops — is illegal.
+/// Everything else — in particular `ban → join`, `join → invite`, and
+/// self-loops — is illegal. Writer/capability constraints are enforced by the
+/// caller; this helper validates the state topology and join-rule-dependent
+/// `knock` edge.
 pub fn validate_member_transition(
     prev: Option<CircleMemberState>,
     next: CircleMemberState,
     join_rule: CircleJoinRule,
 ) -> std::result::Result<(), CircleScopeError> {
     use CircleMemberState::*;
-    // banned → active is a hard wall (admin MUST un-ban via banned → {left, invited} first).
-    if prev == Some(Banned) && next == Active {
+    // ban -> join is a hard wall (admin MUST un-ban via ban -> {leave, invite} first).
+    if prev == Some(Ban) && next == Join {
         return Err(CircleScopeError::IllegalMemberTransition {
-            from: Some(Banned),
+            from: Some(Ban),
             to: next,
-            reason: "banned → active forbidden; admin MUST un-ban via banned → {left, invited} first",
+            reason: "ban -> join forbidden; admin MUST un-ban via ban -> {leave, invite} first",
         });
     }
-    // none → active requires join_rule=open; otherwise MUST pass through invited.
-    if prev.is_none() && next == Active && join_rule != CircleJoinRule::Open {
+    // knock is only available on request-rule Circles.
+    if matches!((prev, next), (None, Knock) | (Some(Leave), Knock))
+        && join_rule != CircleJoinRule::Request
+    {
         return Err(CircleScopeError::IllegalMemberTransition {
-            from: None,
+            from: prev,
             to: next,
-            reason: "none → active requires join_rule=open; otherwise MUST transit `invited`",
+            reason: "knock is only legal when join_rule=request",
         });
     }
-    // active → invited is a regression not in the spec table.
-    if prev == Some(Active) && next == Invited {
+    // join -> invite is a regression not in the spec table.
+    if prev == Some(Join) && next == Invite {
         return Err(CircleScopeError::IllegalMemberTransition {
-            from: Some(Active),
+            from: Some(Join),
             to: next,
-            reason: "active → invited regression not in CKP-0007 §3.6 transition table",
-        });
-    }
-    // left → active directly is illegal unless join_rule=open.
-    if prev == Some(Left) && next == Active && join_rule != CircleJoinRule::Open {
-        return Err(CircleScopeError::IllegalMemberTransition {
-            from: Some(Left),
-            to: next,
-            reason: "left → active requires re-invite first (left → invited → active)",
+            reason: "join -> invite regression not in CKP-0007 §9.1 transition table",
         });
     }
     // Self-loops are not transitions.
@@ -531,18 +487,24 @@ pub fn validate_member_transition(
     }
     // Catalogue legal (prev, next) tuples. Anything not here is illegal.
     let legal: &[(Option<CircleMemberState>, CircleMemberState)] = &[
-        (None, Invited),
-        (Some(Left), Invited),
-        (Some(Banned), Invited),
-        (Some(Invited), Active),
-        (None, Active), // join_rule=open guarded above
-        (Some(Active), Left),
-        (Some(Invited), Left),
-        (Some(Banned), Left),
-        (Some(Active), Banned),
-        (Some(Invited), Banned),
-        (Some(Left), Banned),
-        (None, Banned),
+        (None, Invite),
+        (Some(Leave), Invite),
+        (None, Knock),
+        (Some(Leave), Knock),
+        (Some(Knock), Invite),
+        (Some(Knock), Join),
+        (Some(Knock), Leave),
+        (Some(Invite), Join),
+        (None, Join),
+        (Some(Leave), Join),
+        (Some(Join), Leave),
+        (None, Ban),
+        (Some(Invite), Ban),
+        (Some(Knock), Ban),
+        (Some(Join), Ban),
+        (Some(Leave), Ban),
+        (Some(Ban), Leave),
+        (Some(Ban), Invite),
     ];
     if legal.iter().any(|&(f, t)| f == prev && t == next) {
         return Ok(());
@@ -1046,12 +1008,13 @@ mod tests {
     }
 
     #[test]
-    fn legacy_pending_mls_removal_has_no_frontier_evidence() {
-        let parsed: CirclePendingMlsRemoval =
-            serde_json::from_value(serde_json::json!("did:web:bob.example")).unwrap();
-
-        assert_eq!(parsed.principal_id().as_str(), "did:web:bob.example");
-        assert!(parsed.membership_frontier().is_empty());
+    fn pending_mls_removal_rejects_legacy_string() {
+        assert!(
+            serde_json::from_value::<CirclePendingMlsRemoval>(serde_json::json!(
+                "did:web:bob.example"
+            ))
+            .is_err()
+        );
     }
 
     #[test]
@@ -1124,29 +1087,28 @@ mod tests {
     #[test]
     fn member_transition_accepts_legal_invite_path() {
         use CircleMemberState::*;
-        // none → invited → active → left → invited → active under join_rule=invite.
-        validate_member_transition(None, Invited, CircleJoinRule::Invite).unwrap();
-        validate_member_transition(Some(Invited), Active, CircleJoinRule::Invite).unwrap();
-        validate_member_transition(Some(Active), Left, CircleJoinRule::Invite).unwrap();
-        validate_member_transition(Some(Left), Invited, CircleJoinRule::Invite).unwrap();
-        validate_member_transition(Some(Active), Banned, CircleJoinRule::Invite).unwrap();
-        validate_member_transition(Some(Banned), Left, CircleJoinRule::Invite).unwrap();
-        validate_member_transition(Some(Banned), Invited, CircleJoinRule::Invite).unwrap();
-        validate_member_transition(None, Banned, CircleJoinRule::Invite).unwrap();
+        // none -> invite -> join -> leave -> invite -> join under join_rule=invite.
+        validate_member_transition(None, Invite, CircleJoinRule::Invite).unwrap();
+        validate_member_transition(Some(Invite), Join, CircleJoinRule::Invite).unwrap();
+        validate_member_transition(Some(Join), Leave, CircleJoinRule::Invite).unwrap();
+        validate_member_transition(Some(Leave), Invite, CircleJoinRule::Invite).unwrap();
+        validate_member_transition(Some(Join), Ban, CircleJoinRule::Invite).unwrap();
+        validate_member_transition(Some(Ban), Leave, CircleJoinRule::Invite).unwrap();
+        validate_member_transition(Some(Ban), Invite, CircleJoinRule::Invite).unwrap();
+        validate_member_transition(None, Ban, CircleJoinRule::Invite).unwrap();
     }
 
     #[test]
-    fn member_transition_none_to_active_requires_open_join_rule() {
+    fn member_transition_knock_requires_request_join_rule() {
         use CircleMemberState::*;
-        // Open join rule: none → active is legal.
-        validate_member_transition(None, Active, CircleJoinRule::Open).unwrap();
-        // Invite / Request: none → active rejected.
-        for jr in [CircleJoinRule::Invite, CircleJoinRule::Request] {
-            let err = validate_member_transition(None, Active, jr).unwrap_err();
+        validate_member_transition(None, Knock, CircleJoinRule::Request).unwrap();
+        validate_member_transition(Some(Leave), Knock, CircleJoinRule::Request).unwrap();
+        for jr in [CircleJoinRule::Invite, CircleJoinRule::Open] {
+            let err = validate_member_transition(None, Knock, jr).unwrap_err();
             match err {
                 CircleScopeError::IllegalMemberTransition { from, to, .. } => {
                     assert_eq!(from, None);
-                    assert_eq!(to, Active);
+                    assert_eq!(to, Knock);
                 }
                 _ => panic!("expected IllegalMemberTransition, got {err:?}"),
             }
@@ -1154,29 +1116,27 @@ mod tests {
     }
 
     #[test]
-    fn member_transition_banned_to_active_is_hard_wall() {
+    fn member_transition_ban_to_join_is_hard_wall() {
         use CircleMemberState::*;
         for jr in [
             CircleJoinRule::Invite,
             CircleJoinRule::Open,
             CircleJoinRule::Request,
         ] {
-            assert!(validate_member_transition(Some(Banned), Active, jr).is_err());
+            assert!(validate_member_transition(Some(Ban), Join, jr).is_err());
         }
     }
 
     #[test]
-    fn member_transition_rejects_self_loops_and_active_to_invited() {
+    fn member_transition_rejects_self_loops_and_join_to_invite() {
         use CircleMemberState::*;
-        for s in [Active, Invited, Left, Banned] {
+        for s in [Invite, Join, Knock, Leave, Ban] {
             assert!(
                 validate_member_transition(Some(s), s, CircleJoinRule::Invite).is_err(),
                 "self-loop {s:?} → {s:?} MUST be illegal"
             );
         }
-        assert!(validate_member_transition(Some(Active), Invited, CircleJoinRule::Invite).is_err());
-        // left → active under invite MUST be illegal (re-invite required).
-        assert!(validate_member_transition(Some(Left), Active, CircleJoinRule::Invite).is_err());
+        assert!(validate_member_transition(Some(Join), Invite, CircleJoinRule::Invite).is_err());
     }
 
     // ── validate_no_scope_rebind ───────────────────────────────────────────
@@ -1400,10 +1360,11 @@ mod tests {
     #[test]
     fn member_state_serialises_as_snake_case() {
         for (variant, expected) in [
-            (CircleMemberState::Active, "active"),
-            (CircleMemberState::Invited, "invited"),
-            (CircleMemberState::Left, "left"),
-            (CircleMemberState::Banned, "banned"),
+            (CircleMemberState::Invite, "invite"),
+            (CircleMemberState::Join, "join"),
+            (CircleMemberState::Knock, "knock"),
+            (CircleMemberState::Leave, "leave"),
+            (CircleMemberState::Ban, "ban"),
         ] {
             assert_eq!(variant.as_str(), expected);
             let v = serde_json::to_value(variant).unwrap();
