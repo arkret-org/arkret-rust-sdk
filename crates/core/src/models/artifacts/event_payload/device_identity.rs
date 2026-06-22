@@ -134,7 +134,7 @@ pub struct DeviceListUpdatePayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum DeviceOrPrincipalRef {
-    DeviceId(String),
+    DeviceId(DeviceId),
     Did(Did),
 }
 
@@ -234,5 +234,43 @@ mod tests {
 
         payload.cross_signing_binding = None;
         assert!(payload.validate_authorization_binding_one_of().is_ok());
+    }
+
+    #[test]
+    fn device_authorize_accepts_service_attested_did_key_authority() {
+        let payload = json!({
+            "principal_id": "did:webvh:zQmZcDaFwUR8yQCZRkXoYEBi9hdzMSCCLASUVdwT1J4Qyc6:local.host:webvh:01kvqwpxssfq3bqm15rcd0g99x",
+            "device_id": "ck:device:019eefcb-5882-7861-bc30-3033fa32dcf6",
+            "device_public_key": "z6MkjHNtpwuhc2QSXzkf4DWoWp7eSMKB9PzfdnvaLB7kb3dG",
+            "authorized_by": "did:key:z6MknBuwKMPAzbhp6EwCnaxsEDk4G2KFeWRu273gYVuTY5jw",
+            "not_before": "2026-06-22T14:45:51Z",
+            "enrollment_authority_binding": {
+                "kind": "service_attested",
+                "authority_did": "did:key:z6MknBuwKMPAzbhp6EwCnaxsEDk4G2KFeWRu273gYVuTY5jw",
+                "authorization_ref": "did:webvh:zQmZcDaFwUR8yQCZRkXoYEBi9hdzMSCCLASUVdwT1J4Qyc6:local.host:webvh:01kvqwpxssfq3bqm15rcd0g99x#enrollment-authority"
+            }
+        });
+        let payload: DeviceAuthorizePayload = serde_json::from_value(payload).unwrap();
+        assert!(payload.validate_authorization_binding_one_of().is_ok());
+    }
+
+    #[test]
+    fn device_or_principal_ref_rejects_unknown_string() {
+        assert!(
+            serde_json::from_value::<DeviceOrPrincipalRef>(json!("neither-a-device-id-nor-a-did"))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn device_or_principal_ref_accepts_device_id_and_did_key() {
+        serde_json::from_value::<DeviceOrPrincipalRef>(json!(
+            "ck:device:01904100-0000-7000-8000-000000000001"
+        ))
+        .unwrap();
+        serde_json::from_value::<DeviceOrPrincipalRef>(json!(
+            "did:key:z6MknBuwKMPAzbhp6EwCnaxsEDk4G2KFeWRu273gYVuTY5jw"
+        ))
+        .unwrap();
     }
 }
