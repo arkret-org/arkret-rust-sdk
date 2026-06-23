@@ -130,6 +130,7 @@ fn build_envelope(
             signature_algorithm: KeyBackupSignatureAlgorithm::Ed25519,
             signature: format!("sig-{seq}"),
             ssk_generation: Some(1),
+            device_authorize_event_id: None,
             signed_fields: vec![
                 "backup_id".to_owned(),
                 "actor_id".to_owned(),
