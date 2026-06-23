@@ -55,6 +55,7 @@ pub struct AppealSubmitPayload {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppealReviewPayload {
     pub appeal_id: TypedAppealId,
+    pub realm_id: RealmId,
     pub reviewer: Did,
     pub reviewed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -66,6 +67,7 @@ pub struct AppealReviewPayload {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppealDecisionPayload {
     pub appeal_id: TypedAppealId,
+    pub realm_id: RealmId,
     pub reviewer: Did,
     pub verdict: AppealVerdict,
     pub reason_text_ref: String,
@@ -80,9 +82,13 @@ pub struct AppealDecisionPayload {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppealClosePayload {
     pub appeal_id: TypedAppealId,
+    pub realm_id: RealmId,
+    pub closer: Did,
     pub closed_at: DateTime<Utc>,
     #[serde(default)]
     pub auto_closed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub close_reason: Option<String>,
 }
 
 /// `ck.schema.moderation_appeal.v1` payload — `oneOf` of the four variants.

@@ -162,7 +162,7 @@ impl IceServer {
         for value in [&self.username, &self.credential].into_iter().flatten() {
             for prefix in FORBIDDEN_PREFIXES {
                 if value.contains(prefix) {
-                    return Err(crate::Error::Protocol(format!(
+                    return Err(Error::Protocol(format!(
                         "ICE server credential leaks DID prefix '{prefix}'; use a Realm-scoped pairwise pseudonym (B-14)"
                     )));
                 }
@@ -171,7 +171,7 @@ impl IceServer {
             if let Some((_left, tail)) = value.split_once(':')
                 && FORBIDDEN_PREFIXES.iter().any(|p| tail.contains(p))
             {
-                return Err(crate::Error::Protocol(
+                return Err(Error::Protocol(
                     "ICE server username embeds a DID after a colon separator; use an ephemeral token (B-14)"
                         .to_owned(),
                 ));

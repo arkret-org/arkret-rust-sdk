@@ -9,7 +9,7 @@ pub(crate) fn now_utc_seconds() -> DateTime<Utc> {
 pub(crate) fn serialize_canonical_timestamp<S>(
     value: &DateTime<Utc>,
     serializer: S,
-) -> std::result::Result<S::Ok, S::Error>
+) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
@@ -19,7 +19,7 @@ where
 pub(crate) fn serialize_optional_canonical_timestamp<S>(
     value: &Option<DateTime<Utc>>,
     serializer: S,
-) -> std::result::Result<S::Ok, S::Error>
+) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
@@ -31,7 +31,7 @@ where
 
 pub(crate) fn deserialize_canonical_timestamp<'de, D>(
     deserializer: D,
-) -> std::result::Result<DateTime<Utc>, D::Error>
+) -> Result<DateTime<Utc>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {

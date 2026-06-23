@@ -351,6 +351,14 @@ pub struct OrganizationPreview {
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified_badge: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_count: Option<u64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub realms: Vec<RealmId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm_count: Option<u64>,
     pub as_of: DateTime<Utc>,
     #[serde(default)]
     pub source_refs: Vec<String>,

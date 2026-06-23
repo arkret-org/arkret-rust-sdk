@@ -31,6 +31,8 @@ pub struct ModerationDecisionLiftPayload {
 pub struct ModerationDecisionPayload {
     pub target_ref: Value,
     pub decision: String,
+    pub issuer: Did,
+    pub request_canonical_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

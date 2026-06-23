@@ -67,6 +67,7 @@ mod session_and_identity {
         let p = ModerationAppealPayload::Decision(AppealDecisionPayload {
             appeal_id: TypedAppealId::new("ck:appeal:01904100-0000-7000-8000-000000000001")
                 .unwrap(),
+            realm_id: realm(),
             reviewer: did(),
             verdict: AppealVerdict::Modify,
             reason_text_ref: "blob:reason".to_owned(),
@@ -81,6 +82,7 @@ mod session_and_identity {
         let p = ModerationAppealPayload::Decision(AppealDecisionPayload {
             appeal_id: TypedAppealId::new("ck:appeal:01904100-0000-7000-8000-000000000001")
                 .unwrap(),
+            realm_id: realm(),
             reviewer: did(),
             verdict: AppealVerdict::Uphold,
             reason_text_ref: "blob:reason".to_owned(),

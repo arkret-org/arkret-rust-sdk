@@ -1,7 +1,7 @@
 //! Event frontier, submission, subscription, and snapshot wire models.
 
 use super::*;
-use crate::canonical;
+use crate::{SealBasis, canonical};
 
 // ── EventsFrontier 3-way split ──────────────────────────────────────────
 
@@ -52,7 +52,7 @@ pub enum EventsFrontierView {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RealmSealFrontierView {
     pub realm_id: RealmId,
-    pub seal_id: crate::SealId,
+    pub seal_id: SealId,
     pub control_event_set_root: Hash,
     pub state_root: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -61,8 +61,8 @@ pub struct RealmSealFrontierView {
 
 impl RealmSealFrontierView {
     /// Single-leaf Control Move `seal_basis` under this view.
-    pub fn seal_basis(&self) -> crate::SealBasis {
-        crate::SealBasis {
+    pub fn seal_basis(&self) -> SealBasis {
+        SealBasis {
             leaves: vec![self.seal_id.clone()],
             control_event_set_root: self.control_event_set_root.clone(),
             state_root: self.state_root.clone(),

@@ -291,7 +291,7 @@ pub fn validate_applet_delegation_binding(
     applet_id: &str,
     executed_by: &str,
     registration_epoch: &str,
-) -> std::result::Result<(), AppletDelegationBindingError> {
+) -> Result<(), AppletDelegationBindingError> {
     let Some(binding) = grant
         .constraints
         .iter()
