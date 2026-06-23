@@ -177,27 +177,45 @@ pub fn effective_seal_view(
 ) -> Result<EffectiveSealView, SealReject> {
     let mut sorted = leaves.to_vec();
     sorted.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-    let covered = union_predecessor_covered_events(&sorted, seals)?;
+    let union_proof = leaf_union_proof(&sorted, seals)?;
+    let covered = union_covered_from_proof(&union_proof);
     let covered_event_digests: Vec<MoveId> = covered.iter().cloned().collect();
     let control_event_set_root = control_event_set_root(&covered)?;
     let post_state = effective_state_at(&sorted, realm_id, seals, cells, registry)?;
     let state_root = compute_state_root(&post_state)
         .map_err(|e| SealReject::Store(format!("state_root: {e}")))?;
+    let view_hash = joined_control_view_hash(
+        &sorted,
+        &covered_event_digests,
+        &control_event_set_root,
+        &state_root,
+    )?;
 
     Ok(EffectiveSealView {
         predecessor_refs: sorted,
         covered_event_digests,
         control_event_set_root,
         state_root,
+        union_proof,
+        view_hash,
     })
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EffectiveSealView {
     pub predecessor_refs: Vec<SealId>,
     pub covered_event_digests: Vec<MoveId>,
     pub control_event_set_root: Hash,
     pub state_root: Hash,
+    pub union_proof: Vec<SealLeafUnionProof>,
+    pub view_hash: Hash,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SealLeafUnionProof {
+    pub leaf: SealId,
+    pub covered_event_digests: Vec<MoveId>,
+    pub control_event_set_root: Hash,
 }
 
 pub fn union_predecessor_covered_events(
@@ -209,6 +227,35 @@ pub fn union_predecessor_covered_events(
         collect_covered_events(predecessor, seals, &mut out)?;
     }
     Ok(out)
+}
+
+pub fn leaf_union_proof(
+    leaves: &[SealId],
+    seals: &dyn SealStore,
+) -> Result<Vec<SealLeafUnionProof>, SealReject> {
+    let mut sorted = leaves.to_vec();
+    sorted.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+    sorted
+        .into_iter()
+        .map(|leaf| {
+            let mut covered = BTreeSet::new();
+            collect_covered_events(&leaf, seals, &mut covered)?;
+            let covered_event_digests: Vec<MoveId> = covered.iter().cloned().collect();
+            let control_event_set_root = control_event_set_root(&covered)?;
+            Ok(SealLeafUnionProof {
+                leaf,
+                covered_event_digests,
+                control_event_set_root,
+            })
+        })
+        .collect()
+}
+
+fn union_covered_from_proof(proof: &[SealLeafUnionProof]) -> BTreeSet<MoveId> {
+    proof
+        .iter()
+        .flat_map(|leaf| leaf.covered_event_digests.iter().cloned())
+        .collect()
 }
 
 fn collect_covered_events(
@@ -266,6 +313,7 @@ fn effective_state_for_covered_events(
             .into_iter()
             .filter(|op| covered.contains(&op.move_id))
             .collect();
+        let ops = deterministic_sealed_ops(ops);
         if ops.is_empty() {
             continue;
         }
@@ -277,14 +325,81 @@ fn effective_state_for_covered_events(
 }
 
 pub fn deterministic_order(mut moves: Vec<Move>) -> Vec<Move> {
-    moves.sort_by(|a, b| {
-        a.hlc
-            .as_str()
-            .cmp(b.hlc.as_str())
-            .then_with(|| a.issuer.as_str().cmp(b.issuer.as_str()))
-            .then_with(|| a.id.as_str().cmp(b.id.as_str()))
+    let mut out = Vec::with_capacity(moves.len());
+    while !moves.is_empty() {
+        let mut ready = Vec::new();
+        let remaining_ids: BTreeSet<String> =
+            moves.iter().map(|m| m.id.as_str().to_owned()).collect();
+        let mut blocked = Vec::new();
+        for m in moves {
+            if move_causal_dependencies(&m)
+                .iter()
+                .any(|dep| remaining_ids.contains(dep))
+            {
+                blocked.push(m);
+            } else {
+                ready.push(m);
+            }
+        }
+        if ready.is_empty() {
+            blocked.sort_by(concurrent_move_order);
+            out.extend(blocked);
+            break;
+        }
+        ready.sort_by(concurrent_move_order);
+        out.extend(ready);
+        moves = blocked;
+    }
+    out
+}
+
+fn concurrent_move_order(a: &Move, b: &Move) -> std::cmp::Ordering {
+    b.id.as_str()
+        .cmp(a.id.as_str())
+        .then_with(|| a.hlc.as_str().cmp(b.hlc.as_str()))
+        .then_with(|| a.issuer.as_str().cmp(b.issuer.as_str()))
+}
+
+fn move_causal_dependencies(m: &Move) -> Vec<String> {
+    m.refs
+        .iter()
+        .filter(|reference| {
+            matches!(
+                reference.role.as_str(),
+                "after" | "parent_move" | "recovery_capability"
+            )
+        })
+        .map(|reference| reference.id.clone())
+        .collect()
+}
+
+fn deterministic_sealed_ops(mut ops: Vec<SealedOp>) -> Vec<SealedOp> {
+    ops.sort_by(|a, b| b.move_id.as_str().cmp(a.move_id.as_str()));
+    ops
+}
+
+fn joined_control_view_hash(
+    leaves: &[SealId],
+    covered_event_digests: &[MoveId],
+    control_event_set_root: &Hash,
+    state_root: &Hash,
+) -> Result<Hash, SealReject> {
+    let json = serde_json::json!({
+        "schema": "ck.schema.joined_control_view.v1",
+        "leaves": leaves.iter().map(|leaf| leaf.as_str()).collect::<Vec<_>>(),
+        "covered_event_digests": covered_event_digests
+            .iter()
+            .map(|event| event.as_str())
+            .collect::<Vec<_>>(),
+        "control_event_set_root": control_event_set_root.as_str(),
+        "state_root": state_root.as_str(),
     });
-    moves
+    let bytes = canonical::canonical_json_bytes(&json)
+        .map_err(|e| SealReject::Store(format!("joined_control_view_hash: {e}")))?;
+    let digest = Sha256::digest(&bytes);
+    let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+    Hash::new(format!("sha256:{hex}"))
+        .map_err(|e| SealReject::Structural(format!("invalid joined control view hash: {e}")))
 }
 
 pub fn view_hash(leaves: &[SealId]) -> Result<Hash, crate::Error> {
@@ -307,7 +422,10 @@ mod tests {
     use crate::lattice::SealedOp;
     use crate::state::store::memory::{MemoryCellRegistry, MemoryCellStore, MemorySealStore};
     use crate::state::store::{CellStore, SealStore};
-    use crate::{Hlc, LatticeOp, LatticeOpType, MoveSignature, NotarySig, SealKind};
+    use crate::{
+        Did, Hlc, LatticeOp, LatticeOpType, MoveSignature, NotarySig, SealBasis, SealKind,
+        SemanticRef,
+    };
 
     fn realm() -> RealmId {
         RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
@@ -383,6 +501,24 @@ mod tests {
         }
     }
 
+    fn move_for_order(byte: u8, refs: Vec<SemanticRef>) -> Move {
+        Move {
+            id: move_id(byte),
+            issuer: Did::new("did:web:issuer.example".to_owned()).unwrap(),
+            realm_id: realm(),
+            preconditions: Vec::new(),
+            effects: Vec::new(),
+            seal_basis: SealBasis {
+                leaves: vec![seal_id(0x11)],
+                control_event_set_root: hash(0x22),
+                state_root: hash(0x33),
+            },
+            refs,
+            hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
+            sig: dummy_signature(),
+        }
+    }
+
     #[test]
     fn effective_state_at_filters_ops_by_seal_coverage() {
         let seals = MemorySealStore::default();
@@ -451,5 +587,81 @@ mod tests {
             value_b,
             json!([{ "tag": "b", "value": { "marker": "visible-at-b" } }])
         );
+    }
+
+    #[test]
+    fn effective_seal_view_is_leaf_order_independent() {
+        let seals = MemorySealStore::default();
+        let cells = MemoryCellStore::default();
+        let registry = MemoryCellRegistry::default();
+        let realm = realm();
+        let move_a = move_id(0xaa);
+        let move_b = move_id(0xbb);
+        let seal_a = materialized_seal(seal_id(0xa1), vec![move_a.clone()]);
+        let seal_b = materialized_seal(seal_id(0xb1), vec![move_b.clone()]);
+        seals.put(&seal_b).unwrap();
+        seals.put(&seal_a).unwrap();
+
+        let first = effective_seal_view(
+            &[seal_b.id.clone(), seal_a.id.clone()],
+            &realm,
+            &seals,
+            &cells,
+            &registry,
+        )
+        .unwrap();
+        let second = effective_seal_view(
+            &[seal_a.id.clone(), seal_b.id.clone()],
+            &realm,
+            &seals,
+            &cells,
+            &registry,
+        )
+        .unwrap();
+
+        assert_eq!(
+            first.predecessor_refs,
+            vec![seal_a.id.clone(), seal_b.id.clone()]
+        );
+        assert_eq!(first.covered_event_digests, vec![move_a, move_b]);
+        assert_eq!(first.union_proof.len(), 2);
+        assert_eq!(first.view_hash, second.view_hash);
+        assert_eq!(first.state_root, second.state_root);
+    }
+
+    #[test]
+    fn deterministic_order_respects_causality_then_digest_desc() {
+        let low = move_for_order(0x10, Vec::new());
+        let mid = move_for_order(0x20, Vec::new());
+        let high_depends_on_low = move_for_order(
+            0xf0,
+            vec![SemanticRef {
+                id: low.id.as_str().to_owned(),
+                role: "after".to_owned(),
+                critical: true,
+            }],
+        );
+
+        let ordered =
+            deterministic_order(vec![high_depends_on_low.clone(), mid.clone(), low.clone()]);
+        let ids = ordered
+            .iter()
+            .map(|m| m.id.as_str().to_owned())
+            .collect::<Vec<_>>();
+
+        assert_eq!(ids[0], mid.id.as_str());
+        assert_eq!(ids[1], low.id.as_str());
+        assert_eq!(ids[2], high_depends_on_low.id.as_str());
+    }
+
+    #[test]
+    fn deterministic_sealed_ops_ignores_insertion_order() {
+        let low = SealedOp::new(move_id(0x01), add_op("low", "low"));
+        let high = SealedOp::new(move_id(0xff), add_op("high", "high"));
+
+        let ordered = deterministic_sealed_ops(vec![low.clone(), high.clone()]);
+
+        assert_eq!(ordered[0].move_id, high.move_id);
+        assert_eq!(ordered[1].move_id, low.move_id);
     }
 }

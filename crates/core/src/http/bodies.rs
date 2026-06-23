@@ -935,7 +935,21 @@ pub struct SessionGrantRequestBody {
     pub agent_key_authorization_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub agent_scope_request: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applet_delegation: Option<SessionGrantAppletDelegation>,
     pub proof: SessionGrantRequestProof,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantAppletDelegation {
+    pub applet_id: String,
+    pub effective_scope: Value,
+    pub registration_epoch: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_did: Option<Did>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capability_grant_refs: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

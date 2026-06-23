@@ -256,7 +256,7 @@ pub struct AccountDeviceSummary {
     pub revoked_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountLifecycleProof {
     pub proof_kind: String,
@@ -275,6 +275,18 @@ pub const SESSION_REVOKE_LIFECYCLE_PROOF_KIND: &str =
     "ck.account.lifecycle_proof.session_revoke.v1";
 pub const SESSION_REVOKE_OPERATION_ID: &str = "ck.gate.account.command.revoke_session";
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantAppletSelector {
+    pub applet_id: String,
+    pub effective_scope: Value,
+    pub registration_epoch: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_did: Option<Did>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capability_grant_refs: Vec<String>,
+}
+
 impl AccountLifecycleProof {
     pub fn session_revoke_request_digest(
         actor_id: &Did,
@@ -283,6 +295,7 @@ impl AccountLifecycleProof {
         target_grant_id: Option<&GrantId>,
         target_device_id: Option<&DeviceId>,
         all_sessions: bool,
+        applet_selector: Option<&SessionGrantAppletSelector>,
     ) -> Result<Hash> {
         let request = json!({
             "schema": "ck.schema.session_revoke.request.v1",
@@ -293,6 +306,7 @@ impl AccountLifecycleProof {
             "target_grant_id": target_grant_id,
             "target_device_id": target_device_id,
             "all_sessions": all_sessions,
+            "applet_selector": applet_selector,
         });
         Ok(Hash::new(canonical::canonical_sha256(&request)?)?)
     }
@@ -390,6 +404,16 @@ pub struct SessionRevokeRequestBody {
     pub target_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub all_sessions: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applet_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_scope: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub registration_epoch: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_did: Option<Did>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capability_grant_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<AccountLifecycleProof>,
 }

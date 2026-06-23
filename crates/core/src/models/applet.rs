@@ -169,6 +169,8 @@ pub struct AppletRevokeRequestBody {
     pub effective_scope: EffectiveScope,
     pub reason_code: String,
     pub revoke_mode: AppletRevokeMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof: Option<AccountLifecycleProof>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

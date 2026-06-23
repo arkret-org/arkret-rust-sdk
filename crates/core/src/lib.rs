@@ -118,11 +118,12 @@ pub use snapshot::{
 };
 pub use state::{
     BottomMode, CellLatticeBinding, CellRegistry, CellStore, CompactionPolicy, EMPTY_STATE_ROOT,
-    MemoryCellRegistry, MemoryCellStore, MemoryMoveStore, MemorySealStore, MoveReject,
-    MoveRejectMap, MoveStore, PruneCandidate, PruneEligibility, SealEffect, SealReject, SealStore,
-    SealedMoveRecord, StoreError, StoreResult, apply_seal, compute_state_root, deterministic_order,
-    effective_seal_view, leaf_hash, reject_to_error_code, union_predecessor_covered_events,
-    verify_move, view_hash,
+    EffectiveSealView, MemoryCellRegistry, MemoryCellStore, MemoryMoveStore, MemorySealStore,
+    MoveReject, MoveRejectMap, MoveStore, PruneCandidate, PruneEligibility, SealEffect,
+    SealLeafUnionProof, SealReject, SealStore, SealedMoveRecord, StoreError, StoreResult,
+    apply_seal, compute_state_root, deterministic_order, effective_seal_view, leaf_hash,
+    leaf_union_proof, reject_to_error_code, union_predecessor_covered_events, verify_move,
+    view_hash,
 };
 pub use sync::{
     AccountData, BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody,

@@ -911,6 +911,7 @@ impl AuthManager {
                 requested_scope: Vec::new(),
                 agent_key_authorization_ref: None,
                 agent_scope_request: Value::Null,
+                applet_delegation: None,
                 proof: cokret_core::SessionGrantRequestProof {
                     proof_kind: cokret_core::SessionGrantProofKind::DidBoundSignature,
                     challenge: challenge.to_owned(),
