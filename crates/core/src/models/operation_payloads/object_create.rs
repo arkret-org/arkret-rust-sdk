@@ -198,10 +198,10 @@ impl StrandCreateObject {
     }
 }
 
-/// Payload shared by `ck.strand.update` and `ck.strand.tracks.update`.
+/// Payload for `ck.strand.update`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StrandPatchPayload {
-    pub strand_id: StrandId,
+    pub target_ref: StrandId,
     pub patch: Patch,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected_state_digest: Option<Hash>,
@@ -211,7 +211,7 @@ impl StrandPatchPayload {
     pub fn for_strand(strand_id: StrandId, patch: Patch) -> Result<Self> {
         patch.validate()?;
         Ok(Self {
-            strand_id,
+            target_ref: strand_id,
             patch,
             expected_state_digest: None,
         })

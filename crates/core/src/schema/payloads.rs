@@ -146,6 +146,7 @@ fn validate_fallback_payload_shape(
                 ))),
             }
         }
+        "ck.strand.update" => validate_strand_update_fallback_payload(event_kind, object),
         "ck.morph.update" => validate_morph_update_fallback_payload(event_kind, object),
         "ck.mls.commit" => validate_mls_commit_fallback_payload(event_kind, object, warnings),
         _ => Ok(()),
@@ -223,6 +224,26 @@ fn validate_morph_update_fallback_payload(
                 "event kind '{event_kind}' payload patch.{path} is single-sourced by ck.morph.stage.set"
             )));
         }
+    }
+    Ok(())
+}
+
+fn validate_strand_update_fallback_payload(
+    event_kind: &str,
+    object: &serde_json::Map<String, Value>,
+) -> Result<()> {
+    let target_ref = object
+        .get("target_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "event kind '{event_kind}' payload target_ref must be a string"
+            ))
+        })?;
+    if !target_ref.starts_with("ck:strand:") {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload target_ref must be a Strand id"
+        )));
     }
     Ok(())
 }
@@ -392,7 +413,7 @@ fn collect_unknown_field_warnings(
 /// `object_patch_payload` property set shared by generic object update kinds.
 const OBJECT_PATCH_FALLBACK_FIELDS: &[&str] = &["target_ref", "patch", "expected_state_digest"];
 const MORPH_UPDATE_FALLBACK_FIELDS: &[&str] = &["target_ref", "patch", "expected_state_digest"];
-const STRAND_PATCH_FALLBACK_FIELDS: &[&str] = &["strand_id", "patch", "expected_state_digest"];
+const STRAND_PATCH_FALLBACK_FIELDS: &[&str] = &["target_ref", "patch", "expected_state_digest"];
 const SPACE_PATCH_FALLBACK_FIELDS: &[&str] = &["space_id", "patch", "expected_state_digest"];
 
 /// Field allow-lists the fallback validator mirrors per event kind.
@@ -602,7 +623,7 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
         (
             "ck.strand.update",
             EVENT_PAYLOAD_SCHEMA,
-            &["strand_id", "patch"][..],
+            &["target_ref", "patch"][..],
         ),
         (
             "ck.morph.update",
@@ -1217,7 +1238,7 @@ mod tests {
             .validate_payload(
                 "ck.strand.update",
                 &json!({
-                    "strand_id": "ck:strand:01904100-0000-7000-8000-000000000001",
+                    "target_ref": "ck:strand:01904100-0000-7000-8000-000000000001",
                     "patch": {
                         "metadata.title": { "$op": "set", "value": "Roadmap" }
                     }

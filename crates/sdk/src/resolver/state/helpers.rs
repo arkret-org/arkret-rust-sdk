@@ -13,9 +13,12 @@ impl RealmState {
     /// Extract strand_id from event content.
     pub(super) fn extract_strand_id(&self, content: &Value) -> Result<String> {
         self.extract_optional_field::<String>(content, "strand_id")
+            .or_else(|| self.extract_optional_field::<String>(content, "target_ref"))
             .or_else(|| self.extract_optional_field::<String>(content, "id"))
             .map(|value| canonicalize_strand_ref(&value))
-            .ok_or_else(|| Error::Protocol("strand event requires strand_id".to_owned()))
+            .ok_or_else(|| {
+                Error::Protocol("strand event requires target_ref or strand_id".to_owned())
+            })
     }
 
     /// Extract the container `space_id` from event content.

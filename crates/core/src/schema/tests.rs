@@ -615,7 +615,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             "ck.strand.update",
             "strand_patch_payload",
             json!({
-                "strand_id": "ck:strand:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ck:strand:0196419b-0000-7000-8000-000000000001",
                 "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -704,6 +704,18 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             )
             .is_err(),
         "ck.strand.tracks.update must still reject the retired type discriminator"
+    );
+    assert!(
+        catalog
+            .validate_payload(
+                "ck.strand.update",
+                &json!({
+                    "target_ref": "ck:morph:0196419b-0000-7000-8000-000000000001",
+                    "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
+                }),
+            )
+            .is_err(),
+        "ck.strand.update target_ref must be a Strand id"
     );
 }
 

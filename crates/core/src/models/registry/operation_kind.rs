@@ -108,8 +108,8 @@ impl Default for OperationKindRegistry {
 pub(in crate::models) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
     match kind {
         OP_STRAND_CREATE => vec!["object".to_owned()],
-        OP_STRAND_UPDATE => vec!["strand_id".to_owned(), "patch".to_owned()],
-        OP_STRAND_ARCHIVE | OP_STRAND_RESTORE => vec!["strand_id".to_owned()],
+        OP_STRAND_UPDATE => vec!["target_ref".to_owned(), "patch".to_owned()],
+        OP_STRAND_ARCHIVE | OP_STRAND_RESTORE => vec!["target_ref".to_owned()],
         OP_STRAND_STAGE_SET => vec!["strand_id".to_owned(), "stage".to_owned()],
         OP_STRAND_MOVE => ["board_space_id", "strand_id", "target_space_id", "rank"]
             .into_iter()

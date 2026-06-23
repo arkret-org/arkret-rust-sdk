@@ -13,6 +13,10 @@ pub const ERROR_CODE_GRANT_ALREADY_CONSUMED: &str = "grant_already_consumed";
 pub const ERROR_CODE_SESSION_LOGGED_OUT: &str = "session_logged_out";
 pub const ERROR_CODE_AUDIENCE_MISMATCH: &str = "audience_mismatch";
 pub const ERROR_CODE_SOFT_LOGGED_OUT: &str = "soft_logged_out";
+pub const ERROR_CODE_ACCOUNT_LOCKED: &str = "account_locked";
+pub const ERROR_CODE_ACCOUNT_SUSPENDED: &str = "account_suspended";
+pub const ERROR_CODE_ACCOUNT_DEACTIVATED: &str = "account_deactivated";
+pub const ERROR_CODE_ACCOUNT_ERASED: &str = "account_erased";
 pub const ERROR_CODE_DID_PROOF_REQUIRED: &str = "did_proof_required";
 pub const ERROR_CODE_INVALID_SIGNATURE: &str = "invalid_signature";
 pub const ERROR_CODE_HTTP_SIGNATURE_REQUIRED: &str = "http_signature_required";
@@ -218,6 +222,10 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_SESSION_LOGGED_OUT,
     ERROR_CODE_AUDIENCE_MISMATCH,
     ERROR_CODE_SOFT_LOGGED_OUT,
+    ERROR_CODE_ACCOUNT_LOCKED,
+    ERROR_CODE_ACCOUNT_SUSPENDED,
+    ERROR_CODE_ACCOUNT_DEACTIVATED,
+    ERROR_CODE_ACCOUNT_ERASED,
     ERROR_CODE_DID_PROOF_REQUIRED,
     ERROR_CODE_INVALID_SIGNATURE,
     ERROR_CODE_HTTP_SIGNATURE_REQUIRED,

@@ -237,10 +237,10 @@ fn strand_archive_then_restore_round_trip() {
     let strand_id = "ck:strand:01904100-0000-7000-8000-1fb50799ad50";
     let create = strand_create_event(1, strand_id);
 
-    let mut archive = event(OP_STRAND_ARCHIVE, 2, json!({ "strand_id": strand_id }));
+    let mut archive = event(OP_STRAND_ARCHIVE, 2, json!({ "target_ref": strand_id }));
     archive.prev_refs.push(create.event_id.clone());
 
-    let mut restore = event(OP_STRAND_RESTORE, 3, json!({ "strand_id": strand_id }));
+    let mut restore = event(OP_STRAND_RESTORE, 3, json!({ "target_ref": strand_id }));
     restore.prev_refs.push(archive.event_id.clone());
     let restore_at = restore.created_at;
 
@@ -257,7 +257,7 @@ fn strand_restore_rejected_when_active() {
     let strand_id = "ck:strand:01904100-0000-7000-8000-1fb50799ad51";
     let create = strand_create_event(1, strand_id);
 
-    let mut restore = event(OP_STRAND_RESTORE, 2, json!({ "strand_id": strand_id }));
+    let mut restore = event(OP_STRAND_RESTORE, 2, json!({ "target_ref": strand_id }));
     restore.prev_refs.push(create.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
@@ -396,9 +396,9 @@ fn space_tombstone_rejected_when_already_terminal() {
 fn strand_archive_rejected_when_already_archived() {
     let strand_id = "ck:strand:01904100-0000-7000-8000-2fb50799ad50";
     let create = strand_create_event(1, strand_id);
-    let mut archive1 = event(OP_STRAND_ARCHIVE, 2, json!({ "strand_id": strand_id }));
+    let mut archive1 = event(OP_STRAND_ARCHIVE, 2, json!({ "target_ref": strand_id }));
     archive1.prev_refs.push(create.event_id.clone());
-    let mut archive2 = event(OP_STRAND_ARCHIVE, 3, json!({ "strand_id": strand_id }));
+    let mut archive2 = event(OP_STRAND_ARCHIVE, 3, json!({ "target_ref": strand_id }));
     archive2.prev_refs.push(archive1.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
@@ -465,12 +465,12 @@ fn space_update_rejected_when_archived() {
 fn strand_update_rejected_when_archived() {
     let strand_id = "ck:strand:01904100-0000-7000-8000-3fb50799ad50";
     let create = strand_create_event(1, strand_id);
-    let mut archive = event(OP_STRAND_ARCHIVE, 2, json!({ "strand_id": strand_id }));
+    let mut archive = event(OP_STRAND_ARCHIVE, 2, json!({ "target_ref": strand_id }));
     archive.prev_refs.push(create.event_id.clone());
     let mut update = event(
         OP_STRAND_UPDATE,
         3,
-        json!({ "strand_id": strand_id, "patch": { "metadata": {"title": "New title"} } }),
+        json!({ "target_ref": strand_id, "patch": { "metadata": {"title": "New title"} } }),
     );
     update.prev_refs.push(archive.event_id.clone());
 
@@ -545,7 +545,7 @@ fn strand_events_create_update_and_default_view_relation() {
         2,
         Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
         json!({
-            "strand_id": strand_id,
+            "target_ref": strand_id,
             "patch": {
                 "metadata": {
                     "summary": "Risk, refunds and callbacks are tracked together.",

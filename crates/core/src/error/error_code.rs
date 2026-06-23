@@ -16,6 +16,10 @@ pub enum ErrorCode {
     SessionLoggedOut,
     AudienceMismatch,
     SoftLoggedOut,
+    AccountLocked,
+    AccountSuspended,
+    AccountDeactivated,
+    AccountErased,
     DidProofRequired,
     InvalidSignature,
     HttpSignatureRequired,
@@ -161,7 +165,7 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 154] = [
+    pub const ALL: [Self; 158] = [
         Self::BadJson,
         Self::BadQuery,
         Self::SchemaViolation,
@@ -174,6 +178,10 @@ impl ErrorCode {
         Self::SessionLoggedOut,
         Self::AudienceMismatch,
         Self::SoftLoggedOut,
+        Self::AccountLocked,
+        Self::AccountSuspended,
+        Self::AccountDeactivated,
+        Self::AccountErased,
         Self::DidProofRequired,
         Self::InvalidSignature,
         Self::HttpSignatureRequired,
@@ -332,6 +340,10 @@ impl ErrorCode {
             Self::SessionLoggedOut => ERROR_CODE_SESSION_LOGGED_OUT,
             Self::AudienceMismatch => ERROR_CODE_AUDIENCE_MISMATCH,
             Self::SoftLoggedOut => ERROR_CODE_SOFT_LOGGED_OUT,
+            Self::AccountLocked => ERROR_CODE_ACCOUNT_LOCKED,
+            Self::AccountSuspended => ERROR_CODE_ACCOUNT_SUSPENDED,
+            Self::AccountDeactivated => ERROR_CODE_ACCOUNT_DEACTIVATED,
+            Self::AccountErased => ERROR_CODE_ACCOUNT_ERASED,
             Self::DidProofRequired => ERROR_CODE_DID_PROOF_REQUIRED,
             Self::InvalidSignature => ERROR_CODE_INVALID_SIGNATURE,
             Self::HttpSignatureRequired => ERROR_CODE_HTTP_SIGNATURE_REQUIRED,
@@ -497,6 +509,10 @@ impl ErrorCode {
             ERROR_CODE_SESSION_LOGGED_OUT => Self::SessionLoggedOut,
             ERROR_CODE_AUDIENCE_MISMATCH => Self::AudienceMismatch,
             ERROR_CODE_SOFT_LOGGED_OUT => Self::SoftLoggedOut,
+            ERROR_CODE_ACCOUNT_LOCKED => Self::AccountLocked,
+            ERROR_CODE_ACCOUNT_SUSPENDED => Self::AccountSuspended,
+            ERROR_CODE_ACCOUNT_DEACTIVATED => Self::AccountDeactivated,
+            ERROR_CODE_ACCOUNT_ERASED => Self::AccountErased,
             ERROR_CODE_DID_PROOF_REQUIRED => Self::DidProofRequired,
             ERROR_CODE_INVALID_SIGNATURE => Self::InvalidSignature,
             ERROR_CODE_HTTP_SIGNATURE_REQUIRED => Self::HttpSignatureRequired,
