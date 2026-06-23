@@ -315,6 +315,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/self/circles/{circle_id}/archive"
     ),
     endpoint!(
+        "ck.self.circle.command.restore",
+        Post,
+        "/_cokret/self/circles/{circle_id}/restore"
+    ),
+    endpoint!(
         "ck.self.circle.command.tombstone",
         Post,
         "/_cokret/self/circles/{circle_id}/tombstone"

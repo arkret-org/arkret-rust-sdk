@@ -1,6 +1,6 @@
 # Cokret Rust SDK
 
-> **Spec target**: [cokret-spec @ 8a9c32a](../cokret-spec) (v1 artifacts 2026-06-11)
+> **Spec target**: [cokret-spec @ 074aefee](../cokret-spec) (v1 artifacts 2026-06-23)
 
 [![codecov](https://codecov.io/gh/cokret/cokret-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/cokret/cokret-rust-sdk)
 

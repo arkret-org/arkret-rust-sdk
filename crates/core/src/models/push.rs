@@ -75,27 +75,25 @@ pub struct PushDeviceRoute {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub platform: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_actor_id: Option<Did>,
+    pub target_route_token: Option<PushRouteToken>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub visible_notification_opt_in: bool,
 }
 
+pub type PushRouteToken = String;
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct PushRoutingMetadata {
+pub struct PushRouteTokens {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
+    pub realm_route_token: Option<PushRouteToken>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub circle_id: Option<CircleId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<CircleId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<EffectiveScope>,
+    pub scope_route_token: Option<PushRouteToken>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub mention_redirect_target_actor_ids: Vec<Did>,
+    pub mention_redirect_target_route_tokens: Vec<PushRouteToken>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delivery_binding_frontier: Option<String>,
+    pub delivery_binding_frontier_token: Option<PushRouteToken>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -115,7 +113,7 @@ pub struct PushNotificationEnvelope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub counts: Option<PushCounts>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub routing_metadata: Option<PushRoutingMetadata>,
+    pub route_tokens: Option<PushRouteTokens>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub devices: Vec<PushDeviceRoute>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

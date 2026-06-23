@@ -600,6 +600,17 @@ pub const OP_CONTACT_LIST: &str = "ck.self.contact.query.list";
 pub const OP_CONTACT_TOMBSTONE: &str = "ck.self.contact.command.tombstone";
 pub const OP_DIRECT_CONVERSATION_RESOLVE: &str = "ck.self.direct_conversation.command.resolve";
 
+/// Circle self-service operations.
+pub const OP_SELF_CIRCLE_CREATE: &str = "ck.self.circle.command.create";
+pub const OP_SELF_CIRCLE_LIST: &str = "ck.self.circle.query.list";
+pub const OP_SELF_CIRCLE_GET: &str = "ck.self.circle.resource.get";
+pub const OP_SELF_CIRCLE_MEMBER_ADD: &str = "ck.self.circle.member.command.add";
+pub const OP_SELF_CIRCLE_MEMBER_DELETE: &str = "ck.self.circle.member.resource.delete";
+pub const OP_SELF_CIRCLE_ROTATE_SCOPE: &str = "ck.self.circle.command.rotate_scope";
+pub const OP_SELF_CIRCLE_ARCHIVE: &str = "ck.self.circle.command.archive";
+pub const OP_SELF_CIRCLE_RESTORE: &str = "ck.self.circle.command.restore";
+pub const OP_SELF_CIRCLE_TOMBSTONE: &str = "ck.self.circle.command.tombstone";
+
 /// Projection read-model operations.
 pub const OP_PROJECTION_SPACES: &str = "ck.self.projection.spaces.query.list";
 pub const OP_PROJECTION_STRANDS: &str = "ck.self.projection.strands.query.list";
@@ -947,6 +958,15 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_CONTACT_RESPOND,
     OP_CONTACT_TOMBSTONE,
     OP_DIRECT_CONVERSATION_RESOLVE,
+    OP_SELF_CIRCLE_CREATE,
+    OP_SELF_CIRCLE_LIST,
+    OP_SELF_CIRCLE_GET,
+    OP_SELF_CIRCLE_MEMBER_ADD,
+    OP_SELF_CIRCLE_MEMBER_DELETE,
+    OP_SELF_CIRCLE_ROTATE_SCOPE,
+    OP_SELF_CIRCLE_ARCHIVE,
+    OP_SELF_CIRCLE_RESTORE,
+    OP_SELF_CIRCLE_TOMBSTONE,
     OP_INVITE_RECEIVE_POLICY_GET,
     OP_INVITE_RECEIVE_POLICY_SET,
     OP_PEER_CONTACTS_SUBMIT,

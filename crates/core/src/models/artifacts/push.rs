@@ -18,19 +18,15 @@ pub enum PushOperations {
 /// `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/blind_notification`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RoutingMetadata {
+pub struct RouteTokens {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<Value>,
+    pub realm_route_token: Option<PushRouteToken>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub circle_id: Option<Value>,
+    pub scope_route_token: Option<PushRouteToken>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<Value>,
+    pub mention_redirect_target_route_tokens: Option<Vec<PushRouteToken>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<EffectiveScope>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mention_redirect_target_actor_ids: Option<Vec<Did>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delivery_binding_frontier: Option<Value>,
+    pub delivery_binding_frontier_token: Option<PushRouteToken>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -47,7 +43,7 @@ pub struct BlindNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub counts: Option<Counts>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub routing_metadata: Option<RoutingMetadata>,
+    pub route_tokens: Option<RouteTokens>,
     pub devices: Vec<DeviceRoute>,
 }
 
@@ -75,7 +71,7 @@ pub struct DeviceRoute {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub platform: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_actor_id: Option<Value>,
+    pub target_route_token: Option<PushRouteToken>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub visible_notification_opt_in: bool,
 }
@@ -104,25 +100,6 @@ pub type RegistrationId = String;
 /// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/url`.
 pub type Url = String;
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/visible_notification`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RoutingMetadataValue {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub circle_id: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<EffectiveScope>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mention_redirect_target_actor_ids: Option<Vec<Did>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delivery_binding_frontier: Option<Value>,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VisibleNotification {
@@ -137,7 +114,7 @@ pub struct VisibleNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub counts: Option<Counts>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub routing_metadata: Option<RoutingMetadataValue>,
+    pub route_tokens: Option<RouteTokens>,
     pub devices: Vec<DeviceRoute>,
     pub event_id: EventId,
     pub realm_id: RealmId,
