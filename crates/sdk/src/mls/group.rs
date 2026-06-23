@@ -37,6 +37,12 @@ pub struct MlsAddMemberResult {
     pub welcome: MlsWelcomeEnvelope,
 }
 
+#[derive(Clone, Debug)]
+pub struct MlsAddMembersResult {
+    pub commit: MlsCommitEnvelope,
+    pub welcomes: Vec<MlsWelcomeEnvelope>,
+}
+
 /// Result of removing one or more leaves from an MLS group.
 ///
 /// Unlike `MlsAddMemberResult`, Remove never produces a Welcome — surviving
@@ -125,6 +131,23 @@ impl MlsAddMemberResult {
             device_proof: None,
             unsigned: None,
         })
+    }
+}
+
+impl MlsAddMembersResult {
+    pub fn commit_operation(
+        &self,
+        operation_id: OperationId,
+        realm_id: RealmId,
+    ) -> Result<Operation> {
+        let mut operation = Operation::create(
+            operation_id,
+            realm_id,
+            "mls_commit",
+            serde_json::to_value(&self.commit)?,
+        );
+        operation.object_id = Some(format!("{}:{}", self.commit.group_id, self.commit.epoch));
+        Ok(operation)
     }
 }
 
@@ -409,19 +432,45 @@ impl CokretMlsGroup {
         &mut self,
         member_key_package: &MlsKeyPackageRecord,
     ) -> Result<MlsAddMemberResult> {
-        if !member_key_package.is_usable() {
+        let result = self.add_members(std::slice::from_ref(member_key_package))?;
+        let welcome = result
+            .welcomes
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::Protocol("MLS add_member returned no Welcome".to_owned()))?;
+        Ok(MlsAddMemberResult {
+            commit: result.commit,
+            welcome,
+        })
+    }
+
+    pub fn add_members(
+        &mut self,
+        member_key_packages: &[MlsKeyPackageRecord],
+    ) -> Result<MlsAddMembersResult> {
+        if member_key_packages.is_empty() {
             return Err(Error::Protocol(
-                "refusing to add revoked MLS KeyPackage".to_owned(),
+                "refusing to add an empty MLS KeyPackage batch".to_owned(),
             ));
         }
-
-        let key_package = decode_key_package(&self.identity.provider, member_key_package)?;
+        let mut key_packages = Vec::with_capacity(member_key_packages.len());
+        for member_key_package in member_key_packages {
+            if !member_key_package.is_usable() {
+                return Err(Error::Protocol(
+                    "refusing to add revoked MLS KeyPackage".to_owned(),
+                ));
+            }
+            key_packages.push(decode_key_package(
+                &self.identity.provider,
+                member_key_package,
+            )?);
+        }
         let (commit, welcome, _) = self
             .group
             .add_members(
                 &self.identity.provider,
                 &self.identity.signer,
-                std::slice::from_ref(&key_package),
+                &key_packages,
             )
             .map_err(mls_error)?;
         self.group
@@ -431,25 +480,33 @@ impl CokretMlsGroup {
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
         let welcome_bytes = welcome.tls_serialize_detached().map_err(mls_error)?;
         let ratchet_tree = Some(self.ratchet_tree()?);
-
-        Ok(MlsAddMemberResult {
-            commit: MlsCommitEnvelope {
-                group_id: self.group_id(),
-                epoch: self.epoch(),
-                commit: encode(&commit_bytes),
-                commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
-                ratchet_tree: ratchet_tree.clone(),
-                app_state_ref: None,
-            },
-            welcome: MlsWelcomeEnvelope {
-                group_id: self.group_id(),
-                epoch: self.epoch(),
+        let commit_digest = Hash::new(canonical::sha256_digest(&commit_bytes))?;
+        let welcome_hash = Hash::new(canonical::sha256_digest(&welcome_bytes))?;
+        let group_id = self.group_id();
+        let epoch = self.epoch();
+        let welcomes = member_key_packages
+            .iter()
+            .map(|member_key_package| MlsWelcomeEnvelope {
+                group_id: group_id.clone(),
+                epoch,
                 recipient_principal_id: member_key_package.principal_id.clone(),
                 recipient_device_id: member_key_package.device_id.clone(),
                 welcome: encode(&welcome_bytes),
-                welcome_hash: Hash::new(canonical::sha256_digest(&welcome_bytes))?,
+                welcome_hash: welcome_hash.clone(),
+                ratchet_tree: ratchet_tree.clone(),
+            })
+            .collect();
+
+        Ok(MlsAddMembersResult {
+            commit: MlsCommitEnvelope {
+                group_id,
+                epoch,
+                commit: encode(&commit_bytes),
+                commit_digest,
                 ratchet_tree,
+                app_state_ref: None,
             },
+            welcomes,
         })
     }
 

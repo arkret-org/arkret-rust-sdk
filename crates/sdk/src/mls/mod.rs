@@ -502,6 +502,55 @@ mod tests {
     }
 
     #[test]
+    fn openmls_group_can_add_multiple_members_in_one_commit() {
+        let alice = CokretMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+        )
+        .unwrap();
+        let bob = CokretMlsIdentity::new_basic(
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+        )
+        .unwrap();
+        let charlie = CokretMlsIdentity::new_basic(
+            Did::new("did:web:charlie.example").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000f").unwrap(),
+        )
+        .unwrap();
+        let bob_key_package = bob.key_package_record().unwrap();
+        let charlie_key_package = charlie.key_package_record().unwrap();
+
+        let mut alice_group = alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-1eb2ca9cbcfe")
+            .unwrap();
+        let add_result = alice_group
+            .add_members(&[bob_key_package, charlie_key_package])
+            .unwrap();
+        assert_eq!(add_result.welcomes.len(), 2);
+        assert_eq!(add_result.commit.epoch, alice_group.epoch());
+
+        let mut bob_group =
+            CokretMlsGroup::join_from_welcome(bob, &add_result.welcomes[0]).unwrap();
+        let mut charlie_group =
+            CokretMlsGroup::join_from_welcome(charlie, &add_result.welcomes[1]).unwrap();
+        assert_eq!(bob_group.epoch(), alice_group.epoch());
+        assert_eq!(charlie_group.epoch(), alice_group.epoch());
+
+        let encrypted = alice_group
+            .encrypt_payload("application/json", br#"{"body":"hello batch"}"#)
+            .unwrap();
+        assert_eq!(
+            bob_group.decrypt_payload(&encrypted).unwrap(),
+            br#"{"body":"hello batch"}"#
+        );
+        assert_eq!(
+            charlie_group.decrypt_payload(&encrypted).unwrap(),
+            br#"{"body":"hello batch"}"#
+        );
+    }
+
+    #[test]
     fn message_crypto_encrypts_decrypts_and_verifies_opaque_digest() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
