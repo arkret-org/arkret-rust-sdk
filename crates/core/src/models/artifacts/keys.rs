@@ -132,7 +132,10 @@ pub struct KeypackageClaimRecord {
     pub key_package: String,
     pub capabilities: Vec<String>,
     pub capabilities_digest: Hash,
-    pub ssk_generation: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssk_generation: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_authorize_event_id: Option<String>,
     pub expires_at: DateTime<Utc>,
     pub device_signature: Signature2,
     #[serde(default, skip_serializing_if = "Option::is_none")]

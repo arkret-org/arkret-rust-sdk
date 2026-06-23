@@ -248,7 +248,10 @@ pub struct MlsWelcomePayloadClaimRef {
     pub keypackage_ref: ObjectRef,
     pub keypackage_digest: Hash,
     pub capabilities_digest: Hash,
-    pub ssk_generation: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssk_generation: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_authorize_event_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -259,7 +262,10 @@ pub struct MlsWelcomeClaimEnvelope {
     pub intended_realm_id: RealmId,
     pub claim_id: String,
     pub requester_did: Did,
-    pub ssk_generation: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssk_generation: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requester_device_id: Option<String>,
     pub nonce: String,
     pub welcome_digest: Hash,
     pub created_at: DateTime<Utc>,
@@ -274,7 +280,10 @@ pub struct MlsWelcomeClaimEnvelopeSigningInput {
     pub intended_realm_id: RealmId,
     pub claim_id: String,
     pub requester_did: Did,
-    pub ssk_generation: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssk_generation: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requester_device_id: Option<String>,
     pub nonce: String,
     pub welcome_digest: Hash,
     pub created_at: DateTime<Utc>,
@@ -289,6 +298,7 @@ impl MlsWelcomeClaimEnvelope {
             claim_id: self.claim_id.clone(),
             requester_did: self.requester_did.clone(),
             ssk_generation: self.ssk_generation,
+            requester_device_id: self.requester_device_id.clone(),
             nonce: self.nonce.clone(),
             welcome_digest: self.welcome_digest.clone(),
             created_at: self.created_at,
@@ -300,10 +310,7 @@ impl MlsWelcomeClaimEnvelope {
     }
 
     pub fn validate_signature_shape(&self) -> std::result::Result<(), &'static str> {
-        if self.signature.kid.is_empty()
-            || !self.signature.kid.starts_with(self.requester_did.as_str())
-            || self.signature.sig.is_empty()
-        {
+        if self.signature.kid.is_empty() || self.signature.sig.is_empty() {
             return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
         }
         if let Some(alg) = self.signature.alg.as_deref()
@@ -350,7 +357,10 @@ pub fn validate_mls_welcome_claim_envelope(
     requester_did: &Did,
     welcome_digest: &Hash,
     claim_nonce: &str,
-    current_ssk_generation: u64,
+    current_claim_ssk_generation: Option<u64>,
+    current_claim_device_authorize_event_id: Option<&str>,
+    current_requester_ssk_generation: Option<u64>,
+    current_requester_device_id: Option<&str>,
 ) -> std::result::Result<(), &'static str> {
     let Some(welcome_keypackage_digest) = welcome.keypackage_digest.as_str() else {
         return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
@@ -368,10 +378,16 @@ pub fn validate_mls_welcome_claim_envelope(
         || published_keypackage_digest != claim.keypackage_digest.as_str()
         || welcome.claim_ref.capabilities_digest.as_str() != claim.capabilities_digest.as_str()
         || welcome.claim_ref.ssk_generation != claim.ssk_generation
-        || welcome.claim_ref.ssk_generation != current_ssk_generation
+        || welcome.claim_ref.device_authorize_event_id != claim.device_authorize_event_id
     {
         return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
+    validate_claim_trust_binding(
+        welcome.claim_ref.ssk_generation,
+        welcome.claim_ref.device_authorize_event_id.as_deref(),
+        current_claim_ssk_generation,
+        current_claim_device_authorize_event_id,
+    )?;
 
     let envelope = &welcome.claim_envelope;
     if envelope.keypackage_ref != claim.keypackage_ref
@@ -379,16 +395,63 @@ pub fn validate_mls_welcome_claim_envelope(
         || envelope.intended_realm_id != *intended_realm_id
         || envelope.claim_id != claim.claim_id
         || envelope.requester_did != *requester_did
-        || envelope.ssk_generation != claim.ssk_generation
-        || envelope.ssk_generation != current_ssk_generation
         || envelope.nonce != claim_nonce
         || envelope.welcome_digest.as_str() != welcome_digest.as_str()
     {
         return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
+    validate_requester_signature_binding(
+        envelope.ssk_generation,
+        envelope.requester_device_id.as_deref(),
+        current_requester_ssk_generation,
+        current_requester_device_id,
+    )?;
     envelope.validate_signature_shape()?;
     if envelope.created_at > claim.expires_at || welcome.expires_at > claim.expires_at {
         return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
     Ok(())
+}
+
+fn validate_claim_trust_binding(
+    ssk_generation: Option<u64>,
+    device_authorize_event_id: Option<&str>,
+    current_claim_ssk_generation: Option<u64>,
+    current_claim_device_authorize_event_id: Option<&str>,
+) -> std::result::Result<(), &'static str> {
+    match (ssk_generation, device_authorize_event_id) {
+        (Some(generation), None)
+            if generation >= 1 && Some(generation) == current_claim_ssk_generation =>
+        {
+            Ok(())
+        }
+        (None, Some(event_id))
+            if !event_id.is_empty()
+                && Some(event_id) == current_claim_device_authorize_event_id =>
+        {
+            Ok(())
+        }
+        _ => Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH),
+    }
+}
+
+fn validate_requester_signature_binding(
+    ssk_generation: Option<u64>,
+    requester_device_id: Option<&str>,
+    current_requester_ssk_generation: Option<u64>,
+    current_requester_device_id: Option<&str>,
+) -> std::result::Result<(), &'static str> {
+    match (ssk_generation, requester_device_id) {
+        (Some(generation), None)
+            if generation >= 1 && Some(generation) == current_requester_ssk_generation =>
+        {
+            Ok(())
+        }
+        (None, Some(device_id))
+            if !device_id.is_empty() && Some(device_id) == current_requester_device_id =>
+        {
+            Ok(())
+        }
+        _ => Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH),
+    }
 }

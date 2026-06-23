@@ -23,6 +23,7 @@ use crate::{
 
 pub const COKRET_MLS_CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
+pub const COKRET_MLS_KEY_PACKAGE_CAPABILITIES: &[&str] = &["mimi.content.v1", "ck.content.v1"];
 
 const COKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT: &str = "cokret-openmls-identity-state-v1";
 
@@ -85,7 +86,10 @@ impl CokretMlsIdentity {
             key_package: encode(&key_package_bytes),
             keypackage_ref,
             cipher_suites: vec![format!("{COKRET_MLS_CIPHERSUITE:?}")],
-            capabilities: Vec::new(),
+            capabilities: COKRET_MLS_KEY_PACKAGE_CAPABILITIES
+                .iter()
+                .map(|capability| (*capability).to_owned())
+                .collect(),
             state: cokret_core::MlsKeyPackageState::Published,
             claim_id: None,
             created_at,
@@ -246,5 +250,32 @@ pub fn revoke_key_package(record: &mut MlsKeyPackageRecord) -> MlsDeviceWorkflow
         group_id: None,
         from_epoch: None,
         to_epoch: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::Value;
+
+    use super::*;
+
+    #[test]
+    fn key_package_record_carries_required_capabilities() {
+        let identity = CokretMlsIdentity::new_basic(
+            Did::new("did:web:alice.example".to_owned()).unwrap(),
+            DeviceId::new("ck:device:01964137-0000-7000-8000-000000000001".to_owned()).unwrap(),
+        )
+        .unwrap();
+
+        let record = identity.key_package_record().unwrap();
+        assert_eq!(
+            record.capabilities,
+            vec!["mimi.content.v1".to_owned(), "ck.content.v1".to_owned()]
+        );
+
+        let value = serde_json::to_value(&record).unwrap();
+        assert!(
+            matches!(value.get("capabilities"), Some(Value::Array(values)) if !values.is_empty())
+        );
     }
 }

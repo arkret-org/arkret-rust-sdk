@@ -830,7 +830,7 @@ pub struct MlsKeyPackageRecord {
     pub keypackage_ref: Hash,
     pub cipher_suites: Vec<String>,
     /// Content / MLS profile capabilities (e.g. `mimi.content.v1`).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub capabilities: Vec<String>,
     /// Lifecycle state.
     #[serde(default)]

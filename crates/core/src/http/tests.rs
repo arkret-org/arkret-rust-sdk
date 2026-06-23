@@ -105,7 +105,8 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
     });
     let parsed: KeyPackagesClaimOutcome = serde_json::from_value(outcome).unwrap();
     assert_eq!(parsed.claims[0].principal_id, did("alice"));
-    assert_eq!(parsed.claims[0].ssk_generation, 3);
+    assert_eq!(parsed.claims[0].ssk_generation, Some(3));
+    assert_eq!(parsed.claims[0].device_authorize_event_id, None);
     assert_eq!(parsed.failures[0].reason_code, "not_found");
 
     let malformed_claim = json!({
