@@ -56,7 +56,7 @@ pub struct BlobUploadOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignRequestBody {
-    pub blob_ref: String,
+    pub blob_ref: BlobRef,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -93,7 +93,7 @@ pub struct BlobPresignAccessScope {
 #[serde(deny_unknown_fields)]
 pub struct BlobPresignPayload {
     pub scheme: String,
-    pub blob_ref: String,
+    pub blob_ref: BlobRef,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     pub issuer_service_did: Did,

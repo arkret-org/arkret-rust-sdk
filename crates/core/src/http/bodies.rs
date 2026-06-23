@@ -1084,7 +1084,7 @@ pub struct SessionGrantRefreshProof {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantRefreshOutcome {
-    pub grant_id: String,
+    pub grant_id: GrantId,
     pub grant_jwt: String,
     /// JWK the rotated grant is bound to (the device holder key); the server
     /// does not mint a fresh session private key on rotation.
@@ -1096,7 +1096,7 @@ pub struct SessionGrantRefreshOutcome {
     /// RFC 7638 thumbprint of the holder key (equals the grant's `cnf.jkt`).
     pub dpop_jkt: String,
     /// The prior grant, single-use revoked on success.
-    pub previous_grant_id: String,
+    pub previous_grant_id: GrantId,
 }
 
 /// `ck.gate.account.command.logout_auth_session` request.
@@ -1105,7 +1105,7 @@ pub struct SessionGrantRefreshOutcome {
 pub struct AuthSessionLogoutRequestBody {
     pub grant_jwt: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub logout_request_digest: Option<String>,
+    pub logout_request_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub validated_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1138,17 +1138,16 @@ pub enum SessionGrantIntrospectStatus {
 }
 
 /// Non-secret grant metadata returned to a validating Principal Server. Never
-/// includes the grant JWT, refresh token, or session private key. Fields are
-/// plain strings to match the introspection wire form verbatim.
+/// includes the grant JWT, refresh token, or session private key.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantIntrospectGrant {
-    pub id: String,
+    pub id: GrantId,
     pub issuer: String,
     pub subject: String,
     pub service_account_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<String>,
+    pub device_id: Option<DeviceId>,
     pub audience: String,
     #[serde(default)]
     pub scopes: Vec<String>,
@@ -1180,7 +1179,7 @@ pub struct SessionGrantIntrospectGrant {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantIntrospectRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
+    pub id: Option<GrantId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grant_jwt: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
