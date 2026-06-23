@@ -502,8 +502,9 @@ fn capability_grant_from_resolved_event(
 ///
 /// Fail-closed contract: families / subtypes / restriction fields this
 /// evaluator cannot enforce return `Err` — silently dropping a restriction
-/// would widen the grant. Pure metadata (`evaluation_class`,
-/// `depends_on_moderation_state`, `x_*` extensions) is ignored.
+/// would widen the grant. A declared `evaluation_class` must match the
+/// canonical class derived by this evaluator; pure metadata
+/// (`depends_on_moderation_state`, `x_*` extensions) is ignored.
 pub(crate) fn constraint_entries_from_spec(value: &Value) -> Result<Vec<ConstraintEntry>> {
     let object = value
         .as_object()
@@ -521,6 +522,9 @@ pub(crate) fn constraint_entries_from_spec(value: &Value) -> Result<Vec<Constrai
         .ok_or_else(|| Error::Protocol("grant constraint requires constraint_type".to_owned()))?;
     let subtype = str_field("subtype");
     let constraint_id = str_field("constraint_id");
+    let declared_evaluation_class = str_field("evaluation_class")
+        .map(|value| parse_evaluation_class(&value))
+        .transpose()?;
     let reject_unsupported_fields = |fields: &[&str]| -> Result<()> {
         for field in fields {
             if object.contains_key(*field) {
@@ -877,14 +881,82 @@ pub(crate) fn constraint_entries_from_spec(value: &Value) -> Result<Vec<Constrai
         }
     }
 
-    Ok(constraints
+    let entries: Vec<_> = constraints
         .into_iter()
         .map(|constraint| ConstraintEntry {
             constraint_id: constraint_id.clone(),
             constraint,
             priority: 0,
         })
-        .collect())
+        .collect();
+
+    validate_declared_evaluation_class(
+        &constraint_type,
+        subtype.as_deref(),
+        declared_evaluation_class,
+        &entries,
+    )?;
+
+    Ok(entries)
+}
+
+fn parse_evaluation_class(value: &str) -> Result<crate::EvaluationClass> {
+    match value {
+        "stateless" => Ok(crate::EvaluationClass::Stateless),
+        "grant_local" => Ok(crate::EvaluationClass::GrantLocal),
+        "realm_state" => Ok(crate::EvaluationClass::RealmState),
+        "external" => Ok(crate::EvaluationClass::External),
+        other => Err(Error::Protocol(format!(
+            "unknown evaluation_class '{other}'"
+        ))),
+    }
+}
+
+fn validate_declared_evaluation_class(
+    constraint_type: &str,
+    subtype: Option<&str>,
+    declared: Option<crate::EvaluationClass>,
+    entries: &[ConstraintEntry],
+) -> Result<()> {
+    let Some(declared) = declared else {
+        return Ok(());
+    };
+    let Some(canonical) = dominant_evaluation_class(entries) else {
+        return Ok(());
+    };
+    if declared != canonical {
+        return Err(Error::Protocol(format!(
+            "evaluation_class mismatch for {}{}: declared {}, canonical {}",
+            constraint_type,
+            subtype
+                .map(|subtype| format!(".{subtype}"))
+                .unwrap_or_default(),
+            evaluation_class_name(declared),
+            evaluation_class_name(canonical)
+        )));
+    }
+    Ok(())
+}
+
+fn dominant_evaluation_class(entries: &[ConstraintEntry]) -> Option<crate::EvaluationClass> {
+    entries
+        .iter()
+        .map(ConstraintEntry::evaluation_class)
+        .max_by_key(|evaluation_class| match *evaluation_class {
+            crate::EvaluationClass::Stateless => 0,
+            crate::EvaluationClass::GrantLocal => 1,
+            crate::EvaluationClass::RealmState => 2,
+            crate::EvaluationClass::External => 3,
+        })
+}
+
+fn evaluation_class_name(value: crate::EvaluationClass) -> &'static str {
+    match value {
+        crate::EvaluationClass::Stateless => "stateless",
+        crate::EvaluationClass::GrantLocal => "grant_local",
+        crate::EvaluationClass::RealmState => "realm_state",
+        crate::EvaluationClass::External => "external",
+    }
 }
 
 fn constraint_effect(value: Option<&str>) -> ConstraintEffect {
@@ -1489,6 +1561,34 @@ mod capability_grant_builder_tests {
                 "effect": "allow",
             }))
             .is_err()
+        );
+    }
+
+    #[test]
+    fn declared_evaluation_class_must_match_canonical_projection() {
+        let err = constraint_entries_from_spec(&json!({
+            "constraint_type": "quota",
+            "subtype": "rate",
+            "effect": "allow",
+            "evaluation_class": "stateless",
+            "max_operations": 5,
+            "period": "PT1H",
+        }))
+        .expect_err("declared evaluation_class mismatch must fail closed");
+        assert!(format!("{err}").contains("evaluation_class mismatch"));
+
+        let entries = constraint_entries_from_spec(&json!({
+            "constraint_type": "quota",
+            "subtype": "rate",
+            "effect": "allow",
+            "evaluation_class": "external",
+            "max_operations": 5,
+            "period": "PT1H",
+        }))
+        .unwrap();
+        assert_eq!(
+            entries[0].evaluation_class(),
+            crate::EvaluationClass::External
         );
     }
 }

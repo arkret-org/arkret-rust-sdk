@@ -28,6 +28,7 @@ pub mod operations;
 pub mod ops;
 pub mod platform;
 pub mod profile_claim;
+pub mod profile_semantics;
 pub mod push;
 pub mod push_rule_core;
 pub mod schema;
@@ -80,6 +81,12 @@ pub use multibase::{
 pub use notary::NotaryValue;
 pub use platform::{WasmHttpRequestBody, WasmHttpResponseBody};
 pub use profile_claim::{ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator};
+pub use profile_semantics::{
+    ProfileSemanticCoverageError, ProfileSemanticCoverageReport, ProfileSemanticRequirements,
+    ProfileSemanticSurface, collect_profile_semantic_requirements,
+    profile_capability_action_coverage_report, profile_semantic_coverage_report,
+    validate_profile_semantic_coverage,
+};
 pub use seal::{
     MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,
     ThresholdSignature, compute_seal_id, seal_canonical_bytes,

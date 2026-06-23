@@ -26,8 +26,8 @@ pub enum DidContinuityOobConfirmationMethod {
 pub enum DidContinuitySignatureAlgorithm {
     #[serde(rename = "Ed25519")]
     Ed25519,
-    #[serde(rename = "ECDSA-P256-SHA256")]
-    EcdsaP256Sha256,
+    #[serde(rename = "ES256")]
+    Es256,
     #[serde(rename = "ML-DSA-65")]
     MlDsa65,
 }
@@ -76,6 +76,7 @@ pub struct DidContinuityProof {
 
 impl DidContinuityProof {
     pub const SCHEMA: &'static str = "ck.schema.did_continuity_proof.v1";
+    pub const DIGEST_PREFIX: &'static [u8] = b"ck-did-continuity-proof-v1\n";
 
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {
@@ -87,6 +88,21 @@ impl DidContinuityProof {
         if self.signature_chain.len() < 2 {
             return Err(Error::Protocol(format!(
                 "DID continuity proof requires at least two signature_chain links \
+                 ({ERROR_CODE_SCHEMA_VIOLATION})"
+            )));
+        }
+        if self.old_did == self.new_did {
+            return Err(Error::Protocol(format!(
+                "DID continuity proof old_did and new_did must differ \
+                 ({ERROR_CODE_SCHEMA_VIOLATION})"
+            )));
+        }
+        if self.purpose == DidContinuityPurpose::PrincipalMethodUpgrade
+            && (!self.old_did.as_str().starts_with("did:web:")
+                || !self.new_did.as_str().starts_with("did:webvh:"))
+        {
+            return Err(Error::Protocol(format!(
+                "principal_method_upgrade requires old_did did:web and new_did did:webvh \
                  ({ERROR_CODE_SCHEMA_VIOLATION})"
             )));
         }
@@ -118,6 +134,9 @@ impl DidContinuityProof {
                  ({ERROR_CODE_SCHEMA_VIOLATION})"
             )));
         }
+        let expected_digest = self.signature_payload_digest()?;
+        let mut has_old_link = false;
+        let mut has_new_link = false;
         for link in &self.signature_chain {
             if !link.verification_method.starts_with("did:")
                 || !link.verification_method.contains('#')
@@ -138,8 +157,54 @@ impl DidContinuityProof {
                      ({ERROR_CODE_SCHEMA_VIOLATION})"
                 )));
             }
+            let method_principal = link
+                .verification_method
+                .split('#')
+                .next()
+                .unwrap_or_default();
+            if method_principal != link.principal_id.as_str() {
+                return Err(Error::Protocol(format!(
+                    "DID continuity proof signature link principal_id must match verification_method DID \
+                     ({ERROR_CODE_SCHEMA_VIOLATION})"
+                )));
+            }
+            if link.payload_digest.as_str() != expected_digest.as_str() {
+                return Err(Error::Protocol(format!(
+                    "DID continuity proof payload_digest {} does not match canonical proof digest {} \
+                     ({ERROR_CODE_SCHEMA_VIOLATION})",
+                    link.payload_digest, expected_digest
+                )));
+            }
+            has_old_link |= link.principal_id == self.old_did;
+            has_new_link |= link.principal_id == self.new_did;
+        }
+        if !has_old_link || !has_new_link {
+            return Err(Error::Protocol(format!(
+                "DID continuity proof signature_chain must include old_did and new_did links \
+                 ({ERROR_CODE_SCHEMA_VIOLATION})"
+            )));
         }
         Ok(())
+    }
+
+    pub fn signature_payload_digest(&self) -> Result<Hash> {
+        let mut value = serde_json::to_value(self)?;
+        if let Some(chain) = value
+            .get_mut("signature_chain")
+            .and_then(Value::as_array_mut)
+        {
+            for link in chain {
+                if let Some(object) = link.as_object_mut() {
+                    object.remove("payload_digest");
+                    object.remove("signature");
+                }
+            }
+        }
+        let canonical = canonical::canonical_json_bytes(&value)?;
+        let mut transcript = Vec::with_capacity(Self::DIGEST_PREFIX.len() + canonical.len());
+        transcript.extend_from_slice(Self::DIGEST_PREFIX);
+        transcript.extend_from_slice(&canonical);
+        Ok(Hash::new(canonical::sha256_digest(transcript))?)
     }
 }
 
@@ -239,9 +304,18 @@ mod tests {
         }
     }
 
+    fn valid_fixture() -> DidContinuityProof {
+        let mut proof = fixture();
+        let digest = proof.signature_payload_digest().unwrap();
+        for link in &mut proof.signature_chain {
+            link.payload_digest = digest.clone();
+        }
+        proof
+    }
+
     #[test]
     fn did_continuity_proof_roundtrips_and_validates() {
-        let proof = fixture();
+        let proof = valid_fixture();
         proof.validate_minimal().unwrap();
 
         let encoded = serde_json::to_value(&proof).unwrap();
@@ -254,10 +328,43 @@ mod tests {
 
     #[test]
     fn did_continuity_proof_rejects_short_signature_chain() {
-        let mut proof = fixture();
+        let mut proof = valid_fixture();
         proof.signature_chain.pop();
         let err = proof.validate_minimal().unwrap_err().to_string();
         assert!(err.contains("at least two signature_chain links"));
+    }
+
+    #[test]
+    fn did_continuity_proof_rejects_payload_digest_mismatch() {
+        let mut proof = valid_fixture();
+        proof.signature_chain[0].payload_digest = hash("f");
+        let err = proof.validate_minimal().unwrap_err().to_string();
+        assert!(err.contains("payload_digest"));
+    }
+
+    #[test]
+    fn did_continuity_principal_method_upgrade_is_did_web_to_webvh() {
+        let mut proof = valid_fixture();
+        proof.old_did = Did::new("did:key:z6Mki").unwrap();
+        let digest = proof.signature_payload_digest().unwrap();
+        for link in &mut proof.signature_chain {
+            link.payload_digest = digest.clone();
+        }
+        let err = proof.validate_minimal().unwrap_err().to_string();
+        assert!(err.contains("principal_method_upgrade requires old_did did:web"));
+    }
+
+    #[test]
+    fn did_continuity_proof_rejects_missing_new_did_link() {
+        let mut proof = valid_fixture();
+        proof.signature_chain[1].principal_id = Did::new("did:webvh:other.example").unwrap();
+        proof.signature_chain[1].verification_method = "did:webvh:other.example#key-1".to_owned();
+        let digest = proof.signature_payload_digest().unwrap();
+        for link in &mut proof.signature_chain {
+            link.payload_digest = digest.clone();
+        }
+        let err = proof.validate_minimal().unwrap_err().to_string();
+        assert!(err.contains("old_did and new_did links"));
     }
 
     #[test]

@@ -986,6 +986,8 @@ pub struct ErasureReceipt {
     pub outcome: ErasureOutcome,
     pub erased_classes: Vec<ErasedClass>,
     pub retained_stub_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retained_stub: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub legal_hold_ref: Option<String>,
     pub completed_at: DateTime<Utc>,
@@ -1026,16 +1028,56 @@ impl ErasureReceipt {
         Ok(())
     }
 
+    /// Canonical bytes signed by every receipt proof. The `proofs` array is
+    /// excluded so proof payload digests cannot recursively depend on their
+    /// own signatures.
+    pub fn canonical_proof_input(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        let object = value.as_object_mut().ok_or_else(|| {
+            Error::Protocol("erasure receipt must serialize as an object".to_owned())
+        })?;
+        object.remove("proofs");
+        canonical::canonical_json_bytes(&value)
+    }
+
+    pub fn canonical_payload_digest(&self) -> Result<Hash> {
+        let input = self.canonical_proof_input()?;
+        let digest = <Sha256 as Digest>::digest(&input);
+        Ok(Hash::new(format!("sha256:{}", hex::encode(digest)))?)
+    }
+
+    pub fn validate_proof_payload_digests(&self) -> Result<()> {
+        self.validate_minimal()?;
+        let expected = self.canonical_payload_digest()?;
+        for proof in &self.proofs {
+            if proof.payload_digest != expected {
+                return Err(Error::Protocol(
+                    "erasure receipt proof payload_digest mismatch".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// Validate a received receipt against the retained verification stub bytes.
     pub fn validate_with_retained_stub(&self, retained_stub: &Value) -> Result<()> {
         self.validate_minimal()?;
-        let retained_stub_digest =
-            crate::Hash::new(crate::canonical::canonical_sha256(retained_stub)?)?;
+        let retained_stub_digest = Hash::new(canonical::canonical_sha256(retained_stub)?)?;
         if retained_stub_digest != self.retained_stub_digest {
             return Err(Error::Protocol(
                 "erasure_receipt_stub_digest_mismatch".to_owned(),
             ));
         }
+        self.validate_proof_payload_digests()?;
+        Ok(())
+    }
+
+    /// Validate a receipt that carries its verification stub inline.
+    pub fn validate_with_inline_retained_stub(&self) -> Result<()> {
+        let retained_stub = self.retained_stub.as_ref().ok_or_else(|| {
+            Error::Protocol("erasure receipt retained_stub is required".to_owned())
+        })?;
+        self.validate_with_retained_stub(retained_stub)?;
         Ok(())
     }
 }
@@ -1045,7 +1087,7 @@ mod erasure_receipt_tests {
     use super::*;
 
     fn receipt(stub: &Value) -> ErasureReceipt {
-        ErasureReceipt {
+        let mut receipt = ErasureReceipt {
             receipt_id: "ck:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
             schema: ErasureReceipt::SCHEMA.to_owned(),
             issuer: Did::new("did:web:erasure.example".to_owned()).unwrap(),
@@ -1062,8 +1104,8 @@ mod erasure_receipt_tests {
             },
             outcome: ErasureOutcome::Completed,
             erased_classes: vec![ErasedClass::CanonicalPayloadBytes],
-            retained_stub_digest: Hash::new(crate::canonical::canonical_sha256(stub).unwrap())
-                .unwrap(),
+            retained_stub_digest: Hash::new(canonical::canonical_sha256(stub).unwrap()).unwrap(),
+            retained_stub: Some(stub.clone()),
             legal_hold_ref: None,
             completed_at: Utc::now(),
             issued_at: None,
@@ -1075,7 +1117,9 @@ mod erasure_receipt_tests {
             }],
             fanout_status: None,
             peer_receipts: Vec::new(),
-        }
+        };
+        receipt.proofs[0].payload_digest = receipt.canonical_payload_digest().unwrap();
+        receipt
     }
 
     #[test]

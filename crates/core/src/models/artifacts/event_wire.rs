@@ -66,7 +66,7 @@ pub struct VerificationStubSubject {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct VerificationStubErasureScope {
+pub struct VerificationStubScope {
     pub storage_boundary: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
@@ -94,7 +94,7 @@ pub struct VerificationStubSealInclusion {
 pub struct VerificationStub {
     pub stub_schema: String,
     pub subject: VerificationStubSubject,
-    pub erasure_scope: VerificationStubErasureScope,
+    pub scope: VerificationStubScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_digest: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -119,7 +119,7 @@ pub struct ErasureVerificationStubSubject {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ErasureVerificationStubErasureScope {
+pub struct ErasureVerificationStubScope {
     pub storage_boundary: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
@@ -147,7 +147,7 @@ pub struct ErasureVerificationStubSealInclusion {
 pub struct ErasureVerificationStub {
     pub stub_schema: String,
     pub subject: ErasureVerificationStubSubject,
-    pub erasure_scope: ErasureVerificationStubErasureScope,
+    pub scope: ErasureVerificationStubScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -165,7 +165,7 @@ pub struct ErasureVerificationStub {
 /// Counterpart for `spec/v1/artifacts/schemas/event-batch-receipt.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct EventBatchReceiptReceiptScope {
+pub struct EventBatchReceiptScope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -193,7 +193,7 @@ pub struct EventBatchReceipt {
     pub schema: String,
     pub receipt_id: String,
     pub issuer: Did,
-    pub receipt_scope: EventBatchReceiptReceiptScope,
+    pub scope: EventBatchReceiptScope,
     pub frontier: EventBatchReceiptFrontier,
     pub events: Vec<Value>,
     pub created_at: DateTime<Utc>,

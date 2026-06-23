@@ -780,27 +780,40 @@ impl ConstraintEntry {
         use crate::EvaluationClass;
         match &self.constraint {
             Constraint::Temporal { .. } => EvaluationClass::Stateless,
-            Constraint::FieldAccess { .. } => EvaluationClass::GrantLocal,
-            Constraint::TypeRestriction { .. } => EvaluationClass::GrantLocal,
+            Constraint::FieldAccess { .. } => EvaluationClass::Stateless,
+            Constraint::TypeRestriction { .. } => EvaluationClass::Stateless,
             Constraint::DelegationControl { .. } => EvaluationClass::GrantLocal,
-            Constraint::RateLimiting { .. } => EvaluationClass::RealmState,
-            Constraint::ApprovalWorkflow { .. } => EvaluationClass::RealmState,
+            Constraint::RateLimiting { .. } => EvaluationClass::External,
+            Constraint::ApprovalWorkflow { .. } => EvaluationClass::External,
             Constraint::ClaimBased { .. } => EvaluationClass::External,
             Constraint::Accountability { .. } => EvaluationClass::GrantLocal,
-            Constraint::EncryptionRequirement { .. } => EvaluationClass::RealmState,
+            Constraint::EncryptionRequirement { .. } => EvaluationClass::Stateless,
             Constraint::VisibilityControl { .. } => EvaluationClass::RealmState,
-            // single-call blob_max_bytes is stateless; per-scope total is external.
-            // Default to RealmState because the SDK can't tell at type-level.
-            Constraint::ResourceLimit { .. } => EvaluationClass::RealmState,
+            Constraint::ResourceLimit {
+                max_total_blob_bytes,
+                max_resources,
+                ..
+            } if max_total_blob_bytes.is_some() || max_resources.is_some() => {
+                EvaluationClass::External
+            }
+            Constraint::ResourceLimit { .. } => EvaluationClass::Stateless,
             Constraint::EditWindow { .. } => EvaluationClass::Stateless,
             Constraint::ContainerMove { .. } => EvaluationClass::RealmState,
             Constraint::ScopeLimitation { .. } => EvaluationClass::Stateless,
-            // CKP-0007: allowed_circle_ids is a static set baked into the
-            // grant body. Evaluator only needs to membership-test against the
-            // request's circle_id; no Realm state or external lookup.
-            Constraint::AllowedCircleIds { .. } => EvaluationClass::GrantLocal,
-            Constraint::AllowedSessionIds { .. } => EvaluationClass::GrantLocal,
+            Constraint::AllowedCircleIds { .. } => EvaluationClass::Stateless,
+            Constraint::AllowedSessionIds { .. } => EvaluationClass::Stateless,
         }
+    }
+
+    /// Whether this constraint is eligible for the authorization fast-path
+    /// cache. `realm_state` and `external` constraints always force a full
+    /// evaluation because their inputs can change outside the local request
+    /// tuple.
+    pub fn is_fast_path_cacheable(&self) -> bool {
+        matches!(
+            self.evaluation_class(),
+            crate::EvaluationClass::Stateless | crate::EvaluationClass::GrantLocal
+        )
     }
 }
 

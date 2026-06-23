@@ -94,6 +94,29 @@ pub struct AuthzContext {
     /// Agent interop session id for session-scoped status/result writes.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent_interop_session_id: Option<cokret_core::AgentInteropSessionId>,
+    /// Accepted authorization frontier used to guard fast-path cache hits.
+    ///
+    /// When absent, this engine still evaluates grants but refuses to cache
+    /// the result because the caller has not bound the decision to the current
+    /// authorization state.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_frontier: Option<AuthzCacheFrontier>,
+}
+
+/// Authorization-state fingerprint that guards capability fast-path cache use.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AuthzCacheFrontier {
+    /// Digest of the accepted authorization state used for this decision.
+    pub auth_state_digest: String,
+    /// Accepted authorization frontier event/control references.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub auth_frontier: Vec<String>,
+    /// Optional policy frontier digest when policy cells affect this decision.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub policy_frontier_digest: Option<String>,
+    /// Optional membership frontier digest when membership affects this decision.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub membership_frontier_digest: Option<String>,
 }
 
 impl AuthzContext {
@@ -129,6 +152,7 @@ impl AuthzContext {
             wip_over_limit: None,
             circle_id: None,
             agent_interop_session_id: None,
+            cache_frontier: None,
         }
     }
 
@@ -146,6 +170,12 @@ impl AuthzContext {
         session_id: cokret_core::AgentInteropSessionId,
     ) -> Self {
         self.agent_interop_session_id = Some(session_id);
+        self
+    }
+
+    /// Bind fast-path cache use to the accepted authorization frontier.
+    pub fn with_cache_frontier(mut self, frontier: AuthzCacheFrontier) -> Self {
+        self.cache_frontier = Some(frontier);
         self
     }
 
@@ -297,17 +327,6 @@ impl AuthzEngine {
         ctx: &AuthzContext,
         grants: &[cokret_core::CapabilityGrant],
     ) -> EngineDecision {
-        // Check cache first
-        let cache_key = self.cache_key(ctx, grants);
-        if let Some(cached) = self.cache.get(&cache_key)
-            && cached
-                .expires_at
-                .as_ref()
-                .is_none_or(|valid| &ctx.now < valid)
-        {
-            return cached.decision.clone();
-        }
-
         // Project the wire form; schema-violating grants are excluded.
         let mut projections = Vec::with_capacity(grants.len());
         let mut rejected = Vec::new();
@@ -318,11 +337,30 @@ impl AuthzEngine {
             }
         }
 
+        let cache_key = if rejected.is_empty()
+            && ctx.cache_frontier.is_some()
+            && projected_grants_fast_path_cacheable(&projections)
+        {
+            Some(self.cache_key(ctx, grants))
+        } else {
+            None
+        };
+        if let Some(cache_key) = cache_key.as_ref()
+            && let Some(cached) = self.cache.get(cache_key)
+            && cached
+                .expires_at
+                .as_ref()
+                .is_none_or(|valid| &ctx.now < valid)
+        {
+            return cached.decision.clone();
+        }
+
         // Evaluate grants
         let decision = self.evaluate_grants(ctx, &projections, &rejected);
 
-        // Cache the result
-        self.cache_decision(cache_key, &decision, ctx, &projections);
+        if let Some(cache_key) = cache_key {
+            self.cache_decision(cache_key, &decision, ctx, &projections);
+        }
 
         decision
     }
@@ -1221,6 +1259,8 @@ impl AuthzEngine {
             .unwrap_or_else(|_| ctx.resource.realm_id().to_owned());
         let facets_digest = crate::canonical::canonical_sha256(&ctx.facets)
             .unwrap_or_else(|_| format!("facet-count:{}", ctx.facets.len()));
+        let frontier_digest = crate::canonical::canonical_sha256(&ctx.cache_frontier)
+            .unwrap_or_else(|_| "missing-authz-cache-frontier".to_owned());
         let field_digest =
             crate::canonical::canonical_sha256(&(&ctx.read_fields, &ctx.write_fields))
                 .unwrap_or_else(|_| {
@@ -1230,13 +1270,34 @@ impl AuthzEngine {
                         ctx.write_fields.len()
                     )
                 });
+        let request_digest = crate::canonical::canonical_sha256(&(
+            &ctx.realm_id,
+            &ctx.history_visibility,
+            &ctx.blob_byte_count,
+            &ctx.scope_blob_total_bytes,
+            &ctx.scope_resource_count,
+            &ctx.target_created_at,
+            &ctx.strand_track,
+            &ctx.view_kind,
+            &ctx.view_renderer,
+            &ctx.relation_kind,
+            &ctx.view_id,
+            &ctx.from_container_id,
+            &ctx.to_container_id,
+            &ctx.wip_over_limit,
+            &ctx.circle_id,
+            &ctx.agent_interop_session_id,
+        ))
+        .unwrap_or_else(|_| "request-context".to_owned());
         format!(
-            "{}:{}:{}:{}:{}:{}:{:?}:{:?}:{}:{}:{}",
+            "{}:{}:{}:{}:{}:{}:{}:{}:{:?}:{:?}:{}:{}:{}",
             ctx.actor_id,
             ctx.action,
             resource_digest,
             facets_digest,
+            frontier_digest,
             field_digest,
+            request_digest,
             ctx.delegation_depth,
             ctx.rate_limit_count,
             ctx.encryption_level,
@@ -1283,24 +1344,80 @@ impl AuthzEngine {
             update_earliest_future(&mut cache_expires_at, ctx.now, grant.revoked_at);
 
             for entry in &grant.constraints {
-                if let Constraint::Temporal {
-                    not_before,
-                    expires_at,
-                    recurrence,
-                } = &entry.constraint
-                {
-                    update_earliest_future(&mut cache_expires_at, ctx.now, *not_before);
-                    update_earliest_future(&mut cache_expires_at, ctx.now, *expires_at);
-                    if let Some(recurrence) = recurrence
-                        && let Ok(next) = recurrence_next_transition_after(ctx.now, recurrence)
-                    {
-                        update_earliest_future(&mut cache_expires_at, ctx.now, next);
+                match &entry.constraint {
+                    Constraint::Temporal {
+                        not_before,
+                        expires_at,
+                        recurrence,
+                    } => {
+                        update_earliest_future(&mut cache_expires_at, ctx.now, *not_before);
+                        update_earliest_future(&mut cache_expires_at, ctx.now, *expires_at);
+                        if let Some(recurrence) = recurrence
+                            && let Ok(next) = recurrence_next_transition_after(ctx.now, recurrence)
+                        {
+                            update_earliest_future(&mut cache_expires_at, ctx.now, next);
+                        }
                     }
+                    Constraint::EditWindow {
+                        applies_to_actions,
+                        message_edit_window,
+                        message_redact_window,
+                        allow_redact_after_window,
+                    } => {
+                        let action_match = applies_to_actions.is_empty()
+                            || applies_to_actions
+                                .iter()
+                                .any(|action| action == &ctx.action);
+                        let Some(origin) = ctx.target_created_at else {
+                            continue;
+                        };
+                        if !action_match {
+                            continue;
+                        }
+                        if ctx.action.contains("redact") {
+                            if let Some(window) = message_redact_window.as_ref() {
+                                update_earliest_future(
+                                    &mut cache_expires_at,
+                                    ctx.now,
+                                    Self::constraint_duration_after(origin, window),
+                                );
+                            } else if !allow_redact_after_window
+                                && let Some(window) = message_edit_window.as_ref()
+                            {
+                                update_earliest_future(
+                                    &mut cache_expires_at,
+                                    ctx.now,
+                                    Self::constraint_duration_after(origin, window),
+                                );
+                            }
+                        } else if let Some(window) = message_edit_window.as_ref() {
+                            update_earliest_future(
+                                &mut cache_expires_at,
+                                ctx.now,
+                                Self::constraint_duration_after(origin, window),
+                            );
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
 
         cache_expires_at
+    }
+
+    fn constraint_duration_after(
+        origin: DateTime<Utc>,
+        duration: &ConstraintDuration,
+    ) -> Option<DateTime<Utc>> {
+        let delta = match duration.unit.as_str() {
+            "s" => chrono::Duration::seconds(duration.value as i64),
+            "m" => chrono::Duration::minutes(duration.value as i64),
+            "h" => chrono::Duration::hours(duration.value as i64),
+            "d" => chrono::Duration::days(duration.value as i64),
+            _ => return None,
+        };
+        origin.checked_add_signed(delta)
     }
 
     /// Clear the cache.
@@ -1313,6 +1430,15 @@ impl Default for AuthzEngine {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn projected_grants_fast_path_cacheable(grants: &[GrantProjection]) -> bool {
+    grants.iter().all(|grant| {
+        grant
+            .constraints
+            .iter()
+            .all(ConstraintEntry::is_fast_path_cacheable)
+    })
 }
 
 pub fn apply_policy_response(
@@ -1414,6 +1540,14 @@ mod engine_wire_tests {
                 realm_id: "ck:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
             },
         )
+        .with_cache_frontier(AuthzCacheFrontier {
+            auth_state_digest:
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    .to_owned(),
+            auth_frontier: vec!["ck:event:01964137-0000-7000-8000-000000000001".to_owned()],
+            policy_frontier_digest: None,
+            membership_frontier_digest: None,
+        })
     }
 
     #[test]
@@ -1421,6 +1555,46 @@ mod engine_wire_tests {
         let mut engine = AuthzEngine::new();
         let decision = engine.check_authorization(&ctx(), &[wire_grant(Vec::new())]);
         assert_eq!(decision, EngineDecision::Allow);
+        assert_eq!(engine.cache.len(), 1);
+    }
+
+    #[test]
+    fn fast_path_cache_requires_authz_frontier() {
+        let mut engine = AuthzEngine::new();
+        let mut ctx = ctx();
+        ctx.cache_frontier = None;
+        let decision = engine.check_authorization(&ctx, &[wire_grant(Vec::new())]);
+        assert_eq!(decision, EngineDecision::Allow);
+        assert!(
+            engine.cache.is_empty(),
+            "capability decisions without auth_state_digest/auth_frontier must not be cached"
+        );
+    }
+
+    #[test]
+    fn fast_path_cache_is_bound_to_authz_frontier() {
+        let mut engine = AuthzEngine::new();
+        let grant = wire_grant(Vec::new());
+        let first = ctx();
+        let first_decision = engine.check_authorization(&first, std::slice::from_ref(&grant));
+        assert_eq!(first_decision, EngineDecision::Allow);
+        assert_eq!(engine.cache.len(), 1);
+
+        let mut second = ctx();
+        second.cache_frontier = Some(AuthzCacheFrontier {
+            auth_state_digest:
+                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
+            auth_frontier: vec!["ck:event:01964137-0000-7000-8000-000000000002".to_owned()],
+            policy_frontier_digest: None,
+            membership_frontier_digest: None,
+        });
+        let second_decision = engine.check_authorization(&second, &[grant]);
+        assert_eq!(second_decision, EngineDecision::Allow);
+        assert_eq!(
+            engine.cache.len(),
+            2,
+            "auth_state_digest/auth_frontier changes must produce a distinct cache entry"
+        );
     }
 
     #[test]
@@ -1463,6 +1637,75 @@ mod engine_wire_tests {
             decision,
             EngineDecision::Deny { reason } if reason.contains("schema_violation")
         ));
+        assert!(
+            engine.cache.is_empty(),
+            "schema-violating grants must not enter the fast-path cache"
+        );
+    }
+
+    #[test]
+    fn external_constraints_are_not_fast_path_cached() {
+        let mut engine = AuthzEngine::new();
+        let grant = wire_grant(vec![json!({
+            "constraint_type": "quota",
+            "subtype": "rate",
+            "effect": "allow",
+            "evaluation_class": "external",
+            "max_operations": 10,
+            "period": "PT1H",
+        })]);
+        let mut ctx = ctx();
+        ctx.rate_limit_count = Some(0);
+        let decision = engine.check_authorization(&ctx, &[grant]);
+        assert_eq!(decision, EngineDecision::Allow);
+        assert!(
+            engine.cache.is_empty(),
+            "external evaluation_class must bypass the fast-path cache"
+        );
+    }
+
+    #[test]
+    fn realm_state_constraints_are_not_fast_path_cached() {
+        let mut engine = AuthzEngine::new();
+        let grant = wire_grant(vec![json!({
+            "constraint_type": "confidentiality",
+            "subtype": "visibility",
+            "effect": "allow",
+            "evaluation_class": "realm_state",
+            "allowed_history_visibility_values": ["joined"],
+        })]);
+        let mut ctx = ctx();
+        ctx.history_visibility = Some("joined".to_owned());
+        let decision = engine.check_authorization(&ctx, &[grant]);
+        assert_eq!(decision, EngineDecision::Allow);
+        assert!(
+            engine.cache.is_empty(),
+            "realm_state evaluation_class must bypass the fast-path cache"
+        );
+    }
+
+    #[test]
+    fn evaluation_class_mismatch_rejects_without_fast_path_cache() {
+        let mut engine = AuthzEngine::new();
+        let grant = wire_grant(vec![json!({
+            "constraint_type": "quota",
+            "subtype": "rate",
+            "effect": "allow",
+            "evaluation_class": "stateless",
+            "max_operations": 10,
+            "period": "PT1H",
+        })]);
+        let decision = engine.check_authorization(&ctx(), &[grant]);
+        assert!(matches!(
+            decision,
+            EngineDecision::Deny { reason }
+                if reason.contains("schema_violation")
+                    && reason.contains("evaluation_class mismatch")
+        ));
+        assert!(
+            engine.cache.is_empty(),
+            "evaluation_class mismatch must fail closed outside the fast-path cache"
+        );
     }
 
     #[test]

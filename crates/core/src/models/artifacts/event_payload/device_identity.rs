@@ -76,6 +76,30 @@ impl DeviceAuthorizePayload {
             Err(DEVICE_AUTHORIZE_BINDING_ONE_OF_REASON)
         }
     }
+
+    /// Validate the provenance anchor for a `service_attested`
+    /// `ck.device.authorize` payload.
+    ///
+    /// The payload binding is not authority by itself: the accepted Event
+    /// envelope must name the same service DID as `executed_by`, carry the same
+    /// `authorization_ref`, and point at the DID-document delegation used for
+    /// the enrollment authority signature.
+    pub fn validate_service_attested_provenance(
+        &self,
+        executed_by: Option<&Did>,
+        authorization_ref: Option<&str>,
+        accepted_at: DateTime<Utc>,
+    ) -> Result<()> {
+        self.validate_authorization_binding_one_of()
+            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+        let binding = self.enrollment_authority_binding.as_ref().ok_or_else(|| {
+            Error::Protocol(
+                "service_attested device authorize requires enrollment_authority_binding"
+                    .to_owned(),
+            )
+        })?;
+        binding.validate_against_event_anchor(executed_by, authorization_ref, accepted_at)
+    }
 }
 
 /// Counterpart for
@@ -86,8 +110,7 @@ impl DeviceAuthorizePayload {
 /// (managed-DID / account-authority onboarding). The cryptographic signer is the
 /// envelope proof (`verification_method` maps to `executed_by`); this object
 /// records the trust root. See `zh/crypto-media/device-lifecycle.md` §5.4.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, Serialize)]
 pub struct DeviceEnrollmentAuthorityBinding {
     /// MUST be `"service_attested"`.
     pub kind: String,
@@ -98,6 +121,79 @@ pub struct DeviceEnrollmentAuthorityBinding {
     /// service delegation, materialized grant, or delegation event id); equals
     /// the envelope `authorization_ref`.
     pub authorization_ref: String,
+}
+
+impl<'de> Deserialize<'de> for DeviceEnrollmentAuthorityBinding {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Wire {
+            kind: String,
+            authority_did: Did,
+            #[serde(
+                default,
+                alias = "version_time",
+                alias = "versionTime",
+                rename = "authority_version_time"
+            )]
+            _authority_version_time: Option<DateTime<Utc>>,
+            authorization_ref: String,
+        }
+
+        let wire = Wire::deserialize(deserializer)?;
+        Ok(Self {
+            kind: wire.kind,
+            authority_did: wire.authority_did,
+            authorization_ref: wire.authorization_ref,
+        })
+    }
+}
+
+impl DeviceEnrollmentAuthorityBinding {
+    pub const KIND_SERVICE_ATTESTED: &'static str = "service_attested";
+
+    pub fn validate_against_event_anchor(
+        &self,
+        executed_by: Option<&Did>,
+        authorization_ref: Option<&str>,
+        _accepted_at: DateTime<Utc>,
+    ) -> Result<()> {
+        if self.kind != Self::KIND_SERVICE_ATTESTED {
+            return Err(Error::Protocol(
+                "device enrollment authority binding kind must be service_attested".to_owned(),
+            ));
+        }
+        match executed_by {
+            Some(did) if did == &self.authority_did => {}
+            Some(_) => {
+                return Err(Error::Protocol(
+                    "service_attested executed_by does not match authority_did".to_owned(),
+                ));
+            }
+            None => {
+                return Err(Error::Protocol(
+                    "service_attested device authorize requires executed_by".to_owned(),
+                ));
+            }
+        }
+        match authorization_ref {
+            Some(value) if value == self.authorization_ref => {}
+            Some(_) => {
+                return Err(Error::Protocol(
+                    "service_attested authorization_ref mismatch".to_owned(),
+                ));
+            }
+            None => {
+                return Err(Error::Protocol(
+                    "service_attested device authorize requires authorization_ref".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Counterpart for
@@ -252,6 +348,33 @@ mod tests {
         });
         let payload: DeviceAuthorizePayload = serde_json::from_value(payload).unwrap();
         assert!(payload.validate_authorization_binding_one_of().is_ok());
+        assert!(
+            payload
+                .validate_service_attested_provenance(
+                    Some(&Did::new(
+                        "did:key:z6MknBuwKMPAzbhp6EwCnaxsEDk4G2KFeWRu273gYVuTY5jw".to_owned()
+                    )
+                    .unwrap()),
+                    Some("did:webvh:zQmZcDaFwUR8yQCZRkXoYEBi9hdzMSCCLASUVdwT1J4Qyc6:local.host:webvh:01kvqwpxssfq3bqm15rcd0g99x#enrollment-authority"),
+                    "2026-06-22T14:45:52Z".parse().unwrap(),
+                )
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn service_attested_accepts_optional_version_time_alias() {
+        let binding: DeviceEnrollmentAuthorityBinding = serde_json::from_value(json!({
+            "kind": "service_attested",
+            "authority_did": "did:web:authority.example",
+            "versionTime": "2026-06-22T14:45:51Z",
+            "authorization_ref": "did:web:alice.example#enrollment-authority"
+        }))
+        .unwrap();
+        assert_eq!(
+            binding.authorization_ref,
+            "did:web:alice.example#enrollment-authority"
+        );
     }
 
     #[test]
