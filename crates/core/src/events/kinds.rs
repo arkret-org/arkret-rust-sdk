@@ -273,6 +273,7 @@ pub const REALM_PREVIEW_POLICY: &str = "ck.realm.preview_policy";
 pub const REALM_READ_RECEIPT_POLICY: &str = "ck.realm.read_receipt_policy";
 pub const REALM_SCHEMA: &str = "ck.realm.schema";
 pub const REALM_SEARCH_POLICY: &str = "ck.realm.search_policy";
+pub const REALM_SET_DEFAULT_STRAND: &str = "ck.realm.set_default_strand";
 pub const REALM_TOMBSTONE: &str = "ck.realm.tombstone";
 pub const REALM_UPDATE: &str = "ck.realm.update";
 pub const REALM_UPGRADE: &str = "ck.realm.upgrade";
@@ -765,6 +766,54 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
     }
 }
 
+pub fn is_audit_kind(kind: &str) -> bool {
+    kind.starts_with("ck.audit.")
+}
+
+pub fn is_redaction_kind(kind: &str) -> bool {
+    matches!(kind, MESSAGE_REDACT | REDACTION)
+}
+
+pub fn is_membership_kind(kind: &str) -> bool {
+    matches!(classify_event_kind(kind), EventClass::Membership)
+}
+
+pub fn is_invite_kind(kind: &str) -> bool {
+    matches!(classify_event_kind(kind), EventClass::Invite)
+}
+
+pub fn is_realm_lifecycle_kind(kind: &str) -> bool {
+    matches!(
+        kind,
+        REALM_CREATE
+            | REALM_UPDATE
+            | REALM_ARCHIVE
+            | REALM_FREEZE
+            | REALM_DESTROY
+            | REALM_TOMBSTONE
+    )
+}
+
+pub fn is_pin_kind(kind: &str) -> bool {
+    matches!(classify_event_kind(kind), EventClass::Pin)
+}
+
+pub fn is_space_lifecycle_kind(kind: &str) -> bool {
+    matches!(kind, SPACE_ARCHIVE | SPACE_RESTORE | SPACE_TOMBSTONE)
+}
+
+pub fn is_strand_lifecycle_kind(kind: &str) -> bool {
+    matches!(kind, STRAND_ARCHIVE | STRAND_RESTORE)
+}
+
+pub fn is_morph_lifecycle_kind(kind: &str) -> bool {
+    matches!(kind, MORPH_ARCHIVE | MORPH_RESTORE)
+}
+
+pub fn is_strand_tracks_kind(kind: &str) -> bool {
+    matches!(kind, STRAND_TRACKS_UPDATE)
+}
+
 // ── Typed `EventKind` ──────────────────────────────────────────────────
 //
 // The strongly-typed `EventKind` enum (one variant per active `ck.*` kind,
@@ -809,6 +858,16 @@ mod tests {
         assert_eq!(classify_event_kind(MESSAGE_CREATE), EventClass::Message);
         assert_eq!(classify_event_kind(REALM_CREATE), EventClass::Realm);
         assert_eq!(classify_event_kind(SPACE_CREATE), EventClass::Space);
+        assert!(is_invite_kind(INVITE_CREATE));
+        assert!(is_membership_kind(MEMBER_STATE));
+        assert!(is_pin_kind(PIN_ADD));
+        assert!(is_audit_kind(AUDIT_RYW_RECEIPT));
+        assert!(is_redaction_kind(REDACTION));
+        assert!(is_realm_lifecycle_kind(REALM_TOMBSTONE));
+        assert!(is_space_lifecycle_kind(SPACE_ARCHIVE));
+        assert!(is_strand_lifecycle_kind(STRAND_ARCHIVE));
+        assert!(is_morph_lifecycle_kind(MORPH_ARCHIVE));
+        assert!(is_strand_tracks_kind(STRAND_TRACKS_UPDATE));
         assert_eq!(
             classify_event_kind(AGENT_INTEROP_SESSION_STATUS),
             EventClass::Agent
