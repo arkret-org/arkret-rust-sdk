@@ -8,6 +8,29 @@ use serde_json::Value;
 
 use crate::*;
 
+fn serialize_canonical_timestamp<S>(
+    value: &DateTime<Utc>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(&canonical::format_timestamp_canonical(*value))
+}
+
+fn deserialize_canonical_timestamp<'de, D>(
+    deserializer: D,
+) -> std::result::Result<DateTime<Utc>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = String::deserialize(deserializer)?;
+    canonical::validate_timestamp_canonical(&value).map_err(serde::de::Error::custom)?;
+    DateTime::parse_from_rfc3339(&value)
+        .map(|parsed| parsed.with_timezone(&Utc))
+        .map_err(serde::de::Error::custom)
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/list_reorder_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -268,6 +291,10 @@ pub struct MlsWelcomeClaimEnvelope {
     pub requester_device_id: Option<String>,
     pub nonce: String,
     pub welcome_digest: Hash,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     pub signature: Signature2,
 }
@@ -286,6 +313,10 @@ pub struct MlsWelcomeClaimEnvelopeSigningInput {
     pub requester_device_id: Option<String>,
     pub nonce: String,
     pub welcome_digest: Hash,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
 }
 
@@ -346,6 +377,10 @@ pub struct MlsWelcomePayload {
     pub commit_ref: Option<EventRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub governance_binding: Option<MlsGovernanceBinding>,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
 }
 
@@ -432,6 +467,66 @@ fn validate_claim_trust_binding(
             Ok(())
         }
         _ => Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_claim_envelope(created_at: DateTime<Utc>) -> MlsWelcomeClaimEnvelope {
+        MlsWelcomeClaimEnvelope {
+            keypackage_ref:
+                "sha256:0c361e822d3c7f63425704ed86689eb2b4d3c5395d7f4029e420ce9621b556a7".to_owned(),
+            keypackage_digest: Hash::new(
+                "sha256:0c361e822d3c7f63425704ed86689eb2b4d3c5395d7f4029e420ce9621b556a7",
+            )
+            .unwrap(),
+            intended_realm_id: RealmId::new(
+                "ck:realm:01904100-0000-7000-8000-000000000001".to_owned(),
+            )
+            .unwrap(),
+            claim_id: "ck:mls:kp:claim".to_owned(),
+            requester_did: Did::new("did:web:alice.example").unwrap(),
+            ssk_generation: None,
+            requester_device_id: Some("ck:device:01904100-0000-7000-8000-000000000001".to_owned()),
+            nonce: "nonce".to_owned(),
+            welcome_digest: Hash::new(
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            )
+            .unwrap(),
+            created_at,
+            signature: Signature2 {
+                kid: "did:web:alice.example#device".to_owned(),
+                alg: Some("EdDSA".to_owned()),
+                sig: "signature".to_owned(),
+            },
+        }
+    }
+
+    #[test]
+    fn welcome_claim_envelope_timestamp_serializes_canonical_seconds() {
+        let created_at = DateTime::parse_from_rfc3339("2026-06-23T07:51:12.729Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let envelope = test_claim_envelope(created_at);
+
+        let value = serde_json::to_value(&envelope).unwrap();
+
+        assert_eq!(value["created_at"], "2026-06-23T07:51:12Z");
+    }
+
+    #[test]
+    fn welcome_claim_envelope_timestamp_rejects_fractional_seconds() {
+        let mut value = serde_json::to_value(test_claim_envelope(
+            DateTime::parse_from_rfc3339("2026-06-23T07:51:12Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        ))
+        .unwrap();
+        value["created_at"] = serde_json::json!("2026-06-23T07:51:12.729Z");
+
+        assert!(serde_json::from_value::<MlsWelcomeClaimEnvelope>(value).is_err());
     }
 }
 
