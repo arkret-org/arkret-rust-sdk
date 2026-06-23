@@ -139,10 +139,10 @@ impl AppletBridgeErrorBuilder {
         if let Some(external_ref) = &self.external_ref {
             content.insert("external_ref".to_owned(), external_ref.clone());
         }
-        if self.retriable {
-            if let Some(retry_after_ms) = self.retry_after_ms {
-                content.insert("retry_after_ms".to_owned(), Value::from(retry_after_ms));
-            }
+        if self.retriable
+            && let Some(retry_after_ms) = self.retry_after_ms
+        {
+            content.insert("retry_after_ms".to_owned(), Value::from(retry_after_ms));
         }
         for (k, v) in &self.extra {
             content.insert(k.clone(), v.clone());

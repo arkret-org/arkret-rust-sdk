@@ -1102,17 +1102,17 @@ fn parse_iso8601_duration(value: &str) -> Result<ConstraintDuration> {
         accumulate(time_part, true)?;
     }
 
-    let duration = if seconds > 0 && seconds % 86_400 == 0 {
+    let duration = if seconds > 0 && seconds.is_multiple_of(86_400) {
         ConstraintDuration {
             value: seconds / 86_400,
             unit: "d".to_owned(),
         }
-    } else if seconds > 0 && seconds % 3_600 == 0 {
+    } else if seconds > 0 && seconds.is_multiple_of(3_600) {
         ConstraintDuration {
             value: seconds / 3_600,
             unit: "h".to_owned(),
         }
-    } else if seconds > 0 && seconds % 60 == 0 {
+    } else if seconds > 0 && seconds.is_multiple_of(60) {
         ConstraintDuration {
             value: seconds / 60,
             unit: "m".to_owned(),

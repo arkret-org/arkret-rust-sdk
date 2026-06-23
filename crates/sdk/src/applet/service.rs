@@ -6,7 +6,9 @@ use serde_json::Value;
 #[cfg(test)]
 use crate::models::AppletTransactionOutcome;
 use crate::models::{AppletActorView, AppletRealmView, AppletTransactionRequestBody};
-use crate::{Did, Error, Event, RealmId, Result, canonical};
+use crate::{Did, Event, RealmId};
+#[cfg(test)]
+use crate::{Error, Result, canonical};
 
 /// Framework-neutral applet endpoint route declaration.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

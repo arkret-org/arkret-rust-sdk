@@ -1,6 +1,3 @@
-use crate::identity::helpers::*;
-use crate::identity::*;
-
 mod basics;
 mod composite_and_caching;
 mod did_web;
@@ -14,16 +11,18 @@ pub use did_webvh::*;
 pub use policy::*;
 
 // ============================================================================
-// 缓存 / 新鲜度单测(S3)
+// Cache freshness tests.
 // ============================================================================
 #[cfg(test)]
 mod caching_tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
+    use crate::identity::helpers::did_key_material;
+    use crate::{Did, DidDocument, DidResolver, Error, Freshness, Result, Utc};
 
-    /// 可控桩 resolver:记录 `resolve_did` 调用次数,并可被切换为「失败」。
-    /// 每次解析成功时返回携带递增计数的文档,便于断言「是否真的走了上游」。
+    /// Controllable resolver stub that tracks upstream calls and can be
+    /// switched into a forced-failure mode.
     #[derive(Debug)]
     struct StubResolver {
         calls: AtomicUsize,
@@ -68,7 +67,7 @@ mod caching_tests {
     }
 
     fn sample_did(suffix: &str) -> Did {
-        // 一组合法的 did:key Ed25519 multibase 标识。
+        // Valid did:key Ed25519 multibase fixtures.
         let base = "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH";
         Did::new(format!("{base}{suffix}")).unwrap_or_else(|_| Did::new(base.to_owned()).unwrap())
     }
@@ -100,17 +99,17 @@ mod caching_tests {
         let (_doc, f1) = resolver
             .resolve_with_freshness(&did, now)
             .expect("first resolve");
-        assert_eq!(f1, Freshness::Missing, "首次解析来自上游");
+        assert_eq!(f1, Freshness::Missing, "first resolve uses upstream");
         assert_eq!(resolver.inner().calls(), 1);
 
-        // 同一 TTL 窗口内再次解析:命中缓存,不再调用上游。
+        // A second resolve inside the same TTL window hits the cache.
         let (_doc, f2) = resolver
             .resolve_with_freshness(&did, now + chrono::Duration::minutes(1))
             .expect("second resolve");
-        assert_eq!(f2, Freshness::Fresh, "命中且新鲜");
-        assert_eq!(resolver.inner().calls(), 1, "上游只被调用一次");
+        assert_eq!(f2, Freshness::Fresh, "fresh cache hit");
+        assert_eq!(resolver.inner().calls(), 1, "upstream called once");
 
-        // document_hash 已计算且带前缀。
+        // The document hash was computed and stored with its prefix.
         assert_eq!(resolver.len(), 1);
     }
 
@@ -131,19 +130,19 @@ mod caching_tests {
         resolver.resolve_with_freshness(&did, now).expect("first");
         assert_eq!(resolver.inner().calls(), 1);
 
-        // 超过 TTL 后再解析:过期 → miss → 重新走上游。
+        // After TTL expiry, the next resolve misses and returns upstream data.
         let later = now + chrono::Duration::minutes(16);
         let (_doc, f) = resolver
             .resolve_with_freshness(&did, later)
             .expect("after expiry");
-        assert_eq!(f, Freshness::Missing, "过期后重新取自上游");
+        assert_eq!(f, Freshness::Missing, "expired entry resolves upstream");
         assert_eq!(resolver.inner().calls(), 2);
     }
 
     #[test]
     fn capacity_evicts_oldest() {
         let stub = StubResolver::new();
-        // 容量 2:写入三个不同 DID 后,最旧的应被逐出。
+        // Capacity 2: inserting three DIDs evicts the oldest entry.
         let resolver = CachingDidResolver::new(
             stub,
             policy(
@@ -155,7 +154,7 @@ mod caching_tests {
 
         let base = Utc::now();
         let d1 = sample_did("");
-        // 通过不同的 did:key 标识区分条目。
+        // Use distinct did:key identifiers to separate cache entries.
         let d2 = Did::new("did:key:z6MkfGFvHcKHd9YEK5sBYqLqHs5GpD3xKCJQyZK7r2pHpkpf".to_owned())
             .expect("valid did:key");
         let d3 = Did::new("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_owned())
@@ -167,24 +166,24 @@ mod caching_tests {
             .expect("d2");
         assert_eq!(resolver.len(), 2);
 
-        // 写入第三个,最旧的 d1(cached_at 最早)应被逐出。
+        // Inserting the third entry evicts d1 because it has the oldest cached_at.
         resolver
             .resolve_with_freshness(&d3, base + chrono::Duration::seconds(2))
             .expect("d3");
-        assert_eq!(resolver.len(), 2, "容量上限保持为 2");
+        assert_eq!(resolver.len(), 2, "capacity remains capped at 2");
 
-        // d1 现在 miss(会再次走上游),d2/d3 仍命中。
+        // d1 now misses and resolves upstream again; d2/d3 remain cached.
         let calls_before = resolver.inner().calls();
         let (_doc, f1) = resolver
             .resolve_with_freshness(&d1, base + chrono::Duration::seconds(3))
             .expect("d1 re-resolve");
-        assert_eq!(f1, Freshness::Missing, "最旧条目已被逐出");
+        assert_eq!(f1, Freshness::Missing, "oldest entry was evicted");
         assert_eq!(resolver.inner().calls(), calls_before + 1);
 
         let (_doc, f2) = resolver
             .resolve_with_freshness(&d3, base + chrono::Duration::seconds(3))
             .expect("d3 still cached");
-        assert_eq!(f2, Freshness::Fresh, "d3 仍在缓存中");
+        assert_eq!(f2, Freshness::Fresh, "d3 remains cached");
     }
 
     #[test]
@@ -203,9 +202,9 @@ mod caching_tests {
 
         resolver.resolve_with_freshness(&did, now).expect("first");
         resolver.resolve_with_freshness(&did, now).expect("second");
-        // 缓存关闭:每次都走上游,且永远不留存条目。
-        assert_eq!(resolver.len(), 0, "缓存关闭,无任何条目");
-        assert_eq!(resolver.inner().calls(), 2, "每次都调用上游");
+        // Disabled cache: every resolve uses upstream and no entry is retained.
+        assert_eq!(resolver.len(), 0, "disabled cache stores no entries");
+        assert_eq!(resolver.inner().calls(), 2, "each resolve calls upstream");
     }
 
     #[test]
@@ -222,15 +221,15 @@ mod caching_tests {
         let did = sample_did("");
         let now = Utc::now();
 
-        // 先成功填充一条缓存。
+        // Warm the cache with one successful lookup.
         resolver
             .resolve_with_freshness(&did, now)
             .expect("warm cache");
-        // 切换为失败,并越过 TTL 触发上游调用。
+        // Force failure and cross the TTL boundary to trigger upstream resolution.
         resolver.inner().set_fail(true);
         let later = now + chrono::Duration::minutes(16);
         let result = resolver.resolve_with_freshness(&did, later);
-        assert!(result.is_err(), "FailClosed 模式下底层错误必须上抛");
+        assert!(result.is_err(), "FailClosed must propagate upstream errors");
     }
 
     #[test]
@@ -247,11 +246,11 @@ mod caching_tests {
         let did = sample_did("");
         let now = Utc::now();
 
-        // 先成功填充缓存。
+        // Warm the cache with one successful lookup.
         resolver
             .resolve_with_freshness(&did, now)
             .expect("warm cache");
-        // 切换为失败,越过 TTL。
+        // Force failure after the TTL boundary.
         resolver.inner().set_fail(true);
         let later = now + chrono::Duration::minutes(16);
         let (_doc, f) = resolver
@@ -259,13 +258,13 @@ mod caching_tests {
             .expect("stale fallback succeeds");
         match f {
             Freshness::Stale { age } => {
-                // age 约为超过 expires_at 的 1 分钟(16 - 15)。
+                // The age should be positive and roughly one minute.
                 assert!(
                     age >= chrono::Duration::seconds(30),
-                    "返回的过期时长应为正且合理"
+                    "stale age should be positive and plausible"
                 );
             }
-            other => panic!("期望 Stale,实际为 {other:?}"),
+            other => panic!("expected Stale, got {other:?}"),
         }
     }
 }

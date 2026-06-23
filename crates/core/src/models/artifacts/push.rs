@@ -5,6 +5,7 @@ use super::*;
 /// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum PushOperations {
     PushRegisterDeviceRequestBody(PushRegisterDeviceRequestBody),
     PushRegisterDeviceOutcome(PushRegisterDeviceOutcome),

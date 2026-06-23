@@ -384,6 +384,7 @@ pub struct MlsWelcomePayload {
     pub expires_at: DateTime<Utc>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn validate_mls_welcome_claim_envelope(
     welcome: &MlsWelcomePayload,
     claim: &KeypackageClaimRecord,

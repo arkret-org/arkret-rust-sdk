@@ -215,7 +215,7 @@ impl KeyBackup {
             && self.recovery_policy_ref.is_some()
             && self.auth_data.as_ref().is_some_and(|auth| {
                 !auth.device_id.as_str().is_empty()
-                    && !auth.verification_method.as_str().is_empty()
+                    && !auth.verification_method.is_empty()
                     && !auth.signature.is_empty()
                     && auth
                         .signed_fields
@@ -223,7 +223,7 @@ impl KeyBackup {
                         .any(|field| field == "recovery_policy_ref")
             })
             && !self.contents.is_empty()
-            && !self.ciphertext_digest.as_str().is_empty()
+            && !self.ciphertext_digest.is_empty()
     }
 
     pub fn summary(&self) -> KeyBackupSummary {

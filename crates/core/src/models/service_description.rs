@@ -876,7 +876,7 @@ impl RateLimitPolicy {
     /// generic abuse protection (schema: empty `entries[]`).
     pub fn unspecified() -> Self {
         Self {
-            policy_version: Some("1".to_string()),
+            policy_version: Some("1".to_owned()),
             ..Self::default()
         }
     }
@@ -885,10 +885,10 @@ impl RateLimitPolicy {
     /// `max_requests` per 60s.
     pub fn windowed_per_minute(max_requests: u32) -> Self {
         Self {
-            policy_version: Some("1".to_string()),
+            policy_version: Some("1".to_owned()),
             entries: vec![RateLimitEntry {
-                endpoint: Some("*".to_string()),
-                rate_limit_scope: Some(RateLimitScope::Single("service".to_string())),
+                endpoint: Some("*".to_owned()),
+                rate_limit_scope: Some(RateLimitScope::Single("service".to_owned())),
                 window_seconds: Some(60),
                 max_requests: Some(max_requests),
                 ..RateLimitEntry::default()

@@ -87,6 +87,14 @@ pub struct GhostActorProvisionOutcome {
     pub display_name: Option<String>,
 }
 
+/// Counterpart for `spec/v1/artifacts/schemas/applet-ghost-operations.schema.json`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AppletGhostOperations {
+    GhostActorProvisionRequestBody(GhostActorProvisionRequestBody),
+    GhostActorProvisionOutcome(GhostActorProvisionOutcome),
+}
+
 /// Applet delegation fields required when an applet or delegated agent signs
 /// on behalf of another actor.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

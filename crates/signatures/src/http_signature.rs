@@ -683,6 +683,7 @@ pub fn verify_content_digest(parsed: &ContentDigest, body: &[u8]) -> Result<(), 
 /// own seen-message cache for the accepted validity window, including any
 /// `nonce` parameter carried in the preserved [`SignatureInput::params_value`]
 /// when their deployment profile requires nonce-based replay protection.
+#[allow(clippy::too_many_arguments)]
 pub fn verify_signed_http_message<I, N, V>(
     method: &str,
     target_uri: &str,
@@ -728,7 +729,7 @@ where
 
     let signature_input = parse_signature_input(&signature_input_header)?;
     if signature_input.algorithm != "ed25519" {
-        return Err(SignatureError::UnsupportedAlgorithm(signature_input.algorithm.clone()).into());
+        return Err(SignatureError::UnsupportedAlgorithm(signature_input.algorithm).into());
     }
 
     let content_digest = match request.header("content-digest") {

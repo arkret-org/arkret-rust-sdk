@@ -45,6 +45,7 @@ pub struct MlsGovernanceBindingPayload {
 }
 
 impl MlsGovernanceBindingPayload {
+    #[allow(clippy::too_many_arguments)]
     pub fn realm(
         realm_id: RealmId,
         mls_group_id: impl Into<String>,
@@ -75,6 +76,7 @@ impl MlsGovernanceBindingPayload {
         Ok(payload)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn circle(
         realm_id: RealmId,
         circle_id: CircleId,
@@ -699,15 +701,16 @@ impl MediaDecryptPolicyValue {
     }
 }
 
-/// SEC-03 — deterministically derive the governance-binding
-/// `discussion_metadata_digest` from the §10.5.1 rule 1–3 policy cell value.
+/// SEC-03: deterministically derive the governance-binding
+/// `discussion_metadata_digest` from the section 10.5.1 rule 1-3 policy cell value.
 ///
 /// The digest is `sha256(canonical_json(value))` using the same canonical /
-/// hash primitives as every other Cokret digest ([`canonical::canonical_json_bytes`]
-/// + [`canonical::sha256_digest`]), so the result is byte-identical across
-/// every member and service. The fact `media_service_decrypts=true` is bound
-/// into the member-visible metadata covered by the MLS governance binding,
-/// satisfying `media-service-binding.md` §8.2 rule 5.
+/// hash primitives as every other Cokret digest:
+/// [`canonical::canonical_json_bytes`] and [`canonical::sha256_digest`].
+/// The result is byte-identical across every member and service. The fact
+/// `media_service_decrypts=true` is bound into the member-visible metadata covered
+/// by the MLS governance binding, satisfying `media-service-binding.md` section 8.2
+/// rule 5.
 ///
 /// The returned [`Hash`] is wire-form (`sha256:<hex>`) and can be passed
 /// straight to [`MlsGovernanceBindingPayload::with_discussion_metadata_digest`].
@@ -716,12 +719,12 @@ pub fn derive_media_decrypt_metadata_digest(value: &MediaDecryptPolicyValue) -> 
     Ok(Hash::new(canonical::sha256_digest(canonical_bytes))?)
 }
 
-/// SEC-03 — member-side recomputation check for the media-decrypt fact.
+/// SEC-03: member-side recomputation check for the media-decrypt fact.
 ///
 /// `binding_covered_digest` is the `discussion_metadata_digest` carried by the
 /// accepted governance binding for the current epoch; `recomputed` is the
 /// member's local [`derive_media_decrypt_metadata_digest`] over its own view
-/// of the §10.5.1 rule 1–3 policy cell value. A mismatch means the member's
+/// of the section 10.5.1 rule 1-3 policy cell value. A mismatch means the member's
 /// local policy view disagrees with what the binding attests, so per
 /// §10.5.1 rule 5 the member MUST treat the binding as stale and refuse media
 /// negotiation. The mismatch returns [`Error::Protocol`] tagged with
@@ -842,13 +845,10 @@ impl<'a> CborReader<'a> {
                 let len = self.read_len(additional)?;
                 let mut map = BTreeMap::new();
                 for _ in 0..len {
-                    let key = match self.read_value()? {
-                        CborValue::Tstr(key) => key,
-                        _ => {
-                            return Err(cbor_error(
-                                "mls_governance_binding CBOR map key is not tstr",
-                            ));
-                        }
+                    let CborValue::Tstr(key) = self.read_value()? else {
+                        return Err(cbor_error(
+                            "mls_governance_binding CBOR map key is not tstr",
+                        ));
                     };
                     let value = self.read_value()?;
                     if map.insert(key.clone(), value).is_some() {

@@ -314,10 +314,10 @@ fn ice_config_signing_input(
         ice_servers: &outcome.ice_servers,
         ttl_seconds: outcome.ttl_seconds,
         refresh_lead_seconds: outcome.refresh_lead_seconds,
-        issued_at: outcome.issued_at.clone(),
-        issued_at_bucket: outcome.issued_at_bucket.clone(),
+        issued_at: outcome.issued_at,
+        issued_at_bucket: outcome.issued_at_bucket,
         bucket_seconds: outcome.bucket_seconds,
-        expires_at: outcome.expires_at.clone(),
+        expires_at: outcome.expires_at,
         force_turn: if outcome.force_turn || include_default_force_turn {
             Some(outcome.force_turn)
         } else {

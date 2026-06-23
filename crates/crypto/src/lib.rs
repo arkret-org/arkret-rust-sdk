@@ -24,6 +24,7 @@ pub use device::*;
 pub use errors::*;
 // `sha256_prefixed` is a `pub(crate)` helper used by the test module via
 // `use super::*`; surface it at the crate root so that path resolves.
+#[cfg(test)]
 pub(crate) use session::sha256_prefixed;
 pub use session::*;
 

@@ -281,6 +281,7 @@ impl ProtocolSchemaRegistry {
         Ok(warnings)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn validate_schema(
         &self,
         root_id: &str,

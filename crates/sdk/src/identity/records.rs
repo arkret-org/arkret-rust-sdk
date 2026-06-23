@@ -183,9 +183,7 @@ impl DidKeyLogEntry {
         if let Some(audience) = &proof.audience {
             object.insert("audience".to_owned(), serde_json::to_value(audience)?);
         }
-        Ok(cokret_core::canonical::canonical_json_bytes(
-            &Value::Object(object),
-        )?)
+        cokret_core::canonical::canonical_json_bytes(&Value::Object(object))
     }
 
     /// Structural validation against `did-key-log-entry.schema.json` +
@@ -497,9 +495,7 @@ impl DidRegistryReceipt {
         if let Some(audience) = &self.signature.audience {
             object.insert("audience".to_owned(), serde_json::to_value(audience)?);
         }
-        Ok(cokret_core::canonical::canonical_json_bytes(
-            &Value::Object(object),
-        )?)
+        cokret_core::canonical::canonical_json_bytes(&Value::Object(object))
     }
 
     /// Verify the receipt: digest recompute (constant-time compare) then

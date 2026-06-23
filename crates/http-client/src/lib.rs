@@ -19,7 +19,9 @@ pub use builder::RedirectPolicy;
 // these via bare names through `use super::*`) and sibling endpoint modules
 // can reach the internal helpers. `pub(crate)` keeps them out of the public
 // API.
-pub(crate) use client_internals::{reject_path_segment, validate_request_builder};
+pub(crate) use client_internals::reject_path_segment;
+#[cfg(test)]
+pub(crate) use client_internals::validate_request_builder;
 pub use endpoints_misc::SignedAppletTransactionOptions;
 
 pub const HEADER_REQUEST_ID: &str = "X-Cokret-Request-Id";

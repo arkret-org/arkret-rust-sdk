@@ -818,7 +818,7 @@ impl EventKind {
         Self::try_new(value)
     }
 
-    /// 	rue for any registry-declared kind; alse for [Self::Unknown].
+    /// True for any registry-declared kind; false for [Self::Unknown].
     pub fn is_standard(&self) -> bool {
         !matches!(self, Self::Unknown(_))
     }

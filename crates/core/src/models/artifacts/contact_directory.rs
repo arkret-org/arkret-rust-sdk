@@ -14,6 +14,7 @@ pub type CommonIds = BTreeMap<String, Value>;
 /// Counterpart for `spec/v1/artifacts/schemas/contact-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum ContactOperations {
     ContactRequestRequestBody(crate::ContactRequestRequestBody),
     ContactRequestOutcome(crate::ContactRequestOutcome),
@@ -43,6 +44,7 @@ pub type EventRefs = Vec<EventId>;
 /// Counterpart for `spec/v1/artifacts/schemas/directory-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum DirectoryOperations {
     DirectorySearchRealmsRequestBody(DirectorySearchRealmsRequestBody),
     DirectoryRealmSearchOutcome(DirectoryRealmSearchOutcome),

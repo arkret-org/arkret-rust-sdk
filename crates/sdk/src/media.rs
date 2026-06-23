@@ -7,8 +7,9 @@ use cokret_core::base64url::base64url_decode;
 use cokret_core::canonical::canonical_json_bytes;
 use cokret_core::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
-    MediaIceConfigOutcome, MediaIceConfigRequestBody,
 };
+#[cfg(feature = "client")]
+use cokret_core::{MediaIceConfigOutcome, MediaIceConfigRequestBody};
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 

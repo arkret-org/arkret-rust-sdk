@@ -47,7 +47,7 @@ pub fn resolve_verification_method_key_from_document(
         lookup_verification_method_value(document, verification_method)?;
     Ok(ResolvedVerificationMethodKey {
         did: document.id.clone(),
-        verification_method: method_id.to_owned(),
+        verification_method: method_id,
         public_key: public_key_material_from_did_document_value(&public_key_value)?,
         controller: None,
     })
@@ -94,8 +94,8 @@ where
             lookup_verification_method_value(&document, verification_method)?;
         Ok(cokret_signatures::VerificationMethodDocument {
             did: document.id,
-            verification_method: method_id.to_owned(),
-            public_key_multibase: public_key_value.to_owned(),
+            verification_method: method_id,
+            public_key_multibase: public_key_value,
             controller: None,
         })
     }

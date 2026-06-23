@@ -86,6 +86,7 @@ pub struct ThirdPartyQuery {
 /// Counterpart for `spec/v1/artifacts/schemas/applet-install-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum AppletInstallOperations {
     AppletInstallPreviewRequestBody(AppletInstallPreviewRequestBody),
     AppletInstallPlan(AppletInstallPlan),

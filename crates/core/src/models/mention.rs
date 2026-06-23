@@ -133,6 +133,7 @@ pub struct AudienceMention {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum MentionNode {
     Mention(Mention),
     AudienceMention(AudienceMention),

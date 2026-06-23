@@ -1,6 +1,7 @@
 use super::*;
 
 #[derive(Clone, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum ServerRequestBody {
     ServerDescribe,
     IdentityDescribe,
@@ -114,6 +115,7 @@ pub enum ServerRequestBody {
 }
 
 #[derive(Clone, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum ServerOutcome {
     ServerDescription(Box<ServerDescription>),
     IdentityDescription(IdentityDescription),

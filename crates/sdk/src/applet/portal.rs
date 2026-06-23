@@ -1,8 +1,12 @@
-use std::collections::{BTreeMap, BTreeSet};
+#[cfg(test)]
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Did, Error, RealmId, Result};
+use crate::{Did, RealmId};
+#[cfg(test)]
+use crate::{Error, Result};
 
 /// Mapping between an applet portal and a bridged remote location.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

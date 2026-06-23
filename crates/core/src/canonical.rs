@@ -563,7 +563,7 @@ fn write_number(number: &Number, out: &mut Vec<u8>) -> Result<()> {
         return Err(Error::NonCanonicalNumber);
     }
     if let Some(n) = number.as_i64() {
-        if n < -MAX_SAFE_INTEGER || n > MAX_SAFE_INTEGER {
+        if !(-MAX_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(&n) {
             return Err(Error::NumberOutOfSafeRange);
         }
         let s = n.to_string();

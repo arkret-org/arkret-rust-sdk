@@ -220,10 +220,10 @@ pub fn morph_schema_refs_additive_only(
     Ok(())
 }
 
-fn collect_schema_refs<'a>(
-    refs: &'a [String],
+fn collect_schema_refs(
+    refs: &[String],
     from_side: bool,
-) -> std::result::Result<BTreeSet<&'a str>, MorphSchemaAdditiveViolation> {
+) -> std::result::Result<BTreeSet<&str>, MorphSchemaAdditiveViolation> {
     if refs.is_empty() {
         return Err(if from_side {
             MorphSchemaAdditiveViolation::EmptyFromSchemaRefs

@@ -145,7 +145,7 @@ impl Client {
             });
         }
 
-        Ok(response.json().await.map_err(transport_error)?)
+        response.json().await.map_err(transport_error)
     }
 
     pub(crate) async fn send_empty(&self, builder: RequestBuilder) -> Result<HeaderMap> {
