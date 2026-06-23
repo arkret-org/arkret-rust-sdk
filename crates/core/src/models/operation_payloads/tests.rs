@@ -31,6 +31,29 @@ fn space_create_object_uses_canonical_timestamp() {
 }
 
 #[test]
+fn strand_tracks_update_payload_uses_strand_id_not_target_ref() {
+    let strand_id = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let patch: Patch = serde_json::from_value(json!({
+        "tracks.discussion.is_primary": {"$op": "set", "value": true}
+    }))
+    .unwrap();
+    let payload = StrandTracksUpdatePayload::with_patch(strand_id, patch)
+        .unwrap()
+        .to_value()
+        .unwrap();
+
+    assert_eq!(
+        payload["strand_id"],
+        "ck:strand:01904100-0000-7000-8000-000000000002"
+    );
+    assert!(payload.get("target_ref").is_none());
+    assert!(payload.get("patch").is_some());
+    schema::event_payload_validator_catalog()
+        .validate_payload("ck.strand.tracks.update", &payload)
+        .unwrap();
+}
+
+#[test]
 fn morph_create_payload_uses_metadata_and_encrypted_content_names() {
     let actor = Did::new("did:web:alice.example".to_owned()).unwrap();
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
