@@ -393,6 +393,18 @@ pub const REASON_RELAXED_WINDOW_EXCEEDS_CEILING: &str = "relaxed_window_exceeds_
 pub const REASON_LEGAL_HOLD_ACTIVE: &str = "legal_hold_active";
 pub const REASON_TOKEN_ISSUER_UNAUTHORISED: &str = "token_issuer_unauthorised";
 pub const REASON_E2EE_KEY_SOURCE_UNAUTHORISED: &str = "e2ee_key_source_unauthorised";
+/// `ck.mls.commit` reducer / federation-push reason: the commit's
+/// `governance_binding.policy_root` does not match the policy root the MLS
+/// group's epoch chain is bound to (encryption-and-audit.md §2.5.1). The
+/// receiver MUST reject the commit (and, on a federation push, the batch)
+/// rather than advance an epoch under a forged / stale governance binding.
+pub const REASON_MLS_GOVERNANCE_BINDING_MISMATCH: &str = "governance_binding_mismatch";
+/// `ck.mls.commit` reducer reason: two commits attested the same base epoch
+/// with different commit material, so the group's `covered_frontier_cell`
+/// resolves to `⊥` (encryption-and-audit.md §2.5.2). Sends / decrypts on the
+/// contested epoch fail closed as `decryption_pending` until a later commit
+/// resolves the frontier. Mirrors error-code-registry.json `decryption_pending`.
+pub const REASON_MLS_DECRYPTION_PENDING: &str = "decryption_pending";
 
 // Late key recovery transition guards.
 pub const REASON_LATE_RECOVERY_REJECTED_MEMBERSHIP: &str = "late_recovery_rejected_membership";

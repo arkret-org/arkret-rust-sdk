@@ -110,6 +110,34 @@ pub struct AgentLifecycleOutcome {
     pub status: AgentLifecycleState,
 }
 
+/// Request body for `POST /_cokret/self/agents/discover`
+/// (`ck.agent.protocol.discover`). The caller names the target agent
+/// runtime DID; soland reflects the registered `ck.agent.endpoint`
+/// projection back as the supported protocol catalogue.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AgentDiscoverRequestBody {
+    pub agent_id: Did,
+}
+
+/// Outcome for `ck.agent.protocol.discover`. `supported_protocols` is a
+/// subset of the §11 adapter registry ids (`a2a` / `acp` / `mcp_bridge`
+/// / `http_custom`). `agent_card_url` / `metadata_url` mirror the
+/// `ck.agent.endpoint` declaration (§5.1) when present.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AgentDiscoverOutcome {
+    pub agent_id: Did,
+    #[serde(default)]
+    pub supported_protocols: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_card_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub endpoint_url: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentList {

@@ -294,6 +294,14 @@ pub struct RealmEffectiveModerationPolicy {
     pub effective_rules: Vec<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub override_requires_organization_approval: Option<bool>,
+    /// content-moderation.md §7 — how the owning organizations' policy layers
+    /// combine. A Realm that names more than one owning organization merges
+    /// their layers most-restrictively (`most_restrictive`): a join / write is
+    /// denied if ANY owning organization denies it, and a Realm override of an
+    /// organization deny requires approval from every organization that denies
+    /// the target.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_merge_strategy: Option<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,

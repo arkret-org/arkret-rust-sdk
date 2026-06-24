@@ -6,9 +6,11 @@
 pub mod content;
 pub mod kinds;
 pub mod reaction;
+pub mod redaction;
 
 pub use content::*;
 pub use kinds::*;
 pub use reaction::*;
+pub use redaction::*;
 
 pub use crate::models::Event as RawEvent;
