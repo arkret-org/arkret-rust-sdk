@@ -416,6 +416,8 @@ pub struct KeyBackupAuthData {
     pub signature: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ssk_generation: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_authorize_event_id: Option<EventId>,
     pub signed_fields: Vec<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
