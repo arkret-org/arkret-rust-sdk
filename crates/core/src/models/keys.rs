@@ -127,6 +127,66 @@ pub struct KeysQueryOutcome {
     pub cross_signing: BTreeMap<Did, CrossSigningPublish>,
 }
 
+/// Request body for the soland product-surface device signing-key directory
+/// lookup (`POST /_soland/gate/account/device-signing-keys/query`).
+///
+/// This is the server-to-server read the Auth Server (coauth) issues when it
+/// must verify a device holder proof (session-grant refresh / soft-logout
+/// restore): the holder key is NOT in the principal's DID document, it is the
+/// device signing key authorized by `ck.device.authorize` and projected into
+/// the Principal Server's device directory. The directory is the source of
+/// truth; this lookup surfaces the authorized, non-revoked verify key so the
+/// caller can check the detached JWS holder proof against it.
+///
+/// `device_ids` is optional: omit (or send empty) to list every authorized
+/// device of `principal_id`; supply ids to restrict the result to those
+/// devices.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DeviceSigningKeyDirectoryQueryRequestBody {
+    pub principal_id: Did,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub device_ids: Vec<DeviceId>,
+}
+
+/// A single authorized, non-revoked device signing key as projected from the
+/// Principal Server's `ck.device.authorize` / `ck.device.revoke` directory.
+///
+/// Only verified, non-revoked devices appear; a revoked or unverified device is
+/// omitted entirely (never returned with `status = revoked`), so the caller can
+/// treat presence in [`DeviceSigningKeyDirectoryOutcome::devices`] as proof the
+/// key is currently authorized.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AuthorizedDeviceSigningKey {
+    pub device_id: DeviceId,
+    /// Authoritative device verify key as an Ed25519 `did:key` (multibase
+    /// base58btc, multicodec ed25519-pub) — the same rendering the
+    /// `keys/query` directory facet returns.
+    pub device_signing_key: String,
+    /// Always [`DeviceStatus::Active`] here (revoked devices are omitted), kept
+    /// explicit so the wire shape mirrors the `keys/query` facet.
+    pub device_status: DeviceStatus,
+    /// Accepted `ck.device.authorize` event id that anchored the device-set
+    /// projection, when recorded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_authorize_event_id: Option<EventId>,
+}
+
+/// Response for [`DeviceSigningKeyDirectoryQueryRequestBody`].
+///
+/// `devices` carries only the authorized, non-revoked devices that matched the
+/// request. A requested `device_id` that is unknown / unverified / revoked is
+/// simply absent (the caller fails the holder proof closed when its device is
+/// not present).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DeviceSigningKeyDirectoryOutcome {
+    pub principal_id: Did,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub devices: Vec<AuthorizedDeviceSigningKey>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeysClaimRequestBody {
