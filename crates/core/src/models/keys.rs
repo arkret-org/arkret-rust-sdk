@@ -41,12 +41,13 @@ pub enum DeviceStatus {
     Revoked,
 }
 
-/// Tier-2 per-device cross-signing binding echoed from
+/// Per-device cross-signing binding echoed from
 /// `ck.device.authorize.payload.cross_signing_binding`
 /// (`crypto-media/device-lifecycle.md` §5.2). The accepted-generation SSK signs
 /// `"ck-device-trust-bind-v1\n" + canonical_json({principal_id, device_id,
-/// device_public_key, ssk_generation})`. Absent for inception bootstrap devices
-/// (§5.0.1). Mirrors `keys-operations.schema.json#/$defs/cross_signing_binding`.
+/// device_public_key, ssk_generation})`. Absent for inception bootstrap and
+/// service-attested devices. Mirrors
+/// `keys-operations.schema.json#/$defs/cross_signing_binding`.
 ///
 /// Shape-identical to `cokret_crypto::DeviceTrustBinding` (the SDK chain
 /// verifier's input type), but defined here in `core` because `core` cannot
@@ -91,12 +92,24 @@ pub struct QueryDeviceRecord {
     /// Directory status of the device at query time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_status: Option<DeviceStatus>,
-    /// Tier-2: the device's authoritative `cross_signing_binding` echoed
-    /// verbatim, so the client can independently verify the
-    /// device-key ← SSK link (`device-lifecycle.md` §8.3). Absent for
-    /// inception bootstrap devices.
+    /// Cross-signing trust material: the device's authoritative
+    /// `cross_signing_binding` echoed verbatim, so the client can
+    /// independently verify the device-key ← SSK link (`device-lifecycle.md`
+    /// §8.3). Absent for inception bootstrap and service-attested devices.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cross_signing_binding: Option<QueryDeviceCrossSigningBinding>,
+    /// Service-attested trust material for managed-DID devices
+    /// (`device-lifecycle.md` §5.4), echoed from the accepted
+    /// `ck.device.authorize` payload. Present only for a verified, non-revoked
+    /// device authorized by the designated enrollment authority.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enrollment_authority_binding: Option<DeviceEnrollmentAuthorityBinding>,
+    /// Accepted `ck.device.authorize` event id that anchored the device-set
+    /// projection. For service-attested devices this pairs with
+    /// [`Self::enrollment_authority_binding`] and is the hot-path trust anchor
+    /// clients carry forward.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_authorize_event_id: Option<EventId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

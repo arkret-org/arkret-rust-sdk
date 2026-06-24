@@ -38,7 +38,7 @@ use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use chrono::{SubsecRound, Utc};
 use cokret_core::canonical::{
-    canonical_json_bytes, format_timestamp_canonical, sha256_digest, sha256_hex,
+    canonical_json_bytes, canonical_sha256, format_timestamp_canonical, sha256_digest, sha256_hex,
 };
 use cokret_core::{
     BackupClass, BackupId, DeviceId, Did, Hash, KeyBackup, KeyBackupAead, KeyBackupContentItem,
@@ -620,8 +620,8 @@ pub fn build_key_backup_envelope(
 ///
 /// The successor inherits actor/device/class from `predecessor`, increments
 /// `series_seq`, and binds the predecessor by both `backup_id` and
-/// `ciphertext_digest`. Callers supply the new plaintext and the current
-/// originating-key frontier reference.
+/// canonical predecessor-envelope digest. Callers supply the new plaintext and
+/// the current originating-key frontier reference.
 #[allow(clippy::too_many_arguments)]
 pub fn build_key_backup_successor_envelope(
     backup_id: BackupId,
@@ -657,13 +657,25 @@ pub fn build_key_backup_successor_envelope(
         .checked_add(1)
         .ok_or_else(|| anyhow!("successor series_seq overflow"))?;
     successor.supersedes = Some(predecessor.backup_id.clone());
-    successor.supersedes_digest = Some(predecessor.ciphertext_digest.clone());
+    successor.supersedes_digest = Some(key_backup_supersedes_digest(predecessor)?);
     successor.frontier_ref = Some(KeyBackupFrontierRef {
         frontier_digest,
         seal_ref: None,
         ssk_generation: None,
     });
     Ok(successor)
+}
+
+fn key_backup_supersedes_digest(predecessor: &KeyBackup) -> Result<String> {
+    let mut canonical = serde_json::to_value(predecessor)
+        .context("serialize predecessor key backup for supersedes_digest")?;
+    if let Some(auth_data) = canonical
+        .get_mut("auth_data")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        auth_data.remove("signature");
+    }
+    canonical_sha256(&canonical).context("hash predecessor key backup for supersedes_digest")
 }
 
 /// Key commitment used by the AEAD envelope (spec §7.2):
@@ -977,7 +989,12 @@ mod tests {
         assert_eq!(successor.series_id, genesis.series_id);
         assert_eq!(successor.series_seq, genesis.series_seq + 1);
         assert_eq!(successor.supersedes.as_ref(), Some(&genesis.backup_id));
+        let expected_supersedes_digest = key_backup_supersedes_digest(&genesis).unwrap();
         assert_eq!(
+            successor.supersedes_digest.as_deref(),
+            Some(expected_supersedes_digest.as_str())
+        );
+        assert_ne!(
             successor.supersedes_digest.as_deref(),
             Some(genesis.ciphertext_digest.as_str())
         );

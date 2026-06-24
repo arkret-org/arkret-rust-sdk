@@ -110,7 +110,8 @@ impl DeviceAuthorizePayload {
 /// (managed-DID / account-authority onboarding). The cryptographic signer is the
 /// envelope proof (`verification_method` maps to `executed_by`); this object
 /// records the trust root. See `zh/crypto-media/device-lifecycle.md` §5.4.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DeviceEnrollmentAuthorityBinding {
     /// MUST be `"service_attested"`.
     pub kind: String,

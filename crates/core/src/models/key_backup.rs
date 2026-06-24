@@ -185,9 +185,9 @@ pub struct KeyBackup {
     /// `series_chain_broken` or `series_predecessor_not_found`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub supersedes: Option<BackupId>,
-    /// Key-backup hardening — content digest of the predecessor's
-    /// `ciphertext_digest` mixed into the signing transcript on successor
-    /// envelopes. REQUIRED whenever `supersedes` is set.
+    /// Key-backup hardening — canonical SHA-256 of the predecessor envelope,
+    /// excluding `auth_data.signature`, mixed into the signing transcript on
+    /// successor envelopes. REQUIRED whenever `supersedes` is set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub supersedes_digest: Option<String>,
     /// Key-backup hardening — opaque reference to the originating-key
