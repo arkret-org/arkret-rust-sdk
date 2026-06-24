@@ -272,16 +272,50 @@ pub enum EventsSubscribeFrameKind {
     Unauthorized,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventsSubscribeFrame {
     pub kind: EventsSubscribeFrameKind,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub cursor: Option<Cursor>,
+    pub cursor: Option<identifiers::Cursor>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub payload: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reconnect_after_ms: Option<u64>,
+}
+
+impl EventsSubscribeFrame {
+    /// Parse one NDJSON line. Empty / whitespace-only lines return
+    /// `Ok(None)` so streaming readers can split incrementally.
+    pub fn from_ndjson_line(line: &str) -> Result<Option<Self>> {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            return Ok(None);
+        }
+        let frame = canonical::from_canonical_json_str(trimmed)?;
+        Ok(Some(frame))
+    }
+
+    /// True iff this frame requires the client to reset or rebuild its
+    /// subscription state.
+    pub fn requires_resubscribe(&self) -> bool {
+        matches!(
+            self.kind,
+            EventsSubscribeFrameKind::Dropped | EventsSubscribeFrameKind::ResyncRequired
+        )
+    }
+
+    /// True iff this frame carries an event payload.
+    pub fn is_event(&self) -> bool {
+        matches!(self.kind, EventsSubscribeFrameKind::Event)
+    }
+
+    /// True iff catch-up replay has reached the live frontier.
+    pub fn is_catchup_complete(&self) -> bool {
+        matches!(self.kind, EventsSubscribeFrameKind::CatchupComplete)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

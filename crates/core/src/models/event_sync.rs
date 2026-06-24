@@ -186,42 +186,7 @@ pub struct EventsSubmitFederationRequestBody {
 /// `Dropped` variant MUST carry a cursor so receivers can resume; an
 /// implementation that emits `Dropped` without cursor MUST downgrade
 /// to `ResyncRequired`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum EventsSubscribeFrameBody {
-    Event {
-        event: Value,
-    },
-    Frontier {
-        frontier: Value,
-    },
-    Heartbeat {
-        /// Server time the heartbeat was emitted (staleness guard).
-        emitted_at: DateTime<Utc>,
-    },
-    CatchupComplete,
-    EpochRotation {
-        epoch: u64,
-    },
-    Dropped {
-        /// REQUIRED resume cursor; absence MUST be treated as
-        /// `ResyncRequired` by the implementation that produced the
-        /// frame.
-        cursor: Cursor,
-        reason: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        reconnect_after_ms: Option<u64>,
-    },
-    ResyncRequired {
-        reason: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        reconnect_after_ms: Option<u64>,
-    },
-    Unauthorized {
-        reason: String,
-    },
-}
+pub type EventsSubscribeFrameBody = crate::http::EventsSubscribeFrame;
 
 // ── SnapshotBootstrap ───────────────────────────────────────────────────
 

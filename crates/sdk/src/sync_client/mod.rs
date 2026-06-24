@@ -30,10 +30,8 @@ mod realm_list;
 mod send_queue;
 #[cfg(test)]
 mod tests;
-mod wire;
 
 pub use loop_control::*;
 pub use processor::*;
 pub use realm_list::*;
 pub use send_queue::*;
-pub use wire::*;

@@ -32,7 +32,7 @@ use serde_json::Value;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AccountRegisterRequestBody {
+pub struct PasswordAccountRegisterRequestBody {
     pub username: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
@@ -41,7 +41,7 @@ pub struct AccountRegisterRequestBody {
     pub initial_device_display_name: Option<String>,
 }
 
-impl AccountRegisterRequestBody {
+impl PasswordAccountRegisterRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.username.trim().is_empty() {
             return Err(Error::Protocol(

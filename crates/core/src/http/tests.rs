@@ -136,3 +136,91 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
     });
     assert!(serde_json::from_value::<KeyPackagesClaimOutcome>(malformed_failure).is_err());
 }
+
+#[test]
+fn events_subscribe_frame_parses_ndjson_line() {
+    let line = r#"{"kind":"event","realm_id":"ck:realm:01904100-0000-7000-8000-9b64700c6ee8","cursor":"ck:cursor:resume","payload":{"event_id":"ck:event:01904100-0000-7000-8000-834e21b98552"}}"#;
+    let frame = EventsSubscribeFrame::from_ndjson_line(line)
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(frame.kind, EventsSubscribeFrameKind::Event);
+    assert_eq!(
+        frame.realm_id.as_ref().unwrap().as_str(),
+        "ck:realm:01904100-0000-7000-8000-9b64700c6ee8"
+    );
+    assert_eq!(frame.cursor.as_ref().unwrap().as_str(), "ck:cursor:resume");
+    assert_eq!(
+        frame.payload["event_id"],
+        "ck:event:01904100-0000-7000-8000-834e21b98552"
+    );
+    assert!(frame.is_event());
+    assert!(!frame.requires_resubscribe());
+    assert!(!frame.is_catchup_complete());
+}
+
+#[test]
+fn events_subscribe_frame_control_helpers() {
+    let dropped =
+        EventsSubscribeFrame::from_ndjson_line(
+            r#"{"kind":"dropped","realm_id":"ck:realm:01904100-0000-7000-8000-9b64700c6ee8","cursor":"ck:cursor:resume","reconnect_after_ms":10000}"#,
+        )
+        .unwrap()
+        .unwrap();
+    assert_eq!(dropped.kind, EventsSubscribeFrameKind::Dropped);
+    assert_eq!(dropped.reconnect_after_ms, Some(10_000));
+    assert!(dropped.requires_resubscribe());
+
+    let catchup = EventsSubscribeFrame::from_ndjson_line(
+        r#"{"kind":"catchup_complete","cursor":"ck:cursor:live"}"#,
+    )
+    .unwrap()
+    .unwrap();
+    assert!(catchup.is_catchup_complete());
+
+    assert!(
+        EventsSubscribeFrame::from_ndjson_line("")
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        EventsSubscribeFrame::from_ndjson_line(r#"{"kind":"heartbeat","kind":"heartbeat"}"#)
+            .is_err()
+    );
+}
+
+#[test]
+fn events_query_params_helpers_use_core_wire_types() {
+    let params = EventsQueryParams {
+        realms: vec![RealmId::new("ck:realm:01904100-0000-7000-8000-f949e0272316").unwrap()],
+        actors: vec![did("alice")],
+        before: Some(identifiers::Cursor::new("ck:cursor:older").unwrap()),
+        after: Some(identifiers::Cursor::new("ck:cursor:newer").unwrap()),
+        order: Some(EventsQueryOrder::Descending),
+        limit: Some(50),
+        x_cokret_request_id: None,
+        traceparent: None,
+    };
+
+    params.validate_non_empty().unwrap();
+    let pairs = params.to_query_pairs();
+    assert!(
+        pairs.iter().any(|(key, value)| *key == "realms"
+            && value == "ck:realm:01904100-0000-7000-8000-f949e0272316")
+    );
+    assert!(
+        pairs
+            .iter()
+            .any(|(key, value)| *key == "actors" && value == "did:web:alice.example")
+    );
+    assert!(
+        pairs
+            .iter()
+            .any(|(key, value)| *key == "order" && value == "descending")
+    );
+    assert!(
+        pairs
+            .iter()
+            .any(|(key, value)| *key == "limit" && value == "50")
+    );
+}

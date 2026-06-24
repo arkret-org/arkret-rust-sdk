@@ -358,10 +358,9 @@ pub use devices::{
     DeviceManager, DeviceMetadata, DeviceQuorumSignature, DeviceTrustBinding,
     DeviceTrustChainOutcome, DeviceTrustState, DeviceVerificationChallenge,
     DeviceVerificationMessageContent, DeviceVerificationMessageKind, KeyBackupClass,
-    KeyBackupContentItem, KeyBackupEncryption, ProtocolDeviceMessageEnvelope, ProtocolKeyBackup,
-    QrVerificationPayload, SignedCrossSigningKey, ToDeviceEnvelope,
-    cross_signing_publish_cell_subject, device_verification_commitment,
-    verify_device_cross_signing_chain,
+    KeyBackupContentItem, KeyBackupEncryption, ProtocolKeyBackup, QrVerificationPayload,
+    SignedCrossSigningKey, ToDeviceEnvelope, cross_signing_publish_cell_subject,
+    device_verification_commitment, verify_device_cross_signing_chain,
 };
 #[cfg(feature = "full-surface")]
 pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};
@@ -528,7 +527,6 @@ pub use store::{
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{
     AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
-    EventsQueryOrder, EventsQueryRequestBody, EventsQuerySelector, EventsSubscribeFrame,
     EventsSubscribeTransport, ExponentialBackoff, LocalEcho, ProcessedRealm, RealmListChange,
     RealmListEntry, RealmListFilter, RealmListService, RealmListSnapshot, RealmListSort, SendQueue,
     SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus, SlidingSync,

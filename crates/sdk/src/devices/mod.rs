@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use chrono::{DateTime, Duration, Utc};
+pub use cokret_core::DeviceMessageEnvelope;
 pub use cokret_crypto::{
     CrossSigningBinding, CrossSigningKeyKind, CrossSigningKeyRecord, CrossSigningPublishContent,
     CrossSigningResetContent, CrossSigningResetProof, DeviceBootstrapBinding,
@@ -115,23 +116,6 @@ pub struct ToDeviceEnvelope {
     pub content: Value,
     /// Local receive/enqueue time.
     pub queued_at: DateTime<Utc>,
-}
-
-/// Runtime queued protocol device message used by the device manager.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ProtocolDeviceMessageEnvelope {
-    pub kind: String,
-    pub sender_principal_id: Did,
-    pub sender_device_id: DeviceId,
-    pub recipient_principal_id: Did,
-    pub recipient_device_id: DeviceId,
-    pub sent_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
-    pub content: Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub device_proof: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub unsigned: Option<Value>,
 }
 
 /// Known `ck.key.verification.*` device message kinds.
