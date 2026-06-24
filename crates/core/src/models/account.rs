@@ -244,6 +244,11 @@ pub struct ConsentRequestRequestBody {
 pub struct AccountDeviceSummary {
     pub device_id: DeviceId,
     pub status: String,
+    /// device-lifecycle.md §6 trust dimension: `unverified` / `cross_signed`
+    /// / `needs_reverification` / `verified`. Distinct from `status`, which is
+    /// the lifecycle rollup (`active` / `revoked` / `unknown`). Clients render
+    /// the §6 trust pill and gate device-to-device pairing fan-out on it.
+    pub verification_state: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
