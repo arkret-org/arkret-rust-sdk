@@ -884,9 +884,9 @@ mod tests {
             // buffer to assemble it.
             let parts = vec![
                 r#"{"kind":"heartbeat"}"#,
-                "\n{\"kind\":\"frontier\"",
-                ",\"cursor\":\"sx:adv:1\"}\n",
-                "{\"kind\":\"catchup_complete\",\"cursor\":\"sx:live:0\"}\n",
+                "\n{\"cursor\":\"sx:adv:1\"",
+                ",\"kind\":\"frontier\"}\n",
+                "{\"cursor\":\"sx:live:0\",\"kind\":\"catchup_complete\"}\n",
             ];
             let client = spawn_chunked_ndjson_server(parts).await;
             let mut stream = client

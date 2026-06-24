@@ -10,7 +10,8 @@ use cokret_core::{
     PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, Result,
     SessionGrantOutcome, SessionGrantRequestBody, SyncDescription, SyncOutcome, SyncRequestBody,
 };
-use reqwest::{Method, Response};
+use reqwest::header::CONTENT_TYPE;
+use reqwest::{Method, RequestBuilder, Response};
 
 use crate::client_internals::{transport_error, trim_ascii};
 use crate::{Client, MAX_SUBSCRIBE_FRAME_BYTES};
@@ -29,12 +30,14 @@ impl Client {
         self.post("/_cokret/gate/account/session-grants", req).await
     }
 
-    pub async fn account_subscribe(&self, request: &SyncRequestBody) -> Result<Response> {
-        // Long-lived NDJSON stream — exempt from the per-request default
-        // total timeout (see `DEFAULT_REQUEST_TIMEOUT`).
+    fn account_subscribe_request(
+        &self,
+        request: &SyncRequestBody,
+        accept: &str,
+    ) -> Result<RequestBuilder> {
         let mut builder = self
             .request_unbounded(Method::GET, "/_cokret/self/account/subscribe")?
-            .header("accept", "application/x-ndjson");
+            .header("accept", accept);
         if let Some(after) = request.after.as_deref() {
             builder = builder.query(&[("after", after)]);
         }
@@ -44,6 +47,13 @@ impl Client {
         if let Some(presence) = request.set_presence.as_ref() {
             builder = builder.query(&[("set_presence", presence)]);
         }
+        Ok(builder)
+    }
+
+    pub async fn account_subscribe(&self, request: &SyncRequestBody) -> Result<Response> {
+        // Long-lived NDJSON stream — exempt from the per-request default
+        // total timeout (see `DEFAULT_REQUEST_TIMEOUT`).
+        let builder = self.account_subscribe_request(request, "application/x-ndjson")?;
         self.send_response(builder).await
     }
 
@@ -79,7 +89,43 @@ impl Client {
             Ok(SyncOutcome::from_account_subscribe_frame(frame))
         }
 
-        let response = self.account_subscribe(request).await?;
+        fn decode_json_or_frame(bytes: &[u8]) -> Result<Option<SyncOutcome>> {
+            let trimmed = trim_ascii(bytes);
+            if trimmed.is_empty() {
+                return Ok(None);
+            }
+            let is_frame = serde_json::from_slice::<serde_json::Value>(trimmed)
+                .ok()
+                .and_then(|value| value.get("kind").cloned())
+                .is_some();
+            if !is_frame && let Ok(sync) = serde_json::from_slice::<SyncOutcome>(trimmed) {
+                return Ok(Some(sync));
+            }
+            let frame: AccountSubscribeFrame = serde_json::from_slice(trimmed)
+                .map_err(|error| Error::Protocol(error.to_string()))?;
+            Ok(SyncOutcome::from_account_subscribe_frame(frame))
+        }
+
+        let response = self
+            .send_response(
+                self.account_subscribe_request(request, "application/json, application/x-ndjson")?,
+            )
+            .await?;
+        let content_type = response
+            .headers()
+            .get(CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        if !content_type.contains("application/x-ndjson") {
+            let bytes = response.bytes().await.map_err(transport_error)?;
+            return decode_json_or_frame(&bytes)?.ok_or_else(|| {
+                Error::Protocol(
+                    "account subscribe JSON response did not include a delta".to_owned(),
+                )
+            });
+        }
+
         let mut stream = response.bytes_stream();
         let mut buffer: Vec<u8> = Vec::new();
         while let Some(chunk) = stream.next().await {
