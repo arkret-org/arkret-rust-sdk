@@ -251,6 +251,7 @@ impl InviteCreatePayload {
         schema::event_payload_validator_catalog()
             .validate_payload(events::kinds::EventKind::InviteCreate.as_str(), value)
             .map_err(|err| Error::Protocol(format!("invite create payload schema: {err}")))?;
+        validate_invite_create_wire_keys(value)?;
         let payload: Self = serde_json::from_value(value.clone())
             .map_err(|err| Error::Protocol(format!("invite create payload decode: {err}")))?;
         payload.invite_delivery_target.validate()?;
@@ -264,8 +265,50 @@ impl InviteCreatePayload {
     }
 }
 
+fn validate_invite_create_wire_keys(value: &Value) -> Result<()> {
+    let Some(object) = value.as_object() else {
+        return Err(Error::Protocol(
+            "invite create payload must be an object".to_owned(),
+        ));
+    };
+    for key in object.keys() {
+        if matches!(
+            key.as_str(),
+            "invite_id"
+                | "invitee"
+                | "invite_delivery_target"
+                | "introduction_evidence_digest"
+                | "expires_at"
+                | "reason"
+        ) || valid_invite_create_extension_key(key)
+        {
+            continue;
+        }
+        return Err(Error::Protocol(format!(
+            "invite create payload unknown field `{key}`"
+        )));
+    }
+    Ok(())
+}
+
+fn valid_invite_create_extension_key(key: &str) -> bool {
+    let Some(suffix) = key.strip_prefix("x_") else {
+        return false;
+    };
+    if suffix.is_empty() || suffix.len() > 64 {
+        return false;
+    }
+    let mut chars = suffix.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    first.is_ascii_lowercase()
+        && chars.all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
+}
+
 /// Reference-by-id form of `invite_payload` (anyOf branch requiring
-/// `invite_id`). Carried by `ck.invite.accept` / `ck.invite.cancel`.
+/// `invite_id`). Carried by `ck.invite.accept` / `ck.invite.cancel` /
+/// `ck.invite.revoke`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]

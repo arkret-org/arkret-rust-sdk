@@ -250,13 +250,17 @@ fn invite_payload_strong_types_pass_spec_validator() {
     leaky_create["hlc"] = json!("2026-06-14T10:00:00Z/node/1");
     assert!(InviteCreatePayload::from_wire_value(&leaky_create).is_err());
 
-    // invite_id ref form (accept / cancel).
+    // invite_id ref form (accept / cancel / revoke).
     let cancel = InviteRefPayload::new(
         InviteId::new("ck:invite:01904100-0000-7000-8000-222222222222").unwrap(),
     )
     .with_reason("withdrawn");
+    let cancel_value = cancel.to_value().unwrap();
     catalog
-        .validate_payload("ck.invite.cancel", &cancel.to_value().unwrap())
+        .validate_payload("ck.invite.cancel", &cancel_value)
+        .unwrap();
+    catalog
+        .validate_payload("ck.invite.revoke", &cancel_value)
         .unwrap();
 }
 
