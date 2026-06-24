@@ -498,7 +498,7 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
         | OP_EVENTS_QUERY
         | OP_EVENTS_SUBSCRIBE
         | OP_SNAPSHOT_HEAD
-        | OP_PROJECTION_DOCUMENT
+        | OP_MORPH_RESOURCE_GET
         | OP_VIEW_COLLECTION_PROJECTION
         | OP_IDENTITY_DESCRIBE_REGISTRY
         | OP_IDENTITY_RESOLVE
@@ -580,7 +580,7 @@ fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
         OP_PEER_INVITES_SUBMIT => &["idempotency_key"],
         OP_POLICY_CHECK => &["resource"],
         OP_IDENTITY_RECOVERY_POLICY_GET | OP_IDENTITY_RECOVERY_POLICY_PUT => &["principal_id"],
-        OP_PROJECTION_DOCUMENT => &["morph_id"],
+        OP_MORPH_RESOURCE_GET => &["realm_id", "morph_id"],
         OP_VIEW_COLLECTION_PROJECTION => &["view_id"],
         _ => &[],
     };

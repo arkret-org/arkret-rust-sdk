@@ -787,19 +787,19 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/self/read-cursors"
     ),
     endpoint!(
-        "ck.self.projection.strands.query.list",
+        "ck.self.strand.query.list",
         Get,
-        "/_cokret/self/projection/strands"
+        "/_cokret/self/realms/{realm_id}/strands"
     ),
     endpoint!(
-        "ck.self.projection.morphs.query.list",
+        "ck.self.morph.query.list",
         Get,
-        "/_cokret/self/projection/morphs"
+        "/_cokret/self/realms/{realm_id}/morphs"
     ),
     endpoint!(
-        "ck.self.projection.spaces.query.list",
+        "ck.self.space.query.list",
         Get,
-        "/_cokret/self/projection/spaces"
+        "/_cokret/self/realms/{realm_id}/spaces"
     ),
     endpoint!(
         "ck.self.views.collection_projection.command.materialize",
@@ -807,9 +807,9 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/self/views/{view_id}/projection"
     ),
     endpoint!(
-        "ck.self.projection.document.resource.get",
+        "ck.self.morph.resource.get",
         Get,
-        "/_cokret/self/projection/documents/{morph_id}"
+        "/_cokret/self/realms/{realm_id}/morphs/{morph_id}"
     ),
     endpoint!(
         "ck.edge.push.command.notify",

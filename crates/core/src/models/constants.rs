@@ -611,11 +611,11 @@ pub const OP_SELF_CIRCLE_ARCHIVE: &str = "ck.self.circle.command.archive";
 pub const OP_SELF_CIRCLE_RESTORE: &str = "ck.self.circle.command.restore";
 pub const OP_SELF_CIRCLE_TOMBSTONE: &str = "ck.self.circle.command.tombstone";
 
-/// Projection read-model operations.
-pub const OP_PROJECTION_SPACES: &str = "ck.self.projection.spaces.query.list";
-pub const OP_PROJECTION_STRANDS: &str = "ck.self.projection.strands.query.list";
-pub const OP_PROJECTION_MORPHS: &str = "ck.self.projection.morphs.query.list";
-pub const OP_PROJECTION_DOCUMENT: &str = "ck.self.projection.document.resource.get";
+/// Realm-scoped object read-model operations.
+pub const OP_SPACE_QUERY_LIST: &str = "ck.self.space.query.list";
+pub const OP_STRAND_QUERY_LIST: &str = "ck.self.strand.query.list";
+pub const OP_MORPH_QUERY_LIST: &str = "ck.self.morph.query.list";
+pub const OP_MORPH_RESOURCE_GET: &str = "ck.self.morph.resource.get";
 pub const OP_VIEW_COLLECTION_PROJECTION: &str =
     "ck.self.views.collection_projection.command.materialize";
 
@@ -898,10 +898,10 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_EVENTS_SUBSCRIBE,
     OP_EVENTS_SUBMIT,
     OP_EPHEMERAL_SEND,
-    OP_PROJECTION_SPACES,
-    OP_PROJECTION_STRANDS,
-    OP_PROJECTION_MORPHS,
-    OP_PROJECTION_DOCUMENT,
+    OP_SPACE_QUERY_LIST,
+    OP_STRAND_QUERY_LIST,
+    OP_MORPH_QUERY_LIST,
+    OP_MORPH_RESOURCE_GET,
     OP_VIEW_COLLECTION_PROJECTION,
     OP_IDENTITY_DESCRIBE_REGISTRY,
     OP_IDENTITY_GET_DOCUMENT,

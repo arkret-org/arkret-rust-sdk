@@ -351,7 +351,7 @@ pub(in crate::models) fn required_fields_for_operation_kind(kind: &str) -> Vec<S
             .map(str::to_owned)
             .collect(),
         OP_SNAPSHOT_HEAD => vec!["realm_id".to_owned()],
-        OP_PROJECTION_DOCUMENT => vec!["morph_id".to_owned()],
+        OP_MORPH_RESOURCE_GET => vec!["realm_id".to_owned(), "morph_id".to_owned()],
         OP_VIEW_COLLECTION_PROJECTION => vec!["view_id".to_owned()],
         _ => Vec::new(),
     }
