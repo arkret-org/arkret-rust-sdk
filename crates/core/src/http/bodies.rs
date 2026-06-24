@@ -200,6 +200,8 @@ pub struct ProjectionStrandRow {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
     /// COT-06-004 — derived flag: `true` when this Strand is the Realm's
     /// default Strand (`strand_id == Realm.default_strand_id`). Computed at query

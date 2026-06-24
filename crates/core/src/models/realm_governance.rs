@@ -16,6 +16,36 @@
 
 use super::*;
 
+/// Wire field names used by effective moderation policy payloads.
+pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_REALM_ID: &str = "realm_id";
+pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_INHERITANCE_MODE: &str = "inheritance_mode";
+pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_INHERITANCE_CHAIN: &str = "inheritance_chain";
+pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_POLICY_LAYERS: &str =
+    "organization_policy_layers";
+pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_REALM_POLICY: &str = "realm_policy";
+pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_EFFECTIVE_RULES: &str = "effective_rules";
+pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_EFFECTIVE_RULES: &str =
+    "organization_effective_rules";
+pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_OVERRIDE_REQUIRES_ORGANIZATION_APPROVAL: &str =
+    "override_requires_organization_approval";
+pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_POLICY_MERGE_STRATEGY: &str =
+    "policy_merge_strategy";
+pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_POLICY_MERGE_STRATEGY: &str =
+    "organization_policy_merge_strategy";
+pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_FANOUT: &str = "fanout";
+pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_POLICY_FANOUT: &str =
+    "organization_policy_fanout";
+
+/// Canonical moderation policy merge strategy value for organization inheritance.
+pub const REALM_MODERATION_POLICY_MERGE_STRATEGY_MOST_RESTRICTIVE: &str = "most_restrictive";
+
+/// Canonical fanout source value for organization moderation policy projection.
+pub const REALM_MODERATION_POLICY_FANOUT_SOURCE_ORGANIZATION_POLICY: &str = "organization_policy";
+
+/// Wire code returned when a Realm moderation policy override needs organization approval.
+pub const REALM_MODERATION_POLICY_WIRE_CODE_REQUIRES_ORGANIZATION_APPROVAL: &str =
+    "requires_organization_approval";
+
 /// Canonical link_kind values for `ck.realm.link`. The eight values
 /// enumerate the typed cross-Realm relations the spec recognises after the
 /// Realm/Space boundary split; link payloads MUST carry exactly one of

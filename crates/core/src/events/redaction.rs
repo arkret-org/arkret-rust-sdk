@@ -42,7 +42,10 @@ pub fn redaction_tombstone_message_value(
     object.insert("redacted".to_owned(), json!(true));
     object.insert("state".to_owned(), json!(REDACTED_MESSAGE_STATE));
     object.insert("redacted_at".to_owned(), json!(redacted_at.to_rfc3339()));
-    if let Some(redaction_ref) = redaction_ref.map(str::trim).filter(|value| !value.is_empty()) {
+    if let Some(redaction_ref) = redaction_ref
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         object.insert(
             "redaction_ref".to_owned(),
             Value::String(redaction_ref.to_owned()),
@@ -128,7 +131,10 @@ mod tests {
             event["redaction_ref"],
             json!("ck:event:01970e58-0004-7000-8000-0000000005a2")
         );
-        assert_eq!(event["content"]["body"], json!(REDACTED_MESSAGE_PLACEHOLDER));
+        assert_eq!(
+            event["content"]["body"],
+            json!(REDACTED_MESSAGE_PLACEHOLDER)
+        );
         assert!(event.get("reactions").is_none());
         assert!(event.get("reply_to").is_none());
         assert!(event.get("mentions").is_none());
@@ -146,6 +152,9 @@ mod tests {
         redaction_tombstone_message_value(&mut event, redacted_at, None);
 
         assert!(event.get("redaction_ref").is_none());
-        assert_eq!(event["content"]["body"], json!(REDACTED_MESSAGE_PLACEHOLDER));
+        assert_eq!(
+            event["content"]["body"],
+            json!(REDACTED_MESSAGE_PLACEHOLDER)
+        );
     }
 }
