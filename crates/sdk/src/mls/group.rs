@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::XChaCha20Poly1305;
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chrono::Utc;
 use cokret_core::{base64url_decode, base64url_encode};
 use hkdf::Hkdf;
@@ -439,8 +439,9 @@ impl CokretMlsGroup {
         let context_bytes = crate::crypto::aead_sender_nonce_context_bytes(&context)?;
         // Derive the sender_nonce_prefix from the MLS exporter (live MLS path),
         // mirroring `crypto::derive_aead_sender_nonce_prefix`'s exporter input.
-        let mut info =
-            Vec::with_capacity(crate::crypto::AEAD_NONCE_EXPORTER_LABEL.len() + 1 + context_bytes.len());
+        let mut info = Vec::with_capacity(
+            crate::crypto::AEAD_NONCE_EXPORTER_LABEL.len() + 1 + context_bytes.len(),
+        );
         info.extend_from_slice(crate::crypto::AEAD_NONCE_EXPORTER_LABEL.as_bytes());
         info.push(0x00);
         info.extend_from_slice(&context_bytes);

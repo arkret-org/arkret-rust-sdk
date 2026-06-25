@@ -17,11 +17,11 @@ pub use policy::*;
 mod caching_tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use super::*;
-    use crate::identity::helpers::did_key_material;
     use chrono::Utc;
 
+    use super::*;
     use crate::identity::Freshness;
+    use crate::identity::helpers::did_key_material;
     use crate::{Did, DidDocument, DidResolver, Error, Result};
 
     /// Controllable resolver stub that tracks upstream calls and can be

@@ -321,13 +321,39 @@ pub struct RealmKeyShareAuditPayload {
     pub recorded_at: DateTime<Utc>,
 }
 
+/// Discriminator for `realm_key_share_payload.share_class`
+/// (event-payload.schema.json, device-lifecycle.md §13). `member_device` is the
+/// ordinary per-member history delivery path (carries `recipient_device_id`);
+/// `realm_recovery_key` is the Realm `durability_policy` RRK durability seal
+/// (carries `recipient_verification_method` + `recovery_recipient_id`, never a
+/// device id) — see encryption-and-audit.md §2.10.8.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmKeyShareClass {
+    MemberDevice,
+    RealmRecoveryKey,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_key_share_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmKeySharePayload {
+    pub share_class: RealmKeyShareClass,
     pub recipient_principal_id: Did,
-    pub recipient_device_id: String,
+    /// Present only for `share_class=member_device`; forbidden for
+    /// `realm_recovery_key`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recipient_device_id: Option<String>,
+    /// Present only for `share_class=realm_recovery_key`: the RRK
+    /// `verification_method` (identity-did.md §8.3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recipient_verification_method: Option<String>,
+    /// Present only for `share_class=realm_recovery_key`: the
+    /// `durability_policy.recovery_recipients[].recipient_id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_recipient_id: Option<String>,
     pub sender_device_id: String,
     pub sender_device_signature: Value,
     pub key_scope: RealmKeyScope,
@@ -353,9 +379,12 @@ impl RealmKeySharePayload {
     pub fn sender_signing_input(&self) -> Vec<u8> {
         let covered = serde_json::json!({
             "purpose": "ck.realm_key.share.sender_device_signature.v1",
+            "share_class": self.share_class,
             "sender_device_id": self.sender_device_id,
             "recipient_principal_id": self.recipient_principal_id,
             "recipient_device_id": self.recipient_device_id,
+            "recipient_verification_method": self.recipient_verification_method,
+            "recovery_recipient_id": self.recovery_recipient_id,
             "key_scope": self.key_scope,
             "ciphertext": self.ciphertext,
             "encrypted_key_ref": self.encrypted_key_ref,
@@ -490,8 +519,9 @@ pub struct ViewPayload {
 
 #[cfg(test)]
 mod realm_key_request_tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     fn scope() -> RealmKeyScope {
         RealmKeyScope {
@@ -544,10 +574,7 @@ mod realm_key_request_tests {
             json!("verified_member_device")
         );
         let parsed: RealmKeyRequestPayload = serde_json::from_value(value).unwrap();
-        assert_eq!(
-            parsed.recipient_device_id,
-            payload.recipient_device_id
-        );
+        assert_eq!(parsed.recipient_device_id, payload.recipient_device_id);
         assert_eq!(parsed.target_source_ref, payload.target_source_ref);
     }
 

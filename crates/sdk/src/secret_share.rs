@@ -13,8 +13,8 @@
 //! opened by the client crypto layer (HPKE RFC 9180); it never appears on the
 //! wire in cleartext.
 
-use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::XChaCha20Poly1305;
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use cokret_core::base64url::{base64url_decode, base64url_encode};
 use hkdf::Hkdf;
 use serde::{Deserialize, Serialize};
@@ -180,9 +180,8 @@ fn encode_history_secrets(history_secrets: &[(u64, Vec<u8>)]) -> Vec<u8> {
 }
 
 fn decode_history_secrets(plaintext: &[u8]) -> Result<Vec<(u64, Vec<u8>)>> {
-    let rows: Vec<(u64, String)> = serde_json::from_slice(plaintext).map_err(|err| {
-        Error::Protocol(format!("history-secret seal plaintext decode: {err}"))
-    })?;
+    let rows: Vec<(u64, String)> = serde_json::from_slice(plaintext)
+        .map_err(|err| Error::Protocol(format!("history-secret seal plaintext decode: {err}")))?;
     let mut out = Vec::with_capacity(rows.len());
     for (epoch, secret_b64) in rows {
         out.push((epoch, base64url_decode(secret_b64.as_bytes())?));
@@ -350,11 +349,9 @@ mod tests {
         ];
 
         let sealed = seal_history_secret_to_device_pubkey(&recipient_pub, &secrets).unwrap();
-        let opened = open_history_secret_with_device_privkey(
-            recipient_priv.to_bytes().as_slice(),
-            &sealed,
-        )
-        .unwrap();
+        let opened =
+            open_history_secret_with_device_privkey(recipient_priv.to_bytes().as_slice(), &sealed)
+                .unwrap();
         assert_eq!(opened, secrets);
     }
 

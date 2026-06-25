@@ -1215,8 +1215,7 @@ mod tests {
 
         // Receiver device keypair; provider HPKE-seals the range to its pubkey.
         let receiver_priv = x25519_dalek::StaticSecret::from([42u8; 32]);
-        let receiver_pub =
-            *x25519_dalek::PublicKey::from(&receiver_priv).as_bytes();
+        let receiver_pub = *x25519_dalek::PublicKey::from(&receiver_priv).as_bytes();
         let share_ciphertext =
             crate::secret_share::seal_history_secret_to_device_pubkey(&receiver_pub, &range)
                 .unwrap();

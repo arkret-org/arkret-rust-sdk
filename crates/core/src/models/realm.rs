@@ -52,6 +52,15 @@ pub struct Realm {
     pub content_encryption_floor: Option<EncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
+    /// Realm Recovery Key (RRK) durability policy (realm-and-space.md §2.3.1,
+    /// encryption-and-audit.md §2.10.8). Declares who can recover Realm history
+    /// after all member devices are lost or all members leave. Confidentiality-
+    /// axis durability, orthogonal to `notary` / `notary.recovery_*` (finality
+    /// axis). Only effective (`mode != none`) when
+    /// `content_scheme == "mls-exporter-aead-v1"`. Reducer-derived (written via
+    /// `ck.realm.policy_components`); a value at create time is a hint only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub durability_policy: Option<DurabilityPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -111,6 +120,55 @@ pub struct Realm {
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+/// Realm Recovery Key (RRK) durability policy (realm-and-space.md §2.3.1,
+/// encryption-and-audit.md §2.10.8). Recovery recipients are offline HPKE
+/// public keys, NOT MLS members; granularity is expressed by organization
+/// composition, not a per-Realm knob.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DurabilityPolicy {
+    pub mode: DurabilityMode,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub recovery_recipients: Vec<RealmRecoveryRecipient>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub threshold: Option<DurabilityThreshold>,
+}
+
+/// Durability mode selector. `None` = no organizational recovery path (total
+/// member loss = permanent loss); `OrgRecoveryKey` = single org RRK;
+/// `Threshold` = k-of-n recovery recipients.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DurabilityMode {
+    None,
+    OrgRecoveryKey,
+    Threshold,
+}
+
+/// k-of-n threshold parameters for `DurabilityMode::Threshold`. `k <= n` and
+/// `n` MUST equal `recovery_recipients.len()`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DurabilityThreshold {
+    pub k: u32,
+    pub n: u32,
+}
+
+/// One Realm Recovery Key holder. `verification_method` MUST point to a
+/// verification method designated by an active `CokretRealmHistoryRecoveryKey`
+/// service entry published by `principal_id` (identity-did.md §8.3),
+/// domain-separated from the principal's `did_recovery` key.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RealmRecoveryRecipient {
+    pub recipient_id: String,
+    pub principal_id: Did,
+    pub verification_method: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub controller_organization: Option<Did>,
 }
 
 /// Seal deployment profile for a Realm (data-structures.md §4 —
@@ -205,6 +263,7 @@ impl Realm {
             content_scheme: None,
             content_encryption_floor: Some(EncryptionFloor::AllowPlaintext),
             metadata_encryption_floor: Some(EncryptionFloor::AllowPlaintext),
+            durability_policy: None,
             federation_policy: None,
             sync_endpoints: Vec::new(),
             notary_profile,

@@ -162,6 +162,13 @@ pub mod hlc;
 // deduplication window. Open to all profiles — Applets, gateways,
 // any inbound handler can use it without dragging in `full-surface`.
 pub mod idempotency;
+// Realm Recovery Key (RRK) durable history sealing — provider-initiated
+// `ck.realm_key.share` to offline recovery recipients (encryption-and-audit.md
+// §2.10.8). Resolves the RRK HPKE public key from a recipient's DID Document
+// and HPKE-seals retained per-epoch history secrets to it. Reuses
+// `secret_share`'s HPKE seal primitive, so it carries the same feature gate.
+#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
+pub mod history_recovery;
 // RFC 9421 HTTP Message Signatures (Ed25519) + RFC 9530 Content-Digest.
 // The single source of truth now lives in `cokret-signatures`; this re-export
 // keeps the existing `cokret::http_signature::*` / `cokret_sdk::http_signature::*`
@@ -382,6 +389,12 @@ pub use federation::{
 pub use fixtures::{
     CANONICAL_FIXTURE_DEFAULT_KIND, CanonicalFixtureBuilder, CanonicalFixtureSuite,
     CanonicalFixtureVector,
+};
+#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
+pub use history_recovery::{
+    REASON_DURABILITY_RECOVERY_RECIPIENT_UNVERIFIED, RRK_SERVICE_DOMAIN, RRK_SERVICE_TYPE,
+    RealmHistoryRecoveryKeyError, ResolvedRealmHistoryRecoveryKey,
+    resolve_realm_history_recovery_key, rrk_key_scope, seal_history_secrets_to_recovery_recipient,
 };
 #[cfg(feature = "full-surface")]
 pub use hlc::{
