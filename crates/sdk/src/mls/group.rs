@@ -414,20 +414,7 @@ impl CokretMlsGroup {
                 "exporter-aead content too short to contain nonce + ciphertext".to_owned(),
             ));
         }
-        let (nonce, ciphertext) = nonce_and_ct.split_at(CONTENT_AEAD_NONCE_LEN);
-        let content_key = derive_content_key(history_secret)?;
-        let aad = content_aead_aad(realm_id, nonce, aad_bytes)?;
-        let nonce_arr = content_nonce_array(nonce)?;
-        let cipher = content_cipher(&content_key)?;
-        cipher
-            .decrypt(
-                &nonce_arr.into(),
-                Payload {
-                    msg: ciphertext,
-                    aad: &aad,
-                },
-            )
-            .map_err(|_| Error::Crypto("exporter-aead content tag check failed".to_owned()))
+        decrypt_content_exporter_aead_standalone(history_secret, realm_id, nonce_and_ct, aad_bytes)
     }
 
     /// Return the retained `history_secret[from_epoch..=to_epoch]` subset a

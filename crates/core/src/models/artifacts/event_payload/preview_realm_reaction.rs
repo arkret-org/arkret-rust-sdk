@@ -234,7 +234,28 @@ pub struct RealmKeyScope {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_key_request_payload`.
+/// `spec/v1/artifacts/schemas/device-message.schema.json#/$defs/realm_key_request_scope`.
+///
+/// Request-flavoured scope: unlike [`RealmKeyScope`] (used by the durable
+/// share), `policy_digest` is an OPTIONAL requester hint (the key source MUST
+/// recompute effective policy) and `from_epoch` / `to_epoch` are REQUIRED (the
+/// requester always names the epoch range it wants).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmKeyRequestScope {
+    pub effective_scope: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_digest: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub membership_frontier_digest: Option<Value>,
+    pub from_epoch: u64,
+    pub to_epoch: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_visibility: Option<HistoryVisibilityValue>,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/device-message.schema.json#/$defs/realm_key_request_content`.
 ///
 /// Ephemeral `ck.realm_key.request` body: a device asks a provider to seal the
 /// retained `history_secret[from..to]` for a Realm to its HPKE public key so it
@@ -249,7 +270,7 @@ pub struct RealmKeyScope {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmKeyRequestPayload {
-    pub key_scope: RealmKeyScope,
+    pub key_scope: RealmKeyRequestScope,
     pub recipient_principal_id: Did,
     pub recipient_device_id: String,
     pub recipient_hpke_public_key: String,
@@ -319,6 +340,30 @@ pub struct RealmKeySharePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+}
+
+impl RealmKeySharePayload {
+    /// Canonical bytes the sender device MUST sign and place in
+    /// `sender_device_signature` (device-lifecycle.md §13). Covers
+    /// `sender_device_id`, recipient principal/device, `key_scope`,
+    /// `ciphertext` / `encrypted_key_ref`, `aad_digest` and `created_at` —
+    /// everything except the signature field itself. Signer and verifier MUST
+    /// reconstruct it byte-identically; the to-device receiver verifies this
+    /// independently of the durable Event-envelope signature.
+    pub fn sender_signing_input(&self) -> Vec<u8> {
+        let covered = serde_json::json!({
+            "purpose": "ck.realm_key.share.sender_device_signature.v1",
+            "sender_device_id": self.sender_device_id,
+            "recipient_principal_id": self.recipient_principal_id,
+            "recipient_device_id": self.recipient_device_id,
+            "key_scope": self.key_scope,
+            "ciphertext": self.ciphertext,
+            "encrypted_key_ref": self.encrypted_key_ref,
+            "aad_digest": self.aad_digest,
+            "created_at": self.created_at,
+        });
+        crate::canonical::canonical_json_bytes(&covered).unwrap_or_default()
+    }
 }
 
 /// Counterpart for
@@ -459,9 +504,20 @@ mod realm_key_request_tests {
         }
     }
 
+    fn request_scope() -> RealmKeyRequestScope {
+        RealmKeyRequestScope {
+            effective_scope: json!({}),
+            policy_digest: None,
+            membership_frontier_digest: None,
+            from_epoch: 0,
+            to_epoch: 4,
+            history_visibility: None,
+        }
+    }
+
     fn request(source: HistoryKeySource) -> RealmKeyRequestPayload {
         RealmKeyRequestPayload {
-            key_scope: scope(),
+            key_scope: request_scope(),
             recipient_principal_id: Did::new(
                 "did:webvh:example.test:users:01J0000000000000000000000A".to_owned(),
             )
