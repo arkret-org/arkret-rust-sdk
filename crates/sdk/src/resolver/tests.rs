@@ -970,6 +970,115 @@ fn strand_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
     assert_eq!(strand.tracks["review"].template.as_deref(), Some("Review"));
 }
 
+// ── SDK-ORG-05 (2026-06-25): ck.realm.organization composite cell subject ──
+// `ck.realm.organization` declares a tuple cell_subject
+// `(organization_id, relationship)`. Distinct pairs must form independent
+// CAS register cells so they never overwrite each other; only events sharing
+// the same `(organization_id, relationship)` compete under LWW.
+
+fn realm_organization_event(seq: u64, organization_id: &str, relationship: &str) -> Event {
+    event(
+        "ck.realm.organization",
+        seq,
+        json!({
+            "organization_id": organization_id,
+            "relationship": relationship,
+        }),
+    )
+}
+
+#[test]
+fn realm_organization_distinct_organizations_coexist() {
+    let org_a = "did:web:org-a.example.com";
+    let org_b = "did:web:org-b.example.com";
+    let ev_a = realm_organization_event(1, org_a, "member");
+    let ev_b = realm_organization_event(2, org_b, "member");
+
+    let mut state = RealmState::new(realm_id());
+    state.apply_events(&[ev_a, ev_b]).unwrap();
+
+    // Two independent cells; neither overwrites the other, no conflicts.
+    assert!(
+        state
+            .resolved_state
+            .contains_key(&format!("ck.realm.organization|{org_a}::member"))
+    );
+    assert!(
+        state
+            .resolved_state
+            .contains_key(&format!("ck.realm.organization|{org_b}::member"))
+    );
+    assert!(state.conflict_records.is_empty());
+}
+
+#[test]
+fn realm_organization_distinct_relationships_coexist() {
+    let org = "did:web:org-a.example.com";
+    let ev_member = realm_organization_event(1, org, "member");
+    let ev_partner = realm_organization_event(2, org, "partner");
+
+    let mut state = RealmState::new(realm_id());
+    state.apply_events(&[ev_member, ev_partner]).unwrap();
+
+    // Same organization, different relationship → independent cells.
+    assert!(
+        state
+            .resolved_state
+            .contains_key(&format!("ck.realm.organization|{org}::member"))
+    );
+    assert!(
+        state
+            .resolved_state
+            .contains_key(&format!("ck.realm.organization|{org}::partner"))
+    );
+    assert!(state.conflict_records.is_empty());
+}
+
+#[test]
+fn realm_organization_same_subject_replaces_under_lww() {
+    let org = "did:web:org-a.example.com";
+    let mut first = realm_organization_event(1, org, "member");
+    first.content = json!({
+        "organization_id": org,
+        "relationship": "member",
+        "label": "first"
+    });
+    let mut second = realm_organization_event(2, org, "member");
+    second.content = json!({
+        "organization_id": org,
+        "relationship": "member",
+        "label": "second"
+    });
+
+    let mut state = RealmState::new(realm_id());
+    // `second` has the higher HLC/seq, so it wins under the CAS-register LWW
+    // order. Apply out of order to confirm convergence.
+    state.apply_events(&[second, first]).unwrap();
+
+    let resolved = state
+        .resolved_state
+        .get(&format!("ck.realm.organization|{org}::member"))
+        .unwrap();
+    assert_eq!(resolved.content["label"], "second");
+    // A single cell keyed by the composite subject; the loser is a conflict.
+    assert_eq!(state.conflict_records.len(), 1);
+}
+
+#[test]
+fn realm_organization_requires_subject_fields() {
+    // Missing relationship must surface a protocol error, not a silent
+    // realm_id fallback.
+    let mut ev = realm_organization_event(1, "did:web:org-a.example.com", "member");
+    ev.content = json!({ "organization_id": "did:web:org-a.example.com" });
+
+    let mut state = RealmState::new(realm_id());
+    let err = state.apply_events(&[ev]).unwrap_err();
+    assert!(
+        err.to_string().contains("relationship"),
+        "unexpected error: {err}"
+    );
+}
+
 #[test]
 fn redaction_against_already_redacted_morph_rejects() {
     let morph_id = "ck:morph:01904100-0000-7000-8000-3fb50799ad61";

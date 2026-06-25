@@ -1056,6 +1056,145 @@ mod tests {
             .unwrap();
     }
 
+    fn realm_organization_active_payload() -> serde_json::Value {
+        json!({
+            "statement_id": "org-stmt-1",
+            "realm_id": "ck:realm:0196419b-0000-7000-8000-000000000010",
+            "organization_id": "did:webvh:example.test:orgs:org1",
+            "relationship": "owner",
+            "status": "active",
+            "control_scopes": ["official_badge", "realm_admin"],
+            "issued_at": "2026-06-25T00:00:00Z",
+            "authorization": {
+                "issuer": "did:webvh:example.test:orgs:org1",
+                "issuer_role": "organization_did",
+                "verification_method": "did:webvh:example.test:orgs:org1#k1",
+                "signed_at": "2026-06-25T00:00:00Z",
+                "proof": "c2ln"
+            }
+        })
+    }
+
+    /// SDK-ORG-03: the strong catalog MUST resolve `ck.realm.organization` to
+    /// the `realm_organization_payload` def (exact dispatch, no fallback to a
+    /// generic / legacy shape) and derive the 8 top-level required fields.
+    #[test]
+    fn strong_catalog_validates_realm_organization_relationship_statement() {
+        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        assert_eq!(
+            catalog.rules["ck.realm.organization"].payload_schema_id,
+            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/realm_organization_payload")
+        );
+        let required: BTreeSet<&str> = catalog.rules["ck.realm.organization"]
+            .required_fields
+            .iter()
+            .map(String::as_str)
+            .collect();
+        for field in [
+            "statement_id",
+            "realm_id",
+            "organization_id",
+            "relationship",
+            "status",
+            "control_scopes",
+            "issued_at",
+            "authorization",
+        ] {
+            assert!(required.contains(field), "missing required field {field}");
+        }
+
+        // Active positive case.
+        catalog
+            .validate_payload("ck.realm.organization", &realm_organization_active_payload())
+            .unwrap();
+
+        // Revoked positive case (carries revokes_statement_id).
+        let mut revoked = realm_organization_active_payload();
+        revoked["status"] = json!("revoked");
+        revoked["revokes_statement_id"] = json!("org-stmt-0");
+        catalog
+            .validate_payload("ck.realm.organization", &revoked)
+            .unwrap();
+    }
+
+    /// SDK-ORG-03 negative cases: each MUST be rejected by the strong schema.
+    #[test]
+    fn strong_catalog_rejects_invalid_realm_organization_statements() {
+        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+
+        // revoked status without revokes_statement_id.
+        let mut revoked_missing = realm_organization_active_payload();
+        revoked_missing["status"] = json!("revoked");
+        assert!(
+            catalog
+                .validate_payload("ck.realm.organization", &revoked_missing)
+                .is_err(),
+            "revoked without revokes_statement_id must fail"
+        );
+
+        // governance_service issuer without delegation_ref.
+        let mut gov_missing = realm_organization_active_payload();
+        gov_missing["authorization"]["issuer_role"] = json!("governance_service");
+        assert!(
+            catalog
+                .validate_payload("ck.realm.organization", &gov_missing)
+                .is_err(),
+            "governance_service without delegation_ref must fail"
+        );
+
+        // account_authority issuer without delegation_ref.
+        let mut acct_missing = realm_organization_active_payload();
+        acct_missing["authorization"]["issuer_role"] = json!("account_authority");
+        assert!(
+            catalog
+                .validate_payload("ck.realm.organization", &acct_missing)
+                .is_err(),
+            "account_authority without delegation_ref must fail"
+        );
+
+        // missing proof.
+        let mut no_proof = realm_organization_active_payload();
+        no_proof["authorization"]
+            .as_object_mut()
+            .unwrap()
+            .remove("proof");
+        assert!(
+            catalog
+                .validate_payload("ck.realm.organization", &no_proof)
+                .is_err(),
+            "missing authorization.proof must fail"
+        );
+
+        // bad relationship.
+        let mut bad_rel = realm_organization_active_payload();
+        bad_rel["relationship"] = json!("admin");
+        assert!(
+            catalog
+                .validate_payload("ck.realm.organization", &bad_rel)
+                .is_err(),
+            "invalid relationship must fail"
+        );
+
+        // bad control_scopes item.
+        let mut bad_scope = realm_organization_active_payload();
+        bad_scope["control_scopes"] = json!(["not_a_scope"]);
+        assert!(
+            catalog
+                .validate_payload("ck.realm.organization", &bad_scope)
+                .is_err(),
+            "invalid control_scopes item must fail"
+        );
+
+        // legacy singleton shape must be rejected (required fields missing).
+        let legacy = json!({ "organization_ref": "did:web:org.example" });
+        assert!(
+            catalog
+                .validate_payload("ck.realm.organization", &legacy)
+                .is_err(),
+            "legacy {{ organization_ref }} shape must fail"
+        );
+    }
+
     /// SDK-06-002 mitigation: the hand-written fallback allow-lists MUST stay
     /// lockstep with the `event-payload.schema.json` property sets, otherwise
     /// registry-absent clients warn on fields the strong schema accepts (or

@@ -541,7 +541,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(payload.recipient_principal_id, recipient.principal_id);
-        assert_eq!(payload.recipient_device_id, "acme-org-rrk-1");
+        assert_eq!(payload.recipient_device_id.as_deref(), Some("acme-org-rrk-1"));
         assert_eq!(payload.key_scope.from_epoch, Some(4));
         assert_eq!(payload.key_scope.to_epoch, Some(5));
 

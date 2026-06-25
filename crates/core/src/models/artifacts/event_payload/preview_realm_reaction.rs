@@ -217,6 +217,166 @@ pub struct RealmInheritancePolicyPayload {
     pub reason: Option<String>,
 }
 
+/// `relationship` discriminator for [`RealmOrganizationPayload`]
+/// (event-payload.schema.json `#/$defs/realm_organization_payload`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmOrganizationRelationship {
+    Owner,
+    Governance,
+    Sponsor,
+    DirectoryCertifier,
+}
+
+/// `status` discriminator for [`RealmOrganizationPayload`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmOrganizationStatus {
+    Active,
+    Revoked,
+}
+
+/// `control_scopes[]` item enum for [`RealmOrganizationPayload`]. A scope is an
+/// endorsement boundary only; actual Realm control still requires the matching
+/// Realm policy / notary / capability / service-binding event.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmOrganizationControlScope {
+    OfficialBadge,
+    RealmAdmin,
+    NotaryControl,
+    PolicyServer,
+    DeliveryBindingPolicy,
+    DurabilityPolicy,
+    ModerationPolicy,
+    RetentionPolicy,
+    DirectoryListing,
+    PlaintextVisibleService,
+}
+
+/// `authorization.issuer_role` enum for [`RealmOrganizationAuthorization`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmOrganizationIssuerRole {
+    OrganizationDid,
+    GovernanceService,
+    AccountAuthority,
+    ThresholdQuorum,
+}
+
+impl RealmOrganizationIssuerRole {
+    /// Roles whose statement MUST carry a `delegation_ref` resolving to a live
+    /// organization DID delegation (governance_service / account_authority).
+    pub fn requires_delegation_ref(self) -> bool {
+        matches!(self, Self::GovernanceService | Self::AccountAuthority)
+    }
+}
+
+/// Counterpart for the inner `authorization` object of
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_organization_payload`.
+///
+/// This is the organization-side authorization proof, independent of the
+/// Realm-side `ck.realm.admin` authorization required to write the event into
+/// Realm history.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmOrganizationAuthorization {
+    /// Organization DID or delegated service DID that issued this statement.
+    pub issuer: Did,
+    pub issuer_role: RealmOrganizationIssuerRole,
+    /// DID URL of a concrete verification method (bare DIDs are not valid).
+    pub verification_method: DidUrl,
+    /// REQUIRED when `issuer_role` is `governance_service` or
+    /// `account_authority`; MUST resolve to a live organization DID delegation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delegation_ref: Option<ObjectRef>,
+    /// Optional human admin / service principal that initiated the decision.
+    /// Does not become the organization principal.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub executed_by: Option<Did>,
+    pub signed_at: DateTime<Utc>,
+    /// Signature, threshold transcript, or governance-service attestation over
+    /// the canonical organization statement.
+    pub proof: SignatureMaterial,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_organization_payload`.
+///
+/// Organization-side endorsement or revocation for a Realm relationship. The
+/// reducer cell subject is `(organization_id, relationship)` — `statement_id`
+/// is audit identity, not the cell subject. Field order mirrors the spec schema
+/// `properties` ordering.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmOrganizationPayload {
+    /// Stable id of this organization statement (audit identity).
+    pub statement_id: String,
+    /// Realm the statement is bound to; MUST equal the enclosing
+    /// `Event.realm_id`.
+    pub realm_id: RealmId,
+    /// Organization principal DID that endorses / governs / sponsors /
+    /// certifies / revokes the Realm relationship.
+    pub organization_id: Did,
+    pub relationship: RealmOrganizationRelationship,
+    pub status: RealmOrganizationStatus,
+    /// Machine-readable scopes covered by the organization's consent
+    /// (non-empty, unique).
+    pub control_scopes: Vec<RealmOrganizationControlScope>,
+    pub issued_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_before: Option<DateTime<Utc>>,
+    /// Nullable expiry — `Some(None)` and absence both mean "no expiry".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supersedes_statement_id: Option<String>,
+    /// REQUIRED when `status == revoked`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revokes_statement_id: Option<String>,
+    /// Optional digest of the Realm control frontier the organization evaluated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_frontier_digest: Option<Hash>,
+    /// Optional DID-document delegation URL / policy object / governance
+    /// decision / attestation reference.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub organization_policy_ref: Option<ObjectRef>,
+    pub authorization: RealmOrganizationAuthorization,
+}
+
+impl RealmOrganizationPayload {
+    /// `true` when the statement asserts the relationship (not a revocation).
+    pub fn is_active_status(&self) -> bool {
+        matches!(self.status, RealmOrganizationStatus::Active)
+    }
+
+    /// `true` when the statement revokes the relationship.
+    pub fn is_revoked_status(&self) -> bool {
+        matches!(self.status, RealmOrganizationStatus::Revoked)
+    }
+
+    /// `true` when `not_before` is set and lies strictly after `now` (the
+    /// statement is not yet within its validity window).
+    pub fn is_not_yet_valid(&self, now: DateTime<Utc>) -> bool {
+        self.not_before.is_some_and(|nbf| now < nbf)
+    }
+
+    /// `true` when `expires_at` is set and lies at or before `now`.
+    pub fn is_expired(&self, now: DateTime<Utc>) -> bool {
+        self.expires_at.is_some_and(|exp| now >= exp)
+    }
+
+    /// `true` when the statement is an `active` relationship currently inside
+    /// its validity window (`not_before <= now < expires_at`).
+    pub fn is_effective_active(&self, now: DateTime<Utc>) -> bool {
+        self.is_active_status() && !self.is_not_yet_valid(now) && !self.is_expired(now)
+    }
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_key_scope`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -585,5 +745,99 @@ mod realm_key_request_tests {
         let mut bad = request(HistoryKeySource::OwnDevice);
         bad.recipient_hpke_public_key = "   ".to_owned();
         assert!(bad.validate().is_err());
+    }
+}
+
+#[cfg(test)]
+mod realm_organization_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn active_value() -> serde_json::Value {
+        json!({
+            "statement_id": "org-stmt-1",
+            "realm_id": "ck:realm:0196419b-0000-7000-8000-000000000010",
+            "organization_id": "did:webvh:example.test:orgs:01J0000000000000000000000A",
+            "relationship": "owner",
+            "status": "active",
+            "control_scopes": ["official_badge", "realm_admin"],
+            "issued_at": "2026-06-25T00:00:00Z",
+            "authorization": {
+                "issuer": "did:webvh:example.test:orgs:01J0000000000000000000000A",
+                "issuer_role": "organization_did",
+                "verification_method": "did:webvh:example.test:orgs:01J0000000000000000000000A#k1",
+                "signed_at": "2026-06-25T00:00:00Z",
+                "proof": "c2ln"
+            }
+        })
+    }
+
+    #[test]
+    fn active_payload_round_trips_and_enum_renames_match_spec() {
+        let value = active_value();
+        let payload: RealmOrganizationPayload = serde_json::from_value(value.clone()).unwrap();
+        assert!(payload.is_active_status());
+        assert_eq!(payload.relationship, RealmOrganizationRelationship::Owner);
+        assert_eq!(
+            payload.control_scopes,
+            vec![
+                RealmOrganizationControlScope::OfficialBadge,
+                RealmOrganizationControlScope::RealmAdmin
+            ]
+        );
+        let reserialized = serde_json::to_value(&payload).unwrap();
+        assert_eq!(reserialized["status"], json!("active"));
+        assert_eq!(reserialized["relationship"], json!("owner"));
+        assert_eq!(
+            reserialized["authorization"]["issuer_role"],
+            json!("organization_did")
+        );
+        // Optional/absent fields must not be emitted.
+        assert!(reserialized.get("expires_at").is_none());
+        assert!(reserialized.get("revokes_statement_id").is_none());
+    }
+
+    #[test]
+    fn validity_window_helpers() {
+        let now = DateTime::parse_from_rfc3339("2026-06-25T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut payload: RealmOrganizationPayload =
+            serde_json::from_value(active_value()).unwrap();
+        assert!(payload.is_effective_active(now));
+
+        payload.not_before = Some(
+            DateTime::parse_from_rfc3339("2026-06-26T00:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        );
+        assert!(payload.is_not_yet_valid(now));
+        assert!(!payload.is_effective_active(now));
+
+        payload.not_before = None;
+        payload.expires_at = Some(
+            DateTime::parse_from_rfc3339("2026-06-25T06:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        );
+        assert!(payload.is_expired(now));
+        assert!(!payload.is_effective_active(now));
+    }
+
+    #[test]
+    fn issuer_role_delegation_requirement() {
+        assert!(RealmOrganizationIssuerRole::GovernanceService.requires_delegation_ref());
+        assert!(RealmOrganizationIssuerRole::AccountAuthority.requires_delegation_ref());
+        assert!(!RealmOrganizationIssuerRole::OrganizationDid.requires_delegation_ref());
+        assert!(!RealmOrganizationIssuerRole::ThresholdQuorum.requires_delegation_ref());
+    }
+
+    #[test]
+    fn legacy_organization_ref_shape_fails_to_deserialize() {
+        // The pre-migration singleton shape `{ "organization_ref": ... }` must
+        // not deserialize into the relationship-statement strong type.
+        let legacy = json!({ "organization_ref": "did:web:org.example" });
+        assert!(serde_json::from_value::<RealmOrganizationPayload>(legacy).is_err());
     }
 }

@@ -105,10 +105,30 @@ impl RealmState {
                 .ok_or_else(|| {
                     Error::Protocol("read marker requires scope or target_ref".to_owned())
                 }),
+            // `ck.realm.organization` declares a tuple `cell_subject`
+            // `(organization_id, relationship)`; it is keyed by that composite
+            // subject (matching the lattice registry `::` separator), NOT by
+            // realm_id, so distinct organization/relationship statements coexist.
+            "ck.realm.organization" => {
+                let organization_id = self
+                    .extract_optional_field::<String>(&event.content, "organization_id")
+                    .ok_or_else(|| {
+                        Error::Protocol(
+                            "realm organization event requires payload.organization_id".to_owned(),
+                        )
+                    })?;
+                let relationship = self
+                    .extract_optional_field::<String>(&event.content, "relationship")
+                    .ok_or_else(|| {
+                        Error::Protocol(
+                            "realm organization event requires payload.relationship".to_owned(),
+                        )
+                    })?;
+                Ok(format!("{organization_id}::{relationship}"))
+            }
             // Realm lifecycle events use the realm_id as state key.
             "ck.realm.create"
             | "ck.realm.update"
-            | "ck.realm.organization"
             | "ck.realm.link"
             | "ck.realm.inheritance_policy"
             | "ck.realm.join_rule"

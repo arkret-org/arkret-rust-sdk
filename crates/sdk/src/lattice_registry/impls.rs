@@ -813,14 +813,52 @@ singleton_lattice!(
     &["ck.realm.discovery"]
 );
 
-singleton_lattice!(
-    RealmOrganization,
-    "ck.component.realm.organization.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.organization"]
-);
+// `ck.realm.organization` declares a tuple `cell_subject`:
+// `(organization_id = payload.organization_id, relationship = payload.relationship)`.
+// It is NOT a singleton keyed by realm_id; distinct (organization_id, relationship)
+// pairs must form independent CAS register cells so they cannot overwrite each other.
+pub struct RealmOrganization;
+impl LatticeKind for RealmOrganization {
+    fn cell_family(&self) -> &'static str {
+        "ck.component.realm.organization.v1"
+    }
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::CasRegister
+    }
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: "ck.component.realm.organization.v1",
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        let organization_id = effect_payload
+            .get("organization_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: "ck.component.realm.organization.v1",
+                field: "organization_id",
+            })?;
+        let relationship = effect_payload
+            .get("relationship")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: "ck.component.realm.organization.v1",
+                field: "relationship",
+            })?;
+        Ok(Some(format!("{organization_id}::{relationship}")))
+    }
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["ck.realm.organization"]
+    }
+}
 
 singleton_lattice!(
     RealmArchive,
