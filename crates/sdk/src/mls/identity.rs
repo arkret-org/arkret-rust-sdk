@@ -179,6 +179,8 @@ impl CokretMlsIdentity {
         Ok(CokretMlsGroup {
             identity: self,
             group,
+            history_secrets: BTreeMap::new(),
+            content_nonce_counter: 0,
         })
     }
 
@@ -220,6 +222,8 @@ impl CokretMlsIdentity {
         Ok(CokretMlsGroup {
             identity: self,
             group,
+            history_secrets: BTreeMap::new(),
+            content_nonce_counter: 0,
         })
     }
 }

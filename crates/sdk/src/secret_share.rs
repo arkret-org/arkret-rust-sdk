@@ -13,7 +13,14 @@
 //! opened by the client crypto layer (HPKE RFC 9180); it never appears on the
 //! wire in cleartext.
 
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
+use chacha20poly1305::XChaCha20Poly1305;
+use cokret_core::base64url::{base64url_decode, base64url_encode};
+use hkdf::Hkdf;
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
+use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
+use zeroize::Zeroize;
 
 use crate::{DeviceId, Error, Result};
 
@@ -126,6 +133,165 @@ impl SecretShareSendContent {
     }
 }
 
+// ─── HPKE-style history-secret sealing ───────────────────────────────────────
+//
+// Seals a retained `history_secret[from..to]` map to a recipient device's
+// X25519 public key so it can decrypt pre-join content. This is the payload that
+// rides inside a `ck.realm_key.share` `ciphertext` for the history-sharing flow.
+//
+// Scheme (matches the [`HPKE_SECRET_SHARE_SCHEME`] label
+// `ck.hpke_x25519_aead_xchacha20poly1305.v1`): a fresh ephemeral X25519 keypair
+// is generated per seal; the DH(ephemeral_priv, recipient_pub) shared secret is
+// stretched with HKDF-SHA256 (salt = ephemeral_pub || recipient_pub, info =
+// scheme label) into a 32-byte XChaCha20-Poly1305 key; the secret list is
+// AEAD-sealed under a zero nonce (safe because the key is single-use per
+// ephemeral keypair). The wire blob is `base64url(ephemeral_pub(32) ||
+// ciphertext)`.
+
+/// HKDF info / AEAD-AAD domain separator for the history-secret seal.
+const HISTORY_SEAL_INFO: &[u8] = b"ck-realm-history-secret-share-v1";
+
+fn history_seal_key(
+    shared_secret: &[u8; 32],
+    ephemeral_pub: &[u8; 32],
+    recipient_pub: &[u8; 32],
+) -> Result<[u8; 32]> {
+    let mut salt = Vec::with_capacity(64);
+    salt.extend_from_slice(ephemeral_pub);
+    salt.extend_from_slice(recipient_pub);
+    let hkdf = Hkdf::<Sha256>::new(Some(&salt), shared_secret);
+    let mut key = [0u8; 32];
+    hkdf.expand(HISTORY_SEAL_INFO, &mut key)
+        .map_err(|_| Error::Crypto("history-seal key derivation failed".to_owned()))?;
+    Ok(key)
+}
+
+/// Canonical plaintext encoding of `[(epoch, secret)]`: JSON array of
+/// `[epoch, base64url(secret)]` pairs, deterministically ordered by epoch.
+fn encode_history_secrets(history_secrets: &[(u64, Vec<u8>)]) -> Vec<u8> {
+    let mut sorted: Vec<&(u64, Vec<u8>)> = history_secrets.iter().collect();
+    sorted.sort_by_key(|(epoch, _)| *epoch);
+    let rows: Vec<(u64, String)> = sorted
+        .into_iter()
+        .map(|(epoch, secret)| (*epoch, base64url_encode(secret)))
+        .collect();
+    // serde_json over a Vec of tuples is infallible for these types.
+    serde_json::to_vec(&rows).expect("history-secret rows serialize")
+}
+
+fn decode_history_secrets(plaintext: &[u8]) -> Result<Vec<(u64, Vec<u8>)>> {
+    let rows: Vec<(u64, String)> = serde_json::from_slice(plaintext).map_err(|err| {
+        Error::Protocol(format!("history-secret seal plaintext decode: {err}"))
+    })?;
+    let mut out = Vec::with_capacity(rows.len());
+    for (epoch, secret_b64) in rows {
+        out.push((epoch, base64url_decode(secret_b64.as_bytes())?));
+    }
+    Ok(out)
+}
+
+/// HPKE-seal the retained `history_secrets` to `recipient_pubkey` (raw 32-byte
+/// X25519 public key). Returns the `base64url(ephemeral_pub || ciphertext)`
+/// blob to place in `ck.realm_key.share.ciphertext`.
+pub fn seal_history_secret_to_device_pubkey(
+    recipient_pubkey: &[u8],
+    history_secrets: &[(u64, Vec<u8>)],
+) -> Result<String> {
+    let recipient_pub: [u8; 32] = recipient_pubkey.try_into().map_err(|_| {
+        Error::Protocol(format!(
+            "recipient HPKE public key must be 32 bytes, got {}",
+            recipient_pubkey.len()
+        ))
+    })?;
+    let recipient_public = X25519PublicKey::from(recipient_pub);
+
+    // Fresh ephemeral keypair from OS randomness (mirrors key_agreement.rs).
+    let mut seed = [0u8; 32];
+    getrandom::fill(&mut seed).map_err(|error| Error::Crypto(error.to_string()))?;
+    let ephemeral = StaticSecret::from(seed);
+    seed.zeroize();
+    let ephemeral_public = X25519PublicKey::from(&ephemeral);
+    let ephemeral_pub = *ephemeral_public.as_bytes();
+
+    let shared = ephemeral.diffie_hellman(&recipient_public);
+    if shared.as_bytes().iter().all(|b| *b == 0) {
+        return Err(Error::Protocol(
+            "history-seal x25519 shared secret must not be all zero".to_owned(),
+        ));
+    }
+    let key = history_seal_key(shared.as_bytes(), &ephemeral_pub, &recipient_pub)?;
+
+    let plaintext = encode_history_secrets(history_secrets);
+    let cipher = XChaCha20Poly1305::new_from_slice(&key)
+        .map_err(|_| Error::Crypto("invalid history-seal AEAD key".to_owned()))?;
+    let nonce = [0u8; 24];
+    let ciphertext = cipher
+        .encrypt(
+            &nonce.into(),
+            Payload {
+                msg: &plaintext,
+                aad: HISTORY_SEAL_INFO,
+            },
+        )
+        .map_err(|_| Error::Crypto("history-seal AEAD encryption failed".to_owned()))?;
+
+    let mut blob = Vec::with_capacity(32 + ciphertext.len());
+    blob.extend_from_slice(&ephemeral_pub);
+    blob.extend_from_slice(&ciphertext);
+    Ok(base64url_encode(blob))
+}
+
+/// Open a blob produced by [`seal_history_secret_to_device_pubkey`] with the
+/// recipient device's raw 32-byte X25519 private key, recovering the
+/// `[(epoch, history_secret)]` list.
+pub fn open_history_secret_with_device_privkey(
+    privkey: &[u8],
+    sealed: &str,
+) -> Result<Vec<(u64, Vec<u8>)>> {
+    let privkey: [u8; 32] = privkey.try_into().map_err(|_| {
+        Error::Protocol(format!(
+            "recipient HPKE private key must be 32 bytes, got {}",
+            privkey.len()
+        ))
+    })?;
+    let recipient_secret = StaticSecret::from(privkey);
+    let recipient_pub = *X25519PublicKey::from(&recipient_secret).as_bytes();
+
+    let blob = base64url_decode(sealed.as_bytes())?;
+    if blob.len() <= 32 {
+        return Err(Error::Protocol(
+            "history-seal blob too short to contain ephemeral key + ciphertext".to_owned(),
+        ));
+    }
+    let mut ephemeral_pub = [0u8; 32];
+    ephemeral_pub.copy_from_slice(&blob[..32]);
+    let ciphertext = &blob[32..];
+
+    let ephemeral_public = X25519PublicKey::from(ephemeral_pub);
+    let shared = recipient_secret.diffie_hellman(&ephemeral_public);
+    if shared.as_bytes().iter().all(|b| *b == 0) {
+        return Err(Error::Protocol(
+            "history-seal x25519 shared secret must not be all zero".to_owned(),
+        ));
+    }
+    let key = history_seal_key(shared.as_bytes(), &ephemeral_pub, &recipient_pub)?;
+
+    let cipher = XChaCha20Poly1305::new_from_slice(&key)
+        .map_err(|_| Error::Crypto("invalid history-seal AEAD key".to_owned()))?;
+    let nonce = [0u8; 24];
+    let plaintext = cipher
+        .decrypt(
+            &nonce.into(),
+            Payload {
+                msg: ciphertext,
+                aad: HISTORY_SEAL_INFO,
+            },
+        )
+        .map_err(|_| Error::Crypto("history-seal AEAD tag check failed".to_owned()))?;
+
+    decode_history_secrets(&plaintext)
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -169,6 +335,44 @@ mod tests {
         let mut bad = content;
         bad.scheme = "mls-rfc9420".to_owned();
         assert!(bad.validate().is_err());
+    }
+
+    #[test]
+    fn history_secret_seal_round_trips() {
+        // Deterministic recipient keypair.
+        let recipient_priv = StaticSecret::from([7u8; 32]);
+        let recipient_pub = *X25519PublicKey::from(&recipient_priv).as_bytes();
+
+        let secrets: Vec<(u64, Vec<u8>)> = vec![
+            (0, vec![0xAA; 32]),
+            (3, vec![0xBB; 32]),
+            (7, vec![0xCC; 32]),
+        ];
+
+        let sealed = seal_history_secret_to_device_pubkey(&recipient_pub, &secrets).unwrap();
+        let opened = open_history_secret_with_device_privkey(
+            recipient_priv.to_bytes().as_slice(),
+            &sealed,
+        )
+        .unwrap();
+        assert_eq!(opened, secrets);
+    }
+
+    #[test]
+    fn history_secret_seal_rejects_wrong_recipient_and_tamper() {
+        let recipient_priv = StaticSecret::from([7u8; 32]);
+        let recipient_pub = *X25519PublicKey::from(&recipient_priv).as_bytes();
+        let secrets = vec![(1u64, vec![0x11; 32])];
+        let sealed = seal_history_secret_to_device_pubkey(&recipient_pub, &secrets).unwrap();
+
+        // Wrong private key → AEAD tag check fails.
+        let wrong = StaticSecret::from([9u8; 32]);
+        assert!(
+            open_history_secret_with_device_privkey(wrong.to_bytes().as_slice(), &sealed).is_err()
+        );
+
+        // Bad recipient pubkey length is rejected up front.
+        assert!(seal_history_secret_to_device_pubkey(&[0u8; 31], &secrets).is_err());
     }
 
     #[test]

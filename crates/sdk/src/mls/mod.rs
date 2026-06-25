@@ -1155,4 +1155,101 @@ mod tests {
         assert_eq!(op.object_type, "mls_commit");
         assert!(op.object_id.unwrap().contains(&result.commit.group_id));
     }
+
+    // ── mls-exporter-aead-v1 content scheme ──────────────────────────────────
+
+    const HISTORY_REALM: &str = "ck:realm:01904100-0000-7000-8000-e2eeae0d0001";
+
+    fn exporter_aead_founder() -> CokretMlsGroup {
+        let alice = CokretMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000ae01").unwrap(),
+        )
+        .unwrap();
+        alice
+            .create_group(b"ck:realm:01904100-0000-7000-8000-e2eeae0d0001")
+            .unwrap()
+    }
+
+    #[test]
+    fn exporter_aead_content_round_trips_for_local_epoch() {
+        let mut group = exporter_aead_founder();
+        let aad = b"event-binding-aad";
+        let plaintext = b"hello encrypted history";
+
+        let sealed = group
+            .encrypt_content_exporter_aead(HISTORY_REALM, aad, plaintext)
+            .unwrap();
+        // The retained history_secret for the current epoch decrypts it.
+        let history_secret = group
+            .derive_and_retain_history_secret(HISTORY_REALM)
+            .unwrap();
+        let recovered = group
+            .decrypt_content_exporter_aead(&history_secret, HISTORY_REALM, &sealed, aad)
+            .unwrap();
+        assert_eq!(recovered, plaintext);
+
+        // Wrong AAD fails the tag check.
+        assert!(
+            group
+                .decrypt_content_exporter_aead(&history_secret, HISTORY_REALM, &sealed, b"other")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn provider_retains_epoch_secret_and_receiver_decrypts_via_share() {
+        // Provider encrypts content at epoch N and retains history_secret[N].
+        let mut provider = exporter_aead_founder();
+        let epoch_n = provider.epoch();
+        let aad = b"history-share-aad";
+        let plaintext = b"pre-join secret content";
+        let sealed = provider
+            .encrypt_content_exporter_aead(HISTORY_REALM, aad, plaintext)
+            .unwrap();
+
+        // Provider exports the retained secret range to seal for a joiner.
+        let range = provider.export_history_secret_range(epoch_n, epoch_n);
+        assert_eq!(range.len(), 1);
+        assert_eq!(range[0].0, epoch_n);
+
+        // Receiver device keypair; provider HPKE-seals the range to its pubkey.
+        let receiver_priv = x25519_dalek::StaticSecret::from([42u8; 32]);
+        let receiver_pub =
+            *x25519_dalek::PublicKey::from(&receiver_priv).as_bytes();
+        let share_ciphertext =
+            crate::secret_share::seal_history_secret_to_device_pubkey(&receiver_pub, &range)
+                .unwrap();
+
+        // Receiver unseals and recovers history_secret[N]...
+        let installed = crate::secret_share::open_history_secret_with_device_privkey(
+            receiver_priv.to_bytes().as_slice(),
+            &share_ciphertext,
+        )
+        .unwrap();
+        assert_eq!(installed, range);
+        let history_secret_n = &installed[0].1;
+
+        // ...and decrypts the epoch-N content with it. A fresh group view (no
+        // ratchet access to epoch N) decrypts purely from the shared secret.
+        let receiver_group = exporter_aead_founder();
+        let recovered = receiver_group
+            .decrypt_content_exporter_aead(history_secret_n, HISTORY_REALM, &sealed, aad)
+            .unwrap();
+        assert_eq!(recovered, plaintext);
+    }
+
+    #[test]
+    fn history_secret_persists_across_state_snapshot_reload() {
+        let mut group = exporter_aead_founder();
+        let secret = group
+            .derive_and_retain_history_secret(HISTORY_REALM)
+            .unwrap();
+        let epoch = group.epoch();
+
+        let record = group.export_state_record().unwrap();
+        let reloaded = CokretMlsGroup::restore_from_state_record(&record).unwrap();
+        let range = reloaded.export_history_secret_range(epoch, epoch);
+        assert_eq!(range, vec![(epoch, secret)]);
+    }
 }

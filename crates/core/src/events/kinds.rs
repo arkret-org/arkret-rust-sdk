@@ -166,6 +166,10 @@ pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[
     KEY_VERIFICATION_START,
     SECRET_REQUEST,
     SECRET_SEND,
+    // ck.realm_key.request — point-to-point to-device history-key request,
+    // relayed to the target source (device-lifecycle.md §13.2); ephemeral,
+    // never a reducer-input durable event.
+    REALM_KEY_REQUEST,
 ];
 
 /// True for the wire-scope-ephemeral kinds — broadcast ephemerals
@@ -257,6 +261,7 @@ pub const REALM_FREEZE: &str = "ck.realm.freeze";
 pub const REALM_HISTORY_SHARING_POLICY: &str = "ck.realm.history_sharing_policy";
 pub const REALM_HISTORY_VISIBILITY: &str = "ck.realm.history_visibility";
 pub const REALM_INHERITANCE_POLICY: &str = "ck.realm.inheritance_policy";
+pub const REALM_KEY_REQUEST: &str = "ck.realm_key.request";
 pub const REALM_KEY_SHARE: &str = "ck.realm_key.share";
 pub const REALM_KEY_SHARE_AUDIT: &str = "ck.realm_key.share_audit";
 pub const REALM_KEY_WITHHELD: &str = "ck.realm_key.withheld";
@@ -467,6 +472,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     REALM_TOMBSTONE,
     REALM_UPDATE,
     REALM_UPGRADE,
+    REALM_KEY_REQUEST,
     REALM_KEY_SHARE,
     REALM_KEY_SHARE_AUDIT,
     REALM_KEY_WITHHELD,
@@ -690,6 +696,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | MLS_KEYPACKAGE
         | MLS_PROPOSAL
         | MLS_WELCOME
+        | REALM_KEY_REQUEST
         | REALM_KEY_SHARE
         | REALM_KEY_SHARE_AUDIT
         | REALM_KEY_WITHHELD => EventClass::E2ee,

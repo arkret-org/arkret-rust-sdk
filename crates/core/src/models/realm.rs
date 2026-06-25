@@ -42,6 +42,12 @@ pub struct Realm {
     pub default_join_rule: JoinRule,
     pub history_visibility: HistoryVisibility,
     pub encryption_profile: EncryptionProfile,
+    /// Content AEAD scheme selector. `Some("mls-exporter-aead-v1")` opts the
+    /// Realm into exporter-derived history-shareable content encryption;
+    /// `None` keeps the legacy per-epoch `mls-rfc9420` PrivateMessage path.
+    /// Additive — absent in existing genesis payloads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_scheme: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_encryption_floor: Option<EncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -196,6 +202,7 @@ impl Realm {
             default_join_rule: JoinRule::Invite,
             history_visibility: HistoryVisibility::Joined,
             encryption_profile: EncryptionProfile::None,
+            content_scheme: None,
             content_encryption_floor: Some(EncryptionFloor::AllowPlaintext),
             metadata_encryption_floor: Some(EncryptionFloor::AllowPlaintext),
             federation_policy: None,

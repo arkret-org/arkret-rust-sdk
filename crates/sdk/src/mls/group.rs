@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
+use chacha20poly1305::XChaCha20Poly1305;
 use chrono::Utc;
 use cokret_core::{base64url_decode, base64url_encode};
+use hkdf::Hkdf;
 use openmls::prelude::{
     BasicCredential, Capabilities, CredentialWithKey, Extension, ExtensionType, Extensions,
     GroupContext, GroupId, LeafNodeIndex, LeafNodeParameters, MlsGroup, MlsGroupJoinConfig,
@@ -26,9 +29,35 @@ use crate::{
 
 const COKRET_OPENMLS_STATE_SNAPSHOT: &str = "cokret-openmls-provider-state-v1";
 
+/// `mls-exporter-aead-v1` content scheme id (spec encryption-and-audit §10.1).
+pub const MLS_EXPORTER_AEAD_CONTENT_SCHEME: &str = "mls-exporter-aead-v1";
+/// AAD / nonce-context `purpose` for the exporter-aead content scheme.
+pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
+/// MLS exporter label for the per-epoch history secret.
+const HISTORY_SECRET_LABEL: &str = "ck-history-v1";
+/// HKDF-Expand label deriving the content key from the history secret.
+const CONTENT_KEY_LABEL: &str = "ck-content-v1";
+/// XChaCha20-Poly1305 key length, `AEAD.Nk`.
+const CONTENT_AEAD_KEY_LEN: usize = 32;
+/// XChaCha20-Poly1305 nonce length (24 bytes; §10.1 prefix || counter_be64).
+const CONTENT_AEAD_NONCE_LEN: usize = 24;
+
 pub struct CokretMlsGroup {
     pub(super) identity: CokretMlsIdentity,
     pub(super) group: MlsGroup,
+    /// Per-epoch MLS exporter `history_secret[N]` retained for the
+    /// `mls-exporter-aead-v1` content scheme. OpenMLS only evaluates
+    /// `export_secret` against the *current* epoch, so a `history_secret`
+    /// must be derived (via [`Self::derive_and_retain_history_secret`]) at
+    /// the time the group is at epoch `N` and kept here so it can later be
+    /// used to decrypt epoch-`N` content or be HPKE-sealed for a joiner.
+    /// Empty by default; persisted across reload via [`OpenMlsStateSnapshot`].
+    pub(super) history_secrets: BTreeMap<u64, Vec<u8>>,
+    /// Monotonic per-device AEAD nonce counter for the `mls-exporter-aead-v1`
+    /// content scheme (`encoding §10.1`: `device_nonce_counter_be64`).
+    /// In-memory only; never reused within an epoch because the counter only
+    /// ever advances.
+    pub(super) content_nonce_counter: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -92,6 +121,20 @@ struct OpenMlsStateSnapshot {
     device_id: DeviceId,
     signer_public_key: String,
     storage_entries: BTreeMap<String, String>,
+    /// Retained per-epoch `history_secret[N]` (decimal epoch → base64url
+    /// secret bytes). Defaults to empty for snapshots written before the
+    /// `mls-exporter-aead-v1` content scheme existed.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    history_secrets: BTreeMap<String, String>,
+    /// Persisted monotonic content AEAD nonce counter so a reloaded group
+    /// never re-emits a `(sender_nonce_prefix, counter)` pair. Defaults to 0
+    /// for snapshots written before the content scheme existed.
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    content_nonce_counter: u64,
+}
+
+fn is_zero_u64(value: &u64) -> bool {
+    *value == 0
 }
 
 impl MlsAddMemberResult {
@@ -284,6 +327,157 @@ impl CokretMlsGroup {
             .map_err(mls_error)
     }
 
+    // ── `mls-exporter-aead-v1` history-shareable content scheme ──────────────
+    //
+    // The content key for epoch `N` is derived purely from the MLS exporter at
+    // that epoch:
+    //   history_secret[N] = MLS-Exporter("ck-history-v1", realm_id, 32)
+    //   K_content[N]      = HKDF-Expand(history_secret[N], "ck-content-v1", 32)
+    // Content is XChaCha20-Poly1305 over (nonce, aad, plaintext) with the §10.1
+    // nonce `sender_nonce_prefix || counter_be64`. Because `history_secret[N]`
+    // is reproducible from `history_secret` alone (no ratchet state), a provider
+    // can HPKE-seal a retained `history_secret[N]` to a joiner who can then
+    // decrypt every epoch-`N` message — the basis of encrypted history sharing.
+
+    /// Derive `history_secret[N]` for the **current** epoch and retain it for
+    /// later history sharing / decryption, returning the 32-byte secret.
+    ///
+    /// OpenMLS only evaluates `export_secret` against the current epoch, so this
+    /// MUST be called while the group is at epoch `N` (e.g. right after each
+    /// commit) for the secret to be recoverable afterwards. Idempotent within an
+    /// epoch: re-deriving overwrites with the identical value.
+    pub fn derive_and_retain_history_secret(&mut self, realm_id: &str) -> Result<Vec<u8>> {
+        let secret = self.export_secret(HISTORY_SECRET_LABEL, realm_id.as_bytes(), 32)?;
+        self.history_secrets.insert(self.epoch(), secret.clone());
+        Ok(secret)
+    }
+
+    /// Encrypt `plaintext` for the current epoch under the `mls-exporter-aead-v1`
+    /// content scheme, returning `nonce || ciphertext` (the 24-byte XChaCha
+    /// nonce prepended so the receiver decrypt path is self-describing).
+    ///
+    /// Side effects: derives + retains `history_secret[epoch]` (so the sender can
+    /// later re-decrypt or share it) and advances the device nonce counter.
+    /// `aad_bytes` is bound verbatim into the AEAD AAD together with the key_ref,
+    /// ciphertext purpose and nonce per §10.1.
+    pub fn encrypt_content_exporter_aead(
+        &mut self,
+        realm_id: &str,
+        aad_bytes: &[u8],
+        plaintext: &[u8],
+    ) -> Result<Vec<u8>> {
+        let history_secret = self.derive_and_retain_history_secret(realm_id)?;
+        let content_key = derive_content_key(&history_secret)?;
+
+        let epoch = self.epoch();
+        let counter = self.content_nonce_counter;
+        let nonce = self.content_aead_nonce(realm_id, epoch, counter)?;
+
+        let aad = content_aead_aad(realm_id, &nonce, aad_bytes)?;
+        let nonce_arr = content_nonce_array(&nonce)?;
+        let cipher = content_cipher(&content_key)?;
+        let ciphertext = cipher
+            .encrypt(
+                &nonce_arr.into(),
+                Payload {
+                    msg: plaintext,
+                    aad: &aad,
+                },
+            )
+            .map_err(|_| Error::Crypto("exporter-aead content encryption failed".to_owned()))?;
+
+        self.content_nonce_counter = self
+            .content_nonce_counter
+            .checked_add(1)
+            .ok_or_else(|| Error::Crypto("content nonce counter overflow".to_owned()))?;
+
+        let mut out = Vec::with_capacity(nonce.len() + ciphertext.len());
+        out.extend_from_slice(&nonce);
+        out.extend_from_slice(&ciphertext);
+        Ok(out)
+    }
+
+    /// Decrypt content produced by [`Self::encrypt_content_exporter_aead`] using
+    /// a supplied `history_secret` (e.g. one retained locally for the sender's
+    /// own epoch, or unsealed from a `ck.realm_key.share`). `nonce_and_ct` is the
+    /// `nonce || ciphertext` blob; `aad_bytes` MUST be byte-identical to the AAD
+    /// passed at encrypt time. Takes `&self` — it does not touch ratchet state.
+    pub fn decrypt_content_exporter_aead(
+        &self,
+        history_secret: &[u8],
+        realm_id: &str,
+        nonce_and_ct: &[u8],
+        aad_bytes: &[u8],
+    ) -> Result<Vec<u8>> {
+        if nonce_and_ct.len() <= CONTENT_AEAD_NONCE_LEN {
+            return Err(Error::Protocol(
+                "exporter-aead content too short to contain nonce + ciphertext".to_owned(),
+            ));
+        }
+        let (nonce, ciphertext) = nonce_and_ct.split_at(CONTENT_AEAD_NONCE_LEN);
+        let content_key = derive_content_key(history_secret)?;
+        let aad = content_aead_aad(realm_id, nonce, aad_bytes)?;
+        let nonce_arr = content_nonce_array(nonce)?;
+        let cipher = content_cipher(&content_key)?;
+        cipher
+            .decrypt(
+                &nonce_arr.into(),
+                Payload {
+                    msg: ciphertext,
+                    aad: &aad,
+                },
+            )
+            .map_err(|_| Error::Crypto("exporter-aead content tag check failed".to_owned()))
+    }
+
+    /// Return the retained `history_secret[from_epoch..=to_epoch]` subset a
+    /// provider seals into a `ck.realm_key.share`. Epochs outside the retained
+    /// range (never derived, or pruned) are simply absent from the result.
+    pub fn export_history_secret_range(
+        &self,
+        from_epoch: u64,
+        to_epoch: u64,
+    ) -> Vec<(u64, Vec<u8>)> {
+        self.history_secrets
+            .range(from_epoch..=to_epoch)
+            .map(|(epoch, secret)| (*epoch, secret.clone()))
+            .collect()
+    }
+
+    /// Compose the §10.1 content nonce for `(epoch, counter)`: the sender prefix
+    /// is taken from the MLS exporter so it is bound to this device + epoch +
+    /// purpose, followed by the big-endian counter.
+    fn content_aead_nonce(&self, realm_id: &str, epoch: u64, counter: u64) -> Result<Vec<u8>> {
+        let context = self.content_nonce_context(realm_id, epoch);
+        let context_bytes = crate::crypto::aead_sender_nonce_context_bytes(&context)?;
+        // Derive the sender_nonce_prefix from the MLS exporter (live MLS path),
+        // mirroring `crypto::derive_aead_sender_nonce_prefix`'s exporter input.
+        let mut info =
+            Vec::with_capacity(crate::crypto::AEAD_NONCE_EXPORTER_LABEL.len() + 1 + context_bytes.len());
+        info.extend_from_slice(crate::crypto::AEAD_NONCE_EXPORTER_LABEL.as_bytes());
+        info.push(0x00);
+        info.extend_from_slice(&context_bytes);
+        let prefix = self.export_secret(
+            crate::crypto::AEAD_NONCE_EXPORTER_LABEL,
+            &info,
+            CONTENT_AEAD_NONCE_LEN - crate::crypto::AEAD_NONCE_COUNTER_LEN,
+        )?;
+        Ok(crate::crypto::compose_aead_nonce(&prefix, counter))
+    }
+
+    fn content_nonce_context(&self, realm_id: &str, epoch: u64) -> crate::crypto::AeadNonceContext {
+        crate::crypto::AeadNonceContext {
+            key_ref: serde_json::json!({
+                "algorithm": MLS_EXPORTER_AEAD_CONTENT_SCHEME,
+                "realm_id": realm_id,
+            }),
+            epoch,
+            device_id: self.identity.device_id.as_str().to_owned(),
+            purpose: MLS_EXPORTER_AEAD_CONTENT_PURPOSE.to_owned(),
+            aead_profile: crate::crypto::AEAD_PROFILE_XCHACHA20_POLY1305.to_owned(),
+        }
+    }
+
     /// Snapshot the current MLS group's member principals as canonical IDs.
     /// Iterates the OpenMLS `members()` view, parses each leaf's credential
     /// content as a UTF-8 DID string, and folds the results into a stable
@@ -317,6 +511,12 @@ impl CokretMlsGroup {
             device_id: self.identity.device_id.clone(),
             signer_public_key: encode(self.identity.signer.public()),
             storage_entries: snapshot_provider_storage(&self.identity.provider)?,
+            history_secrets: self
+                .history_secrets
+                .iter()
+                .map(|(epoch, secret)| (epoch.to_string(), encode(secret)))
+                .collect(),
+            content_nonce_counter: self.content_nonce_counter,
         };
         Ok(MlsGroupStateRecord {
             group_id: snapshot.group_id.clone(),
@@ -375,6 +575,14 @@ impl CokretMlsGroup {
             ));
         }
 
+        let mut history_secrets = BTreeMap::new();
+        for (epoch, secret_b64) in &snapshot.history_secrets {
+            let epoch: u64 = epoch.parse().map_err(|_| {
+                Error::Protocol("OpenMLS snapshot history_secret epoch is not a u64".to_owned())
+            })?;
+            history_secrets.insert(epoch, decode(secret_b64)?);
+        }
+
         Ok(Self {
             identity: CokretMlsIdentity {
                 principal_id: record.principal_id.clone(),
@@ -384,6 +592,8 @@ impl CokretMlsGroup {
                 credential,
             },
             group,
+            history_secrets,
+            content_nonce_counter: snapshot.content_nonce_counter,
         })
     }
 
@@ -690,7 +900,12 @@ impl CokretMlsGroup {
         .into_group(&identity.provider)
         .map_err(mls_error)?;
 
-        Ok(Self { identity, group })
+        Ok(Self {
+            identity,
+            group,
+            history_secrets: BTreeMap::new(),
+            content_nonce_counter: 0,
+        })
     }
 
     pub fn encrypt_payload(
@@ -820,6 +1035,86 @@ impl CokretMlsGroup {
         }
         Ok(self.epoch())
     }
+}
+
+/// `K_content = HKDF-Expand(history_secret, "ck-content-v1", AEAD.Nk)`.
+///
+/// Per spec the history_secret already has full entropy (it is an MLS exporter
+/// output), so the history_secret is used directly as the HKDF PRK (Expand-only,
+/// no Extract step) — matching `ExpandWithLabel(history_secret, …)`.
+/// Standalone (group-free) variant of
+/// [`CokretMlsGroup::decrypt_content_exporter_aead`]. A device that holds a
+/// granted `history_secret` but has **no** local MLS group snapshot for the
+/// Realm (e.g. a member granted history before processing its own Welcome) can
+/// decrypt `mls-exporter-aead-v1` content with this. `nonce_and_ct` is
+/// `nonce || ciphertext`; `aad_bytes` MUST be byte-identical to encrypt time.
+pub fn decrypt_content_exporter_aead_standalone(
+    history_secret: &[u8],
+    realm_id: &str,
+    nonce_and_ct: &[u8],
+    aad_bytes: &[u8],
+) -> Result<Vec<u8>> {
+    if nonce_and_ct.len() <= CONTENT_AEAD_NONCE_LEN {
+        return Err(Error::Protocol(
+            "exporter-aead content too short to contain nonce + ciphertext".to_owned(),
+        ));
+    }
+    let (nonce, ciphertext) = nonce_and_ct.split_at(CONTENT_AEAD_NONCE_LEN);
+    let content_key = derive_content_key(history_secret)?;
+    let aad = content_aead_aad(realm_id, nonce, aad_bytes)?;
+    let nonce_arr = content_nonce_array(nonce)?;
+    let cipher = content_cipher(&content_key)?;
+    cipher
+        .decrypt(
+            &nonce_arr.into(),
+            Payload {
+                msg: ciphertext,
+                aad: &aad,
+            },
+        )
+        .map_err(|_| Error::Crypto("exporter-aead content tag check failed".to_owned()))
+}
+
+fn derive_content_key(history_secret: &[u8]) -> Result<[u8; CONTENT_AEAD_KEY_LEN]> {
+    let hkdf = Hkdf::<Sha256>::from_prk(history_secret)
+        .map_err(|_| Error::Crypto("history_secret too short for HKDF PRK".to_owned()))?;
+    let mut key = [0u8; CONTENT_AEAD_KEY_LEN];
+    hkdf.expand(CONTENT_KEY_LABEL.as_bytes(), &mut key)
+        .map_err(|_| Error::Crypto("content key derivation failed".to_owned()))?;
+    Ok(key)
+}
+
+fn content_cipher(content_key: &[u8; CONTENT_AEAD_KEY_LEN]) -> Result<XChaCha20Poly1305> {
+    XChaCha20Poly1305::new_from_slice(content_key)
+        .map_err(|_| Error::Crypto("invalid XChaCha20-Poly1305 content key length".to_owned()))
+}
+
+fn content_nonce_array(nonce: &[u8]) -> Result<[u8; CONTENT_AEAD_NONCE_LEN]> {
+    nonce
+        .try_into()
+        .map_err(|_| Error::Crypto("exporter-aead content nonce must be 24 bytes".to_owned()))
+}
+
+/// Canonical AAD for the exporter-aead content scheme (§10.1): binds the
+/// `key_ref` (scheme + realm), `purpose`, `nonce`, and the caller-supplied
+/// `aad_bytes` (e.g. an `EncryptedEnvelopeAad` digest). The `epoch` is **not**
+/// folded in here — it is not load-bearing for decryption (the content key is
+/// the history_secret) and is not recoverable on the decrypt side from the
+/// `nonce || ciphertext` blob alone. Any epoch binding the caller needs must be
+/// encoded into `aad_bytes`, which both sides reconstruct identically and which
+/// is the actual integrity anchor. The nonce already binds device + epoch +
+/// purpose via the MLS exporter prefix.
+fn content_aead_aad(realm_id: &str, nonce: &[u8], aad_bytes: &[u8]) -> Result<Vec<u8>> {
+    let map = serde_json::json!({
+        "purpose": MLS_EXPORTER_AEAD_CONTENT_PURPOSE,
+        "key_ref": {
+            "algorithm": MLS_EXPORTER_AEAD_CONTENT_SCHEME,
+            "realm_id": realm_id,
+        },
+        "nonce": base64url_encode(nonce),
+        "aad": base64url_encode(aad_bytes),
+    });
+    canonical::canonical_json_bytes(&map)
 }
 
 pub(super) fn snapshot_provider_storage(

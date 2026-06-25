@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::models::RealmKeyWithheldReasonCode;
+use crate::models::{HistoryKeySource, RealmKeyWithheldReasonCode};
 use crate::*;
 
 /// Counterpart for
@@ -234,6 +234,55 @@ pub struct RealmKeyScope {
 }
 
 /// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_key_request_payload`.
+///
+/// Ephemeral `ck.realm_key.request` body: a device asks a provider to seal the
+/// retained `history_secret[from..to]` for a Realm to its HPKE public key so it
+/// can decrypt pre-join content. The sealed material rides back inside a
+/// `ck.realm_key.share` `ciphertext`.
+///
+/// `requested_source_class` reuses the authoritative
+/// [`crate::models::HistoryKeySource`] (defined in `history_visibility.rs`).
+/// The direct request/share path is not allowed to request the
+/// [`HistoryKeySource::KeyBackup`] class — backup-derived history keys are out
+/// of scope here; [`RealmKeyRequestPayload::validate`] rejects it.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmKeyRequestPayload {
+    pub key_scope: RealmKeyScope,
+    pub recipient_principal_id: Did,
+    pub recipient_device_id: String,
+    pub recipient_hpke_public_key: String,
+    pub requested_source_class: HistoryKeySource,
+    pub target_source_ref: String,
+    pub target_principal_id: Did,
+    pub created_at: DateTime<Utc>,
+}
+
+impl RealmKeyRequestPayload {
+    /// Reject empty load-bearing fields and the out-of-scope `key_backup`
+    /// source class before the request is shipped.
+    pub fn validate(&self) -> Result<()> {
+        if self.recipient_device_id.trim().is_empty() {
+            return Err(Error::Protocol(
+                "ck.realm_key.request.recipient_device_id must not be empty".to_owned(),
+            ));
+        }
+        if self.recipient_hpke_public_key.trim().is_empty() {
+            return Err(Error::Protocol(
+                "ck.realm_key.request.recipient_hpke_public_key must not be empty".to_owned(),
+            ));
+        }
+        if self.requested_source_class == HistoryKeySource::KeyBackup {
+            return Err(Error::Protocol(
+                "ck.realm_key.request.requested_source_class must not be key_backup".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_key_share_audit_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -392,4 +441,66 @@ pub struct ViewPayload {
     pub definition: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub patch: Option<Patch>,
+}
+
+#[cfg(test)]
+mod realm_key_request_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn scope() -> RealmKeyScope {
+        RealmKeyScope {
+            effective_scope: json!({}),
+            policy_digest: json!("sha256:00"),
+            membership_frontier_digest: None,
+            from_epoch: Some(0),
+            to_epoch: Some(4),
+            history_visibility: None,
+        }
+    }
+
+    fn request(source: HistoryKeySource) -> RealmKeyRequestPayload {
+        RealmKeyRequestPayload {
+            key_scope: scope(),
+            recipient_principal_id: Did::new(
+                "did:webvh:example.test:users:01J0000000000000000000000A".to_owned(),
+            )
+            .unwrap(),
+            recipient_device_id: "ck:device:01J0000000000000000000000B".to_owned(),
+            recipient_hpke_public_key: "cHVia2V5".to_owned(),
+            requested_source_class: source,
+            target_source_ref: "ck:device:01J0000000000000000000000C".to_owned(),
+            target_principal_id: Did::new(
+                "did:webvh:example.test:users:01J0000000000000000000000D".to_owned(),
+            )
+            .unwrap(),
+            created_at: Utc::now(),
+        }
+    }
+
+    #[test]
+    fn realm_key_request_round_trips_and_field_order_is_stable() {
+        let payload = request(HistoryKeySource::VerifiedMemberDevice);
+        payload.validate().unwrap();
+        let value = serde_json::to_value(&payload).unwrap();
+        assert_eq!(
+            value["requested_source_class"],
+            json!("verified_member_device")
+        );
+        let parsed: RealmKeyRequestPayload = serde_json::from_value(value).unwrap();
+        assert_eq!(
+            parsed.recipient_device_id,
+            payload.recipient_device_id
+        );
+        assert_eq!(parsed.target_source_ref, payload.target_source_ref);
+    }
+
+    #[test]
+    fn realm_key_request_rejects_key_backup_and_empty_fields() {
+        assert!(request(HistoryKeySource::KeyBackup).validate().is_err());
+
+        let mut bad = request(HistoryKeySource::OwnDevice);
+        bad.recipient_hpke_public_key = "   ".to_owned();
+        assert!(bad.validate().is_err());
+    }
 }

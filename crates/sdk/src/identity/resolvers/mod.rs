@@ -19,7 +19,10 @@ mod caching_tests {
 
     use super::*;
     use crate::identity::helpers::did_key_material;
-    use crate::{Did, DidDocument, DidResolver, Error, Freshness, Result, Utc};
+    use chrono::Utc;
+
+    use crate::identity::Freshness;
+    use crate::{Did, DidDocument, DidResolver, Error, Result};
 
     /// Controllable resolver stub that tracks upstream calls and can be
     /// switched into a forced-failure mode.
