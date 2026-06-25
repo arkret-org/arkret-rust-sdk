@@ -492,6 +492,10 @@ pub struct RecoveryPolicy {
     /// contains `trusted_recovery_service`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trusted_recovery_services: Option<Vec<RecoveryTrustedService>>,
+    /// Recovery signing keys a `recovery_unlock` proof resolves against;
+    /// required when `allowed_proof_kinds` contains `recovery_unlock`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_keys: Option<Vec<RecoveryKeyEntry>>,
     /// Two-person-rule / cooldown enforcement layered on the proofs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_requirement: Option<RecoveryApprovalRequirement>,
@@ -629,6 +633,28 @@ pub struct RecoveryTrustedService {
     pub attestation_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_action_scope: Option<Vec<String>>,
+}
+
+/// `recovery-policy.schema.json#/$defs/recovery_key_entry` — a recovery
+/// signing key the principal authorizes for `recovery_unlock` proofs. The
+/// `verification_method` is the stable `recovery_secret_ref` a recovery_unlock
+/// proof references; the proof signature is verified under this entry's public
+/// key resolved via `verification_method`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RecoveryKeyEntry {
+    /// DID URL identifying this recovery signing key
+    /// (e.g. `did:webvh:...#recovery-1`). Unique within `recovery_keys[]`.
+    pub verification_method: String,
+    /// Signature algorithm; v1 fixes this to `Ed25519`.
+    pub alg: String,
+    /// Earliest instant this key may authorize a `recovery_unlock` proof.
+    pub not_before: DateTime<Utc>,
+    /// Instant after which this key MUST NOT authorize a proof.
+    pub expires_at: DateTime<Utc>,
+    /// When set, the entry is revoked from this instant onward.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 /// `recovery-policy.schema.json#/properties/approval_requirement`.
