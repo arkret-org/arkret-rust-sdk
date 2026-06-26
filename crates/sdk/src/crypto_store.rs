@@ -684,6 +684,7 @@ mod tests {
                 created_at: Utc::now(),
                 expires_at: None,
                 device_signature: None,
+                last_resort: false,
             })
             .unwrap();
         assert!(store.key_package(&alice, &device_id).is_some());
@@ -822,6 +823,7 @@ mod tests {
                 created_at: Utc::now(),
                 expires_at: None,
                 device_signature: None,
+                last_resort: false,
             })
             .unwrap();
 

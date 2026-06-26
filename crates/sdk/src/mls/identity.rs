@@ -64,9 +64,30 @@ impl CokretMlsIdentity {
         })
     }
 
+    /// Build a single-use KeyPackage record (consumed on claim).
     pub fn key_package_record(&self) -> Result<MlsKeyPackageRecord> {
-        let key_package = KeyPackage::builder()
-            .leaf_node_capabilities(governance_binding_openmls_capabilities())
+        self.key_package_record_inner(false)
+    }
+
+    /// Build a reusable last-resort KeyPackage record. The KeyPackage carries
+    /// the OpenMLS `last_resort` extension (`mark_as_last_resort`), so the
+    /// holder keeps the init private key after processing a Welcome and can be
+    /// (re-)admitted repeatedly against the same KeyPackage. Pairs with the
+    /// server keeping last-resort KeyPackages claimable instead of consuming
+    /// them — together they prevent a member from becoming permanently
+    /// un-addable once its single-use KeyPackages are spent (e.g. a Welcome
+    /// that was consumed server-side but never applied client-side).
+    pub fn last_resort_key_package_record(&self) -> Result<MlsKeyPackageRecord> {
+        self.key_package_record_inner(true)
+    }
+
+    fn key_package_record_inner(&self, last_resort: bool) -> Result<MlsKeyPackageRecord> {
+        let mut builder =
+            KeyPackage::builder().leaf_node_capabilities(governance_binding_openmls_capabilities());
+        if last_resort {
+            builder = builder.mark_as_last_resort();
+        }
+        let key_package = builder
             .build(
                 COKRET_MLS_CIPHERSUITE,
                 &self.provider,
@@ -95,6 +116,7 @@ impl CokretMlsIdentity {
             created_at,
             expires_at: Some(created_at + Duration::days(7)),
             device_signature: None,
+            last_resort,
         })
     }
 

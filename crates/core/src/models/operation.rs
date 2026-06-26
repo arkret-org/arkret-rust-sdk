@@ -916,6 +916,16 @@ pub struct MlsKeyPackageRecord {
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_signature: Option<Proof>,
+    /// Whether this is a reusable last-resort KeyPackage. Last-resort
+    /// KeyPackages are NOT consumed on claim (the server keeps them
+    /// claimable), so a member is always (re-)addable even after its
+    /// single-use KeyPackages are exhausted. The init-key forward-secrecy
+    /// trade-off is the standard MLS last-resort guarantee. The KeyPackage
+    /// material MUST itself carry the OpenMLS `last_resort` extension (built
+    /// via `mark_as_last_resort`) so the holder retains the init private key
+    /// across repeated Welcome processing.
+    #[serde(default)]
+    pub last_resort: bool,
 }
 
 impl MlsKeyPackageRecord {
