@@ -820,6 +820,13 @@ pub const OP_RECOVERY_SESSION_CREATE: &str = "ck.root.identity.recovery_session.
 pub const OP_RECOVERY_SESSION_GET: &str = "ck.root.identity.recovery_session.resource.get";
 pub const OP_RECOVERY_SESSION_SUBMIT_PROOF: &str =
     "ck.root.identity.recovery_session.command.submit_proof";
+/// `POST /_cokret/self/agents/discover` — probe the `ck.agent.endpoint`
+/// registry; authorized by `ck.agent.protocol.discover` capability under
+/// `ck.profile.agent_runtime.v1`.
+pub const OP_SELF_AGENT_PROTOCOL_DISCOVER: &str = "ck.self.agent.protocol.query.discover";
+/// `POST /_cokret/find/directory/takedown/appeal` — resource-side appeal of an
+/// operator takedown; returns a signed adjudication receipt.
+pub const OP_DIRECTORY_TAKEDOWN_APPEAL: &str = "ck.find.directory.command.takedown_appeal";
 
 /// Canonical service operation IDs built into this SDK.
 ///
@@ -981,6 +988,8 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_RECOVERY_SESSION_CREATE,
     OP_RECOVERY_SESSION_GET,
     OP_RECOVERY_SESSION_SUBMIT_PROOF,
+    OP_SELF_AGENT_PROTOCOL_DISCOVER,
+    OP_DIRECTORY_TAKEDOWN_APPEAL,
 ];
 
 #[cfg(test)]

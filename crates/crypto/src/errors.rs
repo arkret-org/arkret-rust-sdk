@@ -48,6 +48,48 @@ impl From<CryptoError> for Error {
     }
 }
 
+/// Typed key-backup / vault errors (SDK-HYG-01).
+///
+/// `backup.rs` previously returned `anyhow::Result` across its public API,
+/// which forced downstream (SDK / FFI) to inspect free-form strings to classify
+/// a failure. This enum lets callers branch on the concrete cause (KDF vs AEAD
+/// vs input validation vs envelope construction) and map deterministically to
+/// `FfiErrorCode` / fail-closed handling, and aligns backup with the
+/// `thiserror`-based error model used by `cokret-core` and `cokret-signatures`.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum KeyBackupError {
+    /// A random-number-generator call failed while filling salt / nonce / key
+    /// material.
+    #[error("key backup RNG failure: {0}")]
+    Rng(String),
+    /// Argon2 / HKDF key-derivation failure (bad params or hashing error).
+    #[error("key backup key-derivation failure: {0}")]
+    Kdf(String),
+    /// XChaCha20-Poly1305 AEAD encrypt/decrypt failure (includes a failed
+    /// authentication tag on decrypt — wrong passphrase or corrupt ciphertext).
+    #[error("key backup AEAD failure: {0}")]
+    Aead(String),
+    /// A base64url field could not be decoded, or had the wrong decoded length.
+    #[error("key backup encoding failure: {0}")]
+    Encoding(String),
+    /// Canonical-JSON serialization of a binding / transcript / envelope failed.
+    #[error("key backup canonicalization failure: {0}")]
+    Canonical(String),
+    /// Caller-supplied input violated an envelope invariant (e.g. wrong
+    /// `backup_class`, malformed `backup_version`, empty `frontier_ref`).
+    #[error("key backup invalid input: {0}")]
+    InvalidInput(String),
+}
+
+impl From<KeyBackupError> for Error {
+    fn from(err: KeyBackupError) -> Self {
+        // Same boundary contract as `CryptoError`: typed at the crate edge,
+        // collapses to `Error::Protocol(<message>)` at the protocol boundary.
+        Self::Protocol(err.to_string())
+    }
+}
+
 /// Maximum length (bytes) for serialized device/cross-signing public keys and
 /// signature values. 4 KiB comfortably covers any RFC-defined public key /
 /// signature format the v1 crypto suite emits.

@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 use serde_json::{Number, Value, json};
 
 use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
-use crate::{CellRef, LatticeOp, LatticeOpType};
+use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Counter;
@@ -56,7 +56,7 @@ impl Lattice for Counter {
         }
     }
 
-    fn join(&self, _cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
+    fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
         // Tagged dimensions go into a sorted map; un-tagged go into the
         // empty-string bucket. We return either an integer (single
         // un-tagged dim) or an object (when any tagged dim exists).
@@ -78,7 +78,24 @@ impl Lattice for Counter {
             if !tag.is_empty() {
                 any_tagged = true;
             }
-            *totals.entry(tag).or_insert(0) += signed;
+            // SDK-COR-01: an arbitrary number of sealed ops can be accumulated
+            // here (the count is not bounded by this lattice), so a naive `+=`
+            // could panic in debug / silently wrap in release. Overflow is a
+            // domain violation -> resolve the cell to ⊥ rather than emit a
+            // corrupted count.
+            let slot = totals.entry(tag.clone()).or_insert(0);
+            match slot.checked_add(signed) {
+                Some(next) => *slot = next,
+                None => {
+                    let mut bottom = Bottom::new(BottomKind::SchemaError, vec![cell.clone()]);
+                    bottom.move_ids = vec![entry.move_id.clone()];
+                    bottom.details = Some(json!({
+                        "error": "pn_counter_overflow",
+                        "tag": tag,
+                    }));
+                    return CellState::Bottom(bottom);
+                }
+            }
         }
         if any_tagged {
             let mut obj = serde_json::Map::new();
@@ -92,7 +109,9 @@ impl Lattice for Counter {
             }
             CellState::Value(Value::Object(obj))
         } else {
-            let total: i64 = totals.values().sum();
+            // Single un-tagged bucket; values already overflow-checked above,
+            // and there is at most one entry, so a plain read cannot overflow.
+            let total: i64 = totals.values().copied().next().unwrap_or(0);
             CellState::Value(json!(total))
         }
     }

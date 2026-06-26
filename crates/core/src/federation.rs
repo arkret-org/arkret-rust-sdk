@@ -248,14 +248,14 @@ pub struct FederationBackfillAuthorization {
 }
 
 impl FederationBackfillAuthorization {
+    /// Single authoritative backfill-pull authorization decision point: history
+    /// MUST be visible AND the service MUST be delegated AND plaintext MUST be
+    /// visible to the service (all three). SDK-SEC-03: the looser `allows_pull`
+    /// (OR over delegation/plaintext) was removed to avoid a more-permissive
+    /// alternate that could silently widen backfill access if a caller switched
+    /// to it.
     pub fn is_authorized(&self) -> bool {
         self.history_visible && self.service_delegated && self.plaintext_visible_to_service
-    }
-
-    /// SDK compatibility helper for callers that model read access as either
-    /// explicit delegation or plaintext service visibility.
-    pub fn allows_pull(&self) -> bool {
-        self.history_visible && (self.service_delegated || self.plaintext_visible_to_service)
     }
 }
 

@@ -6,12 +6,13 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::events::kinds::{
-    EventClass, EventWireScope, classify_event_kind, event_wire_scope, is_reducer_input_event_kind,
+    EventClass, EventWireScope, classify_event_kind, event_wire_scope,
+    is_reducer_input_event_kind,
 };
 
 /// Count of standard ck.* event kinds the registry declares active.
 /// Excludes the [EventKind::Unknown] catch-all.
-pub const EVENT_KIND_COUNT: usize = 190;
+pub const EVENT_KIND_COUNT: usize = 191;
 
 /// Strongly-typed Cokret event kind. One variant per active ck.* kind in
 /// `event-kind-registry.json`, plus [EventKind::Unknown] which preserves
@@ -326,6 +327,8 @@ pub enum EventKind {
     RealmUpdate,
     /// `ck.realm.upgrade`
     RealmUpgrade,
+    /// `ck.realm_key.request`
+    RealmKeyRequest,
     /// `ck.realm_key.share`
     RealmKeyShare,
     /// `ck.realm_key.share_audit`
@@ -563,6 +566,7 @@ impl EventKind {
             Self::RealmTombstone => "ck.realm.tombstone",
             Self::RealmUpdate => "ck.realm.update",
             Self::RealmUpgrade => "ck.realm.upgrade",
+            Self::RealmKeyRequest => "ck.realm_key.request",
             Self::RealmKeyShare => "ck.realm_key.share",
             Self::RealmKeyShareAudit => "ck.realm_key.share_audit",
             Self::RealmKeyWithheld => "ck.realm_key.withheld",
@@ -761,6 +765,7 @@ impl EventKind {
             "ck.realm.tombstone" => Self::RealmTombstone,
             "ck.realm.update" => Self::RealmUpdate,
             "ck.realm.upgrade" => Self::RealmUpgrade,
+            "ck.realm_key.request" => Self::RealmKeyRequest,
             "ck.realm_key.share" => Self::RealmKeyShare,
             "ck.realm_key.share_audit" => Self::RealmKeyShareAudit,
             "ck.realm_key.withheld" => Self::RealmKeyWithheld,
@@ -818,7 +823,7 @@ impl EventKind {
         Self::try_new(value)
     }
 
-    /// True for any registry-declared kind; false for [Self::Unknown].
+    /// 	rue for any registry-declared kind; alse for [Self::Unknown].
     pub fn is_standard(&self) -> bool {
         !matches!(self, Self::Unknown(_))
     }

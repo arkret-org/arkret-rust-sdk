@@ -497,19 +497,31 @@ mod tests {
 
     #[test]
     fn backfill_authorization_fails_closed() {
-        let authorization = FederationBackfillAuthorization {
+        // SDK-SEC-03: `is_authorized` is the single decision point and requires
+        // all three of history_visible AND service_delegated AND
+        // plaintext_visible_to_service.
+        let fully_authorized = FederationBackfillAuthorization {
             requester_service_did: Did::new("did:web:b.example").unwrap(),
             realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
-            service_delegated: false,
+            service_delegated: true,
             plaintext_visible_to_service: true,
         };
-        assert!(authorization.allows_pull());
+        assert!(fully_authorized.is_authorized());
 
-        let blocked = FederationBackfillAuthorization {
-            plaintext_visible_to_service: false,
-            ..authorization
+        // Missing service delegation -> denied (the previously-removed
+        // `allows_pull` OR-helper would have permitted this).
+        let no_delegation = FederationBackfillAuthorization {
+            service_delegated: false,
+            ..fully_authorized.clone()
         };
-        assert!(!blocked.allows_pull());
+        assert!(!no_delegation.is_authorized());
+
+        // Missing plaintext visibility -> denied.
+        let no_plaintext = FederationBackfillAuthorization {
+            plaintext_visible_to_service: false,
+            ..fully_authorized
+        };
+        assert!(!no_plaintext.is_authorized());
     }
 }

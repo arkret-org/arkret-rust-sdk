@@ -392,17 +392,24 @@ fn evaluate_predicate(
             Ok(())
         }
         PredicateOp::Satisfies => {
-            // `satisfies` dispatches to a schema-registered deterministic predicate
-            // identified by `predicate_id`. Wiring the registry is M11 territory.
-            // For now we accept it as a no-op so fixture replay can proceed; real
-            // verifiers MUST refuse to evaluate `satisfies` without a configured
-            // predicate registry. Document this caveat at the call site.
-            let _id = pred.predicate_id.as_deref().ok_or_else(|| {
+            // `satisfies` dispatches to a schema-registered deterministic
+            // predicate identified by `predicate_id`. This SDK verifier ships
+            // with no predicate registry, so per spec
+            // `event-auth-state-resolution.md` §5.1 ("缺 proof 时 MUST fail
+            // closed,不得盲信未验证") it MUST refuse to evaluate the
+            // precondition rather than treat it as satisfied (SDK-SEC-01:
+            // previously a fail-open no-op). A verifier that wires up a
+            // predicate registry would extend this branch to evaluate against
+            // the registered predicate; until then `satisfies` is fail-closed.
+            let id = pred.predicate_id.as_deref().ok_or_else(|| {
                 MoveReject::SchemaViolation(
                     "predicate satisfies requires `predicate_id`".to_owned(),
                 )
             })?;
-            Ok(())
+            Err(MoveReject::SchemaViolation(format!(
+                "predicate satisfies('{id}') cannot be evaluated: no predicate \
+                 registry is configured (fail-closed per event-auth §5.1)"
+            )))
         }
     }
 }

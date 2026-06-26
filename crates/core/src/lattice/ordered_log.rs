@@ -70,7 +70,14 @@ impl OrderedLog {
                     slot.insert(value);
                 }
                 Entry::Occupied(mut slot) => {
-                    if entry_id(&value) < entry_id(slot.get()) {
+                    // SDK-COR-03: deterministic tie-break for a duplicated
+                    // (issuer, issuer_seq). A value carrying an `entry_id`
+                    // sorts before one without (missing id = "largest"), then
+                    // by `entry_id` lexicographically — so the present-id,
+                    // lexicographically-smallest entry wins rather than the
+                    // accidental `None < Some` ordering that let an id-less
+                    // value clobber an id-bearing one.
+                    if entry_tie_break_key(&value) < entry_tie_break_key(slot.get()) {
                         slot.insert(value);
                     }
                 }
@@ -89,7 +96,15 @@ impl OrderedLog {
                         "issuer_seq": seq,
                         "value": value,
                     }));
-                    expected_seq = Some(seq + 1);
+                    // SDK-COR-02: `issuer_seq` is external input; `seq + 1`
+                    // could overflow `u64::MAX` (debug panic / release wrap to
+                    // 0, poisoning continuity). At u64::MAX the issuer sequence
+                    // is exhausted — stop advancing this issuer (unreachable in
+                    // practice; fail-safe rather than wrap).
+                    match seq.checked_add(1) {
+                        Some(next) => expected_seq = Some(next),
+                        None => break,
+                    }
                 } else {
                     pending_gaps.push(OrderedLogPendingGap {
                         issuer: issuer.clone(),
@@ -122,6 +137,19 @@ impl OrderedLog {
 
 fn entry_id(value: &Value) -> Option<&str> {
     value.get("entry_id").and_then(Value::as_str)
+}
+
+/// Deterministic tie-break key for a duplicated `(issuer, issuer_seq)`.
+///
+/// A present `entry_id` sorts before a missing one (`false < true`), then by
+/// the id string lexicographically. So the winner (`min`) is the
+/// lexicographically-smallest *present* `entry_id`; an id-less value only wins
+/// when every duplicate lacks an id.
+fn entry_tie_break_key(value: &Value) -> (bool, &str) {
+    match entry_id(value) {
+        Some(id) => (false, id),
+        None => (true, ""),
+    }
 }
 
 impl Lattice for OrderedLog {

@@ -469,6 +469,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     REALM_READ_RECEIPT_POLICY,
     REALM_SCHEMA,
     REALM_SEARCH_POLICY,
+    REALM_SET_DEFAULT_STRAND,
     REALM_TOMBSTONE,
     REALM_UPDATE,
     REALM_UPGRADE,
@@ -948,5 +949,34 @@ mod tests {
                 .all(|pair| pair[0] < pair[1]),
             "NON_REDUCER_EVENT_KINDS must stay sorted by wire string"
         );
+    }
+
+    /// SDK-ARCH-01 guard: the three in-SDK materializations of the active
+    /// event-kind set — the hand-written `STANDARD_EVENT_KINDS` table, the
+    /// generated `EventKind` enum (`EVENT_KIND_COUNT`), and (transitively) the
+    /// spec registry the generator reads — MUST stay in lock-step. Any kind
+    /// added to one source but not the others trips this test, preventing the
+    /// SDK-SPEC-03 class of drift from recurring silently.
+    #[test]
+    fn standard_kinds_match_generated_enum() {
+        assert_eq!(
+            STANDARD_EVENT_KINDS.len(),
+            EVENT_KIND_COUNT,
+            "STANDARD_EVENT_KINDS count must equal the generated EVENT_KIND_COUNT; \
+             regenerate generated/event_kinds.rs and/or update STANDARD_EVENT_KINDS"
+        );
+        for kind in STANDARD_EVENT_KINDS {
+            let parsed = EventKind::from_wire(kind);
+            assert!(
+                parsed.is_standard(),
+                "STANDARD_EVENT_KINDS entry `{kind}` is not a generated EventKind variant; \
+                 regenerate generated/event_kinds.rs"
+            );
+            assert_eq!(
+                parsed.as_str(),
+                *kind,
+                "EventKind round-trip mismatch for `{kind}`"
+            );
+        }
     }
 }

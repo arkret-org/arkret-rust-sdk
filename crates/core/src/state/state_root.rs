@@ -1,15 +1,22 @@
-//! Canonical Merkle `state_root` compute (spec §4.2).
+//! Canonical Merkle `state_root` compute (spec §6.2.1 / §6.2.2).
 //!
-//! Per [cokret-spec event-auth-state-resolution.md §4.2](
+//! Per [cokret-spec event-auth-state-resolution.md §6.2.1 / §6.2.2](
 //! ../../cokret-spec/spec/v1/zh/authz/event-auth-state-resolution.md):
 //!
-//! 1. For each cell with at least one effect under the current Seal view, build a leaf: `leaf_input
-//!    = canonical_json({"cell": "<wire>", "state": <state_object>})` `leaf_hash =
-//!    sha256(leaf_input)`.
-//! 2. Sort `(cell_wire, leaf_hash)` by `cell_wire` ascending.
-//! 3. Combine leaf_hash list via RFC 6962-style binary Merkle tree (odd leaf promotes, no
-//!    duplication). Empty list → `sha256("")`.
+//! 1. For each non-`⊥` control cell under the current joined Seal view, build a leaf:
+//!    `leaf_preimage = canonical_json({"cell": "<wire>", "state": <state_object>})`,
+//!    `leaf = H(0x00 || leaf_preimage_utf8_bytes)` (RFC 6962 leaf domain separation).
+//! 2. Sort leaves by `cell_wire` Unicode code point ascending.
+//! 3. Combine leaves via the unified Seal Merkle rule (§6.2.2): internal node =
+//!    `H(0x01 || left || right)`, odd tail promoted without duplication, single-leaf
+//!    root equals that leaf's `H(0x00 || ..)` (NOT the bare preimage hash), empty set →
+//!    `H` over the empty byte string (`sha256:e3b0...b855`).
 //! 4. Wire form: `state_root = "sha256:" + lower_hex(root)`.
+//!
+//! This is the **Seal-level** Merkle family with `0x00`/`0x01` domain separation,
+//! shared with `control_event_set_root` / `data_view_root` / observation roots. It is
+//! distinct from the snapshot Merkle family (encoding.md §3.3.1, no prefixes, bare-leaf
+//! single root) and the two MUST NOT be interchanged.
 //!
 //! `bottom.seal_view` MUST be omitted from `<state_object>` — that's
 //! handled automatically because `Bottom::seal_view` is
@@ -24,7 +31,12 @@ use sha2::{Digest, Sha256};
 use crate::lattice::CellState;
 use crate::{Bottom, CellRef, Hash, canonical};
 
-/// Empty-list root: `sha256("")` per spec §4.2.2.
+/// Domain-separation prefix for Merkle leaves (RFC 6962, spec §6.2.2).
+const LEAF_PREFIX: u8 = 0x00;
+/// Domain-separation prefix for Merkle internal nodes (RFC 6962, spec §6.2.2).
+const NODE_PREFIX: u8 = 0x01;
+
+/// Empty-set root: `H` over the empty byte string = `sha256("")` per spec §6.2.2.
 pub const EMPTY_STATE_ROOT: &str =
     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
@@ -53,7 +65,9 @@ pub fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, 
         let mut next: Vec<[u8; 32]> = Vec::with_capacity(layer.len().div_ceil(2));
         let mut i = 0;
         while i + 1 < layer.len() {
+            // Internal node: H(0x01 || left || right) (spec §6.2.2).
             let mut hasher = Sha256::new();
+            hasher.update([NODE_PREFIX]);
             hasher.update(layer[i]);
             hasher.update(layer[i + 1]);
             next.push(hasher.finalize().into());
@@ -78,7 +92,7 @@ pub fn leaf_hash(cell: &CellRef, state: &CellState) -> Result<[u8; 32], crate::E
     let state_object = match state {
         CellState::Value(v) => json!({ "value": v }),
         CellState::Bottom(b) => {
-            // Strip `seal_view` to prevent self-recursion (spec §4.2.1).
+            // Strip `seal_view` to prevent self-recursion (spec §6.2.1).
             let mut stripped: Bottom = b.clone();
             stripped.seal_view = None;
             json!({ "bottom": stripped })
@@ -89,7 +103,11 @@ pub fn leaf_hash(cell: &CellRef, state: &CellState) -> Result<[u8; 32], crate::E
         "state": state_object,
     });
     let bytes = canonical::canonical_json_bytes(&leaf_input)?;
-    Ok(Sha256::digest(&bytes).into())
+    // Leaf: H(0x00 || leaf_preimage_utf8_bytes) (spec §6.2.2).
+    let mut hasher = Sha256::new();
+    hasher.update([LEAF_PREFIX]);
+    hasher.update(&bytes);
+    Ok(hasher.finalize().into())
 }
 
 fn encode_hex(bytes: &[u8; 32]) -> String {
@@ -127,7 +145,7 @@ mod tests {
         let root = compute_state_root(&map).unwrap();
         // Format must match ck:hash:sha256: prefix.
         assert!(root.as_str().starts_with("sha256:"));
-        // Single-leaf root MUST equal the leaf hash directly (per spec §4.2.2).
+        // Single-leaf root MUST equal the leaf hash directly (per spec §6.2.2).
         let leaf = leaf_hash(
             &cell("ck:cell:ck.component.member.state.v1:did.web.alice.example"),
             &CellState::Value(json!("join")),

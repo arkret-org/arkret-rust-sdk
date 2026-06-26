@@ -94,30 +94,70 @@ pub use windows_stub::WindowsCredentialKeyStore;
 ///
 /// The fallback is intentional: ephemeral / test environments and
 /// platforms without a native key store still get a working trait
-/// object. Callers that REQUIRE durable storage should construct the
-/// platform type directly and surface the [`KeyStoreError::Unsupported`]
-/// to the user.
+/// object. Callers that REQUIRE durable storage should either use
+/// [`platform_default_keystore_with_kind`] and reject
+/// [`BackendKind::InMemory`], or construct the platform type directly and
+/// surface the [`KeyStoreError::Unsupported`] to the user.
+///
+/// SDK-SEC-04: when this convenience function falls back to the in-memory
+/// backend it emits a `tracing::warn!` so a silent downgrade to non-durable,
+/// OS-unprotected key storage is at least observable in logs.
 pub fn platform_default_keystore(application_id: &str) -> Box<dyn KeyStore> {
+    let (store, kind) = platform_default_keystore_with_kind(application_id);
+    if kind == BackendKind::InMemory {
+        tracing::warn!(
+            target: "cokret_keystore",
+            application_id,
+            "platform_default_keystore fell back to the in-memory KeyStore: keys are \
+             NOT persisted and have NO OS-level access protection. Use \
+             platform_default_keystore_with_kind to detect and reject this downgrade, \
+             or construct the platform backend directly."
+        );
+    }
+    store
+}
+
+/// Identifies which concrete [`KeyStore`] backend
+/// [`platform_default_keystore_with_kind`] resolved to, so callers can detect
+/// (and refuse) a downgrade to the non-durable in-memory backend.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BackendKind {
+    /// macOS Keychain ([`MacOsKeychainKeyStore`]).
+    MacOsKeychain,
+    /// Linux Secret Service / D-Bus ([`LinuxSecretServiceKeyStore`]).
+    LinuxSecretService,
+    /// Windows Credential Manager ([`WindowsCredentialKeyStore`]).
+    WindowsCredential,
+    /// Non-durable, OS-unprotected in-memory fallback ([`InMemoryKeyStore`]).
+    InMemory,
+}
+
+/// Like [`platform_default_keystore`] but also returns the [`BackendKind`] that
+/// was resolved, so durable-storage-requiring callers can reject a fallback to
+/// [`BackendKind::InMemory`] instead of silently downgrading (SDK-SEC-04).
+pub fn platform_default_keystore_with_kind(
+    application_id: &str,
+) -> (Box<dyn KeyStore>, BackendKind) {
     #[cfg(all(target_os = "macos", feature = "keystore-macos"))]
     {
         if let Ok(store) = MacOsKeychainKeyStore::new(application_id) {
-            return Box::new(store);
+            return (Box::new(store), BackendKind::MacOsKeychain);
         }
     }
     #[cfg(all(target_os = "linux", feature = "keystore-linux"))]
     {
         if let Ok(store) = LinuxSecretServiceKeyStore::new(application_id) {
-            return Box::new(store);
+            return (Box::new(store), BackendKind::LinuxSecretService);
         }
     }
     #[cfg(all(target_os = "windows", feature = "keystore-windows"))]
     {
         if let Ok(store) = WindowsCredentialKeyStore::new(application_id) {
-            return Box::new(store);
+            return (Box::new(store), BackendKind::WindowsCredential);
         }
     }
     let _ = application_id;
-    Box::new(InMemoryKeyStore::new())
+    (Box::new(InMemoryKeyStore::new()), BackendKind::InMemory)
 }
 
 #[cfg(test)]

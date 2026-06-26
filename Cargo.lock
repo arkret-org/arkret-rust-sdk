@@ -594,6 +594,7 @@ dependencies = [
  "cokret-core",
  "secret-service",
  "security-framework",
+ "tracing",
  "windows",
 ]
 

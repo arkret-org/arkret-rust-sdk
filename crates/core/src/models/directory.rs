@@ -947,3 +947,49 @@ pub struct DirectoryWithdrawOutcome {
     pub withdrawal_ref: String,
     pub acked_at: DateTime<Utc>,
 }
+
+/// Requested outcome of a directory takedown appeal (`discovery-directory.md §8.7`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DirectoryTakedownAppealOutcomeRequest {
+    Overturn,
+    ReduceScope,
+    Reinstate,
+}
+
+/// `ck.find.directory.command.takedown_appeal` request — resource-side appeal
+/// of an operator takedown. Mirrors
+/// `service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectoryTakedownAppealRequestBody {
+    /// The operator `takedown_id` from the takedown notice
+    /// (`takedown:<token>`).
+    pub takedown_id: String,
+    /// Realm/applet ck-id, actor DID, or handle the takedown targets.
+    pub resource_id: String,
+    pub appellant_did: Did,
+    /// `sha256:<hex>` digest of the appeal argument / evidence bundle.
+    pub argument_digest: Hash,
+    pub requested_outcome: DirectoryTakedownAppealOutcomeRequest,
+    pub created_at: DateTime<Utc>,
+    /// Signature by the resource governance key or an authorized advocate.
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub governance_proof: Value,
+}
+
+/// `ck.find.directory.command.takedown_appeal` outcome — signed decision
+/// receipt. Mirrors
+/// `service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealOutcome`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectoryTakedownAppealOutcome {
+    /// Directory-local audit reference (`appeal:<token>`); not a registered
+    /// `ck:<kind>` typed id.
+    pub appeal_id: String,
+    pub received_at: DateTime<Utc>,
+    /// Signed Directory decision receipt; status pending until adjudicated.
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub decision_receipt: Value,
+}

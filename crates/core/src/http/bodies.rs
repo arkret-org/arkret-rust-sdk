@@ -1043,10 +1043,47 @@ pub struct SessionGrantOutcome {
     pub device_id: Option<DeviceId>,
     pub session_grant: String,
     pub expires_at: DateTime<Utc>,
+    /// Stable id of the issued session grant. Returned for every grant (human
+    /// and agent). Mirrors `SessionGrantRefreshOutcome.grant_id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grant_id: Option<GrantId>,
+    /// JWK of the holder/session key the grant is bound to. The client needs
+    /// this for RFC 9421 PoP / DPoP `cnf.jkt` derivation on `/_cokret/self/*`
+    /// requests, returned at issue time to avoid a mandatory introspect
+    /// round-trip. Mirrors `SessionGrantRefreshOutcome.session_public_key`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_public_key: Option<String>,
+    /// Audience the grant is bound to. Mirrors `SessionGrantRefreshOutcome.audience`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audience: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub granted_scope: Vec<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub scope_details: Value,
+    /// `ck.profile.agent_auth.v1` overlay (CKP-0008 §4.6). Materialized narrow
+    /// scope granted to the agent runtime session. Present iff the request was
+    /// the `agent_key_proof` branch; `None` (absent) for human session grants.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope_details: Option<SessionGrantScopeDetails>,
+}
+
+/// `ck.profile.agent_auth.v1` overlay describing the narrow scope actually
+/// granted to an agent runtime session. Agent-only; absent for human grants.
+///
+/// Mirrors `service-operation-dtos.schema.json#/$defs/SessionGrantOutcome.scope_details`
+/// (`additionalProperties: false`).
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantScopeDetails {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub realm_ids: Vec<RealmId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub strand_ids: Vec<StrandId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub track_names: Vec<String>,
+    /// `ck.profile.agent_participation_policy.v1` overlay (CKP-0016). Each entry
+    /// is isomorphic to `agent_participation_entry`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub participation: Vec<AgentParticipationEntry>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

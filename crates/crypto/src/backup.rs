@@ -29,10 +29,10 @@
 //!     br#"{"recovery":"..."}"#,
 //!     &[("recovery_secret", None)],
 //! )?;
-//! # Ok::<(), anyhow::Error>(())
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use anyhow::{Context, Result, anyhow};
+use crate::errors::KeyBackupError;
 use argon2::{Algorithm, Argon2, Params, Version};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
@@ -54,6 +54,10 @@ use sha2::{Digest, Sha256};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 type HmacSha256 = Hmac<Sha256>;
+
+/// Module-local result alias: every public `backup` API returns the typed
+/// [`KeyBackupError`] (SDK-HYG-01) rather than `anyhow::Error`.
+type Result<T> = std::result::Result<T, KeyBackupError>;
 
 /// AEAD profile id for the XChaCha20-Poly1305 envelope produced by this
 /// module (key-management.md §7.2). Binds nonce length (24), tag length
@@ -162,7 +166,7 @@ pub struct VaultCiphertext {
 /// can store the salt as backup metadata.
 pub fn derive_vault_kek(passphrase: &[u8]) -> Result<VaultKek> {
     let mut salt = [0u8; VAULT_SALT_LEN];
-    fill(&mut salt).map_err(|err| anyhow!("salt rng: {err}"))?;
+    fill(&mut salt).map_err(|err| KeyBackupError::Rng(format!("salt rng: {err}")))?;
     derive_vault_kek_with_salt(passphrase, &salt)
 }
 
@@ -174,12 +178,12 @@ pub fn derive_vault_kek_with_salt(
     salt: &[u8; VAULT_SALT_LEN],
 ) -> Result<VaultKek> {
     let params = Params::new(VAULT_ARGON2_M_KIB, VAULT_ARGON2_T, VAULT_ARGON2_P, None)
-        .map_err(|err| anyhow!("argon2 params: {err}"))?;
+        .map_err(|err| KeyBackupError::Kdf(format!("argon2 params: {err}")))?;
     let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
     let mut key = [0u8; VAULT_KDF_OUTPUT_LEN];
     argon
         .hash_password_into(passphrase, salt, &mut key)
-        .map_err(|err| anyhow!("argon2 hash: {err}"))?;
+        .map_err(|err| KeyBackupError::Kdf(format!("argon2 hash: {err}")))?;
     Ok(VaultKek {
         key,
         salt: *salt,
@@ -255,10 +259,10 @@ impl VaultBinding {
             "aead_profile": VAULT_AEAD_PROFILE,
             "nonce_salt": nonce_salt_b64,
         });
-        let transcript_bytes =
-            canonical_json_bytes(&transcript).map_err(|err| anyhow!("nonce transcript: {err}"))?;
+        let transcript_bytes = canonical_json_bytes(&transcript)
+            .map_err(|err| KeyBackupError::Canonical(format!("nonce transcript: {err}")))?;
         let mut mac = <HmacSha256 as hmac::digest::KeyInit>::new_from_slice(&nonce_key)
-            .map_err(|err| anyhow!("nonce hmac key: {err}"))?;
+            .map_err(|err| KeyBackupError::Kdf(format!("nonce hmac key: {err}")))?;
         mac.update(&transcript_bytes);
         let tag = mac.finalize().into_bytes();
         let mut nonce = [0u8; VAULT_NONCE_LEN];
@@ -279,7 +283,8 @@ impl VaultBinding {
             "created_at": format_timestamp_canonical(self.created_at.trunc_subsecs(0)),
             "schema": VAULT_SCHEMA_ID,
         });
-        canonical_json_bytes(&aad).map_err(|err| anyhow!("aead aad: {err}"))
+        canonical_json_bytes(&aad)
+            .map_err(|err| KeyBackupError::Canonical(format!("aead aad: {err}")))
     }
 }
 
@@ -306,7 +311,7 @@ pub fn encrypt_vault(
     plaintext: &[u8],
 ) -> Result<VaultCiphertext> {
     let mut nonce_salt = [0u8; VAULT_NONCE_SALT_LEN];
-    fill(&mut nonce_salt).map_err(|err| anyhow!("nonce_salt rng: {err}"))?;
+    fill(&mut nonce_salt).map_err(|err| KeyBackupError::Rng(format!("nonce_salt rng: {err}")))?;
     let nonce_salt_b64 = base64url_encode(nonce_salt);
 
     let mut aead_key = binding.subkey(&kek.key, "aead");
@@ -322,7 +327,7 @@ pub fn encrypt_vault(
                 aad: &aad,
             },
         )
-        .map_err(|err| anyhow!("xchacha20poly1305 encrypt: {err}"))?;
+        .map_err(|err| KeyBackupError::Aead(format!("xchacha20poly1305 encrypt: {err}")))?;
     aead_key.zeroize();
     Ok(VaultCiphertext {
         ciphertext_b64: base64url_encode(&ciphertext),
@@ -355,23 +360,25 @@ pub fn decrypt_vault(
     nonce_salt_b64: &str,
     ciphertext_b64: &str,
 ) -> Result<Zeroizing<Vec<u8>>> {
-    let salt_bytes = base64url_decode(salt_b64.trim_end_matches('=')).context("salt base64")?;
+    let salt_bytes = base64url_decode(salt_b64.trim_end_matches('='))
+        .map_err(|err| KeyBackupError::Encoding(format!("salt base64: {err}")))?;
     let salt: [u8; VAULT_SALT_LEN] = salt_bytes
         .try_into()
-        .map_err(|_| anyhow!("salt must be {VAULT_SALT_LEN} bytes"))?;
-    let nonce_bytes = base64url_decode(nonce_b64.trim_end_matches('=')).context("nonce base64")?;
+        .map_err(|_| KeyBackupError::Encoding(format!("salt must be {VAULT_SALT_LEN} bytes")))?;
+    let nonce_bytes = base64url_decode(nonce_b64.trim_end_matches('='))
+        .map_err(|err| KeyBackupError::Encoding(format!("nonce base64: {err}")))?;
     let nonce_array: [u8; VAULT_NONCE_LEN] = nonce_bytes
         .try_into()
-        .map_err(|_| anyhow!("nonce must be {VAULT_NONCE_LEN} bytes"))?;
-    let ciphertext =
-        base64url_decode(ciphertext_b64.trim_end_matches('=')).context("ciphertext base64")?;
+        .map_err(|_| KeyBackupError::Encoding(format!("nonce must be {VAULT_NONCE_LEN} bytes")))?;
+    let ciphertext = base64url_decode(ciphertext_b64.trim_end_matches('='))
+        .map_err(|err| KeyBackupError::Encoding(format!("ciphertext base64: {err}")))?;
     let kek = derive_vault_kek_with_salt(passphrase, &salt)?;
 
     // §7.2: receiver MUST recompute the nonce and reject a mismatch.
     let expected_nonce = binding.derive_nonce(&kek.key, nonce_salt_b64)?;
     if expected_nonce != nonce_array {
-        return Err(anyhow!(
-            "vault decrypt failed: nonce derivation mismatch (schema_violation)"
+        return Err(KeyBackupError::Aead(
+            "vault decrypt failed: nonce derivation mismatch (schema_violation)".to_owned(),
         ));
     }
 
@@ -387,7 +394,11 @@ pub fn decrypt_vault(
             },
         )
         .map(Zeroizing::new)
-        .map_err(|_| anyhow!("vault decrypt failed: wrong passphrase or corrupt ciphertext"));
+        .map_err(|_| {
+            KeyBackupError::Aead(
+                "vault decrypt failed: wrong passphrase or corrupt ciphertext".to_owned(),
+            )
+        });
     aead_key.zeroize();
     plaintext
 }
@@ -398,7 +409,7 @@ pub fn decrypt_vault(
 /// characters in five-character groups separated by `-`.
 pub fn generate_recovery_key() -> Result<String> {
     let mut bytes = [0u8; RECOVERY_KEY_BYTES];
-    fill(&mut bytes).map_err(|err| anyhow!("recovery key rng: {err}"))?;
+    fill(&mut bytes).map_err(|err| KeyBackupError::Rng(format!("recovery key rng: {err}")))?;
     Ok(format_recovery_key(&bytes))
 }
 
@@ -490,14 +501,15 @@ pub fn build_key_backup_envelope(
     contents: &[(&str, Option<&str>)],
 ) -> Result<KeyBackup> {
     if backup_class == BackupClass::MlsHistory {
-        return Err(anyhow!(
+        return Err(KeyBackupError::InvalidInput(
             "mls_history backups must use secret_storage_key or recovery_public_key envelopes"
+                .to_owned(),
         ));
     }
     if !backup_version.starts_with("kb_") {
-        return Err(anyhow!(
+        return Err(KeyBackupError::InvalidInput(format!(
             "backup_version must match the kb_<id> pattern (got {backup_version:?})"
-        ));
+        )));
     }
 
     // Truncate to whole seconds so the binding's canonical timestamp
@@ -587,7 +599,9 @@ pub fn build_key_backup_envelope(
     // built with `build_key_backup_successor_envelope`.
     let series_id =
         cokret_core::BackupSeriesId::new(cokret_core::new_prefixed_uuid7("ck:backup_series:"))
-            .map_err(|err| anyhow!("failed to mint backup_series id: {err}"))?;
+            .map_err(|err| {
+                KeyBackupError::InvalidInput(format!("failed to mint backup_series id: {err}"))
+            })?;
     Ok(KeyBackup {
         backup_id,
         actor_id,
@@ -633,14 +647,21 @@ pub fn build_key_backup_successor_envelope(
     frontier_ref: impl Into<String>,
 ) -> Result<KeyBackup> {
     if backup_id == predecessor.backup_id {
-        return Err(anyhow!("successor backup_id must differ from predecessor"));
+        return Err(KeyBackupError::InvalidInput(
+            "successor backup_id must differ from predecessor".to_owned(),
+        ));
     }
     let frontier_digest = frontier_ref.into();
     if frontier_digest.trim().is_empty() {
-        return Err(anyhow!("successor frontier_ref must not be empty"));
+        return Err(KeyBackupError::InvalidInput(
+            "successor frontier_ref must not be empty".to_owned(),
+        ));
     }
-    let frontier_digest = Hash::new(frontier_digest)
-        .map_err(|err| anyhow!("successor frontier_ref.frontier_digest invalid: {err}"))?;
+    let frontier_digest = Hash::new(frontier_digest).map_err(|err| {
+        KeyBackupError::InvalidInput(format!(
+            "successor frontier_ref.frontier_digest invalid: {err}"
+        ))
+    })?;
     let mut successor = build_key_backup_envelope(
         backup_id,
         predecessor.actor_id.clone(),
@@ -655,7 +676,7 @@ pub fn build_key_backup_successor_envelope(
     successor.series_seq = predecessor
         .series_seq
         .checked_add(1)
-        .ok_or_else(|| anyhow!("successor series_seq overflow"))?;
+        .ok_or_else(|| KeyBackupError::InvalidInput("successor series_seq overflow".to_owned()))?;
     successor.supersedes = Some(predecessor.backup_id.clone());
     successor.supersedes_digest = Some(key_backup_supersedes_digest(predecessor)?);
     successor.frontier_ref = Some(KeyBackupFrontierRef {
@@ -667,15 +688,22 @@ pub fn build_key_backup_successor_envelope(
 }
 
 fn key_backup_supersedes_digest(predecessor: &KeyBackup) -> Result<String> {
-    let mut canonical = serde_json::to_value(predecessor)
-        .context("serialize predecessor key backup for supersedes_digest")?;
+    let mut canonical = serde_json::to_value(predecessor).map_err(|err| {
+        KeyBackupError::Canonical(format!(
+            "serialize predecessor key backup for supersedes_digest: {err}"
+        ))
+    })?;
     if let Some(auth_data) = canonical
         .get_mut("auth_data")
         .and_then(serde_json::Value::as_object_mut)
     {
         auth_data.remove("signature");
     }
-    canonical_sha256(&canonical).context("hash predecessor key backup for supersedes_digest")
+    canonical_sha256(&canonical).map_err(|err| {
+        KeyBackupError::Canonical(format!(
+            "hash predecessor key backup for supersedes_digest: {err}"
+        ))
+    })
 }
 
 /// Key commitment used by the AEAD envelope (spec §7.2):

@@ -287,6 +287,17 @@ impl CrossSigningResetContent {
                         MAX_DEVICE_QUORUM_SIGNATURES
                     )));
                 }
+                // SDK-COR-04: a quorum that ships fewer signatures than its own
+                // declared threshold is internally contradictory; reject early
+                // (the authoritative count + signature verification still
+                // happens reducer/server-side).
+                if (signatures.len() as u64) < u64::from(*threshold) {
+                    return Err(Error::Protocol(format!(
+                        "device_quorum reset proof has {} signature(s) below declared threshold {}",
+                        signatures.len(),
+                        threshold
+                    )));
+                }
                 for sig in signatures {
                     validate_nonempty_key(
                         "device_quorum verification_method",
