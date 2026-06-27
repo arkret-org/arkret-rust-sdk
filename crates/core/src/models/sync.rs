@@ -205,7 +205,7 @@ mod account_subscribe_frame_tests {
 
     #[test]
     fn account_subscribe_frame_from_ndjson_line_delta() {
-        let line = r#"{"kind":"delta","cursor":"sx:acc:1"}"#;
+        let line = r#"{"cursor":"sx:acc:1","kind":"delta"}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line)
             .unwrap()
             .unwrap();
@@ -217,7 +217,7 @@ mod account_subscribe_frame_tests {
 
     #[test]
     fn account_subscribe_frame_from_ndjson_line_catchup_complete() {
-        let line = r#"{"kind":"catchup_complete","cursor":"sx:live:0"}"#;
+        let line = r#"{"cursor":"sx:live:0","kind":"catchup_complete"}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line)
             .unwrap()
             .unwrap();
@@ -227,7 +227,7 @@ mod account_subscribe_frame_tests {
 
     #[test]
     fn account_subscribe_frame_from_ndjson_line_frontier() {
-        let line = r#"{"kind":"frontier","cursor":"sx:adv:7"}"#;
+        let line = r#"{"cursor":"sx:adv:7","kind":"frontier"}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line)
             .unwrap()
             .unwrap();

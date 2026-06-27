@@ -528,6 +528,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
     )
     .with_content(json!({
         "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+        "track_name": "discussion",
         "content": {"kind": "ck.content.text", "body": "hello"}
     }))
     .build(&OperationKindRegistry::default())
