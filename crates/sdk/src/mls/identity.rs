@@ -23,6 +23,17 @@ use crate::{
 
 pub const COKRET_MLS_CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
+
+/// Canonical wire string for [`COKRET_MLS_CIPHERSUITE`], taken verbatim from
+/// `mls-ciphersuite-registry.json` (`canonical_id`). This is the ONLY source
+/// of the `cipher_suite` / `cipher_suites` wire value — implementations MUST
+/// NOT derive it from the third-party `Ciphersuite` `Debug` representation,
+/// which is not a wire contract and could silently drift on an openmls
+/// upgrade. The `ciphersuite_canonical_id_matches_registry` test pins that
+/// the current openmls `Debug` output still equals this constant so any
+/// upstream drift fails loudly rather than reaching the wire.
+pub const COKRET_MLS_CIPHERSUITE_CANONICAL_ID: &str =
+    "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519";
 pub const COKRET_MLS_KEY_PACKAGE_CAPABILITIES: &[&str] = &["mimi.content.v1", "ck.content.v1"];
 
 const COKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT: &str = "cokret-openmls-identity-state-v1";
@@ -106,7 +117,7 @@ impl CokretMlsIdentity {
             device_id: self.device_id.clone(),
             key_package: encode(&key_package_bytes),
             keypackage_ref,
-            cipher_suites: vec![format!("{COKRET_MLS_CIPHERSUITE:?}")],
+            cipher_suites: vec![COKRET_MLS_CIPHERSUITE_CANONICAL_ID.to_owned()],
             capabilities: COKRET_MLS_KEY_PACKAGE_CAPABILITIES
                 .iter()
                 .map(|capability| (*capability).to_owned())
@@ -284,6 +295,19 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
+
+    #[test]
+    fn ciphersuite_canonical_id_matches_registry() {
+        // The wire `cipher_suite(s)` value is sourced from
+        // COKRET_MLS_CIPHERSUITE_CANONICAL_ID (the registry canonical_id),
+        // NOT from the openmls `Debug` impl. Pin that the two still agree so
+        // an upstream openmls change to `Debug` fails here instead of
+        // silently emitting an off-registry cipher_suite string on the wire.
+        assert_eq!(
+            format!("{COKRET_MLS_CIPHERSUITE:?}"),
+            COKRET_MLS_CIPHERSUITE_CANONICAL_ID
+        );
+    }
 
     #[test]
     fn key_package_record_carries_required_capabilities() {
