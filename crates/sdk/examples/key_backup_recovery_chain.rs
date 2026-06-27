@@ -93,6 +93,7 @@ fn build_envelope(
                     .take(64)
                     .collect::<String>()
             )),
+            hpke_suite: None,
             extra: BTreeMap::new(),
         },
         domain_separation: KeyBackupDomainSeparation {
@@ -106,6 +107,8 @@ fn build_envelope(
                 backup_version: "kb_1".to_owned(),
                 created_at,
                 item_types: vec!["recovery_secret".to_owned()],
+                recipient_method: None,
+                recipient_key_ref: None,
                 extra: BTreeMap::new(),
             },
             extra: BTreeMap::new(),

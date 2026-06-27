@@ -559,6 +559,9 @@ pub fn build_key_backup_envelope(
             "sha256:{}",
             sha256_hex(&commitment_digest(&kek.key, backup_class))
         )),
+        // Symmetric passphrase_kdf path: the HPKE-suite selector applies only to
+        // recipient_method=recovery_public_key, so it is omitted here.
+        hpke_suite: None,
         extra: Default::default(),
     };
     let domain_separation = KeyBackupDomainSeparation {
@@ -575,6 +578,8 @@ pub fn build_key_backup_envelope(
             backup_version: backup_version.to_owned(),
             created_at,
             item_types: binding.item_types.clone(),
+            recipient_method: None,
+            recipient_key_ref: None,
             extra: Default::default(),
         },
         extra: Default::default(),

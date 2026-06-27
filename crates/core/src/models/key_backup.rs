@@ -280,6 +280,13 @@ pub struct KeyBackupEncryption {
     pub aead: KeyBackupAead,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_commitment: Option<String>,
+    /// Registered active HPKE suite selector (key-backup.schema.json
+    /// `encryption.hpke_suite`). Applies only to
+    /// `recipient_method=recovery_public_key`; absent denotes the default-MUST
+    /// row `ck.hpke_x25519_aead_xchacha20poly1305.v1`. Optional/ignored for the
+    /// symmetric methods (passphrase_kdf / secret_storage_key).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hpke_suite: Option<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
@@ -307,6 +314,18 @@ pub struct KeyBackupDomainSeparationAad {
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub item_types: Vec<String>,
+    /// SEC-04: the envelope's `encryption.recipient_method` bound into the AEAD
+    /// AAD (key-backup.schema.json `domain_separation.aead_aad.recipient_method`)
+    /// so a ciphertext can never be cross-opened under the wrong recipient
+    /// interpretation. Sealer and opener reconstruct it byte-identically.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recipient_method: Option<KeyBackupRecipientMethod>,
+    /// SEC-04: the envelope's `encryption.recipient_key_ref` bound into the AEAD
+    /// AAD (key-backup.schema.json `domain_separation.aead_aad.recipient_key_ref`)
+    /// so the recipient key / verification method is part of the authenticated
+    /// context.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recipient_key_ref: Option<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
