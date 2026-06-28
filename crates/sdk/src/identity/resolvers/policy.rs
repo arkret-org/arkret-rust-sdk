@@ -42,9 +42,21 @@ pub enum ResolverFailMode {
 
 impl Default for ResolverPolicy {
     fn default() -> Self {
+        // Default to the method set `identity-did.md` §5 requires a core
+        // resolver to support (`did:webvh`, `did:web`, `did:key`) rather
+        // than an empty allow list. An empty list means "any method"
+        // (see `allowed_methods` docs); using it as the *default* made the
+        // default-constructed resolver fail-open, permitting `did:bogus:`.
+        // `did:webvh` is the default principal method per §3.1: a principal
+        // `actor_id` that carries no method of its own resolves as `did:webvh`,
+        // never silently as `did:web`.
         Self {
-            allowed_methods: Vec::new(),
-            default_principal_method: None,
+            allowed_methods: vec![
+                "did:webvh:".to_owned(),
+                "did:web:".to_owned(),
+                "did:key:".to_owned(),
+            ],
+            default_principal_method: Some("did:webvh:".to_owned()),
             trust_roots: Vec::new(),
             ttl: Some(chrono::Duration::days(7)),
             fail_mode: ResolverFailMode::FailClosed,
@@ -76,5 +88,33 @@ impl ResolverPolicy {
                 did.as_str()
             )))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_policy_is_fail_closed_against_unknown_methods() {
+        let policy = ResolverPolicy::default();
+        // The spec-required triad is permitted...
+        for did in [
+            "did:webvh:scid:host:webvh:01",
+            "did:web:example.com",
+            "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
+        ] {
+            let did = Did::new(did.to_owned()).expect("valid did");
+            assert!(policy.permits(&did), "default must permit {did:?}");
+        }
+        // ...but an unknown method is rejected, not fail-open.
+        let bogus = Did::new("did:bogus:whatever".to_owned()).expect("valid did syntax");
+        assert!(!policy.permits(&bogus), "default must reject did:bogus:");
+        assert!(policy.validate(&bogus).is_err());
+        assert_eq!(
+            policy.default_principal_method.as_deref(),
+            Some("did:webvh:"),
+            "default principal method must be did:webvh, never did:web"
+        );
     }
 }
