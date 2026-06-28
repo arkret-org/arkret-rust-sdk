@@ -1170,6 +1170,24 @@ pub(super) fn governance_binding_openmls_capabilities() -> Capabilities {
         .build()
 }
 
+/// Leaf-node capabilities for a *last-resort* KeyPackage. A KeyPackage marked
+/// `mark_as_last_resort()` carries the OpenMLS `last_resort` extension, and
+/// RFC 9420 §7.2 requires a leaf node to declare (in its `capabilities`) every
+/// extension present on it. Without `ExtensionType::LastResort` here the
+/// KeyPackage is self-inconsistent and an `Add` of it fails validation with
+/// `UnsupportedExtension` — which is exactly what stalls admin admission of a
+/// last-resort invitee. The governance-binding extension stays required for the
+/// group; `LastResort` is an extra capability the group never uses, so adding
+/// it imposes no requirement on existing members.
+pub(super) fn governance_binding_last_resort_openmls_capabilities() -> Capabilities {
+    Capabilities::builder()
+        .extensions(vec![
+            ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
+            ExtensionType::LastResort,
+        ])
+        .build()
+}
+
 pub(super) fn governance_binding_group_context_extensions(
     binding: Option<&MlsGovernanceBindingPayload>,
 ) -> Result<Extensions<GroupContext>> {

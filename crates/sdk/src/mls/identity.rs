@@ -13,8 +13,8 @@ use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTra
 
 use super::group::{
     CokretMlsGroup, decode, encode, governance_binding_group_context_extensions,
-    governance_binding_openmls_capabilities, mls_error, restore_provider_storage,
-    snapshot_provider_storage,
+    governance_binding_last_resort_openmls_capabilities, governance_binding_openmls_capabilities,
+    mls_error, restore_provider_storage, snapshot_provider_storage,
 };
 use super::recovery::{MlsDeviceWorkflowAction, MlsDeviceWorkflowStep};
 use crate::{
@@ -93,8 +93,17 @@ impl CokretMlsIdentity {
     }
 
     fn key_package_record_inner(&self, last_resort: bool) -> Result<MlsKeyPackageRecord> {
-        let mut builder =
-            KeyPackage::builder().leaf_node_capabilities(governance_binding_openmls_capabilities());
+        // A last-resort KeyPackage carries the OpenMLS `last_resort` extension,
+        // so its leaf-node capabilities MUST also declare `LastResort` or the
+        // KeyPackage is self-inconsistent and an `Add` of it is rejected with
+        // `UnsupportedExtension` (RFC 9420 §7.2) — the exact failure that stalls
+        // admin admission of a last-resort invitee.
+        let capabilities = if last_resort {
+            governance_binding_last_resort_openmls_capabilities()
+        } else {
+            governance_binding_openmls_capabilities()
+        };
+        let mut builder = KeyPackage::builder().leaf_node_capabilities(capabilities);
         if last_resort {
             builder = builder.mark_as_last_resort();
         }
@@ -326,6 +335,48 @@ mod tests {
         let value = serde_json::to_value(&record).unwrap();
         assert!(
             matches!(value.get("capabilities"), Some(Value::Array(values)) if !values.is_empty())
+        );
+    }
+
+    // Regression: a last-resort KeyPackage carries the OpenMLS `last_resort`
+    // extension, so its leaf MUST declare the `LastResort` capability. Without
+    // it, an admin's `Add` of the invitee fails with `UnsupportedExtension` and
+    // admission stalls ("waiting for a Welcome"). Adding it to a real group is
+    // the end-to-end check that the KeyPackage is self-consistent.
+    #[test]
+    fn last_resort_key_package_is_addable_to_a_group() {
+        let alice = CokretMlsIdentity::new_basic(
+            Did::new("did:web:alice.example".to_owned()).unwrap(),
+            DeviceId::new("ck:device:01964137-0000-7000-8000-00000000000a".to_owned()).unwrap(),
+        )
+        .unwrap();
+        let mut group = alice.create_group(b"ck:mls_group:last-resort-add-test").unwrap();
+
+        let bob = CokretMlsIdentity::new_basic(
+            Did::new("did:web:bob.example".to_owned()).unwrap(),
+            DeviceId::new("ck:device:01964137-0000-7000-8000-00000000000b".to_owned()).unwrap(),
+        )
+        .unwrap();
+        let bob_last_resort = bob.last_resort_key_package_record().unwrap();
+        assert!(bob_last_resort.last_resort);
+
+        let result = group.add_member(&bob_last_resort);
+        assert!(
+            result.is_ok(),
+            "adding a last-resort KeyPackage must not fail (UnsupportedExtension regression): {:?}",
+            result.err()
+        );
+
+        // Sanity: the single-use KeyPackage path still adds cleanly.
+        let carol = CokretMlsIdentity::new_basic(
+            Did::new("did:web:carol.example".to_owned()).unwrap(),
+            DeviceId::new("ck:device:01964137-0000-7000-8000-00000000000c".to_owned()).unwrap(),
+        )
+        .unwrap();
+        let carol_kp = carol.key_package_record().unwrap();
+        assert!(
+            group.add_member(&carol_kp).is_ok(),
+            "single-use KeyPackage add regressed"
         );
     }
 }
