@@ -62,6 +62,20 @@ pub struct RemovedCallParticipant {
     pub removed_at: DateTime<Utc>,
 }
 
+/// Current moderator mute override in `ck.call.state.participant_mute_overrides[]`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ParticipantMuteOverride {
+    pub actor_id: Did,
+    pub device_id: String,
+    pub audio_muted: bool,
+    pub video_muted: bool,
+    pub muted_by: Did,
+    pub muted_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -382,6 +396,8 @@ pub struct CallStatePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub removed_participants: Option<Vec<RemovedCallParticipant>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub participant_mute_overrides: Option<Vec<ParticipantMuteOverride>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recording_state: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recording_result: Option<CallStatePayloadRecordingResult>,
@@ -578,6 +594,38 @@ mod tests {
         assert_eq!(
             encoded["removed_participants"][0]["actor_id"],
             "did:web:bob.example"
+        );
+    }
+
+    #[test]
+    fn call_state_participant_mute_overrides_round_trips() {
+        let value = json!({
+            "call_id": "ck:call:019a7360-0000-7000-8000-000000000001",
+            "state": "active",
+            "participant_mute_overrides": [{
+                "actor_id": "did:web:bob.example",
+                "device_id": "ck:device:019a7360-0000-7000-8000-000000000002",
+                "audio_muted": true,
+                "video_muted": false,
+                "muted_by": "did:web:mod.example",
+                "muted_at": "2026-06-22T00:00:00Z",
+                "reason": "moderation"
+            }]
+        });
+        let payload: CallStatePayload = serde_json::from_value(value).unwrap();
+
+        assert_eq!(
+            payload
+                .participant_mute_overrides
+                .as_ref()
+                .and_then(|overrides| overrides.first())
+                .map(|override_row| (override_row.audio_muted, override_row.video_muted)),
+            Some((true, false))
+        );
+        let encoded = serde_json::to_value(payload).unwrap();
+        assert_eq!(
+            encoded["participant_mute_overrides"][0]["device_id"],
+            "ck:device:019a7360-0000-7000-8000-000000000002"
         );
     }
 

@@ -393,6 +393,7 @@ pub const REASON_RELAXED_WINDOW_EXCEEDS_CEILING: &str = "relaxed_window_exceeds_
 pub const REASON_LEGAL_HOLD_ACTIVE: &str = "legal_hold_active";
 pub const REASON_TOKEN_ISSUER_UNAUTHORISED: &str = "token_issuer_unauthorised";
 pub const REASON_E2EE_KEY_SOURCE_UNAUTHORISED: &str = "e2ee_key_source_unauthorised";
+pub const REASON_AUDIT_RELEASE_BINDING_INACTIVE: &str = "audit_release_binding_inactive";
 /// `ck.mls.commit` reducer / federation-push reason: the commit's
 /// `governance_binding.policy_root` does not match the policy root the MLS
 /// group's epoch chain is bound to (encryption-and-audit.md §2.5.1). The
@@ -405,6 +406,8 @@ pub const REASON_MLS_GOVERNANCE_BINDING_MISMATCH: &str = "governance_binding_mis
 /// contested epoch fail closed as `decryption_pending` until a later commit
 /// resolves the frontier. Mirrors error-code-registry.json `decryption_pending`.
 pub const REASON_MLS_DECRYPTION_PENDING: &str = "decryption_pending";
+
+pub const KNOWN_REASON_CODES_AUDIT_RELEASE: &[&str] = &[REASON_AUDIT_RELEASE_BINDING_INACTIVE];
 
 // Late key recovery transition guards.
 pub const REASON_LATE_RECOVERY_REJECTED_MEMBERSHIP: &str = "late_recovery_rejected_membership";

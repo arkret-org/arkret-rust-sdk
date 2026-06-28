@@ -4,13 +4,13 @@
 //! ../../cokret-spec/spec/v1/zh/authz/event-auth-state-resolution.md):
 //!
 //! 1. For each non-`⊥` control cell under the current joined Seal view, build a leaf:
-//!    `leaf_preimage = canonical_json({"cell": "<wire>", "state": <state_object>})`,
-//!    `leaf = H(0x00 || leaf_preimage_utf8_bytes)` (RFC 6962 leaf domain separation).
+//!    `leaf_preimage = canonical_json({"cell": "<wire>", "state": <state_object>})`, `leaf = H(0x00
+//!    || leaf_preimage_utf8_bytes)` (RFC 6962 leaf domain separation).
 //! 2. Sort leaves by `cell_wire` Unicode code point ascending.
-//! 3. Combine leaves via the unified Seal Merkle rule (§6.2.2): internal node =
-//!    `H(0x01 || left || right)`, odd tail promoted without duplication, single-leaf
-//!    root equals that leaf's `H(0x00 || ..)` (NOT the bare preimage hash), empty set →
-//!    `H` over the empty byte string (`sha256:e3b0...b855`).
+//! 3. Combine leaves via the unified Seal Merkle rule (§6.2.2): internal node = `H(0x01 || left ||
+//!    right)`, odd tail promoted without duplication, single-leaf root equals that leaf's `H(0x00
+//!    || ..)` (NOT the bare preimage hash), empty set → `H` over the empty byte string
+//!    (`sha256:e3b0...b855`).
 //! 4. Wire form: `state_root = "sha256:" + lower_hex(root)`.
 //!
 //! This is the **Seal-level** Merkle family with `0x00`/`0x01` domain separation,

@@ -111,6 +111,7 @@ pub const ERROR_CODE_STREAM_RESYNC_REQUIRED: &str = "stream_resync_required";
 pub const ERROR_CODE_TOO_LARGE: &str = "too_large";
 pub const ERROR_CODE_UNSUPPORTED_DID_METHOD: &str = "unsupported_did_method";
 pub const ERROR_CODE_UNSUPPORTED_MEDIA_POLICY: &str = "unsupported_media_policy";
+pub const ERROR_CODE_MEDIA_NEGOTIATION_FAILED: &str = "media_negotiation_failed";
 pub const ERROR_CODE_UNSUPPORTED_FEATURE: &str = "unsupported_feature";
 pub const ERROR_CODE_UNSUPPORTED_EVENT_KIND: &str = "unsupported_event_kind";
 pub const ERROR_CODE_NOT_IMPLEMENTED: &str = "not_implemented";
@@ -317,6 +318,7 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_TOO_LARGE,
     ERROR_CODE_UNSUPPORTED_DID_METHOD,
     ERROR_CODE_UNSUPPORTED_MEDIA_POLICY,
+    ERROR_CODE_MEDIA_NEGOTIATION_FAILED,
     ERROR_CODE_UNSUPPORTED_FEATURE,
     ERROR_CODE_UNSUPPORTED_EVENT_KIND,
     ERROR_CODE_NOT_IMPLEMENTED,

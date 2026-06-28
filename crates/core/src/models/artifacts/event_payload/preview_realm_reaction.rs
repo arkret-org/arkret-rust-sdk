@@ -803,8 +803,7 @@ mod realm_organization_tests {
         let now = DateTime::parse_from_rfc3339("2026-06-25T12:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        let mut payload: RealmOrganizationPayload =
-            serde_json::from_value(active_value()).unwrap();
+        let mut payload: RealmOrganizationPayload = serde_json::from_value(active_value()).unwrap();
         assert!(payload.is_effective_active(now));
 
         payload.not_before = Some(

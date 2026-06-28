@@ -285,17 +285,29 @@ pub type ProfileId = String;
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/signature_alg`.
 pub type SignatureAlg = String;
 
-/// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/widget`.
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/applet-widget-declaration.schema.json#/properties/token_scope`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct WidgetTokenScope {
+    pub actions: Vec<String>,
+    pub resources: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_ids: Option<Vec<RealmId>>,
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_ttl_seconds: Option<u64>,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
+/// Counterpart for `spec/v1/artifacts/schemas/applet-widget-declaration.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Widget {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub origin: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub csp: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub token_scope: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub consent_required: Option<bool>,
+    pub schema: String,
+    pub widget_origin: String,
+    pub csp: String,
+    pub token_scope: WidgetTokenScope,
+    pub requires_consent: bool,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
 }

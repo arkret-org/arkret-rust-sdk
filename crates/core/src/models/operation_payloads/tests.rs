@@ -102,28 +102,20 @@ fn message_expiry_serializes_disappearing_wire_shape() {
     let expiry =
         DisappearingMessageExpiry::new(60_000, DisappearingMessageExpiryTrigger::OnFirstRead)
             .unwrap()
-            .with_seal_hlc("01970e589d21-0001-a13f9c2e")
-            .unwrap()
             .with_grace_ms(5_000);
     let value = serde_json::to_value(&expiry).unwrap();
 
     assert_eq!(value["ttl_ms"], 60_000);
     assert_eq!(value["trigger"], "on_first_read");
-    assert_eq!(value["seal_hlc"], "01970e589d21-0001-a13f9c2e");
+    assert!(value.get("seal_hlc").is_none());
     assert_eq!(value["grace_ms"], 5_000);
 }
 
 #[test]
-fn message_expiry_rejects_non_positive_ttl_and_empty_anchor() {
+fn message_expiry_rejects_non_positive_ttl() {
     let err =
         DisappearingMessageExpiry::new(0, DisappearingMessageExpiryTrigger::OnSend).unwrap_err();
     assert!(err.to_string().contains("ttl_ms"));
-
-    let err = DisappearingMessageExpiry::new(1, DisappearingMessageExpiryTrigger::OnLastRead)
-        .unwrap()
-        .with_seal_hlc(" ")
-        .unwrap_err();
-    assert!(err.to_string().contains("seal_hlc"));
 }
 
 #[test]

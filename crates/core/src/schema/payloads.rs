@@ -1105,7 +1105,10 @@ mod tests {
 
         // Active positive case.
         catalog
-            .validate_payload("ck.realm.organization", &realm_organization_active_payload())
+            .validate_payload(
+                "ck.realm.organization",
+                &realm_organization_active_payload(),
+            )
             .unwrap();
 
         // Revoked positive case (carries revokes_statement_id).

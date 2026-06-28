@@ -32,7 +32,6 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use crate::errors::KeyBackupError;
 use argon2::{Algorithm, Argon2, Params, Version};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
@@ -52,6 +51,8 @@ use hmac::{Hmac, Mac};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
+
+use crate::errors::KeyBackupError;
 
 type HmacSha256 = Hmac<Sha256>;
 

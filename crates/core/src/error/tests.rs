@@ -139,6 +139,7 @@ fn reason_constants_are_declared_in_embedded_registry() {
         KNOWN_REASON_CODES_ROUND_C44,
         KNOWN_REASON_CODES_REACTION,
         KNOWN_REASON_CODES_CONTACT_DIRECT_CONVERSATION,
+        KNOWN_REASON_CODES_AUDIT_RELEASE,
     ];
     for reason in curated.iter().flat_map(|set| set.iter()) {
         assert!(

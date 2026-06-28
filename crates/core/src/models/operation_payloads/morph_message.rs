@@ -226,8 +226,6 @@ pub struct DisappearingMessageExpiry {
     pub ttl_ms: u64,
     pub trigger: DisappearingMessageExpiryTrigger,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub seal_hlc: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub grace_ms: Option<u64>,
 }
 
@@ -236,17 +234,10 @@ impl DisappearingMessageExpiry {
         let expiry = Self {
             ttl_ms,
             trigger,
-            seal_hlc: None,
             grace_ms: None,
         };
         expiry.validate()?;
         Ok(expiry)
-    }
-
-    pub fn with_seal_hlc(mut self, seal_hlc: impl Into<String>) -> Result<Self> {
-        self.seal_hlc = Some(seal_hlc.into());
-        self.validate()?;
-        Ok(self)
     }
 
     pub fn with_grace_ms(mut self, grace_ms: u64) -> Self {
@@ -258,15 +249,6 @@ impl DisappearingMessageExpiry {
         if self.ttl_ms == 0 {
             return Err(Error::Protocol(
                 "message expiry ttl_ms must be greater than zero".to_owned(),
-            ));
-        }
-        if self
-            .seal_hlc
-            .as_deref()
-            .is_some_and(|seal_hlc| seal_hlc.trim().is_empty())
-        {
-            return Err(Error::Protocol(
-                "message expiry seal_hlc must not be empty".to_owned(),
             ));
         }
         Ok(())

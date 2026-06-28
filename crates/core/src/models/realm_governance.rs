@@ -616,15 +616,14 @@ impl RealmOrganizationDelegationResolver for NoDelegationResolver {
 ///
 /// This checks, fail-closed:
 /// 1. `realm_id` matches the enclosing `Event.realm_id` (`expected_realm_id`).
-/// 2. issuer-role / delegation coupling: delegated roles
-///    (governance_service / account_authority) MUST carry a `delegation_ref`
-///    that resolves (via `resolver`) to a live delegation anchored to
-///    `organization_id` and covering the requested relationship + scopes;
-///    non-delegated roles MUST NOT carry one.
+/// 2. issuer-role / delegation coupling: delegated roles (governance_service / account_authority)
+///    MUST carry a `delegation_ref` that resolves (via `resolver`) to a live delegation anchored to
+///    `organization_id` and covering the requested relationship + scopes; non-delegated roles MUST
+///    NOT carry one.
 /// 3. proof presence / structure (non-empty signature material).
 /// 4. validity window: `not_before <= now < expires_at`.
-/// 5. status / revocation consistency (`revoked` requires
-///    `revokes_statement_id`; `active` must not carry it).
+/// 5. status / revocation consistency (`revoked` requires `revokes_statement_id`; `active` must not
+///    carry it).
 ///
 /// It does NOT verify the cryptographic signature bytes themselves (the
 /// caller's crypto layer does that against `verification_method`); it
@@ -661,7 +660,10 @@ where
 
     // 2. issuer-role / delegation coupling.
     let role = payload.authorization.issuer_role;
-    match (role.requires_delegation_ref(), &payload.authorization.delegation_ref) {
+    match (
+        role.requires_delegation_ref(),
+        &payload.authorization.delegation_ref,
+    ) {
         (true, None) => {
             return Err(Error::Protocol(format!(
                 "ck.realm.organization issuer_role requires delegation_ref ({})",
@@ -860,7 +862,8 @@ mod realm_organization_verifier_tests {
     fn delegated_role_with_unresolvable_delegation_fails_closed() {
         let mut p = active_payload();
         p.authorization.issuer_role = RealmOrganizationIssuerRole::AccountAuthority;
-        p.authorization.delegation_ref = Some("ck:grant:01904100-0000-7000-8000-000000000001".to_owned());
+        p.authorization.delegation_ref =
+            Some("ck:grant:01904100-0000-7000-8000-000000000001".to_owned());
         assert!(
             verify_realm_organization_statement(&p, &realm_id(), now(), &NoDelegationResolver)
                 .is_err()
@@ -871,7 +874,8 @@ mod realm_organization_verifier_tests {
     fn delegated_role_with_live_covering_delegation_passes() {
         let mut p = active_payload();
         p.authorization.issuer_role = RealmOrganizationIssuerRole::GovernanceService;
-        p.authorization.delegation_ref = Some("ck:grant:01904100-0000-7000-8000-000000000001".to_owned());
+        p.authorization.delegation_ref =
+            Some("ck:grant:01904100-0000-7000-8000-000000000001".to_owned());
         verify_realm_organization_statement(
             &p,
             &realm_id(),
@@ -884,7 +888,8 @@ mod realm_organization_verifier_tests {
     #[test]
     fn non_delegated_role_with_delegation_ref_fails() {
         let mut p = active_payload();
-        p.authorization.delegation_ref = Some("ck:grant:01904100-0000-7000-8000-000000000001".to_owned());
+        p.authorization.delegation_ref =
+            Some("ck:grant:01904100-0000-7000-8000-000000000001".to_owned());
         assert!(
             verify_realm_organization_statement(&p, &realm_id(), now(), &NoDelegationResolver)
                 .is_err()
@@ -895,7 +900,8 @@ mod realm_organization_verifier_tests {
     fn delegation_not_covering_scopes_fails() {
         let mut p = active_payload();
         p.authorization.issuer_role = RealmOrganizationIssuerRole::GovernanceService;
-        p.authorization.delegation_ref = Some("ck:grant:01904100-0000-7000-8000-000000000001".to_owned());
+        p.authorization.delegation_ref =
+            Some("ck:grant:01904100-0000-7000-8000-000000000001".to_owned());
         let mut delegation = live_delegation();
         delegation.covered_control_scopes = vec![RealmOrganizationControlScope::OfficialBadge];
         assert!(
@@ -936,13 +942,8 @@ mod realm_organization_verifier_tests {
         let mut future = active_payload();
         future.not_before = Some(Utc.with_ymd_and_hms(2026, 6, 26, 0, 0, 0).unwrap());
         assert!(
-            verify_realm_organization_statement(
-                &future,
-                &realm_id(),
-                now(),
-                &NoDelegationResolver
-            )
-            .is_err()
+            verify_realm_organization_statement(&future, &realm_id(), now(), &NoDelegationResolver)
+                .is_err()
         );
     }
 

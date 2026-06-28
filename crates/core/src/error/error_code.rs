@@ -111,6 +111,7 @@ pub enum ErrorCode {
     TooLarge,
     UnsupportedDidMethod,
     UnsupportedMediaPolicy,
+    MediaNegotiationFailed,
     UnsupportedFeature,
     UnsupportedEventKind,
     NotImplemented,
@@ -165,7 +166,7 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 158] = [
+    pub const ALL: [Self; 159] = [
         Self::BadJson,
         Self::BadQuery,
         Self::SchemaViolation,
@@ -273,6 +274,7 @@ impl ErrorCode {
         Self::TooLarge,
         Self::UnsupportedDidMethod,
         Self::UnsupportedMediaPolicy,
+        Self::MediaNegotiationFailed,
         Self::UnsupportedFeature,
         Self::UnsupportedEventKind,
         Self::NotImplemented,
@@ -441,6 +443,7 @@ impl ErrorCode {
             Self::TooLarge => ERROR_CODE_TOO_LARGE,
             Self::UnsupportedDidMethod => ERROR_CODE_UNSUPPORTED_DID_METHOD,
             Self::UnsupportedMediaPolicy => ERROR_CODE_UNSUPPORTED_MEDIA_POLICY,
+            Self::MediaNegotiationFailed => ERROR_CODE_MEDIA_NEGOTIATION_FAILED,
             Self::UnsupportedFeature => ERROR_CODE_UNSUPPORTED_FEATURE,
             Self::UnsupportedEventKind => ERROR_CODE_UNSUPPORTED_EVENT_KIND,
             Self::NotImplemented => ERROR_CODE_NOT_IMPLEMENTED,
@@ -610,6 +613,7 @@ impl ErrorCode {
             ERROR_CODE_TOO_LARGE => Self::TooLarge,
             ERROR_CODE_UNSUPPORTED_DID_METHOD => Self::UnsupportedDidMethod,
             ERROR_CODE_UNSUPPORTED_MEDIA_POLICY => Self::UnsupportedMediaPolicy,
+            ERROR_CODE_MEDIA_NEGOTIATION_FAILED => Self::MediaNegotiationFailed,
             ERROR_CODE_UNSUPPORTED_FEATURE => Self::UnsupportedFeature,
             ERROR_CODE_UNSUPPORTED_EVENT_KIND => Self::UnsupportedEventKind,
             ERROR_CODE_NOT_IMPLEMENTED => Self::NotImplemented,
