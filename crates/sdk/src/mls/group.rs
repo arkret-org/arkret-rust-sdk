@@ -939,6 +939,50 @@ impl CokretMlsGroup {
         })
     }
 
+    /// Encrypt `plaintext` under the §2.10 `mls-exporter-aead-v1` content scheme
+    /// and return the full [`EncryptedPayload`] (scheme / key_ref / digest set),
+    /// so a late joiner granted the epoch's `history_secret` can decrypt it.
+    ///
+    /// `aead_aad_bytes` is the history-binding AAD (e.g. the per-epoch
+    /// `history_content_aad_bytes(realm_id, epoch)`); it MUST be reconstructed
+    /// byte-identically on the decrypt side. `payload_aad` is the optional
+    /// routing AAD carried in the envelope (mirrors
+    /// [`Self::encrypt_payload_with_aad`]). Side effect: derives + retains this
+    /// epoch's `history_secret` (so the author can re-decrypt and later share it).
+    pub fn encrypt_payload_exporter_aead(
+        &mut self,
+        content_type: impl Into<String>,
+        realm_id: &str,
+        aead_aad_bytes: &[u8],
+        payload_aad: Option<serde_json::Value>,
+        plaintext: &[u8],
+    ) -> Result<EncryptedPayload> {
+        let nonce_and_ct =
+            self.encrypt_content_exporter_aead(realm_id, aead_aad_bytes, plaintext)?;
+        let epoch = self.epoch();
+        let content_type = content_type.into();
+        let payload_digest = EncryptedPayload::payload_digest_for_scheme(
+            EncryptedPayloadScheme::MlsExporterAeadV1,
+            epoch,
+            &content_type,
+            payload_aad.as_ref(),
+            &nonce_and_ct,
+        )?;
+        Ok(EncryptedPayload {
+            scheme: EncryptedPayloadScheme::MlsExporterAeadV1,
+            group_id: self.group_id(),
+            epoch,
+            content_type,
+            ciphertext: encode(&nonce_and_ct),
+            aad: payload_aad,
+            payload_digest,
+            key_ref: Some(cokret_core::KeyRefObject::mls_exporter_aead(
+                self.group_id(),
+                epoch,
+            )),
+        })
+    }
+
     pub fn decrypt_payload(&mut self, payload: &EncryptedPayload) -> Result<Vec<u8>> {
         if payload.scheme != EncryptedPayloadScheme::MlsRfc9420 {
             return Err(Error::Protocol(

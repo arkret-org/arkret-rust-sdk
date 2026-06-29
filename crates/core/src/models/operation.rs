@@ -807,6 +807,16 @@ impl KeyRefObject {
             group_state_ref: format!("{}:{}", group_id.into(), epoch),
         }
     }
+
+    /// Build an MLS-EXPORTER-AEAD typed `key_ref` (§2.10) from a group id and
+    /// epoch. The `algorithm` token `MLS-EXPORTER-AEAD` is bound by the
+    /// `encrypted-envelope.schema.json` if/then to `scheme=mls-exporter-aead-v1`.
+    pub fn mls_exporter_aead(group_id: impl Into<String>, epoch: u64) -> Self {
+        Self {
+            algorithm: "MLS-EXPORTER-AEAD".to_owned(),
+            group_state_ref: format!("{}:{}", group_id.into(), epoch),
+        }
+    }
 }
 
 impl EncryptedPayload {
@@ -816,9 +826,31 @@ impl EncryptedPayload {
         aad: Option<&Value>,
         ciphertext_bytes: &[u8],
     ) -> Result<Hash> {
+        Self::payload_digest_for_scheme(
+            EncryptedPayloadScheme::MlsRfc9420,
+            epoch,
+            content_type,
+            aad,
+            ciphertext_bytes,
+        )
+    }
+
+    /// §2.3.3 content payload digest, parameterized by `scheme`. The digest binds
+    /// the `scheme` token into the metadata (`encryption` field) so a payload
+    /// authored under `mls-exporter-aead-v1` (§2.10) and one under `mls-rfc9420`
+    /// never collide, and the receiver's verification is scheme-bound.
+    /// `ciphertext_bytes` are the raw decoded ciphertext bytes (for
+    /// `mls-exporter-aead-v1` that is the `nonce || AEAD_ct` blob).
+    pub fn payload_digest_for_scheme(
+        scheme: EncryptedPayloadScheme,
+        epoch: u64,
+        content_type: &str,
+        aad: Option<&Value>,
+        ciphertext_bytes: &[u8],
+    ) -> Result<Hash> {
         let metadata = EncryptedPayloadDigestMetadata {
             content_type,
-            encryption: EncryptedPayloadScheme::MlsRfc9420.as_str(),
+            encryption: scheme.as_str(),
             epoch,
             aad,
         };
@@ -831,7 +863,8 @@ impl EncryptedPayload {
     }
 
     pub fn verify_mls_payload_digest(&self, ciphertext_bytes: &[u8]) -> Result<()> {
-        let expected = Self::mls_payload_digest(
+        let expected = Self::payload_digest_for_scheme(
+            self.scheme.clone(),
             self.epoch,
             &self.content_type,
             self.aad.as_ref(),

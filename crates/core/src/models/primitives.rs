@@ -849,12 +849,20 @@ pub enum RelationDirection {
 pub enum EncryptedPayloadScheme {
     #[serde(rename = "mls-rfc9420")]
     MlsRfc9420,
+    // §2.10 history-shareable content scheme: content is encrypted under a
+    // retainable / re-sealable per-epoch `history_secret` (MLS exporter) instead
+    // of the forward-secret message ratchet, so a late joiner granted the
+    // epoch's `history_secret` via `ck.realm_key.share` can decrypt pre-join
+    // content. Trades per-message forward secrecy for per-epoch (§2.10.5).
+    #[serde(rename = "mls-exporter-aead-v1")]
+    MlsExporterAeadV1,
 }
 
 impl EncryptedPayloadScheme {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::MlsRfc9420 => "mls-rfc9420",
+            Self::MlsExporterAeadV1 => "mls-exporter-aead-v1",
         }
     }
 }
