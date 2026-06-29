@@ -52,6 +52,8 @@ reqwest = {version = "0.13.4",default-features = false,features = ["query"]}
 salvo = {version = "0.93.0",default-features = false}
 salvo-oapi = {version = "0.93.0",default-features = false}
 secret-service = {version = "5.1.0",default-features = false,features = ["rt-tokio-crypto-rust"]}
+rand_chacha = {version = "0.3.1",default-features = false}
+rand_core = {version = "0.6.4",default-features = false}
 security-framework = {version = "3.7.0",default-features = false}
 serde = {version = "1.0.228",default-features = false,features = ["std", "derive"]}
 serde_json = {version = "1.0.150",default-features = false,features = ["std"]}

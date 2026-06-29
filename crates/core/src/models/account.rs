@@ -346,6 +346,11 @@ pub struct AccountView {
     pub handle_claim_digests: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile: Option<ActorProfile>,
+    /// True when the authenticated principal is a deployment server
+    /// administrator (the server's configured admin principal set). Operator-only
+    /// product surfaces (e.g. organization creation) gate their UI on this.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub is_server_admin: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

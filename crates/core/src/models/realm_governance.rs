@@ -393,6 +393,69 @@ pub struct RealmPolicyServerReplaceRequestBody {
     pub on_timeout: Option<RealmPolicyServerOnTimeout>,
 }
 
+/// `lifecycle_phase` discriminator for a projected `ck.realm.organization`
+/// relationship row
+/// (`realm-organization-operations.schema.json#/$defs/lifecycle_phase`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmOrganizationLifecyclePhase {
+    /// Latest accepted statement for `(organization_id, relationship)` is
+    /// `status=active` and within its validity window.
+    VerifiedActive,
+    /// The relationship has been revoked or is outside its validity window.
+    RevokedOrExpired,
+}
+
+/// One projected `ck.realm.organization` relationship row surfaced by
+/// `ck.self.realm_organization.query.list`. Mirrors the canonical
+/// `realm_organization_payload` field order; `lifecycle_phase` is
+/// reducer-derived. A row here is a projection only: an organization
+/// relationship is only verified when `lifecycle_phase=verified_active`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmOrganizationRelationshipRow {
+    pub statement_id: String,
+    pub organization_id: Did,
+    pub relationship: RealmOrganizationRelationship,
+    pub status: RealmOrganizationStatus,
+    pub control_scopes: Vec<RealmOrganizationControlScope>,
+    pub issued_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_before: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supersedes_statement_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revokes_statement_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_frontier_digest: Option<Hash>,
+    pub issuer_role: RealmOrganizationIssuerRole,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delegation_ref: Option<String>,
+    pub lifecycle_phase: RealmOrganizationLifecyclePhase,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// Response DTO for `ck.self.realm_organization.query.list`
+/// (`realm-organization-operations.schema.json#/$defs/realm_organization_relationship_list`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmOrganizationRelationshipList {
+    pub realm_id: RealmId,
+    #[serde(default)]
+    pub relationships: Vec<RealmOrganizationRelationshipRow>,
+    /// `owning_organizations` declared hints with no verified statement. These
+    /// are unverified claims and MUST NOT be rendered as official / governed /
+    /// endorsed.
+    #[serde(default)]
+    pub declared_organization_hints: Vec<Did>,
+}
+
 /// Typed payload for the `ck.realm.inheritance_policy` event.
 ///
 /// Cell family: `ck.component.realm.inheritance_policy.v1` (cas-register).
@@ -750,6 +813,80 @@ where
         }
         _ => Ok(()),
     }
+}
+
+/// Transcript discriminator for the bytes an organization-side proof signs over.
+pub const ORGANIZATION_STATEMENT_TRANSCRIPT_KIND: &str = "ck.realm.organization.statement.v1";
+
+/// Canonical transcript the organization-side proof signs over. Every statement
+/// field except `authorization.proof` (the signature itself) and the redundant
+/// `signed_at` is included, so a verifier can rebuild the exact bytes from the
+/// wire statement. Optional fields are omitted when absent so the bytes are
+/// stable.
+#[derive(Debug, Serialize)]
+struct OrganizationStatementTranscript<'a> {
+    kind: &'a str,
+    statement_id: &'a str,
+    realm_id: &'a RealmId,
+    organization_id: &'a Did,
+    relationship: &'a RealmOrganizationRelationship,
+    status: &'a RealmOrganizationStatus,
+    control_scopes: &'a [RealmOrganizationControlScope],
+    issued_at: &'a DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    not_before: Option<&'a DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expires_at: Option<&'a DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    supersedes_statement_id: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    revokes_statement_id: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    realm_frontier_digest: Option<&'a Hash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    organization_policy_ref: Option<&'a ObjectRef>,
+    issuer: &'a Did,
+    issuer_role: &'a RealmOrganizationIssuerRole,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delegation_ref: Option<&'a ObjectRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    executed_by: Option<&'a Did>,
+}
+
+/// Canonical bytes the organization-side `authorization.proof` signs over.
+///
+/// Both the issuing side (coauth) and the verifying side (soland) MUST derive
+/// the signing input from this one function so the bytes are byte-identical.
+/// The transcript binds every semantic field of the statement except the proof
+/// itself, so a detached signature over these bytes authenticates the whole
+/// statement. The signing key MUST be a verification method in the
+/// `organization_id` DID document (`authorization.verification_method`); the
+/// verifier resolves that document and checks the signature.
+pub fn realm_organization_statement_signing_bytes(
+    payload: &RealmOrganizationPayload,
+) -> Result<Vec<u8>> {
+    let authorization = &payload.authorization;
+    let transcript = OrganizationStatementTranscript {
+        kind: ORGANIZATION_STATEMENT_TRANSCRIPT_KIND,
+        statement_id: &payload.statement_id,
+        realm_id: &payload.realm_id,
+        organization_id: &payload.organization_id,
+        relationship: &payload.relationship,
+        status: &payload.status,
+        control_scopes: &payload.control_scopes,
+        issued_at: &payload.issued_at,
+        not_before: payload.not_before.as_ref(),
+        expires_at: payload.expires_at.as_ref(),
+        supersedes_statement_id: payload.supersedes_statement_id.as_ref(),
+        revokes_statement_id: payload.revokes_statement_id.as_ref(),
+        realm_frontier_digest: payload.realm_frontier_digest.as_ref(),
+        organization_policy_ref: payload.organization_policy_ref.as_ref(),
+        issuer: &authorization.issuer,
+        issuer_role: &authorization.issuer_role,
+        delegation_ref: authorization.delegation_ref.as_ref(),
+        executed_by: authorization.executed_by.as_ref(),
+    };
+    canonical::canonical_json_bytes(&transcript)
 }
 
 #[cfg(test)]

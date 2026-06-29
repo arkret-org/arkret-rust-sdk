@@ -24,14 +24,17 @@ base64 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 cokret-core = {workspace = true}
 ed25519-dalek = {workspace = true}
+rand_core = {workspace = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 sha2 = {workspace = true}
 subtle = {workspace = true}
 thiserror = {workspace = true}
+url = {workspace = true}
 
 [dev-dependencies]
 cokret-core = {workspace = true}
+rand_chacha = {workspace = true}
 serde_json = {workspace = true}
 
 [lints]

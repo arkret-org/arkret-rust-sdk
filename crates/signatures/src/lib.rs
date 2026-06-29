@@ -23,6 +23,16 @@ pub use event_signer::{SignEventOptions, sign_event};
 pub mod http_signature;
 pub mod jwt;
 
+// Shared `did:webvh` inception builder. Pure build + cryptography (keygen, SCID
+// derivation, eddsa-jcs-2022 proof) so clients and servers mint identical
+// inception entries. HTTP submission lives in the caller.
+pub mod webvh;
+
+// Organization-side statement signing (A3). Byte-symmetric counterpart to
+// soland's `verify_realm_organization_proof_signature`.
+pub mod realm_organization;
+pub use realm_organization::realm_organization_statement_sign;
+
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Duration, Utc};

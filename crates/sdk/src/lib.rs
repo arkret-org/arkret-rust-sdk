@@ -103,6 +103,11 @@ pub use cokret_keystore::{
 #[cfg(feature = "server")]
 pub use cokret_server as server;
 pub use cokret_signatures as signatures;
+// Shared `did:webvh` inception builder + organization statement signer, surfaced
+// at the SDK root so clients (sodmin / yougen) and servers (soland / coauth)
+// reach one implementation: `cokret_sdk::webvh::prepare_inception`,
+// `cokret_sdk::realm_organization_statement_sign`.
+pub use cokret_signatures::{realm_organization, realm_organization_statement_sign, webvh};
 #[cfg(feature = "signer")]
 pub use cokret_signatures::Ed25519MoveSigner;
 #[cfg(feature = "testing")]

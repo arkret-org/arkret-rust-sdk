@@ -202,6 +202,13 @@ pub enum RealmPolicyServerOperations {
     RealmPolicyServerView(RealmPolicyServerView),
 }
 
+/// Counterpart for `spec/v1/artifacts/schemas/realm-organization-operations.schema.json`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RealmOrganizationOperations {
+    RealmOrganizationRelationshipList(RealmOrganizationRelationshipList),
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/realm-read-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
