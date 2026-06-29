@@ -257,9 +257,16 @@ impl Realm {
                 _ => continue,
             }
 
+            // `version` is set by every match arm that reaches this push
+            // (CREATE sets `Some(0)`; UPDATE/ARCHIVE guard on an existing
+            // version). Treat a missing version as a malformed / out-of-order
+            // event projection and skip rather than panic on external input.
+            let Some(version) = version else {
+                continue;
+            };
             versions.push(MorphVersion {
                 morph_id: morph_id.clone(),
-                version: version.expect("version set by morph event"),
+                version,
                 event_id: event.event_id.clone(),
                 updated_at: event.created_at,
                 title: title.clone(),

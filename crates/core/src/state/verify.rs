@@ -62,7 +62,12 @@ pub fn reject_to_error_code(r: &MoveReject) -> &'static str {
         MoveReject::InvalidSignature(_) => crate::ERROR_CODE_INVALID_SIGNATURE,
         MoveReject::CapabilityDenied(_) => crate::ERROR_CODE_CAPABILITY_DENIED,
         MoveReject::FailedPrecondition { .. } => crate::ERROR_CODE_STATE_MISMATCH,
-        MoveReject::FailedBottom { .. } => crate::ERROR_CODE_FAILED_BOTTOM,
+        // A precondition that reads a ⊥ cell fails closed. The registry has no
+        // top-level `failed_bottom` code; the bottom semantics are a
+        // `failed_precondition` sub-reason (`cell_in_bottom_state`). Surface the
+        // registered top-level `state_mismatch` code (same family as
+        // `FailedPrecondition`); the reason carries the ⊥ detail.
+        MoveReject::FailedBottom { .. } => crate::ERROR_CODE_STATE_MISMATCH,
         MoveReject::Registry(_) => crate::ERROR_CODE_INTERNAL_ERROR,
     }
 }
@@ -767,7 +772,7 @@ mod tests {
                 cell: "x".into(),
                 kind: BottomKind::Conflict
             }),
-            crate::ERROR_CODE_FAILED_BOTTOM
+            crate::ERROR_CODE_STATE_MISMATCH
         );
         assert_eq!(
             reject_to_error_code(&MoveReject::Registry("x".into())),

@@ -28,8 +28,6 @@ use super::*;
 #[derive(Clone, Debug)]
 pub(crate) struct GrantProjection {
     pub(crate) id: String,
-    #[allow(dead_code)]
-    pub(crate) realm_id: Option<RealmId>,
     pub(crate) issuer: Did,
     pub(crate) subject: CapabilitySubject,
     pub(crate) actions: Vec<String>,
@@ -86,7 +84,6 @@ impl GrantProjection {
         }
         Ok(Self {
             id: grant.id.as_str().to_owned(),
-            realm_id: grant.realm_id.clone(),
             issuer: grant.issuer.clone(),
             subject: grant.subject.clone(),
             actions: grant.actions.clone(),

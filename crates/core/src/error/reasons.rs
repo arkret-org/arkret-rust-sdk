@@ -433,3 +433,139 @@ pub const REASON_FEDERATION_TRUST_DOMAIN_MISMATCH: &str = "federation_trust_doma
 /// zh/sync/client-sync.md §10.1 and zh/sync/service-http-binding.md
 /// device_messages/ack.
 pub const REASON_INVALID_ACK_TOKEN: &str = "invalid_ack_token";
+
+// ── Round R30 reconcile — reason codes referenced by services/tests.
+//
+// These are registered `reason_codes` in `error-code-registry.json` that
+// were referenced by consuming services (soland) and conformance vectors
+// (cotest) as `ERROR_CODE_*` constants. SDK-SPEC-03 correctly classified
+// them as reasons but removed the constants before the consumers migrated,
+// surfacing as cross-crate `E0432 unresolved import`. Each value is verified
+// to be a member of `error-code-registry.json#reason_codes`.
+
+// Agent lifecycle (zh/models/agent.md).
+pub const REASON_AGENT_DEACTIVATED: &str = "agent_deactivated";
+pub const REASON_AGENT_PAUSED: &str = "agent_paused";
+
+// Moderation appeal flow (zh/governance/content-moderation.md).
+pub const REASON_APPEAL_OVERTURN_MISSING_LIFT: &str = "appeal_overturn_missing_lift";
+pub const REASON_APPEAL_SELF_REVIEW_FORBIDDEN: &str = "appeal_self_review_forbidden";
+
+// Approval consumption (zh/authz/constraint-schema.md).
+pub const REASON_APPROVAL_ALREADY_CONSUMED: &str = "approval_already_consumed";
+
+// Key-backup post-reset staleness (zh/crypto-media/key-management.md).
+pub const REASON_BACKUP_POST_RESET_STALE: &str = "backup_post_reset_stale";
+
+// Redacted blob access (zh/crypto-media/media.md).
+pub const REASON_BLOB_REDACTED: &str = "blob_redacted";
+
+// Cross-domain replay guard (zh/sync/federation.md).
+pub const REASON_CROSS_DOMAIN_REPLAY_REJECTED: &str = "cross_domain_replay_rejected";
+
+// DID proof replay window (zh/identity/did.md).
+pub const REASON_DID_PROOF_REPLAY_WINDOW_EXCEEDED: &str = "did_proof_replay_window_exceeded";
+
+// `ck.profile.e2ee_relaxed.v1` disallowed under a compliance profile
+// (zh/crypto-media/encryption-and-audit.md).
+pub const REASON_E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE: &str =
+    "e2ee_relaxed_disallowed_in_compliance_profile";
+
+// Call focus selection (zh/crypto-media/webrtc-signaling.md / call-state.md).
+pub const REASON_FOCUS_MISMATCH: &str = "focus_mismatch";
+pub const REASON_FOCUS_UNAVAILABLE_FOR_CLIENT: &str = "focus_unavailable_for_client";
+pub const REASON_UNKNOWN_FOCUS_TYPE: &str = "unknown_focus_type";
+pub const REASON_SESSION_FOCUS_ALREADY_COMMITTED: &str = "session_focus_already_committed";
+
+// Last-resort KeyPackage policy (zh/crypto-media/encryption-and-audit.md).
+pub const REASON_LAST_RESORT_NOT_SUPPORTED: &str = "last_resort_not_supported";
+pub const REASON_LAST_RESORT_REALM_AFFINITY_VIOLATION: &str =
+    "last_resort_realm_affinity_violation";
+pub const REASON_LAST_RESORT_ROTATION_REQUIRED: &str = "last_resort_rotation_required";
+
+// Plaintext media service authorisation (zh/crypto-media/media.md).
+pub const REASON_MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED: &str =
+    "media_plaintext_service_not_authorised";
+
+// Device pairing request lifetime (zh/crypto-media/device-lifecycle.md).
+pub const REASON_PAIRING_REQUEST_EXPIRED: &str = "pairing_request_expired";
+
+// Call participant binding / identity (zh/crypto-media/call-state.md).
+pub const REASON_PARTICIPANT_BINDING_INVALID: &str = "participant_binding_invalid";
+pub const REASON_PARTICIPANT_IDENTITY_UNRECOGNISED: &str = "participant_identity_unrecognised";
+
+// Generic proof verification failure (zh/identity / authz proof paths).
+pub const REASON_PROOF_INVALID: &str = "proof_invalid";
+
+// Recovery evidence binding (zh/crypto-media/key-management.md).
+pub const REASON_RECOVERY_EVIDENCE_UNBOUND: &str = "recovery_evidence_unbound";
+pub const REASON_RESET_EVENT_ID_MISMATCH: &str = "reset_event_id_mismatch";
+
+// Event series chain integrity (zh/models/event-and-patch.md).
+pub const REASON_SERIES_CHAIN_BROKEN: &str = "series_chain_broken";
+pub const REASON_SERIES_PREDECESSOR_NOT_FOUND: &str = "series_predecessor_not_found";
+pub const REASON_SERIES_SEQ_NOT_MONOTONIC: &str = "series_seq_not_monotonic";
+
+// Sidecar provisioning (zh/models/agent.md).
+pub const REASON_SIDECAR_CREATE_DENIED: &str = "sidecar_create_denied";
+
+// Transcription lifecycle (zh/crypto-media/call-state.md).
+pub const REASON_TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED: &str =
+    "transcription_artifact_pipeline_bypassed";
+pub const REASON_TRANSCRIPTION_DENIED: &str = "transcription_denied";
+
+// DID verification-method principal binding (zh/identity/did.md).
+pub const REASON_VERIFICATION_METHOD_PRINCIPAL_MISMATCH: &str =
+    "verification_method_principal_mismatch";
+
+/// Reason codes restored in the Round R30 cross-crate reconcile. Every value
+/// MUST be a member of `error-code-registry.json#reason_codes`; the
+/// `reason_constants_are_declared_in_embedded_registry` gate enforces this.
+pub const KNOWN_REASON_CODES_ROUND_R30: &[&str] = &[
+    REASON_AGENT_DEACTIVATED,
+    REASON_AGENT_PAUSED,
+    REASON_APPEAL_OVERTURN_MISSING_LIFT,
+    REASON_APPEAL_SELF_REVIEW_FORBIDDEN,
+    REASON_APPROVAL_ALREADY_CONSUMED,
+    REASON_BACKUP_POST_RESET_STALE,
+    REASON_BLOB_REDACTED,
+    REASON_CROSS_DOMAIN_REPLAY_REJECTED,
+    REASON_DID_PROOF_REPLAY_WINDOW_EXCEEDED,
+    REASON_E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE,
+    REASON_FOCUS_MISMATCH,
+    REASON_FOCUS_UNAVAILABLE_FOR_CLIENT,
+    REASON_UNKNOWN_FOCUS_TYPE,
+    REASON_SESSION_FOCUS_ALREADY_COMMITTED,
+    REASON_LAST_RESORT_NOT_SUPPORTED,
+    REASON_LAST_RESORT_REALM_AFFINITY_VIOLATION,
+    REASON_LAST_RESORT_ROTATION_REQUIRED,
+    REASON_MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED,
+    REASON_PAIRING_REQUEST_EXPIRED,
+    REASON_PARTICIPANT_BINDING_INVALID,
+    REASON_PARTICIPANT_IDENTITY_UNRECOGNISED,
+    REASON_PROOF_INVALID,
+    REASON_RECOVERY_EVIDENCE_UNBOUND,
+    REASON_RESET_EVENT_ID_MISMATCH,
+    REASON_SERIES_CHAIN_BROKEN,
+    REASON_SERIES_PREDECESSOR_NOT_FOUND,
+    REASON_SERIES_SEQ_NOT_MONOTONIC,
+    REASON_SIDECAR_CREATE_DENIED,
+    REASON_TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED,
+    REASON_TRANSCRIPTION_DENIED,
+    REASON_VERIFICATION_METHOD_PRINCIPAL_MISMATCH,
+];
+
+// ── NON-REGISTRY — member identity rejection reasons, pending registration in
+// error-code-registry.json#reason_codes. See zh/models/member-identity.md.
+//
+// soland emits these wire reason values when rejecting append-only
+// MemberIdentity replacement events (soland error.rs + routing/events/
+// projection/realm.rs). The registry currently has no `member_identity_*`
+// reason entry (only `participant_identity_unrecognised`), so these are
+// EXCLUDED from the subset gate above. Tracked in `_code_review/_gaps.md`
+// for spec-owner registration.
+pub const REASON_MEMBER_IDENTITY_PROOF_INVALID: &str = "member_identity_proof_invalid";
+pub const REASON_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH: &str =
+    "member_identity_replacement_digest_mismatch";
+pub const REASON_MEMBER_IDENTITY_STATE_MISMATCH: &str = "member_identity_state_mismatch";
+pub const REASON_MEMBER_IDENTITY_UNKNOWN_SEGMENT: &str = "member_identity_unknown_segment";
