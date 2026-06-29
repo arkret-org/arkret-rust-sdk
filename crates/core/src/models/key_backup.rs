@@ -269,8 +269,15 @@ pub enum KeyBackupRecipientMethod {
     SecretStorageKey,
 }
 
+/// Default-MUST application-layer HPKE suite selector. An absent
+/// `encryption.hpke_suite` on a `recovery_public_key` envelope denotes this row
+/// (key-backup.schema.json `encryption.hpke_suite`; hpke-suite-registry.json
+/// `role=v1_default_must`).
+pub const DEFAULT_HPKE_SUITE: &str = "ck.hpke_x25519_aead_xchacha20poly1305.v1";
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(try_from = "KeyBackupEncryptionWire")]
 pub struct KeyBackupEncryption {
     pub recipient_method: KeyBackupRecipientMethod,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -290,6 +297,182 @@ pub struct KeyBackupEncryption {
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct KeyBackupEncryptionWire {
+    recipient_method: KeyBackupRecipientMethod,
+    recipient_key_ref: Option<String>,
+    kdf: Option<KeyBackupKdf>,
+    aead: KeyBackupAead,
+    key_commitment: Option<String>,
+    hpke_suite: Option<String>,
+    #[serde(default, flatten)]
+    extra: BTreeMap<String, Value>,
+}
+
+impl TryFrom<KeyBackupEncryptionWire> for KeyBackupEncryption {
+    type Error = String;
+
+    fn try_from(wire: KeyBackupEncryptionWire) -> std::result::Result<Self, Self::Error> {
+        let encryption = Self {
+            recipient_method: wire.recipient_method,
+            recipient_key_ref: wire.recipient_key_ref,
+            kdf: wire.kdf,
+            aead: wire.aead,
+            key_commitment: wire.key_commitment,
+            hpke_suite: wire.hpke_suite,
+            extra: wire.extra,
+        };
+        // Fail closed at parse time: a wire envelope whose recipient_method /
+        // hpke_suite / per-method field set violates key-backup.schema.json's
+        // `encryption.allOf[].if/then` conditions never materialises into a typed
+        // value, so downstream code cannot operate on an illegal combination.
+        encryption.validate().map_err(|error| error.to_string())?;
+        Ok(encryption)
+    }
+}
+
+impl KeyBackupEncryption {
+    /// Validate the `recipient_method` / `hpke_suite` / per-method field-set
+    /// conditional constraints from `key-backup.schema.json`
+    /// (`properties.encryption.allOf[].if/then`), and enforce that a present
+    /// `hpke_suite` names an `active` row of the embedded
+    /// `hpke-suite-registry.json` (fail-closed `unsupported_hpke_suite`).
+    ///
+    /// Runs automatically on deserialization via the `KeyBackupEncryptionWire`
+    /// `try_from`; constructors that assemble the struct directly SHOULD call it
+    /// before signing / submitting an envelope.
+    pub fn validate(&self) -> Result<()> {
+        match self.recipient_method {
+            KeyBackupRecipientMethod::PassphraseKdf => {
+                // `if recipient_method==passphrase_kdf then required kdf; aead
+                // requires nonce + nonce_salt`.
+                if self.kdf.is_none() {
+                    return Err(Error::Protocol(
+                        "key backup encryption: passphrase_kdf requires `kdf`".to_owned(),
+                    ));
+                }
+                if self.aead.nonce.is_none() {
+                    return Err(Error::Protocol(
+                        "key backup encryption: passphrase_kdf requires `aead.nonce`".to_owned(),
+                    ));
+                }
+                if self.aead.nonce_salt.is_none() {
+                    return Err(Error::Protocol(
+                        "key backup encryption: passphrase_kdf requires `aead.nonce_salt`"
+                            .to_owned(),
+                    ));
+                }
+                // hpke_suite applies only to recovery_public_key.
+                if self.hpke_suite.is_some() {
+                    return Err(Error::Protocol(
+                        "key backup encryption: hpke_suite applies only to recovery_public_key"
+                            .to_owned(),
+                    ));
+                }
+            }
+            KeyBackupRecipientMethod::SecretStorageKey => {
+                // `then not kdf; required recipient_key_ref; aead requires nonce`.
+                if self.kdf.is_some() {
+                    return Err(Error::Protocol(
+                        "key backup encryption: secret_storage_key forbids `kdf`".to_owned(),
+                    ));
+                }
+                if self.recipient_key_ref.is_none() {
+                    return Err(Error::Protocol(
+                        "key backup encryption: secret_storage_key requires `recipient_key_ref`"
+                            .to_owned(),
+                    ));
+                }
+                if self.aead.nonce.is_none() {
+                    return Err(Error::Protocol(
+                        "key backup encryption: secret_storage_key requires `aead.nonce`"
+                            .to_owned(),
+                    ));
+                }
+                if self.hpke_suite.is_some() {
+                    return Err(Error::Protocol(
+                        "key backup encryption: hpke_suite applies only to recovery_public_key"
+                            .to_owned(),
+                    ));
+                }
+            }
+            KeyBackupRecipientMethod::RecoveryPublicKey => {
+                // `then not kdf; required recipient_key_ref; aead requires enc`.
+                if self.kdf.is_some() {
+                    return Err(Error::Protocol(
+                        "key backup encryption: recovery_public_key forbids `kdf`".to_owned(),
+                    ));
+                }
+                if self.recipient_key_ref.is_none() {
+                    return Err(Error::Protocol(
+                        "key backup encryption: recovery_public_key requires `recipient_key_ref`"
+                            .to_owned(),
+                    ));
+                }
+                if self.aead.enc.is_none() {
+                    return Err(Error::Protocol(
+                        "key backup encryption: recovery_public_key requires `aead.enc`".to_owned(),
+                    ));
+                }
+                // An explicit hpke_suite (when present) MUST be an active
+                // registry row, and the AEAD MUST equal the selected suite's
+                // aead. Absent selector denotes DEFAULT_HPKE_SUITE.
+                let suite_id = self.hpke_suite.as_deref().unwrap_or(DEFAULT_HPKE_SUITE);
+                let suite_aead = active_hpke_suite_aead(suite_id)?.ok_or_else(|| {
+                    Error::Protocol(format!(
+                        "key backup encryption: hpke_suite `{suite_id}` is not an active \
+                         hpke-suite-registry row (unsupported_hpke_suite)"
+                    ))
+                })?;
+                if self.aead.name != suite_aead {
+                    return Err(Error::Protocol(format!(
+                        "key backup encryption: aead.name `{}` does not equal hpke_suite \
+                         `{suite_id}` aead `{suite_aead}` (schema_violation)",
+                        self.aead.name
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Return the AEAD name of an `active` `hpke-suite-registry.json` row, or
+/// `Ok(None)` when the suite id is absent / `status != "active"`. Reads the
+/// embedded registry snapshot so callers fail closed without a filesystem
+/// dependency.
+fn active_hpke_suite_aead(suite_id: &str) -> Result<Option<String>> {
+    static ACTIVE_HPKE_SUITES: std::sync::OnceLock<
+        std::result::Result<BTreeMap<String, String>, String>,
+    > = std::sync::OnceLock::new();
+    match ACTIVE_HPKE_SUITES.get_or_init(|| {
+        let registry = crate::schema::embedded_json_artifact("registry/hpke-suite-registry.json")
+            .map_err(|error| error.to_string())?;
+        let suites = registry
+            .get("suites")
+            .and_then(Value::as_array)
+            .ok_or_else(|| "hpke-suite-registry.json missing `suites` array".to_owned())?;
+        let mut active = BTreeMap::new();
+        for suite in suites {
+            if suite.get("status").and_then(Value::as_str) != Some("active") {
+                continue;
+            }
+            let Some(canonical_id) = suite.get("canonical_id").and_then(Value::as_str) else {
+                continue;
+            };
+            let aead = suite
+                .get("aead")
+                .and_then(Value::as_str)
+                .ok_or_else(|| format!("hpke suite `{canonical_id}` missing `aead`"))?;
+            active.insert(canonical_id.to_owned(), aead.to_owned());
+        }
+        Ok(active)
+    }) {
+        Ok(active) => Ok(active.get(suite_id).cloned()),
+        Err(error) => Err(Error::Protocol(error.clone())),
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -870,3 +1053,143 @@ pub struct RecoveryReceiptAuthData {
 // `x-cokret-auth.proof_in_body: true`); challenge acquisition is a
 // deployment-local concern per `identity-did.md` §5.1 and has no
 // dedicated `/_cokret/` sub-path.
+
+#[cfg(test)]
+mod encryption_validate_tests {
+    use super::*;
+
+    fn aead(name: &str) -> KeyBackupAead {
+        KeyBackupAead {
+            name: name.to_owned(),
+            aead_profile: None,
+            nonce_salt: None,
+            nonce: None,
+            enc: None,
+            extra: BTreeMap::new(),
+        }
+    }
+
+    fn passphrase() -> KeyBackupEncryption {
+        let mut aead = aead("xchacha20_poly1305");
+        aead.nonce = Some("AAAA".to_owned());
+        aead.nonce_salt = Some("AAAAAAAAAAAAAAAA".to_owned());
+        KeyBackupEncryption {
+            recipient_method: KeyBackupRecipientMethod::PassphraseKdf,
+            recipient_key_ref: None,
+            kdf: Some(KeyBackupKdf {
+                name: "argon2id".to_owned(),
+                salt: "AAAA".to_owned(),
+                params: Value::Null,
+                degraded_profile_reason: None,
+                extra: BTreeMap::new(),
+            }),
+            aead,
+            key_commitment: None,
+            hpke_suite: None,
+            extra: BTreeMap::new(),
+        }
+    }
+
+    fn recovery_public_key(suite: Option<&str>, aead_name: &str) -> KeyBackupEncryption {
+        let mut aead = aead(aead_name);
+        aead.enc = Some("AAAA".to_owned());
+        KeyBackupEncryption {
+            recipient_method: KeyBackupRecipientMethod::RecoveryPublicKey,
+            recipient_key_ref: Some("did:webvh:example#recovery".to_owned()),
+            kdf: None,
+            aead,
+            key_commitment: None,
+            hpke_suite: suite.map(str::to_owned),
+            extra: BTreeMap::new(),
+        }
+    }
+
+    #[test]
+    fn passphrase_kdf_requires_kdf_and_nonce_fields() {
+        passphrase().validate().expect("valid passphrase envelope");
+
+        let mut missing_kdf = passphrase();
+        missing_kdf.kdf = None;
+        assert!(missing_kdf.validate().is_err());
+
+        let mut missing_salt = passphrase();
+        missing_salt.aead.nonce_salt = None;
+        assert!(missing_salt.validate().is_err());
+
+        let mut stray_suite = passphrase();
+        stray_suite.hpke_suite = Some(DEFAULT_HPKE_SUITE.to_owned());
+        assert!(stray_suite.validate().is_err());
+    }
+
+    #[test]
+    fn recovery_public_key_default_suite_passes() {
+        // Absent selector denotes the default-MUST xchacha suite.
+        recovery_public_key(None, "xchacha20_poly1305")
+            .validate()
+            .expect("default suite envelope is valid");
+    }
+
+    #[test]
+    fn recovery_public_key_rejects_inactive_suite() {
+        // Reserved (not active) PQ hybrid row MUST fail closed.
+        let envelope = recovery_public_key(
+            Some("ck.hpke_xwing_aead_xchacha20poly1305.v1"),
+            "xchacha20_poly1305",
+        );
+        assert!(envelope.validate().is_err());
+        // Wholly unregistered id MUST fail closed.
+        let bogus = recovery_public_key(Some("ck.hpke_bogus.v1"), "xchacha20_poly1305");
+        assert!(bogus.validate().is_err());
+    }
+
+    #[test]
+    fn recovery_public_key_rejects_aead_suite_mismatch() {
+        // active aes256gcm suite but aead.name is xchacha → mismatch.
+        let envelope = recovery_public_key(
+            Some("ck.hpke_x25519_aead_aes256gcm.v1"),
+            "xchacha20_poly1305",
+        );
+        assert!(envelope.validate().is_err());
+        // Matching aead passes.
+        recovery_public_key(Some("ck.hpke_x25519_aead_aes256gcm.v1"), "aes_256_gcm")
+            .validate()
+            .expect("matching aead is valid");
+    }
+
+    #[test]
+    fn recovery_public_key_requires_enc_and_key_ref() {
+        let mut missing_enc = recovery_public_key(None, "xchacha20_poly1305");
+        missing_enc.aead.enc = None;
+        assert!(missing_enc.validate().is_err());
+
+        let mut missing_ref = recovery_public_key(None, "xchacha20_poly1305");
+        missing_ref.recipient_key_ref = None;
+        assert!(missing_ref.validate().is_err());
+
+        let mut stray_kdf = recovery_public_key(None, "xchacha20_poly1305");
+        stray_kdf.kdf = Some(KeyBackupKdf {
+            name: "argon2id".to_owned(),
+            salt: "AAAA".to_owned(),
+            params: Value::Null,
+            degraded_profile_reason: None,
+            extra: BTreeMap::new(),
+        });
+        assert!(stray_kdf.validate().is_err());
+    }
+
+    #[test]
+    fn deserialization_runs_validation() {
+        // An invalid wire envelope (recovery_public_key without enc) is rejected
+        // by serde via the `try_from` shim, not silently accepted.
+        let json = serde_json::json!({
+            "recipient_method": "recovery_public_key",
+            "recipient_key_ref": "did:webvh:example#recovery",
+            "aead": { "name": "xchacha20_poly1305" }
+        });
+        let parsed: std::result::Result<KeyBackupEncryption, _> = serde_json::from_value(json);
+        assert!(
+            parsed.is_err(),
+            "missing aead.enc must fail deserialization"
+        );
+    }
+}

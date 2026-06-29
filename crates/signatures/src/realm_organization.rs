@@ -30,8 +30,7 @@ pub fn realm_organization_statement_sign(
     payload: &RealmOrganizationPayload,
     signing_key: &SigningKey,
 ) -> Result<RealmOrganizationPayload> {
-    let signing_bytes =
-        cokret_core::models::realm_organization_statement_signing_bytes(payload)?;
+    let signing_bytes = cokret_core::models::realm_organization_statement_signing_bytes(payload)?;
     let signature = signing_key.sign(&signing_bytes);
     let proof = base64url_encode(signature.to_bytes());
     if proof.trim().is_empty() {
@@ -50,8 +49,8 @@ mod tests {
     use cokret_core::base64url::base64url_decode;
     use cokret_core::identifiers::{Did, RealmId};
     use cokret_core::models::{
-        RealmOrganizationAuthorization, RealmOrganizationControlScope,
-        RealmOrganizationIssuerRole, RealmOrganizationRelationship, RealmOrganizationStatus,
+        RealmOrganizationAuthorization, RealmOrganizationControlScope, RealmOrganizationIssuerRole,
+        RealmOrganizationRelationship, RealmOrganizationStatus,
     };
     use ed25519_dalek::Verifier;
 
@@ -107,8 +106,7 @@ mod tests {
         let signing_key = SigningKey::from_bytes(&[7u8; 32]);
         let verifying_key = signing_key.verifying_key();
 
-        let signed = realm_organization_statement_sign(&payload(), &signing_key)
-            .expect("sign ok");
+        let signed = realm_organization_statement_sign(&payload(), &signing_key).expect("sign ok");
 
         let proof_b64 = match &signed.authorization.proof {
             SignatureMaterial::NonEmptyString(value) => value.clone(),
@@ -134,7 +132,10 @@ mod tests {
             SignatureMaterial::Variant1(_) => unreachable!(),
         };
         assert!(!proof.contains('='), "base64url is unpadded");
-        assert!(!proof.contains('+') && !proof.contains('/'), "URL-safe alphabet");
+        assert!(
+            !proof.contains('+') && !proof.contains('/'),
+            "URL-safe alphabet"
+        );
         // A 64-byte signature encodes to 86 base64url chars (no padding).
         assert_eq!(proof.len(), 86);
     }

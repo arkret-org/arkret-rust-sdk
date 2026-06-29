@@ -199,6 +199,100 @@ impl WebhookAuth {
     }
 }
 
+/// HTTP method of a single supported Applet API endpoint
+/// (`applet-package.schema.json#/$defs/endpoint_entry.method`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum AppletEndpointMethod {
+    #[serde(rename = "GET")]
+    Get,
+    #[serde(rename = "POST")]
+    Post,
+    #[serde(rename = "PUT")]
+    Put,
+    #[serde(rename = "PATCH")]
+    Patch,
+    #[serde(rename = "DELETE")]
+    Delete,
+}
+
+/// Auth requirement of a single supported Applet API endpoint
+/// (`applet-package.schema.json#/$defs/endpoint_entry.auth`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AppletEndpointAuth {
+    None,
+    WebhookSignature,
+    Bearer,
+    Mtls,
+}
+
+/// One supported Applet API endpoint and its auth requirement
+/// (`applet-package.schema.json#/$defs/endpoint_entry`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AppletEndpointEntry {
+    pub method: AppletEndpointMethod,
+    pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth: Option<AppletEndpointAuth>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// `x_`-prefixed protocol extension members
+    /// (`patternProperties ^x_[a-z][a-z0-9_]{0,63}$`).
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
+/// Supported Applet API endpoints and their auth requirements
+/// (`applet-package.schema.json#/$defs/endpoint_policy`). Replaces the former
+/// untyped `Value` so the manifest's endpoint surface is checked at compile
+/// time. The spec requires `endpoints` `minItems: 1`; that cardinality is
+/// enforced at schema-validation time, while the type permits an empty list
+/// during registration assembly (consistent with the rest of the wire models).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AppletEndpointPolicy {
+    #[serde(default)]
+    pub endpoints: Vec<AppletEndpointEntry>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
+/// Service-side resource hints derived into the registration manifest
+/// (`applet-package.schema.json#/$defs/limits`). All members are optional.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AppletLimits {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_transaction_events: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_payload_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limit_per_minute: Option<u64>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
+/// Ghost Actor support and accountability template
+/// (`applet-package.schema.json#/$defs/ghost_policy`). `enabled` is required;
+/// it carries no `default` in the schema, so it is a non-`Option` field that
+/// the producer MUST set explicitly.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AppletGhostPolicy {
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accountability_template: Option<String>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletAcceptedSigningKeyEvidence {
@@ -527,19 +621,22 @@ pub struct AppletPackage {
     pub namespaces: AppletWireNamespaces,
     /// Capability action request list for approval UI only, never a grant.
     pub requested_scopes: Vec<String>,
-    /// Supported Applet API endpoints + auth requirements (open shape).
+    /// Supported Applet API endpoints + auth requirements
+    /// (`applet-package.schema.json#/$defs/endpoint_policy`).
     /// Renamed `endpoint_set` → `endpoint_policy` (2026-06-10, hard_reject;
     /// `normative-language.md` §7 forbids `*_set` wire suffixes).
-    pub endpoint_policy: Value,
+    pub endpoint_policy: AppletEndpointPolicy,
     /// HTTP message signature key ref / accepted algorithms.
     pub webhook_auth: WebhookAuth,
     pub receive_events: bool,
     pub receive_ephemeral: bool,
     pub rate_limited: bool,
-    /// Max transaction events / payload bytes / rate-limit hint.
-    pub limits: Value,
-    /// Ghost Actor support + accountability template.
-    pub ghost_policy: Value,
+    /// Max transaction events / payload bytes / rate-limit hint
+    /// (`applet-package.schema.json#/$defs/limits`).
+    pub limits: AppletLimits,
+    /// Ghost Actor support + accountability template
+    /// (`applet-package.schema.json#/$defs/ghost_policy`).
+    pub ghost_policy: AppletGhostPolicy,
     /// Delegated native-user acting request; defaults to disabled.
     pub delegation_policy: Value,
     /// MLS join request; defaults to disabled.
@@ -598,7 +695,7 @@ impl AppletPackage {
             protocols,
             namespaces,
             requested_scopes: Vec::new(),
-            endpoint_policy: Value::Object(Default::default()),
+            endpoint_policy: AppletEndpointPolicy::default(),
             webhook_auth: WebhookAuth::http_message_signature(
                 webhook_key_ref,
                 vec![WebhookSignatureAlg::EdDsa],
@@ -606,8 +703,8 @@ impl AppletPackage {
             receive_events: false,
             receive_ephemeral: false,
             rate_limited: true,
-            limits: Value::Object(Default::default()),
-            ghost_policy: Value::Object(Default::default()),
+            limits: AppletLimits::default(),
+            ghost_policy: AppletGhostPolicy::default(),
             delegation_policy: Value::Object(Default::default()),
             e2ee_policy: Value::Object(Default::default()),
             widget: None,
@@ -729,8 +826,14 @@ impl AppletPackage {
                     .collect(),
             ),
         );
-        manifest.insert("limits".to_owned(), self.limits.clone());
-        manifest.insert("ghost_policy".to_owned(), self.ghost_policy.clone());
+        manifest.insert(
+            "limits".to_owned(),
+            serde_json::to_value(&self.limits).unwrap_or(Value::Null),
+        );
+        manifest.insert(
+            "ghost_policy".to_owned(),
+            serde_json::to_value(&self.ghost_policy).unwrap_or(Value::Null),
+        );
         manifest.insert(
             "delegation_policy".to_owned(),
             self.delegation_policy.clone(),

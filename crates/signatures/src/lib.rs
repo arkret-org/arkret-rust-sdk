@@ -31,8 +31,6 @@ pub mod webvh;
 // Organization-side statement signing (A3). Byte-symmetric counterpart to
 // soland's `verify_realm_organization_proof_signature`.
 pub mod realm_organization;
-pub use realm_organization::realm_organization_statement_sign;
-
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Duration, Utc};
@@ -50,13 +48,33 @@ pub use proof::{
     VerifierError, build_proof_envelope, detached_jws_kind, sign_eddsa_detached_jws,
     verify_detached_ed25519_signature, verify_eddsa_detached_jws_proof,
 };
+pub use realm_organization::realm_organization_statement_sign;
 use serde::{Deserialize, Serialize};
 
-/// Production-grade proof algorithms, mirroring the `active` rows of
-/// `artifacts/registry/signature-alg-registry.json` (`proof_alg` values) per
-/// `encoding.md` §6.1. The v1 active set is `EdDSA` / `ES256` / `ML-DSA-65`;
-/// unregistered algorithms (`ES256K` / `RS256` / `PS256`) MUST NOT appear here.
-pub const PRODUCTION_ALGORITHMS: &[&str] = &["EdDSA", "ES256", "ML-DSA-65"];
+/// Production-grade proof algorithms this SDK can actually produce and/or
+/// verify on the client. These are the classically-implementable `active` rows
+/// of `artifacts/registry/signature-alg-registry.json` (`proof_alg` values) per
+/// `encoding.md` §6.1: `EdDSA` (Ed25519, default-MUST) and `ES256` (ECDSA
+/// P-256, profile-gated classical interop). Unregistered algorithms (`ES256K` /
+/// `RS256` / `PS256`) MUST NOT appear here.
+///
+/// `ML-DSA-65` is a registered active row but is wire-reserved here — see
+/// [`FUTURE_ALGORITHMS`]. It is intentionally excluded so callers do not select
+/// it as a usable client algorithm when no PQ signer/verifier exists.
+pub const PRODUCTION_ALGORITHMS: &[&str] = &["EdDSA", "ES256"];
+
+/// Wire-reserved proof algorithms: registered `active` rows of the
+/// signature-alg-registry whose wire `proof_alg` value this SDK can parse and
+/// recognise, but for which it ships **no client signer or verifier yet**.
+///
+/// `ML-DSA-65` (NIST FIPS 204 ML-DSA category 3, `role=v1_profile_gated_pqc`
+/// behind `ck.profile.signature.pqc.v1`) is here because the workspace pulls in
+/// no FIPS 204 / ML-DSA crate; the EdDSA verifier fails closed on it (it is
+/// never mistaken for valid). Activating real PQ signing — adding a FIPS 204
+/// dependency and a dispatch arm — is a separate mid-term owner decision
+/// (SDK-SOTA-01), tracked so this constant is the single place to flip it into
+/// [`PRODUCTION_ALGORITHMS`] once implemented.
+pub const FUTURE_ALGORITHMS: &[&str] = &["ML-DSA-65"];
 pub const HTTP_MESSAGE_SIGNATURE_PROFILE: &str = "ck.http-message-signature.v1";
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -350,6 +368,23 @@ mod tests {
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:web:{name}.example")).unwrap()
+    }
+
+    /// SDK-SOTA-01: `ML-DSA-65` is wire-reserved (registered active row, no
+    /// client impl) and MUST NOT be advertised as a usable production algorithm
+    /// while the EdDSA verifier is the only signer/verifier shipped.
+    #[test]
+    fn production_algorithms_exclude_unimplemented_pqc() {
+        assert!(!PRODUCTION_ALGORITHMS.contains(&"ML-DSA-65"));
+        assert!(FUTURE_ALGORITHMS.contains(&"ML-DSA-65"));
+        // The two sets are disjoint: nothing is both usable and reserved.
+        assert!(
+            !PRODUCTION_ALGORITHMS
+                .iter()
+                .any(|alg| FUTURE_ALGORITHMS.contains(alg))
+        );
+        // EdDSA — the one algorithm with a real signer/verifier — is usable.
+        assert!(PRODUCTION_ALGORITHMS.contains(&"EdDSA"));
     }
 
     #[test]

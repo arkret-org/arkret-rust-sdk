@@ -1,0 +1,41 @@
+# cargo-fuzz harness for the SDK's adversarial-input surfaces (SDK-SOTA-03).
+#
+# This crate is intentionally OUTSIDE the workspace (`[workspace]` with no
+# members) so `cargo check --workspace` / CI never build it; fuzzing is run
+# on demand via `cargo +nightly fuzz run <target>`. It targets the canonical
+# JSON parser and the detached-JWS proof verifier, the two hottest
+# untrusted-input paths in the SDK.
+[package]
+name = "cokret-sdk-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+cokret-core = { path = "../crates/core", default-features = false }
+cokret-signatures = { path = "../crates/signatures", default-features = false }
+serde_json = "1"
+
+# Keep this crate out of the parent workspace.
+[workspace]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "canonical_parse"
+path = "fuzz_targets/canonical_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "proof_verify"
+path = "fuzz_targets/proof_verify.rs"
+test = false
+doc = false
+bench = false

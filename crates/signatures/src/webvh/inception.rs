@@ -8,8 +8,8 @@
 //! 2. construct the inception webvh log entry with `{SCID}` placeholders,
 //! 3. derive the SCID (sha256-multihash-multibase of the canonical-JCS skeleton),
 //! 4. substitute the SCID and compute `versionId = 1-<entryHash>`,
-//! 5. sign the entry (sans `proof`) under `cryptosuite: eddsa-jcs-2022` with the
-//!    update key — soland verifies that signature in `verify_webvh_log_proof`.
+//! 5. sign the entry (sans `proof`) under `cryptosuite: eddsa-jcs-2022` with the update key —
+//!    soland verifies that signature in `verify_webvh_log_proof`.
 //!
 //! This module owns step 1–5. It returns a typed DID-operation request, the
 //! resulting DID, and the secret seed bytes for both the DID key and the update
@@ -286,8 +286,9 @@ pub fn prepare_supplied_inception(
             "did and update keys must be separate".to_owned(),
         ));
     }
-    DateTime::parse_from_rfc3339(input.version_time)
-        .map_err(|_| WebvhInceptionError::InvalidProof("version_time must be RFC3339".to_owned()))?;
+    DateTime::parse_from_rfc3339(input.version_time).map_err(|_| {
+        WebvhInceptionError::InvalidProof("version_time must be RFC3339".to_owned())
+    })?;
 
     let (method_authority, _https_authority) = authority_pair(input.principal_endpoint)?;
     let local_id = normalize_local_id(input.local_id).ok_or(WebvhInceptionError::InvalidLocalId)?;

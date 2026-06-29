@@ -24,6 +24,9 @@ bs58 = {version = "0.5.1",default-features = false,features = ["std"]}
 chacha20poly1305 = {version = "0.10.1",default-features = false,features = ["alloc"]}
 chrono = {version = "0.4.45",default-features = false,features = ["clock", "std", "serde"]}
 chrono-tz = {version = "0.10.4",default-features = false}
+# Dev-only microbenchmark harness (SDK-SOTA-03). Excluded from cargo-deny via
+# `.deny.toml`; benches compile under `--all-targets` but are never run in CI.
+criterion = {version = "0.7",default-features = false,features = ["cargo_bench_support"]}
 cokret-core = {version = "0.3.0",path = "crates/core",default-features = false}
 cokret-crypto = {version = "0.3.0",path = "crates/crypto",default-features = false}
 cokret-ffi = {version = "0.3.0",path = "crates/ffi",default-features = false}

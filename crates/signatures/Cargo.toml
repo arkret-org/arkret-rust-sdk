@@ -36,6 +36,12 @@ url = {workspace = true}
 cokret-core = {workspace = true}
 rand_chacha = {workspace = true}
 serde_json = {workspace = true}
+# SDK-SOTA-03 microbenchmarks (run on demand with `cargo bench`, never in CI).
+criterion = {workspace = true}
+
+[[bench]]
+harness = false
+name = "proof_verify"
 
 [lints]
 workspace = true
