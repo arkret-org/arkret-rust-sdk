@@ -78,7 +78,7 @@ pub use multibase::{
     decode_multicodec_varint, ed25519_pubkey_to_did_key_multibase, encode_base58btc,
     encode_multibase_base58btc,
 };
-pub use notary::NotaryValue;
+pub use notary::{ForensicAttribution, NotaryValue};
 pub use platform::{WasmHttpRequestBody, WasmHttpResponseBody};
 pub use profile_claim::{ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator};
 pub use profile_semantics::{

@@ -4,9 +4,7 @@ use serde_json::json;
 use super::super::*;
 
 fn single_did_notary(did: &str) -> crate::notary::NotaryValue {
-    crate::notary::NotaryValue::SingleDid {
-        did: Did::new(did).unwrap(),
-    }
+    crate::notary::NotaryValue::single_did(Did::new(did).unwrap())
 }
 
 #[test]
@@ -192,7 +190,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     );
     assert!(matches!(
         &realm.notary,
-        NotaryValue::SingleDid { did } if did.as_str() == "did:web:alice.example"
+        NotaryValue::SingleDid { did, .. } if did.as_str() == "did:web:alice.example"
     ));
     assert!(realm.revocation_freshness_window_ms.is_none());
     assert_eq!(realm.max_delegation_lifetime_ms, 86_400_000);
@@ -204,13 +202,13 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     realm = realm
         .with_notary_profile(NotaryProfile::Threshold)
         .with_notary(NotaryValue::Threshold {
-            k: 2,
-            n: 3,
+            threshold: 2,
             members: vec![
                 Did::new("did:web:a.example").unwrap(),
                 Did::new("did:web:b.example").unwrap(),
                 Did::new("did:web:c.example").unwrap(),
             ],
+            forensic_attribution: crate::notary::ForensicAttribution::QuorumIntersection,
         })
         .with_revocation_freshness_window(60_000)
         .with_cell_lattice(
@@ -248,7 +246,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     );
     assert!(matches!(
         &realm.notary,
-        NotaryValue::Threshold { k: 2, n: 3, .. }
+        NotaryValue::Threshold { threshold: 2, .. }
     ));
     assert_eq!(realm.revocation_freshness_window_ms, Some(60_000));
     assert_eq!(realm.max_delegation_lifetime_ms, 3_600_000);
