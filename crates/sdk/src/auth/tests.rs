@@ -30,9 +30,7 @@ fn session_grant_notification(
     request_id: &str,
 ) -> PrincipalSessionGrantNotification {
     let payload = SessionGrantPayload {
-        issuer: did("coauth"),
         subject: did("alice"),
-        principal_id: did("alice"),
         device_id: device("desktop"),
         audience: vec!["did:web:soland.example".to_owned()],
         scopes: vec!["urn:cokret:principal-server:session.bind".to_owned()],
@@ -341,9 +339,7 @@ fn auth_exports_safe_state_and_enforces_device_binding_and_account_state() {
 fn session_grant_contract_redacts_and_notifies_principal_servers() {
     let now = Utc::now();
     let payload = SessionGrantPayload {
-        issuer: did("coauth"),
         subject: did("alice"),
-        principal_id: did("alice"),
         device_id: device("desktop"),
         audience: vec!["did:web:soland.example".to_owned()],
         scopes: vec!["urn:cokret:principal-server:session.bind".to_owned()],
@@ -358,6 +354,7 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
     };
     payload.validate().unwrap();
     let binding = payload.principal_binding();
+    assert_eq!(binding.principal_id, did("alice"));
     assert_eq!(binding.device_id, device("desktop"));
 
     let signer = |payload: &SessionGrantPayload| {

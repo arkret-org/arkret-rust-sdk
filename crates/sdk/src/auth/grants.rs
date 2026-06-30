@@ -4,12 +4,12 @@ use super::*;
 /// Session grant payload issued by an identity provider to a Principal Server.
 ///
 /// This is the stable contract shared by coauth, soland and admin tooling. It
-/// intentionally excludes private session key material.
+/// intentionally excludes private session key material and server-derived
+/// identity metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionGrantPayload {
-    pub issuer: Did,
+    /// Principal or agent DID authorized by this grant.
     pub subject: Did,
-    pub principal_id: Did,
     pub device_id: DeviceId,
     pub audience: Vec<String>,
     pub scopes: Vec<String>,
@@ -75,7 +75,7 @@ impl SessionGrantPayload {
     pub fn principal_binding(&self) -> SessionPrincipalBinding {
         SessionPrincipalBinding {
             session_id: self.session_id.clone(),
-            principal_id: self.principal_id.clone(),
+            principal_id: self.subject.clone(),
             device_id: self.device_id.clone(),
             created_at: self.issued_at,
             expires_at: self.expires_at,
