@@ -19,7 +19,13 @@ pub struct SessionGrantPayload {
     pub expires_at: DateTime<Utc>,
     pub revocation_ref: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_public_key: Option<String>,
+    pub cnf: Option<SessionGrantConfirmation>,
+}
+
+/// RFC 9449 / RFC 7800 confirmation claim for DPoP-bound session grants.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionGrantConfirmation {
+    pub jkt: String,
 }
 
 impl SessionGrantPayload {
@@ -48,6 +54,13 @@ impl SessionGrantPayload {
         if self.revocation_ref.trim().is_empty() {
             return Err(Error::Protocol(
                 "session grant revocation_ref must not be empty".to_owned(),
+            ));
+        }
+        if let Some(cnf) = &self.cnf
+            && cnf.jkt.trim().is_empty()
+        {
+            return Err(Error::Protocol(
+                "session grant cnf.jkt must not be empty".to_owned(),
             ));
         }
         if self.expires_at <= self.issued_at {

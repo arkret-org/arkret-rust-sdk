@@ -41,7 +41,9 @@ fn session_grant_notification(
         issued_at: now,
         expires_at: now + Duration::minutes(10),
         revocation_ref: "https://coauth.example/api/admin/v1/session-grants/grant-1".to_owned(),
-        session_public_key: Some("session-public-key".to_owned()),
+        cnf: Some(SessionGrantConfirmation {
+            jkt: "session-key-thumbprint".to_owned(),
+        }),
     };
     let mut record = SessionGrant::new(payload, "signed.jwt.value")
         .unwrap()
@@ -350,7 +352,9 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
         issued_at: now,
         expires_at: now + Duration::minutes(10),
         revocation_ref: "https://coauth.example/api/admin/v1/session-grants/grant-1".to_owned(),
-        session_public_key: Some("session-public-key".to_owned()),
+        cnf: Some(SessionGrantConfirmation {
+            jkt: "session-key-thumbprint".to_owned(),
+        }),
     };
     payload.validate().unwrap();
     let binding = payload.principal_binding();
