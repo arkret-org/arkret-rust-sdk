@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use super::group::{CokretMlsGroup, decode};
 use super::security::AadVisibility;
-use crate::{EncryptedPayload, EncryptedPayloadScheme, Error, Hash, Result};
+use crate::{EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash, RealmId, Result};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EncryptedMessage {
@@ -15,6 +16,7 @@ pub struct EncryptedMessage {
 /// [`AadVisibility`] and the schema discriminator (a `hidden` envelope MUST
 /// omit both `event_id` and `event_ref_digest`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EncryptedEnvelopeAadV1 {
     pub realm_id: String,
     pub event_kind: String,
@@ -42,11 +44,12 @@ impl EncryptedEnvelopeAadV1 {
     }
 }
 
-/// `key_ref` for `ck.schema.encrypted_envelope.v1`. `algorithm` is the fixed
-/// const `"MLS"`; `group_state_ref` MUST point at an accepted
+/// `key_ref` for `ck.schema.encrypted_envelope.v1`. `algorithm` is bound to
+/// the envelope `scheme`; `group_state_ref` MUST point at an accepted
 /// `ck.mls.genesis` / winning `ck.mls.commit` event id (or equivalent group
 /// state proof hash).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EnvelopeKeyRefV1 {
     pub algorithm: String,
     pub group_state_ref: String,
@@ -59,6 +62,7 @@ pub struct EnvelopeKeyRefV1 {
 /// caller-supplied AAD context and the `ck.mls.commit` event id that bounds
 /// the group state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EncryptedEnvelopeV1 {
     pub scheme: EncryptedPayloadScheme,
     pub version: String,
@@ -76,8 +80,68 @@ pub struct EncryptedEnvelopeV1 {
 impl EncryptedEnvelopeV1 {
     /// Envelope format version (`^\d+\.\d+$`).
     pub const VERSION: &'static str = "1.0";
-    /// Fixed `key_ref.algorithm` const required by the schema.
-    pub const KEY_REF_ALGORITHM: &'static str = "MLS";
+
+    pub fn key_ref_algorithm_for_scheme(scheme: &EncryptedPayloadScheme) -> &'static str {
+        match scheme {
+            EncryptedPayloadScheme::MlsRfc9420 => "MLS",
+            EncryptedPayloadScheme::MlsExporterAeadV1 => "MLS-EXPORTER-AEAD",
+        }
+    }
+
+    pub fn parse_and_validate(value: Value) -> Result<Self> {
+        let envelope: Self = serde_json::from_value(value)
+            .map_err(|err| Error::Protocol(format!("encrypted envelope schema: {err}")))?;
+        envelope.validate_spec()?;
+        Ok(envelope)
+    }
+
+    pub fn validate_spec(&self) -> Result<()> {
+        if !version_major_minor(&self.version) {
+            return Err(Error::Protocol(
+                "encrypted envelope version must be major.minor".to_owned(),
+            ));
+        }
+        if !base64url_token(&self.group_id) {
+            return Err(Error::Protocol(
+                "encrypted envelope group_id is invalid".to_owned(),
+            ));
+        }
+        if self.epoch > i64::MAX as u64 {
+            return Err(Error::Protocol(
+                "encrypted envelope epoch exceeds JSON schema integer range".to_owned(),
+            ));
+        }
+        if !content_type_token(&self.content_type) {
+            return Err(Error::Protocol(
+                "encrypted envelope content_type is invalid".to_owned(),
+            ));
+        }
+        if !base64url_token(&self.ciphertext) {
+            return Err(Error::Protocol(
+                "encrypted envelope ciphertext is invalid".to_owned(),
+            ));
+        }
+        validate_envelope_aad(&self.aad, self.aad_visibility_event_id)?;
+        let expected_algorithm = Self::key_ref_algorithm_for_scheme(&self.scheme);
+        if self.key_ref.algorithm != expected_algorithm {
+            return Err(Error::Protocol(format!(
+                "encrypted envelope key_ref.algorithm must be {expected_algorithm}"
+            )));
+        }
+        if EventId::new(self.key_ref.group_state_ref.clone()).is_err()
+            && Hash::new(self.key_ref.group_state_ref.clone()).is_err()
+        {
+            return Err(Error::Protocol(
+                "encrypted envelope key_ref.group_state_ref is invalid".to_owned(),
+            ));
+        }
+        Hash::new(self.aad_digest.clone())
+            .map_err(|_| Error::Protocol("encrypted envelope aad_digest is invalid".to_owned()))?;
+        Hash::new(self.payload_digest.clone()).map_err(|_| {
+            Error::Protocol("encrypted envelope payload_digest is invalid".to_owned())
+        })?;
+        Ok(())
+    }
 
     /// Assemble a conforming envelope from an MLS [`EncryptedPayload`].
     ///
@@ -102,7 +166,7 @@ impl EncryptedEnvelopeV1 {
             ));
         }
         let aad_digest = crate::crypto::json_aad_digest(&aad_value)?;
-        Ok(Self {
+        Self {
             scheme: payload.scheme.clone(),
             version: Self::VERSION.to_owned(),
             group_id: payload.group_id.clone(),
@@ -112,12 +176,13 @@ impl EncryptedEnvelopeV1 {
             aad_visibility_event_id: visibility,
             aad,
             key_ref: EnvelopeKeyRefV1 {
-                algorithm: Self::KEY_REF_ALGORITHM.to_owned(),
+                algorithm: Self::key_ref_algorithm_for_scheme(&payload.scheme).to_owned(),
                 group_state_ref: group_state_ref.into(),
             },
             aad_digest,
             payload_digest: payload.payload_digest.as_str().to_owned(),
-        })
+        }
+        .validated()
     }
 
     /// Reconstruct the MLS [`EncryptedPayload`] needed to decrypt this
@@ -134,12 +199,132 @@ impl EncryptedEnvelopeV1 {
             ciphertext: self.ciphertext.clone(),
             aad: Some(aad_value),
             payload_digest: Hash::new(self.payload_digest.clone())?,
-            key_ref: Some(cokret_core::KeyRefObject::mls_rfc9420(
-                self.group_id.clone(),
-                self.epoch,
-            )),
+            key_ref: Some(match &self.scheme {
+                EncryptedPayloadScheme::MlsRfc9420 => {
+                    cokret_core::KeyRefObject::mls_rfc9420(self.group_id.clone(), self.epoch)
+                }
+                EncryptedPayloadScheme::MlsExporterAeadV1 => {
+                    cokret_core::KeyRefObject::mls_exporter_aead(self.group_id.clone(), self.epoch)
+                }
+            }),
         })
     }
+
+    fn validated(self) -> Result<Self> {
+        self.validate_spec()?;
+        Ok(self)
+    }
+}
+
+fn validate_envelope_aad(aad: &EncryptedEnvelopeAadV1, visibility: AadVisibility) -> Result<()> {
+    RealmId::new(aad.realm_id.clone())
+        .map_err(|_| Error::Protocol("encrypted envelope aad.realm_id is invalid".to_owned()))?;
+    if !event_kind_token(&aad.event_kind) {
+        return Err(Error::Protocol(
+            "encrypted envelope aad.event_kind is invalid".to_owned(),
+        ));
+    }
+    if let Some(event_id) = &aad.event_id {
+        EventId::new(event_id.clone()).map_err(|_| {
+            Error::Protocol("encrypted envelope aad.event_id is invalid".to_owned())
+        })?;
+    }
+    if let Some(event_ref_digest) = &aad.event_ref_digest {
+        Hash::new(event_ref_digest.clone()).map_err(|_| {
+            Error::Protocol("encrypted envelope aad.event_ref_digest is invalid".to_owned())
+        })?;
+    }
+    for event_id in &aad.causal_refs {
+        EventId::new(event_id.clone()).map_err(|_| {
+            Error::Protocol("encrypted envelope aad.causal_refs contains invalid id".to_owned())
+        })?;
+    }
+    for digest in &aad.causal_ref_digests {
+        Hash::new(digest.clone()).map_err(|_| {
+            Error::Protocol(
+                "encrypted envelope aad.causal_ref_digests contains invalid digest".to_owned(),
+            )
+        })?;
+    }
+    if aad.event_id.is_some() && aad.event_ref_digest.is_some() {
+        return Err(Error::Protocol(
+            "encrypted envelope aad must not carry both event_id and event_ref_digest".to_owned(),
+        ));
+    }
+    if !aad.causal_refs.is_empty() && !aad.causal_ref_digests.is_empty() {
+        return Err(Error::Protocol(
+            "encrypted envelope aad must not carry both causal_refs and causal_ref_digests"
+                .to_owned(),
+        ));
+    }
+    match visibility {
+        AadVisibility::Hidden => {
+            if aad.event_id.is_some() || aad.event_ref_digest.is_some() {
+                return Err(Error::Protocol(
+                    "encrypted envelope hidden aad exposes event id".to_owned(),
+                ));
+            }
+        }
+        AadVisibility::RoutingDigest => {
+            if aad.event_id.is_some() || aad.event_ref_digest.is_none() {
+                return Err(Error::Protocol(
+                    "encrypted envelope routing_digest aad requires only event_ref_digest"
+                        .to_owned(),
+                ));
+            }
+        }
+        AadVisibility::OpaqueId => {
+            if aad.event_ref_digest.is_some() || aad.event_id.is_none() {
+                return Err(Error::Protocol(
+                    "encrypted envelope opaque_id aad requires only event_id".to_owned(),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn version_major_minor(value: &str) -> bool {
+    value.split_once('.').is_some_and(|(major, minor)| {
+        !major.is_empty()
+            && !minor.is_empty()
+            && major.bytes().all(|byte| byte.is_ascii_digit())
+            && minor.bytes().all(|byte| byte.is_ascii_digit())
+    })
+}
+
+fn base64url_token(value: &str) -> bool {
+    !value.is_empty()
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+}
+
+fn content_type_token(value: &str) -> bool {
+    let Some((ty, subtype)) = value.split_once('/') else {
+        return false;
+    };
+    !ty.is_empty()
+        && !subtype.is_empty()
+        && ty.bytes().all(content_type_byte)
+        && subtype.bytes().all(content_type_byte)
+}
+
+fn content_type_byte(byte: u8) -> bool {
+    byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'+' | b'-')
+}
+
+fn event_kind_token(value: &str) -> bool {
+    let Some(rest) = value.strip_prefix("ck.") else {
+        return false;
+    };
+    !rest.is_empty()
+        && rest.split('.').all(|part| {
+            !part.is_empty()
+                && part
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        })
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -189,7 +374,7 @@ impl MessageCrypto {
         group: &mut CokretMlsGroup,
         message_id: impl Into<String>,
         content_type: impl Into<String>,
-        aad: serde_json::Value,
+        aad: Value,
         plaintext: &[u8],
     ) -> Result<EncryptedMessage> {
         Ok(EncryptedMessage {

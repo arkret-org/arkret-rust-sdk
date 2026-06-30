@@ -1030,7 +1030,7 @@ mod tests {
             )
             .unwrap();
 
-        let commit_ref = "ck:event:01904100-0000-7000-8000-00000000c0m1";
+        let commit_ref = "ck:event:01904100-0000-7000-8000-00000000c0a1";
         let envelope =
             EncryptedEnvelopeV1::from_payload(&payload, aad, AadVisibility::Hidden, commit_ref)
                 .unwrap();
@@ -1195,6 +1195,38 @@ mod tests {
                 .decrypt_content_exporter_aead(&history_secret, HISTORY_REALM, &sealed, b"other")
                 .is_err()
         );
+    }
+
+    #[test]
+    fn encrypted_envelope_v1_binds_exporter_scheme_to_exporter_key_algorithm() {
+        let mut group = exporter_aead_founder();
+        let envelope_aad = EncryptedEnvelopeAadV1::hidden(HISTORY_REALM, "ck.message.create");
+        let payload_aad = serde_json::to_value(&envelope_aad).unwrap();
+        let payload = group
+            .encrypt_payload_exporter_aead(
+                "application/vnd.cokret.message+json",
+                HISTORY_REALM,
+                b"history-content-aad",
+                Some(payload_aad),
+                b"hello encrypted history",
+            )
+            .unwrap();
+        assert_eq!(payload.scheme, EncryptedPayloadScheme::MlsExporterAeadV1);
+
+        let group_state_ref = "ck:event:01904100-0000-7000-8000-00000000ae01";
+        let envelope = EncryptedEnvelopeV1::from_payload(
+            &payload,
+            envelope_aad,
+            AadVisibility::Hidden,
+            group_state_ref,
+        )
+        .unwrap();
+        assert_eq!(envelope.key_ref.algorithm, "MLS-EXPORTER-AEAD");
+        envelope.validate_spec().unwrap();
+
+        let mut mismatched = envelope;
+        mismatched.key_ref.algorithm = "MLS".to_owned();
+        assert!(mismatched.validate_spec().is_err());
     }
 
     #[test]
