@@ -1,6 +1,6 @@
 //! MLS commit Move + `covered_seals` cell helpers.
 //!
-//! Per spec [`event-auth-state-resolution.md`](https://cokret.io/spec/v1/zh/authz/event-auth-state-resolution.md)
+//! Per spec [`event-auth-state-resolution.md`](https://cokret.org/spec/v1/zh/authz/event-auth-state-resolution.md)
 //! §10, an MLS commit is **a Move**, not an Seal. It writes three
 //! well-known cells:
 //!

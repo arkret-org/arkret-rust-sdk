@@ -1,6 +1,6 @@
 //! Holder-private **consent** as an or-set Lattice cell.
 //!
-//! Per [`identity/consent-model.md`](https://cokret.io/spec/v1/zh/identity/consent-model.md)
+//! Per [`identity/consent-model.md`](https://cokret.org/spec/v1/zh/identity/consent-model.md)
 //! §3, consent is a Move on the holder's principal-control-Space cell
 //! `ck:cell:ck.component.consent.grant.v1:<consent_id>` (or-set lattice).
 //!
