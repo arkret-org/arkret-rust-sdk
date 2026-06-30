@@ -16,6 +16,36 @@ impl HistoryVisibility {
             Self::Restricted => "restricted",
         }
     }
+
+    pub fn admits_pre_join_history(&self) -> bool {
+        matches!(self, Self::WorldReadable | Self::Shared | Self::Invited)
+    }
+}
+
+pub fn content_scheme_is_history_capable(content_scheme: Option<&str>) -> bool {
+    matches!(content_scheme.map(str::trim), Some("mls-exporter-aead-v1"))
+}
+
+pub fn validate_history_visibility_content_scheme(
+    history_visibility: HistoryVisibility,
+    content_scheme: Option<&str>,
+) -> Result<(), &'static str> {
+    if history_visibility.admits_pre_join_history()
+        && !content_scheme_is_history_capable(content_scheme)
+    {
+        return Err(crate::error::REASON_HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME);
+    }
+    Ok(())
+}
+
+pub fn validate_history_visibility_content_scheme_values(
+    history_visibility: &str,
+    content_scheme: Option<&str>,
+) -> Result<(), &'static str> {
+    let history_visibility = history_visibility
+        .parse::<HistoryVisibility>()
+        .map_err(|_| "unknown history_visibility value")?;
+    validate_history_visibility_content_scheme(history_visibility, content_scheme)
 }
 
 impl FromStr for HistoryVisibility {
@@ -864,6 +894,42 @@ mod tests {
             },
             restricted_rules: None,
         }
+    }
+
+    #[test]
+    fn pre_join_history_visibility_requires_history_capable_content_scheme() {
+        assert_eq!(
+            validate_history_visibility_content_scheme(
+                HistoryVisibility::Shared,
+                Some("mls-rfc9420")
+            ),
+            Err(crate::error::REASON_HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME)
+        );
+        assert!(
+            validate_history_visibility_content_scheme(
+                HistoryVisibility::Shared,
+                Some("mls-exporter-aead-v1")
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn joined_history_visibility_allows_both_content_schemes() {
+        assert!(
+            validate_history_visibility_content_scheme(
+                HistoryVisibility::Joined,
+                Some("mls-rfc9420")
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_history_visibility_content_scheme(
+                HistoryVisibility::Joined,
+                Some("mls-exporter-aead-v1")
+            )
+            .is_ok()
+        );
     }
 
     #[test]

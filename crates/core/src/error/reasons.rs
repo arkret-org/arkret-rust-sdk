@@ -310,6 +310,11 @@ pub const REASON_CONTENT_ENCRYPTION_FLOOR_DOWNGRADE: &str = "content_encryption_
 /// floor to a lower level (`allow_plaintext < e2ee_required`).
 /// The effective metadata floor is a one-way ratchet.
 pub const REASON_METADATA_ENCRYPTION_FLOOR_DOWNGRADE: &str = "metadata_encryption_floor_downgrade";
+/// `failed_precondition` sub-reason: a Realm effective
+/// `history_visibility` that admits pre-join history is paired with an
+/// `mls-rfc9420` content scheme, which has no shareable history secret.
+pub const REASON_HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME: &str =
+    "history_visibility_requires_history_capable_scheme";
 
 /// CKP-0007 (spec b7d35be) — Circle reason codes registered under the
 /// `failed_precondition` / `schema_violation` wire-code families. The
