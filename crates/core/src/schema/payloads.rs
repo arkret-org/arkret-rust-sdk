@@ -528,6 +528,47 @@ const FALLBACK_FIELD_ALLOWLISTS: &[(&str, &[&str])] = &[
             "token_rotation_cadence_ms",
         ],
     ),
+    (
+        "ck.device.authorize",
+        &[
+            "principal_id",
+            "device_id",
+            "device_public_key",
+            "device_key_algorithm",
+            "authorized_by",
+            "scopes",
+            "not_before",
+            "expires_at",
+            "device_signature",
+            "proof",
+            "cross_signing_binding",
+            "bootstrap_binding",
+            "enrollment_authority_binding",
+            "recovery_session_id",
+        ],
+    ),
+    (
+        "ck.device.revoke",
+        &[
+            "principal_id",
+            "device_id",
+            "revoked_by",
+            "revoked_at",
+            "reason",
+            "proof",
+        ],
+    ),
+    (
+        "ck.device.list_update",
+        &[
+            "principal_id",
+            "changed",
+            "left",
+            "device_list_digest",
+            "stream_id",
+            "updated_at",
+        ],
+    ),
 ];
 
 fn fallback_allowed_fields(event_kind: &str) -> Option<&'static [&'static str]> {
@@ -736,6 +777,33 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
             // subject/actions/resources at the top level.
             &["grant_id"][..],
         ),
+        (
+            "ck.device.authorize",
+            EVENT_PAYLOAD_SCHEMA,
+            &[
+                "principal_id",
+                "device_id",
+                "device_public_key",
+                "authorized_by",
+                "not_before",
+            ][..],
+        ),
+        (
+            "ck.device.revoke",
+            EVENT_PAYLOAD_SCHEMA,
+            &[
+                "principal_id",
+                "device_id",
+                "revoked_by",
+                "revoked_at",
+                "reason",
+            ][..],
+        ),
+        (
+            "ck.device.list_update",
+            EVENT_PAYLOAD_SCHEMA,
+            &["principal_id"][..],
+        ),
     ]
     .into_iter()
     .map(|(event_kind, payload_schema_id, required_fields)| {
@@ -879,6 +947,8 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["session", "grant"] => candidates.push("session_grant_payload".to_owned()),
         ["consent", "grant"] => candidates.push("consent_grant_payload".to_owned()),
         ["consent", "revoke"] => candidates.push("consent_revoke_payload".to_owned()),
+        ["device", "authorize"] => candidates.push("device_authorize_payload".to_owned()),
+        ["device", "revoke"] => candidates.push("device_revoke_payload".to_owned()),
         ["device", "authorized"] => candidates.push("device_authorized_payload".to_owned()),
         ["device", "revoked"] => candidates.push("device_revoked_payload".to_owned()),
         ["device", "list_update"] => candidates.push("device_list_update_payload".to_owned()),
@@ -1051,6 +1121,68 @@ mod tests {
                 "ck.realm.read_receipt_policy",
                 &json!({
                     "disclosure": "required"
+                }),
+            )
+            .unwrap();
+    }
+
+    fn service_attested_device_authorize_payload() -> Value {
+        json!({
+            "principal_id": "did:web:alice.example",
+            "device_id": "ck:device:0196419b-0000-7000-8000-000000000001",
+            "device_public_key": "z6Mki3devicepublickey",
+            "authorized_by": "did:web:authority.example",
+            "not_before": "2026-06-30T00:00:00Z",
+            "enrollment_authority_binding": {
+                "kind": "service_attested",
+                "authority_did": "did:web:authority.example",
+                "authorization_ref": "ck:grant:0196419b-0000-7000-8000-000000000002"
+            }
+        })
+    }
+
+    #[test]
+    fn strong_catalog_accepts_device_authorize_payload() {
+        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        assert_eq!(
+            catalog.rules["ck.device.authorize"].payload_schema_id,
+            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/device_authorize_payload")
+        );
+        catalog
+            .validate_payload(
+                "ck.device.authorize",
+                &service_attested_device_authorize_payload(),
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn fallback_catalog_covers_device_control_events() {
+        let catalog = fallback_event_payload_validator_catalog();
+        catalog
+            .validate_payload(
+                "ck.device.authorize",
+                &service_attested_device_authorize_payload(),
+            )
+            .unwrap();
+        catalog
+            .validate_payload(
+                "ck.device.revoke",
+                &json!({
+                    "principal_id": "did:web:alice.example",
+                    "device_id": "ck:device:0196419b-0000-7000-8000-000000000001",
+                    "revoked_by": "did:web:alice.example",
+                    "revoked_at": "2026-06-30T00:00:00Z",
+                    "reason": "user_requested"
+                }),
+            )
+            .unwrap();
+        catalog
+            .validate_payload(
+                "ck.device.list_update",
+                &json!({
+                    "principal_id": "did:web:alice.example",
+                    "changed": ["ck:device:0196419b-0000-7000-8000-000000000001"]
                 }),
             )
             .unwrap();
