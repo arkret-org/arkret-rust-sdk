@@ -10,14 +10,12 @@ use super::*;
 pub struct SessionGrantPayload {
     /// Principal or agent DID authorized by this grant.
     pub subject: Did,
-    pub device_id: DeviceId,
     pub audience: Vec<String>,
     pub scopes: Vec<String>,
     pub session_id: String,
     pub grant_jti: String,
     pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
-    pub revocation_ref: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cnf: Option<SessionGrantConfirmation>,
 }
@@ -51,11 +49,6 @@ impl SessionGrantPayload {
                 "session grant grant_jti must not be empty".to_owned(),
             ));
         }
-        if self.revocation_ref.trim().is_empty() {
-            return Err(Error::Protocol(
-                "session grant revocation_ref must not be empty".to_owned(),
-            ));
-        }
         if let Some(cnf) = &self.cnf
             && cnf.jkt.trim().is_empty()
         {
@@ -72,14 +65,17 @@ impl SessionGrantPayload {
     }
 
     /// Return the Principal Server session binding represented by this grant.
-    pub fn principal_binding(&self) -> SessionPrincipalBinding {
-        SessionPrincipalBinding {
+    pub fn principal_binding(&self) -> Result<SessionPrincipalBinding> {
+        let device_id = primary_device_id_from_scopes(&self.scopes).ok_or_else(|| {
+            Error::Protocol("session grant has no device scope for principal binding".to_owned())
+        })?;
+        Ok(SessionPrincipalBinding {
             session_id: self.session_id.clone(),
             principal_id: self.subject.clone(),
-            device_id: self.device_id.clone(),
+            device_id,
             created_at: self.issued_at,
             expires_at: self.expires_at,
-        }
+        })
     }
 }
 

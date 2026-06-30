@@ -29,16 +29,18 @@ fn session_grant_notification(
     now: DateTime<Utc>,
     request_id: &str,
 ) -> PrincipalSessionGrantNotification {
+    let device_id = device("desktop");
     let payload = SessionGrantPayload {
         subject: did("alice"),
-        device_id: device("desktop"),
         audience: vec!["did:web:soland.example".to_owned()],
-        scopes: vec!["urn:cokret:principal-server:session.bind".to_owned()],
+        scopes: vec![
+            "urn:cokret:principal-server:session.bind".to_owned(),
+            cokret_device_scope(&device_id),
+        ],
         session_id: "browser-session-1".to_owned(),
         grant_jti: "grant-1".to_owned(),
         issued_at: now,
         expires_at: now + Duration::minutes(10),
-        revocation_ref: "https://coauth.example/api/admin/v1/session-grants/grant-1".to_owned(),
         cnf: Some(SessionGrantConfirmation {
             jkt: "session-key-thumbprint".to_owned(),
         }),
@@ -338,24 +340,26 @@ fn auth_exports_safe_state_and_enforces_device_binding_and_account_state() {
 #[test]
 fn session_grant_contract_redacts_and_notifies_principal_servers() {
     let now = Utc::now();
+    let device_id = device("desktop");
     let payload = SessionGrantPayload {
         subject: did("alice"),
-        device_id: device("desktop"),
         audience: vec!["did:web:soland.example".to_owned()],
-        scopes: vec!["urn:cokret:principal-server:session.bind".to_owned()],
+        scopes: vec![
+            "urn:cokret:principal-server:session.bind".to_owned(),
+            cokret_device_scope(&device_id),
+        ],
         session_id: "browser-session-1".to_owned(),
         grant_jti: "grant-1".to_owned(),
         issued_at: now,
         expires_at: now + Duration::minutes(10),
-        revocation_ref: "https://coauth.example/api/admin/v1/session-grants/grant-1".to_owned(),
         cnf: Some(SessionGrantConfirmation {
             jkt: "session-key-thumbprint".to_owned(),
         }),
     };
     payload.validate().unwrap();
-    let binding = payload.principal_binding();
+    let binding = payload.principal_binding().unwrap();
     assert_eq!(binding.principal_id, did("alice"));
-    assert_eq!(binding.device_id, device("desktop"));
+    assert_eq!(binding.device_id, device_id);
 
     let signer = |payload: &SessionGrantPayload| {
         payload.validate()?;
