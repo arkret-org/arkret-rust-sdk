@@ -5,10 +5,11 @@ use crate::{SealBasis, canonical};
 
 // ── EventsFrontier 3-way split ──────────────────────────────────────────
 
-/// Round 4 (commit f9bd7eb) — peer role discriminator for the
-/// `/events/frontier` endpoint. The pre-round-4 single-shape response
-/// is wire-broken; receivers MUST route by `peer_role` and produce one
-/// of three discriminated response variants.
+/// `/events/frontier` peer-role selector. The account-client and
+/// anonymous-health responses are shape-discriminated; the federation-peer
+/// response follows the single canonical
+/// [`EventsFrontierFederationPeerState`] shape defined by the spec
+/// artifacts (`service-operation-dtos.schema.json`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -80,22 +81,36 @@ pub struct ActorFrontierView {
     pub event_id: EventId,
 }
 
-/// Round 4 — federation-peer variant of `/events/frontier`. Carries
-/// `frontier_root` + transport receipts + `service_binding_ref` so a
-/// remote peer can verify the response binds to the producing service.
+/// `ck.peer.events.query.frontier` federation-peer response
+/// (`service-operation-dtos.schema.json#/$defs/EventsFrontierFederationPeerState`).
+/// Returned to an authorized federation peer over signed S2S trust-domain
+/// headers: the realm's federation-visible head Event IDs, the
+/// `frontier_root` hash commitment, per-actor sequence upper bounds, and a
+/// service signature over the observed frontier. This is the single
+/// canonical shape shared by the spec artifacts, the producing service, and
+/// every consumer.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventsFrontierFederationPeerState {
-    pub peer_role: FrontierPeerRole,
-    pub frontier: BTreeMap<RealmId, Vec<EventId>>,
+    pub realm_id: RealmId,
+    /// Current federation-visible head Event IDs for the realm.
+    pub heads: Vec<EventId>,
+    /// Hash commitment returned to an authorized federation peer.
     pub frontier_root: Hash,
-    pub service_binding_ref: FederationServiceBindingRef,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub receipts: Vec<Value>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub signatures: Vec<Value>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    /// Per-actor sequence upper bounds returned to an authorized peer.
+    #[serde(default)]
     pub actor_seq_upper_bounds: BTreeMap<Did, u64>,
+    /// Optional witness / receipt-service attestations over the frontier.
+    #[serde(default)]
+    pub witness_receipts: Vec<Value>,
+    /// RFC 3339 (`Z`-suffixed) instant the issuer observed this frontier.
+    pub observed_at: String,
+    pub issuer: Did,
+    /// Service signature object over the peer frontier response.
+    pub signature: Value,
+    /// Maximum HLC observed by the issuer at this frontier, when available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_hlc: Option<String>,
 }
 
 /// Round 4 — anonymous-health variant. Used by public health checks
