@@ -56,7 +56,7 @@ pub struct IdentityDocumentView {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct IdentityLogOutcome {
+pub struct IdentityLogListOutcome {
     #[serde(default)]
     pub events: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -98,7 +98,7 @@ pub struct DidOperationSubmitOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct IdentityReceiptsOutcome {
+pub struct IdentityReceiptListOutcome {
     #[serde(default)]
     pub receipts: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -1473,8 +1473,8 @@ pub struct IdentityDocumentViewOutcome(pub IdentityDocumentView);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = IdentityLogOutcome)))]
-pub struct IdentityLogResultBody(pub IdentityLogOutcome);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = IdentityLogListOutcome)))]
+pub struct IdentityLogResultBody(pub IdentityLogListOutcome);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -1488,8 +1488,8 @@ pub struct IdentitySubmitDidOperationOutcome(pub DidOperationSubmitOutcome);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = IdentityReceiptsOutcome)))]
-pub struct IdentityReceiptsResultBody(pub IdentityReceiptsOutcome);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = IdentityReceiptListOutcome)))]
+pub struct IdentityReceiptsResultBody(pub IdentityReceiptListOutcome);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

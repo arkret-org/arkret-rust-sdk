@@ -116,7 +116,7 @@ pub struct AgentLifecycleOutcome {
 /// projection back as the supported protocol catalogue.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AgentDiscoverRequestBody {
+pub struct AgentProtocolDiscoverRequestBody {
     pub agent_id: Did,
 }
 
@@ -126,7 +126,7 @@ pub struct AgentDiscoverRequestBody {
 /// `ck.agent.endpoint` declaration (§5.1) when present.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AgentDiscoverOutcome {
+pub struct AgentProtocolDiscoverOutcome {
     pub agent_id: Did,
     #[serde(default)]
     pub supported_protocols: Vec<String>,

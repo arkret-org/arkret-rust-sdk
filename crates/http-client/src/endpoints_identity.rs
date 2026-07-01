@@ -12,8 +12,8 @@ use cokret_core::{
     DirectoryResolveTargetRequestBody, DirectorySearchActorsRequestBody,
     DirectorySearchOrganizationsRequestBody, DirectorySearchRealmsRequestBody,
     DirectorySearchUsersRequestBody, DirectorySubjectHandleList, DirectoryTargetResolutionOutcome,
-    DirectoryUserSearchOutcome, IdentityDescription, IdentityDocumentView, IdentityLogOutcome,
-    IdentityReceiptsOutcome, IdentityResolveOutcome, IdentityResolveRequestBody, Result,
+    DirectoryUserSearchOutcome, IdentityDescription, IdentityDocumentView, IdentityLogListOutcome,
+    IdentityReceiptListOutcome, IdentityResolveOutcome, IdentityResolveRequestBody, Result,
     ServerDescription, ServiceRequirements,
 };
 use reqwest::Method;
@@ -64,7 +64,7 @@ impl Client {
         did: &str,
         cursor: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<IdentityLogOutcome> {
+    ) -> Result<IdentityLogListOutcome> {
         let mut builder = self
             .request(Method::GET, "/_cokret/root/identity/log")?
             .query(&[("did", did)]);
@@ -89,7 +89,7 @@ impl Client {
         &self,
         did: &str,
         head: &str,
-    ) -> Result<IdentityReceiptsOutcome> {
+    ) -> Result<IdentityReceiptListOutcome> {
         let builder = self
             .request(Method::GET, "/_cokret/root/identity/receipts")?
             .query(&[("did", did), ("head", head)]);

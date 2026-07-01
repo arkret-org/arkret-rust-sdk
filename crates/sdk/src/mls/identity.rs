@@ -350,7 +350,9 @@ mod tests {
             DeviceId::new("ck:device:01964137-0000-7000-8000-00000000000a".to_owned()).unwrap(),
         )
         .unwrap();
-        let mut group = alice.create_group(b"ck:mls_group:last-resort-add-test").unwrap();
+        let mut group = alice
+            .create_group(b"ck:mls_group:last-resort-add-test")
+            .unwrap();
 
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example".to_owned()).unwrap(),

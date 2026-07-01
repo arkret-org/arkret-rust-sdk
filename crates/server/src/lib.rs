@@ -22,14 +22,14 @@ use cokret_core::{
     FederationPushOperationsOutcome, FederationPushOperationsRequestBody,
     FederationRealmMemberList, FederationTransactionOutcome, FederationTransactionRequestBody,
     FederationVerifyActorOutcome, FederationVerifyActorRequestBody, GrantList, IdentityDescription,
-    IdentityDocumentView, IdentityLogOutcome, IdentityReceiptsOutcome, IdentityResolveOutcome,
-    IdentityResolveRequestBody, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
-    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody, MediaIceConfigOutcome,
-    MediaIceConfigRequestBody, ModerationReportOutcome, ModerationReportRequestBody, OkOutcome,
-    PolicyCheckOutcome, PolicyCheckRequestBody, PushNotifyOutcome, PushNotifyRequestBody,
-    PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody,
-    Result, ServerDescription, SnapshotManifest, SyncBackfillOutcome, SyncDescription, SyncOutcome,
-    SyncRequestBody,
+    IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
+    IdentityResolveOutcome, IdentityResolveRequestBody, KeysClaimOutcome, KeysClaimRequestBody,
+    KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
+    MediaIceConfigOutcome, MediaIceConfigRequestBody, ModerationReportOutcome,
+    ModerationReportRequestBody, OkOutcome, PolicyCheckOutcome, PolicyCheckRequestBody,
+    PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
+    PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, Result, ServerDescription,
+    SnapshotManifest, SyncBackfillOutcome, SyncDescription, SyncOutcome, SyncRequestBody,
 };
 pub use cokret_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
 // Shared protocol/product wire contracts now live in `cokret-core`; re-export

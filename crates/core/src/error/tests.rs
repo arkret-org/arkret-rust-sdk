@@ -59,11 +59,10 @@ fn error_code_constants_exactly_match_registry_codes() {
     }
 
     let declared: std::collections::BTreeSet<String> = declared.into_iter().collect();
-    let registry: std::collections::BTreeSet<String> =
-        crate::schema::embedded_error_code_codes()
-            .expect("embedded error-code-registry codes must load")
-            .into_iter()
-            .collect();
+    let registry: std::collections::BTreeSet<String> = crate::schema::embedded_error_code_codes()
+        .expect("embedded error-code-registry codes must load")
+        .into_iter()
+        .collect();
 
     let orphans: Vec<&String> = declared.difference(&registry).collect();
     assert!(

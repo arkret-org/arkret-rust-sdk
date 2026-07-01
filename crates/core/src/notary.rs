@@ -23,12 +23,11 @@ use crate::{Did, Error, Result};
 /// committees (realm.schema.json `notary.forensic_attribution`;
 /// `event-auth-state-resolution.md` §7.1 / BFT Protocol Forensics).
 ///
-/// - [`QuorumIntersection`](Self::QuorumIntersection) — REQUIRED when
-///   `2 * threshold > members.len()`: any two conflicting quorums then
-///   intersect in at least one attributable double-signer.
-/// - [`Waived`](Self::Waived) — REQUIRED when `2 * threshold <= members.len()`:
-///   the deployment explicitly waives automatic culprit attribution and relies
-///   on committee-level handling.
+/// - [`QuorumIntersection`](Self::QuorumIntersection) — REQUIRED when `2 * threshold >
+///   members.len()`: any two conflicting quorums then intersect in at least one attributable
+///   double-signer.
+/// - [`Waived`](Self::Waived) — REQUIRED when `2 * threshold <= members.len()`: the deployment
+///   explicitly waives automatic culprit attribution and relies on committee-level handling.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
