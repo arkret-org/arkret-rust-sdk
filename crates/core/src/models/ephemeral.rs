@@ -33,9 +33,11 @@ pub struct EphemeralEnvelope {
     /// Kind-specific signal payload. Schema per kind is defined by the
     /// producing module; MUST NOT carry mutable governance state.
     pub payload: Value,
-    /// Optional detached signature over canonical envelope bytes
-    /// (excluding `proof` itself). REQUIRED for `ck.call.signal` in E2EE
-    /// Realms; RECOMMENDED for `ck.receipt.read`.
+    /// Detached signature over canonical envelope bytes (excluding `proof`
+    /// itself). Per `ephemeral-envelope.schema.json` this is REQUIRED for
+    /// every broadcast ephemeral kind (`ck.presence`, `ck.typing`,
+    /// `ck.receipt.read`, `ck.call.signal`); kept optional in the struct for
+    /// non-broadcast relay uses.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<Value>,
 }

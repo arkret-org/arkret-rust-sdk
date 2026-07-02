@@ -12,7 +12,7 @@ pub const MAX_EVENT_REFS: usize = 128;
 pub const MAX_AUTHORIZED_BY_REFS: usize = 64;
 pub const MAX_ACTOR_SEQ_SIBLINGS: usize = 16;
 pub const MAX_DELEGATION_CHAIN_DEPTH: usize = 4;
-pub const MAX_DELEGATION_CONTROL_DEPTH: u32 = 64;
+pub const MAX_DELEGATION_CONTROL_DEPTH: u32 = 4;
 
 pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
 

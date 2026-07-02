@@ -1324,6 +1324,12 @@ pub struct AccountDeviceEnrollRequestBody {
     pub device_id: DeviceId,
     /// did:key multibase (`z6Mk…`) or base64 of this session's device public key.
     pub device_public_key: String,
+    /// This device's HPKE sealing public key (multibase); enters
+    /// `ck.device.authorize.payload.hpke_key` verbatim (§5.4).
+    pub hpke_key: String,
+    /// Canonical sorted unique algorithm ids; enters
+    /// `ck.device.authorize.payload.algorithms` verbatim (§5.2/§5.4).
+    pub algorithms: Vec<String>,
     pub actor_seq: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub not_before: Option<DateTime<Utc>>,

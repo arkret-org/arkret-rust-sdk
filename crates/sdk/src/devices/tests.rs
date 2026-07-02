@@ -196,6 +196,8 @@ fn devices_support_sas_qr_mismatch_with_trust_chain_propagation() {
             last_seen_at: None,
         },
         "z6MkPhoneVerifyKey",
+        "z6LSTestHpkeKey".to_owned(),
+        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
     );
     manager.upsert_device_with_key(
         alice.clone(),
@@ -207,6 +209,8 @@ fn devices_support_sas_qr_mismatch_with_trust_chain_propagation() {
             last_seen_at: None,
         },
         "z6MkLaptopVerifyKey",
+        "z6LSTestHpkeKey".to_owned(),
+        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
     );
 
     let challenge = manager
@@ -266,7 +270,9 @@ fn propagate_trust_requires_binding_on_target() {
                 last_seen_at: None,
             },
             "z6MkVerifyKey",
-        );
+        "z6LSTestHpkeKey".to_owned(),
+        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
+    );
     }
     manager
         .record_cross_signing_publish(sample_publish(&alice, 1))
@@ -298,7 +304,9 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
                 last_seen_at: None,
             },
             "z6MkVerifyKey",
-        );
+        "z6LSTestHpkeKey".to_owned(),
+        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
+    );
     }
     manager
         .record_cross_signing_publish(sample_publish(&alice, 1))
@@ -370,6 +378,8 @@ fn publish_generation_must_advance_and_invalidates_old_bindings() {
             last_seen_at: None,
         },
         "z6MkVerifyKey",
+        "z6LSTestHpkeKey".to_owned(),
+        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
     );
     manager
         .record_cross_signing_publish(sample_publish(&alice, 1))
@@ -412,6 +422,8 @@ fn evaluate_trust_chain_states() {
             last_seen_at: None,
         },
         "z6MkVerifyKey",
+        "z6LSTestHpkeKey".to_owned(),
+        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
     );
 
     // No publish, no binding → Unverified.
@@ -482,6 +494,8 @@ fn evaluate_trust_chain_states() {
         phone.clone(),
         device_ref.metadata,
         "z6MkVerifyKey",
+        "z6LSTestHpkeKey".to_owned(),
+        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
     );
     // Force-set the stale binding back through the manager API:
     manager
@@ -508,6 +522,8 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
             last_seen_at: None,
         },
         "z6MkVerifyKey",
+        "z6LSTestHpkeKey".to_owned(),
+        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
     );
     manager
         .record_cross_signing_publish(sample_publish(&alice, 1))
@@ -551,6 +567,15 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
 
 /// Build a fully-signed `(publish, device binding)` pair plus the raw PSK key
 /// material a DID-anchoring caller would supply, using real Ed25519 keys and the
+const TEST_HPKE_KEY: &str = "z6LSTestChainHpkeKey";
+
+fn test_algorithms() -> Vec<String> {
+    vec![
+        "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+        "ck.mls.v1".to_owned(),
+    ]
+}
+
 /// SAME canonical-input constructors the verifier uses. `psk_seed` / `ssk_seed`
 /// pick the keypairs; `publish_generation` is the accepted publish generation;
 /// `binding_generation` is the `ssk_generation` baked into the device binding.
@@ -627,6 +652,8 @@ fn signed_chain_fixture(
         principal,
         device_id,
         device_public_key,
+        TEST_HPKE_KEY,
+        &test_algorithms(),
         binding_generation,
     )
     .unwrap();
@@ -663,6 +690,8 @@ fn verify_chain_accepts_well_formed_cross_signed_device() {
         &alice,
         &phone,
         device_public_key,
+        TEST_HPKE_KEY,
+        &test_algorithms(),
         &anchored_psk,
     );
     assert_eq!(state, DeviceTrustState::CrossSigned);
@@ -692,6 +721,8 @@ fn verify_chain_rejects_tampered_device_binding() {
         &alice,
         &phone,
         device_public_key,
+        TEST_HPKE_KEY,
+        &test_algorithms(),
         &anchored_psk,
     );
     assert_eq!(state, DeviceTrustState::Unverified);
@@ -712,6 +743,8 @@ fn verify_chain_rejects_device_key_substitution() {
         &alice,
         &phone,
         "z6MkAttackerSubstituteKey",
+        TEST_HPKE_KEY,
+        &test_algorithms(),
         &anchored_psk,
     );
     assert_eq!(state, DeviceTrustState::Unverified);
@@ -742,6 +775,8 @@ fn verify_chain_rejects_tampered_ssk_binding() {
         &alice,
         &phone,
         device_public_key,
+        TEST_HPKE_KEY,
+        &test_algorithms(),
         &anchored_psk,
     );
     assert_eq!(state, DeviceTrustState::Unverified);
@@ -772,6 +807,8 @@ fn verify_chain_rejects_wrong_anchored_psk() {
         &alice,
         &phone,
         device_public_key,
+        TEST_HPKE_KEY,
+        &test_algorithms(),
         &wrong,
     );
     assert_eq!(state, DeviceTrustState::Unverified);
@@ -800,6 +837,8 @@ fn verify_chain_stale_generation_needs_reverification() {
         &alice,
         &phone,
         device_public_key,
+        TEST_HPKE_KEY,
+        &test_algorithms(),
         &anchored_psk,
     );
     assert_eq!(state, DeviceTrustState::NeedsReverification);
@@ -827,6 +866,8 @@ fn verify_chain_future_generation_unverified() {
         &alice,
         &phone,
         device_public_key,
+        TEST_HPKE_KEY,
+        &test_algorithms(),
         &anchored_psk,
     );
     assert_eq!(state, DeviceTrustState::Unverified);

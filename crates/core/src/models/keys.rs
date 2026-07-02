@@ -45,7 +45,8 @@ pub enum DeviceStatus {
 /// `ck.device.authorize.payload.cross_signing_binding`
 /// (`crypto-media/device-lifecycle.md` §5.2). The accepted-generation SSK signs
 /// `"ck-device-trust-bind-v1\n" + canonical_json({principal_id, device_id,
-/// device_public_key, ssk_generation})`. Absent for inception bootstrap and
+/// device_public_key, hpke_key, algorithms, ssk_generation})`. Absent for
+/// inception bootstrap and
 /// service-attested devices. Mirrors
 /// `keys-operations.schema.json#/$defs/cross_signing_binding`.
 ///
@@ -89,6 +90,19 @@ pub struct QueryDeviceRecord {
     /// verified, non-revoked devices.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_signing_key: Option<String>,
+    /// Device HPKE sealing public key echoed verbatim from the authoritative
+    /// `ck.device.authorize.payload.hpke_key` (`device-lifecycle.md` §8.2).
+    /// Present only for verified, non-revoked devices; services MUST NOT
+    /// substitute this value in projection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hpke_key: Option<String>,
+    /// Canonical (UTF-8 bytewise sorted, deduplicated) algorithm ids echoed
+    /// verbatim from `ck.device.authorize.payload.algorithms`; together with
+    /// `device_signing_key` and `hpke_key` this is the material the §5.2
+    /// `ck-device-trust-bind-v1` transcript covers. Distinct from the sibling
+    /// `algorithms` prekey-bundle map.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trust_algorithms: Option<Vec<String>>,
     /// Directory status of the device at query time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_status: Option<DeviceStatus>,

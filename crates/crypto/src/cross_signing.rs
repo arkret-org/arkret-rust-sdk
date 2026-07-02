@@ -543,16 +543,26 @@ pub struct DeviceTrustBinding {
 
 impl DeviceTrustBinding {
     /// Canonical signing input for `ck-device-trust-bind-v1`.
+    ///
+    /// Covers the full device trust record per `device-lifecycle.md` §5.2:
+    /// verify key, HPKE sealing key and the canonical algorithm set. The
+    /// `algorithms` slice is sorted (UTF-8 bytewise) and deduplicated before
+    /// entering the transcript, so producer and verifier always agree on the
+    /// canonical array.
     pub fn canonical_input(
         principal_id: &Did,
         device_id: &DeviceId,
         device_public_key: &str,
+        hpke_key: &str,
+        algorithms: &[String],
         ssk_generation: u64,
     ) -> Result<Vec<u8>> {
         canonical_device_trust_binding_input(
             principal_id,
             device_id,
             device_public_key,
+            hpke_key,
+            algorithms,
             ssk_generation,
         )
     }
@@ -622,12 +632,21 @@ fn canonical_device_trust_binding_input(
     principal_id: &Did,
     device_id: &DeviceId,
     device_public_key: &str,
+    hpke_key: &str,
+    algorithms: &[String],
     ssk_generation: u64,
 ) -> Result<Vec<u8>> {
+    // §5.2: algorithms MUST be UTF-8 bytewise ascending and deduplicated
+    // before entering the signing input.
+    let mut canonical_algorithms = algorithms.to_vec();
+    canonical_algorithms.sort_unstable();
+    canonical_algorithms.dedup();
     let body = serde_json::json!({
         "principal_id": principal_id.as_str(),
         "device_id": device_id.as_str(),
         "device_public_key": device_public_key,
+        "hpke_key": hpke_key,
+        "algorithms": canonical_algorithms,
         "ssk_generation": ssk_generation,
     });
     let mut out = b"ck-device-trust-bind-v1\n".to_vec();
@@ -671,6 +690,8 @@ pub fn verify_device_cross_signing_chain(
     principal_id: &Did,
     device_id: &DeviceId,
     device_public_key: &str,
+    hpke_key: &str,
+    algorithms: &[String],
     anchored_psk: &cokret_signatures::PublicKeyMaterial,
 ) -> DeviceTrustState {
     // (a) PSK→SSK: the anchored PSK MUST sign the published SSK record over
@@ -702,6 +723,8 @@ pub fn verify_device_cross_signing_chain(
         principal_id,
         device_id,
         device_public_key,
+        hpke_key,
+        algorithms,
         binding.ssk_generation,
     ) else {
         return DeviceTrustState::Unverified;

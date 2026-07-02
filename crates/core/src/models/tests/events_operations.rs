@@ -90,7 +90,7 @@ fn event_scalability_limits_match_v1_profile() {
     assert_eq!(MAX_EVENT_REFS, 128);
     assert_eq!(MAX_AUTHORIZED_BY_REFS, 64);
     assert_eq!(MAX_DELEGATION_CHAIN_DEPTH, 4);
-    assert_eq!(MAX_DELEGATION_CONTROL_DEPTH, 64);
+    assert_eq!(MAX_DELEGATION_CONTROL_DEPTH, 4);
 }
 
 #[test]

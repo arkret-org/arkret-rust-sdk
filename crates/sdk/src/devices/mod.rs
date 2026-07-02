@@ -53,6 +53,15 @@ pub struct Device {
     /// the canonical input to the SSK trust binding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_public_key: Option<String>,
+    /// Device HPKE sealing key mirrored from the `ck:device:` record
+    /// (`crypto-media/device-lifecycle.md` §4/§5.2). Enters the SSK trust
+    /// binding transcript together with `device_public_key` and `algorithms`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hpke_key: Option<String>,
+    /// Canonical sorted unique algorithm ids declared by the device record;
+    /// part of the §5.2 trust binding transcript.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub algorithms: Option<Vec<String>>,
     /// Per-device trust binding produced by SSK (spec §5.2). When present,
     /// the device participates in the cross-signed trust chain.
     #[serde(default, skip_serializing_if = "Option::is_none")]

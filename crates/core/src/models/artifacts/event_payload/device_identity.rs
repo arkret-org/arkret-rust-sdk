@@ -40,6 +40,14 @@ pub struct DeviceAuthorizePayload {
     pub principal_id: Did,
     pub device_id: String,
     pub device_public_key: String,
+    /// Device HPKE public key used for secret/key envelope sealing. Covered by
+    /// `cross_signing_binding` (§5.2) or the enrollment-authority Event proof
+    /// (§5.4); services MUST NOT substitute this value in projection.
+    pub hpke_key: String,
+    /// Canonical sorted (UTF-8 bytewise) unique algorithm ids supported by
+    /// this device. Enters the device trust binding transcript together with
+    /// `device_public_key` and `hpke_key`.
+    pub algorithms: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_key_algorithm: Option<String>,
     pub authorized_by: DeviceOrPrincipalRef,
@@ -63,6 +71,24 @@ pub struct DeviceAuthorizePayload {
 }
 
 impl DeviceAuthorizePayload {
+    /// Enforce the `device-lifecycle.md` §5.2 canonical-form MUST on
+    /// `algorithms`: non-empty, UTF-8 bytewise ascending, no duplicates. The
+    /// producer MUST write the same canonical array that enters the
+    /// `ck-device-trust-bind-v1` signing input.
+    pub fn validate_canonical_algorithms(&self) -> std::result::Result<(), &'static str> {
+        if self.algorithms.is_empty() {
+            return Err("device_authorize_algorithms_empty");
+        }
+        if self
+            .algorithms
+            .windows(2)
+            .any(|pair| pair[0].as_bytes() >= pair[1].as_bytes())
+        {
+            return Err("device_authorize_algorithms_not_canonical");
+        }
+        Ok(())
+    }
+
     pub fn authorization_binding_count(&self) -> usize {
         self.cross_signing_binding.is_some() as usize
             + self.bootstrap_binding.is_some() as usize
@@ -286,6 +312,11 @@ mod tests {
             principal_id: Did::new("did:web:alice.example").unwrap(),
             device_id: "ck:device:01904100-0000-7000-8000-a11ce0000001".to_owned(),
             device_public_key: "z6MkDeviceKey".to_owned(),
+            hpke_key: "z6LSHpkeKey".to_owned(),
+            algorithms: vec![
+                "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+                "ck.mls.v1".to_owned(),
+            ],
             device_key_algorithm: None,
             authorized_by: DeviceOrPrincipalRef::Did(Did::new("did:web:alice.example").unwrap()),
             scopes: None,
@@ -339,6 +370,8 @@ mod tests {
             "principal_id": "did:webvh:zQmZcDaFwUR8yQCZRkXoYEBi9hdzMSCCLASUVdwT1J4Qyc6:local.host:webvh:01kvqwpxssfq3bqm15rcd0g99x",
             "device_id": "ck:device:019eefcb-5882-7861-bc30-3033fa32dcf6",
             "device_public_key": "z6MkjHNtpwuhc2QSXzkf4DWoWp7eSMKB9PzfdnvaLB7kb3dG",
+            "hpke_key": "z6LSgy7T8CEsMDMzk1e4EBFVX8CDXWWzvkFZWSXhsC97zjcM",
+            "algorithms": ["ck.hpke_x25519_aead_xchacha20poly1305.v1", "ck.mls.v1"],
             "authorized_by": "did:key:z6MknBuwKMPAzbhp6EwCnaxsEDk4G2KFeWRu273gYVuTY5jw",
             "not_before": "2026-06-22T14:45:51Z",
             "enrollment_authority_binding": {

@@ -34,8 +34,8 @@ fn detached_jws_protected_header_is_alg_eddsa_only() {
 #[cfg(feature = "signer")]
 #[test]
 fn move_signer_and_event_proof_signer_share_one_jws_header_and_signature() {
-    use cokret_core::move_event::{Effect, LatticeOp, LatticeOpType};
-    use cokret_core::{CellRef, Did, Hlc, MoveSigner, RealmId, SealId, UnsignedMove};
+    use cokret_core::move_event::{Effect, LatticeOp, LatticeOpType, SealBasis};
+    use cokret_core::{CellRef, Did, Hash, Hlc, MoveSigner, RealmId, SealId, UnsignedMove};
     use cokret_signatures::Ed25519MoveSigner;
     use cokret_signatures::proof::{Ed25519DetachedJwsSigner, EventSigner};
 
@@ -48,7 +48,11 @@ fn move_signer_and_event_proof_signer_share_one_jws_header_and_signature() {
     let unsigned = UnsignedMove::new(
         did.clone(),
         RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap(),
-        SealId::new(format!("ck:seal:sha256:{}", "aa".repeat(32))).unwrap(),
+        SealBasis {
+            leaves: vec![SealId::new(format!("ck:seal:sha256:{}", "aa".repeat(32))).unwrap()],
+            control_event_set_root: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),
+            state_root: Hash::new(format!("sha256:{}", "44".repeat(32))).unwrap(),
+        },
         vec![Effect {
             cell: CellRef::new(
                 "ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned(),

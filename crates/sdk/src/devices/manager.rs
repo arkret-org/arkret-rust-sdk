@@ -30,17 +30,25 @@ impl DeviceManager {
     /// Insert or update a device.
     pub fn upsert_device(&mut self, user_id: Did, device_id: DeviceId, metadata: DeviceMetadata) {
         let entry = self.devices.entry(user_id.clone()).or_default();
-        let (verification, device_public_key, cross_signing_binding, bootstrap_binding) =
-            if let Some(device) = entry.get(&device_id) {
-                (
-                    device.verification,
-                    device.device_public_key.clone(),
-                    device.cross_signing_binding.clone(),
-                    device.bootstrap_binding.clone(),
-                )
-            } else {
-                (DeviceVerificationState::Unverified, None, None, None)
-            };
+        let (
+            verification,
+            device_public_key,
+            hpke_key,
+            algorithms,
+            cross_signing_binding,
+            bootstrap_binding,
+        ) = if let Some(device) = entry.get(&device_id) {
+            (
+                device.verification,
+                device.device_public_key.clone(),
+                device.hpke_key.clone(),
+                device.algorithms.clone(),
+                device.cross_signing_binding.clone(),
+                device.bootstrap_binding.clone(),
+            )
+        } else {
+            (DeviceVerificationState::Unverified, None, None, None, None, None)
+        };
         entry.insert(
             device_id.clone(),
             Device {
@@ -49,6 +57,8 @@ impl DeviceManager {
                 metadata,
                 verification,
                 device_public_key,
+                hpke_key,
+                algorithms,
                 cross_signing_binding,
                 bootstrap_binding,
                 updated_at: Utc::now(),
@@ -61,13 +71,16 @@ impl DeviceManager {
         });
     }
 
-    /// Insert / replace the device record together with its public key (spec §4).
+    /// Insert / replace the device record together with its key material
+    /// (spec §4): verify key, HPKE sealing key and canonical algorithm set.
     pub fn upsert_device_with_key(
         &mut self,
         user_id: Did,
         device_id: DeviceId,
         metadata: DeviceMetadata,
         device_public_key: impl Into<String>,
+        hpke_key: impl Into<String>,
+        algorithms: Vec<String>,
     ) {
         self.upsert_device(user_id.clone(), device_id.clone(), metadata);
         if let Some(device) = self
@@ -76,6 +89,8 @@ impl DeviceManager {
             .and_then(|devices| devices.get_mut(&device_id))
         {
             device.device_public_key = Some(device_public_key.into());
+            device.hpke_key = Some(hpke_key.into());
+            device.algorithms = Some(algorithms);
         }
     }
 
@@ -696,6 +711,19 @@ impl DeviceManager {
                     .to_owned(),
             )
         })?;
+        // §5.2: the trust binding transcript covers verify key, HPKE sealing
+        // key and the canonical algorithm set — a record missing either cannot
+        // be evaluated (fail closed, never silently downgrade coverage).
+        let hpke_key = device.hpke_key.as_deref().ok_or_else(|| {
+            Error::Protocol(
+                "device has no hpke_key — cannot evaluate cross-signing binding".to_owned(),
+            )
+        })?;
+        let algorithms = device.algorithms.as_deref().ok_or_else(|| {
+            Error::Protocol(
+                "device has no algorithms — cannot evaluate cross-signing binding".to_owned(),
+            )
+        })?;
         let ssk_input = publish.self_signing_binding_input()?;
         let ssk_ok = verify_signature(
             &publish.principal_signing_key.kid,
@@ -710,6 +738,8 @@ impl DeviceManager {
             user_id,
             device_id,
             device_public_key,
+            hpke_key,
+            algorithms,
             binding.ssk_generation,
         )?;
         let device_ok = verify_signature(
