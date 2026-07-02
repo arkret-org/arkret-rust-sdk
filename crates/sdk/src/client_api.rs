@@ -275,14 +275,11 @@ pub struct DeviceVerificationStrand {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum PresenceState {
-    Online,
-    Unavailable,
-    Offline,
-}
+/// Alias for the canonical closed presence wire set
+/// (`discovery/profiles-presence.md` §3.2) — kept so existing
+/// `PresenceState` call sites keep compiling while the single enum
+/// lives in `cokret_core::sync`.
+pub type PresenceState = crate::sync::PresenceStatus;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]

@@ -113,14 +113,14 @@ impl PresenceManager {
     /// Default presence TTL (5 minutes).
     ///
     /// Users with no `last_active` update within this window are
-    /// transitioned from `Online`/`Unavailable`/`Idle` to `Offline`
+    /// transitioned from `Online`/`Idle`/`Dnd` to `Offline`
     /// when [`Self::expire_idle_presence`] runs. Spec value lives in
     /// `service-surface.md`; the SDK ships with the conservative
     /// 5-minute default and the constant is exposed for callers that
     /// want to tighten or relax the window.
     pub const DEFAULT_TTL: chrono::Duration = chrono::Duration::minutes(5);
 
-    /// Transition stale `Online` / `Unavailable` / `Idle` entries to
+    /// Transition stale `Online` / `Idle` / `Dnd` entries to
     /// `Offline` when their `last_active` is older than `ttl` relative
     /// to `now`. Returns the number of entries that were flipped.
     ///
@@ -256,13 +256,13 @@ mod tests {
             .update_status(&user1, PresenceStatus::Online)
             .unwrap();
         manager
-            .update_status(&user2, PresenceStatus::Unavailable)
+            .update_status(&user2, PresenceStatus::Dnd)
             .unwrap();
         manager
-            .update_status(&user3, PresenceStatus::Unavailable)
+            .update_status(&user3, PresenceStatus::Dnd)
             .unwrap();
 
-        let unavailable = manager.users_with_status(PresenceStatus::Unavailable);
-        assert_eq!(unavailable.len(), 2);
+        let dnd = manager.users_with_status(PresenceStatus::Dnd);
+        assert_eq!(dnd.len(), 2);
     }
 }

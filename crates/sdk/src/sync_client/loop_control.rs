@@ -331,7 +331,6 @@ pub struct SyncLoopSnapshot {
 pub struct SyncLoop {
     token: Option<String>,
     timeout: Duration,
-    presence: Option<PresenceStatus>,
     filter: Option<SyncFilter>,
     subscriptions: Option<SubscriptionConfig>,
     wait_for: Option<WaitForFrontier>,
@@ -346,7 +345,6 @@ impl SyncLoop {
         Self {
             token: None,
             timeout: Duration::from_secs(30),
-            presence: Some(PresenceStatus::Online),
             filter: None,
             subscriptions: None,
             wait_for: None,
@@ -407,7 +405,6 @@ impl SyncLoop {
         SyncRequestBody {
             after: self.token.clone(),
             catchup: Some(true),
-            set_presence: self.presence.clone(),
             filter: self.filter.clone(),
             subscriptions: self.subscriptions.clone(),
             wait_for: self.wait_for.clone(),

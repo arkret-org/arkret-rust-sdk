@@ -893,7 +893,6 @@ mod tests {
                 .account_subscribe_frames(&SyncRequestBody {
                     after: None,
                     catchup: None,
-                    set_presence: None,
                     filter: None,
                     subscriptions: None,
                     wait_for: None,

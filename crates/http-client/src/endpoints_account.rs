@@ -44,9 +44,6 @@ impl Client {
         if let Some(catchup) = request.catchup {
             builder = builder.query(&[("catchup", catchup)]);
         }
-        if let Some(presence) = request.set_presence.as_ref() {
-            builder = builder.query(&[("set_presence", presence)]);
-        }
         Ok(builder)
     }
 

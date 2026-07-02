@@ -24,9 +24,6 @@ pub struct SyncRequestBody {
     /// Ask the server to replay account-aggregate deltas before live tail.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub catchup: Option<bool>,
-    /// Presence status update
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub set_presence: Option<PresenceStatus>,
     /// Filter for selective sync
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filter: Option<SyncFilter>,
@@ -151,14 +148,19 @@ pub struct ToDeviceMessage {
     pub unsigned: Option<Value>,
 }
 
-/// Presence status.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+/// Presence status — the closed v1 wire set from
+/// `discovery/profiles-presence.md` §3.2. Receivers MUST treat any
+/// other wire value as a schema violation and drop the update
+/// (fail closed) instead of guessing a nearby state; use
+/// [`PresenceStatus::parse_wire`] for that strict path.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PresenceStatus {
     Online,
+    Idle,
+    Dnd,
     Offline,
-    Unavailable,
 }
 
 /// Presence event.
@@ -169,9 +171,18 @@ pub struct PresenceEvent {
     pub user_id: String,
     /// Presence status
     pub presence: PresenceStatus,
-    /// Last active timestamp
+    /// Last active wire value: either an RFC 3339 UTC timestamp or a
+    /// bucketed `<start>/<duration>` interval (profiles-presence.md
+    /// §3.3). Validate with `presence::validate_last_active_at`
+    /// before display — malformed values MUST be dropped, not
+    /// repaired.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_active: Option<DateTime<Utc>>,
+    pub last_active_at: Option<String>,
+    /// Transient status message override carried by the broadcast
+    /// (falls back to the durable profile `status_message` when
+    /// absent).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_message: Option<String>,
     /// Currently active device
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<String>,
@@ -863,11 +874,15 @@ impl SyncClient {
     }
 
     /// Create a sync request with current token.
+    ///
+    /// Presence intent is never part of the subscribe request — the
+    /// account subscribe surface is read-only (client-sync.md).
+    /// Broadcast presence through `POST /_cokret/self/ephemeral`
+    /// instead.
     pub fn create_request(&self) -> SyncRequestBody {
         SyncRequestBody {
             after: self.current_token.clone(),
             catchup: Some(true),
-            set_presence: Some(PresenceStatus::Online),
             filter: None,
             subscriptions: None,
             wait_for: None,
@@ -884,7 +899,6 @@ impl SyncClient {
         SyncRequestBody {
             after: self.current_token.clone(),
             catchup,
-            set_presence: Some(PresenceStatus::Online),
             filter,
             subscriptions,
             wait_for: None,
@@ -997,7 +1011,6 @@ mod tests {
         let request = SyncRequestBody {
             after: Some("token123".to_owned()),
             catchup: Some(true),
-            set_presence: Some(PresenceStatus::Online),
             filter: None,
             subscriptions: None,
             wait_for: None,

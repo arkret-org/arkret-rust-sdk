@@ -236,7 +236,8 @@ fn processor_dispatches_all_update_categories() {
         serde_json::to_value(PresenceEvent {
             user_id: "did:web:alice.example".to_owned(),
             presence: PresenceStatus::Online,
-            last_active: None,
+            last_active_at: None,
+            status_message: None,
             device_id: None,
         })
         .unwrap(),
