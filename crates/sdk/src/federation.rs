@@ -159,9 +159,9 @@ impl FederationReplayStore for FederationManager {
 
 /// Build a Cokret wire-form digest (`sha256:<hex>`) over `bytes`.
 ///
-/// 复用 `core::canonical::sha256_digest` 这一**唯一**摘要 helper(见
-/// `core/src/canonical.rs` 文档约束),不再在 federation 侧自行 `Sha256::new()`,
-/// 保证与 soland / yougen / floria 产出的摘要串字节一致。
+/// Reuse the single `core::canonical::sha256_digest` helper instead of
+/// hand-rolling `Sha256::new()` in federation code, keeping digest strings
+/// byte-identical with soland / yougen / floria.
 pub fn content_digest_sha256(bytes: &[u8]) -> String {
     cokret_core::canonical::sha256_digest(bytes)
 }
@@ -169,9 +169,9 @@ pub fn content_digest_sha256(bytes: &[u8]) -> String {
 /// Build the value of the RFC 9530 `Content-Digest` header
 /// (`sha-256=:<base64>:`).
 ///
-/// RFC 9530 用 **base64-standard**(带 padding)包裹原始 32 字节 digest,与
-/// Cokret wire-form 的 `sha256:<hex>` 是两种编码;此处复用
-/// `core::canonical::sha256_hex` 取裸 hex 后转 base64-standard。
+/// RFC 9530 wraps the raw 32-byte digest in **standard base64** with padding.
+/// That differs from the Cokret wire-form `sha256:<hex>` encoding, so this
+/// helper computes the raw digest and standard-base64 encodes it.
 pub fn rfc9530_content_digest_sha256(bytes: &[u8]) -> String {
     let raw = sha256_raw(bytes);
     format!("sha-256=:{}:", cokret_core::base64_standard_encode(raw))

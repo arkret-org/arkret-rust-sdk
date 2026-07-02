@@ -481,7 +481,7 @@ mod tests {
             "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
             did("bot"),
             "ck:event:01904100-0000-7000-8000-deadbeefdead",
-            "external_network",
+            AppletBridgeErrorClass::ExternalNetwork,
             "external_rate_limited",
             true,
             AppletBridgeErrorVisibility::RealmAdmins,

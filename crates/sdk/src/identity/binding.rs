@@ -311,10 +311,6 @@ pub fn decode_multicodec_ed25519(encoded: &str) -> Result<[u8; 32], BindingError
 /// leading multibase `z`, requires the `0xed 0x01` Ed25519 multicodec tag,
 /// and enforces the fixed 64-byte signature length. Any other multicodec
 /// prefix or a wrong length is rejected.
-///
-/// 与公钥侧的 [`decode_multicodec_ed25519`] 对应,解码 64 字节 ed25519 签名:
-/// 校验 `z` 前缀、`0xed01` multicodec 标签,并强制签名固定 64 字节;非-ed25519
-/// 前缀或长度不符一律拒绝。
 pub fn decode_multicodec_ed25519_signature(encoded: &str) -> Result<[u8; 64], BindingError> {
     let body = encoded.strip_prefix('z').ok_or_else(|| {
         BindingError::InvalidMulticodec("missing multibase 'z' prefix".to_owned())

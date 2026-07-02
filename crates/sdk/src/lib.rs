@@ -273,10 +273,10 @@ pub use agent::{
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet::{
     AccountabilityGrantPayload, AccountabilityGrantStatus, AccountabilityScope, ActorPolicy,
-    AppletAcceptedSigningKeyEvidence, AppletBridgeErrorBuilder, AppletBridgeErrorVisibility,
-    AppletDelegatedEventAuthorization, AppletEpochEvidenceError, AppletNamespaceConflict,
-    AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage, AppletPortal,
-    AppletRegistrationEpochEvidence, AppletServiceIntent, AppletServiceTransaction,
+    AppletAcceptedSigningKeyEvidence, AppletBridgeErrorBuilder, AppletBridgeErrorClass,
+    AppletBridgeErrorVisibility, AppletDelegatedEventAuthorization, AppletEpochEvidenceError,
+    AppletNamespaceConflict, AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage,
+    AppletPortal, AppletRegistrationEpochEvidence, AppletServiceIntent, AppletServiceTransaction,
     AppletWireNamespaces, ApprovalRequest, ApprovedScope, EffectiveScope, GhostActorProfileFields,
     GhostActorProfileRequest, GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
     InstallCapabilityConstraint, InstallCommitOutcome, InstallCommitRequestBody,
@@ -348,11 +348,10 @@ pub use crypto::{
     AEAD_ALGORITHM, AEAD_NONCE_AES_GCM_LEN, AEAD_NONCE_COUNTER_LEN, AEAD_NONCE_EXPORTER_LABEL,
     AEAD_NONCE_XCHACHA20_POLY1305_LEN, AEAD_PROFILE_AES_256_GCM, AEAD_PROFILE_XCHACHA20_POLY1305,
     AeadNonceContext, AeadNonceReplayTracker, EncryptedEnvelopeAad, EncryptedEnvelopeDigestReport,
-    FeatureSafetyReport, KeyLifecycleHook, KeyLifecyclePhase, REDACTED_SECRET, SecurityReviewItem,
-    SecurityReviewStatus, UnsafeFeatureCombination, aead_sender_nonce_context_bytes,
-    compose_aead_nonce, current_feature_safety_report, derive_aead_sender_nonce_prefix,
-    encrypted_envelope_digest_report, envelope_aad_digest, feature_safety_report,
-    is_sensitive_log_key, json_aad_digest, redact_log_value, security_review_checklist,
+    FeatureSafetyReport, REDACTED_SECRET, UnsafeFeatureCombination,
+    aead_sender_nonce_context_bytes, compose_aead_nonce, current_feature_safety_report,
+    derive_aead_sender_nonce_prefix, encrypted_envelope_digest_report, envelope_aad_digest,
+    feature_safety_report, is_sensitive_log_key, json_aad_digest, redact_log_value,
     verify_aead_nonce_derivation, verify_aead_sender_nonce, verify_envelope_aad_digest,
 };
 #[cfg(feature = "full-surface")]

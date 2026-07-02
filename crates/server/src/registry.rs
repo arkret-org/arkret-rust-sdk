@@ -96,6 +96,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     ),
     endpoint!("ck.self.agent.query.list", Get, "/_cokret/self/agents"),
     endpoint!(
+        "ck.self.agent.protocol.query.discover",
+        Post,
+        "/_cokret/self/agents/discover"
+    ),
+    endpoint!(
         "ck.self.agent.resource.get",
         Get,
         "/_cokret/self/agents/{agent_principal_id}"
@@ -400,6 +405,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/find/directory/withdraw"
     ),
     endpoint!(
+        "ck.find.directory.command.takedown_appeal",
+        Post,
+        "/_cokret/find/directory/takedown/appeal"
+    ),
+    endpoint!(
         "ck.self.events.query.describe",
         Get,
         "/_cokret/self/events/describe"
@@ -697,6 +707,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_cokret/self/realms/{realm_id}/effective-policy"
     ),
     endpoint!(
+        "ck.self.realm_organization.query.list",
+        Get,
+        "/_cokret/self/realms/{realm_id}/organizations"
+    ),
+    endpoint!(
         "ck.self.realm_policy_server.resource.get",
         Get,
         "/_cokret/self/realms/{realm_id}/policy-server"
@@ -715,6 +730,26 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "ck.self.realm.resource.get",
         Get,
         "/_cokret/self/realms/{realm_id}"
+    ),
+    endpoint!(
+        "ck.self.realm.command.archive",
+        Post,
+        "/_cokret/self/realms/{realm_id}/archive"
+    ),
+    endpoint!(
+        "ck.self.realm.command.freeze",
+        Post,
+        "/_cokret/self/realms/{realm_id}/freeze"
+    ),
+    endpoint!(
+        "ck.self.realm.command.tombstone",
+        Post,
+        "/_cokret/self/realms/{realm_id}/tombstone"
+    ),
+    endpoint!(
+        "ck.self.realm.command.destroy",
+        Post,
+        "/_cokret/self/realms/{realm_id}/destroy"
     ),
     endpoint!(
         "ck.self.realm.query.export",

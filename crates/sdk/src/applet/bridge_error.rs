@@ -20,6 +20,17 @@ pub enum AppletBridgeErrorVisibility {
     RealmMembers,
 }
 
+/// Closed `error_class` enum for `ck.applet.bridge_error`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletBridgeErrorClass {
+    ExternalNetwork,
+    Auth,
+    Schema,
+    RateLimit,
+    Policy,
+}
+
 /// Build a `ck.applet.bridge_error` Event per spec `applet-schema.md` §7
 /// (authoritative `applet_bridge_error_payload`).
 ///
@@ -39,14 +50,13 @@ pub struct AppletBridgeErrorBuilder {
     applet_id: String,
     actor_id: Did,
     failed_transaction_ref: String,
-    error_class: String,
+    error_class: AppletBridgeErrorClass,
     error_code: String,
     retriable: bool,
     visibility_scope: AppletBridgeErrorVisibility,
     message: Option<String>,
     external_ref: Option<Value>,
     retry_after_ms: Option<u64>,
-    extra: serde_json::Map<String, Value>,
 }
 
 impl AppletBridgeErrorBuilder {
@@ -60,7 +70,7 @@ impl AppletBridgeErrorBuilder {
         applet_id: impl Into<String>,
         actor_id: Did,
         failed_transaction_ref: impl Into<String>,
-        error_class: impl Into<String>,
+        error_class: AppletBridgeErrorClass,
         error_code: impl Into<String>,
         retriable: bool,
         visibility_scope: AppletBridgeErrorVisibility,
@@ -70,14 +80,13 @@ impl AppletBridgeErrorBuilder {
             applet_id: applet_id.into(),
             actor_id,
             failed_transaction_ref: failed_transaction_ref.into(),
-            error_class: error_class.into(),
+            error_class,
             error_code: error_code.into(),
             retriable,
             visibility_scope,
             message: None,
             external_ref: None,
             retry_after_ms: None,
-            extra: serde_json::Map::new(),
         }
     }
 
@@ -101,11 +110,6 @@ impl AppletBridgeErrorBuilder {
         self
     }
 
-    pub fn with_extra(mut self, key: impl Into<String>, value: Value) -> Self {
-        self.extra.insert(key.into(), value);
-        self
-    }
-
     pub fn build(self, actor_seq: u64, hlc: Hlc) -> Result<Event> {
         let mut content = serde_json::Map::new();
         content.insert(
@@ -122,7 +126,7 @@ impl AppletBridgeErrorBuilder {
         );
         content.insert(
             "error_class".to_owned(),
-            Value::String(self.error_class.clone()),
+            serde_json::to_value(self.error_class).expect("error_class is a closed enum"),
         );
         content.insert(
             "error_code".to_owned(),
@@ -144,10 +148,6 @@ impl AppletBridgeErrorBuilder {
         {
             content.insert("retry_after_ms".to_owned(), Value::from(retry_after_ms));
         }
-        for (k, v) in &self.extra {
-            content.insert(k.clone(), v.clone());
-        }
-
         Event::new(
             "ck.applet.bridge_error",
             self.realm_id,

@@ -71,9 +71,10 @@ pub enum ActorKind {
     Team,
     Agent,
     Service,
-    // 不含 Device:设备不是 actor 主体,没有自己的 DID。设备从属于
-    // principal,标识为 device_id(ck:device:<uuid>),密钥是 principal
-    // DID 下的 verification method。见 spec models/actor.md §2。
+    // No Device variant: a device is not an actor principal and has no DID of
+    // its own. It belongs to a principal, is identified by
+    // device_id (ck:device:<uuid>), and uses a verification method under the
+    // principal DID. See spec models/actor.md §2.
     Integration,
 }
 

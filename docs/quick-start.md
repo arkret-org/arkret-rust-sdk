@@ -59,7 +59,7 @@ adapter.
 
 ### Review Security Gates
 
-Run `security_review_checklist()` for internal pre-audit evidence and
+Review `docs/security-audit.md` for internal pre-audit evidence and run
 `current_feature_safety_report().validate()` for the published feature set.
 Use `redact_log_value()` on structured diagnostics that may contain tokens,
 proofs, signatures or private key references.

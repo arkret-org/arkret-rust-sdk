@@ -229,7 +229,7 @@ pub fn inception_key_max_online_window() -> chrono::Duration {
 }
 
 /// SEC-04 — receiver-side independent age check for an inception key, per
-/// `identity/key-management.md` §5.0.1 step 5 ("接收端独立 enforce").
+/// `identity/key-management.md` §5.0.1 step 5 (receiver independently enforces).
 ///
 /// The receiver / Auth Server seals on the verifiable bootstrap timestamp
 /// (`did:webvh` entry-0 / continuity proof) and computes the inception key age

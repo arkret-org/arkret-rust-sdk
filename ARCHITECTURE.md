@@ -18,7 +18,7 @@ cokret (umbrella SDK)
     |-- cokret-server: endpoint registry, routed dispatch, server middleware, adapter contracts, OpenAPI helpers and optional Salvo router
     |-- cokret-signatures: HTTP signatures, JWS/JWT and proof verification
     |-- cokret-testing: conformance vectors and fixture helpers
-    |-- base/sync_client: local client state, response processing and account subscribe
+    |-- base + sync_client: local client state, response processing and account subscribe
     |-- membership/devices/receipts/notifications: client business state
     |-- content/media/profile/settings/search/discovery: feature helpers
     |-- auth/identity/e2ee/push: production protocol services
@@ -67,7 +67,7 @@ should remain available.
 
 ## MLS Layer
 
-`crates/sdk/src/mls.rs` binds Cokret encrypted Realms to OpenMLS. It
+`crates/sdk/src/mls/mod.rs` binds Cokret encrypted Realms to OpenMLS. It
 creates device KeyPackages, creates MLS groups, adds members, consumes Welcome
 messages, emits Commit / Welcome envelopes and encrypts application payloads
 into Cokret `EncryptedPayload` values.

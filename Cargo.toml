@@ -8,14 +8,6 @@ version = "0.3.0"
 rust-version = "1.96"
 
 [workspace.dependencies]
-# Pinned to a specific commit (not a mutable `branch = "main"`) so E2EE/MLS
-# core builds are reproducible and upstream `main` churn can't silently change
-# crypto behavior. Bump deliberately under review when adopting a new openmls.
-# Platform KeyStore native backends. Each is brought in only by its target
-# OS via per-target [target.<cfg>.dependencies] in `crates/keystore/Cargo.toml`,
-# behind the matching `keystore-*` feature gate (cokret-core only carries the
-# platform-free KeyStore trait + InMemoryKeyStore). They appear here so the
-# version pin lives in one place.
 anyhow = "1.0"
 argon2 = {version = "0.5.3",default-features = false,features = ["alloc", "password-hash"]}
 base64 = {version = "0.22.1",default-features = false,features = ["std"]}
@@ -45,6 +37,9 @@ getrandom_02 = {package = "getrandom",version = "0.2"}
 hex = "0.4.3"
 hkdf = {version = "0.13.0",default-features = false}
 hmac = {version = "0.13.0",default-features = false}
+# Pinned to a specific commit (not a mutable `branch = "main"`) so E2EE/MLS
+# core builds are reproducible and upstream `main` churn can't silently change
+# crypto behavior. Bump deliberately under review when adopting a new OpenMLS.
 openmls = {git = "https://github.com/openmls/openmls.git",rev = "d5a3aa7b595cb445614aa04b38f3d3aa42cf4911",default-features = false}
 openmls_basic_credential = {git = "https://github.com/openmls/openmls.git",rev = "d5a3aa7b595cb445614aa04b38f3d3aa42cf4911",default-features = false}
 openmls_rust_crypto = {git = "https://github.com/openmls/openmls.git",rev = "d5a3aa7b595cb445614aa04b38f3d3aa42cf4911",default-features = false}
@@ -54,9 +49,11 @@ regex = {version = "1.12.4",default-features = false,features = ["std", "unicode
 reqwest = {version = "0.13.4",default-features = false,features = ["query"]}
 salvo = {version = "0.93.0",default-features = false}
 salvo-oapi = {version = "0.93.0",default-features = false}
+# Linux KeyStore backend, enabled only by the keystore crate target cfg.
 secret-service = {version = "5.1.0",default-features = false,features = ["rt-tokio-crypto-rust"]}
 rand_chacha = {version = "0.3.1",default-features = false}
 rand_core = {version = "0.6.4",default-features = false}
+# macOS KeyStore backend, enabled only by the keystore crate target cfg.
 security-framework = {version = "3.7.0",default-features = false}
 serde = {version = "1.0.228",default-features = false,features = ["std", "derive"]}
 serde_json = {version = "1.0.150",default-features = false,features = ["std"]}
@@ -70,6 +67,7 @@ tracing = {version = "0.1.44",default-features = false,features = ["std", "attri
 unicode-normalization = {version = "0.1.25",default-features = false,features = ["std"]}
 url = {version = "2.5.8",default-features = false}
 uuid = {version = "1.23",default-features = false,features = ["std", "v7", "serde"]}
+# Windows KeyStore backend, enabled only by the keystore crate target cfg.
 windows = {version = "0.62.2",default-features = false}
 x25519-dalek = {version = "2.0.1",default-features = false,features = ["static_secrets", "getrandom"]}
 zeroize = {version = "1.8.2",default-features = false,features = ["derive"]}

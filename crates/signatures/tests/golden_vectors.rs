@@ -1,15 +1,17 @@
-//! 跨 crate 字节级 golden vector 守卫(T1.B 签名/编码真源统一)。
+//! Cross-crate byte-level golden vector guard for the unified signing/encoding
+//! source of truth (T1.B).
 //!
-//! 这些向量锁定收敛后的不可漂移字节:
+//! These vectors pin the converged bytes that must not drift:
 //!
-//! 1. detached JWS 的 protected header 字节在 **整个生态** 唯一为 `{"alg":"EdDSA"}`(base64url =
-//!    `eyJhbGciOiJFZERTQSJ9`),与 spec §6、 soland `move_seal_wire`、cotest、teabay `sdk::jws`
-//!    完全一致;
-//! 2. `Ed25519MoveSigner`(Move/Seal 签名)与 `Ed25519DetachedJwsSigner` (event-proof 签名)对同一
-//!    canonical bytes 产出**同一 signing input 与同一 64 字节签名** —— 证明两条历史分叉的 JWS
-//!    实现已收敛为一套;
-//! 3. base58btc(`core::multibase`,bs58 后端)对 `did:key` Ed25519 多编码栈 的固定向量稳定;
-//! 4. base64url(`core::base64url`)无 padding、URL-safe 字母表稳定。
+//! 1. The detached-JWS protected header is exactly `{"alg":"EdDSA"}` across the ecosystem
+//!    (base64url `eyJhbGciOiJFZERTQSJ9`), matching spec §6, soland `move_seal_wire`, cotest and
+//!    teabay `sdk::jws`.
+//! 2. `Ed25519MoveSigner` (Move/Seal signing) and `Ed25519DetachedJwsSigner` (event-proof signing)
+//!    produce the same signing input and same 64-byte signature for identical canonical bytes,
+//!    proving the historical JWS forks have converged.
+//! 3. base58btc (`core::multibase`, `bs58` backend) stays stable for the did:key Ed25519
+//!    multiencoding stack.
+//! 4. base64url (`core::base64url`) remains unpadded and URL-safe.
 
 use cokret_core::{base64url_decode, base64url_encode, ed25519_pubkey_to_did_key_multibase};
 

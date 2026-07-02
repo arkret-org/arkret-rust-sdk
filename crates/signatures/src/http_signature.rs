@@ -274,6 +274,7 @@ pub struct SignatureVerificationPolicy {
     required_components: Vec<Component>,
     require_content_digest: bool,
     max_clock_skew_seconds: i64,
+    max_validity_window_seconds: i64,
 }
 
 impl SignatureVerificationPolicy {
@@ -282,7 +283,8 @@ impl SignatureVerificationPolicy {
         Self {
             required_components: required_components.into(),
             require_content_digest: true,
-            max_clock_skew_seconds: 5,
+            max_clock_skew_seconds: 30,
+            max_validity_window_seconds: 300,
         }
     }
 
@@ -310,6 +312,12 @@ impl SignatureVerificationPolicy {
         self
     }
 
+    /// Configure the maximum accepted `expires - created` lifetime.
+    pub fn max_validity_window_seconds(mut self, seconds: i64) -> Self {
+        self.max_validity_window_seconds = seconds.max(0);
+        self
+    }
+
     /// Validate the policy against a parsed [`SignatureInput`].
     ///
     /// `content_digest_header` is the raw `Content-Digest` header value, if the
@@ -332,9 +340,19 @@ impl SignatureVerificationPolicy {
         if signature_input.expires < signature_input.created {
             return Err(SignaturePolicyError::InvalidValidityWindow);
         }
+        if signature_input
+            .expires
+            .saturating_sub(signature_input.created)
+            > self.max_validity_window_seconds
+        {
+            return Err(SignaturePolicyError::InvalidValidityWindow);
+        }
         let skew = self.max_clock_skew_seconds;
         if signature_input.created > now_unix_seconds.saturating_add(skew) {
             return Err(SignaturePolicyError::CreatedInFuture);
+        }
+        if signature_input.created < now_unix_seconds.saturating_sub(skew) {
+            return Err(SignaturePolicyError::Expired);
         }
         if signature_input.expires < now_unix_seconds.saturating_sub(skew) {
             return Err(SignaturePolicyError::Expired);
@@ -424,7 +442,7 @@ pub fn parse_signature_input(header: &str) -> Result<SignatureInput, SignatureEr
         created: created.ok_or(SignatureError::MissingSignatureInputParameter("created"))?,
         expires: expires.ok_or(SignatureError::MissingSignatureInputParameter("expires"))?,
         key_id: key_id.ok_or(SignatureError::MissingSignatureInputParameter("keyid"))?,
-        algorithm: algorithm.unwrap_or_else(|| "ed25519".to_owned()),
+        algorithm: algorithm.ok_or(SignatureError::MissingSignatureInputParameter("alg"))?,
         params_value,
     })
 }
@@ -961,15 +979,20 @@ mod tests {
             Err(SignaturePolicyError::MissingContentDigest)
         );
 
-        let future = parse_signature_input(&floria_signature_input(now + 10, now + 30)).unwrap();
+        let future = parse_signature_input(&floria_signature_input(now + 40, now + 70)).unwrap();
         assert_eq!(
             policy.validate(&future, Some("sha-256=:x=:"), now),
             Err(SignaturePolicyError::CreatedInFuture)
         );
-        let expired = parse_signature_input(&floria_signature_input(now - 30, now - 10)).unwrap();
+        let expired = parse_signature_input(&floria_signature_input(now - 40, now - 10)).unwrap();
         assert_eq!(
             policy.validate(&expired, Some("sha-256=:x=:"), now),
             Err(SignaturePolicyError::Expired)
+        );
+        let too_long = parse_signature_input(&floria_signature_input(now - 1, now + 301)).unwrap();
+        assert_eq!(
+            policy.validate(&too_long, Some("sha-256=:x=:"), now),
+            Err(SignaturePolicyError::InvalidValidityWindow)
         );
     }
 
@@ -1255,6 +1278,10 @@ mod tests {
             err,
             SignatureError::MissingSignatureInputParameter("created")
         );
+
+        let header = "sig1=(\"@method\");created=1;expires=2;keyid=\"k\"";
+        let err = parse_signature_input(header).unwrap_err();
+        assert_eq!(err, SignatureError::MissingSignatureInputParameter("alg"));
 
         // Empty covered components → EmptyCoveredComponents.
         let header2 = "sig1=();created=1;expires=2;keyid=\"k\";alg=\"ed25519\"";

@@ -74,18 +74,17 @@ This SDK audit checklist is intended for release review.
 - Review warnings and public API changes.
 - Review dependency updates.
 - Re-run protocol conformance vectors.
-- Review `security_review_checklist()` and confirm all non-external areas are
-  `tested`.
+- Review the coverage list below and confirm each non-external area still has
+  live tests or conformance vectors.
 - Run `current_feature_safety_report().validate()` for the published feature
   set.
 
 ## Internal Review Coverage
 
-The SDK publishes `security_review_checklist()` for internal pre-audit evidence.
-It covers canonical signing/proof binding, MLS transcript persistence, encrypted
-storage contracts, token/log redaction and unsafe feature combinations. This is
-not an external audit attestation; the checklist deliberately keeps the external
-audit item as `external_audit_required`.
+This document is the SDK's internal pre-audit evidence. It covers canonical
+signing/proof binding, MLS transcript persistence, encrypted storage contracts,
+token/log redaction and unsafe feature combinations. This is not an external
+audit attestation.
 
 ## Source Mapping
 

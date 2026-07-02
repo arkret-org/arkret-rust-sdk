@@ -12,8 +12,9 @@ pub(super) use crate::canonical::sha256_hex;
 /// `localhost` is also blocked. Registered domain names are allowed (DNS
 /// rebinding is out of scope for this static check).
 ///
-/// 公开导出:供 starid 等下游复用同一套出站 SSRF 判定,避免各仓重复实现
-/// 私网/元数据/CGN/NAT64/link-local 黑名单(见 STA-05-001)。
+/// Public export for downstream crates such as starid, so they reuse the same
+/// outbound SSRF classification instead of duplicating private/metadata/CGN/
+/// NAT64/link-local deny lists (STA-05-001).
 pub fn host_is_safe_for_outbound(host: &str) -> bool {
     let candidate = host
         .strip_prefix('[')
@@ -39,8 +40,8 @@ pub fn host_is_safe_for_outbound(host: &str) -> bool {
 /// to its v4 form before classification so a mapped private address is still
 /// rejected.
 ///
-/// 公开导出:供 starid 等下游复用,见 [`host_is_safe_for_outbound`] /
-/// STA-05-001。
+/// Public export for downstream crates such as starid; see
+/// [`host_is_safe_for_outbound`] and STA-05-001.
 pub fn ip_is_public(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => {
@@ -149,8 +150,9 @@ pub(super) fn is_allowed_did_web_content_type(content_type: &str) -> bool {
 /// component parts: `(scid, host, port, path_segments)`.
 ///
 /// Returns `None` for any non-`did:webvh` input or malformed component
-/// (empty scid/host, or a path segment containing `/` or `..`). 公开拆分
-/// 助手:供 starid 等下游直接解析 did:webvh,无需经过 SDK 内部。
+/// (empty scid/host, or a path segment containing `/` or `..`). Public helper
+/// for downstream crates such as starid to parse did:webvh directly without
+/// going through SDK internals.
 pub fn did_webvh_parts(did: &Did) -> Option<(String, String, Option<u16>, Vec<String>)> {
     let method_id = did.as_str().strip_prefix("did:webvh:")?;
     let mut parts = method_id.split(':');

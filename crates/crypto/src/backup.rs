@@ -714,8 +714,9 @@ fn key_backup_supersedes_digest(predecessor: &KeyBackup) -> Result<String> {
 
 /// Key commitment used by the AEAD envelope (spec §7.2):
 /// `SHA256(HKDF(root, info))`. The `info` is domain-separated per
-/// `backup_class` so commitments cannot be reused across domains (§7.1:
-/// "一个域的 derived key、commitment key 或 wrap key 不得直接用于另一个域").
+/// `backup_class` so commitments cannot be reused across domains (§7.1: a
+/// derived key, commitment key or wrap key for one domain must not be used
+/// directly in another domain).
 fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_class: BackupClass) -> Vec<u8> {
     let mut commitment_key = derive_subkey(root, backup_class.hkdf_info("commitment").as_bytes());
     let digest = Sha256::digest(commitment_key).to_vec();

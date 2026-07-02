@@ -4,11 +4,12 @@
 //! `AuthzEngine` (and any other consumer — yougen for client-side pre-validation,
 //! sodmin for admin feedback) needs to enforce capabilities.md §10:
 //!
-//! - 再授权 MUST NOT 扩大动作范围 (`ActionsNotHeld`)
-//! - 再授权 MUST NOT 扩大资源范围 (`ResourceOutOfScope`)
-//! - 子 `expires_at` MUST ≤ 父 `expires_at` (`OverExpire`)
-//! - 调用方 MUST 是父 grant 的 subject (`NotGrantHolder`)
-//! - 父 grant 必须存在 (`ParentNotFound`), 未 revoke (`ParentRevoked`), 未 expire (`ParentExpired`)
+//! - Re-delegation MUST NOT widen the action scope (`ActionsNotHeld`).
+//! - Re-delegation MUST NOT widen the resource scope (`ResourceOutOfScope`).
+//! - Child `expires_at` MUST be no later than parent `expires_at` (`OverExpire`).
+//! - The caller MUST be the parent grant subject (`NotGrantHolder`).
+//! - The parent grant must exist (`ParentNotFound`), not be revoked (`ParentRevoked`) and not be
+//!   expired (`ParentExpired`).
 //!
 //! These helpers operate on a [`Grant`] shape that intentionally mirrors
 //! soland's in-memory runtime form (stringly-typed `resource`, single
@@ -220,7 +221,7 @@ pub enum DelegationError {
     /// capability MAY further delegate it.
     NotGrantHolder,
     /// Delegated `actions[]` carries one or more actions the parent doesn't
-    /// hold. capabilities.md §10 (再授权不得扩大动作范围) — wire form
+    /// hold. capabilities.md §10 (re-delegation must not widen action scope) — wire form
     /// `capability_not_held`.
     ActionsNotHeld { offending: Vec<String> },
     /// Child `expires_at` is later than parent (or child unset while parent

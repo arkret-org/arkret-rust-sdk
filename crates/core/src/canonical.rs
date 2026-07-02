@@ -499,9 +499,6 @@ pub fn validate_timestamp_canonical(timestamp: &str) -> Result<()> {
 /// The output is RFC 3339 UTC, ends with `Z`, has **no** fractional
 /// seconds, and is exactly 20 characters long. Sub-second precision in
 /// the input is truncated.
-///
-/// 产出与 [`validate_timestamp_canonical`] 接受口径完全一致的规范时间戳串:
-/// RFC3339 UTC、以 `Z` 结尾、无小数秒、固定 20 字符。亚秒精度被截断。
 pub fn format_timestamp_canonical(when: chrono::DateTime<chrono::Utc>) -> String {
     when.format("%Y-%m-%dT%H:%M:%SZ").to_string()
 }
@@ -509,8 +506,6 @@ pub fn format_timestamp_canonical(when: chrono::DateTime<chrono::Utc>) -> String
 /// Convenience: format a Unix timestamp in **milliseconds** (UTC) into the
 /// canonical `YYYY-MM-DDTHH:MM:SSZ` string. Returns `None` if the value is
 /// out of the representable range. Sub-second milliseconds are truncated.
-///
-/// 便捷重载:从 Unix 毫秒构造规范时间戳串(超出可表示范围时返回 `None`)。
 pub fn format_timestamp_canonical_millis(unix_millis: i64) -> Option<String> {
     chrono::DateTime::<chrono::Utc>::from_timestamp_millis(unix_millis)
         .map(format_timestamp_canonical)
@@ -519,8 +514,6 @@ pub fn format_timestamp_canonical_millis(unix_millis: i64) -> Option<String> {
 /// Convenience: format a Unix timestamp in **seconds** (UTC) into the
 /// canonical `YYYY-MM-DDTHH:MM:SSZ` string. Returns `None` if the value is
 /// out of the representable range.
-///
-/// 便捷重载:从 Unix 秒构造规范时间戳串(超出可表示范围时返回 `None`)。
 pub fn format_timestamp_canonical_secs(unix_secs: i64) -> Option<String> {
     chrono::DateTime::<chrono::Utc>::from_timestamp(unix_secs, 0).map(format_timestamp_canonical)
 }

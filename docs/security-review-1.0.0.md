@@ -21,8 +21,6 @@ attestation; it is the evidence bundle a reviewer needs before the local
 ## Local Evidence
 
 - Internal checklist: `docs/security-audit.md`.
-- Machine-readable review surface:
-  `cokret::security_review_checklist()`.
 - Feature safety gate: `cokret::current_feature_safety_report().validate()`.
 - Dependency gates:
   - `cargo deny check --config .deny.toml`

@@ -83,49 +83,6 @@ pub struct EncryptedEnvelopeDigestReport {
     pub aad_sha256: Option<String>,
 }
 
-/// Security review status for internal pre-audit checklists.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SecurityReviewStatus {
-    Planned,
-    Modeled,
-    Tested,
-    ExternalAuditRequired,
-}
-
-/// Structured security review item mapped to SDK source and tests.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SecurityReviewItem {
-    pub area: String,
-    pub source_files: Vec<String>,
-    pub test_targets: Vec<String>,
-    pub status: SecurityReviewStatus,
-    pub notes: String,
-}
-
-/// Key lifecycle phase modeled by SDK crypto helpers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum KeyLifecyclePhase {
-    Created,
-    Published,
-    Used,
-    Rotated,
-    BackedUp,
-    Recovered,
-    Revoked,
-    Destroyed,
-}
-
-/// Hook record for applications that mirror key lifecycle events into audit logs.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct KeyLifecycleHook {
-    pub key_ref: String,
-    pub phase: KeyLifecyclePhase,
-    pub actor: String,
-    pub reason: String,
-}
-
 /// Feature combinations rejected by the SDK security review.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -511,115 +468,6 @@ pub fn encrypted_envelope_digest_report(
     })
 }
 
-/// Baseline internal checklist. This is not an external audit attestation.
-pub fn security_review_checklist() -> Vec<SecurityReviewItem> {
-    vec![
-        SecurityReviewItem {
-            area: "canonical signing/proof binding".to_owned(),
-            source_files: vec!["canonical.rs".to_owned(), "model.rs".to_owned()],
-            test_targets: vec![
-                "models::tests::signature_binding_payload_matches_canonical_vector".to_owned(),
-                "models::tests::proof_validate_binding_rejects_mismatched_payload_digest".to_owned(),
-                "models::tests::proof_validate_production_rejects_dev_kinds".to_owned(),
-            ],
-            status: SecurityReviewStatus::Tested,
-            notes: "signed payloads use canonical JSON and reject alg:none/dev proof kinds"
-                .to_owned(),
-        },
-        SecurityReviewItem {
-            area: "encrypted envelope compliance".to_owned(),
-            source_files: vec!["crypto.rs".to_owned(), "mls.rs".to_owned(), "e2ee.rs".to_owned()],
-            test_targets: vec![
-                "crypto::tests::encrypted_envelope_aad_digest_is_canonical".to_owned(),
-                "mls::tests::message_crypto_encrypts_with_aad_and_verifies_digest".to_owned(),
-            ],
-            status: SecurityReviewStatus::Tested,
-            notes: "payload and AAD digests are modeled and verified before decrypt".to_owned(),
-        },
-        SecurityReviewItem {
-            area: "MLS transcript and persistence".to_owned(),
-            source_files: vec![
-                "mls.rs".to_owned(),
-                "crypto_store.rs".to_owned(),
-                "devices.rs".to_owned(),
-            ],
-            test_targets: vec![
-                "mls::tests::openmls_state_persists_through_crypto_store_record".to_owned(),
-                "mls::tests::multi_device_workflow_applies_missed_commits_and_models_recovery"
-                    .to_owned(),
-            ],
-            status: SecurityReviewStatus::Tested,
-            notes: "KeyPackages, Welcomes, commits and epoch recovery records have durable shapes"
-                .to_owned(),
-        },
-        SecurityReviewItem {
-            area: "encrypted storage contracts".to_owned(),
-            source_files: vec![
-                "store.rs".to_owned(),
-                "crypto_store.rs".to_owned(),
-                "platform.rs".to_owned(),
-            ],
-            test_targets: vec![
-                "store::tests::encrypted_store_keeps_ciphertext_and_plain_api".to_owned(),
-                "crypto_store::tests::encrypted_crypto_store_seals_group_state_and_epoch_secrets_at_rest"
-                    .to_owned(),
-                "platform::tests::wasm_runtime_contract_covers_browser_http_indexeddb_webcrypto_and_sync_cache"
-                    .to_owned(),
-            ],
-            status: SecurityReviewStatus::Tested,
-            notes: "native and browser storage contracts model encrypted-at-rest boundaries"
-                .to_owned(),
-        },
-        SecurityReviewItem {
-            area: "key lifecycle".to_owned(),
-            source_files: vec!["e2ee.rs".to_owned(), "devices.rs".to_owned(), "mls.rs".to_owned()],
-            test_targets: vec![
-                "e2ee::tests::e2ee_restores_key_records_and_rejects_wrong_sender".to_owned(),
-                "devices::tests::devices_rotate_and_validate_authenticated_key_backups".to_owned(),
-            ],
-            status: SecurityReviewStatus::Modeled,
-            notes: "creation, publication, rotation, backup, recovery and revocation hooks exist"
-                .to_owned(),
-        },
-        SecurityReviewItem {
-            area: "token/log redaction".to_owned(),
-            source_files: vec![
-                "auth.rs".to_owned(),
-                "client.rs".to_owned(),
-                "server.rs".to_owned(),
-                "crypto.rs".to_owned(),
-            ],
-            test_targets: vec![
-                "auth::tests::auth_redacts_secrets_in_debug_output".to_owned(),
-                "client::tests::rejects_query_auth_on_base_path_and_built_request".to_owned(),
-                "server::tests::query_auth_and_wire_negative_vectors_are_available".to_owned(),
-                "crypto::tests::redact_log_value_removes_nested_secret_material".to_owned(),
-            ],
-            status: SecurityReviewStatus::Tested,
-            notes: "debug output, structured logs and query auth vectors remove credential material"
-                .to_owned(),
-        },
-        SecurityReviewItem {
-            area: "unsafe feature combinations".to_owned(),
-            source_files: vec!["Cargo.toml".to_owned(), "crypto.rs".to_owned()],
-            test_targets: vec![
-                "crypto::tests::feature_safety_report_rejects_unsafe_combinations".to_owned(),
-                "crypto::tests::current_feature_safety_report_accepts_compiled_features".to_owned(),
-            ],
-            status: SecurityReviewStatus::Tested,
-            notes: "Cargo feature dependencies are mirrored by a machine-readable safety report"
-                .to_owned(),
-        },
-        SecurityReviewItem {
-            area: "external audit".to_owned(),
-            source_files: Vec::new(),
-            test_targets: Vec::new(),
-            status: SecurityReviewStatus::ExternalAuditRequired,
-            notes: "external review remains intentionally unclaimed by SDK tests".to_owned(),
-        },
-    ]
-}
-
 fn sha256_prefixed(bytes: &[u8]) -> String {
     format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
 }
@@ -751,29 +599,6 @@ mod tests {
         let report = encrypted_envelope_digest_report(b"ciphertext", Some(&aad)).unwrap();
         assert_eq!(report.aad_sha256, Some(digest));
         assert!(report.ciphertext_sha256.starts_with("sha256:"));
-    }
-
-    #[test]
-    fn security_review_checklist_does_not_claim_external_audit() {
-        let checklist = security_review_checklist();
-        assert!(checklist.iter().any(|item| {
-            item.area == "external audit"
-                && item.status == SecurityReviewStatus::ExternalAuditRequired
-        }));
-        for area in [
-            "canonical signing/proof binding",
-            "MLS transcript and persistence",
-            "encrypted storage contracts",
-            "token/log redaction",
-            "unsafe feature combinations",
-        ] {
-            assert!(
-                checklist
-                    .iter()
-                    .any(|item| item.area == area && item.status == SecurityReviewStatus::Tested),
-                "missing tested security review area: {area}"
-            );
-        }
     }
 
     #[test]
