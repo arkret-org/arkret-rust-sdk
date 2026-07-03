@@ -739,7 +739,7 @@ mod tests {
         Did::new(format!("did:web:{name}.example")).unwrap()
     }
 
-    fn Realm() -> RealmId {
+    fn realm() -> RealmId {
         RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
     }
 
@@ -780,7 +780,7 @@ mod tests {
 
     fn ice_outcome(kid: &str) -> MediaIceConfigOutcome {
         MediaIceConfigOutcome {
-            realm_id: Realm(),
+            realm_id: realm(),
             call_id: "ck:call:0196441c-0000-7000-8000-000000000000".to_owned(),
             actor_id: did("alice"),
             device_id: crate::DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005")
@@ -897,7 +897,7 @@ mod tests {
         assert_eq!(back, offer);
 
         // Carrying both offer and answer is invalid.
-        let mut both = offer.clone();
+        let mut both = offer;
         both.answer = Some(CallSessionDescription {
             sdp_type: SdpType::Answer,
             sdp: "v=0".to_owned(),
@@ -943,7 +943,7 @@ mod tests {
         moderator.validate().unwrap();
 
         // moderator without target is invalid; self with target is invalid.
-        let mut bad_mod = moderator.clone();
+        let mut bad_mod = moderator;
         bad_mod.target_actor_id = None;
         bad_mod.target_device_id = None;
         assert!(bad_mod.validate().is_err());
@@ -960,7 +960,7 @@ mod tests {
             audio_level: Some(0.42),
         };
         speaking.validate().unwrap();
-        let value = serde_json::to_value(&speaking).unwrap();
+        let value = serde_json::to_value(speaking).unwrap();
         assert_eq!(value["speaking"], true);
         assert_eq!(value["audio_level"], 0.42);
 
@@ -997,7 +997,7 @@ mod tests {
             serde_json::json!("mute")
         );
 
-        let mut no_target = mute.clone();
+        let mut no_target = mute;
         no_target.target_actor_id = None;
         assert!(no_target.validate().is_err());
 
@@ -1033,7 +1033,7 @@ mod tests {
         assert_eq!(back, start);
 
         let transcribe = TranscribePayload {
-            call_id: start.call_id.clone(),
+            call_id: start.call_id,
             transcribe_id: "tx-1".to_owned(),
             transcribe_agent: did("scribe"),
             language: Some("zh-CN".to_owned()),
@@ -1072,11 +1072,11 @@ mod tests {
     #[test]
     fn webrtc_builds_to_device_signaling_messages() {
         let offer =
-            WebRtcSignalMessage::offer(Realm(), "call1", did("alice"), did("bob"), "offer-sdp");
+            WebRtcSignalMessage::offer(realm(), "call1", did("alice"), did("bob"), "offer-sdp");
         let answer =
-            WebRtcSignalMessage::answer(Realm(), "call1", did("bob"), did("alice"), "answer-sdp");
+            WebRtcSignalMessage::answer(realm(), "call1", did("bob"), did("alice"), "answer-sdp");
         let ice = WebRtcSignalMessage::ice_candidate(
-            Realm(),
+            realm(),
             "call1",
             did("alice"),
             did("bob"),

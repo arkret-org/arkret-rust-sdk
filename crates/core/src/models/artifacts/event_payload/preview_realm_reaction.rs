@@ -551,7 +551,7 @@ impl RealmKeySharePayload {
             "aad_digest": self.aad_digest,
             "created_at": self.created_at,
         });
-        crate::canonical::canonical_json_bytes(&covered).unwrap_or_default()
+        canonical::canonical_json_bytes(&covered).unwrap_or_default()
     }
 }
 
@@ -683,17 +683,6 @@ mod realm_key_request_tests {
 
     use super::*;
 
-    fn scope() -> RealmKeyScope {
-        RealmKeyScope {
-            effective_scope: json!({}),
-            policy_digest: json!("sha256:00"),
-            membership_frontier_digest: None,
-            from_epoch: Some(0),
-            to_epoch: Some(4),
-            history_visibility: None,
-        }
-    }
-
     fn request_scope() -> RealmKeyRequestScope {
         RealmKeyRequestScope {
             effective_scope: json!({}),
@@ -754,7 +743,7 @@ mod realm_organization_tests {
 
     use super::*;
 
-    fn active_value() -> serde_json::Value {
+    fn active_value() -> Value {
         json!({
             "statement_id": "org-stmt-1",
             "realm_id": "ck:realm:0196419b-0000-7000-8000-000000000010",
@@ -776,7 +765,7 @@ mod realm_organization_tests {
     #[test]
     fn active_payload_round_trips_and_enum_renames_match_spec() {
         let value = active_value();
-        let payload: RealmOrganizationPayload = serde_json::from_value(value.clone()).unwrap();
+        let payload: RealmOrganizationPayload = serde_json::from_value(value).unwrap();
         assert!(payload.is_active_status());
         assert_eq!(payload.relationship, RealmOrganizationRelationship::Owner);
         assert_eq!(

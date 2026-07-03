@@ -758,7 +758,7 @@ mod tests {
                 )
                 .is_err()
         );
-        let mut unsigned = claim.clone();
+        let mut unsigned = claim;
         unsigned.proofs.clear();
         assert!(
             unsigned

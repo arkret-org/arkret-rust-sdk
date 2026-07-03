@@ -704,7 +704,7 @@ mod tests {
     use super::*;
     use crate::{Hlc, LatticeOp, LatticeOpType, MoveSignature, NotarySig};
 
-    fn Realm() -> RealmId {
+    fn realm() -> RealmId {
         RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
@@ -732,7 +732,7 @@ mod tests {
     fn dummy_move(id: MoveId) -> Move {
         let body = serde_json::json!({
             "issuer": "did:web:admin.example",
-            "realm_id": Realm().as_str(),
+            "realm_id": realm().as_str(),
             "preconditions": [],
             "effects": [{
                 "cell": cell_member().as_str(),
@@ -773,7 +773,7 @@ mod tests {
         };
         Seal {
             id,
-            realm_id: Realm(),
+            realm_id: realm(),
             predecessor_refs: predecessors,
             delta,
             control_event_set_root: hash(0x22),
@@ -815,13 +815,13 @@ mod tests {
         store.put_pending(&m1).unwrap();
         store.put_pending(&m2).unwrap();
 
-        let pending = store.list_pending_for_notary(&Realm(), None, 10).unwrap();
+        let pending = store.list_pending_for_notary(&realm(), None, 10).unwrap();
         assert_eq!(pending.len(), 2);
         assert_eq!(pending[0].id, m1.id);
         assert_eq!(pending[1].id, m2.id);
 
         store.mark_sealed(&m1.id, &seal_id(0xaa)).unwrap();
-        let pending = store.list_pending_for_notary(&Realm(), None, 10).unwrap();
+        let pending = store.list_pending_for_notary(&realm(), None, 10).unwrap();
         assert_eq!(pending.len(), 1);
         assert_eq!(pending[0].id, m2.id);
     }
@@ -831,12 +831,12 @@ mod tests {
         let store = MemorySealStore::default();
         let g = dummy_seal(seal_id(0xa0), vec![], vec![move_id(0x01)]);
         store.put(&g).unwrap();
-        assert_eq!(store.genesis(&Realm()).unwrap().unwrap(), g.id);
-        assert_eq!(store.list_leaves(&Realm()).unwrap(), vec![g.id.clone()]);
+        assert_eq!(store.genesis(&realm()).unwrap().unwrap(), g.id);
+        assert_eq!(store.list_leaves(&realm()).unwrap(), vec![g.id.clone()]);
 
         let child = dummy_seal(seal_id(0xa1), vec![g.id], vec![move_id(0x02)]);
         store.put(&child).unwrap();
-        assert_eq!(store.list_leaves(&Realm()).unwrap(), vec![child.id]);
+        assert_eq!(store.list_leaves(&realm()).unwrap(), vec![child.id]);
     }
 
     #[test]
@@ -855,13 +855,13 @@ mod tests {
         store.put(&leaf_x).unwrap();
 
         // genesis has two direct children.
-        let succ = store.successors(&Realm(), &g.id).unwrap();
+        let succ = store.successors(&realm(), &g.id).unwrap();
         assert_eq!(succ.len(), 2);
         assert!(succ.contains(&child_a.id));
         assert!(succ.contains(&child_b.id));
 
         // child_b is a leaf — no successors.
-        assert!(store.successors(&Realm(), &child_b.id).unwrap().is_empty());
+        assert!(store.successors(&realm(), &child_b.id).unwrap().is_empty());
     }
 
     #[test]
@@ -875,7 +875,7 @@ mod tests {
         store.put(&a).unwrap();
         store.put(&b).unwrap();
 
-        let rewired = store.prune_predecessor(&Realm(), &a.id).unwrap();
+        let rewired = store.prune_predecessor(&realm(), &a.id).unwrap();
         assert_eq!(rewired, vec![b.id.clone()]);
 
         // `a` is gone.
@@ -891,7 +891,7 @@ mod tests {
         let g = dummy_seal(seal_id(0xc0), vec![], vec![move_id(0x01)]);
         store.put(&g).unwrap();
         // g is a leaf — can't prune.
-        let err = store.prune_predecessor(&Realm(), &g.id).unwrap_err();
+        let err = store.prune_predecessor(&realm(), &g.id).unwrap_err();
         assert!(format!("{err}").contains("no successors"));
     }
 
@@ -910,7 +910,7 @@ mod tests {
         store.put(&a).unwrap();
         store.put(&c).unwrap();
 
-        store.prune_predecessor(&Realm(), &a.id).unwrap();
+        store.prune_predecessor(&realm(), &a.id).unwrap();
         let c_after = store.get(&c.id).unwrap().unwrap();
         // c.predecessor_refs has just one entry: g.
         assert_eq!(c_after.predecessor_refs, vec![g.id]);
@@ -942,12 +942,12 @@ mod tests {
             },
         );
         store
-            .append_sealed_effects(&Realm(), &seal_id(0xaa), &[(cell_member(), op.clone())])
+            .append_sealed_effects(&realm(), &seal_id(0xaa), &[(cell_member(), op.clone())])
             .unwrap();
 
-        let cells = store.list_cells(&Realm()).unwrap();
+        let cells = store.list_cells(&realm()).unwrap();
         assert_eq!(cells.len(), 1);
-        let ops = store.sealed_ops_for_cell(&Realm(), &cell_member()).unwrap();
+        let ops = store.sealed_ops_for_cell(&realm(), &cell_member()).unwrap();
         assert_eq!(ops.len(), 1);
         assert_eq!(ops[0], op);
     }
@@ -969,16 +969,16 @@ mod tests {
         );
         let seal = seal_id(0xaa);
         store
-            .append_sealed_effects(&Realm(), &seal, &[(cell_member(), op)])
+            .append_sealed_effects(&realm(), &seal, &[(cell_member(), op)])
             .unwrap();
-        store.rollback_seal(&Realm(), &seal).unwrap();
+        store.rollback_seal(&realm(), &seal).unwrap();
         assert!(
             store
-                .sealed_ops_for_cell(&Realm(), &cell_member())
+                .sealed_ops_for_cell(&realm(), &cell_member())
                 .unwrap()
                 .is_empty()
         );
-        assert!(store.list_cells(&Realm()).unwrap().is_empty());
+        assert!(store.list_cells(&realm()).unwrap().is_empty());
     }
 
     #[test]
@@ -987,14 +987,14 @@ mod tests {
         let view = hash(0x33);
         store
             .put_cached_state(
-                &Realm(),
+                &realm(),
                 &cell_member(),
                 &view,
                 &CellState::Value(json!("x")),
             )
             .unwrap();
         assert_eq!(
-            store.cached_state(&Realm(), &cell_member(), &view).unwrap(),
+            store.cached_state(&realm(), &cell_member(), &view).unwrap(),
             Some(CellState::Value(json!("x")))
         );
         // append should invalidate cache.
@@ -1011,11 +1011,11 @@ mod tests {
             },
         );
         store
-            .append_sealed_effects(&Realm(), &seal_id(0xab), &[(cell_member(), op)])
+            .append_sealed_effects(&realm(), &seal_id(0xab), &[(cell_member(), op)])
             .unwrap();
         assert!(
             store
-                .cached_state(&Realm(), &cell_member(), &view)
+                .cached_state(&realm(), &cell_member(), &view)
                 .unwrap()
                 .is_none()
         );
@@ -1024,7 +1024,7 @@ mod tests {
     #[test]
     fn cell_registry_resolves_known_families() {
         let reg = MemoryCellRegistry::new();
-        let binding = reg.resolve(&Realm(), &cell_member()).unwrap();
+        let binding = reg.resolve(&realm(), &cell_member()).unwrap();
         assert_eq!(binding.lattice.kind(), LatticeKind::Fsm);
         assert_eq!(binding.bottom_mode, BottomMode::Reject);
     }
@@ -1033,7 +1033,7 @@ mod tests {
     fn cell_registry_unknown_family_fails_closed() {
         let reg = MemoryCellRegistry::new();
         let weird = CellRef::new("ck:cell:ck.component.future.unknown.v1:x".to_owned()).unwrap();
-        let err = reg.resolve(&Realm(), &weird).unwrap_err();
+        let err = reg.resolve(&realm(), &weird).unwrap_err();
         assert!(format!("{err}").contains("unknown cell family"));
     }
 
@@ -1043,14 +1043,14 @@ mod tests {
         let consent =
             CellRef::new("ck:cell:ck.component.consent.grant.v1:ck.consent.x".to_owned()).unwrap();
         assert_eq!(
-            reg.resolve(&Realm(), &consent).unwrap().lattice.kind(),
+            reg.resolve(&realm(), &consent).unwrap().lattice.kind(),
             LatticeKind::OrSet
         );
 
         let policy =
             CellRef::new("ck:cell:ck.component.realm.policy.v1:ck.realm.x".to_owned()).unwrap();
         assert_eq!(
-            reg.resolve(&Realm(), &policy).unwrap().lattice.kind(),
+            reg.resolve(&realm(), &policy).unwrap().lattice.kind(),
             LatticeKind::CasRegister
         );
     }

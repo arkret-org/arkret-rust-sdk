@@ -52,7 +52,6 @@ mod tests {
         RealmOrganizationAuthorization, RealmOrganizationControlScope, RealmOrganizationIssuerRole,
         RealmOrganizationRelationship, RealmOrganizationStatus,
     };
-    use ed25519_dalek::Verifier;
 
     use super::*;
 

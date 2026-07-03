@@ -2071,7 +2071,7 @@ mod tests {
 
         message.validate_record_binding(&record).unwrap();
 
-        let mut drifted = message.clone();
+        let mut drifted = message;
         drifted.nonce = "other_nonce".to_owned();
         assert!(
             drifted

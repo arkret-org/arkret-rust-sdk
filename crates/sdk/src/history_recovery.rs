@@ -155,16 +155,14 @@ pub fn resolve_realm_history_recovery_key(
         .and_then(Value::as_array)
         .ok_or_else(|| unverified("DID Document has no `service` array"))?;
     let designates = services.iter().any(|entry| {
-        let entry = match entry.as_object() {
-            Some(entry) => entry,
-            None => return false,
+        let Some(entry) = entry.as_object() else {
+            return false;
         };
         if entry.get("type").and_then(Value::as_str) != Some(RRK_SERVICE_TYPE) {
             return false;
         }
-        let endpoint = match entry.get("serviceEndpoint").and_then(Value::as_object) {
-            Some(endpoint) => endpoint,
-            None => return false,
+        let Some(endpoint) = entry.get("serviceEndpoint").and_then(Value::as_object) else {
+            return false;
         };
         endpoint.get("verificationMethod").and_then(Value::as_str)
             == Some(recipient.verification_method.as_str())
@@ -481,7 +479,7 @@ mod tests {
         let recipient = recipient();
         let mut document = did_document(
             &recipient,
-            &*X25519PublicKey::from(&StaticSecret::from([5u8; 32])).as_bytes(),
+            X25519PublicKey::from(&StaticSecret::from([5u8; 32])).as_bytes(),
         );
         // Ed25519-pub multicodec (0xed 0x01) instead of x25519-pub.
         let mut bytes = vec![0xedu8, 0x01];
@@ -541,8 +539,9 @@ mod tests {
         .unwrap();
 
         assert_eq!(payload.recipient_principal_id, recipient.principal_id);
+        assert_eq!(payload.recipient_device_id, None);
         assert_eq!(
-            payload.recipient_device_id.as_deref(),
+            payload.recovery_recipient_id.as_deref(),
             Some("acme-org-rrk-1")
         );
         assert_eq!(payload.key_scope.from_epoch, Some(4));

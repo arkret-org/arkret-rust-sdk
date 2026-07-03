@@ -120,7 +120,7 @@ fn event_scalability_helpers_reject_over_limits() {
         .map(|index| format!("ck:event:01904100-0000-7000-8000-{index:012x}"))
         .collect::<Vec<_>>();
     validate_event_prev_refs(prev_refs.iter().map(String::as_str)).unwrap();
-    let mut duplicate = prev_refs.clone();
+    let mut duplicate = prev_refs;
     duplicate.push(duplicate[0].clone());
     assert!(validate_event_prev_refs(duplicate.iter().map(String::as_str)).is_err());
 }

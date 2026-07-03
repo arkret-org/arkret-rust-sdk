@@ -110,7 +110,7 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
         "versionId": scid,
         "versionTime": "2026-05-06T00:00:00Z",
         "parameters": { "method": "did:webvh:1.0", "scid": scid, "updateKeys": [update1] },
-        "state": state1.clone(),
+        "state": state1,
     });
     let hash1 = vector_multihash(&entry1_body);
     let version1 = format!("1-{hash1}");
@@ -317,7 +317,7 @@ fn webvh_rejects_unauthorized_key_rotation() {
         "versionId": scid,
         "versionTime": "2026-05-06T00:00:00Z",
         "parameters": { "method": "did:webvh:1.0", "scid": scid, "updateKeys": [update1] },
-        "state": state.clone(),
+        "state": state,
     });
     let v1 = format!("1-{}", vector_multihash(&e1));
     e1.as_object_mut()
@@ -519,7 +519,14 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
             .is_err()
     );
 
-    let mut resolver = CompositeDidResolver::new();
+    let mut resolver = CompositeDidResolver::new().with_policy(ResolverPolicy {
+        allowed_methods: vec![
+            "did:web:".to_owned(),
+            "did:keri:".to_owned(),
+            "did:key:".to_owned(),
+        ],
+        ..ResolverPolicy::default()
+    });
     resolver.push(web_resolver);
     resolver.push(keri_resolver);
     resolver.push(DidKeyResolver::new());
@@ -785,7 +792,7 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
 
     // Hash-chain mismatch is rejected.
     let mut rotate = DidKeyLogEntry::build(
-        alice.clone(),
+        alice,
         1,
         DidKeyLogOperation::Rotate,
         Some(crate::Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap()),
@@ -816,7 +823,7 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
     let alice = did("alice");
     let receipt = DidRegistryReceipt::signed(
         cokret_core::ReceiptId::new("ck:receipt:01904100-0000-7000-8000-000000000001").unwrap(),
-        alice.clone(),
+        alice,
         7,
         crate::Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
         registry,

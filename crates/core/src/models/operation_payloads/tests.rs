@@ -49,6 +49,7 @@ fn strand_tracks_update_payload_uses_strand_id_not_target_ref() {
     assert!(payload.get("target_ref").is_none());
     assert!(payload.get("patch").is_some());
     schema::event_payload_validator_catalog()
+        .unwrap()
         .validate_payload("ck.strand.tracks.update", &payload)
         .unwrap();
 }
@@ -139,6 +140,7 @@ fn message_create_payload_carries_disappearing_expiry() {
     assert_eq!(payload["expiry"]["trigger"], "on_last_read");
     assert_eq!(payload["expiry"]["grace_ms"], 5_000);
     schema::event_payload_validator_catalog()
+        .unwrap()
         .validate_payload("ck.message.create", &payload)
         .unwrap();
 }

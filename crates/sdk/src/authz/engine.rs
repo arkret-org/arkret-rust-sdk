@@ -1481,6 +1481,28 @@ fn is_approval_required_constraint(constraint: &Value) -> bool {
             .unwrap_or(false)
 }
 
+pub fn moderation_report_for_policy_outcome(
+    ctx: &AuthzContext,
+    policy: &PolicyEvaluationResult,
+    now: DateTime<Utc>,
+) -> Option<ModerationReport> {
+    if policy.effect == PolicyServerEffect::NoAction {
+        return None;
+    }
+    Some(ModerationReport {
+        report_id: policy
+            .moderation_report_id
+            .clone()
+            .unwrap_or_else(|| format!("ck:moderation:{}", now.timestamp_millis())),
+        policy_id: policy.policy_id.clone(),
+        actor_id: ctx.actor_id.clone(),
+        resource: ctx.resource.clone(),
+        effect: policy.effect.clone(),
+        reason: policy.reason.clone(),
+        created_at: now,
+    })
+}
+
 #[cfg(test)]
 mod engine_wire_tests {
     use cokret_core::{CAPABILITY_SCHEMA, CapabilitySubject, GrantId};
@@ -1721,8 +1743,11 @@ mod engine_wire_tests {
         assert!(grant_requires_approval(&grant));
 
         let mut approvals = ApprovalStrandManager::new();
-        let decision =
-            engine.check_authorization_with_approvals(&ctx(), &[grant.clone()], &approvals);
+        let decision = engine.check_authorization_with_approvals(
+            &ctx(),
+            std::slice::from_ref(&grant),
+            &approvals,
+        );
         assert!(matches!(decision, EngineDecision::Deny { .. }));
 
         let proposal = approvals.submit_proposal(
@@ -1744,26 +1769,4 @@ mod engine_wire_tests {
         let decision = engine.check_authorization_with_approvals(&ctx(), &[grant], &approvals);
         assert_eq!(decision, EngineDecision::Allow);
     }
-}
-
-pub fn moderation_report_for_policy_outcome(
-    ctx: &AuthzContext,
-    policy: &PolicyEvaluationResult,
-    now: DateTime<Utc>,
-) -> Option<ModerationReport> {
-    if policy.effect == PolicyServerEffect::NoAction {
-        return None;
-    }
-    Some(ModerationReport {
-        report_id: policy
-            .moderation_report_id
-            .clone()
-            .unwrap_or_else(|| format!("ck:moderation:{}", now.timestamp_millis())),
-        policy_id: policy.policy_id.clone(),
-        actor_id: ctx.actor_id.clone(),
-        resource: ctx.resource.clone(),
-        effect: policy.effect.clone(),
-        reason: policy.reason.clone(),
-        created_at: now,
-    })
 }

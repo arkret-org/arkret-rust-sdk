@@ -1185,6 +1185,7 @@ mod tests {
         let value = serde_json::to_value(&payload).unwrap();
 
         crate::schema::event_payload_validator_catalog()
+            .unwrap()
             .validate_payload(payload.event_kind(), &value)
             .unwrap();
         assert!(value.get("group_id").is_none());

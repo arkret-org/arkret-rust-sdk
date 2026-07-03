@@ -1236,6 +1236,47 @@ fn selector_field_missing_or_wildcard(
         .is_none_or(|value| value == "*")
 }
 
+fn realm_part(remainder: &str, selector: &str) -> Result<String> {
+    let (realm_id, tail) = split_realm_tail(remainder, selector)?;
+    if tail.is_some() {
+        return Err(Error::Protocol(format!(
+            "invalid realm-only selector: {selector}"
+        )));
+    }
+    Ok(realm_id)
+}
+
+fn split_realm_tail(remainder: &str, selector: &str) -> Result<(String, Option<String>)> {
+    if remainder == "*" {
+        return Ok(("*".to_owned(), None));
+    }
+    if let Some(tail) = remainder.strip_prefix("*:") {
+        return Ok((
+            "*".to_owned(),
+            if tail.is_empty() {
+                None
+            } else {
+                Some(tail.to_owned())
+            },
+        ));
+    }
+
+    let parts = remainder.split(':').collect::<Vec<_>>();
+    if parts.len() < 3 || parts[0] != "ck" || parts[1] != "realm" || parts[2].is_empty() {
+        return Err(Error::Protocol(format!(
+            "invalid realm-scoped selector: {selector}"
+        )));
+    }
+    let realm_id = format!("{}:{}:{}", parts[0], parts[1], parts[2]);
+    let tail = if parts.len() > 3 {
+        let tail = parts[3..].join(":");
+        if tail.is_empty() { None } else { Some(tail) }
+    } else {
+        None
+    };
+    Ok((realm_id, tail))
+}
+
 #[cfg(test)]
 mod spec_selector_tests {
     use serde_json::json;
@@ -1310,45 +1351,4 @@ mod spec_selector_tests {
         .unwrap_err();
         assert!(format!("{err}").contains("resource selector must be an object"));
     }
-}
-
-fn realm_part(remainder: &str, selector: &str) -> Result<String> {
-    let (realm_id, tail) = split_realm_tail(remainder, selector)?;
-    if tail.is_some() {
-        return Err(Error::Protocol(format!(
-            "invalid realm-only selector: {selector}"
-        )));
-    }
-    Ok(realm_id)
-}
-
-fn split_realm_tail(remainder: &str, selector: &str) -> Result<(String, Option<String>)> {
-    if remainder == "*" {
-        return Ok(("*".to_owned(), None));
-    }
-    if let Some(tail) = remainder.strip_prefix("*:") {
-        return Ok((
-            "*".to_owned(),
-            if tail.is_empty() {
-                None
-            } else {
-                Some(tail.to_owned())
-            },
-        ));
-    }
-
-    let parts = remainder.split(':').collect::<Vec<_>>();
-    if parts.len() < 3 || parts[0] != "ck" || parts[1] != "realm" || parts[2].is_empty() {
-        return Err(Error::Protocol(format!(
-            "invalid realm-scoped selector: {selector}"
-        )));
-    }
-    let realm_id = format!("{}:{}:{}", parts[0], parts[1], parts[2]);
-    let tail = if parts.len() > 3 {
-        let tail = parts[3..].join(":");
-        if tail.is_empty() { None } else { Some(tail) }
-    } else {
-        None
-    };
-    Ok((realm_id, tail))
 }

@@ -123,7 +123,7 @@ foreach ($e in $entries) {
 & $add "        Self::try_new(value)"
 & $add "    }"
 & $add ""
-& $add "    /// `true` for any registry-declared kind; `false` for [`Self::Unknown`]."
+& $add '    /// `true` for any registry-declared kind; `false` for [`Self::Unknown`].'
 & $add "    pub fn is_standard(&self) -> bool {"
 & $add "        !matches!(self, Self::Unknown(_))"
 & $add "    }"

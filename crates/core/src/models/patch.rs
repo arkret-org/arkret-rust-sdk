@@ -632,6 +632,7 @@ mod tests {
                 .unwrap();
 
         crate::schema::event_payload_validator_catalog()
+            .unwrap()
             .validate_payload("ck.morph.update", &payload)
             .unwrap();
     }

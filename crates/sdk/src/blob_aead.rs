@@ -839,9 +839,8 @@ mod tests {
         let (_ct, mut env) = encrypt_stream(&p, &key, &params(64)).unwrap();
         // declared count no longer matches ceil(size/segment_size)
         env.segment_count = Some(5);
-        let err = match StreamDecryptor::new(&env, &key) {
-            Ok(_) => panic!("expected count-mismatch rejection"),
-            Err(err) => err,
+        let Err(err) = StreamDecryptor::new(&env, &key) else {
+            panic!("expected count-mismatch rejection");
         };
         assert_eq!(reason(&err), "segment_stream_truncated");
     }
@@ -944,7 +943,7 @@ mod tests {
         assert_eq!(reason(&err), "unsupported_attachment_scheme");
 
         // AES-GCM alg under the stream scheme must NOT be force-decrypted
-        let mut bad = env.clone();
+        let mut bad = env;
         bad.alg = "mls_exporter_aead_aes_256_gcm_stream".to_owned();
         let err = decrypt_stream(&ct, &bad, &key).unwrap_err();
         assert_eq!(reason(&err), "unsupported_attachment_scheme");
@@ -981,9 +980,9 @@ mod tests {
         // tamper ciphertext → AEAD fail (after recomputing the digest over the
         // tampered bytes, which would mismatch first; so tamper a byte AND fix
         // the digest to isolate the AEAD path)
-        let mut tampered = ct.clone();
+        let mut tampered = ct;
         tampered[0] ^= 0xff;
-        let mut env2 = env.clone();
+        let mut env2 = env;
         env2.ciphertext_digest = format!("sha256:{}", sha256_hex(&tampered));
         assert_eq!(
             reason(&decrypt_whole_file(&tampered, &env2, &key).unwrap_err()),

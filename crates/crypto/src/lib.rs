@@ -445,7 +445,7 @@ mod tests {
         assert_ne!(base, event_changed.reset_signing_input().unwrap());
         // issued_at is bound (clock-skew and replay window protection).
         let mut issued_changed = content.clone();
-        issued_changed.issued_at = issued_changed.issued_at + chrono::Duration::seconds(1);
+        issued_changed.issued_at += chrono::Duration::seconds(1);
         assert_ne!(base, issued_changed.reset_signing_input().unwrap());
         // proof kind/body are bound, excluding only signature material.
         let mut proof_changed = content.clone();
@@ -458,7 +458,7 @@ mod tests {
             signature: "AAAA".to_owned(),
         };
         assert_ne!(base, proof_changed.reset_signing_input().unwrap());
-        let mut signature_changed = content.clone();
+        let mut signature_changed = content;
         signature_changed.proof = CrossSigningResetProof::PrincipalSigning {
             verification_method: "did:web:alice.example#psk".to_owned(),
             alg: "EdDSA".to_owned(),
@@ -489,7 +489,7 @@ mod tests {
         };
         let commitment = content.recovery_unlock_commitment().unwrap();
         assert!(commitment.starts_with("sha256:"));
-        let mut with_commitment = content.clone();
+        let mut with_commitment = content;
         if let CrossSigningResetProof::RecoveryUnlock {
             unlock_commitment, ..
         } = &mut with_commitment.proof
@@ -501,7 +501,7 @@ mod tests {
             with_commitment.recovery_unlock_commitment().unwrap()
         );
 
-        let mut changed_ref = with_commitment.clone();
+        let mut changed_ref = with_commitment;
         if let CrossSigningResetProof::RecoveryUnlock {
             recovery_secret_ref,
             ..

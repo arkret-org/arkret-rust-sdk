@@ -42,20 +42,22 @@ fn error_code_constants_exactly_match_registry_codes() {
         }
     }
     // Wrapped declarations put the literal on the following line; pick those up.
-    let mut prev_was_wrapped_decl = false;
-    for line in source.lines() {
+    let mut lines = source.lines();
+    while let Some(line) = lines.next() {
         let trimmed = line.trim_start();
-        if prev_was_wrapped_decl {
-            if let Some(value) = trimmed
-                .split_once('"')
-                .and_then(|(_, after)| after.split_once('"').map(|(v, _)| v.to_owned()))
-            {
-                declared.push(value);
-            }
-            prev_was_wrapped_decl = false;
+        if !(trimmed.starts_with("pub const ERROR_CODE_") && trimmed.ends_with("&str =")) {
+            continue;
         }
-        prev_was_wrapped_decl =
-            trimmed.starts_with("pub const ERROR_CODE_") && trimmed.ends_with("&str =");
+        let Some(next) = lines.next() else {
+            continue;
+        };
+        if let Some(value) = next
+            .trim_start()
+            .split_once('"')
+            .and_then(|(_, after)| after.split_once('"').map(|(v, _)| v.to_owned()))
+        {
+            declared.push(value);
+        }
     }
 
     let declared: std::collections::BTreeSet<String> = declared.into_iter().collect();

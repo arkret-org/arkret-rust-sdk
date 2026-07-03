@@ -17,9 +17,9 @@ use serde_json::Value;
 
 use crate::sync::{
     AccountData, DeviceListChanges, LimitedTimelineState, MembershipBucket, NotificationDelta,
-    PresenceEvent, PresenceStatus, RealmSubscription, RealmUpdate, SubscriptionConfig, SyncFilter,
-    SyncRealm, SyncRequestBody, SyncTimeline, SyncUpdates, TimelineFilter, TimelineOrderKey,
-    ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage, WaitForFrontier, project_typed_vec,
+    PresenceEvent, RealmSubscription, RealmUpdate, SubscriptionConfig, SyncFilter, SyncRealm,
+    SyncRequestBody, SyncTimeline, SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck,
+    ToDeviceAckStatus, ToDeviceMessage, WaitForFrontier, project_typed_vec,
     project_typed_vec_from_value,
 };
 use crate::{DeviceId, Error, Event, EventId, RealmId, Result, SyncOutcome, canonical};

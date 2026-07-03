@@ -119,7 +119,9 @@ fn main() -> ExitCode {
     }
 
     if hard {
-        eprintln!("drift detected - update ARTIFACT_BACKED_* in crates/core/src/schema/artifacts.rs");
+        eprintln!(
+            "drift detected - update ARTIFACT_BACKED_* in crates/core/src/schema/artifacts.rs"
+        );
         return ExitCode::from(1);
     }
     println!(

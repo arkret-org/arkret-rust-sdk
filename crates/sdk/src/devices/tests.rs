@@ -694,6 +694,27 @@ fn signed_chain_fixture(
     (publish, binding, anchored_psk)
 }
 
+fn verify_chain(
+    publish: &CrossSigningPublishContent,
+    binding: &DeviceTrustBinding,
+    principal_id: &Did,
+    device_id: &DeviceId,
+    device_public_key: &str,
+    anchored_psk: &cokret_signatures::PublicKeyMaterial,
+) -> DeviceTrustState {
+    let algorithms = test_algorithms();
+    verify_device_cross_signing_chain(DeviceCrossSigningChainVerification {
+        publish,
+        binding,
+        principal_id,
+        device_id,
+        device_public_key,
+        hpke_key: TEST_HPKE_KEY,
+        algorithms: &algorithms,
+        anchored_psk,
+    })
+}
+
 #[test]
 fn verify_chain_accepts_well_formed_cross_signed_device() {
     let alice = did("alice");
@@ -708,14 +729,12 @@ fn verify_chain_accepts_well_formed_cross_signed_device() {
         1,
         1,
     );
-    let state = verify_device_cross_signing_chain(
+    let state = verify_chain(
         &publish,
         &binding,
         &alice,
         &phone,
         device_public_key,
-        TEST_HPKE_KEY,
-        &test_algorithms(),
         &anchored_psk,
     );
     assert_eq!(state, DeviceTrustState::CrossSigned);
@@ -739,14 +758,12 @@ fn verify_chain_rejects_tampered_device_binding() {
     let mut raw = cokret_core::base64url_decode(&binding.signature).unwrap();
     raw[0] ^= 0xff;
     binding.signature = cokret_core::base64url_encode(&raw);
-    let state = verify_device_cross_signing_chain(
+    let state = verify_chain(
         &publish,
         &binding,
         &alice,
         &phone,
         device_public_key,
-        TEST_HPKE_KEY,
-        &test_algorithms(),
         &anchored_psk,
     );
     assert_eq!(state, DeviceTrustState::Unverified);
@@ -761,14 +778,12 @@ fn verify_chain_rejects_device_key_substitution() {
         signed_chain_fixture(&alice, &phone, signed_key, [11u8; 32], [22u8; 32], 1, 1);
     // The binding was signed over `signed_key`; verifying against a DIFFERENT
     // device_public_key must fail (closes "directory key ⇔ cross-signed key").
-    let state = verify_device_cross_signing_chain(
+    let state = verify_chain(
         &publish,
         &binding,
         &alice,
         &phone,
         "z6MkAttackerSubstituteKey",
-        TEST_HPKE_KEY,
-        &test_algorithms(),
         &anchored_psk,
     );
     assert_eq!(state, DeviceTrustState::Unverified);
@@ -793,14 +808,12 @@ fn verify_chain_rejects_tampered_ssk_binding() {
         cokret_core::base64url_decode(&publish.self_signing_key.binding.signature).unwrap();
     raw[5] ^= 0xff;
     publish.self_signing_key.binding.signature = cokret_core::base64url_encode(&raw);
-    let state = verify_device_cross_signing_chain(
+    let state = verify_chain(
         &publish,
         &binding,
         &alice,
         &phone,
         device_public_key,
-        TEST_HPKE_KEY,
-        &test_algorithms(),
         &anchored_psk,
     );
     assert_eq!(state, DeviceTrustState::Unverified);
@@ -825,14 +838,12 @@ fn verify_chain_rejects_wrong_anchored_psk() {
     let wrong = cokret_signatures::PublicKeyMaterial::Ed25519Raw {
         bytes: wrong_psk.verifying_key().to_bytes().to_vec(),
     };
-    let state = verify_device_cross_signing_chain(
+    let state = verify_chain(
         &publish,
         &binding,
         &alice,
         &phone,
         device_public_key,
-        TEST_HPKE_KEY,
-        &test_algorithms(),
         &wrong,
     );
     assert_eq!(state, DeviceTrustState::Unverified);
@@ -855,14 +866,12 @@ fn verify_chain_stale_generation_needs_reverification() {
         2,
         1,
     );
-    let state = verify_device_cross_signing_chain(
+    let state = verify_chain(
         &publish,
         &binding,
         &alice,
         &phone,
         device_public_key,
-        TEST_HPKE_KEY,
-        &test_algorithms(),
         &anchored_psk,
     );
     assert_eq!(state, DeviceTrustState::NeedsReverification);
@@ -884,14 +893,12 @@ fn verify_chain_future_generation_unverified() {
         1,
         3,
     );
-    let state = verify_device_cross_signing_chain(
+    let state = verify_chain(
         &publish,
         &binding,
         &alice,
         &phone,
         device_public_key,
-        TEST_HPKE_KEY,
-        &test_algorithms(),
         &anchored_psk,
     );
     assert_eq!(state, DeviceTrustState::Unverified);

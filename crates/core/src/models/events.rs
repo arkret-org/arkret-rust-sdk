@@ -692,7 +692,7 @@ mod event_wire_surface_tests {
         assert!(value.get("external_ref").unwrap().is_object());
 
         // Round-trips through the wire deserializer (deny_unknown_fields).
-        let round_tripped: Event = serde_json::from_value(value.clone()).unwrap();
+        let round_tripped: Event = serde_json::from_value(value).unwrap();
         assert_eq!(round_tripped, event);
 
         // Both fields enter the digest payload (proofs/unsigned removed only).

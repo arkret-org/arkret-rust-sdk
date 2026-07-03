@@ -132,7 +132,7 @@ fn federation_fixture_expected_digest_matches_sdk_canonicalizer() {
 
 #[test]
 fn event_payload_catalog_validates_known_payload_fields() {
-    let catalog = event_payload_validator_catalog();
+    let catalog = event_payload_validator_catalog().unwrap();
     // `ck.strand.move` payload requires Space container ids:
     // `board_space_id` (ck:space prefix) + `target_space_id`.
     catalog
@@ -161,7 +161,7 @@ fn event_payload_catalog_validates_known_payload_fields() {
 
 #[test]
 fn relation_create_payload_strong_type_passes_spec_validator() {
-    let catalog = event_payload_validator_catalog();
+    let catalog = event_payload_validator_catalog().unwrap();
     let payload = crate::models::RelationCreatePayload::new(
         "ck.relation.parent_of",
         "ck:strand:01904100-0000-7000-8000-111111111111",
@@ -184,7 +184,7 @@ fn relation_create_payload_strong_type_passes_spec_validator() {
 #[test]
 fn membership_payload_strong_type_passes_spec_validator() {
     use crate::models::{DeliveryStatus, MembershipPayload, MembershipPayloadState};
-    let catalog = event_payload_validator_catalog();
+    let catalog = event_payload_validator_catalog().unwrap();
 
     // invite transition (non-join): only `membership` is structurally required.
     let invite = MembershipPayload::transition(
@@ -210,7 +210,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
         .unwrap();
 
     // join missing delivery_status is rejected by to_value (conditional req).
-    let mut bad = join.clone();
+    let mut bad = join;
     bad.delivery_status = None;
     assert!(matches!(bad.to_value(), Err(Error::Protocol(_))));
 
@@ -228,7 +228,7 @@ fn invite_payload_strong_types_pass_spec_validator() {
     use crate::models::{
         Did, Hash, InviteCreatePayload, InviteDeliveryTarget, InviteId, InviteRefPayload,
     };
-    let catalog = event_payload_validator_catalog();
+    let catalog = event_payload_validator_catalog().unwrap();
 
     // Directed-create (anyOf branch: invitee + invite_delivery_target +
     // introduction_evidence_digest + expires_at), with an `x_role` extension.
@@ -246,7 +246,7 @@ fn invite_payload_strong_types_pass_spec_validator() {
         .validate_payload("ck.invite.create", &create_value)
         .unwrap();
     InviteCreatePayload::from_wire_value(&create_value).unwrap();
-    let mut leaky_create = create_value.clone();
+    let mut leaky_create = create_value;
     leaky_create["hlc"] = json!("2026-06-14T10:00:00Z/node/1");
     assert!(InviteCreatePayload::from_wire_value(&leaky_create).is_err());
 
@@ -270,7 +270,7 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
         RealmArchivePayload, RealmDestroyPayload, RealmFreezePayload, RealmId,
         RealmTombstonePayload,
     };
-    let catalog = event_payload_validator_catalog();
+    let catalog = event_payload_validator_catalog().unwrap();
 
     // ck.realm.archive: reversible boolean register; `archived:false` un-archives.
     let archive = RealmArchivePayload::new(true).with_reason("retiring inactive realm");
@@ -328,7 +328,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
         StrandReorderExpectedPosition, StrandReorderPayload, StrandWatchExpectedValue,
         StrandWatchLevel, StrandWatchSetPayload,
     };
-    let catalog = event_payload_validator_catalog();
+    let catalog = event_payload_validator_catalog().unwrap();
     let board = || SpaceId::new("ck:space:01904100-0000-7000-8000-111111111111").unwrap();
     let target = || SpaceId::new("ck:space:01904100-0000-7000-8000-222222222222").unwrap();
     let strand = || StrandId::new("ck:strand:01904100-0000-7000-8000-6c663fa0205f").unwrap();

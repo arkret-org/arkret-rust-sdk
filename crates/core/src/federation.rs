@@ -507,7 +507,7 @@ mod tests {
             FederationReplayDecision::AcceptedNew
         );
         assert_eq!(
-            store.remember_at("txn_3", digest.clone(), now + Duration::seconds(2)),
+            store.remember_at("txn_3", digest, now + Duration::seconds(2)),
             FederationReplayDecision::AcceptedNew
         );
 

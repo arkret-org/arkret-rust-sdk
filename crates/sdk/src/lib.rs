@@ -367,8 +367,8 @@ pub use device_message::{DeviceMessage, DeviceMessageBuilder, DeviceMessageRecei
 pub use devices::{
     CrossSigningBinding, CrossSigningKeyKind, CrossSigningKeyRecord, CrossSigningPublishContent,
     CrossSigningResetContent, CrossSigningResetProof, Device, DeviceBootstrapBinding, DeviceChange,
-    DeviceManager, DeviceMetadata, DeviceQuorumSignature, DeviceTrustBinding,
-    DeviceTrustChainOutcome, DeviceTrustState, DeviceVerificationChallenge,
+    DeviceCrossSigningChainVerification, DeviceManager, DeviceMetadata, DeviceQuorumSignature,
+    DeviceTrustBinding, DeviceTrustChainOutcome, DeviceTrustState, DeviceVerificationChallenge,
     DeviceVerificationMessageContent, DeviceVerificationMessageKind, KeyBackupClass,
     KeyBackupContentItem, KeyBackupEncryption, ProtocolKeyBackup, QrVerificationPayload,
     SignedCrossSigningKey, ToDeviceEnvelope, cross_signing_publish_cell_subject,

@@ -727,7 +727,7 @@ mod tests {
 
         let looser_visibility = ReadReceiptPolicy {
             visibility: ReadReceiptVisibility::Public,
-            ..child.clone()
+            ..child
         };
         assert_eq!(
             parent.validate_child_policy(&looser_visibility),
@@ -781,7 +781,7 @@ mod tests {
         let child = ReadReceiptPolicy {
             disclosure: ReadReceiptDisclosure::Disabled,
             visibility: ReadReceiptVisibility::Members,
-            ..parent.clone()
+            ..parent
         };
         assert_eq!(
             parent.validate_child_policy(&child),

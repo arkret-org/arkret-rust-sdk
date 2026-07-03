@@ -638,8 +638,7 @@ pub const OP_VIEW_COLLECTION_PROJECTION: &str =
 pub const OP_SELF_REALM_LINK_LIST: &str = "ck.self.realm_link.query.list";
 pub const OP_SELF_REALM_LINK_CREATE: &str = "ck.self.realm_link.command.create";
 pub const OP_SELF_REALM_LINK_DELETE: &str = "ck.self.realm_link.resource.delete";
-pub const OP_SELF_REALM_LINK_EFFECTIVE_POLICY: &str =
-    "ck.self.realm_link.query.effective_policy";
+pub const OP_SELF_REALM_LINK_EFFECTIVE_POLICY: &str = "ck.self.realm_link.query.effective_policy";
 pub const OP_SELF_REALM_ORGANIZATION_LIST: &str = "ck.self.realm_organization.query.list";
 pub const OP_SELF_REALM_POLICY_SERVER_GET: &str = "ck.self.realm_policy_server.resource.get";
 pub const OP_SELF_REALM_POLICY_SERVER_REPLACE: &str =
@@ -834,10 +833,8 @@ pub const OP_SNAPSHOT_HEAD: &str = "ck.self.snapshot.query.manifest_head";
 // recovery surface.
 pub const OP_ACCOUNT_REGISTER: &str = "ck.gate.account.command.register";
 pub const OP_ACCOUNT_SESSION_REVOKE: &str = "ck.gate.account.command.revoke_session";
-pub const OP_ACCOUNT_SESSION_GRANT_REFRESH: &str =
-    "ck.gate.account.command.refresh_session_grant";
-pub const OP_ACCOUNT_AUTH_SESSION_LOGOUT: &str =
-    "ck.gate.account.command.logout_auth_session";
+pub const OP_ACCOUNT_SESSION_GRANT_REFRESH: &str = "ck.gate.account.command.refresh_session_grant";
+pub const OP_ACCOUNT_AUTH_SESSION_LOGOUT: &str = "ck.gate.account.command.logout_auth_session";
 pub const OP_ACCOUNT_SESSION_GRANT_INTROSPECT: &str =
     "ck.gate.account.command.introspect_session_grant";
 pub const OP_ACCOUNT_LOGOUT: &str = "ck.gate.account.command.logout";

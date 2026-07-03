@@ -184,10 +184,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert!(realm.preview_policy_id.is_none());
     assert!(realm.sync_endpoints.is_empty());
     assert_eq!(realm.notary_profile, NotaryProfile::SingleDid);
-    assert_eq!(
-        realm.digest_algorithm,
-        crate::canonical::DigestSuite::Sha256
-    );
+    assert_eq!(realm.digest_algorithm, canonical::DigestSuite::Sha256);
     assert!(matches!(
         &realm.notary,
         NotaryValue::SingleDid { did, .. } if did.as_str() == "did:web:alice.example"
@@ -229,7 +226,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         policy_id: realm.preview_policy_id.clone(),
         expires_at: None,
     });
-    realm.digest_algorithm = crate::canonical::DigestSuite::Blake3;
+    realm.digest_algorithm = canonical::DigestSuite::Blake3;
     realm.max_delegation_lifetime_ms = 3_600_000;
     realm.bottom_escalation_after_ms = Some(120_000);
     realm.updated_by = Some(Did::new("did:web:bob.example").unwrap());
@@ -240,10 +237,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     );
     assert_eq!(realm.sync_endpoints.len(), 1);
     assert_eq!(realm.notary_profile, NotaryProfile::Threshold);
-    assert_eq!(
-        realm.digest_algorithm,
-        crate::canonical::DigestSuite::Blake3
-    );
+    assert_eq!(realm.digest_algorithm, canonical::DigestSuite::Blake3);
     assert!(matches!(
         &realm.notary,
         NotaryValue::Threshold { threshold: 2, .. }
@@ -368,10 +362,7 @@ fn realm_digest_algorithm_defaults_and_rejects_unknown_values() {
     obj.remove("max_delegation_lifetime_ms");
 
     let parsed: Realm = serde_json::from_value(json.clone()).unwrap();
-    assert_eq!(
-        parsed.digest_algorithm,
-        crate::canonical::DigestSuite::Sha256
-    );
+    assert_eq!(parsed.digest_algorithm, canonical::DigestSuite::Sha256);
     assert_eq!(parsed.max_delegation_lifetime_ms, 86_400_000);
 
     json["digest_algorithm"] = json!("md5");
@@ -689,7 +680,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         policy_id: None,
         expires_at: None,
     });
-    realm.digest_algorithm = crate::canonical::DigestSuite::Blake3;
+    realm.digest_algorithm = canonical::DigestSuite::Blake3;
     realm.revocation_freshness_window_ms = Some(30_000);
     realm.max_delegation_lifetime_ms = 3_600_000;
     realm.bottom_escalation_after_ms = Some(120_000);
@@ -698,7 +689,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         lattice: "or_set".to_owned(),
         bottom: Some("reject".to_owned()),
     });
-    realm.updated_by = Some(updated_by.clone());
+    realm.updated_by = Some(updated_by);
     realm.updated_at = Some(now);
     let realm_keys = top_level_keys(&serde_json::to_string(&realm).unwrap());
     assert_field_order("Realm", &realm_keys);
@@ -718,7 +709,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         MorphId::new("ck:morph:01904100-0000-7000-8000-0000000000a0").unwrap(),
         RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000a1").unwrap(),
         "ck.demo.morph",
-        created_by.clone(),
+        created_by,
     )
     .with_metadata_title("Demo morph");
     morph.state_changed_at = Some(now);

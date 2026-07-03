@@ -133,7 +133,11 @@ impl GeneratedSchemaValidator {
 
         if !self.additional_properties {
             for field in object.keys() {
-                if !self.fields.iter().any(|known| known.name == *field) {
+                if self
+                    .fields
+                    .binary_search_by(|known| known.name.as_str().cmp(field.as_str()))
+                    .is_err()
+                {
                     warnings.push(format!(
                         "schema '{}' has additional field '{}'",
                         self.schema_id, field

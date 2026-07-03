@@ -537,7 +537,7 @@ mod tests {
                 &seal_a.id,
                 &[(
                     cell.clone(),
-                    SealedOp::new(move_a.clone(), add_op("a", "visible-at-a")),
+                    SealedOp::new(move_a, add_op("a", "visible-at-a")),
                 )],
             )
             .unwrap();
@@ -547,7 +547,7 @@ mod tests {
                 &seal_b.id,
                 &[(
                     cell.clone(),
-                    SealedOp::new(move_b.clone(), add_op("b", "visible-at-b")),
+                    SealedOp::new(move_b, add_op("b", "visible-at-b")),
                 )],
             )
             .unwrap();
@@ -619,10 +619,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(
-            first.predecessor_refs,
-            vec![seal_a.id.clone(), seal_b.id.clone()]
-        );
+        assert_eq!(first.predecessor_refs, vec![seal_a.id, seal_b.id]);
         assert_eq!(first.covered_event_digests, vec![move_a, move_b]);
         assert_eq!(first.union_proof.len(), 2);
         assert_eq!(first.view_hash, second.view_hash);

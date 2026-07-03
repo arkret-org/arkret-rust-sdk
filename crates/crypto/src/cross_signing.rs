@@ -681,19 +681,32 @@ fn canonical_device_trust_binding_input(
 /// and [`DeviceTrustBinding::canonical_input`] — so soland's
 /// `check_device_cross_signing_binding` and this client-side primitive sign and
 /// verify byte-identical bytes.
-///
+pub struct DeviceCrossSigningChainVerification<'a> {
+    pub publish: &'a CrossSigningPublishContent,
+    pub binding: &'a DeviceTrustBinding,
+    pub principal_id: &'a Did,
+    pub device_id: &'a DeviceId,
+    pub device_public_key: &'a str,
+    pub hpke_key: &'a str,
+    pub algorithms: &'a [String],
+    pub anchored_psk: &'a cokret_signatures::PublicKeyMaterial,
+}
+
 /// Returns [`DeviceTrustState`]. Malformed key material / decode failures map to
 /// [`DeviceTrustState::Unverified`] (fail-closed), never `Ok(CrossSigned)`.
 pub fn verify_device_cross_signing_chain(
-    publish: &CrossSigningPublishContent,
-    binding: &DeviceTrustBinding,
-    principal_id: &Did,
-    device_id: &DeviceId,
-    device_public_key: &str,
-    hpke_key: &str,
-    algorithms: &[String],
-    anchored_psk: &cokret_signatures::PublicKeyMaterial,
+    input: DeviceCrossSigningChainVerification<'_>,
 ) -> DeviceTrustState {
+    let DeviceCrossSigningChainVerification {
+        publish,
+        binding,
+        principal_id,
+        device_id,
+        device_public_key,
+        hpke_key,
+        algorithms,
+        anchored_psk,
+    } = input;
     // (a) PSK→SSK: the anchored PSK MUST sign the published SSK record over
     // the §5.1 self-signing canonical input.
     let Ok(ssk_input) = publish.self_signing_binding_input() else {

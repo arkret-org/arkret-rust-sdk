@@ -471,6 +471,27 @@ fn validate_claim_trust_binding(
     }
 }
 
+fn validate_requester_signature_binding(
+    ssk_generation: Option<u64>,
+    requester_device_id: Option<&str>,
+    current_requester_ssk_generation: Option<u64>,
+    current_requester_device_id: Option<&str>,
+) -> std::result::Result<(), &'static str> {
+    match (ssk_generation, requester_device_id) {
+        (Some(generation), None)
+            if generation >= 1 && Some(generation) == current_requester_ssk_generation =>
+        {
+            Ok(())
+        }
+        (None, Some(device_id))
+            if !device_id.is_empty() && Some(device_id) == current_requester_device_id =>
+        {
+            Ok(())
+        }
+        _ => Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -528,26 +549,5 @@ mod tests {
         value["created_at"] = serde_json::json!("2026-06-23T07:51:12.729Z");
 
         assert!(serde_json::from_value::<MlsWelcomeClaimEnvelope>(value).is_err());
-    }
-}
-
-fn validate_requester_signature_binding(
-    ssk_generation: Option<u64>,
-    requester_device_id: Option<&str>,
-    current_requester_ssk_generation: Option<u64>,
-    current_requester_device_id: Option<&str>,
-) -> std::result::Result<(), &'static str> {
-    match (ssk_generation, requester_device_id) {
-        (Some(generation), None)
-            if generation >= 1 && Some(generation) == current_requester_ssk_generation =>
-        {
-            Ok(())
-        }
-        (None, Some(device_id))
-            if !device_id.is_empty() && Some(device_id) == current_requester_device_id =>
-        {
-            Ok(())
-        }
-        _ => Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH),
     }
 }

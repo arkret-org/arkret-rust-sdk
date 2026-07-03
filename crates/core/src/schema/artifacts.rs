@@ -390,10 +390,12 @@ impl SpecArtifactBundle {
             .get("cell_family")
             .and_then(Value::as_str)
             .ok_or_else(|| {
-                Error::Protocol(format!("event kind {event_kind} missing cell_family in registry"))
+                Error::Protocol(format!(
+                    "event kind {event_kind} missing cell_family in registry"
+                ))
             })?
             .to_owned();
-        let component_version = entry
+        let component_version = component_type
             .rsplit_once(".v")
             .and_then(|(_, suffix)| suffix.parse::<u64>().ok())
             .ok_or_else(|| {
@@ -403,30 +405,28 @@ impl SpecArtifactBundle {
             })?;
         let criticality = Criticality::Required;
         // Alias owner is the first registry entry with the same cell identity.
-        let component_slot_alias_of = entry
-            .get("cell_subject")
-            .and_then(|cell_subject| {
-                let canonical_owner = self.event_kind_registry["event_kinds"]
-                    .as_array()
-                    .and_then(|entries| {
-                        entries.iter().find_map(|other| {
-                            let other_kind = other.get("event_kind").and_then(Value::as_str)?;
-                            let other_family = other.get("cell_family").and_then(Value::as_str)?;
-                            if other_family != component_type {
-                                return None;
-                            }
-                            if other.get("cell_subject") != Some(cell_subject) {
-                                return None;
-                            }
-                            Some(other_kind.to_owned())
-                        })
-                    })?;
-                if canonical_owner == event_kind {
-                    None
-                } else {
-                    Some(canonical_owner)
-                }
-            });
+        let component_slot_alias_of = entry.get("cell_subject").and_then(|cell_subject| {
+            let canonical_owner = self.event_kind_registry["event_kinds"]
+                .as_array()
+                .and_then(|entries| {
+                    entries.iter().find_map(|other| {
+                        let other_kind = other.get("event_kind").and_then(Value::as_str)?;
+                        let other_family = other.get("cell_family").and_then(Value::as_str)?;
+                        if other_family != component_type {
+                            return None;
+                        }
+                        if other.get("cell_subject") != Some(cell_subject) {
+                            return None;
+                        }
+                        Some(other_kind.to_owned())
+                    })
+                })?;
+            if canonical_owner == event_kind {
+                None
+            } else {
+                Some(canonical_owner)
+            }
+        });
         Ok(Some(ComponentDescriptor {
             event_kind: event_kind.to_owned(),
             component_type,
@@ -540,7 +540,8 @@ impl ArtifactDriftReport {
 /// * `missing_*` (hard error) - the SDK declares coverage for an entry the spec no longer ships.
 ///   Surfaced by [`ArtifactDriftReport::validate`]; bring the constant in line with the spec when
 ///   this fires.
-/// * `unlisted_*` (hard error) - the spec ships an active entry the SDK has not declared coverage for.
+/// * `unlisted_*` (hard error) - the spec ships an active entry the SDK has not declared coverage
+///   for.
 ///
 /// Update this constant whenever the SDK adds typed support for a new
 /// schema; the drift report will then enforce that the spec still ships it.
@@ -1176,8 +1177,7 @@ fn missing_registry_values(
 
 /// Inverse of [`missing_registry_values`]: list active registry entries the
 /// SDK has not declared coverage for. Filters on `status == "active"` so the
-/// soft drift report doesn't flag inactive/profile-extension entries that the
-/// SDK is intentionally not modelling.
+/// strict drift report doesn't flag inactive/profile-extension entries.
 fn unlisted_active_registry_values(
     registry: &Value,
     array_field: &str,

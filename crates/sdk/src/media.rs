@@ -1038,7 +1038,10 @@ pub fn safe_content_disposition(filename: &str) -> String {
 }
 
 fn blob_ref_for(bytes: &[u8]) -> Result<BlobRef> {
-    Ok(BlobRef::new(format!("sha256:{}", sha256_hex(bytes)))?)
+    Ok(BlobRef::new(format!(
+        "ck:blob:sha256:{}",
+        sha256_hex(bytes)
+    ))?)
 }
 
 #[cfg(test)]
@@ -1100,7 +1103,7 @@ mod tests {
             connect_url: "wss://livekit-fra.example.com".to_owned(),
             backend_token: "opaque-backend-token".to_owned(),
             participant_identity: identity.clone(),
-            participant_binding: cokret_core::CallMediaParticipantBinding {
+            participant_binding: CallMediaParticipantBinding {
                 scheme: cokret_core::PARTICIPANT_BINDING_SCHEMA.to_owned(),
                 sig: String::new(),
                 issuer_kid: ISSUER_KID.to_owned(),

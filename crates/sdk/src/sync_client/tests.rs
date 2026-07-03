@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde_json::{Value, json};
 
 use super::*;
-use crate::sync::{SyncRealm, UnreadCounts};
+use crate::sync::{PresenceStatus, SyncRealm, UnreadCounts};
 use crate::{Did, RealmId};
 
 fn sync_response(cursor: &str) -> SyncOutcome {

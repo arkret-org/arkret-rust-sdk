@@ -135,11 +135,11 @@ mod tests {
     #[test]
     fn key_backup_put_response_round_trips() {
         let record = backup_record();
-        let backup_id = cokret_core::BackupId::new(record.backup_id.clone()).unwrap();
+        let backup_id = BackupId::new(record.backup_id.clone()).unwrap();
         let response = cokret_core::KeysBackupsPutOutcome {
             status: cokret_core::KeyBackupPutStatus::Accepted,
             backup_id: backup_id.clone(),
-            ciphertext_digest: record.ciphertext_digest.clone(),
+            ciphertext_digest: record.ciphertext_digest,
         };
         let json = serde_json::to_value(&response).unwrap();
         let back: cokret_core::KeysBackupsPutOutcome = serde_json::from_value(json).unwrap();

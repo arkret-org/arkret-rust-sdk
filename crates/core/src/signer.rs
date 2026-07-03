@@ -702,7 +702,7 @@ mod tests {
     use crate::CellRef;
     use crate::move_event::{LatticeOp, LatticeOpType};
 
-    fn Realm() -> RealmId {
+    fn realm() -> RealmId {
         RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
@@ -794,7 +794,7 @@ mod tests {
     fn unsigned_move() -> UnsignedMove {
         UnsignedMove::new(
             alice(),
-            Realm(),
+            realm(),
             seal_basis(0xaa),
             vec![Effect {
                 cell: CellRef::new(
@@ -839,7 +839,7 @@ mod tests {
     fn seal_sign_single_validates_id_and_structural() {
         let s = signer();
         let a = Seal::sign_single(
-            Realm(),
+            realm(),
             vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
@@ -858,7 +858,7 @@ mod tests {
     #[test]
     fn seal_sign_threshold_round_trip() {
         let a = Seal::sign_threshold(
-            Realm(),
+            realm(),
             vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
@@ -883,7 +883,7 @@ mod tests {
     #[test]
     fn seal_sign_threshold_rejects_threshold_above_signer_count() {
         let err = Seal::sign_threshold(
-            Realm(),
+            realm(),
             vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
@@ -905,7 +905,7 @@ mod tests {
         };
         let signers: &[&dyn MoveSigner] = &[&alice, &bob];
         let a = Seal::sign_multi(
-            Realm(),
+            realm(),
             vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
@@ -922,7 +922,7 @@ mod tests {
     #[test]
     fn seal_sign_multi_rejects_empty_signer_set() {
         let err = Seal::sign_multi::<dyn MoveSigner>(
-            Realm(),
+            realm(),
             vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
@@ -1063,7 +1063,7 @@ mod tests {
         .unwrap();
 
         let a = Seal::sign_threshold_partial(
-            Realm(),
+            realm(),
             vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
@@ -1092,7 +1092,7 @@ mod tests {
         agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], "kid-2"))
             .unwrap();
         let err = Seal::sign_threshold_partial(
-            Realm(),
+            realm(),
             vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),

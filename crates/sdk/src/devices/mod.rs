@@ -7,8 +7,9 @@ pub use cokret_core::DeviceMessageEnvelope;
 pub use cokret_crypto::{
     CrossSigningBinding, CrossSigningKeyKind, CrossSigningKeyRecord, CrossSigningPublishContent,
     CrossSigningResetContent, CrossSigningResetProof, DeviceBootstrapBinding,
-    DeviceQuorumSignature, DeviceTrustBinding, DeviceTrustChainOutcome, DeviceTrustState,
-    SignedCrossSigningKey, cross_signing_publish_cell_subject, verify_device_cross_signing_chain,
+    DeviceCrossSigningChainVerification, DeviceQuorumSignature, DeviceTrustBinding,
+    DeviceTrustChainOutcome, DeviceTrustState, SignedCrossSigningKey,
+    cross_signing_publish_cell_subject, verify_device_cross_signing_chain,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

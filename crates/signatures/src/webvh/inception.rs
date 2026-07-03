@@ -220,7 +220,7 @@ pub fn prepare_inception<R: RngCore + ?Sized>(
         "parameters": {
             "scid": WEBVH_SCID_PLACEHOLDER,
             "method": WEBVH_METHOD_VERSION,
-            "updateKeys": [update_public_key_multibase.clone()],
+            "updateKeys": [update_public_key_multibase],
         },
         "state": document_skeleton,
     });
@@ -238,7 +238,7 @@ pub fn prepare_inception<R: RngCore + ?Sized>(
     let update_key_id = format!("{did}#{update_key_fragment}");
     let proof = build_proof(&log_entry, &update_signing, &update_public_key_multibase)?;
     if let Value::Object(map) = &mut log_entry {
-        map.insert("proof".to_owned(), Value::Array(vec![proof.clone()]));
+        map.insert("proof".to_owned(), Value::Array(vec![proof]));
     }
     verify_webvh_log_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
     let submit_body = did_submit_body(&did, 1, log_entry.clone(), &local_id)?;

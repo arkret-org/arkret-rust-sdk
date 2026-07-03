@@ -433,7 +433,7 @@ mod tests {
         CellRef, Effect, LatticeOp, LatticeOpType, Precondition, PredicateOp, RealmId, SemanticRef,
     };
 
-    fn Realm() -> RealmId {
+    fn realm() -> RealmId {
         RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
@@ -461,7 +461,7 @@ mod tests {
     ) -> Move {
         let body = json!({
             "issuer": "did:web:admin.example",
-            "realm_id": Realm().as_str(),
+            "realm_id": realm().as_str(),
             "preconditions": preconditions,
             "effects": effects,
             "seal_basis": {
@@ -514,7 +514,7 @@ mod tests {
                     "issuer": "did:web:owner.example",
                     "subject": subject,
                     "actions": ["ck.member.state"],
-                    "resources": [{"kind": "Realm", "realm_id": Realm().as_str()}]
+                    "resources": [{"kind": "Realm", "realm_id": realm().as_str()}]
                 }
             }
         ]))

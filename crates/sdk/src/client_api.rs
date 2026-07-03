@@ -1250,7 +1250,7 @@ mod tests {
         Did::new(format!("did:web:{name}.example")).unwrap()
     }
 
-    fn Realm() -> RealmId {
+    fn realm() -> RealmId {
         RealmId::new("ck:realm:01904100-0000-7000-8000-a035cff9ef92").unwrap()
     }
 
@@ -1399,7 +1399,7 @@ mod tests {
 
         MessageSearchRequestBody {
             query: "hello".to_owned(),
-            realms: vec![Realm()],
+            realms: vec![realm()],
             limit: Some(10),
         }
         .validate()
