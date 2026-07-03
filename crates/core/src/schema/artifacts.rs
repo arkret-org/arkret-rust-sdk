@@ -214,14 +214,44 @@ impl SpecArtifactBundle {
                 "kind",
                 ARTIFACT_BACKED_ID_KINDS,
             ),
+            missing_special_form_id_kinds: missing_registry_values(
+                &self.id_kind_registry,
+                "special_forms",
+                "kind",
+                ARTIFACT_BACKED_SPECIAL_FORM_ID_KINDS,
+            ),
             missing_profiles: self.missing_profile_values(ARTIFACT_BACKED_PROFILE_IDS),
             profile_requirement_issues: self.profile_requirement_drift(),
             missing_payload_validators: self.payload_validator_drift(),
+            unlisted_schemas: unlisted_active_registry_values(
+                &self.schema_registry,
+                "schemas",
+                "schema_id",
+                ARTIFACT_BACKED_SCHEMA_IDS,
+            ),
             unlisted_event_kinds: unlisted_active_registry_values(
                 &self.event_kind_registry,
                 "event_kinds",
                 "event_kind",
                 ARTIFACT_BACKED_EVENT_KINDS,
+            ),
+            unlisted_operations: unlisted_active_registry_values(
+                &self.operation_registry,
+                "operations",
+                "operation_id",
+                ARTIFACT_BACKED_SERVICE_OPERATIONS,
+            ),
+            unlisted_id_kinds: unlisted_active_registry_values(
+                &self.id_kind_registry,
+                "id_kinds",
+                "kind",
+                ARTIFACT_BACKED_ID_KINDS,
+            ),
+            unlisted_special_form_id_kinds: unlisted_active_registry_values(
+                &self.id_kind_registry,
+                "special_forms",
+                "kind",
+                ARTIFACT_BACKED_SPECIAL_FORM_ID_KINDS,
             ),
         }
     }
@@ -344,8 +374,7 @@ impl SpecArtifactBundle {
     /// Look up the [`ComponentDescriptor`] for a state event kind.
     ///
     /// Returns `Ok(None)` when the kind is not registered, `Err` when the
-    /// registry entry is malformed (missing `component_type`, non-integer
-    /// version, unknown criticality value).
+    /// registry entry is malformed (missing `cell_family` or a `.vN` suffix).
     pub fn component(&self, event_kind: &str) -> Result<Option<ComponentDescriptor>> {
         let Some(entry) = registry_entry(
             &self.event_kind_registry,
@@ -355,63 +384,28 @@ impl SpecArtifactBundle {
         ) else {
             return Ok(None);
         };
-        // Spec migrated from `component_type`/`component_version`/`criticality`
-        // (pre-c1717da shape) to `cell_family` (cell model). Read whichever the
-        // spec ships; derive `component_version` from the `.vN` suffix and
-        // default `criticality` to `Required` when only the cell-family form is
-        // present (the spec asserts these reducer-input cells MUST be honored
-        // by readers, equivalent to old `Required`).
+        // Current v1 registry cell metadata is keyed by `cell_family`; old
+        // component_* artifact shapes are rejected as drift.
         let component_type = entry
-            .get("component_type")
+            .get("cell_family")
             .and_then(Value::as_str)
-            .or_else(|| entry.get("cell_family").and_then(Value::as_str))
             .ok_or_else(|| {
-                Error::Protocol(format!(
-                    "event kind {event_kind} missing component_type / cell_family in registry"
-                ))
+                Error::Protocol(format!("event kind {event_kind} missing cell_family in registry"))
             })?
             .to_owned();
         let component_version = entry
-            .get("component_version")
-            .and_then(Value::as_u64)
-            .or_else(|| {
-                // Parse version suffix `.vN` from cell_family
-                component_type
-                    .rsplit_once(".v")
-                    .and_then(|(_, suffix)| suffix.parse::<u64>().ok())
-            })
+            .rsplit_once(".v")
+            .and_then(|(_, suffix)| suffix.parse::<u64>().ok())
             .ok_or_else(|| {
                 Error::Protocol(format!(
-                    "event kind {event_kind} missing or non-integer component_version"
+                    "event kind {event_kind} cell_family missing .vN version suffix"
                 ))
             })?;
-        let criticality = match entry.get("criticality").and_then(Value::as_str) {
-            Some("required") => Criticality::Required,
-            Some("optional") => Criticality::Optional,
-            Some("ignore") => Criticality::Ignore,
-            Some(other) => {
-                return Err(Error::Protocol(format!(
-                    "event kind {event_kind} has unknown criticality {other:?}"
-                )));
-            }
-            // Cell-family-only entries default to Required (reducer_input=true
-            // implies the cell is part of canonical state).
-            None => Criticality::Required,
-        };
-        // Slot-alias resolution: prefer the explicit `component_slot_alias_of`
-        // field (pre-c1717da spec shape). When absent, find the FIRST event
-        // in registry order that ships the same `(cell_family, cell_subject)`
-        // — that's the canonical slot owner. If the current event is itself
-        // that owner, return None; otherwise return the canonical owner's
-        // event_kind. Cell-model alias example: `ck.capability.revoke` shares
-        // `ck.component.capability.grant.v1` with `ck.capability.grant`, so
-        // revoke slot-aliases to grant.
+        let criticality = Criticality::Required;
+        // Alias owner is the first registry entry with the same cell identity.
         let component_slot_alias_of = entry
-            .get("component_slot_alias_of")
-            .and_then(Value::as_str)
-            .map(str::to_owned)
-            .or_else(|| {
-                let cell_subject = entry.get("cell_subject");
+            .get("cell_subject")
+            .and_then(|cell_subject| {
                 let canonical_owner = self.event_kind_registry["event_kinds"]
                     .as_array()
                     .and_then(|entries| {
@@ -421,7 +415,7 @@ impl SpecArtifactBundle {
                             if other_family != component_type {
                                 return None;
                             }
-                            if other.get("cell_subject") != cell_subject {
+                            if other.get("cell_subject") != Some(cell_subject) {
                                 return None;
                             }
                             Some(other_kind.to_owned())
@@ -455,12 +449,12 @@ impl SpecArtifactBundle {
 /// and the spec's registry/profile artifacts.
 ///
 /// `missing_*` lists entries the SDK declares coverage for that the spec no
-/// longer ships — these are hard errors and are surfaced by [`Self::validate`].
+/// longer ships. These are hard errors and are surfaced by [`Self::validate`].
 /// `profile_requirement_issues` lists profile requirement references that point
 /// at operation/schema/event constants missing from the SDK-declared coverage.
 /// `unlisted_*` lists entries the spec ships that the SDK has not yet declared
-/// coverage for — these are soft signals (the SDK may legitimately not cover
-/// every spec extension yet) and are inspected via [`Self::has_unlisted`].
+/// coverage for. These are hard errors because the SDK tracks the active v1
+/// registry surface.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtifactDriftReport {
     pub checked_files: Vec<String>,
@@ -473,16 +467,24 @@ pub struct ArtifactDriftReport {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing_id_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing_special_form_id_kinds: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing_profiles: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub profile_requirement_issues: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing_payload_validators: Vec<String>,
-    /// Spec-side entries the SDK has not yet declared coverage for, scoped to
-    /// the same families covered by `ARTIFACT_BACKED_*`. Filtered to active
-    /// entries to avoid noise from inactive/profile-extension items.
+    /// Active spec-side entries the SDK has not declared coverage for.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unlisted_schemas: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unlisted_event_kinds: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unlisted_operations: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unlisted_id_kinds: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unlisted_special_form_id_kinds: Vec<String>,
 }
 
 impl ArtifactDriftReport {
@@ -491,29 +493,40 @@ impl ArtifactDriftReport {
             && self.missing_event_kinds.is_empty()
             && self.missing_operations.is_empty()
             && self.missing_id_kinds.is_empty()
+            && self.missing_special_form_id_kinds.is_empty()
             && self.missing_profiles.is_empty()
             && self.profile_requirement_issues.is_empty()
             && self.missing_payload_validators.is_empty()
+            && !self.has_unlisted()
         {
             Ok(())
         } else {
             Err(Error::Protocol(format!(
-                "spec artifact drift detected: schemas={:?} events={:?} operations={:?} ids={:?} profiles={:?} profile_requirements={:?} payload_validators={:?}",
+                "spec artifact drift detected: schemas={:?} events={:?} operations={:?} ids={:?} special_forms={:?} profiles={:?} profile_requirements={:?} payload_validators={:?} unlisted_schemas={:?} unlisted_events={:?} unlisted_operations={:?} unlisted_ids={:?} unlisted_special_forms={:?}",
                 self.missing_schemas,
                 self.missing_event_kinds,
                 self.missing_operations,
                 self.missing_id_kinds,
+                self.missing_special_form_id_kinds,
                 self.missing_profiles,
                 self.profile_requirement_issues,
-                self.missing_payload_validators
+                self.missing_payload_validators,
+                self.unlisted_schemas,
+                self.unlisted_event_kinds,
+                self.unlisted_operations,
+                self.unlisted_id_kinds,
+                self.unlisted_special_form_id_kinds
             )))
         }
     }
 
-    /// True when the spec ships active entries the SDK does not yet declare
-    /// coverage for. Soft signal — useful for "next round of work" reports.
+    /// True when the spec ships active entries the SDK does not declare.
     pub fn has_unlisted(&self) -> bool {
-        !self.unlisted_event_kinds.is_empty()
+        !self.unlisted_schemas.is_empty()
+            || !self.unlisted_event_kinds.is_empty()
+            || !self.unlisted_operations.is_empty()
+            || !self.unlisted_id_kinds.is_empty()
+            || !self.unlisted_special_form_id_kinds.is_empty()
     }
 }
 
@@ -524,11 +537,10 @@ impl ArtifactDriftReport {
 /// [`SpecArtifactBundle::drift_report`] cross-checks them against the live
 /// registry and produces:
 ///
-/// * `missing_*` (hard error) — the SDK declares coverage for an entry the spec no longer ships.
+/// * `missing_*` (hard error) - the SDK declares coverage for an entry the spec no longer ships.
 ///   Surfaced by [`ArtifactDriftReport::validate`]; bring the constant in line with the spec when
 ///   this fires.
-/// * `unlisted_event_kinds` (soft signal) — the spec ships an active event kind the SDK has not
-///   declared coverage for.
+/// * `unlisted_*` (hard error) - the spec ships an active entry the SDK has not declared coverage for.
 ///
 /// Update this constant whenever the SDK adds typed support for a new
 /// schema; the drift report will then enforce that the spec still ships it.
@@ -539,8 +551,10 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     REALM_JOIN_CANDIDATE_SCHEMA,
     "ck.schema.actor_profile.v1",
     "ck.schema.message.v1",
+    "ck.schema.content_block_poll.v1",
     "ck.schema.morph.v1",
     "ck.schema.morph.customer_risk.v1",
+    "ck.schema.morph.customer_risk.ext.v1",
     "ck.schema.relation.v1",
     "ck.schema.policy.v1",
     "ck.schema.invite.v1",
@@ -619,15 +633,20 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     // newer feature schemas the registry ships that the SDK had not yet
     // declared coverage for.
     "ck.schema.account_operations.v1",
+    "ck.schema.account_data_operations.v1",
     "ck.schema.agent_operations.v1",
     "ck.schema.applet_edge_operations.v1",
     "ck.schema.applet_ghost_operations.v1",
     "ck.schema.applet_install_operations.v1",
     "ck.schema.applet_install_plan.v1",
     "ck.schema.applet_package.v1",
+    "ck.schema.applet_widget_declaration.v1",
     "ck.schema.authz_operations.v1",
     "ck.schema.blob_operations.v1",
+    "ck.schema.call_recording_artifact.v1",
+    "ck.schema.circle_operations.v1",
     "ck.schema.common_ids.v1",
+    "ck.schema.consent_operations.v1",
     "ck.schema.contact_operations.v1",
     "ck.schema.delivery_binding_stale.v1",
     "ck.schema.directory_operations.v1",
@@ -643,6 +662,11 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "ck.schema.pin.v1",
     "ck.schema.push_operations.v1",
     "ck.schema.query.v1",
+    "ck.schema.read_cursor_operations.v1",
+    "ck.schema.realm_link_operations.v1",
+    "ck.schema.realm_organization_operations.v1",
+    "ck.schema.realm_policy_server_operations.v1",
+    "ck.schema.realm_read_operations.v1",
     "ck.schema.rsvp.v1",
     "ck.schema.service_operation_dtos.v1",
 ];

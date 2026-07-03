@@ -600,6 +600,23 @@ pub const OP_CONTACT_LIST: &str = "ck.self.contact.query.list";
 pub const OP_CONTACT_TOMBSTONE: &str = "ck.self.contact.command.tombstone";
 pub const OP_DIRECT_CONVERSATION_RESOLVE: &str = "ck.self.direct_conversation.command.resolve";
 
+/// Account-private data operations.
+pub const OP_SELF_ACCOUNT_DATA_LIST: &str = "ck.self.account_data.query.list";
+pub const OP_SELF_ACCOUNT_DATA_GET: &str = "ck.self.account_data.resource.get";
+pub const OP_SELF_ACCOUNT_DATA_REPLACE: &str = "ck.self.account_data.resource.replace";
+pub const OP_SELF_ACCOUNT_DATA_DELETE: &str = "ck.self.account_data.resource.delete";
+
+/// Holder-private consent operations.
+pub const OP_SELF_CONSENT_LIST: &str = "ck.self.consent.query.list";
+pub const OP_SELF_CONSENT_GET: &str = "ck.self.consent.resource.get";
+pub const OP_SELF_CONSENT_GRANT: &str = "ck.self.consent.command.grant";
+pub const OP_SELF_CONSENT_REVOKE: &str = "ck.self.consent.command.revoke";
+pub const OP_SELF_CONSENT_REQUEST: &str = "ck.self.consent.command.request";
+
+/// Read cursor self-service operations.
+pub const OP_SELF_READ_CURSOR_ADVANCE: &str = "ck.self.read_cursor.command.advance";
+pub const OP_SELF_READ_CURSOR_LIST: &str = "ck.self.read_cursor.query.list";
+
 /// Circle self-service operations.
 pub const OP_SELF_CIRCLE_CREATE: &str = "ck.self.circle.command.create";
 pub const OP_SELF_CIRCLE_LIST: &str = "ck.self.circle.query.list";
@@ -618,6 +635,26 @@ pub const OP_MORPH_QUERY_LIST: &str = "ck.self.morph.query.list";
 pub const OP_MORPH_RESOURCE_GET: &str = "ck.self.morph.resource.get";
 pub const OP_VIEW_COLLECTION_PROJECTION: &str =
     "ck.self.views.collection_projection.command.materialize";
+pub const OP_SELF_REALM_LINK_LIST: &str = "ck.self.realm_link.query.list";
+pub const OP_SELF_REALM_LINK_CREATE: &str = "ck.self.realm_link.command.create";
+pub const OP_SELF_REALM_LINK_DELETE: &str = "ck.self.realm_link.resource.delete";
+pub const OP_SELF_REALM_LINK_EFFECTIVE_POLICY: &str =
+    "ck.self.realm_link.query.effective_policy";
+pub const OP_SELF_REALM_ORGANIZATION_LIST: &str = "ck.self.realm_organization.query.list";
+pub const OP_SELF_REALM_POLICY_SERVER_GET: &str = "ck.self.realm_policy_server.resource.get";
+pub const OP_SELF_REALM_POLICY_SERVER_REPLACE: &str =
+    "ck.self.realm_policy_server.resource.replace";
+pub const OP_SELF_REALM_POLICY_SERVER_DELETE: &str = "ck.self.realm_policy_server.resource.delete";
+pub const OP_SELF_REALM_GET: &str = "ck.self.realm.resource.get";
+pub const OP_SELF_REALM_ARCHIVE: &str = "ck.self.realm.command.archive";
+pub const OP_SELF_REALM_FREEZE: &str = "ck.self.realm.command.freeze";
+pub const OP_SELF_REALM_TOMBSTONE: &str = "ck.self.realm.command.tombstone";
+pub const OP_SELF_REALM_DESTROY: &str = "ck.self.realm.command.destroy";
+pub const OP_SELF_REALM_EXPORT: &str = "ck.self.realm.query.export";
+pub const OP_SELF_REALM_MODERATION_POLICY_EFFECTIVE: &str =
+    "ck.self.realm.moderation_policy.query.effective";
+pub const OP_SELF_REALM_MODERATION_POLICY_REPLACE: &str =
+    "ck.self.realm.moderation_policy.resource.replace";
 
 /// Identity-registry operations.
 pub const OP_IDENTITY_DESCRIBE_REGISTRY: &str = "ck.root.identity.registry.query.describe";
@@ -797,6 +834,13 @@ pub const OP_SNAPSHOT_HEAD: &str = "ck.self.snapshot.query.manifest_head";
 // recovery surface.
 pub const OP_ACCOUNT_REGISTER: &str = "ck.gate.account.command.register";
 pub const OP_ACCOUNT_SESSION_REVOKE: &str = "ck.gate.account.command.revoke_session";
+pub const OP_ACCOUNT_SESSION_GRANT_REFRESH: &str =
+    "ck.gate.account.command.refresh_session_grant";
+pub const OP_ACCOUNT_AUTH_SESSION_LOGOUT: &str =
+    "ck.gate.account.command.logout_auth_session";
+pub const OP_ACCOUNT_SESSION_GRANT_INTROSPECT: &str =
+    "ck.gate.account.command.introspect_session_grant";
+pub const OP_ACCOUNT_LOGOUT: &str = "ck.gate.account.command.logout";
 pub const OP_ACCOUNT_UPDATE_PROFILE: &str = "ck.self.account.command.update_profile";
 pub const OP_ACCOUNT_VIEWER: &str = "ck.self.account.query.viewer";
 pub const OP_AGENT_PARTICIPATION_GET: &str = "ck.self.agent.participation.resource.get";
@@ -952,8 +996,16 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     // Spec-sync (operation-registry.json) additions.
     OP_ACCOUNT_REGISTER,
     OP_ACCOUNT_SESSION_REVOKE,
+    OP_ACCOUNT_SESSION_GRANT_REFRESH,
+    OP_ACCOUNT_AUTH_SESSION_LOGOUT,
+    OP_ACCOUNT_SESSION_GRANT_INTROSPECT,
+    OP_ACCOUNT_LOGOUT,
     OP_ACCOUNT_UPDATE_PROFILE,
     OP_ACCOUNT_VIEWER,
+    OP_SELF_ACCOUNT_DATA_LIST,
+    OP_SELF_ACCOUNT_DATA_GET,
+    OP_SELF_ACCOUNT_DATA_REPLACE,
+    OP_SELF_ACCOUNT_DATA_DELETE,
     OP_AGENT_PARTICIPATION_GET,
     OP_AGENT_PARTICIPATION_SET,
     OP_APPLET_INSTALL,
@@ -965,6 +1017,13 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_CONTACT_RESPOND,
     OP_CONTACT_TOMBSTONE,
     OP_DIRECT_CONVERSATION_RESOLVE,
+    OP_SELF_CONSENT_LIST,
+    OP_SELF_CONSENT_GET,
+    OP_SELF_CONSENT_GRANT,
+    OP_SELF_CONSENT_REVOKE,
+    OP_SELF_CONSENT_REQUEST,
+    OP_SELF_READ_CURSOR_ADVANCE,
+    OP_SELF_READ_CURSOR_LIST,
     OP_SELF_CIRCLE_CREATE,
     OP_SELF_CIRCLE_LIST,
     OP_SELF_CIRCLE_GET,
@@ -974,6 +1033,22 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_SELF_CIRCLE_ARCHIVE,
     OP_SELF_CIRCLE_RESTORE,
     OP_SELF_CIRCLE_TOMBSTONE,
+    OP_SELF_REALM_LINK_LIST,
+    OP_SELF_REALM_LINK_CREATE,
+    OP_SELF_REALM_LINK_DELETE,
+    OP_SELF_REALM_LINK_EFFECTIVE_POLICY,
+    OP_SELF_REALM_ORGANIZATION_LIST,
+    OP_SELF_REALM_POLICY_SERVER_GET,
+    OP_SELF_REALM_POLICY_SERVER_REPLACE,
+    OP_SELF_REALM_POLICY_SERVER_DELETE,
+    OP_SELF_REALM_GET,
+    OP_SELF_REALM_ARCHIVE,
+    OP_SELF_REALM_FREEZE,
+    OP_SELF_REALM_TOMBSTONE,
+    OP_SELF_REALM_DESTROY,
+    OP_SELF_REALM_EXPORT,
+    OP_SELF_REALM_MODERATION_POLICY_EFFECTIVE,
+    OP_SELF_REALM_MODERATION_POLICY_REPLACE,
     OP_INVITE_RECEIVE_POLICY_GET,
     OP_INVITE_RECEIVE_POLICY_SET,
     OP_PEER_CONTACTS_SUBMIT,

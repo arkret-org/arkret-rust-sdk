@@ -55,6 +55,33 @@ pub struct MorphCustomerRisk {
     pub fields: MorphCustomerRiskFields,
 }
 
+/// Counterpart for `spec/v1/artifacts/schemas/morph-customer-risk-ext.schema.json`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MorphCustomerRiskExtPriority {
+    Low,
+    Normal,
+    High,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct MorphCustomerRiskExtFields {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub score: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub priority: Option<MorphCustomerRiskExtPriority>,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct MorphCustomerRiskExt {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fields: Option<MorphCustomerRiskExtFields>,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/morph.schema.json#/$defs/facet_config`.
 pub type FacetConfig = BTreeMap<String, Value>;
 

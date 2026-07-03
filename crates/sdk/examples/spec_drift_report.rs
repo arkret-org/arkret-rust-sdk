@@ -11,11 +11,10 @@
 //!
 //! The report distinguishes:
 //!
-//! * **hard drift** (`missing_*`) — the SDK declares coverage for an entry the spec no longer
-//!   ships. Exits non-zero so CI fails fast.
-//! * **soft drift** (`unlisted_event_kinds`) — the spec ships an active entry the SDK has not yet
-//!   declared coverage for. Reported as informational output; exits zero so CI doesn't block on
-//!   intentional gaps.
+//! * `missing_*`: the SDK declares coverage for an entry the spec no longer ships.
+//! * `unlisted_*`: the spec ships an active entry the SDK has not declared coverage for.
+//!
+//! Any drift exits non-zero so CI fails fast.
 //!
 //! In CI, point this at a checked-out spec to surface drift before tagging:
 //!
@@ -75,26 +74,57 @@ fn main() -> ExitCode {
             println!("  {entry}");
         }
     }
+    if !report.missing_special_form_id_kinds.is_empty() {
+        hard = true;
+        println!("missing special-form ID kinds (declared by SDK, absent from spec):");
+        for entry in &report.missing_special_form_id_kinds {
+            println!("  {entry}");
+        }
+    }
 
-    if report.has_unlisted() {
-        println!(
-            "soft drift — {} active event kind(s) shipped by spec, not yet declared by SDK:",
-            report.unlisted_event_kinds.len()
-        );
+    if !report.unlisted_schemas.is_empty() {
+        hard = true;
+        println!("unlisted schemas (active in spec, absent from SDK):");
+        for entry in &report.unlisted_schemas {
+            println!("  {entry}");
+        }
+    }
+    if !report.unlisted_event_kinds.is_empty() {
+        hard = true;
+        println!("unlisted event kinds (active in spec, absent from SDK):");
         for entry in &report.unlisted_event_kinds {
+            println!("  {entry}");
+        }
+    }
+    if !report.unlisted_operations.is_empty() {
+        hard = true;
+        println!("unlisted service operations (active in spec, absent from SDK):");
+        for entry in &report.unlisted_operations {
+            println!("  {entry}");
+        }
+    }
+    if !report.unlisted_id_kinds.is_empty() {
+        hard = true;
+        println!("unlisted typed ID kinds (active in spec, absent from SDK):");
+        for entry in &report.unlisted_id_kinds {
+            println!("  {entry}");
+        }
+    }
+    if !report.unlisted_special_form_id_kinds.is_empty() {
+        hard = true;
+        println!("unlisted special-form ID kinds (active in spec, absent from SDK):");
+        for entry in &report.unlisted_special_form_id_kinds {
             println!("  {entry}");
         }
     }
 
     if hard {
-        eprintln!("hard drift detected — update ARTIFACT_BACKED_* in crates/core/src/schema.rs");
+        eprintln!("drift detected - update ARTIFACT_BACKED_* in crates/core/src/schema/artifacts.rs");
         return ExitCode::from(1);
     }
-    if !report.has_unlisted() {
-        println!(
-            "no drift detected ({} files checked)",
-            report.checked_files.len()
-        );
-    }
+    println!(
+        "no drift detected ({} files checked)",
+        report.checked_files.len()
+    );
     ExitCode::SUCCESS
 }
