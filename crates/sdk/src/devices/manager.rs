@@ -47,7 +47,14 @@ impl DeviceManager {
                 device.bootstrap_binding.clone(),
             )
         } else {
-            (DeviceVerificationState::Unverified, None, None, None, None, None)
+            (
+                DeviceVerificationState::Unverified,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
         };
         entry.insert(
             device_id.clone(),

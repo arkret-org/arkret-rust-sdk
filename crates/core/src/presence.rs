@@ -6,12 +6,12 @@
 //! client display) has to agree on:
 //!
 //! - the closed `state` wire set ([`PresenceStatus::parse_wire`]);
-//! - `last_active_at` bucket / timestamp validation with the
-//!   fail-closed alignment and `PT60S` floor rules (§3.3);
-//! - `status_message` length / NFC / control-character constraints
-//!   (§3.3, shared with the durable profile field §2.2);
-//! - the `ck.presence.preference` account-data payload (§3.6) that
-//!   pins a manual state across devices;
+//! - `last_active_at` bucket / timestamp validation with the fail-closed alignment and `PT60S`
+//!   floor rules (§3.3);
+//! - `status_message` length / NFC / control-character constraints (§3.3, shared with the durable
+//!   profile field §2.2);
+//! - the `ck.presence.preference` account-data payload (§3.6) that pins a manual state across
+//!   devices;
 //! - the deterministic multi-device aggregation order (§3.3).
 
 use chrono::{DateTime, Utc};
@@ -121,11 +121,10 @@ where
 ///
 /// The two mutually exclusive forms are discriminated by `/`:
 /// - no `/` → RFC 3339 UTC timestamp (`...Z`);
-/// - exactly one `/` → bucket interval `<start>/<duration>` where
-///   `start` is an RFC 3339 UTC timestamp, `duration` is a positive
-///   fixed ISO 8601 time duration (`PT...`, so calendar durations
-///   like `P1M` are rejected structurally), `duration >= PT60S`, and
-///   `start` is aligned to the duration on the Unix-epoch UTC grid.
+/// - exactly one `/` → bucket interval `<start>/<duration>` where `start` is an RFC 3339 UTC
+///   timestamp, `duration` is a positive fixed ISO 8601 time duration (`PT...`, so calendar
+///   durations like `P1M` are rejected structurally), `duration >= PT60S`, and `start` is aligned
+///   to the duration on the Unix-epoch UTC grid.
 ///
 /// Any failure MUST make the caller drop the presence update — never
 /// repair, guess, or downgrade to a more precise display.
@@ -346,10 +345,7 @@ mod tests {
     #[test]
     fn last_active_at_accepts_aligned_bucket() {
         assert_eq!(validate_last_active_at("2026-04-26T10:00:00Z/PT1H"), Ok(()));
-        assert_eq!(
-            validate_last_active_at("2026-04-26T10:05:00Z/PT5M"),
-            Ok(())
-        );
+        assert_eq!(validate_last_active_at("2026-04-26T10:05:00Z/PT5M"), Ok(()));
     }
 
     #[test]

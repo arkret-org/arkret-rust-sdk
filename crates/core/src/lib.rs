@@ -81,6 +81,12 @@ pub use multibase::{
 };
 pub use notary::{ForensicAttribution, NotaryValue};
 pub use platform::{WasmHttpRequestBody, WasmHttpResponseBody};
+pub use presence::{
+    LAST_ACTIVE_BUCKET_FLOOR_SECONDS, PRESENCE_PREFERENCE_ACCOUNT_DATA_KEY,
+    PRESENCE_VISIBILITY_ACCOUNT_DATA_KEY, PresencePreference, PresenceValidationError,
+    STATUS_MESSAGE_MAX_CODE_POINTS, aggregate_presence_states, validate_last_active_at,
+    validate_status_message,
+};
 pub use profile_claim::{ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator};
 pub use profile_semantics::{
     ProfileSemanticCoverageError, ProfileSemanticCoverageReport, ProfileSemanticRequirements,
@@ -125,12 +131,6 @@ pub use state::{
     apply_seal, compute_state_root, deterministic_order, effective_seal_view, leaf_hash,
     leaf_union_proof, reject_to_error_code, union_predecessor_covered_events, verify_move,
     view_hash,
-};
-pub use presence::{
-    LAST_ACTIVE_BUCKET_FLOOR_SECONDS, PRESENCE_PREFERENCE_ACCOUNT_DATA_KEY,
-    PRESENCE_VISIBILITY_ACCOUNT_DATA_KEY, PresencePreference, PresenceValidationError,
-    STATUS_MESSAGE_MAX_CODE_POINTS, aggregate_presence_states, validate_last_active_at,
-    validate_status_message,
 };
 pub use sync::{
     AccountData, BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody,

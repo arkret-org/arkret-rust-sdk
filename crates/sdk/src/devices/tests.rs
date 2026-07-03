@@ -197,7 +197,10 @@ fn devices_support_sas_qr_mismatch_with_trust_chain_propagation() {
         },
         "z6MkPhoneVerifyKey",
         "z6LSTestHpkeKey".to_owned(),
-        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
+        vec![
+            "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+            "ck.mls.v1".to_owned(),
+        ],
     );
     manager.upsert_device_with_key(
         alice.clone(),
@@ -210,7 +213,10 @@ fn devices_support_sas_qr_mismatch_with_trust_chain_propagation() {
         },
         "z6MkLaptopVerifyKey",
         "z6LSTestHpkeKey".to_owned(),
-        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
+        vec![
+            "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+            "ck.mls.v1".to_owned(),
+        ],
     );
 
     let challenge = manager
@@ -270,9 +276,12 @@ fn propagate_trust_requires_binding_on_target() {
                 last_seen_at: None,
             },
             "z6MkVerifyKey",
-        "z6LSTestHpkeKey".to_owned(),
-        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
-    );
+            "z6LSTestHpkeKey".to_owned(),
+            vec![
+                "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+                "ck.mls.v1".to_owned(),
+            ],
+        );
     }
     manager
         .record_cross_signing_publish(sample_publish(&alice, 1))
@@ -304,9 +313,12 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
                 last_seen_at: None,
             },
             "z6MkVerifyKey",
-        "z6LSTestHpkeKey".to_owned(),
-        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
-    );
+            "z6LSTestHpkeKey".to_owned(),
+            vec![
+                "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+                "ck.mls.v1".to_owned(),
+            ],
+        );
     }
     manager
         .record_cross_signing_publish(sample_publish(&alice, 1))
@@ -379,7 +391,10 @@ fn publish_generation_must_advance_and_invalidates_old_bindings() {
         },
         "z6MkVerifyKey",
         "z6LSTestHpkeKey".to_owned(),
-        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
+        vec![
+            "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+            "ck.mls.v1".to_owned(),
+        ],
     );
     manager
         .record_cross_signing_publish(sample_publish(&alice, 1))
@@ -423,7 +438,10 @@ fn evaluate_trust_chain_states() {
         },
         "z6MkVerifyKey",
         "z6LSTestHpkeKey".to_owned(),
-        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
+        vec![
+            "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+            "ck.mls.v1".to_owned(),
+        ],
     );
 
     // No publish, no binding → Unverified.
@@ -495,7 +513,10 @@ fn evaluate_trust_chain_states() {
         device_ref.metadata,
         "z6MkVerifyKey",
         "z6LSTestHpkeKey".to_owned(),
-        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
+        vec![
+            "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+            "ck.mls.v1".to_owned(),
+        ],
     );
     // Force-set the stale binding back through the manager API:
     manager
@@ -523,7 +544,10 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
         },
         "z6MkVerifyKey",
         "z6LSTestHpkeKey".to_owned(),
-        vec!["ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(), "ck.mls.v1".to_owned()],
+        vec![
+            "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+            "ck.mls.v1".to_owned(),
+        ],
     );
     manager
         .record_cross_signing_publish(sample_publish(&alice, 1))

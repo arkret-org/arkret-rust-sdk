@@ -255,12 +255,8 @@ mod tests {
         manager
             .update_status(&user1, PresenceStatus::Online)
             .unwrap();
-        manager
-            .update_status(&user2, PresenceStatus::Dnd)
-            .unwrap();
-        manager
-            .update_status(&user3, PresenceStatus::Dnd)
-            .unwrap();
+        manager.update_status(&user2, PresenceStatus::Dnd).unwrap();
+        manager.update_status(&user3, PresenceStatus::Dnd).unwrap();
 
         let dnd = manager.users_with_status(PresenceStatus::Dnd);
         assert_eq!(dnd.len(), 2);
