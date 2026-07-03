@@ -204,9 +204,13 @@ pub(super) fn canonicalize_strand_ref(value: &str) -> String {
 }
 
 impl StateSnapshot {
-    /// Verify the state hash.
-    pub fn verify_hash(&self) -> Result<bool> {
-        Ok(self.compute_state_digest()? == self.state_digest)
+    /// Verify the state hash. Fail-closed: a digest mismatch is an error, so
+    /// the outcome cannot be silently discarded or misread as a boolean.
+    pub fn verify_hash(&self) -> Result<()> {
+        if self.compute_state_digest()? != self.state_digest {
+            return Err(Error::Protocol("snapshot state hash mismatch".to_owned()));
+        }
+        Ok(())
     }
 
     pub fn compute_state_digest(&self) -> Result<String> {
@@ -239,11 +243,12 @@ impl StateSnapshot {
             .collect())
     }
 
-    pub fn manifest(&self) -> ReducerSnapshotManifest {
-        let merkle_root = self
-            .state_merkle_root()
-            .unwrap_or_else(|_| sha256_digest(format!("{:?}", self.frontier)));
-        ReducerSnapshotManifest {
+    /// Build the reducer snapshot manifest. Fail-closed: a Merkle-root
+    /// computation failure is an error — a manifest carrying a placeholder
+    /// root must never reach the signing path.
+    pub fn manifest(&self) -> Result<ReducerSnapshotManifest> {
+        let merkle_root = self.state_merkle_root()?;
+        Ok(ReducerSnapshotManifest {
             schema: REDUCER_SNAPSHOT_SCHEMA.to_owned(),
             reducer_profile: self.reducer_profile.clone(),
             realm_id: self.realm_id.clone(),
@@ -254,21 +259,19 @@ impl StateSnapshot {
             chunks: Vec::new(),
             created_at: self.snapshot_timestamp,
             signatures: Vec::new(),
-        }
+        })
     }
 
     pub fn manifest_with_chunks(&self, chunk_size: usize) -> Result<ReducerSnapshotManifest> {
         let chunks = self.chunk_manifest(chunk_size)?;
-        let mut manifest = self.manifest();
+        let mut manifest = self.manifest()?;
         manifest.chunk_count = chunks.len() as u32;
         manifest.chunks = chunks;
         Ok(manifest)
     }
 
     pub fn verify(&self) -> Result<()> {
-        if !self.verify_hash()? {
-            return Err(Error::Protocol("snapshot state hash mismatch".to_owned()));
-        }
+        self.verify_hash()?;
         let actual_root = self.state_merkle_root()?;
         if let Some(manifest) = &self.manifest {
             manifest.verify_against_snapshot(self, &actual_root)?;

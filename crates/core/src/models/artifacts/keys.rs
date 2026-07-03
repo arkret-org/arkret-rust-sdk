@@ -80,10 +80,24 @@ pub struct KeyBackupUnlockProof {
 /// `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json#/$defs/proof_kind`.
 pub type ProofKind = String;
 
+/// Counterpart for the shared signature object used by key operations:
+/// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/signature` and
+/// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/signature`
+/// (identical shape: `{kid, alg?, sig}`).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct KeyOperationSignature {
+    pub kid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alg: Option<String>,
+    pub sig: String,
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/keypackage-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum KeypackageOperations {
+pub enum KeyPackageOperations {
     KeyPackagesUploadRequestBody(crate::KeyPackagesUploadRequestBody),
     KeyPackagesUploadOutcome(crate::KeyPackagesUploadOutcome),
     KeyPackagesClaimRequestBody(crate::KeyPackagesClaimRequestBody),
@@ -113,17 +127,7 @@ pub struct Failure {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct Signature2 {
-    pub kid: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub alg: Option<String>,
-    pub sig: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct KeypackageClaimRecord {
+pub struct KeyPackageClaimRecord {
     pub claim_id: String,
     pub keypackage_ref: ObjectRef,
     pub keypackage_digest: Hash,
@@ -137,7 +141,7 @@ pub struct KeypackageClaimRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_authorize_event_id: Option<String>,
     pub expires_at: DateTime<Utc>,
-    pub device_signature: Signature2,
+    pub device_signature: KeyOperationSignature,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revocation_status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -146,22 +150,14 @@ pub struct KeypackageClaimRecord {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/keypackage_ref_array`.
-pub type KeypackageRefArray = Vec<ObjectRef>;
+pub type KeyPackageRefArray = Vec<ObjectRef>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/keypackage_upload_entry`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct Signature3 {
-    pub kid: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub alg: Option<String>,
-    pub sig: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeypackageUploadEntry {
+pub struct KeyPackageUploadEntry {
     pub keypackage_id: String,
     pub keypackage_ref: ObjectRef,
     pub keypackage_digest: Hash,
@@ -171,7 +167,7 @@ pub struct KeypackageUploadEntry {
     pub expires_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_signature: Option<Signature3>,
+    pub device_signature: Option<KeyOperationSignature>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_resort: Option<bool>,
 }
@@ -240,19 +236,10 @@ pub type DeviceKeyRecords = BTreeMap<String, AlgorithmKeyRecords>;
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/key_record`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Signature4 {
-    pub kid: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub alg: Option<String>,
-    pub sig: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct KeyRecord {
     pub key: String,
     pub algorithm: String,
-    pub signature: Signature4,
+    pub signature: KeyOperationSignature,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

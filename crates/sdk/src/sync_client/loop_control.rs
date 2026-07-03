@@ -9,14 +9,21 @@ pub struct BackoffConfig {
     pub max_delay: Duration,
     /// Multiplier applied after each failure.
     pub multiplier: u32,
+    /// Apply 0–20% additive random jitter to computed delays so a fleet of
+    /// clients does not reconnect in lockstep (api-conventions.md §9 /
+    /// client-sync.md §2.2.6).
+    pub jitter: bool,
 }
 
 impl Default for BackoffConfig {
     fn default() -> Self {
+        // client-sync.md §2.2.6 reconnect backoff: start at 1 s, cap at
+        // 60 s, exponential, with jitter.
         Self {
-            initial_delay: Duration::from_millis(500),
-            max_delay: Duration::from_secs(30),
+            initial_delay: Duration::from_secs(1),
+            max_delay: Duration::from_secs(60),
             multiplier: 2,
+            jitter: true,
         }
     }
 }
@@ -61,11 +68,28 @@ impl ExponentialBackoff {
 
         let exponent = self.failures.saturating_sub(1);
         let factor = self.config.multiplier.saturating_pow(exponent);
-        self.config
+        let delay = self
+            .config
             .initial_delay
             .saturating_mul(factor)
-            .min(self.config.max_delay)
+            .min(self.config.max_delay);
+        if self.config.jitter {
+            apply_backoff_jitter(delay)
+        } else {
+            delay
+        }
     }
+}
+
+/// Add 0–20% random jitter to `delay` (api-conventions.md §9). Falls back to
+/// the unjittered delay if the OS randomness source fails.
+fn apply_backoff_jitter(delay: Duration) -> Duration {
+    let mut bytes = [0u8; 4];
+    if getrandom::fill(&mut bytes).is_err() {
+        return delay;
+    }
+    let fraction = f64::from(u32::from_le_bytes(bytes)) / f64::from(u32::MAX);
+    delay.mul_f64(1.0 + fraction * 0.2)
 }
 
 impl Default for ExponentialBackoff {
@@ -88,6 +112,11 @@ pub enum SyncLoopStep {
     Cancelled,
     /// A request was deferred because the configured in-flight limit was reached.
     Backpressure { retry_after: Duration },
+    /// The stream delivered an `unauthorized` control frame: this session
+    /// may no longer consume the account stream. The caller MUST
+    /// re-authenticate or sign out (client-sync.md §2.2.5); retrying with
+    /// the same session is pointless.
+    Unauthorized { reason: Option<String> },
 }
 
 /// Minimal transport abstraction used by [`SyncLoop`].
@@ -400,8 +429,13 @@ impl SyncLoop {
     }
 
     /// Build the next long-poll request.
+    ///
+    /// The loop's `timeout` is intentionally not part of the wire request:
+    /// `ck.self.account.stream.subscribe` has no client-supplied long-poll
+    /// timeout parameter (client-sync.md §2 — the wait window is a server /
+    /// deployment default). It only feeds snapshot persistence and the
+    /// caller's own scheduling.
     pub fn next_request(&self) -> SyncRequestBody {
-        let _timeout_ms = self.timeout.as_millis().min(u128::from(u64::MAX)) as u64;
         SyncRequestBody {
             after: self.token.clone(),
             catchup: Some(true),
@@ -412,10 +446,15 @@ impl SyncLoop {
     }
 
     fn handle_response(&mut self, response: SyncOutcome) -> SyncLoopStep {
-        self.backoff.reset();
-        self.token = Some(response.cursor.clone());
+        // Snapshot the pre-response cursor so a processing failure leaves
+        // the loop positioned to re-fetch the same batch (at-least-once,
+        // operations-sync.md): the token and backoff state only advance
+        // after `process` succeeds.
+        let cursor = response.cursor.clone();
         match self.processor.process(response) {
             Ok(updates) => {
+                self.backoff.reset();
+                self.token = Some(cursor);
                 if self.gap_strategy == SyncGapStrategy::ResetTokenOnLimitedTimeline
                     && updates.realm_updates.iter().any(|update| {
                         update
@@ -438,6 +477,60 @@ impl SyncLoop {
         }
     }
 
+    /// React to a transport error, routing structured account-stream
+    /// interrupts (client-sync.md §2.2) to their recovery paths.
+    fn handle_transport_error(&mut self, error: Error) -> SyncLoopStep {
+        match error {
+            Error::AccountStreamInterrupt(interrupt) => self.handle_interrupt(interrupt),
+            error => {
+                let retry_after = self.backoff.record_failure();
+                SyncLoopStep::Retry {
+                    retry_after,
+                    error: error.to_string(),
+                }
+            }
+        }
+    }
+
+    /// Apply the spec-mandated recovery for a control interrupt. A
+    /// server-directed `reconnect_after_ms` is authoritative and is
+    /// returned verbatim as the retry delay (client-sync.md §2.2.6: MUST
+    /// prefer the server instruction); without one, reconnection may be
+    /// immediate to shrink the inconsistency window.
+    fn handle_interrupt(&mut self, interrupt: AccountStreamInterrupt) -> SyncLoopStep {
+        match interrupt {
+            AccountStreamInterrupt::Dropped {
+                cursor,
+                reconnect_after_ms,
+            } => {
+                match cursor {
+                    // §2.2.3: reconnect from the frame cursor with catchup
+                    // so the server replays the lost account delta.
+                    Some(cursor) => self.token = Some(cursor),
+                    // The spec requires `dropped` to carry a cursor; a
+                    // frame without one degrades to resync semantics so a
+                    // known gap is never silently skipped.
+                    None => self.token = None,
+                }
+                SyncLoopStep::Retry {
+                    retry_after: Duration::from_millis(reconnect_after_ms.unwrap_or(0)),
+                    error: "account stream dropped; reconnecting with catch-up cursor".to_owned(),
+                }
+            }
+            AccountStreamInterrupt::ResyncRequired { reconnect_after_ms } => {
+                // §2.2.4: clear the cursor cache and redo initial sync.
+                self.token = None;
+                SyncLoopStep::Retry {
+                    retry_after: Duration::from_millis(reconnect_after_ms.unwrap_or(0)),
+                    error: "account stream requires resync; restarting initial sync".to_owned(),
+                }
+            }
+            AccountStreamInterrupt::Unauthorized { reason } => {
+                SyncLoopStep::Unauthorized { reason }
+            }
+        }
+    }
+
     /// Execute one loop iteration.
     ///
     /// The caller owns sleeping and cancellation. This keeps the type portable
@@ -449,13 +542,7 @@ impl SyncLoop {
         let request = self.next_request();
         match transport.sync(request) {
             Ok(response) => self.handle_response(response),
-            Err(error) => {
-                let retry_after = self.backoff.record_failure();
-                SyncLoopStep::Retry {
-                    retry_after,
-                    error: error.to_string(),
-                }
-            }
+            Err(error) => self.handle_transport_error(error),
         }
     }
 
@@ -488,13 +575,7 @@ impl SyncLoop {
         let request = self.next_request();
         match transport.sync_async(request).await {
             Ok(response) => self.handle_response(response),
-            Err(error) => {
-                let retry_after = self.backoff.record_failure();
-                SyncLoopStep::Retry {
-                    retry_after,
-                    error: error.to_string(),
-                }
-            }
+            Err(error) => self.handle_transport_error(error),
         }
     }
 

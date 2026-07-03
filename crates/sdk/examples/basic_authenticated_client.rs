@@ -1,7 +1,7 @@
 use cokret::{AuthManager, BaseClient, DeviceId, Did, SessionMeta};
 
 fn main() -> cokret::Result<()> {
-    let user_id = Did::new("did:web:alice.example")?;
+    let user_id = Did::new("did:webvh:z6mkfixture:alice.example")?;
     let device_id = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000009")?;
 
     let mut auth = AuthManager::default();

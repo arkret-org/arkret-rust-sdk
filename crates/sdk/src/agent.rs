@@ -632,7 +632,7 @@ mod tests {
     use super::*;
 
     fn did(name: &str) -> Did {
-        Did::new(format!("did:web:{name}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     #[test]
@@ -640,7 +640,19 @@ mod tests {
         let provision = AgentProvisionRequestBuilder::new()
             .display_name("summary agent")
             .agent_slug("summary")
-            .requested_scope(crate::AgentKeyScope::Limited)
+            .requested_scope(crate::AgentKeyScope {
+                actions: vec!["ck.message.create".to_owned()],
+                resources: vec![crate::AgentKeyScopeResource {
+                    kind: crate::AgentKeyScopeResourceKind::Realm,
+                    realm_id: Some(
+                        crate::RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+                    ),
+                    r#ref: None,
+                    operation: None,
+                    service_did: None,
+                }],
+                constraints: Vec::new(),
+            })
             .build();
         let plan = plan_agent_provision(provision);
         assert_eq!(plan.operation_id, OP_AGENT_PROVISION);
@@ -649,21 +661,22 @@ mod tests {
         let body = plan.body_value().unwrap().unwrap();
         assert_eq!(body["display_name"], "summary agent");
         assert_eq!(body["agent_slug"], "summary");
-        assert_eq!(body["requested_scope"], "limited");
+        assert_eq!(body["requested_scope"]["actions"][0], "ck.message.create");
+        assert_eq!(body["requested_scope"]["resources"][0]["kind"], "realm");
 
-        let get = plan_agent_get("did:web:agent.example");
+        let get = plan_agent_get("did:webvh:z6mkfixture:agent.example");
         assert_eq!(get.operation_id, OP_AGENT_GET);
         assert_eq!(get.method.as_str(), "GET");
-        assert_eq!(get.path, "/_cokret/self/agents/did%3Aweb%3Aagent.example");
+        assert_eq!(get.path, "/_cokret/self/agents/did%3Awebvh%3Az6mkfixture%3Aagent.example");
 
         let grant_id =
             GrantId::new("ck:grant:01964137-0000-7000-8000-000000000010".to_owned()).unwrap();
-        let detach = plan_agent_grant_detach("did:web:agent.example", &grant_id);
+        let detach = plan_agent_grant_detach("did:webvh:z6mkfixture:agent.example", &grant_id);
         assert_eq!(detach.operation_id, OP_AGENT_GRANT_DETACH);
         assert_eq!(detach.method.as_str(), "DELETE");
         assert_eq!(
             detach.path,
-            "/_cokret/self/agents/did%3Aweb%3Aagent.example/grants/ck%3Agrant%3A01964137-0000-7000-8000-000000000010"
+            "/_cokret/self/agents/did%3Awebvh%3Az6mkfixture%3Aagent.example/grants/ck%3Agrant%3A01964137-0000-7000-8000-000000000010"
         );
     }
 

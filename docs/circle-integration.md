@@ -56,7 +56,7 @@ let circle_id = CircleId::new(
 let realm_id = RealmId::new(
     "ck:realm:0196419b-0000-7000-8000-000000000002".to_owned(),
 )?;
-let alice: Did = "did:web:alice.example".parse()?;
+let alice: Did = "did:webvh:z6mkexample:alice.example".parse()?;
 let display = CircleDisplay {
     short_name: "Ops".to_owned(),
     color_token: CircleColorToken::Indigo,

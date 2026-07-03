@@ -518,13 +518,13 @@ impl ReactionContent {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PollContent {
     pub question: String,
-    pub answers: Vec<PollAnswer>,
+    pub answers: Vec<PollContentAnswer>,
     #[serde(default)]
     pub closed: bool,
 }
 
 impl PollContent {
-    pub fn new(question: impl Into<String>, answers: Vec<PollAnswer>) -> Self {
+    pub fn new(question: impl Into<String>, answers: Vec<PollContentAnswer>) -> Self {
         Self {
             question: question.into(),
             answers,
@@ -533,13 +533,18 @@ impl PollContent {
     }
 }
 
+/// Client-local poll answer used by [`PollContent`] builders.
+///
+/// Distinct from the wire `models::PollAnswer`
+/// (`content-block-poll.schema.json#/$defs/poll_answer`, whose `text` is a
+/// `ContentBlock`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PollAnswer {
+pub struct PollContentAnswer {
     pub id: String,
     pub text: String,
 }
 
-impl PollAnswer {
+impl PollContentAnswer {
     pub fn new(id: impl Into<String>, text: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -647,9 +652,16 @@ impl RedactionContent {
     }
 }
 
+/// Client-local membership vocabulary used by [`MembershipContent`] and the
+/// SDK membership manager FSM.
+///
+/// Distinct from the wire enums: `models::MembershipState` (roster
+/// projection, `join`/`invite`/`knock` only) and
+/// `models::MembershipPayloadState` (`ck.member.state` payload,
+/// `event-payload.schema.json#/$defs/membership_state`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum MembershipState {
+pub enum MembershipContentState {
     Invite,
     Join,
     Knock,
@@ -660,7 +672,7 @@ pub enum MembershipState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MembershipContent {
     pub user_id: Did,
-    pub membership: MembershipState,
+    pub membership: MembershipContentState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1094,7 +1106,7 @@ mod tests {
         let target = EventId::new("ck:event:01904100-0000-7000-8000-79a90338768b").unwrap();
         let content = TextMessageContent::html("hello", "<strong>hello</strong>")
             .with_mentions(vec![
-                MentionRef::new("did:web:alice.example").with_display_name("Alice"),
+                MentionRef::new("did:webvh:z6mkfixture:alice.example").with_display_name("Alice"),
             ])
             .with_relation(RelationRef::new("reply", target.clone()).with_thread("thread-1"));
 
@@ -1103,7 +1115,7 @@ mod tests {
             content.formatted.as_ref().map(|body| body.format.as_str()),
             Some("html")
         );
-        assert_eq!(content.mentions[0].target, "did:web:alice.example");
+        assert_eq!(content.mentions[0].target, "did:webvh:z6mkfixture:alice.example");
         assert_eq!(
             content
                 .relates_to
@@ -1161,7 +1173,7 @@ mod tests {
     #[test]
     fn builds_typed_envelope_from_core_event() {
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-        let actor_id = Did::new("did:web:alice.example").unwrap();
+        let actor_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
         let hlc = Hlc::new("01970e589d21-0004-a13f9c2e").unwrap();
         let mut event = Event::new(
             MESSAGE_CREATE,
@@ -1213,7 +1225,7 @@ mod tests {
                 "redacted_because".to_owned(),
                 json!({
                     "event_id": "ck:event:01904100-0000-7000-8000-743d43d94991",
-                    "actor_id": "did:web:moderator.example",
+                    "actor_id": "did:webvh:z6mkfixture:moderator.example",
                     "reason": "policy"
                 }),
             ),

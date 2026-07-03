@@ -7,7 +7,7 @@ use cokret_core::{
 };
 use reqwest::{Method, Response};
 
-use crate::Client;
+use crate::{Client, ClientRequestOptions};
 
 impl Client {
     /// Subscribe to the Event stream for one or more Realms / actors via
@@ -72,14 +72,43 @@ impl Client {
         self.post("/_cokret/self/events", event).await
     }
 
+    /// [`events_submit`](Self::events_submit) with per-request options.
+    ///
+    /// Attaching an `Idempotency-Key` via
+    /// [`ClientRequestOptions::idempotency_key`] makes this POST eligible
+    /// for the transparent 5xx/timeout retry gate (the server dedupes on
+    /// `event_id` + canonical bytes per operations-sync.md §events.submit,
+    /// so a resend is an idempotent no-op returning `duplicate[]`).
+    pub async fn events_submit_with_options(
+        &self,
+        event: &Event,
+        options: &ClientRequestOptions,
+    ) -> Result<EventsSubmitOutcome> {
+        self.post_with_options("/_cokret/self/events", event, options)
+            .await
+    }
+
     /// Submit a batch of signed Event Envelopes via `ck.self.events.command.submit`
     /// (`POST /_cokret/self/events`) using the `EventsSubmitBatchRequestBody` body shape.
     pub async fn events_submit_batch(&self, events: &[Event]) -> Result<EventsSubmitOutcome> {
+        self.events_submit_batch_with_options(events, &ClientRequestOptions::default())
+            .await
+    }
+
+    /// [`events_submit_batch`](Self::events_submit_batch) with per-request
+    /// options; see [`events_submit_with_options`](Self::events_submit_with_options)
+    /// for the retry semantics of an attached `Idempotency-Key`.
+    pub async fn events_submit_batch_with_options(
+        &self,
+        events: &[Event],
+        options: &ClientRequestOptions,
+    ) -> Result<EventsSubmitOutcome> {
         #[derive(serde::Serialize)]
         struct Batch<'a> {
             events: &'a [Event],
         }
-        self.post("/_cokret/self/events", &Batch { events }).await
+        self.post_with_options("/_cokret/self/events", &Batch { events }, options)
+            .await
     }
 
     pub async fn snapshot_head(&self, realm_id: &str) -> Result<SnapshotManifest> {

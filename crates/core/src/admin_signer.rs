@@ -59,7 +59,7 @@ pub struct AdminKeyStore {
 impl AdminKeyStore {
     /// Wrap `inner` with the given `application_id` namespace. The
     /// `application_id` MUST be the same one passed to
-    /// `cokret_keystore::platform_default_keystore` when building
+    /// `cokret_keystore::platform_default_keystore_with_kind` when building
     /// `inner`, otherwise key ids will reference a different namespace
     /// than the backend's service-name suffix.
     pub fn new(application_id: impl Into<String>, inner: Box<dyn KeyStore>) -> Self {
@@ -210,17 +210,17 @@ mod tests {
 
     #[test]
     fn admin_key_id_format_is_stable() {
-        let did = admin("did:web:alice.example");
+        let did = admin("did:webvh:z6mkfixture:alice.example");
         assert_eq!(
             AdminKeyStore::key_id("soland.demo", &did),
-            "cokret:signer:admin:soland.demo:did:web:alice.example"
+            "cokret:signer:admin:soland.demo:did:webvh:z6mkfixture:alice.example"
         );
     }
 
     #[test]
     fn admin_key_round_trips_through_in_memory_store() {
         let store = AdminKeyStore::new("soland.demo", Box::new(InMemoryKeyStore::new()));
-        let did = admin("did:web:alice.example");
+        let did = admin("did:webvh:z6mkfixture:alice.example");
         let seed = vec![0x42; 32];
         assert!(!store.has_admin_key(&did).unwrap());
         store.store_admin_key(&did, &seed).unwrap();
@@ -237,7 +237,7 @@ mod tests {
     fn admin_key_isolated_per_application_id() {
         // First wrapper: store a key under application_id "soland.demo".
         let store_a = AdminKeyStore::new("soland.demo", Box::new(InMemoryKeyStore::new()));
-        let did = admin("did:web:alice.example");
+        let did = admin("did:webvh:z6mkfixture:alice.example");
         store_a.store_admin_key(&did, b"app1-seed").unwrap();
         assert!(store_a.has_admin_key(&did).unwrap());
 
@@ -254,9 +254,9 @@ mod tests {
     #[test]
     fn admin_key_list_returns_provisioned_dids_sorted() {
         let store = AdminKeyStore::new("soland.demo", Box::new(InMemoryKeyStore::new()));
-        let alice = admin("did:web:alice.example");
-        let bob = admin("did:web:bob.example");
-        let carol = admin("did:web:carol.example");
+        let alice = admin("did:webvh:z6mkfixture:alice.example");
+        let bob = admin("did:webvh:z6mkfixture:bob.example");
+        let carol = admin("did:webvh:z6mkfixture:carol.example");
         store.store_admin_key(&bob, b"k").unwrap();
         store.store_admin_key(&alice, b"k").unwrap();
         store.store_admin_key(&carol, b"k").unwrap();
@@ -268,7 +268,7 @@ mod tests {
     fn admin_key_load_missing_returns_not_found() {
         let store = AdminKeyStore::new("soland.demo", Box::new(InMemoryKeyStore::new()));
         let err = store
-            .load_admin_key(&admin("did:web:nobody.example"))
+            .load_admin_key(&admin("did:webvh:z6mkfixture:nobody.example"))
             .unwrap_err();
         assert!(format!("{err}").contains("key not found"));
     }
@@ -278,7 +278,7 @@ mod tests {
     fn grant_active(scopes: &[&str]) -> SessionGrantIntrospection {
         SessionGrantIntrospection {
             active: true,
-            principal_id: admin("did:web:alice.example"),
+            principal_id: admin("did:webvh:z6mkfixture:alice.example"),
             admin_scopes: scopes.iter().map(|s| (*s).to_owned()).collect(),
             expires_at_unix: Some(2_000_000_000),
             device_id: None,
@@ -333,7 +333,7 @@ mod tests {
     fn introspection_serializes_with_defaults() {
         let g = SessionGrantIntrospection {
             active: true,
-            principal_id: admin("did:web:alice.example"),
+            principal_id: admin("did:webvh:z6mkfixture:alice.example"),
             admin_scopes: vec![],
             expires_at_unix: None,
             device_id: None,
@@ -347,7 +347,7 @@ mod tests {
     #[test]
     fn introspection_deserializes_minimal_envelope() {
         // Only `active` and `principal_id` required; the rest default.
-        let s = r#"{"active":true,"principal_id":"did:web:alice.example"}"#;
+        let s = r#"{"active":true,"principal_id":"did:webvh:z6mkfixture:alice.example"}"#;
         let g: SessionGrantIntrospection = serde_json::from_str(s).unwrap();
         assert!(g.active);
         assert!(g.admin_scopes.is_empty());

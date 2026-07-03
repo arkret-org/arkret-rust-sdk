@@ -281,9 +281,9 @@ mod tests {
     #[test]
     fn join_with_issuers_dedupes_same_issuer_seq() {
         let ops = vec![
-            issued("did:web:alice.example", 1, json!("e1"), 1),
-            issued("did:web:alice.example", 1, json!("e1-dup"), 2), // dup key: dropped
-            issued("did:web:alice.example", 2, json!("e2"), 3),
+            issued("did:webvh:z6mkfixture:alice.example", 1, json!("e1"), 1),
+            issued("did:webvh:z6mkfixture:alice.example", 1, json!("e1-dup"), 2), // dup key: dropped
+            issued("did:webvh:z6mkfixture:alice.example", 2, json!("e2"), 3),
         ];
         let state = OrderedLog.join_with_issuers(&cell(), &ops);
         match state {
@@ -300,19 +300,19 @@ mod tests {
     #[test]
     fn join_orders_by_issuer_then_seq() {
         let ops = vec![
-            issued("did:web:bob.example", 1, json!("b1"), 1),
-            issued("did:web:alice.example", 2, json!("a2"), 2),
-            issued("did:web:alice.example", 1, json!("a1"), 3),
+            issued("did:webvh:z6mkfixture:bob.example", 1, json!("b1"), 1),
+            issued("did:webvh:z6mkfixture:alice.example", 2, json!("a2"), 2),
+            issued("did:webvh:z6mkfixture:alice.example", 1, json!("a1"), 3),
         ];
         let state = OrderedLog.join_with_issuers(&cell(), &ops);
         match state {
             CellState::Value(v) => {
                 let arr = v.as_array().unwrap();
-                assert_eq!(arr[0].get("issuer").unwrap(), "did:web:alice.example");
+                assert_eq!(arr[0].get("issuer").unwrap(), "did:webvh:z6mkfixture:alice.example");
                 assert_eq!(arr[0].get("issuer_seq").unwrap().as_u64().unwrap(), 1);
-                assert_eq!(arr[1].get("issuer").unwrap(), "did:web:alice.example");
+                assert_eq!(arr[1].get("issuer").unwrap(), "did:webvh:z6mkfixture:alice.example");
                 assert_eq!(arr[1].get("issuer_seq").unwrap().as_u64().unwrap(), 2);
-                assert_eq!(arr[2].get("issuer").unwrap(), "did:web:bob.example");
+                assert_eq!(arr[2].get("issuer").unwrap(), "did:webvh:z6mkfixture:bob.example");
             }
             _ => panic!("expected value"),
         }
@@ -322,19 +322,19 @@ mod tests {
     fn join_reports_gaps_and_recomputes_after_backfill() {
         let gap_ops = vec![
             issued(
-                "did:web:alice.example",
+                "did:webvh:z6mkfixture:alice.example",
                 0,
                 json!({"entry_id": "entry-0000", "kind": "start"}),
                 1,
             ),
             issued(
-                "did:web:alice.example",
+                "did:webvh:z6mkfixture:alice.example",
                 1,
                 json!({"entry_id": "entry-0001", "kind": "next"}),
                 2,
             ),
             issued(
-                "did:web:alice.example",
+                "did:webvh:z6mkfixture:alice.example",
                 3,
                 json!({"entry_id": "entry-0003-b", "kind": "late-b"}),
                 3,
@@ -349,31 +349,31 @@ mod tests {
 
         let backfilled_a = vec![
             issued(
-                "did:web:alice.example",
+                "did:webvh:z6mkfixture:alice.example",
                 0,
                 json!({"entry_id": "entry-0000", "kind": "start"}),
                 1,
             ),
             issued(
-                "did:web:alice.example",
+                "did:webvh:z6mkfixture:alice.example",
                 1,
                 json!({"entry_id": "entry-0001", "kind": "next"}),
                 2,
             ),
             issued(
-                "did:web:alice.example",
+                "did:webvh:z6mkfixture:alice.example",
                 3,
                 json!({"entry_id": "entry-0003-b", "kind": "late-b"}),
                 3,
             ),
             issued(
-                "did:web:alice.example",
+                "did:webvh:z6mkfixture:alice.example",
                 2,
                 json!({"entry_id": "entry-0002", "kind": "backfill"}),
                 4,
             ),
             issued(
-                "did:web:alice.example",
+                "did:webvh:z6mkfixture:alice.example",
                 3,
                 json!({"entry_id": "entry-0003-a", "kind": "late-a"}),
                 5,
@@ -381,31 +381,31 @@ mod tests {
         ];
         let backfilled_b = vec![
             issued(
-                "did:web:alice.example",
+                "did:webvh:z6mkfixture:alice.example",
                 0,
                 json!({"entry_id": "entry-0000", "kind": "start"}),
                 1,
             ),
             issued(
-                "did:web:alice.example",
+                "did:webvh:z6mkfixture:alice.example",
                 1,
                 json!({"entry_id": "entry-0001", "kind": "next"}),
                 2,
             ),
             issued(
-                "did:web:alice.example",
+                "did:webvh:z6mkfixture:alice.example",
                 2,
                 json!({"entry_id": "entry-0002", "kind": "backfill"}),
                 4,
             ),
             issued(
-                "did:web:alice.example",
+                "did:webvh:z6mkfixture:alice.example",
                 3,
                 json!({"entry_id": "entry-0003-a", "kind": "late-a"}),
                 5,
             ),
             issued(
-                "did:web:alice.example",
+                "did:webvh:z6mkfixture:alice.example",
                 3,
                 json!({"entry_id": "entry-0003-b", "kind": "late-b"}),
                 3,
@@ -450,10 +450,10 @@ mod tests {
     #[test]
     fn invalid_ops_skipped() {
         let ops = vec![
-            issued("did:web:alice.example", 1, json!("good"), 1),
+            issued("did:webvh:z6mkfixture:alice.example", 1, json!("good"), 1),
             // invalid: missing issuer_seq -> filtered
             IssuedOp {
-                issuer: Did::new("did:web:alice.example".to_owned()).unwrap(),
+                issuer: Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
                 op: SealedOp::new(
                     move_id(2),
                     LatticeOp {

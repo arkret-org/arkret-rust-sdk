@@ -10,7 +10,7 @@ use serde_json::json;
 
 fn sample_value() -> serde_json::Value {
     json!({
-        "actor_id": "did:web:alice.example",
+        "actor_id": "did:webvh:z6mkfixture:alice.example",
         "created_at": "2026-06-29T00:00:00Z",
         "kind": "ck.message.create",
         "nested": {

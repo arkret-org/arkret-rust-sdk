@@ -356,7 +356,7 @@ mod tests {
     ) -> HandleClaim {
         HandleClaim {
             handle: Some(Handle::parse(handle).unwrap()),
-            subject: Some(Did::new("did:web:alice.example".to_owned()).unwrap()),
+            subject: Some(Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()),
             issuer: Some(issuer_did.to_owned()),
             binding_state: Some(HandleBindingState::Verified),
             audience: audience.map(str::to_owned),
@@ -367,14 +367,14 @@ mod tests {
     }
 
     fn subject() -> Did {
-        Did::new("did:web:alice.example".to_owned()).unwrap()
+        Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
     }
 
     fn placeholder_payload_proof() -> PayloadProof {
         PayloadProof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:web:issuer.example#key-1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:issuer.example#key-1".to_owned(),
             payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at: Utc::now(),
             domain: None,
@@ -404,21 +404,21 @@ mod tests {
         let later = now - chrono::Duration::hours(1);
         let expires = now + chrono::Duration::days(30);
         let acc = vec![
-            issuer("did:web:acme.example"),
-            issuer("did:web:other.example"),
+            issuer("did:webvh:z6mkfixture:acme.example"),
+            issuer("did:webvh:z6mkfixture:other.example"),
         ];
         let s = subject();
         // older claim with matching audience vs newer claim without.
         let matching = verified_claim(
             "alice:acme.example",
-            "did:web:acme.example",
+            "did:webvh:z6mkfixture:acme.example",
             earlier,
             expires,
             Some("ck:realm:r1"),
         );
         let newer = verified_claim(
             "alice:other.example",
-            "did:web:other.example",
+            "did:webvh:z6mkfixture:other.example",
             later,
             expires,
             None,
@@ -443,7 +443,7 @@ mod tests {
         let s = subject();
         let claim = verified_claim(
             "alice:rogue.example",
-            "did:web:rogue.example",
+            "did:webvh:z6mkfixture:rogue.example",
             now - chrono::Duration::hours(1),
             expires,
             None,
@@ -453,7 +453,7 @@ mod tests {
             subject_id: s.as_str(),
             context: None,
             claim_set_snapshot: &snapshot,
-            accepted_issuers: &[issuer("did:web:acme.example")],
+            accepted_issuers: &[issuer("did:webvh:z6mkfixture:acme.example")],
             holder_primary_handle_at_as_of: None,
             resolution_as_of: now,
         };
@@ -466,7 +466,7 @@ mod tests {
         let expires = now + chrono::Duration::days(30);
         let mut a = verified_claim(
             "alice:acme.example",
-            "did:web:acme.example",
+            "did:webvh:z6mkfixture:acme.example",
             now,
             expires,
             None,
@@ -508,7 +508,7 @@ mod tests {
 
     #[test]
     fn render_subject_degrades_through_name_then_truncated_did() {
-        let s = Did::new("did:web:averylongsubjectidentifier.example".to_owned()).unwrap();
+        let s = Did::new("did:webvh:z6mkfixture:averylongsubjectidentifier.example".to_owned()).unwrap();
         let input = PrimaryHandleSelectInput {
             subject_id: s.as_str(),
             context: None,

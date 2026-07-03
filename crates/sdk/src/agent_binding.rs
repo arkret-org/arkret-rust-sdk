@@ -12,8 +12,8 @@
 //! ```jsonc
 //! "audit_binding": {
 //!   "binding_kind": "ed25519_v1",
-//!   "actor_id": "did:web:alice.example",
-//!   "key_id": "did:web:agent.example#key-1",
+//!   "actor_id": "did:webvh:z6mkfixture:alice.example",
+//!   "key_id": "did:webvh:z6mkfixture:agent.example#key-1",
 //!   "public_key_b64": "<base64-no-pad Ed25519 verifying key, 32 bytes>",
 //!   "signature": "<base64-no-pad Ed25519 signature, 64 bytes>",
 //!   "canonical_subject": "session_id=...\nagent_principal_id=...\necho=...\nactor_id=...\nbinding_kind=ed25519_v1"
@@ -88,6 +88,7 @@ pub fn sign_ed25519_audit_binding(
 /// public-key/signature decoding failures, and signature mismatch
 /// (decoded fine, but the math does not verify).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[must_use = "the audit-binding verify outcome must be checked; ignoring it silently accepts an unverified binding"]
 pub enum Ed25519AuditBindingVerifyOutcome {
     Valid,
     SubjectMismatch,
@@ -154,6 +155,7 @@ pub fn verify_ed25519_audit_binding(
 /// dispatcher here so callers don't have to re-implement the kind
 /// switch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[must_use = "the audit-binding verify outcome must be checked; ignoring it silently accepts an unverified binding"]
 pub enum AuditBindingVerifyOutcome {
     /// Signature recomputes against the carried key.
     Valid,
@@ -291,9 +293,9 @@ mod tests {
         let signed = sign_ed25519_audit_binding(
             TEST_ED25519_SEED,
             "ck:session:e1",
-            "did:web:agent.example",
+            "did:webvh:z6mkfixture:agent.example",
             &echo,
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
         );
         let pk_bytes = base64_url_no_pad_decode(&signed.public_key_b64).expect("pk decodes");
         assert_eq!(pk_bytes.len(), 32);
@@ -302,9 +304,9 @@ mod tests {
         let outcome = verify_ed25519_audit_binding(
             &signed.public_key_b64,
             "ck:session:e1",
-            "did:web:agent.example",
+            "did:webvh:z6mkfixture:agent.example",
             &echo,
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
             &signed.signature_b64,
             &signed.canonical_subject,
         );
@@ -318,14 +320,14 @@ mod tests {
         let echo = json!({"k": "v"});
         let subject = build_ed25519_canonical_subject(
             "ck:session:cross",
-            "did:web:agent.example",
+            "did:webvh:z6mkfixture:agent.example",
             &echo,
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
         );
         assert!(subject.ends_with("binding_kind=ed25519_v1"));
         assert!(subject.contains("session_id=ck:session:cross"));
-        assert!(subject.contains("agent_principal_id=did:web:agent.example"));
-        assert!(subject.contains("actor_id=did:web:alice.example"));
+        assert!(subject.contains("agent_principal_id=did:webvh:z6mkfixture:agent.example"));
+        assert!(subject.contains("actor_id=did:webvh:z6mkfixture:alice.example"));
     }
 
     #[test]
@@ -334,16 +336,16 @@ mod tests {
         let signed = sign_ed25519_audit_binding(
             TEST_ED25519_SEED,
             "ck:session:e2",
-            "did:web:agent.example",
+            "did:webvh:z6mkfixture:agent.example",
             &echo,
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
         );
         let outcome = verify_ed25519_audit_binding(
             &signed.public_key_b64,
             "ck:session:e2",
-            "did:web:agent.example",
+            "did:webvh:z6mkfixture:agent.example",
             &echo,
-            "did:web:carol.example",
+            "did:webvh:z6mkfixture:carol.example",
             &signed.signature_b64,
             &signed.canonical_subject,
         );
@@ -356,23 +358,23 @@ mod tests {
         let signed = sign_ed25519_audit_binding(
             TEST_ED25519_SEED,
             "ck:session:e3",
-            "did:web:agent.example",
+            "did:webvh:z6mkfixture:agent.example",
             &echo,
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
         );
         let other_signed = sign_ed25519_audit_binding(
             &[0xAAu8; 32],
             "ck:session:e3",
-            "did:web:agent.example",
+            "did:webvh:z6mkfixture:agent.example",
             &echo,
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
         );
         let outcome = verify_ed25519_audit_binding(
             &other_signed.public_key_b64,
             "ck:session:e3",
-            "did:web:agent.example",
+            "did:webvh:z6mkfixture:agent.example",
             &echo,
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
             &signed.signature_b64,
             &signed.canonical_subject,
         );
@@ -385,16 +387,16 @@ mod tests {
         let signed = sign_ed25519_audit_binding(
             TEST_ED25519_SEED,
             "ck:session:e4",
-            "did:web:agent.example",
+            "did:webvh:z6mkfixture:agent.example",
             &echo,
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
         );
         let outcome = verify_ed25519_audit_binding(
             &signed.public_key_b64,
             "ck:session:e4",
-            "did:web:agent.example",
+            "did:webvh:z6mkfixture:agent.example",
             &echo,
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
             "!!!not-base64!!!",
             &signed.canonical_subject,
         );
@@ -410,16 +412,16 @@ mod tests {
         let signed = sign_ed25519_audit_binding(
             TEST_ED25519_SEED,
             "ck:session:e5",
-            "did:web:agent.example",
+            "did:webvh:z6mkfixture:agent.example",
             &echo,
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
         );
         let outcome = verify_ed25519_audit_binding(
             "AA",
             "ck:session:e5",
-            "did:web:agent.example",
+            "did:webvh:z6mkfixture:agent.example",
             &echo,
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
             &signed.signature_b64,
             &signed.canonical_subject,
         );
@@ -430,7 +432,7 @@ mod tests {
     }
 
     fn build_signed_payload(session_id: &str, actor: &str, echo: Value) -> Value {
-        let agent_principal_id = "did:web:agent.example";
+        let agent_principal_id = "did:webvh:z6mkfixture:agent.example";
         let signed = sign_ed25519_audit_binding(
             TEST_ED25519_SEED,
             session_id,
@@ -455,7 +457,7 @@ mod tests {
     fn verify_by_kind_returns_valid_for_well_formed_ed25519_payload() {
         let payload = build_signed_payload(
             "ck:session:dispatch-ok",
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
             json!({"op": "ping"}),
         );
         assert_eq!(
@@ -468,7 +470,7 @@ mod tests {
     fn verify_by_kind_returns_absent_when_audit_binding_missing() {
         let payload = json!({
             "session_id": "ck:session:no-binding",
-            "result": { "agent_principal_id": "did:web:agent.example", "echo": {} },
+            "result": { "agent_principal_id": "did:webvh:z6mkfixture:agent.example", "echo": {} },
         });
         assert_eq!(
             verify_audit_binding_by_kind(&payload),
@@ -480,10 +482,10 @@ mod tests {
     fn verify_by_kind_returns_unsupported_for_unknown_binding_kind() {
         let payload = json!({
             "session_id": "ck:session:future",
-            "result": { "agent_principal_id": "did:web:agent.example", "echo": {} },
+            "result": { "agent_principal_id": "did:webvh:z6mkfixture:agent.example", "echo": {} },
             "audit_binding": {
                 "binding_kind": "future_scheme_v9",
-                "actor_id": "did:web:alice.example",
+                "actor_id": "did:webvh:z6mkfixture:alice.example",
                 "signature": "sig",
                 "public_key_b64": "pk",
                 "canonical_subject": "subject"
@@ -502,9 +504,9 @@ mod tests {
         // unrecognized kind so callers don't have to special-case it.
         let payload = json!({
             "session_id": "ck:session:no-kind",
-            "result": { "agent_principal_id": "did:web:agent.example", "echo": {} },
+            "result": { "agent_principal_id": "did:webvh:z6mkfixture:agent.example", "echo": {} },
             "audit_binding": {
-                "actor_id": "did:web:alice.example",
+                "actor_id": "did:webvh:z6mkfixture:alice.example",
                 "signature": "sig"
             }
         });
@@ -518,7 +520,7 @@ mod tests {
     fn verify_by_kind_returns_malformed_for_invalid_signature_encoding() {
         let mut payload = build_signed_payload(
             "ck:session:malformed-sig",
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
             json!({"op": "ping"}),
         );
         payload["audit_binding"]["signature"] = json!("!!!not-base64!!!");
@@ -532,10 +534,10 @@ mod tests {
     fn verify_by_kind_returns_subject_mismatch_when_actor_field_differs() {
         let mut payload = build_signed_payload(
             "ck:session:actor-drift",
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
             json!({"op": "ping"}),
         );
-        payload["audit_binding"]["actor_id"] = json!("did:web:carol.example");
+        payload["audit_binding"]["actor_id"] = json!("did:webvh:z6mkfixture:carol.example");
         assert_eq!(
             verify_audit_binding_by_kind(&payload),
             AuditBindingVerifyOutcome::SubjectMismatch

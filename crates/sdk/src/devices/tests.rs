@@ -4,7 +4,7 @@ use serde_json::json;
 use super::*;
 
 fn did(name: &str) -> Did {
-    Did::new(format!("did:web:{name}.example")).unwrap()
+    Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
 }
 
 fn device(id: &str) -> DeviceId {
@@ -21,7 +21,7 @@ fn device(id: &str) -> DeviceId {
 
 fn fake_binding(generation: u64) -> DeviceTrustBinding {
     DeviceTrustBinding {
-        verification_method: "did:web:alice.example#cx_self_signing_v1".to_owned(),
+        verification_method: "did:webvh:z6mkfixture:alice.example#cx_self_signing_v1".to_owned(),
         alg: "EdDSA".to_owned(),
         ssk_generation: generation,
         signature: format!("test-sig-gen-{generation}"),
@@ -338,7 +338,7 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
         new_generation: 2,
         reset_reason: "rotation".to_owned(),
         proof: CrossSigningResetProof::PrincipalSigning {
-            verification_method: "did:web:alice.example#did-control".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#did-control".to_owned(),
             alg: "EdDSA".to_owned(),
             signature: "test-psk-sig".to_owned(),
         },
@@ -565,7 +565,7 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
         new_generation: 2,
         reset_reason: "compromise".to_owned(),
         proof: CrossSigningResetProof::PrincipalSigning {
-            verification_method: "did:web:alice.example#did-control".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#did-control".to_owned(),
             alg: "EdDSA".to_owned(),
             signature: "psk-sig".to_owned(),
         },
@@ -767,6 +767,69 @@ fn verify_chain_rejects_tampered_device_binding() {
         &anchored_psk,
     );
     assert_eq!(state, DeviceTrustState::Unverified);
+}
+
+#[test]
+fn verify_chain_rejects_non_eddsa_alg_declarations() {
+    let alice = did("alice");
+    let phone = device("phone");
+    let device_public_key = "z6MkDevicePhoneVerifyKey";
+    let (publish, binding, anchored_psk) = signed_chain_fixture(
+        &alice,
+        &phone,
+        device_public_key,
+        [11u8; 32],
+        [22u8; 32],
+        1,
+        1,
+    );
+
+    // The device binding's `alg` is NOT part of the §5.2 transcript, so a
+    // forged declaration would otherwise verify fine as Ed25519 — the
+    // verifier must assert it explicitly and fail closed.
+    let mut forged_binding = binding.clone();
+    forged_binding.alg = "ML-DSA-65".to_owned();
+    assert_eq!(
+        verify_chain(
+            &publish,
+            &forged_binding,
+            &alice,
+            &phone,
+            device_public_key,
+            &anchored_psk,
+        ),
+        DeviceTrustState::Unverified
+    );
+
+    // Same for the PSK record's declared alg (also outside any transcript).
+    let mut forged_publish = publish.clone();
+    forged_publish.principal_signing_key.alg = "ES256".to_owned();
+    assert_eq!(
+        verify_chain(
+            &forged_publish,
+            &binding,
+            &alice,
+            &phone,
+            device_public_key,
+            &anchored_psk,
+        ),
+        DeviceTrustState::Unverified
+    );
+
+    // And for the SSK record / SSK binding alg fields.
+    let mut forged_ssk = publish.clone();
+    forged_ssk.self_signing_key.binding.alg = "ML-DSA-65".to_owned();
+    assert_eq!(
+        verify_chain(
+            &forged_ssk,
+            &binding,
+            &alice,
+            &phone,
+            device_public_key,
+            &anchored_psk,
+        ),
+        DeviceTrustState::Unverified
+    );
 }
 
 #[test]

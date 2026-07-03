@@ -36,9 +36,10 @@
 //! - `physical_millis_from_hlc` — extract the physical-ms prefix of an HLC string for low-level
 //!   freshness telemetry.
 //!
-//! All error paths return `Result<_, String>` with descriptive reasons;
-//! callers typically map these to wire `schema_violation` / `invalid_signature`
-//! 4xx responses.
+//! Verify-path errors are typed ([`JwsVerifyError`] / [`ReplayWindowError`])
+//! so callers can map DID-resolution failures, malformed shapes and signature
+//! mismatches to distinct wire `schema_violation` / `invalid_signature` 4xx
+//! responses without string sniffing.
 
 use chrono::{DateTime, Duration, Utc};
 use cokret_core::{Hash, canonical};
@@ -47,6 +48,89 @@ use ed25519_dalek::{SigningKey, VerifyingKey};
 
 use crate::identity::DidResolver;
 use crate::{Did, Hlc};
+
+/// Typed failure reasons for the detached-JWS verify pipeline
+/// ([`verify_jws_ed25519`] / [`resolve_ed25519_pubkey`]).
+///
+/// Distinguishes input-shape violations, DID-resolution failures, key-material
+/// problems and the signature check itself, so callers can map each family to
+/// the right wire error code instead of sniffing message strings.
+#[derive(Debug, thiserror::Error)]
+pub enum JwsVerifyError {
+    #[error("empty verification_method")]
+    EmptyVerificationMethod,
+    #[error("empty issuer")]
+    EmptyIssuer,
+    #[error("empty canonical bytes")]
+    EmptyCanonicalBytes,
+    /// The `verification_method` DID failed SDK validation.
+    #[error("invalid DID `{did}`: {reason}")]
+    InvalidDid { did: String, reason: String },
+    /// The resolver chain could not resolve the DID.
+    #[error("DID resolve failed for `{did}`: {source}")]
+    DidResolveFailed {
+        did: String,
+        #[source]
+        source: Box<crate::Error>,
+    },
+    /// The DID document has no matching verification method entry.
+    #[error(
+        "verification_method `{verification_method}` not found in DID document for `{did}` (have {available:?})"
+    )]
+    VerificationMethodNotFound {
+        verification_method: String,
+        did: String,
+        available: Vec<String>,
+    },
+    /// The verification-method value is not a valid multibase Ed25519 key.
+    #[error("ed25519 multibase decode failed: {source}")]
+    MultibaseDecode {
+        #[source]
+        source: cokret_core::Error,
+    },
+    /// The decoded key bytes do not form a valid Ed25519 public key.
+    #[error("Ed25519 public key parse failed: {reason}")]
+    PublicKeyParse { reason: String },
+    /// The canonical-bytes digest could not be constructed.
+    #[error("event digest construction failed: {reason}")]
+    Digest { reason: String },
+    /// JWS shape / header / signature rejected by the detached-JWS verifier.
+    #[error("detached JWS rejected: {source}")]
+    Proof {
+        #[source]
+        source: cokret_signatures::VerifierError,
+    },
+}
+
+/// Typed failure reasons for the HLC replay-window freshness checks
+/// ([`verify_replay_window`] and variants).
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum ReplayWindowError {
+    /// The HLC string had no parsable physical-ms prefix.
+    #[error("HLC physical-ms hex `{physical_hex}` parse failed")]
+    PhysicalMsParse { physical_hex: String },
+    /// The parsed physical-ms is outside chrono's representable range.
+    #[error("HLC physical-ms {physical_ms} is out of representable range")]
+    PhysicalMsOutOfRange { physical_ms: i64 },
+    /// The HLC is older than the window allows.
+    #[error(
+        "HLC signed at {signed_at} is too old (now-signed = {age_seconds}s; window = {window_seconds}s)"
+    )]
+    TooOld {
+        signed_at: DateTime<Utc>,
+        age_seconds: i64,
+        window_seconds: u64,
+    },
+    /// The HLC is further in the future than the window allows.
+    #[error(
+        "HLC signed at {signed_at} is too far in the future (signed-now = {ahead_seconds}s; window = {window_seconds}s)"
+    )]
+    TooFarInFuture {
+        signed_at: DateTime<Utc>,
+        ahead_seconds: i64,
+        window_seconds: u64,
+    },
+}
 
 /// Produce a detached Ed25519 JWS over `canonical_bytes`.
 ///
@@ -84,25 +168,26 @@ pub fn sign_jws_ed25519(
 /// Verify a detached Ed25519 JWS against `canonical_bytes`.
 ///
 /// Returns `Ok(())` on successful verification (shape valid + DID resolves
-/// + signature checks against `canonical_bytes`); `Err(message)` otherwise.
+/// + signature checks against `canonical_bytes`); a typed [`JwsVerifyError`]
+/// otherwise.
 ///
 /// All error paths are uniform — any deviation from spec rejects with a
-/// descriptive reason (callers map to `schema_violation` 4xx, never 5xx).
+/// typed reason (callers map to `schema_violation` 4xx, never 5xx).
 pub fn verify_jws_ed25519(
     canonical_bytes: &[u8],
     jws: &str,
     verification_method: &str,
     issuer: &str,
     resolver: &dyn DidResolver,
-) -> Result<(), String> {
+) -> Result<(), JwsVerifyError> {
     if verification_method.is_empty() {
-        return Err("empty verification_method".to_owned());
+        return Err(JwsVerifyError::EmptyVerificationMethod);
     }
     if issuer.is_empty() {
-        return Err("empty issuer".to_owned());
+        return Err(JwsVerifyError::EmptyIssuer);
     }
     if canonical_bytes.is_empty() {
-        return Err("empty canonical bytes".to_owned());
+        return Err(JwsVerifyError::EmptyCanonicalBytes);
     }
 
     // Resolve verification_method via the supplied resolver chain. All JWS
@@ -112,8 +197,11 @@ pub fn verify_jws_ed25519(
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: verification_method.to_owned(),
-        event_digest: Hash::new(canonical::sha256_digest(canonical_bytes))
-            .map_err(|error| error.to_string())?,
+        event_digest: Hash::new(canonical::sha256_digest(canonical_bytes)).map_err(|error| {
+            JwsVerifyError::Digest {
+                reason: error.to_string(),
+            }
+        })?,
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -124,15 +212,15 @@ pub fn verify_jws_ed25519(
     };
     Ed25519DetachedJwsVerifier::new()
         .verify_proof(&proof, canonical_bytes, &material)
-        .map_err(|error| error.to_string())
+        .map_err(|source| JwsVerifyError::Proof { source })
 }
 
 /// Resolve a DID URL (`<did>#<key_id>` or just a fragment-less DID) to
 /// its Ed25519 [`VerifyingKey`] via the supplied [`DidResolver`].
 ///
 /// Accepts:
-///   - Full DID URL: `did:web:alice.example#k1` — resolves the DID, then looks up
-///     `verification_methods["did:web:alice.example#k1"]`.
+///   - Full DID URL: `did:webvh:z6mkfixture:alice.example#k1` — resolves the DID, then looks up
+///     `verification_methods["did:webvh:z6mkfixture:alice.example#k1"]`.
 ///   - Fragment fallback: if the full URL isn't a key, also tries the fragment-only key id (`#k1` →
 ///     `k1`).
 ///   - did:key: the multibase-encoded key is in the DID itself; resolve returns a doc whose
@@ -140,16 +228,22 @@ pub fn verify_jws_ed25519(
 pub fn resolve_ed25519_pubkey(
     resolver: &dyn DidResolver,
     verification_method: &str,
-) -> Result<VerifyingKey, String> {
+) -> Result<VerifyingKey, JwsVerifyError> {
     let (did_str, fragment) = verification_method
         .split_once('#')
         .map(|(d, f)| (d.to_owned(), Some(f.to_owned())))
         .unwrap_or_else(|| (verification_method.to_owned(), None));
-    let did = Did::new(did_str.clone()).map_err(|e| format!("invalid DID `{did_str}`: {e}"))?;
+    let did = Did::new(did_str.clone()).map_err(|e| JwsVerifyError::InvalidDid {
+        did: did_str.clone(),
+        reason: e.to_string(),
+    })?;
 
     let document = resolver
         .resolve_did(&did)
-        .map_err(|e| format!("DID resolve failed for `{did_str}`: {e}"))?;
+        .map_err(|e| JwsVerifyError::DidResolveFailed {
+            did: did_str.clone(),
+            source: Box::new(e),
+        })?;
 
     // Try full URL first, then fragment-only id, then any single-key
     // shortcut (`did:key:` documents typically have one key whose id
@@ -169,11 +263,10 @@ pub fn resolve_ed25519_pubkey(
                 None
             }
         })
-        .ok_or_else(|| {
-            format!(
-                "verification_method `{verification_method}` not found in DID document for `{did_str}` (have {:?})",
-                document.verification_methods.keys().collect::<Vec<_>>()
-            )
+        .ok_or_else(|| JwsVerifyError::VerificationMethodNotFound {
+            verification_method: verification_method.to_owned(),
+            did: did_str.clone(),
+            available: document.verification_methods.keys().cloned().collect(),
         })?;
 
     decode_ed25519_multibase(multibase)
@@ -185,14 +278,15 @@ pub fn resolve_ed25519_pubkey(
 /// (base58btc multibase indicator) + base58btc(0xed 0x01 || pubkey32).
 /// Strips the multicodec varint (0xed01 = ed25519-pub) and extracts the
 /// 32-byte raw key.
-fn decode_ed25519_multibase(multibase: &str) -> Result<VerifyingKey, String> {
+fn decode_ed25519_multibase(multibase: &str) -> Result<VerifyingKey, JwsVerifyError> {
     // Underlying base58btc + multicodec strip is the single `core::multibase`
     // helper (backed by the `bs58` crate); this only adds the VerifyingKey
-    // parse + String-error mapping the JWS verify path expects.
+    // parse + typed-error mapping the JWS verify path expects.
     let key_array = cokret_core::decode_ed25519_multibase(multibase)
-        .map_err(|e| format!("ed25519 multibase decode failed: {e}"))?;
-    VerifyingKey::from_bytes(&key_array)
-        .map_err(|e| format!("Ed25519 public key parse failed: {e}"))
+        .map_err(|source| JwsVerifyError::MultibaseDecode { source })?;
+    VerifyingKey::from_bytes(&key_array).map_err(|e| JwsVerifyError::PublicKeyParse {
+        reason: e.to_string(),
+    })
 }
 
 /// JWS replay protection: verify the SIGNED `Hlc` is within `±window`
@@ -204,7 +298,7 @@ fn decode_ed25519_multibase(multibase: &str) -> Result<VerifyingKey, String> {
 ///
 /// `window_seconds = 0` disables the check (returns Ok without inspecting
 /// the HLC). Production deploys MUST keep `window_seconds > 0`.
-pub fn verify_replay_window(hlc: &Hlc, window_seconds: u64) -> Result<(), String> {
+pub fn verify_replay_window(hlc: &Hlc, window_seconds: u64) -> Result<(), ReplayWindowError> {
     verify_replay_window_at(hlc, window_seconds, Utc::now())
 }
 
@@ -222,7 +316,7 @@ pub fn verify_replay_window_for_move(
     move_obj: &crate::Move,
     default_window_seconds: u64,
     per_family_overrides: &std::collections::BTreeMap<&'static str, u64>,
-) -> Result<(), String> {
+) -> Result<(), ReplayWindowError> {
     verify_replay_window_for_move_at(
         move_obj,
         default_window_seconds,
@@ -238,7 +332,7 @@ pub fn verify_replay_window_for_move_at(
     default_window_seconds: u64,
     per_family_overrides: &std::collections::BTreeMap<&'static str, u64>,
     now: DateTime<Utc>,
-) -> Result<(), String> {
+) -> Result<(), ReplayWindowError> {
     let effective =
         effective_window_for_move(move_obj, default_window_seconds, per_family_overrides);
     verify_replay_window_at(&move_obj.hlc, effective, now)
@@ -288,37 +382,38 @@ pub fn verify_replay_window_at(
     hlc: &Hlc,
     window_seconds: u64,
     now: DateTime<Utc>,
-) -> Result<(), String> {
+) -> Result<(), ReplayWindowError> {
     if window_seconds == 0 {
         return Ok(());
     }
     let hlc_str = hlc.as_str();
     // HLC format: `<12-hex-physical-ms>-<8-hex-logical>-<8-hex-node>`. The
     // SDK's `Hlc::new` already validated the shape; we just parse the
-    // first segment back to milliseconds.
-    let physical_hex = hlc_str
-        .split('-')
-        .next()
-        .ok_or_else(|| format!("invalid HLC format `{hlc_str}` (no segments)"))?;
-    let physical_ms = i64::from_str_radix(physical_hex, 16)
-        .map_err(|e| format!("HLC physical-ms hex `{physical_hex}` parse failed: {e}"))?;
+    // first segment back to milliseconds. `split().next()` on a non-empty
+    // string always yields a segment, so only the hex parse can fail here.
+    let physical_hex = hlc_str.split('-').next().unwrap_or_default();
+    let physical_ms = i64::from_str_radix(physical_hex, 16).map_err(|_| {
+        ReplayWindowError::PhysicalMsParse {
+            physical_hex: physical_hex.to_owned(),
+        }
+    })?;
     let signed_at = DateTime::<Utc>::from_timestamp_millis(physical_ms)
-        .ok_or_else(|| format!("HLC physical-ms {physical_ms} is out of representable range"))?;
+        .ok_or(ReplayWindowError::PhysicalMsOutOfRange { physical_ms })?;
     let window = Duration::seconds(window_seconds as i64);
     let delta = now - signed_at;
     if delta > window {
-        return Err(format!(
-            "HLC signed at {signed_at} is too old (now-signed = {}s; window = {}s)",
-            delta.num_seconds(),
-            window_seconds
-        ));
+        return Err(ReplayWindowError::TooOld {
+            signed_at,
+            age_seconds: delta.num_seconds(),
+            window_seconds,
+        });
     }
     if -delta > window {
-        return Err(format!(
-            "HLC signed at {signed_at} is too far in the future (signed-now = {}s; window = {}s)",
-            (-delta).num_seconds(),
-            window_seconds
-        ));
+        return Err(ReplayWindowError::TooFarInFuture {
+            signed_at,
+            ahead_seconds: (-delta).num_seconds(),
+            window_seconds,
+        });
     }
     Ok(())
 }
@@ -389,13 +484,15 @@ mod tests {
         bytes.extend_from_slice(&[0u8; 32]);
         let mb = cokret_core::encode_multibase_base58btc(bytes);
         let err = decode_ed25519_multibase(&mb).unwrap_err();
-        assert!(err.contains("ed25519-pub multicodec"));
+        assert!(matches!(err, JwsVerifyError::MultibaseDecode { .. }));
+        assert!(err.to_string().contains("ed25519-pub multicodec"));
     }
 
     #[test]
     fn decode_rejects_missing_z_prefix() {
         let err = decode_ed25519_multibase("not-multibase").unwrap_err();
-        assert!(err.contains("missing 'z' prefix"));
+        assert!(matches!(err, JwsVerifyError::MultibaseDecode { .. }));
+        assert!(err.to_string().contains("missing 'z' prefix"));
     }
 
     // -- Replay-window tests --
@@ -426,8 +523,8 @@ mod tests {
         let hlc = hlc_at_ms(stale_ms);
         let err = verify_replay_window_at(&hlc, 300, now).unwrap_err();
         assert!(
-            err.contains("too old"),
-            "stale HLC reject reason should mention `too old` (got `{err}`)"
+            matches!(err, ReplayWindowError::TooOld { .. }),
+            "stale HLC must reject as TooOld (got `{err}`)"
         );
     }
 
@@ -438,8 +535,8 @@ mod tests {
         let hlc = hlc_at_ms(future_ms);
         let err = verify_replay_window_at(&hlc, 300, now).unwrap_err();
         assert!(
-            err.contains("future"),
-            "future HLC reject reason should mention `future` (got `{err}`)"
+            matches!(err, ReplayWindowError::TooFarInFuture { .. }),
+            "future HLC must reject as TooFarInFuture (got `{err}`)"
         );
     }
 
@@ -449,7 +546,7 @@ mod tests {
         use crate::{CellRef, Hash, MoveId, MoveSignature, SealBasis};
         crate::Move {
             id: MoveId::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
-            issuer: Did::new("did:web:test").unwrap(),
+            issuer: Did::new("did:webvh:z6mkfixture:test").unwrap(),
             realm_id: crate::RealmId::new(
                 "ck:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
             )
@@ -460,7 +557,7 @@ mod tests {
                 op: crate::LatticeOp {
                     op_type: crate::LatticeOpType::Set,
                     tag: None,
-                    value: Some(serde_json::json!({"shape": "single_did", "did": "did:web:foo"})),
+                    value: Some(serde_json::json!({"shape": "single_did", "did": "did:webvh:z6mkfixture:foo"})),
                     from: None,
                     to: None,
                     reason: None,
@@ -478,7 +575,7 @@ mod tests {
             hlc: Hlc::new(format!("{hlc_ms:012x}-0000-aabbccdd")).unwrap(),
             sig: MoveSignature {
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:web:test#k1".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:test#k1".to_owned(),
                 payload_digest: Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap(),
                 created_at: Utc::now(),
                 jws: "eyJhbGciOiJFZERTQSJ9..ZmFrZS1zaWctZm9yLXRlc3Rz".to_owned(),
@@ -531,7 +628,7 @@ mod tests {
         overrides.insert("ck.component.notary.v1", 60u64);
         let err = verify_replay_window_for_move_at(&m, 300, &overrides, now).unwrap_err();
         assert!(
-            err.contains("too old"),
+            matches!(err, ReplayWindowError::TooOld { .. }),
             "notary cell with 60s override should reject 2min-old hlc (got `{err}`)"
         );
     }
@@ -581,7 +678,7 @@ mod tests {
     #[test]
     fn verify_jws_ed25519_rejects_duplicate_protected_header_key() {
         let signing = SigningKey::from_bytes(&[2u8; 32]);
-        let did = Did::new("did:web:duplicate-header.example".to_owned()).unwrap();
+        let did = Did::new("did:webvh:z6mkfixture:duplicate-header.example".to_owned()).unwrap();
         let resolver = StubResolver {
             did: did.clone(),
             multibase: encode_ed25519_multibase(&signing.verifying_key()),
@@ -592,9 +689,11 @@ mod tests {
 
         let err = verify_jws_ed25519(b"{}", &jws, &format!("{did}#k1"), did.as_str(), &resolver)
             .unwrap_err();
+        assert!(matches!(err, JwsVerifyError::Proof { .. }), "got `{err}`");
+        let rendered = err.to_string();
         assert!(
-            err.contains("duplicate key") || err.contains("canonical JSON"),
-            "got `{err}`"
+            rendered.contains("duplicate key") || rendered.contains("canonical JSON"),
+            "got `{rendered}`"
         );
     }
 
@@ -613,7 +712,7 @@ mod tests {
         let signing = SigningKey::from_bytes(&[4u8; 32]);
         let verifying = signing.verifying_key();
         let multibase = encode_ed25519_multibase(&verifying);
-        let did = Did::new("did:web:roundtrip.example".to_owned()).unwrap();
+        let did = Did::new("did:webvh:z6mkfixture:roundtrip.example".to_owned()).unwrap();
         let resolver = StubResolver {
             did: did.clone(),
             multibase,
@@ -636,7 +735,7 @@ mod tests {
         let signing = SigningKey::from_bytes(&[5u8; 32]);
         let verifying = signing.verifying_key();
         let multibase = encode_ed25519_multibase(&verifying);
-        let did = Did::new("did:web:tamper.example".to_owned()).unwrap();
+        let did = Did::new("did:webvh:z6mkfixture:tamper.example".to_owned()).unwrap();
         let resolver = StubResolver {
             did: did.clone(),
             multibase,
@@ -655,7 +754,11 @@ mod tests {
             &resolver,
         )
         .unwrap_err();
-        assert!(err.contains("signature verification failed"), "got `{err}`");
+        assert!(matches!(err, JwsVerifyError::Proof { .. }), "got `{err}`");
+        assert!(
+            err.to_string().contains("signature verification failed"),
+            "got `{err}`"
+        );
     }
 
     #[test]

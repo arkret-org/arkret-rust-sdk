@@ -10,9 +10,9 @@
 //! use cokret_signatures::Ed25519MoveSigner;
 //!
 //! let seed = [0u8; 32];
-//! let did = Did::new("did:web:alice.example".to_owned()).unwrap();
-//! let signer = Ed25519MoveSigner::from_did_key_seed(seed, did, "did:web:alice.example#key-1");
-//! assert_eq!(signer.signer_did().as_str(), "did:web:alice.example");
+//! let did = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
+//! let signer = Ed25519MoveSigner::from_did_key_seed(seed, did, "did:webvh:z6mkfixture:alice.example#key-1");
+//! assert_eq!(signer.signer_did().as_str(), "did:webvh:z6mkfixture:alice.example");
 //! ```
 
 use chrono::Utc;
@@ -180,7 +180,7 @@ mod tests {
     use super::*;
 
     fn alice() -> Did {
-        Did::new("did:web:alice.example".to_owned()).unwrap()
+        Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
     }
 
     fn space() -> RealmId {
@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn ed25519_signer_produces_self_consistent_move() {
         let signer =
-            Ed25519MoveSigner::from_did_key_seed([7u8; 32], alice(), "did:web:alice.example#key-1");
+            Ed25519MoveSigner::from_did_key_seed([7u8; 32], alice(), "did:webvh:z6mkfixture:alice.example#key-1");
         let m = signer.sign_move(&sample_unsigned()).unwrap();
         m.validate_id().unwrap();
         m.validate_structural().unwrap();
@@ -255,8 +255,8 @@ mod tests {
     fn ed25519_signer_rejects_issuer_mismatch() {
         let signer = Ed25519MoveSigner::from_did_key_seed(
             [7u8; 32],
-            Did::new("did:web:bob.example".to_owned()).unwrap(),
-            "did:web:bob.example#key-1",
+            Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
+            "did:webvh:z6mkfixture:bob.example#key-1",
         );
         let err = signer.sign_move(&sample_unsigned()).unwrap_err();
         assert!(format!("{err}").contains("does not match Ed25519MoveSigner DID"));
@@ -265,7 +265,7 @@ mod tests {
     #[test]
     fn ed25519_signer_signs_anchor_single() {
         let signer =
-            Ed25519MoveSigner::from_did_key_seed([9u8; 32], alice(), "did:web:alice.example#key-1");
+            Ed25519MoveSigner::from_did_key_seed([9u8; 32], alice(), "did:webvh:z6mkfixture:alice.example#key-1");
         let a = Seal::sign_single(
             space(),
             vec![seal_id(0xaa)],
@@ -290,15 +290,15 @@ mod tests {
     #[test]
     fn ed25519_signer_deterministic_for_same_seed() {
         let seed = [42u8; 32];
-        let s1 = Ed25519MoveSigner::from_did_key_seed(seed, alice(), "did:web:alice.example#key-1");
-        let s2 = Ed25519MoveSigner::from_did_key_seed(seed, alice(), "did:web:alice.example#key-1");
+        let s1 = Ed25519MoveSigner::from_did_key_seed(seed, alice(), "did:webvh:z6mkfixture:alice.example#key-1");
+        let s2 = Ed25519MoveSigner::from_did_key_seed(seed, alice(), "did:webvh:z6mkfixture:alice.example#key-1");
         assert_eq!(s1.verifying_key().to_bytes(), s2.verifying_key().to_bytes());
     }
 
     #[test]
     fn verify_ed25519_rejects_tampered_payload() {
         let signer =
-            Ed25519MoveSigner::from_did_key_seed([3u8; 32], alice(), "did:web:alice.example#key-1");
+            Ed25519MoveSigner::from_did_key_seed([3u8; 32], alice(), "did:webvh:z6mkfixture:alice.example#key-1");
         let m = signer.sign_move(&sample_unsigned()).unwrap();
         let mut bytes = m.canonical_bytes_for_id().unwrap();
         bytes.push(b'X'); // tamper

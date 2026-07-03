@@ -10,7 +10,7 @@ attestation; it is the evidence bundle a reviewer needs before the local
 
 - Workspace crates: `cokret-identifiers`, `cokret-core`, `cokret-ffi`,
   `cokret-html`, `cokret-http-client`, `cokret-signatures`,
-  `cokret-crypto`, `cokret-contracts`, `cokret-server`, `cokret-testing`, and
+  `cokret-crypto`, `cokret-contracts`, `cokret-server`, and
   `cokret`.
 - Wire-critical surfaces: canonical JSON, Event Envelope signatures,
   capability grants, profile claims, federation signatures, MLS helpers,

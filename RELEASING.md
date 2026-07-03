@@ -14,12 +14,11 @@ cokret-identifiers
 cokret-core
 cokret-ffi
 cokret-html
-cokret-http-client
 cokret-signatures
+cokret-http-client
 cokret-crypto
-cokret-contracts
+cokret-keystore
 cokret-server
-cokret-testing
 cokret    # umbrella SDK; depends on every other crate above
 ```
 

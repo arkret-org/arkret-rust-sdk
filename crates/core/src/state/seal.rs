@@ -470,7 +470,7 @@ mod tests {
     fn dummy_signature() -> MoveSignature {
         MoveSignature {
             alg: "EdDSA".to_owned(),
-            verification_method: "did:web:notary.example#k1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
             payload_digest: hash(0xff),
             created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             jws: "AAAA.BBBB.CCCC".to_owned(),
@@ -504,7 +504,7 @@ mod tests {
     fn move_for_order(byte: u8, refs: Vec<SemanticRef>) -> Move {
         Move {
             id: move_id(byte),
-            issuer: Did::new("did:web:issuer.example".to_owned()).unwrap(),
+            issuer: Did::new("did:webvh:z6mkfixture:issuer.example".to_owned()).unwrap(),
             realm_id: realm(),
             preconditions: Vec::new(),
             effects: Vec::new(),

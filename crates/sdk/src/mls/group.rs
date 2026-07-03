@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
+use zeroize::Zeroizing;
 
 use super::identity::{COKRET_MLS_CIPHERSUITE, CokretMlsIdentity, decode_key_package};
 use crate::{
@@ -52,7 +53,9 @@ pub struct CokretMlsGroup {
     /// the time the group is at epoch `N` and kept here so it can later be
     /// used to decrypt epoch-`N` content or be HPKE-sealed for a joiner.
     /// Empty by default; persisted across reload via [`OpenMlsStateSnapshot`].
-    pub(super) history_secrets: BTreeMap<u64, Vec<u8>>,
+    /// Values are [`Zeroizing`] so every retained secret is wiped from memory
+    /// when the entry (or the whole group) is dropped.
+    pub(super) history_secrets: BTreeMap<u64, Zeroizing<Vec<u8>>>,
     /// Monotonic per-device AEAD nonce counter for the `mls-exporter-aead-v1`
     /// content scheme (`encoding §10.1`: `device_nonce_counter_be64`).
     /// In-memory only; never reused within an epoch because the counter only
@@ -321,9 +324,16 @@ impl CokretMlsGroup {
     /// `cokret-reaction-routing-v1`, context = `realm_id`) and SFrame media
     /// keys (`media-service-binding.md` §8.1). Callers MUST treat the returned
     /// bytes as secret key material (never log or persist them in the clear).
-    pub fn export_secret(&self, label: &str, context: &[u8], length: usize) -> Result<Vec<u8>> {
+    /// The returned buffer is [`Zeroizing`] — it is wiped on drop.
+    pub fn export_secret(
+        &self,
+        label: &str,
+        context: &[u8],
+        length: usize,
+    ) -> Result<Zeroizing<Vec<u8>>> {
         self.group
             .export_secret(self.identity.provider.crypto(), label, context, length)
+            .map(Zeroizing::new)
             .map_err(mls_error)
     }
 
@@ -346,7 +356,7 @@ impl CokretMlsGroup {
     /// MUST be called while the group is at epoch `N` (e.g. right after each
     /// commit) for the secret to be recoverable afterwards. Idempotent within an
     /// epoch: re-deriving overwrites with the identical value.
-    pub fn derive_and_retain_history_secret(&mut self, realm_id: &str) -> Result<Vec<u8>> {
+    pub fn derive_and_retain_history_secret(&mut self, realm_id: &str) -> Result<Zeroizing<Vec<u8>>> {
         let secret = self.export_secret(HISTORY_SECRET_LABEL, realm_id.as_bytes(), 32)?;
         self.history_secrets.insert(self.epoch(), secret.clone());
         Ok(secret)
@@ -424,7 +434,7 @@ impl CokretMlsGroup {
         &self,
         from_epoch: u64,
         to_epoch: u64,
-    ) -> Vec<(u64, Vec<u8>)> {
+    ) -> Vec<(u64, Zeroizing<Vec<u8>>)> {
         self.history_secrets
             .range(from_epoch..=to_epoch)
             .map(|(epoch, secret)| (*epoch, secret.clone()))
@@ -568,7 +578,7 @@ impl CokretMlsGroup {
             let epoch: u64 = epoch.parse().map_err(|_| {
                 Error::Protocol("OpenMLS snapshot history_secret epoch is not a u64".to_owned())
             })?;
-            history_secrets.insert(epoch, decode(secret_b64)?);
+            history_secrets.insert(epoch, Zeroizing::new(decode(secret_b64)?));
         }
 
         Ok(Self {
@@ -1107,11 +1117,11 @@ pub fn decrypt_content_exporter_aead_standalone(
         .map_err(|_| Error::Crypto("exporter-aead content tag check failed".to_owned()))
 }
 
-fn derive_content_key(history_secret: &[u8]) -> Result<[u8; CONTENT_AEAD_KEY_LEN]> {
+fn derive_content_key(history_secret: &[u8]) -> Result<Zeroizing<[u8; CONTENT_AEAD_KEY_LEN]>> {
     let hkdf = Hkdf::<Sha256>::from_prk(history_secret)
         .map_err(|_| Error::Crypto("history_secret too short for HKDF PRK".to_owned()))?;
-    let mut key = [0u8; CONTENT_AEAD_KEY_LEN];
-    hkdf.expand(CONTENT_KEY_LABEL.as_bytes(), &mut key)
+    let mut key = Zeroizing::new([0u8; CONTENT_AEAD_KEY_LEN]);
+    hkdf.expand(CONTENT_KEY_LABEL.as_bytes(), key.as_mut())
         .map_err(|_| Error::Crypto("content key derivation failed".to_owned()))?;
     Ok(key)
 }
@@ -1244,4 +1254,115 @@ pub(super) fn governance_binding_group_context_extensions(
 
 pub(super) fn mls_error(error: impl std::fmt::Debug) -> Error {
     Error::Mls(format!("{error:?}"))
+}
+
+#[cfg(test)]
+mod content_scheme_anchor_tests {
+    use chacha20poly1305::aead::{Aead, Payload};
+    use serde_json::json;
+
+    use super::{
+        MLS_EXPORTER_AEAD_CONTENT_PURPOSE, MLS_EXPORTER_AEAD_CONTENT_SCHEME, content_aead_aad,
+        content_cipher, content_nonce_array, decrypt_content_exporter_aead_standalone,
+        derive_content_key,
+    };
+    use crate::crypto::{
+        AEAD_PROFILE_XCHACHA20_POLY1305, AeadNonceContext, compose_aead_nonce,
+        derive_aead_sender_nonce_prefix,
+    };
+
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    const REALM: &str = "ck:realm:01904100-0000-7000-8000-000000000042";
+
+    /// Self-generated regression anchor (NOT a spec vector): pins the
+    /// byte-exact `mls-exporter-aead-v1` content-scheme chain from a fixed
+    /// history_secret — HKDF content key (`ck-content-v1` label), exporter
+    /// nonce-prefix derivation (`cokret-aead-sender-nonce-prefix-v1` label +
+    /// canonical context bytes), canonical AAD construction, and the AEAD
+    /// ciphertext itself. Any silent change to a label, context field, AAD
+    /// shape or nonce composition breaks these bytes. Replace with spec
+    /// vectors once the spec ships them (SDK-TEST-08).
+    #[test]
+    fn exporter_aead_content_scheme_regression_anchor() {
+        let history_secret = [0x42u8; 32];
+        let content_key = derive_content_key(&history_secret).unwrap();
+        assert_eq!(
+            hex(content_key.as_ref()),
+            "4642059a41bc938003f5594dba0c8baa69631408c417ff5fba205c4de1affa98",
+            "ck-content-v1 HKDF content key drifted"
+        );
+
+        // Exporter label/context binding: the deterministic mirror of the
+        // MLS exporter input (label || 0x00 || canonical context bytes).
+        let context = AeadNonceContext {
+            key_ref: json!({
+                "algorithm": MLS_EXPORTER_AEAD_CONTENT_SCHEME,
+                "realm_id": REALM,
+            }),
+            epoch: 3,
+            device_id: "ck:device:01904100-0000-7000-8000-000000000007".to_owned(),
+            purpose: MLS_EXPORTER_AEAD_CONTENT_PURPOSE.to_owned(),
+            aead_profile: AEAD_PROFILE_XCHACHA20_POLY1305.to_owned(),
+        };
+        let prefix = derive_aead_sender_nonce_prefix(&[0x24u8; 32], &context, 24).unwrap();
+        assert_eq!(
+            hex(&prefix),
+            "448f58a4b6a14afe04af8dc00c868da9",
+            "exporter label/context nonce-prefix derivation drifted"
+        );
+
+        let nonce = compose_aead_nonce(&prefix, 7);
+        assert_eq!(nonce.len(), 24);
+        assert_eq!(&nonce[16..], 7u64.to_be_bytes(), "counter suffix drifted");
+
+        let aad_bytes = b"anchor-aad";
+        let aad = content_aead_aad(REALM, &nonce, aad_bytes).unwrap();
+        assert_eq!(
+            std::str::from_utf8(&aad).unwrap(),
+            "{\"aad\":\"YW5jaG9yLWFhZA\",\"key_ref\":{\"algorithm\":\"mls-exporter-aead-v1\",\"realm_id\":\"ck:realm:01904100-0000-7000-8000-000000000042\"},\"nonce\":\"RI9YpLahSv4Er43ADIaNqQAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\"}",
+            "canonical content AAD drifted"
+        );
+
+        let plaintext: &[u8] = b"exporter-aead regression anchor";
+        let cipher = content_cipher(&content_key).unwrap();
+        let nonce_arr = content_nonce_array(&nonce).unwrap();
+        let ciphertext = cipher
+            .encrypt(
+                &nonce_arr.into(),
+                Payload {
+                    msg: plaintext,
+                    aad: &aad,
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            hex(&ciphertext),
+            "61f6e7789fe04229327cb1351b696e4cbc46e323ec6df1b823dc37dc86b9d88189ab5b8cf42aa7d80534b78c0c7262",
+            "exporter-aead ciphertext drifted"
+        );
+
+        // Round-trip through the standalone decrypt path.
+        let mut nonce_and_ct = nonce.clone();
+        nonce_and_ct.extend_from_slice(&ciphertext);
+        let recovered = decrypt_content_exporter_aead_standalone(
+            &history_secret,
+            REALM,
+            &nonce_and_ct,
+            aad_bytes,
+        )
+        .unwrap();
+        assert_eq!(recovered, plaintext);
+
+        // Tamper negative: a flipped ciphertext byte must fail the tag check.
+        let mut tampered = nonce_and_ct;
+        let last = tampered.len() - 1;
+        tampered[last] ^= 0x01;
+        assert!(
+            decrypt_content_exporter_aead_standalone(&history_secret, REALM, &tampered, aad_bytes)
+                .is_err()
+        );
+    }
 }

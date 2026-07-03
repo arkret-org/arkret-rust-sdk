@@ -22,7 +22,10 @@ use crate::sync::{
     ToDeviceAckStatus, ToDeviceMessage, WaitForFrontier, project_typed_vec,
     project_typed_vec_from_value,
 };
-use crate::{DeviceId, Error, Event, EventId, RealmId, Result, SyncOutcome, canonical};
+use crate::{
+    AccountStreamInterrupt, DeviceId, Error, Event, EventId, RealmId, Result, SyncOutcome,
+    canonical,
+};
 
 mod loop_control;
 mod processor;

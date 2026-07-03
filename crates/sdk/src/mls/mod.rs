@@ -110,7 +110,7 @@ mod tests {
         let group_id = base64url_encode(group_id_bytes);
         let binding = governance_binding(&group_id, 0, 0, governance_hash('1'));
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c1").unwrap(),
         )
         .unwrap();
@@ -136,7 +136,7 @@ mod tests {
     #[test]
     fn update_governance_binding_enters_group_context_extension() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c2").unwrap(),
         )
         .unwrap();
@@ -173,7 +173,7 @@ mod tests {
     #[test]
     fn governance_binding_verification_fails_closed_when_extension_missing() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c3").unwrap(),
         )
         .unwrap();
@@ -199,7 +199,7 @@ mod tests {
     #[test]
     fn governance_binding_verification_rejects_profile_downgrade() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c4").unwrap(),
         )
         .unwrap();
@@ -229,7 +229,7 @@ mod tests {
     #[test]
     fn governance_binding_verification_rejects_stale_policy_root() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c5").unwrap(),
         )
         .unwrap();
@@ -267,12 +267,12 @@ mod tests {
         // pins the contract `chat.rs` relies on when binding governance
         // payloads to the local group's schedule.
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -302,11 +302,11 @@ mod tests {
     #[test]
     fn key_package_private_state_restores_welcome_join() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob_principal = Did::new("did:web:bob.example").unwrap();
+        let bob_principal = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
         let bob_device = DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap();
         let bob = CokretMlsIdentity::new_basic(bob_principal.clone(), bob_device.clone()).unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
@@ -350,12 +350,12 @@ mod tests {
         // is the primitive the reaction routing tag (encryption-and-audit.md
         // §2.9) and SFrame keys are built on.
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000016").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000001e").unwrap(),
         )
         .unwrap();
@@ -402,12 +402,12 @@ mod tests {
         // After Add, both Alice and Bob are members; both DIDs MUST appear
         // in the snapshot. After Remove, only the surviving DID remains.
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -418,21 +418,21 @@ mod tests {
             .unwrap();
         assert_eq!(
             alice_group.member_principal_ids(),
-            vec![Did::new("did:web:alice.example").unwrap()],
+            vec![Did::new("did:webvh:z6mkfixture:alice.example").unwrap()],
         );
 
         let _ = alice_group.add_member(&bob_key_package).unwrap();
         let members = alice_group.member_principal_ids();
         assert_eq!(members.len(), 2);
-        assert!(members.contains(&Did::new("did:web:alice.example").unwrap()));
-        assert!(members.contains(&Did::new("did:web:bob.example").unwrap()));
+        assert!(members.contains(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap()));
+        assert!(members.contains(&Did::new("did:webvh:z6mkfixture:bob.example").unwrap()));
 
         let _ = alice_group
-            .remove_member_by_principal(&Did::new("did:web:bob.example").unwrap())
+            .remove_member_by_principal(&Did::new("did:webvh:z6mkfixture:bob.example").unwrap())
             .unwrap();
         assert_eq!(
             alice_group.member_principal_ids(),
-            vec![Did::new("did:web:alice.example").unwrap()],
+            vec![Did::new("did:webvh:z6mkfixture:alice.example").unwrap()],
         );
     }
 
@@ -443,7 +443,7 @@ mod tests {
     #[test]
     fn self_update_commit_advances_epoch_and_returns_typed_envelope() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
@@ -473,12 +473,12 @@ mod tests {
     #[test]
     fn openmls_group_can_add_member_encrypt_and_decrypt() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -504,17 +504,17 @@ mod tests {
     #[test]
     fn openmls_group_can_add_multiple_members_in_one_commit() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let charlie = CokretMlsIdentity::new_basic(
-            Did::new("did:web:charlie.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
@@ -553,12 +553,12 @@ mod tests {
     #[test]
     fn message_crypto_encrypts_decrypts_and_verifies_opaque_digest() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -586,12 +586,12 @@ mod tests {
     #[test]
     fn message_crypto_encrypts_with_aad_and_verifies_digest() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -628,12 +628,12 @@ mod tests {
     #[test]
     fn openmls_state_persists_through_crypto_store_record() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -666,17 +666,17 @@ mod tests {
     #[test]
     fn multi_device_workflow_applies_missed_commits_and_models_recovery() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let charlie = CokretMlsIdentity::new_basic(
-            Did::new("did:web:charlie.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
@@ -707,7 +707,7 @@ mod tests {
             .unwrap();
         assert_eq!(bob_group.epoch(), alice_group.epoch());
         let recovery = epoch_recovery_step(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
             bob_group.group_id(),
             bob_group.epoch() + 1,
@@ -722,12 +722,12 @@ mod tests {
     #[test]
     fn add_member_result_projects_to_repo_operation_and_to_device_message() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -756,7 +756,7 @@ mod tests {
     #[test]
     fn message_crypto_preserves_encrypted_content_without_available_key() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
@@ -792,12 +792,12 @@ mod tests {
     #[test]
     fn encrypted_timeline_preserves_then_decrypts_after_welcome_arrives() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -826,17 +826,17 @@ mod tests {
     #[test]
     fn epoch_recovery_request_and_response_catch_up_offline_device() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let charlie = CokretMlsIdentity::new_basic(
-            Did::new("did:web:charlie.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
@@ -859,7 +859,7 @@ mod tests {
         // Create a recovery request.
         let request = EpochRecoveryRequestBody::new(
             bob_group.group_id(),
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
             bob_epoch_before,
             alice_group.epoch(),
@@ -891,7 +891,7 @@ mod tests {
     fn epoch_recovery_request_validates_range() {
         let request = EpochRecoveryRequestBody::new(
             "",
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
             5,
             3,
@@ -900,7 +900,7 @@ mod tests {
 
         let request = EpochRecoveryRequestBody::new(
             "group1",
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
             5,
             5,
@@ -911,17 +911,17 @@ mod tests {
     #[test]
     fn welcome_recipient_must_match_identity() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let mallory = CokretMlsIdentity::new_basic(
-            Did::new("did:web:mallory.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:mallory.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000010").unwrap(),
         )
         .unwrap();
@@ -944,17 +944,17 @@ mod tests {
     #[test]
     fn remove_member_by_principal_advances_epoch_and_emits_commit() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let charlie = CokretMlsIdentity::new_basic(
-            Did::new("did:web:charlie.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
@@ -971,7 +971,7 @@ mod tests {
             CokretMlsGroup::join_from_welcome(charlie, &add_charlie.welcome).unwrap();
 
         let epoch_before = alice_group.epoch();
-        let target = Did::new("did:web:charlie.example").unwrap();
+        let target = Did::new("did:webvh:z6mkfixture:charlie.example").unwrap();
         let result = alice_group.remove_member_by_principal(&target).unwrap();
 
         // Epoch advanced by exactly one Commit.
@@ -984,7 +984,7 @@ mod tests {
         assert_eq!(result.removed_principals.len(), 1);
         assert_eq!(
             result.removed_principals[0].as_str(),
-            "did:web:charlie.example"
+            "did:webvh:z6mkfixture:charlie.example"
         );
     }
 
@@ -994,7 +994,7 @@ mod tests {
     #[test]
     fn remove_member_by_principal_errors_when_target_absent() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
@@ -1002,7 +1002,7 @@ mod tests {
             .create_group(b"ck:realm:01904100-0000-7000-8000-3cf34eced3c3")
             .unwrap();
 
-        let absent = Did::new("did:web:nobody.example").unwrap();
+        let absent = Did::new("did:webvh:z6mkfixture:nobody.example").unwrap();
         let err = alice_group.remove_member_by_principal(&absent);
         assert!(matches!(err, Err(Error::Protocol(_))));
     }
@@ -1010,7 +1010,7 @@ mod tests {
     #[test]
     fn encrypted_envelope_v1_conforms_and_round_trips_losslessly() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000abcd").unwrap(),
         )
         .unwrap();
@@ -1100,12 +1100,12 @@ mod tests {
     #[test]
     fn remove_member_by_leaf_accepts_raw_index() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -1120,7 +1120,7 @@ mod tests {
         // Bob's leaf is at index 1 (Alice is index 0 as group creator).
         let result = alice_group.remove_member_by_leaf(1).unwrap();
         assert_eq!(result.removed_leaves, vec![1]);
-        assert_eq!(result.removed_principals[0].as_str(), "did:web:bob.example");
+        assert_eq!(result.removed_principals[0].as_str(), "did:webvh:z6mkfixture:bob.example");
     }
 
     /// T31 — `commit_operation` projects the result into the same
@@ -1129,12 +1129,12 @@ mod tests {
     #[test]
     fn remove_result_commit_operation_uses_mls_commit_op_type() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
@@ -1146,7 +1146,7 @@ mod tests {
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = CokretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
         let result = alice_group
-            .remove_member_by_principal(&Did::new("did:web:bob.example").unwrap())
+            .remove_member_by_principal(&Did::new("did:webvh:z6mkfixture:bob.example").unwrap())
             .unwrap();
 
         let op_id = OperationId::new("ck:operation:01904100-0000-7000-8000-00a9123c0f9c").unwrap();
@@ -1162,7 +1162,7 @@ mod tests {
 
     fn exporter_aead_founder() -> CokretMlsGroup {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-00000000ae01").unwrap(),
         )
         .unwrap();
@@ -1248,8 +1248,10 @@ mod tests {
         // Receiver device keypair; provider HPKE-seals the range to its pubkey.
         let receiver_priv = x25519_dalek::StaticSecret::from([42u8; 32]);
         let receiver_pub = *x25519_dalek::PublicKey::from(&receiver_priv).as_bytes();
+        let range_plain: Vec<(u64, Vec<u8>)> =
+            range.iter().map(|(epoch, secret)| (*epoch, secret.to_vec())).collect();
         let share_ciphertext =
-            crate::secret_share::seal_history_secret_to_device_pubkey(&receiver_pub, &range)
+            crate::secret_share::seal_history_secret_to_device_pubkey(&receiver_pub, &range_plain)
                 .unwrap();
 
         // Receiver unseals and recovers history_secret[N]...
@@ -1258,7 +1260,7 @@ mod tests {
             &share_ciphertext,
         )
         .unwrap();
-        assert_eq!(installed, range);
+        assert_eq!(installed, range_plain);
         let history_secret_n = &installed[0].1;
 
         // ...and decrypts the epoch-N content with it. A fresh group view (no

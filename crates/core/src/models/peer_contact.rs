@@ -177,7 +177,7 @@ mod tests {
             "event_id": "ck:event:01904100-0000-7000-8000-79a90338768b",
             "kind": kind,
             "realm_id": "ck:realm:01904100-0000-7000-8000-000000000001",
-            "actor_id": "did:web:alice.example",
+            "actor_id": "did:webvh:z6mkfixture:alice.example",
             "actor_seq": 1,
             "created_at": "2026-06-07T10:00:00Z",
             "hlc": "01970e589d21-0001-a13f9c2e",
@@ -193,8 +193,8 @@ mod tests {
         let request = PeerContactDeliveryRequest::new(
             event("ck.contact.requested"),
             PeerContactAddress {
-                subject_id: did("did:web:bob.example"),
-                recipient_service_did: did("did:web:bob.example"),
+                subject_id: did("did:webvh:z6mkfixture:bob.example"),
+                recipient_service_did: did("did:webvh:z6mkfixture:bob.example"),
                 recipient_service_type: None,
             },
             PeerContactFactKind::Requested,
@@ -215,13 +215,13 @@ mod tests {
         let handle = Handle::parse("alice:example.com").unwrap();
         let claim = HandleClaim {
             handle: Some(handle.clone()),
-            subject: Some(did("did:web:alice.example")),
+            subject: Some(did("did:webvh:z6mkfixture:alice.example")),
             binding_state: Some(HandleBindingState::Verified),
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
             proofs: vec![PayloadProof {
                 kind: "detached_jws".to_owned(),
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:web:issuer.example#key-1".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:issuer.example#key-1".to_owned(),
                 payload_digest: Hash::new(format!("sha256:{}", "4".repeat(64))).unwrap(),
                 created_at: Utc::now(),
                 domain: None,
@@ -233,7 +233,7 @@ mod tests {
         let evidence = ContactIntroductionEvidence::HandleClaim {
             handle,
             handle_claim: Box::new(claim),
-            resolved_by: Some(did("did:web:directory.example")),
+            resolved_by: Some(did("did:webvh:z6mkfixture:directory.example")),
             resolved_at: None,
         };
         assert_eq!(evidence.kind(), "handle_claim");

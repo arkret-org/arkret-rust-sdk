@@ -825,7 +825,7 @@ mod realm_organization_tests {
     fn legacy_organization_ref_shape_fails_to_deserialize() {
         // The pre-migration singleton shape `{ "organization_ref": ... }` must
         // not deserialize into the relationship-statement strong type.
-        let legacy = json!({ "organization_ref": "did:web:org.example" });
+        let legacy = json!({ "organization_ref": "did:webvh:z6mkfixture:org.example" });
         assert!(serde_json::from_value::<RealmOrganizationPayload>(legacy).is_err());
     }
 }

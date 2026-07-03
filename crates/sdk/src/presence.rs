@@ -186,7 +186,7 @@ mod tests {
         let base_client = Arc::new(BaseClient::new());
         let manager = PresenceManager::new(base_client);
 
-        let user_id = Did::new("did:web:alice.example.com").unwrap();
+        let user_id = Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap();
         let presence = Presence {
             user_id: user_id.clone(),
             status: PresenceStatus::Online,
@@ -207,7 +207,7 @@ mod tests {
         let base_client = Arc::new(BaseClient::new());
         let manager = PresenceManager::new(base_client);
 
-        let user_id = Did::new("did:web:alice.example.com").unwrap();
+        let user_id = Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap();
 
         manager
             .update_status(&user_id, PresenceStatus::Online)
@@ -228,8 +228,8 @@ mod tests {
         let base_client = Arc::new(BaseClient::new());
         let manager = PresenceManager::new(base_client);
 
-        let user1 = Did::new("did:web:alice.example.com").unwrap();
-        let user2 = Did::new("did:web:bob.example.com").unwrap();
+        let user1 = Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap();
+        let user2 = Did::new("did:webvh:z6mkfixture:bob.example.com").unwrap();
 
         manager
             .update_status(&user1, PresenceStatus::Online)
@@ -248,9 +248,9 @@ mod tests {
         let base_client = Arc::new(BaseClient::new());
         let manager = PresenceManager::new(base_client);
 
-        let user1 = Did::new("did:web:alice.example.com").unwrap();
-        let user2 = Did::new("did:web:bob.example.com").unwrap();
-        let user3 = Did::new("did:web:charlie.example.com").unwrap();
+        let user1 = Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap();
+        let user2 = Did::new("did:webvh:z6mkfixture:bob.example.com").unwrap();
+        let user3 = Did::new("did:webvh:z6mkfixture:charlie.example.com").unwrap();
 
         manager
             .update_status(&user1, PresenceStatus::Online)

@@ -421,7 +421,7 @@ mod tests {
     #[test]
     fn verifies_required_service_profile_and_operation() {
         let description = ServerDescription {
-            service_did: Did::new("did:web:svc.example").unwrap(),
+            service_did: Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
             trust_domain: crate::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
             service_type: "directory_service".to_owned(),
             protocol_version: "1.0".to_owned(),
@@ -490,7 +490,7 @@ mod tests {
 
     #[test]
     fn service_did_allowlist_verifies_description_and_operations() {
-        let service_did = Did::new("did:web:svc.example").unwrap();
+        let service_did = Did::new("did:webvh:z6mkfixture:svc.example").unwrap();
         let allowlist = ServiceDidAllowlist::new().allow(ServiceEndpointBinding {
             service_did: service_did.clone(),
             service_type: ServiceType::DirectoryService,
@@ -574,7 +574,7 @@ mod tests {
     fn api_metadata_errors_carry_privacy_rate_limit_quota_and_trace() {
         let trace = HttpTraceMetadata {
             request_id: Some("req_123".to_owned()),
-            actor_id: Some(Did::new("did:web:alice.example").unwrap()),
+            actor_id: Some(Did::new("did:webvh:z6mkfixture:alice.example").unwrap()),
             device_id: None,
             realm_id: Some(RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
             operation_id: None,
@@ -589,7 +589,7 @@ mod tests {
 
         let rate_limited = rate_limited_error(RateLimitMetadata {
             scope: RateLimitScopeKind::Actor,
-            subject: "did:web:alice.example".to_owned(),
+            subject: "did:webvh:z6mkfixture:alice.example".to_owned(),
             limit: 60,
             remaining: 0,
             reset_at: None,
@@ -600,7 +600,7 @@ mod tests {
 
         let quota = quota_exceeded_error(QuotaMetadata {
             quota: QuotaKind::BlobBytes,
-            subject: "did:web:alice.example".to_owned(),
+            subject: "did:webvh:z6mkfixture:alice.example".to_owned(),
             limit: 1024,
             used: 2048,
             unit: "bytes".to_owned(),

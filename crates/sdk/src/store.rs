@@ -386,7 +386,7 @@ mod tests {
             event_id: EventId::new(event_id).unwrap(),
             kind: crate::OP_MORPH_CREATE.into(),
             realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
-            actor_id: Did::new("did:web:alice.example.com").unwrap(),
+            actor_id: Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
             actor_seq: 1,
             created_at: Utc::now(),
             hlc: Hlc::new("01970e589d22-0009-11111111").unwrap(),
@@ -408,7 +408,7 @@ mod tests {
                     "schema_refs": [crate::MORPH_SCHEMA],
                     "morph_type": "task",
                     "metadata": {"title": title},
-                    "created_by": "did:web:alice.example.com",
+                    "created_by": "did:webvh:z6mkfixture:alice.example.com",
                     "created_at": "2026-05-02T00:00:00.000Z"
                 }
             }),
@@ -433,7 +433,7 @@ mod tests {
             media_type: "text/plain".to_owned(),
             filename: Some("note.txt".to_owned()),
             encryption: Some(json!({"scheme": "none"})),
-            created_by: Did::new("did:web:alice.example").unwrap(),
+            created_by: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             created_at: Utc::now(),
             updated_by: None,
             updated_at: None,
@@ -460,7 +460,7 @@ mod tests {
                 "schema_refs": [crate::MORPH_SCHEMA],
                 "morph_type": "task",
                 "metadata": {"title": "Changed"},
-                "created_by": "did:web:alice.example.com",
+                "created_by": "did:webvh:z6mkfixture:alice.example.com",
                 "created_at": "2026-05-02T00:00:00.000Z"
             }
         });
@@ -480,7 +480,7 @@ mod tests {
             Some(ObjectState::Active)
         );
 
-        store.put_state_snapshot(state.snapshot()).unwrap();
+        store.put_state_snapshot(state.snapshot().unwrap()).unwrap();
         let restored = restore_realm_state_from_persistence(&store, &realm_id).unwrap();
         assert_eq!(restored.source, SnapshotRestoreSource::Snapshot);
         assert_eq!(restored.state.morphs.len(), 1);
@@ -489,7 +489,7 @@ mod tests {
     #[test]
     fn memory_persistence_store_roundtrips_auxiliary_records() {
         let mut store = MemoryPersistenceStore::new();
-        let principal_id = Did::new("did:web:alice.example").unwrap();
+        let principal_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
         let device_id = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap();
         let session = AuthSession {
             session_id: "sess-1".to_owned(),
@@ -552,7 +552,7 @@ mod tests {
         let replay = FederationReplayRecord {
             transaction_id: "txn-1".to_owned(),
             origin: principal_id,
-            destination: Did::new("did:web:bob.example").unwrap(),
+            destination: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             request_digest:
                 "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
             response_digest: None,

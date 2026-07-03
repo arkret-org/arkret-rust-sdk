@@ -965,10 +965,10 @@ fn constraint_effect(value: Option<&str>) -> ConstraintEffect {
     }
 }
 
-fn rate_limit_scope(value: Option<&str>) -> RateLimitScope {
+fn rate_limit_scope(value: Option<&str>) -> GrantRateLimitScope {
     match value {
-        Some("per_space") => RateLimitScope::PerSpace,
-        _ => RateLimitScope::Global,
+        Some("per_space") => GrantRateLimitScope::PerSpace,
+        _ => GrantRateLimitScope::Global,
     }
 }
 
@@ -1275,11 +1275,11 @@ mod capability_grant_builder_tests {
     }
 
     fn alice() -> Did {
-        Did::new("did:web:alice.example").unwrap()
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
     }
 
     fn bob() -> Did {
-        Did::new("did:web:bob.example").unwrap()
+        Did::new("did:webvh:z6mkfixture:bob.example").unwrap()
     }
 
     fn hlc() -> crate::Hlc {
@@ -1339,8 +1339,8 @@ mod capability_grant_builder_tests {
             "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
         assert_eq!(artifact["schema"], CAPABILITY_SCHEMA);
-        assert_eq!(artifact["issuer"], "did:web:alice.example");
-        assert_eq!(artifact["subject"], "did:web:bob.example");
+        assert_eq!(artifact["issuer"], "did:webvh:z6mkfixture:alice.example");
+        assert_eq!(artifact["subject"], "did:webvh:z6mkfixture:bob.example");
         assert!(artifact.get("issued_at").is_some());
         assert!(
             artifact["proofs"]
@@ -1440,7 +1440,7 @@ mod capability_grant_builder_tests {
             id: GrantId::new("ck:grant:01904100-0000-7000-8000-000000000002").unwrap(),
             parent_grant_id: Some(parent.id.clone()),
             issuer: bob(),
-            subject: CapabilitySubject::Did(Did::new("did:web:carol.example").unwrap()),
+            subject: CapabilitySubject::Did(Did::new("did:webvh:z6mkfixture:carol.example").unwrap()),
             actions: vec!["ck.message.create".to_owned()],
             proofs: vec![proof(&bob())],
             ..base_grant()
@@ -1461,7 +1461,7 @@ mod capability_grant_builder_tests {
             id: GrantId::new("ck:grant:01904100-0000-7000-8000-000000000002").unwrap(),
             parent_grant_id: Some(parent.id.clone()),
             issuer: bob(),
-            subject: CapabilitySubject::Did(Did::new("did:web:carol.example").unwrap()),
+            subject: CapabilitySubject::Did(Did::new("did:webvh:z6mkfixture:carol.example").unwrap()),
             proofs: vec![proof(&bob())],
             ..base_grant()
         };

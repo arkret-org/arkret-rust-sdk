@@ -294,11 +294,11 @@ mod tests {
     }
 
     fn alice() -> Did {
-        Did::new("did:web:alice.example").unwrap()
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
     }
 
     fn bob() -> Did {
-        Did::new("did:web:bob.example").unwrap()
+        Did::new("did:webvh:z6mkfixture:bob.example").unwrap()
     }
 
     fn move_id(byte: u8) -> cokret_core::MoveId {
@@ -324,7 +324,7 @@ mod tests {
         let t1 = consent_tag("cs-001", &bob(), Scope::Invite);
         let t2 = consent_tag("cs-001", &bob(), Scope::Invite);
         assert_eq!(t1, t2);
-        assert_eq!(t1, "grant:cs-001:did:web:bob.example:invite");
+        assert_eq!(t1, "grant:cs-001:did:webvh:z6mkfixture:bob.example:invite");
     }
 
     #[test]
@@ -346,12 +346,12 @@ mod tests {
         assert_eq!(eff.op.op_type, LatticeOpType::Add);
         assert_eq!(
             eff.op.tag.as_deref(),
-            Some("grant:cs-001:did:web:bob.example:invite")
+            Some("grant:cs-001:did:webvh:z6mkfixture:bob.example:invite")
         );
         let value = eff.op.value.as_ref().unwrap();
         assert_eq!(value.get("consent_id").unwrap(), "cs-001");
         assert_eq!(value.get("scope").unwrap(), "invite");
-        assert_eq!(value.get("peer").unwrap(), "did:web:bob.example");
+        assert_eq!(value.get("peer").unwrap(), "did:webvh:z6mkfixture:bob.example");
         assert!(value.get("expires_at").is_some());
     }
 
@@ -366,12 +366,12 @@ mod tests {
         assert_eq!(pre.predicate.op, PredicateOp::Contains);
         assert_eq!(
             pre.predicate.value.as_ref().unwrap(),
-            "grant:cs-001:did:web:bob.example:invite"
+            "grant:cs-001:did:webvh:z6mkfixture:bob.example:invite"
         );
         assert_eq!(eff.op.op_type, LatticeOpType::Remove);
         assert_eq!(
             eff.op.tag.as_deref(),
-            Some("grant:cs-001:did:web:bob.example:invite")
+            Some("grant:cs-001:did:webvh:z6mkfixture:bob.example:invite")
         );
         assert_eq!(eff.op.reason.as_deref(), Some("incident"));
     }
@@ -520,7 +520,7 @@ mod tests {
         assert_eq!(pre.predicate.op, PredicateOp::Contains);
         assert_eq!(
             pre.predicate.value.as_ref().unwrap(),
-            "grant:cs-001:did:web:bob.example:invite"
+            "grant:cs-001:did:webvh:z6mkfixture:bob.example:invite"
         );
     }
 

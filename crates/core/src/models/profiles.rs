@@ -1090,7 +1090,7 @@ mod erasure_receipt_tests {
         let mut receipt = ErasureReceipt {
             receipt_id: "ck:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
             schema: ErasureReceipt::SCHEMA.to_owned(),
-            issuer: Did::new("did:web:erasure.example".to_owned()).unwrap(),
+            issuer: Did::new("did:webvh:z6mkfixture:erasure.example".to_owned()).unwrap(),
             subject: ErasureSubject {
                 kind: ErasureSubjectKind::Event,
                 reference: "ck:event:01970e58-0004-7000-8000-000000000004".to_owned(),
@@ -1110,7 +1110,7 @@ mod erasure_receipt_tests {
             completed_at: Utc::now(),
             issued_at: None,
             proofs: vec![ErasureReceiptProof {
-                verification_method: "did:web:erasure.example#key-1".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:erasure.example#key-1".to_owned(),
                 payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 signature: "zplaceholder".to_owned(),
                 extra: BTreeMap::new(),

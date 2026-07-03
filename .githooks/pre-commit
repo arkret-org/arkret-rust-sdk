@@ -55,9 +55,6 @@ for path in $rust_touched; do
         crates/signatures/*)
             add_package cokret-signatures
             ;;
-        crates/testing/*)
-            add_package cokret-testing
-            ;;
         *)
             workspace_touched=true
             ;;

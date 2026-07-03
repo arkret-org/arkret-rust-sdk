@@ -279,9 +279,12 @@ impl PolicyEvaluationResult {
     }
 }
 
-/// Moderation report bound to a restrictive policy outcome.
+/// Client-local moderation report bound to a restrictive policy outcome.
+///
+/// Distinct from the wire `cokret_core::ModerationReport`
+/// (moderation.md §3 report resource).
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ModerationReport {
+pub struct PolicyModerationReport {
     pub report_id: String,
     pub policy_id: Option<String>,
     pub actor_id: Did,
@@ -1485,11 +1488,11 @@ pub fn moderation_report_for_policy_outcome(
     ctx: &AuthzContext,
     policy: &PolicyEvaluationResult,
     now: DateTime<Utc>,
-) -> Option<ModerationReport> {
+) -> Option<PolicyModerationReport> {
     if policy.effect == PolicyServerEffect::NoAction {
         return None;
     }
-    Some(ModerationReport {
+    Some(PolicyModerationReport {
         report_id: policy
             .moderation_report_id
             .clone()
@@ -1511,11 +1514,11 @@ mod engine_wire_tests {
     use super::*;
 
     fn alice() -> Did {
-        Did::new("did:web:alice.example").unwrap()
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
     }
 
     fn bob() -> Did {
-        Did::new("did:web:bob.example").unwrap()
+        Did::new("did:webvh:z6mkfixture:bob.example").unwrap()
     }
 
     fn proof(issuer: &Did) -> cokret_core::Proof {
@@ -1738,7 +1741,7 @@ mod engine_wire_tests {
             "subtype": "approval",
             "effect": "require_review",
             "approval_required": true,
-            "approval_actor_ids": ["did:web:carol.example"],
+            "approval_actor_ids": ["did:webvh:z6mkfixture:carol.example"],
         })]);
         assert!(grant_requires_approval(&grant));
 
@@ -1753,14 +1756,14 @@ mod engine_wire_tests {
         let proposal = approvals.submit_proposal(
             grant.clone(),
             alice(),
-            vec![Did::new("did:web:carol.example").unwrap()],
+            vec![Did::new("did:webvh:z6mkfixture:carol.example").unwrap()],
             ApprovalMode::Any,
             None,
         );
         approvals
             .record_approval(
                 &proposal.proposal_id,
-                Did::new("did:web:carol.example").unwrap(),
+                Did::new("did:webvh:z6mkfixture:carol.example").unwrap(),
                 true,
                 None,
             )

@@ -10,7 +10,7 @@ fn valid_proof() -> Proof {
     Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:web:alice.example#key-1".to_owned(),
+        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
         event_digest: Hash::new(
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
@@ -54,12 +54,12 @@ fn relation_requires_exact_wire_endpoints() {
         effective_scope: None,
         relation_kind: RelationKind::Mentions,
         from_ref: "ck:morph:01904100-0000-7000-8000-c12dc98b2948".to_owned(),
-        to_ref: "did:web:alice.example".to_owned(),
+        to_ref: "did:webvh:z6mkfixture:alice.example".to_owned(),
         rank: None,
         fields: BTreeMap::new(),
         state: None,
         state_changed_at: None,
-        created_by: Did::new("did:web:alice.example").unwrap(),
+        created_by: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         created_at: Utc::now(),
         updated_by: None,
         updated_at: None,
@@ -155,7 +155,7 @@ fn view_supports_renderer_and_facet_config_facades() {
         document: None,
         dashboard: None,
         sort: Vec::new(),
-        created_by: Did::new("did:web:alice.example").unwrap(),
+        created_by: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         created_at: Utc::now(),
         updated_by: None,
         updated_at: None,
@@ -259,15 +259,40 @@ fn proof_validate_production_rejects_unsupported_algorithms() {
 }
 
 #[test]
-fn proof_validate_production_accepts_known_algorithms() {
-    // The accepted set MUST equal the signature-alg-registry active rows
-    // (encoding.md §6.1): EdDSA / ES256 / ML-DSA-65.
-    for alg in &["EdDSA", "ES256", "ML-DSA-65"] {
+fn proof_validate_production_accepts_only_verifiable_algorithms() {
+    // SDK-CRY-02: the accepted set is the intersection of the
+    // signature-alg-registry active rows (encoding.md §6.1) with what this
+    // SDK can actually verify — exactly EdDSA.
+    let mut proof = valid_proof();
+    proof.alg = "EdDSA".to_owned();
+    assert!(proof.validate_production().is_ok());
+}
+
+#[test]
+fn proof_validate_production_rejects_algorithms_without_a_verifier() {
+    // ES256 / ML-DSA-65 are registry-active but ship no signer/verifier in
+    // this SDK; admitting them would let a proof pass the structural gate
+    // that no verifier can actually check (alg-confusion foot-gun).
+    for alg in &["ES256", "ML-DSA-65"] {
         let mut proof = valid_proof();
         proof.alg = alg.to_string();
         assert!(
-            proof.validate_production().is_ok(),
-            "should accept algorithm: {alg}"
+            proof.validate_production().is_err(),
+            "should reject unverifiable algorithm: {alg}"
+        );
+    }
+}
+
+#[test]
+fn proof_validate_production_requires_exact_algorithm_case() {
+    // Matching is case-sensitive, aligned with the verifiers: `eddsa` must
+    // not pass the gate only to be rejected by the case-sensitive verifier.
+    for alg in &["eddsa", "EDDSA", "EddSA"] {
+        let mut proof = valid_proof();
+        proof.alg = alg.to_string();
+        assert!(
+            proof.validate_production().is_err(),
+            "should reject non-exact-case algorithm: {alg}"
         );
     }
 }
@@ -290,22 +315,22 @@ fn proof_validate_production_rejects_unregistered_algorithms() {
 #[test]
 fn proof_validate_binding_matches_expected_fields() {
     let proof = valid_proof();
-    let expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+    let expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     assert!(proof.validate_binding(&expected).is_ok());
 }
 
 #[test]
 fn proof_validate_binding_rejects_mismatched_verification_method() {
     let proof = valid_proof();
-    let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
-    expected.verification_method = "did:web:bob.example#key-1".to_owned();
+    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+    expected.verification_method = "did:webvh:z6mkfixture:bob.example#key-1".to_owned();
     assert!(proof.validate_binding(&expected).is_err());
 }
 
 #[test]
 fn proof_validate_binding_rejects_mismatched_payload_digest() {
     let proof = valid_proof();
-    let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     expected.payload_digest =
         Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
             .unwrap();
@@ -315,7 +340,7 @@ fn proof_validate_binding_rejects_mismatched_payload_digest() {
 #[test]
 fn proof_validate_binding_rejects_mismatched_domain() {
     let proof = valid_proof();
-    let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     expected.domain = Some("other.example".to_owned());
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -324,7 +349,7 @@ fn proof_validate_binding_rejects_mismatched_domain() {
 fn proof_validate_binding_rejects_mismatched_audience() {
     let mut proof = valid_proof();
     proof.audience = Some(Audience::Single("svc-a".to_owned()));
-    let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     expected.audience = Some(Audience::Single("svc-b".to_owned()));
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -333,11 +358,11 @@ fn proof_validate_binding_rejects_mismatched_audience() {
 fn proof_validate_binding_accepts_multi_audience_covering_required_context() {
     let mut proof = valid_proof();
     proof.audience = Some(Audience::Multiple(vec![
-        "did:web:service-a.example".to_owned(),
-        "did:web:service-b.example".to_owned(),
+        "did:webvh:z6mkfixture:service-a.example".to_owned(),
+        "did:webvh:z6mkfixture:service-b.example".to_owned(),
     ]));
-    let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
-    expected.audience = Some(Audience::Single("did:web:service-b.example".to_owned()));
+    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+    expected.audience = Some(Audience::Single("did:webvh:z6mkfixture:service-b.example".to_owned()));
     assert!(proof.validate_binding(&expected).is_ok());
 }
 
@@ -345,8 +370,8 @@ fn proof_validate_binding_accepts_multi_audience_covering_required_context() {
 fn proof_validate_binding_ignores_domain_and_audience_when_context_is_local() {
     let mut proof = valid_proof();
     proof.domain = Some("ck:trust_domain:example.net".to_owned());
-    proof.audience = Some(Audience::Single("did:web:service.example".to_owned()));
-    let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+    proof.audience = Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()));
+    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     expected.domain = None;
     expected.audience = None;
     assert!(proof.validate_binding(&expected).is_ok());
@@ -355,10 +380,10 @@ fn proof_validate_binding_ignores_domain_and_audience_when_context_is_local() {
 #[test]
 fn proof_validate_cross_domain_binding_requires_domain_and_audience() {
     let mut proof = valid_proof();
-    proof.audience = Some(Audience::Single("did:web:service.example".to_owned()));
-    let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+    proof.audience = Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()));
+    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     expected.domain = Some("ck:trust_domain:example.net".to_owned());
-    expected.audience = Some(Audience::Single("did:web:service.example".to_owned()));
+    expected.audience = Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()));
     let error = proof.validate_cross_domain_binding(&expected).unwrap_err();
     assert!(
         error.to_string().contains("proof_binding_missing"),
@@ -373,8 +398,8 @@ fn proof_validate_cross_domain_binding_requires_domain_and_audience() {
 fn proof_validate_cross_domain_binding_requires_expected_context() {
     let mut proof = valid_proof();
     proof.domain = Some("ck:trust_domain:example.net".to_owned());
-    proof.audience = Some(Audience::Single("did:web:service.example".to_owned()));
-    let expected = valid_proof().binding_payload(&Did::new("did:web:alice.example").unwrap());
+    proof.audience = Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()));
+    let expected = valid_proof().binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     let error = proof.validate_cross_domain_binding(&expected).unwrap_err();
     assert!(
         error.to_string().contains("proof_binding_missing"),
@@ -403,7 +428,7 @@ fn proof_validate_rejects_empty_domain_or_audience() {
 #[test]
 fn proof_validate_binding_rejects_excessive_time_drift() {
     let proof = valid_proof();
-    let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     expected.created_at = "2026-04-26T01:00:00Z".parse().unwrap();
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -413,7 +438,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
     let event = Event::new(
         "ck.message.create",
         test_realm_id(),
-        Did::new("did:web:alice.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
@@ -424,7 +449,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
     let proof = Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:web:alice.example#key-1".to_owned(),
+        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
         event_digest: Hash::new(digest).unwrap(),
         created_at: Utc::now(),
         domain: None,
@@ -442,7 +467,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
     let event = Event::new(
         "ck.message.create",
         test_realm_id(),
-        Did::new("did:web:alice.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
@@ -452,7 +477,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
     let bad_proof = Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:web:alice.example#key-1".to_owned(),
+        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
         event_digest: Hash::new(
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
@@ -473,7 +498,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     let event = Event::new(
         "ck.message.create",
         test_realm_id(),
-        Did::new("did:web:alice.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
@@ -484,11 +509,11 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     let proof = Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:web:alice.example#key-1".to_owned(),
+        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
         event_digest: Hash::new(digest).unwrap(),
         created_at: Utc::now(),
         domain: None,
-        audience: Some(Audience::Single("did:web:service.example".to_owned())),
+        audience: Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
         jws: "sig".to_owned(),
     };
     let mut signed_event = event;
@@ -496,7 +521,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     let error = signed_event
         .validate_proof_bindings_with_context(
             Some("ck:trust_domain:example.net".to_owned()),
-            Some(Audience::Single("did:web:service.example".to_owned())),
+            Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
             ProofBindingRequirements::cross_domain(),
         )
         .unwrap_err();
@@ -509,7 +534,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         signed_event
             .validate_proof_bindings_with_context(
                 Some("ck:trust_domain:example.net".to_owned()),
-                Some(Audience::Single("did:web:service.example".to_owned())),
+                Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
                 ProofBindingRequirements::cross_domain(),
             )
             .is_ok()
@@ -521,7 +546,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
     let mut operation = OperationEnvelopeBuilder::new(
         OperationId::new("ck:operation:01904100-0000-7000-8000-9c5aa4740640").unwrap(),
         test_realm_id(),
-        Did::new("did:web:alice.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         OP_MESSAGE_CREATE,
         7,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -537,11 +562,11 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
     operation.proofs = vec![Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:web:alice.example#key-1".to_owned(),
+        verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
         event_digest: Hash::new(digest).unwrap(),
         created_at: Utc::now(),
         domain: None,
-        audience: Some(Audience::Single("did:web:service.example".to_owned())),
+        audience: Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
         jws: "sig".to_owned(),
     }];
 
@@ -549,7 +574,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
         operation
             .validate_proof_bindings_with_context(
                 Some("ck:trust_domain:example.net".to_owned()),
-                Some(Audience::Single("did:web:service.example".to_owned())),
+                Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
                 ProofBindingRequirements::cross_domain(),
             )
             .unwrap_err()
@@ -563,7 +588,7 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     let mut event = Event::new(
         "ck.message.create",
         test_realm_id(),
-        Did::new("did:web:alice.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
@@ -612,7 +637,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
     let operation = OperationEnvelopeBuilder::new(
         OperationId::new("ck:operation:01904100-0000-7000-8000-9c5aa474063f").unwrap(),
         test_realm_id(),
-        Did::new("did:web:alice.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         OP_MESSAGE_CREATE,
         7,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),

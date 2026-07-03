@@ -51,30 +51,29 @@ pub use proof::{
 pub use realm_organization::realm_organization_statement_sign;
 use serde::{Deserialize, Serialize};
 
-/// Production-grade proof algorithms this SDK can actually produce and/or
-/// verify on the client. These are the classically-implementable `active` rows
-/// of `artifacts/registry/signature-alg-registry.json` (`proof_alg` values) per
-/// `encoding.md` §6.1: `EdDSA` (Ed25519, default-MUST) and `ES256` (ECDSA
-/// P-256, profile-gated classical interop). Unregistered algorithms (`ES256K` /
-/// `RS256` / `PS256`) MUST NOT appear here.
+/// Production-grade proof algorithms this SDK can actually produce and verify.
 ///
-/// `ML-DSA-65` is a registered active row but is wire-reserved here — see
-/// [`FUTURE_ALGORITHMS`]. It is intentionally excluded so callers do not select
-/// it as a usable client algorithm when no PQ signer/verifier exists.
-pub const PRODUCTION_ALGORITHMS: &[&str] = &["EdDSA", "ES256"];
+/// Re-export of the single source of truth in `cokret-core`
+/// ([`cokret_core::PRODUCTION_ALGORITHMS`]) so the structural gate
+/// (`Proof::validate_production`) and this crate's verifiers can never
+/// diverge again. The v1 set is exactly `["EdDSA"]` — see the core constant's
+/// documentation for why the other registry-active rows are excluded.
+pub use cokret_core::PRODUCTION_ALGORITHMS;
 
 /// Wire-reserved proof algorithms: registered `active` rows of the
 /// signature-alg-registry whose wire `proof_alg` value this SDK can parse and
 /// recognise, but for which it ships **no client signer or verifier yet**.
 ///
-/// `ML-DSA-65` (NIST FIPS 204 ML-DSA category 3, `role=v1_profile_gated_pqc`
-/// behind `ck.profile.signature.pqc.v1`) is here because the workspace pulls in
-/// no FIPS 204 / ML-DSA crate; the EdDSA verifier fails closed on it (it is
-/// never mistaken for valid). Activating real PQ signing — adding a FIPS 204
-/// dependency and a dispatch arm — is a separate mid-term owner decision
-/// (SDK-SOTA-01), tracked so this constant is the single place to flip it into
+/// `ES256` (ECDSA P-256, profile-gated classical interop) has no P-256
+/// signer/verifier in this workspace. `ML-DSA-65` (NIST FIPS 204 ML-DSA
+/// category 3, `role=v1_profile_gated_pqc` behind
+/// `ck.profile.signature.pqc.v1`) is here because the workspace pulls in no
+/// FIPS 204 / ML-DSA crate. The EdDSA verifier fails closed on both (they are
+/// never mistaken for valid). Activating either — adding the dependency and a
+/// dispatch arm — is a separate mid-term owner decision (SDK-SOTA-01), tracked
+/// so this constant is the single place to flip an entry into
 /// [`PRODUCTION_ALGORITHMS`] once implemented.
-pub const FUTURE_ALGORITHMS: &[&str] = &["ML-DSA-65"];
+pub const FUTURE_ALGORITHMS: &[&str] = &["ES256", "ML-DSA-65"];
 pub const HTTP_MESSAGE_SIGNATURE_PROFILE: &str = "ck.http-message-signature.v1";
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -367,15 +366,18 @@ mod tests {
     use super::*;
 
     fn did(name: &str) -> Did {
-        Did::new(format!("did:web:{name}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
-    /// SDK-SOTA-01: `ML-DSA-65` is wire-reserved (registered active row, no
-    /// client impl) and MUST NOT be advertised as a usable production algorithm
-    /// while the EdDSA verifier is the only signer/verifier shipped.
+    /// SDK-SOTA-01 / SDK-CRY-02: `ES256` and `ML-DSA-65` are wire-reserved
+    /// (registered active rows, no client impl) and MUST NOT be advertised as
+    /// usable production algorithms while the EdDSA verifier is the only
+    /// signer/verifier shipped.
     #[test]
-    fn production_algorithms_exclude_unimplemented_pqc() {
+    fn production_algorithms_exclude_unimplemented_registry_rows() {
+        assert!(!PRODUCTION_ALGORITHMS.contains(&"ES256"));
         assert!(!PRODUCTION_ALGORITHMS.contains(&"ML-DSA-65"));
+        assert!(FUTURE_ALGORITHMS.contains(&"ES256"));
         assert!(FUTURE_ALGORITHMS.contains(&"ML-DSA-65"));
         // The two sets are disjoint: nothing is both usable and reserved.
         assert!(
@@ -383,8 +385,9 @@ mod tests {
                 .iter()
                 .any(|alg| FUTURE_ALGORITHMS.contains(alg))
         );
-        // EdDSA — the one algorithm with a real signer/verifier — is usable.
-        assert!(PRODUCTION_ALGORITHMS.contains(&"EdDSA"));
+        // The production set is exactly the algorithms with a real
+        // signer/verifier: EdDSA only.
+        assert_eq!(PRODUCTION_ALGORITHMS, &["EdDSA"]);
     }
 
     #[test]
@@ -398,7 +401,7 @@ mod tests {
         let binding = DetachedSignatureBinding::from_payload(
             &json!({"hello": "world"}),
             did("alice"),
-            "did:web:alice.example#key-1",
+            "did:webvh:z6mkfixture:alice.example#key-1",
         )
         .unwrap();
         let signature = DetachedSignature {
@@ -424,18 +427,18 @@ mod tests {
         let mut resolver = StaticDidVerificationMethodResolver::default();
         resolver.insert(VerificationMethodDocument {
             did: actor.clone(),
-            verification_method: "did:web:alice.example#key-1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
             public_key_multibase: "zKey".to_owned(),
             controller: None,
         });
         let proof = Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:web:alice.example#key-1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
             event_digest: payload_digest.clone(),
             created_at: Utc::now(),
             domain: Some("api.example".to_owned()),
-            audience: Some(Audience::Single("did:web:service.example".to_owned())),
+            audience: Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
             jws: "sig".to_owned(),
         };
         let mut context = ProofVerificationContext::new(actor, payload_digest);
@@ -472,23 +475,23 @@ mod tests {
         let mut resolver = StaticDidVerificationMethodResolver::default();
         resolver.insert(VerificationMethodDocument {
             did: actor.clone(),
-            verification_method: "did:web:alice.example#key-1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
             public_key_multibase: "zKey".to_owned(),
             controller: None,
         });
         let mut proof = Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:web:alice.example#key-1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
             event_digest: payload_digest.clone(),
             created_at: Utc::now(),
             domain: None,
-            audience: Some(Audience::Single("did:web:service.example".to_owned())),
+            audience: Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
             jws: "sig".to_owned(),
         };
         let context = ProofVerificationContext::new(actor, payload_digest).cross_domain(
             "ck:trust_domain:example.net",
-            Audience::Single("did:web:service.example".to_owned()),
+            Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()),
         );
 
         let error =

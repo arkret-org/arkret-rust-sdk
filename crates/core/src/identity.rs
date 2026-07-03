@@ -230,7 +230,7 @@ mod tests {
     use super::*;
 
     fn did(name: &str) -> Did {
-        Did::new(format!("did:web:{name}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     #[test]
@@ -288,7 +288,7 @@ mod tests {
             "https://example.test/users/alice".to_owned(),
         ];
 
-        assert_eq!(document.method(), "web");
+        assert_eq!(document.method(), "webvh");
         assert_eq!(
             document.control_keys().get("key-1"),
             Some(&"pub".to_owned())

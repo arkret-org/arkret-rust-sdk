@@ -296,7 +296,7 @@ pub struct MlsWelcomeClaimEnvelope {
         deserialize_with = "deserialize_canonical_timestamp"
     )]
     pub created_at: DateTime<Utc>,
-    pub signature: Signature2,
+    pub signature: KeyOperationSignature,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -387,7 +387,7 @@ pub struct MlsWelcomePayload {
 #[allow(clippy::too_many_arguments)]
 pub fn validate_mls_welcome_claim_envelope(
     welcome: &MlsWelcomePayload,
-    claim: &KeypackageClaimRecord,
+    claim: &KeyPackageClaimRecord,
     published: &MlsKeypackagePayload,
     intended_realm_id: &RealmId,
     requester_did: &Did,
@@ -509,7 +509,7 @@ mod tests {
             )
             .unwrap(),
             claim_id: "ck:mls:kp:claim".to_owned(),
-            requester_did: Did::new("did:web:alice.example").unwrap(),
+            requester_did: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             ssk_generation: None,
             requester_device_id: Some("ck:device:01904100-0000-7000-8000-000000000001".to_owned()),
             nonce: "nonce".to_owned(),
@@ -518,8 +518,8 @@ mod tests {
             )
             .unwrap(),
             created_at,
-            signature: Signature2 {
-                kid: "did:web:alice.example#device".to_owned(),
+            signature: KeyOperationSignature {
+                kid: "did:webvh:z6mkfixture:alice.example#device".to_owned(),
                 alg: Some("EdDSA".to_owned()),
                 sig: "signature".to_owned(),
             },

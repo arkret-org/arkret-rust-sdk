@@ -120,7 +120,11 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_DELIVERY_BINDING_HANDED_OVER
         | ERROR_CODE_DELIVERY_BINDING_UNRESOLVABLE
         | ERROR_CODE_APPLET_INSTALL_PLAN_MISMATCH
-        | ERROR_CODE_CALL_ALREADY_ANSWERED => Some(409),
+        | ERROR_CODE_CALL_ALREADY_ANSWERED
+        | ERROR_CODE_FAILED_BOTTOM => Some(409),
+        // CBA plane invariant violation is a terminal precondition-class
+        // failure (registry: 412) and MUST NOT be folded into 409.
+        ERROR_CODE_FAILED_PLANE => Some(412),
         ERROR_CODE_CURSOR_EXPIRED
         | ERROR_CODE_CURSOR_REVOKED
         | ERROR_CODE_BLOB_EXPIRED

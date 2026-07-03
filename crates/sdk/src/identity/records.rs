@@ -349,7 +349,7 @@ pub fn verify_did_key_log(
                 entry.did.as_str(),
                 resolver,
             )
-            .map_err(Error::Protocol)?;
+            .map_err(|err| Error::Protocol(err.to_string()))?;
         }
 
         if entry.operation == DidKeyLogOperation::Deactivate {
@@ -529,7 +529,7 @@ impl DidRegistryReceipt {
             self.registry_service_did.as_str(),
             resolver,
         )
-        .map_err(Error::Protocol)
+        .map_err(|err| Error::Protocol(err.to_string()))
     }
 }
 

@@ -140,8 +140,12 @@ pub enum MentionTarget {
     Morph,
 }
 
+/// Parser-local mention span extracted from message text.
+///
+/// Distinct from the wire `cokret_core::Mention`
+/// (strand-and-message.md paragraph 9.4 structured mention node).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Mention {
+pub struct ParsedMention {
     pub token: String,
     pub start: usize,
     pub end: usize,
@@ -151,7 +155,7 @@ pub struct Mention {
     pub target_ref: Option<String>,
 }
 
-impl Mention {
+impl ParsedMention {
     pub fn with_target(mut self, kind: MentionTarget, target_ref: impl Into<String>) -> Self {
         self.target_kind = Some(kind);
         self.target_ref = Some(target_ref.into());
@@ -174,7 +178,7 @@ pub struct RichTextDocument {
     pub source: String,
     pub sanitized_html: String,
     pub plain_text: String,
-    pub mentions: Vec<Mention>,
+    pub mentions: Vec<ParsedMention>,
     pub links: Vec<LinkPreview>,
 }
 
@@ -246,7 +250,7 @@ pub fn plain_text_from_html(input: &str) -> String {
     decode_basic_entities(&collapse_whitespace(&output))
 }
 
-pub fn parse_mentions(text: &str) -> Vec<Mention> {
+pub fn parse_mentions(text: &str) -> Vec<ParsedMention> {
     let mut mentions = Vec::new();
     let bytes = text.as_bytes();
     let mut index = 0;
@@ -266,7 +270,7 @@ pub fn parse_mentions(text: &str) -> Vec<Mention> {
         if index > token_start {
             let token = text[token_start..index].to_owned();
             let (target_kind, target_ref) = classify_mention_token(&token);
-            mentions.push(Mention {
+            mentions.push(ParsedMention {
                 token,
                 start,
                 end: index,
@@ -371,21 +375,63 @@ fn is_allowed_tag(tag: &str) -> bool {
     )
 }
 
+/// Dangerous container tags whose entire block (open tag through matching
+/// close tag) is removed before allowlist sanitization.
+const DANGEROUS_BLOCK_TAGS: [&str; 4] = ["script", "style", "iframe", "object"];
+
+/// Find the first ASCII-case-insensitive occurrence of `needle` in
+/// `haystack`, returning its byte offset.
+fn find_ascii_case_insensitive(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() || haystack.len() < needle.len() {
+        return None;
+    }
+    haystack
+        .windows(needle.len())
+        .position(|window| window.eq_ignore_ascii_case(needle))
+}
+
+/// Remove every `<script>`/`<style>`/`<iframe>`/`<object>` block
+/// (ASCII-case-insensitively, whole open-through-close span) in a single
+/// left-to-right pass. An unterminated dangerous block truncates the rest
+/// of the input, matching the previous semantics.
+///
+/// This is O(n): each byte is visited a bounded number of times. The
+/// previous implementation re-lowercased and re-scanned the entire buffer
+/// once per removed block (O(n^2)), which let ~14k tiny `<script>` blocks
+/// inside the 256 KiB input cap drive multi-GB memory traffic.
 fn remove_dangerous_blocks(input: &str) -> String {
-    let mut output = input.to_owned();
-    for tag in ["script", "style", "iframe", "object"] {
-        loop {
-            let lower = output.to_ascii_lowercase();
-            let Some(start) = lower.find(&format!("<{tag}")) else {
-                break;
-            };
-            let Some(end_relative) = lower[start..].find(&format!("</{tag}>")) else {
-                output.truncate(start);
-                break;
-            };
-            let end = start + end_relative + tag.len() + 3;
-            output.replace_range(start..end, "");
+    let bytes = input.as_bytes();
+    let mut output = String::with_capacity(input.len());
+    let mut index = 0;
+    'scan: while index < bytes.len() {
+        let Some(offset) = bytes[index..].iter().position(|&b| b == b'<') else {
+            output.push_str(&input[index..]);
+            break;
+        };
+        let open = index + offset;
+        output.push_str(&input[index..open]);
+        for tag in DANGEROUS_BLOCK_TAGS {
+            if bytes[open + 1..].len() >= tag.len()
+                && bytes[open + 1..open + 1 + tag.len()].eq_ignore_ascii_case(tag.as_bytes())
+            {
+                let close = format!("</{tag}>");
+                match find_ascii_case_insensitive(&bytes[open + 1..], close.as_bytes()) {
+                    Some(rel) => {
+                        // Skip the whole block including the close tag.
+                        index = open + 1 + rel + close.len();
+                        continue 'scan;
+                    }
+                    None => {
+                        // Unterminated dangerous block: drop the remainder.
+                        return output;
+                    }
+                }
+            }
         }
+        // Not a dangerous tag: keep the '<' and continue after it. `<` is
+        // ASCII so `open + 1` is always a char boundary.
+        output.push('<');
+        index = open + 1;
     }
     output
 }
@@ -539,7 +585,7 @@ mod tests {
     #[test]
     fn markdown_renders_safe_html_mentions_and_links() {
         let document = RichTextDocument::normalize(
-            "# Title\nHello @did:web:alice.example see [docs](https://example.com/docs)",
+            "# Title\nHello @did:webvh:z6mkfixture:alice.example see [docs](https://example.com/docs)",
             RichTextFormat::Markdown,
         )
         .unwrap();
@@ -621,6 +667,53 @@ mod tests {
         // Allowlisted markup with a safe link is preserved verbatim.
         let safe = sanitize_html(r#"<p>see <a href="https://example.com/x">x</a></p>"#).unwrap();
         assert_eq!(safe, "<p>see <a href=\"https://example.com/x\">x</a></p>");
+    }
+
+    #[test]
+    fn dangerous_block_removal_preserves_previous_semantics() {
+        // Whole-block removal, case-insensitive, prefix tag match.
+        assert_eq!(remove_dangerous_blocks("a<script>x</script>b"), "ab");
+        assert_eq!(remove_dangerous_blocks("a<SCRIPT>x</ScRiPt>b"), "ab");
+        assert_eq!(remove_dangerous_blocks("a<style>x</style>b"), "ab");
+        assert_eq!(remove_dangerous_blocks("a<iframe src=x>y</iframe>b"), "ab");
+        assert_eq!(remove_dangerous_blocks("a<object data=x></object>b"), "ab");
+        // Unterminated dangerous block truncates the remainder.
+        assert_eq!(remove_dangerous_blocks("keep<script>evil"), "keep");
+        // Attributes in the open tag do not break block matching.
+        assert_eq!(
+            remove_dangerous_blocks(r#"a<script type="text/js">x</script>b"#),
+            "ab"
+        );
+        // Non-dangerous markup passes through untouched.
+        assert_eq!(
+            remove_dangerous_blocks("<p>hi</p><strong>x</strong>"),
+            "<p>hi</p><strong>x</strong>"
+        );
+        // Multiple blocks in one input are all removed.
+        assert_eq!(
+            remove_dangerous_blocks("<script>1</script>mid<style>2</style>end"),
+            "midend"
+        );
+    }
+
+    #[test]
+    fn sanitizer_handles_many_dangerous_blocks_in_linear_time() {
+        // SDK-ROB-04 regression: ~10k script blocks inside the 256 KiB cap
+        // previously drove an O(n^2) rescan (~GBs of memory traffic). The
+        // linear scanner must finish this input near-instantly; the loose
+        // wall-clock bound only guards against an O(n^2) regression.
+        let block = "<script>alert(1)</script>";
+        let count = 10_000;
+        let input = block.repeat(count);
+        assert!(input.len() <= 256 * 1024, "input must stay under cap");
+        let started = std::time::Instant::now();
+        let out = sanitize_html(&input).unwrap();
+        assert!(out.is_empty(), "all blocks must be removed, got {out:?}");
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(5),
+            "sanitize_html took {:?} for {count} script blocks",
+            started.elapsed()
+        );
     }
 
     #[test]

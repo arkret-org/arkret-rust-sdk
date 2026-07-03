@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn key_package_record_carries_required_capabilities() {
         let identity = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example".to_owned()).unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
             DeviceId::new("ck:device:01964137-0000-7000-8000-000000000001".to_owned()).unwrap(),
         )
         .unwrap();
@@ -346,7 +346,7 @@ mod tests {
     #[test]
     fn last_resort_key_package_is_addable_to_a_group() {
         let alice = CokretMlsIdentity::new_basic(
-            Did::new("did:web:alice.example".to_owned()).unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
             DeviceId::new("ck:device:01964137-0000-7000-8000-00000000000a".to_owned()).unwrap(),
         )
         .unwrap();
@@ -355,7 +355,7 @@ mod tests {
             .unwrap();
 
         let bob = CokretMlsIdentity::new_basic(
-            Did::new("did:web:bob.example".to_owned()).unwrap(),
+            Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
             DeviceId::new("ck:device:01964137-0000-7000-8000-00000000000b".to_owned()).unwrap(),
         )
         .unwrap();
@@ -371,7 +371,7 @@ mod tests {
 
         // Sanity: the single-use KeyPackage path still adds cleanly.
         let carol = CokretMlsIdentity::new_basic(
-            Did::new("did:web:carol.example".to_owned()).unwrap(),
+            Did::new("did:webvh:z6mkfixture:carol.example".to_owned()).unwrap(),
             DeviceId::new("ck:device:01964137-0000-7000-8000-00000000000c".to_owned()).unwrap(),
         )
         .unwrap();

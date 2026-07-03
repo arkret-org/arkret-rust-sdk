@@ -77,7 +77,7 @@ mod tests {
     fn backup_record() -> ProtocolKeyBackup {
         ProtocolKeyBackup {
             backup_id: "ck:backup:01964137-0000-7000-8000-000000000000".to_owned(),
-            actor_id: crate::Did::new("did:web:alice.example").unwrap(),
+            actor_id: crate::Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             device_id: Some(
                 crate::DeviceId::new("ck:device:01964137-0000-7000-8000-000000000000").unwrap(),
             ),
@@ -87,20 +87,31 @@ mod tests {
             created_at: Utc::now(),
             updated_at: None,
             expires_at: None,
-            encryption: crate::KeyBackupEncryption {
-                recipient_method: "passphrase_kdf".to_owned(),
+            encryption: cokret_core::KeyBackupEncryption {
+                recipient_method: cokret_core::KeyBackupRecipientMethod::PassphraseKdf,
                 recipient_key_ref: None,
-                kdf: Some(json!({
-                    "name": "argon2id",
-                    "salt": "salt",
-                    "params": {
+                kdf: Some(cokret_core::KeyBackupKdf {
+                    name: "argon2id".to_owned(),
+                    salt: "salt".to_owned(),
+                    params: json!({
                         "memory_kib": 65_536,
                         "iterations": 3,
                         "parallelism": 1
-                    }
-                })),
-                aead: json!({"name": "xchacha20_poly1305", "nonce": "nonce"}),
+                    }),
+                    degraded_profile_reason: None,
+                    extra: std::collections::BTreeMap::new(),
+                }),
+                aead: cokret_core::KeyBackupAead {
+                    name: "xchacha20_poly1305".to_owned(),
+                    aead_profile: Some("ck.aead.xchacha20_poly1305.v1".to_owned()),
+                    nonce: Some("nonce".to_owned()),
+                    nonce_salt: Some("nonce-salt".to_owned()),
+                    enc: None,
+                    extra: std::collections::BTreeMap::new(),
+                },
                 key_commitment: None,
+                hpke_suite: None,
+                extra: std::collections::BTreeMap::new(),
             },
             contents: vec![crate::KeyBackupContentItem {
                 item_type: "recovery_secret".to_owned(),

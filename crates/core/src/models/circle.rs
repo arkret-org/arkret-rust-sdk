@@ -955,7 +955,7 @@ mod tests {
             CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000001".to_owned()).unwrap();
         let realm_id =
             RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000002".to_owned()).unwrap();
-        let actor: Did = "did:web:alice.example".parse().unwrap();
+        let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
         let circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let json = serde_json::to_value(&circle).unwrap();
         let parsed: Circle = serde_json::from_value(json).unwrap();
@@ -970,7 +970,7 @@ mod tests {
             CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000011".to_owned()).unwrap();
         let realm_id =
             RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000012".to_owned()).unwrap();
-        let actor: Did = "did:web:alice.example".parse().unwrap();
+        let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         circle.agent_participation = Some(AgentParticipationCeiling {
             reply: Some(true),
@@ -993,14 +993,14 @@ mod tests {
     #[test]
     fn pending_mls_removal_carries_precise_membership_frontier() {
         let value = serde_json::json!({
-            "principal_id": "did:web:bob.example",
+            "principal_id": "did:webvh:z6mkfixture:bob.example",
             "membership_frontier": [
                 "ck:event:0196419b-0000-7000-8000-000000000001"
             ]
         });
         let parsed: CirclePendingMlsRemoval = serde_json::from_value(value).unwrap();
 
-        assert_eq!(parsed.principal_id().as_str(), "did:web:bob.example");
+        assert_eq!(parsed.principal_id().as_str(), "did:webvh:z6mkfixture:bob.example");
         assert_eq!(
             parsed.membership_frontier()[0].as_str(),
             "ck:event:0196419b-0000-7000-8000-000000000001"
@@ -1011,7 +1011,7 @@ mod tests {
     fn pending_mls_removal_rejects_legacy_string() {
         assert!(
             serde_json::from_value::<CirclePendingMlsRemoval>(serde_json::json!(
-                "did:web:bob.example"
+                "did:webvh:z6mkfixture:bob.example"
             ))
             .is_err()
         );
@@ -1023,7 +1023,7 @@ mod tests {
             CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000021".to_owned()).unwrap();
         let realm_id =
             RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000022".to_owned()).unwrap();
-        let actor: Did = "did:web:alice.example".parse().unwrap();
+        let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let parent = AgentParticipation {
             reply: true,
@@ -1063,14 +1063,14 @@ mod tests {
 
     #[test]
     fn strict_subset_accepts_empty_circle() {
-        let realm: Vec<Did> = vec!["did:web:alice.example".parse().unwrap()];
+        let realm: Vec<Did> = vec!["did:webvh:z6mkfixture:alice.example".parse().unwrap()];
         Circle::assert_members_strict_subset(&[], &realm).unwrap();
     }
 
     #[test]
     fn strict_subset_rejects_outsider() {
-        let alice: Did = "did:web:alice.example".parse().unwrap();
-        let bob: Did = "did:web:bob.example".parse().unwrap();
+        let alice: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
+        let bob: Did = "did:webvh:z6mkfixture:bob.example".parse().unwrap();
         let realm = vec![alice];
         let err =
             Circle::assert_members_strict_subset(std::slice::from_ref(&bob), &realm).unwrap_err();

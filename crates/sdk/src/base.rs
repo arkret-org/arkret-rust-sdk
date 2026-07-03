@@ -529,6 +529,22 @@ impl BaseClient {
         self.profiles.read().get(user_id.as_str()).cloned()
     }
 
+    /// Read-modify-write the current user's cached profile inside a single
+    /// write-lock critical section. Composite setters must go through this
+    /// helper: a read-then-write across two lock acquisitions loses
+    /// concurrent updates to the fields the caller did not touch.
+    fn mutate_my_profile(&self, mutate: impl FnOnce(&mut UserProfile)) -> Result<UserProfile> {
+        let session = self.whoami()?;
+        let mut profiles = self.profiles.write();
+        let profile = profiles
+            .entry(session.user_id.as_str().to_owned())
+            .or_insert_with(|| UserProfile::new(session.user_id.clone()));
+        mutate(profile);
+        profile.version += 1;
+        profile.updated_at = Utc::now();
+        Ok(profile.clone())
+    }
+
     /// Replace cached profile fields for the current user.
     pub fn update_my_profile(
         &self,
@@ -536,31 +552,21 @@ impl BaseClient {
         avatar_url: Option<String>,
         bio: Option<String>,
     ) -> Result<UserProfile> {
-        let session = self.whoami()?;
-        let mut profiles = self.profiles.write();
-        let mut profile = profiles
-            .remove(session.user_id.as_str())
-            .unwrap_or_else(|| UserProfile::new(session.user_id.clone()));
-        profile.display_name = display_name;
-        profile.avatar_url = avatar_url;
-        profile.bio = bio;
-        profile.version += 1;
-        profile.updated_at = Utc::now();
-        profiles.insert(session.user_id.as_str().to_owned(), profile.clone());
-        Ok(profile)
+        self.mutate_my_profile(|profile| {
+            profile.display_name = display_name;
+            profile.avatar_url = avatar_url;
+            profile.bio = bio;
+        })
     }
 
-    /// Set the current user's display name.
+    /// Set the current user's display name, leaving the other profile
+    /// fields untouched (atomic single-lock update; no lost updates under
+    /// concurrent profile writes).
     pub fn set_my_display_name(&self, display_name: impl Into<String>) -> Result<UserProfile> {
-        let session = self.whoami()?;
-        let current = self.profile(&session.user_id);
-        self.update_my_profile(
-            Some(display_name.into()),
-            current
-                .as_ref()
-                .and_then(|profile| profile.avatar_url.clone()),
-            current.and_then(|profile| profile.bio),
-        )
+        let display_name = display_name.into();
+        self.mutate_my_profile(|profile| {
+            profile.display_name = Some(display_name);
+        })
     }
 
     /// Get cached presence for a user.
@@ -709,7 +715,7 @@ mod tests {
     #[test]
     fn session_meta_checks_expiration() {
         let meta = SessionMeta {
-            user_id: Did::new("did:web:alice.example.com").unwrap(),
+            user_id: Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
             device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
             session_credential: Some("token".to_owned()),
             expires_at: Some(Utc::now() - chrono::Duration::hours(1)),
@@ -721,7 +727,7 @@ mod tests {
     #[test]
     fn session_meta_valid_when_not_expired() {
         let meta = SessionMeta {
-            user_id: Did::new("did:web:alice.example.com").unwrap(),
+            user_id: Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
             device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
             session_credential: Some("token".to_owned()),
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
@@ -741,7 +747,7 @@ mod tests {
     fn base_client_can_set_session() {
         let client = BaseClient::new();
         let meta = SessionMeta::new(
-            Did::new("did:web:alice.example.com").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
         );
 
@@ -757,7 +763,7 @@ mod tests {
     fn base_client_clears_session() {
         let client = BaseClient::new();
         let meta = SessionMeta::new(
-            Did::new("did:web:alice.example.com").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
         );
 
@@ -773,7 +779,7 @@ mod tests {
         let client = BaseClient::new();
         let meta = client
             .login_with_session(
-                Did::new("did:web:alice.example.com").unwrap(),
+                Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
                 DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
                 Some("token".to_owned()),
                 None,
@@ -790,7 +796,7 @@ mod tests {
         client.restore_session(restore).unwrap();
         assert_eq!(
             client.whoami().unwrap().user_id,
-            Did::new("did:web:alice.example.com").unwrap()
+            Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap()
         );
         assert_eq!(client.sync_token(), Some("s123".to_owned()));
     }
@@ -814,21 +820,21 @@ mod tests {
 
         client.save_sync_positions(positions).unwrap();
         client
-            .bind_sync_token("did:web:sync.example", "sync-token")
+            .bind_sync_token("did:webvh:z6mkfixture:sync.example", "sync-token")
             .unwrap();
 
         assert_eq!(client.sync_positions().realms.len(), 1);
         let current_cursor = client.current_cursor().unwrap();
         assert!(!current_cursor.h.is_empty());
         assert_eq!(
-            client.sync_token_for("did:web:sync.example"),
+            client.sync_token_for("did:webvh:z6mkfixture:sync.example"),
             Some("sync-token".to_owned())
         );
     }
 
     #[test]
     fn bootstrap_sequence_tracks_ordered_runtime_steps() {
-        let principal = Did::new("did:web:alice.example.com").unwrap();
+        let principal = Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap();
         let device = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap();
         let mut sequence = BootstrapSequence::new(principal, device, None);
 
@@ -857,7 +863,7 @@ mod tests {
     #[test]
     fn base_client_exposes_profile_presence_account_settings_and_media_helpers() {
         let client = BaseClient::new();
-        let alice = Did::new("did:web:alice.example.com").unwrap();
+        let alice = Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap();
         client
             .login_with_session(
                 alice.clone(),

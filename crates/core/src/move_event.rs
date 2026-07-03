@@ -340,7 +340,7 @@ mod tests {
 
     fn sample_move_body_json() -> Value {
         json!({
-            "issuer": "did:web:admin.example",
+            "issuer": "did:webvh:z6mkfixture:admin.example",
             "realm_id": "ck:realm:0196419b-0000-7000-8000-00000000014a",
             "preconditions": [
                 {
@@ -386,7 +386,7 @@ mod tests {
             "sig".to_owned(),
             json!({
                 "alg": "EdDSA",
-                "verification_method": "did:web:admin.example#k1",
+                "verification_method": "did:webvh:z6mkfixture:admin.example#k1",
                 "payload_digest": payload_digest,
                 "created_at": "2026-05-08T00:00:00Z",
                 "jws": "AAAA.BBBB.CCCC"

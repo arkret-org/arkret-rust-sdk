@@ -447,16 +447,16 @@ mod tests {
 
     fn service_attested_device_authorize_payload() -> Value {
         json!({
-            "principal_id": "did:web:alice.example",
+            "principal_id": "did:webvh:z6mkfixture:alice.example",
             "device_id": "ck:device:0196419b-0000-7000-8000-000000000001",
             "device_public_key": "z6Mki3devicepublickey",
             "hpke_key": "z6LSdevicehpke",
             "algorithms": ["ed25519", "x25519-hpke"],
-            "authorized_by": "did:web:authority.example",
+            "authorized_by": "did:webvh:z6mkfixture:authority.example",
             "not_before": "2026-06-30T00:00:00Z",
             "enrollment_authority_binding": {
                 "kind": "service_attested",
-                "authority_did": "did:web:authority.example",
+                "authority_did": "did:webvh:z6mkfixture:authority.example",
                 "authorization_ref": "ck:grant:0196419b-0000-7000-8000-000000000002"
             }
         })
@@ -610,7 +610,7 @@ mod tests {
         );
 
         // legacy singleton shape must be rejected (required fields missing).
-        let legacy = json!({ "organization_ref": "did:web:org.example" });
+        let legacy = json!({ "organization_ref": "did:webvh:z6mkfixture:org.example" });
         assert!(
             catalog
                 .validate_payload("ck.realm.organization", &legacy)

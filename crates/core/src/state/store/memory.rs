@@ -731,7 +731,7 @@ mod tests {
 
     fn dummy_move(id: MoveId) -> Move {
         let body = serde_json::json!({
-            "issuer": "did:web:admin.example",
+            "issuer": "did:webvh:z6mkfixture:admin.example",
             "realm_id": realm().as_str(),
             "preconditions": [],
             "effects": [{
@@ -754,7 +754,7 @@ mod tests {
             "sig".into(),
             serde_json::json!({
                 "alg": "EdDSA",
-                "verification_method": "did:web:admin.example#k1",
+                "verification_method": "did:webvh:z6mkfixture:admin.example#k1",
                 "payload_digest": payload_digest,
                 "created_at": "2026-05-08T00:00:00Z",
                 "jws": "AAAA.BBBB.CCCC"
@@ -766,7 +766,7 @@ mod tests {
     fn dummy_seal(id: SealId, predecessors: Vec<SealId>, delta: Vec<MoveId>) -> Seal {
         let sig = MoveSignature {
             alg: "EdDSA".to_owned(),
-            verification_method: "did:web:notary.example#k1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
             payload_digest: hash(0xff),
             created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             jws: "AAAA.BBBB.CCCC".to_owned(),

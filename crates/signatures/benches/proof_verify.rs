@@ -15,9 +15,9 @@ use criterion::{Criterion, criterion_group, criterion_main};
 
 fn bench_proof_verify(c: &mut Criterion) {
     let seed = [7u8; 32];
-    let verification_method = "did:web:alice.example#key-1";
+    let verification_method = "did:webvh:z6mkfixture:alice.example#key-1";
     let signer = Ed25519DetachedJwsSigner::from_seed(seed, verification_method);
-    let actor_id = Did::new("did:web:alice.example").expect("static did");
+    let actor_id = Did::new("did:webvh:z6mkfixture:alice.example").expect("static did");
     let public_key = PublicKeyMaterial::Ed25519Raw {
         bytes: ed25519_dalek::SigningKey::from_bytes(&seed)
             .verifying_key()
@@ -27,7 +27,7 @@ fn bench_proof_verify(c: &mut Criterion) {
 
     // Canonical event bytes the proof is anchored to.
     let canonical_bytes = canonical::canonical_json_bytes(&serde_json::json!({
-        "actor_id": "did:web:alice.example",
+        "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ck.message.create",
         "created_at": "2026-06-29T00:00:00Z"
     }))

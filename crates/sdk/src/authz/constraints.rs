@@ -129,7 +129,7 @@ pub enum Constraint {
         max_operations: u64,
         period: ConstraintDuration,
         #[serde(default = "default_rate_limit_scope")]
-        scope: RateLimitScope,
+        scope: GrantRateLimitScope,
     },
     /// Approval workflow constraint
     ApprovalWorkflow {
@@ -195,7 +195,7 @@ pub enum Constraint {
         #[serde(skip_serializing_if = "Option::is_none")]
         period: Option<ConstraintDuration>,
         #[serde(default = "default_rate_limit_scope")]
-        scope: RateLimitScope,
+        scope: GrantRateLimitScope,
     },
     /// Edit / redact temporal window for messages
     /// (`temporal{subtype=edit_window}`). See `constraint-schema.md` §14.2.
@@ -298,10 +298,13 @@ pub struct ConstraintDuration {
     pub unit: String, // "s", "m", "h", "d"
 }
 
-/// Rate limit scope.
+/// Grant-constraint-local rate limit scope (quota constraint evaluation).
+///
+/// Distinct from the wire `cokret_core::RateLimitScope`
+/// (service-description `rate_limit_scope`: `string | string[]`).
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum RateLimitScope {
+pub enum GrantRateLimitScope {
     PerSpace,
     #[default]
     Global,
@@ -332,8 +335,8 @@ pub enum ApprovalMode {
     Controller,
 }
 
-fn default_rate_limit_scope() -> RateLimitScope {
-    RateLimitScope::Global
+fn default_rate_limit_scope() -> GrantRateLimitScope {
+    GrantRateLimitScope::Global
 }
 
 fn default_false() -> bool {

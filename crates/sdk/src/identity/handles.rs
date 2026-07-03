@@ -257,13 +257,18 @@ pub struct HandleAttestation {
     pub created_at: DateTime<Utc>,
 }
 
-/// Handle claim state.
+/// Client-local handle claim challenge state tracked by [`IdentityManager`].
+///
+/// This is NOT the wire handle-claim resource — that is
+/// `cokret_core::HandleClaim` (handle-claim schema counterpart). This type
+/// only tracks the local challenge/verification lifecycle before a claim is
+/// published.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HandleClaim {
+pub struct HandleClaimChallenge {
     /// Claimed handle.
     pub handle: String,
-    /// Owner DID.
-    pub user_id: Did,
+    /// DID of the principal claiming the handle.
+    pub subject: Did,
     /// Validation challenge.
     pub challenge: String,
     /// Whether the claim is verified.
@@ -285,14 +290,14 @@ pub enum HandleProofProfile {
 pub struct ExternalHandleProof {
     pub profile: HandleProofProfile,
     pub handle: String,
-    pub user_id: Did,
+    pub subject: Did,
     pub challenge: String,
     pub proof: String,
 }
 
 impl ExternalHandleProof {
     pub fn validate(&self) -> Result<()> {
-        let expected = handle_claim_proof(&self.handle, &self.user_id, &self.challenge);
+        let expected = handle_claim_proof(&self.handle, &self.subject, &self.challenge);
         if self.proof.trim() == expected {
             Ok(())
         } else {
@@ -370,7 +375,7 @@ impl VerifiedHandleBinding {
                 "handle in proof does not match requested handle".to_owned(),
             ));
         }
-        if handle_proof.user_id != document.id {
+        if handle_proof.subject != document.id {
             return Err(Error::Protocol(
                 "handle proof DID does not match document subject".to_owned(),
             ));
@@ -402,7 +407,7 @@ impl VerifiedHandleBinding {
 pub struct IdentityManager {
     documents: BTreeMap<Did, DidDocument>,
     migrations: Vec<DidMigration>,
-    handles: BTreeMap<String, HandleClaim>,
+    handles: BTreeMap<String, HandleClaimChallenge>,
 }
 
 impl IdentityManager {
@@ -454,12 +459,12 @@ impl IdentityManager {
     }
 
     /// Bind a handle and issue a validation challenge.
-    pub fn bind_handle(&mut self, handle: impl Into<String>, user_id: Did) -> HandleClaim {
+    pub fn bind_handle(&mut self, handle: impl Into<String>, subject: Did) -> HandleClaimChallenge {
         let handle = normalize_handle(&handle.into());
-        let challenge = sha256_hex(format!("{handle}:{}:{}", user_id, Utc::now()).as_bytes());
-        let claim = HandleClaim {
+        let challenge = sha256_hex(format!("{handle}:{}:{}", subject, Utc::now()).as_bytes());
+        let claim = HandleClaimChallenge {
             handle: handle.clone(),
-            user_id,
+            subject,
             challenge,
             verified: false,
             attestation: None,
@@ -475,7 +480,7 @@ impl IdentityManager {
             .handles
             .get_mut(&handle)
             .ok_or_else(|| Error::Protocol("handle claim not found".to_owned()))?;
-        let expected = handle_claim_proof(&claim.handle, &claim.user_id, &claim.challenge);
+        let expected = handle_claim_proof(&claim.handle, &claim.subject, &claim.challenge);
         if expected != proof {
             return Err(Error::Protocol("invalid handle claim proof".to_owned()));
         }
@@ -506,25 +511,25 @@ impl IdentityManager {
         Ok(())
     }
 
-    /// Get a handle claim.
-    pub fn handle_claim(&self, handle: &str) -> Option<&HandleClaim> {
+    /// Get a handle claim challenge.
+    pub fn handle_claim(&self, handle: &str) -> Option<&HandleClaimChallenge> {
         self.handles.get(&normalize_handle(handle))
     }
 
     /// Verify a handle through bidirectional `also_known_as` linking.
     ///
     /// This checks that:
-    /// 1. The DID document for `user_id` exists and lists the handle in `also_known_as`.
-    /// 2. A handle claim exists linking the handle to the same `user_id`.
+    /// 1. The DID document for `subject` exists and lists the handle in `also_known_as`.
+    /// 2. A handle claim exists linking the handle to the same `subject`.
     /// 3. The handle claim has been verified through a proof challenge.
     ///
     /// If both conditions hold, the handle is considered bidirectionally verified:
     /// the DID document asserts the handle, and the handle claim proves the DID.
-    pub fn verify_handle_bidirectional(&self, handle: &str, user_id: &Did) -> Result<()> {
+    pub fn verify_handle_bidirectional(&self, handle: &str, subject: &Did) -> Result<()> {
         let normalized = normalize_handle(handle);
         let document = self
             .documents
-            .get(user_id)
+            .get(subject)
             .ok_or_else(|| Error::Protocol("DID document not found for user".to_owned()))?;
 
         // Check that the DID document lists the handle in also_known_as
@@ -536,7 +541,7 @@ impl IdentityManager {
         if !listed_in_document {
             return Err(Error::Protocol(format!(
                 "handle '{}' is not listed in DID document also_known_as for {}",
-                normalized, user_id
+                normalized, subject
             )));
         }
 
@@ -544,16 +549,16 @@ impl IdentityManager {
         let claim = self.handles.get(&normalized).ok_or_else(|| {
             Error::Protocol(format!("handle claim not found for '{}'", normalized))
         })?;
-        if claim.user_id != *user_id {
+        if claim.subject != *subject {
             return Err(Error::Protocol(format!(
                 "handle claim links to {} but expected {}",
-                claim.user_id, user_id
+                claim.subject, subject
             )));
         }
         if !claim.verified {
             return Err(Error::Protocol(format!(
                 "handle '{}' claim for {} is not yet verified",
-                normalized, user_id
+                normalized, subject
             )));
         }
 
@@ -589,8 +594,8 @@ impl IdentityManager {
 }
 
 /// Compute the expected proof for a handle claim.
-pub fn handle_claim_proof(handle: &str, user_id: &Did, challenge: &str) -> String {
-    sha256_hex(format!("{}:{}:{}", normalize_handle(handle), user_id, challenge).as_bytes())
+pub fn handle_claim_proof(handle: &str, subject: &Did, challenge: &str) -> String {
+    sha256_hex(format!("{}:{}:{}", normalize_handle(handle), subject, challenge).as_bytes())
 }
 
 /// DNS TXT name that should contain the Cokret handle proof.

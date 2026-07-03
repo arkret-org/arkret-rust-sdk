@@ -17,7 +17,6 @@ cokret (umbrella SDK)
     |-- cokret-keystore: platform KeyStore backends behind target feature gates
     |-- cokret-server: endpoint registry, routed dispatch, server middleware, adapter contracts, OpenAPI helpers and optional Salvo router
     |-- cokret-signatures: HTTP signatures, JWS/JWT and proof verification
-    |-- cokret-testing: conformance vectors and fixture helpers
     |-- base + sync_client: local client state, response processing and account subscribe
     |-- membership/devices/receipts/notifications: client business state
     |-- content/media/profile/settings/search/discovery: feature helpers

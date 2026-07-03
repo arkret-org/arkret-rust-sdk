@@ -35,15 +35,12 @@ pub struct AgentProvisionRequestBody {
     pub pairing_ttl_ms: Option<u64>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum AgentKeyScope {
-    Account,
-    Realm,
-    Applet,
-    Limited,
-}
+// NOTE: `AgentKeyScope` is the spec object `{actions, resources, constraints?}`
+// defined in `models/artifacts/event_payload/agent.rs`
+// (`event-payload.schema.json#/$defs/agent_key_scope`, `$ref`'d by
+// `agent-operations.schema.json#/$defs/agent_provision_request_body.requested_scope`).
+// The former SDK-local `account/realm/applet/limited` enum was off-spec and
+// has been removed.
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -279,8 +276,8 @@ mod tests {
     #[test]
     fn sidecar_thread_ensure_request_uses_context_ref_shape() {
         let request = AgentSidecarThreadEnsureRequestBody {
-            controller_principal_id: Did::new("did:web:example.com:users:alice").unwrap(),
-            addressed_agent_principal_ids: vec![Did::new("did:web:agent.example").unwrap()],
+            controller_principal_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
+            addressed_agent_principal_ids: vec![Did::new("did:webvh:z6mkfixture:agent.example").unwrap()],
             context_ref: AgentSidecarContextRef::strand(
                 RealmId::new("ck:realm:01964137-0000-7000-8000-000000000030").unwrap(),
                 StrandId::new("ck:strand:01964137-0000-7000-8000-000000000031").unwrap(),
@@ -291,11 +288,11 @@ mod tests {
         assert!(value.get("agent_principal_id").is_none());
         assert_eq!(
             value["controller_principal_id"],
-            "did:web:example.com:users:alice"
+            "did:webvh:z6mkfixture:example.com:users:alice"
         );
         assert_eq!(
             value["addressed_agent_principal_ids"][0],
-            "did:web:agent.example"
+            "did:webvh:z6mkfixture:agent.example"
         );
         assert_eq!(
             value["context_ref"]["realm_id"],

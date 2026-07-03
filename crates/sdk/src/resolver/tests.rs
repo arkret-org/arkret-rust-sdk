@@ -9,7 +9,7 @@ fn realm_id() -> RealmId {
 }
 
 fn actor_id() -> Did {
-    Did::new("did:web:alice.example.com").unwrap()
+    Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap()
 }
 
 fn event(kind: &str, seq: u64, content: Value) -> Event {
@@ -638,12 +638,12 @@ fn member_state_conflict_prefers_ban_semantics() {
     let leave = event(
         "ck.member.state",
         4,
-        json!({ "actor_id": "did:web:alice.example", "membership": "leave" }),
+        json!({ "actor_id": "did:webvh:z6mkfixture:alice.example", "membership": "leave" }),
     );
     let mut ban = event(
         "ck.member.state",
         5,
-        json!({ "actor_id": "did:web:alice.example", "membership": "ban" }),
+        json!({ "actor_id": "did:webvh:z6mkfixture:alice.example", "membership": "ban" }),
     );
     ban.hlc = leave.hlc.clone();
     ban.event_id = EventId::new("ck:event:01904100-0000-7000-8000-c9d398595fe8").unwrap();
@@ -653,7 +653,7 @@ fn member_state_conflict_prefers_ban_semantics() {
 
     let resolved = state
         .resolved_state
-        .get("ck.member.state|did:web:alice.example")
+        .get("ck.member.state|did:webvh:z6mkfixture:alice.example")
         .unwrap();
     assert_eq!(resolved.content["membership"], "ban");
     assert_eq!(state.conflict_records.len(), 1);
@@ -671,7 +671,7 @@ fn capability_rebind_uses_deterministic_lww_order() {
         2,
         json!({
             "grant_id": "cap-chan-post",
-            "subject": "did:web:alice.example",
+            "subject": "did:webvh:z6mkfixture:alice.example",
             "actions": ["ck.message.create", "ck.reaction.add"]
         }),
     );
@@ -717,7 +717,7 @@ fn message_revision_redaction_and_reaction_converge() {
 
     let reaction = state
         .reactions
-        .get("m1|did:web:alice.example.com|+1")
+        .get("m1|did:webvh:z6mkfixture:alice.example.com|+1")
         .unwrap();
     assert!(reaction.active);
 }
@@ -732,7 +732,7 @@ fn snapshot_manifest_tracks_state_digest_and_merkle_root() {
     let mut state = RealmState::new(realm_id());
 
     state.apply_events(std::slice::from_ref(&event)).unwrap();
-    let snapshot = state.snapshot();
+    let snapshot = state.snapshot().unwrap();
     let manifest = snapshot.manifest.as_ref().unwrap();
 
     assert_eq!(manifest.schema, REDUCER_SNAPSHOT_SCHEMA);
@@ -745,7 +745,7 @@ fn snapshot_manifest_tracks_state_digest_and_merkle_root() {
 #[test]
 fn snapshot_chunk_manifest_verifies_digests() {
     let state = RealmState::new(realm_id());
-    let snapshot = state.snapshot();
+    let snapshot = state.snapshot().unwrap();
     let manifest = snapshot.manifest_with_chunks(16).unwrap();
     let bytes = snapshot.canonical_snapshot_bytes().unwrap();
     let chunks: Vec<Vec<u8>> = bytes.chunks(16).map(|chunk| chunk.to_vec()).collect();
@@ -801,7 +801,7 @@ fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
     );
     let mut state = RealmState::new(realm_id());
     state.apply_events(std::slice::from_ref(&event)).unwrap();
-    let mut snapshot = state.snapshot();
+    let mut snapshot = state.snapshot().unwrap();
     snapshot.state_digest =
         "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_owned();
 
@@ -989,8 +989,8 @@ fn realm_organization_event(seq: u64, organization_id: &str, relationship: &str)
 
 #[test]
 fn realm_organization_distinct_organizations_coexist() {
-    let org_a = "did:web:org-a.example.com";
-    let org_b = "did:web:org-b.example.com";
+    let org_a = "did:webvh:z6mkfixture:org-a.example.com";
+    let org_b = "did:webvh:z6mkfixture:org-b.example.com";
     let ev_a = realm_organization_event(1, org_a, "member");
     let ev_b = realm_organization_event(2, org_b, "member");
 
@@ -1013,7 +1013,7 @@ fn realm_organization_distinct_organizations_coexist() {
 
 #[test]
 fn realm_organization_distinct_relationships_coexist() {
-    let org = "did:web:org-a.example.com";
+    let org = "did:webvh:z6mkfixture:org-a.example.com";
     let ev_member = realm_organization_event(1, org, "member");
     let ev_partner = realm_organization_event(2, org, "partner");
 
@@ -1036,7 +1036,7 @@ fn realm_organization_distinct_relationships_coexist() {
 
 #[test]
 fn realm_organization_same_subject_replaces_under_lww() {
-    let org = "did:web:org-a.example.com";
+    let org = "did:webvh:z6mkfixture:org-a.example.com";
     let mut first = realm_organization_event(1, org, "member");
     first.content = json!({
         "organization_id": org,
@@ -1068,8 +1068,8 @@ fn realm_organization_same_subject_replaces_under_lww() {
 fn realm_organization_requires_subject_fields() {
     // Missing relationship must surface a protocol error, not a silent
     // realm_id fallback.
-    let mut ev = realm_organization_event(1, "did:web:org-a.example.com", "member");
-    ev.content = json!({ "organization_id": "did:web:org-a.example.com" });
+    let mut ev = realm_organization_event(1, "did:webvh:z6mkfixture:org-a.example.com", "member");
+    ev.content = json!({ "organization_id": "did:webvh:z6mkfixture:org-a.example.com" });
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[ev]).unwrap_err();

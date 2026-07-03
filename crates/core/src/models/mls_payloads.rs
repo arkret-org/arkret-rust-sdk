@@ -790,6 +790,19 @@ enum CborValue {
     Map(BTreeMap<String, CborValue>),
 }
 
+/// Maximum CBOR container nesting depth accepted from the wire
+/// (`scalability-constraints.md` §2: objects and arrays combined, inclusive
+/// cap shared with canonical JSON). The governance-binding payload is at most
+/// a few levels deep; the cap keeps a hand-rolled `0x81` nesting chain from
+/// turning recursion depth into a stack-overflow abort.
+const MAX_CBOR_NESTING_DEPTH: usize = 64;
+
+/// Maximum number of items a single definite-length CBOR array or map may
+/// declare or carry (`scalability-constraints.md` §2;
+/// `ck.vector.encoding.reject_cbor_array_bounds.v1`). Checked before any
+/// storage is sized from the declared count.
+const MAX_CBOR_CONTAINER_ITEMS: usize = 65_536;
+
 struct CborReader<'a> {
     bytes: &'a [u8],
     pos: usize,
@@ -809,24 +822,29 @@ impl<'a> CborReader<'a> {
     }
 
     fn read_map(&mut self) -> Result<BTreeMap<String, CborValue>> {
-        match self.read_value()? {
+        match self.read_value(0)? {
             CborValue::Map(map) => Ok(map),
             _ => Err(cbor_error("expected top-level CBOR map")),
         }
     }
 
-    fn read_value(&mut self) -> Result<CborValue> {
+    fn read_value(&mut self, depth: usize) -> Result<CborValue> {
+        if depth > MAX_CBOR_NESTING_DEPTH {
+            return Err(cbor_error(
+                "mls_governance_binding CBOR nesting exceeds maximum depth",
+            ));
+        }
         let initial = self.read_u8()?;
         let major = initial >> 5;
         let additional = initial & 0x1f;
         match major {
             0 => Ok(CborValue::UInt(self.read_len(additional)?)),
             2 => {
-                let len = self.read_len(additional)? as usize;
+                let len = self.read_container_len(additional)?;
                 Ok(CborValue::Bstr(self.read_bytes(len)?.to_vec()))
             }
             3 => {
-                let len = self.read_len(additional)? as usize;
+                let len = self.read_container_len(additional)?;
                 let bytes = self.read_bytes(len)?;
                 let value = std::str::from_utf8(bytes).map_err(|err| {
                     cbor_error_message(format!("invalid CBOR text string: {err}"))
@@ -834,23 +852,33 @@ impl<'a> CborReader<'a> {
                 Ok(CborValue::Tstr(value.to_owned()))
             }
             4 => {
-                let len = self.read_len(additional)?;
-                let mut values = Vec::with_capacity(len as usize);
+                let len = self.read_container_len(additional)?;
+                if len > MAX_CBOR_CONTAINER_ITEMS {
+                    return Err(cbor_error(
+                        "CBOR array exceeds the v1 maximum of 65536 items",
+                    ));
+                }
+                let mut values = Vec::with_capacity(len);
                 for _ in 0..len {
-                    values.push(self.read_value()?);
+                    values.push(self.read_value(depth + 1)?);
                 }
                 Ok(CborValue::Array(values))
             }
             5 => {
-                let len = self.read_len(additional)?;
+                let len = self.read_container_len(additional)?;
+                if len > MAX_CBOR_CONTAINER_ITEMS {
+                    return Err(cbor_error(
+                        "CBOR map exceeds the v1 maximum of 65536 items",
+                    ));
+                }
                 let mut map = BTreeMap::new();
                 for _ in 0..len {
-                    let CborValue::Tstr(key) = self.read_value()? else {
+                    let CborValue::Tstr(key) = self.read_value(depth + 1)? else {
                         return Err(cbor_error(
                             "mls_governance_binding CBOR map key is not tstr",
                         ));
                     };
-                    let value = self.read_value()?;
+                    let value = self.read_value(depth + 1)?;
                     if map.insert(key.clone(), value).is_some() {
                         return Err(cbor_error_message(format!(
                             "duplicate mls_governance_binding CBOR key `{key}`"
@@ -863,6 +891,24 @@ impl<'a> CborReader<'a> {
                 "unsupported CBOR type in mls_governance_binding",
             )),
         }
+    }
+
+    /// Read a length header for a sized item (bstr / tstr payload bytes,
+    /// array / map element counts) and clamp it to the remaining input.
+    /// Every payload byte or container element consumes at least one input
+    /// byte, so a header larger than the remaining input is unsatisfiable —
+    /// reject it *before* any allocation is sized from the untrusted header
+    /// (capacity-bomb guard: `0x9b FF..FF` must not reach
+    /// `Vec::with_capacity`).
+    fn read_container_len(&mut self, additional: u8) -> Result<usize> {
+        let len = self.read_len(additional)?;
+        let remaining = (self.bytes.len() - self.pos) as u64;
+        if len > remaining {
+            return Err(cbor_error(
+                "CBOR length header exceeds remaining input bytes",
+            ));
+        }
+        Ok(len as usize)
     }
 
     fn read_len(&mut self, additional: u8) -> Result<u64> {
@@ -1392,9 +1438,44 @@ mod tests {
         assert!(err.to_string().contains(ERROR_CODE_SCHEMA_VIOLATION));
     }
 
+    #[test]
+    fn mls_governance_binding_cbor_rejects_capacity_bomb_length_header() {
+        // Array header claiming 2^64-1 elements with no payload behind it:
+        // the length header MUST be clamped against the remaining input
+        // before any `Vec::with_capacity` is sized from it (a 9-byte input
+        // must not trigger a multi-gigabyte allocation).
+        let mut array_bomb = vec![0x9b];
+        array_bomb.extend_from_slice(&[0xff; 8]);
+        let err = MlsGovernanceBindingPayload::from_deterministic_cbor(&array_bomb).unwrap_err();
+        assert!(err.to_string().contains("exceeds remaining input"));
+
+        // Same guard for map (major 5) and text-string (major 3) headers.
+        let mut map_bomb = vec![0xbb];
+        map_bomb.extend_from_slice(&[0xff; 8]);
+        assert!(MlsGovernanceBindingPayload::from_deterministic_cbor(&map_bomb).is_err());
+
+        let mut tstr_bomb = vec![0x7b];
+        tstr_bomb.extend_from_slice(&[0xff; 8]);
+        assert!(MlsGovernanceBindingPayload::from_deterministic_cbor(&tstr_bomb).is_err());
+    }
+
+    #[test]
+    fn mls_governance_binding_cbor_rejects_deep_nesting() {
+        // Map value made of a chain of single-element arrays
+        // (`0x81 0x81 ... 0x00`): recursion depth MUST be bounded by a
+        // constant, not proportional to the input length, or a ~1 MB input
+        // becomes a stack-overflow abort.
+        let mut bytes = vec![0xa1];
+        cbor_put_tstr(&mut bytes, "k");
+        bytes.extend(std::iter::repeat_n(0x81u8, 64));
+        bytes.push(0x00);
+        let err = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap_err();
+        assert!(err.to_string().contains("nesting exceeds maximum depth"));
+    }
+
     fn media_service(host: &str) -> MediaPlaintextService {
         MediaPlaintextService {
-            service_did: Did::new(format!("did:web:{host}")).unwrap(),
+            service_did: Did::new(format!("did:webvh:z6mkfixture:{host}")).unwrap(),
         }
     }
 

@@ -286,8 +286,8 @@ mod tests {
     #[test]
     fn blocklist_blocks_unblocks_and_expires() {
         use chrono::Duration;
-        let alice = Did::new("did:web:alice.example").unwrap();
-        let bob = Did::new("did:web:bob.example").unwrap();
+        let alice = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+        let bob = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
         let now = Utc::now();
         let mut bl = AccountBlocklist::new();
         bl.block(BlocklistEntry::new(alice.clone()).with_reason("spam"));

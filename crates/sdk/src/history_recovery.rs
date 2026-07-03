@@ -362,8 +362,8 @@ mod tests {
     fn recipient() -> RealmRecoveryRecipient {
         RealmRecoveryRecipient {
             recipient_id: "acme-org-rrk-1".to_owned(),
-            principal_id: Did::new("did:web:acme.example").unwrap(),
-            verification_method: "did:web:acme.example#realm-history-recovery-1".to_owned(),
+            principal_id: Did::new("did:webvh:z6mkfixture:acme.example").unwrap(),
+            verification_method: "did:webvh:z6mkfixture:acme.example#realm-history-recovery-1".to_owned(),
             controller_organization: None,
         }
     }
@@ -390,7 +390,7 @@ mod tests {
             "keyAgreement": [recipient.verification_method],
             "service": [
                 {
-                    "id": "did:web:acme.example#realm-history-recovery",
+                    "id": "did:webvh:z6mkfixture:acme.example#realm-history-recovery",
                     "type": RRK_SERVICE_TYPE,
                     "serviceEndpoint": {
                         "verificationMethod": recipient.verification_method,
@@ -465,7 +465,7 @@ mod tests {
         // Service points at a different VM than the recipient names — MUST NOT
         // fall back to whatever key the document happens to carry.
         document["service"][0]["serviceEndpoint"]["verificationMethod"] =
-            serde_json::json!("did:web:acme.example#some-other-key");
+            serde_json::json!("did:webvh:z6mkfixture:acme.example#some-other-key");
 
         let err = resolve_realm_history_recovery_key(&recipient, &document).unwrap_err();
         assert_eq!(
@@ -499,7 +499,7 @@ mod tests {
         let recipient = recipient();
         let rrk_pub = *X25519PublicKey::from(&StaticSecret::from([5u8; 32])).as_bytes();
         let mut document = did_document(&recipient, &rrk_pub);
-        document["id"] = serde_json::json!("did:web:evil.example");
+        document["id"] = serde_json::json!("did:webvh:z6mkfixture:evil.example");
 
         let err = resolve_realm_history_recovery_key(&recipient, &document).unwrap_err();
         assert_eq!(

@@ -683,11 +683,11 @@ mod profile_builder_tests {
     }
 
     fn alice() -> Did {
-        Did::new("did:web:alice.example").unwrap()
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
     }
 
     fn applet_owner() -> Did {
-        Did::new("did:web:owner.example").unwrap()
+        Did::new("did:webvh:z6mkfixture:owner.example").unwrap()
     }
 
     fn profile_id() -> ActorProfileId {
@@ -711,7 +711,7 @@ mod profile_builder_tests {
         assert_eq!(event.kind, "ck.profile.create");
         assert_eq!(
             event.content["object"]["principal_id"],
-            "did:web:alice.example"
+            "did:webvh:z6mkfixture:alice.example"
         );
         assert_eq!(event.content["object"]["actor_kind"], "user");
         assert_eq!(event.content["object"]["display_name"], "Alice");
@@ -748,7 +748,7 @@ mod profile_builder_tests {
         );
         assert_eq!(
             object["accountable_principal_ids"][0],
-            "did:web:owner.example"
+            "did:webvh:z6mkfixture:owner.example"
         );
         assert_eq!(
             object["profile_fields"]["external_ref"]["slack_user_id"],
@@ -764,7 +764,7 @@ mod tests {
     use super::*;
 
     fn did(name: &str) -> Did {
-        Did::new(format!("did:web:{name}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     #[test]

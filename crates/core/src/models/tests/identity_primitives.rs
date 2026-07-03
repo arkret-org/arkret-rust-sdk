@@ -32,12 +32,12 @@ fn session_login_outcome_uses_typed_wire_fields() {
     let value = json!({
         "session_credential": "sx_token",
         "token_type": "Bearer",
-        "actor": "did:web:alice.example",
+        "actor": "did:webvh:z6mkfixture:alice.example",
         "device_id": "ck:device:01964137-0000-7000-8000-000000000001",
         "expires_at": "2026-04-28T12:00:00Z"
     });
     let outcome: crate::SessionLoginOutcome = serde_json::from_value(value).unwrap();
-    assert_eq!(outcome.actor.as_str(), "did:web:alice.example");
+    assert_eq!(outcome.actor.as_str(), "did:webvh:z6mkfixture:alice.example");
     assert_eq!(
         outcome.device_id.as_str(),
         "ck:device:01964137-0000-7000-8000-000000000001"
@@ -45,7 +45,7 @@ fn session_login_outcome_uses_typed_wire_fields() {
 
     let serialized = serde_json::to_value(outcome).unwrap();
     assert_eq!(serialized["token_type"], "Bearer");
-    assert_eq!(serialized["actor"], "did:web:alice.example");
+    assert_eq!(serialized["actor"], "did:webvh:z6mkfixture:alice.example");
     assert_eq!(
         serialized["device_id"],
         "ck:device:01964137-0000-7000-8000-000000000001"
@@ -54,7 +54,7 @@ fn session_login_outcome_uses_typed_wire_fields() {
 
 #[test]
 fn did_validation_rejects_handles() {
-    assert!(Did::new("did:web:alice.example").is_ok());
+    assert!(Did::new("did:webvh:z6mkfixture:alice.example").is_ok());
     assert!(Did::new("alice.example").is_err());
 }
 
@@ -75,16 +75,16 @@ fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
     let value = json!({
         "id": "ck:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa",
         "schema": ACTOR_PROFILE_SCHEMA,
-        "principal_id": "did:web:ghost.example",
+        "principal_id": "did:webvh:z6mkfixture:ghost.example",
         "actor_kind": "integration",
         "display_name": "Ghost",
         "status": "locked",
-        "accountable_principal_ids": ["did:web:owner.example"],
+        "accountable_principal_ids": ["did:webvh:z6mkfixture:owner.example"],
         "profile_fields": {
             "managed_by_applet": "ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
         },
         "created_at": "2026-04-30T00:00:00Z",
-        "updated_by": "did:web:owner.example",
+        "updated_by": "did:webvh:z6mkfixture:owner.example",
         "updated_at": "2026-04-30T00:01:00Z"
     });
     let profile: ActorProfile = serde_json::from_value(value).unwrap();
@@ -94,7 +94,7 @@ fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
     let bad = json!({
         "id": "ck:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa",
         "schema": ACTOR_PROFILE_SCHEMA,
-        "principal_id": "did:web:ghost.example",
+        "principal_id": "did:webvh:z6mkfixture:ghost.example",
         "actor_kind": "integration",
         "display_name": "Ghost",
         "created_at": "2026-04-30T00:00:00Z",
@@ -106,7 +106,7 @@ fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
 #[test]
 fn server_description_checks_protocol_version() {
     let desc = ServerDescription {
-        service_did: Did::new("did:web:svc.example").unwrap(),
+        service_did: Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
         trust_domain: TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
         service_type: "principal_server".to_owned(),
         protocol_version: "1.0".to_owned(),

@@ -1,7 +1,7 @@
 //! Realm membership management.
 //!
 //! Wire-shaped types are reused from `cokret-core`:
-//! [`MembershipState`] (spec vocabulary `invite/join/knock/leave/ban`),
+//! [`MembershipContentState`] (spec vocabulary `invite/join/knock/leave/ban`),
 //! [`Invite`] (mirrors `invite.schema.json`) and [`ThirdPartyInvite`]
 //! (3PID carrier — the plaintext address MUST NEVER appear on the wire).
 //! Manager-only bookkeeping (granted role per invite, change log) stays in
@@ -10,7 +10,7 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Duration, Utc};
-pub use cokret_core::events::MembershipState;
+pub use cokret_core::events::MembershipContentState;
 pub use cokret_core::{INVITE_SCHEMA, Invite, InviteState, ThirdPartyInvite};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -46,8 +46,8 @@ const DEFAULT_INVITE_TTL_DAYS: i64 = 7;
 /// no-ops; reducers may still emit a profile/role change without flipping
 /// state. Anything else returns `false` and the reducer MUST reject the
 /// event with `state_mismatch`.
-pub fn is_legal_membership_transition(from: Option<MembershipState>, to: MembershipState) -> bool {
-    use MembershipState::*;
+pub fn is_legal_membership_transition(from: Option<MembershipContentState>, to: MembershipContentState) -> bool {
+    use MembershipContentState::*;
     if Some(to) == from {
         return true;
     }
@@ -112,7 +112,7 @@ pub struct Member {
     /// Member actor DID.
     pub actor_id: Did,
     /// Current membership state.
-    pub state: MembershipState,
+    pub state: MembershipContentState,
     /// Role in the Realm.
     pub role: MemberRole,
     /// Cached profile.
@@ -127,9 +127,9 @@ pub struct MemberChange {
     /// Changed actor.
     pub actor_id: Did,
     /// Previous state if known.
-    pub previous: Option<MembershipState>,
+    pub previous: Option<MembershipContentState>,
     /// New state.
-    pub current: MembershipState,
+    pub current: MembershipContentState,
 }
 
 /// Whether an invite is still pending (not accepted, rejected, revoked,
@@ -173,7 +173,7 @@ impl MembershipManager {
     pub fn upsert_member(
         &mut self,
         actor_id: Did,
-        state: MembershipState,
+        state: MembershipContentState,
         role: MemberRole,
         profile: Option<MemberProfile>,
     ) {
@@ -199,17 +199,17 @@ impl MembershipManager {
 
     /// Accept an invitation or initial join through the canonical transition table.
     pub fn join(&mut self, actor_id: &Did) -> Result<()> {
-        self.apply_transition(actor_id, MembershipState::Join)
+        self.apply_transition(actor_id, MembershipContentState::Join)
     }
 
     /// Leave a joined Realm.
     pub fn leave(&mut self, actor_id: &Did) -> Result<()> {
         match self.members.get(actor_id).map(|member| member.state) {
-            Some(MembershipState::Join) => {
+            Some(MembershipContentState::Join) => {
                 let member = self.members.get(actor_id).cloned().expect("member exists");
                 self.upsert_member(
                     actor_id.clone(),
-                    MembershipState::Leave,
+                    MembershipContentState::Leave,
                     member.role,
                     member.profile,
                 );
@@ -221,17 +221,17 @@ impl MembershipManager {
 
     /// Ban a member.
     pub fn ban(&mut self, actor_id: &Did) -> Result<()> {
-        self.apply_transition(actor_id, MembershipState::Ban)
+        self.apply_transition(actor_id, MembershipContentState::Ban)
     }
 
     /// Unban a member, leaving them in `Leave` state.
     pub fn unban(&mut self, actor_id: &Did) -> Result<()> {
         match self.members.get(actor_id).map(|member| member.state) {
-            Some(MembershipState::Ban) => {
+            Some(MembershipContentState::Ban) => {
                 let member = self.members.get(actor_id).cloned().expect("member exists");
                 self.upsert_member(
                     actor_id.clone(),
-                    MembershipState::Leave,
+                    MembershipContentState::Leave,
                     member.role,
                     member.profile,
                 );
@@ -245,7 +245,7 @@ impl MembershipManager {
 
     /// Record a `knock` request — `none → Knock` or `Leave → Knock`.
     pub fn knock(&mut self, actor_id: &Did) -> Result<()> {
-        self.apply_transition(actor_id, MembershipState::Knock)
+        self.apply_transition(actor_id, MembershipContentState::Knock)
     }
 
     /// Apply a state transition, rejecting it via `state_mismatch` when the
@@ -253,7 +253,7 @@ impl MembershipManager {
     ///
     /// Convenience writers such as [`Self::join`] / [`Self::leave`] /
     /// [`Self::ban`] all route through this same canonical transition table.
-    pub fn apply_transition(&mut self, actor_id: &Did, to: MembershipState) -> Result<()> {
+    pub fn apply_transition(&mut self, actor_id: &Did, to: MembershipContentState) -> Result<()> {
         let from = self.members.get(actor_id).map(|m| m.state);
         if !is_legal_membership_transition(from, to) {
             return Err(Error::Protocol(format!(
@@ -378,7 +378,7 @@ impl MembershipManager {
         expires_at: DateTime<Utc>,
     ) -> Result<Invite> {
         let invite = self.new_invite(Some(actor_id.clone()), None, invited_by, expires_at)?;
-        self.upsert_member(actor_id, MembershipState::Invite, role, None);
+        self.upsert_member(actor_id, MembershipContentState::Invite, role, None);
         self.invite_roles.insert(invite.id.clone(), role);
         self.invites.insert(invite.id.clone(), invite.clone());
         Ok(invite)
@@ -425,7 +425,7 @@ impl MembershipManager {
         invite.state = InviteState::Revoked;
         invite.updated_at = Some(Utc::now());
         if let Some(invitee) = invitee {
-            self.upsert_member(invitee, MembershipState::Leave, role, None);
+            self.upsert_member(invitee, MembershipContentState::Leave, role, None);
         }
         Ok(())
     }
@@ -452,7 +452,7 @@ impl MembershipManager {
                 invite.updated_at = Some(now);
             }
             if let Some(invitee) = invitee {
-                self.upsert_member(invitee, MembershipState::Leave, role, None);
+                self.upsert_member(invitee, MembershipContentState::Leave, role, None);
             }
         }
         count
@@ -514,7 +514,7 @@ impl MembershipManager {
             invite.invitee = Some(actor_id.clone());
             invite.updated_at = Some(Utc::now());
         }
-        self.upsert_member(actor_id, MembershipState::Join, role, None);
+        self.upsert_member(actor_id, MembershipContentState::Join, role, None);
         Ok(())
     }
 
@@ -544,7 +544,7 @@ impl MembershipManager {
             invite.invitee.clone()
         };
         if let Some(invitee) = invitee {
-            self.upsert_member(invitee, MembershipState::Leave, role, None);
+            self.upsert_member(invitee, MembershipContentState::Leave, role, None);
         }
         Ok(())
     }
@@ -554,7 +554,7 @@ impl MembershipManager {
         &self,
         actor_id: Did,
         target_did: Did,
-        state: MembershipState,
+        state: MembershipContentState,
     ) -> Result<Operation> {
         Ok(Operation::create(
             OperationId::new(generate_id("ck:operation:"))?,
@@ -584,7 +584,7 @@ mod tests {
     use super::*;
 
     fn did(name: &str) -> Did {
-        Did::new(format!("did:web:{name}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     fn third_party_invite() -> ThirdPartyInvite {
@@ -609,17 +609,17 @@ mod tests {
 
         manager.upsert_member(
             alice.clone(),
-            MembershipState::Invite,
+            MembershipContentState::Invite,
             MemberRole::Member,
             None,
         );
         manager.join(&alice).unwrap();
-        assert_eq!(manager.member(&alice).unwrap().state, MembershipState::Join);
+        assert_eq!(manager.member(&alice).unwrap().state, MembershipContentState::Join);
 
         manager.leave(&alice).unwrap();
         assert_eq!(
             manager.member(&alice).unwrap().state,
-            MembershipState::Leave
+            MembershipContentState::Leave
         );
 
         assert!(manager.join(&alice).is_err());
@@ -632,7 +632,7 @@ mod tests {
         manager.unban(&alice).unwrap();
         assert_eq!(
             manager.member(&alice).unwrap().state,
-            MembershipState::Leave
+            MembershipContentState::Leave
         );
     }
 
@@ -641,7 +641,7 @@ mod tests {
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = MembershipManager::new(realm_id, alice.clone());
-        manager.upsert_member(alice, MembershipState::Join, MemberRole::Admin, None);
+        manager.upsert_member(alice, MembershipContentState::Join, MemberRole::Admin, None);
 
         assert!(manager.current_user_can(MemberRole::Moderator));
         assert!(manager.has_capability("ck.realm.policy"));
@@ -655,7 +655,7 @@ mod tests {
         let bob = did("bob");
         let mut manager = MembershipManager::new(realm_id, alice);
 
-        manager.upsert_member(bob.clone(), MembershipState::Join, MemberRole::Member, None);
+        manager.upsert_member(bob.clone(), MembershipContentState::Join, MemberRole::Member, None);
         manager
             .update_profile(
                 &bob,
@@ -693,7 +693,7 @@ mod tests {
             .unwrap();
         assert_eq!(invite.schema, INVITE_SCHEMA);
         manager.accept_invite(&invite.id, bob.clone()).unwrap();
-        assert_eq!(manager.member(&bob).unwrap().state, MembershipState::Join);
+        assert_eq!(manager.member(&bob).unwrap().state, MembershipContentState::Join);
 
         let third_party = manager
             .send_third_party_invite(third_party_invite(), alice, MemberRole::Viewer)

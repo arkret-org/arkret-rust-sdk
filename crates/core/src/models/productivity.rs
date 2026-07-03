@@ -1388,8 +1388,15 @@ pub fn saved_target_key(
 ) -> Result<String> {
     validate_key_segment("collection_key", collection_key)?;
     validate_object_ref_string("target_ref", target_ref)?;
-    let mut material = collection_key.as_bytes().to_vec();
-    material.extend_from_slice(&canonical::canonical_json_bytes(&target_ref)?);
+    // Length-prefix each component (8-byte BE) so no (collection_key,
+    // target_ref) pair can collide with another split of the same bytes.
+    let target_bytes = canonical::canonical_json_bytes(&target_ref)?;
+    let mut material =
+        Vec::with_capacity(16 + collection_key.len() + target_bytes.len());
+    material.extend_from_slice(&(collection_key.len() as u64).to_be_bytes());
+    material.extend_from_slice(collection_key.as_bytes());
+    material.extend_from_slice(&(target_bytes.len() as u64).to_be_bytes());
+    material.extend_from_slice(&target_bytes);
     Ok(base64url_encode(hmac_sha256(namespace_key, &material)))
 }
 
@@ -1790,28 +1797,15 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
+/// HMAC-SHA256 (RFC 2104) via the audited RustCrypto `hmac` crate. Used for
+/// blind search index token / shard key derivation; the output bytes are
+/// covered by fixture tests and MUST stay stable.
 fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
-    const BLOCK: usize = 64;
-    let mut key_block = [0u8; BLOCK];
-    if key.len() > BLOCK {
-        key_block[..32].copy_from_slice(&Sha256::digest(key));
-    } else {
-        key_block[..key.len()].copy_from_slice(key);
-    }
-    let mut ipad = [0x36u8; BLOCK];
-    let mut opad = [0x5cu8; BLOCK];
-    for index in 0..BLOCK {
-        ipad[index] ^= key_block[index];
-        opad[index] ^= key_block[index];
-    }
-    let mut inner = Sha256::new();
-    inner.update(ipad);
-    inner.update(data);
-    let inner_digest = inner.finalize();
-    let mut outer = Sha256::new();
-    outer.update(opad);
-    outer.update(inner_digest);
-    outer.finalize().into()
+    use hmac::{Hmac, KeyInit, Mac};
+    let mut mac =
+        Hmac::<Sha256>::new_from_slice(key).expect("HMAC-SHA256 accepts keys of any length");
+    mac.update(data);
+    mac.finalize().into_bytes().into()
 }
 
 #[cfg(test)]
@@ -1874,7 +1868,7 @@ mod tests {
             location: None,
             call_id: None,
             attendees: vec![CalendarAttendee {
-                actor_id: Did::new("did:web:alice.example").unwrap(),
+                actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                 role: Some(CalendarAttendeeRole::Organizer),
                 display_name_snapshot: None,
             }],
@@ -2109,7 +2103,7 @@ mod tests {
             pinned: true,
             verified_title_at_save: Some("Engineering".to_owned()),
             verified_owning_organizations_at_save: vec![
-                Did::new("did:web:acme.example".to_owned()).unwrap(),
+                Did::new("did:webvh:z6mkfixture:acme.example".to_owned()).unwrap(),
             ],
             saved_at: test_time(0),
             updated_at: Some(test_time(1)),
@@ -2201,7 +2195,7 @@ mod tests {
                 SearchProfileRef::BlindIndex,
                 SearchProfileRef::ForwardPrivate,
             ],
-            allowed_service_dids: vec![Did::new("did:web:search.example").unwrap()],
+            allowed_service_dids: vec![Did::new("did:webvh:z6mkfixture:search.example").unwrap()],
             data_classes: vec![
                 SearchDataClass::EncryptedIndex,
                 SearchDataClass::BlindTokens,

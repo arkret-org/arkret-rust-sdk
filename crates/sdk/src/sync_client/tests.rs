@@ -30,6 +30,8 @@ fn backoff_grows_until_capped() {
         initial_delay: Duration::from_millis(100),
         max_delay: Duration::from_millis(250),
         multiplier: 2,
+        // Deterministic delays for the exact assertions below.
+        jitter: false,
     });
 
     assert_eq!(backoff.record_failure(), Duration::from_millis(100));
@@ -231,10 +233,10 @@ fn processor_dispatches_all_update_categories() {
         .unwrap(),
     );
     response.to_device_lost = Some(true);
-    response.device_lists = json!({"changed": ["did:web:alice.example"], "left": []});
+    response.device_lists = json!({"changed": ["did:webvh:z6mkfixture:alice.example"], "left": []});
     response.presence.push(
         serde_json::to_value(PresenceEvent {
-            user_id: "did:web:alice.example".to_owned(),
+            user_id: "did:webvh:z6mkfixture:alice.example".to_owned(),
             presence: PresenceStatus::Online,
             last_active_at: None,
             status_message: None,
@@ -282,7 +284,7 @@ fn processor_dispatches_all_update_categories() {
     assert_eq!(processor.recovery_actions(), expected_recovery_actions);
     assert_eq!(processor.take_recovery_actions(), expected_recovery_actions);
     assert!(processor.recovery_actions().is_empty());
-    assert!(processor.presence("did:web:alice.example").is_some());
+    assert!(processor.presence("did:webvh:z6mkfixture:alice.example").is_some());
     assert!(processor.account_data("ck.settings").is_some());
     assert!(processor.notification("n1").is_some());
     assert_eq!(processor.device_lists().changed.len(), 1);
@@ -295,7 +297,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
     let event = Event::new(
         "ck.message.create",
         parsed_realm_id.clone(),
-        Did::new("did:web:alice.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
         crate::Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
         json!({"body":"hello"}),

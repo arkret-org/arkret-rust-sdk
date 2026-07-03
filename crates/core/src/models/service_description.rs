@@ -258,7 +258,7 @@ mod tests {
 
     fn directory_description() -> ServerDescription {
         ServerDescription {
-            service_did: Did::new("did:web:directory.example").unwrap(),
+            service_did: Did::new("did:webvh:z6mkfixture:directory.example").unwrap(),
             trust_domain: TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
             service_type: "directory_service".to_owned(),
             protocol_version: PROTOCOL_VERSION.to_owned(),

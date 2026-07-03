@@ -14,19 +14,21 @@ use cokret::{BaseClient, DeviceId, Did, SessionMeta};
 
 let base = Arc::new(BaseClient::new());
 base.set_session_meta(SessionMeta::new(
-    Did::new("did:web:alice.example")?,
-    DeviceId::new("dev_desktop")?,
+    Did::new("did:webvh:z6mkexample:alice.example")?,
+    DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001")?,
 ))?;
 # Ok::<(), cokret::Error>(())
 ```
 
-Process events and query a Realm-local Space container:
+Process events and query a Realm-local Space container. Typed ids carry a
+canonical lowercase UUIDv7 payload — mint fresh ones with
+`cokret::new_prefixed_uuid7("ck:realm:")`:
 
 ```rust
 use cokret::{Realm, RealmId, SpaceId};
 
-let realm_id = RealmId::new("ck:realm:01JS0RL000000000000000000")?;
-let space_id = SpaceId::new("ck:space:01JS0SP000000000000000000")?;
+let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-668e2181b41d")?;
+let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-6c663fa0205f")?;
 let realm = Realm::new(realm_id, base);
 let maybe_space = realm.get_space(&space_id);
 # Ok::<(), cokret::Error>(())
@@ -59,8 +61,12 @@ adapter.
 
 ### Review Security Gates
 
-Review `docs/security-audit.md` for internal pre-audit evidence and run
-`current_feature_safety_report().validate()` for the published feature set.
+Review `docs/security-audit.md` for internal pre-audit evidence. Use
+`feature_safety_report(...)` to validate feature strings that downstream
+services self-report (describe/manifest payloads); note its scope — it is not
+a compile gate for this SDK's own Cargo features. Cargo's feature graph plus
+the `compile_error!` guards at the top of `crates/sdk/src/lib.rs` enforce the
+reviewed feature combinations at build time.
 Use `redact_log_value()` on structured diagnostics that may contain tokens,
 proofs, signatures or private key references.
 

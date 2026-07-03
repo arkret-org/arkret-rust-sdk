@@ -4,7 +4,14 @@ use crate::models::ErrorEnvelope;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Unified SDK error type.
+///
+/// `#[non_exhaustive]`: spec evolution (new registry codes, new failure
+/// surfaces) adds variants in minor releases; downstream `match` expressions
+/// MUST carry a `_` arm and treat unrecognised variants fail-closed (as an
+/// error, never as success).
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum Error {
     #[error("invalid Cokret identifier: {0}")]
     InvalidId(String),
@@ -68,6 +75,15 @@ pub enum Error {
         status: u16,
         error: Box<ErrorEnvelope>,
     },
+
+    // Not a transport failure: the account-subscribe stream delivered a
+    // `dropped` / `resync_required` / `unauthorized` control frame
+    // (client-sync.md §2.2). Transports surface it through the error
+    // channel so cursor-owning sync loops can reconcile (adjust/clear the
+    // cursor, honor `reconnect_after_ms`) instead of silently consuming
+    // past a known data loss.
+    #[error("account stream interrupted: {0:?}")]
+    AccountStreamInterrupt(crate::models::AccountStreamInterrupt),
 
     #[error("protocol error: {0}")]
     Protocol(String),

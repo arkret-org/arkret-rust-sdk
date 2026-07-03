@@ -309,7 +309,7 @@ mod tests {
 
     fn base_device_authorize_payload() -> DeviceAuthorizePayload {
         DeviceAuthorizePayload {
-            principal_id: Did::new("did:web:alice.example").unwrap(),
+            principal_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             device_id: "ck:device:01904100-0000-7000-8000-a11ce0000001".to_owned(),
             device_public_key: "z6MkDeviceKey".to_owned(),
             hpke_key: "z6LSHpkeKey".to_owned(),
@@ -318,7 +318,7 @@ mod tests {
                 "ck.mls.v1".to_owned(),
             ],
             device_key_algorithm: None,
-            authorized_by: DeviceOrPrincipalRef::Did(Did::new("did:web:alice.example").unwrap()),
+            authorized_by: DeviceOrPrincipalRef::Did(Did::new("did:webvh:z6mkfixture:alice.example").unwrap()),
             scopes: None,
             not_before: "2026-05-30T00:00:00Z".parse().unwrap(),
             expires_at: None,
@@ -333,7 +333,7 @@ mod tests {
 
     fn cross_signing_binding() -> DeviceCrossSigningBinding {
         DeviceCrossSigningBinding {
-            verification_method: json!("did:web:alice.example#ssk"),
+            verification_method: json!("did:webvh:z6mkfixture:alice.example#ssk"),
             alg: "EdDSA".to_owned(),
             ssk_generation: 1,
             signature: "c2ln".to_owned(),
@@ -353,7 +353,7 @@ mod tests {
 
         payload.bootstrap_binding = Some(DeviceBootstrapBinding {
             kind: "inception_key".to_owned(),
-            did_method_evidence_ref: "did:web:alice.example#inception".to_owned(),
+            did_method_evidence_ref: "did:webvh:z6mkfixture:alice.example#inception".to_owned(),
         });
         assert_eq!(
             payload.validate_authorization_binding_one_of(),
@@ -400,14 +400,14 @@ mod tests {
     fn service_attested_accepts_optional_version_time_alias() {
         let binding: DeviceEnrollmentAuthorityBinding = serde_json::from_value(json!({
             "kind": "service_attested",
-            "authority_did": "did:web:authority.example",
+            "authority_did": "did:webvh:z6mkfixture:authority.example",
             "versionTime": "2026-06-22T14:45:51Z",
-            "authorization_ref": "did:web:alice.example#enrollment-authority"
+            "authorization_ref": "did:webvh:z6mkfixture:alice.example#enrollment-authority"
         }))
         .unwrap();
         assert_eq!(
             binding.authorization_ref,
-            "did:web:alice.example#enrollment-authority"
+            "did:webvh:z6mkfixture:alice.example#enrollment-authority"
         );
     }
 

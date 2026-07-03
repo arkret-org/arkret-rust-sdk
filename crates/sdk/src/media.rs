@@ -1050,10 +1050,10 @@ mod tests {
 
     use super::*;
 
-    const ISSUER_KID: &str = "did:web:media.example#media-token";
+    const ISSUER_KID: &str = "did:webvh:z6mkfixture:media.example#media-token";
 
     fn did(name: &str) -> Did {
-        Did::new(format!("did:web:{name}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     fn issuer_key() -> SigningKey {
@@ -1332,10 +1332,10 @@ mod tests {
                 &metadata.blob_ref,
                 32,
                 32,
-                Did::new("did:web:media.example".to_owned()).unwrap(),
+                Did::new("did:webvh:z6mkfixture:media.example".to_owned()).unwrap(),
             )
             .unwrap();
-        let media_service_did = Did::new("did:web:media.example".to_owned()).unwrap();
+        let media_service_did = Did::new("did:webvh:z6mkfixture:media.example".to_owned()).unwrap();
         assert_eq!(
             service_thumbnail.generated_by_service_did.as_ref(),
             Some(&media_service_did)

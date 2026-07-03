@@ -138,7 +138,7 @@ mod tests {
     #[test]
     fn agent_envelope_round_trips_minimal() {
         let env = AgentInteropEnvelope {
-            agent_id: Did::new("did:web:agent.example.com".to_owned()).unwrap(),
+            agent_id: Did::new("did:webvh:z6mkfixture:agent.example.com".to_owned()).unwrap(),
             endpoint_url: None,
             session_id: None,
             status: None,
@@ -148,7 +148,7 @@ mod tests {
             audit_binding: None,
         };
         let json_text = serde_json::to_string(&env).unwrap();
-        assert_eq!(json_text, r#"{"agent_id":"did:web:agent.example.com"}"#);
+        assert_eq!(json_text, r#"{"agent_id":"did:webvh:z6mkfixture:agent.example.com"}"#);
         let parsed: AgentInteropEnvelope = serde_json::from_str(&json_text).unwrap();
         assert_eq!(parsed, env);
     }
@@ -156,7 +156,7 @@ mod tests {
     #[test]
     fn agent_envelope_status_round_trips() {
         let env = AgentInteropEnvelope {
-            agent_id: Did::new("did:web:agent.example.com".to_owned()).unwrap(),
+            agent_id: Did::new("did:webvh:z6mkfixture:agent.example.com".to_owned()).unwrap(),
             endpoint_url: None,
             session_id: Some("session-1".to_owned()),
             status: Some(InteropSessionStatus::Running),
@@ -175,7 +175,7 @@ mod tests {
     fn applet_envelope_round_trips() {
         let env = AppletInteropEnvelope {
             applet_id: "ck:applet:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
-            service_did: Some(Did::new("did:web:bridge.example.com".to_owned()).unwrap()),
+            service_did: Some(Did::new("did:webvh:z6mkfixture:bridge.example.com".to_owned()).unwrap()),
             session_id: Some("sess-1".to_owned()),
             status: Some(InteropSessionStatus::Completed),
             params: None,

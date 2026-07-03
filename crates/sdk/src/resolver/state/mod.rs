@@ -341,8 +341,9 @@ impl RealmState {
         ) || event.redacts.is_some()
     }
 
-    /// Create a state snapshot at the current point.
-    pub fn snapshot(&self) -> StateSnapshot {
+    /// Create a state snapshot at the current point. Fails when the manifest
+    /// Merkle root cannot be computed (fail-closed: no placeholder manifest).
+    pub fn snapshot(&self) -> Result<StateSnapshot> {
         let mut snapshot = StateSnapshot {
             realm_id: self.realm_id.clone(),
             reducer_profile: self.reducer_profile.clone(),
@@ -359,8 +360,8 @@ impl RealmState {
             tombstone_event_id: self.tombstone_event_id.clone(),
             manifest: None,
         };
-        snapshot.manifest = Some(snapshot.manifest());
-        snapshot
+        snapshot.manifest = Some(snapshot.manifest()?);
+        Ok(snapshot)
     }
 
     pub fn effective_capability(&self, capability_id: &str) -> Option<&ResolvedStateEvent> {

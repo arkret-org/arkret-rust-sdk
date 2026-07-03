@@ -46,6 +46,40 @@ impl Operation {
         canonical::canonical_sha256(self)
     }
 
+    /// Canonical acting-principal accessor for operation payloads.
+    ///
+    /// Resolves the actor DID from the payload object by probing the alias
+    /// fields in this fixed priority order:
+    /// `actor_id` → `sender` → `actor` → `member` → `subject` →
+    /// `created_by` → `updated_by`. An alias only wins when its value is a
+    /// string that parses as a syntactically valid DID ([`Did::new`]);
+    /// non-string or malformed values are skipped and the next alias is
+    /// tried. Returns `None` when no alias yields a valid DID.
+    ///
+    /// This is the single-source replacement for the three hand-written
+    /// payload-actor extraction copies in soland; downstream crates MUST
+    /// call this accessor instead of re-implementing the alias order.
+    pub fn actor(&self) -> Option<Did> {
+        const ACTOR_ALIASES: [&str; 7] = [
+            "actor_id",
+            "sender",
+            "actor",
+            "member",
+            "subject",
+            "created_by",
+            "updated_by",
+        ];
+        let object = self.payload.as_object()?;
+        for alias in ACTOR_ALIASES {
+            if let Some(candidate) = object.get(alias).and_then(Value::as_str)
+                && let Ok(did) = Did::new(candidate)
+            {
+                return Some(did);
+            }
+        }
+        None
+    }
+
     pub fn validate_payload_object(&self) -> Result<()> {
         if self.payload.is_object() {
             Ok(())
@@ -1152,5 +1186,54 @@ impl MlsWelcomeEnvelope {
             self.group_id, self.epoch, self.recipient_principal_id, self.recipient_device_id
         ));
         Ok(operation)
+    }
+}
+
+#[cfg(test)]
+mod actor_accessor_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn operation_with_payload(payload: Value) -> Operation {
+        Operation::create(
+            OperationId::new("ck:operation:01904100-0000-7000-8000-000000000001").unwrap(),
+            RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            "message",
+            payload,
+        )
+    }
+
+    #[test]
+    fn actor_resolves_aliases_in_priority_order() {
+        let operation = operation_with_payload(json!({
+            "sender": "did:webvh:QmScid:bob.example",
+            "actor_id": "did:webvh:QmScid:alice.example",
+        }));
+        assert_eq!(
+            operation.actor().unwrap().as_str(),
+            "did:webvh:QmScid:alice.example",
+        );
+    }
+
+    #[test]
+    fn actor_skips_aliases_that_are_not_valid_dids() {
+        let operation = operation_with_payload(json!({
+            "actor_id": "not-a-did",
+            "sender": 42,
+            "member": "did:webvh:QmScid:carol.example",
+        }));
+        assert_eq!(
+            operation.actor().unwrap().as_str(),
+            "did:webvh:QmScid:carol.example",
+        );
+    }
+
+    #[test]
+    fn actor_returns_none_without_any_alias() {
+        let operation = operation_with_payload(json!({"body": "hello"}));
+        assert!(operation.actor().is_none());
+        let non_object = operation_with_payload(json!("string payload"));
+        assert!(non_object.actor().is_none());
     }
 }

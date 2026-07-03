@@ -85,8 +85,10 @@ pub struct PublicKey {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/runtime_attestation`.
-pub type RuntimeAttestation = AgentKeyAuthorizePayload;
+/// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/runtime_attestation`
+/// (`$ref` to `event-payload.schema.json#/$defs/agent_key_authorize_payload`
+/// `properties/runtime_attestation`).
+pub type RuntimeAttestation = AgentKeyAuthorizePayloadRuntimeAttestation;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/sidecar_exposure_ack`.

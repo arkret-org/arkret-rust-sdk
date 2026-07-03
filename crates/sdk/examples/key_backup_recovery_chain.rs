@@ -129,7 +129,7 @@ fn build_envelope(
         plaintext_commitment: None,
         auth_data: Some(KeyBackupAuthData {
             device_id: device_id.clone(),
-            verification_method: "did:web:alice.example#device-1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#device-1".to_owned(),
             signature_algorithm: KeyBackupSignatureAlgorithm::Ed25519,
             signature: format!("sig-{seq}"),
             ssk_generation: Some(1),
@@ -208,7 +208,7 @@ fn validate_chain(envelopes: &[KeyBackup]) -> Result<(), String> {
 }
 
 fn main() -> cokret::Result<()> {
-    let actor_id = Did::new("did:web:alice.example")?;
+    let actor_id = Did::new("did:webvh:z6mkfixture:alice.example")?;
     let device_id = DeviceId::new("ck:device:01964137-0000-7000-8000-000000000009")?;
     let series_id = BackupSeriesId::new("ck:backup_series:01964137-0000-7000-8000-000000000777")?;
 

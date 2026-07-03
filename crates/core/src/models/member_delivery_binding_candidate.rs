@@ -236,7 +236,7 @@ mod tests {
     use super::*;
 
     fn fake_did(label: &str) -> Did {
-        Did::new(format!("did:web:{label}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{label}.example")).unwrap()
     }
 
     fn sample_hint(rs: &Did) -> DeliveryBindingHint {
@@ -270,7 +270,7 @@ mod tests {
             proofs: vec![json!({
                 "kind": "detached_jws",
                 "alg": "EdDSA",
-                "verification_method": "did:web:principal.example#key-1",
+                "verification_method": "did:webvh:z6mkfixture:principal.example#key-1",
                 "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "created_at": "2026-05-19T00:00:00Z",
                 "audience": "ck:realm:0196419b-0000-7000-8000-000000000000",

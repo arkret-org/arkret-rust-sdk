@@ -5,7 +5,7 @@ use crate::{canonical, *};
 
 #[test]
 fn object_create_payload_wraps_object() {
-    let actor = Did::new("did:web:alice.example".to_owned()).unwrap();
+    let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
     let strand_id = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000002").unwrap();
     let strand = StrandCreateObject::new(strand_id, realm_id, actor)
@@ -21,7 +21,7 @@ fn object_create_payload_wraps_object() {
 
 #[test]
 fn space_create_object_uses_canonical_timestamp() {
-    let actor = Did::new("did:web:alice.example".to_owned()).unwrap();
+    let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
     let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000002").unwrap();
     let space = SpaceCreateObject::new(space_id, realm_id, "board", "Board", actor);
@@ -56,7 +56,7 @@ fn strand_tracks_update_payload_uses_strand_id_not_target_ref() {
 
 #[test]
 fn morph_create_payload_uses_metadata_and_encrypted_content_names() {
-    let actor = Did::new("did:web:alice.example".to_owned()).unwrap();
+    let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
     let morph_id = MorphId::new("ck:morph:01904100-0000-7000-8000-000000000002").unwrap();
     let morph = MorphCreateObject::new(morph_id, realm_id, "document", actor)
@@ -147,7 +147,7 @@ fn message_create_payload_carries_disappearing_expiry() {
 
 #[test]
 fn morph_create_object_rejects_both_content_carriers() {
-    let actor = Did::new("did:web:alice.example".to_owned()).unwrap();
+    let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
     let morph_id = MorphId::new("ck:morph:01904100-0000-7000-8000-000000000003").unwrap();
     let mut morph = MorphCreateObject::new(morph_id, realm_id, "document", actor);

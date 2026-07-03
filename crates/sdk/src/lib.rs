@@ -20,7 +20,7 @@
 //! let draft = OperationEnvelopeBuilder::new(
 //!     OperationId::new("ck:operation:01904100-0000-7000-8000-57d7d85564c5")?,
 //!     RealmId::new("ck:realm:01904100-0000-7000-8000-668e2181b41d")?,
-//!     Did::new("did:web:alice.example")?,
+//!     Did::new("did:webvh:z6mkfixture:alice.example")?,
 //!     OP_MESSAGE_CREATE,
 //!     1,
 //!     Hlc::new("01970e589d21-0001-a13f9c2e")?,
@@ -72,8 +72,42 @@
 //! raw strings:
 //!
 //! ```compile_fail
-//! let did: cokret::Did = "did:web:alice.example";
+//! let did: cokret::Did = "did:webvh:z6mkfixture:alice.example";
 //! ```
+
+// ---------------------------------------------------------------------------
+// Compile-time feature-combination gates (SDK-FEAT-01).
+//
+// Today's Cargo feature graph already forces these implications at resolution
+// time (`mls = ["full-surface", ...]`, `server = [..., "full-surface"]`,
+// `salvo = ["server", ...]`, `*-runtime = ["full-surface"]`), so the guards
+// below are unreachable. They exist as zero-cost regression armour: if a
+// future Cargo.toml edit drops one of the implications, the build fails here
+// instead of shipping a reviewed-unsafe feature combination. The runtime
+// `feature_safety_report` in `crypto.rs` is NOT this gate — its scope is
+// validating feature strings that downstream services self-report.
+// ---------------------------------------------------------------------------
+#[cfg(all(feature = "mls", not(feature = "full-surface")))]
+compile_error!("feature `mls` requires `full-surface` (see crates/sdk/Cargo.toml feature graph)");
+#[cfg(all(feature = "server", not(feature = "full-surface")))]
+compile_error!(
+    "feature `server` requires `full-surface` (see crates/sdk/Cargo.toml feature graph)"
+);
+#[cfg(all(feature = "salvo", not(feature = "server")))]
+compile_error!("feature `salvo` requires `server` (see crates/sdk/Cargo.toml feature graph)");
+#[cfg(all(
+    any(
+        feature = "applet-runtime",
+        feature = "device-runtime",
+        feature = "sync-runtime",
+        feature = "timeline-runtime"
+    ),
+    not(feature = "full-surface")
+))]
+compile_error!(
+    "runtime features (applet/device/sync/timeline) require `full-surface` \
+     (see crates/sdk/Cargo.toml feature graph)"
+);
 
 // Product-local client API DTOs (auth/realm/media/call wire shapes that need
 // `cokret-crypto`/`cokret-html` types) are owned by the SDK. The canonical
@@ -97,9 +131,13 @@ pub use cokret_html as html;
 #[cfg(feature = "client")]
 pub use cokret_http_client as http_client;
 pub use cokret_keystore::{
-    LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
-    platform_default_keystore,
+    BackendKind, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
+    platform_default_keystore_with_kind,
 };
+// Deprecated convenience constructor kept re-exported so downstream callers
+// see the deprecation note instead of a hard break; the warning propagates.
+#[allow(deprecated)]
+pub use cokret_keystore::platform_default_keystore;
 #[cfg(feature = "server")]
 pub use cokret_server as server;
 pub use cokret_signatures as signatures;
@@ -110,8 +148,6 @@ pub use cokret_signatures::Ed25519MoveSigner;
 // reach one implementation: `cokret_sdk::webvh::prepare_inception`,
 // `cokret_sdk::realm_organization_statement_sign`.
 pub use cokret_signatures::{realm_organization, realm_organization_statement_sign, webvh};
-#[cfg(feature = "testing")]
-pub use cokret_testing as testing;
 
 // Platform-native KeyStore backends. The glob import above already
 // re-exports these symbols, but listing them explicitly keeps them
@@ -295,7 +331,7 @@ pub use applet::{
 ))]
 pub use applet_server::router as applet_router;
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
-pub use applet_server::{AppletHandler, AppletService};
+pub use applet_server::{AppletHandler, AppletService, TransactionDispatch};
 #[cfg(feature = "full-surface")]
 pub use auth::{
     AccountAuthState, AccountRecoveryMethod, AccountRecoveryRequestBody, AuthClaimKind,
@@ -322,12 +358,12 @@ pub use auth::{
 pub use authz::{
     ApprovalMode, ApprovalStrandManager, AuthzContext, AuthzEngine, CapabilityFrontierValidation,
     CapabilityGrantBuilder, ClaimRequirement, Constraint, ConstraintDuration, ConstraintEffect,
-    ConstraintEntry, EngineDecision, FieldScope, GrantProposal, ModerationReport,
+    ConstraintEntry, EngineDecision, FieldScope, GrantProposal, PolicyModerationReport,
     PolicyEvaluationRequest, PolicyEvaluationResult, PolicyServerEffect, ProposalApproval,
     ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
     ProtocolGrantConstraint, ProtocolGrantConstraintEffect, ProtocolGrantConstraintTrack,
     ProtocolGrantConstraintType, ProtocolResourceSelector, ProtocolResourceSelectorKind,
-    ProtocolResourceSelectorScope, RateLimitScope, Recurrence, Resource, ResourceSelector,
+    ProtocolResourceSelectorScope, GrantRateLimitScope, Recurrence, Resource, ResourceSelector,
     ScopeLimitation, VerifiedClaim, apply_policy_response, capability_grants_from_realm_state,
     grant_requires_approval, moderation_report_for_policy_outcome,
     reject_unknown_critical_constraints, validate_capability_frontier,
@@ -340,8 +376,9 @@ pub use base::{
 #[cfg(feature = "full-surface")]
 pub use blob_aead::{
     ALG_STREAM_XCHACHA, ALG_WHOLE_FILE_XCHACHA, DEFAULT_SEGMENT_SIZE, EncryptedAttachmentEnvelope,
-    SCHEME_STREAM, SCHEME_WHOLE_FILE, StreamDecryptor, StreamEncryptParams, decrypt_stream,
-    decrypt_whole_file, encrypt_stream, encrypt_whole_file,
+    MAX_SEGMENT_COUNT, MAX_SEGMENT_SIZE, MIN_SEGMENT_SIZE, SCHEME_STREAM, SCHEME_WHOLE_FILE,
+    StreamDecryptor, StreamEncryptParams, decrypt_stream, decrypt_whole_file, encrypt_stream,
+    encrypt_whole_file,
 };
 #[cfg(feature = "full-surface")]
 pub use crypto::{
@@ -370,7 +407,7 @@ pub use devices::{
     DeviceCrossSigningChainVerification, DeviceManager, DeviceMetadata, DeviceQuorumSignature,
     DeviceTrustBinding, DeviceTrustChainOutcome, DeviceTrustState, DeviceVerificationChallenge,
     DeviceVerificationMessageContent, DeviceVerificationMessageKind, KeyBackupClass,
-    KeyBackupContentItem, KeyBackupEncryption, ProtocolKeyBackup, QrVerificationPayload,
+    KeyBackupContentItem, ProtocolKeyBackup, QrVerificationPayload,
     SignedCrossSigningKey, ToDeviceEnvelope, cross_signing_publish_cell_subject,
     device_verification_commitment, verify_device_cross_signing_chain,
 };
@@ -417,14 +454,18 @@ pub use http_client::{Auth, Client, ClientBuilder, ClientRequestOptions, RetryCo
 pub use http_did_resolver::{
     DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS, DEFAULT_HTTP_DID_RESOLVER_TTL_SECS, HttpDidResolver,
 };
-pub use idempotency::{IdempotencyDecision, IdempotencyWindow};
+pub use idempotency::{
+    APPLET_TRANSACTION_OPERATION_ID, IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity,
+    IdempotencyWindow,
+};
 #[cfg(feature = "full-surface")]
 pub use identity::{
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument,
     DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyLogEntry, DidKeyLogOperation,
     DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver, DidVisibility,
-    DidWebDocumentOutcome, DidWebResolver, ExternalHandleProof, HandleAttestation, HandleClaim,
-    HandleProofProfile, IdentityManager, IdentityReceiptWitnessRole, InMemoryStaridRegistryAdapter,
+    DidWebDocumentOutcome, DidWebResolver, ExternalHandleProof, HandleAttestation,
+    HandleClaimChallenge, HandleProofProfile, IdentityManager, IdentityReceiptWitnessRole,
+    InMemoryStaridRegistryAdapter,
     PairwiseDidBinding, PairwiseDidResolutionProof, PairwiseDidStore,
     ResolvedVerificationMethodKey, StaridControlProofRequestBody, StaridControlProofVerification,
     StaridRegistryAdapter, StaridRegistryRecord, VerifiedDidKeyLog,
@@ -435,7 +476,7 @@ pub use identity::{
     verify_event_proof_with_did_resolver, verify_event_proof_with_did_resolver_context,
 };
 #[cfg(feature = "full-surface")]
-pub use identity_link::{IdentityLinkCache, IdentityLinkCacheEntry};
+pub use identity_link::{IdentityLinkCache, VerifiedLinkCacheEntry};
 #[cfg(all(
     feature = "full-surface",
     feature = "device-runtime",
@@ -460,7 +501,8 @@ pub use media::{
 pub use media::{MediaClient, VerifiedCallMediaTokenExchange, VerifiedMediaIceConfig};
 #[cfg(feature = "full-surface")]
 pub use membership::{
-    Invite, Member, MemberChange, MemberProfile, MemberRole, MembershipManager, MembershipState,
+    Invite, Member, MemberChange, MemberProfile, MemberRole, MembershipManager,
+    MembershipContentState,
     ThirdPartyInvite, is_legal_membership_transition,
 };
 #[cfg(all(feature = "full-surface", feature = "mls"))]
@@ -487,8 +529,9 @@ pub use profile::{
 };
 #[cfg(feature = "full-surface")]
 pub use push::{
-    CHIME_PUSH_REGISTRATION_VERSION, ChimePushRegistration, EncryptedPushPayload, PushEvent,
-    PushGateway, PushPayload, PushPlatform, PushPriority, PushPrivacyPolicy, PushRule, PushToken,
+    CHIME_PUSH_REGISTRATION_VERSION, ChimePushRegistration, EncryptedPushPayload, PushGateway,
+    PushNotification, PushPayload, PushPlatform, PushPriority, PushPrivacyPolicy, PushRule,
+    PushToken,
 };
 #[cfg(feature = "full-surface")]
 pub use realm::{
@@ -513,7 +556,9 @@ pub use search::{RealmSearchEntry, RealmSearchIndex, RealmSearchQuery};
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use secret_share::{
     HPKE_SECRET_SHARE_SCHEME, SECRET_ID_MLS_ACCOUNT, SECRET_REQUEST_KIND, SECRET_SEND_KIND,
-    SecretShareRequestContent, SecretShareSendContent,
+    SecretShareRequestContent, SecretShareSendContent, open_base_mode_with_x25519_privkey,
+    open_history_secret_with_device_privkey, seal_base_mode_to_x25519_pubkey,
+    seal_history_secret_to_device_pubkey,
 };
 #[cfg(all(feature = "full-surface", feature = "server"))]
 pub use server::{

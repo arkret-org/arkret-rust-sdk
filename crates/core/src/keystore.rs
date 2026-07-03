@@ -6,7 +6,7 @@
 //! [`KeyStore`] trait, the typed [`KeyStoreError`], and the zeroizing
 //! [`InMemoryKeyStore`]. OS-native backends (macOS Keychain, Linux Secret
 //! Service, Windows Credential Manager) and the
-//! `platform_default_keystore` constructor live in the separate
+//! `platform_default_keystore_with_kind` constructor live in the separate
 //! `cokret-keystore` crate so this crate stays free of platform IO and
 //! native OS dependencies.
 //!

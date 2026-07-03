@@ -363,4 +363,44 @@ mod tests {
             "got: {msg}"
         );
     }
+
+    /// SDK-TEST-06: tampering with a signed event (payload or proof fields)
+    /// MUST fail the event-signature binding check — the happy-path tests
+    /// above never exercised the reject arm of `validate_proof_bindings`.
+    #[test]
+    fn tampered_event_fails_proof_binding_validation() {
+        let mut event = make_event();
+        let signer = StubMoveSigner::new(alice(), vm_alice());
+        sign_event(&mut event, &signer, vm_alice(), SignEventOptions::new()).unwrap();
+        event.validate_proof_bindings().unwrap();
+
+        // Payload tamper: the recomputed canonical event digest changes, so
+        // the signed proof binding no longer matches.
+        let mut payload_tampered = event.clone();
+        payload_tampered.content = json!({ "body": "tampered" });
+        let err = payload_tampered
+            .validate_proof_bindings()
+            .expect_err("payload tamper must fail binding validation");
+        assert!(format!("{err}").contains("event_digest"), "got: {err}");
+
+        // Proof tamper: swapping event_digest for another well-formed hash
+        // must be rejected against the recomputed digest.
+        let mut digest_tampered = event.clone();
+        digest_tampered.proofs[0].event_digest =
+            Hash::new("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+                .unwrap();
+        assert!(
+            digest_tampered.validate_proof_bindings().is_err(),
+            "proof event_digest tamper must fail binding validation"
+        );
+
+        // Top-level field tamper (actor_seq is inside the signed canonical
+        // bytes): the digest moves, binding validation must fail.
+        let mut field_tampered = event;
+        field_tampered.actor_seq += 1;
+        assert!(
+            field_tampered.validate_proof_bindings().is_err(),
+            "actor_seq tamper must fail binding validation"
+        );
+    }
 }

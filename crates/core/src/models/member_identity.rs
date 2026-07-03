@@ -462,7 +462,7 @@ mod tests {
     }
 
     fn fake_actor(label: &str) -> Did {
-        Did::new(format!("did:web:{label}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{label}.example")).unwrap()
     }
 
     fn sample_identity(name: &str) -> MemberIdentity {
@@ -476,7 +476,7 @@ mod tests {
             },
             Utc::now(),
             MemberIdentityProof {
-                verification_method: "did:web:alice.example#key-1".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
                 signature_algorithm: MemberIdentitySignatureAlgorithm::Ed25519,
                 payload_digest: Hash::new(
                     "sha256:0000000000000000000000000000000000000000000000000000000000000000",

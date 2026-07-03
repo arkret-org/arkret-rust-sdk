@@ -2,7 +2,13 @@ use super::codes::*;
 use super::status::error_code_http_status;
 
 /// Strongly typed view over the canonical top-level error-code registry.
+///
+/// `#[non_exhaustive]`: the registry gains codes as the spec evolves and this
+/// enum is regenerated to match; downstream `match` expressions MUST carry a
+/// `_` arm and treat unrecognised codes fail-closed (as a denial/error, never
+/// as an allow).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ErrorCode {
     BadJson,
     BadQuery,
@@ -48,6 +54,8 @@ pub enum ErrorCode {
     MethodNotAllowed,
     Conflict,
     CasConflict,
+    FailedBottom,
+    FailedPlane,
     CausalConflict,
     DependencyMissing,
     DiscussionTrackDisabled,
@@ -166,7 +174,7 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 159] = [
+    pub const ALL: [Self; 161] = [
         Self::BadJson,
         Self::BadQuery,
         Self::SchemaViolation,
@@ -211,6 +219,8 @@ impl ErrorCode {
         Self::MethodNotAllowed,
         Self::Conflict,
         Self::CasConflict,
+        Self::FailedBottom,
+        Self::FailedPlane,
         Self::CausalConflict,
         Self::DependencyMissing,
         Self::DiscussionTrackDisabled,
@@ -376,6 +386,8 @@ impl ErrorCode {
             Self::MethodNotAllowed => ERROR_CODE_METHOD_NOT_ALLOWED,
             Self::Conflict => ERROR_CODE_CONFLICT,
             Self::CasConflict => ERROR_CODE_CAS_CONFLICT,
+            Self::FailedBottom => ERROR_CODE_FAILED_BOTTOM,
+            Self::FailedPlane => ERROR_CODE_FAILED_PLANE,
             Self::CausalConflict => ERROR_CODE_CAUSAL_CONFLICT,
             Self::DependencyMissing => ERROR_CODE_DEPENDENCY_MISSING,
             Self::DiscussionTrackDisabled => ERROR_CODE_DISCUSSION_TRACK_DISABLED,
@@ -546,6 +558,8 @@ impl ErrorCode {
             ERROR_CODE_METHOD_NOT_ALLOWED => Self::MethodNotAllowed,
             ERROR_CODE_CONFLICT => Self::Conflict,
             ERROR_CODE_CAS_CONFLICT => Self::CasConflict,
+            ERROR_CODE_FAILED_BOTTOM => Self::FailedBottom,
+            ERROR_CODE_FAILED_PLANE => Self::FailedPlane,
             ERROR_CODE_CAUSAL_CONFLICT => Self::CausalConflict,
             ERROR_CODE_DEPENDENCY_MISSING => Self::DependencyMissing,
             ERROR_CODE_DISCUSSION_TRACK_DISABLED => Self::DiscussionTrackDisabled,
@@ -670,6 +684,20 @@ impl ErrorCode {
     }
 
     pub fn http_status(self) -> u16 {
-        error_code_http_status(self.as_str()).expect("registered error code must have HTTP status")
+        match error_code_http_status(self.as_str()) {
+            Some(status) => status,
+            None => {
+                // The variant table and the status table drifted apart. That
+                // is a generator bug, not a runtime condition: surface it
+                // loudly in debug builds and degrade to 500 in release
+                // instead of panicking in the error-reporting path.
+                debug_assert!(
+                    false,
+                    "error code `{}` is missing from the HTTP status registry",
+                    self.as_str()
+                );
+                500
+            }
+        }
     }
 }

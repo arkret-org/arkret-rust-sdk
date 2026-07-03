@@ -575,7 +575,7 @@ mod tests {
             "call_id": "ck:call:019a7360-0000-7000-8000-000000000001",
             "state": "active",
             "removed_participants": [{
-                "actor_id": "did:web:bob.example",
+                "actor_id": "did:webvh:z6mkfixture:bob.example",
                 "action": "ban",
                 "removed_at": "2026-06-22T00:00:00Z"
             }]
@@ -593,7 +593,7 @@ mod tests {
         let encoded = serde_json::to_value(payload).unwrap();
         assert_eq!(
             encoded["removed_participants"][0]["actor_id"],
-            "did:web:bob.example"
+            "did:webvh:z6mkfixture:bob.example"
         );
     }
 
@@ -603,11 +603,11 @@ mod tests {
             "call_id": "ck:call:019a7360-0000-7000-8000-000000000001",
             "state": "active",
             "participant_mute_overrides": [{
-                "actor_id": "did:web:bob.example",
+                "actor_id": "did:webvh:z6mkfixture:bob.example",
                 "device_id": "ck:device:019a7360-0000-7000-8000-000000000002",
                 "audio_muted": true,
                 "video_muted": false,
-                "muted_by": "did:web:mod.example",
+                "muted_by": "did:webvh:z6mkfixture:mod.example",
                 "muted_at": "2026-06-22T00:00:00Z",
                 "reason": "moderation"
             }]

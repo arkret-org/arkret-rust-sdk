@@ -295,7 +295,7 @@ mod tests {
     fn sig() -> MoveSignature {
         MoveSignature {
             alg: "EdDSA".to_owned(),
-            verification_method: "did:web:notary.example#k1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:notary.example#k1".to_owned(),
             payload_digest: hash(0xaa),
             created_at: Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap(),
             jws: "AAAA.BBBB.CCCC".to_owned(),
@@ -358,7 +358,7 @@ mod tests {
     fn signature_variants_decode() {
         let value = json!({
             "alg": "EdDSA",
-            "verification_method": "did:web:notary.example#k1",
+            "verification_method": "did:webvh:z6mkfixture:notary.example#k1",
             "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "created_at": "2026-06-11T00:00:00Z",
             "jws": "AAAA.BBBB.CCCC"

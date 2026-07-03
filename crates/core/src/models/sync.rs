@@ -151,9 +151,17 @@ pub struct AccountSubscribeFrame {
     pub extra: BTreeMap<String, Value>,
 }
 
+/// Account-subscribe NDJSON frame discriminator.
+///
+/// `#[non_exhaustive]`: a future spec revision may register additional frame
+/// kinds. Downstream `match` expressions MUST carry a `_` arm with
+/// fail-closed semantics (ignore/drop an unrecognised frame rather than
+/// treating it as a delta or a state transition). Deserialisation itself
+/// stays closed-set: an unknown wire value still fails the frame parse.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum AccountSubscribeFrameKind {
     Delta,
     CatchupComplete,
@@ -162,6 +170,38 @@ pub enum AccountSubscribeFrameKind {
     Dropped,
     ResyncRequired,
     Unauthorized,
+}
+
+/// Structured control interrupt extracted from a `dropped` /
+/// `resync_required` / `unauthorized` account-subscribe frame
+/// (client-sync.md §2 / §2.2). These frames MUST NOT be silently
+/// skipped: the client has to reconcile (dropped/resync) or
+/// re-authenticate (unauthorized), and MUST honor any
+/// `reconnect_after_ms` hold before reconnecting the same scope.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum AccountStreamInterrupt {
+    /// `dropped`: the server cannot continue from the current position.
+    /// Reconnect with `after=<cursor>&catchup=true` (client-sync.md §2.2.3).
+    Dropped {
+        /// Suggested catch-up cursor (REQUIRED on the wire per §2; a
+        /// missing cursor is treated as `resync_required` by consumers).
+        cursor: Option<String>,
+        /// Server-mandated hold before reconnecting the same scope.
+        reconnect_after_ms: Option<u64>,
+    },
+    /// `resync_required`: clear the local cursor cache and redo the
+    /// initial account sync (client-sync.md §2.2.4).
+    ResyncRequired {
+        /// Server-mandated hold before reconnecting the same scope.
+        reconnect_after_ms: Option<u64>,
+    },
+    /// `unauthorized`: the session may no longer consume this stream;
+    /// re-authenticate or sign out (client-sync.md §2.2.5).
+    Unauthorized {
+        /// Optional server-provided reason.
+        reason: Option<String>,
+    },
 }
 
 impl AccountSubscribeFrame {
@@ -191,6 +231,32 @@ impl AccountSubscribeFrame {
     /// account-subscribe scope.
     pub fn reconnect_after_ms(&self) -> Option<u64> {
         self.reconnect_after_ms
+    }
+
+    /// Structured control interrupt carried by this frame, if any.
+    ///
+    /// `dropped` / `resync_required` / `unauthorized` are terminal for the
+    /// current subscription and MUST be surfaced to the sync loop instead of
+    /// being skipped like benign keepalive frames.
+    pub fn interrupt(&self) -> Option<AccountStreamInterrupt> {
+        match self.kind {
+            AccountSubscribeFrameKind::Dropped => Some(AccountStreamInterrupt::Dropped {
+                cursor: self.cursor.clone(),
+                reconnect_after_ms: self.reconnect_after_ms,
+            }),
+            AccountSubscribeFrameKind::ResyncRequired => {
+                Some(AccountStreamInterrupt::ResyncRequired {
+                    reconnect_after_ms: self.reconnect_after_ms,
+                })
+            }
+            AccountSubscribeFrameKind::Unauthorized => Some(AccountStreamInterrupt::Unauthorized {
+                reason: self.reason.clone(),
+            }),
+            AccountSubscribeFrameKind::Delta
+            | AccountSubscribeFrameKind::CatchupComplete
+            | AccountSubscribeFrameKind::Frontier
+            | AccountSubscribeFrameKind::Heartbeat => None,
+        }
     }
 
     /// True iff `kind == catchup_complete`.

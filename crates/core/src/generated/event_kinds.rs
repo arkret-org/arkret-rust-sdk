@@ -20,7 +20,12 @@ pub const EVENT_KIND_COUNT: usize = 191;
 /// Serialises / deserialises as the bare wire string. Deserialising an
 /// unrecognised kind yields [EventKind::Unknown] rather than an error;
 /// rejecting unknown standard kinds is the validation layer's job.
+///
+/// `#[non_exhaustive]`: the registry gains kinds as the spec evolves and this
+/// enum is regenerated to match; downstream `match` expressions MUST carry a
+/// `_` arm with fail-closed semantics.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum EventKind {
     /// `ck.account.blocklist`
     AccountBlocklist,

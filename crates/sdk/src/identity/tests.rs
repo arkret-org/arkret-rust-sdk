@@ -1,6 +1,13 @@
 use super::*;
 
 fn did(name: &str) -> Did {
+    Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+}
+
+// did:web-method fixtures for tests that exercise the `did:web` resolver
+// surface itself (DidWebResolver / key-log / registry receipt); the method
+// under test is did:web here, so these MUST stay did:web.
+fn did_web(name: &str) -> Did {
     Did::new(format!("did:web:{name}.example")).unwrap()
 }
 
@@ -434,7 +441,7 @@ fn handle_external_proof_profiles_validate_dns_and_well_known_shapes() {
     ExternalHandleProof {
         profile: HandleProofProfile::DnsTxt,
         handle: handle.to_owned(),
-        user_id: alice.clone(),
+        subject: alice.clone(),
         challenge: challenge.to_owned(),
         proof,
     }
@@ -444,7 +451,7 @@ fn handle_external_proof_profiles_validate_dns_and_well_known_shapes() {
         ExternalHandleProof {
             profile: HandleProofProfile::WellKnown,
             handle: handle.to_owned(),
-            user_id: alice,
+            subject: alice,
             challenge: challenge.to_owned(),
             proof: "bad-proof".to_owned(),
         }
@@ -557,7 +564,7 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
 #[test]
 fn did_resolver_verifies_event_proof_from_did_document_key() {
     let signing_key = SigningKey::from_bytes(&[11u8; 32]);
-    let actor = did("alice");
+    let actor = did_web("alice");
     let verification_method = format!("{actor}#key-1");
     let mut resolver = DidWebResolver::new();
     resolver
@@ -602,8 +609,8 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
 #[test]
 fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     let signing_key = SigningKey::from_bytes(&[12u8; 32]);
-    let controller = did("controller");
-    let bridge = did("bridge");
+    let controller = did_web("controller");
+    let bridge = did_web("bridge");
     let verification_method = format!("{bridge}#key-1");
     let mut resolver = DidWebResolver::new();
     resolver
@@ -650,7 +657,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
 #[test]
 fn did_key_log_verifies_schema_shaped_chain() {
     let signing_key = SigningKey::from_bytes(&[21u8; 32]);
-    let alice = did("alice");
+    let alice = did_web("alice");
     let verification_method = format!("{alice}#key-1");
     let mut resolver = DidWebResolver::new();
     resolver
@@ -720,8 +727,8 @@ fn did_key_log_verifies_schema_shaped_chain() {
 #[test]
 fn did_key_log_rejects_drift_tampering_and_schema_violations() {
     let signing_key = SigningKey::from_bytes(&[23u8; 32]);
-    let alice = did("alice");
-    let bob = did("bob");
+    let alice = did_web("alice");
+    let bob = did_web("bob");
     let verification_method = format!("{alice}#key-1");
     let mut resolver = DidWebResolver::new();
     resolver
@@ -809,7 +816,7 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
 #[test]
 fn did_registry_receipt_verifies_detached_jws_binding() {
     let registry_key = SigningKey::from_bytes(&[24u8; 32]);
-    let registry = did("registry");
+    let registry = did_web("registry");
     let verification_method = format!("{registry}#key-1");
     let mut resolver = DidWebResolver::new();
     resolver
@@ -844,8 +851,8 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
     let mut wrong_resolver = DidWebResolver::new();
     wrong_resolver
         .insert(DidDocument::new(
-            did("registry"),
-            format!("{}#key-1", did("registry")),
+            did_web("registry"),
+            format!("{}#key-1", did_web("registry")),
             vector_update_key(&SigningKey::from_bytes(&[25u8; 32])),
         ))
         .unwrap();
@@ -855,7 +862,7 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
 #[test]
 fn starid_registry_adapter_resolves_records_and_control_proofs() {
     let registry_key = SigningKey::from_bytes(&[26u8; 32]);
-    let registry = did("registry");
+    let registry = did_web("registry");
     let registry_vm = format!("{registry}#key-1");
     let mut registry_resolver = DidWebResolver::new();
     registry_resolver
@@ -1065,8 +1072,8 @@ fn handle_bidirectional_with_case_insensitive_matching() {
 
 #[test]
 fn pairwise_did_store_insert_resolve_and_purge() {
-    let alice = Did::new("did:web:alice.example").unwrap();
-    let bob = Did::new("did:web:bob.example").unwrap();
+    let alice = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+    let bob = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
     let pairwise = pairwise_did("pairwisealicebob");
 
     let binding = PairwiseDidBinding::new(pairwise.clone(), alice.clone(), bob.clone(), None);
@@ -1091,9 +1098,9 @@ fn pairwise_did_store_insert_resolve_and_purge() {
 
 #[test]
 fn pairwise_did_resolution_requires_valid_proof() {
-    let alice = Did::new("did:web:alice.example").unwrap();
-    let bob = Did::new("did:web:bob.example").unwrap();
-    let mallory = Did::new("did:web:mallory.example").unwrap();
+    let alice = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+    let bob = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
+    let mallory = Did::new("did:webvh:z6mkfixture:mallory.example").unwrap();
     let pairwise = pairwise_did("pairwisealicebobspace01");
     let binding = PairwiseDidBinding::new(
         pairwise.clone(),

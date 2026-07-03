@@ -2,7 +2,7 @@ use super::helpers::sha256_hex;
 use super::*;
 
 fn did(name: &str) -> Did {
-    Did::new(format!("did:web:{name}.example")).unwrap()
+    Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
 }
 
 fn device(id: &str) -> DeviceId {
@@ -32,7 +32,7 @@ fn session_grant_notification(
     let device_id = device("desktop");
     let payload = SessionGrantPayload {
         subject: did("alice"),
-        audience: vec!["did:web:soland.example".to_owned()],
+        audience: vec!["did:webvh:z6mkfixture:soland.example".to_owned()],
         scopes: vec![
             "urn:cokret:principal-server:session.bind".to_owned(),
             cokret_device_scope(&device_id),
@@ -233,7 +233,7 @@ fn auth_uses_provider_passkey_verifier() {
 #[test]
 fn auth_models_account_recovery_methods() {
     let mut auth = AuthManager::default();
-    let verification_method = "did:web:alice.example#key-1";
+    let verification_method = "did:webvh:z6mkfixture:alice.example#key-1";
     let request = auth
         .start_recovery(
             did("alice"),
@@ -343,7 +343,7 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
     let device_id = device("desktop");
     let payload = SessionGrantPayload {
         subject: did("alice"),
-        audience: vec!["did:web:soland.example".to_owned()],
+        audience: vec!["did:webvh:z6mkfixture:soland.example".to_owned()],
         scopes: vec![
             "urn:cokret:principal-server:session.bind".to_owned(),
             cokret_device_scope(&device_id),
@@ -602,7 +602,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
     );
     assert_eq!(
         accepted.disclosed_claims[1].value,
-        serde_json::json!({"organization": "did:web:org.example"})
+        serde_json::json!({"organization": "did:webvh:z6mkfixture:org.example"})
     );
     assert_eq!(
         accepted.disclosed_claims[2].value,
@@ -682,7 +682,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
 #[test]
 fn auth_uses_provider_did_proof_verifier_for_recovery() {
     let alice = did("alice");
-    let verification_method = "did:web:alice.example#key-1";
+    let verification_method = "did:webvh:z6mkfixture:alice.example#key-1";
     let mut auth = AuthManager::default();
     let request = auth
         .start_recovery(

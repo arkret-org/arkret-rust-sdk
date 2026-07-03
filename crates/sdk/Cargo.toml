@@ -39,16 +39,22 @@ mls = [
     "dep:tls_codec",
 ]
 full-surface = []
+# TLS backend passthrough (`cargo add cokret --features client,tls-rustls`
+# gives a working https client out of the box). The SDK stays TLS-neutral
+# without this feature. PQ-hybrid TLS (X25519MLKEM768) is a MUST for all
+# profiles per cokret-spec transport-bindings section 5 — see the
+# cokret-http-client crate docs for the recommended provider configuration.
+tls-rustls = ["client", "cokret-http-client/tls-rustls", "reqwest/rustls"]
 tracing = ["dep:tracing", "cokret-http-client?/tracing"]
-# Re-export the conformance/test-fixture crate. Opt-in so it never lands in
-# downstream production builds of the umbrella `cokret` crate.
-testing = ["dep:cokret-testing"]
 salvo = [
     "server",
     "dep:salvo",
     "salvo/oapi",
     "cokret-server/salvo",
     "cokret-core/salvo",
+    # The applet transactions handler verifies signatures / resolves DIDs on
+    # the blocking pool (tokio::task::spawn_blocking).
+    "dep:tokio",
 ]
 applet-runtime = ["full-surface"]
 # Convenience umbrella for Applet developers: turns on the applet wire
@@ -85,7 +91,6 @@ cokret-http-client = {workspace = true,optional = true}
 cokret-keystore = {workspace = true}
 cokret-server = {workspace = true,optional = true}
 cokret-signatures = {workspace = true}
-cokret-testing = {workspace = true,optional = true}
 ed25519-dalek = {workspace = true}
 getrandom = {workspace = true}
 hex = {workspace = true}
@@ -110,12 +115,17 @@ x25519-dalek = {workspace = true}
 zeroize = {workspace = true,default-features = true}
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 openmls = {workspace = true,optional = true}
+# rt-multi-thread is required for tokio::task::block_in_place, which the
+# sync HttpDidResolver facade uses to block safely on multi-thread runtimes.
+# Native-only: the wasm32 build neither compiles http_did_resolver nor
+# supports the multi-thread scheduler.
+tokio = {workspace = true,features = ["rt-multi-thread"],optional = true}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 openmls = {workspace = true,features = ["js"],optional = true}
 
 [dev-dependencies]
-tokio = {workspace = true,features = ["macros", "rt"]}
+tokio = {workspace = true,features = ["macros", "rt", "rt-multi-thread"]}
 
 [lints]
 workspace = true

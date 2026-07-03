@@ -37,26 +37,61 @@ pub fn generate_cursor_handle() -> Result<String> {
 /// Core v1 cursor bodies are stateful handles: `{v, purpose, t, x, h}`.
 /// Positions and barrier targets are bound server-side to `h` and never
 /// appear in the wire body.
+///
+/// # Issuing-service only
+///
+/// Per spec `conformance/conformance-vectors.md` ("cursor 不透明性" vector,
+/// expected client behaviour): clients MUST treat a cursor as an opaque
+/// string, MUST NOT parse its internal fields to build requests, and MUST
+/// NOT rely on the base64url-decoded `h` / `x` / any other internal field —
+/// those fields belong exclusively to the issuing service. This struct (and
+/// [`Cursor::decode`]) exists for the *service* side of that contract:
+/// validating, minting and re-binding cursors a service itself issued.
+/// Client SDKs / application layers MUST carry the encoded token verbatim.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Cursor {
     /// Cursor version. Must be "1" for Cokret v1.
+    ///
+    /// Issuing-service internal field — clients MUST NOT read or depend on
+    /// it (`conformance-vectors.md`: cursor opacity).
     pub v: String,
     /// Cursor purpose.
+    ///
+    /// Issuing-service internal field — clients MUST NOT read or depend on
+    /// it (`conformance-vectors.md`: cursor opacity).
     pub purpose: CursorPurpose,
     /// Cursor generation timestamp (RFC 3339).
+    ///
+    /// Issuing-service internal field — clients MUST NOT read or depend on
+    /// it (`conformance-vectors.md`: cursor opacity).
     pub t: String,
     /// Expiration timestamp (Unix milliseconds).
+    ///
+    /// Issuing-service internal field — clients MUST NOT inspect it (e.g. to
+    /// pre-check expiry) or depend on it (`conformance-vectors.md`: cursor
+    /// opacity; expiry is signalled by the service via `cursor_expired`).
     pub x: i64,
     /// Stateful cursor handle.
+    ///
+    /// Issuing-service internal field — clients MUST NOT read or depend on
+    /// it to construct follow-up requests (`conformance-vectors.md`: the
+    /// handle binding belongs to the issuing service).
     pub h: String,
 }
 
 /// Cursor purpose discriminator.
+///
+/// `#[non_exhaustive]`: a future spec revision may register additional
+/// purposes. Downstream `match` expressions MUST carry a `_` arm with
+/// fail-closed semantics (reject a cursor whose purpose is unrecognised).
+/// Deserialisation itself stays closed-set: an unknown wire value still
+/// fails the parse.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[non_exhaustive]
 pub enum CursorPurpose {
     Stream,
     Barrier,
@@ -154,6 +189,17 @@ impl Cursor {
     }
 
     /// Decode a cursor from its wire token.
+    ///
+    /// # Issuing-service only
+    ///
+    /// This is a *service-side* entry point: it exists so the issuing
+    /// service can validate and re-bind cursors it minted. Per spec
+    /// `conformance/conformance-vectors.md` (cursor opacity, expected
+    /// client behaviour), client SDKs / application layers MUST NOT decode
+    /// a cursor to inspect or act on its internal fields (`h`, `x`, ...)
+    /// — clients MUST treat the token as an opaque string and return it
+    /// verbatim. Calling `decode` from client-side code to e.g. pre-check
+    /// expiry or build a follow-up request is a spec MUST NOT violation.
     ///
     /// # Errors
     ///

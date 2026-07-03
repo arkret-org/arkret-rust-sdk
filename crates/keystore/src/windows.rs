@@ -14,8 +14,8 @@ use cokret_core::keystore::{service_name, validate_id};
 use cokret_core::{KeyBytes, Result};
 use windows::Win32::Foundation::ERROR_NOT_FOUND;
 use windows::Win32::Security::Credentials::{
-    CRED_PERSIST_SESSION, CRED_TYPE_GENERIC, CREDENTIALW, CredDeleteW, CredEnumerateW, CredFree,
-    CredReadW, CredWriteW,
+    CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC, CREDENTIALW, CredDeleteW, CredEnumerateW,
+    CredFree, CredReadW, CredWriteW,
 };
 use windows::core::PCWSTR;
 
@@ -110,11 +110,16 @@ impl KeyStore for WindowsCredentialKeyStore {
             LastWritten: windows::Win32::Foundation::FILETIME::default(),
             CredentialBlobSize: blob.len() as u32,
             CredentialBlob: blob.as_mut_ptr(),
-            // Least-privilege persistence: bind device/signing keys to the
-            // current interactive logon session rather than the whole
-            // machine. This narrows the residency/exposure window in
-            // multi-session / roaming-profile deployments.
-            Persist: CRED_PERSIST_SESSION,
+            // Durable persistence (SDK-FEAT-03): device signing keys MUST
+            // survive logoff/reboot. `CRED_PERSIST_SESSION` destroys the
+            // credential when the interactive logon session ends, which
+            // silently discarded device identity on every logout.
+            // Trade-off: LOCAL_MACHINE credentials stay resident on this
+            // machine until deleted (wider at-rest window than SESSION),
+            // but remain DPAPI-protected per user profile — other local
+            // users cannot read them. ENTERPRISE (AD roaming) is
+            // deliberately not used: device keys are device-bound.
+            Persist: CRED_PERSIST_LOCAL_MACHINE,
             AttributeCount: 0,
             Attributes: std::ptr::null_mut(),
             TargetAlias: windows::core::PWSTR::null(),

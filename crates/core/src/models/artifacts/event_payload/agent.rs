@@ -209,11 +209,23 @@ pub struct AgentInteropSessionStatusPayload {
 }
 
 /// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_approval_evidence`
+/// `kind` enum.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentKeyApprovalEvidenceKind {
+    CapabilityGrant,
+    ApprovalEvent,
+    ProposalEvent,
+    PolicyEvent,
+}
+
+/// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_approval_evidence`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyApprovalEvidence {
-    pub kind: String,
+    pub kind: AgentKeyApprovalEvidenceKind,
     pub r#ref: ObjectRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_canonical_digest: Option<Hash>,
@@ -221,22 +233,85 @@ pub struct AgentKeyApprovalEvidence {
     pub approved_by: Option<Did>,
 }
 
+/// Counterpart for the `agent_key_scope.resources[].kind` enum in
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_scope`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentKeyScopeResourceKind {
+    Realm,
+    Strand,
+    Space,
+    Object,
+    Operation,
+    Service,
+}
+
+/// Counterpart for the `agent_key_scope.resources[]` item shape in
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_scope`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentKeyScopeResource {
+    pub kind: AgentKeyScopeResourceKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub r#ref: Option<ObjectRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_did: Option<Did>,
+}
+
 /// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_scope`
+/// (also `agent-operations.schema.json#/$defs/agent_key_scope` via `$ref`).
+///
+/// Closed authorization scope for an agent signing key: `actions` and
+/// `resources` are both explicit so the key cannot silently widen its
+/// authority through omitted dimensions.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentKeyScope {
+    pub actions: Vec<String>,
+    pub resources: Vec<AgentKeyScopeResource>,
+    /// Items follow `grant-constraint.schema.json`; kept as `Value` pending a
+    /// strong grant-constraint counterpart in this crate.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub constraints: Vec<Value>,
+}
+
+/// Counterpart for the `runtime_attestation.kind` enum in
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_authorize_payload`.
+/// v1 registers only `self_asserted`; unknown kinds fail closed at decode
+/// (CKP-0008 §4.5).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentKeyRuntimeAttestationKind {
+    SelfAsserted,
+}
+
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_authorize_payload`
+/// `runtime_attestation` object.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyAuthorizePayloadRuntimeAttestation {
-    pub kind: String,
+    pub kind: AgentKeyRuntimeAttestationKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub software: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub attestation_digest: Option<Value>,
+    pub attestation_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub evidence_ref: Option<Value>,
+    pub evidence_ref: Option<ObjectRef>,
 }
 
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_authorize_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyAuthorizePayload {
@@ -244,7 +319,7 @@ pub struct AgentKeyAuthorizePayload {
     pub key_id: String,
     pub verification_method: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub public_key_digest: Option<Value>,
+    pub public_key_digest: Option<Hash>,
     pub accountable_principal_id: Did,
     pub agent_key_scope: AgentKeyScope,
     pub audience: Vec<String>,
@@ -252,7 +327,7 @@ pub struct AgentKeyAuthorizePayload {
     pub expires_at: DateTime<Utc>,
     pub approval_evidence: AgentKeyApprovalEvidence,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revocation_check_ref: Option<Value>,
+    pub revocation_check_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
 }

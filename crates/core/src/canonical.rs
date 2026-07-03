@@ -48,11 +48,32 @@ pub fn to_nfc(s: &str) -> String {
     s.nfc().collect()
 }
 
+/// Hard byte cap enforced on every canonical-JSON ingress entry point.
+///
+/// `scalability-constraints.md` §2: a single envelope larger than 1 MiB
+/// (1,048,576 bytes) MUST be rejected. The canonical ingress helpers
+/// ([`parse_canonical_json`] / [`from_canonical_json_slice`] /
+/// [`validate_canonical_bytes`]) are the SDK's wire-input parsing surface, so
+/// the cap is built in and fail-closed — there is no opt-out parameter.
+/// Egress ([`canonical_json_bytes`]) is not capped.
+pub const MAX_CANONICAL_JSON_INGRESS_BYTES: usize = 1_048_576;
+
+/// Maximum container nesting depth accepted on canonical-JSON ingress
+/// (`scalability-constraints.md` §2: objects and arrays combined, the
+/// top-level container counts as depth 1, the limit is inclusive). Depth 64
+/// MUST be accepted, depth 65 MUST be rejected
+/// (`ck.vector.encoding.reject_structure_depth_exceeded.v1`). The cap keeps
+/// hand-crafted deep nesting from turning recursive parsing into a
+/// stack-overflow abort independently of `serde_json`'s own 128-level guard.
+pub const MAX_CANONICAL_JSON_NESTING_DEPTH: usize = 64;
+
 /// Unified inbound canonical-JSON validation entry point (`encoding.md` §2 / §2.1).
 ///
 /// Layers the receiver-side MUSTs that `serde_json::from_slice` does **not**
 /// enforce, so every inbound envelope / proof / cursor / receipt can validate
 /// through one call:
+/// - input larger than [`MAX_CANONICAL_JSON_INGRESS_BYTES`] rejected before any
+///   parsing work (`scalability-constraints.md` §2);
 /// - UTF-8 BOM / `U+FEFF` rejected (byte scan in [`parse_canonical_json`]);
 /// - duplicate object keys rejected at any depth ([`parse_canonical_json`]);
 /// - every string value / object key rejected if non-NFC or containing an (escaped) `U+FEFF`;
@@ -131,6 +152,15 @@ fn validate_canonical_string(s: &str) -> Result<()> {
 /// the parsed value and compares the result to the original bytes. Any mismatch
 /// means the ingress bytes were not the unique Cokret canonical JSON form.
 pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
+    // scalability-constraints.md §2: a single envelope over 1 MiB MUST be
+    // rejected. Enforce the cap before any BOM scan / parse work so an
+    // oversized input cannot be materialised into a `Value`.
+    if bytes.len() > MAX_CANONICAL_JSON_INGRESS_BYTES {
+        return Err(Error::Protocol(format!(
+            "canonical JSON input is {} bytes, exceeding the v1 ingress maximum of {MAX_CANONICAL_JSON_INGRESS_BYTES} bytes (scalability-constraints.md §2)",
+            bytes.len()
+        )));
+    }
     // encoding.md §2: reject any UTF-8 BOM / U+FEFF — at the stream start *or*
     // embedded inside a string value. U+FEFF is `EF BB BF` in UTF-8 and the
     // encoding is self-synchronising, so a raw byte-window scan catches every
@@ -142,7 +172,7 @@ pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
         ));
     }
     let mut de = serde_json::Deserializer::from_slice(bytes);
-    let value = serde::de::DeserializeSeed::deserialize(CanonicalValueSeed, &mut de)
+    let value = serde::de::DeserializeSeed::deserialize(CanonicalValueSeed { depth: 1 }, &mut de)
         .map_err(canonical_parse_error)?;
     de.end().map_err(canonical_parse_error)?;
     validate_canonical_bytes_match(bytes, &value)?;
@@ -169,15 +199,27 @@ fn canonical_parse_error(err: serde_json::Error) -> Error {
         let key = rest.split(" at ").next().unwrap_or(rest);
         return Error::DuplicateObjectKey(key.to_owned());
     }
+    if message.contains(DEPTH_EXCEEDED_MARKER) {
+        // Wire reason: structure_depth_exceeded (scalability-constraints.md §2).
+        return Error::Protocol(format!(
+            "canonical JSON nesting exceeds the v1 maximum depth of {MAX_CANONICAL_JSON_NESTING_DEPTH} (structure_depth_exceeded)"
+        ));
+    }
     Error::CanonicalJson(err)
 }
 
 const DUPLICATE_KEY_MARKER: &str = "cokret-duplicate-object-key:";
+const DEPTH_EXCEEDED_MARKER: &str = "cokret-structure-depth-exceeded:";
 
 /// `DeserializeSeed` that builds a [`Value`] while rejecting duplicate object
-/// keys at every depth. Mirrors `serde_json`'s own `Value` visitor but swaps
-/// the last-wins map insert for a duplicate-detecting one.
-struct CanonicalValueSeed;
+/// keys at every depth and enforcing the v1 nesting-depth cap
+/// ([`MAX_CANONICAL_JSON_NESTING_DEPTH`]). Mirrors `serde_json`'s own `Value`
+/// visitor but swaps the last-wins map insert for a duplicate-detecting one.
+/// `depth` is the container depth this value sits at if it turns out to be an
+/// object or array (top-level container = depth 1).
+struct CanonicalValueSeed {
+    depth: usize,
+}
 
 impl<'de> serde::de::DeserializeSeed<'de> for CanonicalValueSeed {
     type Value = Value;
@@ -186,11 +228,13 @@ impl<'de> serde::de::DeserializeSeed<'de> for CanonicalValueSeed {
     where
         D: serde::de::Deserializer<'de>,
     {
-        deserializer.deserialize_any(CanonicalValueVisitor)
+        deserializer.deserialize_any(CanonicalValueVisitor { depth: self.depth })
     }
 }
 
-struct CanonicalValueVisitor;
+struct CanonicalValueVisitor {
+    depth: usize,
+}
 
 impl<'de> serde::de::Visitor<'de> for CanonicalValueVisitor {
     type Value = Value;
@@ -245,8 +289,15 @@ impl<'de> serde::de::Visitor<'de> for CanonicalValueVisitor {
     where
         A: serde::de::SeqAccess<'de>,
     {
+        if self.depth > MAX_CANONICAL_JSON_NESTING_DEPTH {
+            return Err(serde::de::Error::custom(format!(
+                "{DEPTH_EXCEEDED_MARKER}{MAX_CANONICAL_JSON_NESTING_DEPTH}"
+            )));
+        }
         let mut items = Vec::new();
-        while let Some(item) = seq.next_element_seed(CanonicalValueSeed)? {
+        while let Some(item) = seq.next_element_seed(CanonicalValueSeed {
+            depth: self.depth + 1,
+        })? {
             items.push(item);
         }
         Ok(Value::Array(items))
@@ -256,9 +307,16 @@ impl<'de> serde::de::Visitor<'de> for CanonicalValueVisitor {
     where
         A: serde::de::MapAccess<'de>,
     {
+        if self.depth > MAX_CANONICAL_JSON_NESTING_DEPTH {
+            return Err(serde::de::Error::custom(format!(
+                "{DEPTH_EXCEEDED_MARKER}{MAX_CANONICAL_JSON_NESTING_DEPTH}"
+            )));
+        }
         let mut object = Map::new();
         while let Some(key) = map.next_key::<String>()? {
-            let value = map.next_value_seed(CanonicalValueSeed)?;
+            let value = map.next_value_seed(CanonicalValueSeed {
+                depth: self.depth + 1,
+            })?;
             if object.contains_key(&key) {
                 return Err(serde::de::Error::custom(format!(
                     "{DUPLICATE_KEY_MARKER}{key}"
@@ -883,6 +941,28 @@ mod tests {
     }
 
     #[test]
+    fn parse_canonical_json_rejects_input_over_one_mebibyte() {
+        // scalability-constraints.md §2: a single envelope over 1 MiB MUST
+        // be rejected — the ingress helpers enforce the cap before parsing.
+        let big_string = "a".repeat(MAX_CANONICAL_JSON_INGRESS_BYTES);
+        let oversized = format!("{{\"k\":\"{big_string}\"}}");
+        assert!(oversized.len() > MAX_CANONICAL_JSON_INGRESS_BYTES);
+        let err = parse_canonical_json(oversized.as_bytes()).unwrap_err();
+        assert!(matches!(err, Error::Protocol(_)));
+        assert!(err.to_string().contains("ingress maximum"));
+
+        let err = from_canonical_json_slice::<Value>(oversized.as_bytes()).unwrap_err();
+        assert!(matches!(err, Error::Protocol(_)));
+        assert!(validate_canonical_bytes(oversized.as_bytes()).is_err());
+
+        // Exactly at the cap is still accepted (the bound is exclusive).
+        let at_cap_payload = "a".repeat(MAX_CANONICAL_JSON_INGRESS_BYTES - 8);
+        let at_cap = format!("{{\"k\":\"{at_cap_payload}\"}}");
+        assert_eq!(at_cap.len(), MAX_CANONICAL_JSON_INGRESS_BYTES);
+        parse_canonical_json(at_cap.as_bytes()).unwrap();
+    }
+
+    #[test]
     fn parse_canonical_json_rejects_duplicate_keys() {
         // serde_json's bare from_slice silently takes last-wins; the canonical
         // ingress entry point MUST reject duplicate keys (signature malleability).
@@ -924,6 +1004,19 @@ mod tests {
     }
 
     #[test]
+    fn canonical_json_sorts_supplementary_before_u_ffff() {
+        // Mirrors ck.vector.encoding.canonical_json.utf16_supplementary_order.v1:
+        // U+1F600 (UTF-16 D83D DE00) sorts before U+FFFF because the high
+        // surrogate 0xD83D compares below 0xFFFF, while code-point order would
+        // reverse the two keys.
+        let grin = char::from_u32(0x1F600).unwrap().to_string();
+        let ffff = char::from_u32(0xFFFF).unwrap().to_string();
+        let value = json!({ ffff.clone(): 2, grin.clone(): 1 });
+        let actual = canonical_json_string(&value).unwrap();
+        assert_eq!(actual, format!("{{\"{grin}\":1,\"{ffff}\":2}}"));
+    }
+
+    #[test]
     fn canonical_json_string_escapes_special_characters() {
         let value = json!({ "key": "value\nwith\ttabs\"quotes\u{0001}" });
         let actual = canonical_json_string(&value).unwrap();
@@ -936,14 +1029,14 @@ mod tests {
     #[test]
     fn state_subject_encoding_roundtrips_simple_parts() {
         let parts = [
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
             "discussion",
             "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
         ];
         let encoded = encode_state_subject(&parts);
         assert_eq!(
             encoded,
-            "did:web:alice.example|discussion|ck:strand:01904100-0000-7000-8000-6c663fa0205f"
+            "did:webvh:z6mkfixture:alice.example|discussion|ck:strand:01904100-0000-7000-8000-6c663fa0205f"
         );
         let decoded = decode_state_subject_parts(&encoded).unwrap();
         assert_eq!(decoded, parts);
@@ -953,9 +1046,9 @@ mod tests {
     fn state_subject_encoding_escapes_pipes_and_percents() {
         // A DID method-specific id that legitimately contains '|' must be
         // round-trippable without colliding with the part separator.
-        let parts = ["did:web:alice|bar", "100%great", "plain"];
+        let parts = ["did:webvh:z6mkfixture:alice|bar", "100%great", "plain"];
         let encoded = encode_state_subject(&parts);
-        assert_eq!(encoded, "did:web:alice%7Cbar|100%25great|plain");
+        assert_eq!(encoded, "did:webvh:z6mkfixture:alice%7Cbar|100%25great|plain");
         let decoded = decode_state_subject_parts(&encoded).unwrap();
         assert_eq!(decoded, parts);
     }

@@ -18,7 +18,7 @@
 //!     "content-digest" "x-cokret-origin-service-did" \
 //!     "x-cokret-destination-service-did");\
 //!     created=1715990000;expires=1715990300;\
-//!     keyid="did:web:sync.example.com#push";alg="ed25519"
+//!     keyid="did:webvh:z6mkfixture:sync.example.com#push";alg="ed25519"
 //! Signature: sig1=:BASE64URLSAFE_OR_STANDARD_64B:
 //! Content-Digest: sha-256=:BASE64STANDARD_32B:
 //! ```
@@ -918,7 +918,7 @@ mod tests {
             "sig1=(\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \
              \"x-cokret-origin-service-did\" \"x-cokret-destination-service-did\");\
              created={created};expires={expires};\
-             keyid=\"did:web:sync.example.com#push\";alg=\"ed25519\""
+             keyid=\"did:webvh:z6mkfixture:sync.example.com#push\";alg=\"ed25519\""
         )
     }
 
@@ -929,7 +929,7 @@ mod tests {
         assert_eq!(parsed.label, "sig1");
         assert_eq!(parsed.created, 1_715_990_000);
         assert_eq!(parsed.expires, 1_715_990_300);
-        assert_eq!(parsed.key_id, "did:web:sync.example.com#push");
+        assert_eq!(parsed.key_id, "did:webvh:z6mkfixture:sync.example.com#push");
         assert_eq!(parsed.algorithm, "ed25519");
         assert_eq!(parsed.covered_components.len(), 6);
         assert_eq!(parsed.covered_components[0], Component::Method);
@@ -967,7 +967,7 @@ mod tests {
             .expect("valid policy input passes");
 
         let missing_digest = parse_signature_input(
-            "sig1=(\"@method\" \"@target-uri\" \"@authority\");created=1715990000;expires=1715990030;keyid=\"did:web:sync.example.com#push\";alg=\"ed25519\"",
+            "sig1=(\"@method\" \"@target-uri\" \"@authority\");created=1715990000;expires=1715990030;keyid=\"did:webvh:z6mkfixture:sync.example.com#push\";alg=\"ed25519\"",
         )
         .unwrap();
         assert_eq!(
@@ -1051,11 +1051,11 @@ mod tests {
             headers: vec![
                 (
                     "x-cokret-origin-service-did".to_owned(),
-                    "did:web:sync.example.com".to_owned(),
+                    "did:webvh:z6mkfixture:sync.example.com".to_owned(),
                 ),
                 (
                     "x-cokret-destination-service-did".to_owned(),
-                    "did:web:push.example.com".to_owned(),
+                    "did:webvh:z6mkfixture:push.example.com".to_owned(),
                 ),
             ],
             body_digest: Some(digest.wire_value.clone()),
@@ -1068,9 +1068,9 @@ mod tests {
              \"@target-uri\": http://127.0.0.1/_cokret/edge/push/notify\n\
              \"@authority\": 127.0.0.1\n\
              \"content-digest\": {digest_val}\n\
-             \"x-cokret-origin-service-did\": did:web:sync.example.com\n\
-             \"x-cokret-destination-service-did\": did:web:push.example.com\n\
-             \"@signature-params\": ({components});created={created};expires={expires};keyid=\"did:web:sync.example.com#push\";alg=\"ed25519\"",
+             \"x-cokret-origin-service-did\": did:webvh:z6mkfixture:sync.example.com\n\
+             \"x-cokret-destination-service-did\": did:webvh:z6mkfixture:push.example.com\n\
+             \"@signature-params\": ({components});created={created};expires={expires};keyid=\"did:webvh:z6mkfixture:sync.example.com#push\";alg=\"ed25519\"",
             digest_val = digest.wire_value,
             components = "\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \"x-cokret-origin-service-did\" \"x-cokret-destination-service-did\"",
         );
@@ -1095,11 +1095,11 @@ mod tests {
             headers: vec![
                 (
                     "x-cokret-origin-service-did".to_owned(),
-                    "did:web:sync.example.com".to_owned(),
+                    "did:webvh:z6mkfixture:sync.example.com".to_owned(),
                 ),
                 (
                     "x-cokret-destination-service-did".to_owned(),
-                    "did:web:push.example.com".to_owned(),
+                    "did:webvh:z6mkfixture:push.example.com".to_owned(),
                 ),
             ],
             body_digest: Some(digest.wire_value.clone()),
@@ -1132,11 +1132,11 @@ mod tests {
             headers: vec![
                 (
                     "x-cokret-origin-service-did".to_owned(),
-                    "did:web:sync.example.com".to_owned(),
+                    "did:webvh:z6mkfixture:sync.example.com".to_owned(),
                 ),
                 (
                     "x-cokret-destination-service-did".to_owned(),
-                    "did:web:push.example.com".to_owned(),
+                    "did:webvh:z6mkfixture:push.example.com".to_owned(),
                 ),
             ],
             body_digest: Some(digest.wire_value.clone()),
@@ -1148,10 +1148,10 @@ mod tests {
             ("Signature-Input", input_header.as_str()),
             ("Signature", signature_header.as_str()),
             ("Content-Digest", digest.wire_value.as_str()),
-            ("X-Cokret-Origin-Service-Did", "did:web:sync.example.com"),
+            ("X-Cokret-Origin-Service-Did", "did:webvh:z6mkfixture:sync.example.com"),
             (
                 "X-Cokret-Destination-Service-Did",
-                "did:web:push.example.com",
+                "did:webvh:z6mkfixture:push.example.com",
             ),
         ];
 
@@ -1169,7 +1169,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             verified.signature_input.key_id,
-            "did:web:sync.example.com#push"
+            "did:webvh:z6mkfixture:sync.example.com#push"
         );
         assert_eq!(
             verified.content_digest.unwrap().wire_value,
@@ -1208,11 +1208,11 @@ mod tests {
             headers: vec![
                 (
                     "x-cokret-origin-service-did".to_owned(),
-                    "did:web:sync.example.com".to_owned(),
+                    "did:webvh:z6mkfixture:sync.example.com".to_owned(),
                 ),
                 (
                     "x-cokret-destination-service-did".to_owned(),
-                    "did:web:push.example.com".to_owned(),
+                    "did:webvh:z6mkfixture:push.example.com".to_owned(),
                 ),
             ],
             body_digest: Some(

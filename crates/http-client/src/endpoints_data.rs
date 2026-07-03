@@ -14,7 +14,7 @@ use cokret_core::{
 use reqwest::Method;
 use reqwest::header::HeaderMap;
 
-use crate::client_internals::transport_error;
+use crate::client_internals::{MAX_RESPONSE_BODY_BYTES, read_body_limited};
 use crate::{Client, ClientRequestOptions};
 
 impl Client {
@@ -59,6 +59,10 @@ impl Client {
         self.send_json(builder.body(bytes)).await
     }
 
+    /// Download blob bytes. The body is read incrementally with an 8 MiB
+    /// cap so a hostile peer cannot materialize an unbounded (or
+    /// gzip-amplified) body into memory; larger blobs must be fetched with
+    /// `Range` requests.
     pub async fn blob_download(&self, blob_ref: &BlobRef, range: Option<&str>) -> Result<Vec<u8>> {
         let mut builder = self
             .request(Method::GET, "/_cokret/self/blob/get")?
@@ -67,7 +71,7 @@ impl Client {
             builder = builder.header("Range", range);
         }
         let response = self.send_response(builder).await?;
-        Ok(response.bytes().await.map_err(transport_error)?.to_vec())
+        read_body_limited(response, MAX_RESPONSE_BODY_BYTES).await
     }
 
     pub async fn keys_upload(&self, request: &KeysUploadRequestBody) -> Result<KeysUploadOutcome> {

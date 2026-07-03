@@ -8,7 +8,12 @@ use cokret_core::{
 use serde_json::Value;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IdentityLinkCacheEntry {
+/// Client-local verified identity-link cache entry.
+///
+/// Distinct from the wire cache model `cokret_core::IdentityLinkCacheEntry`
+/// (identity-link-cache schema counterpart): this type only wraps an
+/// in-memory verification result.
+pub struct VerifiedLinkCacheEntry {
     pub link: IdentityLink,
     pub verified_at: DateTime<Utc>,
     pub proof_digest: Hash,
@@ -17,7 +22,7 @@ pub struct IdentityLinkCacheEntry {
 
 #[derive(Clone, Debug, Default)]
 pub struct IdentityLinkCache {
-    entries: BTreeMap<(RealmId, Did), IdentityLinkCacheEntry>,
+    entries: BTreeMap<(RealmId, Did), VerifiedLinkCacheEntry>,
 }
 
 impl IdentityLinkCache {
@@ -48,7 +53,7 @@ impl IdentityLinkCache {
         let proof_digest = link.canonical_payload_digest()?;
         self.entries.insert(
             key,
-            IdentityLinkCacheEntry {
+            VerifiedLinkCacheEntry {
                 link,
                 verified_at,
                 proof_digest,
@@ -76,7 +81,7 @@ impl IdentityLinkCache {
         self.upsert_verified_with_policy_frontier_digest(link, verified_at, Some(digest))
     }
 
-    pub fn get(&self, realm_id: &RealmId, pairwise_did: &Did) -> Option<&IdentityLinkCacheEntry> {
+    pub fn get(&self, realm_id: &RealmId, pairwise_did: &Did) -> Option<&VerifiedLinkCacheEntry> {
         self.entries.get(&(realm_id.clone(), pairwise_did.clone()))
     }
 
@@ -148,7 +153,7 @@ mod tests {
             schema: IdentityLink::SCHEMA.to_owned(),
             status,
             pairwise_did: did("did:peer:alice-pairwise"),
-            principal_id: did("did:web:alice.example"),
+            principal_id: did("did:webvh:z6mkfixture:alice.example"),
             device_id: device(),
             realm_id: realm(),
             trust_domain: TypedTrustDomainId::new("ck:trust_domain:example").unwrap(),
@@ -161,7 +166,7 @@ mod tests {
             expires_at: None,
             disclosure_policy_id: None,
             proof: IdentityLinkProof {
-                verification_method: "did:web:alice.example#key-1".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
                 signature_algorithm: "Ed25519".to_owned(),
                 payload_digest: Hash::new(
                     "sha256:0000000000000000000000000000000000000000000000000000000000000000",

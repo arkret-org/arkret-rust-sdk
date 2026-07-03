@@ -59,6 +59,44 @@ pub const ALG_WHOLE_FILE_XCHACHA: &str = "mls_exporter_aead_xchacha20poly1305";
 /// Default segment size: 256 KiB (§3.3.1).
 pub const DEFAULT_SEGMENT_SIZE: u32 = 262_144;
 
+/// Minimum `segment_size`: 1 KiB (scalability-constraints.md §6). Values
+/// outside `[MIN_SEGMENT_SIZE, MAX_SEGMENT_SIZE]` MUST be rejected on both
+/// the send and receive paths (`schema_violation`).
+pub const MIN_SEGMENT_SIZE: u32 = 1024;
+/// Maximum `segment_size`: 8 MiB (scalability-constraints.md §6).
+pub const MAX_SEGMENT_SIZE: u32 = 8_388_608;
+/// Maximum `segment_count`: 2^20 (scalability-constraints.md §6). The wire
+/// type is `u32`, but v1 interop caps streams at 2^20 segments; a larger
+/// declared count MUST be rejected (`schema_violation`) *before* any
+/// count-proportional allocation — an attacker-controlled envelope must not
+/// be able to drive `Vec::with_capacity(segment_count)`.
+pub const MAX_SEGMENT_COUNT: u32 = 1_048_576;
+
+/// Reject `segment_size` / `segment_count` values outside the spec hard
+/// limits. Shared by the encrypt (wire-producing) and decrypt
+/// (attacker-facing) paths.
+fn validate_segment_bounds(segment_size: u32, segment_count: u32) -> Result<()> {
+    if !(MIN_SEGMENT_SIZE..=MAX_SEGMENT_SIZE).contains(&segment_size) {
+        return Err(protocol(
+            "schema_violation",
+            &format!(
+                "segment_size={segment_size} outside [{MIN_SEGMENT_SIZE}, {MAX_SEGMENT_SIZE}] \
+                 (scalability-constraints.md §6)"
+            ),
+        ));
+    }
+    if segment_count == 0 || segment_count > MAX_SEGMENT_COUNT {
+        return Err(protocol(
+            "schema_violation",
+            &format!(
+                "segment_count={segment_count} outside [1, {MAX_SEGMENT_COUNT}] \
+                 (scalability-constraints.md §6)"
+            ),
+        ));
+    }
+    Ok(())
+}
+
 /// XChaCha20-Poly1305 AEAD nonce length, `N_AEAD` (§3.3.2).
 const N_AEAD: usize = 24;
 /// `nonce_prefix` length = `N_AEAD - 5` = 19 bytes (§3.3.2).
@@ -232,12 +270,20 @@ pub fn encrypt_stream(
     content_key: &[u8; 32],
     params: &StreamEncryptParams,
 ) -> Result<(Vec<u8>, EncryptedAttachmentEnvelope)> {
-    if params.segment_size == 0 {
+    // Enforce the §6 hard limits on the send path too: an envelope outside
+    // them is not interoperable and every conforming receiver MUST reject it.
+    if !(MIN_SEGMENT_SIZE..=MAX_SEGMENT_SIZE).contains(&params.segment_size) {
         return Err(protocol(
-            "segment_bounds_invalid",
-            "segment_size must be non-zero",
+            "schema_violation",
+            &format!(
+                "segment_size={} outside [{MIN_SEGMENT_SIZE}, {MAX_SEGMENT_SIZE}] \
+                 (scalability-constraints.md §6)",
+                params.segment_size
+            ),
         ));
     }
+    let segment_count = segment_count_for(plaintext.len(), params.segment_size);
+    validate_segment_bounds(params.segment_size, segment_count)?;
     let cipher = cipher_from_key(content_key)?;
 
     let mut nonce_prefix = [0u8; NONCE_PREFIX_LEN];
@@ -245,7 +291,6 @@ pub fn encrypt_stream(
     let nonce_prefix_b64 = base64url_encode(nonce_prefix);
 
     let segment_size = params.segment_size as usize;
-    let segment_count = segment_count_for(plaintext.len(), params.segment_size);
     let size_bytes = plaintext.len() as u64;
 
     let mut ciphertext = Vec::new();
@@ -341,18 +386,13 @@ impl StreamContext {
             .segment_count
             .ok_or_else(|| protocol("unsupported_attachment_scheme", "missing segment_count"))?;
 
-        if segment_size == 0 {
-            return Err(protocol(
-                "segment_bounds_invalid",
-                "segment_size must be non-zero",
-            ));
-        }
-        if segment_count == 0 {
-            return Err(protocol(
-                "segment_bounds_invalid",
-                "segment_count must be >= 1",
-            ));
-        }
+        // §6 hard limits FIRST: both fields are attacker-controlled wire
+        // input, and `decrypt_stream` allocates
+        // `Vec::with_capacity(segment_count)` — an unbounded declared count
+        // is a capacity bomb. Rejecting here guarantees every downstream
+        // count-/size-proportional allocation is bounded
+        // (≤ 2^20 segments, segment_size ≤ 8 MiB).
+        validate_segment_bounds(segment_size, segment_count)?;
         // Declared segment_count MUST equal ceil(size/segment_size) (§3.3.1).
         // A mismatch is treated as a truncation/forgery of the count.
         let expected = segment_count_for(env.size_bytes as usize, segment_size);
@@ -712,6 +752,10 @@ pub fn decrypt_whole_file(
 mod tests {
     use super::*;
 
+    /// Smallest spec-legal segment size, used to keep multi-segment test
+    /// plaintexts cheap while staying inside the §6 wire limits.
+    const S: usize = MIN_SEGMENT_SIZE as usize;
+
     fn key() -> [u8; 32] {
         let mut k = [0u8; 32];
         for (i, b) in k.iter_mut().enumerate() {
@@ -767,9 +811,9 @@ mod tests {
     #[test]
     fn stream_roundtrip_multi_segment_short_last() {
         let key = key();
-        let p = params(64);
-        // 3 segments: 64, 64, 10.
-        let plaintext: Vec<u8> = (0..138u32).map(|i| (i % 251) as u8).collect();
+        let p = params(MIN_SEGMENT_SIZE);
+        // 3 segments: S, S, 10.
+        let plaintext: Vec<u8> = (0..(2 * S + 10) as u32).map(|i| (i % 251) as u8).collect();
         let (ct, env) = encrypt_stream(&plaintext, &key, &p).unwrap();
         assert_eq!(env.segment_count, Some(3));
         assert_eq!(env.scheme, SCHEME_STREAM);
@@ -793,26 +837,26 @@ mod tests {
     fn stream_empty_single_exact_and_one_byte_last() {
         let key = key();
         // empty plaintext → single zero-length last segment, count 1
-        let (ct, env) = encrypt_stream(&[], &key, &params(64)).unwrap();
+        let (ct, env) = encrypt_stream(&[], &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         assert_eq!(env.segment_count, Some(1));
         assert_eq!(env.size_bytes, 0);
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), Vec::<u8>::new());
 
         // single short segment
         let p = vec![7u8; 30];
-        let (ct, env) = encrypt_stream(&p, &key, &params(64)).unwrap();
+        let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         assert_eq!(env.segment_count, Some(1));
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), p);
 
-        // exactly divisible: 128 / 64 == 2 segments, last == segment_size
-        let p = vec![3u8; 128];
-        let (ct, env) = encrypt_stream(&p, &key, &params(64)).unwrap();
+        // exactly divisible: 2*S / S == 2 segments, last == segment_size
+        let p = vec![3u8; 2 * S];
+        let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         assert_eq!(env.segment_count, Some(2));
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), p);
 
-        // last segment of exactly 1 byte: 65 / 64 -> 2 segments (64 + 1)
-        let p = vec![9u8; 65];
-        let (ct, env) = encrypt_stream(&p, &key, &params(64)).unwrap();
+        // last segment of exactly 1 byte: (S+1) / S -> 2 segments (S + 1)
+        let p = vec![9u8; S + 1];
+        let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         assert_eq!(env.segment_count, Some(2));
         assert_eq!(decrypt_stream(&ct, &env, &key).unwrap(), p);
     }
@@ -820,8 +864,8 @@ mod tests {
     #[test]
     fn stream_truncation_drops_last_segment() {
         let key = key();
-        let p = vec![1u8; 200];
-        let (ct, env) = encrypt_stream(&p, &key, &params(64)).unwrap();
+        let p = vec![1u8; 3 * S + 8];
+        let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         let segs = split_segments(&ct, &env);
         // push all but the last segment, then finish → truncated
         let mut dec = StreamDecryptor::new(&env, &key).unwrap();
@@ -835,8 +879,8 @@ mod tests {
     #[test]
     fn stream_truncation_via_count_mismatch() {
         let key = key();
-        let p = vec![1u8; 200];
-        let (_ct, mut env) = encrypt_stream(&p, &key, &params(64)).unwrap();
+        let p = vec![1u8; 3 * S + 8];
+        let (_ct, mut env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         // declared count no longer matches ceil(size/segment_size)
         env.segment_count = Some(5);
         let Err(err) = StreamDecryptor::new(&env, &key) else {
@@ -851,15 +895,15 @@ mod tests {
         // at the last index: the AEAD nonce/AAD bind last_segment_flag, so the
         // forged last segment's tag check fails.
         let key = key();
-        let p = vec![5u8; 200]; // 4 segments: 64,64,64,8
-        let (ct, env) = encrypt_stream(&p, &key, &params(64)).unwrap();
+        let p = vec![5u8; 3 * S + 8]; // 4 segments: S,S,S,8
+        let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         let segs = split_segments(&ct, &env);
         let mut dec = StreamDecryptor::new(&env, &key).unwrap();
         // push first three normal segments fine
         dec.push_segment(0, &segs[0]).unwrap();
         dec.push_segment(1, &segs[1]).unwrap();
         dec.push_segment(2, &segs[2]).unwrap();
-        // present segment[1]'s ciphertext (len 64+16) as the last index 3 — but
+        // present segment[1]'s ciphertext (len S+16) as the last index 3 — but
         // index 3 expects len 8+16, so bounds reject first.
         let err = dec.push_segment(3, &segs[1]).unwrap_err();
         assert_eq!(reason(&err), "segment_bounds_invalid");
@@ -868,8 +912,8 @@ mod tests {
     #[test]
     fn stream_reorder_and_replay() {
         let key = key();
-        let p = vec![2u8; 200];
-        let (ct, env) = encrypt_stream(&p, &key, &params(64)).unwrap();
+        let p = vec![2u8; 2 * S + 10];
+        let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         let segs = split_segments(&ct, &env);
 
         // reorder: push index 1 before 0
@@ -887,8 +931,8 @@ mod tests {
     #[test]
     fn stream_bounds_oob_index_and_tampered_len() {
         let key = key();
-        let p = vec![4u8; 100]; // 2 segments: 64, 36
-        let (ct, env) = encrypt_stream(&p, &key, &params(64)).unwrap();
+        let p = vec![4u8; MIN_SEGMENT_SIZE as usize + 36]; // 2 segments: MIN_SEGMENT_SIZE, 36
+        let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         let segs = split_segments(&ct, &env);
 
         // out-of-range index
@@ -909,7 +953,7 @@ mod tests {
     fn stream_aead_tamper_fails() {
         let key = key();
         let p = vec![6u8; 100];
-        let (ct, env) = encrypt_stream(&p, &key, &params(64)).unwrap();
+        let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         let mut segs = split_segments(&ct, &env);
         segs[0][3] ^= 0xff;
         let mut dec = StreamDecryptor::new(&env, &key).unwrap();
@@ -921,7 +965,7 @@ mod tests {
     fn stream_digest_mismatch_rejected() {
         let key = key();
         let p = vec![8u8; 100];
-        let (ct, mut env) = encrypt_stream(&p, &key, &params(64)).unwrap();
+        let (ct, mut env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
         // corrupt the declared overall digest; per-segment AEAD still passes,
         // so the mismatch is only caught at finish().
         env.ciphertext_digest =
@@ -934,7 +978,7 @@ mod tests {
     fn stream_scheme_and_alg_closure() {
         let key = key();
         let p = vec![1u8; 50];
-        let (ct, env) = encrypt_stream(&p, &key, &params(64)).unwrap();
+        let (ct, env) = encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE)).unwrap();
 
         // unknown scheme
         let mut bad = env.clone();

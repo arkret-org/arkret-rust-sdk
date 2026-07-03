@@ -3,12 +3,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[cfg(test)]
-use crate::models::AppletTransactionOutcome;
 use crate::models::{AppletActorView, AppletRealmView, AppletTransactionRequestBody};
 use crate::{Did, Event, RealmId};
-#[cfg(test)]
-use crate::{Error, Result, canonical};
 
 /// Framework-neutral applet endpoint route declaration.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -78,60 +74,15 @@ impl AppletEndpointRouteSet {
 }
 
 /// Applet service transaction with an explicit idempotency key.
+///
+/// Deduplication of these deliveries lives in one place:
+/// [`crate::idempotency::IdempotencyWindow`], keyed by the spec 5-tuple
+/// [`crate::idempotency::IdempotencyIdentity`] (`applet-integration.md`
+/// §7.3).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletServiceTransaction {
     pub idempotency_key: String,
     pub request: AppletTransactionRequestBody,
-}
-
-/// Result of recording an idempotent transaction.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg(test)]
-pub(crate) enum AppletServiceTransactionRecord {
-    New(AppletTransactionOutcome),
-    Duplicate(AppletTransactionOutcome),
-}
-
-/// In-memory idempotent applet service transaction store.
-#[derive(Clone, Debug, Default)]
-#[cfg(test)]
-pub(crate) struct AppletServiceTransactionStore {
-    transactions: BTreeMap<String, (String, AppletTransactionOutcome)>,
-}
-
-#[cfg(test)]
-impl AppletServiceTransactionStore {
-    /// Create an empty transaction store.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Record a transaction or return the prior response for an exact duplicate.
-    pub fn record(
-        &mut self,
-        transaction: &AppletServiceTransaction,
-        response: AppletTransactionOutcome,
-    ) -> Result<AppletServiceTransactionRecord> {
-        let digest = canonical::canonical_sha256(&transaction.request)?;
-        if let Some((existing_digest, existing_response)) =
-            self.transactions.get(&transaction.idempotency_key)
-        {
-            if existing_digest == &digest {
-                return Ok(AppletServiceTransactionRecord::Duplicate(
-                    existing_response.clone(),
-                ));
-            }
-            return Err(Error::IdempotencyConflict(
-                transaction.idempotency_key.clone(),
-            ));
-        }
-
-        self.transactions.insert(
-            transaction.idempotency_key.clone(),
-            (digest, response.clone()),
-        );
-        Ok(AppletServiceTransactionRecord::New(response))
-    }
 }
 
 /// Virtual actor controlled by an applet service.

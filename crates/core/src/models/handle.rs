@@ -607,7 +607,7 @@ mod tests {
         PayloadProof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:web:issuer.example#key-1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:issuer.example#key-1".to_owned(),
             payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at: Utc::now(),
             domain: None,
@@ -671,7 +671,7 @@ mod tests {
         let claim = HandleClaim {
             handle: Some(Handle::parse("alice:example.com").unwrap()),
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_service_did: Did::new("did:web:rs.example".to_owned()).unwrap(),
+                recipient_service_did: Did::new("did:webvh:z6mkfixture:rs.example".to_owned()).unwrap(),
                 recipient_service_type: RecipientServiceType::PrincipalServer,
                 binding_source: HandleHintBindingSource::Explicit,
                 delivery_modes: BTreeSet::new(),
@@ -688,15 +688,15 @@ mod tests {
     fn handle_claim_serializes_current_wire_names_only() {
         let claim = HandleClaim {
             handle: Some(Handle::parse("alice:example.com").unwrap()),
-            subject: Some(Did::new("did:web:alice.example".to_owned()).unwrap()),
-            issuer: Some("did:web:issuer.example".to_owned()),
+            subject: Some(Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()),
+            issuer: Some("did:webvh:z6mkfixture:issuer.example".to_owned()),
             binding_state: Some(HandleBindingState::Verified),
             claim_kind: Some(HandleClaimKind::HandleBinding),
             created_at: Some(Utc::now()),
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
             proofs: vec![placeholder_payload_proof()],
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_service_did: Did::new("did:web:rs.example".to_owned()).unwrap(),
+                recipient_service_did: Did::new("did:webvh:z6mkfixture:rs.example".to_owned()).unwrap(),
                 recipient_service_type: RecipientServiceType::PrincipalServer,
                 binding_source: HandleHintBindingSource::OrganizationPolicy,
                 delivery_modes: BTreeSet::from([DeliveryMode::Events]),
@@ -724,11 +724,11 @@ mod tests {
     #[test]
     fn remote_resolution_requires_proof_audience_and_delivery_binding() {
         let audience = "ck:realm:01904100-0000-7000-8000-000000000001";
-        let recipient = Did::new("did:web:rs.example".to_owned()).unwrap();
+        let recipient = Did::new("did:webvh:z6mkfixture:rs.example".to_owned()).unwrap();
         let claim = HandleClaim {
             handle: Some(Handle::parse("alice:example.com").unwrap()),
-            subject: Some(Did::new("did:web:alice.example".to_owned()).unwrap()),
-            issuer: Some("did:web:issuer.example".to_owned()),
+            subject: Some(Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()),
+            issuer: Some("did:webvh:z6mkfixture:issuer.example".to_owned()),
             binding_state: Some(HandleBindingState::Verified),
             audience: Some(audience.to_owned()),
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
@@ -752,7 +752,7 @@ mod tests {
         assert!(
             claim
                 .validate_remote_resolution(
-                    Some("did:web:other.example"),
+                    Some("did:webvh:z6mkfixture:other.example"),
                     Some(&recipient),
                     Utc::now(),
                 )

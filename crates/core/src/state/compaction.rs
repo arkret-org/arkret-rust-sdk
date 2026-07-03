@@ -160,7 +160,7 @@ mod tests {
     fn seal(kind: SealKind) -> Seal {
         let sig = MoveSignature {
             alg: "EdDSA".to_owned(),
-            verification_method: "did:web:a.example#k1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:a.example#k1".to_owned(),
             payload_digest: Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap(),
             created_at: chrono::Utc::now(),
             jws: "AAAA.BBBB.CCCC".to_owned(),

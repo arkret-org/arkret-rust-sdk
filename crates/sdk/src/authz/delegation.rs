@@ -536,8 +536,8 @@ mod tests {
         Grant {
             grant_id: id.to_owned(),
             realm_id: "ck:realm:1".to_owned(),
-            issuer: "did:web:alice".to_owned(),
-            subject: "did:web:bob".to_owned(),
+            issuer: "did:webvh:z6mkfixture:alice".to_owned(),
+            subject: "did:webvh:z6mkfixture:bob".to_owned(),
             resource: resource.to_owned(),
             actions: actions.iter().map(|s| (*s).to_owned()).collect(),
             constraints: Vec::new(),
@@ -578,8 +578,8 @@ mod tests {
         let child = child_grant(
             "g2",
             "g1",
-            "did:web:bob",
-            "did:web:carol",
+            "did:webvh:z6mkfixture:bob",
+            "did:webvh:z6mkfixture:carol",
             &["read"],
             "ck:realm:1",
             None,
@@ -597,8 +597,8 @@ mod tests {
         let child = child_grant(
             "g2",
             "g1",
-            "did:web:bob",
-            "did:web:carol",
+            "did:webvh:z6mkfixture:bob",
+            "did:webvh:z6mkfixture:carol",
             &["read"],
             "ck:realm:1",
             None,
@@ -617,8 +617,8 @@ mod tests {
         let child = child_grant(
             "g2",
             "g1",
-            "did:web:bob",
-            "did:web:carol",
+            "did:webvh:z6mkfixture:bob",
+            "did:webvh:z6mkfixture:carol",
             &["read"],
             "ck:realm:1",
             None,
@@ -636,8 +636,8 @@ mod tests {
         let parents = vec![root];
         let req = GrantRequestDraft {
             realm_id: "ck:realm:1".to_owned(),
-            issuer: "did:web:bob".to_owned(),
-            subject: "did:web:carol".to_owned(),
+            issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ck:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
@@ -657,8 +657,8 @@ mod tests {
         let parents = vec![root];
         let req = GrantRequestDraft {
             realm_id: "ck:realm:1".to_owned(),
-            issuer: "did:web:bob".to_owned(),
-            subject: "did:web:carol".to_owned(),
+            issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ck:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
@@ -688,8 +688,8 @@ mod tests {
         let parents = vec![root];
         let req = GrantRequestDraft {
             realm_id: "ck:realm:1".to_owned(),
-            issuer: "did:web:bob".to_owned(),
-            subject: "did:web:carol".to_owned(),
+            issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ck:realm:1".to_owned(),
             // Parent only has `read`; child asking for `send` and `delete`.
             actions: vec!["read".to_owned(), "send".to_owned(), "delete".to_owned()],
@@ -712,8 +712,8 @@ mod tests {
         let parents = vec![root];
         let req = GrantRequestDraft {
             realm_id: "ck:realm:2".to_owned(),
-            issuer: "did:web:bob".to_owned(),
-            subject: "did:web:carol".to_owned(),
+            issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
             // Parent's resource is "ck:realm:1"; child trying a sibling realm.
             resource: "ck:realm:2".to_owned(),
             actions: vec!["read".to_owned()],
@@ -736,8 +736,8 @@ mod tests {
         let parents = vec![root];
         let base_req = GrantRequestDraft {
             realm_id: "ck:realm:1".to_owned(),
-            issuer: "did:web:bob".to_owned(),
-            subject: "did:web:carol".to_owned(),
+            issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ck:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
@@ -769,8 +769,8 @@ mod tests {
         let parents = vec![root];
         let req = GrantRequestDraft {
             realm_id: "ck:realm:1".to_owned(),
-            issuer: "did:web:bob".to_owned(),
-            subject: "did:web:carol".to_owned(),
+            issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ck:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: vec![GrantConstraint::DelegationControl {
@@ -792,8 +792,8 @@ mod tests {
         let req = GrantRequestDraft {
             realm_id: "ck:realm:1".to_owned(),
             // Bob is the parent's subject; Eve trying to delegate is not.
-            issuer: "did:web:eve".to_owned(),
-            subject: "did:web:carol".to_owned(),
+            issuer: "did:webvh:z6mkfixture:eve".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ck:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
@@ -812,8 +812,8 @@ mod tests {
         let mut middle = child_grant(
             "g2",
             "g1",
-            "did:web:bob",
-            "did:web:carol",
+            "did:webvh:z6mkfixture:bob",
+            "did:webvh:z6mkfixture:carol",
             &["read"],
             "ck:realm:1",
             None,
@@ -821,8 +821,8 @@ mod tests {
         let leaf = child_grant(
             "g3",
             "g2",
-            "did:web:carol",
-            "did:web:dave",
+            "did:webvh:z6mkfixture:carol",
+            "did:webvh:z6mkfixture:dave",
             &["read"],
             "ck:realm:1",
             None,
@@ -847,8 +847,8 @@ mod tests {
         let middle_a = child_grant(
             "g2a",
             "g1",
-            "did:web:bob",
-            "did:web:carol",
+            "did:webvh:z6mkfixture:bob",
+            "did:webvh:z6mkfixture:carol",
             &["read"],
             "ck:realm:1",
             None,
@@ -856,8 +856,8 @@ mod tests {
         let middle_b = child_grant(
             "g2b",
             "g1",
-            "did:web:bob",
-            "did:web:dave",
+            "did:webvh:z6mkfixture:bob",
+            "did:webvh:z6mkfixture:dave",
             &["read"],
             "ck:realm:1",
             None,
@@ -865,8 +865,8 @@ mod tests {
         let leaf_a = child_grant(
             "g3a",
             "g2a",
-            "did:web:carol",
-            "did:web:erin",
+            "did:webvh:z6mkfixture:carol",
+            "did:webvh:z6mkfixture:erin",
             &["read"],
             "ck:realm:1",
             None,
@@ -874,8 +874,8 @@ mod tests {
         let leaf_b = child_grant(
             "g3b",
             "g2b",
-            "did:web:dave",
-            "did:web:frank",
+            "did:webvh:z6mkfixture:dave",
+            "did:webvh:z6mkfixture:frank",
             &["read"],
             "ck:realm:1",
             None,
@@ -902,8 +902,8 @@ mod tests {
         let parents: Vec<Grant> = Vec::new();
         let req = GrantRequestDraft {
             realm_id: "ck:realm:1".to_owned(),
-            issuer: "did:web:bob".to_owned(),
-            subject: "did:web:carol".to_owned(),
+            issuer: "did:webvh:z6mkfixture:bob".to_owned(),
+            subject: "did:webvh:z6mkfixture:carol".to_owned(),
             resource: "ck:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
@@ -984,7 +984,7 @@ mod tests {
             validate_applet_delegation_binding(
                 &grant,
                 "ck:applet:1",
-                "did:web:svc.example",
+                "did:webvh:z6mkfixture:svc.example",
                 "sha256:abc"
             ),
             Err(AppletDelegationBindingError::Missing)
@@ -993,14 +993,14 @@ mod tests {
             .constraints
             .push(GrantConstraint::AppletDelegationBinding {
                 applet_id: "ck:applet:1".to_owned(),
-                executed_by: "did:web:svc.example".to_owned(),
+                executed_by: "did:webvh:z6mkfixture:svc.example".to_owned(),
                 registration_epoch: "sha256:abc".to_owned(),
             });
         assert!(
             validate_applet_delegation_binding(
                 &grant,
                 "ck:applet:1",
-                "did:web:svc.example",
+                "did:webvh:z6mkfixture:svc.example",
                 "sha256:abc"
             )
             .is_ok()
@@ -1009,7 +1009,7 @@ mod tests {
             validate_applet_delegation_binding(
                 &grant,
                 "ck:applet:1",
-                "did:web:svc.example",
+                "did:webvh:z6mkfixture:svc.example",
                 "sha256:def"
             ),
             Err(AppletDelegationBindingError::RegistrationEpochMismatch)

@@ -18,12 +18,11 @@ jobs:
         cokret-core
         cokret-ffi
         cokret-html
-        cokret-http-client
         cokret-signatures
+        cokret-http-client
         cokret-crypto
-        cokret-api
+        cokret-keystore
         cokret-server
-        cokret-testing
         cokret
     steps:
       - uses: actions/checkout@v4

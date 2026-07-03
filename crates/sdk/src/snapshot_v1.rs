@@ -111,6 +111,8 @@ mod tests {
     use super::*;
     use crate::identity::{DidDocument, DidWebResolver};
 
+    // The manifest verifier resolves the generator via `DidWebResolver`,
+    // so this fixture MUST stay a did:web-method DID.
     fn did() -> Did {
         Did::new("did:web:generator.example".to_owned()).unwrap()
     }

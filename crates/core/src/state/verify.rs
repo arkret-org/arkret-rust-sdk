@@ -460,7 +460,7 @@ mod tests {
         refs: Vec<SemanticRef>,
     ) -> Move {
         let body = json!({
-            "issuer": "did:web:admin.example",
+            "issuer": "did:webvh:z6mkfixture:admin.example",
             "realm_id": realm().as_str(),
             "preconditions": preconditions,
             "effects": effects,
@@ -488,7 +488,7 @@ mod tests {
             "sig".into(),
             json!({
                 "alg": "EdDSA",
-                "verification_method": "did:web:admin.example#k1",
+                "verification_method": "did:webvh:z6mkfixture:admin.example#k1",
                 "payload_digest": payload_digest,
                 "created_at": "2026-05-08T00:00:00Z",
                 "jws": "AAAA.BBBB.CCCC"
@@ -511,7 +511,7 @@ mod tests {
                 "tag": grant_id,
                 "value": {
                     "id": grant_id,
-                    "issuer": "did:web:owner.example",
+                    "issuer": "did:webvh:z6mkfixture:owner.example",
                     "subject": subject,
                     "actions": ["ck.member.state"],
                     "resources": [{"kind": "Realm", "realm_id": realm().as_str()}]
@@ -646,7 +646,7 @@ mod tests {
         let mut pre_state = BTreeMap::new();
         pre_state.insert(
             cell_capability_grant(),
-            grant_cell_state(grant_id, "did:web:bob.example"),
+            grant_cell_state(grant_id, "did:webvh:z6mkfixture:bob.example"),
         );
 
         let err = verify_move(&m, &pre_state, &MemoryCellRegistry::new(), ok_jws).unwrap_err();

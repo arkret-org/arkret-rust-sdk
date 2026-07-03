@@ -44,6 +44,18 @@ pub struct EventsSubmitRequestBody {
     pub events: Vec<Event>,
 }
 
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome`
+/// `rejected` array items: `{id, reason_code, detail?}`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct EventsSubmitRejectedItem {
+    pub id: String,
+    pub reason_code: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventsSubmitOutcome {
@@ -53,11 +65,15 @@ pub struct EventsSubmitOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub duplicate: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<Value>,
+    pub rejected: Vec<EventsSubmitRejectedItem>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub quarantine: Vec<EventId>,
+    /// Spec-loose object: `service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome`
+    /// declares `actor_frontier` as an unconstrained object.
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub actor_frontier: Value,
+    /// Spec-loose object: `service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome`
+    /// declares `realm_frontier` as an unconstrained object.
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub realm_frontier: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -70,6 +86,8 @@ pub struct EventsSubmitOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventView {
     pub event: Event,
+    /// Spec-loose object: `service-operation-dtos.schema.json` declares
+    /// `visibility` without property constraints.
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub visibility: Value,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -260,9 +278,17 @@ pub struct ProjectionMorphList {
     pub has_more: bool,
 }
 
+/// NDJSON subscribe-stream frame discriminator.
+///
+/// `#[non_exhaustive]`: a future spec revision may register additional frame
+/// kinds. Downstream `match` expressions MUST carry a `_` arm with
+/// fail-closed semantics (ignore/drop an unrecognised frame rather than
+/// treating it as an event or a state transition). Deserialisation itself
+/// stays closed-set: an unknown wire value still fails the frame parse.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum EventsSubscribeFrameKind {
     Event,
     Frontier,
@@ -611,8 +637,8 @@ pub struct KeyPackagesUploadRequestBody {
     pub principal_id: Did,
     pub device_id: DeviceId,
     #[serde(default)]
-    pub key_packages: Vec<Value>,
-    pub device_signature: Value,
+    pub key_packages: Vec<KeyPackageUploadEntry>,
+    pub device_signature: KeyOperationSignature,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -628,7 +654,7 @@ pub struct KeyPackagesUploadOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejected: Vec<Failure>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub key_package_refs: KeypackageRefArray,
+    pub key_package_refs: KeyPackageRefArray,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub available_count: Option<u64>,
 }
@@ -660,7 +686,7 @@ pub struct KeyPackagesClaimRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesClaimOutcome {
     #[serde(default)]
-    pub claims: Vec<KeypackageClaimRecord>,
+    pub claims: Vec<KeyPackageClaimRecord>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Failure>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -673,7 +699,7 @@ pub struct KeyPackagesConsumeRequestBody {
     #[serde(default)]
     pub key_package_refs: Vec<String>,
     pub consumer_device_id: DeviceId,
-    pub signature: Value,
+    pub signature: KeyOperationSignature,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub claim_ids: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -692,7 +718,7 @@ pub struct KeyPackagesConsumeRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesConsumeOutcome {
     #[serde(default)]
-    pub consumed: KeypackageRefArray,
+    pub consumed: KeyPackageRefArray,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Failure>,
 }
@@ -703,7 +729,7 @@ pub struct KeyPackagesRevokeRequestBody {
     #[serde(default)]
     pub key_package_refs: Vec<String>,
     pub device_id: DeviceId,
-    pub signature: Value,
+    pub signature: KeyOperationSignature,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
@@ -712,7 +738,7 @@ pub struct KeyPackagesRevokeRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesRevokeOutcome {
     #[serde(default)]
-    pub revoked: KeypackageRefArray,
+    pub revoked: KeyPackageRefArray,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Failure>,
 }

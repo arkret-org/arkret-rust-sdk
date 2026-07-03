@@ -129,14 +129,29 @@ impl SendQueue {
     }
 
     /// Restore a queue from a serialized snapshot.
+    ///
+    /// A persisted `Sending` status is stale by construction: it means the
+    /// process died (or the send future was dropped) between `mark_sending`
+    /// and `mark_sent` / `mark_failed`, and nothing will ever transition it
+    /// again — `is_ready` does not schedule `Sending` items, so the item and
+    /// its whole `depends_on` chain would be stuck forever. Restore
+    /// normalizes it to `Failed` with an immediate retry; the resend is safe
+    /// because submission is idempotent on `event_id` / transaction identity
+    /// (operations-sync.md §events.submit dedup).
     pub fn from_snapshot(snapshot: SendQueueSnapshot) -> Result<Self> {
         let mut queue = Self {
             next_sequence: snapshot.next_sequence,
             ..Self::default()
         };
-        for item in snapshot.items {
+        for mut item in snapshot.items {
             if queue.items.contains_key(&item.transaction_id) {
                 return Err(Error::IdempotencyConflict(item.transaction_id));
+            }
+            if item.status == SendQueueStatus::Sending {
+                item.status = SendQueueStatus::Failed;
+                item.next_retry_at = None;
+                item.updated_at = Utc::now();
+                item.local_echo.status = item.status;
             }
             queue.order.push_back(item.transaction_id.clone());
             queue.items.insert(item.transaction_id.clone(), item);

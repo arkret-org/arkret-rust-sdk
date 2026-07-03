@@ -101,7 +101,7 @@ mod tests {
         // The spec-required triad is permitted...
         for did in [
             "did:webvh:scid:host:webvh:01",
-            "did:web:example.com",
+            "did:webvh:z6mkfixture:example.com",
             "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
         ] {
             let did = Did::new(did.to_owned()).expect("valid did");

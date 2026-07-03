@@ -20,6 +20,23 @@
 //! return [`KeyStoreError::Unsupported`] when the active target / feature
 //! combination cannot reach the underlying API.
 //!
+//! ## Persistence and concurrency semantics (per backend)
+//!
+//! The backends are NOT semantically identical; callers storing durable
+//! material (device signing keys) must account for these differences:
+//!
+//! | Backend | Persistence | At-rest protection | Cross-process concurrency |
+//! |---|---|---|---|
+//! | [`InMemoryKeyStore`] | none — lost on process exit | none (process memory) | none (per-process map) |
+//! | [`MacOsKeychainKeyStore`] | survives logout and reboot (login keychain) | Keychain, unlocked with the login session | Keychain serializes item ops; no SDK-level CAS |
+//! | [`LinuxSecretServiceKeyStore`] | survives logout and reboot (default collection) | Secret Service daemon; the collection may lock on logout | D-Bus daemon serializes ops; no SDK-level CAS |
+//! | [`WindowsCredentialKeyStore`] | survives logout and reboot (`CRED_PERSIST_LOCAL_MACHINE`) | DPAPI, scoped to the user profile | Win32 credential API serializes ops; no SDK-level CAS |
+//!
+//! Concurrency: every backend is last-writer-wins for `store` on the same
+//! id — there is no compare-and-swap and no cross-process lock. If two
+//! processes race a `store` for one id, one write silently wins; serialize
+//! key rotation at the application layer.
+//!
 //! ## Service-name namespacing
 //!
 //! Backends namespace credentials under `"cokret.<application_id>"` so
@@ -101,7 +118,14 @@ pub use windows_stub::WindowsCredentialKeyStore;
 ///
 /// SDK-SEC-04: when this convenience function falls back to the in-memory
 /// backend it emits a `tracing::warn!` so a silent downgrade to non-durable,
-/// OS-unprotected key storage is at least observable in logs.
+/// OS-unprotected key storage is at least observable in logs. A log line is
+/// not a contract, though — which is why this entry point is deprecated in
+/// favour of the variant whose downgrade is visible in the type system.
+#[deprecated(
+    note = "use platform_default_keystore_with_kind and reject BackendKind::InMemory when \
+            persistence is required — this variant silently downgrades to a non-durable, \
+            OS-unprotected in-memory store"
+)]
 pub fn platform_default_keystore(application_id: &str) -> Box<dyn KeyStore> {
     let (store, kind) = platform_default_keystore_with_kind(application_id);
     if kind == BackendKind::InMemory {
@@ -168,8 +192,12 @@ mod tests {
     fn platform_default_keystore_returns_a_working_keystore() {
         // On targets/features without a native backend this falls back to
         // InMemoryKeyStore. On targets WITH a native backend, the native
-        // backend is constructed; either way we can round-trip a key.
-        let store = platform_default_keystore("cokret.test.platform_default");
+        // backend is constructed; either way we can round-trip a key. The
+        // resolved kind is surfaced so callers can reject the downgrade.
+        let (store, kind) = platform_default_keystore_with_kind("cokret.test.platform_default");
+        if cfg!(all(target_os = "windows", feature = "keystore-windows")) {
+            assert_eq!(kind, BackendKind::WindowsCredential);
+        }
         // We can't reuse a fixed id across runs because some backends
         // persist; use a per-process unique id instead.
         let id = format!(

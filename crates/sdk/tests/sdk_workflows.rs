@@ -5,7 +5,7 @@ use cokret::{canonical, *};
 use serde_json::json;
 
 fn did(name: &str) -> Did {
-    Did::new(format!("did:web:{name}.example")).unwrap()
+    Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
 }
 
 fn device(id: &str) -> DeviceId {
@@ -86,7 +86,7 @@ fn end_to_end_auth_session_realm_query_and_notifications() {
                     "morph_type": "task",
                     "metadata": {"title": "Ship SDK"},
                     "fields": {"status": "todo"},
-                    "created_by": "did:web:alice.example",
+                    "created_by": "did:webvh:z6mkfixture:alice.example",
                     "created_at": "2026-05-02T00:00:00.000Z"
                 }
             }),

@@ -916,8 +916,10 @@ impl SyncClient {
 
         // Extract updates
         let mut realm_updates = Vec::new();
+        let mut malformed_realms = Vec::new();
         for (raw_realm_id, raw_sync_realm) in response.realms {
-            let Ok(realm_id) = RealmId::new(raw_realm_id) else {
+            let Ok(realm_id) = RealmId::new(raw_realm_id.clone()) else {
+                malformed_realms.push(raw_realm_id);
                 continue;
             };
             let sync_realm: SyncRealm = serde_json::from_value(raw_sync_realm).unwrap_or_default();
@@ -931,6 +933,7 @@ impl SyncClient {
 
         SyncUpdates {
             realm_updates,
+            malformed_realms,
             to_device: project_typed_vec(response.to_device),
             to_device_lost: response.to_device_lost.unwrap_or(false),
             device_lists: serde_json::from_value(response.device_lists).unwrap_or_default(),
@@ -974,6 +977,11 @@ impl Default for SyncClient {
 pub struct SyncUpdates {
     /// Realm updates.
     pub realm_updates: Vec<RealmUpdate>,
+    /// Realm keys in the response that were not valid `ck:realm:*` ids and
+    /// were skipped (per-realm degradation instead of failing the whole
+    /// batch, preserving at-least-once for the well-formed realms). A
+    /// non-empty value indicates a misbehaving server.
+    pub malformed_realms: Vec<String>,
     /// To-device messages
     pub to_device: Vec<ToDeviceMessage>,
     /// Whether the server reports an unacknowledged to-device queue gap.
@@ -1126,9 +1134,9 @@ mod tests {
 
     #[test]
     fn token_binding_checks_principal_device_service_filter_and_expiry() {
-        let principal = Did::new("did:web:alice.example").unwrap();
+        let principal = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
         let device = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap();
-        let service = Did::new("did:web:sync.example").unwrap();
+        let service = Did::new("did:webvh:z6mkfixture:sync.example").unwrap();
         let filter = SyncFilter {
             realms: vec![RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
             timeline_limit: Some(20),
@@ -1253,7 +1261,7 @@ mod tests {
     #[test]
     fn timeline_order_key_uses_causal_depth_then_hlc_actor_sequence_and_event() {
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-        let actor = Did::new("did:web:alice.example").unwrap();
+        let actor = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
         let mut newer_hlc = Event::new(
             "ck.message.create",
             realm_id.clone(),
@@ -1317,7 +1325,7 @@ mod tests {
         let event = Event::new(
             "ck.message.create",
             realm_id.clone(),
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             1,
             Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
             serde_json::json!({"body":"hello"}),

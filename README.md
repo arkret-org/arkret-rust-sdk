@@ -56,7 +56,6 @@ re-exports the public SDK surface:
 - `cokret-keystore`: platform KeyStore backends behind target-specific feature gates
 - `cokret-server`: framework-independent server handler contracts, service route metadata and endpoint fixture coverage
 - `cokret-signatures`: HTTP signatures, JWS/JWT and proof verification helpers
-- `cokret-testing`: conformance vectors and test-fixture helpers
 - `cokret`: umbrella SDK crate with high-level state managers and feature forwarding
 
 The workspace default members include all crates:

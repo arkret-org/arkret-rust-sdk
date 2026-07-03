@@ -41,7 +41,7 @@ mod tests {
     use super::*;
 
     fn did(name: &str) -> Did {
-        Did::new(format!("did:web:{name}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     fn device() -> DeviceId {
@@ -419,7 +419,7 @@ mod tests {
             new_generation: 2,
             reset_reason: "lost phone".to_owned(),
             proof: CrossSigningResetProof::PrincipalSigning {
-                verification_method: "did:web:alice.example#psk".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:alice.example#psk".to_owned(),
                 alg: "EdDSA".to_owned(),
                 signature: "AAAA".to_owned(),
             },
@@ -452,7 +452,7 @@ mod tests {
         proof_changed.proof = CrossSigningResetProof::RecoveryUnlock {
             recovery_session_id: "ck:recovery_session:01964137-0000-7000-8000-0000000000cc"
                 .to_owned(),
-            recovery_secret_ref: "did:web:alice.example#recovery-1".to_owned(),
+            recovery_secret_ref: "did:webvh:z6mkfixture:alice.example#recovery-1".to_owned(),
             unlock_commitment: "sha256:00".to_owned(),
             alg: "EdDSA".to_owned(),
             signature: "AAAA".to_owned(),
@@ -460,7 +460,7 @@ mod tests {
         assert_ne!(base, proof_changed.reset_signing_input().unwrap());
         let mut signature_changed = content;
         signature_changed.proof = CrossSigningResetProof::PrincipalSigning {
-            verification_method: "did:web:alice.example#psk".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#psk".to_owned(),
             alg: "EdDSA".to_owned(),
             signature: "BBBB".to_owned(),
         };
@@ -480,7 +480,7 @@ mod tests {
             proof: CrossSigningResetProof::RecoveryUnlock {
                 recovery_session_id: "ck:recovery_session:01964137-0000-7000-8000-0000000000cc"
                     .to_owned(),
-                recovery_secret_ref: "did:web:alice.example#recovery-1".to_owned(),
+                recovery_secret_ref: "did:webvh:z6mkfixture:alice.example#recovery-1".to_owned(),
                 unlock_commitment: "sha256:placeholder".to_owned(),
                 alg: "EdDSA".to_owned(),
                 signature: "AAAA".to_owned(),
@@ -507,7 +507,7 @@ mod tests {
             ..
         } = &mut changed_ref.proof
         {
-            *recovery_secret_ref = "did:web:alice.example#recovery-2".to_owned();
+            *recovery_secret_ref = "did:webvh:z6mkfixture:alice.example#recovery-2".to_owned();
         }
         assert_ne!(
             commitment,
@@ -529,7 +529,7 @@ mod tests {
                 threshold: 0,
                 signatures: vec![DeviceQuorumSignature {
                     device_id: device(),
-                    verification_method: "did:web:alice.example#dev1".to_owned(),
+                    verification_method: "did:webvh:z6mkfixture:alice.example#dev1".to_owned(),
                     alg: "EdDSA".to_owned(),
                     signature: "AAAA".to_owned(),
                 }],
@@ -575,7 +575,7 @@ mod tests {
         // PrincipalSigning with empty `alg`.
         let blank_alg = CrossSigningResetContent {
             proof: CrossSigningResetProof::PrincipalSigning {
-                verification_method: "did:web:a.example#k1".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:a.example#k1".to_owned(),
                 alg: String::new(),
                 signature: "sig".to_owned(),
             },
@@ -609,7 +609,7 @@ mod tests {
                 threshold: 1,
                 signatures: vec![DeviceQuorumSignature {
                     device_id: device(),
-                    verification_method: "did:web:a.example#d".to_owned(),
+                    verification_method: "did:webvh:z6mkfixture:a.example#d".to_owned(),
                     alg: String::new(),
                     signature: "AAAA".to_owned(),
                 }],
@@ -638,7 +638,7 @@ mod tests {
                 threshold: 1,
                 signatures: vec![DeviceQuorumSignature {
                     device_id: device(),
-                    verification_method: "did:web:a.example#d".to_owned(),
+                    verification_method: "did:webvh:z6mkfixture:a.example#d".to_owned(),
                     alg: "X".repeat(MAX_ALGORITHM_NAME_LEN + 1),
                     signature: "AAAA".to_owned(),
                 }],

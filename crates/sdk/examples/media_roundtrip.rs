@@ -11,7 +11,7 @@ fn main() -> cokret::Result<()> {
         b"png-bytes",
         media_type,
         Some("avatar.png".to_owned()),
-        Did::new("did:web:alice.example")?,
+        Did::new("did:webvh:z6mkfixture:alice.example")?,
     )?;
     let bytes = blobs.download(&metadata.blob_ref).expect("uploaded bytes");
 

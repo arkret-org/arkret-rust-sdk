@@ -383,7 +383,7 @@ impl Realm {
     }
 
     /// Create a snapshot of the current space state.
-    pub fn snapshot(&self) -> crate::StateSnapshot {
+    pub fn snapshot(&self) -> Result<crate::StateSnapshot> {
         self.state.snapshot()
     }
 

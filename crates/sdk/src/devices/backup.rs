@@ -137,42 +137,10 @@ pub fn key_backup_aad(
     canonical::canonical_json_bytes(&aad)
 }
 
-/// Schema-aligned backup encryption descriptor.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(try_from = "KeyBackupEncryptionWire")]
-pub struct KeyBackupEncryption {
-    pub recipient_method: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipient_key_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub kdf: Option<Value>,
-    pub aead: Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub key_commitment: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct KeyBackupEncryptionWire {
-    recipient_method: String,
-    recipient_key_ref: Option<String>,
-    kdf: Option<Value>,
-    aead: Value,
-    key_commitment: Option<String>,
-}
-
-impl TryFrom<KeyBackupEncryptionWire> for KeyBackupEncryption {
-    type Error = String;
-
-    fn try_from(wire: KeyBackupEncryptionWire) -> std::result::Result<Self, Self::Error> {
-        Ok(Self {
-            recipient_method: wire.recipient_method,
-            recipient_key_ref: wire.recipient_key_ref,
-            kdf: wire.kdf,
-            aead: wire.aead,
-            key_commitment: wire.key_commitment,
-        })
-    }
-}
+// The backup encryption descriptor is owned by `cokret-core`
+// (`models/key_backup.rs`, aligned with `key-backup.schema.json` including
+// `hpke_suite` and open extension fields); the SDK reuses it directly.
+use cokret_core::KeyBackupEncryption;
 
 /// Schema-aligned backup content item.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -195,7 +163,7 @@ pub struct KeyBackupContentItem {
 }
 
 /// Schema-aligned encrypted key backup facade from `ck.schema.key_backup.v1`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProtocolKeyBackup {
     pub backup_id: String,
     pub actor_id: Did,

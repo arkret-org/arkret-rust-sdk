@@ -34,6 +34,7 @@ chrono-tz = {workspace = true}
 cokret-identifiers = {workspace = true}
 getrandom = {workspace = true}
 hex = {workspace = true}
+hmac = {workspace = true}
 regex = {workspace = true}
 salvo = {workspace = true,features = ["oapi"],optional = true}
 salvo-oapi = {workspace = true,optional = true}

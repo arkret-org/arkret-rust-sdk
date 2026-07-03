@@ -31,6 +31,7 @@ sha2 = {workspace = true}
 subtle = {workspace = true}
 thiserror = {workspace = true}
 url = {workspace = true}
+zeroize = {workspace = true,default-features = true}
 
 [dev-dependencies]
 cokret-core = {workspace = true}

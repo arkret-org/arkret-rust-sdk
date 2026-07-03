@@ -168,50 +168,111 @@ fn every_variant_has_http_status() {
     }
 }
 
-/// Guard against the manual-mirror drift fixed in SDK-01-001: every
-/// hand-maintained `REASON_*` constant MUST exist as a declared identifier
-/// in the embedded `error-code-registry.json` snapshot. This pins the
-/// previously-missing `federation_trust_domain_mismatch` /
-/// `invalid_ack_token` and catches any future reason code added as a
-/// constant without a matching registry entry (or vice versa).
+/// Resolve the registry identifier union (`codes` ∪ `reason_codes`) from the
+/// live spec checkout when available (`COKRET_SPEC_ARTIFACTS` or the
+/// co-checkout path), falling back to the embedded snapshot. The live file
+/// wins so the gate tracks in-flight registry edits before the embedded
+/// artifacts are refreshed.
+fn registry_identifier_union() -> std::collections::BTreeSet<String> {
+    if let Some(artifacts_dir) = local_spec_artifacts_dir() {
+        let registry_path = artifacts_dir
+            .join("registry")
+            .join("error-code-registry.json");
+        if let Ok(text) = std::fs::read_to_string(&registry_path) {
+            let registry: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|error| {
+                panic!("failed to parse {}: {error}", registry_path.display())
+            });
+            let mut identifiers = std::collections::BTreeSet::new();
+            for array_field in ["codes", "reason_codes"] {
+                if let Some(entries) = registry.get(array_field).and_then(serde_json::Value::as_array)
+                {
+                    identifiers.extend(
+                        entries
+                            .iter()
+                            .filter_map(|entry| {
+                                entry.get("code").and_then(serde_json::Value::as_str)
+                            })
+                            .map(str::to_owned),
+                    );
+                }
+            }
+            assert!(
+                !identifiers.is_empty(),
+                "live error-code-registry.json declared no codes or reason_codes",
+            );
+            return identifiers;
+        }
+    }
+    crate::schema::embedded_error_code_identifiers()
+        .expect("embedded error-code-registry identifiers must load")
+}
+
+/// Guard against manual-mirror drift (SDK-01-001 / SDK-SPEC-02): EVERY
+/// `REASON_*` constant declared in `reasons.rs` MUST exist as a declared
+/// identifier in `error-code-registry.json`. Unlike the previous curated
+/// subset check, this reflectively parses the module source, so a constant
+/// added without a registry entry can no longer drift silently.
 ///
 /// The spec registry files identifiers across two arrays: canonical error
 /// codes under `codes` and finer sub-reasons under `reason_codes`. Several
-/// curated constants (the Reaction and direct-conversation sub-reasons) are
+/// constants (the Reaction and direct-conversation sub-reasons) are
 /// registered by the spec under `codes`, so the cross-check resolves
 /// against the union of both arrays rather than `reason_codes` alone.
 #[test]
 fn reason_constants_are_declared_in_embedded_registry() {
-    let registry = crate::schema::embedded_error_code_identifiers()
-        .expect("embedded error-code-registry identifiers must load");
+    let registry = registry_identifier_union();
 
-    // The two reason codes restored in SDK-01-001 must be present.
-    assert!(
-        registry.contains(REASON_FEDERATION_TRUST_DOMAIN_MISMATCH),
-        "federation_trust_domain_mismatch missing from embedded registry",
+    // Reflectively extract every `pub const REASON_*: &str = "..."` wire
+    // value from the module source. Declarations may wrap the literal onto
+    // the following line, so scan a joined view of the source.
+    let source = include_str!("reasons.rs");
+    let joined = source
+        .lines()
+        .map(str::trim_start)
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut declared: Vec<String> = Vec::new();
+    let mut rest = joined.as_str();
+    while let Some(position) = rest.find("pub const REASON_") {
+        rest = &rest[position + "pub const REASON_".len()..];
+        // Only string constants participate (skip the &[&str] KNOWN_* arrays,
+        // which never match this prefix anyway).
+        let Some((declaration, after)) = rest.split_once(';') else {
+            break;
+        };
+        if let Some(value) = declaration
+            .split_once(": &str = \"")
+            .and_then(|(_, tail)| tail.split_once('"').map(|(value, _)| value.to_owned()))
+        {
+            declared.push(value);
+        }
+        rest = after;
+    }
+
+    // Count consistency: every `pub const REASON_` declaration in the source
+    // must have yielded exactly one parsed wire value.
+    let declaration_count = source
+        .lines()
+        .filter(|line| line.trim_start().starts_with("pub const REASON_"))
+        .count();
+    assert_eq!(
+        declared.len(),
+        declaration_count,
+        "parsed REASON_* wire values ({}) do not match `pub const REASON_` \
+         declarations in reasons.rs ({declaration_count}); the reflective \
+         parser missed a declaration form",
+        declared.len(),
     );
     assert!(
-        registry.contains(REASON_INVALID_ACK_TOKEN),
-        "invalid_ack_token missing from embedded registry",
+        declared.len() > 100,
+        "suspiciously few REASON_* constants parsed ({}); parser broken?",
+        declared.len(),
     );
 
-    // Every curated reason-code set MUST be a registry subset; a constant
-    // absent from the snapshot signals manual-mirror drift.
-    let curated = [
-        KNOWN_REASON_CODES_ROUND_C45,
-        KNOWN_REASON_CODES_AUTHZ_GOVERNANCE,
-        KNOWN_REASON_CODES_CKP_0007,
-        KNOWN_REASON_CODES_AGENT_PARTICIPATION,
-        KNOWN_REASON_CODES_ROUND_C44,
-        KNOWN_REASON_CODES_REACTION,
-        KNOWN_REASON_CODES_CONTACT_DIRECT_CONVERSATION,
-        KNOWN_REASON_CODES_AUDIT_RELEASE,
-        KNOWN_REASON_CODES_ROUND_R30,
-    ];
-    for reason in curated.iter().flat_map(|set| set.iter()) {
+    for reason in &declared {
         assert!(
-            registry.contains(*reason),
-            "REASON constant {reason:?} not present in embedded \
+            registry.contains(reason),
+            "REASON constant {reason:?} not present in \
              error-code-registry.json (codes or reason_codes)",
         );
     }

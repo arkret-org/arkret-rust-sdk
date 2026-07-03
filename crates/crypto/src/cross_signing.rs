@@ -707,6 +707,19 @@ pub fn verify_device_cross_signing_chain(
         algorithms,
         anchored_psk,
     } = input;
+    // Signature-domain integrity: every key record and binding on the chain
+    // declares an `alg`, and this verifier only implements Ed25519. Any other
+    // declared algorithm MUST fail closed instead of being silently verified
+    // as Ed25519 (a declared `ML-DSA-65` binding must never pass because its
+    // carried key happens to decode as 32 bytes).
+    const EDDSA_ALG: &str = "EdDSA";
+    if publish.principal_signing_key.alg != EDDSA_ALG
+        || publish.self_signing_key.key.alg != EDDSA_ALG
+        || publish.self_signing_key.binding.alg != EDDSA_ALG
+        || binding.alg != EDDSA_ALG
+    {
+        return DeviceTrustState::Unverified;
+    }
     // (a) PSK→SSK: the anchored PSK MUST sign the published SSK record over
     // the §5.1 self-signing canonical input.
     let Ok(ssk_input) = publish.self_signing_binding_input() else {

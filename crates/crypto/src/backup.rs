@@ -230,20 +230,16 @@ impl VaultBinding {
     /// HKDF subkey derived from the root unlock key with a
     /// domain-separated `info`. Per §7.1 each `backup_class` derives in
     /// its own domain so compromising one domain cannot unlock another.
-    fn subkey(&self, root: &[u8; VAULT_KDF_OUTPUT_LEN], subdomain: &str) -> [u8; 32] {
+    /// Public so conformance KAT runners can pin the intermediate bytes
+    /// (`key-backup-hardening-fixture.json` passphrase_kdf_kat case).
+    pub fn subkey(&self, root: &[u8; VAULT_KDF_OUTPUT_LEN], subdomain: &str) -> [u8; 32] {
         derive_subkey(root, self.backup_class.hkdf_info(subdomain).as_bytes())
     }
 
-    /// Deterministic AEAD nonce per §7.2:
-    /// `HMAC-SHA256(HKDF(root, "...aead-nonce-v1"), canonical_json(transcript))[0:24]`.
-    /// The transcript field order matches the authoritative
-    /// `key-backup.schema.json` `aead.nonce` description.
-    fn derive_nonce(
-        &self,
-        root: &[u8; VAULT_KDF_OUTPUT_LEN],
-        nonce_salt_b64: &str,
-    ) -> Result<[u8; VAULT_NONCE_LEN]> {
-        let nonce_key = derive_subkey(root, b"cokret-key-backup-aead-nonce-v1");
+    /// Canonical-JSON bytes of the §7.2 deterministic-nonce transcript.
+    /// Shared by [`Self::derive_nonce`] and conformance vector generation
+    /// so the fixture transcript can never drift from the code path.
+    pub fn nonce_transcript_canonical_bytes(&self, nonce_salt_b64: &str) -> Result<Vec<u8>> {
         // Transcript field names follow the authoritative normative code
         // block in key-management.md §7.2 (L566-582): the AEAD fields are
         // the *flat* keys `aead` (= aead.name), `aead_profile` and
@@ -260,8 +256,21 @@ impl VaultBinding {
             "aead_profile": VAULT_AEAD_PROFILE,
             "nonce_salt": nonce_salt_b64,
         });
-        let transcript_bytes = canonical_json_bytes(&transcript)
-            .map_err(|err| KeyBackupError::Canonical(format!("nonce transcript: {err}")))?;
+        canonical_json_bytes(&transcript)
+            .map_err(|err| KeyBackupError::Canonical(format!("nonce transcript: {err}")))
+    }
+
+    /// Deterministic AEAD nonce per §7.2:
+    /// `HMAC-SHA256(HKDF(root, "...aead-nonce-v1"), canonical_json(transcript))[0:24]`.
+    /// The transcript field order matches the authoritative
+    /// `key-backup.schema.json` `aead.nonce` description.
+    pub fn derive_nonce(
+        &self,
+        root: &[u8; VAULT_KDF_OUTPUT_LEN],
+        nonce_salt_b64: &str,
+    ) -> Result<[u8; VAULT_NONCE_LEN]> {
+        let nonce_key = derive_subkey(root, b"cokret-key-backup-aead-nonce-v1");
+        let transcript_bytes = self.nonce_transcript_canonical_bytes(nonce_salt_b64)?;
         let mut mac = <HmacSha256 as hmac::digest::KeyInit>::new_from_slice(&nonce_key)
             .map_err(|err| KeyBackupError::Kdf(format!("nonce hmac key: {err}")))?;
         mac.update(&transcript_bytes);
@@ -273,8 +282,9 @@ impl VaultBinding {
 
     /// AEAD AAD per §7.1: canonical JSON over the domain/subject/schema
     /// binding fields. Bound to the ciphertext so envelope metadata
-    /// cannot be tampered with post-encryption.
-    fn aad(&self) -> Result<Vec<u8>> {
+    /// cannot be tampered with post-encryption. Public for conformance
+    /// KAT verification.
+    pub fn aad(&self) -> Result<Vec<u8>> {
         let aad = json!({
             "actor_id": self.actor_id.as_str(),
             "device_id": self.device_id.as_ref().map(|d| d.as_str()),
@@ -290,8 +300,9 @@ impl VaultBinding {
 }
 
 /// HKDF-SHA256 subkey derivation with an explicit `info` and no salt
-/// (the root key already carries full entropy from Argon2id).
-fn derive_subkey(root: &[u8; VAULT_KDF_OUTPUT_LEN], info: &[u8]) -> [u8; 32] {
+/// (the root key already carries full entropy from Argon2id). Public so
+/// conformance KAT runners can pin the intermediate subkey bytes.
+pub fn derive_subkey(root: &[u8; VAULT_KDF_OUTPUT_LEN], info: &[u8]) -> [u8; 32] {
     let hk = Hkdf::<Sha256>::new(None, root);
     let mut out = [0u8; 32];
     // `expand` only fails when the output length exceeds 255*HashLen; 32
@@ -313,6 +324,20 @@ pub fn encrypt_vault(
 ) -> Result<VaultCiphertext> {
     let mut nonce_salt = [0u8; VAULT_NONCE_SALT_LEN];
     fill(&mut nonce_salt).map_err(|err| KeyBackupError::Rng(format!("nonce_salt rng: {err}")))?;
+    encrypt_vault_with_nonce_salt(kek, binding, plaintext, &nonce_salt)
+}
+
+/// Variant of [`encrypt_vault`] with a caller-supplied producer
+/// `nonce_salt`. Production callers MUST use [`encrypt_vault`] (fresh
+/// random salt); this entry point exists so deterministic conformance
+/// KAT vectors (`ck.vector.key_backup.passphrase_kdf_kat.v1`) can be
+/// generated and re-verified byte-for-byte from the same code path.
+pub fn encrypt_vault_with_nonce_salt(
+    kek: &VaultKek,
+    binding: &VaultBinding,
+    plaintext: &[u8],
+    nonce_salt: &[u8; VAULT_NONCE_SALT_LEN],
+) -> Result<VaultCiphertext> {
     let nonce_salt_b64 = base64url_encode(nonce_salt);
 
     let mut aead_key = binding.subkey(&kek.key, "aead");
@@ -716,8 +741,8 @@ fn key_backup_supersedes_digest(predecessor: &KeyBackup) -> Result<String> {
 /// `SHA256(HKDF(root, info))`. The `info` is domain-separated per
 /// `backup_class` so commitments cannot be reused across domains (§7.1: a
 /// derived key, commitment key or wrap key for one domain must not be used
-/// directly in another domain).
-fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_class: BackupClass) -> Vec<u8> {
+/// directly in another domain). Public for conformance KAT verification.
+pub fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_class: BackupClass) -> Vec<u8> {
     let mut commitment_key = derive_subkey(root, backup_class.hkdf_info("commitment").as_bytes());
     let digest = Sha256::digest(commitment_key).to_vec();
     commitment_key.zeroize();

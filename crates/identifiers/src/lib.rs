@@ -529,7 +529,7 @@ mod tests {
 
     #[test]
     fn did_validation_rejects_handles() {
-        assert!(Did::new("did:web:alice.example").is_ok());
+        assert!(Did::new("did:webvh:z6mkfixture:alice.example").is_ok());
         assert!(Did::new("alice.example").is_err());
     }
 
@@ -548,13 +548,13 @@ mod tests {
         assert!(Did::new("did:web-test:example").is_err()); // DRIFT-ALLOW: negative test
         assert!(Did::new("did:web_test:example").is_err()); // DRIFT-ALLOW: negative test
         // Method-specific-id containing whitespace — rejected.
-        assert!(Did::new("did:web:exa mple").is_err());
-        assert!(Did::new("did:web:exa\tmple").is_err());
+        assert!(Did::new("did:webvh:z6mkfixture:exa mple").is_err());
+        assert!(Did::new("did:webvh:z6mkfixture:exa\tmple").is_err());
         // Pure alnum method — accepted.
         assert!(Did::new("did:webvh:example").is_ok());
-        assert!(Did::new("did:web:host.example/path").is_ok());
-        assert!(Did::new("did:web:host.example/path#frag").is_err());
-        assert!(Did::new("did:web:host.example/path?versionId=1").is_err());
+        assert!(Did::new("did:webvh:z6mkfixture:host.example/path").is_ok());
+        assert!(Did::new("did:webvh:z6mkfixture:host.example/path#frag").is_err());
+        assert!(Did::new("did:webvh:z6mkfixture:host.example/path?versionId=1").is_err());
     }
 
     #[test]

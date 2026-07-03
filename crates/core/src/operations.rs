@@ -668,7 +668,7 @@ mod tests {
         let mut builder = OperationEnvelopeBuilder::new(
             OperationId::new(id).unwrap(),
             RealmId::new("ck:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             kind,
             1,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
@@ -805,7 +805,7 @@ mod tests {
         let result = OperationEnvelopeBuilder::new(
             OperationId::new("ck:operation:01904100-0000-7000-8000-e0d2820b21e0").unwrap(),
             RealmId::new("ck:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             OP_PUSH_REGISTER_DEVICE,
             1,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),

@@ -27,10 +27,10 @@ mod tests {
     use super::*;
     use crate::events::kinds::IDENTITY_ACCOUNTABILITY_GRANT;
     use crate::models::AppletTransactionOutcome;
-    use crate::{ActorKind, ActorProfileId, AppletId, Did, Error, Hlc, Proof, RealmId};
+    use crate::{ActorKind, ActorProfileId, AppletId, Did, Hlc, Proof, RealmId};
 
     fn did(name: &str) -> Did {
-        Did::new(format!("did:web:{name}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     fn ghost_test_realm() -> RealmId {
@@ -184,14 +184,14 @@ mod tests {
     fn applet_wire_namespaces_detect_exclusive_conflicts() {
         let a = AppletWireNamespaces {
             actors: vec![AppletNamespaceEntry::exclusive(
-                "did:web:slack-bridge.example:ghost:*",
+                "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
             )],
             ..Default::default()
         };
         // Exclusive vs overlapping concrete claim in the same domain conflicts.
         let b = AppletWireNamespaces {
             actors: vec![AppletNamespaceEntry::exclusive(
-                "did:web:slack-bridge.example:ghost:u1",
+                "did:webvh:z6mkfixture:slack-bridge.example:ghost:u1",
             )],
             ..Default::default()
         };
@@ -202,13 +202,13 @@ mod tests {
         // Two non-exclusive claims may coexist.
         let c = AppletWireNamespaces {
             actors: vec![AppletNamespaceEntry::shared(
-                "did:web:slack-bridge.example:ghost:*",
+                "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
             )],
             ..Default::default()
         };
         let d = AppletWireNamespaces {
             actors: vec![AppletNamespaceEntry::shared(
-                "did:web:slack-bridge.example:ghost:u1",
+                "did:webvh:z6mkfixture:slack-bridge.example:ghost:u1",
             )],
             ..Default::default()
         };
@@ -224,6 +224,15 @@ mod tests {
 
     #[test]
     fn applet_service_transactions_are_idempotent() {
+        // Deduplication is owned by the shared `IdempotencyWindow` (the same
+        // implementation `applet_server` wires into the router) keyed by the
+        // spec 5-tuple identity — no test-local reimplementation.
+        use std::time::Duration as StdDuration;
+
+        use crate::idempotency::{
+            IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity, IdempotencyWindow,
+        };
+
         let intent = AppletServiceIntent::new(did("svc"), did("ghost"));
         let transaction = intent.transaction("k1", Vec::new());
         let response = AppletTransactionOutcome {
@@ -231,29 +240,36 @@ mod tests {
             rejected: Vec::new(),
             retry_after_ms: None,
         };
-        let mut store = AppletServiceTransactionStore::new();
+        let window: IdempotencyWindow<AppletTransactionOutcome> =
+            IdempotencyWindow::new(StdDuration::from_secs(5 * 60));
+        let identity = IdempotencyIdentity::applet_transaction(
+            IdempotencyDirection::NodeToApplet,
+            transaction.request.source_service_did.to_string(),
+            "did:webvh:QmDst:applet.example",
+            transaction.idempotency_key.clone(),
+        );
+        let digest =
+            crate::Hash::new(crate::canonical::canonical_sha256(&transaction.request).unwrap())
+                .unwrap();
 
         assert!(matches!(
-            store.record(&transaction, response.clone()).unwrap(),
-            AppletServiceTransactionRecord::New(_)
+            window.claim(&identity, &digest, "anchor-a"),
+            IdempotencyClaim::Fresh
         ));
-        assert!(matches!(
-            store.record(&transaction, response).unwrap(),
-            AppletServiceTransactionRecord::Duplicate(_)
-        ));
+        assert!(window.complete(&identity, response.clone()));
+        match window.claim(&identity, &digest, "anchor-a") {
+            IdempotencyClaim::Duplicate { outcome, .. } => assert_eq!(outcome, response),
+            other => panic!("expected Duplicate, got {other:?}"),
+        }
 
         let mut changed = transaction.clone();
         changed.request.ephemeral = json!({"changed": true});
+        let changed_digest =
+            crate::Hash::new(crate::canonical::canonical_sha256(&changed.request).unwrap())
+                .unwrap();
         assert!(matches!(
-            store.record(
-                &changed,
-                AppletTransactionOutcome {
-                    ok: true,
-                    rejected: Vec::new(),
-                    retry_after_ms: None
-                },
-            ),
-            Err(Error::IdempotencyConflict(_))
+            window.claim(&identity, &changed_digest, "anchor-a"),
+            IdempotencyClaim::DuplicateConflict { .. }
         ));
     }
 
@@ -292,8 +308,8 @@ mod tests {
     fn namespace_pattern_single_star_matches_one_segment() {
         assert!(namespace_pattern_matches(
             Actors,
-            "did:web:slack-bridge.example:ghost:*",
-            "did:web:slack-bridge.example:ghost:u123"
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:u123"
         ));
     }
 
@@ -301,8 +317,8 @@ mod tests {
     fn namespace_pattern_single_star_rejects_different_host() {
         assert!(!namespace_pattern_matches(
             Actors,
-            "did:web:slack-bridge.example:ghost:*",
-            "did:web:other.example:ghost:u123"
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
+            "did:webvh:z6mkfixture:other.example:ghost:u123"
         ));
     }
 
@@ -310,8 +326,8 @@ mod tests {
     fn namespace_pattern_single_star_rejects_missing_prefix() {
         assert!(!namespace_pattern_matches(
             Actors,
-            "did:web:slack-bridge.example:ghost:*",
-            "did:web:slack-bridge.example:bot"
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
+            "did:webvh:z6mkfixture:slack-bridge.example:bot"
         ));
     }
 
@@ -320,8 +336,8 @@ mod tests {
         // `#fragment` does not participate in actor-domain matching.
         assert!(namespace_pattern_matches(
             Actors,
-            "did:web:slack-bridge.example:ghost:*",
-            "did:web:slack-bridge.example:ghost:u123#key-1"
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:*",
+            "did:webvh:z6mkfixture:slack-bridge.example:ghost:u123#key-1"
         ));
     }
 
@@ -388,7 +404,7 @@ mod tests {
         assert!(!namespace_pattern_matches(
             Actors,
             "",
-            "did:web:anything.example"
+            "did:webvh:z6mkfixture:anything.example"
         ));
     }
 
@@ -417,7 +433,7 @@ mod tests {
             vec!["ck.applet.v1".to_owned()],
             AppletWireNamespaces {
                 actors: vec![AppletNamespaceEntry::exclusive(
-                    "did:web:slackbridge.example#ghost-*",
+                    "did:webvh:z6mkfixture:slackbridge.example#ghost-*",
                 )],
                 realms: vec![],
                 handles: vec![],
@@ -450,7 +466,7 @@ mod tests {
         with_proof.proof = Some(Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:web:alice.example#key-1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
             event_digest: digest_before.clone(),
             created_at: Utc::now(),
             domain: None,
@@ -522,7 +538,7 @@ mod tests {
         assert_eq!(value["namespaces"]["actors"][0]["exclusive"], true);
         assert_eq!(
             value["namespaces"]["actors"][0]["pattern"],
-            "did:web:slackbridge.example#ghost-*"
+            "did:webvh:z6mkfixture:slackbridge.example#ghost-*"
         );
     }
 
@@ -538,7 +554,7 @@ mod tests {
             vec!["slack".to_owned()],
             AppletWireNamespaces {
                 actors: vec![AppletNamespaceEntry::exclusive(
-                    "did:web:slackbridge.example:ghost:*",
+                    "did:webvh:z6mkfixture:slackbridge.example:ghost:*",
                 )],
                 realms: vec![],
                 handles: vec![],
@@ -558,7 +574,7 @@ mod tests {
         package.proof = Some(Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:web:alice.example#key-1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
             event_digest: package.package_digest.clone().unwrap(),
             created_at: Utc::now(),
             domain: None,
@@ -685,14 +701,14 @@ mod tests {
 
         let signer = StubSigner {
             did: did("alice"),
-            kid: "did:web:alice.example#key-1".to_owned(),
+            kid: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
         };
         let mut reg = sample_wire_registration();
-        sign_registration(&mut reg, &signer, "did:web:alice.example#key-1").unwrap();
+        sign_registration(&mut reg, &signer, "did:webvh:z6mkfixture:alice.example#key-1").unwrap();
 
         let proof = reg.proof.as_ref().expect("proof must be attached");
         assert_eq!(proof.alg, "EdDSA");
-        assert_eq!(proof.verification_method, "did:web:alice.example#key-1");
+        assert_eq!(proof.verification_method, "did:webvh:z6mkfixture:alice.example#key-1");
         assert_eq!(proof.event_digest, reg.payload_digest().unwrap());
 
         // Silence any unused warnings on the BTreeMap import — kept for symmetry.

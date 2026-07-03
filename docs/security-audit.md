@@ -76,8 +76,11 @@ This SDK audit checklist is intended for release review.
 - Re-run protocol conformance vectors.
 - Review the coverage list below and confirm each non-external area still has
   live tests or conformance vectors.
-- Run `current_feature_safety_report().validate()` for the published feature
-  set.
+- Validate downstream-reported feature strings with `feature_safety_report(...)`.
+  Scope note: this API checks self-reported feature strings (describe/manifest
+  payloads), not this SDK's own build — Cargo's feature graph plus the
+  `compile_error!` guards in `crates/sdk/src/lib.rs` are the compile-time gate
+  for the SDK's own feature combinations.
 
 ## Internal Review Coverage
 
@@ -175,7 +178,7 @@ Operators MUST NOT disable this gate in production.
 ### DID format regex
 
 *Threat model.* DID parsing has historically been an injection surface: a
-permissive parser that accepts `did:web:alice.example?evil=1` lets attackers
+permissive parser that accepts `did:webvh:z6mkexample:alice.example?evil=1` lets attackers
 smuggle parameters into downstream HTTP requests, log injection sinks, or
 ACL keys. The risk is silent acceptance of malformed input that later
 collides with a legitimate DID.

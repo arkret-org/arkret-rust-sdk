@@ -563,7 +563,7 @@ mod tests {
     const F: &str = "01904100-0000-7000-8000-0000000000bb";
     const F2: &str = "01904100-0000-7000-8000-0000000000cc";
     const M: &str = "01904100-0000-7000-8000-0000000000dd";
-    const VIA: &str = "did:web:relay.example";
+    const VIA: &str = "did:webvh:z6mkfixture:relay.example";
 
     fn realm_addr() -> ParsedAddress {
         ParsedAddress {
@@ -609,7 +609,7 @@ mod tests {
     #[test]
     fn retired_via_hint_is_ignored() {
         let parsed = parse_address(&format!(
-            "web+cokret:realm/{R}/strand/{F}?via=did:web:a&via=did:web:b"
+            "web+cokret:realm/{R}/strand/{F}?via=did:webvh:z6mkfixture:a&via=did:webvh:z6mkfixture:b"
         ))
         .unwrap();
         assert!(parsed.is_strand());
@@ -734,7 +734,7 @@ mod tests {
     fn target_digest_ignores_via_action_tok_lt() {
         let base = parse_address(&format!("web+cokret:realm/{R}/strand/{F}")).unwrap();
         let hinted = parse_address(&format!(
-            "web+cokret:realm/{R}/strand/{F}?via=did:web:a&via=did:web:b&action=join"
+            "web+cokret:realm/{R}/strand/{F}?via=did:webvh:z6mkfixture:a&via=did:webvh:z6mkfixture:b&action=join"
         ))
         .unwrap();
         let d1 = target_digest(&TargetDescriptor::from_parsed(&base)).unwrap();

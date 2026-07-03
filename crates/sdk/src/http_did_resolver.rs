@@ -10,13 +10,18 @@
 //! - applies the [`ResolverPolicy`] allow-list and fail-mode,
 //! - bounds responses by [`DID_WEB_MAX_DOCUMENT_BYTES`] and rejects non-JSON content types.
 //!
-//! Concurrency: the cache is guarded by a `Mutex` because resolver
-//! traits are sync. For high-fanout deployments wrap the resolver in a
-//! task-local cache or composite resolver and pre-warm at startup.
+//! Concurrency: async callers use [`HttpDidResolver::resolve_did_async`]
+//! (native awaits, no helper threads). The sync [`DidResolver`] impl drives
+//! the same future without deadlocking any runtime flavor (see
+//! [`HttpDidResolver::drive`]). Concurrent resolutions of the same DID are
+//! single-flighted: one network fetch, every waiter shares the result.
 
+use std::collections::BTreeMap;
 use std::future::Future;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
+use tokio::sync::OnceCell;
 
 use chrono::{DateTime, Utc};
 use reqwest::Client as HttpClient;
@@ -55,13 +60,71 @@ pub enum HttpDidResolverHealthSignal {
     Untrusted,
 }
 
+/// Deduplicates concurrent fetches of the same key: the first caller runs
+/// the fetch, every concurrent caller awaits the same [`OnceCell`] and
+/// shares the result; the marker is removed once settled so later callers
+/// start a fresh fetch (this is fetch-level dedup, not a cache).
+///
+/// Errors are stored as their display string (the error type is not
+/// `Clone`) and rehydrated as [`Error::Protocol`] for the waiters.
+struct SingleFlight<T> {
+    inflight: Mutex<BTreeMap<Did, Arc<OnceCell<std::result::Result<T, String>>>>>,
+}
+
+impl<T: Clone> SingleFlight<T> {
+    fn new() -> Self {
+        Self {
+            inflight: Mutex::new(BTreeMap::new()),
+        }
+    }
+
+    async fn run<F, Fut>(&self, key: &Did, fetch: F) -> Result<T>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = Result<T>>,
+    {
+        let cell = {
+            let mut inflight = self
+                .inflight
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            inflight
+                .entry(key.clone())
+                .or_insert_with(|| Arc::new(OnceCell::new()))
+                .clone()
+        };
+        // `get_or_init` runs at most one initializer at a time; if the
+        // leading caller is cancelled mid-fetch, the next waiter's closure
+        // takes over (tokio OnceCell semantics), so a cancelled leader never
+        // wedges the flight.
+        let outcome = cell
+            .get_or_init(|| async { fetch().await.map_err(|err| err.to_string()) })
+            .await
+            .clone();
+        // Settled: drop the marker so the next resolution starts a new
+        // fetch. Guard on pointer identity — a fresh flight may already have
+        // replaced the slot.
+        {
+            let mut inflight = self
+                .inflight
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if inflight.get(key).is_some_and(|c| Arc::ptr_eq(c, &cell)) {
+                inflight.remove(key);
+            }
+        }
+        outcome.map_err(Error::Protocol)
+    }
+}
+
 /// Reqwest-backed DID resolver covering `did:web` and `did:webvh`.
 pub struct HttpDidResolver {
     http: HttpClient,
     policy: ResolverPolicy,
-    cache: Mutex<std::collections::BTreeMap<Did, CacheEntry>>,
+    cache: Mutex<BTreeMap<Did, CacheEntry>>,
     health_signal: Mutex<HttpDidResolverHealthSignal>,
     runtime: tokio::runtime::Handle,
+    single_flight: SingleFlight<DidDocument>,
 }
 
 impl std::fmt::Debug for HttpDidResolver {
@@ -84,16 +147,12 @@ impl HttpDidResolver {
     /// Build a resolver with default `reqwest` transport and policy.
     ///
     /// MUST be called from inside a Tokio runtime — the resolver caches
-    /// the current runtime handle so its sync `resolve_did` impl can
-    /// drive the async `reqwest` calls. When the cached handle belongs
-    /// to a current-thread runtime (e.g. `#[tokio::test]` or
-    /// `#[tokio::main(flavor = "current_thread")]`), each resolution
-    /// drives the fetch on a private single-use runtime instead of the
-    /// handle, because the caller's thread is the only driver thread
-    /// and blocking on it would deadlock. Note `resolve_did` blocks the
-    /// calling thread for the duration of the fetch either way; on a
-    /// multi-thread runtime prefer wrapping calls in
-    /// `tokio::task::spawn_blocking`.
+    /// the current runtime handle as the fallback driver for the sync
+    /// [`DidResolver::resolve_did`] impl. Async callers should prefer
+    /// [`Self::resolve_did_async`], which awaits the fetch natively.
+    /// The sync path blocks the calling thread for the duration of the
+    /// fetch (bounded by the request timeout) but never deadlocks; see
+    /// [`Self::drive`] for the runtime-flavor handling.
     pub fn new() -> Result<Self> {
         Self::with_policy(ResolverPolicy::default())
     }
@@ -117,9 +176,10 @@ impl HttpDidResolver {
         Ok(Self {
             http,
             policy,
-            cache: Mutex::new(std::collections::BTreeMap::new()),
+            cache: Mutex::new(BTreeMap::new()),
             health_signal: Mutex::new(HttpDidResolverHealthSignal::Healthy),
             runtime,
+            single_flight: SingleFlight::new(),
         })
     }
 
@@ -306,63 +366,28 @@ impl HttpDidResolver {
         Ok(document)
     }
 
-    fn block_on<T: Send, F: Future<Output = Result<T>> + Send>(&self, future: F) -> Result<T> {
-        // We cannot call `block_on` from within the same runtime; spawn a
-        // scoped thread so the calling thread only blocks on `join()`.
-        //
-        // Runtime-flavor matters: on a **current-thread** runtime the
-        // caller's thread is the only thread that drives the IO/timer
-        // drivers, and it is parked in `join()` below — `Handle::block_on`
-        // on the helper thread would wait for drivers that can never run
-        // (mutual deadlock; even the reqwest timeout depends on the timer
-        // driver). For that flavor we drive the future on a private
-        // single-use current-thread runtime instead. Multi-thread runtimes
-        // keep their workers running, so the cached handle is safe there.
-        let handle = self.runtime.clone();
-        std::thread::scope(|s| {
-            s.spawn(move || match handle.runtime_flavor() {
-                tokio::runtime::RuntimeFlavor::CurrentThread => {
-                    let runtime = tokio::runtime::Builder::new_current_thread()
-                        .enable_all()
-                        .build()
-                        .map_err(|err| {
-                            Error::Protocol(format!("failed to build DID resolver runtime: {err}"))
-                        })?;
-                    runtime.block_on(future)
-                }
-                _ => handle.block_on(future),
-            })
-            .join()
-            .expect("did resolver join")
-        })
-    }
-
-    fn fetch_now(&self, did: &Did) -> Result<DidDocument> {
-        let method = did.method();
-        match method {
-            "web" => self.block_on(self.resolve_did_web(did)),
-            "webvh" => self.block_on(self.resolve_did_webvh(did)),
+    /// Fetch (and validate) the document for `did`, without cache or
+    /// fail-mode handling.
+    async fn fetch_document(&self, did: &Did) -> Result<DidDocument> {
+        match did.method() {
+            "web" => self.resolve_did_web(did).await,
+            "webvh" => self.resolve_did_webvh(did).await,
             other => Err(Error::Protocol(format!(
                 "HttpDidResolver does not support did:{other}"
             ))),
         }
     }
-}
 
-impl DidResolver for HttpDidResolver {
-    fn supports(&self, did: &Did) -> bool {
-        if !self.policy.permits(did) {
-            return false;
-        }
-        matches!(did.method(), "web" | "webvh")
-    }
-
-    fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
-        self.policy.validate(did)?;
-        if let Some(cached) = self.cached(did) {
-            return Ok(cached);
-        }
-        match self.fetch_now(did) {
+    /// Shared post-fetch handling for the sync and async resolution paths:
+    /// cache the fresh document, or apply the policy fail-mode (stale cache
+    /// within the outage window vs. fail closed) and update the health
+    /// signal.
+    fn finish_resolution(
+        &self,
+        did: &Did,
+        fetched: Result<DidDocument>,
+    ) -> Result<DidDocument> {
+        match fetched {
             Ok(document) => {
                 self.cache_put(did, &document);
                 self.set_health_signal(HttpDidResolverHealthSignal::Healthy);
@@ -386,6 +411,84 @@ impl DidResolver for HttpDidResolver {
                 }
             },
         }
+    }
+
+    /// Async-native resolution path: awaits the fetch on the caller's
+    /// runtime — no helper threads, no `block_on`, so it is always safe to
+    /// call from async contexts (including single-worker runtimes).
+    /// Concurrent resolutions of the same DID share one network fetch
+    /// (single-flight).
+    pub async fn resolve_did_async(&self, did: &Did) -> Result<DidDocument> {
+        self.policy.validate(did)?;
+        if let Some(cached) = self.cached(did) {
+            return Ok(cached);
+        }
+        let fetched = self
+            .single_flight
+            .run(did, || self.fetch_document(did))
+            .await;
+        self.finish_resolution(did, fetched)
+    }
+
+    /// Drive `future` to completion from a synchronous context without
+    /// deadlocking any Tokio runtime flavor.
+    ///
+    /// - Caller associated with a **multi-thread** runtime (worker thread,
+    ///   blocking-pool thread, or a thread inside `Runtime::block_on`):
+    ///   `tokio::task::block_in_place` + `Handle::block_on`. `block_in_place`
+    ///   tells the scheduler this thread is about to block so the worker
+    ///   core is handed off to a replacement thread — the IO/timer drivers
+    ///   stay driven even with `worker_threads = 1`, which is exactly the
+    ///   deadlock the previous "external thread + `Handle::block_on`" shape
+    ///   had (an external thread only polls the future; it never drives the
+    ///   runtime's IO driver). Off runtime worker threads `block_in_place`
+    ///   is a pass-through and `Handle::block_on` is safe because the
+    ///   runtime's own workers keep driving the drivers.
+    /// - Caller associated with a **current-thread** runtime: that runtime's
+    ///   only driver thread is the caller itself, so nothing may block on
+    ///   its handle. Drive the fetch on a private single-use runtime owned
+    ///   by a scoped helper thread instead (the helper drives its own IO
+    ///   driver; the caller only parks in `join()`).
+    fn drive<T: Send, F: Future<Output = Result<T>> + Send>(&self, future: F) -> Result<T> {
+        // Prefer the runtime the calling thread is currently associated
+        // with; fall back to the handle cached at construction time for
+        // plain non-runtime threads.
+        let handle =
+            tokio::runtime::Handle::try_current().unwrap_or_else(|_| self.runtime.clone());
+        match handle.runtime_flavor() {
+            tokio::runtime::RuntimeFlavor::CurrentThread => std::thread::scope(|s| {
+                s.spawn(move || {
+                    let runtime = tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                        .map_err(|err| {
+                            Error::Protocol(format!("failed to build DID resolver runtime: {err}"))
+                        })?;
+                    runtime.block_on(future)
+                })
+                .join()
+                .expect("did resolver join")
+            }),
+            _ => tokio::task::block_in_place(|| handle.block_on(future)),
+        }
+    }
+}
+
+impl DidResolver for HttpDidResolver {
+    fn supports(&self, did: &Did) -> bool {
+        if !self.policy.permits(did) {
+            return false;
+        }
+        matches!(did.method(), "web" | "webvh")
+    }
+
+    /// Sync facade over [`Self::resolve_did_async`]. Blocks the calling
+    /// thread for the duration of the fetch (bounded by the request
+    /// timeout); see [`Self::drive`] for why this is deadlock-free on every
+    /// runtime flavor. Async callers should use
+    /// [`Self::resolve_did_async`] directly.
+    fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+        self.drive(self.resolve_did_async(did))
     }
 }
 
@@ -421,5 +524,112 @@ mod tests {
         // panic.
         let result = HttpDidResolver::new();
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn single_flight_deduplicates_concurrent_fetches() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let flight = SingleFlight::<u32>::new();
+        let calls = AtomicUsize::new(0);
+        let did = Did::new("did:webvh:QmScid:resolver.invalid").unwrap();
+        let fetch = || {
+            calls.fetch_add(1, Ordering::SeqCst);
+            async {
+                // Yield so the concurrent callers below get polled while the
+                // leader's fetch is still in flight.
+                tokio::task::yield_now().await;
+                Ok(7_u32)
+            }
+        };
+        let (a, b, c) = tokio::join!(
+            flight.run(&did, fetch),
+            flight.run(&did, fetch),
+            flight.run(&did, fetch),
+        );
+        assert_eq!(a.unwrap(), 7);
+        assert_eq!(b.unwrap(), 7);
+        assert_eq!(c.unwrap(), 7);
+        // Three concurrent resolutions, exactly one fetch.
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+        // The flight marker is removed once settled: a later resolution
+        // starts a fresh fetch (this is dedup, not a cache).
+        assert_eq!(flight.run(&did, fetch).await.unwrap(), 7);
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn single_flight_shares_errors_without_caching_them() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let flight = SingleFlight::<u32>::new();
+        let calls = AtomicUsize::new(0);
+        let did = Did::new("did:webvh:QmScid:resolver.invalid").unwrap();
+        let fetch = || {
+            calls.fetch_add(1, Ordering::SeqCst);
+            async {
+                tokio::task::yield_now().await;
+                Err::<u32, _>(Error::Protocol("boom".to_owned()))
+            }
+        };
+        let (a, b) = tokio::join!(flight.run(&did, fetch), flight.run(&did, fetch));
+        assert!(a.is_err());
+        assert!(b.is_err());
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        // Errors are not cached: the next resolution retries.
+        assert!(flight.run(&did, fetch).await.is_err());
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn async_path_fails_closed_for_unreachable_host() {
+        let resolver = HttpDidResolver::new().unwrap();
+        let did = Did::new("did:web:nonexistent.invalid").unwrap();
+        // `.invalid` is reserved (RFC 2606): DNS resolution fails, the
+        // fail-closed default policy surfaces the error, and nothing hangs.
+        assert!(resolver.resolve_did_async(&did).await.is_err());
+        assert_eq!(
+            resolver.health_signal(),
+            HttpDidResolverHealthSignal::Untrusted
+        );
+    }
+
+    // Regression for the SDK-ASYNC-05 deadlock: the sync `resolve_did`
+    // called from async context on a multi-thread runtime with a single
+    // worker. The old shape (external thread + `Handle::block_on`) parked
+    // the only worker in `join()` while the helper waited on IO/timer
+    // drivers nobody was driving — permanent deadlock. `block_in_place`
+    // hands the worker core off, so this now completes (with an error for
+    // the unreachable host).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn sync_resolve_on_single_worker_multi_thread_runtime_does_not_deadlock() {
+        let resolver = std::sync::Arc::new(HttpDidResolver::new().unwrap());
+
+        // Exercise the true worker-thread path via a spawned task.
+        let on_worker = {
+            let resolver = std::sync::Arc::clone(&resolver);
+            tokio::spawn(async move {
+                let did = Did::new("did:web:nonexistent.invalid").unwrap();
+                resolver.resolve_did(&did)
+            })
+            .await
+            .unwrap()
+        };
+        assert!(on_worker.is_err());
+
+        // And the `Runtime::block_on` (test body) path.
+        let did = Did::new("did:web:nonexistent.invalid").unwrap();
+        assert!(resolver.resolve_did(&did).is_err());
+    }
+
+    #[tokio::test]
+    async fn sync_resolve_on_current_thread_runtime_does_not_deadlock() {
+        // `#[tokio::test]` default flavor is current-thread: the sync path
+        // must detour through the private helper runtime instead of
+        // blocking the only driver thread.
+        let resolver = HttpDidResolver::new().unwrap();
+        let did = Did::new("did:web:nonexistent.invalid").unwrap();
+        assert!(resolver.resolve_did(&did).is_err());
     }
 }

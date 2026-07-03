@@ -12,6 +12,15 @@ pub struct ErrorDetail {
     pub details: BTreeMap<String, Value>,
 }
 
+impl ErrorDetail {
+    /// Typed registry view of the wire `code` string. `None` when the code is
+    /// not (or not yet) in the SDK's error-code registry, so callers can
+    /// `match` on [`crate::error::ErrorCode`] instead of comparing strings.
+    pub fn error_code(&self) -> Option<crate::error::ErrorCode> {
+        crate::error::ErrorCode::from_wire(&self.code)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ErrorEnvelope {

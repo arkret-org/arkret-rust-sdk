@@ -117,7 +117,9 @@ impl ConformanceFixtureSet {
         Ok(())
     }
 
-    /// Execute the fixture set against SDK validators.
+    /// Run the registry existence/shape checks for every case descriptor.
+    /// See [`run_builtin_conformance_report`] for the scope disclaimer —
+    /// vector payloads are not executed.
     pub fn run(&self) -> ConformanceReport {
         let registry = ProtocolSchemaRegistry::default();
         run_conformance_suites(&registry, self.fixture_version.clone(), &self.suites)
@@ -237,10 +239,17 @@ fn conformance_suite(
     }
 }
 
-/// Execute the SDK's built-in conformance descriptors and return a
-/// machine-readable report that downstream projects can store as release
-/// evidence. Official external fixtures can be loaded by callers into the same
-/// report shape.
+/// Run the SDK's built-in conformance **descriptor registry checks** and
+/// return a machine-readable report.
+///
+/// Scope: this is an existence/shape audit only. Each case is checked for a
+/// non-empty `case_id`, a non-null `vector` payload, and (when declared) a
+/// registered `schema_id`. The `vector` contents are **not** executed against
+/// SDK encoders/reducers, so a passing report is NOT evidence of spec-vector
+/// conformance and MUST NOT be stored as release evidence. Real vector
+/// execution lives in the spec-fixture tests (`crates/core/src/schema/tests.rs`
+/// consuming `encoding-fixture.json` etc.) and the cross-project cotest
+/// release gate.
 pub fn run_builtin_conformance_report() -> ConformanceReport {
     ConformanceFixtureSet::builtin().run()
 }
@@ -294,6 +303,11 @@ fn run_conformance_suites(
     }
 }
 
+/// Shape-check a single conformance case descriptor: non-empty `case_id`,
+/// non-null `vector`, and a registered `schema_id` when one is declared.
+///
+/// This does NOT execute the `vector` payload against any SDK implementation;
+/// see [`run_builtin_conformance_report`] for the scope disclaimer.
 fn validate_conformance_case(
     registry: &ProtocolSchemaRegistry,
     case: &ConformanceCase,

@@ -1100,7 +1100,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             path: "/_cokret/self/moderation/report".to_owned(),
             query: BTreeMap::new(),
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
-            body: json!({"space_id": "room", "target_ref": "x", "reason": "spam", "reporter": "did:web:alice.example"}),
+            body: json!({"space_id": "room", "target_ref": "x", "reason": "spam", "reporter": "did:webvh:z6mkfixture:alice.example"}),
             expected_status: 400,
             expected_error_code: "invalid_param".to_owned(),
         },

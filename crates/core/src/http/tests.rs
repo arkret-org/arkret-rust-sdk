@@ -4,7 +4,7 @@ use super::*;
 use crate::*;
 
 fn did(name: &str) -> Did {
-    Did::new(format!("did:web:{name}.example")).unwrap()
+    Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
 }
 
 fn device_id() -> DeviceId {
@@ -33,7 +33,7 @@ fn mimi_room_update_wire_uses_sender_actor_id_only() {
     let old_sender = json!({
         "mls_group_id": "group-1",
         "update": {"kind": "room_update", "payload": {}},
-        "sender": "did:web:alice.example"
+        "sender": "did:webvh:z6mkfixture:alice.example"
     });
     assert!(serde_json::from_value::<MimiRoomUpdateRequestBody>(old_sender).is_err());
 
@@ -65,7 +65,7 @@ fn mimi_submit_message_wire_uses_sender_actor_id_only() {
     assert!(value.get("sender").is_none());
 
     let old_sender = json!({
-        "sender": "did:web:alice.example",
+        "sender": "did:webvh:z6mkfixture:alice.example",
         "device_id": "ck:device:01904100-0000-7000-8000-000000000001",
         "ciphertext": {
             "content_type": "application/cokret",
@@ -83,7 +83,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             "claim_id": "ck:mls_keypackage:t-01:Y2xhaW0tbm9uY2U",
             "keypackage_ref": "ck:mls:keypackage:test-01",
             "keypackage_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "principal_id": "did:web:alice.example",
+            "principal_id": "did:webvh:z6mkfixture:alice.example",
             "device_id": "ck:device:01904100-0000-7000-8000-000000000001",
             "key_package": "AQID",
             "capabilities": ["ck.mls.profile.full"],
@@ -91,7 +91,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             "ssk_generation": 3,
             "expires_at": "2100-01-01T00:00:00Z",
             "device_signature": {
-                "kid": "did:web:alice.example#ck:device:01904100-0000-7000-8000-000000000001",
+                "kid": "did:webvh:z6mkfixture:alice.example#ck:device:01904100-0000-7000-8000-000000000001",
                 "alg": "EdDSA",
                 "sig": "c2ln"
             },
@@ -114,14 +114,14 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             "claim_id": "ck:mls_keypackage:t-01:Y2xhaW0tbm9uY2U",
             "keypackage_ref": "ck:mls:keypackage:test-01",
             "keypackage_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "principal_id": "did:web:alice.example",
+            "principal_id": "did:webvh:z6mkfixture:alice.example",
             "device_id": "ck:device:01904100-0000-7000-8000-000000000001",
             "key_package": "AQID",
             "capabilities": ["ck.mls.profile.full"],
             "capabilities_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             "ssk_generation": 3,
             "expires_at": "2100-01-01T00:00:00Z",
-            "device_signature": {"kid": "did:web:alice.example#device", "sig": "c2ln"},
+            "device_signature": {"kid": "did:webvh:z6mkfixture:alice.example#device", "sig": "c2ln"},
             "unexpected": true
         }]
     });
@@ -211,7 +211,7 @@ fn events_query_params_helpers_use_core_wire_types() {
     assert!(
         pairs
             .iter()
-            .any(|(key, value)| *key == "actors" && value == "did:web:alice.example")
+            .any(|(key, value)| *key == "actors" && value == "did:webvh:z6mkfixture:alice.example")
     );
     assert!(
         pairs

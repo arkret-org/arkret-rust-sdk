@@ -2,7 +2,7 @@ use cokret::*;
 use serde_json::json;
 
 fn did(name: &str) -> Did {
-    Did::new(format!("did:web:{name}.example")).unwrap()
+    Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
 }
 
 #[test]
@@ -26,7 +26,7 @@ fn umbrella_crate_builds_client_signs_event_and_verifies_binding() {
     event.proofs.push(Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:web:alice.example#device-1".to_owned(),
+        verification_method: "did:webvh:z6mkfixture:alice.example#device-1".to_owned(),
         event_digest: Hash::new(digest).unwrap(),
         created_at: chrono::Utc::now(),
         domain: None,

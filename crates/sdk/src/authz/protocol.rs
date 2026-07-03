@@ -173,8 +173,8 @@ impl ProtocolGrantConstraint {
                 approval_required: Some(true),
                 approval_mode: Some("two_man_rule".to_owned()),
                 approval_actor_ids: vec![
-                    "did:web:controller.example".to_owned(),
-                    "did:web:guardian.example".to_owned(),
+                    "did:webvh:z6mkfixture:controller.example".to_owned(),
+                    "did:webvh:z6mkfixture:guardian.example".to_owned(),
                 ],
                 approval_relation: Some(ProtocolGrantApprovalRelation::Controller),
                 requires_claims: Vec::new(),
@@ -211,7 +211,7 @@ impl ProtocolGrantConstraint {
                 approval_relation: None,
                 requires_claims: vec![ProtocolGrantClaimRequirement {
                     claim_kind: "recovery_operator".to_owned(),
-                    issuer: "did:web:coauth.example".to_owned(),
+                    issuer: "did:webvh:z6mkfixture:coauth.example".to_owned(),
                     organization: Some("example-org".to_owned()),
                     status: Some("active".to_owned()),
                     roles: vec!["backup_admin".to_owned()],
@@ -246,7 +246,7 @@ impl ProtocolGrantConstraint {
                 max_delegation_depth: Some(0),
                 approval_required: Some(true),
                 approval_mode: Some("move_gate".to_owned()),
-                approval_actor_ids: vec!["did:web:ops.example".to_owned()],
+                approval_actor_ids: vec!["did:webvh:z6mkfixture:ops.example".to_owned()],
                 approval_relation: Some(ProtocolGrantApprovalRelation::Responsible),
                 requires_claims: Vec::new(),
                 evaluation_class: None,

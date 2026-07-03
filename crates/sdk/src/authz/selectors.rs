@@ -1085,7 +1085,7 @@ impl ProtocolResourceSelector {
                 realm_id: None,
                 space_id: None,
                 circle_id: None,
-                actor_id: Some("did:web:alice.example".to_owned()),
+                actor_id: Some("did:webvh:z6mkfixture:alice.example".to_owned()),
                 object_type: None,
                 object_ref: None,
                 strand_id: None,
@@ -1107,7 +1107,7 @@ impl ProtocolResourceSelector {
                 realm_id: Some("ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
                 space_id: None,
                 circle_id: None,
-                actor_id: Some("did:web:alice.example".to_owned()),
+                actor_id: Some("did:webvh:z6mkfixture:alice.example".to_owned()),
                 object_type: Some("device_verification".to_owned()),
                 object_ref: Some("ck:notify:01JS0NT000000000000000000".to_owned()),
                 strand_id: Some("ck:strand:01904100-0000-7000-8000-a1fffe3a8cc9".to_owned()),
@@ -1328,7 +1328,7 @@ mod spec_selector_tests {
                 actor_id: "*".to_owned(),
             }
             .matches(&Resource::Actor {
-                actor_id: "did:web:alice.example".to_owned(),
+                actor_id: "did:webvh:z6mkfixture:alice.example".to_owned(),
             }))
         );
     }

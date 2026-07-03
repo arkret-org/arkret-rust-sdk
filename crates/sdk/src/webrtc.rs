@@ -736,14 +736,14 @@ mod tests {
     use super::*;
 
     fn did(name: &str) -> Did {
-        Did::new(format!("did:web:{name}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     fn realm() -> RealmId {
         RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
     }
 
-    const MEDIA_KID: &str = "did:web:media.example#notary-key";
+    const MEDIA_KID: &str = "did:webvh:z6mkfixture:media.example#notary-key";
 
     fn issuer_key() -> SigningKey {
         SigningKey::from_bytes(&[7u8; 32])
@@ -827,7 +827,7 @@ mod tests {
         let key = issuer_key();
         let anchors = anchors_with_issuer_key(&key);
 
-        let stranger = signed_ice_outcome("did:web:evil.example#notary-key", &key);
+        let stranger = signed_ice_outcome("did:webvh:z6mkfixture:evil.example#notary-key", &key);
         let err = verify_ice_config_outcome(&stranger, &anchors).unwrap_err();
         assert!(err.to_string().contains("ice_config_denied"));
 
@@ -843,7 +843,7 @@ mod tests {
         let mut leaky = ice_outcome(MEDIA_KID);
         leaky.ice_servers[1] = serde_json::json!({
             "urls": ["turn:turn.example.com"],
-            "username": "did:web:alice.example",
+            "username": "did:webvh:z6mkfixture:alice.example",
             "credential": "secret"
         });
         let leaky = sign_ice_outcome(leaky, MEDIA_KID, &key);

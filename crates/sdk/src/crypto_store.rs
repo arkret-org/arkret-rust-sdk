@@ -125,7 +125,7 @@ pub struct MlsRecoveryPlan {
     pub action: MlsRecoveryAction,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsGroupStateRecord {
     pub group_id: String,
     pub principal_id: Did,
@@ -133,6 +133,25 @@ pub struct MlsGroupStateRecord {
     pub epoch: u64,
     pub serialized_state: Vec<u8>,
     pub updated_at: DateTime<Utc>,
+}
+
+// `serialized_state` is the full OpenMLS group snapshot (ratchet secrets +
+// retained history secrets): render it redacted so a stray `{record:?}` in a
+// log line can never leak decryptable key material.
+impl std::fmt::Debug for MlsGroupStateRecord {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MlsGroupStateRecord")
+            .field("group_id", &self.group_id)
+            .field("principal_id", &self.principal_id)
+            .field("device_id", &self.device_id)
+            .field("epoch", &self.epoch)
+            .field(
+                "serialized_state",
+                &format_args!("<redacted {} bytes>", self.serialized_state.len()),
+            )
+            .field("updated_at", &self.updated_at)
+            .finish()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -193,7 +212,7 @@ pub trait CryptoStore: Send + Sync {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub struct MemoryCryptoStore {
     group_states: BTreeMap<String, MlsGroupStateRecord>,
     key_packages: BTreeMap<(Did, DeviceId), MlsKeyPackageRecord>,
@@ -201,6 +220,21 @@ pub struct MemoryCryptoStore {
     commits: BTreeMap<String, Vec<MlsCommitEnvelope>>,
     epoch_secrets: BTreeMap<(String, u64), MlsEpochSecretRecord>,
     device_verifications: BTreeMap<(Did, DeviceId), StoredDeviceVerification>,
+}
+
+// The store aggregates MLS group snapshots, key packages and sealed epoch
+// secrets: Debug renders entry counts only so no secret bytes can reach logs.
+impl std::fmt::Debug for MemoryCryptoStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemoryCryptoStore")
+            .field("group_states", &self.group_states.len())
+            .field("key_packages", &self.key_packages.len())
+            .field("welcomes", &self.welcomes.len())
+            .field("commits", &self.commits.len())
+            .field("epoch_secrets", &self.epoch_secrets.len())
+            .field("device_verifications", &self.device_verifications.len())
+            .finish()
+    }
 }
 
 impl MemoryCryptoStore {
@@ -634,7 +668,7 @@ mod tests {
     use crate::Hash;
 
     fn did(name: &str) -> Did {
-        Did::new(format!("did:web:{name}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     fn device(id: &str) -> DeviceId {

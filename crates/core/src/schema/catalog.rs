@@ -77,7 +77,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                 "metadata": {"title": "Payment refactor"},
                 "stage": "draft",
                 "tracks": {"synthesis": {}},
-                "created_by": "did:web:alice.example",
+                "created_by": "did:webvh:z6mkfixture:alice.example",
                 "created_at": "2026-05-02T00:00:00Z"
             }),
             expected_valid: true,
@@ -89,7 +89,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                 "event_id": "ck:event:01904100-0000-7000-8000-a0086f45c575",
                 "kind": "ck.message.create",
                 "space_id": "ck:space:01904100-0000-7000-8000-65c7feb295d7",
-                "actor_id": "did:web:alice.example",
+                "actor_id": "did:webvh:z6mkfixture:alice.example",
                 "actor_seq": 1,
                 "created_at": "2026-05-02T00:00:00Z",
                 "hlc": "01970e589d21-0000-a13f9c2e",
@@ -99,7 +99,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                 "proofs": [{
                     "kind": "detached_jws",
                     "alg": "EdDSA",
-                    "verification_method": "did:web:alice.example#key-1",
+                    "verification_method": "did:webvh:z6mkfixture:alice.example#key-1",
                     "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
                     "created_at": "2026-05-02T00:00:00Z",
                     "jws": "a..b"
@@ -113,7 +113,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             input: json!({
                 "event_id": "ck:event:01904100-0000-7000-8000-a0086f45c575",
                 "space_id": "ck:space:01904100-0000-7000-8000-65c7feb295d7",
-                "actor_id": "did:web:alice.example",
+                "actor_id": "did:webvh:z6mkfixture:alice.example",
                 "actor_seq": 1,
                 "kind": "ck.message.create",
                 "created_at": "2026-05-02T00:00:00Z",
@@ -124,7 +124,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                 "proofs": [{
                     "kind": "detached_jws",
                     "alg": "EdDSA",
-                    "verification_method": "did:web:alice.example#key-1",
+                    "verification_method": "did:webvh:z6mkfixture:alice.example#key-1",
                     "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
                     "created_at": "2026-05-02T00:00:00Z",
                     "jws": "a..b"

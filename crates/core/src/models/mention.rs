@@ -265,7 +265,7 @@ mod tests {
 
     #[test]
     fn mention_minimal_shape_round_trips() {
-        let m = Mention::new(Did::new("did:web:alice.example".to_owned()).unwrap());
+        let m = Mention::new(Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap());
         let json = serde_json::to_value(&m).unwrap();
         assert_eq!(json["kind"], "mention");
         assert!(json.get("subject_id").is_some());
@@ -278,9 +278,9 @@ mod tests {
 
     #[test]
     fn mention_agent_selector_metadata_round_trips() {
-        let m = Mention::new(Did::new("did:web:agent.example".to_owned()).unwrap())
+        let m = Mention::new(Did::new("did:webvh:z6mkfixture:agent.example".to_owned()).unwrap())
             .with_agent_selector_metadata(
-                Did::new("did:web:example.com:users:alice".to_owned()).unwrap(),
+                Did::new("did:webvh:z6mkfixture:example.com:users:alice".to_owned()).unwrap(),
                 Handle::parse("alice:example.com").unwrap(),
                 "summary",
             )
@@ -288,7 +288,7 @@ mod tests {
         let json = serde_json::to_value(&m).unwrap();
         assert_eq!(
             json["controller_subject_id"],
-            "did:web:example.com:users:alice"
+            "did:webvh:z6mkfixture:example.com:users:alice"
         );
         assert_eq!(json["controller_handle_at_time"], "alice:example.com");
         assert_eq!(json["agent_slug_at_time"], "summary");
@@ -309,7 +309,7 @@ mod tests {
     #[test]
     fn mention_node_round_trips_actor_and_audience_variants() {
         let actor = MentionNode::mention(Mention::new(
-            Did::new("did:web:alice.example".to_owned()).unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
         ));
         let actor_json = serde_json::to_value(&actor).unwrap();
         assert_eq!(actor_json["kind"], "mention");

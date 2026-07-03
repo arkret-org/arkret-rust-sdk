@@ -105,7 +105,7 @@ proptest! {
     ) {
         let mut claim = HandleClaim {
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_service_did: Did::new("did:web:recipient.example".to_owned()).unwrap(),
+                recipient_service_did: Did::new("did:webvh:z6mkfixture:recipient.example".to_owned()).unwrap(),
                 recipient_service_type: RecipientServiceType::PrincipalServer,
                 binding_source: HandleHintBindingSource::Explicit,
                 delivery_modes: Default::default(),
@@ -118,7 +118,7 @@ proptest! {
             claim.handle = Some(Handle::parse(&handle).unwrap());
         }
         if has_audience {
-            claim.audience = Some(format!("did:web:{audience}.example"));
+            claim.audience = Some(format!("did:webvh:z6mkfixture:{audience}.example"));
         }
         if has_expiry {
             claim.expires_at = Some(Utc::now() + Duration::minutes(5));

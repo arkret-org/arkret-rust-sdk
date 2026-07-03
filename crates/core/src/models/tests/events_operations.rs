@@ -10,7 +10,7 @@ fn event_new_sets_required_event_id() {
     let event = Event::new(
         "ck.message.create",
         test_realm_id(),
-        Did::new("did:web:alice.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
@@ -26,7 +26,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
         kind: "ck.message.create".into(),
         realm_id: test_realm_id(),
-        actor_id: Did::new("did:web:alice.example").unwrap(),
+        actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         actor_seq: 1,
         created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
         hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -52,7 +52,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
 
     assert_eq!(
         event.event_digest().unwrap(),
-        "sha256:533f847cefd04de2dfa28b6f0651ec8debcedf5bf9c61df9defea00ebcd66b61"
+        "sha256:09cc279fa161b58434e5ad6cad100b9aa7ecb3395d07941f90d70431cb2b8332"
     );
 }
 
@@ -130,7 +130,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     let proof = Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:web:alice.example#device-1".to_owned(),
+        verification_method: "did:webvh:z6mkfixture:alice.example#device-1".to_owned(),
         event_digest: Hash::new(
             "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777",
         )
@@ -144,7 +144,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
         operation_id: OperationId::new("ck:operation:01904100-0000-7000-8000-0198d483044c")
             .unwrap(),
         realm_id: test_realm_id(),
-        actor_id: Did::new("did:web:alice.example").unwrap(),
+        actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         kind: "ck.message.create".to_owned(),
         target_ref: Some("ck:thread:general".to_owned()),
         causal: CausalRef {
@@ -171,7 +171,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     envelope.validate_for_submit().unwrap();
 
     let encoded = serde_json::to_value(&envelope).unwrap();
-    assert_eq!(encoded["actor_id"], "did:web:alice.example");
+    assert_eq!(encoded["actor_id"], "did:webvh:z6mkfixture:alice.example");
     assert_eq!(encoded["kind"], "ck.message.create");
     assert_eq!(encoded["content"]["body"], "hello");
     assert!(encoded.get("actor").is_none());
@@ -219,7 +219,7 @@ fn operation_kind_registry_drives_envelope_semantics() {
         operation_id: OperationId::new("ck:operation:01904100-0000-7000-8000-0198d483044c")
             .unwrap(),
         realm_id: test_realm_id(),
-        actor_id: Did::new("did:web:alice.example").unwrap(),
+        actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         kind: OP_MESSAGE_CREATE.to_owned(),
         target_ref: None,
         causal: CausalRef {
@@ -248,7 +248,7 @@ fn operation_kind_registry_drives_envelope_semantics() {
 fn operation_envelope_builder_covers_every_builtin_kind() {
     let registry = OperationKindRegistry::default();
     let realm_id = test_realm_id();
-    let actor_id = Did::new("did:web:alice.example").unwrap();
+    let actor_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
     let hlc = Hlc::new("01970e589d21-0004-a13f9c2e").unwrap();
 
     for (index, kind) in BUILT_IN_OPERATION_KINDS.iter().enumerate() {
@@ -275,7 +275,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
     let builder = OperationEnvelopeBuilder::new(
         OperationId::new("ck:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
         test_realm_id(),
-        Did::new("did:web:alice.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         OP_MESSAGE_CREATE,
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -295,7 +295,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
     let unknown = OperationEnvelopeBuilder::new(
         OperationId::new("ck:operation:01904100-0000-7000-8000-e9d434a97fb1").unwrap(),
         test_realm_id(),
-        Did::new("did:web:alice.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         "unknown",
         1,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),

@@ -21,7 +21,7 @@
 //!
 //! let signer = Ed25519DetachedJwsSigner::from_seed(
 //!     [9u8; 32],
-//!     "did:web:alice.example#key-1",
+//!     "did:webvh:z6mkfixture:alice.example#key-1",
 //! );
 //! let builder = EventProofBuilder::new();
 //! let bytes = builder.canonical_bytes(&json!({"b": 2, "a": 1})).unwrap();
@@ -917,7 +917,7 @@ mod tests {
         let dev_proof = build_proof_envelope(
             "dev",
             "EdDSA",
-            "did:web:alice.example#key-1",
+            "did:webvh:z6mkfixture:alice.example#key-1",
             Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                 .unwrap(),
             None,
@@ -930,7 +930,7 @@ mod tests {
         let prod_proof = build_proof_envelope(
             proof_kind::DETACHED_JWS,
             "EdDSA",
-            "did:web:alice.example#key-1",
+            "did:webvh:z6mkfixture:alice.example#key-1",
             Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                 .unwrap(),
             None,
@@ -983,7 +983,7 @@ mod tests {
     #[test]
     fn ed25519_signer_round_trips_through_event_verifier() {
         use serde_json::json;
-        let signer = Ed25519DetachedJwsSigner::from_seed([1u8; 32], "did:web:alice.example#key-1");
+        let signer = Ed25519DetachedJwsSigner::from_seed([1u8; 32], "did:webvh:z6mkfixture:alice.example#key-1");
         let verifier = Ed25519DetachedJwsVerifier::new();
         let public_key = PublicKeyMaterial::Ed25519Raw {
             bytes: signer.verifying_key().to_bytes().to_vec(),
@@ -1001,7 +1001,7 @@ mod tests {
         use base64::Engine;
         use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 
-        let signer = Ed25519DetachedJwsSigner::from_seed([2u8; 32], "did:web:bob.example#key-1");
+        let signer = Ed25519DetachedJwsSigner::from_seed([2u8; 32], "did:webvh:z6mkfixture:bob.example#key-1");
         let (bytes, proof) = signer
             .sign_payload(
                 &json!({"a": 1, "b": 2}),

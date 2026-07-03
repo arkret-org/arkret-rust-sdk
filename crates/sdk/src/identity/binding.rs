@@ -393,7 +393,7 @@ mod tests {
     fn sign_then_verify_round_trip() {
         let seed = [0x11u8; 32];
         let signing = derive_ed25519_from_seed(&seed);
-        let subject = "did:web:alice.example";
+        let subject = "did:webvh:z6mkfixture:alice.example";
         let payload = format!("bind|{subject}|nonce-xyz").into_bytes();
         let proof = sign_binding_proof_ed25519(&signing, payload);
         verify_binding_proof(&proof, subject).expect("verify accepts a fresh proof");
@@ -407,7 +407,7 @@ mod tests {
     fn tampered_signature_is_rejected() {
         let seed = [0x22u8; 32];
         let signing = derive_ed25519_from_seed(&seed);
-        let subject = "did:web:bob.example";
+        let subject = "did:webvh:z6mkfixture:bob.example";
         let payload = format!("bind|{subject}|n1").into_bytes();
         let mut proof = sign_binding_proof_ed25519(&signing, payload);
         // Flip a bit in the signature.
@@ -423,7 +423,7 @@ mod tests {
     fn tampered_payload_is_rejected() {
         let seed = [0x23u8; 32];
         let signing = derive_ed25519_from_seed(&seed);
-        let subject = "did:web:bob.example";
+        let subject = "did:webvh:z6mkfixture:bob.example";
         let payload = format!("bind|{subject}|n2").into_bytes();
         let mut proof = sign_binding_proof_ed25519(&signing, payload);
         proof.payload[0] ^= 0x01;
@@ -444,9 +444,9 @@ mod tests {
     fn wrong_subject_is_rejected() {
         let seed = [0x33u8; 32];
         let signing = derive_ed25519_from_seed(&seed);
-        let payload = b"bind|did:web:alice.example|n1".to_vec();
+        let payload = b"bind|did:webvh:z6mkfixture:alice.example|n1".to_vec();
         let proof = sign_binding_proof_ed25519(&signing, payload);
-        let err = verify_binding_proof(&proof, "did:web:bob.example")
+        let err = verify_binding_proof(&proof, "did:webvh:z6mkfixture:bob.example")
             .expect_err("wrong subject must reject");
         assert!(matches!(err, BindingError::SubjectMismatch));
     }
@@ -465,7 +465,7 @@ mod tests {
             signature: vec![0u8; 64],
             public_key: signing.verifying_key().to_bytes().to_vec(),
         };
-        let err = verify_binding_proof(&proof, "did:web:x.example")
+        let err = verify_binding_proof(&proof, "did:webvh:z6mkfixture:x.example")
             .expect_err("empty payload must reject");
         assert!(matches!(err, BindingError::EmptyPayload));
     }
@@ -475,7 +475,7 @@ mod tests {
     /// asserts in one test since they exercise the same guard family.
     #[test]
     fn wrong_length_keys_or_sigs_reject_with_structured_error() {
-        let subject = "did:web:c.example";
+        let subject = "did:webvh:z6mkfixture:c.example";
         let payload = format!("bind|{subject}").into_bytes();
         let short_sig = BindingProof {
             kind: BindingProofKind::Ed25519V1,

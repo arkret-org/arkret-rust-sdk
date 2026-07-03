@@ -50,12 +50,26 @@ impl SyncResponseProcessor {
     /// classes are projected out of the loose `Value` shape via the
     /// `project_typed_*` helpers so the wire layer doesn't have to
     /// commit to typed shapes that real servers may not emit.
+    ///
+    /// A realm key that is not a valid `ck:realm:*` id (server bug or a
+    /// hostile sync service) degrades per-realm: the malformed entry is
+    /// skipped and reported via [`SyncUpdates::malformed_realms`] while
+    /// every well-formed realm — and the batch's to-device / device-list /
+    /// account-data payloads — is still processed. Failing the whole batch
+    /// here would break at-least-once delivery: the caller's retry would
+    /// re-fetch from an already-advanced cursor and permanently skip the
+    /// batch (including E2EE key material). This matches the lenient
+    /// handling of every other field in the response.
     pub fn process(&mut self, response: SyncOutcome) -> Result<SyncUpdates> {
         self.last_token = Some(response.cursor);
 
         let mut realm_updates = Vec::new();
+        let mut malformed_realms = Vec::new();
         for (raw_realm_id, raw_sync_realm) in response.realms {
-            let realm_id = RealmId::new(raw_realm_id)?;
+            let Ok(realm_id) = RealmId::new(raw_realm_id.clone()) else {
+                malformed_realms.push(raw_realm_id);
+                continue;
+            };
             let sync_realm: SyncRealm = serde_json::from_value(raw_sync_realm).unwrap_or_default();
             let processed = self.realms.entry(realm_id.clone()).or_default();
             if let Some(timeline) = &sync_realm.timeline {
@@ -119,6 +133,7 @@ impl SyncResponseProcessor {
 
         Ok(SyncUpdates {
             realm_updates,
+            malformed_realms,
             to_device,
             to_device_lost,
             device_lists,

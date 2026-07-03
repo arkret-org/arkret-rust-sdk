@@ -32,6 +32,54 @@ jobs:
       - run: cargo test --all-features
       - run: cargo run --example export_openapi --features server
 
+  wasm:
+    name: wasm32 checks
+    runs-on: ubuntu-latest
+    # CHANGELOG 0.7.0 claims wasm32 support for the client surface; this job
+    # is the regression guard for that claim (previously CI checked no wasm
+    # target at all).
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.96"
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: rustup target add wasm32-unknown-unknown
+      - run: cargo check -p cokret-core --target wasm32-unknown-unknown --no-default-features --features client
+      - run: cargo check -p cokret-identifiers --target wasm32-unknown-unknown --no-default-features
+
+  embedded-snapshot:
+    name: embedded spec snapshot drift gate
+    runs-on: ubuntu-latest
+    # Hard gate (SDK-TEST-07): the embedded spec artifact snapshot MUST match
+    # the live spec. COKRET_REQUIRE_SPEC=1 turns the otherwise-skipping test
+    # into a failure when the spec checkout is missing, so this job can never
+    # silently pass without comparing. Refresh the snapshot with
+    # `python tools/refresh-embedded-artifacts.py` when the spec moves.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: cokret-rust-sdk
+      - uses: actions/checkout@v4
+        with:
+          repository: cokret/cokret-spec
+          path: cokret-spec
+          # Public spec repo; if private, set a PAT under
+          # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.96"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: cokret-rust-sdk
+      - name: Run embedded snapshot drift gate
+        working-directory: cokret-rust-sdk
+        env:
+          COKRET_REQUIRE_SPEC: "1"
+          COKRET_SPEC_ARTIFACTS: ${{ github.workspace }}/cokret-spec/spec/v1/artifacts
+        run: cargo test -p cokret-core --lib embedded_spec_artifacts_match_live_spec_when_available
+
   docs:
     name: Documentation
     runs-on: ubuntu-latest

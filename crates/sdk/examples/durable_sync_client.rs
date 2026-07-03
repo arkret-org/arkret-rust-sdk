@@ -8,7 +8,7 @@ fn main() -> cokret::Result<()> {
     let state = RealmState::new(realm_id.clone());
 
     let mut store = MemoryPersistenceStore::new();
-    store.put_state_snapshot(state.snapshot())?;
+    store.put_state_snapshot(state.snapshot()?)?;
 
     let restored = restore_realm_state_from_persistence(&store, &realm_id)?;
     assert_eq!(restored.state.realm_id, realm_id);

@@ -332,6 +332,17 @@ impl Client {
     #[cfg(target_arch = "wasm32")]
     pub(crate) async fn execute(&self, builder: RequestBuilder) -> Result<Response> {
         validate_request_builder(&builder)?;
+        // Surface the platform parity gap instead of silently ignoring the
+        // caller's RetryConfig (see `ClientBuilder::retry` / `RetryConfig`
+        // docs): retry is not implemented on wasm32.
+        #[cfg(feature = "tracing")]
+        if self.retry.max_retries > 0 {
+            tracing::warn!(
+                max_retries = self.retry.max_retries,
+                "RetryConfig is ignored on wasm32: execute() sends exactly once; \
+                 layer retry above the client if needed"
+            );
+        }
         #[cfg(feature = "tracing")]
         let trace = request_trace_fields(&builder);
         #[cfg(feature = "tracing")]
@@ -426,11 +437,39 @@ async fn error_envelope_from_response(response: Response) -> ErrorEnvelope {
             format!("HTTP request failed with status {status}"),
         )
     });
-    if error.retry_after_ms().is_none() {
-        error.with_retry_after_ms(retry_after_ms)
-    } else {
-        error
+    // api-conventions.md §9: when both the `Retry-After` header and the body
+    // `retry_after_ms` are present, the header wins. The body value is only
+    // kept when no header was sent.
+    match retry_after_ms {
+        Some(_) => error.with_retry_after_ms(retry_after_ms),
+        None => error,
     }
+}
+
+/// Maximum bytes a non-streaming response body may occupy before the read is
+/// aborted. Bounds memory against unbounded / decompression-amplified bodies
+/// from a hostile or misbehaving peer (gzip is enabled by default). Streaming
+/// endpoints have their own per-frame bound (`MAX_SUBSCRIBE_FRAME_BYTES`).
+pub(crate) const MAX_RESPONSE_BODY_BYTES: usize = 8 * 1024 * 1024;
+
+/// Read a response body incrementally, failing as soon as the accumulated
+/// (post-decompression) size exceeds `limit` — the body is never fully
+/// materialized first.
+pub(crate) async fn read_body_limited(response: Response, limit: usize) -> Result<Vec<u8>> {
+    use futures_util::StreamExt;
+
+    let mut stream = response.bytes_stream();
+    let mut buffer: Vec<u8> = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(transport_error)?;
+        if buffer.len().saturating_add(chunk.len()) > limit {
+            return Err(Error::Protocol(format!(
+                "response body exceeds the {limit}-byte limit"
+            )));
+        }
+        buffer.extend_from_slice(&chunk);
+    }
+    Ok(buffer)
 }
 
 pub(crate) fn reject_path_segment(segment: &str) -> Result<()> {

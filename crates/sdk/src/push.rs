@@ -2,12 +2,16 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-pub use cokret_core::push::{PushPlatform, PushPriority, PushRule};
+// The wire push contracts (`PushNotification`, `PushPayload` with the
+// spec-aligned `push_key` field, rules and platform enums) are owned by
+// `cokret-core::push`; this module only adds client-local gateway state and
+// privacy policy.
+pub use cokret_core::push::{PushNotification, PushPayload, PushPlatform, PushPriority, PushRule};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::canonical::sha256_hex;
-use crate::{AEAD_ALGORITHM, DeviceId, Did, Error, EventId, RealmId, Result, crypto};
+use crate::{AEAD_ALGORITHM, DeviceId, Did, Error, EventId, Result, crypto};
 
 pub const PUSH_ENCRYPTION_ALGORITHM: &str = AEAD_ALGORITHM;
 pub const CHIME_PUSH_REGISTRATION_VERSION: &str = "chime.push.registration.v1";
@@ -75,28 +79,6 @@ impl ChimePushRegistration {
     }
 }
 
-/// Event considered for push.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PushEvent {
-    pub event_id: EventId,
-    pub user_id: Did,
-    pub realm_id: Option<RealmId>,
-    pub event_kind: String,
-    pub content: Value,
-    pub encrypted: bool,
-}
-
-/// Platform-specific push payload.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PushPayload {
-    pub platform: PushPlatform,
-    pub token: String,
-    pub title: String,
-    pub body: String,
-    pub priority: PushPriority,
-    pub data: Value,
-}
-
 /// Encrypted push payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EncryptedPushPayload {
@@ -144,9 +126,9 @@ impl PushPrivacyPolicy {
         if !self.forbid_raw_did_in_payload {
             return Ok(());
         }
-        // The platform token MUST NOT itself be a DID — that would imply the
-        // gateway already correlates this token to a stable identity.
-        if payload.token.contains("did:") {
+        // The platform push key MUST NOT itself be a DID — that would imply
+        // the gateway already correlates this key to a stable identity.
+        if payload.push_key.contains("did:") {
             return Err(Error::Protocol(
                 "push token contains a raw did: substring; use a Realm-scoped pairwise pseudonym (B-14)"
                     .to_owned(),
@@ -259,7 +241,7 @@ impl PushGateway {
     }
 
     /// Process an event into platform payloads, with filtering and deduplication.
-    pub fn process_event(&mut self, event: &PushEvent) -> Vec<PushPayload> {
+    pub fn process_event(&mut self, event: &PushNotification) -> Vec<PushPayload> {
         let Some(tokens) = self.tokens.get(&event.user_id).cloned() else {
             return Vec::new();
         };
@@ -283,7 +265,7 @@ impl PushGateway {
     /// Format a platform-specific payload.
     pub fn format_payload(
         &self,
-        event: &PushEvent,
+        event: &PushNotification,
         token: &PushToken,
         rule: &PushRule,
     ) -> PushPayload {
@@ -308,7 +290,7 @@ impl PushGateway {
         .to_owned();
         PushPayload {
             platform: token.platform,
-            token: token.token.clone(),
+            push_key: token.token.clone(),
             title,
             body,
             priority: rule.priority,
@@ -365,9 +347,10 @@ fn truncate(value: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::RealmId;
 
     fn did(name: &str) -> Did {
-        Did::new(format!("did:web:{name}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     fn device(id: &str) -> DeviceId {
@@ -382,8 +365,8 @@ mod tests {
         .unwrap()
     }
 
-    fn event(encrypted: bool) -> PushEvent {
-        PushEvent {
+    fn event(encrypted: bool) -> PushNotification {
+        PushNotification {
             event_id: EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
             user_id: did("alice"),
             realm_id: Some(RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
@@ -475,7 +458,7 @@ mod tests {
         });
 
         let payload = gateway.process_event(&event(false)).pop().unwrap();
-        assert_eq!(payload.token, "chime-token");
+        assert_eq!(payload.push_key, "chime-token");
         assert!(
             gateway
                 .register_chime_payload(ChimePushRegistration {

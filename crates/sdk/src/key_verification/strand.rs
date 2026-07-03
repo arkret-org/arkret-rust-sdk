@@ -527,7 +527,7 @@ impl KeyVerificationStrand {
                 .as_ref()
                 .map(|(d, _)| d.clone())
                 .or_else(|| self.responder.as_ref().map(|(d, _)| d.clone()))
-                .unwrap_or_else(|| Did::new("did:web:unknown.example").unwrap()),
+                .unwrap_or_else(|| Did::new("did:webvh:z6mkfixture:unknown.example").unwrap()),
             from_device: self
                 .initiator
                 .as_ref()

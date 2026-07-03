@@ -558,8 +558,8 @@ mod tests {
         let expires_at = issued_at + chrono::Duration::minutes(15);
         let locator = PrincipalLocator {
             schema: PRINCIPAL_LOCATOR_SCHEMA.to_owned(),
-            subject_id: Did::new("did:web:bob.example").unwrap(),
-            recipient_service_did: Did::new("did:web:ps.bob.example").unwrap(),
+            subject_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            recipient_service_did: Did::new("did:webvh:z6mkfixture:ps.bob.example").unwrap(),
             recipient_service_type: None,
             issued_at,
             expires_at,
@@ -570,7 +570,7 @@ mod tests {
                 proof_purpose: PrincipalLocatorProofPurpose::RecipientServiceAcceptance,
                 proof: DetachedPayloadProof {
                     kind: "detached_jws".to_owned(),
-                    verification_method: "did:web:ps.bob.example#server-key-1".to_owned(),
+                    verification_method: "did:webvh:z6mkfixture:ps.bob.example#server-key-1".to_owned(),
                     alg: "EdDSA".to_owned(),
                     payload_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
                     created_at: issued_at,
@@ -636,7 +636,7 @@ mod tests {
     fn invite_receive_policy_skips_empty_disclosure_fields() {
         let policy = InviteReceivePolicy {
             schema: INVITE_RECEIVE_POLICY_SCHEMA.to_owned(),
-            subject_id: Did::new("did:web:bob.example").unwrap(),
+            subject_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             allowed_introduction_kinds: vec!["consent_grant".to_owned()],
             explicit_address_behavior: InviteReceiveAction::Quarantine,
             handle_claim_behavior: None,
@@ -656,7 +656,7 @@ mod tests {
         assert!(value.get("disclosure").is_none());
 
         let policy = InviteReceivePolicy {
-            blocked_subjects: vec![Did::new("did:web:mallory.example").unwrap()],
+            blocked_subjects: vec![Did::new("did:webvh:z6mkfixture:mallory.example").unwrap()],
             disclosure: Some(DisclosurePolicy {
                 high_trust: Some(DisclosureLevel::Outcome),
                 discovery_trust: Some(DisclosureLevel::Opaque),
@@ -680,13 +680,13 @@ mod tests {
             .with_timezone(&Utc);
         let claim = HandleClaim {
             handle: Some(handle.clone()),
-            subject: Some(Did::new("did:web:alice.example").unwrap()),
+            subject: Some(Did::new("did:webvh:z6mkfixture:alice.example").unwrap()),
             binding_state: Some(HandleBindingState::Verified),
             expires_at: Some(expires_at),
             proofs: vec![PayloadProof {
                 kind: "detached_jws".to_owned(),
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:web:issuer.example#key-1".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:issuer.example#key-1".to_owned(),
                 payload_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
                 created_at: test_time(),
                 domain: None,
@@ -699,7 +699,7 @@ mod tests {
             handle,
             handle_claim: Box::new(claim),
             member_delivery_binding_candidate: None,
-            resolved_by: Some(Did::new("did:web:directory.example").unwrap()),
+            resolved_by: Some(Did::new("did:webvh:z6mkfixture:directory.example").unwrap()),
             resolved_at: Some(resolved_at),
         };
         assert_eq!(evidence.kind(), "handle_claim");

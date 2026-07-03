@@ -68,45 +68,89 @@ pub enum WebvhInceptionError {
 
 /// Result of `prepare_inception` — everything the caller needs to POST the
 /// registration to soland and persist the secrets for later rotation.
-#[derive(Debug, Clone)]
+///
+/// The two `*_seed` fields are DID root key material: `Debug` renders them
+/// redacted (mirroring `cokret_crypto::VaultKek`) and both are zeroized on
+/// drop so they never leak into logs, backtraces or freed memory.
+#[derive(Clone, zeroize::ZeroizeOnDrop)]
 pub struct PreparedInception {
     /// The minted DID, e.g.
     /// `did:webvh:zQm...:local.host%3A8080:webvh:01krmccd...`.
+    #[zeroize(skip)]
     pub did: String,
     /// The DID-method authority (host or `host%3Aport`). Stored so callers
     /// can sanity-check or reconstruct URLs without re-parsing.
+    #[zeroize(skip)]
     pub method_authority: String,
     /// The matching HTTPS authority (`host` or `host:port`).
+    #[zeroize(skip)]
     pub https_authority: String,
     /// Normalised webvh `local_id` — the URL path segment under
     /// `/webvh/<local_id>/did.json`.
+    #[zeroize(skip)]
     pub local_id: String,
     /// `versionTime` recorded on the inception entry (RFC3339).
+    #[zeroize(skip)]
     pub version_time: String,
     /// `versionId` of the inception entry (`1-<entryHash>`).
+    #[zeroize(skip)]
     pub version_id: String,
     /// Final inception webvh log entry, with SCID substituted and proof
     /// attached.
+    #[zeroize(skip)]
     pub log_entry: Value,
     /// Typed request body for `ck.root.identity.command.submit_did_operation`.
+    #[zeroize(skip)]
     pub submit_body: DidOperationSubmitRequestBody,
     /// Multibase ed25519 **public** key for the DID's verification method.
+    #[zeroize(skip)]
     pub did_public_key_multibase: String,
     /// Multibase ed25519 **public** key for `updateKeys[0]`.
+    #[zeroize(skip)]
     pub update_public_key_multibase: String,
     /// DID + key fragment, e.g. `did:webvh:...#did-key-1`.
+    #[zeroize(skip)]
     pub did_key_id: String,
     /// DID + update-key fragment, e.g. `did:webvh:...#update-key-1`.
+    #[zeroize(skip)]
     pub update_key_id: String,
     /// Protocol document read URL.
+    #[zeroize(skip)]
     pub document_url: String,
     /// Protocol log read URL.
+    #[zeroize(skip)]
     pub log_url: String,
     /// 32-byte ed25519 secret seed for the DID key.
     pub did_key_seed: [u8; 32],
     /// 32-byte ed25519 secret seed for the update key — caller must persist
     /// this (encrypted) to sign future rotations.
     pub update_key_seed: [u8; 32],
+}
+
+impl std::fmt::Debug for PreparedInception {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PreparedInception")
+            .field("did", &self.did)
+            .field("method_authority", &self.method_authority)
+            .field("https_authority", &self.https_authority)
+            .field("local_id", &self.local_id)
+            .field("version_time", &self.version_time)
+            .field("version_id", &self.version_id)
+            .field("log_entry", &self.log_entry)
+            .field("submit_body", &self.submit_body)
+            .field("did_public_key_multibase", &self.did_public_key_multibase)
+            .field(
+                "update_public_key_multibase",
+                &self.update_public_key_multibase,
+            )
+            .field("did_key_id", &self.did_key_id)
+            .field("update_key_id", &self.update_key_id)
+            .field("document_url", &self.document_url)
+            .field("log_url", &self.log_url)
+            .field("did_key_seed", &"<redacted>")
+            .field("update_key_seed", &"<redacted>")
+            .finish()
+    }
 }
 
 /// Inputs to `prepare_inception`. Borrowed and explicit so callers cannot

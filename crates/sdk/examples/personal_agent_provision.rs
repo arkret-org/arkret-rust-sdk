@@ -33,7 +33,7 @@ use cokret::agent::{
 };
 use cokret::{
     AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyPairRequestBody,
-    AgentKeyScope, AgentPauseRequestBody, AgentResumeRequestBody, AgentRotateKeyRequestBody,
+    AgentKeyScope, AgentKeyScopeResource, AgentKeyScopeResourceKind, AgentPauseRequestBody, AgentResumeRequestBody, AgentRotateKeyRequestBody,
     AgentSidecarContextRef, AgentSidecarThreadEnsureRequestBody, Did, GrantId, RealmId, StrandId,
 };
 use serde::Serialize;
@@ -46,7 +46,7 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
     println!("  request: {body}");
     match op_id {
         "ck.self.agent.command.provision" => json!({
-            "agent_principal_id": "did:web:agent.example",
+            "agent_principal_id": "did:webvh:z6mkfixture:agent.example",
             "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
             "pairing_code": "12345678",
             "expires_at": "2026-06-18T12:15:00Z",
@@ -98,12 +98,24 @@ fn send_plan<B: Serialize>(plan: AgentRequestPlan<B>) -> cokret::Result<Value> {
 }
 
 fn main() -> cokret::Result<()> {
-    let controller: Did = Did::new("did:web:alice.example")?;
+    let controller: Did = Did::new("did:webvh:z6mkfixture:alice.example")?;
 
     let provision_body = AgentProvisionRequestBuilder::new()
         .display_name("alice-personal-agent")
         .agent_slug("summary")
-        .requested_scope(AgentKeyScope::Limited)
+        .requested_scope(AgentKeyScope {
+            actions: vec!["ck.message.create".to_owned()],
+            resources: vec![AgentKeyScopeResource {
+                kind: AgentKeyScopeResourceKind::Realm,
+                realm_id: Some(RealmId::new(
+                    "ck:realm:01904100-0000-7000-8000-000000000001",
+                )?),
+                r#ref: None,
+                operation: None,
+                service_did: None,
+            }],
+            constraints: Vec::new(),
+        })
         .pairing_ttl_ms(15 * 60 * 1000)
         .build();
 

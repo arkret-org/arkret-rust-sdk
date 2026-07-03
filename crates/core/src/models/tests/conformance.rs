@@ -1,4 +1,4 @@
-use serde_json::json;
+use serde_json::{Value, json};
 
 use super::super::*;
 use super::test_realm_id;
@@ -41,7 +41,7 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
                 "metadata": {"title": "Topic"},
                 "stage": "draft",
                 "tracks": {"synthesis": {}},
-                "created_by": "did:web:alice.example",
+                "created_by": "did:webvh:z6mkfixture:alice.example",
                 "created_at": "2026-05-02T00:00:00Z"
             }),
         )
@@ -92,7 +92,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
     let event = json!({
         "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
-        "actor_id": "did:web:alice.example",
+        "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ck.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
@@ -108,7 +108,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
     let wrong_type = json!({
         "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
-        "actor_id": "did:web:alice.example",
+        "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ck.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
@@ -123,7 +123,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
     let sensitive_extension = json!({
         "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
-        "actor_id": "did:web:alice.example",
+        "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ck.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
@@ -172,7 +172,7 @@ fn schema_registry_fails_closed_for_unknown_security_extensions() {
     let value = json!({
         "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
-        "actor_id": "did:web:alice.example",
+        "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ck.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
@@ -191,7 +191,7 @@ fn schema_registry_fails_closed_for_unknown_security_extensions() {
     let ordinary_extension = json!({
         "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
-        "actor_id": "did:web:alice.example",
+        "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ck.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
@@ -287,26 +287,54 @@ fn conformance_fixture_set_loads_and_reports_external_json() {
     assert!(empty.validate().is_err());
 }
 
+/// Load a spec fixture from the embedded artifact snapshot (kept in sync with
+/// the live spec by `embedded_spec_artifacts_match_live_spec_when_available`).
+fn embedded_fixture(name: &str) -> Value {
+    crate::schema::embedded_json_artifact(&format!("fixtures/{name}"))
+        .unwrap_or_else(|error| panic!("embedded fixture {name} must load: {error}"))
+}
+
+fn encoding_vector(vector_id: &str) -> Value {
+    let fixture = embedded_fixture("encoding-fixture.json");
+    fixture["vectors"]
+        .as_array()
+        .expect("encoding fixture has vectors")
+        .iter()
+        .find(|vector| vector["vector_id"] == vector_id)
+        .unwrap_or_else(|| panic!("encoding fixture missing {vector_id}"))
+        .clone()
+}
+
+/// Executes spec vector `ck.vector.encoding.signature_binding_payload.v1`
+/// against the SDK's own proof binding-object construction
+/// (`Proof::canonical_binding_bytes`), asserting byte- and digest-level
+/// equality with the spec expectations.
 #[test]
-fn signature_binding_payload_matches_canonical_vector() {
+fn signature_binding_payload_matches_spec_encoding_vector() {
+    let vector = encoding_vector("ck.vector.encoding.signature_binding_payload.v1");
+    let input = &vector["input"];
+    let actor = Did::new(input["actor_id"].as_str().unwrap()).unwrap();
     let proof = Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:web:alice.example#device-1".to_owned(),
-        event_digest: Hash::new(
-            "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777",
-        )
-        .unwrap(),
-        created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+        verification_method: input["verification_method"].as_str().unwrap().to_owned(),
+        event_digest: Hash::new(input["event_digest"].as_str().unwrap()).unwrap(),
+        created_at: input["created_at"].as_str().unwrap().parse().unwrap(),
         domain: None,
         audience: None,
-        jws: "...".to_owned(),
+        jws: String::new(),
     };
-    let payload = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
 
+    let binding_bytes = proof.canonical_binding_bytes(&actor).unwrap();
     assert_eq!(
-        canonical::canonical_sha256(&payload).unwrap(),
-        "sha256:162e738349897274ed2feabf220989183c7342e65b607f61c955716478529de9"
+        std::str::from_utf8(&binding_bytes).unwrap(),
+        vector["expected_canonical_bytes_utf8"].as_str().unwrap(),
+        "proof binding object canonical bytes drifted from spec vector"
+    );
+    assert_eq!(
+        canonical::sha256_digest(&binding_bytes),
+        vector["expected_digest"].as_str().unwrap(),
+        "proof binding object digest drifted from spec vector"
     );
 }
 
@@ -315,7 +343,7 @@ fn fact_chain_echo_validates_server_proof_binding() {
     let mut echo = FactChainEcho {
         echo_id: "echo1".to_owned(),
         subject_ref: "ck:event:01904100-0000-7000-8000-834e21b98552".to_owned(),
-        server_did: Did::new("did:web:server.example").unwrap(),
+        server_did: Did::new("did:webvh:z6mkfixture:server.example").unwrap(),
         operation_hash: Hash::new(
             "sha256:1111111111111111111111111111111111111111111111111111111111111111",
         )
@@ -332,7 +360,7 @@ fn fact_chain_echo_validates_server_proof_binding() {
     echo.proofs.push(Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
-        verification_method: "did:web:server.example#key-1".to_owned(),
+        verification_method: "did:webvh:z6mkfixture:server.example#key-1".to_owned(),
         event_digest: digest,
         created_at: echo.observed_at,
         domain: None,
@@ -349,8 +377,55 @@ fn fact_chain_echo_validates_server_proof_binding() {
     assert!(tampered.precheck_server_proofs().is_err());
 }
 
+/// Executes spec vector `ck.vector.encoding.encrypted_envelope_digest.v1`:
+/// `sha256(canonical_json(payload_metadata) || base64url_decode(ciphertext))`
+/// built from SDK canonical/base64url primitives, plus the AAD digest.
 #[test]
-fn encrypted_content_digest_matches_conformance_vector() {
+fn encrypted_envelope_digest_matches_spec_encoding_vector() {
+    let vector = encoding_vector("ck.vector.encoding.encrypted_envelope_digest.v1");
+    let metadata = &vector["payload_metadata"];
+
+    let metadata_bytes = canonical::canonical_json_bytes(metadata).unwrap();
+    assert_eq!(
+        std::str::from_utf8(&metadata_bytes).unwrap(),
+        vector["expected_metadata_canonical_bytes_utf8"]
+            .as_str()
+            .unwrap(),
+        "payload metadata canonical bytes drifted from spec vector"
+    );
+
+    let ciphertext =
+        crate::base64url::base64url_decode(vector["ciphertext_base64url"].as_str().unwrap())
+            .unwrap();
+    assert_eq!(
+        ciphertext,
+        vector["ciphertext_bytes_utf8"].as_str().unwrap().as_bytes(),
+        "base64url ciphertext decode drifted from spec vector"
+    );
+
+    let mut digest_input = metadata_bytes;
+    digest_input.extend_from_slice(&ciphertext);
+    assert_eq!(
+        canonical::sha256_digest(&digest_input),
+        vector["expected_digest"].as_str().unwrap(),
+        "encrypted envelope digest drifted from spec vector"
+    );
+
+    assert_eq!(
+        canonical::canonical_sha256(&metadata["aad"]).unwrap(),
+        vector["aad_digest"].as_str().unwrap(),
+        "AAD digest drifted from spec vector"
+    );
+}
+
+/// Self-generated regression anchor (NOT a spec vector): pins the byte-exact
+/// output of the SDK's §2.3.3 content payload digest so HKDF/canonical/field
+/// drift is caught across versions. Replace with a spec vector once the spec
+/// ships one for `EncryptedPayload::mls_payload_digest` (its metadata shape —
+/// `{aad?, content_type, encryption, epoch}` — differs from the envelope-level
+/// `ck.vector.encoding.encrypted_envelope_digest.v1` input).
+#[test]
+fn mls_payload_digest_regression_anchor() {
     let digest = EncryptedPayload::mls_payload_digest(
         7,
         "application/json",
@@ -389,7 +464,7 @@ fn mls_envelopes_build_protocol_operations() {
     let welcome = MlsWelcomeEnvelope {
         group_id: "group1".to_owned(),
         epoch: 2,
-        recipient_principal_id: Did::new("did:web:bob.example").unwrap(),
+        recipient_principal_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
         recipient_device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000007")
             .unwrap(),
         welcome: "welcome-bytes".to_owned(),

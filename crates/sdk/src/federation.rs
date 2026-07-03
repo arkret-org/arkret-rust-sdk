@@ -432,11 +432,11 @@ mod tests {
 
     #[test]
     fn did_document_service_endpoint_verifies_origin_binding() {
-        let did = Did::new("did:web:a.example").unwrap();
+        let did = Did::new("did:webvh:z6mkfixture:a.example").unwrap();
         let document = json!({
             "id": did.as_str(),
             "service": [{
-                "id": "did:web:a.example#cokret-federation",
+                "id": "did:webvh:z6mkfixture:a.example#cokret-federation",
                 "type": "CokretFederation",
                 "serviceEndpoint": "https://a.example/_cokret/peer/events"
             }]
@@ -450,7 +450,7 @@ mod tests {
         ));
         assert!(!did_document_service_endpoint_matches(
             &document,
-            &Did::new("did:web:b.example").unwrap(),
+            &Did::new("did:webvh:z6mkfixture:b.example").unwrap(),
             "CokretFederation",
             "https://a.example/_cokret/peer/events"
         ));
@@ -501,7 +501,7 @@ mod tests {
         // all three of history_visible AND service_delegated AND
         // plaintext_visible_to_service.
         let fully_authorized = FederationBackfillAuthorization {
-            requester_service_did: Did::new("did:web:b.example").unwrap(),
+            requester_service_did: Did::new("did:webvh:z6mkfixture:b.example").unwrap(),
             realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
             service_delegated: true,

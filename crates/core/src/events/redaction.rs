@@ -103,12 +103,12 @@ mod tests {
             "event_id": "ck:event:01970e58-0004-7000-8000-0000000005a1",
             "message_id": "ck:message:01970e58-0004-7000-8000-0000000005a1",
             "realm_id": "ck:realm:01970e58-0004-7000-8000-000000000001",
-            "sender": "did:web:bob.example",
+            "sender": "did:webvh:z6mkfixture:bob.example",
             "created_at": "2026-04-26T00:00:00Z",
             "content": {"kind": "ck.content.text", "body": "secret"},
-            "reactions": [{"actor": "did:web:alice.example", "key": "+1"}],
+            "reactions": [{"actor": "did:webvh:z6mkfixture:alice.example", "key": "+1"}],
             "reply_to": "ck:event:01970e58-0004-7000-8000-0000000005a0",
-            "mentions": [{"actor_id": "did:web:alice.example"}],
+            "mentions": [{"actor_id": "did:webvh:z6mkfixture:alice.example"}],
         });
         let redacted_at = DateTime::parse_from_rfc3339("2026-04-26T00:05:00Z")
             .unwrap()

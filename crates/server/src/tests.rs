@@ -137,7 +137,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
             match request {
                 ServerRequestBody::ServerDescribe => Ok(ServerOutcome::ServerDescription(
                     Box::new(ServerDescription {
-                        service_did: cokret_core::Did::new("did:web:svc.example").unwrap(),
+                        service_did: cokret_core::Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
                         trust_domain: cokret_core::TypedTrustDomainId::new(
                             "ck:trust_domain:example.net",
                         )

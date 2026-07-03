@@ -184,13 +184,13 @@ mod tests {
         let a = composite_subject(&[
             "ck:strand:7fd5ae82-44e2-7a8a-9a4b-8857991142f9",
             "main",
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
         ])
         .unwrap();
         let b = composite_subject(&[
             "ck:strand:7fd5ae82-44e2-7a8a-9a4b-8857991142f9",
             "main",
-            "did:web:alice.example",
+            "did:webvh:z6mkfixture:alice.example",
         ])
         .unwrap();
         assert_eq!(a, b);

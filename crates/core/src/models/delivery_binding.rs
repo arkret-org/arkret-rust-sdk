@@ -185,7 +185,7 @@ mod tests {
     use super::*;
 
     fn fake_did(label: &str) -> Did {
-        Did::new(format!("did:web:{label}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{label}.example")).unwrap()
     }
 
     fn fake_event_ref() -> EventRef {
@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn member_delivery_binding_rejects_space_binding_scope() {
         let payload = serde_json::json!({
-            "recipient_service_did": "did:web:rs.example",
+            "recipient_service_did": "did:webvh:z6mkfixture:rs.example",
             "recipient_service_type": "principal_server",
             "binding_scope": "space",
             "binding_source": "explicit",

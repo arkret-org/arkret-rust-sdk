@@ -521,7 +521,7 @@ mod tests {
     use super::*;
 
     fn did(name: &str) -> Did {
-        Did::new(format!("did:web:{name}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     #[test]
@@ -596,7 +596,7 @@ mod tests {
     #[test]
     fn bridge_descriptor_helpers_match_supported_lists() {
         let descriptor = PushBridgeDescribeGatewayDescriptor {
-            service_did: Some("did:web:gateway.example".to_owned()),
+            service_did: Some("did:webvh:z6mkfixture:gateway.example".to_owned()),
             supported_profiles: vec!["fcm".to_owned(), "APNs".to_owned()],
             supported_providers: vec!["huawei".to_owned()],
             auth_modes: vec!["http-message-signature".to_owned()],

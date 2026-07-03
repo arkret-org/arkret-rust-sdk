@@ -215,11 +215,11 @@ mod tests {
             ciphertext_digest: hash('d'),
             aad_digest: hash('e'),
             sender_claim: FrankingProofSenderClaim {
-                actor_id: did("did:web:alice.example"),
+                actor_id: did("did:webvh:z6mkfixture:alice.example"),
                 device_id: "ck:device:01904100-0000-7000-8000-000000000333".to_owned(),
                 mls_group_id_digest: hash('f'),
             },
-            received_by: did("did:web:soland.local"),
+            received_by: did("did:webvh:z6mkfixture:soland.local"),
             received_at: timestamp("2026-04-30T00:00:00Z"),
             replay_nonce: "nonce_0123456789".to_owned(),
             signature: "sig".to_owned(),
@@ -230,7 +230,7 @@ mod tests {
         FrankingProofEventTimeAnchor::new(
             event_id("ck:event:01904100-0000-7000-8000-000000000222"),
             realm_id(),
-            did("did:web:soland.local"),
+            did("did:webvh:z6mkfixture:soland.local"),
             received_at,
             hash('d'),
         )

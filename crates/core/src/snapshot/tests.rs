@@ -5,7 +5,7 @@ use super::{merkle, *};
 use crate::{Did, EventId, Hash, Hlc, MoveSignature, RealmId, SnapshotId};
 
 fn did() -> Did {
-    Did::new("did:web:generator.example".to_owned()).unwrap()
+    Did::new("did:webvh:z6mkfixture:generator.example".to_owned()).unwrap()
 }
 
 fn realm() -> RealmId {
@@ -74,7 +74,7 @@ fn manifest_for_items(
             witness_attestations: Vec::new(),
         },
         signature: DetachedJwsProof::eddsa(
-            "did:web:generator.example#snapshot".to_owned(),
+            "did:webvh:z6mkfixture:generator.example#snapshot".to_owned(),
             hash(2),
             created_at,
             "header..signature".to_owned(),
@@ -330,7 +330,7 @@ fn merkle_verify_rejects_mismatched_tree_size() {
 fn move_sig(payload_digest: Hash) -> MoveSignature {
     MoveSignature {
         alg: "EdDSA".to_owned(),
-        verification_method: "did:web:generator.example#k1".to_owned(),
+        verification_method: "did:webvh:z6mkfixture:generator.example#k1".to_owned(),
         payload_digest,
         created_at: Utc::now(),
         jws: "AAAA.BBBB.CCCC".to_owned(),
@@ -463,14 +463,14 @@ fn event_set_commitment_sorts_entries_before_hashing() {
     let a = EventSetLeaf {
         event_id: event_id("000000000001"),
         event_digest: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
-        actor_id: Did::new("did:web:alice.example").unwrap(),
+        actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         actor_seq: 1,
         hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
     };
     let b = EventSetLeaf {
         event_id: event_id("000000000002"),
         event_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
-        actor_id: Did::new("did:web:bob.example").unwrap(),
+        actor_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
         actor_seq: 1,
         hlc: Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
     };

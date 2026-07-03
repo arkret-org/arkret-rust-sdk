@@ -271,27 +271,27 @@ mod tests {
     #[test]
     fn single_did_validates() {
         // Orgless personal Realm: `{type, did}` only.
-        let v = NotaryValue::single_did(did("did:web:soland.example"));
+        let v = NotaryValue::single_did(did("did:webvh:z6mkfixture:soland.example"));
         v.validate().unwrap();
         let s = serde_json::to_string(&v).unwrap();
-        assert_eq!(s, r#"{"type":"single_did","did":"did:web:soland.example"}"#);
+        assert_eq!(s, r#"{"type":"single_did","did":"did:webvh:z6mkfixture:soland.example"}"#);
     }
 
     #[test]
     fn single_did_with_org_validates_and_requires_recovery() {
         let ok = NotaryValue::single_did_with_org(
-            did("did:web:notary.example"),
-            vec![did("did:web:recovery.example")],
-            did("did:web:org.example"),
-            vec![did("did:web:recovery-org.example")],
+            did("did:webvh:z6mkfixture:notary.example"),
+            vec![did("did:webvh:z6mkfixture:recovery.example")],
+            did("did:webvh:z6mkfixture:org.example"),
+            vec![did("did:webvh:z6mkfixture:recovery-org.example")],
         );
         ok.validate().unwrap();
 
         // controller_organization without a recovery path is rejected.
         let bad = NotaryValue::SingleDid {
-            did: did("did:web:notary.example"),
+            did: did("did:webvh:z6mkfixture:notary.example"),
             recovery_members: vec![],
-            controller_organization: Some(did("did:web:org.example")),
+            controller_organization: Some(did("did:webvh:z6mkfixture:org.example")),
             recovery_controller_organizations: vec![],
         };
         let err = bad.validate().unwrap_err();
@@ -303,9 +303,9 @@ mod tests {
         let v = NotaryValue::Threshold {
             threshold: 5,
             members: vec![
-                did("did:web:a.example"),
-                did("did:web:b.example"),
-                did("did:web:c.example"),
+                did("did:webvh:z6mkfixture:a.example"),
+                did("did:webvh:z6mkfixture:b.example"),
+                did("did:webvh:z6mkfixture:c.example"),
             ],
             forensic_attribution: ForensicAttribution::QuorumIntersection,
         };
@@ -319,9 +319,9 @@ mod tests {
         let waived = NotaryValue::Threshold {
             threshold: 2,
             members: vec![
-                did("did:web:a.example"),
-                did("did:web:b.example"),
-                did("did:web:c.example"),
+                did("did:webvh:z6mkfixture:a.example"),
+                did("did:webvh:z6mkfixture:b.example"),
+                did("did:webvh:z6mkfixture:c.example"),
             ],
             forensic_attribution: ForensicAttribution::Waived,
         };
@@ -332,9 +332,9 @@ mod tests {
         let qi = NotaryValue::Threshold {
             threshold: 1,
             members: vec![
-                did("did:web:a.example"),
-                did("did:web:b.example"),
-                did("did:web:c.example"),
+                did("did:webvh:z6mkfixture:a.example"),
+                did("did:webvh:z6mkfixture:b.example"),
+                did("did:webvh:z6mkfixture:c.example"),
             ],
             forensic_attribution: ForensicAttribution::QuorumIntersection,
         };
@@ -347,9 +347,9 @@ mod tests {
         let v = NotaryValue::Threshold {
             threshold: 2,
             members: vec![
-                did("did:web:a.example"),
-                did("did:web:b.example"),
-                did("did:web:a.example"),
+                did("did:webvh:z6mkfixture:a.example"),
+                did("did:webvh:z6mkfixture:b.example"),
+                did("did:webvh:z6mkfixture:a.example"),
             ],
             forensic_attribution: ForensicAttribution::QuorumIntersection,
         };
@@ -367,7 +367,7 @@ mod tests {
     #[test]
     fn mixed_empty_recovery_rejected() {
         let v = NotaryValue::Mixed {
-            did: did("did:web:soland.example"),
+            did: did("did:webvh:z6mkfixture:soland.example"),
             recovery_members: vec![],
         };
         let err = v.validate().unwrap_err();
@@ -377,8 +377,8 @@ mod tests {
     #[test]
     fn mixed_primary_in_recovery_rejected() {
         let v = NotaryValue::Mixed {
-            did: did("did:web:soland.example"),
-            recovery_members: vec![did("did:web:soland.example")],
+            did: did("did:webvh:z6mkfixture:soland.example"),
+            recovery_members: vec![did("did:webvh:z6mkfixture:soland.example")],
         };
         let err = v.validate().unwrap_err();
         assert!(format!("{err}").contains("must not appear in recovery_members"));
@@ -386,9 +386,9 @@ mod tests {
 
     #[test]
     fn includes_signer_dispatches_per_variant() {
-        let alice = did("did:web:alice.example");
-        let bob = did("did:web:bob.example");
-        let charlie = did("did:web:charlie.example");
+        let alice = did("did:webvh:z6mkfixture:alice.example");
+        let bob = did("did:webvh:z6mkfixture:bob.example");
+        let charlie = did("did:webvh:z6mkfixture:charlie.example");
 
         let single = NotaryValue::single_did(alice.clone());
         assert!(single.includes_signer_as_primary(&alice));
@@ -419,16 +419,16 @@ mod tests {
 
     #[test]
     fn serializes_with_type_discriminator() {
-        let v = NotaryValue::single_did(did("did:web:a.example"));
+        let v = NotaryValue::single_did(did("did:webvh:z6mkfixture:a.example"));
         let s = serde_json::to_string(&v).unwrap();
         assert!(s.contains("\"type\":\"single_did\""), "got {s}");
 
         let v = NotaryValue::Threshold {
             threshold: 2,
             members: vec![
-                did("did:web:a.example"),
-                did("did:web:b.example"),
-                did("did:web:c.example"),
+                did("did:webvh:z6mkfixture:a.example"),
+                did("did:webvh:z6mkfixture:b.example"),
+                did("did:webvh:z6mkfixture:c.example"),
             ],
             forensic_attribution: ForensicAttribution::QuorumIntersection,
         };
@@ -446,8 +446,8 @@ mod tests {
     fn deserializes_from_type_tagged_json() {
         let raw = json!({
             "type": "mixed",
-            "did": "did:web:soland.example",
-            "recovery_members": ["did:web:backup.example"]
+            "did": "did:webvh:z6mkfixture:soland.example",
+            "recovery_members": ["did:webvh:z6mkfixture:backup.example"]
         });
         let v: NotaryValue = serde_json::from_value(raw).unwrap();
         match v {
@@ -455,7 +455,7 @@ mod tests {
                 did,
                 recovery_members,
             } => {
-                assert_eq!(did.as_str(), "did:web:soland.example");
+                assert_eq!(did.as_str(), "did:webvh:z6mkfixture:soland.example");
                 assert_eq!(recovery_members.len(), 1);
             }
             _ => panic!("expected Mixed"),

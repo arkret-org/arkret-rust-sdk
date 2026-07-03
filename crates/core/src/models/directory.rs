@@ -746,11 +746,11 @@ mod agent_selector_tests {
     fn selector_claim() -> AgentSelectorClaim {
         AgentSelectorClaim {
             schema: AGENT_SELECTOR_CLAIM_SCHEMA.to_owned(),
-            controller_subject: did("did:web:example.com:users:alice"),
+            controller_subject: did("did:webvh:z6mkfixture:example.com:users:alice"),
             agent_slug: "summary".to_owned(),
-            subject: did("did:web:agent.example"),
-            issuer: did("did:web:example.com"),
-            issuer_service_did: Some(did("did:web:example.com")),
+            subject: did("did:webvh:z6mkfixture:agent.example"),
+            issuer: did("did:webvh:z6mkfixture:example.com"),
+            issuer_service_did: Some(did("did:webvh:z6mkfixture:example.com")),
             binding_state: HandleBindingState::Verified,
             visibility: HandleVisibility::Restricted,
             audience: Some("ck:realm:018f0000-0000-7000-8000-000000000001".to_owned()),

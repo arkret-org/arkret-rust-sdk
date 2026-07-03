@@ -722,7 +722,7 @@ mod tests {
                 "wakeup_kind": "message",
             },
             "operation_id": "ck.edge.push.command.notify",
-            "context": { "trace": "did:web:alice.example" },
+            "context": { "trace": "did:webvh:z6mkfixture:alice.example" },
         });
         let err = sanitize_blind_payload(&payload).unwrap_err();
         assert_eq!(err.reason_code, BlindPayloadReasonCode::SensitiveLiteral);
@@ -747,7 +747,7 @@ mod tests {
 
     #[test]
     fn rejects_did_target_id() {
-        assert!(!is_valid_push_target_id("did:web:alice.example"));
+        assert!(!is_valid_push_target_id("did:webvh:z6mkfixture:alice.example"));
         assert!(!is_valid_push_target_id("ck:device:01HYZ8Z000000000000000"));
         assert!(is_valid_push_target_id(
             "ck:pseudonym:push:01HYZ8Z000000000000000"
@@ -758,7 +758,7 @@ mod tests {
     #[test]
     fn rejects_l10n_key_with_pii() {
         assert!(is_valid_push_hint("l10n_key:message.new"));
-        assert!(!is_valid_push_hint("l10n_key:did:web:alice"));
+        assert!(!is_valid_push_hint("l10n_key:did:webvh:z6mkfixture:alice"));
         assert!(!is_valid_push_hint("title:secret"));
     }
 

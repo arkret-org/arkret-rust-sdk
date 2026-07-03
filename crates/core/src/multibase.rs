@@ -147,4 +147,55 @@ mod tests {
         assert_eq!(len, 2);
         assert_eq!(&bytes[len..], &[0xaa, 0xbb]);
     }
+
+    // ── SDK-TEST-06 negative coverage ────────────────────────────────────
+
+    #[test]
+    fn base58btc_rejects_non_alphabet_characters() {
+        // '0', 'O', 'I', 'l' are excluded from the Bitcoin base58 alphabet;
+        // '+' and '/' come from base64 confusion; whitespace must not pass.
+        for bad in ["0", "O", "I", "l", "abc0def", "ab+cd", "ab/cd", "ab cd", "café"] {
+            assert!(
+                decode_base58btc(bad).is_err(),
+                "base58btc must reject {bad:?}"
+            );
+            assert!(
+                decode_multibase_base58btc(&format!("z{bad}")).is_err(),
+                "multibase base58btc must reject z{bad}"
+            );
+        }
+        // Empty multibase payload decodes to empty bytes but the ed25519
+        // decoder must still reject it (no multicodec header).
+        assert!(decode_ed25519_multibase("z").is_err());
+    }
+
+    #[test]
+    fn decode_ed25519_rejects_wrong_payload_length() {
+        // Correct multicodec prefix but a key that is not 32 bytes: the
+        // total decoded payload must be exactly 34 bytes (0xed 0x01 + 32).
+        for key_len in [0usize, 1, 31, 33, 64] {
+            let mut bytes = vec![0xedu8, 0x01];
+            bytes.extend_from_slice(&vec![7u8; key_len]);
+            let mb = encode_multibase_base58btc(&bytes);
+            assert!(
+                decode_ed25519_multibase(&mb).is_err(),
+                "ed25519 multibase must reject {key_len}-byte keys"
+            );
+        }
+        // Bare prefix shorter than the 2-byte multicodec header.
+        let mb = encode_multibase_base58btc([0xedu8]);
+        assert!(decode_ed25519_multibase(&mb).is_err());
+    }
+
+    #[test]
+    fn multicodec_varint_rejects_truncated_and_overlong_headers() {
+        // Truncated: continuation bit set with no following byte.
+        assert!(decode_multicodec_varint(&[0x80]).is_none());
+        assert!(decode_multicodec_varint(&[0xff, 0x80]).is_none());
+        // Empty input carries no varint at all.
+        assert!(decode_multicodec_varint(&[]).is_none());
+        // Overlong: ten continuation bytes exceed the 64-bit ceiling.
+        let overlong = [0xffu8; 10];
+        assert!(decode_multicodec_varint(&overlong).is_none());
+    }
 }

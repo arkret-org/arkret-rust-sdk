@@ -155,8 +155,11 @@ pub const REASON_AUDIT_CAPABILITY_INCOMPLETE: &str = "audit_capability_incomplet
 pub const REASON_WATCH_MUST_BE_SELF: &str = "watch_must_be_self";
 pub const REASON_WATCH_MUTED_MUST_BE_SELF: &str = "watch_muted_must_be_self";
 pub const REASON_WATCH_LEVEL_PUBLIC_MUST_BE_SELF: &str = "watch_level_public_must_be_self";
+// NOTE: the former `manage_others_audit_missing` reason was renamed by the
+// spec (`artifacts/migration/renames.json`, hard_reject) to
+// `watch_set_others_audit_missing`; emitters MUST use
+// [`REASON_WATCH_SET_OTHERS_AUDIT_MISSING`].
 pub const REASON_WATCH_SET_OTHERS_AUDIT_MISSING: &str = "watch_set_others_audit_missing";
-pub const REASON_MANAGE_OTHERS_AUDIT_MISSING: &str = "manage_others_audit_missing";
 
 // Join policy (zh/governance/join-policy.md §4 / §6).
 pub const REASON_JOIN_AUTHORISATION_INVALID: &str = "join_authorisation_invalid";
@@ -560,17 +563,38 @@ pub const KNOWN_REASON_CODES_ROUND_R30: &[&str] = &[
     REASON_VERIFICATION_METHOD_PRINCIPAL_MISMATCH,
 ];
 
-// ── NON-REGISTRY — member identity rejection reasons, pending registration in
-// error-code-registry.json#reason_codes. See zh/models/member-identity.md.
+// ── Member identity rejection reasons (zh/models/member-identity.md).
 //
 // soland emits these wire reason values when rejecting append-only
 // MemberIdentity replacement events (soland error.rs + routing/events/
-// projection/realm.rs). The registry currently has no `member_identity_*`
-// reason entry (only `participant_identity_unrecognised`), so these are
-// EXCLUDED from the subset gate above. Tracked in `_code_review/_gaps.md`
-// for spec-owner registration.
+// projection/realm.rs). Registered in error-code-registry.json#reason_codes
+// (2026-07 reconcile).
 pub const REASON_MEMBER_IDENTITY_PROOF_INVALID: &str = "member_identity_proof_invalid";
 pub const REASON_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH: &str =
     "member_identity_replacement_digest_mismatch";
 pub const REASON_MEMBER_IDENTITY_STATE_MISMATCH: &str = "member_identity_state_mismatch";
 pub const REASON_MEMBER_IDENTITY_UNKNOWN_SEGMENT: &str = "member_identity_unknown_segment";
+
+/// Reason codes registered in the 2026-07 registry reconcile: previously
+/// SDK-declared wire values that had no `error-code-registry.json` entry
+/// (SDK-SPEC-02). Every value MUST be a member of
+/// `error-code-registry.json#reason_codes`.
+pub const KNOWN_REASON_CODES_REGISTRY_RECONCILE_2026_07: &[&str] = &[
+    REASON_PLANE_CROSS_WRITE,
+    REASON_INVALID_TASK_FSM_TRANSITION,
+    REASON_AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING,
+    REASON_AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION,
+    REASON_AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE,
+    REASON_AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED,
+    REASON_AUDIT_AGENT_EPOCH_RANGE_INCOMPLETE,
+    REASON_AUDIT_AGENT_ATTESTATION_MISMATCH,
+    REASON_LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND,
+    REASON_CROSS_SPACE_STRUCTURAL_RELATION,
+    REASON_RELATION_KIND_WATCHES_DERIVED,
+    REASON_RELATION_KIND_CONTAINS_DERIVED,
+    REASON_MLS_GOVERNANCE_BINDING_MISMATCH,
+    REASON_MEMBER_IDENTITY_PROOF_INVALID,
+    REASON_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH,
+    REASON_MEMBER_IDENTITY_STATE_MISMATCH,
+    REASON_MEMBER_IDENTITY_UNKNOWN_SEGMENT,
+];

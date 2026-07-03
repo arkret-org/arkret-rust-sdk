@@ -1156,7 +1156,7 @@ mod tests {
                 .unwrap(),
             kind: crate::OP_MORPH_CREATE.into(),
             realm_id: realm_id.clone(),
-            actor_id: Did::new("did:web:alice.example.com").unwrap(),
+            actor_id: Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
             actor_seq: index as u64,
             created_at: Utc::now(),
             hlc: Hlc::new(format!("01970e589d21-{:04x}-a13f9c2e", index)).unwrap(),
@@ -1177,7 +1177,7 @@ mod tests {
                     "realm_id": realm_id.as_str(),
                     "schema_refs": [crate::MORPH_SCHEMA],
                     "morph_type": "task",
-                    "created_by": "did:web:alice.example.com",
+                    "created_by": "did:webvh:z6mkfixture:alice.example.com",
                     "created_at": "2026-05-02T00:00:00.000Z"
                 }
             }),
@@ -1362,7 +1362,7 @@ mod tests {
         message.kind = "ck.message.create".into();
         message.content = json!({"message_id":"m1","body":"hello"});
         let event_id = message.event_id.clone();
-        let actor = Did::new("did:web:alice.example.com").unwrap();
+        let actor = Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap();
 
         timeline.append_events(vec![message]).unwrap();
         timeline.apply_read_receipt(ReadReceipt {

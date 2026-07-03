@@ -1,3 +1,36 @@
+//! Event Envelope wire models.
+//!
+//! # Forward-compatibility policy for wire enums (per-enum, deliberate)
+//!
+//! The SDK intentionally uses **two different** forward-compatibility
+//! strategies for enums that appear on the wire, and the split is per-enum
+//! policy, not accident:
+//!
+//! - **`EventKind` keeps unknown values** (`EventKind::Unknown(String)`).
+//!   The event-kind registry is an *open, growing* namespace: new `ck.*`
+//!   kinds are added in ordinary spec revisions and vendor kinds exist by
+//!   design. An older SDK deserialising a newer kind preserves the raw wire
+//!   string instead of failing the whole envelope; whether an unknown
+//!   *standard* kind is acceptable is the validation layer's decision
+//!   (`schema_violation`), not the parser's.
+//!
+//! - **Closed-set wire enums hard-reject unknown values** (e.g.
+//!   [`EnvelopeActorKind`], [`EffectiveScope`], cursor purpose, subscribe
+//!   frame kinds): no `#[serde(other)]` catch-all, so an unrecognised value
+//!   fails deserialisation of the surrounding object. These enums gate
+//!   authorization, scope and stream-control decisions; silently mapping an
+//!   unknown value to a default could *widen* what the message is allowed to
+//!   do. `conformance-profiles.md` requires implementations to reject
+//!   illegal enum values — hard failure is the fail-closed behaviour, and a
+//!   spec revision that extends a closed set is a coordinated upgrade, not a
+//!   silent downgrade.
+//!
+//! Consequently: adding an event kind is a non-breaking registry evolution
+//! (old SDKs keep parsing), while extending a closed-set enum intentionally
+//! interrupts old parsers rather than letting them mis-authorize. The
+//! affected enums additionally carry `#[non_exhaustive]` so downstream
+//! `match` code is written with a fail-closed `_` arm from day one.
+
 use std::collections::BTreeSet;
 
 use super::*;
@@ -135,9 +168,17 @@ where
 ///   arrive with a client-supplied value (return `actor_kind_reducer_managed`).
 /// - The serialized wire form on the Envelope is the field name `actor_kind`, distinct from the
 ///   `ActorProfile.actor_kind` slot.
+///
+/// `#[non_exhaustive]`: a future spec revision may register additional
+/// runtime-origin classifiers. Downstream `match` expressions MUST carry a
+/// `_` arm with fail-closed semantics (treat an unrecognised classifier as
+/// not satisfying any privileged-origin check). Deserialisation itself stays
+/// closed-set: an unknown wire value still fails the parse (fail-closed per
+/// conformance-profiles.md: implementations MUST reject illegal enum values).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum EnvelopeActorKind {
     /// Envelope originated from a native device controlled by the principal.
     Native,
@@ -394,9 +435,16 @@ impl TryFrom<EventWire> for Event {
 /// The wire form is an internally-tagged JSON object on `kind`:
 /// - `{ "kind": "realm", "realm_id": "ck:realm:..." }`
 /// - `{ "kind": "circle", "realm_id": "ck:realm:...", "circle_id": "ck:circle:..." }`
+///
+/// `#[non_exhaustive]`: a future spec revision may register additional scope
+/// kinds. Downstream `match` expressions MUST carry a `_` arm with
+/// fail-closed semantics (treat an unrecognised scope as out-of-scope /
+/// denied, never as Realm-wide). Deserialisation itself stays closed-set: an
+/// unknown `kind` still fails the parse.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum EffectiveScope {
     /// Event was emitted under Realm-default encryption scope.
     Realm { realm_id: RealmId },
@@ -629,7 +677,7 @@ mod event_wire_surface_tests {
     }
 
     fn alice() -> Did {
-        Did::new("did:web:alice.example").unwrap()
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
     }
 
     fn base_event() -> Event {

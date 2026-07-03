@@ -133,7 +133,7 @@ mod tests {
         let bob_shared = bob
             .compute_shared_secret(&alice.public_base64())
             .expect("bob shared");
-        let info = b"strand-7|did:web:alice|alice-device|did:web:bob|bob-device";
+        let info = b"strand-7|did:webvh:z6mkfixture:alice|alice-device|did:webvh:z6mkfixture:bob|bob-device";
         let sas_alice = derive_sas_bytes(&alice_shared[..], info);
         let sas_bob = derive_sas_bytes(&bob_shared[..], info);
         assert_eq!(sas_alice, sas_bob);
@@ -273,7 +273,7 @@ mod tests {
     }
 
     fn did(name: &str) -> Did {
-        Did::new(format!("did:web:{name}.example")).unwrap()
+        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
     fn dev(name: &str) -> DeviceId {

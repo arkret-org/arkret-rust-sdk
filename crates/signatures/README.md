@@ -42,9 +42,9 @@ use cokret_signatures::{
 use cokret_signatures::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier};
 use serde_json::json;
 
-let signer = Ed25519DetachedJwsSigner::from_seed([1u8; 32], "did:web:alice.example#key-1");
+let signer = Ed25519DetachedJwsSigner::from_seed([1u8; 32], "did:webvh:z6mkfixture:alice.example#key-1");
 let builder = EventProofBuilder::new();
-let bytes = builder.canonical_bytes(&json!({"actor_id": "did:web:alice.example"})).unwrap();
+let bytes = builder.canonical_bytes(&json!({"actor_id": "did:webvh:z6mkfixture:alice.example"})).unwrap();
 let signature = signer.sign(&bytes).unwrap();
 
 let verifier = ProductionVerifier::wrap(Ed25519DetachedJwsVerifier::new());

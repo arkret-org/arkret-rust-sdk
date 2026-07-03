@@ -42,6 +42,18 @@ fn collect_json_artifact_paths(root: &Path, dir: &Path, out: &mut BTreeSet<Strin
 #[test]
 fn embedded_spec_artifacts_match_live_spec_when_available() {
     let Some(artifacts_dir) = local_spec_artifacts_dir() else {
+        // Without a spec checkout this drift gate cannot run. By default it
+        // skips (downstream consumers build the SDK without the spec repo),
+        // but environments that exist to enforce the gate — CI with a spec
+        // co-checkout, release runners — set COKRET_REQUIRE_SPEC=1 so a
+        // missing/misconfigured spec path fails loudly instead of silently
+        // passing (SDK-TEST-07).
+        if std::env::var("COKRET_REQUIRE_SPEC").as_deref() == Ok("1") {
+            panic!(
+                "COKRET_REQUIRE_SPEC=1 but no spec artifacts directory was found; \
+                 set COKRET_SPEC_ARTIFACTS or provide a ../cokret-spec co-checkout"
+            );
+        }
         return;
     };
     let embedded: BTreeSet<String> = embedded_spec_artifact_paths()
@@ -130,6 +142,392 @@ fn federation_fixture_expected_digest_matches_sdk_canonicalizer() {
     );
 }
 
+/// Execute every vector in the spec `encoding-fixture.json` against the SDK's
+/// first-party implementations (canonical JSON, digests, HLC ordering, cursor
+/// opaqueness, base64url). Unknown vector kinds fail the test so newly added
+/// spec vectors cannot be silently skipped.
+#[test]
+fn encoding_fixture_vectors_execute_against_sdk() {
+    let fixture = fixture_artifact("encoding-fixture.json");
+    let vectors = fixture
+        .get("vectors")
+        .and_then(Value::as_array)
+        .expect("encoding fixture missing vectors");
+    assert!(!vectors.is_empty());
+
+    for vector in vectors {
+        let vector_id = vector
+            .get("vector_id")
+            .and_then(Value::as_str)
+            .expect("encoding vector missing vector_id");
+        let kind = vector
+            .get("kind")
+            .and_then(Value::as_str)
+            .expect("encoding vector missing kind");
+        match kind {
+            "canonical_json" | "canonical_json_digest" => {
+                let input = vector.get("input").expect("vector missing input");
+                let bytes = crate::canonical::canonical_json_bytes(input)
+                    .unwrap_or_else(|error| panic!("{vector_id}: canonicalize failed: {error}"));
+                if let Some(expected) = vector
+                    .get("expected_canonical_bytes_utf8")
+                    .and_then(Value::as_str)
+                {
+                    assert_eq!(
+                        std::str::from_utf8(&bytes).unwrap(),
+                        expected,
+                        "{vector_id}: canonical bytes drifted"
+                    );
+                }
+                if let Some(expected) = vector.get("expected_digest").and_then(Value::as_str) {
+                    assert_eq!(
+                        crate::canonical::sha256_digest(&bytes),
+                        expected,
+                        "{vector_id}: digest drifted"
+                    );
+                }
+            }
+            "canonical_json_with_ciphertext_digest" => {
+                let metadata = vector
+                    .get("payload_metadata")
+                    .expect("vector missing payload_metadata");
+                let metadata_bytes = crate::canonical::canonical_json_bytes(metadata).unwrap();
+                assert_eq!(
+                    std::str::from_utf8(&metadata_bytes).unwrap(),
+                    vector["expected_metadata_canonical_bytes_utf8"]
+                        .as_str()
+                        .unwrap(),
+                    "{vector_id}: metadata canonical bytes drifted"
+                );
+                let ciphertext = crate::base64url::base64url_decode(
+                    vector["ciphertext_base64url"].as_str().unwrap(),
+                )
+                .unwrap();
+                assert_eq!(
+                    ciphertext,
+                    vector["ciphertext_bytes_utf8"].as_str().unwrap().as_bytes(),
+                    "{vector_id}: ciphertext base64url decode drifted"
+                );
+                let mut digest_input = metadata_bytes;
+                digest_input.extend_from_slice(&ciphertext);
+                assert_eq!(
+                    crate::canonical::sha256_digest(&digest_input),
+                    vector["expected_digest"].as_str().unwrap(),
+                    "{vector_id}: envelope digest drifted"
+                );
+                assert_eq!(
+                    crate::canonical::canonical_sha256(&metadata["aad"]).unwrap(),
+                    vector["aad_digest"].as_str().unwrap(),
+                    "{vector_id}: aad digest drifted"
+                );
+            }
+            "canonical_json_reject" => {
+                if let Some(rejected) = vector.get("rejected_inputs").and_then(Value::as_array) {
+                    for entry in rejected {
+                        if let Some(literal) = entry.get("n").and_then(Value::as_str) {
+                            // The fixture carries non-JSON literals (NaN /
+                            // Infinity / -Infinity) as strings; reconstruct
+                            // the raw JSON text they describe.
+                            let raw = format!("{{\"n\":{literal}}}");
+                            assert!(
+                                crate::canonical::parse_canonical_json(raw.as_bytes()).is_err(),
+                                "{vector_id}: raw literal {literal} must reject"
+                            );
+                        } else if entry.get("n_literal").is_some() {
+                            // JSON number 1.0: reject at both the value layer
+                            // (float in canonical emit) and the raw ingress.
+                            assert!(
+                                crate::canonical::canonical_json_bytes(&json!({"n": 1.0})).is_err(),
+                                "{vector_id}: float value 1.0 must reject"
+                            );
+                            assert!(
+                                crate::canonical::parse_canonical_json(br#"{"n":1.0}"#).is_err(),
+                                "{vector_id}: raw 1.0 must reject"
+                            );
+                        } else if entry.get("n_literal_alt").is_some() {
+                            assert!(
+                                crate::canonical::parse_canonical_json(br#"{"n":1e0}"#).is_err(),
+                                "{vector_id}: raw 1e0 must reject"
+                            );
+                        } else {
+                            panic!("{vector_id}: unknown rejected_inputs entry {entry}");
+                        }
+                    }
+                    // rules: "-0 MUST reject".
+                    assert!(
+                        crate::canonical::parse_canonical_json(br#"{"n":-0}"#).is_err(),
+                        "{vector_id}: raw -0 must reject"
+                    );
+                } else {
+                    // reject_malformed_json: prose input classes; execute one
+                    // representative raw input per declared class.
+                    let classes = vector
+                        .get("rejected_input_classes")
+                        .and_then(Value::as_array)
+                        .unwrap_or_else(|| panic!("{vector_id}: missing rejected_input_classes"));
+                    assert!(!classes.is_empty());
+                    let representatives: [&[u8]; 5] = [
+                        b"{\"a\":\"\xff\"}",         // malformed UTF-8
+                        br#"{"a":1,"a":2}"#,          // duplicate keys
+                        br#"{"a":"\ud800"}"#,         // lone surrogate escape
+                        br#"{"n":NaN}"#,              // non-standard literal
+                        br#"{"n":1.5}"#,              // non-integer number
+                    ];
+                    for raw in representatives {
+                        assert!(
+                            crate::canonical::parse_canonical_json(raw).is_err(),
+                            "{vector_id}: raw input {:?} must reject",
+                            String::from_utf8_lossy(raw)
+                        );
+                    }
+                }
+            }
+            "canonical_json_reject_raw" => {
+                let input_hex = vector
+                    .get("input_hex")
+                    .and_then(Value::as_str)
+                    .unwrap_or_else(|| panic!("{vector_id}: missing input_hex"));
+                let bytes = hex_decode(input_hex)
+                    .unwrap_or_else(|| panic!("{vector_id}: input_hex is not valid hex"));
+                match crate::canonical::parse_canonical_json(&bytes) {
+                    Err(_) => {}
+                    Ok(value) => {
+                        // The bytes are canonical JSON; the rejection layer is
+                        // the typed field validator (malformed HLC case).
+                        let hlc = value.get("hlc").and_then(Value::as_str).unwrap_or_else(|| {
+                            panic!("{vector_id}: input unexpectedly accepted end-to-end")
+                        });
+                        assert!(
+                            crate::Hlc::new(hlc).is_err(),
+                            "{vector_id}: malformed HLC {hlc:?} must reject"
+                        );
+                    }
+                }
+            }
+            "ordering" => {
+                let inputs = vector
+                    .get("input")
+                    .and_then(Value::as_array)
+                    .unwrap_or_else(|| panic!("{vector_id}: missing input array"));
+                let mut hlcs = inputs
+                    .iter()
+                    .map(|value| crate::Hlc::new(value.as_str().unwrap()).unwrap())
+                    .collect::<Vec<_>>();
+                hlcs.sort();
+                let sorted = hlcs.iter().map(crate::Hlc::as_str).collect::<Vec<_>>();
+                let expected = vector["expected_ascending"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|value| value.as_str().unwrap())
+                    .collect::<Vec<_>>();
+                assert_eq!(sorted, expected, "{vector_id}: HLC ordering drifted");
+            }
+            "producer_constraint" => {
+                // hlc_logical_overflow: the saturated HLC parses, and the
+                // "wait for the next millisecond" outcome sorts strictly
+                // after it while a wrap-around would sort before it (the
+                // declared fail condition). The producer-side error path is
+                // exercised by `cokret::hlc` generator tests.
+                let last = crate::Hlc::new(
+                    vector["input"]["last_emitted_hlc"].as_str().unwrap(),
+                )
+                .unwrap();
+                let outcomes = vector["expected_acceptable_outcomes"].as_array().unwrap();
+                let wait_outcome = outcomes
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .find_map(|outcome| outcome.split("then emit ").nth(1))
+                    .expect("overflow vector must describe the wait-then-emit outcome");
+                let waited = crate::Hlc::new(wait_outcome.trim()).unwrap();
+                assert!(waited > last, "{vector_id}: waited HLC must sort after");
+                let wrapped = crate::Hlc::new("01970e589d21-0000-a13f9c2e").unwrap();
+                assert!(
+                    wrapped < last,
+                    "{vector_id}: a wrapped logical counter sorts before the last emitted HLC"
+                );
+            }
+            "cursor_opaqueness" => {
+                let token = vector["input_cursor"].as_str().unwrap();
+                let body = token
+                    .strip_prefix("ck:cursor:")
+                    .unwrap_or_else(|| panic!("{vector_id}: cursor missing ck:cursor: prefix"));
+                let bytes = crate::base64url::base64url_decode(body).unwrap();
+                let expected = vector["decoded_payload_canonical_bytes_utf8"]
+                    .as_str()
+                    .unwrap();
+                assert_eq!(
+                    std::str::from_utf8(&bytes).unwrap(),
+                    expected,
+                    "{vector_id}: decoded cursor payload drifted"
+                );
+                // The payload is byte-for-byte canonical JSON.
+                crate::canonical::validate_canonical_bytes(&bytes).unwrap();
+                // The wire shape parses into the v1 core cursor body and
+                // round-trips verbatim (client opaqueness: same bytes out).
+                let cursor: crate::cursor::Cursor =
+                    crate::canonical::from_canonical_json_slice(&bytes).unwrap();
+                assert_eq!(cursor.v, "1", "{vector_id}: cursor version drifted");
+                let reencoded = crate::canonical::canonical_json_bytes(&cursor).unwrap();
+                assert_eq!(reencoded, bytes, "{vector_id}: cursor re-encode not verbatim");
+                assert_eq!(
+                    format!(
+                        "ck:cursor:{}",
+                        crate::base64url::base64url_encode(&reencoded)
+                    ),
+                    token,
+                    "{vector_id}: cursor token round-trip not verbatim"
+                );
+            }
+            "canonical_json_reject_generated" => {
+                // Generator-described input (the fixture stores parameters,
+                // the runner builds the literal): deep-nesting depth cap.
+                let generator = vector.get("generator").expect("vector missing generator");
+                assert_eq!(generator["kind"].as_str().unwrap(), "deep_nesting");
+                let depth = generator["nesting_depth"].as_u64().unwrap() as usize;
+                let build_nested = |levels: usize| -> Vec<u8> {
+                    let mut raw = String::new();
+                    for _ in 0..levels {
+                        raw.push_str("{\"a\":");
+                    }
+                    raw.push('1');
+                    for _ in 0..levels {
+                        raw.push('}');
+                    }
+                    raw.into_bytes()
+                };
+                assert!(
+                    crate::canonical::parse_canonical_json(&build_nested(depth)).is_err(),
+                    "{vector_id}: depth-{depth} object must reject"
+                );
+                // Mixed object/array variant of the same depth must also reject.
+                let mut mixed = String::new();
+                for level in 0..depth {
+                    mixed.push_str(if level % 2 == 0 { "{\"a\":" } else { "[" });
+                }
+                mixed.push('1');
+                for level in (0..depth).rev() {
+                    mixed.push(if level % 2 == 0 { '}' } else { ']' });
+                }
+                assert!(
+                    crate::canonical::parse_canonical_json(mixed.as_bytes()).is_err(),
+                    "{vector_id}: mixed depth-{depth} nesting must reject"
+                );
+                // Control: depth exactly 64 is inclusive and MUST be accepted.
+                crate::canonical::parse_canonical_json(&build_nested(depth - 1))
+                    .unwrap_or_else(|error| {
+                        panic!("{vector_id}: depth-{} control must accept: {error}", depth - 1)
+                    });
+            }
+            "cbor_reject_raw" => {
+                let input_hex = vector
+                    .get("input_hex")
+                    .and_then(Value::as_str)
+                    .unwrap_or_else(|| panic!("{vector_id}: missing input_hex"));
+                let bytes = hex_decode(input_hex)
+                    .unwrap_or_else(|| panic!("{vector_id}: input_hex is not valid hex"));
+                assert!(
+                    crate::models::MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes)
+                        .is_err(),
+                    "{vector_id}: raw CBOR must reject"
+                );
+            }
+            "cbor_reject_generated" => {
+                let generator = vector.get("generator").expect("vector missing generator");
+                assert_eq!(generator["kind"].as_str().unwrap(), "cbor_array_items");
+                let count = generator["array_item_count"].as_u64().unwrap();
+                // Per the fixture rule: definite-length array header declaring
+                // `count` items followed by `count` encodings of unsigned
+                // integer 0 (one byte each).
+                let mut raw: Vec<u8> = vec![0x9a];
+                raw.extend_from_slice(&(count as u32).to_be_bytes());
+                raw.extend(std::iter::repeat_n(0x00u8, count as usize));
+                let err = crate::models::MlsGovernanceBindingPayload::from_deterministic_cbor(
+                    &raw,
+                )
+                .expect_err("oversized CBOR array must reject");
+                assert!(
+                    err.to_string().contains("65536"),
+                    "{vector_id}: rejection must be the container-item bound, got: {err}"
+                );
+            }
+            "multibase_did_key" => {
+                // ck.vector.encoding.multibase_did_key.core.v1: base58btc
+                // multibase of Ed25519 public keys (0xed01 multicodec prefix)
+                // and the resulting did:key identifier, plus decode round-trip.
+                let cases = vector
+                    .get("cases")
+                    .and_then(Value::as_array)
+                    .unwrap_or_else(|| panic!("{vector_id}: missing cases"));
+                for case in cases {
+                    let label = case["label"].as_str().unwrap_or("<unlabelled>");
+                    let key_bytes = hex_decode(case["public_key_hex"].as_str().unwrap())
+                        .unwrap_or_else(|| panic!("{vector_id}/{label}: bad public_key_hex"));
+                    let key: [u8; 32] = key_bytes
+                        .as_slice()
+                        .try_into()
+                        .unwrap_or_else(|_| panic!("{vector_id}/{label}: key must be 32 bytes"));
+                    let multibase = crate::multibase::ed25519_pubkey_to_did_key_multibase(&key);
+                    assert_eq!(
+                        multibase,
+                        case["expected_multibase"].as_str().unwrap(),
+                        "{vector_id}/{label}: multibase encoding drift"
+                    );
+                    assert_eq!(
+                        format!("did:key:{multibase}"),
+                        case["expected_did_key"].as_str().unwrap(),
+                        "{vector_id}/{label}: did:key identifier drift"
+                    );
+                    let decoded = crate::multibase::decode_ed25519_multibase(&multibase)
+                        .unwrap_or_else(|error| {
+                            panic!("{vector_id}/{label}: decode round-trip failed: {error}")
+                        });
+                    assert_eq!(decoded, key, "{vector_id}/{label}: decode round-trip drift");
+                }
+            }
+            other => panic!(
+                "encoding vector {vector_id} has unknown kind {other}; extend this driver"
+            ),
+        }
+    }
+
+    // Top-level rank_order block: hex-Base32 rank strings order items by
+    // plain byte comparison in the fixed single-character profile.
+    let rank_order = fixture
+        .get("rank_order")
+        .and_then(Value::as_array)
+        .expect("encoding fixture missing rank_order");
+    let mut sorted = rank_order.clone();
+    sorted.sort_by(|left, right| {
+        left["rank"]
+            .as_str()
+            .unwrap()
+            .cmp(right["rank"].as_str().unwrap())
+    });
+    let actual = sorted
+        .iter()
+        .map(|entry| entry["strand_id"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    let expected = fixture["expected_order"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry.as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(actual, expected, "rank_order drifted");
+}
+
+/// Minimal hex decoder for fixture `input_hex` payloads.
+fn hex_decode(input: &str) -> Option<Vec<u8>> {
+    if input.len() % 2 != 0 {
+        return None;
+    }
+    (0..input.len())
+        .step_by(2)
+        .map(|idx| u8::from_str_radix(&input[idx..idx + 2], 16).ok())
+        .collect()
+}
+
 #[test]
 fn event_payload_catalog_validates_known_payload_fields() {
     let catalog = event_payload_validator_catalog().unwrap();
@@ -189,7 +587,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // invite transition (non-join): only `membership` is structurally required.
     let invite = MembershipPayload::transition(
         MembershipPayloadState::Invite,
-        crate::models::Did::new("did:web:bob.example").unwrap(),
+        crate::models::Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
         "space_create",
     );
     catalog
@@ -200,7 +598,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // required, but delivery_binding only when routable.
     let join = MembershipPayload::join(
         crate::models::RealmId::new("ck:realm:01904100-0000-7000-8000-111111111111").unwrap(),
-        crate::models::Did::new("did:web:bob.example").unwrap(),
+        crate::models::Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
         DeliveryStatus::Unroutable,
         "invite_accept",
     )
@@ -234,8 +632,8 @@ fn invite_payload_strong_types_pass_spec_validator() {
     // introduction_evidence_digest + expires_at), with an `x_role` extension.
     let create = InviteCreatePayload::new(
         InviteId::new("ck:invite:01904100-0000-7000-8000-111111111111").unwrap(),
-        Did::new("did:web:bob.example").unwrap(),
-        InviteDeliveryTarget::principal_server(Did::new("did:web:ps.example").unwrap()),
+        Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+        InviteDeliveryTarget::principal_server(Did::new("did:webvh:z6mkfixture:ps.example").unwrap()),
         Hash::new("sha256:".to_owned() + &"a".repeat(64)).unwrap(),
         chrono::Utc::now() + chrono::Duration::days(7),
     )
@@ -332,7 +730,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     let board = || SpaceId::new("ck:space:01904100-0000-7000-8000-111111111111").unwrap();
     let target = || SpaceId::new("ck:space:01904100-0000-7000-8000-222222222222").unwrap();
     let strand = || StrandId::new("ck:strand:01904100-0000-7000-8000-6c663fa0205f").unwrap();
-    let actor = || Did::new("did:web:alice.example").unwrap();
+    let actor = || Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
 
     // ck.strand.move — board/target Space ids + rank; from_space_id +
     // expected_position optional. Destination is single-sourced by
@@ -494,7 +892,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
 
     // plaintext_visible_services: required item fields strongly typed.
     let services = PlaintextVisibleServicesPayload::new(vec![PlaintextVisibleService::new(
-        Did::new("did:web:index.example").unwrap(),
+        Did::new("did:webvh:z6mkfixture:index.example").unwrap(),
         "principal_server",
         vec![
             PlaintextDataClassKind::MessageContent,
@@ -773,9 +1171,9 @@ fn artifact_payload_catalog_enforces_invite_create_payload_shape() {
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
     let payload = json!({
         "invite_id": "ck:invite:01904100-0000-7000-8000-000000000001",
-        "invitee": "did:web:bob.example",
+        "invitee": "did:webvh:z6mkfixture:bob.example",
         "invite_delivery_target": {
-            "recipient_service_did": "did:web:server.example",
+            "recipient_service_did": "did:webvh:z6mkfixture:server.example",
             "recipient_service_type": "principal_server"
         },
         "introduction_evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
@@ -830,18 +1228,18 @@ fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
     };
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
     let key = json!({
-        "kid": "did:web:alice.example#psk-1",
+        "kid": "did:webvh:z6mkfixture:alice.example#psk-1",
         "alg": "EdDSA",
         "public_key": "z6MkiExample",
         "key_format": "multibase"
     });
     let subordinate_key = json!({
-        "kid": "did:web:alice.example#ssk-1",
+        "kid": "did:webvh:z6mkfixture:alice.example#ssk-1",
         "alg": "EdDSA",
         "public_key": "z6MkiExampleSub",
         "key_format": "multibase",
         "binding": {
-            "verification_method": "did:web:alice.example#psk-1",
+            "verification_method": "did:webvh:z6mkfixture:alice.example#psk-1",
             "alg": "EdDSA",
             "signature": "sig"
         }
@@ -850,7 +1248,7 @@ fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
         .validate_payload(
             crate::events::CROSS_SIGNING_PUBLISH,
             &json!({
-                "principal_id": "did:web:alice.example",
+                "principal_id": "did:webvh:z6mkfixture:alice.example",
                 "trust_domain": "ck:trust_domain:example.net",
                 "principal_signing_key": key,
                 "self_signing_key": subordinate_key,
@@ -866,7 +1264,7 @@ fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
             .validate_payload(
                 crate::events::CROSS_SIGNING_PUBLISH,
                 &json!({
-                    "principal_id": "did:web:alice.example",
+                    "principal_id": "did:webvh:z6mkfixture:alice.example",
                     "principal_signing_key": key,
                     "self_signing_key": subordinate_key,
                     "user_signing_key": subordinate_key,

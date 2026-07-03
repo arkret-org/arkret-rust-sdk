@@ -5,7 +5,7 @@ use crate::{DeviceId, Event, EventRequirements, Hlc, OperationType};
 fn sessioned_base() -> Arc<BaseClient> {
     let base_client = Arc::new(BaseClient::new());
     let meta = SessionMeta::new(
-        Did::new("did:web:alice.example.com").unwrap(),
+        Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
         DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
     );
     base_client.set_session_meta(meta).unwrap();
@@ -17,7 +17,7 @@ fn event(kind: &str, seq: u64, realm_id: &RealmId, content: Value) -> Event {
         event_id: EventId::new(format!("ck:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.into(),
         realm_id: realm_id.clone(),
-        actor_id: Did::new("did:web:alice.example.com").unwrap(),
+        actor_id: Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
         actor_seq: seq,
         created_at: Utc::now(),
         hlc: Hlc::new(format!("01970e589d21-{seq:04x}-a13f9c2e")).unwrap(),
@@ -51,7 +51,7 @@ fn morph_create_payload(morph_id: &MorphId, morph_type: &str, title: &str) -> Va
             "schema_refs": [crate::MORPH_SCHEMA],
             "morph_type": morph_type,
             "metadata": {"title": title},
-            "created_by": "did:web:alice.example.com",
+            "created_by": "did:webvh:z6mkfixture:alice.example.com",
             "created_at": "2026-05-02T00:00:00.000Z"
         }
     })
@@ -158,7 +158,7 @@ fn realm_creates_strand_operations_and_reads_default_view_relations() {
                             "realm_id": realm_id.as_str(),
                             "metadata": {"title": "Payment refactor"},
                             "tracks": {"synthesis": {}},
-                            "created_by": "did:web:alice.example.com",
+                            "created_by": "did:webvh:z6mkfixture:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z"
                         }
                     }),
@@ -175,7 +175,7 @@ fn realm_creates_strand_operations_and_reads_default_view_relations() {
                             "relation_kind": "has_default_view",
                             "from_ref": strand_id.as_str(),
                             "to_ref": "ck:view:01904100-0000-7000-8000-08ca7b733afd",
-                            "created_by": "did:web:alice.example.com",
+                            "created_by": "did:webvh:z6mkfixture:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z",
                             "fields": {"primary": true}
                         }
@@ -237,7 +237,7 @@ fn realm_queries_searches_and_aggregates_morphs() {
                             "metadata": {"title": "Alpha task"},
                             "content": {"kind": "ck.content.text", "body": "implement local search"},
                             "fields": {"status": "todo", "priority": 2},
-                            "created_by": "did:web:alice.example.com",
+                            "created_by": "did:webvh:z6mkfixture:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z"
                         }
                     }),
@@ -255,7 +255,7 @@ fn realm_queries_searches_and_aggregates_morphs() {
                             "morph_type": "document",
                             "metadata": {"title": "Spec"},
                             "fields": {"status": "done", "priority": 1},
-                            "created_by": "did:web:alice.example.com",
+                            "created_by": "did:webvh:z6mkfixture:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z"
                         }
                     }),
@@ -323,19 +323,19 @@ fn realm_traverses_relation_ref_graph_paths_and_cycles() {
                     OP_RELATION_CREATE,
                     4,
                     &realm_id,
-                    json!({"relation": {"id": "ck:relation:01904100-0000-7000-8000-7b3bf7d6e46b", "schema": crate::RELATION_SCHEMA, "realm_id": realm_id.as_str(), "relation_kind": "depends_on", "from_ref": a, "to_ref": b, "created_by": "did:web:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
+                    json!({"relation": {"id": "ck:relation:01904100-0000-7000-8000-7b3bf7d6e46b", "schema": crate::RELATION_SCHEMA, "realm_id": realm_id.as_str(), "relation_kind": "depends_on", "from_ref": a, "to_ref": b, "created_by": "did:webvh:z6mkfixture:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
                 ),
                 event(
                     OP_RELATION_CREATE,
                     5,
                     &realm_id,
-                    json!({"relation": {"id": "ck:relation:01904100-0000-7000-8000-8b48e0461d8c", "schema": crate::RELATION_SCHEMA, "realm_id": realm_id.as_str(), "relation_kind": "depends_on", "from_ref": b, "to_ref": c, "created_by": "did:web:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
+                    json!({"relation": {"id": "ck:relation:01904100-0000-7000-8000-8b48e0461d8c", "schema": crate::RELATION_SCHEMA, "realm_id": realm_id.as_str(), "relation_kind": "depends_on", "from_ref": b, "to_ref": c, "created_by": "did:webvh:z6mkfixture:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
                 ),
                 event(
                     OP_RELATION_CREATE,
                     6,
                     &realm_id,
-                    json!({"relation": {"id": "ck:relation:01904100-0000-7000-8000-f891fd92960d", "schema": crate::RELATION_SCHEMA, "realm_id": realm_id.as_str(), "relation_kind": "depends_on", "from_ref": c, "to_ref": a, "created_by": "did:web:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
+                    json!({"relation": {"id": "ck:relation:01904100-0000-7000-8000-f891fd92960d", "schema": crate::RELATION_SCHEMA, "realm_id": realm_id.as_str(), "relation_kind": "depends_on", "from_ref": c, "to_ref": a, "created_by": "did:webvh:z6mkfixture:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
                 ),
             ],
         )
@@ -382,7 +382,7 @@ fn realm_tracks_morph_versions_compares_and_rolls_back() {
                             "morph_type": "task",
                             "metadata": {"title": "Initial"},
                             "fields": {"status": "todo"},
-                            "created_by": "did:web:alice.example.com",
+                            "created_by": "did:webvh:z6mkfixture:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z"
                         }
                     }),
@@ -466,7 +466,7 @@ fn realm_provides_message_membership_and_media_convenience_helpers() {
     let base_client = sessioned_base();
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let realm = Realm::new(realm_id.clone(), base_client.clone());
-    let bob = Did::new("did:web:bob.example.com").unwrap();
+    let bob = Did::new("did:webvh:z6mkfixture:bob.example.com").unwrap();
 
     let text = realm.send_text("hello").unwrap();
     assert_eq!(text.object_type, "ck.message.create");
@@ -532,8 +532,8 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000300").unwrap();
     let realm = Realm::new(realm_id.clone(), base_client);
 
-    let subject = Did::new("did:web:bob.example".to_owned()).unwrap();
-    let principal = Did::new("did:web:principal.acme.example".to_owned()).unwrap();
+    let subject = Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap();
+    let principal = Did::new("did:webvh:z6mkfixture:principal.acme.example".to_owned()).unwrap();
     let mut modes = std::collections::BTreeSet::new();
     modes.insert(DeliveryMode::Events);
     modes.insert(DeliveryMode::Sync);
@@ -559,7 +559,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
         proofs: vec![serde_json::json!({
             "kind": "detached_jws",
             "alg": "EdDSA",
-            "verification_method": "did:web:principal.acme.example#key-1",
+            "verification_method": "did:webvh:z6mkfixture:principal.acme.example#key-1",
             "payload_digest": "sha256:00000000000000000000000000000000000000000000000000000000000000aa",
             "created_at": "2026-05-19T00:00:00Z",
             "audience": realm_id.as_str(),
@@ -591,11 +591,11 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000301").unwrap();
     let realm = Realm::new(realm_id, base_client);
 
-    let principal = Did::new("did:web:principal.acme.example".to_owned()).unwrap();
+    let principal = Did::new("did:webvh:z6mkfixture:principal.acme.example".to_owned()).unwrap();
     let mut modes = std::collections::BTreeSet::new();
     modes.insert(DeliveryMode::Events);
     let candidate = MemberDeliveryBindingCandidate {
-        subject_id: Did::new("did:web:bob.example".to_owned()).unwrap(),
+        subject_id: Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
         handle: Handle::parse("bob:acme.example").unwrap(),
         handle_aliases: vec![],
         member_delivery_binding: DeliveryBindingHint {

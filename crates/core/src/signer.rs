@@ -122,7 +122,7 @@ pub trait MoveSigner {
     /// to sign Moves; for Seals this is one of the notary-set members.
     fn signer_did(&self) -> &Did;
 
-    /// The verification method id (e.g. `did:web:alice.example#key-1`)
+    /// The verification method id (e.g. `did:webvh:z6mkfixture:alice.example#key-1`)
     /// the signer will publish as `MoveSignature.verification_method`.
     fn verification_method_id(&self) -> &str;
 
@@ -707,7 +707,7 @@ mod tests {
     }
 
     fn alice() -> Did {
-        Did::new("did:web:alice.example".to_owned()).unwrap()
+        Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap()
     }
 
     fn seal_id(byte: u8) -> SealId {
@@ -787,7 +787,7 @@ mod tests {
     fn signer() -> StubSigner {
         StubSigner {
             did: alice(),
-            kid: "did:web:alice.example#key-1".to_owned(),
+            kid: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
         }
     }
 
@@ -822,14 +822,14 @@ mod tests {
         m.validate_id().unwrap();
         m.validate_structural().unwrap();
         assert_eq!(m.issuer, alice());
-        assert_eq!(m.sig.verification_method, "did:web:alice.example#key-1");
+        assert_eq!(m.sig.verification_method, "did:webvh:z6mkfixture:alice.example#key-1");
     }
 
     #[test]
     fn move_sign_rejects_issuer_mismatch() {
         let other = StubSigner {
-            did: Did::new("did:web:bob.example".to_owned()).unwrap(),
-            kid: "did:web:bob.example#key-1".to_owned(),
+            did: Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
+            kid: "did:webvh:z6mkfixture:bob.example#key-1".to_owned(),
         };
         let err = Move::sign(&unsigned_move(), &other).unwrap_err();
         assert!(format!("{err}").contains("does not match signer DID"));
@@ -864,7 +864,7 @@ mod tests {
             hash(0x77),
             hlc(),
             2,
-            vec![alice(), Did::new("did:web:bob.example".to_owned()).unwrap()],
+            vec![alice(), Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap()],
             "BLS_AGG".to_owned(),
         )
         .unwrap();
@@ -900,8 +900,8 @@ mod tests {
     fn seal_sign_multi_collects_one_sig_per_signer() {
         let alice = signer();
         let bob = StubSigner {
-            did: Did::new("did:web:bob.example".to_owned()).unwrap(),
-            kid: "did:web:bob.example#key-1".to_owned(),
+            did: Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
+            kid: "did:webvh:z6mkfixture:bob.example#key-1".to_owned(),
         };
         let signers: &[&dyn MoveSigner] = &[&alice, &bob];
         let a = Seal::sign_multi(
@@ -948,11 +948,11 @@ mod tests {
     // -------------------------------------------------------------------
 
     fn bob() -> Did {
-        Did::new("did:web:bob.example".to_owned()).unwrap()
+        Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap()
     }
 
     fn carol() -> Did {
-        Did::new("did:web:carol.example".to_owned()).unwrap()
+        Did::new("did:webvh:z6mkfixture:carol.example".to_owned()).unwrap()
     }
 
     fn fixture_canonical_bytes() -> Vec<u8> {
@@ -971,14 +971,14 @@ mod tests {
         agg.add_partial(PartialSignature::new(
             alice(),
             vec![1u8; 64],
-            "did:web:alice.example#key-1",
+            "did:webvh:z6mkfixture:alice.example#key-1",
         ))
         .unwrap();
         assert!(!agg.threshold_met());
         agg.add_partial(PartialSignature::new(
             bob(),
             vec![2u8; 64],
-            "did:web:bob.example#key-1",
+            "did:webvh:z6mkfixture:bob.example#key-1",
         ))
         .unwrap();
         assert!(agg.threshold_met());
@@ -1052,13 +1052,13 @@ mod tests {
         agg.add_partial(PartialSignature::new(
             alice(),
             vec![1u8; 64],
-            "did:web:alice.example#key-1",
+            "did:webvh:z6mkfixture:alice.example#key-1",
         ))
         .unwrap();
         agg.add_partial(PartialSignature::new(
             bob(),
             vec![2u8; 64],
-            "did:web:bob.example#key-1",
+            "did:webvh:z6mkfixture:bob.example#key-1",
         ))
         .unwrap();
 

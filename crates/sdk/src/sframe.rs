@@ -17,6 +17,7 @@
 //! All derivations output `KDF.Nh = 32` bytes (RFC 9420 §8 `MLS-Exporter`).
 
 use serde::Serialize;
+use zeroize::Zeroizing;
 
 use crate::canonical::canonical_json_bytes;
 use crate::{CallId, DeviceId, Did, Error, RealmId, Result};
@@ -48,13 +49,24 @@ pub const MEDIA_KEY_LEN: usize = 32;
 /// the bound.
 pub trait MlsExporterSource {
     /// Derive `length` bytes for `(label, context)` from the current epoch's
-    /// key schedule. Two members on the same epoch MUST agree.
-    fn export_secret(&self, label: &str, context: &[u8], length: usize) -> Result<Vec<u8>>;
+    /// key schedule. Two members on the same epoch MUST agree. The output is
+    /// key material: it is returned [`Zeroizing`] so it is wiped on drop.
+    fn export_secret(
+        &self,
+        label: &str,
+        context: &[u8],
+        length: usize,
+    ) -> Result<Zeroizing<Vec<u8>>>;
 }
 
 #[cfg(feature = "mls")]
 impl MlsExporterSource for crate::mls::CokretMlsGroup {
-    fn export_secret(&self, label: &str, context: &[u8], length: usize) -> Result<Vec<u8>> {
+    fn export_secret(
+        &self,
+        label: &str,
+        context: &[u8],
+        length: usize,
+    ) -> Result<Zeroizing<Vec<u8>>> {
         crate::mls::CokretMlsGroup::export_secret(self, label, context, length)
     }
 }
@@ -151,7 +163,7 @@ impl TranscriptKeyContext {
 pub fn derive_frame_key(
     source: &impl MlsExporterSource,
     context: &FrameKeyContext,
-) -> Result<Vec<u8>> {
+) -> Result<Zeroizing<Vec<u8>>> {
     context.ensure_sender_bound()?;
     let context_bytes = canonical_json_bytes(context)?;
     let key = source.export_secret(FRAME_KEY_LABEL, &context_bytes, MEDIA_KEY_LEN)?;
@@ -163,7 +175,7 @@ pub fn derive_frame_key(
 pub fn derive_recording_key(
     source: &impl MlsExporterSource,
     context: &RecordingKeyContext,
-) -> Result<Vec<u8>> {
+) -> Result<Zeroizing<Vec<u8>>> {
     context.ensure_bound()?;
     let context_bytes = canonical_json_bytes(context)?;
     let key = source.export_secret(RECORDING_KEY_LABEL, &context_bytes, MEDIA_KEY_LEN)?;
@@ -179,7 +191,7 @@ pub fn derive_recording_key(
 pub fn derive_transcript_key(
     source: &impl MlsExporterSource,
     context: &TranscriptKeyContext,
-) -> Result<Vec<u8>> {
+) -> Result<Zeroizing<Vec<u8>>> {
     context.ensure_bound()?;
     let context_bytes = canonical_json_bytes(context)?;
     let key = source.export_secret(TRANSCRIPT_KEY_LABEL, &context_bytes, MEDIA_KEY_LEN)?;
@@ -213,7 +225,12 @@ mod tests {
     }
 
     impl MlsExporterSource for FixedExporter {
-        fn export_secret(&self, label: &str, context: &[u8], length: usize) -> Result<Vec<u8>> {
+        fn export_secret(
+            &self,
+            label: &str,
+            context: &[u8],
+            length: usize,
+        ) -> Result<Zeroizing<Vec<u8>>> {
             use sha2::{Digest, Sha256};
             let mut hasher = Sha256::new();
             hasher.update(self.seed);
@@ -221,7 +238,7 @@ mod tests {
             hasher.update(label.as_bytes());
             hasher.update((context.len() as u64).to_le_bytes());
             hasher.update(context);
-            Ok(hasher.finalize()[..length].to_vec())
+            Ok(Zeroizing::new(hasher.finalize()[..length].to_vec()))
         }
     }
 
@@ -267,7 +284,7 @@ mod tests {
                 call_id: call(),
                 focus_id: "fra-1".to_owned(),
                 recording_id: "rtc-recording-1".to_owned(),
-                media_service_did: Did::new("did:web:media.example").unwrap(),
+                media_service_did: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
                 recording_start_event_id: "ck:event:01904100-0000-7000-8000-0000000000aa"
                     .to_owned(),
             },
@@ -314,7 +331,7 @@ mod tests {
             call_id: call(),
             focus_id: "fra-1".to_owned(),
             recording_id: String::new(),
-            media_service_did: Did::new("did:web:media.example").unwrap(),
+            media_service_did: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
             recording_start_event_id: "ck:event:01904100-0000-7000-8000-0000000000aa".to_owned(),
         };
         assert!(derive_recording_key(&exporter, &context).is_err());
@@ -326,7 +343,7 @@ mod tests {
             call_id: call(),
             focus_id: "fra-1".to_owned(),
             recording_id: "rtc-transcript-1".to_owned(),
-            media_service_did: Did::new("did:web:media.example").unwrap(),
+            media_service_did: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
             transcript_start_event_id: "ck:event:01904100-0000-7000-8000-0000000000bb".to_owned(),
         }
     }
@@ -349,7 +366,7 @@ mod tests {
                 call_id: call(),
                 focus_id: "fra-1".to_owned(),
                 recording_id: "rtc-transcript-1".to_owned(),
-                media_service_did: Did::new("did:web:media.example").unwrap(),
+                media_service_did: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
                 recording_start_event_id: "ck:event:01904100-0000-7000-8000-0000000000bb"
                     .to_owned(),
             },
@@ -382,7 +399,7 @@ mod tests {
             text,
             "{\"call_id\":\"ck:call:0196441c-0000-7000-8000-000000000000\",\
              \"focus_id\":\"fra-1\",\
-             \"media_service_did\":\"did:web:media.example\",\
+             \"media_service_did\":\"did:webvh:z6mkfixture:media.example\",\
              \"realm_id\":\"ck:realm:01904100-0000-7000-8000-9b64700c6ee8\",\
              \"recording_id\":\"rtc-transcript-1\",\
              \"transcript_start_event_id\":\"ck:event:01904100-0000-7000-8000-0000000000bb\"}"

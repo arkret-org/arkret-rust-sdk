@@ -75,7 +75,12 @@ $add = { param($s) $lines.Add($s) | Out-Null }
 & $add "/// Serialises / deserialises as the bare wire string. Deserialising an"
 & $add "/// unrecognised kind yields [`EventKind::Unknown`] rather than an error;"
 & $add "/// rejecting unknown standard kinds is the validation layer's job."
+& $add "///"
+& $add "/// ``#[non_exhaustive]``: the registry gains kinds as the spec evolves and this"
+& $add "/// enum is regenerated to match; downstream ``match`` expressions MUST carry a"
+& $add "/// ``_`` arm with fail-closed semantics."
 & $add "#[derive(Clone, Debug, PartialEq, Eq, Hash)]"
+& $add "#[non_exhaustive]"
 & $add "pub enum EventKind {"
 foreach ($e in $entries) {
     & $add "    /// ``$($e.Kind)``"

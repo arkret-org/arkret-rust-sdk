@@ -322,8 +322,8 @@ mod tests {
 
     fn signer(name: &str) -> TestSigner {
         TestSigner {
-            did: Did::new(format!("did:web:{name}.example")).unwrap(),
-            kid: format!("did:web:{name}.example#k1"),
+            did: Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap(),
+            kid: format!("did:webvh:z6mkfixture:{name}.example#k1"),
         }
     }
 
@@ -337,7 +337,7 @@ mod tests {
         let msg = DeviceMessageBuilder::new()
             .sender(alice.signer_did().clone())
             .sender_device(DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000a").unwrap())
-            .recipient(Did::new("did:web:bob.example").unwrap())
+            .recipient(Did::new("did:webvh:z6mkfixture:bob.example").unwrap())
             .recipient_device(
                 DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000b").unwrap(),
             )
@@ -358,7 +358,7 @@ mod tests {
         let err = DeviceMessageBuilder::new()
             .sender(bob.signer_did().clone())
             .sender_device(DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000c").unwrap())
-            .recipient(Did::new("did:web:carol.example").unwrap())
+            .recipient(Did::new("did:webvh:z6mkfixture:carol.example").unwrap())
             .message_type("ck.keys.room_key")
             .body(json!({}))
             .hlc(hlc())
@@ -387,7 +387,7 @@ mod tests {
         let mut msg = DeviceMessageBuilder::new()
             .sender(alice.signer_did().clone())
             .sender_device(DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000a").unwrap())
-            .recipient(Did::new("did:web:bob.example").unwrap())
+            .recipient(Did::new("did:webvh:z6mkfixture:bob.example").unwrap())
             .message_type("ck.keys.room_key")
             .body(json!({"session": "abc"}))
             .hlc(hlc())

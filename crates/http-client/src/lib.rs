@@ -1,3 +1,24 @@
+//! HTTP transport bindings for Cokret v1 service endpoints.
+//!
+//! # TLS backend and PQ-hybrid requirement
+//!
+//! This crate is TLS-neutral by default: no TLS backend is compiled in, and
+//! the deploying service picks its own (`reqwest/rustls-tls` or the
+//! `tls-rustls` passthrough feature here / on the umbrella `cokret` crate).
+//!
+//! **PQ-hybrid TLS is a protocol MUST**: `cokret-spec`
+//! `transport-bindings` §5 (2026-06-13 ruling) requires post-quantum hybrid
+//! key exchange (X25519MLKEM768) for **all** profiles, fail-closed — a
+//! deployment MUST NOT fall back to classical-only key exchange. When using
+//! rustls, configure a crypto provider whose `kx_groups` includes
+//! `X25519MLKEM768` and excludes classical-only groups, e.g. via
+//! `rustls::crypto::aws_lc_rs` (which ships X25519MLKEM768) and a
+//! `ClientConfig` built with `with_kx_groups(&[&X25519MLKEM768])`. reqwest's
+//! `use_preconfigured_tls` accepts such a `ClientConfig`. A connection-time
+//! negotiated-group assertion is not provided by this crate (reqwest does
+//! not expose the negotiated kx group); enforce the MUST at configuration
+//! time as described.
+
 use std::time::Duration;
 
 use reqwest::StatusCode;
@@ -98,6 +119,17 @@ impl ClientRequestOptions {
     }
 }
 
+/// Status / transport retry policy applied by [`Client`]'s native `execute`
+/// path.
+///
+/// # wasm32 behavior
+///
+/// Retry is **not implemented on wasm32**: the browser fetch backend has no
+/// in-crate sleep primitive and no connect-error discrimination, so
+/// `execute()` collapses to a single send there and this configuration is
+/// ignored (a `tracing::warn` is emitted once per call when the `tracing`
+/// feature is enabled). Callers that need retry on wasm must layer it above
+/// the client (e.g. via `wasm-bindgen-futures`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RetryConfig {
     pub max_retries: usize,
@@ -106,7 +138,17 @@ pub struct RetryConfig {
     pub base_delay: Duration,
     pub max_delay: Duration,
     pub respect_retry_after: bool,
+    /// Apply 0–20% additive random jitter to computed backoff delays
+    /// (api-conventions.md §9 default backoff). Does not apply to
+    /// server-directed `Retry-After` values.
+    pub jitter: bool,
 }
+
+/// Spec ceiling for the default backoff policy: at most 5 retries per
+/// `(endpoint, scope)` within a 5-minute window (api-conventions.md §9).
+/// With the 1 s base / factor-2 / 60 s cap defaults, 5 retries complete in
+/// well under 5 minutes, so a per-request cap satisfies the window bound.
+const SPEC_MAX_DEFAULT_RETRIES: usize = 5;
 
 impl RetryConfig {
     pub fn disabled() -> Self {
@@ -117,17 +159,22 @@ impl RetryConfig {
             base_delay: Duration::ZERO,
             max_delay: Duration::ZERO,
             respect_retry_after: true,
+            jitter: false,
         }
     }
 
+    /// Spec-default backoff (api-conventions.md §9): first retry ≥ 1000 ms,
+    /// factor 2, capped at 60 000 ms, 0–20% jitter, and at most
+    /// [`SPEC_MAX_DEFAULT_RETRIES`] retries (`max_retries` is clamped).
     pub fn standard(max_retries: usize) -> Self {
         Self {
-            max_retries,
+            max_retries: max_retries.min(SPEC_MAX_DEFAULT_RETRIES),
             retry_statuses: standard_retry_statuses(),
             retry_network_errors: true,
-            base_delay: Duration::from_millis(100),
-            max_delay: Duration::from_secs(5),
+            base_delay: Duration::from_millis(1000),
+            max_delay: Duration::from_secs(60),
             respect_retry_after: true,
+            jitter: true,
         }
     }
 
@@ -146,6 +193,11 @@ impl RetryConfig {
         self
     }
 
+    pub fn with_jitter(mut self, jitter: bool) -> Self {
+        self.jitter = jitter;
+        self
+    }
+
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub(crate) fn should_retry_status(&self, status: StatusCode) -> bool {
         self.retry_statuses.contains(&status.as_u16())
@@ -159,27 +211,40 @@ impl RetryConfig {
         let shift = attempt.saturating_sub(1).min(31) as u32;
         let factor = 1u32.checked_shl(shift).unwrap_or(u32::MAX);
         let delay = self.base_delay.saturating_mul(factor);
-        if self.max_delay.is_zero() {
+        let delay = if self.max_delay.is_zero() {
             delay
         } else {
             std::cmp::min(delay, self.max_delay)
-        }
+        };
+        if self.jitter { apply_jitter(delay) } else { delay }
     }
 
+    /// Next retry delay, honoring a server `Retry-After`.
+    ///
+    /// A server-directed `Retry-After` is authoritative: it is **not**
+    /// truncated by `max_delay` and gets no jitter (api-conventions.md §9:
+    /// clients MUST prefer the server instruction).
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub(crate) fn retry_delay_from_headers(&self, headers: &HeaderMap, attempt: usize) -> Duration {
         if self.respect_retry_after
             && let Some(retry_after_ms) = retry_after_ms(headers)
         {
-            let retry_after = Duration::from_millis(retry_after_ms);
-            return if self.max_delay.is_zero() {
-                retry_after
-            } else {
-                std::cmp::min(retry_after, self.max_delay)
-            };
+            return Duration::from_millis(retry_after_ms);
         }
         self.retry_delay(attempt)
     }
+}
+
+/// Add 0–20% random jitter to `delay` (api-conventions.md §9). Falls back to
+/// the unjittered delay if the OS randomness source fails.
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+fn apply_jitter(delay: Duration) -> Duration {
+    let mut bytes = [0u8; 4];
+    if getrandom::fill(&mut bytes).is_err() {
+        return delay;
+    }
+    let fraction = f64::from(u32::from_le_bytes(bytes)) / f64::from(u32::MAX);
+    delay.mul_f64(1.0 + fraction * 0.2)
 }
 
 impl Default for RetryConfig {
@@ -203,18 +268,23 @@ pub struct Client {
     pub(crate) default_timeout: Option<Duration>,
 }
 
-/// Parse the `Retry-After` header (delta-seconds form) into milliseconds.
-/// Used by [`RetryConfig::retry_delay_from_headers`] and the error-envelope
+/// Parse the `Retry-After` header into milliseconds. Both RFC 9110 forms
+/// are supported: delta-seconds and HTTP-date (IMF-fixdate). The HTTP-date
+/// form is converted to a relative delay against the current wall clock as
+/// a pure timestamp difference (no local-timezone lookup, wasm-safe); a
+/// date in the past yields `Some(0)`. Used by
+/// [`RetryConfig::retry_delay_from_headers`] and the error-envelope
 /// hydration in `client_internals`.
 pub(crate) fn retry_after_ms(headers: &HeaderMap) -> Option<u64> {
-    headers
-        .get(RETRY_AFTER)?
-        .to_str()
-        .ok()?
-        .trim()
-        .parse::<u64>()
-        .ok()
-        .and_then(|seconds| seconds.checked_mul(1000))
+    let value = headers.get(RETRY_AFTER)?.to_str().ok()?.trim();
+    if let Ok(seconds) = value.parse::<u64>() {
+        return seconds.checked_mul(1000);
+    }
+    let target = chrono::DateTime::parse_from_rfc2822(value).ok()?;
+    let delta_ms = target
+        .signed_duration_since(chrono::Utc::now())
+        .num_milliseconds();
+    Some(u64::try_from(delta_ms).unwrap_or(0))
 }
 
 fn standard_retry_statuses() -> Vec<u16> {
@@ -360,6 +430,7 @@ mod tests {
     #[test]
     fn retry_config_uses_bounded_exponential_backoff() {
         let retry = RetryConfig::standard(4)
+            .with_jitter(false)
             .with_base_delay(Duration::from_millis(25))
             .with_max_delay(Duration::from_millis(80));
 
@@ -370,21 +441,80 @@ mod tests {
     }
 
     #[test]
-    fn retry_config_respects_retry_after_with_max_delay_cap() {
+    fn retry_config_defaults_match_spec_backoff_policy() {
+        // api-conventions.md §9: base ≥ 1000 ms, factor 2, cap ≥ 60 000 ms,
+        // jitter on, at most 5 retries.
+        let retry = RetryConfig::standard(10);
+
+        assert_eq!(retry.max_retries, 5);
+        assert_eq!(retry.base_delay, Duration::from_millis(1000));
+        assert_eq!(retry.max_delay, Duration::from_secs(60));
+        assert!(retry.jitter);
+        assert!(retry.respect_retry_after);
+    }
+
+    #[test]
+    fn retry_delay_jitter_stays_within_twenty_percent() {
+        let retry = RetryConfig::standard(3);
+        for attempt in 1..=3 {
+            let base = Duration::from_millis(1000 * (1 << (attempt - 1)));
+            let delay = retry.retry_delay(attempt);
+            assert!(delay >= base, "attempt {attempt}: {delay:?} < {base:?}");
+            assert!(
+                delay <= base.mul_f64(1.2),
+                "attempt {attempt}: {delay:?} > {:?}",
+                base.mul_f64(1.2)
+            );
+        }
+    }
+
+    #[test]
+    fn retry_after_overrides_max_delay_cap() {
+        // api-conventions.md §9: a server Retry-After is authoritative and
+        // MUST NOT be truncated by the client's own max_delay.
         let mut headers = HeaderMap::new();
         headers.insert(RETRY_AFTER, HeaderValue::from_static("3"));
-        let retry = RetryConfig::standard(2).with_max_delay(Duration::from_secs(2));
+        let retry = RetryConfig::standard(2)
+            .with_jitter(false)
+            .with_max_delay(Duration::from_secs(2));
 
         assert_eq!(
             retry.retry_delay_from_headers(&headers, 1),
-            Duration::from_secs(2)
+            Duration::from_secs(3)
         );
         assert_eq!(
             retry
                 .respect_retry_after(false)
                 .retry_delay_from_headers(&headers, 1),
-            Duration::from_millis(100)
+            Duration::from_millis(1000)
         );
+    }
+
+    #[test]
+    fn retry_after_http_date_form_is_parsed_as_relative_delay() {
+        // Future IMF-fixdate → positive delay near the actual delta.
+        let target = chrono::Utc::now() + chrono::Duration::seconds(30);
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            RETRY_AFTER,
+            HeaderValue::from_str(&target.to_rfc2822().replace("+0000", "GMT")).unwrap(),
+        );
+        let ms = retry_after_ms(&headers).expect("HTTP-date Retry-After must parse");
+        assert!((20_000..=31_000).contains(&ms), "unexpected delay: {ms}");
+
+        // Past HTTP-date → clamped to zero, not an error / fallback.
+        let past = chrono::Utc::now() - chrono::Duration::seconds(30);
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            RETRY_AFTER,
+            HeaderValue::from_str(&past.to_rfc2822().replace("+0000", "GMT")).unwrap(),
+        );
+        assert_eq!(retry_after_ms(&headers), Some(0));
+
+        // Garbage still falls back to None (exponential backoff path).
+        let mut headers = HeaderMap::new();
+        headers.insert(RETRY_AFTER, HeaderValue::from_static("not-a-date"));
+        assert_eq!(retry_after_ms(&headers), None);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -467,7 +597,7 @@ mod tests {
                 event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
                 kind: "ck.message.create".into(),
                 realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
-                actor_id: Did::new("did:web:alice.example").unwrap(),
+                actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                 actor_seq: 1,
                 created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
                 hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -605,7 +735,7 @@ mod tests {
             );
             assert_eq!(parsed["kind"], "ck.message.create");
             assert_eq!(parsed["payload"]["body"], "hello");
-            assert_eq!(parsed["actor_id"], "did:web:alice.example");
+            assert_eq!(parsed["actor_id"], "did:webvh:z6mkfixture:alice.example");
         }
 
         #[tokio::test]
@@ -668,7 +798,7 @@ mod tests {
         async fn directory_private_contact_discovery_posts_canonical_path() {
             let (client, capture) = spawn_capture_server(r#"{"matches":[],"proofs":[]}"#).await;
             let request = DirectoryPrivateContactDiscoveryRequestBody {
-                requester: Did::new("did:web:alice.example").unwrap(),
+                requester: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                 contacts: vec![json!({"contact_digest": "sha256:contact"})],
                 proofs: Vec::new(),
                 privacy_profile: Some("psi-v1".to_owned()),
@@ -688,7 +818,7 @@ mod tests {
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
-            assert_eq!(parsed["requester"], "did:web:alice.example");
+            assert_eq!(parsed["requester"], "did:webvh:z6mkfixture:alice.example");
             assert_eq!(parsed["privacy_profile"], "psi-v1");
         }
 
@@ -720,7 +850,7 @@ mod tests {
             }"#;
             let (client, capture) = spawn_capture_server(canned).await;
             let request = DirectConversationResolveRequestBody {
-                peer: Did::new("did:web:bob.example").unwrap(),
+                peer: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
                 create: true,
                 idempotency_key: Some("dm-alice-bob".to_owned()),
             };
@@ -743,7 +873,7 @@ mod tests {
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
-            assert_eq!(parsed["peer"], "did:web:bob.example");
+            assert_eq!(parsed["peer"], "did:webvh:z6mkfixture:bob.example");
             assert_eq!(parsed["create"], true);
             assert_eq!(parsed["idempotency_key"], "dm-alice-bob");
         }
@@ -781,7 +911,7 @@ mod tests {
                 mimi_room_uri: Some("mimi://provider/rooms/room-1".to_owned()),
                 realm_id: None,
                 target_ref: "mimi://provider/rooms/room-1/messages/msg-1".to_owned(),
-                reporter: Did::new("did:web:alice.example").unwrap(),
+                reporter: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                 abuse_reason_code: "spam".to_owned(),
                 evidence_package: Value::Null,
                 franking_proof: Value::Null,
@@ -799,7 +929,7 @@ mod tests {
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
             assert_eq!(parsed["abuse_reason_code"], "spam");
-            assert_eq!(parsed["reporter"], "did:web:alice.example");
+            assert_eq!(parsed["reporter"], "did:webvh:z6mkfixture:alice.example");
         }
 
         #[tokio::test]
@@ -808,7 +938,7 @@ mod tests {
                 "status": "partial",
                 "accepted": ["ck:event:01904100-0000-7000-8000-a0086f45c575"],
                 "rejected": [
-                    {"event_id": "ck:event:01904100-0000-7000-8000-deadbeefdead", "reason": "schema_violation"}
+                    {"id": "ck:event:01904100-0000-7000-8000-deadbeefdead", "reason_code": "schema_violation"}
                 ]
             }"#;
             let (client, _capture) = spawn_capture_server(canned).await;
@@ -825,7 +955,7 @@ mod tests {
             );
             assert_eq!(response.accepted.len(), 1);
             assert_eq!(response.rejected.len(), 1);
-            assert_eq!(response.rejected[0]["reason"], "schema_violation");
+            assert_eq!(response.rejected[0].reason_code, "schema_violation");
         }
 
         /// S-6 (savfox SDK gap): the streaming API yields one
@@ -914,6 +1044,87 @@ mod tests {
             );
             assert!(got[1].cursor.is_some());
             assert!(got[2].is_catchup_complete());
+        }
+
+        #[tokio::test]
+        async fn account_subscribe_once_surfaces_dropped_interrupt() {
+            use cokret_core::AccountStreamInterrupt;
+
+            // Benign keepalive first, then a `dropped` control frame: the
+            // dropped frame must surface as a structured interrupt instead
+            // of being skipped while waiting for a delta.
+            let parts = vec![
+                "{\"kind\":\"heartbeat\"}\n",
+                "{\"kind\":\"dropped\",\"cursor\":\"sx:drop:9\",\"reconnect_after_ms\":10000}\n",
+            ];
+            let client = spawn_chunked_ndjson_server(parts).await;
+            let error = client
+                .account_subscribe_once(&SyncRequestBody {
+                    after: None,
+                    catchup: Some(true),
+                    filter: None,
+                    subscriptions: None,
+                    wait_for: None,
+                })
+                .await
+                .unwrap_err();
+
+            match error {
+                Error::AccountStreamInterrupt(AccountStreamInterrupt::Dropped {
+                    cursor,
+                    reconnect_after_ms,
+                }) => {
+                    assert_eq!(cursor.as_deref(), Some("sx:drop:9"));
+                    assert_eq!(reconnect_after_ms, Some(10_000));
+                }
+                other => panic!("expected dropped interrupt, got {other:?}"),
+            }
+        }
+
+        #[tokio::test]
+        async fn account_subscribe_once_surfaces_unauthorized_interrupt() {
+            use cokret_core::AccountStreamInterrupt;
+
+            let parts = vec!["{\"kind\":\"unauthorized\",\"reason\":\"revoked\"}\n"];
+            let client = spawn_chunked_ndjson_server(parts).await;
+            let error = client
+                .account_subscribe_once(&SyncRequestBody {
+                    after: None,
+                    catchup: Some(true),
+                    filter: None,
+                    subscriptions: None,
+                    wait_for: None,
+                })
+                .await
+                .unwrap_err();
+
+            assert!(matches!(
+                error,
+                Error::AccountStreamInterrupt(AccountStreamInterrupt::Unauthorized { reason })
+                    if reason.as_deref() == Some("revoked")
+            ));
+        }
+
+        #[tokio::test]
+        async fn events_submit_with_options_sends_idempotency_key() {
+            let canned = r#"{"status":"accepted","accepted":["ck:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let (client, capture) = spawn_capture_server(canned).await;
+
+            let options = ClientRequestOptions::new().idempotency_key("evt-idem-1");
+            client
+                .events_submit_with_options(&fixture_event("hello"), &options)
+                .await
+                .unwrap();
+
+            let raw = capture.await.unwrap();
+            let (request_line, headers, _body) = split_request(&raw);
+            assert!(request_line.starts_with("POST /_cokret/self/events "));
+            assert!(
+                headers
+                    .lines()
+                    .any(|line| line.eq_ignore_ascii_case("idempotency-key: evt-idem-1")),
+                "missing Idempotency-Key header: {headers}"
+            );
         }
     }
 }

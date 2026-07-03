@@ -9,7 +9,7 @@ mod session_and_identity {
     }
 
     fn did() -> Did {
-        Did::new("did:web:alice.example").unwrap()
+        Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
     }
 
     #[test]
@@ -170,7 +170,7 @@ mod protocol_wire {
             lookup_table_ref: None,
             pepper_id: None,
             max_claims: 3,
-            verification_service_did: Did::new("did:web:auth.example").unwrap(),
+            verification_service_did: Did::new("did:webvh:z6mkfixture:auth.example").unwrap(),
             verification_public_key: "z6MkVK".to_owned(),
         };
         // Missing token_commitment + token_salt_id → reject.
@@ -208,7 +208,7 @@ mod protocol_wire {
         let key = CallSignalSeqKey::new(
             realm(),
             CallId::new("ck:call:01904100-0000-7000-8000-000000000002").unwrap(),
-            Did::new("did:web:alice.example").unwrap(),
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             DeviceId::new("ck:device:01904100-0000-7000-8000-000000000003").unwrap(),
         );
         assert!(state.observe(&key, 1).is_ok());
@@ -221,7 +221,7 @@ mod protocol_wire {
     fn audit_policy_access_payload_validates_late_recovery_pairing() {
         let payload = AuditPolicyAccessPayload {
             realm_id: realm(),
-            actor: Did::new("did:web:alice.example").unwrap(),
+            actor: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             access_kind: AccessKind::E2EELateRecovery,
             late_recovery_original_event_id: None,
             observed_at: Utc::now(),
@@ -240,7 +240,7 @@ mod protocol_wire {
     fn consent_revoke_requires_observed_dots() {
         let payload = ConsentRevokePayload {
             consent_id: "cid".to_owned(),
-            peer: Did::new("did:web:bob.example").unwrap(),
+            peer: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
             scope: "invite".to_owned(),
             observed_dots: Vec::new(),
             revoked_at: None,
@@ -254,7 +254,7 @@ mod protocol_wire {
         let mut bootstrap = SnapshotBootstrap {
             signature: SnapshotBootstrapSignature {
                 alg: "EdDSA".to_owned(),
-                verification_method: "did:web:snapshot.example#k1".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:snapshot.example#k1".to_owned(),
                 payload_digest: Hash::new(
                     "sha256:0000000000000000000000000000000000000000000000000000000000000000",
                 )
