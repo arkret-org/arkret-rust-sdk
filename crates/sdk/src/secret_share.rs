@@ -10,8 +10,10 @@
 //!
 //! These structs carry **only** the wire-visible content. The sealed plaintext
 //! (`{account_secret, secret_version, request_id, secret_id}`) is produced and
-//! opened by the client crypto layer (HPKE RFC 9180); it never appears on the
-//! wire in cleartext.
+//! opened by the client crypto layer using the Cokret base-mode DH-box seal
+//! (DHKEM-X25519 + HKDF-SHA256 + XChaCha20-Poly1305; RFC 9180 KEM/KDF
+//! primitives, but NOT RFC 9180's SetupBaseS / key_schedule); it never appears
+//! on the wire in cleartext. See hpke-suite-registry.json for the construction.
 
 use chacha20poly1305::XChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
@@ -97,7 +99,8 @@ pub struct SecretShareSendContent {
     pub from_device: DeviceId,
     /// HPKE scheme label; MUST equal [`HPKE_SECRET_SHARE_SCHEME`].
     pub scheme: String,
-    /// base64url HPKE (RFC 9180) encapsulated key (KEM output).
+    /// base64url ephemeral X25519 public key (the DHKEM encapsulation; RFC 9180
+    /// KEM primitive, Cokret base-mode DH-box construction).
     pub enc: String,
     /// base64url HPKE AEAD ciphertext over the secret plaintext. The HPKE AAD
     /// MUST cover the envelope binding fields per `device-lifecycle.md` §7.
