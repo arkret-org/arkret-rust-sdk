@@ -9,6 +9,7 @@
 pub mod inception;
 
 pub use inception::{
-    InceptionInput, PreparedInception, SubmittedInception, SuppliedInceptionInput,
-    WebvhInceptionError, prepare_inception, prepare_supplied_inception,
+    InceptionInput, PreparedInception, ServiceInceptionInput, SubmittedInception,
+    SuppliedInceptionInput, WebvhInceptionError, prepare_inception, prepare_service_inception,
+    prepare_supplied_inception,
 };

@@ -250,14 +250,28 @@ pub fn prepare_inception<R: RngCore + ?Sized>(
         .version_time
         .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
 
-    let document_skeleton = embedded_webvh_document_value(
-        &placeholder_did,
-        &placeholder_key_id,
-        &did_public_key_multibase,
-        input.also_known_as,
-        &service_endpoint,
-        input.enrollment_authority_did,
-    );
+    // An empty enrollment authority yields a service-shaped document (no
+    // device-enrollment-authority service entry). This mirrors the branch in
+    // `prepare_supplied_inception` and is what `prepare_service_inception`
+    // relies on to self-mint a service DID.
+    let document_skeleton = if input.enrollment_authority_did.is_empty() {
+        embedded_webvh_document_value_without_enrollment(
+            &placeholder_did,
+            &placeholder_key_id,
+            &did_public_key_multibase,
+            input.also_known_as,
+            &service_endpoint,
+        )
+    } else {
+        embedded_webvh_document_value(
+            &placeholder_did,
+            &placeholder_key_id,
+            &did_public_key_multibase,
+            input.also_known_as,
+            &service_endpoint,
+            input.enrollment_authority_did,
+        )
+    };
     let entry_skeleton = json!({
         "versionId": format!("0-{WEBVH_SCID_PLACEHOLDER}"),
         "versionTime": version_time,
@@ -307,6 +321,54 @@ pub fn prepare_inception<R: RngCore + ?Sized>(
         did_key_seed,
         update_key_seed,
     })
+}
+
+/// Inputs for a service's own `did:webvh` self-mint.
+///
+/// Unlike [`InceptionInput`], there is no `enrollment_authority_did`: a service
+/// DID is the identity of the service itself and carries no device-enrollment
+/// authority (that concept applies to principal / user DIDs). The resulting DID
+/// document therefore omits the enrollment-authority service entry.
+pub struct ServiceInceptionInput<'a> {
+    /// The service's own public base endpoint, e.g. `https://auth.example.com/`.
+    /// Drives the DID method authority and the in-document `serviceEndpoint`.
+    pub principal_endpoint: &'a Url,
+    /// Normalised path segment under `/webvh/<local_id>/did.json`. Service DIDs
+    /// conventionally use `"service"`, yielding
+    /// `did:webvh:<scid>:<authority>:webvh:service`.
+    pub local_id: &'a str,
+    /// Optional `alsoKnownAs` entries. Usually empty for a service DID.
+    pub also_known_as: &'a [String],
+    /// `versionTime` for the inception entry (RFC3339-serialised internally).
+    pub version_time: DateTime<Utc>,
+    /// Optional verification-method fragment; defaults to `did-key-1`.
+    pub did_key_fragment: Option<&'a str>,
+}
+
+/// Prepare a `did:webvh` inception entry for a service's own service DID.
+///
+/// The service-identity counterpart to [`prepare_inception`]: it self-generates
+/// the DID + update keypairs and constructs a byte-identical inception via the
+/// same SCID / version-hash / `eddsa-jcs-2022` proof machinery, but produces a
+/// service-shaped DID document with no device-enrollment-authority service
+/// entry. Used by a service (e.g. a principal server hosting its own webvh log,
+/// or an auth server minting against such a host) to bootstrap its own stable
+/// service identity without an external minting round-trip.
+pub fn prepare_service_inception<R: RngCore + ?Sized>(
+    rng: &mut R,
+    input: &ServiceInceptionInput<'_>,
+) -> Result<PreparedInception, WebvhInceptionError> {
+    prepare_inception(
+        rng,
+        &InceptionInput {
+            principal_endpoint: input.principal_endpoint,
+            local_id: input.local_id,
+            also_known_as: input.also_known_as,
+            version_time: input.version_time,
+            did_key_fragment: input.did_key_fragment,
+            enrollment_authority_did: "",
+        },
+    )
 }
 
 /// Reconstruct a client-authored inception entry, verify the supplied proof,
@@ -980,5 +1042,65 @@ mod tests {
         let prepared = prepare_inception(&mut rng, &input).unwrap();
         assert_eq!(prepared.method_authority, "local.host");
         assert!(prepared.did.contains(":local.host:webvh:"));
+    }
+
+    fn run_prepare_service(seed: u64) -> PreparedInception {
+        let mut rng = ChaCha20Rng::seed_from_u64(seed);
+        let endpoint = Url::parse("https://auth.example.com/").unwrap();
+        let input = ServiceInceptionInput {
+            principal_endpoint: &endpoint,
+            local_id: "service",
+            also_known_as: &[],
+            version_time: DateTime::parse_from_rfc3339("2026-07-05T00:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            did_key_fragment: None,
+        };
+        prepare_service_inception(&mut rng, &input).expect("service prepare ok")
+    }
+
+    #[test]
+    fn service_inception_has_service_did_shape() {
+        let prepared = run_prepare_service(5);
+        assert!(prepared.did.starts_with("did:webvh:"), "{}", prepared.did);
+        assert!(
+            prepared.did.contains(":auth.example.com:webvh:") && prepared.did.ends_with(":service"),
+            "unexpected service DID: {}",
+            prepared.did
+        );
+        assert_eq!(prepared.local_id, "service");
+        verify_proof_like_soland(&prepared.log_entry).expect("service inception proof verifies");
+    }
+
+    #[test]
+    fn service_inception_omits_enrollment_authority() {
+        let prepared = run_prepare_service(9);
+        let services = prepared
+            .log_entry
+            .pointer("/state/service")
+            .and_then(Value::as_array)
+            .expect("state.service array");
+        assert!(
+            services.iter().all(|svc| {
+                svc.get("type").and_then(Value::as_str)
+                    != Some(cokret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
+            }),
+            "service DID document must not carry a device-enrollment-authority entry",
+        );
+        assert!(
+            services
+                .iter()
+                .any(|svc| { svc.get("type").and_then(Value::as_str) == Some("CokretPrincipalServer") }),
+            "service DID document should keep the CokretPrincipalServer entry",
+        );
+    }
+
+    #[test]
+    fn service_inception_determinism_under_fixed_rng() {
+        let a = run_prepare_service(77);
+        let b = run_prepare_service(77);
+        assert_eq!(a.did, b.did);
+        assert_eq!(a.version_id, b.version_id);
+        assert_eq!(a.update_key_seed, b.update_key_seed);
     }
 }
