@@ -171,7 +171,7 @@ mod tests {
     #[test]
     fn fixture_builder_emits_spec_fixture_fields() {
         let mut builder =
-            CanonicalFixtureBuilder::new("ck.profile.encoding_vectors.v1").version("2026-06-19");
+            CanonicalFixtureBuilder::new("ck.vector_group.encoding.v1").version("2026-06-19");
         builder
             .push_with_rules(
                 "ck.vector.encoding.canonical_json.basic.v1",
@@ -181,7 +181,7 @@ mod tests {
             )
             .unwrap();
         let suite = builder.finish();
-        assert_eq!(suite.profile, "ck.profile.encoding_vectors.v1");
+        assert_eq!(suite.profile, "ck.vector_group.encoding.v1");
         assert_eq!(suite.version.as_deref(), Some("2026-06-19"));
         assert_eq!(suite.vectors.len(), 1);
         let vector = &suite.vectors[0];

@@ -1,5 +1,5 @@
 //! Executable consumer for the spec fixture `fixtures/sync-fixture.json`
-//! (`ck.profile.sync_vectors.v1` client-sync projection + cursor recovery
+//! (`ck.vector_group.sync.v1` client-sync projection + cursor recovery
 //! vectors).
 //!
 //! The SDK-implementable subset drives [`cokret_core::cursor::Cursor`] over the
@@ -33,7 +33,7 @@ fn sync_fixture_profile_is_pinned() {
     let fixture = fixture();
     assert_eq!(
         fixture["profile"].as_str(),
-        Some("ck.profile.sync_vectors.v1"),
+        Some("ck.vector_group.sync.v1"),
         "sync fixture profile drifted"
     );
     // Guard: pin the case keys so a silently reshaped fixture is caught.

@@ -375,7 +375,7 @@ fn dual_plane_vector_inventory_is_pinned() {
     let fixture = fixture();
     assert_eq!(
         fixture["profile"].as_str(),
-        Some("ck.profile.cba_lattice_vectors.v1")
+        Some("ck.vector_group.cba_lattice.v1")
     );
     let vectors = fixture["vectors"]
         .as_array()
