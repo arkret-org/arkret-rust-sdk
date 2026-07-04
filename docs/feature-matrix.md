@@ -1,5 +1,14 @@
 # Feature Matrix
 
+> **Authoritative source.** The conformance-profile requirement surface is
+> defined by the generated `cokret_core::generated::profile_requirements` table
+> (derived from `cokret-spec` `conformance-profiles.json`). The profile tables
+> in this document are a **human-readable mirror only** — when they disagree,
+> the generated table wins. The `feature_matrix_profiles_subset_of_generated`
+> test in `crates/core/tests/feature_matrix_doc.rs` fails if any profile ID
+> named here is absent from the generated table, so the mirror cannot drift
+> ahead of the code.
+
 Cokret SDK uses additive Cargo features.
 
 | Build | Feature flags | Intended use |

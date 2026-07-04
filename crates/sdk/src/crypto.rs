@@ -192,6 +192,39 @@ pub fn current_feature_safety_report() -> FeatureSafetyReport {
     feature_safety_report(features)
 }
 
+/// The crypto-relevant Cargo feature set compiled into this SDK build, in the
+/// spelling [`cokret_core::verify_declared_profiles_against_features`] expects.
+///
+/// The SDK crate can observe `mls` (OpenMLS group crypto) directly. Client-side
+/// key-backup crypto (`backup`) is a feature of the separate `cokret-crypto`
+/// crate, not re-exported as an SDK feature, so it is not visible to `cfg!`
+/// here; a caller that links `cokret-crypto` with `backup` should append
+/// [`cokret_core::profile_feature_guard::FEATURE_BACKUP`] to this list before
+/// calling [`cokret_core::verify_declared_profiles_against_features`].
+pub fn current_profile_crypto_features() -> Vec<&'static str> {
+    let mut features = Vec::new();
+    if cfg!(feature = "mls") {
+        features.push(cokret_core::profile_feature_guard::FEATURE_MLS);
+    }
+    features
+}
+
+/// Cross-check the conformance profiles this build intends to declare against
+/// the crypto features actually compiled in, so a feature-trimmed binary never
+/// advertises `e2ee_client` (or any MLS/backup-bearing profile) it cannot
+/// serve. See [`cokret_core::verify_declared_profiles_against_features`].
+pub fn verify_declared_profiles_against_current_features(
+    declared: &[&str],
+) -> std::result::Result<
+    std::result::Result<(), Vec<cokret_core::ProfileFeatureGap>>,
+    cokret_core::generated::profile_requirements::ProfileRequirementsError,
+> {
+    cokret_core::verify_declared_profiles_against_features(
+        declared,
+        &current_profile_crypto_features(),
+    )
+}
+
 /// Whether a field name can contain credential, token, proof or signature data.
 pub fn is_sensitive_log_key(key: &str) -> bool {
     let key = key.to_ascii_lowercase();
@@ -653,6 +686,31 @@ mod tests {
     #[test]
     fn current_feature_safety_report_accepts_compiled_features() {
         current_feature_safety_report().validate().unwrap();
+    }
+
+    #[test]
+    fn declared_profiles_are_cross_checked_against_compiled_crypto_features() {
+        // A plaintext core profile never depends on crypto features, so it
+        // passes regardless of how this build was compiled.
+        verify_declared_profiles_against_current_features(&["ck.profile.minimal_client.v1"])
+            .expect("known profile")
+            .expect("plaintext profile needs no crypto features");
+
+        // The SDK crate can observe `mls` but not the `cokret-crypto` `backup`
+        // feature, so a default (mls-on) build declaring `e2ee_client` reports a
+        // `backup` gap — the intended SPEC-FEAT-01 signal.
+        let outcome =
+            verify_declared_profiles_against_current_features(&["ck.profile.e2ee_client.v1"])
+                .expect("known profile");
+        if cfg!(feature = "mls") {
+            let gaps = outcome
+                .expect_err("e2ee_client still needs the backup crypto feature the SDK cannot see");
+            assert!(
+                gaps.iter().all(|gap| gap.required_feature
+                    == cokret_core::profile_feature_guard::FEATURE_BACKUP),
+                "only the backup crypto feature should gap on an mls build: {gaps:?}"
+            );
+        }
     }
 
     // Property-style tests: exercise many inputs to verify invariants.

@@ -29,6 +29,7 @@ pub mod ops;
 pub mod platform;
 pub mod presence;
 pub mod profile_claim;
+pub mod profile_feature_guard;
 pub mod profile_semantics;
 pub mod push;
 pub mod push_rule_core;
@@ -88,6 +89,10 @@ pub use presence::{
     validate_status_message,
 };
 pub use profile_claim::{ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator};
+pub use profile_feature_guard::{
+    ProfileFeatureGap, implied_features_for_profiles,
+    verify_declared_profiles_against_core_features, verify_declared_profiles_against_features,
+};
 pub use profile_semantics::{
     ProfileSemanticCoverageError, ProfileSemanticCoverageReport, ProfileSemanticRequirements,
     ProfileSemanticSurface, collect_profile_semantic_requirements,

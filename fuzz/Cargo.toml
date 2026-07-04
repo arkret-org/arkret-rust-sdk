@@ -39,3 +39,28 @@ path = "fuzz_targets/proof_verify.rs"
 test = false
 doc = false
 bench = false
+
+# Deterministic-CBOR reader for the MLS governance binding extension: locks the
+# hand-rolled bounds / depth / item-count caps against regression.
+[[bin]]
+name = "mls_governance_binding_cbor"
+path = "fuzz_targets/mls_governance_binding_cbor.rs"
+test = false
+doc = false
+bench = false
+
+# Opaque sync-cursor decoder: Base64URL + canonical-JSON + TTL validation path.
+[[bin]]
+name = "cursor_decode"
+path = "fuzz_targets/cursor_decode.rs"
+test = false
+doc = false
+bench = false
+
+# Multibase / multicodec key-material decoders from DID documents.
+[[bin]]
+name = "multibase_decode"
+path = "fuzz_targets/multibase_decode.rs"
+test = false
+doc = false
+bench = false
