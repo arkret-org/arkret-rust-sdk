@@ -1020,6 +1020,12 @@ pub struct PayloadProof {
     pub jws: String,
 }
 
+/// Fixed signing-context domain tag for Event proof bindings (`encoding.md`
+/// §2). Included in every [`Proof::binding_object`] so an Event proof
+/// signature is domain-separated from other proof families (receipts,
+/// snapshot witnesses, handle claims, which carry their own context values).
+pub const EVENT_PROOF_BINDING_CONTEXT: &str = "ck-event-proof-v1";
+
 /// Canonical proof kind constants.
 pub mod proof_kind {
     /// Standard actor / device / service detached JWS. Per `encoding.md` §6
@@ -1102,6 +1108,15 @@ impl Proof {
     /// verifier so both derive identical transcripts.
     pub fn binding_object(&self, actor_id: &Did) -> Value {
         let mut obj = serde_json::Map::new();
+        // Fixed signing-context domain tag (encoding.md §2): every Event proof
+        // binding MUST carry `context = "ck-event-proof-v1"` so an Event proof
+        // signature cannot be confused with another object family's binding
+        // (receipts, snapshot witnesses, handle claims each use their own
+        // context). Key order is irrelevant — canonical JSON re-sorts by JCS.
+        obj.insert(
+            "context".to_owned(),
+            Value::String(EVENT_PROOF_BINDING_CONTEXT.to_owned()),
+        );
         obj.insert(
             "event_digest".to_owned(),
             Value::String(self.event_digest.as_str().to_owned()),
