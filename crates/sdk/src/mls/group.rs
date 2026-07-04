@@ -1066,6 +1066,43 @@ impl CokretMlsGroup {
         }
     }
 
+    /// Stage an incoming by-reference MLS proposal so a subsequent
+    /// [`apply_commit`] that references it (e.g. a Remove commit produced by
+    /// [`remove_member_by_principal`]) can resolve `MissingProposal`.
+    ///
+    /// The commit envelope produced for Remove carries the proposals
+    /// out-of-band in [`MlsRemoveMemberResult::proposals`]; surviving members
+    /// MUST apply each of those proposals through this method before applying
+    /// the referencing commit. Add commits inline their proposals and never
+    /// require this step.
+    pub fn apply_proposal(&mut self, envelope: &MlsProposalEnvelope) -> Result<()> {
+        let proposal_bytes = decode(&envelope.proposal)?;
+        let actual_digest = canonical::sha256_digest(&proposal_bytes);
+        if actual_digest != envelope.proposal_digest.as_str() {
+            return Err(Error::Protocol("MLS Proposal hash mismatch".to_owned()));
+        }
+
+        let message =
+            MlsMessageIn::tls_deserialize_exact(proposal_bytes.as_slice()).map_err(mls_error)?;
+        let protocol_message = message
+            .try_into_protocol_message()
+            .map_err(|_| Error::Protocol("MLS Proposal is not a protocol message".to_owned()))?;
+        let processed = self
+            .group
+            .process_message(&self.identity.provider, protocol_message)
+            .map_err(mls_error)?;
+
+        match processed.into_content() {
+            ProcessedMessageContent::ProposalMessage(proposal) => {
+                self.group
+                    .store_pending_proposal(self.identity.provider.storage(), *proposal)
+                    .map_err(mls_error)?;
+                Ok(())
+            }
+            _ => Err(Error::Protocol("expected MLS Proposal".to_owned())),
+        }
+    }
+
     pub fn apply_commits(&mut self, envelopes: &[MlsCommitEnvelope]) -> Result<u64> {
         let mut sorted = envelopes.iter().collect::<Vec<_>>();
         sorted.sort_by_key(|envelope| envelope.epoch);
