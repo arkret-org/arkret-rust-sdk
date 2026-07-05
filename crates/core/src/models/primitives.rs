@@ -566,9 +566,11 @@ pub enum InviteState {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationType {
+    Message,
     Mention,
     Reply,
     Assignment,
+    Schedule,
     Invite,
     Reaction,
     Policy,

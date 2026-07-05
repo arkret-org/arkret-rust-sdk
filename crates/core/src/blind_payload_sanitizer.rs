@@ -17,8 +17,8 @@
 //! ## Allowed fields
 //!
 //! - `push_target_id` — opaque pseudonym token (see [`is_valid_push_target_id`]).
-//! - `wakeup_kind` — closed enum (`message`, `mention`, `reaction`, `call_invite`, `reminder`,
-//!   `scheduled_send`, `expiry_invalidation`).
+//! - `wakeup_kind` — closed enum (`message`, `mention`, `assignment`, `schedule`, `reaction`,
+//!   `call_invite`, `reminder`, `scheduled_send`, `expiry_invalidation`).
 //! - `badge`, `unread_count`, `count` — small non-negative integers (≤ `MAX_COUNT_VALUE`). May be
 //!   carried inside a `counts` object.
 //! - `push_hint` — closed enum (`new_message`, `incoming_call`, `mention_self`) **or** the form
@@ -69,6 +69,8 @@ pub const MAX_COUNT_VALUE: u64 = 9_999;
 pub const ALLOWED_WAKEUP_KINDS: &[&str] = &[
     "message",
     "mention",
+    "assignment",
+    "schedule",
     "reaction",
     "call_invite",
     "reminder",
@@ -297,7 +299,7 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
             Some(raw) if is_valid_wakeup_kind(raw) => Ok(()),
             Some(_) => Err(BlindPayloadError::invalid(
                 key,
-                "wakeup_kind must be one of message/mention/reaction/call_invite/reminder/scheduled_send/expiry_invalidation",
+                "wakeup_kind must be one of message/mention/assignment/schedule/reaction/call_invite/reminder/scheduled_send/expiry_invalidation",
             )),
             None => Err(BlindPayloadError::invalid(
                 key,
@@ -638,8 +640,14 @@ mod tests {
     }
 
     #[test]
-    fn accepts_productivity_wakeup_kinds() {
-        for kind in ["reminder", "scheduled_send", "expiry_invalidation"] {
+    fn accepts_targeted_and_productivity_wakeup_kinds() {
+        for kind in [
+            "assignment",
+            "schedule",
+            "reminder",
+            "scheduled_send",
+            "expiry_invalidation",
+        ] {
             sanitize_blind_payload(&json!({
                 "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": kind,
