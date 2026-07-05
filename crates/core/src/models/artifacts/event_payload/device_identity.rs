@@ -103,6 +103,68 @@ impl DeviceAuthorizePayload {
         }
     }
 
+    /// Canonical signing input for
+    /// `ck.device.authorize.payload.device_signature`.
+    ///
+    /// The signature proves possession of the private key corresponding to
+    /// `device_public_key`; it is deliberately separate from the SSK-signed
+    /// `cross_signing_binding`.
+    pub fn device_possession_signature_input(&self) -> Result<Vec<u8>> {
+        self.validate_authorization_binding_one_of()
+            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+        self.validate_canonical_algorithms()
+            .map_err(|reason| Error::Protocol(reason.to_owned()))?;
+        let device_key_algorithm = self.device_key_algorithm.as_deref().ok_or_else(|| {
+            Error::Protocol("device_authorize_device_key_algorithm_required".to_owned())
+        })?;
+        if !matches!(device_key_algorithm, "EdDSA" | "Ed25519") {
+            return Err(Error::Protocol(
+                "device_authorize_device_key_algorithm_unsupported".to_owned(),
+            ));
+        }
+        let (authorization_binding_kind, cross_signing_generation) =
+            if let Some(binding) = &self.cross_signing_binding {
+                ("cross_signing", Some(binding.ssk_generation))
+            } else if self.bootstrap_binding.is_some() {
+                ("bootstrap", None)
+            } else if self.enrollment_authority_binding.is_some() {
+                ("enrollment_authority", None)
+            } else {
+                return Err(Error::Protocol(
+                    DEVICE_AUTHORIZE_BINDING_ONE_OF_REASON.to_owned(),
+                ));
+            };
+        let authorized_by = match &self.authorized_by {
+            DeviceOrPrincipalRef::DeviceId(device_id) => device_id.as_str(),
+            DeviceOrPrincipalRef::Did(did) => did.as_str(),
+        };
+        let mut scopes = self.scopes.clone();
+        if let Some(scopes) = &mut scopes {
+            scopes.sort_unstable();
+            scopes.dedup();
+        }
+        let expires_at = self.expires_at.as_ref().and_then(|value| value.as_ref());
+        let recovery_session_id = self.recovery_session_id.as_ref().map(|id| id.as_str());
+        let body = serde_json::json!({
+            "principal_id": self.principal_id.as_str(),
+            "device_id": self.device_id.as_str(),
+            "device_public_key": self.device_public_key.as_str(),
+            "hpke_key": self.hpke_key.as_str(),
+            "algorithms": &self.algorithms,
+            "device_key_algorithm": device_key_algorithm,
+            "authorized_by": authorized_by,
+            "not_before": self.not_before,
+            "expires_at": expires_at,
+            "scopes": scopes,
+            "recovery_session_id": recovery_session_id,
+            "authorization_binding_kind": authorization_binding_kind,
+            "cross_signing_generation": cross_signing_generation,
+        });
+        let mut out = b"ck-device-authorize-possession-v1\n".to_vec();
+        out.extend_from_slice(&canonical::canonical_json_bytes(&body)?);
+        Ok(out)
+    }
+
     /// Validate the provenance anchor for a `service_attested`
     /// `ck.device.authorize` payload.
     ///
@@ -364,6 +426,45 @@ mod tests {
 
         payload.cross_signing_binding = None;
         assert!(payload.validate_authorization_binding_one_of().is_ok());
+    }
+
+    #[test]
+    fn device_authorize_possession_input_binds_device_and_recovery_context() {
+        let mut payload = base_device_authorize_payload();
+        payload.device_key_algorithm = Some("EdDSA".to_owned());
+        payload.cross_signing_binding = Some(cross_signing_binding());
+        payload.scopes = Some(vec![
+            "write".to_owned(),
+            "read".to_owned(),
+            "read".to_owned(),
+        ]);
+        payload.recovery_session_id = Some(
+            RecoverySessionId::new("ck:recovery_session:01904100-0000-7000-8000-000000000042")
+                .unwrap(),
+        );
+
+        let input = String::from_utf8(payload.device_possession_signature_input().unwrap())
+            .expect("canonical input is utf8");
+
+        assert!(input.starts_with("ck-device-authorize-possession-v1\n"));
+        assert!(input.contains("\"authorization_binding_kind\":\"cross_signing\""));
+        assert!(input.contains("\"cross_signing_generation\":1"));
+        assert!(input.contains(
+            "\"recovery_session_id\":\"ck:recovery_session:01904100-0000-7000-8000-000000000042\""
+        ));
+        assert!(input.contains("\"scopes\":[\"read\",\"write\"]"));
+    }
+
+    #[test]
+    fn device_authorize_possession_input_requires_declared_device_alg() {
+        let mut payload = base_device_authorize_payload();
+        payload.cross_signing_binding = Some(cross_signing_binding());
+
+        assert!(matches!(
+            payload.device_possession_signature_input(),
+            Err(Error::Protocol(reason))
+                if reason == "device_authorize_device_key_algorithm_required"
+        ));
     }
 
     #[test]
