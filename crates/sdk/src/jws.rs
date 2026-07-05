@@ -252,7 +252,9 @@ pub fn resolve_ed25519_pubkey(
         .verification_methods
         .get(verification_method)
         .or_else(|| {
-            fragment.as_ref().and_then(|f| document.verification_methods.get(f))
+            fragment
+                .as_ref()
+                .and_then(|f| document.verification_methods.get(f))
         })
         .or_else(|| {
             // Single-key fallback: if there's exactly one verification
@@ -392,11 +394,10 @@ pub fn verify_replay_window_at(
     // first segment back to milliseconds. `split().next()` on a non-empty
     // string always yields a segment, so only the hex parse can fail here.
     let physical_hex = hlc_str.split('-').next().unwrap_or_default();
-    let physical_ms = i64::from_str_radix(physical_hex, 16).map_err(|_| {
-        ReplayWindowError::PhysicalMsParse {
+    let physical_ms =
+        i64::from_str_radix(physical_hex, 16).map_err(|_| ReplayWindowError::PhysicalMsParse {
             physical_hex: physical_hex.to_owned(),
-        }
-    })?;
+        })?;
     let signed_at = DateTime::<Utc>::from_timestamp_millis(physical_ms)
         .ok_or(ReplayWindowError::PhysicalMsOutOfRange { physical_ms })?;
     let window = Duration::seconds(window_seconds as i64);
@@ -557,7 +558,9 @@ mod tests {
                 op: crate::LatticeOp {
                     op_type: crate::LatticeOpType::Set,
                     tag: None,
-                    value: Some(serde_json::json!({"shape": "single_did", "did": "did:webvh:z6mkfixture:foo"})),
+                    value: Some(
+                        serde_json::json!({"shape": "single_did", "did": "did:webvh:z6mkfixture:foo"}),
+                    ),
                     from: None,
                     to: None,
                     reason: None,

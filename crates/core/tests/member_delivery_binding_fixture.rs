@@ -167,9 +167,8 @@ fn unroutable_membership_carries_no_binding_and_no_route() {
     );
     let payload = &vector["input"]["payload"];
 
-    let status: DeliveryStatus =
-        serde_json::from_value(payload["delivery_status"].clone())
-            .expect("delivery_status must deserialize into the typed enum");
+    let status: DeliveryStatus = serde_json::from_value(payload["delivery_status"].clone())
+        .expect("delivery_status must deserialize into the typed enum");
     assert_eq!(status, DeliveryStatus::Unroutable);
     assert!(
         payload.get("delivery_binding").is_none(),

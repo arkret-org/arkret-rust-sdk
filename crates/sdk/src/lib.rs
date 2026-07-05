@@ -358,13 +358,13 @@ pub use auth::{
 pub use authz::{
     ApprovalMode, ApprovalStrandManager, AuthzContext, AuthzEngine, CapabilityFrontierValidation,
     CapabilityGrantBuilder, ClaimRequirement, Constraint, ConstraintDuration, ConstraintEffect,
-    ConstraintEntry, EngineDecision, FieldScope, GrantProposal, PolicyModerationReport,
-    PolicyEvaluationRequest, PolicyEvaluationResult, PolicyServerEffect, ProposalApproval,
-    ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
+    ConstraintEntry, EngineDecision, FieldScope, GrantProposal, GrantRateLimitScope,
+    PolicyEvaluationRequest, PolicyEvaluationResult, PolicyModerationReport, PolicyServerEffect,
+    ProposalApproval, ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
     ProtocolGrantConstraint, ProtocolGrantConstraintEffect, ProtocolGrantConstraintTrack,
     ProtocolGrantConstraintType, ProtocolResourceSelector, ProtocolResourceSelectorKind,
-    ProtocolResourceSelectorScope, GrantRateLimitScope, Recurrence, Resource, ResourceSelector,
-    ScopeLimitation, VerifiedClaim, apply_policy_response, capability_grants_from_realm_state,
+    ProtocolResourceSelectorScope, Recurrence, Resource, ResourceSelector, ScopeLimitation,
+    VerifiedClaim, apply_policy_response, capability_grants_from_realm_state,
     grant_requires_approval, moderation_report_for_policy_outcome,
     reject_unknown_critical_constraints, validate_capability_frontier,
 };
@@ -407,9 +407,9 @@ pub use devices::{
     DeviceCrossSigningChainVerification, DeviceManager, DeviceMetadata, DeviceQuorumSignature,
     DeviceTrustBinding, DeviceTrustChainOutcome, DeviceTrustState, DeviceVerificationChallenge,
     DeviceVerificationMessageContent, DeviceVerificationMessageKind, KeyBackupClass,
-    KeyBackupContentItem, ProtocolKeyBackup, QrVerificationPayload,
-    SignedCrossSigningKey, ToDeviceEnvelope, cross_signing_publish_cell_subject,
-    device_verification_commitment, verify_device_cross_signing_chain,
+    KeyBackupContentItem, ProtocolKeyBackup, QrVerificationPayload, SignedCrossSigningKey,
+    ToDeviceEnvelope, cross_signing_publish_cell_subject, device_verification_commitment,
+    verify_device_cross_signing_chain,
 };
 #[cfg(feature = "full-surface")]
 pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};
@@ -465,10 +465,9 @@ pub use identity::{
     DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver, DidVisibility,
     DidWebDocumentOutcome, DidWebResolver, ExternalHandleProof, HandleAttestation,
     HandleClaimChallenge, HandleProofProfile, IdentityManager, IdentityReceiptWitnessRole,
-    InMemoryStaridRegistryAdapter,
-    PairwiseDidBinding, PairwiseDidResolutionProof, PairwiseDidStore,
-    ResolvedVerificationMethodKey, StaridControlProofRequestBody, StaridControlProofVerification,
-    StaridRegistryAdapter, StaridRegistryRecord, VerifiedDidKeyLog,
+    InMemoryStaridRegistryAdapter, PairwiseDidBinding, PairwiseDidResolutionProof,
+    PairwiseDidStore, ResolvedVerificationMethodKey, StaridControlProofRequestBody,
+    StaridControlProofVerification, StaridRegistryAdapter, StaridRegistryRecord, VerifiedDidKeyLog,
     event_proof_verification_context, handle_claim_proof, handle_dns_txt_name,
     handle_well_known_url, pairwise_resolution_proof, resolve_verification_method_key,
     resolve_verification_method_key_from_document, starid_control_proof, verification_method_did,
@@ -501,9 +500,8 @@ pub use media::{
 pub use media::{MediaClient, VerifiedCallMediaTokenExchange, VerifiedMediaIceConfig};
 #[cfg(feature = "full-surface")]
 pub use membership::{
-    Invite, Member, MemberChange, MemberProfile, MemberRole, MembershipManager,
-    MembershipContentState,
-    ThirdPartyInvite, is_legal_membership_transition,
+    Invite, Member, MemberChange, MemberProfile, MemberRole, MembershipContentState,
+    MembershipManager, ThirdPartyInvite, is_legal_membership_transition,
 };
 #[cfg(all(feature = "full-surface", feature = "mls"))]
 pub use mls::*;

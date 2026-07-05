@@ -260,7 +260,10 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         json["preview_policy_id"],
         "ck:policy:0196419b-0000-7000-8000-000000000003"
     );
-    assert_eq!(json["sync_endpoints"][0]["did"], "did:webvh:z6mkfixture:sync.example");
+    assert_eq!(
+        json["sync_endpoints"][0]["did"],
+        "did:webvh:z6mkfixture:sync.example"
+    );
     assert_eq!(json["notary_profile"], "threshold");
     assert_eq!(json["digest_algorithm"], "blake3");
     assert_eq!(json["revocation_freshness_window_ms"], 60_000);

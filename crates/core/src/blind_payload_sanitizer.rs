@@ -755,7 +755,9 @@ mod tests {
 
     #[test]
     fn rejects_did_target_id() {
-        assert!(!is_valid_push_target_id("did:webvh:z6mkfixture:alice.example"));
+        assert!(!is_valid_push_target_id(
+            "did:webvh:z6mkfixture:alice.example"
+        ));
         assert!(!is_valid_push_target_id("ck:device:01HYZ8Z000000000000000"));
         assert!(is_valid_push_target_id(
             "ck:pseudonym:push:01HYZ8Z000000000000000"

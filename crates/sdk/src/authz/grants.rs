@@ -1440,7 +1440,9 @@ mod capability_grant_builder_tests {
             id: GrantId::new("ck:grant:01904100-0000-7000-8000-000000000002").unwrap(),
             parent_grant_id: Some(parent.id.clone()),
             issuer: bob(),
-            subject: CapabilitySubject::Did(Did::new("did:webvh:z6mkfixture:carol.example").unwrap()),
+            subject: CapabilitySubject::Did(
+                Did::new("did:webvh:z6mkfixture:carol.example").unwrap(),
+            ),
             actions: vec!["ck.message.create".to_owned()],
             proofs: vec![proof(&bob())],
             ..base_grant()
@@ -1461,7 +1463,9 @@ mod capability_grant_builder_tests {
             id: GrantId::new("ck:grant:01904100-0000-7000-8000-000000000002").unwrap(),
             parent_grant_id: Some(parent.id.clone()),
             issuer: bob(),
-            subject: CapabilitySubject::Did(Did::new("did:webvh:z6mkfixture:carol.example").unwrap()),
+            subject: CapabilitySubject::Did(
+                Did::new("did:webvh:z6mkfixture:carol.example").unwrap(),
+            ),
             proofs: vec![proof(&bob())],
             ..base_grant()
         };

@@ -645,7 +645,8 @@ mod tests {
                 resources: vec![crate::AgentKeyScopeResource {
                     kind: crate::AgentKeyScopeResourceKind::Realm,
                     realm_id: Some(
-                        crate::RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+                        crate::RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001")
+                            .unwrap(),
                     ),
                     r#ref: None,
                     operation: None,
@@ -667,7 +668,10 @@ mod tests {
         let get = plan_agent_get("did:webvh:z6mkfixture:agent.example");
         assert_eq!(get.operation_id, OP_AGENT_GET);
         assert_eq!(get.method.as_str(), "GET");
-        assert_eq!(get.path, "/_cokret/self/agents/did%3Awebvh%3Az6mkfixture%3Aagent.example");
+        assert_eq!(
+            get.path,
+            "/_cokret/self/agents/did%3Awebvh%3Az6mkfixture%3Aagent.example"
+        );
 
         let grant_id =
             GrantId::new("ck:grant:01964137-0000-7000-8000-000000000010".to_owned()).unwrap();

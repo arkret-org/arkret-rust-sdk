@@ -33,8 +33,9 @@ use cokret::agent::{
 };
 use cokret::{
     AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyPairRequestBody,
-    AgentKeyScope, AgentKeyScopeResource, AgentKeyScopeResourceKind, AgentPauseRequestBody, AgentResumeRequestBody, AgentRotateKeyRequestBody,
-    AgentSidecarContextRef, AgentSidecarThreadEnsureRequestBody, Did, GrantId, RealmId, StrandId,
+    AgentKeyScope, AgentKeyScopeResource, AgentKeyScopeResourceKind, AgentPauseRequestBody,
+    AgentResumeRequestBody, AgentRotateKeyRequestBody, AgentSidecarContextRef,
+    AgentSidecarThreadEnsureRequestBody, Did, GrantId, RealmId, StrandId,
 };
 use serde::Serialize;
 use serde_json::{Value, json};

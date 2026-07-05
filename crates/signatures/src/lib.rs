@@ -438,7 +438,9 @@ mod tests {
             event_digest: payload_digest.clone(),
             created_at: Utc::now(),
             domain: Some("api.example".to_owned()),
-            audience: Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
+            audience: Some(Audience::Single(
+                "did:webvh:z6mkfixture:service.example".to_owned(),
+            )),
             jws: "sig".to_owned(),
         };
         let mut context = ProofVerificationContext::new(actor, payload_digest);
@@ -486,7 +488,9 @@ mod tests {
             event_digest: payload_digest.clone(),
             created_at: Utc::now(),
             domain: None,
-            audience: Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
+            audience: Some(Audience::Single(
+                "did:webvh:z6mkfixture:service.example".to_owned(),
+            )),
             jws: "sig".to_owned(),
         };
         let context = ProofVerificationContext::new(actor, payload_digest).cross_domain(

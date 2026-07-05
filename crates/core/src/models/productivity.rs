@@ -1391,8 +1391,7 @@ pub fn saved_target_key(
     // Length-prefix each component (8-byte BE) so no (collection_key,
     // target_ref) pair can collide with another split of the same bytes.
     let target_bytes = canonical::canonical_json_bytes(&target_ref)?;
-    let mut material =
-        Vec::with_capacity(16 + collection_key.len() + target_bytes.len());
+    let mut material = Vec::with_capacity(16 + collection_key.len() + target_bytes.len());
     material.extend_from_slice(&(collection_key.len() as u64).to_be_bytes());
     material.extend_from_slice(collection_key.as_bytes());
     material.extend_from_slice(&(target_bytes.len() as u64).to_be_bytes());

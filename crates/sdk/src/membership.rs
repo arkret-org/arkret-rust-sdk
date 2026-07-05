@@ -46,7 +46,10 @@ const DEFAULT_INVITE_TTL_DAYS: i64 = 7;
 /// no-ops; reducers may still emit a profile/role change without flipping
 /// state. Anything else returns `false` and the reducer MUST reject the
 /// event with `state_mismatch`.
-pub fn is_legal_membership_transition(from: Option<MembershipContentState>, to: MembershipContentState) -> bool {
+pub fn is_legal_membership_transition(
+    from: Option<MembershipContentState>,
+    to: MembershipContentState,
+) -> bool {
     use MembershipContentState::*;
     if Some(to) == from {
         return true;
@@ -614,7 +617,10 @@ mod tests {
             None,
         );
         manager.join(&alice).unwrap();
-        assert_eq!(manager.member(&alice).unwrap().state, MembershipContentState::Join);
+        assert_eq!(
+            manager.member(&alice).unwrap().state,
+            MembershipContentState::Join
+        );
 
         manager.leave(&alice).unwrap();
         assert_eq!(
@@ -655,7 +661,12 @@ mod tests {
         let bob = did("bob");
         let mut manager = MembershipManager::new(realm_id, alice);
 
-        manager.upsert_member(bob.clone(), MembershipContentState::Join, MemberRole::Member, None);
+        manager.upsert_member(
+            bob.clone(),
+            MembershipContentState::Join,
+            MemberRole::Member,
+            None,
+        );
         manager
             .update_profile(
                 &bob,
@@ -693,7 +704,10 @@ mod tests {
             .unwrap();
         assert_eq!(invite.schema, INVITE_SCHEMA);
         manager.accept_invite(&invite.id, bob.clone()).unwrap();
-        assert_eq!(manager.member(&bob).unwrap().state, MembershipContentState::Join);
+        assert_eq!(
+            manager.member(&bob).unwrap().state,
+            MembershipContentState::Join
+        );
 
         let third_party = manager
             .send_third_party_invite(third_party_invite(), alice, MemberRole::Viewer)

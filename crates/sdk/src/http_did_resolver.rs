@@ -382,11 +382,7 @@ impl HttpDidResolver {
     /// cache the fresh document, or apply the policy fail-mode (stale cache
     /// within the outage window vs. fail closed) and update the health
     /// signal.
-    fn finish_resolution(
-        &self,
-        did: &Did,
-        fetched: Result<DidDocument>,
-    ) -> Result<DidDocument> {
+    fn finish_resolution(&self, did: &Did, fetched: Result<DidDocument>) -> Result<DidDocument> {
         match fetched {
             Ok(document) => {
                 self.cache_put(did, &document);
@@ -453,8 +449,7 @@ impl HttpDidResolver {
         // Prefer the runtime the calling thread is currently associated
         // with; fall back to the handle cached at construction time for
         // plain non-runtime threads.
-        let handle =
-            tokio::runtime::Handle::try_current().unwrap_or_else(|_| self.runtime.clone());
+        let handle = tokio::runtime::Handle::try_current().unwrap_or_else(|_| self.runtime.clone());
         match handle.runtime_flavor() {
             tokio::runtime::RuntimeFlavor::CurrentThread => std::thread::scope(|s| {
                 s.spawn(move || {

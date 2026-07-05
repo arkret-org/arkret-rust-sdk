@@ -64,8 +64,12 @@ mod tests {
 
     #[test]
     fn pair_key_is_order_independent() {
-        let alice = DirectConversationPairKeyParticipant::unmapped(did("did:webvh:z6mkfixture:alice.example"));
-        let bob = DirectConversationPairKeyParticipant::unmapped(did("did:webvh:z6mkfixture:bob.example"));
+        let alice = DirectConversationPairKeyParticipant::unmapped(did(
+            "did:webvh:z6mkfixture:alice.example",
+        ));
+        let bob = DirectConversationPairKeyParticipant::unmapped(did(
+            "did:webvh:z6mkfixture:bob.example",
+        ));
 
         let a = direct_conversation_pair_key(trust_domain(), alice.clone(), bob.clone()).unwrap();
         let b = direct_conversation_pair_key(trust_domain(), bob, alice).unwrap();
@@ -77,7 +81,9 @@ mod tests {
     #[test]
     fn pairwise_did_maps_to_stable_subject() {
         let stable = did("did:webvh:z6mkfixture:bob.example");
-        let alice = DirectConversationPairKeyParticipant::unmapped(did("did:webvh:z6mkfixture:alice.example"));
+        let alice = DirectConversationPairKeyParticipant::unmapped(did(
+            "did:webvh:z6mkfixture:alice.example",
+        ));
         let pairwise_bob = DirectConversationPairKeyParticipant {
             did: did("did:peer:2.ezbobpairwise"),
             stable_subject: stable.clone(),

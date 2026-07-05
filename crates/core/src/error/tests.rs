@@ -184,7 +184,9 @@ fn registry_identifier_union() -> std::collections::BTreeSet<String> {
             });
             let mut identifiers = std::collections::BTreeSet::new();
             for array_field in ["codes", "reason_codes"] {
-                if let Some(entries) = registry.get(array_field).and_then(serde_json::Value::as_array)
+                if let Some(entries) = registry
+                    .get(array_field)
+                    .and_then(serde_json::Value::as_array)
                 {
                     identifiers.extend(
                         entries

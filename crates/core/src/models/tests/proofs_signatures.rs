@@ -322,7 +322,8 @@ fn proof_validate_binding_matches_expected_fields() {
 #[test]
 fn proof_validate_binding_rejects_mismatched_verification_method() {
     let proof = valid_proof();
-    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+    let mut expected =
+        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     expected.verification_method = "did:webvh:z6mkfixture:bob.example#key-1".to_owned();
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -330,7 +331,8 @@ fn proof_validate_binding_rejects_mismatched_verification_method() {
 #[test]
 fn proof_validate_binding_rejects_mismatched_payload_digest() {
     let proof = valid_proof();
-    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+    let mut expected =
+        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     expected.payload_digest =
         Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
             .unwrap();
@@ -340,7 +342,8 @@ fn proof_validate_binding_rejects_mismatched_payload_digest() {
 #[test]
 fn proof_validate_binding_rejects_mismatched_domain() {
     let proof = valid_proof();
-    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+    let mut expected =
+        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     expected.domain = Some("other.example".to_owned());
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -349,7 +352,8 @@ fn proof_validate_binding_rejects_mismatched_domain() {
 fn proof_validate_binding_rejects_mismatched_audience() {
     let mut proof = valid_proof();
     proof.audience = Some(Audience::Single("svc-a".to_owned()));
-    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+    let mut expected =
+        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     expected.audience = Some(Audience::Single("svc-b".to_owned()));
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -361,8 +365,11 @@ fn proof_validate_binding_accepts_multi_audience_covering_required_context() {
         "did:webvh:z6mkfixture:service-a.example".to_owned(),
         "did:webvh:z6mkfixture:service-b.example".to_owned(),
     ]));
-    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
-    expected.audience = Some(Audience::Single("did:webvh:z6mkfixture:service-b.example".to_owned()));
+    let mut expected =
+        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+    expected.audience = Some(Audience::Single(
+        "did:webvh:z6mkfixture:service-b.example".to_owned(),
+    ));
     assert!(proof.validate_binding(&expected).is_ok());
 }
 
@@ -370,8 +377,11 @@ fn proof_validate_binding_accepts_multi_audience_covering_required_context() {
 fn proof_validate_binding_ignores_domain_and_audience_when_context_is_local() {
     let mut proof = valid_proof();
     proof.domain = Some("ck:trust_domain:example.net".to_owned());
-    proof.audience = Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()));
-    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+    proof.audience = Some(Audience::Single(
+        "did:webvh:z6mkfixture:service.example".to_owned(),
+    ));
+    let mut expected =
+        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     expected.domain = None;
     expected.audience = None;
     assert!(proof.validate_binding(&expected).is_ok());
@@ -380,10 +390,15 @@ fn proof_validate_binding_ignores_domain_and_audience_when_context_is_local() {
 #[test]
 fn proof_validate_cross_domain_binding_requires_domain_and_audience() {
     let mut proof = valid_proof();
-    proof.audience = Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()));
-    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+    proof.audience = Some(Audience::Single(
+        "did:webvh:z6mkfixture:service.example".to_owned(),
+    ));
+    let mut expected =
+        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     expected.domain = Some("ck:trust_domain:example.net".to_owned());
-    expected.audience = Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()));
+    expected.audience = Some(Audience::Single(
+        "did:webvh:z6mkfixture:service.example".to_owned(),
+    ));
     let error = proof.validate_cross_domain_binding(&expected).unwrap_err();
     assert!(
         error.to_string().contains("proof_binding_missing"),
@@ -398,8 +413,11 @@ fn proof_validate_cross_domain_binding_requires_domain_and_audience() {
 fn proof_validate_cross_domain_binding_requires_expected_context() {
     let mut proof = valid_proof();
     proof.domain = Some("ck:trust_domain:example.net".to_owned());
-    proof.audience = Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()));
-    let expected = valid_proof().binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+    proof.audience = Some(Audience::Single(
+        "did:webvh:z6mkfixture:service.example".to_owned(),
+    ));
+    let expected =
+        valid_proof().binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     let error = proof.validate_cross_domain_binding(&expected).unwrap_err();
     assert!(
         error.to_string().contains("proof_binding_missing"),
@@ -428,7 +446,8 @@ fn proof_validate_rejects_empty_domain_or_audience() {
 #[test]
 fn proof_validate_binding_rejects_excessive_time_drift() {
     let proof = valid_proof();
-    let mut expected = proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
+    let mut expected =
+        proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
     expected.created_at = "2026-04-26T01:00:00Z".parse().unwrap();
     assert!(proof.validate_binding(&expected).is_err());
 }
@@ -513,7 +532,9 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         event_digest: Hash::new(digest).unwrap(),
         created_at: Utc::now(),
         domain: None,
-        audience: Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
+        audience: Some(Audience::Single(
+            "did:webvh:z6mkfixture:service.example".to_owned(),
+        )),
         jws: "sig".to_owned(),
     };
     let mut signed_event = event;
@@ -521,7 +542,9 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     let error = signed_event
         .validate_proof_bindings_with_context(
             Some("ck:trust_domain:example.net".to_owned()),
-            Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
+            Some(Audience::Single(
+                "did:webvh:z6mkfixture:service.example".to_owned(),
+            )),
             ProofBindingRequirements::cross_domain(),
         )
         .unwrap_err();
@@ -534,7 +557,9 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         signed_event
             .validate_proof_bindings_with_context(
                 Some("ck:trust_domain:example.net".to_owned()),
-                Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
+                Some(Audience::Single(
+                    "did:webvh:z6mkfixture:service.example".to_owned()
+                )),
                 ProofBindingRequirements::cross_domain(),
             )
             .is_ok()
@@ -566,7 +591,9 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
         event_digest: Hash::new(digest).unwrap(),
         created_at: Utc::now(),
         domain: None,
-        audience: Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
+        audience: Some(Audience::Single(
+            "did:webvh:z6mkfixture:service.example".to_owned(),
+        )),
         jws: "sig".to_owned(),
     }];
 
@@ -574,7 +601,9 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
         operation
             .validate_proof_bindings_with_context(
                 Some("ck:trust_domain:example.net".to_owned()),
-                Some(Audience::Single("did:webvh:z6mkfixture:service.example".to_owned())),
+                Some(Audience::Single(
+                    "did:webvh:z6mkfixture:service.example".to_owned()
+                )),
                 ProofBindingRequirements::cross_domain(),
             )
             .unwrap_err()

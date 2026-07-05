@@ -267,11 +267,11 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                         .unwrap_or_else(|| panic!("{vector_id}: missing rejected_input_classes"));
                     assert!(!classes.is_empty());
                     let representatives: [&[u8]; 5] = [
-                        b"{\"a\":\"\xff\"}",         // malformed UTF-8
-                        br#"{"a":1,"a":2}"#,          // duplicate keys
-                        br#"{"a":"\ud800"}"#,         // lone surrogate escape
-                        br#"{"n":NaN}"#,              // non-standard literal
-                        br#"{"n":1.5}"#,              // non-integer number
+                        b"{\"a\":\"\xff\"}",  // malformed UTF-8
+                        br#"{"a":1,"a":2}"#,  // duplicate keys
+                        br#"{"a":"\ud800"}"#, // lone surrogate escape
+                        br#"{"n":NaN}"#,      // non-standard literal
+                        br#"{"n":1.5}"#,      // non-integer number
                     ];
                     for raw in representatives {
                         assert!(
@@ -329,10 +329,8 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                 // after it while a wrap-around would sort before it (the
                 // declared fail condition). The producer-side error path is
                 // exercised by `cokret::hlc` generator tests.
-                let last = crate::Hlc::new(
-                    vector["input"]["last_emitted_hlc"].as_str().unwrap(),
-                )
-                .unwrap();
+                let last =
+                    crate::Hlc::new(vector["input"]["last_emitted_hlc"].as_str().unwrap()).unwrap();
                 let outcomes = vector["expected_acceptable_outcomes"].as_array().unwrap();
                 let wait_outcome = outcomes
                     .iter()
@@ -369,7 +367,10 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     crate::canonical::from_canonical_json_slice(&bytes).unwrap();
                 assert_eq!(cursor.v, "1", "{vector_id}: cursor version drifted");
                 let reencoded = crate::canonical::canonical_json_bytes(&cursor).unwrap();
-                assert_eq!(reencoded, bytes, "{vector_id}: cursor re-encode not verbatim");
+                assert_eq!(
+                    reencoded, bytes,
+                    "{vector_id}: cursor re-encode not verbatim"
+                );
                 assert_eq!(
                     format!(
                         "ck:cursor:{}",
@@ -414,10 +415,14 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     "{vector_id}: mixed depth-{depth} nesting must reject"
                 );
                 // Control: depth exactly 64 is inclusive and MUST be accepted.
-                crate::canonical::parse_canonical_json(&build_nested(depth - 1))
-                    .unwrap_or_else(|error| {
-                        panic!("{vector_id}: depth-{} control must accept: {error}", depth - 1)
-                    });
+                crate::canonical::parse_canonical_json(&build_nested(depth - 1)).unwrap_or_else(
+                    |error| {
+                        panic!(
+                            "{vector_id}: depth-{} control must accept: {error}",
+                            depth - 1
+                        )
+                    },
+                );
             }
             "cbor_reject_raw" => {
                 let input_hex = vector
@@ -442,10 +447,8 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                 let mut raw: Vec<u8> = vec![0x9a];
                 raw.extend_from_slice(&(count as u32).to_be_bytes());
                 raw.extend(std::iter::repeat_n(0x00u8, count as usize));
-                let err = crate::models::MlsGovernanceBindingPayload::from_deterministic_cbor(
-                    &raw,
-                )
-                .expect_err("oversized CBOR array must reject");
+                let err = crate::models::MlsGovernanceBindingPayload::from_deterministic_cbor(&raw)
+                    .expect_err("oversized CBOR array must reject");
                 assert!(
                     err.to_string().contains("65536"),
                     "{vector_id}: rejection must be the container-item bound, got: {err}"
@@ -485,9 +488,9 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     assert_eq!(decoded, key, "{vector_id}/{label}: decode round-trip drift");
                 }
             }
-            other => panic!(
-                "encoding vector {vector_id} has unknown kind {other}; extend this driver"
-            ),
+            other => {
+                panic!("encoding vector {vector_id} has unknown kind {other}; extend this driver")
+            }
         }
     }
 
@@ -633,7 +636,9 @@ fn invite_payload_strong_types_pass_spec_validator() {
     let create = InviteCreatePayload::new(
         InviteId::new("ck:invite:01904100-0000-7000-8000-111111111111").unwrap(),
         Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-        InviteDeliveryTarget::principal_server(Did::new("did:webvh:z6mkfixture:ps.example").unwrap()),
+        InviteDeliveryTarget::principal_server(
+            Did::new("did:webvh:z6mkfixture:ps.example").unwrap(),
+        ),
         Hash::new("sha256:".to_owned() + &"a".repeat(64)).unwrap(),
         chrono::Utc::now() + chrono::Duration::days(7),
     )

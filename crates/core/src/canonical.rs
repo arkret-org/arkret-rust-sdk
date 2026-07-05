@@ -1048,7 +1048,10 @@ mod tests {
         // round-trippable without colliding with the part separator.
         let parts = ["did:webvh:z6mkfixture:alice|bar", "100%great", "plain"];
         let encoded = encode_state_subject(&parts);
-        assert_eq!(encoded, "did:webvh:z6mkfixture:alice%7Cbar|100%25great|plain");
+        assert_eq!(
+            encoded,
+            "did:webvh:z6mkfixture:alice%7Cbar|100%25great|plain"
+        );
         let decoded = decode_state_subject_parts(&encoded).unwrap();
         assert_eq!(decoded, parts);
     }

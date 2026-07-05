@@ -148,7 +148,10 @@ mod tests {
             audit_binding: None,
         };
         let json_text = serde_json::to_string(&env).unwrap();
-        assert_eq!(json_text, r#"{"agent_id":"did:webvh:z6mkfixture:agent.example.com"}"#);
+        assert_eq!(
+            json_text,
+            r#"{"agent_id":"did:webvh:z6mkfixture:agent.example.com"}"#
+        );
         let parsed: AgentInteropEnvelope = serde_json::from_str(&json_text).unwrap();
         assert_eq!(parsed, env);
     }
@@ -175,7 +178,9 @@ mod tests {
     fn applet_envelope_round_trips() {
         let env = AppletInteropEnvelope {
             applet_id: "ck:applet:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
-            service_did: Some(Did::new("did:webvh:z6mkfixture:bridge.example.com".to_owned()).unwrap()),
+            service_did: Some(
+                Did::new("did:webvh:z6mkfixture:bridge.example.com".to_owned()).unwrap(),
+            ),
             session_id: Some("sess-1".to_owned()),
             status: Some(InteropSessionStatus::Completed),
             params: None,

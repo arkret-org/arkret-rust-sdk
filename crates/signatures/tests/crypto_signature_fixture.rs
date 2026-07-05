@@ -26,7 +26,9 @@
 use cokret_core::schema::embedded_json_artifact;
 use cokret_core::{Did, Hash, Proof, base64url_decode, base64url_encode, canonical};
 use cokret_signatures::proof::{PublicKeyMaterial, verify_detached_ed25519_signature};
-use cokret_signatures::{FUTURE_ALGORITHMS, PRODUCTION_ALGORITHMS, verify_eddsa_detached_jws_proof};
+use cokret_signatures::{
+    FUTURE_ALGORITHMS, PRODUCTION_ALGORITHMS, verify_eddsa_detached_jws_proof,
+};
 use ed25519_dalek::Signer as _;
 use serde_json::Value;
 
@@ -132,7 +134,10 @@ fn ed25519_detached_jws_vector_verifies_with_sdk_primitives() {
     let jws = s(&vector["proof"], "jws");
     let parts: Vec<&str> = jws.split('.').collect();
     assert_eq!(parts.len(), 3, "detached JWS must have 3 segments");
-    assert!(parts[1].is_empty(), "detached JWS payload segment must be empty");
+    assert!(
+        parts[1].is_empty(),
+        "detached JWS payload segment must be empty"
+    );
     assert_eq!(
         format!("{}.{}", parts[0], s(&vector, "detached_payload_b64u")),
         signing_input,
@@ -242,7 +247,11 @@ fn negative_cases_reject_through_sdk_verifiers() {
 
     // reject_flipped_signature_bit: raw Ed25519 verification must fail.
     let flipped = negative_case(&fixture, "reject_flipped_signature_bit");
-    let flipped_sig = s(&flipped, "proof_jws").rsplit('.').next().unwrap().to_owned();
+    let flipped_sig = s(&flipped, "proof_jws")
+        .rsplit('.')
+        .next()
+        .unwrap()
+        .to_owned();
     let flipped_input = flipped["jws_signing_input"]
         .as_str()
         .unwrap_or(base_signing_input);
@@ -260,10 +269,12 @@ fn negative_cases_reject_through_sdk_verifiers() {
     let truncated_key = PublicKeyMaterial::Jwk {
         value: truncated["public_key_jwk"].clone(),
     };
-    assert!(truncated_key.ed25519_bytes().is_err() || {
-        let sig = s(&truncated, "proof_jws").rsplit('.').next().unwrap();
-        !verify_detached_ed25519_signature(&truncated_key, base_signing_input.as_bytes(), sig)
-    });
+    assert!(
+        truncated_key.ed25519_bytes().is_err() || {
+            let sig = s(&truncated, "proof_jws").rsplit('.').next().unwrap();
+            !verify_detached_ed25519_signature(&truncated_key, base_signing_input.as_bytes(), sig)
+        }
+    );
 
     // reject_alg_none / reject_alg_key_type_mismatch: the SDK verifier's
     // algorithm gate must reject before any signature math.
@@ -296,13 +307,9 @@ fn negative_cases_reject_through_sdk_verifiers() {
     // attached payload segment even though the signature would verify.
     let attached = negative_case(&fixture, "reject_non_empty_payload_segment");
     let proof = proof_for_negative(&base, "EdDSA", s(&attached, "proof_jws"));
-    let err = verify_eddsa_detached_jws_proof(
-        &proof,
-        &canonical_event_bytes,
-        &actor,
-        &base_public_key,
-    )
-    .expect_err("attached payload segment must be rejected");
+    let err =
+        verify_eddsa_detached_jws_proof(&proof, &canonical_event_bytes, &actor, &base_public_key)
+            .expect_err("attached payload segment must be rejected");
     assert!(
         format!("{err}").contains("empty payload segment"),
         "expected the detached-profile gate, got: {err}"

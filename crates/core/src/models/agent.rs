@@ -276,8 +276,11 @@ mod tests {
     #[test]
     fn sidecar_thread_ensure_request_uses_context_ref_shape() {
         let request = AgentSidecarThreadEnsureRequestBody {
-            controller_principal_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
-            addressed_agent_principal_ids: vec![Did::new("did:webvh:z6mkfixture:agent.example").unwrap()],
+            controller_principal_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice")
+                .unwrap(),
+            addressed_agent_principal_ids: vec![
+                Did::new("did:webvh:z6mkfixture:agent.example").unwrap(),
+            ],
             context_ref: AgentSidecarContextRef::strand(
                 RealmId::new("ck:realm:01964137-0000-7000-8000-000000000030").unwrap(),
                 StrandId::new("ck:strand:01964137-0000-7000-8000-000000000031").unwrap(),

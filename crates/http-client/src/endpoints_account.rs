@@ -361,7 +361,10 @@ mod tests {
             "query: {query}"
         );
         // Default-false booleans are omitted rather than sent as `false`.
-        assert!(!query.contains("include_redundant_members"), "query: {query}");
+        assert!(
+            !query.contains("include_redundant_members"),
+            "query: {query}"
+        );
         assert!(
             query.contains("filter.event_types=ck.message.create"),
             "query: {query}"

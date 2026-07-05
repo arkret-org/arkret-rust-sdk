@@ -1148,7 +1148,10 @@ mod tests {
             ("Signature-Input", input_header.as_str()),
             ("Signature", signature_header.as_str()),
             ("Content-Digest", digest.wire_value.as_str()),
-            ("X-Cokret-Origin-Service-Did", "did:webvh:z6mkfixture:sync.example.com"),
+            (
+                "X-Cokret-Origin-Service-Did",
+                "did:webvh:z6mkfixture:sync.example.com",
+            ),
             (
                 "X-Cokret-Destination-Service-Did",
                 "did:webvh:z6mkfixture:push.example.com",

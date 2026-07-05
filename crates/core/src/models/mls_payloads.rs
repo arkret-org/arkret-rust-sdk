@@ -867,9 +867,7 @@ impl<'a> CborReader<'a> {
             5 => {
                 let len = self.read_container_len(additional)?;
                 if len > MAX_CBOR_CONTAINER_ITEMS {
-                    return Err(cbor_error(
-                        "CBOR map exceeds the v1 maximum of 65536 items",
-                    ));
+                    return Err(cbor_error("CBOR map exceeds the v1 maximum of 65536 items"));
                 }
                 let mut map = BTreeMap::new();
                 for _ in 0..len {

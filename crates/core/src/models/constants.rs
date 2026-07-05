@@ -1091,7 +1091,10 @@ mod tests {
 
     #[test]
     fn agent_sidecar_circle_key_is_stable_and_short_name_derives() {
-        let key = agent_sidecar_circle_key("ck:realm:context", "did:webvh:z6mkfixture:example.com:users:alice");
+        let key = agent_sidecar_circle_key(
+            "ck:realm:context",
+            "did:webvh:z6mkfixture:example.com:users:alice",
+        );
         assert_eq!(key.len(), 24);
         assert!(
             key.chars()

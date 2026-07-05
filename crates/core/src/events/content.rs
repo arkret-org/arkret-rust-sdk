@@ -1115,7 +1115,10 @@ mod tests {
             content.formatted.as_ref().map(|body| body.format.as_str()),
             Some("html")
         );
-        assert_eq!(content.mentions[0].target, "did:webvh:z6mkfixture:alice.example");
+        assert_eq!(
+            content.mentions[0].target,
+            "did:webvh:z6mkfixture:alice.example"
+        );
         assert_eq!(
             content
                 .relates_to

@@ -356,7 +356,10 @@ impl CokretMlsGroup {
     /// MUST be called while the group is at epoch `N` (e.g. right after each
     /// commit) for the secret to be recoverable afterwards. Idempotent within an
     /// epoch: re-deriving overwrites with the identical value.
-    pub fn derive_and_retain_history_secret(&mut self, realm_id: &str) -> Result<Zeroizing<Vec<u8>>> {
+    pub fn derive_and_retain_history_secret(
+        &mut self,
+        realm_id: &str,
+    ) -> Result<Zeroizing<Vec<u8>>> {
         let secret = self.export_secret(HISTORY_SECRET_LABEL, realm_id.as_bytes(), 32)?;
         self.history_secrets.insert(self.epoch(), secret.clone());
         Ok(secret)

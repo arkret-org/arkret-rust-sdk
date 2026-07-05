@@ -274,7 +274,10 @@ mod tests {
         let v = NotaryValue::single_did(did("did:webvh:z6mkfixture:soland.example"));
         v.validate().unwrap();
         let s = serde_json::to_string(&v).unwrap();
-        assert_eq!(s, r#"{"type":"single_did","did":"did:webvh:z6mkfixture:soland.example"}"#);
+        assert_eq!(
+            s,
+            r#"{"type":"single_did","did":"did:webvh:z6mkfixture:soland.example"}"#
+        );
     }
 
     #[test]

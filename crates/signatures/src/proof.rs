@@ -983,7 +983,10 @@ mod tests {
     #[test]
     fn ed25519_signer_round_trips_through_event_verifier() {
         use serde_json::json;
-        let signer = Ed25519DetachedJwsSigner::from_seed([1u8; 32], "did:webvh:z6mkfixture:alice.example#key-1");
+        let signer = Ed25519DetachedJwsSigner::from_seed(
+            [1u8; 32],
+            "did:webvh:z6mkfixture:alice.example#key-1",
+        );
         let verifier = Ed25519DetachedJwsVerifier::new();
         let public_key = PublicKeyMaterial::Ed25519Raw {
             bytes: signer.verifying_key().to_bytes().to_vec(),
@@ -1001,7 +1004,10 @@ mod tests {
         use base64::Engine;
         use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 
-        let signer = Ed25519DetachedJwsSigner::from_seed([2u8; 32], "did:webvh:z6mkfixture:bob.example#key-1");
+        let signer = Ed25519DetachedJwsSigner::from_seed(
+            [2u8; 32],
+            "did:webvh:z6mkfixture:bob.example#key-1",
+        );
         let (bytes, proof) = signer
             .sign_payload(
                 &json!({"a": 1, "b": 2}),

@@ -822,7 +822,10 @@ mod tests {
         m.validate_id().unwrap();
         m.validate_structural().unwrap();
         assert_eq!(m.issuer, alice());
-        assert_eq!(m.sig.verification_method, "did:webvh:z6mkfixture:alice.example#key-1");
+        assert_eq!(
+            m.sig.verification_method,
+            "did:webvh:z6mkfixture:alice.example#key-1"
+        );
     }
 
     #[test]
@@ -864,7 +867,10 @@ mod tests {
             hash(0x77),
             hlc(),
             2,
-            vec![alice(), Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap()],
+            vec![
+                alice(),
+                Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
+            ],
             "BLS_AGG".to_owned(),
         )
         .unwrap();

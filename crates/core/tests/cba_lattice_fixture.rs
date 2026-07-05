@@ -129,8 +129,7 @@ fn run_assertion(lattice_kind: &str, assertion: &str) {
                     text.contains("left") && text.contains("right")
                 }
                 CellState::Bottom(bottom) => {
-                    let heads: Vec<&str> =
-                        bottom.heads.iter().filter_map(Value::as_str).collect();
+                    let heads: Vec<&str> = bottom.heads.iter().filter_map(Value::as_str).collect();
                     heads.contains(&"left")
                         && heads.contains(&"right")
                         && bottom.move_ids.len() >= 2
@@ -194,8 +193,16 @@ fn run_assertion(lattice_kind: &str, assertion: &str) {
         }
         ("ordered_log", "per_issuer_sequence_order") => {
             let ops = vec![
-                issued("did:webvh:z6mkfixture:alice.example", "a2", op_append(json!("second"), 2)),
-                issued("did:webvh:z6mkfixture:alice.example", "a1", op_append(json!("first"), 1)),
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a2",
+                    op_append(json!("second"), 2),
+                ),
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a1",
+                    op_append(json!("first"), 1),
+                ),
             ];
             let resolved = value_of(OrderedLog.join_with_issuers(&cref, &ops));
             let text = serde_json::to_string(&resolved).unwrap();
@@ -232,8 +239,16 @@ fn run_assertion(lattice_kind: &str, assertion: &str) {
         }
         ("ordered_log", "gap_after_contiguous_prefix_is_pending_diagnostic") => {
             let ops = vec![
-                issued("did:webvh:z6mkfixture:alice.example", "a1", op_append(json!("one"), 1)),
-                issued("did:webvh:z6mkfixture:alice.example", "a3", op_append(json!("three"), 3)),
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a1",
+                    op_append(json!("one"), 1),
+                ),
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a3",
+                    op_append(json!("three"), 3),
+                ),
             ];
             let report = OrderedLog.join_with_issuer_report(&ops);
             assert_eq!(
@@ -246,12 +261,23 @@ fn run_assertion(lattice_kind: &str, assertion: &str) {
         }
         ("ordered_log", "pending_gap_entry_does_not_enter_cell_value") => {
             let ops = vec![
-                issued("did:webvh:z6mkfixture:alice.example", "a1", op_append(json!("one"), 1)),
-                issued("did:webvh:z6mkfixture:alice.example", "a3", op_append(json!("three"), 3)),
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a1",
+                    op_append(json!("one"), 1),
+                ),
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a3",
+                    op_append(json!("three"), 3),
+                ),
             ];
             let resolved = value_of(OrderedLog.join_with_issuers(&cref, &ops));
             let text = serde_json::to_string(&resolved).unwrap();
-            assert!(text.contains("one"), "contiguous prefix must be visible: {text}");
+            assert!(
+                text.contains("one"),
+                "contiguous prefix must be visible: {text}"
+            );
             assert!(
                 !text.contains("three"),
                 "post-gap entry must stay out of the cell value: {text}"
@@ -259,9 +285,21 @@ fn run_assertion(lattice_kind: &str, assertion: &str) {
         }
         ("ordered_log", "backfill_recompute_is_arrival_order_independent") => {
             let complete = vec![
-                issued("did:webvh:z6mkfixture:alice.example", "a1", op_append(json!("one"), 1)),
-                issued("did:webvh:z6mkfixture:alice.example", "a2", op_append(json!("two"), 2)),
-                issued("did:webvh:z6mkfixture:alice.example", "a3", op_append(json!("three"), 3)),
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a1",
+                    op_append(json!("one"), 1),
+                ),
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a2",
+                    op_append(json!("two"), 2),
+                ),
+                issued(
+                    "did:webvh:z6mkfixture:alice.example",
+                    "a3",
+                    op_append(json!("three"), 3),
+                ),
             ];
             let mut shuffled = complete.clone();
             shuffled.swap(0, 2);
@@ -292,10 +330,17 @@ fn run_assertion(lattice_kind: &str, assertion: &str) {
             );
         }
         ("fsm", "duplicate_same_transition_idempotent") => {
-            let fsm = Fsm::new(vec![(json!("draft"), json!("active"))]).with_initial(json!("draft"));
+            let fsm =
+                Fsm::new(vec![(json!("draft"), json!("active"))]).with_initial(json!("draft"));
             let ops = vec![
-                SealedOp::new(move_id("aa"), op_transition(json!("draft"), json!("active"))),
-                SealedOp::new(move_id("bb"), op_transition(json!("draft"), json!("active"))),
+                SealedOp::new(
+                    move_id("aa"),
+                    op_transition(json!("draft"), json!("active")),
+                ),
+                SealedOp::new(
+                    move_id("bb"),
+                    op_transition(json!("draft"), json!("active")),
+                ),
             ];
             let resolved = value_of(fsm.join(&cell(), &ops));
             let text = serde_json::to_string(&resolved).unwrap();
@@ -311,8 +356,14 @@ fn run_assertion(lattice_kind: &str, assertion: &str) {
             ])
             .with_initial(json!("draft"));
             let ops = vec![
-                SealedOp::new(move_id("aa"), op_transition(json!("draft"), json!("active"))),
-                SealedOp::new(move_id("bb"), op_transition(json!("draft"), json!("archived"))),
+                SealedOp::new(
+                    move_id("aa"),
+                    op_transition(json!("draft"), json!("active")),
+                ),
+                SealedOp::new(
+                    move_id("bb"),
+                    op_transition(json!("draft"), json!("archived")),
+                ),
             ];
             assert!(
                 fsm.join(&cell(), &ops).is_bottom(),

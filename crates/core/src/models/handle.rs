@@ -671,7 +671,8 @@ mod tests {
         let claim = HandleClaim {
             handle: Some(Handle::parse("alice:example.com").unwrap()),
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_service_did: Did::new("did:webvh:z6mkfixture:rs.example".to_owned()).unwrap(),
+                recipient_service_did: Did::new("did:webvh:z6mkfixture:rs.example".to_owned())
+                    .unwrap(),
                 recipient_service_type: RecipientServiceType::PrincipalServer,
                 binding_source: HandleHintBindingSource::Explicit,
                 delivery_modes: BTreeSet::new(),
@@ -696,7 +697,8 @@ mod tests {
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
             proofs: vec![placeholder_payload_proof()],
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_service_did: Did::new("did:webvh:z6mkfixture:rs.example".to_owned()).unwrap(),
+                recipient_service_did: Did::new("did:webvh:z6mkfixture:rs.example".to_owned())
+                    .unwrap(),
                 recipient_service_type: RecipientServiceType::PrincipalServer,
                 binding_source: HandleHintBindingSource::OrganizationPolicy,
                 delivery_modes: BTreeSet::from([DeliveryMode::Events]),

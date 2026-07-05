@@ -363,7 +363,8 @@ mod tests {
         RealmRecoveryRecipient {
             recipient_id: "acme-org-rrk-1".to_owned(),
             principal_id: Did::new("did:webvh:z6mkfixture:acme.example").unwrap(),
-            verification_method: "did:webvh:z6mkfixture:acme.example#realm-history-recovery-1".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:acme.example#realm-history-recovery-1"
+                .to_owned(),
             controller_organization: None,
         }
     }

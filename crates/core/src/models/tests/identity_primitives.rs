@@ -37,7 +37,10 @@ fn session_login_outcome_uses_typed_wire_fields() {
         "expires_at": "2026-04-28T12:00:00Z"
     });
     let outcome: crate::SessionLoginOutcome = serde_json::from_value(value).unwrap();
-    assert_eq!(outcome.actor.as_str(), "did:webvh:z6mkfixture:alice.example");
+    assert_eq!(
+        outcome.actor.as_str(),
+        "did:webvh:z6mkfixture:alice.example"
+    );
     assert_eq!(
         outcome.device_id.as_str(),
         "ck:device:01964137-0000-7000-8000-000000000001"

@@ -154,7 +154,9 @@ mod tests {
     fn base58btc_rejects_non_alphabet_characters() {
         // '0', 'O', 'I', 'l' are excluded from the Bitcoin base58 alphabet;
         // '+' and '/' come from base64 confusion; whitespace must not pass.
-        for bad in ["0", "O", "I", "l", "abc0def", "ab+cd", "ab/cd", "ab cd", "café"] {
+        for bad in [
+            "0", "O", "I", "l", "abc0def", "ab+cd", "ab/cd", "ab cd", "café",
+        ] {
             assert!(
                 decode_base58btc(bad).is_err(),
                 "base58btc must reject {bad:?}"

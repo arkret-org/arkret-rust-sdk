@@ -313,8 +313,8 @@ mod salvo_router {
 
         // Resolve the source service DID's signing key from the signature
         // `keyid` (an RFC 9421 verification-method DID URL).
-        let signature_input_header = header_value(&parts.headers, "signature-input")
-            .ok_or_else(|| {
+        let signature_input_header =
+            header_value(&parts.headers, "signature-input").ok_or_else(|| {
                 Error::Protocol("applet transaction missing Signature-Input".to_owned())
             })?;
         let signature_input = parse_signature_input(signature_input_header)

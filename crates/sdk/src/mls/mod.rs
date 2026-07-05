@@ -1120,7 +1120,10 @@ mod tests {
         // Bob's leaf is at index 1 (Alice is index 0 as group creator).
         let result = alice_group.remove_member_by_leaf(1).unwrap();
         assert_eq!(result.removed_leaves, vec![1]);
-        assert_eq!(result.removed_principals[0].as_str(), "did:webvh:z6mkfixture:bob.example");
+        assert_eq!(
+            result.removed_principals[0].as_str(),
+            "did:webvh:z6mkfixture:bob.example"
+        );
     }
 
     /// T31 — `commit_operation` projects the result into the same
@@ -1248,8 +1251,10 @@ mod tests {
         // Receiver device keypair; provider HPKE-seals the range to its pubkey.
         let receiver_priv = x25519_dalek::StaticSecret::from([42u8; 32]);
         let receiver_pub = *x25519_dalek::PublicKey::from(&receiver_priv).as_bytes();
-        let range_plain: Vec<(u64, Vec<u8>)> =
-            range.iter().map(|(epoch, secret)| (*epoch, secret.to_vec())).collect();
+        let range_plain: Vec<(u64, Vec<u8>)> = range
+            .iter()
+            .map(|(epoch, secret)| (*epoch, secret.to_vec()))
+            .collect();
         let share_ciphertext =
             crate::secret_share::seal_history_secret_to_device_pubkey(&receiver_pub, &range_plain)
                 .unwrap();

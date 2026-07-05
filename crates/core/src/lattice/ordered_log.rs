@@ -308,11 +308,20 @@ mod tests {
         match state {
             CellState::Value(v) => {
                 let arr = v.as_array().unwrap();
-                assert_eq!(arr[0].get("issuer").unwrap(), "did:webvh:z6mkfixture:alice.example");
+                assert_eq!(
+                    arr[0].get("issuer").unwrap(),
+                    "did:webvh:z6mkfixture:alice.example"
+                );
                 assert_eq!(arr[0].get("issuer_seq").unwrap().as_u64().unwrap(), 1);
-                assert_eq!(arr[1].get("issuer").unwrap(), "did:webvh:z6mkfixture:alice.example");
+                assert_eq!(
+                    arr[1].get("issuer").unwrap(),
+                    "did:webvh:z6mkfixture:alice.example"
+                );
                 assert_eq!(arr[1].get("issuer_seq").unwrap().as_u64().unwrap(), 2);
-                assert_eq!(arr[2].get("issuer").unwrap(), "did:webvh:z6mkfixture:bob.example");
+                assert_eq!(
+                    arr[2].get("issuer").unwrap(),
+                    "did:webvh:z6mkfixture:bob.example"
+                );
             }
             _ => panic!("expected value"),
         }

@@ -508,7 +508,8 @@ mod tests {
 
     #[test]
     fn render_subject_degrades_through_name_then_truncated_did() {
-        let s = Did::new("did:webvh:z6mkfixture:averylongsubjectidentifier.example".to_owned()).unwrap();
+        let s = Did::new("did:webvh:z6mkfixture:averylongsubjectidentifier.example".to_owned())
+            .unwrap();
         let input = PrimaryHandleSelectInput {
             subject_id: s.as_str(),
             context: None,

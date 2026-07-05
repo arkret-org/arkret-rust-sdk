@@ -351,7 +351,10 @@ mod tests {
         let value = eff.op.value.as_ref().unwrap();
         assert_eq!(value.get("consent_id").unwrap(), "cs-001");
         assert_eq!(value.get("scope").unwrap(), "invite");
-        assert_eq!(value.get("peer").unwrap(), "did:webvh:z6mkfixture:bob.example");
+        assert_eq!(
+            value.get("peer").unwrap(),
+            "did:webvh:z6mkfixture:bob.example"
+        );
         assert!(value.get("expires_at").is_some());
     }
 

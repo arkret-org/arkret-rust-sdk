@@ -39,22 +39,15 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             ProfileRequirements {
                 profile_id: "ck.profile.accountable_principals.strict_reject.v1",
                 inherits: &[],
-                required_operations: &[
-                    "ck.self.events.command.submit",
-                ],
+                required_operations: &["ck.self.events.command.submit"],
                 required_event_kinds: &[
                     "ck.identity.accountability_grant",
                     "ck.profile.create",
                     "ck.profile.update",
                 ],
-                required_schemas: &[
-                    "ck.schema.actor_profile.v1",
-                    "ck.schema.event.v1",
-                ],
+                required_schemas: &["ck.schema.actor_profile.v1", "ck.schema.event.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -66,24 +59,12 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.agent_auth.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.agent_auth.v1",
-                inherits: &[
-                    "ck.profile.agent_runtime.v1",
-                    "ck.profile.auth_server.v1",
-                ],
-                required_operations: &[
-                    "ck.gate.account.command.issue_session_grant",
-                ],
-                required_event_kinds: &[
-                    "ck.agent.key.authorize",
-                    "ck.agent.key.revoke",
-                ],
-                required_schemas: &[
-                    "ck.schema.capability.v1",
-                ],
+                inherits: &["ck.profile.agent_runtime.v1", "ck.profile.auth_server.v1"],
+                required_operations: &["ck.gate.account.command.issue_session_grant"],
+                required_event_kinds: &["ck.agent.key.authorize", "ck.agent.key.revoke"],
+                required_schemas: &["ck.schema.capability.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "capability-fixture.json",
-                ],
+                required_fixtures: &["capability-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -95,25 +76,17 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.agent_delegation_policy.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.agent_delegation_policy.v1",
-                inherits: &[
-                    "ck.profile.agent_runtime.v1",
-                ],
-                required_operations: &[
-                    "ck.self.authz.query.check",
-                ],
+                inherits: &["ck.profile.agent_runtime.v1"],
+                required_operations: &["ck.self.authz.query.check"],
                 required_event_kinds: &[
                     "ck.capability.delegate",
                     "ck.capability.grant",
                     "ck.capability.revoke",
                     "ck.message.create",
                 ],
-                required_schemas: &[
-                    "ck.schema.capability.v1",
-                ],
+                required_schemas: &["ck.schema.capability.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "capability-fixture.json",
-                ],
+                required_fixtures: &["capability-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -125,22 +98,15 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.agent_participation_policy.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.agent_participation_policy.v1",
-                inherits: &[
-                    "ck.profile.personal_agent_provisioning.v1",
-                ],
+                inherits: &["ck.profile.personal_agent_provisioning.v1"],
                 required_operations: &[
                     "ck.self.agent.participation.resource.get",
                     "ck.self.agent.participation.resource.replace",
                 ],
-                required_event_kinds: &[
-                    "ck.capability.grant",
-                    "ck.capability.revoke",
-                ],
+                required_event_kinds: &["ck.capability.grant", "ck.capability.revoke"],
                 required_schemas: &[],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "capability-fixture.json",
-                ],
+                required_fixtures: &["capability-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -165,14 +131,9 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.agent.interop_session.start",
                     "ck.agent.interop_session.status",
                 ],
-                required_schemas: &[
-                    "ck.schema.capability.v1",
-                ],
+                required_schemas: &["ck.schema.capability.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "capability-fixture.json",
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["capability-fixture.json", "privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -206,10 +167,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.strand.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "capability-fixture.json",
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["capability-fixture.json", "privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -221,9 +179,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.applet_bridge.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.applet_bridge.v1",
-                inherits: &[
-                    "ck.profile.applet_service.v1",
-                ],
+                inherits: &["ck.profile.applet_service.v1"],
                 required_operations: &[
                     "ck.edge.applet.actor.query.resolve",
                     "ck.edge.applet.query.protocol_metadata",
@@ -240,10 +196,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.seal.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "capability-fixture.json",
-                    "federation-fixture.json",
-                ],
+                required_fixtures: &["capability-fixture.json", "federation-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -255,9 +208,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.applet_delegated.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.applet_delegated.v1",
-                inherits: &[
-                    "ck.profile.applet_service.v1",
-                ],
+                inherits: &["ck.profile.applet_service.v1"],
                 required_operations: &[],
                 required_event_kinds: &[],
                 required_schemas: &[
@@ -266,9 +217,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.event_payload.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "capability-fixture.json",
-                ],
+                required_fixtures: &["capability-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -280,19 +229,12 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.applet_e2ee_join.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.applet_e2ee_join.v1",
-                inherits: &[
-                    "ck.profile.applet_service.v1",
-                ],
+                inherits: &["ck.profile.applet_service.v1"],
                 required_operations: &[],
                 required_event_kinds: &[],
-                required_schemas: &[
-                    "ck.schema.event.v1",
-                    "ck.schema.event_payload.v1",
-                ],
+                required_schemas: &["ck.schema.event.v1", "ck.schema.event_payload.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -310,9 +252,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.edge.applet.query.describe",
                     "ck.edge.applet.query.ping",
                 ],
-                required_event_kinds: &[
-                    "ck.applet.registration",
-                ],
+                required_event_kinds: &["ck.applet.registration"],
                 required_schemas: &[
                     "ck.schema.applet_package.v1",
                     "ck.schema.event.v1",
@@ -320,10 +260,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.seal.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "capability-fixture.json",
-                    "federation-fixture.json",
-                ],
+                required_fixtures: &["capability-fixture.json", "federation-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -335,19 +272,12 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.applet_widget.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.applet_widget.v1",
-                inherits: &[
-                    "ck.profile.applet_service.v1",
-                ],
+                inherits: &["ck.profile.applet_service.v1"],
                 required_operations: &[],
                 required_event_kinds: &[],
-                required_schemas: &[
-                    "ck.schema.event.v1",
-                    "ck.schema.event_payload.v1",
-                ],
+                required_schemas: &["ck.schema.event.v1", "ck.schema.event_payload.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -359,9 +289,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.attested_audit.e2ee.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.attested_audit.e2ee.v1",
-                inherits: &[
-                    "ck.profile.e2ee_client.v1",
-                ],
+                inherits: &["ck.profile.e2ee_client.v1"],
                 required_operations: &[
                     "ck.self.account.stream.subscribe",
                     "ck.self.events.command.submit",
@@ -403,16 +331,9 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.gate.account.command.issue_session_grant",
                     "ck.server.query.describe",
                 ],
-                required_event_kinds: &[
-                    "ck.session.grant",
-                ],
-                required_schemas: &[
-                    "ck.schema.handle_claim.v1",
-                    "ck.schema.service_describe.v1",
-                ],
-                rejected_event_kinds: &[
-                    "wire_scope:actor_private_event",
-                ],
+                required_event_kinds: &["ck.session.grant"],
+                required_schemas: &["ck.schema.handle_claim.v1", "ck.schema.service_describe.v1"],
+                rejected_event_kinds: &["wire_scope:actor_private_event"],
                 required_fixtures: &[
                     "crypto-signature-fixture.json",
                     "privacy-security-fixture.json",
@@ -434,18 +355,10 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.blob.resource.head",
                     "ck.self.blob.upload.create",
                 ],
-                required_event_kinds: &[
-                    "ck.realm.asset_privacy_policy",
-                    "ck.realm.media_service",
-                ],
-                required_schemas: &[
-                    "ck.schema.blob.v1",
-                    "ck.schema.media_metadata.v1",
-                ],
+                required_event_kinds: &["ck.realm.asset_privacy_policy", "ck.realm.media_service"],
+                required_schemas: &["ck.schema.blob.v1", "ck.schema.media_metadata.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -462,20 +375,14 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.events.command.submit",
                     "ck.self.events.query.scan",
                 ],
-                required_event_kinds: &[
-                    "ck.rsvp.set",
-                    "ck.strand.create",
-                    "ck.strand.update",
-                ],
+                required_event_kinds: &["ck.rsvp.set", "ck.strand.create", "ck.strand.update"],
                 required_schemas: &[
                     "ck.schema.calendar_event.v1",
                     "ck.schema.rsvp.v1",
                     "ck.schema.strand.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "sync-fixture.json",
-                ],
+                required_fixtures: &["sync-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -493,9 +400,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_schemas: &[],
                 rejected_event_kinds: &[],
                 required_fixtures: &[],
-                required_capability_actions: &[
-                    "ck.realm.join.review",
-                ],
+                required_capability_actions: &["ck.realm.join.review"],
                 required_features: &[],
                 required_cell_namespaces: &[],
                 required_cells: &[],
@@ -506,9 +411,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.chat_mvp.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.chat_mvp.v1",
-                inherits: &[
-                    "ck.profile.core_event_store.v1",
-                ],
+                inherits: &["ck.profile.core_event_store.v1"],
                 required_operations: &[
                     "ck.self.account.stream.subscribe",
                     "ck.self.events.query.scan",
@@ -542,10 +445,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_features: &[],
                 required_cell_namespaces: &[],
                 required_cells: &[],
-                required_constraint_kinds: &[
-                    "edit_window",
-                    "temporal",
-                ],
+                required_constraint_kinds: &["edit_window", "temporal"],
             },
         );
         map.insert(
@@ -600,17 +500,10 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.events.command.submit",
                     "ck.self.events.stream.subscribe",
                 ],
-                required_event_kinds: &[
-                    "ck.circle.seal_commit",
-                ],
-                required_schemas: &[
-                    "ck.schema.event.v1",
-                    "ck.schema.event_payload.v1",
-                ],
+                required_event_kinds: &["ck.circle.seal_commit"],
+                required_schemas: &["ck.schema.event.v1", "ck.schema.event_payload.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "circle-scope-fixture.json",
-                ],
+                required_fixtures: &["circle-scope-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -625,9 +518,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 inherits: &[],
                 required_operations: &[],
                 required_event_kinds: &[],
-                required_schemas: &[
-                    "ck.schema.realm.v1",
-                ],
+                required_schemas: &["ck.schema.realm.v1"],
                 rejected_event_kinds: &[],
                 required_fixtures: &[],
                 required_capability_actions: &[],
@@ -651,10 +542,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.events.resource.get",
                     "ck.server.query.describe",
                 ],
-                required_event_kinds: &[
-                    "ck.member.state",
-                    "ck.realm.create",
-                ],
+                required_event_kinds: &["ck.member.state", "ck.realm.create"],
                 required_schemas: &[
                     "ck.schema.cursor.v1",
                     "ck.schema.event.v1",
@@ -693,10 +581,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 profile_id: "ck.profile.cross_signing.reset.v1",
                 inherits: &[],
                 required_operations: &[],
-                required_event_kinds: &[
-                    "ck.cross_signing.publish",
-                    "ck.cross_signing.reset",
-                ],
+                required_event_kinds: &["ck.cross_signing.publish", "ck.cross_signing.reset"],
                 required_schemas: &[
                     "ck.schema.cross_signing_publish.v1",
                     "ck.schema.cross_signing_reset.v1",
@@ -740,9 +625,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.agent_selector_claim.v1",
                     "ck.schema.handle_claim.v1",
                 ],
-                rejected_event_kinds: &[
-                    "wire_scope:actor_private_event",
-                ],
+                rejected_event_kinds: &["wire_scope:actor_private_event"],
                 required_fixtures: &[
                     "crypto-signature-fixture.json",
                     "privacy-security-fixture.json",
@@ -763,19 +646,14 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.events.command.submit",
                     "ck.self.events.query.scan",
                 ],
-                required_event_kinds: &[
-                    "ck.message.create",
-                    "ck.realm.disappearing_policy",
-                ],
+                required_event_kinds: &["ck.message.create", "ck.realm.disappearing_policy"],
                 required_schemas: &[
                     "ck.schema.disappearing_messages.v1",
                     "ck.schema.event_payload.v1",
                     "ck.schema.message.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -787,9 +665,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.disclosed_audit.e2ee.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.disclosed_audit.e2ee.v1",
-                inherits: &[
-                    "ck.profile.e2ee_client.v1",
-                ],
+                inherits: &["ck.profile.e2ee_client.v1"],
                 required_operations: &[
                     "ck.self.account.stream.subscribe",
                     "ck.self.events.command.submit",
@@ -811,9 +687,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.seal.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -826,19 +700,11 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             ProfileRequirements {
                 profile_id: "ck.profile.draft_sync.v1",
                 inherits: &[],
-                required_operations: &[
-                    "ck.self.account.stream.subscribe",
-                ],
-                required_event_kinds: &[
-                    "ck.account_data.set",
-                ],
-                required_schemas: &[
-                    "ck.schema.draft_sync.v1",
-                ],
+                required_operations: &["ck.self.account.stream.subscribe"],
+                required_event_kinds: &["ck.account_data.set"],
+                required_schemas: &["ck.schema.draft_sync.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "sync-fixture.json",
-                ],
+                required_fixtures: &["sync-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -906,9 +772,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 rejected_event_kinds: &[],
                 required_fixtures: &[],
                 required_capability_actions: &[],
-                required_features: &[
-                    "ck.feature.e2ee_relaxed.v1",
-                ],
+                required_features: &["ck.feature.e2ee_relaxed.v1"],
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &[],
@@ -918,9 +782,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.enterprise_client.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.enterprise_client.v1",
-                inherits: &[
-                    "ck.profile.full_client.v1",
-                ],
+                inherits: &["ck.profile.full_client.v1"],
                 required_operations: &[
                     "ck.find.directory.query.resolve_organization",
                     "ck.find.directory.query.search_organizations",
@@ -938,10 +800,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.policy.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "capability-fixture.json",
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["capability-fixture.json", "privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -953,18 +812,12 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.federation.high_assurance.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.federation.high_assurance.v1",
-                inherits: &[
-                    "ck.profile.federation_minimal.v1",
-                ],
-                required_operations: &[
-                    "ck.peer.events.query.frontier",
-                ],
+                inherits: &["ck.profile.federation_minimal.v1"],
+                required_operations: &["ck.peer.events.query.frontier"],
                 required_event_kinds: &[],
                 required_schemas: &[],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "federation-fixture.json",
-                ],
+                required_fixtures: &["federation-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -976,19 +829,14 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.federation_minimal.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.federation_minimal.v1",
-                inherits: &[
-                    "ck.profile.core_event_store.v1",
-                ],
+                inherits: &["ck.profile.core_event_store.v1"],
                 required_operations: &[
                     "ck.peer.events.command.submit",
                     "ck.peer.events.query.frontier",
                     "ck.peer.events.query.resolve",
                     "ck.peer.events.query.scan",
                 ],
-                required_event_kinds: &[
-                    "ck.member.state",
-                    "ck.realm.create",
-                ],
+                required_event_kinds: &["ck.member.state", "ck.realm.create"],
                 required_schemas: &[
                     "ck.schema.event.v1",
                     "ck.schema.event_batch_receipt.v1",
@@ -1026,18 +874,14 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.device_messages.query.list",
                     "ck.self.events.command.submit",
                 ],
-                required_event_kinds: &[
-                    "ck.account_data.set",
-                ],
+                required_event_kinds: &["ck.account_data.set"],
                 required_schemas: &[
                     "ck.schema.blob.v1",
                     "ck.schema.device_message.v1",
                     "ck.schema.file_transfer.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "sync-fixture.json",
-                ],
+                required_fixtures: &["sync-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1058,14 +902,9 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.moderation.franking_proof",
                     "ck.self.moderation.report",
                 ],
-                required_schemas: &[
-                    "ck.schema.event.v1",
-                    "ck.schema.event_payload.v1",
-                ],
+                required_schemas: &["ck.schema.event.v1", "ck.schema.event_payload.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1077,10 +916,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.full_client.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.full_client.v1",
-                inherits: &[
-                    "ck.profile.chat_mvp.v1",
-                    "ck.profile.kanban_mvp.v1",
-                ],
+                inherits: &["ck.profile.chat_mvp.v1", "ck.profile.kanban_mvp.v1"],
                 required_operations: &[
                     "ck.self.account.stream.subscribe",
                     "ck.self.authz.query.check",
@@ -1235,12 +1071,8 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.kanban_mvp.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.kanban_mvp.v1",
-                inherits: &[
-                    "ck.profile.core_event_store.v1",
-                ],
-                required_operations: &[
-                    "ck.self.events.query.scan",
-                ],
+                inherits: &["ck.profile.core_event_store.v1"],
+                required_operations: &["ck.self.events.query.scan"],
                 required_event_kinds: &[
                     "ck.container.rebalance",
                     "ck.member.state",
@@ -1267,9 +1099,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_features: &[],
                 required_cell_namespaces: &[],
                 required_cells: &[],
-                required_constraint_kinds: &[
-                    "scope_limitation",
-                ],
+                required_constraint_kinds: &["scope_limitation"],
             },
         );
         map.insert(
@@ -1291,10 +1121,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.recovery_session.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "key-backup-fixture.json",
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["key-backup-fixture.json", "privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1317,9 +1144,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.keys.upload.create",
                 ],
                 required_event_kinds: &[],
-                required_schemas: &[
-                    "ck.schema.device_message.v1",
-                ],
+                required_schemas: &["ck.schema.device_message.v1"],
                 rejected_event_kinds: &[],
                 required_fixtures: &[],
                 required_capability_actions: &[],
@@ -1334,20 +1159,11 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             ProfileRequirements {
                 profile_id: "ck.profile.media_service_binding.cokret_native.v1",
                 inherits: &[],
-                required_operations: &[
-                    "ck.self.call.media.exchange.issue_token",
-                ],
-                required_event_kinds: &[
-                    "ck.call.state",
-                    "ck.realm.media_service",
-                ],
-                required_schemas: &[
-                    "ck.schema.event.v1",
-                ],
+                required_operations: &["ck.self.call.media.exchange.issue_token"],
+                required_event_kinds: &["ck.call.state", "ck.realm.media_service"],
+                required_schemas: &["ck.schema.event.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1360,20 +1176,11 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             ProfileRequirements {
                 profile_id: "ck.profile.media_service_binding.livekit.v1",
                 inherits: &[],
-                required_operations: &[
-                    "ck.self.call.media.exchange.issue_token",
-                ],
-                required_event_kinds: &[
-                    "ck.call.state",
-                    "ck.realm.media_service",
-                ],
-                required_schemas: &[
-                    "ck.schema.event.v1",
-                ],
+                required_operations: &["ck.self.call.media.exchange.issue_token"],
+                required_event_kinds: &["ck.call.state", "ck.realm.media_service"],
+                required_schemas: &["ck.schema.event.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1386,20 +1193,11 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             ProfileRequirements {
                 profile_id: "ck.profile.media_service_binding.v1",
                 inherits: &[],
-                required_operations: &[
-                    "ck.self.call.media.exchange.issue_token",
-                ],
-                required_event_kinds: &[
-                    "ck.call.state",
-                    "ck.realm.media_service",
-                ],
-                required_schemas: &[
-                    "ck.schema.event.v1",
-                ],
+                required_operations: &["ck.self.call.media.exchange.issue_token"],
+                required_event_kinds: &["ck.call.state", "ck.realm.media_service"],
+                required_schemas: &["ck.schema.event.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1430,10 +1228,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.mimi_interop.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "mimi-interop-fixture.json",
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["mimi-interop-fixture.json", "privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1445,18 +1240,13 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.minimal_client.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.minimal_client.v1",
-                inherits: &[
-                    "ck.profile.core_event_store.v1",
-                ],
+                inherits: &["ck.profile.core_event_store.v1"],
                 required_operations: &[
                     "ck.self.events.query.scan",
                     "ck.self.events.resource.get",
                     "ck.server.query.describe",
                 ],
-                required_event_kinds: &[
-                    "ck.member.state",
-                    "ck.realm.create",
-                ],
+                required_event_kinds: &["ck.member.state", "ck.realm.create"],
                 required_schemas: &[
                     "ck.schema.message.v1",
                     "ck.schema.morph.v1",
@@ -1466,10 +1256,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.view.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "encoding-fixture.json",
-                    "sync-fixture.json",
-                ],
+                required_fixtures: &["encoding-fixture.json", "sync-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1481,17 +1268,12 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.mls.minimal_metadata_realm.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.mls.minimal_metadata_realm.v1",
-                inherits: &[
-                    "ck.profile.e2ee_client.v1",
-                ],
+                inherits: &["ck.profile.e2ee_client.v1"],
                 required_operations: &[
                     "ck.self.events.command.submit",
                     "ck.self.events.query.scan",
                 ],
-                required_event_kinds: &[
-                    "ck.message.create",
-                    "ck.mls.commit",
-                ],
+                required_event_kinds: &["ck.message.create", "ck.mls.commit"],
                 required_schemas: &[
                     "ck.schema.encrypted_envelope.v1",
                     "ck.schema.event.v1",
@@ -1524,10 +1306,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.realm_key.share",
                     "ck.realm_key.withheld",
                 ],
-                required_schemas: &[
-                    "ck.schema.encrypted_envelope.v1",
-                    "ck.schema.snapshot.v1",
-                ],
+                required_schemas: &["ck.schema.encrypted_envelope.v1", "ck.schema.snapshot.v1"],
                 rejected_event_kinds: &[],
                 required_fixtures: &[
                     "crypto-signature-fixture.json",
@@ -1550,12 +1329,8 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 profile_id: "ck.profile.morph.schema_migration_transformations.v1",
                 inherits: &[],
                 required_operations: &[],
-                required_event_kinds: &[
-                    "ck.morph.schema_migrate",
-                ],
-                required_schemas: &[
-                    "ck.schema.event_payload.v1",
-                ],
+                required_event_kinds: &["ck.morph.schema_migrate"],
+                required_schemas: &["ck.schema.event_payload.v1"],
                 rejected_event_kinds: &[],
                 required_fixtures: &[],
                 required_capability_actions: &[],
@@ -1575,14 +1350,9 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.snapshot.query.manifest_head",
                 ],
                 required_event_kinds: &[],
-                required_schemas: &[
-                    "ck.schema.seal.v1",
-                    "ck.schema.snapshot.v1",
-                ],
+                required_schemas: &["ck.schema.seal.v1", "ck.schema.snapshot.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "cba-lattice-fixture.json",
-                ],
+                required_fixtures: &["cba-lattice-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1600,14 +1370,9 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.snapshot.query.manifest_head",
                 ],
                 required_event_kinds: &[],
-                required_schemas: &[
-                    "ck.schema.seal.v1",
-                    "ck.schema.snapshot.v1",
-                ],
+                required_schemas: &["ck.schema.seal.v1", "ck.schema.snapshot.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "cba-lattice-fixture.json",
-                ],
+                required_fixtures: &["cba-lattice-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1625,14 +1390,9 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.snapshot.query.manifest_head",
                 ],
                 required_event_kinds: &[],
-                required_schemas: &[
-                    "ck.schema.seal.v1",
-                    "ck.schema.snapshot.v1",
-                ],
+                required_schemas: &["ck.schema.seal.v1", "ck.schema.snapshot.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "cba-lattice-fixture.json",
-                ],
+                required_fixtures: &["cba-lattice-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1650,14 +1410,9 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.snapshot.query.manifest_head",
                 ],
                 required_event_kinds: &[],
-                required_schemas: &[
-                    "ck.schema.seal.v1",
-                    "ck.schema.snapshot.v1",
-                ],
+                required_schemas: &["ck.schema.seal.v1", "ck.schema.snapshot.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "cba-lattice-fixture.json",
-                ],
+                required_fixtures: &["cba-lattice-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1682,9 +1437,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.identity_receipt.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "crypto-signature-fixture.json",
-                ],
+                required_fixtures: &["crypto-signature-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1716,10 +1469,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.policy.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "capability-fixture.json",
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["capability-fixture.json", "privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1731,9 +1481,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.personal_agent_provisioning.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.personal_agent_provisioning.v1",
-                inherits: &[
-                    "ck.profile.agent_runtime.v1",
-                ],
+                inherits: &["ck.profile.agent_runtime.v1"],
                 required_operations: &[
                     "ck.gate.account.command.pair_agent_key",
                     "ck.self.agent.command.provision",
@@ -1762,10 +1510,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.capability.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "capability-fixture.json",
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["capability-fixture.json", "privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1777,9 +1522,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.personal_node.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.personal_node.v1",
-                inherits: &[
-                    "ck.profile.principal_server_events_api.v1",
-                ],
+                inherits: &["ck.profile.principal_server_events_api.v1"],
                 required_operations: &[
                     "ck.self.account.stream.subscribe",
                     "ck.self.events.command.submit",
@@ -1796,10 +1539,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.seal.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "event-envelope-negative-fixture.json",
-                    "sync-fixture.json",
-                ],
+                required_fixtures: &["event-envelope-negative-fixture.json", "sync-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1817,19 +1557,14 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.events.command.submit",
                     "ck.self.events.query.scan",
                 ],
-                required_event_kinds: &[
-                    "ck.account_data.set",
-                    "ck.message.create",
-                ],
+                required_event_kinds: &["ck.account_data.set", "ck.message.create"],
                 required_schemas: &[
                     "ck.schema.event_payload.v1",
                     "ck.schema.message.v1",
                     "ck.schema.personal_productivity.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "sync-fixture.json",
-                ],
+                required_fixtures: &["sync-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1846,19 +1581,10 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.events.command.submit",
                     "ck.self.events.query.scan",
                 ],
-                required_event_kinds: &[
-                    "ck.pin.add",
-                    "ck.pin.remove",
-                    "ck.pin.reorder",
-                ],
-                required_schemas: &[
-                    "ck.schema.event_payload.v1",
-                    "ck.schema.pin.v1",
-                ],
+                required_event_kinds: &["ck.pin.add", "ck.pin.remove", "ck.pin.reorder"],
+                required_schemas: &["ck.schema.event_payload.v1", "ck.schema.pin.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "cba-lattice-fixture.json",
-                ],
+                required_fixtures: &["cba-lattice-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1987,9 +1713,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.principal_server_events_api.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.principal_server_events_api.v1",
-                inherits: &[
-                    "ck.profile.core_event_store.v1",
-                ],
+                inherits: &["ck.profile.core_event_store.v1"],
                 required_operations: &[
                     "ck.self.events.command.submit",
                     "ck.self.events.query.describe",
@@ -1998,10 +1722,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.events.query.scan",
                     "ck.self.events.resource.get",
                 ],
-                required_event_kinds: &[
-                    "ck.member.state",
-                    "ck.realm.create",
-                ],
+                required_event_kinds: &["ck.member.state", "ck.realm.create"],
                 required_schemas: &[
                     "ck.schema.cursor.v1",
                     "ck.schema.event.v1",
@@ -2034,14 +1755,9 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.root.identity.query.resolve",
                 ],
                 required_event_kinds: &[],
-                required_schemas: &[
-                    "ck.schema.handle_claim.v1",
-                    "ck.schema.identity_receipt.v1",
-                ],
+                required_schemas: &["ck.schema.handle_claim.v1", "ck.schema.identity_receipt.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "crypto-signature-fixture.json",
-                ],
+                required_fixtures: &["crypto-signature-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -2054,17 +1770,11 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             ProfileRequirements {
                 profile_id: "ck.profile.push_gateway.blind_wakeup.v1",
                 inherits: &[],
-                required_operations: &[
-                    "ck.edge.push.command.notify",
-                ],
+                required_operations: &["ck.edge.push.command.notify"],
                 required_event_kinds: &[],
-                required_schemas: &[
-                    "ck.schema.notification.v1",
-                ],
+                required_schemas: &["ck.schema.notification.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -2077,17 +1787,11 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             ProfileRequirements {
                 profile_id: "ck.profile.push_gateway.matrix_passthrough.v1",
                 inherits: &[],
-                required_operations: &[
-                    "ck.edge.push.command.notify",
-                ],
+                required_operations: &["ck.edge.push.command.notify"],
                 required_event_kinds: &[],
-                required_schemas: &[
-                    "ck.schema.notification.v1",
-                ],
+                required_schemas: &["ck.schema.notification.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -2110,13 +1814,9 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.device.authorize",
                     "ck.device.revoke",
                 ],
-                required_schemas: &[
-                    "ck.schema.notification.v1",
-                ],
+                required_schemas: &["ck.schema.notification.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -2128,22 +1828,12 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.push_gateway.visible_notification.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.push_gateway.visible_notification.v1",
-                inherits: &[
-                    "ck.profile.push_gateway.v1",
-                ],
-                required_operations: &[
-                    "ck.edge.push.command.notify",
-                ],
-                required_event_kinds: &[
-                    "ck.device.authorize",
-                ],
-                required_schemas: &[
-                    "ck.schema.notification.v1",
-                ],
+                inherits: &["ck.profile.push_gateway.v1"],
+                required_operations: &["ck.edge.push.command.notify"],
+                required_event_kinds: &["ck.device.authorize"],
+                required_schemas: &["ck.schema.notification.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -2156,20 +1846,11 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             ProfileRequirements {
                 profile_id: "ck.profile.search.blind_index.v1",
                 inherits: &[],
-                required_operations: &[
-                    "ck.self.events.query.scan",
-                    "ck.server.query.describe",
-                ],
-                required_event_kinds: &[
-                    "ck.realm.search_policy",
-                ],
-                required_schemas: &[
-                    "ck.schema.search_service.v1",
-                ],
+                required_operations: &["ck.self.events.query.scan", "ck.server.query.describe"],
+                required_event_kinds: &["ck.realm.search_policy"],
+                required_schemas: &["ck.schema.search_service.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -2187,16 +1868,10 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.blob.resource.get",
                     "ck.self.blob.upload.create",
                 ],
-                required_event_kinds: &[
-                    "ck.account_data.set",
-                ],
-                required_schemas: &[
-                    "ck.schema.search_service.v1",
-                ],
+                required_event_kinds: &["ck.account_data.set"],
+                required_schemas: &["ck.schema.search_service.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -2208,23 +1883,12 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.search.forward_private.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.search.forward_private.v1",
-                inherits: &[
-                    "ck.profile.search.blind_index.v1",
-                ],
-                required_operations: &[
-                    "ck.self.events.query.scan",
-                    "ck.server.query.describe",
-                ],
-                required_event_kinds: &[
-                    "ck.realm.search_policy",
-                ],
-                required_schemas: &[
-                    "ck.schema.search_service.v1",
-                ],
+                inherits: &["ck.profile.search.blind_index.v1"],
+                required_operations: &["ck.self.events.query.scan", "ck.server.query.describe"],
+                required_event_kinds: &["ck.realm.search_policy"],
+                required_schemas: &["ck.schema.search_service.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -2275,26 +1939,15 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.sovereign_client.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.sovereign_client.v1",
-                inherits: &[
-                    "ck.profile.full_client.v1",
-                ],
+                inherits: &["ck.profile.full_client.v1"],
                 required_operations: &[
                     "ck.root.identity.query.resolve",
                     "ck.server.query.describe",
                 ],
-                required_event_kinds: &[
-                    "ck.realm.policy",
-                    "ck.sovereign.did_policy",
-                ],
-                required_schemas: &[
-                    "ck.schema.identity_receipt.v1",
-                    "ck.schema.policy.v1",
-                ],
+                required_event_kinds: &["ck.realm.policy", "ck.sovereign.did_policy"],
+                required_schemas: &["ck.schema.identity_receipt.v1", "ck.schema.policy.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "federation-fixture.json",
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["federation-fixture.json", "privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -2321,15 +1974,9 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.realm.policy",
                     "ck.sovereign.did_policy",
                 ],
-                required_schemas: &[
-                    "ck.schema.capability.v1",
-                    "ck.schema.policy.v1",
-                ],
+                required_schemas: &["ck.schema.capability.v1", "ck.schema.policy.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "capability-fixture.json",
-                    "federation-fixture.json",
-                ],
+                required_fixtures: &["capability-fixture.json", "federation-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -2341,25 +1988,16 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             "ck.profile.sovereign_enclave.v1",
             ProfileRequirements {
                 profile_id: "ck.profile.sovereign_enclave.v1",
-                inherits: &[
-                    "ck.profile.sovereign_deployment.v1",
-                ],
+                inherits: &["ck.profile.sovereign_deployment.v1"],
                 required_operations: &[
                     "ck.root.identity.query.resolve",
                     "ck.self.authz.query.check",
                     "ck.server.query.describe",
                 ],
-                required_event_kinds: &[
-                    "ck.realm.policy",
-                    "ck.sovereign.did_policy",
-                ],
-                required_schemas: &[
-                    "ck.schema.policy.v1",
-                ],
+                required_event_kinds: &["ck.realm.policy", "ck.sovereign.did_policy"],
+                required_schemas: &["ck.schema.policy.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "federation-fixture.json",
-                ],
+                required_fixtures: &["federation-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -2377,21 +2015,14 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.self.events.command.submit",
                     "ck.self.events.stream.subscribe",
                 ],
-                required_event_kinds: &[
-                    "ck.message.create",
-                    "ck.mls.commit",
-                    "ck.mls.welcome",
-                ],
+                required_event_kinds: &["ck.message.create", "ck.mls.commit", "ck.mls.welcome"],
                 required_schemas: &[
                     "ck.schema.encrypted_envelope.v1",
                     "ck.schema.event.v1",
                     "ck.schema.notification.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "federation-fixture.json",
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["federation-fixture.json", "privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -2404,20 +2035,11 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             ProfileRequirements {
                 profile_id: "ck.profile.webrtc_media.v1",
                 inherits: &[],
-                required_operations: &[
-                    "ck.server.query.describe",
-                ],
-                required_event_kinds: &[
-                    "ck.call.signal",
-                    "ck.call.state",
-                ],
-                required_schemas: &[
-                    "ck.schema.event.v1",
-                ],
+                required_operations: &["ck.server.query.describe"],
+                required_event_kinds: &["ck.call.signal", "ck.call.state"],
+                required_schemas: &["ck.schema.event.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "privacy-security-fixture.json",
-                ],
+                required_fixtures: &["privacy-security-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -2539,9 +2161,7 @@ pub fn validate_profile_requirements(
         .filter(|s| !impl_schemas.contains(*s))
         .map(|s| (*s).to_owned())
         .collect();
-    if missing_operations.is_empty()
-        && missing_event_kinds.is_empty()
-        && missing_schemas.is_empty()
+    if missing_operations.is_empty() && missing_event_kinds.is_empty() && missing_schemas.is_empty()
     {
         Ok(())
     } else {

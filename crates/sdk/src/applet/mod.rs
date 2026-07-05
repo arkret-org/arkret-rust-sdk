@@ -704,11 +704,19 @@ mod tests {
             kid: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
         };
         let mut reg = sample_wire_registration();
-        sign_registration(&mut reg, &signer, "did:webvh:z6mkfixture:alice.example#key-1").unwrap();
+        sign_registration(
+            &mut reg,
+            &signer,
+            "did:webvh:z6mkfixture:alice.example#key-1",
+        )
+        .unwrap();
 
         let proof = reg.proof.as_ref().expect("proof must be attached");
         assert_eq!(proof.alg, "EdDSA");
-        assert_eq!(proof.verification_method, "did:webvh:z6mkfixture:alice.example#key-1");
+        assert_eq!(
+            proof.verification_method,
+            "did:webvh:z6mkfixture:alice.example#key-1"
+        );
         assert_eq!(proof.event_digest, reg.payload_digest().unwrap());
 
         // Silence any unused warnings on the BTreeMap import — kept for symmetry.

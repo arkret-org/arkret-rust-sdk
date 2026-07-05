@@ -216,7 +216,11 @@ impl RetryConfig {
         } else {
             std::cmp::min(delay, self.max_delay)
         };
-        if self.jitter { apply_jitter(delay) } else { delay }
+        if self.jitter {
+            apply_jitter(delay)
+        } else {
+            delay
+        }
     }
 
     /// Next retry delay, honoring a server `Retry-After`.

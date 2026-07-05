@@ -318,7 +318,9 @@ mod tests {
                 "ck.mls.v1".to_owned(),
             ],
             device_key_algorithm: None,
-            authorized_by: DeviceOrPrincipalRef::Did(Did::new("did:webvh:z6mkfixture:alice.example").unwrap()),
+            authorized_by: DeviceOrPrincipalRef::Did(
+                Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            ),
             scopes: None,
             not_before: "2026-05-30T00:00:00Z".parse().unwrap(),
             expires_at: None,

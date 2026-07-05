@@ -377,8 +377,7 @@ mod tests {
         ];
 
         let sealed = seal_history_secret_to_device_pubkey(&recipient_pub, &secrets).unwrap();
-        let opened =
-            open_history_secret_with_device_privkey(&recipient_priv, &sealed).unwrap();
+        let opened = open_history_secret_with_device_privkey(&recipient_priv, &sealed).unwrap();
         assert_eq!(opened, secrets);
     }
 
@@ -443,9 +442,7 @@ mod tests {
         assert_eq!(opened, pt, "RFC 9180 KAT plaintext");
 
         // Same blob under the wrong aad MUST fail the AEAD tag.
-        assert!(
-            open_base_mode_with_x25519_privkey(&sk_rm, &sealed, &info, b"wrong-aad").is_err()
-        );
+        assert!(open_base_mode_with_x25519_privkey(&sk_rm, &sealed, &info, b"wrong-aad").is_err());
     }
 
     #[test]

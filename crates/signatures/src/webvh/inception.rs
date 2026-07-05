@@ -1088,9 +1088,9 @@ mod tests {
             "service DID document must not carry a device-enrollment-authority entry",
         );
         assert!(
-            services
-                .iter()
-                .any(|svc| { svc.get("type").and_then(Value::as_str) == Some("CokretPrincipalServer") }),
+            services.iter().any(|svc| {
+                svc.get("type").and_then(Value::as_str) == Some("CokretPrincipalServer")
+            }),
             "service DID document should keep the CokretPrincipalServer entry",
         );
     }

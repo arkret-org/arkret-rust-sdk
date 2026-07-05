@@ -284,7 +284,11 @@ fn processor_dispatches_all_update_categories() {
     assert_eq!(processor.recovery_actions(), expected_recovery_actions);
     assert_eq!(processor.take_recovery_actions(), expected_recovery_actions);
     assert!(processor.recovery_actions().is_empty());
-    assert!(processor.presence("did:webvh:z6mkfixture:alice.example").is_some());
+    assert!(
+        processor
+            .presence("did:webvh:z6mkfixture:alice.example")
+            .is_some()
+    );
     assert!(processor.account_data("ck.settings").is_some());
     assert!(processor.notification("n1").is_some());
     assert_eq!(processor.device_lists().changed.len(), 1);

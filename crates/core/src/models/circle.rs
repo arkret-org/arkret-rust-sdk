@@ -1000,7 +1000,10 @@ mod tests {
         });
         let parsed: CirclePendingMlsRemoval = serde_json::from_value(value).unwrap();
 
-        assert_eq!(parsed.principal_id().as_str(), "did:webvh:z6mkfixture:bob.example");
+        assert_eq!(
+            parsed.principal_id().as_str(),
+            "did:webvh:z6mkfixture:bob.example"
+        );
         assert_eq!(
             parsed.membership_frontier()[0].as_str(),
             "ck:event:0196419b-0000-7000-8000-000000000001"
