@@ -15,7 +15,7 @@ pub const PROFILE_SEARCH_CLIENT_INDEX: &str = "ck.profile.search.client_index.v1
 pub const PROFILE_SEARCH_BLIND_INDEX: &str = "ck.profile.search.blind_index.v1";
 pub const PROFILE_SEARCH_FORWARD_PRIVATE: &str = "ck.profile.search.forward_private.v1";
 pub const FILE_TRANSFER_KEY_MESSAGE_KIND: &str = "ck.file_transfer.key.v1";
-pub const FILE_TRANSFER_KEY_ENVELOPE_SCHEME: &str = "ck.hpke_x25519_aead_xchacha20poly1305.v1";
+pub const FILE_TRANSFER_KEY_ENVELOPE_SCHEME: &str = "ck.hpke_x25519_aead_chacha20poly1305.v1";
 
 pub const MAX_CALENDAR_ATTENDEES: usize = 1_000;
 pub const MAX_CALENDAR_RECURRENCE_COUNT: u64 = 10_000;

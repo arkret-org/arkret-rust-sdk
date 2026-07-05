@@ -273,7 +273,7 @@ pub enum KeyBackupRecipientMethod {
 /// `encryption.hpke_suite` on a `recovery_public_key` envelope denotes this row
 /// (key-backup.schema.json `encryption.hpke_suite`; hpke-suite-registry.json
 /// `role=v1_default_must`).
-pub const DEFAULT_HPKE_SUITE: &str = "ck.hpke_x25519_aead_xchacha20poly1305.v1";
+pub const DEFAULT_HPKE_SUITE: &str = "ck.hpke_x25519_aead_chacha20poly1305.v1";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -290,7 +290,7 @@ pub struct KeyBackupEncryption {
     /// Registered active HPKE suite selector (key-backup.schema.json
     /// `encryption.hpke_suite`). Applies only to
     /// `recipient_method=recovery_public_key`; absent denotes the default-MUST
-    /// row `ck.hpke_x25519_aead_xchacha20poly1305.v1`. Optional/ignored for the
+    /// row `ck.hpke_x25519_aead_chacha20poly1305.v1`. Optional/ignored for the
     /// symmetric methods (passphrase_kdf / secret_storage_key).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hpke_suite: Option<String>,
@@ -1123,8 +1123,9 @@ mod encryption_validate_tests {
 
     #[test]
     fn recovery_public_key_default_suite_passes() {
-        // Absent selector denotes the default-MUST xchacha suite.
-        recovery_public_key(None, "xchacha20_poly1305")
+        // Absent selector denotes the default-MUST RFC 9180 ChaCha20-Poly1305
+        // suite; aead.name MUST match that suite's AEAD.
+        recovery_public_key(None, "chacha20_poly1305")
             .validate()
             .expect("default suite envelope is valid");
     }
@@ -1133,7 +1134,7 @@ mod encryption_validate_tests {
     fn recovery_public_key_rejects_inactive_suite() {
         // Reserved (not active) PQ hybrid row MUST fail closed.
         let envelope = recovery_public_key(
-            Some("ck.hpke_xwing_aead_xchacha20poly1305.v1"),
+            Some("ck.hpke_xwing_aead_chacha20poly1305.v1"),
             "xchacha20_poly1305",
         );
         assert!(envelope.validate().is_err());

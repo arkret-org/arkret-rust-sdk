@@ -198,7 +198,7 @@ fn devices_support_sas_qr_mismatch_with_trust_chain_propagation() {
         "z6MkPhoneVerifyKey",
         "z6LSTestHpkeKey".to_owned(),
         vec![
-            "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+            "ck.hpke_x25519_aead_chacha20poly1305.v1".to_owned(),
             "ck.mls.v1".to_owned(),
         ],
     );
@@ -214,7 +214,7 @@ fn devices_support_sas_qr_mismatch_with_trust_chain_propagation() {
         "z6MkLaptopVerifyKey",
         "z6LSTestHpkeKey".to_owned(),
         vec![
-            "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+            "ck.hpke_x25519_aead_chacha20poly1305.v1".to_owned(),
             "ck.mls.v1".to_owned(),
         ],
     );
@@ -278,7 +278,7 @@ fn propagate_trust_requires_binding_on_target() {
             "z6MkVerifyKey",
             "z6LSTestHpkeKey".to_owned(),
             vec![
-                "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+                "ck.hpke_x25519_aead_chacha20poly1305.v1".to_owned(),
                 "ck.mls.v1".to_owned(),
             ],
         );
@@ -315,7 +315,7 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
             "z6MkVerifyKey",
             "z6LSTestHpkeKey".to_owned(),
             vec![
-                "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+                "ck.hpke_x25519_aead_chacha20poly1305.v1".to_owned(),
                 "ck.mls.v1".to_owned(),
             ],
         );
@@ -392,7 +392,7 @@ fn publish_generation_must_advance_and_invalidates_old_bindings() {
         "z6MkVerifyKey",
         "z6LSTestHpkeKey".to_owned(),
         vec![
-            "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+            "ck.hpke_x25519_aead_chacha20poly1305.v1".to_owned(),
             "ck.mls.v1".to_owned(),
         ],
     );
@@ -439,7 +439,7 @@ fn evaluate_trust_chain_states() {
         "z6MkVerifyKey",
         "z6LSTestHpkeKey".to_owned(),
         vec![
-            "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+            "ck.hpke_x25519_aead_chacha20poly1305.v1".to_owned(),
             "ck.mls.v1".to_owned(),
         ],
     );
@@ -514,7 +514,7 @@ fn evaluate_trust_chain_states() {
         "z6MkVerifyKey",
         "z6LSTestHpkeKey".to_owned(),
         vec![
-            "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+            "ck.hpke_x25519_aead_chacha20poly1305.v1".to_owned(),
             "ck.mls.v1".to_owned(),
         ],
     );
@@ -545,7 +545,7 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
         "z6MkVerifyKey",
         "z6LSTestHpkeKey".to_owned(),
         vec![
-            "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+            "ck.hpke_x25519_aead_chacha20poly1305.v1".to_owned(),
             "ck.mls.v1".to_owned(),
         ],
     );
@@ -595,7 +595,7 @@ const TEST_HPKE_KEY: &str = "z6LSTestChainHpkeKey";
 
 fn test_algorithms() -> Vec<String> {
     vec![
-        "ck.hpke_x25519_aead_xchacha20poly1305.v1".to_owned(),
+        "ck.hpke_x25519_aead_chacha20poly1305.v1".to_owned(),
         "ck.mls.v1".to_owned(),
     ]
 }

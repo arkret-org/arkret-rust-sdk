@@ -16,7 +16,7 @@
 //! 2. [`seal_history_secrets_to_recovery_recipient`] — HPKE-seal a retained `{(epoch,
 //!    history_secret)}` set to that RRK public key and assemble the provider-initiated
 //!    [`RealmKeySharePayload`]. Reuses the same HPKE seal primitive
-//!    (`ck.hpke_x25519_aead_xchacha20poly1305.v1`) as the member device key-share path
+//!    (`ck.hpke_x25519_aead_chacha20poly1305.v1`) as the member device key-share path
 //!    ([`crate::secret_share`]).
 //!
 //! Unlike the §2.10.4 join-time request/response path, RRK sealing is
