@@ -17,6 +17,10 @@ pub struct EventPayloadValidatorCatalog {
 }
 
 impl EventPayloadValidatorCatalog {
+    pub fn has_payload_validator(&self, event_kind: &str) -> bool {
+        self.rules.contains_key(event_kind)
+    }
+
     pub fn validate_payload(&self, event_kind: &str, payload: &Value) -> Result<()> {
         let warnings = self.validate_payload_with_warnings(event_kind, payload)?;
         for warning in warnings {
@@ -60,7 +64,7 @@ impl EventPayloadValidatorCatalog {
     ) -> Vec<String> {
         event_kinds
             .into_iter()
-            .filter(|event_kind| !self.rules.contains_key(*event_kind))
+            .filter(|event_kind| !self.has_payload_validator(event_kind))
             .map(str::to_owned)
             .collect()
     }
@@ -427,6 +431,14 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn catalog_reports_registered_payload_validators() {
+        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+
+        assert!(catalog.has_payload_validator(crate::events::kinds::REALM_KEY_SHARE));
+        assert!(!catalog.has_payload_validator("ck.unknown.test"));
+    }
 
     #[test]
     fn strong_catalog_accepts_read_receipt_policy_payload() {
