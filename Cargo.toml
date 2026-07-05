@@ -42,6 +42,10 @@ futures-util = {version = "0.3",default-features = false}
 getrandom = {version = "0.4.2",default-features = false,features = ["std"]}
 getrandom_02 = {package = "getrandom",version = "0.2"}
 hex = "0.4.3"
+# RFC 9180 HPKE (rozbb/rust-hpke). Every transitive dep it needs (aes-gcm,
+# hkdf 0.12, sha2 0.10, rand_core 0.9, x25519-dalek, chacha20poly1305) is
+# already pulled in by the OpenMLS stack, so this adds no new version churn.
+hpke = {version = "0.13",default-features = false,features = ["x25519", "std"]}
 hkdf = {version = "0.13.0",default-features = false}
 hmac = {version = "0.13.0",default-features = false}
 # Pinned to a specific commit (not a mutable `branch = "main"`) so E2EE/MLS
@@ -60,6 +64,10 @@ salvo-oapi = {version = "0.93.0",default-features = false}
 secret-service = {version = "5.1.0",default-features = false,features = ["rt-tokio-crypto-rust"]}
 rand_chacha = {version = "0.3.1",default-features = false}
 rand_core = {version = "0.6.4",default-features = false}
+# rand_core 0.9 alias for the HPKE RNG interface (rust-hpke is on the 0.9
+# line; x25519-dalek keeps `rand_core` on 0.6). Same rename pattern as
+# `getrandom_02`; the 0.9 duplicate is already in the tree via the MLS stack.
+rand_core_09 = {package = "rand_core",version = "0.9",default-features = false}
 # macOS KeyStore backend, enabled only by the keystore crate target cfg.
 security-framework = {version = "3.7.0",default-features = false}
 serde = {version = "1.0.228",default-features = false,features = ["std", "derive"]}
