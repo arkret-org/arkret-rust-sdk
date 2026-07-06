@@ -1,4 +1,4 @@
-use serde_json::json;
+use serde_json::{Value, json};
 
 use super::*;
 use crate::*;
@@ -187,6 +187,23 @@ fn events_subscribe_frame_control_helpers() {
         EventsSubscribeFrame::from_ndjson_line(r#"{"kind":"heartbeat","kind":"heartbeat"}"#)
             .is_err()
     );
+}
+
+#[test]
+fn events_query_outcome_serializes_has_more_even_when_false() {
+    let body = EventsQueryOutcome {
+        events: Vec::new(),
+        snapshot_bootstrap: None,
+        next_cursor: None,
+        prev_cursor: None,
+        has_more: false,
+        range_completeness: Value::Null,
+    };
+
+    let value = serde_json::to_value(&body).unwrap();
+    assert_eq!(value["events"], json!([]));
+    assert_eq!(value["has_more"], json!(false));
+    assert!(value.get("next_cursor").is_none());
 }
 
 #[test]

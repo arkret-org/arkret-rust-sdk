@@ -363,7 +363,7 @@ pub struct EventsQueryOutcome {
     pub next_cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_cursor: Option<String>,
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default)]
     pub has_more: bool,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub range_completeness: Value,
