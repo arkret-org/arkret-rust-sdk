@@ -72,9 +72,9 @@ pub struct MessageRedactPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_id: Option<EventRef>,
+    pub event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_event_id: Option<EventRef>,
+    pub target_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub track_name: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -549,5 +549,28 @@ mod tests {
         value["created_at"] = serde_json::json!("2026-06-23T07:51:12.729Z");
 
         assert!(serde_json::from_value::<MlsWelcomeClaimEnvelope>(value).is_err());
+    }
+
+    #[test]
+    fn message_redact_payload_event_fields_serialize_as_schema_strings() {
+        let payload = MessageRedactPayload {
+            message_id: None,
+            target_ref: None,
+            event_id: None,
+            target_event_id: Some(
+                EventId::new("ck:event:01904100-0000-7000-8000-000000000001").unwrap(),
+            ),
+            track_name: None,
+            reason: Some("author_redaction".to_owned()),
+            preserve: None,
+        };
+
+        let value = serde_json::to_value(payload).unwrap();
+
+        assert_eq!(
+            value["target_event_id"],
+            "ck:event:01904100-0000-7000-8000-000000000001"
+        );
+        assert!(value.get("event_id").is_none());
     }
 }
