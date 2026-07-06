@@ -72,8 +72,8 @@ pub const MAX_CANONICAL_JSON_NESTING_DEPTH: usize = 64;
 /// Layers the receiver-side MUSTs that `serde_json::from_slice` does **not**
 /// enforce, so every inbound envelope / proof / cursor / receipt can validate
 /// through one call:
-/// - input larger than [`MAX_CANONICAL_JSON_INGRESS_BYTES`] rejected before any
-///   parsing work (`scalability-constraints.md` §2);
+/// - input larger than [`MAX_CANONICAL_JSON_INGRESS_BYTES`] rejected before any parsing work
+///   (`scalability-constraints.md` §2);
 /// - UTF-8 BOM / `U+FEFF` rejected (byte scan in [`parse_canonical_json`]);
 /// - duplicate object keys rejected at any depth ([`parse_canonical_json`]);
 /// - every string value / object key rejected if non-NFC or containing an (escaped) `U+FEFF`;

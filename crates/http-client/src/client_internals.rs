@@ -90,6 +90,8 @@ impl Client {
         reject_absolute_path(path)?;
         let url = self.base_url.join(path.trim_start_matches('/'))?;
         reject_query_auth_in_url(&url)?;
+        let method_for_auth = method.clone();
+        let url_for_auth = url.clone();
         let mut builder = self
             .http
             .request(method, url)
@@ -97,18 +99,38 @@ impl Client {
         if let Some(user_agent) = &self.user_agent {
             builder = builder.header(USER_AGENT, user_agent);
         }
-        Ok(self.apply_auth(builder))
+        self.apply_auth(builder, &method_for_auth, &url_for_auth)
     }
 
-    pub(crate) fn apply_auth(&self, builder: RequestBuilder) -> RequestBuilder {
+    pub(crate) fn apply_auth(
+        &self,
+        mut builder: RequestBuilder,
+        method: &Method,
+        url: &Url,
+    ) -> Result<RequestBuilder> {
         match &self.auth {
-            Some(Auth::Bearer(token)) => builder.bearer_auth(token),
-            Some(Auth::DeviceProof(proof)) => builder.header("X-Cokret-Device-Proof", proof),
-            Some(Auth::ServiceSignature(signature)) => builder
-                .header("Signature", signature)
-                .header("X-Cokret-Service-Signature", "1"),
-            None => builder,
+            Some(Auth::Bearer(token)) => {
+                builder = builder.bearer_auth(token);
+            }
+            Some(Auth::DeviceProof(proof)) => {
+                builder = builder.header("X-Cokret-Device-Proof", proof);
+            }
+            Some(Auth::ServiceSignature(signature)) => {
+                builder = builder
+                    .header("Signature", signature)
+                    .header("X-Cokret-Service-Signature", "1");
+            }
+            Some(Auth::Dpop(auth)) => {
+                let proof = auth.proof_for(method, url)?;
+                validate_header_value("DPoP proof", &proof)?;
+                if let Some(token) = auth.access_token() {
+                    builder = builder.bearer_auth(token);
+                }
+                builder = builder.header("DPoP", proof);
+            }
+            None => {}
         }
+        Ok(builder)
     }
 
     pub(crate) fn apply_request_options(
@@ -381,10 +403,17 @@ pub(crate) fn validate_base_url(url: &Url, allow_insecure_localhost: bool) -> Re
 }
 
 pub(crate) fn validate_auth(auth: &Auth) -> Result<()> {
-    let value = match auth {
-        Auth::Bearer(token) | Auth::DeviceProof(token) | Auth::ServiceSignature(token) => token,
-    };
-    validate_header_value("auth material", value)
+    match auth {
+        Auth::Bearer(token) | Auth::DeviceProof(token) | Auth::ServiceSignature(token) => {
+            validate_header_value("auth material", token)
+        }
+        Auth::Dpop(auth) => {
+            if let Some(token) = auth.access_token() {
+                validate_header_value("auth material", token)?;
+            }
+            Ok(())
+        }
+    }
 }
 
 pub(crate) fn validate_header_value(name: &str, value: &str) -> Result<()> {

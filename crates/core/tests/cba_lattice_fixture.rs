@@ -3,17 +3,15 @@
 //!
 //! Coverage split (mirrors the fixture's own `lattice_round_trip` metadata):
 //!
-//! * The `lattice_round_trip.cases` block names five pure-lattice vectors
-//!   (`mv_register` / `counter` / `ordered_log` x2 / `fsm`) whose join
-//!   semantics are implemented directly by [`cokret_core::lattice`]. This
-//!   test executes every declared assertion of those cases against the SDK
-//!   lattice types, so a join-semantics drift fails in the SDK's own CI.
-//! * The sixteen `vectors` entries are dual-plane CBA scenarios (DataEvent
-//!   vs control Move, seal coverage, quarantine, notary faults). They need
-//!   the full CBA reducer + seal pipeline, which the SDK does not host; the
-//!   cotest state-resolution harness remains their executable owner. Here
-//!   they are pinned as an inventory gate (vector_id + expected block
-//!   present) so silent fixture renames/removals still surface in the SDK.
+//! * The `lattice_round_trip.cases` block names five pure-lattice vectors (`mv_register` /
+//!   `counter` / `ordered_log` x2 / `fsm`) whose join semantics are implemented directly by
+//!   [`cokret_core::lattice`]. This test executes every declared assertion of those cases against
+//!   the SDK lattice types, so a join-semantics drift fails in the SDK's own CI.
+//! * The sixteen `vectors` entries are dual-plane CBA scenarios (DataEvent vs control Move, seal
+//!   coverage, quarantine, notary faults). They need the full CBA reducer + seal pipeline, which
+//!   the SDK does not host; the cotest state-resolution harness remains their executable owner.
+//!   Here they are pinned as an inventory gate (vector_id + expected block present) so silent
+//!   fixture renames/removals still surface in the SDK.
 
 use cokret_core::lattice::ordered_log::IssuedOp;
 use cokret_core::lattice::{

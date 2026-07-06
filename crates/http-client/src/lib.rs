@@ -19,10 +19,12 @@
 //! not expose the negotiated kx group); enforce the MUST at configuration
 //! time as described.
 
+use std::sync::Arc;
 use std::time::Duration;
 
-use reqwest::StatusCode;
+use cokret_core::Result;
 use reqwest::header::{HeaderMap, RETRY_AFTER};
+use reqwest::{Method, StatusCode};
 use url::Url;
 
 mod builder;
@@ -89,6 +91,74 @@ pub enum Auth {
     Bearer(String),
     DeviceProof(String),
     ServiceSignature(String),
+    Dpop(DpopAuth),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DpopProofRequest {
+    pub method: String,
+    pub htu: String,
+    pub access_token: Option<String>,
+}
+
+type DpopProofCallback = dyn Fn(DpopProofRequest) -> Result<String> + Send + Sync + 'static;
+
+#[derive(Clone)]
+pub struct DpopAuth {
+    access_token: Option<String>,
+    proof: Arc<DpopProofCallback>,
+}
+
+impl std::fmt::Debug for DpopAuth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DpopAuth")
+            .field(
+                "access_token",
+                &self.access_token.as_ref().map(|_| "<redacted>"),
+            )
+            .finish_non_exhaustive()
+    }
+}
+
+impl DpopAuth {
+    pub fn proof_only(
+        proof: impl Fn(DpopProofRequest) -> Result<String> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            access_token: None,
+            proof: Arc::new(proof),
+        }
+    }
+
+    pub fn with_access_token(
+        access_token: impl Into<String>,
+        proof: impl Fn(DpopProofRequest) -> Result<String> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            access_token: Some(access_token.into()),
+            proof: Arc::new(proof),
+        }
+    }
+
+    #[must_use]
+    pub fn access_token(&self) -> Option<&str> {
+        self.access_token.as_deref()
+    }
+
+    pub(crate) fn proof_for(&self, method: &Method, url: &Url) -> Result<String> {
+        (self.proof)(DpopProofRequest {
+            method: method.as_str().to_ascii_uppercase(),
+            htu: dpop_htu(url),
+            access_token: self.access_token.clone(),
+        })
+    }
+}
+
+fn dpop_htu(url: &Url) -> String {
+    let mut htu = url.clone();
+    htu.set_query(None);
+    htu.set_fragment(None);
+    htu.to_string()
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -350,6 +420,50 @@ mod tests {
             .build()
             .unwrap_err();
         assert!(matches!(error, Error::Protocol(_)));
+    }
+
+    #[test]
+    fn dpop_auth_adds_bearer_and_per_request_proof() {
+        let client = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
+            .auth(Auth::Dpop(DpopAuth::with_access_token(
+                "grant.jwt",
+                |req| {
+                    assert_eq!(req.method, "POST");
+                    assert_eq!(req.htu, "https://alice.example/cokret/_cokret/self/events");
+                    assert_eq!(req.access_token.as_deref(), Some("grant.jwt"));
+                    Ok("proof.jwt".to_owned())
+                },
+            )))
+            .build()
+            .unwrap();
+        let request = client
+            .request(Method::POST, "/_cokret/self/events?cursor=ignored")
+            .unwrap()
+            .build()
+            .unwrap();
+
+        assert_eq!(request.headers()["authorization"], "Bearer grant.jwt");
+        assert_eq!(request.headers()["dpop"], "proof.jwt");
+    }
+
+    #[test]
+    fn dpop_auth_supports_proof_only_kickoff() {
+        let client = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
+            .auth(Auth::Dpop(DpopAuth::proof_only(|req| {
+                assert_eq!(req.method, "POST");
+                assert_eq!(req.access_token, None);
+                Ok("kickoff.proof.jwt".to_owned())
+            })))
+            .build()
+            .unwrap();
+        let request = client
+            .request(Method::POST, "/_cokret/gate/account/session-grants")
+            .unwrap()
+            .build()
+            .unwrap();
+
+        assert!(!request.headers().contains_key("authorization"));
+        assert_eq!(request.headers()["dpop"], "kickoff.proof.jwt");
     }
 
     #[test]

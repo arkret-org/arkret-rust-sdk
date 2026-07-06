@@ -282,7 +282,7 @@ mod tests {
     fn join_with_issuers_dedupes_same_issuer_seq() {
         let ops = vec![
             issued("did:webvh:z6mkfixture:alice.example", 1, json!("e1"), 1),
-            issued("did:webvh:z6mkfixture:alice.example", 1, json!("e1-dup"), 2), // dup key: dropped
+            issued("did:webvh:z6mkfixture:alice.example", 1, json!("e1-dup"), 2), /* dup key: dropped */
             issued("did:webvh:z6mkfixture:alice.example", 2, json!("e2"), 3),
         ];
         let state = OrderedLog.join_with_issuers(&cell(), &ops);

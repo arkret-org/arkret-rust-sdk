@@ -451,9 +451,8 @@ mod tests {
 
     #[test]
     fn concurrent_claims_of_same_identity_yield_exactly_one_fresh() {
-        use std::sync::Arc;
-        use std::sync::Barrier;
         use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::{Arc, Barrier};
 
         let win = Arc::new(window());
         let body = hash_of(b"hello");

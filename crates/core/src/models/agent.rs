@@ -3,14 +3,14 @@ use super::*;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentKeyPairRequestBody {
+    pub pairing_request_id: String,
     pub agent_principal_id: Did,
     pub verification_method: String,
     pub public_key: Value,
     pub proof_of_possession: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorize_event: Option<Value>,
+    pub authorize_event: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -50,6 +50,34 @@ pub struct AgentProvisionOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
     pub expires_at: DateTime<Utc>,
+}
+
+pub const AGENT_PAIRING_BOOTSTRAP_SCHEMA: &str = "ck.schema.agent_pairing_bootstrap.v1";
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentPairingContentGrantSummary {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub actions: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub grant_refs: Vec<GrantId>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentPairingBootstrap {
+    pub schema: String,
+    pub cokret_base_url: String,
+    pub service_did: Did,
+    pub agent_principal_id: Did,
+    pub pairing_request_id: String,
+    pub pairing_code: String,
+    pub pairing_expires_at: DateTime<Utc>,
+    pub requested_scope: AgentKeyScope,
+    pub service_scope: Vec<String>,
+    pub content_grant_summary: AgentPairingContentGrantSummary,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

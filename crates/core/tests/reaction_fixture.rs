@@ -9,18 +9,18 @@
 //! split, capability gating, rate limiting, MLS decryption) are consumed as
 //! metadata-level checks here and remain owned by the soland reducer suite:
 //!
-//! * `dangling_reaction_before_target_arrives` — needs a message store to
-//!   park the reaction as pending (`dependency_missing`).
-//! * `target_redacted_drops_default_view_keeps_audit` — needs the
-//!   default-view / audit-view split driven by `ck.message.redact`.
-//! * `capability_revoked_blocks_subsequent_add` — needs capability
-//!   evaluation before reducer state changes.
-//! * `rate_limit_high_rate_reaction_burst` — carries no events at all,
-//!   only a rate-limit policy expectation.
-//! * The `audit_event_ids` / `audit_view_*` halves of the OR-Set cases —
-//!   `ReactionManager` keeps aggregate state, not a per-event audit log.
-//! * `after_client_decryption_summary` in the epoch-rotation case — needs
-//!   live MLS decryption of the routing-digest keys.
+//! * `dangling_reaction_before_target_arrives` — needs a message store to park the reaction as
+//!   pending (`dependency_missing`).
+//! * `target_redacted_drops_default_view_keeps_audit` — needs the default-view / audit-view split
+//!   driven by `ck.message.redact`.
+//! * `capability_revoked_blocks_subsequent_add` — needs capability evaluation before reducer state
+//!   changes.
+//! * `rate_limit_high_rate_reaction_burst` — carries no events at all, only a rate-limit policy
+//!   expectation.
+//! * The `audit_event_ids` / `audit_view_*` halves of the OR-Set cases — `ReactionManager` keeps
+//!   aggregate state, not a per-event audit log.
+//! * `after_client_decryption_summary` in the epoch-rotation case — needs live MLS decryption of
+//!   the routing-digest keys.
 
 use cokret_core::Did;
 use cokret_core::events::{ReactionManager, is_standard_event_kind};

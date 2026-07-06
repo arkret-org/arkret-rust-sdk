@@ -384,7 +384,7 @@ impl ClientBuilder {
             && self.transport.redirect.is_none()
             && matches!(
                 self.auth,
-                Some(Auth::DeviceProof(_)) | Some(Auth::ServiceSignature(_))
+                Some(Auth::DeviceProof(_)) | Some(Auth::ServiceSignature(_)) | Some(Auth::Dpop(_))
             )
         {
             self.transport.redirect = Some(RedirectPolicy::None);

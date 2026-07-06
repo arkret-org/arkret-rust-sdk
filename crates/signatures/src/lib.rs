@@ -34,6 +34,14 @@ pub mod realm_organization;
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Duration, Utc};
+/// Production-grade proof algorithms this SDK can actually produce and verify.
+///
+/// Re-export of the single source of truth in `cokret-core`
+/// ([`cokret_core::PRODUCTION_ALGORITHMS`]) so the structural gate
+/// (`Proof::validate_production`) and this crate's verifiers can never
+/// diverge again. The v1 set is exactly `["EdDSA"]` — see the core constant's
+/// documentation for why the other registry-active rows are excluded.
+pub use cokret_core::PRODUCTION_ALGORITHMS;
 pub use cokret_core::Proof as ProtocolProof;
 use cokret_core::{
     Audience, Did, Error, Hash, Proof, ProofBindingRequirements, Result, SignatureBindingPayload,
@@ -50,15 +58,6 @@ pub use proof::{
 };
 pub use realm_organization::realm_organization_statement_sign;
 use serde::{Deserialize, Serialize};
-
-/// Production-grade proof algorithms this SDK can actually produce and verify.
-///
-/// Re-export of the single source of truth in `cokret-core`
-/// ([`cokret_core::PRODUCTION_ALGORITHMS`]) so the structural gate
-/// (`Proof::validate_production`) and this crate's verifiers can never
-/// diverge again. The v1 set is exactly `["EdDSA"]` — see the core constant's
-/// documentation for why the other registry-active rows are excluded.
-pub use cokret_core::PRODUCTION_ALGORITHMS;
 
 /// Wire-reserved proof algorithms: registered `active` rows of the
 /// signature-alg-registry whose wire `proof_alg` value this SDK can parse and

@@ -591,6 +591,32 @@ pub const OP_EVENTS_QUERY_POST: &str = "ck.self.events.query.scan_body";
 // DRIFT-ALLOW: constant declaring the operation-id string, not a payload type.
 pub const OP_EVENTS_SUBSCRIBE: &str = "ck.self.events.stream.subscribe";
 pub const OP_EVENTS_SUBMIT: &str = "ck.self.events.command.submit";
+pub const SERVICE_SCOPE_SELF_EVENTS_QUERY_DESCRIBE: &str = OP_EVENTS_DESCRIBE;
+pub const SERVICE_SCOPE_SELF_EVENTS_QUERY_SCAN: &str = OP_EVENTS_QUERY;
+pub const SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE: &str = OP_EVENTS_SUBSCRIBE;
+pub const SERVICE_SCOPE_SELF_EVENTS_QUERY_FRONTIER: &str = OP_EVENTS_FRONTIER;
+pub const SERVICE_SCOPE_SELF_EVENTS_RESOURCE_GET: &str = OP_EVENTS_GET;
+pub const SERVICE_SCOPE_SELF_EVENTS_COMMAND_SUBMIT: &str = OP_EVENTS_SUBMIT;
+pub const PERSONAL_AGENT_RUNTIME_EVENT_SERVICE_SCOPES: &[&str] = &[
+    SERVICE_SCOPE_SELF_EVENTS_QUERY_DESCRIBE,
+    SERVICE_SCOPE_SELF_EVENTS_QUERY_SCAN,
+    SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE,
+    SERVICE_SCOPE_SELF_EVENTS_QUERY_FRONTIER,
+    SERVICE_SCOPE_SELF_EVENTS_RESOURCE_GET,
+    SERVICE_SCOPE_SELF_EVENTS_COMMAND_SUBMIT,
+];
+
+pub fn is_personal_agent_runtime_event_service_scope(scope: &str) -> bool {
+    matches!(
+        scope,
+        SERVICE_SCOPE_SELF_EVENTS_QUERY_DESCRIBE
+            | SERVICE_SCOPE_SELF_EVENTS_QUERY_SCAN
+            | SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE
+            | SERVICE_SCOPE_SELF_EVENTS_QUERY_FRONTIER
+            | SERVICE_SCOPE_SELF_EVENTS_RESOURCE_GET
+            | SERVICE_SCOPE_SELF_EVENTS_COMMAND_SUBMIT
+    )
+}
 pub const OP_EPHEMERAL_SEND: &str = "ck.self.ephemeral.command.send";
 
 /// Contact and direct-conversation operations.

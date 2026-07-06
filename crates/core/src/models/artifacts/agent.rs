@@ -12,6 +12,7 @@ pub enum AgentOperations {
     AgentKeyPairOutcome(AgentKeyPairOutcome),
     AgentProvisionRequestBody(AgentProvisionRequestBody),
     AgentProvisionOutcome(AgentProvisionOutcome),
+    AgentPairingBootstrap(AgentPairingBootstrap),
     AgentList(AgentList),
     AgentView(AgentView),
     AgentPauseRequestBody(AgentPauseRequestBody),

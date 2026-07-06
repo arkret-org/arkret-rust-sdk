@@ -6,24 +6,19 @@
 //! strategies for enums that appear on the wire, and the split is per-enum
 //! policy, not accident:
 //!
-//! - **`EventKind` keeps unknown values** (`EventKind::Unknown(String)`).
-//!   The event-kind registry is an *open, growing* namespace: new `ck.*`
-//!   kinds are added in ordinary spec revisions and vendor kinds exist by
-//!   design. An older SDK deserialising a newer kind preserves the raw wire
-//!   string instead of failing the whole envelope; whether an unknown
-//!   *standard* kind is acceptable is the validation layer's decision
-//!   (`schema_violation`), not the parser's.
+//! - **`EventKind` keeps unknown values** (`EventKind::Unknown(String)`). The event-kind registry
+//!   is an *open, growing* namespace: new `ck.*` kinds are added in ordinary spec revisions and
+//!   vendor kinds exist by design. An older SDK deserialising a newer kind preserves the raw wire
+//!   string instead of failing the whole envelope; whether an unknown *standard* kind is acceptable
+//!   is the validation layer's decision (`schema_violation`), not the parser's.
 //!
-//! - **Closed-set wire enums hard-reject unknown values** (e.g.
-//!   [`EnvelopeActorKind`], [`EffectiveScope`], cursor purpose, subscribe
-//!   frame kinds): no `#[serde(other)]` catch-all, so an unrecognised value
-//!   fails deserialisation of the surrounding object. These enums gate
-//!   authorization, scope and stream-control decisions; silently mapping an
-//!   unknown value to a default could *widen* what the message is allowed to
-//!   do. `conformance-profiles.md` requires implementations to reject
-//!   illegal enum values — hard failure is the fail-closed behaviour, and a
-//!   spec revision that extends a closed set is a coordinated upgrade, not a
-//!   silent downgrade.
+//! - **Closed-set wire enums hard-reject unknown values** (e.g. [`EnvelopeActorKind`],
+//!   [`EffectiveScope`], cursor purpose, subscribe frame kinds): no `#[serde(other)]` catch-all, so
+//!   an unrecognised value fails deserialisation of the surrounding object. These enums gate
+//!   authorization, scope and stream-control decisions; silently mapping an unknown value to a
+//!   default could *widen* what the message is allowed to do. `conformance-profiles.md` requires
+//!   implementations to reject illegal enum values — hard failure is the fail-closed behaviour, and
+//!   a spec revision that extends a closed set is a coordinated upgrade, not a silent downgrade.
 //!
 //! Consequently: adding an event kind is a non-breaking registry evolution
 //! (old SDKs keep parsing), while extending a closed-set enum intentionally

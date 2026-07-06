@@ -130,14 +130,14 @@ pub use cokret_ffi as ffi;
 pub use cokret_html as html;
 #[cfg(feature = "client")]
 pub use cokret_http_client as http_client;
-pub use cokret_keystore::{
-    BackendKind, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
-    platform_default_keystore_with_kind,
-};
 // Deprecated convenience constructor kept re-exported so downstream callers
 // see the deprecation note instead of a hard break; the warning propagates.
 #[allow(deprecated)]
 pub use cokret_keystore::platform_default_keystore;
+pub use cokret_keystore::{
+    BackendKind, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
+    platform_default_keystore_with_kind,
+};
 #[cfg(feature = "server")]
 pub use cokret_server as server;
 pub use cokret_signatures as signatures;
@@ -202,6 +202,7 @@ pub mod hlc;
 // S-5 (savfox SDK gap): `(source_service_did, Idempotency-Key)`
 // deduplication window. Open to all profiles — Applets, gateways,
 // any inbound handler can use it without dragging in `full-surface`.
+pub mod dpop;
 pub mod idempotency;
 // Realm Recovery Key (RRK) durable history sealing — provider-initiated
 // `ck.realm_key.share` to offline recovery recipients (encryption-and-audit.md

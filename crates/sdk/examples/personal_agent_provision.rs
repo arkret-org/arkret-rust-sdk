@@ -127,6 +127,10 @@ fn main() -> cokret::Result<()> {
         .to_owned();
 
     let key_pair_body = AgentKeyPairRequestBody {
+        pairing_request_id: provisioned["pairing_request_id"]
+            .as_str()
+            .unwrap()
+            .to_owned(),
         agent_principal_id: Did::new(agent_principal_id.clone())?,
         verification_method: format!("{agent_principal_id}#runtime-key-1"),
         public_key: json!({
@@ -139,7 +143,13 @@ fn main() -> cokret::Result<()> {
             "signature": "ed25519-pop-signature",
         }),
         runtime_attestation: None,
-        authorize_event: None,
+        authorize_event: json!({
+            "kind": "ck.agent.key.authorize",
+            "payload": {
+                "agent_principal_id": agent_principal_id.clone(),
+                "verification_method": format!("{agent_principal_id}#runtime-key-1"),
+            }
+        }),
     };
     let _key = send_plan(plan_agent_key_pair(key_pair_body))?;
 

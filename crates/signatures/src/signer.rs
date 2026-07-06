@@ -11,8 +11,15 @@
 //!
 //! let seed = [0u8; 32];
 //! let did = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
-//! let signer = Ed25519MoveSigner::from_did_key_seed(seed, did, "did:webvh:z6mkfixture:alice.example#key-1");
-//! assert_eq!(signer.signer_did().as_str(), "did:webvh:z6mkfixture:alice.example");
+//! let signer = Ed25519MoveSigner::from_did_key_seed(
+//!     seed,
+//!     did,
+//!     "did:webvh:z6mkfixture:alice.example#key-1",
+//! );
+//! assert_eq!(
+//!     signer.signer_did().as_str(),
+//!     "did:webvh:z6mkfixture:alice.example"
+//! );
 //! ```
 
 use chrono::Utc;

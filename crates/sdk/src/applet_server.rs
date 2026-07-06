@@ -185,11 +185,10 @@ mod salvo_router {
     use salvo::prelude::*;
 
     use super::*;
-    use crate::Error;
-    use crate::canonical;
     use crate::error::{ERROR_CODE_DUPLICATE_CONFLICT, ERROR_CODE_INVALID_SIGNATURE};
     use crate::idempotency::IdempotencyDirection;
     use crate::identity::{resolve_verification_method_key, verify_event_proof_with_did_resolver};
+    use crate::{Error, canonical};
 
     /// Process-wide handle to the wired-up [`AppletService`]. Salvo's
     /// `#[handler]` macro can't see generics, so we stash the handler

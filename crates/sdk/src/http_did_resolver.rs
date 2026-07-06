@@ -21,10 +21,9 @@ use std::future::Future;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use tokio::sync::OnceCell;
-
 use chrono::{DateTime, Utc};
 use reqwest::Client as HttpClient;
+use tokio::sync::OnceCell;
 
 use crate::identity::{
     DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidResolver, DidWebDocumentOutcome, DidWebResolver,
@@ -429,21 +428,17 @@ impl HttpDidResolver {
     /// Drive `future` to completion from a synchronous context without
     /// deadlocking any Tokio runtime flavor.
     ///
-    /// - Caller associated with a **multi-thread** runtime (worker thread,
-    ///   blocking-pool thread, or a thread inside `Runtime::block_on`):
-    ///   `tokio::task::block_in_place` + `Handle::block_on`. `block_in_place`
-    ///   tells the scheduler this thread is about to block so the worker
-    ///   core is handed off to a replacement thread — the IO/timer drivers
-    ///   stay driven even with `worker_threads = 1`, which is exactly the
-    ///   deadlock the previous "external thread + `Handle::block_on`" shape
-    ///   had (an external thread only polls the future; it never drives the
-    ///   runtime's IO driver). Off runtime worker threads `block_in_place`
-    ///   is a pass-through and `Handle::block_on` is safe because the
-    ///   runtime's own workers keep driving the drivers.
-    /// - Caller associated with a **current-thread** runtime: that runtime's
-    ///   only driver thread is the caller itself, so nothing may block on
-    ///   its handle. Drive the fetch on a private single-use runtime owned
-    ///   by a scoped helper thread instead (the helper drives its own IO
+    /// - Caller associated with a **multi-thread** runtime (worker thread, blocking-pool thread, or
+    ///   a thread inside `Runtime::block_on`): `tokio::task::block_in_place` + `Handle::block_on`.
+    ///   `block_in_place` tells the scheduler this thread is about to block so the worker core is
+    ///   handed off to a replacement thread — the IO/timer drivers stay driven even with
+    ///   `worker_threads = 1`, which is exactly the deadlock the previous "external thread +
+    ///   `Handle::block_on`" shape had (an external thread only polls the future; it never drives
+    ///   the runtime's IO driver). Off runtime worker threads `block_in_place` is a pass-through
+    ///   and `Handle::block_on` is safe because the runtime's own workers keep driving the drivers.
+    /// - Caller associated with a **current-thread** runtime: that runtime's only driver thread is
+    ///   the caller itself, so nothing may block on its handle. Drive the fetch on a private
+    ///   single-use runtime owned by a scoped helper thread instead (the helper drives its own IO
     ///   driver; the caller only parks in `join()`).
     fn drive<T: Send, F: Future<Output = Result<T>> + Send>(&self, future: F) -> Result<T> {
         // Prefer the runtime the calling thread is currently associated

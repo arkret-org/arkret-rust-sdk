@@ -249,7 +249,7 @@ pub enum AgentKeyScopeResourceKind {
 
 /// Counterpart for the `agent_key_scope.resources[]` item shape in
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_scope`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyScopeResource {
@@ -270,8 +270,10 @@ pub struct AgentKeyScopeResource {
 ///
 /// Closed authorization scope for an agent signing key: `actions` and
 /// `resources` are both explicit so the key cannot silently widen its
-/// authority through omitted dimensions.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// authority through omitted dimensions. `actions` may include service
+/// operation ids and content capability action tokens; service-surface scope
+/// is not derived solely from content capability grants.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyScope {

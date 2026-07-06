@@ -998,8 +998,16 @@ pub struct SessionGrantRequestBody {
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub agent_scope_request: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_delegation: Option<SessionGrantAppletDelegation>,
     pub proof: SessionGrantRequestProof,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantDpopBindingProof {
+    pub proof_jwt: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1085,8 +1093,10 @@ pub struct SessionGrantOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub granted_scope: Vec<String>,
     /// `ck.profile.agent_auth.v1` overlay (CKP-0008 §4.6). Materialized narrow
-    /// scope granted to the agent runtime session. Present iff the request was
-    /// the `agent_key_proof` branch; `None` (absent) for human session grants.
+    /// scope granted to the agent runtime session. Service-surface scope is
+    /// intersected separately from content capability grants. Present iff the
+    /// request was the `agent_key_proof` branch; `None` (absent) for human
+    /// session grants.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope_details: Option<SessionGrantScopeDetails>,
 }
