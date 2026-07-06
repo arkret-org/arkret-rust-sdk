@@ -353,6 +353,28 @@ pub fn build_agent_key_authorize_event(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn build_signed_agent_key_authorize_event<S: cokret_core::MoveSigner + ?Sized>(
+    payload: &AgentKeyAuthorizePayload,
+    realm_id: RealmId,
+    controller_actor_id: Did,
+    actor_seq: u64,
+    hlc: Hlc,
+    controller_signer: &S,
+    controller_verification_method: &str,
+    proof_options: cokret_signatures::SignEventOptions,
+) -> Result<Event> {
+    let mut event =
+        build_agent_key_authorize_event(payload, realm_id, controller_actor_id, actor_seq, hlc)?;
+    cokret_signatures::sign_event(
+        &mut event,
+        controller_signer,
+        controller_verification_method,
+        proof_options,
+    )?;
+    Ok(event)
+}
+
 #[derive(Serialize)]
 struct AgentKeyPairingRequestBinding<'a> {
     kind: &'static str,
@@ -1073,6 +1095,8 @@ impl AgentProtocolBridge {
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone;
+    use cokret_core::move_event::Move;
+    use cokret_core::{MoveSignature, MoveSigner, UnsignedMove, canonical, proof_kind};
     use serde_json::json;
 
     use super::*;
@@ -1084,6 +1108,45 @@ mod tests {
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
+    }
+
+    struct StubMoveSigner {
+        did: Did,
+        kid: String,
+    }
+
+    impl StubMoveSigner {
+        fn new(did: Did, kid: impl Into<String>) -> Self {
+            Self {
+                did,
+                kid: kid.into(),
+            }
+        }
+    }
+
+    impl MoveSigner for StubMoveSigner {
+        fn sign_move(&self, _unsigned: &UnsignedMove) -> Result<Move> {
+            unreachable!("agent authorize helper only calls sign_payload");
+        }
+
+        fn signer_did(&self) -> &Did {
+            &self.did
+        }
+
+        fn verification_method_id(&self) -> &str {
+            &self.kid
+        }
+
+        fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<MoveSignature> {
+            let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))?;
+            Ok(MoveSignature {
+                alg: "EdDSA".to_owned(),
+                verification_method: self.kid.clone(),
+                payload_digest: payload_digest.clone(),
+                created_at: Utc::now(),
+                jws: format!("stub..{}", payload_digest.as_str()),
+            })
+        }
     }
 
     fn test_scope() -> AgentKeyScope {
@@ -1273,6 +1336,66 @@ mod tests {
             event.content["verification_method"],
             "did:webvh:z6mkfixture:agent.example#runtime-key-1"
         );
+        let canonical_content =
+            String::from_utf8(canonical::canonical_json_bytes(&event.content).unwrap()).unwrap();
+        assert_eq!(
+            canonical_content,
+            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_key_scope":{"actions":["ck.self.events.stream.subscribe","ck.message.create"],"resources":[{"kind":"realm","realm_id":"ck:realm:01904100-0000-7000-8000-000000000001"}]},"agent_principal_id":"did:webvh:z6mkfixture:agent.example","approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","kind":"approval_event","ref":"ck:event:01970000-0000-7000-8000-000000000021"},"audience":["https://cokret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+        );
+    }
+
+    #[test]
+    fn signed_agent_key_authorize_event_builder_attaches_controller_proof() {
+        let agent_id = did("agent");
+        let controller_id = did("controller");
+        let payload = AgentKeyAuthorizePayload {
+            agent_principal_id: agent_id.clone(),
+            key_id: "runtime-key-1".to_owned(),
+            verification_method: format!("{}#runtime-key-1", agent_id.as_str()),
+            public_key_digest: None,
+            accountable_principal_id: controller_id.clone(),
+            agent_key_scope: test_scope(),
+            audience: vec!["https://cokret.example".to_owned()],
+            issued_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 0, 0).unwrap(),
+            expires_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap(),
+            approval_evidence: AgentKeyApprovalEvidence {
+                kind: AgentKeyApprovalEvidenceKind::ApprovalEvent,
+                r#ref: "ck:event:01970000-0000-7000-8000-000000000021".to_owned(),
+                request_canonical_digest: None,
+                approved_by: Some(controller_id.clone()),
+            },
+            revocation_check_ref: None,
+            runtime_attestation: None,
+        };
+        let controller_vm = format!("{}#controller-key-1", controller_id.as_str());
+        let signer = StubMoveSigner::new(controller_id.clone(), controller_vm.clone());
+        let event = build_signed_agent_key_authorize_event(
+            &payload,
+            RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            controller_id.clone(),
+            7,
+            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            &signer,
+            &controller_vm,
+            cokret_signatures::SignEventOptions::new()
+                .with_created_at(Utc.with_ymd_and_hms(2026, 5, 26, 10, 1, 0).unwrap()),
+        )
+        .unwrap();
+
+        assert_eq!(event.kind.as_str(), OP_AGENT_KEY_AUTHORIZE);
+        assert_eq!(event.actor_id, controller_id);
+        assert_eq!(event.proofs.len(), 1);
+        assert_eq!(event.proofs[0].kind, proof_kind::DETACHED_JWS);
+        assert_eq!(event.proofs[0].verification_method, controller_vm);
+        assert_eq!(
+            event.proofs[0].event_digest.as_str(),
+            event.event_digest().unwrap()
+        );
+        assert_eq!(
+            event.proofs[0].created_at,
+            Utc.with_ymd_and_hms(2026, 5, 26, 10, 1, 0).unwrap()
+        );
+        event.validate_proof_bindings().unwrap();
     }
 
     #[test]
@@ -1306,7 +1429,10 @@ mod tests {
         )
         .unwrap();
         let signing_json = String::from_utf8(signing_input.canonical_bytes().unwrap()).unwrap();
-        assert!(signing_json.contains("nonce-abc"));
+        assert_eq!(
+            signing_json,
+            r#"{"audience":"https://cokret.example","challenge":"challenge","expires_at":"2026-05-26T10:05:00Z","nonce":"nonce-abc","request_canonical_digest":"sha256:36b158c5b5ceafe211d21558731991459d80ebc7b6ddd8749d99360f116d9e3b","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+        );
         assert!(!signing_json.contains(AGENT_KEY_PROOF_KIND));
 
         let request = agent_key_proof_session_grant_request(
@@ -1325,6 +1451,10 @@ mod tests {
         .unwrap();
         let digest = agent_key_proof_request_binding_digest(&request).unwrap();
 
+        assert_eq!(
+            digest.as_str(),
+            "sha256:36b158c5b5ceafe211d21558731991459d80ebc7b6ddd8749d99360f116d9e3b"
+        );
         assert_eq!(request.principal_id.as_ref(), Some(&principal_id));
         assert_eq!(request.device_id, None);
         assert_eq!(request.requested_scope, requested_scope);

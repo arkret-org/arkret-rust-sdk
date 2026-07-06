@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn access_token_hash_is_base64url_sha256() {
-        let expected = cokret_core::base64url_encode(Sha256::digest(b"grant-token"));
+        let expected = "bSv8AUcFSz0K2drI0GtvZb95JwN4SY-KIMuH228H47Y";
         assert_eq!(dpop_access_token_hash("grant-token"), expected);
         assert_ne!(
             dpop_access_token_hash("grant-token"),
