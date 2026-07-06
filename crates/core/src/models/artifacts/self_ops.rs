@@ -56,11 +56,18 @@ pub struct PollAnswer {
     pub text: ContentBlock,
 }
 
+/// Discriminator for `content-block-poll.schema.json#/$defs/poll_body.kind`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PollDisclosureKind {
+    #[serde(rename = "disclosed")]
+    Disclosed,
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_body`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PollBody {
-    pub kind: String,
+    pub kind: PollDisclosureKind,
     pub max_selections: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub question: Option<ContentBlock>,
@@ -79,11 +86,18 @@ pub struct PollResponseBody {
 /// Counterpart for `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/reply_context`.
 pub type PollReplyContext = BTreeMap<String, Value>;
 
+/// Discriminator for `content-block-poll.schema.json#/$defs/poll_block.kind`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PollBlockKind {
+    #[serde(rename = "ck.content.poll")]
+    Poll,
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_block`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PollBlock {
-    pub kind: String,
+    pub kind: PollBlockKind,
     pub body: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub format: Option<String>,
@@ -94,12 +108,20 @@ pub struct PollBlock {
     pub poll: PollBody,
 }
 
+/// Discriminator for
+/// `content-block-poll.schema.json#/$defs/poll_response_block.kind`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PollResponseBlockKind {
+    #[serde(rename = "ck.content.poll.response")]
+    PollResponse,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_response_block`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PollResponseBlock {
-    pub kind: String,
+    pub kind: PollResponseBlockKind,
     pub body: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub format: Option<String>,

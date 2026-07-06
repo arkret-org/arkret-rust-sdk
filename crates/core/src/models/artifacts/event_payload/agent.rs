@@ -319,7 +319,8 @@ pub struct AgentKeyAuthorizePayloadRuntimeAttestation {
 pub struct AgentKeyAuthorizePayload {
     pub agent_principal_id: Did,
     pub key_id: String,
-    pub verification_method: Did,
+    /// DID URL for the runtime signing key, including its key fragment.
+    pub verification_method: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub public_key_digest: Option<Hash>,
     pub accountable_principal_id: Did,
@@ -355,7 +356,8 @@ pub struct AgentKeyRotatePayload {
     pub agent_principal_id: Did,
     pub key_id: String,
     pub replacement_key_id: String,
-    pub replacement_verification_method: Did,
+    /// DID URL for the replacement runtime signing key, including its key fragment.
+    pub replacement_verification_method: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replacement_public_key_digest: Option<Hash>,
     pub accountable_principal_id: Did,

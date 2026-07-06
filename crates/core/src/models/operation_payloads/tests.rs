@@ -89,6 +89,40 @@ fn message_create_payload_requires_exactly_one_content_carrier() {
 }
 
 #[test]
+fn content_block_validator_accepts_canonical_poll_block() {
+    let block = json!({
+        "kind": "ck.content.poll",
+        "body": "ship?",
+        "poll": {
+            "kind": "disclosed",
+            "max_selections": 1,
+            "answers": [
+                {"id": "yes", "text": {"kind": "ck.content.text", "body": "yes"}},
+                {"id": "no", "text": {"kind": "ck.content.text", "body": "no"}}
+            ]
+        }
+    });
+
+    validate_content_block(&block).unwrap();
+}
+
+#[test]
+fn content_block_validator_rejects_legacy_flat_poll_block() {
+    let block = json!({
+        "kind": "ck.content.poll",
+        "body": "ship?",
+        "question": "ship?",
+        "options": ["yes", "no"]
+    });
+
+    let err = validate_content_block(&block).unwrap_err();
+    assert_eq!(
+        err.message(),
+        "poll content block requires question and at least two options"
+    );
+}
+
+#[test]
 fn message_expiry_serializes_disappearing_wire_shape() {
     assert_eq!(DisappearingMessageExpiryTrigger::OnSend.as_str(), "on_send");
     assert_eq!(
