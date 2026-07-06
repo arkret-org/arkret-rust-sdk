@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::{
     AGENT_PAIRING_BOOTSTRAP_SCHEMA, AgentDeactivateRequestBody, AgentGrantAttachRequestBody,
@@ -16,15 +16,12 @@ use crate::{
     CapabilityGrant, Did, Error, Event, GrantId, Hash, Hlc, OP_ACCOUNT_AGENT_KEY_PAIR,
     OP_AGENT_DEACTIVATE, OP_AGENT_GET, OP_AGENT_GRANT_ATTACH, OP_AGENT_GRANT_DETACH,
     OP_AGENT_KEY_AUTHORIZE, OP_AGENT_LIST, OP_AGENT_PAUSE, OP_AGENT_PROVISION, OP_AGENT_RESUME,
-    OP_AGENT_ROTATE_KEY, OP_AGENT_SIDECAR_THREAD_ENSURE, RealmId, Result,
+    OP_AGENT_ROTATE_KEY, OP_AGENT_SIDECAR_THREAD_ENSURE, PublicKey, RealmId, Result,
     SessionGrantDpopBindingProof, SessionGrantProofKind, SessionGrantRequestBody,
     SessionGrantRequestProof,
 };
 
 pub const AGENT_KEY_PROOF_KIND: &str = "agent_key_proof";
-pub const AGENT_KEY_PROOF_SIGNING_CONTEXT: &str = "ck.agent_key_proof.v1";
-pub const AGENT_KEY_PROOF_REQUEST_BINDING_CONTEXT: &str =
-    "ck.agent_key_proof.session_grant_request.v1";
 
 /// Agent principal profile.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -151,18 +148,39 @@ impl AgentKeyPairRequestBuilder {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentKeyProofSigningInput {
-    pub context: String,
-    pub proof_kind: SessionGrantProofKind,
-    pub principal_id: Did,
-    pub verification_method: String,
-    pub challenge: String,
-    pub request_canonical_digest: Hash,
     pub audience: String,
+    pub challenge: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
+    pub nonce: Option<String>,
+    pub expires_at: DateTime<Utc>,
+    pub request_canonical_digest: Hash,
+    pub verification_method: String,
+}
+
+/// Canonical transcript signed by the agent runtime when presenting a
+/// proof-of-possession for `ck.gate.account.command.pair_agent_key`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AgentKeyPairProofSigningInput {
+    pub audience: String,
+    pub challenge: String,
+    pub expires_at: DateTime<Utc>,
+    pub request_canonical_digest: Hash,
+    pub verification_method: String,
 }
 
 impl AgentKeyProofSigningInput {
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
+        cokret_core::canonical::canonical_json_bytes(self).map_err(Into::into)
+    }
+
+    pub fn canonical_digest(&self) -> Result<Hash> {
+        Ok(Hash::new(cokret_core::canonical::sha256_digest(
+            self.canonical_bytes()?,
+        ))?)
+    }
+}
+
+impl AgentKeyPairProofSigningInput {
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
         cokret_core::canonical::canonical_json_bytes(self).map_err(Into::into)
     }
@@ -335,27 +353,138 @@ pub fn build_agent_key_authorize_event(
     )
 }
 
-pub fn agent_key_proof_request_binding_digest(
-    principal_id: &Did,
-    requested_scope: &[String],
-    agent_key_authorization_ref: &str,
-    agent_scope_request: &Value,
-    dpop_binding_proof: &SessionGrantDpopBindingProof,
+#[derive(Serialize)]
+struct AgentKeyPairingRequestBinding<'a> {
+    kind: &'static str,
+    operation_id: &'static str,
+    controller_principal_id: &'a str,
+    agent_principal_id: &'a str,
+    verification_method: &'a str,
+    runtime_public_key_digest: &'a str,
+    pairing_request_id: &'a str,
+    pairing_code: &'a str,
+    expires_at: &'a str,
+    audience: &'a str,
+}
+
+#[derive(Serialize)]
+struct AgentKeyPairProofRequestBinding<'a> {
+    kind: &'static str,
+    operation_id: &'static str,
+    pairing_request_id: &'a str,
+    agent_principal_id: &'a str,
+    verification_method: &'a str,
+    public_key: &'a Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    runtime_attestation: Option<&'a Value>,
+}
+
+pub fn agent_runtime_public_key_digest(public_key: &Value) -> Result<Hash> {
+    let key: PublicKey = serde_json::from_value(public_key.clone()).map_err(|err| {
+        Error::Protocol(format!(
+            "agent runtime public_key must match public_key schema: {err}"
+        ))
+    })?;
+    if key.kty != "OKP" {
+        return Err(Error::Protocol(
+            "agent runtime public_key.kty must be OKP".to_owned(),
+        ));
+    }
+    if key.alg != "Ed25519" && key.alg != "EdDSA" {
+        return Err(Error::Protocol(
+            "agent runtime public_key.alg must be Ed25519 or EdDSA".to_owned(),
+        ));
+    }
+    if key.kid.trim().is_empty() {
+        return Err(Error::Protocol(
+            "agent runtime public_key.kid must not be empty".to_owned(),
+        ));
+    }
+    let key_bytes = crate::base64url_decode(key.key.as_bytes())?;
+    if key_bytes.len() != 32 {
+        return Err(Error::Protocol(
+            "agent runtime public_key.key must be a 32-byte Ed25519 key".to_owned(),
+        ));
+    }
+    Ok(Hash::new(cokret_core::canonical::canonical_sha256(
+        public_key,
+    )?)?)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn agent_key_pairing_request_binding_digest(
+    controller_principal_id: &Did,
+    agent_principal_id: &Did,
+    verification_method: &str,
+    runtime_public_key_digest: &Hash,
+    pairing_request_id: &str,
+    pairing_code: &str,
+    pairing_expires_at: &str,
+    audience: &str,
 ) -> Result<Hash> {
-    let dpop_binding_proof_digest = Hash::new(cokret_core::canonical::sha256_digest(
-        dpop_binding_proof.proof_jwt.as_bytes(),
-    ))?;
-    let binding = json!({
-        "context": AGENT_KEY_PROOF_REQUEST_BINDING_CONTEXT,
-        "principal_id": principal_id.as_str(),
-        "requested_scope": requested_scope,
-        "agent_key_authorization_ref": agent_key_authorization_ref,
-        "agent_scope_request": agent_scope_request,
-        "dpop_binding_proof_digest": dpop_binding_proof_digest.as_str(),
-    });
-    Ok(Hash::new(cokret_core::canonical::sha256_digest(
-        cokret_core::canonical::canonical_json_bytes(&binding)?,
-    ))?)
+    Ok(Hash::new(cokret_core::canonical::canonical_sha256(
+        &AgentKeyPairingRequestBinding {
+            kind: "ck.agent.key_pairing_request_binding.v1",
+            operation_id: OP_ACCOUNT_AGENT_KEY_PAIR,
+            controller_principal_id: controller_principal_id.as_str(),
+            agent_principal_id: agent_principal_id.as_str(),
+            verification_method,
+            runtime_public_key_digest: runtime_public_key_digest.as_str(),
+            pairing_request_id,
+            pairing_code,
+            expires_at: pairing_expires_at,
+            audience,
+        },
+    )?)?)
+}
+
+pub fn agent_key_pair_proof_request_binding_digest(
+    pairing_request_id: &str,
+    agent_principal_id: &Did,
+    verification_method: &str,
+    public_key: &Value,
+    runtime_attestation: Option<&Value>,
+) -> Result<Hash> {
+    Ok(Hash::new(cokret_core::canonical::canonical_sha256(
+        &AgentKeyPairProofRequestBinding {
+            kind: "ck.agent.key_pair_proof_of_possession_request.v1",
+            operation_id: OP_ACCOUNT_AGENT_KEY_PAIR,
+            pairing_request_id,
+            agent_principal_id: agent_principal_id.as_str(),
+            verification_method,
+            public_key,
+            runtime_attestation,
+        },
+    )?)?)
+}
+
+pub fn agent_key_pair_proof_signing_input(
+    verification_method: impl Into<String>,
+    challenge: impl Into<String>,
+    audience: impl Into<String>,
+    expires_at: DateTime<Utc>,
+    request_canonical_digest: Hash,
+) -> AgentKeyPairProofSigningInput {
+    AgentKeyPairProofSigningInput {
+        audience: audience.into(),
+        challenge: challenge.into(),
+        expires_at,
+        request_canonical_digest,
+        verification_method: verification_method.into(),
+    }
+}
+
+pub fn agent_key_proof_request_binding_digest(body: &SessionGrantRequestBody) -> Result<Hash> {
+    let mut value = serde_json::to_value(body)?;
+    let proof = value
+        .get_mut("proof")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| Error::Protocol("session grant proof must be an object".to_owned()))?;
+    proof.remove("signature");
+    proof.remove("request_canonical_digest");
+    Ok(Hash::new(cokret_core::canonical::canonical_sha256(
+        &value,
+    )?)?)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -367,24 +496,36 @@ pub fn agent_key_proof_signing_input_for_session_grant(
     dpop_binding_proof: &SessionGrantDpopBindingProof,
     verification_method: impl Into<String>,
     challenge: impl Into<String>,
+    nonce: impl Into<String>,
     audience: impl Into<String>,
-    expires_at: Option<DateTime<Utc>>,
+    expires_at: DateTime<Utc>,
 ) -> Result<AgentKeyProofSigningInput> {
-    Ok(AgentKeyProofSigningInput {
-        context: AGENT_KEY_PROOF_SIGNING_CONTEXT.to_owned(),
-        proof_kind: SessionGrantProofKind::AgentKeyProof,
-        principal_id: principal_id.clone(),
-        verification_method: verification_method.into(),
-        challenge: challenge.into(),
-        request_canonical_digest: agent_key_proof_request_binding_digest(
-            principal_id,
-            requested_scope,
-            agent_key_authorization_ref,
-            agent_scope_request,
-            dpop_binding_proof,
-        )?,
-        audience: audience.into(),
+    let verification_method = verification_method.into();
+    let challenge = challenge.into();
+    let nonce = nonce.into();
+    let audience = audience.into();
+    let mut body = agent_key_proof_unsigned_session_grant_request(
+        principal_id.clone(),
+        requested_scope.to_vec(),
+        agent_key_authorization_ref,
+        agent_scope_request.clone(),
+        dpop_binding_proof.clone(),
+        verification_method.clone(),
+        challenge.clone(),
+        nonce.clone(),
+        audience.clone(),
         expires_at,
+    )?;
+    let request_canonical_digest = agent_key_proof_request_binding_digest(&body)?;
+    body.proof.request_canonical_digest = request_canonical_digest.clone();
+
+    Ok(AgentKeyProofSigningInput {
+        audience,
+        challenge,
+        nonce: Some(nonce),
+        expires_at,
+        request_canonical_digest,
+        verification_method,
     })
 }
 
@@ -397,13 +538,15 @@ pub fn agent_key_proof_session_grant_request(
     dpop_binding_proof: SessionGrantDpopBindingProof,
     verification_method: impl Into<String>,
     challenge: impl Into<String>,
+    nonce: impl Into<String>,
     audience: impl Into<String>,
-    expires_at: Option<DateTime<Utc>>,
+    expires_at: DateTime<Utc>,
     signature: impl Into<String>,
 ) -> Result<SessionGrantRequestBody> {
     let agent_key_authorization_ref = agent_key_authorization_ref.into();
     let verification_method = verification_method.into();
     let challenge = challenge.into();
+    let nonce = nonce.into();
     let audience = audience.into();
     let signing_input = agent_key_proof_signing_input_for_session_grant(
         &principal_id,
@@ -413,35 +556,85 @@ pub fn agent_key_proof_session_grant_request(
         &dpop_binding_proof,
         verification_method.clone(),
         challenge.clone(),
+        nonce.clone(),
         audience.clone(),
         expires_at,
     )?;
 
+    Ok(agent_key_proof_unsigned_session_grant_request(
+        principal_id,
+        requested_scope,
+        agent_key_authorization_ref,
+        agent_scope_request,
+        dpop_binding_proof,
+        verification_method,
+        challenge,
+        nonce,
+        audience,
+        expires_at,
+    )?
+    .with_agent_key_proof_material(signing_input.request_canonical_digest, signature.into()))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn agent_key_proof_unsigned_session_grant_request(
+    principal_id: Did,
+    requested_scope: Vec<String>,
+    agent_key_authorization_ref: impl Into<String>,
+    agent_scope_request: Value,
+    dpop_binding_proof: SessionGrantDpopBindingProof,
+    verification_method: impl Into<String>,
+    challenge: impl Into<String>,
+    nonce: impl Into<String>,
+    audience: impl Into<String>,
+    expires_at: DateTime<Utc>,
+) -> Result<SessionGrantRequestBody> {
+    let request_canonical_digest = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
     Ok(SessionGrantRequestBody {
         principal_id: Some(principal_id),
         device_id: None,
         requested_scope,
-        agent_key_authorization_ref: Some(agent_key_authorization_ref),
+        agent_key_authorization_ref: Some(agent_key_authorization_ref.into()),
         agent_scope_request,
         dpop_binding_proof: Some(dpop_binding_proof),
         applet_delegation: None,
         proof: SessionGrantRequestProof {
             proof_kind: SessionGrantProofKind::AgentKeyProof,
-            challenge,
-            request_canonical_digest: signing_input.request_canonical_digest,
-            audience,
-            expires_at,
-            signature: signature.into(),
-            verification_method: Some(verification_method),
+            challenge: challenge.into(),
+            request_canonical_digest,
+            audience: audience.into(),
+            expires_at: Some(expires_at),
+            signature: String::new(),
+            verification_method: Some(verification_method.into()),
             issuer: None,
             client_id: None,
             redirect_uri: None,
             state: None,
-            nonce: None,
+            nonce: Some(nonce.into()),
             authorization_code: None,
             code_verifier: None,
         },
     })
+}
+
+trait AgentKeyProofMaterial {
+    fn with_agent_key_proof_material(
+        self,
+        request_canonical_digest: Hash,
+        signature: String,
+    ) -> Self;
+}
+
+impl AgentKeyProofMaterial for SessionGrantRequestBody {
+    fn with_agent_key_proof_material(
+        mut self,
+        request_canonical_digest: Hash,
+        signature: String,
+    ) -> Self {
+        self.proof.request_canonical_digest = request_canonical_digest;
+        self.proof.signature = signature;
+        self
+    }
 }
 
 pub fn capability_grant_attach_body(
@@ -1042,7 +1235,7 @@ mod tests {
         let payload = AgentKeyAuthorizePayload {
             agent_principal_id: agent_id.clone(),
             key_id: "runtime-key-1".to_owned(),
-            verification_method: agent_id.clone(),
+            verification_method: format!("{}#runtime-key-1", agent_id.as_str()),
             public_key_digest: None,
             accountable_principal_id: controller_id.clone(),
             agent_key_scope: test_scope(),
@@ -1076,6 +1269,10 @@ mod tests {
             event.content["agent_key_scope"]["actions"][0],
             SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE
         );
+        assert_eq!(
+            event.content["verification_method"],
+            "did:webvh:z6mkfixture:agent.example#runtime-key-1"
+        );
     }
 
     #[test]
@@ -1094,15 +1291,7 @@ mod tests {
         };
         let expires_at = Utc.with_ymd_and_hms(2026, 5, 26, 10, 5, 0).unwrap();
         let authorization_ref = "ck:event:01970000-0000-7000-8000-000000000021";
-
-        let digest = agent_key_proof_request_binding_digest(
-            &principal_id,
-            &requested_scope,
-            authorization_ref,
-            &agent_scope_request,
-            &dpop_binding_proof,
-        )
-        .unwrap();
+        let nonce = "nonce-abc";
         let signing_input = agent_key_proof_signing_input_for_session_grant(
             &principal_id,
             &requested_scope,
@@ -1111,14 +1300,14 @@ mod tests {
             &dpop_binding_proof,
             format!("{}#runtime-key-1", principal_id.as_str()),
             "challenge",
+            nonce,
             "https://cokret.example",
-            Some(expires_at),
+            expires_at,
         )
         .unwrap();
         let signing_json = String::from_utf8(signing_input.canonical_bytes().unwrap()).unwrap();
-        assert_eq!(signing_input.request_canonical_digest, digest);
-        assert!(signing_json.contains(AGENT_KEY_PROOF_SIGNING_CONTEXT));
-        assert!(signing_json.contains(AGENT_KEY_PROOF_KIND));
+        assert!(signing_json.contains("nonce-abc"));
+        assert!(!signing_json.contains(AGENT_KEY_PROOF_KIND));
 
         let request = agent_key_proof_session_grant_request(
             principal_id.clone(),
@@ -1128,11 +1317,13 @@ mod tests {
             dpop_binding_proof.clone(),
             format!("{}#runtime-key-1", principal_id.as_str()),
             "challenge",
+            nonce,
             "https://cokret.example",
-            Some(expires_at),
+            expires_at,
             "agent-key-signature",
         )
         .unwrap();
+        let digest = agent_key_proof_request_binding_digest(&request).unwrap();
 
         assert_eq!(request.principal_id.as_ref(), Some(&principal_id));
         assert_eq!(request.device_id, None);
@@ -1151,6 +1342,8 @@ mod tests {
             SessionGrantProofKind::AgentKeyProof
         );
         assert_eq!(request.proof.request_canonical_digest, digest);
+        assert_eq!(request.proof.nonce.as_deref(), Some(nonce));
+        assert_eq!(request.proof.expires_at, Some(expires_at));
         assert_eq!(
             request.proof.verification_method.as_deref(),
             Some("did:webvh:z6mkfixture:agent.example#runtime-key-1")
@@ -1161,6 +1354,55 @@ mod tests {
         assert!(!crate::is_personal_agent_runtime_event_service_scope(
             "ck.message.create"
         ));
+    }
+
+    #[test]
+    fn agent_key_pair_binding_helpers_match_wire_contract() {
+        let controller_id = did("controller");
+        let agent_id = did("agent");
+        let verification_method = format!("{}#runtime-key-1", agent_id.as_str());
+        let public_key = json!({
+            "kty": "OKP",
+            "kid": verification_method,
+            "alg": "Ed25519",
+            "key": crate::base64url_encode([7u8; 32]),
+        });
+        let runtime_digest = agent_runtime_public_key_digest(&public_key).unwrap();
+        let pairing_digest = agent_key_pairing_request_binding_digest(
+            &controller_id,
+            &agent_id,
+            &verification_method,
+            &runtime_digest,
+            "agent_pairing_request:01999999-0000-7000-8000-00000000feed",
+            "12345678",
+            "2026-07-06T00:15:00.000Z",
+            "did:web:soland.local",
+        )
+        .unwrap();
+        let pop_digest = agent_key_pair_proof_request_binding_digest(
+            "agent_pairing_request:01999999-0000-7000-8000-00000000feed",
+            &agent_id,
+            &verification_method,
+            &public_key,
+            None,
+        )
+        .unwrap();
+        let signing_input = agent_key_pair_proof_signing_input(
+            verification_method,
+            "pairing-pop",
+            "did:web:soland.local",
+            Utc.with_ymd_and_hms(2026, 7, 6, 0, 15, 0).unwrap(),
+            pop_digest.clone(),
+        );
+
+        assert!(runtime_digest.as_str().starts_with("sha256:"));
+        assert!(pairing_digest.as_str().starts_with("sha256:"));
+        assert_eq!(signing_input.request_canonical_digest, pop_digest);
+        assert!(
+            String::from_utf8(signing_input.canonical_bytes().unwrap())
+                .unwrap()
+                .contains("pairing-pop")
+        );
     }
 
     #[test]

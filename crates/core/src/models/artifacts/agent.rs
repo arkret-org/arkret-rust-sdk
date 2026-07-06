@@ -48,7 +48,8 @@ pub struct GrantSnapshot {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyState {
-    pub verification_method: Did,
+    /// DID URL for the authorized runtime key, including its fragment.
+    pub verification_method: String,
     pub status: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
