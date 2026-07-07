@@ -9,16 +9,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    AGENT_PAIRING_BOOTSTRAP_SCHEMA, AgentDeactivateRequestBody, AgentGrantAttachRequestBody,
-    AgentKeyAuthorizePayload, AgentKeyPairRequestBody, AgentPairingBootstrap,
-    AgentPairingContentGrantSummary, AgentPauseRequestBody, AgentProvisionRequestBody,
-    AgentResumeRequestBody, AgentRotateKeyRequestBody, AgentSidecarThreadEnsureRequestBody,
-    CapabilityGrant, Did, Error, Event, GrantId, Hash, Hlc, OP_ACCOUNT_AGENT_KEY_PAIR,
-    OP_AGENT_DEACTIVATE, OP_AGENT_GET, OP_AGENT_GRANT_ATTACH, OP_AGENT_GRANT_DETACH,
-    OP_AGENT_KEY_AUTHORIZE, OP_AGENT_LIST, OP_AGENT_PAUSE, OP_AGENT_PROVISION, OP_AGENT_RESUME,
-    OP_AGENT_ROTATE_KEY, OP_AGENT_SIDECAR_THREAD_ENSURE, PublicKey, RealmId, Result,
-    SessionGrantDpopBindingProof, SessionGrantProofKind, SessionGrantRequestBody,
-    SessionGrantRequestProof,
+    AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyAuthorizePayload,
+    AgentKeyPairRequestBody, AgentPairingBootstrap, AgentPauseRequestBody,
+    AgentProvisionRequestBody, AgentResumeRequestBody, AgentRotateKeyRequestBody,
+    AgentSidecarThreadEnsureRequestBody, CapabilityGrant, Did, Error, Event, GrantId, Hash, Hlc,
+    OP_ACCOUNT_AGENT_KEY_PAIR, OP_AGENT_DEACTIVATE, OP_AGENT_GET, OP_AGENT_GRANT_ATTACH,
+    OP_AGENT_GRANT_DETACH, OP_AGENT_KEY_AUTHORIZE, OP_AGENT_LIST, OP_AGENT_PAUSE,
+    OP_AGENT_PROVISION, OP_AGENT_RESUME, OP_AGENT_ROTATE_KEY, OP_AGENT_SIDECAR_THREAD_ENSURE,
+    PublicKey, RealmId, Result, SessionGrantDpopBindingProof, SessionGrantProofKind,
+    SessionGrantRequestBody, SessionGrantRequestProof,
 };
 
 pub const AGENT_KEY_PROOF_KIND: &str = "agent_key_proof";
@@ -314,21 +313,14 @@ pub fn agent_pairing_bootstrap(
     pairing_request_id: impl Into<String>,
     pairing_code: impl Into<String>,
     pairing_expires_at: DateTime<Utc>,
-    requested_scope: crate::AgentKeyScope,
-    service_scope: Vec<String>,
-    content_grant_summary: AgentPairingContentGrantSummary,
 ) -> AgentPairingBootstrap {
     AgentPairingBootstrap {
-        schema: AGENT_PAIRING_BOOTSTRAP_SCHEMA.to_owned(),
         cokret_base_url: cokret_base_url.into(),
         service_did,
         agent_principal_id,
         pairing_request_id: pairing_request_id.into(),
         pairing_code: pairing_code.into(),
         pairing_expires_at,
-        requested_scope,
-        service_scope,
-        content_grant_summary,
     }
 }
 
@@ -1268,27 +1260,22 @@ mod tests {
             "01970000-0000-7000-8000-000000000020",
             "R7K9-2M4P",
             Utc.with_ymd_and_hms(2026, 5, 26, 12, 0, 0).unwrap(),
-            test_scope(),
-            vec![SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE.to_owned()],
-            AgentPairingContentGrantSummary {
-                actions: vec!["ck.message.create".to_owned()],
-                grant_refs: vec![
-                    GrantId::new("ck:grant:01964137-0000-7000-8000-000000000010").unwrap(),
-                ],
-            },
         );
         let value = serde_json::to_value(bootstrap).unwrap();
 
-        assert_eq!(value["schema"], AGENT_PAIRING_BOOTSTRAP_SCHEMA);
+        // CKP-0008 §4.4: exactly six fields, no scope payload.
         assert_eq!(value["cokret_base_url"], "https://cokret.example");
+        assert_eq!(value["pairing_code"], "R7K9-2M4P");
         assert_eq!(
-            value["service_scope"][0],
-            SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE
+            value["pairing_request_id"],
+            "01970000-0000-7000-8000-000000000020"
         );
-        assert_eq!(
-            value["content_grant_summary"]["actions"][0],
-            "ck.message.create"
-        );
+        assert!(value.get("schema").is_none());
+        assert!(value.get("requested_scope").is_none());
+        assert!(value.get("service_scope").is_none());
+        assert!(value.get("content_grant_summary").is_none());
+        let object = value.as_object().unwrap();
+        assert_eq!(object.len(), 6);
     }
 
     #[test]

@@ -52,32 +52,22 @@ pub struct AgentProvisionOutcome {
     pub expires_at: DateTime<Utc>,
 }
 
-pub const AGENT_PAIRING_BOOTSTRAP_SCHEMA: &str = "ck.schema.agent_pairing_bootstrap.v1";
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct AgentPairingContentGrantSummary {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub actions: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub grant_refs: Vec<GrantId>,
-}
-
+/// One-time bootstrap material handed to a personal agent runtime after
+/// provisioning. Mirrors `agent-operations.schema.json#/$defs/agent_pairing_bootstrap`
+/// and CKP-0008 §4.4: a short-lived, revocable pairing input only. It is not a
+/// session grant, capability grant or long-term secret, and it deliberately
+/// carries no scope payload (the authoritative ceiling lives in
+/// `ck.agent.key.authorize` and the effective-permission intersection).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentPairingBootstrap {
-    pub schema: String,
     pub cokret_base_url: String,
     pub service_did: Did,
     pub agent_principal_id: Did,
     pub pairing_request_id: String,
     pub pairing_code: String,
     pub pairing_expires_at: DateTime<Utc>,
-    pub requested_scope: AgentKeyScope,
-    pub service_scope: Vec<String>,
-    pub content_grant_summary: AgentPairingContentGrantSummary,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
