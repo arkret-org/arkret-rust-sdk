@@ -639,8 +639,12 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
         .critical_extensions
         .push(CriticalExtension {
             id: "ck.feature.policy_gate.v1".to_owned(),
-            scope: "authz".to_owned(),
+            extension_scope: "authz".to_owned(),
             schema_ref: Some("ck.schema.policy.v1".to_owned()),
+            profile_ref: None,
+            parameters: None,
+            material_digest: None,
+            evidence_ref: None,
             fail_closed: true,
         });
 
@@ -659,6 +663,34 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
 
     event.requirements.critical_extensions[0].fail_closed = false;
     assert!(event.validate_for_submit().is_err());
+}
+
+#[test]
+fn critical_extension_uses_spec_extension_scope_field() {
+    let extension: CriticalExtension = serde_json::from_value(json!({
+        "id": "ck.feature.policy_gate.v1",
+        "extension_scope": "payload",
+        "schema_ref": "ck.schema.policy.v1",
+        "profile_ref": "ck.profile.policy.v1",
+        "parameters": {"mode": "strict"},
+        "material_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_ref": "ck:event:01904100-0000-7000-8000-6c663fa0205f",
+        "fail_closed": true
+    }))
+    .unwrap();
+
+    assert_eq!(extension.extension_scope, "payload");
+    let value = serde_json::to_value(extension).unwrap();
+    assert_eq!(value["extension_scope"], "payload");
+    assert!(value.get("scope").is_none());
+
+    let error = serde_json::from_value::<CriticalExtension>(json!({
+        "id": "ck.feature.policy_gate.v1",
+        "scope": "payload",
+        "fail_closed": true
+    }))
+    .unwrap_err();
+    assert!(error.to_string().contains("scope"), "{error}");
 }
 
 #[test]

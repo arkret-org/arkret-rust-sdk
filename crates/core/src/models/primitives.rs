@@ -1043,9 +1043,17 @@ pub mod proof_kind {
 #[serde(deny_unknown_fields)]
 pub struct CriticalExtension {
     pub id: String,
-    pub scope: String,
+    pub extension_scope: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub schema_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub material_digest: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence_ref: Option<String>,
     pub fail_closed: bool,
 }
 

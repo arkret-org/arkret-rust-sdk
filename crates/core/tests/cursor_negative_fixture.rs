@@ -12,7 +12,6 @@
 
 use cokret_core::cursor::Cursor;
 use cokret_core::schema::embedded_json_artifact;
-use serde_json::Value;
 
 const FIXTURE_PATH: &str = "fixtures/cursor-negative-fixture.json";
 const VECTOR_ID: &str = "ck.vector.encoding.reject_invalid_cursor.core.v1";
