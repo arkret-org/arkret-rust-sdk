@@ -184,8 +184,8 @@ pub fn agent_capability_target_event_kinds(action: &str) -> &'static [&'static s
 /// agent lifecycle events are registered separately under `AGENT_*`
 /// event-kind constants above.
 pub const OP_ACCOUNT_AGENT_KEY_PAIR: &str = "ck.gate.account.command.pair_agent_key";
-pub const OP_OPEN_AGENT_PAIRING_REQUEST_RUNTIME_KEY_APPROVAL: &str =
-    "ck.open.agent_pairing.command.request_runtime_key_approval";
+pub const OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST: &str =
+    "ck.open.agent_pairing.command.submit_runtime_key_request";
 pub const OP_AGENT_PROVISION: &str = "ck.self.agent.command.provision";
 pub const OP_AGENT_LIST: &str = "ck.self.agent.query.list";
 pub const OP_AGENT_GET: &str = "ck.self.agent.resource.get";
@@ -903,7 +903,7 @@ pub const OP_DIRECTORY_TAKEDOWN_APPEAL: &str = "ck.find.directory.command.takedo
 /// `operation-registry.json` service surface.
 pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_ACCOUNT_AGENT_KEY_PAIR,
-    OP_OPEN_AGENT_PAIRING_REQUEST_RUNTIME_KEY_APPROVAL,
+    OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST,
     OP_ACCOUNT_DESCRIBE,
     OP_ACCOUNT_DEVICE_PAIR,
     OP_ACCOUNT_DEVICE_ENROLL,

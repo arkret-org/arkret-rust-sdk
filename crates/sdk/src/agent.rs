@@ -13,12 +13,12 @@ use crate::{
     AgentKeyPairRequestBody, AgentPairingBootstrap, AgentPauseRequestBody,
     AgentProvisionRequestBody, AgentResumeRequestBody, AgentRotateKeyRequestBody,
     AgentRuntimeApprovalRequestBody, AgentSidecarThreadEnsureRequestBody, CapabilityGrant, Did,
-    Error, Event, GrantId, Hash, Hlc, OP_ACCOUNT_AGENT_KEY_PAIR, OP_AGENT_DEACTIVATE,
-    OP_AGENT_GET, OP_AGENT_GRANT_ATTACH, OP_AGENT_GRANT_DETACH, OP_AGENT_KEY_AUTHORIZE,
-    OP_AGENT_LIST, OP_AGENT_PAUSE, OP_AGENT_PROVISION, OP_AGENT_RESUME, OP_AGENT_ROTATE_KEY,
-    OP_AGENT_SIDECAR_THREAD_ENSURE, OP_OPEN_AGENT_PAIRING_REQUEST_RUNTIME_KEY_APPROVAL,
-    PublicKey, RealmId, Result, SessionGrantDpopBindingProof, SessionGrantProofKind,
-    SessionGrantRequestBody, SessionGrantRequestProof,
+    Error, Event, GrantId, Hash, Hlc, OP_ACCOUNT_AGENT_KEY_PAIR, OP_AGENT_DEACTIVATE, OP_AGENT_GET,
+    OP_AGENT_GRANT_ATTACH, OP_AGENT_GRANT_DETACH, OP_AGENT_KEY_AUTHORIZE, OP_AGENT_LIST,
+    OP_AGENT_PAUSE, OP_AGENT_PROVISION, OP_AGENT_RESUME, OP_AGENT_ROTATE_KEY,
+    OP_AGENT_SIDECAR_THREAD_ENSURE, OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST, PublicKey,
+    RealmId, Result, SessionGrantDpopBindingProof, SessionGrantProofKind, SessionGrantRequestBody,
+    SessionGrantRequestProof,
 };
 
 pub const AGENT_KEY_PROOF_KIND: &str = "agent_key_proof";
@@ -677,7 +677,7 @@ pub fn plan_agent_runtime_approval_request(
     body: AgentRuntimeApprovalRequestBody,
 ) -> AgentRequestPlan<AgentRuntimeApprovalRequestBody> {
     AgentRequestPlan::with_body(
-        OP_OPEN_AGENT_PAIRING_REQUEST_RUNTIME_KEY_APPROVAL,
+        OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST,
         AgentHttpMethod::Post,
         AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH,
         body,
