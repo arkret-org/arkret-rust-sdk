@@ -22,6 +22,29 @@ pub struct AgentKeyPairOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeApprovalRequestBody {
+    pub pairing_code: String,
+    pub pairing_request_id: String,
+    pub agent_principal_id: Did,
+    pub verification_method: String,
+    pub public_key: Value,
+    pub proof_of_possession: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_attestation: Option<Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeApprovalOutcome {
+    pub ok: bool,
+    pub approval_request_id: String,
+    pub status: AgentStatus,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentProvisionRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,

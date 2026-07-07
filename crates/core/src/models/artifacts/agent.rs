@@ -10,6 +10,8 @@ pub enum AgentOperations {
     AccountDevicePairOutcome(crate::AccountDevicePairOutcome),
     AgentKeyPairRequestBody(AgentKeyPairRequestBody),
     AgentKeyPairOutcome(AgentKeyPairOutcome),
+    AgentRuntimeApprovalRequestBody(AgentRuntimeApprovalRequestBody),
+    AgentRuntimeApprovalOutcome(AgentRuntimeApprovalOutcome),
     AgentProvisionRequestBody(AgentProvisionRequestBody),
     AgentProvisionOutcome(AgentProvisionOutcome),
     AgentPairingBootstrap(AgentPairingBootstrap),
