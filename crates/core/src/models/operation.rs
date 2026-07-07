@@ -13,6 +13,8 @@ pub struct Operation {
     pub object_id: Option<String>,
     pub object_type: String,
     pub payload: Value,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub refs: Vec<EventRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -36,6 +38,7 @@ impl Operation {
             object_id: None,
             object_type: object_type.into(),
             payload,
+            refs: Vec::new(),
             idempotency_key: None,
             created_at: Utc::now(),
             canonical_event_digest: None,
