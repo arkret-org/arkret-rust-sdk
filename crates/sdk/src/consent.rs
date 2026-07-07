@@ -23,7 +23,8 @@
 use chrono::{DateTime, Utc};
 use cokret_core::lattice::CellState;
 use cokret_core::{
-    CellRef, Did, Effect, LatticeOp, LatticeOpType, Precondition, Predicate, PredicateOp,
+    CellRef, Did, Effect, GrantConstraint, LatticeOp, LatticeOpType, Precondition, Predicate,
+    PredicateOp,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -96,18 +97,18 @@ pub fn consent_tag(consent_id: &str, peer: &Did, scope: Scope) -> String {
 }
 
 /// Optional fields for a consent grant.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct ConsentGrantOptions {
     pub not_before: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
     pub evidence_ref: Option<String>,
     pub reason: Option<String>,
-    pub constraints: Vec<Value>,
+    pub constraints: Vec<GrantConstraint>,
 }
 
 /// Typed shape of the JSON `value` payload carried inside the or-set
 /// `add` op. Mirrors the spec §3.2 `value` field.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConsentGrantValue {
     pub consent_id: String,
     pub peer: Did,
@@ -121,7 +122,7 @@ pub struct ConsentGrantValue {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub constraints: Vec<Value>,
+    pub constraints: Vec<GrantConstraint>,
 }
 
 /// Typed shape of the JSON `value` payload carried inside the or-set

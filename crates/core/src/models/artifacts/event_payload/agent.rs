@@ -279,10 +279,8 @@ pub struct AgentKeyScopeResource {
 pub struct AgentKeyScope {
     pub actions: Vec<String>,
     pub resources: Vec<AgentKeyScopeResource>,
-    /// Items follow `grant-constraint.schema.json`; kept as `Value` pending a
-    /// strong grant-constraint counterpart in this crate.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub constraints: Vec<Value>,
+    pub constraints: Vec<GrantConstraint>,
 }
 
 /// Counterpart for the `runtime_attestation.kind` enum in

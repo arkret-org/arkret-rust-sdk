@@ -362,12 +362,13 @@ pub use authz::{
     ConstraintEntry, EngineDecision, FieldScope, GrantProposal, GrantRateLimitScope,
     PolicyEvaluationRequest, PolicyEvaluationResult, PolicyModerationReport, PolicyServerEffect,
     ProposalApproval, ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
-    ProtocolGrantConstraint, ProtocolGrantConstraintEffect, ProtocolGrantConstraintTrack,
-    ProtocolGrantConstraintType, ProtocolResourceSelector, ProtocolResourceSelectorKind,
-    ProtocolResourceSelectorScope, Recurrence, Resource, ResourceSelector, ScopeLimitation,
-    VerifiedClaim, apply_policy_response, capability_grants_from_realm_state,
-    grant_requires_approval, moderation_report_for_policy_outcome,
-    reject_unknown_critical_constraints, validate_capability_frontier,
+    ProtocolGrantConstraint, ProtocolGrantConstraintEffect, ProtocolGrantConstraintScope,
+    ProtocolGrantConstraintSubtype, ProtocolGrantConstraintType, ProtocolResourceSelector,
+    ProtocolResourceSelectorKind, ProtocolResourceSelectorScope, Recurrence, Resource,
+    ResourceSelector, ScopeLimitation, VerifiedClaim, apply_policy_response,
+    capability_grants_from_realm_state, grant_requires_approval,
+    moderation_report_for_policy_outcome, reject_unknown_critical_constraints,
+    validate_capability_frontier,
 };
 #[cfg(feature = "full-surface")]
 pub use base::{

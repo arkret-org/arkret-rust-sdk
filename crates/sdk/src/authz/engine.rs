@@ -1475,13 +1475,10 @@ pub fn grant_requires_approval(grant: &cokret_core::CapabilityGrant) -> bool {
 }
 
 /// Spec-shape predicate for an `approval_required = true` constraint object.
-fn is_approval_required_constraint(constraint: &Value) -> bool {
-    constraint.get("constraint_type").and_then(Value::as_str) == Some("claim_based")
-        && constraint.get("subtype").and_then(Value::as_str) == Some("approval")
-        && constraint
-            .get("approval_required")
-            .and_then(Value::as_bool)
-            .unwrap_or(false)
+fn is_approval_required_constraint(constraint: &cokret_core::GrantConstraint) -> bool {
+    constraint.constraint_type == cokret_core::GrantConstraintType::ClaimBased
+        && constraint.subtype == Some(cokret_core::GrantConstraintSubtype::Approval)
+        && constraint.approval_required.unwrap_or(false)
 }
 
 pub fn moderation_report_for_policy_outcome(
@@ -1534,7 +1531,11 @@ mod engine_wire_tests {
         }
     }
 
-    fn wire_grant(constraints: Vec<Value>) -> cokret_core::CapabilityGrant {
+    fn constraint(value: Value) -> cokret_core::GrantConstraint {
+        serde_json::from_value(value).expect("valid grant constraint")
+    }
+
+    fn wire_grant(constraints: Vec<cokret_core::GrantConstraint>) -> cokret_core::CapabilityGrant {
         cokret_core::CapabilityGrant {
             id: GrantId::new("ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
             schema: CAPABILITY_SCHEMA.to_owned(),
@@ -1625,11 +1626,11 @@ mod engine_wire_tests {
     #[test]
     fn spec_temporal_constraint_denies_after_expiry() {
         let mut engine = AuthzEngine::new();
-        let grant = wire_grant(vec![json!({
+        let grant = wire_grant(vec![constraint(json!({
             "constraint_type": "temporal",
             "effect": "allow",
             "expires_at": "2026-01-01T00:00:00Z",
-        })]);
+        }))]);
         let mut ctx = ctx();
         ctx.now = "2026-02-01T00:00:00Z".parse().unwrap();
         let decision = engine.check_authorization(&ctx, std::slice::from_ref(&grant));
@@ -1651,27 +1652,19 @@ mod engine_wire_tests {
     }
 
     #[test]
-    fn unknown_constraint_family_fails_closed() {
-        let mut engine = AuthzEngine::new();
-        let grant = wire_grant(vec![json!({
+    fn unknown_constraint_family_fails_closed_at_decode() {
+        let mut artifact = serde_json::to_value(wire_grant(Vec::new())).unwrap();
+        artifact["constraints"] = json!([{
             "constraint_type": "telepathy",
             "effect": "allow",
-        })]);
-        let decision = engine.check_authorization(&ctx(), &[grant]);
-        assert!(matches!(
-            decision,
-            EngineDecision::Deny { reason } if reason.contains("schema_violation")
-        ));
-        assert!(
-            engine.cache.is_empty(),
-            "schema-violating grants must not enter the fast-path cache"
-        );
+        }]);
+        assert!(serde_json::from_value::<cokret_core::CapabilityGrant>(artifact).is_err());
     }
 
     #[test]
     fn external_constraints_are_not_fast_path_cached() {
         let mut engine = AuthzEngine::new();
-        let grant = wire_grant(vec![json!({
+        let grant = wire_grant(vec![constraint(json!({
             "constraint_type": "quota",
             "subtype": "rate",
             "effect": "allow",
@@ -1679,7 +1672,7 @@ mod engine_wire_tests {
             "max_operations": 10,
             "period": "PT1H",
             "constraint_scope": "global",
-        })]);
+        }))]);
         let mut ctx = ctx();
         ctx.rate_limit_count = Some(0);
         let decision = engine.check_authorization(&ctx, &[grant]);
@@ -1693,13 +1686,13 @@ mod engine_wire_tests {
     #[test]
     fn realm_state_constraints_are_not_fast_path_cached() {
         let mut engine = AuthzEngine::new();
-        let grant = wire_grant(vec![json!({
+        let grant = wire_grant(vec![constraint(json!({
             "constraint_type": "confidentiality",
             "subtype": "visibility",
             "effect": "allow",
             "evaluation_class": "realm_state",
             "allowed_history_visibility_values": ["joined"],
-        })]);
+        }))]);
         let mut ctx = ctx();
         ctx.history_visibility = Some("joined".to_owned());
         let decision = engine.check_authorization(&ctx, &[grant]);
@@ -1713,7 +1706,7 @@ mod engine_wire_tests {
     #[test]
     fn evaluation_class_mismatch_rejects_without_fast_path_cache() {
         let mut engine = AuthzEngine::new();
-        let grant = wire_grant(vec![json!({
+        let grant = wire_grant(vec![constraint(json!({
             "constraint_type": "quota",
             "subtype": "rate",
             "effect": "allow",
@@ -1721,7 +1714,7 @@ mod engine_wire_tests {
             "max_operations": 10,
             "period": "PT1H",
             "constraint_scope": "global",
-        })]);
+        }))]);
         let decision = engine.check_authorization(&ctx(), &[grant]);
         assert!(matches!(
             decision,
@@ -1738,13 +1731,13 @@ mod engine_wire_tests {
     #[test]
     fn approval_required_grant_is_held_until_approved() {
         let mut engine = AuthzEngine::new();
-        let grant = wire_grant(vec![json!({
+        let grant = wire_grant(vec![constraint(json!({
             "constraint_type": "claim_based",
             "subtype": "approval",
             "effect": "require_review",
             "approval_required": true,
             "approval_actor_ids": ["did:webvh:z6mkfixture:carol.example"],
-        })]);
+        }))]);
         assert!(grant_requires_approval(&grant));
 
         let mut approvals = ApprovalStrandManager::new();

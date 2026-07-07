@@ -71,7 +71,7 @@ pub struct ApprovedScope {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub circle_ids: Vec<crate::CircleId>,
     #[serde(default)]
-    pub constraints: Vec<Value>,
+    pub constraints: Vec<crate::GrantConstraint>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

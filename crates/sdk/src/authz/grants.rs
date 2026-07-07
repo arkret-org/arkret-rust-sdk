@@ -3,8 +3,9 @@
 //! The **only** wire shape for capability grants in this SDK is the core
 //! authority type [`cokret_core::CapabilityGrant`] (spec
 //! `capability-grant.schema.json`: required `id` / `schema` / `issuer` /
-//! `subject` / `actions` / `resources` / `proofs`; untyped `resources` /
-//! `constraints` carrying spec selector / constraint objects).
+//! `subject` / `actions` / `resources` / `proofs`; `resources` carrying spec
+//! selector objects and `constraints` carrying the core typed grant constraint
+//! DTO).
 //!
 //! For evaluation, the engine projects the core form into the
 //! crate-internal, non-serializable [`GrantProjection`] (typed
@@ -23,7 +24,7 @@ use super::*;
 ///
 /// NOT a wire type: deliberately not serializable, crate-visible only. It
 /// exists so the evaluation hot path can pattern-match typed selectors and
-/// constraints instead of re-reading untyped JSON. Always derived from the
+/// constraints instead of re-reading wire DTOs. Always derived from the
 /// core wire form via [`GrantProjection::from_wire`].
 #[derive(Clone, Debug)]
 pub(crate) struct GrantProjection {
@@ -76,9 +77,9 @@ impl GrantProjection {
             .collect::<Result<Vec<_>>>()
             .map_err(|err| Error::Protocol(format!("schema_violation: {err}")))?;
         let mut constraints = Vec::new();
-        for value in &grant.constraints {
+        for constraint in &grant.constraints {
             constraints.extend(
-                constraint_entries_from_spec(value)
+                constraint_entries_from_spec(constraint)
                     .map_err(|err| Error::Protocol(format!("schema_violation: {err}")))?,
             );
         }
@@ -502,7 +503,10 @@ fn capability_grant_from_resolved_event(
 /// would widen the grant. A declared `evaluation_class` must match the
 /// canonical class derived by this evaluator; pure metadata
 /// (`depends_on_moderation_state`, `x_*` extensions) is ignored.
-pub(crate) fn constraint_entries_from_spec(value: &Value) -> Result<Vec<ConstraintEntry>> {
+pub(crate) fn constraint_entries_from_spec(
+    constraint: &impl Serialize,
+) -> Result<Vec<ConstraintEntry>> {
+    let value = serde_json::to_value(constraint)?;
     let object = value
         .as_object()
         .ok_or_else(|| Error::Protocol("grant constraint must be an object".to_owned()))?;
@@ -1212,14 +1216,14 @@ impl CapabilityGrantBuilder {
         prohibit_subdelegation: bool,
     ) -> Self {
         self.grant.constraints.retain(|constraint| {
-            constraint.get("constraint_type").and_then(Value::as_str) != Some("delegation_control")
+            constraint.constraint_type != cokret_core::GrantConstraintType::DelegationControl
         });
-        self.grant.constraints.push(serde_json::json!({
-            "constraint_type": "delegation_control",
-            "effect": "allow",
-            "max_delegation_depth": max_delegation_depth,
-            "prohibit_subdelegation": prohibit_subdelegation,
-        }));
+        self.grant
+            .constraints
+            .push(cokret_core::GrantConstraint::delegation_control(
+                u64::from(max_delegation_depth),
+                prohibit_subdelegation,
+            ));
         self
     }
 
@@ -1229,10 +1233,10 @@ impl CapabilityGrantBuilder {
         self
     }
 
-    /// Replace the constraint list with spec-shaped
-    /// `grant-constraint.schema.json` objects. They are validated at
+    /// Replace the constraint list with spec-shaped typed
+    /// `grant-constraint.schema.json` DTOs. They are validated at
     /// [`Self::build`] time via the engine projection.
-    pub fn with_constraints(mut self, constraints: Vec<Value>) -> Self {
+    pub fn with_constraints(mut self, constraints: Vec<cokret_core::GrantConstraint>) -> Self {
         self.grant.constraints = constraints;
         self
     }
@@ -1436,15 +1440,15 @@ mod capability_grant_builder_tests {
     }
 
     #[test]
-    fn capability_grant_builder_rejects_unknown_constraint_type() {
-        let err = CapabilityGrantBuilder::new(realm(), alice(), base_grant())
-            .with_constraints(vec![json!({
+    fn capability_grant_deserialization_rejects_unknown_constraint_type() {
+        let mut artifact = serde_json::to_value(base_grant()).unwrap();
+        artifact["constraints"] = json!([{
                 "constraint_type": "telepathy",
                 "effect": "allow",
-            })])
-            .build(1, hlc())
+        }]);
+        let err = serde_json::from_value::<cokret_core::CapabilityGrant>(artifact)
             .expect_err("unknown constraint family must fail closed");
-        assert!(format!("{err}").contains("schema_violation"));
+        assert!(format!("{err}").contains("unknown variant"));
     }
 
     #[test]
@@ -1452,11 +1456,7 @@ mod capability_grant_builder_tests {
         let parent = cokret_core::CapabilityGrant {
             id: GrantId::new("ck:grant:01904100-0000-7000-8000-000000000001").unwrap(),
             actions: vec!["*".to_owned()],
-            constraints: vec![json!({
-                "constraint_type": "delegation_control",
-                "effect": "allow",
-                "max_delegation_depth": 1,
-            })],
+            constraints: vec![cokret_core::GrantConstraint::delegation_control(1, false)],
             ..base_grant()
         };
         let child = cokret_core::CapabilityGrant {
