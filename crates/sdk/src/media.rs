@@ -5,6 +5,9 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 use cokret_core::base64url::base64url_decode;
 use cokret_core::canonical::canonical_json_bytes;
+use cokret_core::error::{
+    REASON_PARTICIPANT_BINDING_INVALID, REASON_TOKEN_ISSUER_UNAUTHORISED, REASON_UNKNOWN_FOCUS_TYPE,
+};
 use cokret_core::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
 };
@@ -50,9 +53,9 @@ impl MediaBackendType {
     /// label. Surface: [`unknown_focus_type`].
     pub fn ensure_known(&self) -> Result<()> {
         match self {
-            Self::Unknown => Err(Error::Protocol(
-                "unknown_focus_type: media focus backend label not recognised".to_owned(),
-            )),
+            Self::Unknown => Err(Error::Protocol(format!(
+                "{REASON_UNKNOWN_FOCUS_TYPE}: media focus backend label not recognised"
+            ))),
             _ => Ok(()),
         }
     }
@@ -65,14 +68,14 @@ impl MediaBackendType {
 pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Result<()> {
     let remaining = (expires_at - now).num_seconds();
     if remaining <= 0 {
-        return Err(Error::Protocol(
-            "participant_binding_invalid: token already expired".to_owned(),
-        ));
+        return Err(Error::Protocol(format!(
+            "{REASON_PARTICIPANT_BINDING_INVALID}: token already expired"
+        )));
     }
     if (remaining as u64) > cokret_core::MEDIA_TOKEN_TTL_MAX_SECS {
-        return Err(Error::Protocol(
-            "participant_binding_invalid: token TTL exceeds 600s ceiling".to_owned(),
-        ));
+        return Err(Error::Protocol(format!(
+            "{REASON_PARTICIPANT_BINDING_INVALID}: token TTL exceeds 600s ceiling"
+        )));
     }
     Ok(())
 }
@@ -337,19 +340,19 @@ fn verify_issuer_signature(
     let key = anchors.verifying_key(kid).ok_or_else(|| {
         Error::Protocol(format!(
             "{}: no verifying key registered for {what} kid {kid}",
-            cokret_core::error::REASON_TOKEN_ISSUER_UNAUTHORISED
+            REASON_TOKEN_ISSUER_UNAUTHORISED
         ))
     })?;
     let sig_bytes = base64url_decode(sig_b64).map_err(|err| {
         Error::Protocol(format!(
             "{}: {what} signature is not base64url: {err}",
-            cokret_core::error::REASON_TOKEN_ISSUER_UNAUTHORISED
+            REASON_TOKEN_ISSUER_UNAUTHORISED
         ))
     })?;
     let sig_array: [u8; 64] = sig_bytes.as_slice().try_into().map_err(|_| {
         Error::Protocol(format!(
             "{}: {what} signature must be 64 bytes, got {}",
-            cokret_core::error::REASON_TOKEN_ISSUER_UNAUTHORISED,
+            REASON_TOKEN_ISSUER_UNAUTHORISED,
             sig_bytes.len()
         ))
     })?;
@@ -357,7 +360,7 @@ fn verify_issuer_signature(
     key.verify_strict(signing_input, &signature).map_err(|err| {
         Error::Protocol(format!(
             "{}: {what} signature verification failed: {err}",
-            cokret_core::error::REASON_TOKEN_ISSUER_UNAUTHORISED
+            REASON_TOKEN_ISSUER_UNAUTHORISED
         ))
     })
 }
@@ -398,14 +401,14 @@ pub fn verify_call_media_token_outcome(
         || binding.sig.trim().is_empty()
         || binding.issuer_kid.trim().is_empty()
     {
-        return Err(Error::Protocol(
-            "participant_binding_invalid: token response missing required fields".to_owned(),
-        ));
+        return Err(Error::Protocol(format!(
+            "{REASON_PARTICIPANT_BINDING_INVALID}: token response missing required fields"
+        )));
     }
 
     if binding.scheme != cokret_core::PARTICIPANT_BINDING_SCHEMA {
         return Err(Error::Protocol(format!(
-            "participant_binding_invalid: unexpected scheme {:?}",
+            "{REASON_PARTICIPANT_BINDING_INVALID}: unexpected scheme {:?}",
             binding.scheme
         )));
     }
@@ -415,13 +418,13 @@ pub fn verify_call_media_token_outcome(
     let issuer_did = did_from_kid(&binding.issuer_kid);
     if anchors.is_empty() || !anchors.contains(issuer_did) {
         return Err(Error::Protocol(format!(
-            "token_issuer_unauthorised: participant_binding issuer {issuer_did} not in realm media_service anchors"
+            "{REASON_TOKEN_ISSUER_UNAUTHORISED}: participant_binding issuer {issuer_did} not in realm media_service anchors"
         )));
     }
     let service_did = did_from_kid(&outcome.service_signature.kid);
     if !anchors.contains(service_did) {
         return Err(Error::Protocol(format!(
-            "token_issuer_unauthorised: service_signature issuer {service_did} not in realm media_service anchors"
+            "{REASON_TOKEN_ISSUER_UNAUTHORISED}: service_signature issuer {service_did} not in realm media_service anchors"
         )));
     }
 
@@ -432,23 +435,22 @@ pub fn verify_call_media_token_outcome(
         || binding.actor_id != request.actor_id
         || binding.device_id != request.device_id
     {
-        return Err(Error::Protocol(
-            "participant_binding_invalid: binding tuple does not match the request".to_owned(),
-        ));
+        return Err(Error::Protocol(format!(
+            "{REASON_PARTICIPANT_BINDING_INVALID}: binding tuple does not match the request"
+        )));
     }
     if binding.participant_identity != outcome.participant_identity {
-        return Err(Error::Protocol(
-            "participant_binding_invalid: participant_identity mismatch between binding and outcome"
-                .to_owned(),
-        ));
+        return Err(Error::Protocol(format!(
+            "{REASON_PARTICIPANT_BINDING_INVALID}: participant_identity mismatch between binding and outcome"
+        )));
     }
 
     // The binding's issued_at MUST precede its expiry (a non-positive TTL
     // window is a malformed binding).
     if binding.expires_at <= binding.issued_at {
-        return Err(Error::Protocol(
-            "participant_binding_invalid: binding expires_at not after issued_at".to_owned(),
-        ));
+        return Err(Error::Protocol(format!(
+            "{REASON_PARTICIPANT_BINDING_INVALID}: binding expires_at not after issued_at"
+        )));
     }
 
     // TTL ceiling — both the binding and the outcome expiry MUST be ≤ 600s.

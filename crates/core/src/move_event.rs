@@ -289,7 +289,7 @@ impl Move {
     /// covers wire-shape rules that don't need a cell registry:
     ///
     /// 1. `effects[]` MUST contain at least one entry (no pure-query Move).
-    /// 2. `preconditions.len()` and `effects.len()` MUST be `<= 256` (schema bound).
+    /// 2. `preconditions.len() + effects.len()` MUST be `<= 256`.
     /// 3. Signature `alg` MUST be in [`MOVE_SIGNATURE_ALGS`].
     /// 4. `payload_digest` MUST equal sha256 of canonical bytes.
     pub fn validate_structural(&self) -> Result<()> {
@@ -299,16 +299,19 @@ impl Move {
                     .to_owned(),
             ));
         }
-        if self.preconditions.len() > 256 {
+        let operation_count = self
+            .preconditions
+            .len()
+            .checked_add(self.effects.len())
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "Move preconditions[] + effects[] count overflowed usize".to_owned(),
+                )
+            })?;
+        if operation_count > 256 {
             return Err(Error::Protocol(format!(
-                "Move preconditions[] too large: {} > 256",
-                self.preconditions.len()
-            )));
-        }
-        if self.effects.len() > 256 {
-            return Err(Error::Protocol(format!(
-                "Move effects[] too large: {} > 256",
-                self.effects.len()
+                "Move preconditions[] + effects[] too large: {} > 256",
+                operation_count
             )));
         }
         if !MOVE_SIGNATURE_ALGS
@@ -420,6 +423,20 @@ mod tests {
         m.id = m.derive_id().unwrap();
         let err = m.validate_structural().unwrap_err();
         assert!(format!("{err}").contains("effects[] must contain"));
+    }
+
+    #[test]
+    fn structural_validation_rejects_combined_precondition_effect_limit() {
+        let mut m = sample_move();
+        let precondition = m.preconditions[0].clone();
+        let effect = m.effects[0].clone();
+        m.preconditions = vec![precondition; 256];
+        m.effects = vec![effect];
+        m.id = m.derive_id().unwrap();
+        m.sig.payload_digest =
+            Hash::new(sha256_digest(&m.canonical_bytes_for_id().unwrap())).unwrap();
+        let err = m.validate_structural().unwrap_err();
+        assert!(format!("{err}").contains("preconditions[] + effects[]"));
     }
 
     #[test]

@@ -32,7 +32,7 @@ use cokret_core::{
     encode_base58btc,
 };
 use ed25519_dalek::{
-    SECRET_KEY_LENGTH, SIGNATURE_LENGTH, Signature, Signer, SigningKey, Verifier, VerifyingKey,
+    SECRET_KEY_LENGTH, SIGNATURE_LENGTH, Signature, Signer, SigningKey, VerifyingKey,
 };
 use rand_core::RngCore;
 use serde_json::{Value, json};
@@ -650,7 +650,7 @@ fn verify_webvh_log_proof(entry: &Value) -> Result<(), String> {
     let payload =
         cokret_core::canonical::canonical_json_bytes(&canonical).map_err(|e| e.to_string())?;
     public_key
-        .verify(&payload, &signature)
+        .verify_strict(&payload, &signature)
         .map_err(|_| "webvh log proof signature is invalid".to_owned())
 }
 
@@ -759,7 +759,7 @@ fn valid_multibase_key(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use ed25519_dalek::{PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH, Signature, Verifier, VerifyingKey};
+    use ed25519_dalek::{PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH, Signature, VerifyingKey};
     use rand_chacha::ChaCha20Rng;
     use rand_chacha::rand_core::SeedableRng;
 
@@ -808,7 +808,7 @@ mod tests {
         let payload =
             cokret_core::canonical::canonical_json_bytes(&canonical).map_err(|e| e.to_string())?;
         public_key
-            .verify(&payload, &signature)
+            .verify_strict(&payload, &signature)
             .map_err(|_| "signature invalid".to_owned())
     }
 

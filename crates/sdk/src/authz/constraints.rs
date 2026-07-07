@@ -305,7 +305,9 @@ pub struct ConstraintDuration {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum GrantRateLimitScope {
+    PerActor,
     PerSpace,
+    PerRealm,
     #[default]
     Global,
 }

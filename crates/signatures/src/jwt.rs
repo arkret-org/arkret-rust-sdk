@@ -12,7 +12,7 @@ use serde_json::Value;
 use thiserror::Error;
 
 /// Verification policy for a compact JWT.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JwtVerificationPolicy {
     /// Expected `iss` claim.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -25,6 +25,21 @@ pub struct JwtVerificationPolicy {
     pub now_unix_seconds: i64,
     /// Accepted clock skew for `exp`, `nbf`, and `iat`.
     pub max_clock_skew_seconds: i64,
+    /// Require an `exp` claim. OIDC-facing callers should leave this enabled.
+    #[serde(default = "default_require_exp")]
+    pub require_exp: bool,
+}
+
+impl Default for JwtVerificationPolicy {
+    fn default() -> Self {
+        Self {
+            issuer: None,
+            audience: None,
+            now_unix_seconds: 0,
+            max_clock_skew_seconds: 0,
+            require_exp: true,
+        }
+    }
 }
 
 impl JwtVerificationPolicy {
@@ -50,6 +65,15 @@ impl JwtVerificationPolicy {
         self.max_clock_skew_seconds = seconds.max(0);
         self
     }
+
+    pub fn require_exp(mut self, require_exp: bool) -> Self {
+        self.require_exp = require_exp;
+        self
+    }
+}
+
+fn default_require_exp() -> bool {
+    true
 }
 
 /// Verified JWT material returned after signature and claim policy checks.
@@ -237,10 +261,13 @@ fn validate_claims(
 
     let now = policy.now_unix_seconds;
     let skew = policy.max_clock_skew_seconds.max(0);
-    if let Some(exp) = claims.get("exp").and_then(Value::as_i64)
-        && exp < now.saturating_sub(skew)
-    {
-        return Err(JwtVerificationError::Expired);
+    match claims.get("exp").and_then(Value::as_i64) {
+        Some(exp) if exp < now.saturating_sub(skew) => {
+            return Err(JwtVerificationError::Expired);
+        }
+        Some(_) => {}
+        None if policy.require_exp => return Err(JwtVerificationError::Expired),
+        None => {}
     }
     if let Some(nbf) = claims.get("nbf").and_then(Value::as_i64)
         && nbf > now.saturating_add(skew)
@@ -272,20 +299,26 @@ mod tests {
     use super::*;
 
     fn jwt_fixture(now: i64, kid: Option<&str>) -> (String, Value) {
+        jwt_fixture_with_claims(
+            kid,
+            json!({
+                "iss": "https://issuer.example",
+                "aud": ["cokret-client", "other"],
+                "sub": "alice",
+                "iat": now - 1,
+                "nbf": now - 1,
+                "exp": now + 60
+            }),
+        )
+    }
+
+    fn jwt_fixture_with_claims(kid: Option<&str>, claims: Value) -> (String, Value) {
         let signing_key = SigningKey::from_bytes(&[7u8; 32]);
         let public_key = signing_key.verifying_key();
         let header = match kid {
             Some(kid) => json!({"alg": "EdDSA", "kid": kid, "typ": "JWT"}),
             None => json!({"alg": "EdDSA", "typ": "JWT"}),
         };
-        let claims = json!({
-            "iss": "https://issuer.example",
-            "aud": ["cokret-client", "other"],
-            "sub": "alice",
-            "iat": now - 1,
-            "nbf": now - 1,
-            "exp": now + 60
-        });
         let header_b64 = base64url_encode(serde_json::to_vec(&header).unwrap());
         let claims_b64 = base64url_encode(serde_json::to_vec(&claims).unwrap());
         let signing_input = format!("{header_b64}.{claims_b64}");
@@ -347,5 +380,28 @@ mod tests {
             verify_eddsa_jwt_with_jwks(&jwt, &jwks, &JwtVerificationPolicy::new(now)),
             Err(JwtVerificationError::AmbiguousKeySelection)
         );
+    }
+
+    #[test]
+    fn requires_exp_by_default() {
+        let now = 1_715_990_000;
+        let (jwt, jwks) = jwt_fixture_with_claims(
+            Some("key-1"),
+            json!({
+                "iss": "https://issuer.example",
+                "aud": "cokret-client",
+                "sub": "alice",
+                "iat": now - 1,
+                "nbf": now - 1
+            }),
+        );
+
+        assert_eq!(
+            verify_eddsa_jwt_with_jwks(&jwt, &jwks, &JwtVerificationPolicy::new(now)),
+            Err(JwtVerificationError::Expired)
+        );
+
+        let policy = JwtVerificationPolicy::new(now).require_exp(false);
+        assert!(verify_eddsa_jwt_with_jwks(&jwt, &jwks, &policy).is_ok());
     }
 }

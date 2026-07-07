@@ -1678,6 +1678,7 @@ mod engine_wire_tests {
             "evaluation_class": "external",
             "max_operations": 10,
             "period": "PT1H",
+            "constraint_scope": "global",
         })]);
         let mut ctx = ctx();
         ctx.rate_limit_count = Some(0);
@@ -1719,6 +1720,7 @@ mod engine_wire_tests {
             "evaluation_class": "stateless",
             "max_operations": 10,
             "period": "PT1H",
+            "constraint_scope": "global",
         })]);
         let decision = engine.check_authorization(&ctx(), &[grant]);
         assert!(matches!(

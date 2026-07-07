@@ -58,8 +58,8 @@ parking_lot = {version = "0.12.5",default-features = false}
 proptest = {version = "1",default-features = false}
 regex = {version = "1.12.4",default-features = false,features = ["std", "unicode-perl"]}
 reqwest = {version = "0.13.4",default-features = false,features = ["query"]}
-salvo = {git = "https://github.com/salvo-rs/salvo.git",branch = "main",default-features = false}
-salvo-oapi = {git = "https://github.com/salvo-rs/salvo.git",branch = "main",default-features = false}
+salvo = {git = "https://github.com/salvo-rs/salvo.git",rev = "d1365f0d0e8e0f35ed3a04fb2faec861881c9863",default-features = false}
+salvo-oapi = {git = "https://github.com/salvo-rs/salvo.git",rev = "d1365f0d0e8e0f35ed3a04fb2faec861881c9863",default-features = false}
 # Linux KeyStore backend, enabled only by the keystore crate target cfg.
 secret-service = {version = "5.1.0",default-features = false,features = ["rt-tokio-crypto-rust"]}
 rand_chacha = {version = "0.3.1",default-features = false}

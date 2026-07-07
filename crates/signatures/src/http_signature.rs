@@ -351,9 +351,6 @@ impl SignatureVerificationPolicy {
         if signature_input.created > now_unix_seconds.saturating_add(skew) {
             return Err(SignaturePolicyError::CreatedInFuture);
         }
-        if signature_input.created < now_unix_seconds.saturating_sub(skew) {
-            return Err(SignaturePolicyError::Expired);
-        }
         if signature_input.expires < now_unix_seconds.saturating_sub(skew) {
             return Err(SignaturePolicyError::Expired);
         }
@@ -965,6 +962,10 @@ mod tests {
                 now,
             )
             .expect("valid policy input passes");
+        let still_valid = parse_signature_input(&floria_signature_input(now - 300, now)).unwrap();
+        policy
+            .validate(&still_valid, Some("sha-256=:x=:"), now)
+            .expect("created may be old when the signature is still unexpired");
 
         let missing_digest = parse_signature_input(
             "sig1=(\"@method\" \"@target-uri\" \"@authority\");created=1715990000;expires=1715990030;keyid=\"did:webvh:z6mkfixture:sync.example.com#push\";alg=\"ed25519\"",
@@ -984,7 +985,7 @@ mod tests {
             policy.validate(&future, Some("sha-256=:x=:"), now),
             Err(SignaturePolicyError::CreatedInFuture)
         );
-        let expired = parse_signature_input(&floria_signature_input(now - 40, now - 10)).unwrap();
+        let expired = parse_signature_input(&floria_signature_input(now - 300, now - 40)).unwrap();
         assert_eq!(
             policy.validate(&expired, Some("sha-256=:x=:"), now),
             Err(SignaturePolicyError::Expired)

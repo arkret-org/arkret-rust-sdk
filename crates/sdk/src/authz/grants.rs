@@ -712,18 +712,28 @@ pub(crate) fn constraint_entries_from_spec(value: &Value) -> Result<Vec<Constrai
                     period: duration_field(object, "period")?.ok_or_else(|| {
                         Error::Protocol("quota.rate constraint requires period".to_owned())
                     })?,
-                    scope: rate_limit_scope(str_field("constraint_scope").as_deref()),
+                    scope: rate_limit_scope(
+                        str_field("constraint_scope").as_deref(),
+                        "quota.rate",
+                        true,
+                    )?,
                 });
             }
             Some("resource") => {
                 reject_unsupported_fields(&["max_artifact_bytes"])?;
+                let requires_scope = u64_field("max_total_blob_bytes").is_some()
+                    || u64_field("max_resources").is_some();
                 constraints.push(Constraint::ResourceLimit {
                     blob_max_bytes: u64_field("blob_max_bytes"),
                     max_total_blob_bytes: u64_field("max_total_blob_bytes"),
                     max_resources: u64_field("max_resources"),
                     resource_type: str_field("resource_type"),
                     period: duration_field(object, "period")?,
-                    scope: rate_limit_scope(str_field("constraint_scope").as_deref()),
+                    scope: rate_limit_scope(
+                        str_field("constraint_scope").as_deref(),
+                        "quota.resource",
+                        requires_scope,
+                    )?,
                 });
             }
             other => {
@@ -965,10 +975,23 @@ fn constraint_effect(value: Option<&str>) -> ConstraintEffect {
     }
 }
 
-fn rate_limit_scope(value: Option<&str>) -> GrantRateLimitScope {
+fn rate_limit_scope(
+    value: Option<&str>,
+    constraint: &str,
+    required: bool,
+) -> Result<GrantRateLimitScope> {
     match value {
-        Some("per_space") => GrantRateLimitScope::PerSpace,
-        _ => GrantRateLimitScope::Global,
+        Some("per_actor") => Ok(GrantRateLimitScope::PerActor),
+        Some("per_space") => Ok(GrantRateLimitScope::PerSpace),
+        Some("per_realm") => Ok(GrantRateLimitScope::PerRealm),
+        Some("global") => Ok(GrantRateLimitScope::Global),
+        Some(other) => Err(Error::Protocol(format!(
+            "{constraint} constraint has unknown constraint_scope '{other}'"
+        ))),
+        None if required => Err(Error::Protocol(format!(
+            "{constraint} constraint requires constraint_scope"
+        ))),
+        None => Ok(GrantRateLimitScope::Global),
     }
 }
 
@@ -1566,6 +1589,75 @@ mod capability_grant_builder_tests {
     }
 
     #[test]
+    fn quota_constraint_scope_is_closed_and_required_for_cumulative_quotas() {
+        let entries = constraint_entries_from_spec(&json!({
+            "constraint_type": "quota",
+            "subtype": "rate",
+            "effect": "allow",
+            "max_operations": 5,
+            "period": "PT1H",
+            "constraint_scope": "per_actor",
+        }))
+        .unwrap();
+        assert!(matches!(
+            entries[0].constraint,
+            Constraint::RateLimiting {
+                scope: GrantRateLimitScope::PerActor,
+                ..
+            }
+        ));
+
+        let entries = constraint_entries_from_spec(&json!({
+            "constraint_type": "quota",
+            "subtype": "resource",
+            "effect": "allow",
+            "max_resources": 10,
+            "constraint_scope": "per_realm",
+        }))
+        .unwrap();
+        assert!(matches!(
+            entries[0].constraint,
+            Constraint::ResourceLimit {
+                scope: GrantRateLimitScope::PerRealm,
+                ..
+            }
+        ));
+
+        assert!(
+            constraint_entries_from_spec(&json!({
+                "constraint_type": "quota",
+                "subtype": "rate",
+                "effect": "allow",
+                "max_operations": 5,
+                "period": "PT1H",
+            }))
+            .is_err()
+        );
+
+        assert!(
+            constraint_entries_from_spec(&json!({
+                "constraint_type": "quota",
+                "subtype": "resource",
+                "effect": "allow",
+                "max_total_blob_bytes": 1024,
+            }))
+            .is_err()
+        );
+
+        assert!(
+            constraint_entries_from_spec(&json!({
+                "constraint_type": "quota",
+                "subtype": "rate",
+                "effect": "allow",
+                "max_operations": 5,
+                "period": "PT1H",
+                "constraint_scope": "per_planet",
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
     fn declared_evaluation_class_must_match_canonical_projection() {
         let err = constraint_entries_from_spec(&json!({
             "constraint_type": "quota",
@@ -1574,6 +1666,7 @@ mod capability_grant_builder_tests {
             "evaluation_class": "stateless",
             "max_operations": 5,
             "period": "PT1H",
+            "constraint_scope": "global",
         }))
         .expect_err("declared evaluation_class mismatch must fail closed");
         assert!(format!("{err}").contains("evaluation_class mismatch"));
@@ -1585,6 +1678,7 @@ mod capability_grant_builder_tests {
             "evaluation_class": "external",
             "max_operations": 5,
             "period": "PT1H",
+            "constraint_scope": "global",
         }))
         .unwrap();
         assert_eq!(
