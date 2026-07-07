@@ -159,6 +159,13 @@ pub struct CalendarLocation {
     pub url: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CalendarEventLocation {
+    Plaintext(CalendarLocation),
+    Encrypted(EncryptedEnvelope),
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CalendarAttendeeRole {
@@ -187,7 +194,7 @@ pub struct CalendarEventFields {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recurrence: Option<CalendarRecurrence>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub location: Option<Value>,
+    pub location: Option<CalendarEventLocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub call_id: Option<CallId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -240,6 +247,53 @@ impl CalendarRecurrence {
     }
 }
 
+impl CalendarLocation {
+    pub fn validate(&self) -> Result<()> {
+        let fields = [
+            ("title", self.title.as_deref()),
+            ("address", self.address.as_deref()),
+            ("geo_uri", self.geo_uri.as_deref()),
+            ("url", self.url.as_deref()),
+        ];
+        if fields.iter().all(|(_, value)| value.is_none()) {
+            return Err(Error::Protocol(
+                "calendar location must contain at least one field".to_owned(),
+            ));
+        }
+        for (field, value) in fields {
+            let Some(value) = value else {
+                continue;
+            };
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                return Err(Error::Protocol(format!(
+                    "calendar location {field} must not be empty"
+                )));
+            }
+            if field == "geo_uri" && !trimmed.starts_with("geo:") {
+                return Err(Error::Protocol(
+                    "calendar location geo_uri must start with geo:".to_owned(),
+                ));
+            }
+            if field == "url" && !looks_like_uri(trimmed) {
+                return Err(Error::Protocol(
+                    "calendar location url must be a URI".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl CalendarEventLocation {
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::Plaintext(location) => location.validate(),
+            Self::Encrypted(envelope) => envelope.validate(),
+        }
+    }
+}
+
 impl CalendarEventFields {
     pub fn validate(&self) -> Result<()> {
         let timezone = parse_calendar_timezone(&self.timezone)?;
@@ -262,6 +316,9 @@ impl CalendarEventFields {
         }
         if let Some(recurrence) = &self.recurrence {
             recurrence.validate()?;
+        }
+        if let Some(location) = &self.location {
+            location.validate()?;
         }
         if self.attendees.len() > MAX_CALENDAR_ATTENDEES {
             return Err(Error::Protocol(
@@ -293,6 +350,20 @@ impl CalendarEventFields {
             self.timezone
         ))
     }
+}
+
+fn looks_like_uri(value: &str) -> bool {
+    let Some((scheme, rest)) = value.split_once(':') else {
+        return false;
+    };
+    let mut chars = scheme.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    first.is_ascii_alphabetic()
+        && chars.all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '+' | '-' | '.'))
+        && !rest.is_empty()
+        && !value.chars().any(char::is_whitespace)
 }
 
 pub fn calendar_event_fields_from_metadata_fields(
