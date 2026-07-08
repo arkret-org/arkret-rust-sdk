@@ -1,0 +1,43 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["api-bindings", "network-programming", "cryptography"]
+description = "Runtime-neutral shared client engine for Cokret v1 applications."
+edition = "2024"
+homepage = "https://github.com/cokret/cokret-rust-sdk"
+keywords = ["cokret", "client", "sdk"]
+license = "Apache-2.0"
+name = "cokret-client"
+readme = "README.md"
+repository = "https://github.com/cokret/cokret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = []
+mls = ["cokret/mls"]
+native = ["dep:tokio"]
+wasm = ["dep:gloo-timers", "dep:wasm-bindgen-futures"]
+
+[dependencies]
+chrono = {workspace = true}
+cokret = {path = "../sdk",default-features = false,features = ["client", "full-surface", "signer", "sync-runtime"]}
+cokret-core = {workspace = true}
+cokret-http-client = {workspace = true}
+ed25519-dalek = {workspace = true}
+gloo-timers = {workspace = true,features = ["futures"],optional = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+thiserror = {workspace = true}
+tokio = {workspace = true,features = ["rt", "time"],optional = true}
+wasm-bindgen-futures = {workspace = true,optional = true}
+zeroize = {workspace = true}
+
+[dev-dependencies]
+tokio = {workspace = true,features = ["macros", "rt", "time"]}
+
+[lints]
+workspace = true

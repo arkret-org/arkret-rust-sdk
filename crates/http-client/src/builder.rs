@@ -4,6 +4,7 @@
 //! re-exported at the crate root from `lib.rs`. `TransportConfig` is an
 //! internal helper and stays private to this module.
 
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 
 use cokret_core::{Error, Result};
@@ -12,7 +13,9 @@ use url::Url;
 use crate::client_internals::{
     transport_error, validate_auth, validate_base_url, validate_header_value,
 };
-use crate::{Auth, Client, DEFAULT_CONNECT_TIMEOUT, DEFAULT_REQUEST_TIMEOUT, RetryConfig};
+use crate::{Auth, Client, RetryConfig};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{DEFAULT_CONNECT_TIMEOUT, DEFAULT_REQUEST_TIMEOUT};
 
 /// Named redirect policies. `reqwest::redirect::Policy` is not `Clone`, so
 /// we model the supported choices as a small enum and materialise a Policy

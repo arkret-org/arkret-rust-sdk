@@ -41,6 +41,7 @@ futures-util = {version = "0.3",default-features = false}
 # rather than "fixing" the duplication.
 getrandom = {version = "0.4.2",default-features = false,features = ["std"]}
 getrandom_02 = {package = "getrandom",version = "0.2"}
+gloo-timers = {version = "0.3",default-features = false}
 hex = "0.4.3"
 # RFC 9180 HPKE (rozbb/rust-hpke). Every transitive dep it needs (aes-gcm,
 # hkdf 0.12, sha2 0.10, rand_core 0.9, x25519-dalek, chacha20poly1305) is
@@ -82,6 +83,7 @@ tracing = {version = "0.1.44",default-features = false,features = ["std", "attri
 unicode-normalization = {version = "0.1.25",default-features = false,features = ["std"]}
 url = {version = "2.5.8",default-features = false}
 uuid = {version = "1.23",default-features = false,features = ["std", "v7", "serde"]}
+wasm-bindgen-futures = "0.4"
 # Windows KeyStore backend, enabled only by the keystore crate target cfg.
 windows = {version = "0.62.2",default-features = false}
 x25519-dalek = {version = "2.0.1",default-features = false,features = ["static_secrets", "getrandom"]}
