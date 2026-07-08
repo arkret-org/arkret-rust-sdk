@@ -3,11 +3,14 @@ use super::super::*;
 use super::RealmState;
 
 impl RealmState {
-    /// Extract morph_id from event content.
+    /// Extract Morph id from event content.
     pub(super) fn extract_morph_id(&self, content: &Value) -> Result<String> {
-        self.extract_optional_field(content, "morph_id")
+        self.extract_optional_field(content, "target_ref")
+            .or_else(|| self.extract_optional_field(content, "morph_id"))
             .or_else(|| self.extract_optional_field(content, "id"))
-            .ok_or_else(|| Error::Protocol("morph event requires morph_id or id".to_owned()))
+            .ok_or_else(|| {
+                Error::Protocol("morph event requires target_ref, morph_id, or id".to_owned())
+            })
     }
 
     /// Extract strand_id from event content.

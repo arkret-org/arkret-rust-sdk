@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 use serde_json::{Number, Value, json};
 
 use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
-use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
+use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType, bottom_details};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Counter;
@@ -89,10 +89,10 @@ impl Lattice for Counter {
                 None => {
                     let mut bottom = Bottom::new(BottomKind::SchemaError, vec![cell.clone()]);
                     bottom.move_ids = vec![entry.move_id.clone()];
-                    bottom.details = Some(json!({
-                        "error": "pn_counter_overflow",
-                        "tag": tag,
-                    }));
+                    bottom.details = Some(bottom_details([
+                        ("error", json!("pn_counter_overflow")),
+                        ("tag", json!(tag)),
+                    ]));
                     return CellState::Bottom(bottom);
                 }
             }

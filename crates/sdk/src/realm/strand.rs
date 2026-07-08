@@ -51,50 +51,44 @@ impl Realm {
 
         let strand_id = StrandId::new(generate_id("ck:strand:"))?;
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let now = Utc::now();
         let tracks = if metadata.tracks.is_empty() {
             default_strand_tracks()
         } else {
             metadata.tracks
         };
 
-        let mut strand_metadata = serde_json::Map::new();
-        strand_metadata.insert("title".to_owned(), json!(title.into()));
+        let mut strand_metadata = crate::models::StrandMetadata {
+            title: Some(title.into()),
+            ..Default::default()
+        };
         if let Some(summary) = summary {
-            strand_metadata.insert("summary".to_owned(), json!(summary));
+            strand_metadata.summary = Some(summary);
         }
-        if !fields.is_empty() {
-            strand_metadata.insert("fields".to_owned(), json!(fields));
-        }
+        strand_metadata.fields = fields;
 
-        let mut object = json!({
-            "id": strand_id.as_str(),
-            "schema": crate::STRAND_SCHEMA,
-            "realm_id": self.realm_id.as_str(),
-            "metadata": Value::Object(strand_metadata),
-            "tracks": tracks,
-            "created_by": session_meta.user_id.as_str(),
-            "created_at": now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
-        });
+        let mut object =
+            StrandCreateObject::new(strand_id, self.realm_id()?, session_meta.user_id.clone());
+        object.metadata = Some(strand_metadata);
+        object.tracks = tracks;
 
         if let Some(content) = metadata.content {
-            object["content"] = content;
+            object.content = Some(content);
         }
         if let Some(encrypted_content) = metadata.encrypted_content {
-            object["encrypted_content"] = encrypted_content;
+            object.encrypted_content = Some(encrypted_content);
         }
         if let Some(encrypted_metadata) = metadata.encrypted_metadata {
-            object["encrypted_metadata"] = encrypted_metadata;
+            object.encrypted_metadata = Some(encrypted_metadata);
         }
         if let Some(scope_circle_id) = metadata.scope_circle_id {
-            object["scope_circle_id"] = json!(scope_circle_id.as_str());
+            object.scope_circle_id = Some(scope_circle_id);
         }
 
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
             crate::OP_STRAND_CREATE,
-            json!({ "object": object }),
+            ObjectCreatePayload::new(object).to_value()?,
         ))
     }
 
@@ -129,45 +123,41 @@ impl Realm {
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let mut patch = serde_json::Map::new();
-        let mut metadata_patch = serde_json::Map::new();
+        let mut patch = Patch::new();
 
         if let Some(title) = title {
-            metadata_patch.insert("title".to_owned(), json!(title));
+            patch.insert("metadata.title", title)?;
         }
         if let Some(summary) = summary {
-            metadata_patch.insert("summary".to_owned(), json!(summary));
+            patch.insert("metadata.summary", summary)?;
         }
         if let Some(fields) = fields {
-            metadata_patch.insert("fields".to_owned(), json!(fields));
-        }
-        if !metadata_patch.is_empty() {
-            patch.insert("metadata".to_owned(), Value::Object(metadata_patch));
+            patch.insert(
+                "metadata.fields",
+                payload_value(&fields, "strand metadata fields")?,
+            )?;
         }
         if let Some(content) = metadata.content {
-            patch.insert("content".to_owned(), content);
-            patch.insert("encrypted_content".to_owned(), Value::Null);
+            patch.insert("content", content)?;
+            patch.insert("encrypted_content", Value::Null)?;
         }
         if let Some(encrypted_content) = metadata.encrypted_content {
-            patch.insert("encrypted_content".to_owned(), encrypted_content);
-            patch.insert("content".to_owned(), Value::Null);
+            patch.insert("encrypted_content", encrypted_content)?;
+            patch.insert("content", Value::Null)?;
         }
         if let Some(encrypted_metadata) = metadata.encrypted_metadata {
-            patch.insert("encrypted_metadata".to_owned(), encrypted_metadata);
-            patch.insert("metadata".to_owned(), Value::Null);
+            patch.insert("encrypted_metadata", encrypted_metadata)?;
+            patch.insert("metadata", Value::Null)?;
         }
         if let Some(tracks) = metadata.tracks {
-            patch.insert("tracks".to_owned(), json!(tracks));
+            patch.insert("tracks", payload_value(&tracks, "strand tracks")?)?;
         }
 
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
             crate::OP_STRAND_UPDATE,
-            json!({
-                "target_ref": strand_id.as_str(),
-                "patch": Value::Object(patch),
-            }),
+            StrandPatchPayload::for_strand(strand_id.clone(), patch)?.to_value()?,
         );
         operation.operation_type = OperationType::Update;
         operation.object_id = Some(strand_id.as_str().to_owned());
@@ -195,12 +185,15 @@ impl Realm {
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let mut operation = Operation::create(
-            operation_id,
-            self.realm_id()?,
-            kind,
-            json!({ "target_ref": strand_id.as_str() }),
-        );
+        let target_state = if kind == crate::OP_STRAND_RESTORE {
+            "active"
+        } else {
+            "archived"
+        };
+        let payload = ObjectLifecyclePayload::new(strand_id.as_str().to_owned())
+            .with_target_state(target_state)
+            .to_value()?;
+        let mut operation = Operation::create(operation_id, self.realm_id()?, kind, payload);
         operation.operation_type = operation_type;
         operation.object_id = Some(strand_id.as_str().to_owned());
         Ok(operation)
@@ -215,14 +208,29 @@ impl Realm {
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {
-        self.strand_position_operation(
+        self.base_client
+            .session_meta()
+            .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
+
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let mut payload =
+            StrandMovePayload::new(board_space_id, strand_id.clone(), target_space_id, rank);
+        if let Some(expected_position) = expected_position {
+            payload = payload.with_expected_position(decode_payload::<StrandMoveExpectedPosition>(
+                expected_position,
+                "strand move expected position",
+            )?);
+        }
+
+        let mut operation = Operation::create(
+            operation_id,
+            self.realm_id()?,
             crate::OP_STRAND_MOVE,
-            strand_id,
-            board_space_id,
-            ("target_space_id", target_space_id),
-            rank,
-            expected_position,
-        )
+            payload.to_value()?,
+        );
+        operation.operation_type = OperationType::Update;
+        operation.object_id = Some(strand_id.as_str().to_owned());
+        Ok(operation)
     }
 
     /// Create a `ck.strand.reorder` operation.
@@ -234,41 +242,27 @@ impl Realm {
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {
-        self.strand_position_operation(
-            crate::OP_STRAND_REORDER,
-            strand_id,
-            board_space_id,
-            ("space_id", space_id),
-            rank,
-            expected_position,
-        )
-    }
-
-    fn strand_position_operation(
-        &self,
-        kind: &str,
-        strand_id: StrandId,
-        board_space_id: SpaceId,
-        space_field: (&str, SpaceId),
-        rank: impl Into<String>,
-        expected_position: Option<Value>,
-    ) -> Result<Operation> {
         self.base_client
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let mut payload = json!({
-            "strand_id": strand_id.as_str(),
-            "board_space_id": board_space_id.as_str(),
-            "rank": rank.into(),
-        });
-        payload[space_field.0] = json!(space_field.1.as_str());
+        let mut payload =
+            StrandReorderPayload::new(board_space_id, strand_id.clone(), space_id, rank);
         if let Some(expected_position) = expected_position {
-            payload["expected_position"] = expected_position;
+            payload =
+                payload.with_expected_position(decode_payload::<StrandReorderExpectedPosition>(
+                    expected_position,
+                    "strand reorder expected position",
+                )?);
         }
 
-        let mut operation = Operation::create(operation_id, self.realm_id()?, kind, payload);
+        let mut operation = Operation::create(
+            operation_id,
+            self.realm_id()?,
+            crate::OP_STRAND_REORDER,
+            payload.to_value()?,
+        );
         operation.operation_type = OperationType::Update;
         operation.object_id = Some(strand_id.as_str().to_owned());
         Ok(operation)

@@ -4,11 +4,11 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{Map, Value};
 
 use crate::{
-    DeviceId, Did, EventId, PushNotifyOutcome, PushNotifyRequestBody,
-    PushRegisterDeviceRequestBody, RealmId,
+    DeviceId, Did, EventId, PushNotifyOutcome, PushNotifyRejection, PushRegisterDeviceRequestBody,
+    RealmId,
 };
 
 fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
@@ -76,23 +76,16 @@ pub struct PushRule {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_kind: Option<String>,
     pub priority: PushPriority,
-    #[serde(default)]
-    pub redact_content: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PushNotification {
+pub struct PushEventNotification {
     pub event_id: EventId,
     pub user_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     pub event_kind: String,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub content: Value,
-    #[serde(default)]
-    pub encrypted: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -108,35 +101,13 @@ pub struct PushPayload {
     pub data: Value,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PushDeliveryReceipt {
-    pub event_id: EventId,
-    pub device_id: DeviceId,
-    pub platform: PushPlatform,
-    pub accepted: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-}
-
 pub fn format_push_payload(
     pusher: &Pusher,
     rule: &PushRule,
-    notification: &PushNotification,
+    notification: &PushEventNotification,
 ) -> PushPayload {
-    let redacted = notification.encrypted || rule.redact_content;
-    let body = if redacted {
-        "Encrypted message".to_owned()
-    } else {
-        notification
-            .content
-            .get("body")
-            .and_then(Value::as_str)
-            .unwrap_or("New activity")
-            .chars()
-            .take(120)
-            .collect()
-    };
+    let wakeup_kind = wakeup_kind_for_event_kind(&notification.event_kind);
+    let body = blind_push_body_for_wakeup_kind(wakeup_kind).to_owned();
     let title = match pusher.platform {
         PushPlatform::Apns => "Cokret",
         PushPlatform::Fcm => "Cokret update",
@@ -149,37 +120,70 @@ pub fn format_push_payload(
         title,
         body,
         priority: rule.priority,
-        data: json!({
-            "event_id": notification.event_id.as_str(),
-            "realm_id": notification.realm_id.as_ref().map(|realm_id| realm_id.as_str()),
-            "event_kind": notification.event_kind,
-        }),
+        data: blind_payload_data_for_event_kind(&notification.event_kind),
     }
 }
 
-pub fn notification_from_gateway_request(
-    request: PushNotifyRequestBody,
-) -> Option<PushNotification> {
-    serde_json::to_value(request.notification)
-        .ok()
-        .and_then(|notification| serde_json::from_value(notification).ok())
+pub fn wakeup_kind_for_event_kind(event_kind: &str) -> &'static str {
+    if event_kind.contains("call") {
+        "call_invite"
+    } else if event_kind.contains("mention") {
+        "mention"
+    } else if event_kind.contains("assignment") {
+        "assignment"
+    } else if event_kind.contains("scheduled_send") {
+        "scheduled_send"
+    } else if event_kind.contains("schedule") {
+        "schedule"
+    } else if event_kind.contains("reaction") {
+        "reaction"
+    } else if event_kind.contains("reminder") {
+        "reminder"
+    } else if event_kind.contains("expiry") {
+        "expiry_invalidation"
+    } else {
+        "message"
+    }
+}
+
+pub fn push_hint_for_wakeup_kind(wakeup_kind: &str) -> Option<&'static str> {
+    match wakeup_kind {
+        "message" => Some("new_message"),
+        "mention" => Some("mention_self"),
+        "call_invite" => Some("incoming_call"),
+        _ => None,
+    }
+}
+
+pub fn blind_push_body_for_wakeup_kind(wakeup_kind: &str) -> &'static str {
+    match wakeup_kind {
+        "call_invite" => "Incoming call",
+        "mention" => "New mention",
+        "message" => "New message",
+        _ => "New activity",
+    }
+}
+
+pub fn blind_payload_data_for_event_kind(event_kind: &str) -> Value {
+    let wakeup_kind = wakeup_kind_for_event_kind(event_kind);
+    let mut data = Map::new();
+    data.insert(
+        "wakeup_kind".to_owned(),
+        Value::String(wakeup_kind.to_owned()),
+    );
+    if let Some(push_hint) = push_hint_for_wakeup_kind(wakeup_kind) {
+        data.insert("push_hint".to_owned(), Value::String(push_hint.to_owned()));
+    }
+    Value::Object(data)
 }
 
 pub fn rejected_response(
-    receipts: impl IntoIterator<Item = PushDeliveryReceipt>,
+    rejections: impl IntoIterator<Item = PushNotifyRejection>,
 ) -> PushNotifyOutcome {
     PushNotifyOutcome {
-        rejected: receipts
+        rejected: rejections
             .into_iter()
-            .filter(|receipt| !receipt.accepted)
-            .map(|receipt| {
-                json!({
-                    "event_id": receipt.event_id.as_str(),
-                    "device_id": receipt.device_id.as_str(),
-                    "platform": receipt.platform,
-                    "error": receipt.error,
-                })
-            })
+            .map(|rejection| serde_json::to_value(rejection).unwrap_or(Value::Null))
             .collect(),
     }
 }
@@ -540,7 +544,7 @@ mod tests {
     }
 
     #[test]
-    fn payload_redacts_encrypted_notifications() {
+    fn payload_uses_blind_wakeup_shape() {
         let pusher = Pusher {
             user_id: did("alice"),
             device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
@@ -555,42 +559,42 @@ mod tests {
             enabled: true,
             event_kind: None,
             priority: PushPriority::High,
-            redact_content: false,
         };
         let payload = format_push_payload(
             &pusher,
             &rule,
-            &PushNotification {
+            &PushEventNotification {
                 event_id: EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
                 user_id: did("alice"),
                 realm_id: None,
                 event_kind: "ck.message.create".to_owned(),
-                content: json!({"body": "secret"}),
-                encrypted: true,
             },
         );
-        assert_eq!(payload.body, "Encrypted message");
+        assert_eq!(payload.body, "New message");
+        assert_eq!(payload.data["wakeup_kind"], "message");
+        assert_eq!(payload.data["push_hint"], "new_message");
+        assert!(payload.data.get("event_id").is_none());
+        assert!(payload.data.get("realm_id").is_none());
     }
 
     #[test]
-    fn rejected_response_keeps_only_failures() {
-        let rejected = rejected_response([
-            PushDeliveryReceipt {
-                event_id: EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
-                device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000002").unwrap(),
-                platform: PushPlatform::Fcm,
-                accepted: true,
-                error: None,
-            },
-            PushDeliveryReceipt {
-                event_id: EventId::new("ck:event:01904100-0000-7000-8000-6008ddd67225").unwrap(),
-                device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000003").unwrap(),
-                platform: PushPlatform::Fcm,
-                accepted: false,
-                error: Some("invalid_token".to_owned()),
-            },
-        ]);
+    fn rejected_response_serializes_wire_rejections() {
+        let rejected = rejected_response([PushNotifyRejection {
+            push_target_id: "ck:pseudonym:push:01js0pt0000000000000000000".to_owned(),
+            device_id: Some(
+                DeviceId::new("ck:device:01904100-0000-7000-8000-000000000003").unwrap(),
+            ),
+            reason_code: "invalid_token".to_owned(),
+            retry_after_ms: None,
+            extra: BTreeMap::new(),
+        }]);
         assert_eq!(rejected.rejected.len(), 1);
+        assert_eq!(
+            rejected.rejected[0]["push_target_id"],
+            "ck:pseudonym:push:01js0pt0000000000000000000"
+        );
+        assert_eq!(rejected.rejected[0]["reason_code"], "invalid_token");
+        assert!(rejected.rejected[0].get("event_id").is_none());
     }
 
     #[test]

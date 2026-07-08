@@ -143,6 +143,54 @@ impl MorphCreateObject {
     }
 }
 
+/// Payload for `ck.morph.update`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MorphUpdatePayload {
+    pub target_ref: MorphId,
+    pub patch: Patch,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_state_digest: Option<Hash>,
+}
+
+impl MorphUpdatePayload {
+    pub fn for_morph(morph_id: MorphId, patch: Patch) -> Result<Self> {
+        validate_morph_update_patch(&patch)?;
+        Ok(Self {
+            target_ref: morph_id,
+            patch,
+            expected_state_digest: None,
+        })
+    }
+
+    pub fn with_expected_state_digest(mut self, expected_state_digest: Hash) -> Self {
+        self.expected_state_digest = Some(expected_state_digest);
+        self
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_morph_update_patch(&self.patch)
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        self.validate()?;
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("morph update payload serialize: {err}")))
+    }
+}
+
+fn validate_morph_update_patch(patch: &Patch) -> Result<()> {
+    patch.validate()?;
+    for (path, _) in patch.iter() {
+        if matches!(path.as_str(), "morph_type" | "stage" | "stage_changed_at") {
+            return Err(Error::Protocol(
+                "morph update patch targets create-locked or single-sourced field".to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Extensible ContentBlock used by message, Strand, and Morph content fields.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ContentBlock {

@@ -13,11 +13,30 @@
 //! ⊥, here are the candidate heads, here is the Seal view it was
 //! observed under" without re-implementing the conflict semantics.
 
+use std::collections::BTreeMap;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{CellRef, Hash, MoveId, SealId};
+
+/// Free-form structured details object for a Bottom diagnostic.
+///
+/// The spec defines `details` as a JSON object with stable kind-specific keys,
+/// not an arbitrary JSON scalar / array.
+pub type BottomDetails = BTreeMap<String, Value>;
+
+pub fn bottom_details<K, I>(pairs: I) -> BottomDetails
+where
+    K: Into<String>,
+    I: IntoIterator<Item = (K, Value)>,
+{
+    pairs
+        .into_iter()
+        .map(|(key, value)| (key.into(), value))
+        .collect()
+}
 
 /// Why the join produced bottom.
 ///
@@ -79,7 +98,7 @@ pub struct Bottom {
     /// kind (e.g. invalid_transition: from/to/expected_transitions;
     /// schema_error: schema_id/violation_path).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub details: Option<Value>,
+    pub details: Option<BottomDetails>,
     /// When the cell first crossed `Space.bottom_escalation_after_ms`.
     /// Absent within the grace window. Implementations SHOULD raise an
     /// out-of-band notification once set.
@@ -187,11 +206,11 @@ mod tests {
             move_ids: vec![],
             seal_view: None,
             heads: vec![],
-            details: Some(json!({
-                "from": "leave",
-                "to": "join",
-                "expected_transitions": ["join", "ban"]
-            })),
+            details: Some(bottom_details([
+                ("expected_transitions", json!(["join", "ban"])),
+                ("from", json!("leave")),
+                ("to", json!("join")),
+            ])),
             escalated_at: None,
         };
         let s = serde_json::to_string(&b).unwrap();

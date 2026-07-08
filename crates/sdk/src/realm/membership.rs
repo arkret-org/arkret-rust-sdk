@@ -54,37 +54,47 @@ impl Realm {
         let ctx = CandidateValidationContext::new(self.realm_id.as_str().to_owned());
         candidate.validate(&ctx).map_err(map_candidate_err)?;
 
-        let session_meta = self
+        let _session_meta = self
             .base_client
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let payload = json!({
-            "actor_id": candidate.subject_id,
-            "role": role,
-            "realm_id": self.realm_id.as_str(),
-            "issuer": session_meta.user_id.as_str(),
-            "handle": candidate.handle.canonical(),
-            "delivery_binding_candidate": candidate,
-        });
+        let digest = match candidate.claim_digest.as_ref() {
+            Some(claim_digest) => claim_digest.clone(),
+            None => candidate.canonical_sha256().map_err(map_candidate_err)?,
+        };
+        let mut payload = InviteCreatePayload::new(
+            InviteId::new(generate_id("ck:invite:"))?,
+            candidate.subject_id.clone(),
+            InviteDeliveryTarget::principal_server(
+                candidate
+                    .member_delivery_binding
+                    .recipient_service_did
+                    .clone(),
+            ),
+            Hash::new(digest)?,
+            candidate.expires_at,
+        );
+        if let Some(role) = role {
+            payload = payload.with_extension("role", Value::String(role));
+        }
 
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
             OP_INVITE_CREATE,
-            payload,
+            payload.to_value()?,
         ))
     }
 
     /// Build a `member_add` (`ck.member.state{membership=join}`) operation
     /// from a validated [`MemberDeliveryBindingCandidate`].
     ///
-    /// Reducer-side Join Policy still applies (the candidate is *input*,
-    /// not authority). On success the payload carries both the typed
-    /// candidate (for audit / replay) and a fully constructed
-    /// `delivery_binding` so the reducer can land it as
-    /// `ck.member.state{join}.delivery_binding` directly.
+    /// Reducer-side Join Policy still applies (the candidate is input, not
+    /// authority). On success the payload carries the spec membership fields
+    /// plus a fully constructed `delivery_binding` so the reducer can land it
+    /// as `ck.member.state{join}.delivery_binding` directly.
     pub fn member_add_with_candidate(
         &self,
         candidate: &MemberDeliveryBindingCandidate,
@@ -95,28 +105,30 @@ impl Realm {
         let binding = candidate_to_delivery_binding(candidate);
         binding.validate()?;
 
-        let session_meta = self
+        let _session_meta = self
             .base_client
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let payload = json!({
-            "realm_id": self.realm_id.as_str(),
-            "actor_id": candidate.subject_id,
-            "issuer": session_meta.user_id.as_str(),
-            "membership": "join",
-            "delivery_status": DeliveryStatus::Routable,
-            "delivery_binding": binding,
-            "delivery_binding_candidate": candidate,
-            "handle": candidate.handle.canonical(),
-        });
+        let payload = MembershipPayload {
+            membership: MembershipPayloadState::Join,
+            strand_id: None,
+            realm_id: Some(self.realm_id()?),
+            actor_id: Some(candidate.subject_id.clone()),
+            delivery_status: Some(DeliveryStatus::Routable),
+            delivery_binding: Some(payload_value(&binding, "member delivery binding")?),
+            gate_proofs: Vec::new(),
+            via_service_dids: Vec::new(),
+            reason: None,
+            invite_ref: None,
+        };
 
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
             OP_MEMBER_STATE,
-            payload,
+            payload.to_value()?,
         ))
     }
 
@@ -133,18 +145,24 @@ impl Realm {
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let payload = json!({
-            "realm_id": self.realm_id.as_str(),
-            "actor_id": session_meta.user_id.as_str(),
-            "membership": "join",
-            "delivery_status": DeliveryStatus::Unroutable,
-        });
+        let payload = MembershipPayload {
+            membership: MembershipPayloadState::Join,
+            strand_id: None,
+            realm_id: Some(self.realm_id()?),
+            actor_id: Some(session_meta.user_id.clone()),
+            delivery_status: Some(DeliveryStatus::Unroutable),
+            delivery_binding: None,
+            gate_proofs: Vec::new(),
+            via_service_dids: Vec::new(),
+            reason: None,
+            invite_ref: None,
+        };
 
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
             OP_MEMBER_STATE,
-            payload,
+            payload.to_value()?,
         ))
     }
 
@@ -159,19 +177,24 @@ impl Realm {
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let payload = json!({
-            "realm_id": self.realm_id.as_str(),
-            "actor_id": session_meta.user_id.as_str(),
-            "membership": "join",
-            "delivery_status": DeliveryStatus::Routable,
-            "delivery_binding": binding,
-        });
+        let payload = MembershipPayload {
+            membership: MembershipPayloadState::Join,
+            strand_id: None,
+            realm_id: Some(self.realm_id()?),
+            actor_id: Some(session_meta.user_id.clone()),
+            delivery_status: Some(DeliveryStatus::Routable),
+            delivery_binding: Some(payload_value(&binding, "member delivery binding")?),
+            gate_proofs: Vec::new(),
+            via_service_dids: Vec::new(),
+            reason: None,
+            invite_ref: None,
+        };
 
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
             OP_MEMBER_STATE,
-            payload,
+            payload.to_value()?,
         ))
     }
 
@@ -183,66 +206,82 @@ impl Realm {
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let payload = json!({
-            "realm_id": self.realm_id.as_str(),
-            "actor_id": session_meta.user_id.as_str(),
-            "membership": "leave",
-        });
+        let payload = MembershipPayload {
+            membership: MembershipPayloadState::Leave,
+            strand_id: None,
+            realm_id: Some(self.realm_id()?),
+            actor_id: Some(session_meta.user_id.clone()),
+            delivery_status: None,
+            delivery_binding: None,
+            gate_proofs: Vec::new(),
+            via_service_dids: Vec::new(),
+            reason: None,
+            invite_ref: None,
+        };
 
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
             OP_MEMBER_STATE,
-            payload,
+            payload.to_value()?,
         ))
     }
 
     /// Create a ban operation for a user in this Realm.
     pub fn ban(&self, user_id: Did, reason: Option<String>) -> Result<Operation> {
-        let session_meta = self
+        let _session_meta = self
             .base_client
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let mut payload = json!({
-            "actor_id": user_id.as_str(),
-            "realm_id": self.realm_id.as_str(),
-            "issuer": session_meta.user_id.as_str(),
-            "membership": "ban",
-        });
-        if let Some(reason) = reason {
-            payload["reason"] = json!(reason);
-        }
+        let payload = MembershipPayload {
+            membership: MembershipPayloadState::Ban,
+            strand_id: None,
+            realm_id: Some(self.realm_id()?),
+            actor_id: Some(user_id),
+            delivery_status: None,
+            delivery_binding: None,
+            gate_proofs: Vec::new(),
+            via_service_dids: Vec::new(),
+            reason,
+            invite_ref: None,
+        };
 
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
             OP_MEMBER_STATE,
-            payload,
+            payload.to_value()?,
         ))
     }
 
     /// Create an unban operation for a user in this Realm.
     pub fn unban(&self, user_id: Did) -> Result<Operation> {
-        let session_meta = self
+        let _session_meta = self
             .base_client
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let payload = json!({
-            "actor_id": user_id.as_str(),
-            "realm_id": self.realm_id.as_str(),
-            "issuer": session_meta.user_id.as_str(),
-            "membership": "invite",
-        });
+        let payload = MembershipPayload {
+            membership: MembershipPayloadState::Invite,
+            strand_id: None,
+            realm_id: Some(self.realm_id()?),
+            actor_id: Some(user_id),
+            delivery_status: None,
+            delivery_binding: None,
+            gate_proofs: Vec::new(),
+            via_service_dids: Vec::new(),
+            reason: None,
+            invite_ref: None,
+        };
 
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
             OP_MEMBER_STATE,
-            payload,
+            payload.to_value()?,
         ))
     }
 }

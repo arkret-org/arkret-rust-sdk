@@ -15,11 +15,18 @@ use serde_json::{Value, json};
 use crate::base::{BaseClient, RealmMembershipState};
 use crate::media::{Attachment, MediaMetadata};
 use crate::models::{
-    BlobRef, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, MemberDeliveryBinding,
-    MessageId, Morph, MorphId, NullsOrder, OP_INVITE_CREATE, OP_MEMBER_STATE, OP_MESSAGE_CREATE,
-    OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE, OP_MORPH_CREATE, OP_MORPH_UPDATE,
-    OP_RELATION_CREATE, OP_RELATION_TOMBSTONE, ObjectState, Operation, OperationId, OperationType,
-    Relation, RelationId, RelationKind, RelationState, SortDirection, SortSpec, Space, Strand,
+    BlobRef, ContentBlock, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, Hash,
+    InviteCreatePayload, InviteDeliveryTarget, InviteId, MemberDeliveryBinding, MembershipPayload,
+    MembershipPayloadState, MessageCreatePayload, MessageId, MessageRedactPayload,
+    MessageRevisePayload, Morph, MorphCreateObject, MorphId, MorphUpdatePayload, NullsOrder,
+    OP_INVITE_CREATE, OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE,
+    OP_MORPH_ARCHIVE, OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_TOMBSTONE,
+    ObjectCreatePayload, ObjectLifecyclePayload, ObjectState, Operation, OperationId,
+    OperationType, Patch, Relation, RelationCreatePayload, RelationId, RelationKind, RelationState,
+    SortDirection, SortSpec, Space, SpaceCreateObject, SpaceObjectTombstonePayload,
+    SpaceParentPayload, SpacePatchPayload, SpaceStateTransitionPayload, Strand, StrandCreateObject,
+    StrandMoveExpectedPosition, StrandMovePayload, StrandPatchPayload,
+    StrandReorderExpectedPosition, StrandReorderPayload,
 };
 use crate::resolver::RealmState;
 use crate::{RealmId, Result, SpaceId, StrandId};
@@ -27,6 +34,7 @@ use crate::{RealmId, Result, SpaceId, StrandId};
 mod helpers;
 mod membership;
 mod morph;
+mod payload;
 mod query;
 mod relation;
 mod space;
@@ -36,6 +44,7 @@ mod strand;
 mod tests;
 
 use helpers::*;
+use payload::*;
 pub use relation::RelationOperationInput;
 pub use space::{SpaceCreateMetadata, SpaceUpdateMetadata};
 pub use strand::{StrandCreateMetadata, StrandUpdateMetadata};
@@ -396,12 +405,10 @@ impl Realm {
     pub fn send_message(&self, content: Value) -> Result<Operation> {
         self.base_client.whoami()?;
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let payload = json!({
-            "message_id": generate_id("ck:message:"),
-            "strand_id": generate_id("ck:strand:"),
-            "track_name": "discussion",
-            "content": content,
-        });
+        let strand_id = StrandId::new(generate_id("ck:strand:"))?;
+        let payload = MessageCreatePayload::with_content(strand_id, "discussion", content)
+            .with_message_id(generate_id("ck:message:"))
+            .to_value()?;
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
@@ -412,28 +419,31 @@ impl Realm {
 
     /// Create a local plain-text message send operation.
     pub fn send_text(&self, body: impl Into<String>) -> Result<Operation> {
-        let body = body.into();
-        self.send_message(json!({
-            "kind": "ck.content.text",
-            "body": body,
-        }))
+        self.send_message(ContentBlock::text(body).to_value()?)
     }
 
     /// Create a local message edit operation.
     pub fn edit_message(&self, message_id: MessageId, content: Value) -> Result<Operation> {
         self.base_client.whoami()?;
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let payload = MessageRevisePayload {
+            message_id: Some(message_id.clone()),
+            target_ref: None,
+            revision_of: None,
+            track_name: None,
+            content: Some(content_block_from_value(content)?),
+            encrypted_content: None,
+            metadata: None,
+            encrypted_metadata: None,
+            reason: None,
+        };
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
             OP_MESSAGE_REVISE,
-            json!({
-                "target_event_id": message_id.as_str(),
-                "content": content,
-            }),
+            payload_value(&payload, "message revise payload")?,
         );
         operation.object_id = Some(message_id.as_str().to_owned());
-        operation.payload["edited_at"] = json!(Utc::now().to_rfc3339());
         Ok(operation)
     }
 
@@ -445,12 +455,21 @@ impl Realm {
     ) -> Result<Operation> {
         self.base_client.whoami()?;
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let mut payload = json!({ "target_event_id": message_id.as_str() });
-        if let Some(reason) = reason {
-            payload["reason"] = json!(reason);
-        }
-        let mut operation =
-            Operation::create(operation_id, self.realm_id()?, OP_MESSAGE_REDACT, payload);
+        let payload = MessageRedactPayload {
+            message_id: Some(message_id.clone()),
+            target_ref: None,
+            event_id: None,
+            target_event_id: None,
+            track_name: None,
+            reason,
+            preserve: None,
+        };
+        let mut operation = Operation::create(
+            operation_id,
+            self.realm_id()?,
+            OP_MESSAGE_REDACT,
+            payload_value(&payload, "message redact payload")?,
+        );
         operation.operation_type = OperationType::Redact;
         operation.object_id = Some(message_id.as_str().to_owned());
         Ok(operation)

@@ -1340,7 +1340,6 @@ mod tests {
                 enabled: true,
                 event_kind: Some("ck.message.create".to_owned()),
                 priority: PushPriority::High,
-                redact_content: true,
             },
         }
         .validate(&push_params)

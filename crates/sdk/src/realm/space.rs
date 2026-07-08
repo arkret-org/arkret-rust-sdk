@@ -60,41 +60,32 @@ impl Realm {
 
         let space_id = SpaceId::new(generate_id("ck:space:"))?;
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let now = Utc::now();
-        let mut object = json!({
-            "id": space_id.as_str(),
-            "schema": crate::SPACE_SCHEMA,
-            "realm_id": self.realm_id()?.as_str(),
-            "kind": kind.into(),
-            "title": title.into(),
-            "created_by": session_meta.user_id.as_str(),
-            "created_at": now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
-        });
+        let mut object = SpaceCreateObject::new(
+            space_id.clone(),
+            self.realm_id()?,
+            kind,
+            title,
+            session_meta.user_id.clone(),
+        );
 
         if let Some(parent_space_id) = metadata.parent_space_id {
-            object["parent_space_id"] = json!(parent_space_id);
+            object.parent_space_id = Some(SpaceId::new(parent_space_id)?);
         }
         if let Some(summary) = metadata.summary {
-            object["summary"] = json!(summary);
+            object.summary = Some(summary);
         }
         if let Some(rank) = metadata.rank {
-            object["rank"] = json!(rank);
+            object.rank = Some(rank);
         }
-        if !metadata.schema_refs.is_empty() {
-            object["schema_refs"] = json!(metadata.schema_refs);
-        }
-        if !metadata.fields.is_empty() {
-            object["fields"] = json!(metadata.fields);
-        }
-        if !metadata.labels.is_empty() {
-            object["labels"] = json!(metadata.labels);
-        }
+        object.schema_refs = metadata.schema_refs;
+        object.fields = metadata.fields;
+        object.labels = metadata.labels;
 
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
             crate::OP_SPACE_CREATE,
-            json!({ "object": object }),
+            ObjectCreatePayload::new(object).to_value()?,
         );
         operation.object_id = Some(space_id.as_str().to_owned());
         Ok(operation)
@@ -129,37 +120,42 @@ impl Realm {
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let mut patch = serde_json::Map::new();
+        let mut patch = Patch::new();
         if let Some(title) = title {
-            patch.insert("title".to_owned(), json!(title));
+            patch.insert("title", title)?;
         }
         if let Some(kind) = metadata.kind {
-            patch.insert("kind".to_owned(), json!(kind));
+            patch.insert("kind", kind)?;
         }
         if let Some(summary) = metadata.summary {
-            patch.insert("summary".to_owned(), json!(summary));
+            patch.insert("summary", summary)?;
         }
         if let Some(rank) = metadata.rank {
-            patch.insert("rank".to_owned(), json!(rank));
+            patch.insert("rank", rank)?;
         }
         if let Some(schema_refs) = metadata.schema_refs {
-            patch.insert("schema_refs".to_owned(), json!(schema_refs));
+            patch.insert(
+                "schema_refs",
+                payload_value(&schema_refs, "space schema refs")?,
+            )?;
         }
         if let Some(fields) = metadata.fields {
-            patch.insert("fields".to_owned(), json!(fields));
+            patch.insert("fields", payload_value(&fields, "space fields")?)?;
         }
         if let Some(labels) = metadata.labels {
-            patch.insert("labels".to_owned(), json!(labels));
+            patch.insert("labels", payload_value(&labels, "space labels")?)?;
         }
 
+        let payload = SpacePatchPayload {
+            space_id: space_id.clone(),
+            patch,
+            expected_state_digest: None,
+        };
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
             crate::OP_SPACE_UPDATE,
-            json!({
-                "space_id": space_id.as_str(),
-                "patch": Value::Object(patch),
-            }),
+            payload_value(&payload, "space patch payload")?,
         );
         operation.operation_type = OperationType::Update;
         operation.object_id = Some(space_id.as_str().to_owned());
@@ -177,14 +173,16 @@ impl Realm {
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let payload = SpaceParentPayload {
+            space_id: space_id.clone(),
+            parent_space_id: Some(parent_space_id),
+            expected_parent_space_id: None,
+        };
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
             crate::OP_SPACE_PARENT,
-            json!({
-                "space_id": space_id.as_str(),
-                "parent_space_id": parent_space_id.as_str(),
-            }),
+            payload_value(&payload, "space parent payload")?,
         );
         operation.operation_type = OperationType::Update;
         operation.object_id = Some(space_id.as_str().to_owned());
@@ -218,12 +216,28 @@ impl Realm {
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let mut operation = Operation::create(
-            operation_id,
-            self.realm_id()?,
-            kind,
-            json!({ "space_id": space_id.as_str() }),
-        );
+        let payload = if kind == crate::OP_SPACE_TOMBSTONE {
+            payload_value(
+                &SpaceObjectTombstonePayload {
+                    space_id: space_id.clone(),
+                    reason: None,
+                    replacement_space: None,
+                    replacement_event: None,
+                    effective_at: None,
+                },
+                "space tombstone payload",
+            )?
+        } else {
+            payload_value(
+                &SpaceStateTransitionPayload {
+                    space_id: space_id.clone(),
+                    reason: None,
+                    effective_at: None,
+                },
+                "space state transition payload",
+            )?
+        };
+        let mut operation = Operation::create(operation_id, self.realm_id()?, kind, payload);
         operation.operation_type = operation_type;
         operation.object_id = Some(space_id.as_str().to_owned());
         Ok(operation)

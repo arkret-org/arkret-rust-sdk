@@ -4,31 +4,32 @@ use super::*;
 
 // ── Space lifecycle payloads ────────────────────────────────────────────
 
-/// Round 4 (commit 369f544) — typed payload for
-/// `ck.space.archive` and `ck.space.restore`.
+/// Typed payload for `ck.space.archive` and `ck.space.restore`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct SpaceStateTransitionPayload {
     pub space_id: SpaceId,
-    /// New ObjectState; reducers reject any transition not in the
-    /// allowed FSM (see `models::primitives::ObjectState`).
-    pub new_state: ObjectState,
-    /// Optional human-readable reason for the audit trail.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_at: Option<DateTime<Utc>>,
 }
 
-/// Round 4 — typed payload for `ck.space.tombstone`. Marks the Space
-/// permanently deleted; receivers MUST surface the
-/// `tombstone_event_id` to the user before purging local state.
+/// Typed payload for `ck.space.tombstone`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct SpaceObjectTombstonePayload {
     pub space_id: SpaceId,
-    pub tombstone_reason: String,
-    /// Optional successor space id, if migration is offered.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub successor_space_id: Option<SpaceId>,
+    pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replacement_space: Option<SpaceId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replacement_event: Option<EventRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_at: Option<DateTime<Utc>>,
 }
 
 /// Cell family for `ck.strand.update` / `ck.strand.tracks.update`

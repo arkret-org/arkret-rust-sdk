@@ -470,7 +470,7 @@ pub struct BottomDiagnostic {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub heads: Vec<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub details: Option<BTreeMap<String, Value>>,
+    pub details: Option<crate::BottomDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub escalated_at: Option<DateTime<Utc>>,
 }

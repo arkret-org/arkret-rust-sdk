@@ -529,9 +529,9 @@ pub use profile::{
 };
 #[cfg(feature = "full-surface")]
 pub use push::{
-    CHIME_PUSH_REGISTRATION_VERSION, ChimePushRegistration, EncryptedPushPayload, PushGateway,
-    PushNotification, PushPayload, PushPlatform, PushPriority, PushPrivacyPolicy, PushRule,
-    PushToken,
+    CHIME_PUSH_REGISTRATION_VERSION, ChimePushRegistration, EncryptedPushPayload,
+    PushEventNotification, PushGateway, PushPayload, PushPlatform, PushPriority, PushPrivacyPolicy,
+    PushRule, PushToken,
 };
 #[cfg(feature = "full-surface")]
 pub use realm::{

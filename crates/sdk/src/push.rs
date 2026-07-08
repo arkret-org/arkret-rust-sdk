@@ -2,13 +2,16 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-// The wire push contracts (`PushNotification`, `PushPayload` with the
-// spec-aligned `push_key` field, rules and platform enums) are owned by
-// `cokret-core::push`; this module only adds client-local gateway state and
-// privacy policy.
-pub use cokret_core::push::{PushNotification, PushPayload, PushPlatform, PushPriority, PushRule};
+// The provider payload helpers are owned by `cokret-core::push`; this module
+// only adds client-local gateway state and privacy policy.
+pub use cokret_core::push::{
+    PushEventNotification, PushPayload, PushPlatform, PushPriority, PushRule,
+};
+use cokret_core::push::{
+    blind_payload_data_for_event_kind, blind_push_body_for_wakeup_kind, wakeup_kind_for_event_kind,
+};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::canonical::sha256_hex;
 use crate::{AEAD_ALGORITHM, DeviceId, Did, Error, EventId, Result, crypto};
@@ -241,7 +244,7 @@ impl PushGateway {
     }
 
     /// Process an event into platform payloads, with filtering and deduplication.
-    pub fn process_event(&mut self, event: &PushNotification) -> Vec<PushPayload> {
+    pub fn process_event(&mut self, event: &PushEventNotification) -> Vec<PushPayload> {
         let Some(tokens) = self.tokens.get(&event.user_id).cloned() else {
             return Vec::new();
         };
@@ -265,23 +268,12 @@ impl PushGateway {
     /// Format a platform-specific payload.
     pub fn format_payload(
         &self,
-        event: &PushNotification,
+        event: &PushEventNotification,
         token: &PushToken,
         rule: &PushRule,
     ) -> PushPayload {
-        let redact = event.encrypted || rule.redact_content;
-        let body = if redact {
-            "Encrypted message".to_owned()
-        } else {
-            truncate(
-                event
-                    .content
-                    .get("body")
-                    .and_then(Value::as_str)
-                    .unwrap_or("New activity"),
-                120,
-            )
-        };
+        let body = blind_push_body_for_wakeup_kind(wakeup_kind_for_event_kind(&event.event_kind))
+            .to_owned();
         let title = match token.platform {
             PushPlatform::Apns => "Cokret",
             PushPlatform::Fcm => "Cokret update",
@@ -294,12 +286,7 @@ impl PushGateway {
             title,
             body,
             priority: rule.priority,
-            data: json!({
-                "event_id": event.event_id.as_str(),
-                "realm_id": event.realm_id.as_ref().map(|realm_id| realm_id.as_str()),
-                "event_kind": event.event_kind,
-                "platform": format!("{:?}", token.platform).to_lowercase(),
-            }),
+            data: blind_payload_data_for_event_kind(&event.event_kind),
         }
     }
 
@@ -336,14 +323,6 @@ impl PushGateway {
     }
 }
 
-fn truncate(value: &str, max: usize) -> String {
-    if value.chars().count() <= max {
-        value.to_owned()
-    } else {
-        value.chars().take(max).collect()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -365,14 +344,12 @@ mod tests {
         .unwrap()
     }
 
-    fn event(encrypted: bool) -> PushNotification {
-        PushNotification {
+    fn event() -> PushEventNotification {
+        PushEventNotification {
             event_id: EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
             user_id: did("alice"),
             realm_id: Some(RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
             event_kind: "ck.message.create".to_owned(),
-            content: json!({"body": "hello"}),
-            encrypted,
         }
     }
 
@@ -391,17 +368,20 @@ mod tests {
             enabled: true,
             event_kind: Some("ck.message.create".to_owned()),
             priority: PushPriority::High,
-            redact_content: false,
         });
 
-        let first = gateway.process_event(&event(false));
+        let first = gateway.process_event(&event());
         assert_eq!(first.len(), 1);
-        assert_eq!(first[0].body, "hello");
-        assert_eq!(gateway.process_event(&event(false)).len(), 0);
+        assert_eq!(first[0].body, "New message");
+        assert_eq!(first[0].data["wakeup_kind"], "message");
+        assert_eq!(first[0].data["push_hint"], "new_message");
+        assert!(first[0].data.get("event_id").is_none());
+        assert!(first[0].data.get("realm_id").is_none());
+        assert_eq!(gateway.process_event(&event()).len(), 0);
     }
 
     #[test]
-    fn push_redacts_and_encrypts_e2ee_payloads() {
+    fn push_formats_and_encrypts_blind_payloads() {
         let alice = did("alice");
         let mut gateway = PushGateway::new();
         gateway.register_token(PushToken {
@@ -415,11 +395,10 @@ mod tests {
             enabled: true,
             event_kind: None,
             priority: PushPriority::Normal,
-            redact_content: false,
         });
 
-        let payload = gateway.process_event(&event(true)).pop().unwrap();
-        assert_eq!(payload.body, "Encrypted message");
+        let payload = gateway.process_event(&event()).pop().unwrap();
+        assert_eq!(payload.body, "New message");
         let encrypted = PushGateway::encrypt_payload(&payload, b"push-key").unwrap();
         assert_ne!(encrypted.ciphertext, serde_json::to_vec(&payload).unwrap());
     }
@@ -454,10 +433,9 @@ mod tests {
             enabled: true,
             event_kind: None,
             priority: PushPriority::Normal,
-            redact_content: false,
         });
 
-        let payload = gateway.process_event(&event(false)).pop().unwrap();
+        let payload = gateway.process_event(&event()).pop().unwrap();
         assert_eq!(payload.push_key, "chime-token");
         assert!(
             gateway

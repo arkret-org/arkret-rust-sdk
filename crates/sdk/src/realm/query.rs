@@ -180,6 +180,7 @@ impl Realm {
             let object = event.content.get("object").unwrap_or(&event.content);
             let target_id = object
                 .get("id")
+                .or_else(|| event.content.get("target_ref"))
                 .or_else(|| event.content.get("morph_id"))
                 .and_then(Value::as_str);
             if target_id != Some(morph_id.as_str()) {
@@ -327,15 +328,13 @@ impl Realm {
             .into_iter()
             .find(|version| version.version == target_version)
             .ok_or_else(|| crate::Error::Protocol("morph version not found".to_owned()))?;
-        let mut operation = self.update_morph_operation(
+        self.update_morph_operation(
             morph_id,
             version.title,
             None,
             version.content,
             Some(version.fields),
-        )?;
-        operation.payload["rollback_to_version"] = json!(target_version);
-        Ok(operation)
+        )
     }
 
     /// Create Morph operations in batch.

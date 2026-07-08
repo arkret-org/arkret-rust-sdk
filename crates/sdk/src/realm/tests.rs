@@ -116,12 +116,14 @@ fn realm_creates_relation_operation() {
 
     assert_eq!(op.operation_type, OperationType::Create);
     assert_eq!(op.realm_id.as_str(), realm_id.as_str());
-    assert_eq!(op.payload["relation"]["relation_kind"], "depends_on");
-    assert!(
-        op.payload["relation"]["id"]
-            .as_str()
-            .unwrap()
-            .starts_with("ck:relation:")
+    assert_eq!(op.payload["kind"], "depends_on");
+    assert_eq!(
+        op.payload["from_ref"],
+        "ck:morph:01904100-0000-7000-8000-d48c478ecd0b"
+    );
+    assert_eq!(
+        op.payload["to_ref"],
+        "ck:morph:01904100-0000-7000-8000-e75dc3f6ab2e"
     );
 }
 
@@ -168,17 +170,9 @@ fn realm_creates_strand_operations_and_reads_default_view_relations() {
                     2,
                     &realm_id,
                     json!({
-                        "relation": {
-                            "id": "ck:relation:01904100-0000-7000-8000-4da53c8b9e89",
-                            "schema": crate::RELATION_SCHEMA,
-                            "realm_id": realm_id.as_str(),
-                            "relation_kind": "has_default_view",
-                            "from_ref": strand_id.as_str(),
-                            "to_ref": "ck:view:01904100-0000-7000-8000-08ca7b733afd",
-                            "created_by": "did:webvh:z6mkfixture:alice.example.com",
-                            "created_at": "2026-05-02T00:00:00.000Z",
-                            "fields": {"primary": true}
-                        }
+                        "kind": "has_default_view",
+                        "from_ref": strand_id.as_str(),
+                        "to_ref": "ck:view:01904100-0000-7000-8000-08ca7b733afd"
                     }),
                 ),
             ],
@@ -323,19 +317,19 @@ fn realm_traverses_relation_ref_graph_paths_and_cycles() {
                     OP_RELATION_CREATE,
                     4,
                     &realm_id,
-                    json!({"relation": {"id": "ck:relation:01904100-0000-7000-8000-7b3bf7d6e46b", "schema": crate::RELATION_SCHEMA, "realm_id": realm_id.as_str(), "relation_kind": "depends_on", "from_ref": a, "to_ref": b, "created_by": "did:webvh:z6mkfixture:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
+                    json!({"kind": "depends_on", "from_ref": a, "to_ref": b}),
                 ),
                 event(
                     OP_RELATION_CREATE,
                     5,
                     &realm_id,
-                    json!({"relation": {"id": "ck:relation:01904100-0000-7000-8000-8b48e0461d8c", "schema": crate::RELATION_SCHEMA, "realm_id": realm_id.as_str(), "relation_kind": "depends_on", "from_ref": b, "to_ref": c, "created_by": "did:webvh:z6mkfixture:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
+                    json!({"kind": "depends_on", "from_ref": b, "to_ref": c}),
                 ),
                 event(
                     OP_RELATION_CREATE,
                     6,
                     &realm_id,
-                    json!({"relation": {"id": "ck:relation:01904100-0000-7000-8000-f891fd92960d", "schema": crate::RELATION_SCHEMA, "realm_id": realm_id.as_str(), "relation_kind": "depends_on", "from_ref": c, "to_ref": a, "created_by": "did:webvh:z6mkfixture:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
+                    json!({"kind": "depends_on", "from_ref": c, "to_ref": a}),
                 ),
             ],
         )
@@ -392,7 +386,7 @@ fn realm_tracks_morph_versions_compares_and_rolls_back() {
                     2,
                     &realm_id,
                     json!({
-                        "morph_id": morph_id.as_str(),
+                        "target_ref": morph_id.as_str(),
                         "patch": {"metadata.title": "Updated", "fields": {"status": "done", "owner": "alice"}}
                     }),
                 ),
@@ -413,7 +407,7 @@ fn realm_tracks_morph_versions_compares_and_rolls_back() {
 
     let rollback = realm.rollback_morph_operation(morph_id, 0).unwrap();
     assert_eq!(rollback.payload["patch"]["metadata.title"], "Initial");
-    assert_eq!(rollback.payload["rollback_to_version"], 0);
+    assert!(rollback.payload.get("rollback_to_version").is_none());
 }
 
 #[test]
@@ -575,9 +569,9 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
     assert_eq!(payload["actor_id"], serde_json::json!(subject));
     assert_eq!(payload["membership"], "join");
     assert_eq!(payload["delivery_status"], "routable");
-    assert_eq!(payload["handle"], "bob:acme.example");
     assert!(payload["delivery_binding"].is_object());
-    assert!(payload["delivery_binding_candidate"].is_object());
+    assert!(payload.get("handle").is_none());
+    assert!(payload.get("delivery_binding_candidate").is_none());
 }
 
 #[test]

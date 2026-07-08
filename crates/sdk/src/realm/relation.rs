@@ -33,26 +33,21 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let relation_id = RelationId::new(generate_id("ck:relation:"))?;
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-
-        let mut relation = json!({
-            "id": relation_id.as_str(),
-            "schema": crate::RELATION_SCHEMA,
-            "realm_id": self.realm_id.as_str(),
-            "relation_kind": serde_json::to_value(input.relation_kind)?,
-            "from_ref": input.from_ref,
-            "to_ref": input.to_ref,
-        });
         if !input.fields.is_empty() {
-            relation["fields"] = json!(input.fields);
+            return Err(crate::Error::Protocol(
+                "relation create payload does not support fields".to_owned(),
+            ));
         }
+
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let payload =
+            RelationCreatePayload::new(input.relation_kind.as_str(), input.from_ref, input.to_ref);
 
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
             OP_RELATION_CREATE,
-            json!({ "relation": relation }),
+            payload.to_value()?,
         ))
     }
 

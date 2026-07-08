@@ -186,8 +186,8 @@ pub(in crate::models) fn required_fields_for_operation_kind(kind: &str) -> Vec<S
             ]
         }
         OP_MORPH_CREATE => vec!["object".to_owned()],
-        OP_MORPH_UPDATE => vec!["morph_id".to_owned(), "patch".to_owned()],
-        OP_MORPH_ARCHIVE | OP_MORPH_RESTORE => vec!["morph_id".to_owned()],
+        OP_MORPH_UPDATE => vec!["target_ref".to_owned(), "patch".to_owned()],
+        OP_MORPH_ARCHIVE | OP_MORPH_RESTORE => vec!["target_ref".to_owned()],
         OP_MORPH_STAGE_SET => vec!["morph_id".to_owned(), "stage".to_owned()],
         // Space container event kinds. The container primary key is `space_id`
         // (matching `parent_space_id`).
@@ -195,7 +195,10 @@ pub(in crate::models) fn required_fields_for_operation_kind(kind: &str) -> Vec<S
         OP_SPACE_UPDATE => vec!["space_id".to_owned(), "patch".to_owned()],
         OP_SPACE_PARENT => vec!["space_id".to_owned(), "parent_space_id".to_owned()],
         OP_SPACE_ARCHIVE | OP_SPACE_RESTORE | OP_SPACE_TOMBSTONE => vec!["space_id".to_owned()],
-        OP_RELATION_CREATE => vec!["object".to_owned()],
+        OP_RELATION_CREATE => ["kind", "from_ref", "to_ref"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         OP_RELATION_UPDATE => vec!["relation_id".to_owned(), "patch".to_owned()],
         OP_RELATION_TOMBSTONE => vec!["relation_id".to_owned()],
         OP_CONTAINER_MOVE_ITEM => [

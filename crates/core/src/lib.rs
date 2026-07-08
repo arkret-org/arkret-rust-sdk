@@ -52,7 +52,7 @@ pub use blind_payload_sanitizer::{
     is_valid_push_target_id, is_valid_wakeup_kind, sanitize_blind_payload,
     sanitize_blind_payload_strict, sanitize_blind_payload_with,
 };
-pub use bottom::{Bottom, BottomKind, SealView};
+pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};
 pub use cokret_identifiers as identifiers;
 pub use cursor::{Cursor, CursorPurpose, SyncPositions, SyncTracker};

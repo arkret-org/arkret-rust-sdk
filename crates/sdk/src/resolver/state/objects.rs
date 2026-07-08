@@ -449,9 +449,17 @@ impl RealmState {
             .get("relation")
             .or_else(|| event.content.get("object"))
             .unwrap_or(&event.content);
-        let relation_id_str = self.extract_relation_id(object)?;
+        let relation_id_str = self
+            .extract_optional_field::<String>(object, "relation_id")
+            .or_else(|| self.extract_optional_field::<String>(object, "id"))
+            .unwrap_or_else(|| relation_id_from_event_id(event.event_id.as_str()));
         let relation_id = RelationId::new(relation_id_str.clone())?;
-        let relation_kind = self.extract_field(object, "relation_kind")?;
+        let relation_kind: crate::RelationKind = self
+            .extract_optional_field(object, "relation_kind")
+            .or_else(|| self.extract_optional_field(object, "kind"))
+            .ok_or_else(|| {
+                Error::Protocol("relation create requires kind or relation_kind".to_owned())
+            })?;
         let from_ref = self.extract_field(object, "from_ref")?;
         let to_ref = self.extract_field(object, "to_ref")?;
         let rank = self.extract_optional_field(object, "rank");
@@ -740,6 +748,13 @@ fn validate_morph_schema_refs(schema_refs: &[String]) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn relation_id_from_event_id(event_id: &str) -> String {
+    match event_id.strip_prefix("ck:event:") {
+        Some(suffix) => format!("ck:relation:{suffix}"),
+        None => format!("ck:relation:{event_id}"),
+    }
 }
 
 fn patch_metadata_fields(

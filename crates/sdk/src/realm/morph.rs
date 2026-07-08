@@ -18,39 +18,30 @@ impl Realm {
 
         let morph_id = MorphId::new(generate_id("ck:morph:"))?;
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let now = Utc::now();
 
-        let mut metadata = serde_json::Map::new();
+        let mut object = MorphCreateObject::new(
+            morph_id,
+            self.realm_id()?,
+            morph_type,
+            session_meta.user_id.clone(),
+        );
+
         if let Some(title) = title {
-            metadata.insert("title".to_owned(), json!(title));
+            object = object.with_title(title);
         }
         if let Some(summary) = summary {
-            metadata.insert("summary".to_owned(), json!(summary));
-        }
-
-        let mut object = json!({
-            "id": morph_id.as_str(),
-            "schema": crate::MORPH_SCHEMA,
-            "realm_id": self.realm_id.as_str(),
-            "schema_refs": [crate::MORPH_SCHEMA],
-            "morph_type": morph_type.into(),
-            "created_by": session_meta.user_id.as_str(),
-            "created_at": now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
-            "fields": fields,
-        });
-
-        if !metadata.is_empty() {
-            object["metadata"] = Value::Object(metadata);
+            object = object.with_summary(summary);
         }
         if let Some(content) = content {
-            object["content"] = content;
+            object = object.with_content(content);
         }
+        object.fields = fields;
 
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,
             OP_MORPH_CREATE,
-            json!({ "object": object }),
+            ObjectCreatePayload::new(object).to_value()?,
         ))
     }
 
@@ -69,30 +60,30 @@ impl Realm {
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let mut patch = serde_json::Map::new();
+        let mut patch = Patch::new();
 
         if let Some(title) = title {
-            patch.insert("metadata.title".to_owned(), json!(title));
+            patch.insert("metadata.title", title)?;
         }
         if let Some(summary) = summary {
-            patch.insert("metadata.summary".to_owned(), json!(summary));
+            patch.insert("metadata.summary", summary)?;
         }
         if let Some(content) = content {
-            patch.insert("content".to_owned(), content);
+            patch.insert("content", content)?;
         }
         if let Some(fields) = fields {
-            patch.insert("fields".to_owned(), json!(fields));
+            patch.insert("fields", payload_value(&fields, "morph fields")?)?;
         }
 
-        Ok(Operation::create(
+        let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
             OP_MORPH_UPDATE,
-            json!({
-                "morph_id": morph_id.as_str(),
-                "patch": Value::Object(patch),
-            }),
-        ))
+            MorphUpdatePayload::for_morph(morph_id.clone(), patch)?.to_value()?,
+        );
+        operation.operation_type = OperationType::Update;
+        operation.object_id = Some(morph_id.as_str().to_owned());
+        Ok(operation)
     }
 
     /// Create a Morph archive operation.
@@ -103,11 +94,16 @@ impl Realm {
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        Ok(Operation::create(
+        let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
             OP_MORPH_ARCHIVE,
-            json!({ "morph_id": morph_id.as_str() }),
-        ))
+            ObjectLifecyclePayload::new(morph_id.as_str().to_owned())
+                .with_target_state("archived")
+                .to_value()?,
+        );
+        operation.operation_type = OperationType::Delete;
+        operation.object_id = Some(morph_id.as_str().to_owned());
+        Ok(operation)
     }
 }

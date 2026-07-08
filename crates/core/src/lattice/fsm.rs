@@ -16,7 +16,7 @@
 use serde_json::{Value, json};
 
 use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
-use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
+use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType, bottom_details};
 
 /// FSM Lattice instance with declared `allowed_transitions` and an
 /// optional `initial_state` for empty cells.
@@ -96,11 +96,11 @@ impl Lattice for Fsm {
             if self.validate_op(op).is_err() {
                 let mut bottom = Bottom::new(BottomKind::InvalidTransition, vec![cell.clone()]);
                 bottom.move_ids = vec![entry.move_id.clone()];
-                bottom.details = Some(json!({
-                    "from": op.from,
-                    "to": op.to,
-                    "current": current,
-                }));
+                bottom.details = Some(bottom_details([
+                    ("current", current.clone().unwrap_or(Value::Null)),
+                    ("from", op.from.clone().unwrap_or(Value::Null)),
+                    ("to", op.to.clone().unwrap_or(Value::Null)),
+                ]));
                 return CellState::Bottom(bottom);
             }
             let from = op.from.clone().unwrap();
@@ -117,12 +117,12 @@ impl Lattice for Fsm {
             {
                 let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
                 bottom.move_ids = vec![entry.move_id.clone()];
-                bottom.details = Some(json!({
-                    "from": from,
-                    "to": to,
-                    "current": current,
-                    "reason": "same_from_different_to",
-                }));
+                bottom.details = Some(bottom_details([
+                    ("current", current.clone().unwrap_or(Value::Null)),
+                    ("from", from.clone()),
+                    ("reason", json!("same_from_different_to")),
+                    ("to", to.clone()),
+                ]));
                 return CellState::Bottom(bottom);
             }
             // If we have a current state, the op's `from` must match it.
@@ -134,12 +134,12 @@ impl Lattice for Fsm {
             {
                 let mut bottom = Bottom::new(BottomKind::InvalidTransition, vec![cell.clone()]);
                 bottom.move_ids = vec![entry.move_id.clone()];
-                bottom.details = Some(json!({
-                    "from": from,
-                    "to": to,
-                    "current": cur,
-                    "expected_from": cur,
-                }));
+                bottom.details = Some(bottom_details([
+                    ("current", cur.clone()),
+                    ("expected_from", cur.clone()),
+                    ("from", from.clone()),
+                    ("to", to.clone()),
+                ]));
                 return CellState::Bottom(bottom);
             }
             seen_transitions.push((from.clone(), to.clone()));
