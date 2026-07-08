@@ -151,10 +151,10 @@ where
     ))
 }
 
-/// CKP-0008 / CKP-0009 (spec head 37ce729) â€” runtime classifier stamped by
+/// CKP-0008 / CKP-0009 (spec head 37ce729) runtime classifier stamped by
 /// the reducer on every Envelope. Distinct from the existing `ActorKind`
 /// enum (which classifies `ActorProfile.actor_kind` as user/org/team/...)
-/// â€” this 4-value classifier describes the runtime origin of the
+/// this 4-value classifier describes the runtime origin of the
 /// envelope itself: native devices, applet-bound ghost actors, service
 /// principals, and personal agent runtimes.
 ///
@@ -265,7 +265,7 @@ pub struct Event {
     pub hlc: Hlc,
     pub prev_refs: Vec<EventId>,
     /// CKP-0007 (spec b7d35be, schemas/event-envelope.schema.json
-    /// `$defs.effective_scope`) â€” reducer-stamped immutable scope binding.
+    /// `$defs.effective_scope`) reducer-stamped immutable scope binding.
     /// `Realm` for events emitted in Realm-default scope; `Circle` for
     /// events emitted in a Circle scope. SDK helpers that mint envelopes
     /// for a Strand / Morph / Space carrying `scope_circle_id` MUST set the
@@ -289,9 +289,8 @@ pub struct Event {
     pub requirements: EventRequirements,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redacts: Option<EventId>,
-    #[serde(rename = "payload")]
-    pub content: Value,
-    /// CKP-0008 / CKP-0009 (spec head 37ce729) â€” DID of the runtime that
+    pub payload: Value,
+    /// CKP-0008 / CKP-0009 (spec head 37ce729) DID of the runtime that
     /// actually executed this envelope on behalf of `actor_id`. When
     /// present, the reducer MUST verify that the DID resolved from
     /// `proof.verification_method` equals `executed_by`. Signed; nested
@@ -303,7 +302,7 @@ pub struct Event {
     /// proof verification method DID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executed_by: Option<Did>,
-    /// CKP-0008 / CKP-0009 â€” typed reference (e.g. `ck:grant:<uuidv7>` /
+    /// CKP-0008 / CKP-0009 typed reference (e.g. `ck:grant:<uuidv7>` /
     /// `ck:accountability_grant:<uuidv7>`) to the authorization artifact
     /// that authorized this envelope. Conditional; when present, MUST be
     /// included in the canonical signing transcript.
@@ -325,7 +324,7 @@ pub struct Event {
     /// `applet_id` (schema `allOf`: external_ref ⇒ applet_id).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub external_ref: Option<Value>,
-    /// CKP-0008 / CKP-0009 â€” runtime-origin classifier. Reducer-stamped
+    /// CKP-0008 / CKP-0009 runtime-origin classifier. Reducer-stamped
     /// projection; clients MUST NOT supply it. See
     /// [`EnvelopeActorKind`] for invariants.
     ///
@@ -370,8 +369,7 @@ struct EventWire {
     pub requirements: EventRequirements,
     #[serde(default)]
     pub redacts: Option<EventId>,
-    #[serde(rename = "payload")]
-    pub content: Value,
+    pub payload: Value,
     #[serde(default)]
     pub executed_by: Option<Did>,
     #[serde(default)]
@@ -409,7 +407,7 @@ impl TryFrom<EventWire> for Event {
             seal_basis: wire.seal_basis,
             requirements: wire.requirements,
             redacts: wire.redacts,
-            content: wire.content,
+            payload: wire.payload,
             executed_by: wire.executed_by,
             authorization_ref: wire.authorization_ref,
             applet_id: wire.applet_id,
@@ -424,7 +422,7 @@ impl TryFrom<EventWire> for Event {
 }
 
 /// CKP-0007 (spec b7d35be, schemas/event-envelope.schema.json
-/// `$defs.effective_scope`) â€” reducer-stamped immutable scope binding on
+/// `$defs.effective_scope`) reducer-stamped immutable scope binding on
 /// an [`Event`].
 ///
 /// The wire form is an internally-tagged JSON object on `kind`:
@@ -506,9 +504,9 @@ impl Event {
                 "event proofs must contain at least one proof".to_owned(),
             ));
         }
-        if !self.content.is_object() {
+        if !self.payload.is_object() {
             return Err(Error::Protocol(
-                "event content must be a JSON object".to_owned(),
+                "event payload must be a JSON object".to_owned(),
             ));
         }
         if self
@@ -624,7 +622,7 @@ impl Event {
         actor_id: Did,
         actor_seq: u64,
         hlc: Hlc,
-        content: Value,
+        payload: Value,
     ) -> Result<Self> {
         Ok(Self {
             event_id: EventId::new(new_prefixed_uuid7("ck:event:"))?,
@@ -644,7 +642,7 @@ impl Event {
             seal_basis: None,
             requirements: EventRequirements::default(),
             redacts: None,
-            content,
+            payload,
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -694,7 +692,11 @@ mod event_wire_surface_tests {
             seal_basis: None,
             requirements: EventRequirements::default(),
             redacts: None,
-            content: json!({ "body": "hello" }),
+            payload: json!({
+                "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+                "track_name": "discussion",
+                "content": {"kind": "ck.content.text", "body": "hello"}
+            }),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,

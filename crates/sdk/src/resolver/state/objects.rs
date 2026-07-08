@@ -6,7 +6,7 @@ use super::RealmState;
 
 impl RealmState {
     pub(super) fn create_morph(&mut self, event: &Event) -> Result<()> {
-        let object = event.content.get("object").unwrap_or(&event.content);
+        let object = event.payload.get("object").unwrap_or(&event.payload);
         let morph_id_str = self.extract_morph_id(object)?;
         let morph_id = MorphId::new(morph_id_str.clone())?;
         let morph_type = self.extract_field::<String>(object, "morph_type")?;
@@ -60,18 +60,18 @@ impl RealmState {
     }
 
     pub(super) fn update_morph(&mut self, event: &Event) -> Result<()> {
-        let morph_id_str = self.extract_morph_id(&event.content)?;
+        let morph_id_str = self.extract_morph_id(&event.payload)?;
         // Spec common-fields.md §5.1: update on non-active object MUST fail.
         if let Some(morph) = self.morphs.get(&morph_id_str)
             && morph.state != Some(crate::ObjectState::Active)
         {
             return Err(Error::Protocol("morph_not_active".to_owned()));
         }
-        let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
+        let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.payload, "patch");
         let metadata =
-            self.extract_optional_field::<crate::MorphMetadata>(&event.content, "metadata");
+            self.extract_optional_field::<crate::MorphMetadata>(&event.payload, "metadata");
         let encrypted_metadata =
-            self.extract_optional_field::<Value>(&event.content, "encrypted_metadata");
+            self.extract_optional_field::<Value>(&event.payload, "encrypted_metadata");
         let title = metadata
             .as_ref()
             .and_then(|metadata| metadata.title.clone())
@@ -81,24 +81,24 @@ impl RealmState {
             .and_then(|metadata| metadata.summary.clone())
             .or_else(|| patch_metadata_string(&patch, "summary"));
         let content = self
-            .extract_optional_field::<Value>(&event.content, "content")
+            .extract_optional_field::<Value>(&event.payload, "content")
             .or_else(|| {
                 patch
                     .as_ref()
                     .and_then(|patch| patch.get("content").cloned())
             });
         let encrypted_content = self
-            .extract_optional_field::<Value>(&event.content, "encrypted_content")
+            .extract_optional_field::<Value>(&event.payload, "encrypted_content")
             .or_else(|| {
                 patch
                     .as_ref()
                     .and_then(|patch| patch.get("encrypted_content").cloned())
             });
         let fields = self
-            .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields")
+            .extract_optional_field::<BTreeMap<String, Value>>(&event.payload, "fields")
             .or_else(|| patch_fields(&patch));
         let facets = self
-            .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "facets")
+            .extract_optional_field::<BTreeMap<String, Value>>(&event.payload, "facets")
             .or_else(|| {
                 patch.as_ref().and_then(|patch| {
                     patch
@@ -107,7 +107,7 @@ impl RealmState {
                 })
             });
         let state = self
-            .extract_optional_field::<String>(&event.content, "state")
+            .extract_optional_field::<String>(&event.payload, "state")
             .map(|state| object_state_from_str(&state))
             .transpose()?
             .or(patch_state(&patch).transpose()?);
@@ -162,7 +162,7 @@ impl RealmState {
         event: &Event,
         state: crate::ObjectState,
     ) -> Result<()> {
-        let morph_id_str = self.extract_morph_id(&event.content)?;
+        let morph_id_str = self.extract_morph_id(&event.payload)?;
         if let Some(morph) = self.morphs.get_mut(&morph_id_str) {
             morph.state = Some(state);
             morph.updated_by = Some(event.actor_id.clone());
@@ -176,7 +176,7 @@ impl RealmState {
     // Archived / Deleted / Redacted / unset MUST be rejected with
     // `morph_not_active`; unknown Morph is tolerated (causal / backfill).
     pub(super) fn archive_morph(&mut self, event: &Event) -> Result<()> {
-        let morph_id_str = self.extract_morph_id(&event.content)?;
+        let morph_id_str = self.extract_morph_id(&event.payload)?;
         let Some(morph) = self.morphs.get(&morph_id_str) else {
             return Ok(());
         };
@@ -193,7 +193,7 @@ impl RealmState {
     // `state_changed_at` field (unlike Strand / Space), so on success we
     // only flip `state` and updated_by/at — matching set_morph_state.
     pub(super) fn restore_morph(&mut self, event: &Event) -> Result<()> {
-        let morph_id_str = self.extract_morph_id(&event.content)?;
+        let morph_id_str = self.extract_morph_id(&event.payload)?;
         let Some(morph) = self.morphs.get(&morph_id_str) else {
             return Ok(());
         };
@@ -204,7 +204,7 @@ impl RealmState {
     }
 
     pub(super) fn create_space(&mut self, event: &Event) -> Result<()> {
-        let object = event.content.get("object").unwrap_or(&event.content);
+        let object = event.payload.get("object").unwrap_or(&event.payload);
         let space_id = self
             .extract_optional_field::<String>(object, "id")
             .ok_or_else(|| Error::Protocol("container object requires id".to_owned()))?;
@@ -259,32 +259,32 @@ impl RealmState {
     }
 
     pub(super) fn update_space(&mut self, event: &Event) -> Result<()> {
-        let space_id = self.extract_space_id(&event.content)?;
+        let space_id = self.extract_space_id(&event.payload)?;
         // Spec common-fields.md §5.1: update on non-active object MUST fail.
         if let Some(space) = self.spaces.get(&space_id)
             && space.state != Some(crate::models::SpaceState::Active)
         {
             return Err(Error::Protocol("space_not_active".to_owned()));
         }
-        let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
+        let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.payload, "patch");
 
         let title = self
-            .extract_optional_field::<String>(&event.content, "title")
+            .extract_optional_field::<String>(&event.payload, "title")
             .or_else(|| patch_string(&patch, "title"));
         let summary = self
-            .extract_optional_field::<String>(&event.content, "summary")
+            .extract_optional_field::<String>(&event.payload, "summary")
             .or_else(|| patch_string(&patch, "summary"));
         let kind = self
-            .extract_optional_field::<String>(&event.content, "kind")
+            .extract_optional_field::<String>(&event.payload, "kind")
             .or_else(|| patch_string(&patch, "kind"));
         let rank = self
-            .extract_optional_field::<String>(&event.content, "rank")
+            .extract_optional_field::<String>(&event.payload, "rank")
             .or_else(|| patch_string(&patch, "rank"));
         let fields = self
-            .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields")
+            .extract_optional_field::<BTreeMap<String, Value>>(&event.payload, "fields")
             .or_else(|| patch_fields(&patch));
         let schema_refs = self
-            .extract_optional_field::<Vec<String>>(&event.content, "schema_refs")
+            .extract_optional_field::<Vec<String>>(&event.payload, "schema_refs")
             .or_else(|| {
                 patch.as_ref().and_then(|patch| {
                     patch
@@ -294,7 +294,7 @@ impl RealmState {
                 })
             });
         let labels = self
-            .extract_optional_field::<Vec<String>>(&event.content, "labels")
+            .extract_optional_field::<Vec<String>>(&event.payload, "labels")
             .or_else(|| {
                 patch.as_ref().and_then(|patch| {
                     patch
@@ -304,7 +304,7 @@ impl RealmState {
                 })
             });
         let avatar_blob_ref = self
-            .extract_optional_field(&event.content, "avatar_blob_ref")
+            .extract_optional_field(&event.payload, "avatar_blob_ref")
             .or_else(|| {
                 patch.as_ref().and_then(|patch| {
                     patch
@@ -314,7 +314,7 @@ impl RealmState {
                 })
             });
         let state = self
-            .extract_optional_field::<String>(&event.content, "state")
+            .extract_optional_field::<String>(&event.payload, "state")
             .or_else(|| patch_string(&patch, "state"))
             .map(|state| space_state_from_str(&state))
             .transpose()?;
@@ -358,9 +358,9 @@ impl RealmState {
     }
 
     pub(super) fn set_space_parent(&mut self, event: &Event) -> Result<()> {
-        let space_id = self.extract_space_id(&event.content)?;
+        let space_id = self.extract_space_id(&event.payload)?;
         let parent_space_id_str = self
-            .extract_optional_field::<String>(&event.content, "parent_space_id")
+            .extract_optional_field::<String>(&event.payload, "parent_space_id")
             .ok_or_else(|| {
                 Error::Protocol("space parent event requires parent_space_id".to_owned())
             })?;
@@ -381,7 +381,7 @@ impl RealmState {
         event: &Event,
         state: crate::models::SpaceState,
     ) -> Result<()> {
-        let space_id = self.extract_space_id(&event.content)?;
+        let space_id = self.extract_space_id(&event.payload)?;
         if let Some(space) = self.spaces.get_mut(&space_id) {
             space.state = Some(state);
             space.state_changed_at = Some(event.created_at);
@@ -396,7 +396,7 @@ impl RealmState {
     // Archived / Tombstoned / unset MUST be rejected with `space_not_active`;
     // unknown Space is tolerated (causal / backfill).
     pub(super) fn archive_space(&mut self, event: &Event) -> Result<()> {
-        let space_id = self.extract_space_id(&event.content)?;
+        let space_id = self.extract_space_id(&event.payload)?;
         let Some(space) = self.spaces.get(&space_id) else {
             return Ok(());
         };
@@ -411,7 +411,7 @@ impl RealmState {
     // unset MUST be rejected with `space_already_terminal`; unknown Space is
     // tolerated (causal / backfill).
     pub(super) fn tombstone_space(&mut self, event: &Event) -> Result<()> {
-        let space_id = self.extract_space_id(&event.content)?;
+        let space_id = self.extract_space_id(&event.payload)?;
         let Some(space) = self.spaces.get(&space_id) else {
             return Ok(());
         };
@@ -428,7 +428,7 @@ impl RealmState {
     // be rejected with `space_not_archived`; unknown Space is tolerated
     // (causal / backfill not yet caught up — mirrors set_space_state).
     pub(super) fn restore_space(&mut self, event: &Event) -> Result<()> {
-        let space_id = self.extract_space_id(&event.content)?;
+        let space_id = self.extract_space_id(&event.payload)?;
         let Some(space) = self.spaces.get_mut(&space_id) else {
             return Ok(());
         };
@@ -445,10 +445,10 @@ impl RealmState {
     /// Create a new relation.
     pub(super) fn create_relation(&mut self, event: &Event) -> Result<()> {
         let object = event
-            .content
+            .payload
             .get("relation")
-            .or_else(|| event.content.get("object"))
-            .unwrap_or(&event.content);
+            .or_else(|| event.payload.get("object"))
+            .unwrap_or(&event.payload);
         let relation_id_str = self
             .extract_optional_field::<String>(object, "relation_id")
             .or_else(|| self.extract_optional_field::<String>(object, "id"))
@@ -494,7 +494,7 @@ impl RealmState {
 
     /// Delete a relation.
     pub(super) fn delete_relation(&mut self, event: &Event) -> Result<()> {
-        let relation_id_str = self.extract_relation_id(&event.content)?;
+        let relation_id_str = self.extract_relation_id(&event.payload)?;
         if let Some(relation) = self.relations.get_mut(&relation_id_str) {
             relation.state = Some(crate::RelationState::Tombstoned);
             relation.state_changed_at = Some(event.created_at);
@@ -503,7 +503,7 @@ impl RealmState {
     }
 
     pub(super) fn create_strand(&mut self, event: &Event) -> Result<()> {
-        let object = event.content.get("object").unwrap_or(&event.content);
+        let object = event.payload.get("object").unwrap_or(&event.payload);
         let strand_id_str = self.extract_strand_id(object)?;
         let strand_id = StrandId::new(strand_id_str.clone())?;
         let metadata = self
@@ -558,7 +558,7 @@ impl RealmState {
     }
 
     pub(super) fn update_strand(&mut self, event: &Event) -> Result<()> {
-        let strand_id_str = self.extract_strand_id(&event.content)?;
+        let strand_id_str = self.extract_strand_id(&event.payload)?;
         // Spec common-fields.md §5.1 final paragraph: update on a non-active
         // object MUST fail — otherwise an edit would silently revive an
         // archived / tombstoned / redacted Strand, conflicting with the
@@ -570,23 +570,23 @@ impl RealmState {
         {
             return Err(Error::Protocol("strand_not_active".to_owned()));
         }
-        let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
+        let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.payload, "patch");
         let metadata =
-            self.extract_optional_field::<crate::StrandMetadata>(&event.content, "metadata");
+            self.extract_optional_field::<crate::StrandMetadata>(&event.payload, "metadata");
         let encrypted_metadata =
-            self.extract_optional_field::<Value>(&event.content, "encrypted_metadata");
-        let body = self.extract_optional_field::<Value>(&event.content, "content");
+            self.extract_optional_field::<Value>(&event.payload, "encrypted_metadata");
+        let body = self.extract_optional_field::<Value>(&event.payload, "content");
         let encrypted_content =
-            self.extract_optional_field::<Value>(&event.content, "encrypted_content");
+            self.extract_optional_field::<Value>(&event.payload, "encrypted_content");
         let fields = metadata.as_ref().map(|metadata| metadata.fields.clone());
         let state = self
-            .extract_optional_field::<String>(&event.content, "state")
+            .extract_optional_field::<String>(&event.payload, "state")
             .map(|state| object_state_from_str(&state))
             .transpose()?;
         let patched_state = patch_state(&patch).transpose()?;
         let tracks = self
             .extract_optional_field::<BTreeMap<String, crate::StrandTrackConfig>>(
-                &event.content,
+                &event.payload,
                 "tracks",
             )
             .or_else(|| {
@@ -660,7 +660,7 @@ impl RealmState {
     // `strand_not_active`; unknown Strand is tolerated (causal / backfill not
     // yet caught up — mirrors archive_morph / archive_space).
     pub(super) fn archive_strand(&mut self, event: &Event) -> Result<()> {
-        let strand_id_str = self.extract_strand_id(&event.content)?;
+        let strand_id_str = self.extract_strand_id(&event.payload)?;
         let Some(subject) = self.subjects.get(&strand_id_str) else {
             return Ok(());
         };
@@ -677,7 +677,7 @@ impl RealmState {
     // `strand_not_archived`; unknown Strand is tolerated (causal / backfill
     // not yet caught up — mirrors restore_space).
     pub(super) fn restore_strand(&mut self, event: &Event) -> Result<()> {
-        let strand_id_str = self.extract_strand_id(&event.content)?;
+        let strand_id_str = self.extract_strand_id(&event.payload)?;
         let Some(subject) = self.subjects.get(&strand_id_str) else {
             return Ok(());
         };
@@ -692,7 +692,7 @@ impl RealmState {
         event: &Event,
         state: crate::ObjectState,
     ) -> Result<()> {
-        let strand_id_str = self.extract_strand_id(&event.content)?;
+        let strand_id_str = self.extract_strand_id(&event.payload)?;
         if let Some(subject) = self.subjects.get_mut(&strand_id_str) {
             subject.state = Some(state);
             subject.state_changed_at = Some(event.created_at);
@@ -703,7 +703,7 @@ impl RealmState {
     }
 
     pub(super) fn touch_strand(&mut self, event: &Event) -> Result<()> {
-        let strand_id_str = self.extract_strand_id(&event.content)?;
+        let strand_id_str = self.extract_strand_id(&event.payload)?;
         if let Some(subject) = self.subjects.get_mut(&strand_id_str) {
             subject.updated_by = Some(event.actor_id.clone());
             subject.updated_at = Some(event.created_at);
@@ -713,11 +713,11 @@ impl RealmState {
 
     /// Move a relation by updating its endpoints.
     pub(super) fn move_relation(&mut self, event: &Event) -> Result<()> {
-        let relation_id_str = self.extract_relation_id(&event.content)?;
+        let relation_id_str = self.extract_relation_id(&event.payload)?;
         let actor_id = event.actor_id.clone();
         let created_at = event.created_at;
-        let new_to_ref = self.extract_optional_field::<String>(&event.content, "to_ref");
-        let new_from_ref = self.extract_optional_field::<String>(&event.content, "from_ref");
+        let new_to_ref = self.extract_optional_field::<String>(&event.payload, "to_ref");
+        let new_from_ref = self.extract_optional_field::<String>(&event.payload, "from_ref");
 
         if let Some(relation) = self.relations.get_mut(&relation_id_str) {
             if let Some(new_to_ref) = new_to_ref {

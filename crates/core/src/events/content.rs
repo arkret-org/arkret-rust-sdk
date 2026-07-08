@@ -4,88 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::kinds::*;
-use crate::{
-    BlobRef, DeviceId, Did, Effect, Error, Event, EventId, EventRef, Hlc, Precondition,
-    PresenceStatus, RealmId, Result, SealId,
-};
-
-/// A typed view of a raw event envelope.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct EventContentEnvelope {
-    pub event_id: EventId,
-    pub kind: String,
-    pub class: EventClass,
-    pub realm_id: RealmId,
-    pub actor_id: Did,
-    pub created_at: DateTime<Utc>,
-    pub hlc: Hlc,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub prev_refs: Vec<EventId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub refs: Vec<EventRef>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub preconditions: Vec<Precondition>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub effects: Vec<Effect>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub seal_ref: Option<SealId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub redacts: Option<EventId>,
-    pub content: AnyEventContent,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub unsigned: BTreeMap<String, Value>,
-}
-
-impl EventContentEnvelope {
-    pub fn from_event(event: &Event) -> Result<Self> {
-        Ok(Self {
-            event_id: event.event_id.clone(),
-            kind: event.kind.as_str().to_owned(),
-            class: classify_event_kind(event.kind.as_str()),
-            realm_id: event.realm_id.clone(),
-            actor_id: event.actor_id.clone(),
-            created_at: event.created_at,
-            hlc: event.hlc.clone(),
-            prev_refs: event.prev_refs.clone(),
-            refs: event.refs.clone(),
-            preconditions: event.preconditions.clone(),
-            effects: event.effects.clone(),
-            seal_ref: event.seal_ref.clone(),
-            redacts: event.redacts.clone(),
-            content: parse_event_content(event.kind.as_str(), event.content.clone())?,
-            unsigned: event.unsigned.clone(),
-        })
-    }
-
-    pub fn unsigned_metadata(&self) -> Result<UnsignedMetadata> {
-        UnsignedMetadata::from_raw(self.unsigned.clone())
-    }
-}
-
-/// A typed event content value or a lossless custom/unknown value.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "variant", rename_all = "snake_case")]
-pub enum AnyEventContent {
-    Known { content: KnownEventContent },
-    Custom { content: CustomEventContent },
-}
-
-impl AnyEventContent {
-    pub fn into_json(self) -> Result<Value> {
-        match self {
-            Self::Known { content } => serde_json::to_value(content).map_err(Into::into),
-            Self::Custom { content } => Ok(content.raw),
-        }
-    }
-
-    pub fn as_custom_raw(&self) -> Option<&Value> {
-        match self {
-            Self::Known { .. } => None,
-            Self::Custom { content } => Some(&content.raw),
-        }
-    }
-}
+use crate::{BlobRef, DeviceId, Did, Error, EventId, PresenceStatus, RealmId, Result};
 
 /// Strongly typed built-in event content.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -165,32 +84,6 @@ pub enum KnownEventContent {
 pub struct StandardEventContent {
     pub kind: String,
     pub payload: Value,
-}
-
-/// Lossless content for unknown or extension event kinds.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct CustomEventContent {
-    pub kind: String,
-    pub class: EventClass,
-    pub raw: Value,
-}
-
-pub fn parse_event_content(kind: &str, content: Value) -> Result<AnyEventContent> {
-    if is_standard_event_kind(kind) {
-        return Ok(AnyEventContent::Known {
-            content: KnownEventContent::Standard(StandardEventContent {
-                kind: kind.to_owned(),
-                payload: content,
-            }),
-        });
-    }
-    Ok(AnyEventContent::Custom {
-        content: CustomEventContent {
-            kind: kind.to_owned(),
-            class: classify_event_kind(kind),
-            raw: content,
-        },
-    })
 }
 
 fn parse<T>(value: Value) -> Result<T>
@@ -1084,21 +977,14 @@ pub fn event_content_json(content: KnownEventContent) -> Result<Value> {
     serde_json::to_value(content).map_err(Into::into)
 }
 
-pub fn require_known_content(content: AnyEventContent) -> Result<KnownEventContent> {
-    match content {
-        AnyEventContent::Known { content } => Ok(content),
-        AnyEventContent::Custom { content } => Err(Error::Protocol(format!(
-            "event kind '{}' does not have a built-in Cokret content model",
-            content.kind
-        ))),
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use chrono::TimeZone;
     use serde_json::json;
 
+    use super::super::kinds::{
+        AGENT_INTEROP_SESSION_STATUS, CALL_SIGNAL, EventClass, MESSAGE_CREATE, MLS_WELCOME,
+        REACTION_ADD, classify_event_kind, is_standard_event_kind,
+    };
     use super::*;
 
     #[test]
@@ -1129,20 +1015,20 @@ mod tests {
     }
 
     #[test]
-    fn parses_standard_spec_content() {
+    fn serializes_standard_spec_content() {
         let payload = json!({
             "strand_id": "ck:strand:01904100-0000-7000-8000-fb8cfd35e274",
             "track_name": "main",
             "content": { "body": "hello" }
         });
-        let content = parse_event_content(MESSAGE_CREATE, payload.clone()).unwrap();
+        let value = event_content_json(KnownEventContent::Standard(StandardEventContent {
+            kind: MESSAGE_CREATE.to_owned(),
+            payload: payload.clone(),
+        }))
+        .unwrap();
 
-        let known = require_known_content(content).unwrap();
-        let KnownEventContent::Standard(message) = known else {
-            panic!("expected standard event payload");
-        };
-        assert_eq!(message.kind, MESSAGE_CREATE);
-        assert_eq!(message.payload, payload);
+        assert_eq!(value["content"]["kind"], MESSAGE_CREATE);
+        assert_eq!(value["content"]["payload"], payload);
     }
 
     #[test]
@@ -1153,60 +1039,9 @@ mod tests {
             (AGENT_INTEROP_SESSION_STATUS, EventClass::Agent),
             (MLS_WELCOME, EventClass::E2ee),
         ] {
-            let content =
-                require_known_content(parse_event_content(kind, json!({})).unwrap()).unwrap();
-            assert!(matches!(content, KnownEventContent::Standard(_)));
+            assert!(is_standard_event_kind(kind));
             assert_eq!(classify_event_kind(kind), class);
         }
-    }
-
-    #[test]
-    fn preserves_unknown_custom_content_losslessly() {
-        let raw = json!({
-            "opaque": true,
-            "nested": { "answer": 42 },
-            "list": [1, 2, 3]
-        });
-        let content = parse_event_content("vendor.example.custom", raw.clone()).unwrap();
-
-        assert_eq!(content.as_custom_raw(), Some(&raw));
-        assert_eq!(content.into_json().unwrap(), raw);
-    }
-
-    #[test]
-    fn builds_typed_envelope_from_core_event() {
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-        let actor_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
-        let hlc = Hlc::new("01970e589d21-0004-a13f9c2e").unwrap();
-        let mut event = Event::new(
-            MESSAGE_CREATE,
-            realm_id.clone(),
-            actor_id.clone(),
-            1,
-            hlc,
-            json!({
-                "strand_id": "ck:strand:01904100-0000-7000-8000-fb8cfd35e274",
-                "track_name": "main",
-                "content": { "body": "hello" }
-            }),
-        )
-        .unwrap();
-        event.created_at = Utc.with_ymd_and_hms(2026, 4, 30, 0, 0, 0).unwrap();
-        event.unsigned.insert("age".to_owned(), json!(12));
-
-        let envelope = EventContentEnvelope::from_event(&event).unwrap();
-
-        assert_eq!(envelope.kind, MESSAGE_CREATE);
-        assert_eq!(envelope.class, EventClass::Message);
-        assert_eq!(envelope.realm_id, realm_id);
-        assert_eq!(envelope.actor_id, actor_id);
-        assert_eq!(envelope.unsigned["age"], json!(12));
-        assert!(matches!(
-            envelope.content,
-            AnyEventContent::Known {
-                content: KnownEventContent::Standard(_)
-            }
-        ));
     }
 
     #[test]

@@ -466,7 +466,7 @@ impl OperationSemanticReducer {
 pub fn semantic_effect(operation: &OperationEnvelope) -> OperationSemanticEffect {
     let surface = classify_operation_kind(&operation.kind);
     let mutation = mutation_for_kind(&operation.kind);
-    let target_id = target_id_for_operation(&operation.kind, &operation.content);
+    let target_id = target_id_for_operation(&operation.kind, &operation.payload);
     let requires_authz = !matches!(mutation, OperationMutation::Read);
     OperationSemanticEffect {
         operation_id: operation.operation_id.clone(),
@@ -553,7 +553,7 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
     }
 }
 
-fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
+fn target_id_for_operation(kind: &str, payload: &Value) -> Option<String> {
     let fields: &[&str] = match kind {
         OP_EVENTS_GET | OP_EVENTS_RESOLVE => &["event_id"],
         OP_EVENTS_FRONTIER | OP_SNAPSHOT_HEAD | OP_AUTHZ_GET_INVITES => &["realm_id"],
@@ -585,7 +585,7 @@ fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
         _ => &[],
     };
     fields.iter().find_map(|field| {
-        content
+        payload
             .get(*field)
             .and_then(Value::as_str)
             .map(|value| format!("{field}:{value}"))
@@ -661,7 +661,7 @@ mod tests {
     fn envelope_for(
         id: &str,
         kind: &str,
-        content: Value,
+        payload: Value,
         deps: Vec<&str>,
         authz: bool,
     ) -> OperationEnvelope {
@@ -673,7 +673,7 @@ mod tests {
             1,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         )
-        .with_content(content);
+        .with_payload(payload);
         for dep in deps {
             builder = builder.with_dependency(OperationId::new(dep).unwrap());
         }
@@ -810,7 +810,7 @@ mod tests {
             1,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         )
-        .with_content(json!({}))
+        .with_payload(json!({}))
         .build(&OperationKindRegistry::default());
         assert!(matches!(result, Err(Error::Protocol(_))));
     }

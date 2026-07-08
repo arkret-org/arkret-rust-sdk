@@ -31,7 +31,7 @@ fn event(kind: &str, seq: u64, realm_id: &RealmId, content: Value) -> Event {
         seal_basis: None,
         requirements: EventRequirements::default(),
         redacts: None,
-        content,
+        payload: content,
         executed_by: None,
         authorization_ref: None,
         applet_id: None,

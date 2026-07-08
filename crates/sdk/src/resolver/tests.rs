@@ -31,7 +31,7 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
         seal_basis: None,
         requirements: EventRequirements::default(),
         redacts: None,
-        content,
+        payload: content,
         executed_by: None,
         authorization_ref: None,
         applet_id: None,
@@ -1030,13 +1030,13 @@ fn realm_organization_distinct_relationships_coexist() {
 fn realm_organization_same_subject_replaces_under_lww() {
     let org = "did:webvh:z6mkfixture:org-a.example.com";
     let mut first = realm_organization_event(1, org, "member");
-    first.content = json!({
+    first.payload = json!({
         "organization_id": org,
         "relationship": "member",
         "label": "first"
     });
     let mut second = realm_organization_event(2, org, "member");
-    second.content = json!({
+    second.payload = json!({
         "organization_id": org,
         "relationship": "member",
         "label": "second"
@@ -1061,7 +1061,7 @@ fn realm_organization_requires_subject_fields() {
     // Missing relationship must surface a protocol error, not a silent
     // realm_id fallback.
     let mut ev = realm_organization_event(1, "did:webvh:z6mkfixture:org-a.example.com", "member");
-    ev.content = json!({ "organization_id": "did:webvh:z6mkfixture:org-a.example.com" });
+    ev.payload = json!({ "organization_id": "did:webvh:z6mkfixture:org-a.example.com" });
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[ev]).unwrap_err();

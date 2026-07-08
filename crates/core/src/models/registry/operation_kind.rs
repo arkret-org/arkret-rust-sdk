@@ -62,15 +62,15 @@ impl OperationKindRegistry {
             .specs
             .get(&validation.canonical_kind)
             .ok_or_else(|| Error::Protocol("operation kind registry is inconsistent".to_owned()))?;
-        let Some(content) = envelope.content.as_object() else {
+        let Some(payload) = envelope.payload.as_object() else {
             return Err(Error::Protocol(
-                "operation envelope content must be a JSON object".to_owned(),
+                "operation envelope payload must be a JSON object".to_owned(),
             ));
         };
         for field in &spec.required_content_fields {
-            if !content.contains_key(field) {
+            if !payload.contains_key(field) {
                 return Err(Error::Protocol(format!(
-                    "operation kind '{}' requires content field '{}'",
+                    "operation kind '{}' requires payload field '{}'",
                     spec.kind, field
                 )));
             }

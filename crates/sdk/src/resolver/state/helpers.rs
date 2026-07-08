@@ -78,9 +78,9 @@ impl RealmState {
     pub(super) fn subject_for_event(&self, event: &Event) -> Result<String> {
         match event.kind.as_str() {
             "ck.member.state" => self
-                .extract_optional_field::<String>(&event.content, "actor_id")
-                .or_else(|| self.extract_optional_field::<String>(&event.content, "principal_id"))
-                .or_else(|| self.extract_optional_field::<String>(&event.content, "member_id"))
+                .extract_optional_field::<String>(&event.payload, "actor_id")
+                .or_else(|| self.extract_optional_field::<String>(&event.payload, "principal_id"))
+                .or_else(|| self.extract_optional_field::<String>(&event.payload, "member_id"))
                 .ok_or_else(|| {
                     Error::Protocol("member state requires payload.actor_id".to_owned())
                 }),
@@ -91,20 +91,20 @@ impl RealmState {
             | "ck.capability.delegate"
             | "ck.capability.revoke"
             | "ck.capability.derived" => self
-                .extract_optional_field::<String>(&event.content, "grant_id")
+                .extract_optional_field::<String>(&event.payload, "grant_id")
                 .ok_or_else(|| {
                     Error::Protocol("capability event requires payload.grant_id".to_owned())
                 }),
             "ck.realm.policy" | "ck.policy.set" => Ok(self
-                .extract_optional_field::<String>(&event.content, "policy_id")
+                .extract_optional_field::<String>(&event.payload, "policy_id")
                 .unwrap_or_else(|| "space_policy".to_owned())),
             "ck.invite.create" | "ck.invite.cancel" | "ck.invite.accept" => self
-                .extract_optional_field::<String>(&event.content, "invite_id")
-                .or_else(|| self.extract_optional_field::<String>(&event.content, "id"))
+                .extract_optional_field::<String>(&event.payload, "invite_id")
+                .or_else(|| self.extract_optional_field::<String>(&event.payload, "id"))
                 .ok_or_else(|| Error::Protocol("invite event requires invite_id or id".to_owned())),
             "ck.read_cursor.advance" => self
-                .extract_optional_field::<String>(&event.content, "scope")
-                .or_else(|| self.extract_optional_field::<String>(&event.content, "target_ref"))
+                .extract_optional_field::<String>(&event.payload, "scope")
+                .or_else(|| self.extract_optional_field::<String>(&event.payload, "target_ref"))
                 .ok_or_else(|| {
                     Error::Protocol("read marker requires scope or target_ref".to_owned())
                 }),
@@ -114,14 +114,14 @@ impl RealmState {
             // realm_id, so distinct organization/relationship statements coexist.
             "ck.realm.organization" => {
                 let organization_id = self
-                    .extract_optional_field::<String>(&event.content, "organization_id")
+                    .extract_optional_field::<String>(&event.payload, "organization_id")
                     .ok_or_else(|| {
                         Error::Protocol(
                             "realm organization event requires payload.organization_id".to_owned(),
                         )
                     })?;
                 let relationship = self
-                    .extract_optional_field::<String>(&event.content, "relationship")
+                    .extract_optional_field::<String>(&event.payload, "relationship")
                     .ok_or_else(|| {
                         Error::Protocol(
                             "realm organization event requires payload.relationship".to_owned(),
@@ -143,8 +143,8 @@ impl RealmState {
             | "ck.realm.upgrade" => Ok(event.realm_id.as_str().to_owned()),
             // View events use view_id as state key
             "ck.view.create" | "ck.view.update" | "ck.view.reconcile" => self
-                .extract_optional_field::<String>(&event.content, "view_id")
-                .or_else(|| self.extract_optional_field::<String>(&event.content, "id"))
+                .extract_optional_field::<String>(&event.payload, "view_id")
+                .or_else(|| self.extract_optional_field::<String>(&event.payload, "id"))
                 .ok_or_else(|| Error::Protocol("view event requires view_id or id".to_owned())),
             _ => Ok(String::new()),
         }

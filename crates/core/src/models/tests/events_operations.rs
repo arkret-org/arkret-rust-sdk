@@ -40,7 +40,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         seal_basis: None,
         requirements: EventRequirements::default(),
         redacts: None,
-        content: json!({ "body": "hello" }),
+        payload: json!({ "body": "hello" }),
         executed_by: None,
         authorization_ref: None,
         applet_id: None,
@@ -54,6 +54,10 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         event.event_digest().unwrap(),
         "sha256:09cc279fa161b58434e5ad6cad100b9aa7ecb3395d07941f90d70431cb2b8332"
     );
+
+    let value = serde_json::to_value(&event).unwrap();
+    assert_eq!(value["payload"]["body"], "hello");
+    assert!(value.get("content").is_none());
 }
 
 #[test]
@@ -154,7 +158,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
             hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             actor_seq: 7,
         },
-        content: json!({"body": "hello"}),
+        payload: json!({"body": "hello"}),
         authz_ref: None,
         proofs: vec![proof.clone()],
     };
@@ -173,7 +177,8 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     let encoded = serde_json::to_value(&envelope).unwrap();
     assert_eq!(encoded["actor_id"], "did:webvh:z6mkfixture:alice.example");
     assert_eq!(encoded["kind"], "ck.message.create");
-    assert_eq!(encoded["content"]["body"], "hello");
+    assert_eq!(encoded["payload"]["body"], "hello");
+    assert!(encoded.get("content").is_none());
     assert!(encoded.get("actor").is_none());
     assert!(encoded.get("type").is_none());
     assert!(encoded.get("body").is_none());
@@ -227,7 +232,7 @@ fn operation_kind_registry_drives_envelope_semantics() {
             hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             actor_seq: 1,
         },
-        content: json!({
+        payload: json!({
             "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
             "content": {"kind": "ck.content.text", "body": "hello"}
@@ -240,7 +245,7 @@ fn operation_kind_registry_drives_envelope_semantics() {
     assert_eq!(validation.canonical_kind, OP_MESSAGE_CREATE);
 
     let mut missing_strand = envelope;
-    missing_strand.content = json!({"track_name": "discussion"});
+    missing_strand.payload = json!({"track_name": "discussion"});
     assert!(registry.validate_envelope(&missing_strand).is_err());
 }
 
@@ -261,7 +266,7 @@ fn operation_envelope_builder_covers_every_builtin_kind() {
             hlc.clone(),
         );
         for field in required_fields_for_operation_kind(kind) {
-            builder = builder.with_content_field(field, json!("value"));
+            builder = builder.with_payload_field(field, json!("value"));
         }
         let envelope = builder.build(&registry).unwrap();
         assert_eq!(envelope.kind, *kind);
@@ -283,11 +288,11 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
 
     assert!(builder.clone().build(&registry).is_err());
     let envelope = builder
-        .with_content_field(
+        .with_payload_field(
             "strand_id",
             json!("ck:strand:01904100-0000-7000-8000-6c663fa0205f"),
         )
-        .with_content_field("track_name", json!("discussion"))
+        .with_payload_field("track_name", json!("discussion"))
         .build(&registry)
         .unwrap();
     assert_eq!(envelope.kind, OP_MESSAGE_CREATE);

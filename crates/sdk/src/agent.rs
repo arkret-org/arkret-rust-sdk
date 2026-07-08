@@ -1328,17 +1328,17 @@ mod tests {
         assert_eq!(event.kind.as_str(), OP_AGENT_KEY_AUTHORIZE);
         assert_eq!(event.actor_id, controller_id);
         assert_eq!(event.actor_seq, 7);
-        assert_eq!(event.content["agent_principal_id"], agent_id.as_str());
+        assert_eq!(event.payload["agent_principal_id"], agent_id.as_str());
         assert_eq!(
-            event.content["agent_key_scope"]["actions"][0],
+            event.payload["agent_key_scope"]["actions"][0],
             SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE
         );
         assert_eq!(
-            event.content["verification_method"],
+            event.payload["verification_method"],
             "did:webvh:z6mkfixture:agent.example#runtime-key-1"
         );
         let canonical_content =
-            String::from_utf8(canonical::canonical_json_bytes(&event.content).unwrap()).unwrap();
+            String::from_utf8(canonical::canonical_json_bytes(&event.payload).unwrap()).unwrap();
         assert_eq!(
             canonical_content,
             r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_key_scope":{"actions":["ck.self.events.stream.subscribe","ck.message.create"],"resources":[{"kind":"realm","realm_id":"ck:realm:01904100-0000-7000-8000-000000000001"}]},"agent_principal_id":"did:webvh:z6mkfixture:agent.example","approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","kind":"approval_event","ref":"ck:event:01970000-0000-7000-8000-000000000021"},"audience":["https://cokret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#

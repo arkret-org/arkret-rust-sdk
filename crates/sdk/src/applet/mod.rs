@@ -126,7 +126,7 @@ mod tests {
             Some("ck:grant:01904100-0000-7000-8000-cccccccccccc")
         );
         assert_eq!(
-            event.content["object"]["profile_fields"]["managed_by_applet"],
+            event.payload["object"]["profile_fields"]["managed_by_applet"],
             "ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
         );
     }
@@ -160,8 +160,8 @@ mod tests {
             .unwrap();
         assert_eq!(event.kind, IDENTITY_ACCOUNTABILITY_GRANT);
         assert_eq!(event.actor_id, owner);
-        assert_eq!(event.content["grant_status"], "active");
-        assert_eq!(event.content["accountability_scope"], "contracted_service");
+        assert_eq!(event.payload["grant_status"], "active");
+        assert_eq!(event.payload["accountability_scope"], "contracted_service");
     }
 
     #[test]
@@ -508,25 +508,25 @@ mod tests {
         .build(1, hlc())
         .unwrap();
         assert_eq!(event.kind, "ck.applet.bridge_error");
-        assert_eq!(event.content["realm_id"], realm().as_str());
+        assert_eq!(event.payload["realm_id"], realm().as_str());
         assert_eq!(
-            event.content["failed_transaction_ref"],
+            event.payload["failed_transaction_ref"],
             "ck:event:01904100-0000-7000-8000-deadbeefdead"
         );
-        assert_eq!(event.content["error_class"], "external_network");
-        assert_eq!(event.content["error_code"], "external_rate_limited");
-        assert_eq!(event.content["retriable"], true);
-        assert_eq!(event.content["visibility_scope"], "realm_admins");
+        assert_eq!(event.payload["error_class"], "external_network");
+        assert_eq!(event.payload["error_code"], "external_rate_limited");
+        assert_eq!(event.payload["retriable"], true);
+        assert_eq!(event.payload["visibility_scope"], "realm_admins");
         assert_eq!(
-            event.content["message"],
+            event.payload["message"],
             "external network rejected the message"
         );
-        assert_eq!(event.content["retry_after_ms"], 1000);
+        assert_eq!(event.payload["retry_after_ms"], 1000);
         assert_eq!(
-            event.content["applet_id"],
+            event.payload["applet_id"],
             "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
-        assert_eq!(event.content["external_ref"]["slack_response_code"], 429);
+        assert_eq!(event.payload["external_ref"]["slack_response_code"], 429);
     }
 
     #[test]

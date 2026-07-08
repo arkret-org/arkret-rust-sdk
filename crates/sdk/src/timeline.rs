@@ -204,7 +204,7 @@ impl TimelineItem {
             kind,
             order: order.clone(),
             latest_order: order,
-            content: event.content.clone(),
+            content: event.payload.clone(),
             edit_event_ids: Vec::new(),
             redacted: false,
             redacted_by: None,
@@ -986,11 +986,11 @@ impl Timeline {
             item.latest_event_id = event.event_id.clone();
             item.latest_order = order;
             item.content = event
-                .content
+                .payload
                 .get("content")
                 .filter(|content| content.is_object())
                 .cloned()
-                .unwrap_or_else(|| event.content.clone());
+                .unwrap_or_else(|| event.payload.clone());
             item.redacted = false;
             item.redacted_by = None;
         }
@@ -1137,7 +1137,7 @@ fn message_id(event: &Event) -> Option<String> {
 }
 
 fn string_content_field(event: &Event, field: &str) -> Option<String> {
-    event.content.get(field)?.as_str().map(str::to_owned)
+    event.payload.get(field)?.as_str().map(str::to_owned)
 }
 
 #[cfg(test)]
@@ -1170,7 +1170,7 @@ mod tests {
             seal_basis: None,
             requirements: crate::EventRequirements::default(),
             redacts: None,
-            content: json!({
+            payload: json!({
                 "object": {
                     "id": format!("ck:morph:01904100-0000-7000-8000-{:012x}", index),
                     "schema": crate::MORPH_SCHEMA,
@@ -1326,16 +1326,16 @@ mod tests {
         let mut timeline = Timeline::new(realm_id.clone(), base_client);
         let mut message = create_test_event(&realm_id, 1);
         message.kind = "ck.message.create".into();
-        message.content = json!({"message_id":"m1","body":"hello"});
+        message.payload = json!({"message_id":"m1","body":"hello"});
         let mut edit = create_test_event(&realm_id, 2);
         edit.kind = "ck.message.revise".into();
-        edit.content = json!({"target_message_id":"m1","content":{"body":"hi"}});
+        edit.payload = json!({"target_message_id":"m1","content":{"body":"hi"}});
         let mut reaction = create_test_event(&realm_id, 3);
         reaction.kind = "ck.reaction.add".into();
-        reaction.content = json!({"message_id":"m1","reaction_key":"+1"});
+        reaction.payload = json!({"message_id":"m1","reaction_key":"+1"});
         let mut redaction = create_test_event(&realm_id, 4);
         redaction.kind = "ck.message.redact".into();
-        redaction.content = json!({"target_message_id":"m1"});
+        redaction.payload = json!({"target_message_id":"m1"});
 
         timeline
             .append_events(vec![message, edit, reaction])
@@ -1360,7 +1360,7 @@ mod tests {
         let mut timeline = Timeline::new(realm_id.clone(), base_client);
         let mut message = create_test_event(&realm_id, 1);
         message.kind = "ck.message.create".into();
-        message.content = json!({"message_id":"m1","body":"hello"});
+        message.payload = json!({"message_id":"m1","body":"hello"});
         let event_id = message.event_id.clone();
         let actor = Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap();
 

@@ -710,11 +710,11 @@ mod profile_builder_tests {
             .unwrap();
         assert_eq!(event.kind, "ck.profile.create");
         assert_eq!(
-            event.content["object"]["principal_id"],
+            event.payload["object"]["principal_id"],
             "did:webvh:z6mkfixture:alice.example"
         );
-        assert_eq!(event.content["object"]["actor_kind"], "user");
-        assert_eq!(event.content["object"]["display_name"], "Alice");
+        assert_eq!(event.payload["object"]["actor_kind"], "user");
+        assert_eq!(event.payload["object"]["display_name"], "Alice");
     }
 
     #[test]
@@ -726,10 +726,10 @@ mod profile_builder_tests {
             .unwrap();
         assert_eq!(event.kind, "ck.profile.update");
         assert_eq!(
-            event.content["target_ref"],
+            event.payload["target_ref"],
             "ck:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
-        assert_eq!(event.content["patch"]["display_name"], "Alice 2");
+        assert_eq!(event.payload["patch"]["display_name"], "Alice 2");
     }
 
     #[test]
@@ -740,7 +740,7 @@ mod profile_builder_tests {
             .with_external_ref(serde_json::json!({"slack_user_id": "U12345"}))
             .build(1, hlc())
             .unwrap();
-        let object = &event.content["object"];
+        let object = &event.payload["object"];
         assert_eq!(object["actor_kind"], "integration");
         assert_eq!(
             object["profile_fields"]["managed_by_applet"],

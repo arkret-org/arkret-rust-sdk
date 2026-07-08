@@ -576,7 +576,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
         7,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     )
-    .with_content(json!({
+    .with_payload(json!({
         "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
         "track_name": "discussion",
         "content": {"kind": "ck.content.text", "body": "hello"}
@@ -703,7 +703,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
         7,
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     )
-    .with_content(json!({
+    .with_payload(json!({
         "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
         "track_name": "discussion",
         "content": {"kind": "ck.content.text", "body": "hello"}
@@ -717,7 +717,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
     assert_eq!(event.kind, OP_MESSAGE_CREATE);
     assert_eq!(event.actor_seq, 7);
     assert_eq!(
-        event.content,
+        event.payload,
         json!({
             "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",

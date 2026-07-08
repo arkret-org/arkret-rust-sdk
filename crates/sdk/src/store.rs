@@ -400,7 +400,7 @@ mod tests {
             seal_basis: None,
             requirements: crate::EventRequirements::default(),
             redacts: None,
-            content: json!({
+            payload: json!({
                 "object": {
                     "id": "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77",
                     "schema": crate::MORPH_SCHEMA,
@@ -452,7 +452,7 @@ mod tests {
         store.put_event(event.clone()).unwrap();
 
         let mut conflicting = event;
-        conflicting.content = json!({
+        conflicting.payload = json!({
             "object": {
                 "id": "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77",
                 "schema": crate::MORPH_SCHEMA,

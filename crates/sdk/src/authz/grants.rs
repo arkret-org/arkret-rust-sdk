@@ -1357,10 +1357,10 @@ mod capability_grant_builder_tests {
         assert_eq!(event.kind, crate::events::CAPABILITY_GRANT);
         // Canonical capability_grant_payload wrapper: {grant_id, grant}.
         assert_eq!(
-            event.content["grant_id"],
+            event.payload["grant_id"],
             "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
-        let artifact = &event.content["grant"];
+        let artifact = &event.payload["grant"];
         assert_eq!(
             artifact["id"],
             "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
@@ -1390,7 +1390,7 @@ mod capability_grant_builder_tests {
             actor_id: alice(),
             actor_seq: 1,
             hlc: hlc(),
-            content: event.content.clone(),
+            content: event.payload.clone(),
         };
         let grant = capability_grant_from_resolved_event(&event_view, None).unwrap();
         assert_eq!(
@@ -1433,7 +1433,7 @@ mod capability_grant_builder_tests {
             .with_delegation_control(2, false)
             .build(1, hlc())
             .unwrap();
-        let constraints = event.content["grant"]["constraints"].as_array().unwrap();
+        let constraints = event.payload["grant"]["constraints"].as_array().unwrap();
         assert_eq!(constraints.len(), 1);
         assert_eq!(constraints[0]["constraint_type"], "delegation_control");
         assert_eq!(constraints[0]["max_delegation_depth"], 2);

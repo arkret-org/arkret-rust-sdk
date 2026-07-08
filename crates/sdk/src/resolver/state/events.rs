@@ -6,16 +6,16 @@ impl RealmState {
     /// `StrandTrackConfig` entries into `Strand.tracks`. Accepts either a top-level
     /// `tracks` map or `patch.tracks`.
     pub(super) fn update_strand_tracks(&mut self, event: &Event) -> Result<()> {
-        let strand_id_str = self.extract_strand_id(&event.content)?;
+        let strand_id_str = self.extract_strand_id(&event.payload)?;
         let mut tracks = self
             .extract_optional_field::<BTreeMap<String, crate::StrandTrackConfig>>(
-                &event.content,
+                &event.payload,
                 "tracks",
             )
             .unwrap_or_default();
 
         if let Some(patch_tracks) = self
-            .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch")
+            .extract_optional_field::<BTreeMap<String, Value>>(&event.payload, "patch")
             .and_then(|patch| patch.get("tracks").cloned())
             .and_then(|value| {
                 serde_json::from_value::<BTreeMap<String, crate::StrandTrackConfig>>(value).ok()
@@ -89,7 +89,7 @@ impl RealmState {
             actor_id: event.actor_id.clone(),
             actor_seq: event.actor_seq,
             hlc: event.hlc.clone(),
-            content: event.content.clone(),
+            content: event.payload.clone(),
         };
 
         match self.resolved_state.get(&map_key) {
@@ -121,8 +121,8 @@ impl RealmState {
 
     pub(super) fn create_message(&mut self, event: &Event) -> Result<()> {
         let message_id = self
-            .extract_optional_field::<String>(&event.content, "message_id")
-            .or_else(|| self.extract_optional_field::<String>(&event.content, "id"))
+            .extract_optional_field::<String>(&event.payload, "message_id")
+            .or_else(|| self.extract_optional_field::<String>(&event.payload, "id"))
             .unwrap_or_else(|| event.event_id.to_string());
         self.messages
             .entry(message_id.clone())
@@ -134,7 +134,7 @@ impl RealmState {
                 latest_actor_id: event.actor_id.clone(),
                 latest_actor_seq: event.actor_seq,
                 latest_hlc: event.hlc.clone(),
-                content: event.content.clone(),
+                content: event.payload.clone(),
                 revision_event_ids: Vec::new(),
                 redacted: false,
             });
@@ -143,8 +143,8 @@ impl RealmState {
 
     pub(super) fn revise_message(&mut self, event: &Event) -> Result<()> {
         let message_id = self
-            .extract_optional_field::<String>(&event.content, "target_message_id")
-            .or_else(|| self.extract_optional_field::<String>(&event.content, "message_id"))
+            .extract_optional_field::<String>(&event.payload, "target_message_id")
+            .or_else(|| self.extract_optional_field::<String>(&event.payload, "message_id"))
             .ok_or_else(|| {
                 Error::Protocol("message revision requires target_message_id".to_owned())
             })?;
@@ -158,10 +158,10 @@ impl RealmState {
             message.latest_actor_seq = event.actor_seq;
             message.latest_hlc = event.hlc.clone();
             message.content = event
-                .content
+                .payload
                 .get("content")
                 .cloned()
-                .unwrap_or_else(|| event.content.clone());
+                .unwrap_or_else(|| event.payload.clone());
             message.redacted = false;
         }
         message.revision_event_ids.push(event.event_id.clone());
@@ -170,8 +170,8 @@ impl RealmState {
 
     pub(super) fn redact_message(&mut self, event: &Event) -> Result<()> {
         let message_id = self
-            .extract_optional_field::<String>(&event.content, "target_message_id")
-            .or_else(|| self.extract_optional_field::<String>(&event.content, "message_id"))
+            .extract_optional_field::<String>(&event.payload, "target_message_id")
+            .or_else(|| self.extract_optional_field::<String>(&event.payload, "message_id"))
             .ok_or_else(|| {
                 Error::Protocol("message redaction requires target_message_id".to_owned())
             })?;
@@ -190,8 +190,8 @@ impl RealmState {
     }
 
     pub(super) fn reduce_reaction(&mut self, event: &Event) -> Result<()> {
-        let message_id = self.extract_field::<String>(&event.content, "message_id")?;
-        let reaction_key = self.extract_field::<String>(&event.content, "reaction_key")?;
+        let message_id = self.extract_field::<String>(&event.payload, "message_id")?;
+        let reaction_key = self.extract_field::<String>(&event.payload, "reaction_key")?;
         let key = format!("{}|{}|{}", message_id, event.actor_id, reaction_key);
         let candidate = ResolvedReaction {
             message_id,
@@ -227,12 +227,12 @@ impl RealmState {
     pub(super) fn redact_event(&mut self, event_id: &EventId) -> Result<()> {
         self.redacted_events.insert(event_id.clone());
         if let Some(event) = self.processed_events.get_mut(event_id) {
-            event.content = serde_json::json!({});
+            event.payload = serde_json::json!({});
             event.unsigned.clear();
         }
         for event in &mut self.state_events {
             if &event.event_id == event_id {
-                event.content = serde_json::json!({});
+                event.payload = serde_json::json!({});
                 event.unsigned.clear();
             }
         }
@@ -252,7 +252,7 @@ impl RealmState {
     /// excluded because `SpaceState` has no `Redacted` variant — spec routes
     /// Space removal through `ck.space.tombstone` instead.
     pub(super) fn redact_object_for_event(&mut self, event: &Event) -> Result<()> {
-        let Some(object_ref) = self.extract_optional_field::<String>(&event.content, "object_ref")
+        let Some(object_ref) = self.extract_optional_field::<String>(&event.payload, "object_ref")
         else {
             return Ok(());
         };

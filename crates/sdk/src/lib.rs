@@ -25,14 +25,14 @@
 //!     1,
 //!     Hlc::new("01970e589d21-0001-a13f9c2e")?,
 //! )
-//! .with_content(json!({
+//! .with_payload(json!({
 //!     "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
 //!     "track_name": "main",
 //!     "content": {"kind": "ck.content.text", "body": "hello"}
 //! }))
 //! .build(&OperationKindRegistry::default())?;
 //! let event = draft.into_event_envelope(OperationEventConversion::default())?;
-//! assert_eq!(event.content["content"]["body"], "hello");
+//! assert_eq!(event.payload["content"]["body"], "hello");
 //! # Ok(())
 //! # }
 //! ```

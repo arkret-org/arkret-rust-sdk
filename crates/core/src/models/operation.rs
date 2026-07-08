@@ -104,7 +104,7 @@ pub struct OperationEnvelope {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_ref: Option<String>,
     pub causal: CausalRef,
-    pub content: Value,
+    pub payload: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authz_ref: Option<GrantId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -130,9 +130,9 @@ impl OperationEnvelope {
                 "operation envelope proofs must contain at least one proof".to_owned(),
             ));
         }
-        if !self.content.is_object() {
+        if !self.payload.is_object() {
             return Err(Error::Protocol(
-                "operation envelope content must be a JSON object".to_owned(),
+                "operation envelope payload must be a JSON object".to_owned(),
             ));
         }
         Ok(())
@@ -190,7 +190,7 @@ impl OperationEnvelope {
             self.actor_id,
             self.causal.actor_seq,
             self.causal.hlc,
-            self.content,
+            self.payload,
         )?;
         event.prev_refs = conversion.prev_refs;
         event.refs = conversion.refs;
@@ -267,7 +267,7 @@ pub struct OperationEnvelopeBuilder {
     deps: Vec<OperationId>,
     hlc: Hlc,
     actor_seq: u64,
-    content: Value,
+    payload: Value,
     authz_ref: Option<GrantId>,
     proofs: Vec<Proof>,
 }
@@ -291,7 +291,7 @@ impl OperationEnvelopeBuilder {
             deps: Vec::new(),
             hlc,
             actor_seq,
-            content: Value::Object(Default::default()),
+            payload: Value::Object(Default::default()),
             authz_ref: None,
             proofs: Vec::new(),
         }
@@ -309,19 +309,19 @@ impl OperationEnvelopeBuilder {
         self
     }
 
-    /// Replace the content object.
-    pub fn with_content(mut self, content: Value) -> Self {
-        self.content = content;
+    /// Replace the payload object.
+    pub fn with_payload(mut self, payload: Value) -> Self {
+        self.payload = payload;
         self
     }
 
-    /// Insert one content field.
-    pub fn with_content_field(mut self, field: impl Into<String>, value: Value) -> Self {
-        if !self.content.is_object() {
-            self.content = Value::Object(Default::default());
+    /// Insert one payload field.
+    pub fn with_payload_field(mut self, field: impl Into<String>, value: Value) -> Self {
+        if !self.payload.is_object() {
+            self.payload = Value::Object(Default::default());
         }
-        if let Value::Object(content) = &mut self.content {
-            content.insert(field.into(), value);
+        if let Value::Object(payload) = &mut self.payload {
+            payload.insert(field.into(), value);
         }
         self
     }
@@ -352,7 +352,7 @@ impl OperationEnvelopeBuilder {
                 hlc: self.hlc,
                 actor_seq: self.actor_seq,
             },
-            content: self.content,
+            payload: self.payload,
             authz_ref: self.authz_ref,
             proofs: self.proofs,
         };

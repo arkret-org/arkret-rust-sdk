@@ -177,11 +177,11 @@ impl Realm {
         let mut version = None;
 
         for event in &self.state.state_events {
-            let object = event.content.get("object").unwrap_or(&event.content);
+            let object = event.payload.get("object").unwrap_or(&event.payload);
             let target_id = object
                 .get("id")
-                .or_else(|| event.content.get("target_ref"))
-                .or_else(|| event.content.get("morph_id"))
+                .or_else(|| event.payload.get("target_ref"))
+                .or_else(|| event.payload.get("morph_id"))
                 .and_then(Value::as_str);
             if target_id != Some(morph_id.as_str()) {
                 continue;
@@ -207,9 +207,9 @@ impl Realm {
                         continue;
                     };
                     version = Some(next_version);
-                    let patch = event.content.get("patch").and_then(Value::as_object);
+                    let patch = event.payload.get("patch").and_then(Value::as_object);
                     if let Some(next_title) = event
-                        .content
+                        .payload
                         .pointer("/metadata/title")
                         .or_else(|| patch.and_then(|patch| patch.get("metadata.title")))
                         .or_else(|| {
@@ -224,14 +224,14 @@ impl Realm {
                         title = Some(next_title.to_owned());
                     }
                     if let Some(next_content) = event
-                        .content
+                        .payload
                         .get("content")
                         .or_else(|| patch.and_then(|p| p.get("content")))
                     {
                         content = Some(next_content.clone());
                     }
                     if let Some(next_fields) = event
-                        .content
+                        .payload
                         .get("fields")
                         .or_else(|| patch.and_then(|p| p.get("fields")))
                         .cloned()
@@ -240,7 +240,7 @@ impl Realm {
                         fields = next_fields;
                     }
                     if let Some(next_state) = event
-                        .content
+                        .payload
                         .get("state")
                         .or_else(|| patch.and_then(|p| p.get("state")))
                         .and_then(Value::as_str)
