@@ -3,7 +3,7 @@
 //! The inception builder mints a fresh embedded `did:webvh` for soland's
 //! protocol identity provider. It owns only the pure build + cryptography path
 //! (keygen, SCID derivation, eddsa-jcs-2022 proof); HTTP submission stays with
-//! the caller so clients (sodmin / yougen) and servers (soland / coauth) share
+//! the caller so clients (sodmin / inkson) and servers (soland / coauth) share
 //! one byte-for-byte implementation.
 
 pub mod inception;

@@ -27,7 +27,7 @@ use crate::{KeyStore, KeyStoreError};
 ///
 /// Construct with [`MacOsKeychainKeyStore::new`] supplying the host
 /// application id (a stable reverse-DNS string, e.g.
-/// `"chat.acroidea.yougen"`). All keychain items written through this
+/// `"chat.acroidea.inkson"`). All keychain items written through this
 /// keystore live under service `"cokret.<application_id>"`.
 pub struct MacOsKeychainKeyStore {
     service: String,

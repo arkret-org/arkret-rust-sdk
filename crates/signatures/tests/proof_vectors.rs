@@ -1,7 +1,7 @@
 //! Known-answer tests (KAT) for `cokret_signatures::proof`.
 //!
 //! These vectors are the migration checkpoint between coauth, soland and
-//! yougen: every downstream implementation MUST reproduce the canonical
+//! inkson: every downstream implementation MUST reproduce the canonical
 //! bytes, payload hashes, and Ed25519 signatures below. Drift here is a
 //! breaking protocol change.
 

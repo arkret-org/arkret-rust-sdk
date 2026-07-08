@@ -1,7 +1,7 @@
 //! R3.2 (cokret-spec @ b56cab1) — §3.2.1 primary handle selection,
 //! `claim_digest(c)`, and §3.8.2 mention rendering.
 //!
-//! These helpers are shared across yougen / sodmin / soland / cotest so
+//! These helpers are shared across inkson / sodmin / soland / cotest so
 //! every implementation agrees on the deterministic primary-handle
 //! selection and the canonical claim digest. The DID-Document
 //! `metadata.primary_handle` lookup (`holder_primary_handle_at_as_of`) is

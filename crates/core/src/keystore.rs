@@ -13,11 +13,11 @@
 //! ## Service-name namespacing
 //!
 //! Platform backends namespace credentials under `"cokret.<application_id>"`
-//! so multiple Cokret-using apps on the same host (yougen, sodmin, soland
+//! so multiple Cokret-using apps on the same host (inkson, sodmin, soland
 //! notary, …) don't trample each other's keychain items. The
 //! `application_id` is supplied at construction time and SHOULD be a stable
 //! reverse-DNS-like identifier for the host application
-//! (e.g. `"chat.acroidea.yougen"`). [`service_name`] builds that prefix and
+//! (e.g. `"chat.acroidea.inkson"`). [`service_name`] builds that prefix and
 //! is re-used by the `cokret-keystore` backends.
 //!
 //! ## Key ids
@@ -259,7 +259,7 @@ mod tests {
 
     #[test]
     fn service_name_namespaces_per_application_id() {
-        assert_eq!(service_name("yougen"), "cokret.yougen");
+        assert_eq!(service_name("inkson"), "cokret.inkson");
         assert_eq!(service_name("soland.notary"), "cokret.soland.notary");
     }
 }

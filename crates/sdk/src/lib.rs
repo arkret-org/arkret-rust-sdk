@@ -144,7 +144,7 @@ pub use cokret_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use cokret_signatures::Ed25519MoveSigner;
 // Shared `did:webvh` inception builder + organization statement signer, surfaced
-// at the SDK root so clients (sodmin / yougen) and servers (soland / coauth)
+// at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
 // reach one implementation: `cokret_sdk::webvh::prepare_inception`,
 // `cokret_sdk::realm_organization_statement_sign`.
 pub use cokret_signatures::{realm_organization, realm_organization_statement_sign, webvh};
@@ -233,7 +233,7 @@ pub mod identity;
 #[cfg(feature = "full-surface")]
 pub mod identity_link;
 /// RFC 7515 detached Ed25519 JWS verifier (see [`jws`] module docs).
-/// Lives at the SDK root so principal-server-style consumers (yougen,
+/// Lives at the SDK root so principal-server-style consumers (inkson,
 /// floria, cotest, teabay, soland) all reach the same verifier. Depends
 /// on `identity::DidResolver`, so it's gated on `full-surface`.
 #[cfg(feature = "full-surface")]
@@ -248,7 +248,7 @@ pub mod key_backup_client;
 pub mod key_verification;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod secret_share;
-// `lattice_registry` is intentionally NOT feature-gated: yougen Move
+// `lattice_registry` is intentionally NOT feature-gated: inkson Move
 // pre-check + cotest fixtures need the spec-normative cell-family
 // registry independently of the higher-level full-surface client
 // runtime.

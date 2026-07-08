@@ -213,7 +213,7 @@ $lines.Add("impl std::error::Error for ProfileRequirementsError {}") | Out-Null
 $lines.Add("") | Out-Null
 $lines.Add("/// Structured report describing how a caller's implemented surface compares") | Out-Null
 $lines.Add("/// against a profile's generated requirement set. Consumed by") | Out-Null
-$lines.Add('/// `soland describe` / `yougen claim` / `cotest gate` so each surface presents') | Out-Null
+$lines.Add('/// `soland describe` / `inkson claim` / `cotest gate` so each surface presents') | Out-Null
 $lines.Add('/// the same compliance answer.') | Out-Null
 $lines.Add("#[derive(Clone, Debug, PartialEq, Eq)]") | Out-Null
 $lines.Add("pub struct ProfileComplianceReport {") | Out-Null

@@ -10,7 +10,7 @@ use crate::{Did, DidDocumentRef, Hash, IdentityResolveOutcome, Proof, Result};
 
 /// §3.2.1 deterministic primary-handle selection, `claim_digest`, and
 /// §3.8.2 mention/subject rendering. wasm-safe, dependency-free helpers
-/// shared by yougen / sodmin / soland / cotest (SOD-05-001 / SPEC-CR-019).
+/// shared by inkson / sodmin / soland / cotest (SOD-05-001 / SPEC-CR-019).
 pub mod primary_handle;
 
 pub const DID_WEB_MAX_DOCUMENT_BYTES: usize = 64 * 1024;

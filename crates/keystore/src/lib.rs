@@ -40,11 +40,11 @@
 //! ## Service-name namespacing
 //!
 //! Backends namespace credentials under `"cokret.<application_id>"` so
-//! multiple Cokret-using apps on the same host (yougen, sodmin, soland
+//! multiple Cokret-using apps on the same host (inkson, sodmin, soland
 //! notary, …) don't trample each other's keychain items. The
 //! `application_id` is supplied at construction time and SHOULD be a stable
 //! reverse-DNS-like identifier for the host application
-//! (e.g. `"chat.acroidea.yougen"`).
+//! (e.g. `"chat.acroidea.inkson"`).
 //!
 //! ## Key ids
 //!

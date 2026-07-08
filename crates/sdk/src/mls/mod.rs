@@ -989,7 +989,7 @@ mod tests {
     }
 
     /// T31 — removing an absent principal returns a Protocol error rather
-    /// than silently no-op'ing. The orchestration plan in yougen relies on
+    /// than silently no-op'ing. The orchestration plan in inkson relies on
     /// this to surface "leaf already gone" as a recoverable state.
     #[test]
     fn remove_member_by_principal_errors_when_target_absent() {
@@ -1095,7 +1095,7 @@ mod tests {
 
     /// T31 — `remove_member_by_leaf` accepts a raw OpenMLS leaf index and
     /// produces the same shape of commit envelope. Used when the caller
-    /// (yougen DeviceManager) tracks per-device leaf bookkeeping
+    /// (inkson DeviceManager) tracks per-device leaf bookkeeping
     /// out-of-band.
     #[test]
     fn remove_member_by_leaf_accepts_raw_index() {

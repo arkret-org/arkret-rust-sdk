@@ -23,7 +23,7 @@
 //!
 //! HTTP transport (POSTing the prepared operation to soland) deliberately lives
 //! outside this crate: this module is pure build + cryptography so clients
-//! (sodmin / yougen) and servers (soland / coauth) can all share one
+//! (sodmin / inkson) and servers (soland / coauth) can all share one
 //! implementation with no drift.
 
 use chrono::{DateTime, Utc};

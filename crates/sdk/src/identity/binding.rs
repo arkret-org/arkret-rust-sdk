@@ -5,7 +5,7 @@
 //! "subject `S` controls key `K`": a signed assertion whose payload
 //! commits to the subject and whose signature is produced by the
 //! private half of `K`. The SDK hosts the pure verify pipeline so every
-//! consumer (coauth, starid, yougen, cotest) reaches the same
+//! consumer (coauth, starid, inkson, cotest) reaches the same
 //! `Ok(()) / Err(reason)` decision for the same `(proof, subject)`
 //! tuple.
 //!

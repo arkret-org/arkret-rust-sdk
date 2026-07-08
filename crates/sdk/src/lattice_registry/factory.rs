@@ -6,7 +6,7 @@ use crate::state_res::{BottomMode, MemoryCellRegistry};
 /// Build a [`LatticeRegistry`] pre-populated with every spec-normative
 /// cell family covered by this module. Downstream Move/Seal receive
 /// pipelines call this once at boot. Lifted from soland so all
-/// consumers (soland, yougen Move pre-check, cotest fixtures) share
+/// consumers (soland, inkson Move pre-check, cotest fixtures) share
 /// one canonical registry.
 ///
 /// Coverage target: all spec-declared cell families in

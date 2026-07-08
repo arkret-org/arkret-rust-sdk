@@ -38,10 +38,10 @@ pub const SECRET_SEND_KIND: &str = "ck.secret.send";
 /// file-transfer.schema.json (RFC 9180 base mode).
 pub const HPKE_SECRET_SHARE_SCHEME: &str = "ck.hpke_x25519_aead_chacha20poly1305.v1";
 
-/// `secret_id` for the yougen MLS account secret — the only secret class the
+/// `secret_id` for the inkson MLS account secret — the only secret class the
 /// D2D direct-share path ships in v1. Kept here so client and conformance code
 /// agree on the exact opaque token.
-pub const SECRET_ID_MLS_ACCOUNT: &str = "yougen_mls_account_secret";
+pub const SECRET_ID_MLS_ACCOUNT: &str = "inkson_mls_account_secret";
 
 /// `ck.secret.request.content` — a newly authorized device asks an existing
 /// authorized device for `secret_id`, advertising the HPKE public key the
@@ -144,7 +144,7 @@ impl SecretShareSendContent {
 // default-MUST `ck.hpke_x25519_aead_chacha20poly1305.v1`). The crypto is the
 // audited rozbb/rust-hpke crate; this module owns only the wire framing and the
 // caller (info, aad) domain-separation contract. Used by the history-secret
-// share below and by yougen's `hpke_backup` path.
+// share below and by inkson's `hpke_backup` path.
 //
 // The wire blob is `base64url(enc(Npk=32) || ciphertext)` where `enc` is the
 // DHKEM encapsulated key. The AEAD nonce is the key-schedule-derived

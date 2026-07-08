@@ -161,7 +161,7 @@ impl FederationReplayStore for FederationManager {
 ///
 /// Reuse the single `core::canonical::sha256_digest` helper instead of
 /// hand-rolling `Sha256::new()` in federation code, keeping digest strings
-/// byte-identical with soland / yougen / floria.
+/// byte-identical with soland / inkson / floria.
 pub fn content_digest_sha256(bytes: &[u8]) -> String {
     cokret_core::canonical::sha256_digest(bytes)
 }

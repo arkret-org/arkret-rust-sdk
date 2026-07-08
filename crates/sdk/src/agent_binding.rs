@@ -149,7 +149,7 @@ pub fn verify_ed25519_audit_binding(
 /// verifier at all (no `audit_binding` block, unknown `binding_kind`,
 /// or required envelope fields missing).
 ///
-/// Downstream services (yougen audit timeline, floria policy hooks)
+/// Downstream services (inkson audit timeline, floria policy hooks)
 /// call [`verify_audit_binding_by_kind`] and map this outcome to a
 /// UI badge or policy decision. New binding schemes plug into the
 /// dispatcher here so callers don't have to re-implement the kind
@@ -190,7 +190,7 @@ pub enum AuditBindingVerifyOutcome {
 ///
 /// Deployments wanting an alternative scheme ship their own
 /// `binding_kind` and extend this dispatcher in the SDK so all
-/// downstream consumers (yougen, floria, cotest fixtures) pick up
+/// downstream consumers (inkson, floria, cotest fixtures) pick up
 /// the new scheme uniformly.
 pub fn verify_audit_binding_by_kind(payload: &Value) -> AuditBindingVerifyOutcome {
     let Some(binding) = payload.get("audit_binding") else {

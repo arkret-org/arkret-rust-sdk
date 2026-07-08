@@ -1,7 +1,7 @@
 //! Capability delegation chain check — pure, in-memory predicates.
 //!
 //! This module hosts the *runtime* delegation-chain helpers that soland's
-//! `AuthzEngine` (and any other consumer — yougen for client-side pre-validation,
+//! `AuthzEngine` (and any other consumer — inkson for client-side pre-validation,
 //! sodmin for admin feedback) needs to enforce capabilities.md §10:
 //!
 //! - Re-delegation MUST NOT widen the action scope (`ActionsNotHeld`).
@@ -25,7 +25,7 @@
 //!
 //! All functions in this module are **pure**: they take a slice of grants
 //! and a `now` instant and return a decision. No interior mutability, no
-//! I/O. That makes them safe to call from yougen (compile-to-wasm) and
+//! I/O. That makes them safe to call from inkson (compile-to-wasm) and
 //! from sodmin admin UI as well as the server-side `AuthzEngine`.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -384,7 +384,7 @@ where
 ///
 /// Returns the constructed (but not yet stored) child [`Grant`] on success.
 /// Caller is responsible for `grant_id` generation and persistence — this
-/// keeps the helper pure and yougen-callable from a browser context. On
+/// keeps the helper pure and inkson-callable from a browser context. On
 /// success the returned grant has an empty `grant_id` (caller MUST overwrite
 /// before storing) and `created_at = now`.
 ///

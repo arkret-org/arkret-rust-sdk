@@ -8,7 +8,7 @@
 //!
 //! ## Why this exists
 //!
-//! Prior to T0.5 there was nothing preventing e.g. yougen (a client SDK
+//! Prior to T0.5 there was nothing preventing e.g. inkson (a client SDK
 //! consumer) from declaring `ck.profile.push_gateway.v1` in its
 //! `supported_profiles` manifest, because the spec layer only documented the
 //! prohibition in prose. This module surfaces the partition in code so a
@@ -65,7 +65,7 @@ use crate::generated::profiles::{ProfileRole, profile_role};
 /// Provenance for a [`ProfileClaim`].
 ///
 /// Tracks how strong the claim is so downstream tooling (cotest gate, soland
-/// `describe`, yougen capability manifest) can distinguish "we ran the suite
+/// `describe`, inkson capability manifest) can distinguish "we ran the suite
 /// and it passed" from "the implementor asserts this themselves" from
 /// "experimental / not-yet-in-v1-catalog".
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -284,7 +284,7 @@ impl ProfileValidator {
         roles
     }
 
-    /// Allow-set for an SDK consumer running in client role (yougen, sample
+    /// Allow-set for an SDK consumer running in client role (inkson, sample
     /// front-ends, capability manifests). Not bound to a `ServiceType` because
     /// clients consume the protocol surface rather than publishing one.
     pub fn for_client() -> Self {

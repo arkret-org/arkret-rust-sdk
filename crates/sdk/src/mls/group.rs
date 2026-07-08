@@ -600,7 +600,7 @@ impl CokretMlsGroup {
 
     /// Produce a "self-update" commit envelope — the MLS commit that
     /// rotates the local member's leaf-node key without changing
-    /// membership. Callers (e.g. yougen's chat Send Secure path) use
+    /// membership. Callers (e.g. inkson's chat Send Secure path) use
     /// this to get a real `MlsCommitEnvelope` over the actual ratchet
     /// state instead of synthesizing one with hardcoded epoch / hash
     /// values.
@@ -758,7 +758,7 @@ impl CokretMlsGroup {
 
     /// Remove a single leaf by its raw OpenMLS leaf index. Use this when the
     /// caller maintains an explicit (principal, device_id) → leaf_index map
-    /// (e.g. a yougen DeviceManager with leaf bookkeeping) and wants to
+    /// (e.g. a inkson DeviceManager with leaf bookkeeping) and wants to
     /// revoke just one device of a multi-device principal.
     pub fn remove_member_by_leaf(&mut self, leaf_index: u32) -> Result<MlsRemoveMemberResult> {
         self.remove_leaves(&[LeafNodeIndex::new(leaf_index)])

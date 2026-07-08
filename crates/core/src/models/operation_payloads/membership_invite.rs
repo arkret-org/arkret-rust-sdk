@@ -27,7 +27,7 @@ pub enum MembershipPayloadState {
 /// (`event-payload.schema.json#/$defs/membership_payload`).
 ///
 /// `additionalProperties:false`: the removed `handle` / `from` keys that older
-/// yougen call sites tried to emit are intentionally NOT representable here —
+/// inkson call sites tried to emit are intentionally NOT representable here —
 /// `handle` has no spec-legal home in this payload (the member identity is
 /// carried by `actor_id`; handle evidence lives in signed `HandleClaim`
 /// objects on the roster, not the durable membership event), and the FSM
@@ -342,7 +342,7 @@ impl InviteRefPayload {
 ///
 /// The spec `anyOf` allows either an embedded `{relation: <object_snapshot>}`
 /// or the flat `{kind, from_ref, to_ref}` triple; this strong type models the
-/// flat form (the only shape yougen constructs).
+/// flat form (the only shape inkson constructs).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]

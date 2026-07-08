@@ -592,7 +592,7 @@ impl HandleClaim {
     }
 
     /// Canonical handle wire form, if any. R3.1 helper exported so
-    /// soland / yougen / cotest all agree on the bytes used for
+    /// soland / inkson / cotest all agree on the bytes used for
     /// signature / digest transcripts.
     pub fn handle_canonical(&self) -> Option<&str> {
         self.handle.as_ref().map(Handle::canonical)

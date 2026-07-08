@@ -3,7 +3,7 @@
 //! Round 21 (2026-05-09): the protocol's content-addressed Move/Seal objects
 //! must be signed at the issuer / notary boundary. The SDK exposes a tiny
 //! signer trait so downstream code (coauth pending Move sealing, soland
-//! seal reconfig + bottom repair, yougen real-key signing) can plug
+//! seal reconfig + bottom repair, inkson real-key signing) can plug
 //! production keys in without re-implementing canonical bytes / id / payload
 //! hash plumbing.
 //!

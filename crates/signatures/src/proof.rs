@@ -1,6 +1,6 @@
 //! Unified Event Envelope canonical proof builder and verifier.
 //!
-//! T5.1 (Round 22, 2026-05-19) — `coauth`, `soland`, and `yougen` each
+//! T5.1 (Round 22, 2026-05-19) — `coauth`, `soland`, and `inkson` each
 //! grew their own canonical JSON + detached JWS plumbing for signing
 //! Event Envelopes. This module is the single pipeline they should all
 //! converge on: canonical-bytes computation, the `EventSigner` /
@@ -343,7 +343,7 @@ impl From<VerifierError> for Error {
 /// Builds Event Envelope canonical to-be-signed bytes from any payload.
 ///
 /// `EventProofBuilder` is the single entry point that downstream
-/// services (`coauth`, `soland`, `yougen`) call to derive the bytes
+/// services (`coauth`, `soland`, `inkson`) call to derive the bytes
 /// the signer puts under the signature. It threads the canonical
 /// JSON encoder used everywhere else in the SDK so all services
 /// produce byte-identical signing input.

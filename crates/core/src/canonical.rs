@@ -399,7 +399,7 @@ pub fn digest_with_suite(suite: &str, bytes: impl AsRef<[u8]>) -> Result<String>
 /// envelopes, seals, and policy-check payloads.
 ///
 /// The output format is `sha256:<lowercase-hex>` and is byte-stable for
-/// a given input. All downstream services (soland, yougen, floria, chime)
+/// a given input. All downstream services (soland, inkson, floria, chime)
 /// MUST go through this helper so the same canonical bytes produce
 /// byte-identical digest strings everywhere.
 ///

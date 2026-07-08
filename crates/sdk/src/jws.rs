@@ -2,7 +2,7 @@
 //!
 //! Used by event-envelope `proof.jws` verification and the federation
 //! transcript signature path. The SDK ships a single canonical implementation
-//! so every consumer (yougen, floria, cotest, teabay, soland) reaches the
+//! so every consumer (inkson, floria, cotest, teabay, soland) reaches the
 //! same `Ok(()) / Err(reason)` decision for the same `(canonical_bytes, jws,
 //! verification_method, issuer, resolver)` tuple.
 //!

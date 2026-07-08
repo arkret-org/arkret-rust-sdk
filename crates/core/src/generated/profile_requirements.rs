@@ -2099,7 +2099,7 @@ impl std::error::Error for ProfileRequirementsError {}
 
 /// Structured report describing how a caller's implemented surface compares
 /// against a profile's generated requirement set. Consumed by
-/// `soland describe` / `yougen claim` / `cotest gate` so each surface presents
+/// `soland describe` / `inkson claim` / `cotest gate` so each surface presents
 /// the same compliance answer.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProfileComplianceReport {

@@ -78,7 +78,7 @@ impl MemberIdentity {
     /// the top-level `proof` field excluded. The signature in `proof`
     /// MUST cover the same canonical bytes.
     ///
-    /// Exported so soland + yougen + cotest agree on the exact bytes
+    /// Exported so soland + inkson + cotest agree on the exact bytes
     /// used for `MemberIdentityProof.payload_digest`.
     pub fn canonical_payload_sha256(&self) -> Result<String> {
         let bytes = self.canonical_payload_bytes()?;
@@ -162,7 +162,7 @@ pub struct MemberIdentityReplacementRef {
 /// `oneOf` in the spec schema: plaintext [`MemberIdentity`] OR encrypted
 /// envelope (carried as raw [`Value`] because the SDK does not yet ship
 /// a typed `EncryptedEnvelope`).
-// API-stable carrier wrapper consumed by yougen/cotest. Boxing
+// API-stable carrier wrapper consumed by inkson/cotest. Boxing
 // `MemberIdentity` would be a breaking change for the constructor
 // pattern `IdentityPayloadCarrier::MemberIdentity { member_identity }`.
 #[allow(clippy::large_enum_variant)]
