@@ -51,6 +51,7 @@ fn morph_create_payload(morph_id: &MorphId, morph_type: &str, title: &str) -> Va
             "schema_refs": [crate::MORPH_SCHEMA],
             "morph_type": morph_type,
             "metadata": {"title": title},
+            "stage": "draft",
             "created_by": "did:webvh:z6mkfixture:alice.example.com",
             "created_at": "2026-05-02T00:00:00.000Z"
         }
@@ -231,6 +232,7 @@ fn realm_queries_searches_and_aggregates_morphs() {
                             "metadata": {"title": "Alpha task"},
                             "content": {"kind": "ck.content.text", "body": "implement local search"},
                             "fields": {"status": "todo", "priority": 2},
+                            "stage": "draft",
                             "created_by": "did:webvh:z6mkfixture:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z"
                         }
@@ -249,6 +251,7 @@ fn realm_queries_searches_and_aggregates_morphs() {
                             "morph_type": "document",
                             "metadata": {"title": "Spec"},
                             "fields": {"status": "done", "priority": 1},
+                            "stage": "draft",
                             "created_by": "did:webvh:z6mkfixture:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z"
                         }
@@ -376,6 +379,7 @@ fn realm_tracks_morph_versions_compares_and_rolls_back() {
                             "morph_type": "task",
                             "metadata": {"title": "Initial"},
                             "fields": {"status": "todo"},
+                            "stage": "draft",
                             "created_by": "did:webvh:z6mkfixture:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z"
                         }

@@ -120,9 +120,9 @@ impl RealmState {
     }
 
     pub(super) fn create_message(&mut self, event: &Event) -> Result<()> {
-        let message_id = self
-            .extract_optional_field::<String>(&event.payload, "message_id")
-            .or_else(|| self.extract_optional_field::<String>(&event.payload, "id"))
+        let payload = event.as_message_create()?;
+        let message_id = payload
+            .message_id
             .unwrap_or_else(|| event.event_id.to_string());
         self.messages
             .entry(message_id.clone())

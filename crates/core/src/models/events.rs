@@ -28,6 +28,9 @@
 
 use std::collections::BTreeSet;
 
+use serde::Deserialize;
+use serde::de::DeserializeOwned;
+
 use super::*;
 use crate::events::kinds::EventKind;
 use crate::{Effect, Precondition, SealBasis, SealId};
@@ -43,6 +46,20 @@ pub const MAX_DELEGATION_CHAIN_DEPTH: usize = 4;
 pub const MAX_DELEGATION_CONTROL_DEPTH: u32 = 4;
 
 pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
+
+macro_rules! event_payload_accessors {
+    ($(
+        $(#[$meta:meta])*
+        $name:ident => ($ty:ty, $kind:path)
+    ),+ $(,)?) => {
+        $(
+            $(#[$meta])*
+            pub fn $name(&self) -> Result<$ty> {
+                self.typed_payload::<$ty>($kind)
+            }
+        )+
+    };
+}
 
 pub fn validate_event_envelope_byte_len(byte_len: usize) -> Result<()> {
     if byte_len > MAX_EVENT_ENVELOPE_BYTES {
@@ -472,6 +489,59 @@ impl Event {
         canonical::from_canonical_json_slice(bytes)
     }
 
+    /// Parse the opaque event payload as `T` without checking `kind`.
+    pub fn payload_as<T: DeserializeOwned>(&self) -> Result<T> {
+        serde_json::from_value(self.payload.clone()).map_err(Into::into)
+    }
+
+    /// Parse the opaque event payload by borrowing the stored JSON value.
+    pub fn payload_as_ref<'de, T>(&'de self) -> Result<T>
+    where
+        T: Deserialize<'de>,
+    {
+        T::deserialize(&self.payload).map_err(Into::into)
+    }
+
+    /// Assert the event kind before parsing the payload as `T`.
+    pub fn typed_payload<T: DeserializeOwned>(&self, expected_kind: &str) -> Result<T> {
+        self.ensure_payload_kind(expected_kind)?;
+        self.payload_as()
+    }
+
+    /// Assert the event kind before parsing the payload by reference.
+    pub fn typed_payload_ref<'de, T>(&'de self, expected_kind: &str) -> Result<T>
+    where
+        T: Deserialize<'de>,
+    {
+        self.ensure_payload_kind(expected_kind)?;
+        self.payload_as_ref()
+    }
+
+    fn ensure_payload_kind(&self, expected_kind: &str) -> Result<()> {
+        if self.kind != expected_kind {
+            return Err(Error::Protocol(format!(
+                "event payload kind mismatch: expected {expected_kind}, got {}",
+                self.kind.as_str()
+            )));
+        }
+        Ok(())
+    }
+
+    event_payload_accessors! {
+        /// Parse a `ck.message.create` payload.
+        as_message_create => (MessageCreatePayload, crate::events::kinds::MESSAGE_CREATE),
+        /// Parse a `ck.strand.create` payload.
+        as_strand_create => (StrandCreatePayload, crate::events::kinds::STRAND_CREATE),
+        /// Parse a `ck.strand.update` payload.
+        as_strand_update => (StrandPatchPayload, crate::events::kinds::STRAND_UPDATE),
+        /// Parse a `ck.member.state` payload.
+        as_member_state => (MembershipPayload, crate::events::kinds::MEMBER_STATE),
+        /// Parse a `ck.morph.create` payload.
+        as_morph_create => (MorphCreatePayload, crate::events::kinds::MORPH_CREATE),
+        /// Parse a `ck.morph.update` payload.
+        as_morph_update => (MorphUpdatePayload, crate::events::kinds::MORPH_UPDATE),
+    }
+
     pub fn digest_payload(&self) -> Result<Value> {
         let mut value = serde_json::to_value(self)?;
         if let Value::Object(map) = &mut value {
@@ -705,6 +775,81 @@ mod event_wire_surface_tests {
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         }
+    }
+
+    #[test]
+    fn payload_accessor_parses_plain_message_payload() {
+        let event = base_event();
+        let payload = event.as_message_create().unwrap();
+
+        assert_eq!(
+            payload.strand_id.as_str(),
+            "ck:strand:01904100-0000-7000-8000-6c663fa0205f"
+        );
+        assert_eq!(payload.track_name, "discussion");
+        assert_eq!(
+            payload
+                .content
+                .as_ref()
+                .and_then(|content| content.get("body")),
+            Some(&json!("hello"))
+        );
+        assert!(payload.encrypted_content.is_none());
+    }
+
+    #[test]
+    fn payload_accessor_parses_encrypted_message_payload() {
+        let mut event = base_event();
+        event.payload = json!({
+            "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+            "track_name": "discussion",
+            "encrypted_content": {
+                "scheme": "ck.test.encrypted",
+                "ciphertext": "opaque"
+            }
+        });
+
+        let payload = event.payload_as::<MessageCreatePayload>().unwrap();
+        assert!(payload.content.is_none());
+        assert_eq!(
+            payload
+                .encrypted_content
+                .as_ref()
+                .and_then(|content| content.get("ciphertext")),
+            Some(&json!("opaque"))
+        );
+    }
+
+    #[test]
+    fn typed_payload_rejects_kind_mismatch() {
+        let event = base_event();
+        let error = event
+            .typed_payload::<MessageCreatePayload>(crate::events::kinds::STRAND_CREATE)
+            .unwrap_err();
+
+        assert!(error.to_string().contains("kind mismatch"), "{error}");
+    }
+
+    #[test]
+    fn payload_accessor_rejects_missing_required_field() {
+        let mut event = base_event();
+        event.payload = json!({
+            "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+            "content": {"kind": "ck.content.text", "body": "hello"}
+        });
+
+        assert!(event.payload_as::<MessageCreatePayload>().is_err());
+    }
+
+    #[test]
+    fn payload_accessor_does_not_change_digest_input() {
+        let event = base_event();
+        let digest = event.event_digest().unwrap();
+
+        let _payload = event.as_message_create().unwrap();
+
+        assert_eq!(event.event_digest().unwrap(), digest);
+        assert_eq!(event.payload["content"]["body"], "hello");
     }
 
     #[test]

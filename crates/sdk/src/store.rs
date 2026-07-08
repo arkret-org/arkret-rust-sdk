@@ -404,10 +404,11 @@ mod tests {
                 "object": {
                     "id": "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77",
                     "schema": crate::MORPH_SCHEMA,
-                    "space_id": "ck:space:01904100-0000-7000-8000-9b64700c6ee8",
+                    "realm_id": "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
                     "schema_refs": [crate::MORPH_SCHEMA],
                     "morph_type": "task",
                     "metadata": {"title": title},
+                    "stage": "draft",
                     "created_by": "did:webvh:z6mkfixture:alice.example.com",
                     "created_at": "2026-05-02T00:00:00.000Z"
                 }
@@ -456,10 +457,11 @@ mod tests {
             "object": {
                 "id": "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77",
                 "schema": crate::MORPH_SCHEMA,
-                "space_id": "ck:space:01904100-0000-7000-8000-9b64700c6ee8",
+                "realm_id": "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
                 "schema_refs": [crate::MORPH_SCHEMA],
                 "morph_type": "task",
                 "metadata": {"title": "Changed"},
+                "stage": "draft",
                 "created_by": "did:webvh:z6mkfixture:alice.example.com",
                 "created_at": "2026-05-02T00:00:00.000Z"
             }

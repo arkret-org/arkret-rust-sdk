@@ -1177,6 +1177,7 @@ mod tests {
                     "realm_id": realm_id.as_str(),
                     "schema_refs": [crate::MORPH_SCHEMA],
                     "morph_type": "task",
+                    "stage": "draft",
                     "created_by": "did:webvh:z6mkfixture:alice.example.com",
                     "created_at": "2026-05-02T00:00:00.000Z"
                 }

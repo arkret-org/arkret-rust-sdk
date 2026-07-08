@@ -1,58 +1,37 @@
-use super::super::snapshot::{
-    object_state_from_str, patch_fields, patch_state, patch_string, space_state_from_str,
-};
+use super::super::snapshot::{patch_fields, patch_state, patch_string, space_state_from_str};
 use super::super::*;
 use super::RealmState;
 
 impl RealmState {
     pub(super) fn create_morph(&mut self, event: &Event) -> Result<()> {
-        let object = event.payload.get("object").unwrap_or(&event.payload);
-        let morph_id_str = self.extract_morph_id(object)?;
-        let morph_id = MorphId::new(morph_id_str.clone())?;
-        let morph_type = self.extract_field::<String>(object, "morph_type")?;
-        let facets = self
-            .extract_optional_field::<BTreeMap<String, Value>>(object, "facets")
-            .unwrap_or_default();
-        let metadata = self.extract_optional_field::<crate::MorphMetadata>(object, "metadata");
-        let encrypted_metadata = self.extract_optional_field(object, "encrypted_metadata");
-        let content = self.extract_optional_field(object, "content");
-        let encrypted_content = self.extract_optional_field(object, "encrypted_content");
-        let fields = self.extract_fields(object)?;
-        let state = self
-            .extract_optional_field::<String>(object, "state")
-            .map(|state| object_state_from_str(&state))
-            .transpose()?
-            .unwrap_or(crate::ObjectState::Active);
-
-        let scope_circle_id =
-            self.extract_optional_field::<cokret_core::CircleId>(object, "scope_circle_id");
-        let schema_refs = self.extract_field::<Vec<String>>(object, "schema_refs")?;
+        let object = event.as_morph_create()?.object;
+        let morph_id = object.id;
+        let morph_id_str = morph_id.as_str().to_owned();
+        let schema_refs = object.schema_refs;
         validate_morph_schema_refs(&schema_refs)?;
         let morph = Morph {
             id: morph_id,
             schema: crate::MORPH_SCHEMA.to_owned(),
             realm_id: event.realm_id.clone(),
-            scope_circle_id,
+            scope_circle_id: object.scope_circle_id,
             schema_refs,
-            morph_type,
-            facets,
-            metadata,
-            encrypted_metadata,
-            content,
-            encrypted_content,
-            fields,
-            state: Some(state),
-            state_changed_at: self.extract_optional_field(object, "state_changed_at"),
-            stage: self
-                .extract_optional_field::<crate::ObjectStage>(object, "stage")
-                .unwrap_or(crate::ObjectStage::Draft),
-            stage_changed_at: self.extract_optional_field(object, "stage_changed_at"),
+            morph_type: object.morph_type,
+            facets: object.facets,
+            metadata: object.metadata,
+            encrypted_metadata: object.encrypted_metadata,
+            content: object.content,
+            encrypted_content: object.encrypted_content,
+            fields: object.fields,
+            state: Some(object.state.unwrap_or(crate::ObjectState::Active)),
+            state_changed_at: object.state_changed_at,
+            stage: object.stage,
+            stage_changed_at: object.stage_changed_at,
             created_by: event.actor_id.clone(),
             created_at: event.created_at,
             updated_by: None,
             updated_at: None,
             labels: Vec::new(),
-            extra: BTreeMap::new(),
+            extra: object.extra,
         };
         morph.validate_morph_type(&[])?;
         self.morphs.insert(morph_id_str, morph);
@@ -60,65 +39,35 @@ impl RealmState {
     }
 
     pub(super) fn update_morph(&mut self, event: &Event) -> Result<()> {
-        let morph_id_str = self.extract_morph_id(&event.payload)?;
+        let payload = event.as_morph_update()?;
+        let morph_id_str = payload.target_ref.as_str().to_owned();
         // Spec common-fields.md §5.1: update on non-active object MUST fail.
         if let Some(morph) = self.morphs.get(&morph_id_str)
             && morph.state != Some(crate::ObjectState::Active)
         {
             return Err(Error::Protocol("morph_not_active".to_owned()));
         }
-        let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.payload, "patch");
-        let metadata =
-            self.extract_optional_field::<crate::MorphMetadata>(&event.payload, "metadata");
-        let encrypted_metadata =
-            self.extract_optional_field::<Value>(&event.payload, "encrypted_metadata");
-        let title = metadata
+        let patch = Some(patch_to_value_map(&payload.patch)?);
+        let title = patch_metadata_string(&patch, "title");
+        let summary = patch_metadata_string(&patch, "summary");
+        let content = patch
             .as_ref()
-            .and_then(|metadata| metadata.title.clone())
-            .or_else(|| patch_metadata_string(&patch, "title"));
-        let summary = metadata
+            .and_then(|patch| patch.get("content").cloned());
+        let encrypted_content = patch
             .as_ref()
-            .and_then(|metadata| metadata.summary.clone())
-            .or_else(|| patch_metadata_string(&patch, "summary"));
-        let content = self
-            .extract_optional_field::<Value>(&event.payload, "content")
-            .or_else(|| {
-                patch
-                    .as_ref()
-                    .and_then(|patch| patch.get("content").cloned())
-            });
-        let encrypted_content = self
-            .extract_optional_field::<Value>(&event.payload, "encrypted_content")
-            .or_else(|| {
-                patch
-                    .as_ref()
-                    .and_then(|patch| patch.get("encrypted_content").cloned())
-            });
-        let fields = self
-            .extract_optional_field::<BTreeMap<String, Value>>(&event.payload, "fields")
-            .or_else(|| patch_fields(&patch));
-        let facets = self
-            .extract_optional_field::<BTreeMap<String, Value>>(&event.payload, "facets")
-            .or_else(|| {
-                patch.as_ref().and_then(|patch| {
-                    patch
-                        .get("facets")
-                        .and_then(|value| serde_json::from_value(value.clone()).ok())
-                })
-            });
-        let state = self
-            .extract_optional_field::<String>(&event.payload, "state")
-            .map(|state| object_state_from_str(&state))
-            .transpose()?
-            .or(patch_state(&patch).transpose()?);
+            .and_then(|patch| patch.get("encrypted_content").cloned());
+        let fields = patch_fields(&patch);
+        let facets = patch.as_ref().and_then(|patch| {
+            patch
+                .get("facets")
+                .and_then(|value| serde_json::from_value(value.clone()).ok())
+        });
+        let state = patch_state(&patch).transpose()?;
 
         let morph = self
             .morphs
             .get_mut(&morph_id_str)
             .ok_or_else(|| Error::Protocol(format!("morph not found: {}", morph_id_str)))?;
-        if let Some(metadata) = metadata {
-            morph.metadata = Some(metadata);
-        }
         if let Some(title) = title {
             morph
                 .metadata
@@ -130,10 +79,6 @@ impl RealmState {
                 .metadata
                 .get_or_insert_with(crate::MorphMetadata::default)
                 .summary = Some(summary);
-        }
-        if let Some(encrypted_metadata) = encrypted_metadata {
-            morph.encrypted_metadata = Some(encrypted_metadata);
-            morph.metadata = None;
         }
         if let Some(content) = content {
             morph.content = Some(content);
@@ -503,54 +448,39 @@ impl RealmState {
     }
 
     pub(super) fn create_strand(&mut self, event: &Event) -> Result<()> {
-        let object = event.payload.get("object").unwrap_or(&event.payload);
-        let strand_id_str = self.extract_strand_id(object)?;
-        let strand_id = StrandId::new(strand_id_str.clone())?;
-        let metadata = self
-            .extract_optional_field::<crate::StrandMetadata>(object, "metadata")
-            .unwrap_or_default();
-        let tracks = self
-            .extract_optional_field::<BTreeMap<String, crate::StrandTrackConfig>>(object, "tracks")
-            .unwrap_or_else(|| {
-                let mut tracks = BTreeMap::new();
-                tracks.insert(
-                    crate::STRAND_TRACK_NAME_SYNTHESIS.to_owned(),
-                    crate::StrandTrackConfig::synthesis(),
-                );
-                tracks
-            });
-        let body = self.extract_optional_field(object, "content");
-        let encrypted_content = self.extract_optional_field(object, "encrypted_content");
-        let encrypted_metadata = self.extract_optional_field(object, "encrypted_metadata");
-        let scope_circle_id =
-            self.extract_optional_field::<cokret_core::CircleId>(object, "scope_circle_id");
-        let state = self
-            .extract_optional_field::<String>(object, "state")
-            .map(|state| object_state_from_str(&state))
-            .transpose()?
-            .unwrap_or(crate::ObjectState::Active);
+        let object = event.as_strand_create()?.object;
+        let strand_id = object.id;
+        let strand_id_str = strand_id.as_str().to_owned();
+        let metadata = object.metadata.unwrap_or_default();
+        let tracks = if object.tracks.is_empty() {
+            let mut tracks = BTreeMap::new();
+            tracks.insert(
+                crate::STRAND_TRACK_NAME_SYNTHESIS.to_owned(),
+                crate::StrandTrackConfig::synthesis(),
+            );
+            tracks
+        } else {
+            object.tracks
+        };
         let subject = Strand {
             id: strand_id,
             schema: crate::STRAND_SCHEMA.to_owned(),
             realm_id: event.realm_id.clone(),
-            scope_circle_id,
+            scope_circle_id: object.scope_circle_id,
             metadata: Some(metadata),
-            encrypted_metadata,
-            body,
-            encrypted_content,
+            encrypted_metadata: object.encrypted_metadata,
+            body: object.body,
+            encrypted_content: object.encrypted_content,
             tracks,
-            state: Some(state),
-            state_changed_at: None,
-            stage: Some(
-                self.extract_optional_field::<crate::ObjectStage>(object, "stage")
-                    .unwrap_or(crate::ObjectStage::Draft),
-            ),
-            stage_changed_at: self.extract_optional_field(object, "stage_changed_at"),
+            state: Some(object.state.unwrap_or(crate::ObjectState::Active)),
+            state_changed_at: object.state_changed_at,
+            stage: Some(object.stage.unwrap_or(crate::ObjectStage::Draft)),
+            stage_changed_at: object.stage_changed_at,
             created_by: event.actor_id.clone(),
             created_at: event.created_at,
             updated_by: None,
             updated_at: None,
-            extra: BTreeMap::new(),
+            extra: object.extra,
         };
         subject.validate_title()?;
         self.subjects.insert(strand_id_str, subject);
@@ -558,7 +488,8 @@ impl RealmState {
     }
 
     pub(super) fn update_strand(&mut self, event: &Event) -> Result<()> {
-        let strand_id_str = self.extract_strand_id(&event.payload)?;
+        let payload = event.as_strand_update()?;
+        let strand_id_str = payload.target_ref.as_str().to_owned();
         // Spec common-fields.md §5.1 final paragraph: update on a non-active
         // object MUST fail — otherwise an edit would silently revive an
         // archived / tombstoned / redacted Strand, conflicting with the
@@ -570,32 +501,11 @@ impl RealmState {
         {
             return Err(Error::Protocol("strand_not_active".to_owned()));
         }
-        let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.payload, "patch");
-        let metadata =
-            self.extract_optional_field::<crate::StrandMetadata>(&event.payload, "metadata");
-        let encrypted_metadata =
-            self.extract_optional_field::<Value>(&event.payload, "encrypted_metadata");
-        let body = self.extract_optional_field::<Value>(&event.payload, "content");
-        let encrypted_content =
-            self.extract_optional_field::<Value>(&event.payload, "encrypted_content");
-        let fields = metadata.as_ref().map(|metadata| metadata.fields.clone());
-        let state = self
-            .extract_optional_field::<String>(&event.payload, "state")
-            .map(|state| object_state_from_str(&state))
-            .transpose()?;
-        let patched_state = patch_state(&patch).transpose()?;
-        let tracks = self
-            .extract_optional_field::<BTreeMap<String, crate::StrandTrackConfig>>(
-                &event.payload,
-                "tracks",
-            )
-            .or_else(|| {
-                // Patch path is a JSON object map: track_name → StrandTrackConfig.
-                patch.as_ref().and_then(|p| p.get("tracks")).and_then(|v| {
-                    serde_json::from_value::<BTreeMap<String, crate::StrandTrackConfig>>(v.clone())
-                        .ok()
-                })
-            });
+        let patch = Some(patch_to_value_map(&payload.patch)?);
+        let state = patch_state(&patch).transpose()?;
+        let tracks = patch.as_ref().and_then(|p| p.get("tracks")).and_then(|v| {
+            serde_json::from_value::<BTreeMap<String, crate::StrandTrackConfig>>(v.clone()).ok()
+        });
         let patched_body = patch
             .as_ref()
             .and_then(|patch| patch.get("content").cloned());
@@ -608,9 +518,6 @@ impl RealmState {
             .get_mut(&strand_id_str)
             .ok_or_else(|| Error::Protocol(format!("strand not found: {}", strand_id_str)))?;
 
-        if let Some(metadata) = metadata {
-            subject.metadata = Some(metadata);
-        }
         if let Some(title) = patch_metadata_string(&patch, "title") {
             subject
                 .metadata
@@ -623,28 +530,24 @@ impl RealmState {
                 .get_or_insert_with(crate::StrandMetadata::default)
                 .summary = Some(summary);
         }
-        if let Some(fields) = fields.or_else(|| patch_metadata_fields(&patch)) {
+        if let Some(fields) = patch_metadata_fields(&patch) {
             subject
                 .metadata
                 .get_or_insert_with(crate::StrandMetadata::default)
                 .fields = fields;
         }
-        if let Some(encrypted_metadata) = encrypted_metadata {
-            subject.encrypted_metadata = Some(encrypted_metadata);
-            subject.metadata = None;
-        }
-        if let Some(body) = body.or(patched_body) {
+        if let Some(body) = patched_body {
             subject.body = Some(body);
             subject.encrypted_content = None;
         }
-        if let Some(encrypted_content) = encrypted_content.or(patched_encrypted_content) {
+        if let Some(encrypted_content) = patched_encrypted_content {
             subject.encrypted_content = Some(encrypted_content);
             subject.body = None;
         }
         if let Some(tracks) = tracks {
             subject.tracks = tracks;
         }
-        if let Some(state) = state.or(patched_state) {
+        if let Some(state) = state {
             subject.state = Some(state);
             subject.state_changed_at = Some(event.created_at);
         }
@@ -748,6 +651,11 @@ fn validate_morph_schema_refs(schema_refs: &[String]) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn patch_to_value_map(patch: &crate::Patch) -> Result<BTreeMap<String, Value>> {
+    let value = serde_json::to_value(patch)?;
+    serde_json::from_value(value).map_err(Into::into)
 }
 
 fn relation_id_from_event_id(event_id: &str) -> String {

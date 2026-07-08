@@ -54,6 +54,7 @@ fn morph_event(seq: u64, morph_id: &str, title: &str) -> Event {
                 "schema_refs": [crate::MORPH_SCHEMA],
                 "morph_type": "task",
                 "metadata": {"title": title},
+                "stage": "draft",
                 "created_by": actor_id().as_str(),
                 "created_at": "2026-05-02T00:00:00.000Z"
             }
@@ -685,7 +686,12 @@ fn message_revision_redaction_and_reaction_converge() {
     let base = event(
         "ck.message.create",
         1,
-        json!({ "message_id": "m1", "body": "hello" }),
+        json!({
+            "strand_id": "ck:strand:01904100-0000-7000-8000-1fb50799ad50",
+            "message_id": "m1",
+            "track_name": "discussion",
+            "content": { "body": "hello" }
+        }),
     );
     let mut revise = event(
         "ck.message.revise",
