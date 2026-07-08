@@ -193,7 +193,7 @@ mod tests {
             seal_basis: None,
             requirements: EventRequirements::default(),
             redacts: None,
-            content: json!({ "body": "hello" }),
+            payload: json!({ "body": "hello" }),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -377,7 +377,7 @@ mod tests {
         // Payload tamper: the recomputed canonical event digest changes, so
         // the signed proof binding no longer matches.
         let mut payload_tampered = event.clone();
-        payload_tampered.content = json!({ "body": "tampered" });
+        payload_tampered.payload = json!({ "body": "tampered" });
         let err = payload_tampered
             .validate_proof_bindings()
             .expect_err("payload tamper must fail binding validation");
