@@ -40,7 +40,7 @@ cotest local release gate against soland:
 The gate covers protocol conformance fixtures, profile discovery, privacy
 boundary checks, push-rule consistency, account/session edges, federation
 replay, optional starid resolver discovery, session-grant introspection, and
-yougen mock-vs-live soland parity.
+inkson mock-vs-live soland parity.
 
 ## Security Evidence
 

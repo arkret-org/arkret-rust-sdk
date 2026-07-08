@@ -82,7 +82,7 @@ backend 的开发者、需要理解 SDK 内部边界的 third-party 用户。
   让 SDK 用户 / soland / 第三方 server 三方都能依赖一份。
 - `soland` / 第三方 server：实现 `MoveStore` / `SealStore` / `CellStore` /
   `CellRegistry`，并把 effective cell state 写入持久后端（Pg / RocksDB / 内存）。
-- 用户面 projection（soland 的 `ProjectionState`、yougen 的 UI store）：从 cell
+- 用户面 projection（soland 的 `ProjectionState`、inkson 的 UI store）：从 cell
   state 派生，**不再直接消费 Move/Seal**，避免双源真相。
 
 ## 3. Store 接口契约

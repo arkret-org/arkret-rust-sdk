@@ -20,7 +20,7 @@ directly and re-exports the shared contracts crate as `cokret::api`:
 The narrower contract facades are `cokret::client_api`,
 `cokret::identity_api`, `cokret::federation_api` and
 `cokret::push_gateway_api`. Use those when a caller needs DTOs shared across
-services such as floria, chime and yougen without taking on server runtime
+services such as floria, chime and inkson without taking on server runtime
 dependencies.
 
 The default feature set enables the HTTP client and MLS support. Use

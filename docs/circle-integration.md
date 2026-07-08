@@ -125,7 +125,7 @@ unconstrained Realm-wide grants for the gated actions MUST be rejected.
 
 ## Receiver checks
 
-Receivers (soland, sodmin, yougen, …) integrating the SDK MUST:
+Receivers (soland, sodmin, inkson, …) integrating the SDK MUST:
 
 1. Validate `Event.effective_scope` matches the resource's
    `scope_circle_id` (or absence thereof) before applying any reducer

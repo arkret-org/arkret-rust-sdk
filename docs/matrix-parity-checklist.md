@@ -72,7 +72,7 @@ Both `crypto::DeviceTrustState` and `core::models::api::DeviceVerificationState`
 
 - **PSK-signature verification glue**: `evaluate_trust_chain` takes a `verify_signature` closure so the SDK doesn't pull a DID-method resolver into `cokret-crypto`. Production adapters need to wire that closure to the same Ed25519 / EdDSA verifier used by [`cokret-signatures::verify_ed25519_move_signature`](../crates/signatures/src/signer.rs) plus the DID key-log resolver. The SDK ships the state machine; it does not ship a one-call "set up cross-signing end-to-end with my DID document" helper.
 - **`ck.device.authorize` payload schema**: the SDK's `ck.device.authorize` event still uses the JSON `Value` payload shape; a typed `ck.schema.device_authorize.v1` envelope mirroring `CrossSigningPublishContent` is the next layer.
-- **MLS leaf re-key after reset**: spec §14.2 step 3 says senders SHOULD issue an Empty Commit after a reset so the new SSK generation is covered by transcript hashes. The SDK exposes the MLS commit primitives but doesn't auto-trigger this; downstream apps (yougen / soland) wire it.
+- **MLS leaf re-key after reset**: spec §14.2 step 3 says senders SHOULD issue an Empty Commit after a reset so the new SSK generation is covered by transcript hashes. The SDK exposes the MLS commit primitives but doesn't auto-trigger this; downstream apps (inkson / soland) wire it.
 
 ## Matrix concepts intentionally NOT mirrored
 

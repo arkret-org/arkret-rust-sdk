@@ -451,7 +451,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
   pure helpers `delegation_chain_intact`, `delegation_chain_intact_map`,
   `create_delegated_grant`, `revoke_with_cascade`, `grant_effective_expiry`,
   `is_grant_expired`, `resource_within`. All functions are pure (slice in,
-  decision out) so yougen and sodmin admin can pre-validate grant requests
+  decision out) so inkson and sodmin admin can pre-validate grant requests
   client-side before submission — the existing soland HTTP handler keeps
   the server-side enforcement contract unchanged via re-exports
   (`pub use cokret_sdk::authz::delegation::{Grant, ...}`). Enforces
@@ -487,7 +487,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
   missing_schemas }`) and a higher-level
   `profile_compliance_report` (`ProfileComplianceReport` with both
   satisfied + missing partitions, plus an `is_compliant()` helper).
-  Consumed by `soland describe` / `yougen claim` / `cotest gate` so
+  Consumed by `soland describe` / `inkson claim` / `cotest gate` so
   all three present the same compliance answer against the canonical
   artifact. Eight new tests gate the module: a drift test that
   re-parses the artifact and re-builds the requirement tuples in
@@ -500,7 +500,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 
 - **`cokret::identity::binding`** — new SDK-rooted module hosting the
   pure-protocol DID key binding proof primitive that coauth (and any
-  future consumer — yougen, cotest, starid) calls into for the
+  future consumer — inkson, cotest, starid) calls into for the
   cryptographic verify step. Exposes:
   - `BindingProofKind::Ed25519V1` (today; `WebAuthnCose` reserved).
   - `BindingProof { kind, payload, signature, public_key }` wire
@@ -572,7 +572,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
   distinct so the call-site intent ("this is the wire-form canonical
   digest") is self-documenting. Downstream services (soland
   `wire.rs:560,793,816` Move/Seal `canonical_hash` and
-  `request_canonical_digest` fields, plus yougen / floria / chime as
+  `request_canonical_digest` fields, plus inkson / floria / chime as
   they migrate) call this so the same canonical bytes produce
   byte-identical digest strings everywhere. SDK-2.
 
@@ -583,12 +583,12 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
   `audit_binding` blocks, dispatched by `binding_kind` so consumers
   don't have to re-implement the scheme switch. Routes `ed25519_v1`
   through the existing `verify_ed25519_audit_binding`; future schemes
-  plug in here so yougen / floria / cotest all pick them up
+  plug in here so inkson / floria / cotest all pick them up
   uniformly. New `AuditBindingVerifyOutcome` enum collapses the two
   Ed25519 `Malformed*` outcomes into one and adds dispatcher-level
   `Absent` / `Unsupported` states for the cases the scheme-specific
   verifier never sees. Lifts the dispatch logic that previously lived
-  inline in yougen's `verify_agent_audit_binding`. SDK-5.
+  inline in inkson's `verify_agent_audit_binding`. SDK-5.
 
 ### Moved — `default_lattice_registry()` from soland to SDK (2026-05-18)
 
@@ -597,7 +597,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
   spec-normative cell-family bindings and the `default_lattice_registry`
   / `build_sdk_cell_registry` / `lattice_bindings_for_sdk_registry`
   factories. Lifted wholesale from `soland/src/reducer/{registry,
-  lattice_kinds}.rs` so yougen Move pre-check and cotest fixtures share
+  lattice_kinds}.rs` so inkson Move pre-check and cotest fixtures share
   one canonical registry with soland's Move/Seal receive pipeline (49
   spec-declared cell families covered). Soland's two modules become
   thin re-export shims; existing call sites
@@ -613,7 +613,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 - **`cokret::jws`** — new SDK-rooted module consolidating the
   RFC 7515 detached Ed25519 JWS verifier that previously lived in
   `soland/src/jws_verify.rs`. Same wire bytes / same accept-reject
-  decision, now shared across every consumer (yougen, floria, cotest,
+  decision, now shared across every consumer (inkson, floria, cotest,
   teabay, soland) so they all hit the same `Ok(()) / Err(reason)` for
   the same `(canonical_bytes, jws, verification_method, issuer,
   resolver)` tuple. Surfaces: `verify_jws_ed25519` (full pipeline:
@@ -681,7 +681,7 @@ and agent (`ck.agent.{endpoint,protocol_session.{start,status,result}}`)
 families were registered as event kinds in `crates/core/src/events/kinds.rs`
 but had no `OP_*` aliases or `required_fields_for_operation_kind` entries
 in `crates/core/src/models/`. This round adds both so downstream consumers
-(soland, yougen, …) can validate submit payloads using the same registry
+(soland, inkson, …) can validate submit payloads using the same registry
 abstraction as the rest of the reducer-input event family.
 
 - **`cokret-core`** — all changes in `crates/core/src/models/`:
@@ -1028,7 +1028,7 @@ implements the canonical `archived -> active` transition end-to-end.
 - **Migration**: writers that previously had no wire path for unarchiving
   Places (or were emitting `ck.place.update` with a top-level `state`
   patch as a workaround) MUST switch to `ck.place.restore`. The reducer
-  here enforces the new guard; downstream impls (soland, yougen) need to
+  here enforces the new guard; downstream impls (soland, inkson) need to
   catch up separately — tracked in their own `_todos.md` files.
 
 - **Out of scope (follow-up)**:
@@ -1148,7 +1148,7 @@ the bump is for the SDK API surface adjustments described below.
 
 ### Changed
 
-- **`cokret-client` `TransportConfig` is now per-target.** The native
+- **`garth` `TransportConfig` is now per-target.** The native
   variant retains the full set of fields (`timeout`, `connect_timeout`,
   `pool_idle_timeout`, `pool_max_idle_per_host`, `tcp_nodelay`,
   `tcp_keepalive`, `http2_keep_alive_*`, `proxies`, `no_proxy`,
@@ -1296,7 +1296,7 @@ unchanged; this is an additive SDK API release.
 - **`platform_default_keystore(application_id)`** helper that picks the
   matching native backend for the active target/feature combo and
   falls back to `InMemoryKeyStore` when none is available. Lets
-  downstream apps do `let ks = platform_default_keystore("yougen");`
+  downstream apps do `let ks = platform_default_keystore("inkson");`
   without per-platform `cfg` blocks at the call site.
 - Workspace `Cargo.toml` gains pinned versions for
   `security-framework = 3.5`, `secret-service = 5.0`, and
@@ -1315,7 +1315,7 @@ unchanged; this is an additive SDK API release.
 This release completes round 21 of the SDK: the public Move/Seal signer
 trait, an Ed25519 backend for production signing, the `EventsQueryRequest`
 / `EventsQueryOutcome` typed wrappers downstream agents (coauth / soland /
-yougen) need for `ck.self.events.query.scan`, and the workspace bump to 0.5.0
+inkson) need for `ck.self.events.query.scan`, and the workspace bump to 0.5.0
 (folds C19.B follow-ups + completes signer surface). v1 wire is unchanged
 from 0.4.0; this is an additive SDK API release.
 
@@ -1540,7 +1540,7 @@ Initial release candidate for Cokret v1 SDK.
   module so different clients compute identical hashes.
 - HLC parsing and deterministic ordering, RFC 9421 / RFC 9530 transcript
   helpers, and replay/CommitFork detection.
-- HTTP `cokret-client` with HTTPS-by-default, retry/backoff, idempotency,
+- HTTP `garth` with HTTPS-by-default, retry/backoff, idempotency,
   read-your-writes wait header support, and query-string-auth rejection.
 - Framework-independent server endpoint registry plus optional Salvo
   adapter and OpenAPI integration. Every public model carries
