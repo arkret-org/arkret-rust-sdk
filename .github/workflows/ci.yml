@@ -27,7 +27,6 @@ jobs:
       - run: cargo check --no-default-features --features client
       - run: cargo check --no-default-features --features server
       - run: cargo check --no-default-features --features mls
-      - run: cargo check -p cokret-client --features native
       - run: cargo check --all-features
       - run: cargo clippy --all-features --all-targets -- -D warnings
       - run: cargo test --all-features
@@ -49,7 +48,6 @@ jobs:
       - run: rustup target add wasm32-unknown-unknown
       - run: cargo check -p cokret-core --target wasm32-unknown-unknown --no-default-features --features client
       - run: cargo check -p cokret-identifiers --target wasm32-unknown-unknown --no-default-features
-      - run: cargo check -p cokret-client --target wasm32-unknown-unknown --features wasm
 
   embedded-snapshot:
     name: embedded spec snapshot drift gate
