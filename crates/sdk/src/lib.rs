@@ -502,8 +502,8 @@ pub use media::{
 pub use media::{MediaClient, VerifiedCallMediaTokenExchange, VerifiedMediaIceConfig};
 #[cfg(feature = "full-surface")]
 pub use membership::{
-    Invite, Member, MemberChange, MemberProfile, MemberRole, MembershipContentState,
-    MembershipManager, ThirdPartyInvite, is_legal_membership_transition,
+    Invite, Member, MemberChange, MemberProfile, MemberRole, MembershipManager,
+    MembershipPayloadState, ThirdPartyInvite, is_legal_membership_transition,
 };
 #[cfg(all(feature = "full-surface", feature = "mls"))]
 pub use mls::*;
