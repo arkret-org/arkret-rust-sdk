@@ -2,10 +2,13 @@
 //! helper methods on [`Client`].
 
 use cokret_core::{
-    AppletActorView, AppletDescription, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
+    AppletActorView, AppletDescription, AppletInstallOutcome, AppletInstallPlan,
+    AppletInstallPreviewRequestBody, AppletInstallRequestBody, AppletPingOutcome,
+    AppletProtocolMetadata, AppletRealmView, AppletRevokeOutcome, AppletRevokeRequestBody,
     AppletThirdPartyLocationList, AppletThirdPartyUserList, AppletTransactionOutcome,
     AppletTransactionRequestBody, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
-    Did, Error, MediaIceConfigOutcome, MediaIceConfigRequestBody, MimiProviderDirectory,
+    CircleList, CircleScopeRotateOutcome, CircleScopeRotateRequestBody, Did, Error,
+    MediaIceConfigOutcome, MediaIceConfigRequestBody, MimiProviderDirectory,
     MimiReportAbuseOutcome, MimiReportAbuseRequestBody, ModerationReportOutcome,
     ModerationReportRequestBody, OkOutcome, PolicyCheckOutcome, PolicyCheckRequestBody,
     PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
@@ -119,6 +122,34 @@ impl Client {
 
     pub async fn applet_describe(&self) -> Result<AppletDescription> {
         self.get("/_cokret/edge/applet/describe").await
+    }
+
+    pub async fn applet_install_preview(
+        &self,
+        request: &AppletInstallPreviewRequestBody,
+    ) -> Result<AppletInstallPlan> {
+        self.post("/_cokret/self/applets/install/preview", request)
+            .await
+    }
+
+    pub async fn applet_install(
+        &self,
+        idempotency_key: &str,
+        request: &AppletInstallRequestBody,
+    ) -> Result<AppletInstallOutcome> {
+        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
+        self.post_with_options("/_cokret/self/applets/install", request, &options)
+            .await
+    }
+
+    pub async fn applet_revoke(
+        &self,
+        applet_id: &str,
+        request: &AppletRevokeRequestBody,
+    ) -> Result<AppletRevokeOutcome> {
+        reject_path_segment(applet_id)?;
+        let path = format!("/_cokret/self/applets/{applet_id}/revoke");
+        self.post(&path, request).await
     }
 
     pub async fn applet_transaction(
@@ -246,6 +277,27 @@ impl Client {
     /// Query third-party locations for an applet.
     pub async fn applet_third_party_locations(&self) -> Result<AppletThirdPartyLocationList> {
         self.get("/_cokret/edge/applet/third_party/locations").await
+    }
+
+    pub async fn circle_list(&self, realm_id: &str) -> Result<CircleList> {
+        let builder = self
+            .request(Method::GET, "/_cokret/self/circles")?
+            .query(&[("realm_id", realm_id)]);
+        self.send_json(builder).await
+    }
+
+    pub async fn circle_scope_rotate(
+        &self,
+        circle_id: &str,
+        idempotency_key: &str,
+        request: &CircleScopeRotateRequestBody,
+    ) -> Result<CircleScopeRotateOutcome> {
+        reject_path_segment(circle_id)?;
+        let path = format!("/_cokret/self/circles/{circle_id}/scope-rotate");
+        let options = ClientRequestOptions::new()
+            .request_id(idempotency_key)
+            .idempotency_key(idempotency_key);
+        self.post_with_options(&path, request, &options).await
     }
 
     pub async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T> {

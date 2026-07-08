@@ -10,6 +10,8 @@ pub struct KeyBackupPath {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupsListQuery {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub series_id: Option<BackupSeriesId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub backup_class: Option<BackupClass>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<Cursor>,

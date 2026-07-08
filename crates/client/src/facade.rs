@@ -1,6 +1,8 @@
 use cokret_http_client::Client;
 
-use crate::{CursorStore, EventCacheStore, Executor, SecureKeyStore};
+use crate::{
+    CursorStore, EventCacheStore, Executor, SecureKeyStore, SessionEngine, SubscriptionEngine,
+};
 
 /// Root handle for shared client runtime components.
 #[derive(Clone, Debug)]
@@ -33,5 +35,20 @@ where
             event_cache_store,
             secure_key_store,
         }
+    }
+
+    pub fn session_engine(&self) -> SessionEngine<Client> {
+        SessionEngine::new(self.http.clone())
+    }
+
+    pub fn subscription_engine(&self) -> SubscriptionEngine<E, C, D>
+    where
+        E: Clone,
+    {
+        SubscriptionEngine::new(
+            self.executor.clone(),
+            self.cursor_store.clone(),
+            self.event_cache_store.clone(),
+        )
     }
 }

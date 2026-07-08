@@ -482,6 +482,15 @@ impl EffectiveScope {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum MessageEventPayload {
+    Create(MessageCreatePayload),
+    Revise(MessageRevisePayload),
+    Redact(MessageRedactPayload),
+    ReactionAdd(ReactionPayload),
+    ReactionRemove(ReactionPayload),
+}
+
 impl Event {
     /// Deserialize an inbound Event Envelope after canonical JSON ingress
     /// checks (NFC strings, duplicate keys, number profile).
@@ -530,6 +539,14 @@ impl Event {
     event_payload_accessors! {
         /// Parse a `ck.message.create` payload.
         as_message_create => (MessageCreatePayload, crate::events::kinds::MESSAGE_CREATE),
+        /// Parse a `ck.message.revise` payload.
+        as_message_revise => (MessageRevisePayload, crate::events::kinds::MESSAGE_REVISE),
+        /// Parse a `ck.message.redact` payload.
+        as_message_redact => (MessageRedactPayload, crate::events::kinds::MESSAGE_REDACT),
+        /// Parse a `ck.reaction.add` payload.
+        as_reaction_add => (ReactionPayload, crate::events::kinds::REACTION_ADD),
+        /// Parse a `ck.reaction.remove` payload.
+        as_reaction_remove => (ReactionPayload, crate::events::kinds::REACTION_REMOVE),
         /// Parse a `ck.strand.create` payload.
         as_strand_create => (StrandCreatePayload, crate::events::kinds::STRAND_CREATE),
         /// Parse a `ck.strand.update` payload.
@@ -540,6 +557,30 @@ impl Event {
         as_morph_create => (MorphCreatePayload, crate::events::kinds::MORPH_CREATE),
         /// Parse a `ck.morph.update` payload.
         as_morph_update => (MorphUpdatePayload, crate::events::kinds::MORPH_UPDATE),
+    }
+
+    pub fn as_message_event_payload(&self) -> Result<MessageEventPayload> {
+        match self.kind.as_str() {
+            crate::events::kinds::MESSAGE_CREATE => {
+                Ok(MessageEventPayload::Create(self.as_message_create()?))
+            }
+            crate::events::kinds::MESSAGE_REVISE => {
+                Ok(MessageEventPayload::Revise(self.as_message_revise()?))
+            }
+            crate::events::kinds::MESSAGE_REDACT => {
+                Ok(MessageEventPayload::Redact(self.as_message_redact()?))
+            }
+            crate::events::kinds::REACTION_ADD => {
+                Ok(MessageEventPayload::ReactionAdd(self.as_reaction_add()?))
+            }
+            crate::events::kinds::REACTION_REMOVE => Ok(MessageEventPayload::ReactionRemove(
+                self.as_reaction_remove()?,
+            )),
+            _ => Err(Error::Protocol(format!(
+                "event is not a message timeline payload: {}",
+                self.kind.as_str()
+            ))),
+        }
     }
 
     pub fn digest_payload(&self) -> Result<Value> {
@@ -795,6 +836,30 @@ mod event_wire_surface_tests {
             Some(&json!("hello"))
         );
         assert!(payload.encrypted_content.is_none());
+    }
+
+    #[test]
+    fn message_event_payload_classifies_message_and_reaction_kinds() {
+        let mut revise = base_event();
+        revise.kind = crate::events::kinds::MESSAGE_REVISE.into();
+        revise.payload = json!({"reason": "typo"});
+        assert!(matches!(
+            revise.as_message_event_payload().unwrap(),
+            MessageEventPayload::Revise(_)
+        ));
+
+        let mut reaction = base_event();
+        reaction.kind = crate::events::kinds::REACTION_ADD.into();
+        reaction.payload = json!({
+            "target_ref": "ck:event:01904100-0000-7000-8000-000000000099",
+            "key": "+1"
+        });
+
+        let payload = reaction.as_message_event_payload().unwrap();
+        match payload {
+            MessageEventPayload::ReactionAdd(payload) => assert_eq!(payload.key, "+1"),
+            other => panic!("unexpected payload: {other:?}"),
+        }
     }
 
     #[test]

@@ -2,19 +2,24 @@
 //! endpoint methods on [`Client`].
 
 use cokret_core::{
-    AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountSubscribeFrame, ContactList,
-    ContactRequestOutcome, ContactRequestRequestBody, ContactRespondOutcome,
-    ContactRespondRequestBody, ContactTombstone, ContactTombstoneRequestBody,
-    DirectConversationResolveOutcome, DirectConversationResolveRequestBody, Error,
-    PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST, PATH_SELF_CONTACTS_RESPOND,
-    PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, Result,
-    SessionGrantOutcome, SessionGrantRequestBody, SyncDescription, SyncOutcome, SyncRequestBody,
+    AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountDeviceEnrollOutcome,
+    AccountDeviceEnrollRequestBody, AccountDevicePairOutcome, AccountDevicePairRequestBody,
+    AccountLogoutOutcome, AccountLogoutRequestBody, AccountRegisterOutcome,
+    AccountRegisterRequestBody, AccountSubscribeFrame, AccountUpdateProfileOutcome,
+    AccountUpdateProfileRequestBody, AccountView, ContactList, ContactRequestOutcome,
+    ContactRequestRequestBody, ContactRespondOutcome, ContactRespondRequestBody, ContactTombstone,
+    ContactTombstoneRequestBody, DirectConversationResolveOutcome,
+    DirectConversationResolveRequestBody, Error, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
+    PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
+    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, Result, SessionGrantOutcome,
+    SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
+    SyncDescription, SyncOutcome, SyncRequestBody,
 };
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, RequestBuilder, Response};
 
 use crate::client_internals::{read_body_limited, transport_error, trim_ascii};
-use crate::{Client, MAX_SUBSCRIBE_FRAME_BYTES};
+use crate::{Client, ClientRequestOptions, MAX_SUBSCRIBE_FRAME_BYTES};
 
 impl Client {
     /// `POST /_cokret/gate/account/session-grants`
@@ -28,6 +33,65 @@ impl Client {
         req: &SessionGrantRequestBody,
     ) -> Result<SessionGrantOutcome> {
         self.post("/_cokret/gate/account/session-grants", req).await
+    }
+
+    /// `POST /_cokret/gate/account/session-grants/refresh`
+    /// (`ck.gate.account.command.refresh_session_grant`): rotate a
+    /// DPoP-bound session grant without changing the grant audience.
+    pub async fn auth_refresh_session_grant(
+        &self,
+        req: &SessionGrantRefreshRequestBody,
+    ) -> Result<SessionGrantRefreshOutcome> {
+        self.post("/_cokret/gate/account/session-grants/refresh", req)
+            .await
+    }
+
+    /// `POST /_cokret/gate/account/device-enroll`
+    /// (`ck.gate.account.command.enroll_device`): ask the Account Authority
+    /// to mint a signed `service_attested` `ck.device.authorize` event for the
+    /// current DPoP-bound session device.
+    pub async fn auth_device_enroll(
+        &self,
+        req: &AccountDeviceEnrollRequestBody,
+    ) -> Result<AccountDeviceEnrollOutcome> {
+        self.post("/_cokret/gate/account/device-enroll", req).await
+    }
+
+    /// `POST /_cokret/gate/account/logout`
+    /// (`ck.gate.account.command.logout`): terminate the current
+    /// DPoP-bound account session at the Account Authority.
+    pub async fn auth_account_logout(&self) -> Result<AccountLogoutOutcome> {
+        self.post(
+            "/_cokret/gate/account/logout",
+            &AccountLogoutRequestBody::default(),
+        )
+        .await
+    }
+
+    pub async fn account_viewer(&self) -> Result<AccountView> {
+        self.get("/_cokret/self/account/viewer").await
+    }
+
+    pub async fn account_register(
+        &self,
+        request: &AccountRegisterRequestBody,
+    ) -> Result<AccountRegisterOutcome> {
+        self.post("/_cokret/gate/account/register", request).await
+    }
+
+    pub async fn account_update_profile(
+        &self,
+        request: &AccountUpdateProfileRequestBody,
+    ) -> Result<AccountUpdateProfileOutcome> {
+        self.post("/_cokret/self/account/profile", request).await
+    }
+
+    pub async fn account_device_pair(
+        &self,
+        request: &AccountDevicePairRequestBody,
+    ) -> Result<AccountDevicePairOutcome> {
+        self.post("/_cokret/gate/account/device-pair", request)
+            .await
     }
 
     fn account_subscribe_request(
@@ -100,6 +164,18 @@ impl Client {
         // Long-lived NDJSON stream — exempt from the per-request default
         // total timeout (see `DEFAULT_REQUEST_TIMEOUT`).
         let builder = self.account_subscribe_request(request, "application/x-ndjson")?;
+        self.send_response(builder).await
+    }
+
+    pub async fn account_subscribe_with_options(
+        &self,
+        request: &SyncRequestBody,
+        options: &ClientRequestOptions,
+    ) -> Result<Response> {
+        // Long-lived NDJSON stream — exempt from the per-request default
+        // total timeout (see `DEFAULT_REQUEST_TIMEOUT`).
+        let builder = self.account_subscribe_request(request, "application/x-ndjson")?;
+        let builder = self.apply_request_options(builder, options)?;
         self.send_response(builder).await
     }
 
@@ -324,6 +400,20 @@ mod tests {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    fn split_request(raw: &[u8]) -> (String, String, Vec<u8>) {
+        let idx = raw
+            .windows(4)
+            .position(|window| window == b"\r\n\r\n")
+            .unwrap();
+        let head = std::str::from_utf8(&raw[..idx]).unwrap();
+        let body = raw[idx + 4..].to_vec();
+        let mut lines = head.splitn(2, "\r\n");
+        let request_line = lines.next().unwrap_or("").to_owned();
+        let headers = lines.next().unwrap_or("").to_owned();
+        (request_line, headers, body)
+    }
+
     #[test]
     fn account_subscribe_request_serializes_filter_deep_object() {
         let filter = SyncFilter {
@@ -375,6 +465,72 @@ mod tests {
         );
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn auth_account_logout_posts_canonical_path_with_dpop() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+
+        use crate::{Auth, DpopAuth};
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let capture = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 4096];
+            let n = socket.read(&mut buf).await.unwrap();
+            let raw = buf[..n].to_vec();
+            let body = r#"{"ok":true,"revoked":true}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            socket.write_all(response.as_bytes()).await.unwrap();
+            socket.shutdown().await.ok();
+            raw
+        });
+
+        let expected_htu = format!("http://{addr}/_cokret/gate/account/logout");
+        let client = Client::builder(Url::parse(&format!("http://{addr}/")).unwrap())
+            .allow_insecure_localhost()
+            .auth(Auth::Dpop(DpopAuth::with_access_token(
+                "grant.jwt",
+                move |request| {
+                    assert_eq!(request.method, "POST");
+                    assert_eq!(request.htu, expected_htu);
+                    assert_eq!(request.access_token.as_deref(), Some("grant.jwt"));
+                    Ok("proof.jwt".to_owned())
+                },
+            )))
+            .build()
+            .unwrap();
+
+        let outcome = client.auth_account_logout().await.unwrap();
+        assert!(outcome.ok);
+        assert!(outcome.revoked);
+
+        let raw = capture.await.unwrap();
+        let (request_line, headers, body) = split_request(&raw);
+        assert!(
+            request_line.starts_with("POST /_cokret/gate/account/logout "),
+            "unexpected request line: {request_line}"
+        );
+        assert!(
+            headers
+                .lines()
+                .any(|line| line.eq_ignore_ascii_case("authorization: Bearer grant.jwt")),
+            "missing Authorization header: {headers}"
+        );
+        assert!(
+            headers
+                .lines()
+                .any(|line| line.eq_ignore_ascii_case("dpop: proof.jwt")),
+            "missing DPoP header: {headers}"
+        );
+        assert_eq!(body, b"{}");
+    }
+
     #[test]
     fn account_subscribe_request_rejects_transport_unsupported_fields() {
         let with_subscriptions = SyncRequestBody {
@@ -401,6 +557,25 @@ mod tests {
             .account_subscribe_request(&with_wait_for, "application/x-ndjson")
             .unwrap_err();
         assert!(matches!(error, Error::Protocol(message) if message.contains("wait_for")));
+    }
+
+    #[test]
+    fn account_subscribe_request_options_attach_wait_for_header() {
+        let options = ClientRequestOptions::new().wait_for("ck:cursor:01904100");
+        let built = client()
+            .account_subscribe_request(&empty_request(), "application/x-ndjson")
+            .and_then(|request| client().apply_request_options(request, &options))
+            .unwrap()
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            built
+                .headers()
+                .get(crate::HEADER_WAIT_FOR)
+                .and_then(|value| value.to_str().ok()),
+            Some("ck:cursor:01904100")
+        );
     }
 
     #[test]

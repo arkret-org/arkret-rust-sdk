@@ -345,6 +345,26 @@ mod account_subscribe_frame_tests {
     }
 
     #[test]
+    fn account_subscribe_delta_projects_to_device_ack_fields() {
+        let line = r#"{"cursor":"ck:cursor:account-1","kind":"delta","to_device":{"ack_token":"ack-account-1","limited":true,"lost":false,"messages":[],"next_cursor":"ck:cursor:device-2"}}"#;
+        let frame = AccountSubscribeFrame::from_ndjson_line(line)
+            .unwrap()
+            .unwrap();
+        let outcome = SyncOutcome::from_account_subscribe_frame(frame).unwrap();
+
+        assert_eq!(
+            outcome.to_device_ack_token.as_deref(),
+            Some("ack-account-1")
+        );
+        assert!(outcome.to_device_limited);
+        assert_eq!(
+            outcome.to_device_next_cursor.as_deref(),
+            Some("ck:cursor:device-2")
+        );
+        assert_eq!(outcome.to_device_lost, Some(false));
+    }
+
+    #[test]
     fn account_subscribe_frame_from_ndjson_line_empty_returns_none() {
         assert!(
             AccountSubscribeFrame::from_ndjson_line("")
@@ -398,7 +418,49 @@ pub struct SyncDescription {
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub limits: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub frontier: Option<String>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub frontier: Option<Value>,
+}
+
+#[cfg(test)]
+mod sync_description_tests {
+    use super::*;
+
+    #[test]
+    fn sync_description_frontier_preserves_raw_service_shape() {
+        let object_frontier: SyncDescription = serde_json::from_value(serde_json::json!({
+            "service_did": "did:web:server.local",
+            "supported_sync_profiles": ["initial"],
+            "limits": {},
+            "frontier": {"storage": "memory"}
+        }))
+        .unwrap();
+        assert_eq!(
+            object_frontier
+                .frontier
+                .as_ref()
+                .and_then(|value| value.get("storage"))
+                .and_then(Value::as_str),
+            Some("memory")
+        );
+
+        let array_frontier: SyncDescription = serde_json::from_value(serde_json::json!({
+            "service_did": "did:web:server.local",
+            "supported_sync_profiles": ["initial"],
+            "limits": {},
+            "frontier": ["ck:event:0196419b-0000-7000-8000-000000000001"]
+        }))
+        .unwrap();
+        assert_eq!(
+            array_frontier
+                .frontier
+                .as_ref()
+                .and_then(Value::as_array)
+                .and_then(|frontier| frontier.first())
+                .and_then(Value::as_str),
+            Some("ck:event:0196419b-0000-7000-8000-000000000001")
+        );
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

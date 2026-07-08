@@ -935,6 +935,9 @@ impl SyncClient {
             realm_updates,
             malformed_realms,
             to_device: project_typed_vec(response.to_device),
+            to_device_ack_token: response.to_device_ack_token,
+            to_device_limited: response.to_device_limited,
+            to_device_next_cursor: response.to_device_next_cursor,
             to_device_lost: response.to_device_lost.unwrap_or(false),
             device_lists: serde_json::from_value(response.device_lists).unwrap_or_default(),
             presence: project_typed_vec(response.presence),
@@ -984,6 +987,17 @@ pub struct SyncUpdates {
     pub malformed_realms: Vec<String>,
     /// To-device messages
     pub to_device: Vec<ToDeviceMessage>,
+    /// Opaque acknowledgement token for the delivered to-device batch.
+    ///
+    /// Issued by account subscribe when `to_device.messages[]` is non-empty
+    /// and passed verbatim to `ck.self.device_messages.command.ack` after the
+    /// client durably records the batch.
+    pub to_device_ack_token: Option<String>,
+    /// Whether the account-subscribe to-device batch was truncated.
+    pub to_device_limited: bool,
+    /// Continuation cursor for `ck.self.device_messages.query.list` when the
+    /// account-subscribe to-device batch is limited.
+    pub to_device_next_cursor: Option<String>,
     /// Whether the server reports an unacknowledged to-device queue gap.
     pub to_device_lost: bool,
     /// Device list changes
@@ -1085,9 +1099,9 @@ mod tests {
             realms: BTreeMap::new(),
             left_realms: Vec::new(),
             to_device: Vec::new(),
-            to_device_ack_token: None,
-            to_device_limited: false,
-            to_device_next_cursor: None,
+            to_device_ack_token: Some("ack-token-1".to_owned()),
+            to_device_limited: true,
+            to_device_next_cursor: Some("device-cursor-2".to_owned()),
             to_device_lost: None,
             device_lists: Value::Null,
             account_data: Vec::new(),
@@ -1098,6 +1112,12 @@ mod tests {
 
         let updates = client.process_response(response);
         assert_eq!(client.current_token(), Some("token456"));
+        assert_eq!(updates.to_device_ack_token.as_deref(), Some("ack-token-1"));
+        assert!(updates.to_device_limited);
+        assert_eq!(
+            updates.to_device_next_cursor.as_deref(),
+            Some("device-cursor-2")
+        );
         assert!(!updates.to_device_lost);
     }
 

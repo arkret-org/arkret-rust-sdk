@@ -1,23 +1,167 @@
 //! Blob, key, key-backup, and device-message endpoint methods on [`Client`].
 
+use base64::Engine;
 use cokret_core::{
-    BackupId, BlobMetadata, BlobRef, BlobUploadMetadata, BlobUploadOutcome,
-    DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome,
-    DeviceMessagesPutOutcome, DeviceMessagesPutRequestBody, KeyBackup, KeyBackupSummary,
-    KeyBackupsListQuery, KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody,
-    KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody, KeyPackagesRevokeOutcome,
-    KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody,
-    KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody, KeysBackupsList, KeysBackupsPutOutcome,
-    KeysBackupsUnlockRequestBody, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
-    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody, Result,
+    BackupId, BlobMetadata, BlobPresignOutcome, BlobPresignRequestBody, BlobRef,
+    BlobUploadMetadata, BlobUploadOutcome, DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody,
+    DeviceMessagesGetOutcome, DeviceMessagesPutOutcome, DeviceMessagesPutRequestBody, Error,
+    KeyBackup, KeyBackupSummary, KeyBackupsListQuery, KeyPackagesClaimOutcome,
+    KeyPackagesClaimRequestBody, KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody,
+    KeyPackagesRevokeOutcome, KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome,
+    KeyPackagesUploadRequestBody, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
+    KeysBackupsList, KeysBackupsPutOutcome, KeysBackupsUnlockRequestBody, KeysClaimOutcome,
+    KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome,
+    KeysUploadRequestBody, Result, ServerDescription,
 };
 use reqwest::Method;
-use reqwest::header::HeaderMap;
+use reqwest::header::{HeaderMap, RANGE};
+use url::Url;
 
-use crate::client_internals::{MAX_RESPONSE_BODY_BYTES, read_body_limited};
+use crate::client_internals::{
+    MAX_RESPONSE_BODY_BYTES, read_body_limited, validate_base_url, validate_header_value,
+};
 use crate::{Client, ClientRequestOptions};
 
+/// Protocol-level feature id the server must advertise before a caller uses
+/// the optional tus upload binding.
+pub const RESUMABLE_UPLOAD_FEATURE: &str = "ck.feature.blob.resumable_upload.tus.v1";
+/// Default ciphertext size where callers should prefer the resumable binding
+/// over the canonical single-shot multipart upload when the server advertises
+/// it. Below this threshold the extra tus round-trips usually do not pay off.
+pub const RESUMABLE_UPLOAD_THRESHOLD_BYTES: usize = 2 * 1024 * 1024;
+/// One chunk per request keeps memory bounded and limits the resume window.
+const DEFAULT_RESUMABLE_CHUNK_BYTES: usize = 1024 * 1024;
+const TUS_VERSION: &str = "1.0.0";
+const DEFAULT_MAX_CHUNK_RETRIES: usize = 3;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BlobResumableUploadOptions {
+    pub metadata: Vec<(String, String)>,
+    pub chunk_bytes: usize,
+    pub max_chunk_retries: usize,
+}
+
+impl Default for BlobResumableUploadOptions {
+    fn default() -> Self {
+        Self {
+            metadata: Vec::new(),
+            chunk_bytes: DEFAULT_RESUMABLE_CHUNK_BYTES,
+            max_chunk_retries: DEFAULT_MAX_CHUNK_RETRIES,
+        }
+    }
+}
+
+impl BlobResumableUploadOptions {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[must_use]
+    pub fn metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.metadata.push((key.into(), value.into()));
+        self
+    }
+
+    #[must_use]
+    pub fn chunk_bytes(mut self, chunk_bytes: usize) -> Self {
+        self.chunk_bytes = chunk_bytes;
+        self
+    }
+
+    #[must_use]
+    pub fn max_chunk_retries(mut self, max_chunk_retries: usize) -> Self {
+        self.max_chunk_retries = max_chunk_retries;
+        self
+    }
+}
+
+pub fn blob_resumable_upload_base_url(description: &ServerDescription) -> Option<Url> {
+    if !description
+        .supported_features
+        .iter()
+        .any(|feature| feature == RESUMABLE_UPLOAD_FEATURE)
+    {
+        return None;
+    }
+    let binding = description
+        .supported_bindings
+        .iter()
+        .find(|binding| binding.kind == "tus")?;
+    if let Some(operations) = binding
+        .extra
+        .get("operations")
+        .and_then(|value| value.as_array())
+        && !operations
+            .iter()
+            .any(|operation| operation.as_str() == Some("ck.self.blob.upload.create"))
+    {
+        return None;
+    }
+    let base_url = binding.base_url.as_deref()?;
+    Url::parse(base_url).ok()
+}
+
+fn b64_metadata_value(value: &str) -> String {
+    base64::engine::general_purpose::STANDARD.encode(value.as_bytes())
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BlobDownloadOptions {
+    pub purpose: Option<String>,
+    pub range: Option<String>,
+    pub max_bytes: usize,
+}
+
+impl Default for BlobDownloadOptions {
+    fn default() -> Self {
+        Self {
+            purpose: None,
+            range: None,
+            max_bytes: MAX_RESPONSE_BODY_BYTES,
+        }
+    }
+}
+
+impl BlobDownloadOptions {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[must_use]
+    pub fn purpose(mut self, purpose: impl Into<String>) -> Self {
+        self.purpose = Some(purpose.into());
+        self
+    }
+
+    #[must_use]
+    pub fn range(mut self, range: impl Into<String>) -> Self {
+        self.range = Some(range.into());
+        self
+    }
+
+    #[must_use]
+    pub fn max_bytes(mut self, max_bytes: usize) -> Self {
+        self.max_bytes = max_bytes;
+        self
+    }
+}
+
 impl Client {
+    fn tus_request(&self, method: Method, url: Url) -> Result<reqwest::RequestBuilder> {
+        validate_base_url(&url, true)?;
+        let method_for_auth = method.clone();
+        let mut builder = self.http.request(method, url.clone());
+        if let Some(user_agent) = &self.user_agent {
+            builder = builder.header(reqwest::header::USER_AGENT, user_agent);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        let builder = match self.default_timeout {
+            Some(timeout) => builder.timeout(timeout),
+            None => builder,
+        };
+        self.apply_auth(builder, &method_for_auth, &url)
+    }
+
     pub async fn blob_metadata(&self, blob_ref: &BlobRef) -> Result<BlobMetadata> {
         let builder = self
             .request(Method::GET, "/_cokret/self/blob/get")?
@@ -36,42 +180,266 @@ impl Client {
         self.post("/_cokret/self/blob/upload", body).await
     }
 
+    pub async fn blob_presign(&self, body: &BlobPresignRequestBody) -> Result<BlobPresignOutcome> {
+        self.post("/_cokret/self/blob/presign", body).await
+    }
+
     pub async fn blob_upload_bytes(
         &self,
         metadata: &BlobUploadMetadata,
         bytes: Vec<u8>,
     ) -> Result<BlobUploadOutcome> {
-        let mut builder = self
+        let media_type = metadata
+            .media_type
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or("application/octet-stream");
+        let mut content = reqwest::multipart::Part::bytes(bytes)
+            .mime_str(media_type)
+            .map_err(|error| Error::Protocol(format!("blob media_type: {error}")))?;
+        if let Some(filename) = metadata.filename.as_ref() {
+            content = content.file_name(filename.clone());
+        }
+        let mut form = reqwest::multipart::Form::new()
+            .part("content", content)
+            .text("size_bytes", metadata.size_bytes.to_string())
+            .text("media_type", media_type.to_owned());
+        if let Some(realm_id) = metadata.realm_id.as_ref() {
+            form = form.text("realm_id", realm_id.as_str().to_owned());
+        }
+        if let Some(content_digest) = metadata.content_digest.as_ref() {
+            form = form.text("content_digest", content_digest.as_str().to_owned());
+        }
+        if let Some(filename) = metadata.filename.as_ref() {
+            form = form.text("filename", filename.clone());
+        }
+        if let Some(purpose) = metadata.purpose.as_ref() {
+            form = form.text("purpose", purpose.clone());
+        }
+        let builder = self
             .request(Method::POST, "/_cokret/self/blob/upload")?
-            .header("X-Cokret-Blob-Metadata", serde_json::to_string(metadata)?);
-        if let Some(media_type) = &metadata.media_type {
-            builder = builder.header("Content-Type", media_type);
-        }
-        if let Some(filename) = &metadata.filename {
-            builder = builder.header(
-                "Content-Disposition",
-                format!("attachment; filename=\"{filename}\""),
-            );
-        }
-        if let Some(content_digest) = &metadata.content_digest {
-            builder = builder.header("Digest", content_digest.as_str());
-        }
-        self.send_json(builder.body(bytes)).await
+            .multipart(form);
+        self.send_json(builder).await
     }
 
-    /// Download blob bytes. The body is read incrementally with an 8 MiB
-    /// cap so a hostile peer cannot materialize an unbounded (or
-    /// gzip-amplified) body into memory; larger blobs must be fetched with
-    /// `Range` requests.
+    /// Download blob bytes with the default response-size cap.
     pub async fn blob_download(&self, blob_ref: &BlobRef, range: Option<&str>) -> Result<Vec<u8>> {
+        let options = match range {
+            Some(range) => BlobDownloadOptions::new().range(range.to_owned()),
+            None => BlobDownloadOptions::new(),
+        };
+        self.blob_download_bytes(blob_ref, &options).await
+    }
+
+    /// Open an authenticated blob download response for progressive readers.
+    ///
+    /// Callers that need segment-by-segment decryption or playback should use
+    /// this method with `Range` and consume the returned response stream
+    /// directly. The convenience bytes methods below add a memory cap before
+    /// materializing the response into a `Vec<u8>`.
+    pub async fn blob_download_response(
+        &self,
+        blob_ref: &BlobRef,
+        options: &BlobDownloadOptions,
+    ) -> Result<reqwest::Response> {
+        self.blob_download_response_with_options(
+            blob_ref,
+            options,
+            &ClientRequestOptions::default(),
+        )
+        .await
+    }
+
+    pub async fn blob_download_response_with_options(
+        &self,
+        blob_ref: &BlobRef,
+        options: &BlobDownloadOptions,
+        request_options: &ClientRequestOptions,
+    ) -> Result<reqwest::Response> {
         let mut builder = self
             .request(Method::GET, "/_cokret/self/blob/get")?
             .query(&[("blob_ref", blob_ref.as_str())]);
-        if let Some(range) = range {
-            builder = builder.header("Range", range);
+        if let Some(purpose) = options
+            .purpose
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            builder = builder.query(&[("purpose", purpose)]);
         }
-        let response = self.send_response(builder).await?;
-        read_body_limited(response, MAX_RESPONSE_BODY_BYTES).await
+        if let Some(range) = options
+            .range
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            validate_header_value("Range", range)?;
+            builder = builder.header(RANGE, range);
+        }
+        let builder = self.apply_request_options(builder, request_options)?;
+        self.send_response(builder).await
+    }
+
+    /// Download blob bytes. The body is read incrementally with the cap in
+    /// [`BlobDownloadOptions::max_bytes`] so a hostile peer cannot materialize
+    /// an unbounded or gzip-amplified body into memory.
+    pub async fn blob_download_bytes(
+        &self,
+        blob_ref: &BlobRef,
+        options: &BlobDownloadOptions,
+    ) -> Result<Vec<u8>> {
+        self.blob_download_bytes_with_options(blob_ref, options, &ClientRequestOptions::default())
+            .await
+    }
+
+    pub async fn blob_download_bytes_with_options(
+        &self,
+        blob_ref: &BlobRef,
+        options: &BlobDownloadOptions,
+        request_options: &ClientRequestOptions,
+    ) -> Result<Vec<u8>> {
+        let limit = options.max_bytes;
+        if limit == 0 {
+            return Err(Error::Protocol(
+                "blob download max_bytes must be greater than zero".to_owned(),
+            ));
+        }
+        let response = self
+            .blob_download_response_with_options(blob_ref, options, request_options)
+            .await?;
+        read_body_limited(response, limit).await
+    }
+
+    /// Drive one payload through a describe-discovered tus binding:
+    /// create -> PATCH loop -> finalize. Any caller-level fallback to the
+    /// canonical multipart upload should remain outside this primitive.
+    pub async fn blob_upload_resumable(
+        &self,
+        base_url: Url,
+        payload: &[u8],
+        options: &BlobResumableUploadOptions,
+    ) -> Result<BlobUploadOutcome> {
+        if options.chunk_bytes == 0 {
+            return Err(Error::Protocol(
+                "resumable upload chunk_bytes must be greater than zero".to_owned(),
+            ));
+        }
+        let upload_metadata = options
+            .metadata
+            .iter()
+            .map(|(key, value)| format!("{key} {}", b64_metadata_value(value)))
+            .collect::<Vec<_>>()
+            .join(",");
+        let create = self
+            .execute(
+                self.tus_request(Method::POST, base_url.clone())?
+                    .header("tus-resumable", TUS_VERSION)
+                    .header("upload-length", payload.len().to_string())
+                    .header("upload-metadata", upload_metadata),
+            )
+            .await?;
+        if create.status() != reqwest::StatusCode::CREATED {
+            return Err(Error::Protocol(format!(
+                "resumable upload create failed with status {}",
+                create.status()
+            )));
+        }
+        let location = create
+            .headers()
+            .get("location")
+            .and_then(|value| value.to_str().ok())
+            .ok_or_else(|| {
+                Error::Protocol("resumable upload create returned no Location".to_owned())
+            })?;
+        let upload_url = base_url
+            .join(location)
+            .map_err(|error| Error::Protocol(format!("unresolvable upload Location: {error}")))?;
+
+        let mut offset: usize = 0;
+        let mut retries = 0usize;
+        while offset < payload.len() {
+            let end = (offset + options.chunk_bytes).min(payload.len());
+            let chunk = payload[offset..end].to_vec();
+            let patch = self
+                .execute(
+                    self.tus_request(Method::PATCH, upload_url.clone())?
+                        .header("tus-resumable", TUS_VERSION)
+                        .header("content-type", "application/offset+octet-stream")
+                        .header("upload-offset", offset.to_string())
+                        .body(chunk),
+                )
+                .await;
+            let committed = match patch {
+                Ok(response) if response.status() == reqwest::StatusCode::NO_CONTENT => response
+                    .headers()
+                    .get("upload-offset")
+                    .and_then(|value| value.to_str().ok())
+                    .and_then(|value| value.parse::<usize>().ok()),
+                Ok(response)
+                    if response.status() == reqwest::StatusCode::CONFLICT
+                        || response.status() == reqwest::StatusCode::NOT_FOUND =>
+                {
+                    None
+                }
+                Ok(response) => {
+                    return Err(Error::Protocol(format!(
+                        "resumable chunk failed with status {}",
+                        response.status()
+                    )));
+                }
+                Err(_) => None,
+            };
+            match committed {
+                Some(new_offset) if new_offset > offset => {
+                    offset = new_offset;
+                    retries = 0;
+                }
+                Some(_) => {
+                    retries += 1;
+                    if retries > options.max_chunk_retries {
+                        return Err(Error::Protocol(
+                            "resumable upload offset did not advance (server returned non-monotonic Upload-Offset)"
+                                .to_owned(),
+                        ));
+                    }
+                    offset = self.resumable_committed_offset(&upload_url).await?;
+                }
+                None => {
+                    retries += 1;
+                    if retries > options.max_chunk_retries {
+                        return Err(Error::Protocol(
+                            "resumable upload exceeded chunk retry budget".to_owned(),
+                        ));
+                    }
+                    offset = self.resumable_committed_offset(&upload_url).await?;
+                }
+            }
+        }
+
+        let finalize_url = finalize_url_for(&upload_url)?;
+        self.send_json(self.tus_request(Method::POST, finalize_url)?)
+            .await
+    }
+
+    async fn resumable_committed_offset(&self, upload_url: &Url) -> Result<usize> {
+        let response = self
+            .execute(
+                self.tus_request(Method::HEAD, upload_url.clone())?
+                    .header("tus-resumable", TUS_VERSION),
+            )
+            .await?;
+        if !response.status().is_success() {
+            return Err(Error::Protocol(format!(
+                "resumable upload resume probe failed with status {}",
+                response.status()
+            )));
+        }
+        response
+            .headers()
+            .get("upload-offset")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<usize>().ok())
+            .ok_or_else(|| Error::Protocol("resume probe returned no Upload-Offset".to_owned()))
     }
 
     pub async fn keys_upload(&self, request: &KeysUploadRequestBody) -> Result<KeysUploadOutcome> {
@@ -133,10 +501,13 @@ impl Client {
     }
 
     /// List existing key backups for the authorized actor. Honors the
-    /// `backup_class` / `cursor` / `limit` filters from
+    /// `series_id` / `backup_class` / `cursor` / `limit` filters from
     /// [`KeyBackupsListQuery`] (key-management.md §7.5).
     pub async fn list_key_backups(&self, query: &KeyBackupsListQuery) -> Result<KeysBackupsList> {
         let mut builder = self.request(Method::GET, "/_cokret/self/keys/backups")?;
+        if let Some(ref series_id) = query.series_id {
+            builder = builder.query(&[("series_id", series_id.as_str())]);
+        }
         if let Some(class) = query.backup_class {
             let class_str = match class {
                 cokret_core::BackupClass::DidRecovery => "did_recovery",
@@ -159,6 +530,7 @@ impl Client {
     pub async fn list_all_key_backups(&self) -> Result<Vec<KeyBackupSummary>> {
         let response: KeysBackupsList = self
             .list_key_backups(&KeyBackupsListQuery {
+                series_id: None,
                 backup_class: None,
                 cursor: None,
                 limit: None,
@@ -225,5 +597,74 @@ impl Client {
     ) -> Result<DeviceMessagesAckOutcome> {
         self.post("/_cokret/self/device_messages/ack", request)
             .await
+    }
+}
+
+fn finalize_url_for(upload_url: &Url) -> Result<Url> {
+    let mut finalize_url = upload_url.clone();
+    let path = format!("{}/finalize", finalize_url.path().trim_end_matches('/'));
+    finalize_url.set_path(&path);
+    finalize_url.set_query(None);
+    Ok(finalize_url)
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn resumable_metadata_values_use_standard_base64() {
+        assert_eq!(b64_metadata_value("file_transfer"), "ZmlsZV90cmFuc2Zlcg==");
+        assert_eq!(b64_metadata_value("true"), "dHJ1ZQ==");
+    }
+
+    #[test]
+    fn resumable_upload_base_url_requires_feature_and_operation() {
+        let mut description: ServerDescription = serde_json::from_value(json!({
+            "protocol_version": "1.0",
+            "service_type": "principal_server",
+            "service_did": "did:web:server.local",
+            "trust_domain": "ck:trust_domain:server.local",
+            "supported_profiles": [],
+            "supported_operations": [],
+            "supported_bindings": [{
+                "kind": "tus",
+                "base_url": "https://server.local/uploads/",
+                "operations": ["ck.self.blob.upload.create"]
+            }],
+            "supported_features": [RESUMABLE_UPLOAD_FEATURE],
+            "auth_metadata": {"mode": "development", "methods": []},
+            "limits": {},
+            "plaintext_visibility": {"data_classes": [], "max_visibility": "none"},
+            "implemented_features": [],
+            "claimed_profiles": [],
+            "verified_profiles": [],
+            "experimental_features": [],
+            "compat_surfaces": [],
+            "development_mode": false,
+            "rate_limit_policy": {}
+        }))
+        .unwrap();
+
+        assert_eq!(
+            blob_resumable_upload_base_url(&description)
+                .map(|url| url.to_string())
+                .as_deref(),
+            Some("https://server.local/uploads/")
+        );
+
+        description.supported_features.clear();
+        assert!(blob_resumable_upload_base_url(&description).is_none());
+    }
+
+    #[test]
+    fn finalize_url_appends_path_segment_and_drops_query() {
+        let upload_url = Url::parse("https://server.local/uploads/abc?token=bad").unwrap();
+        assert_eq!(
+            finalize_url_for(&upload_url).unwrap().as_str(),
+            "https://server.local/uploads/abc/finalize"
+        );
     }
 }

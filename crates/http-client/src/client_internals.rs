@@ -6,6 +6,11 @@
 //! they are not part of the public API.
 
 use cokret_core::{Error, ErrorEnvelope, Result};
+use cokret_signatures::http_signature::{
+    Component, ContentDigest, ContentDigestAlgorithm, SignedRequestParts, canonical_message,
+    format_signature_header, format_signature_input_component_list, parse_signature_input,
+    sign_message,
+};
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use reqwest::{Method, RequestBuilder, Response};
 use serde::de::DeserializeOwned;
@@ -189,6 +194,104 @@ impl Client {
         Ok(response)
     }
 
+    fn sign_http_message(&self, mut request: reqwest::Request) -> Result<reqwest::Request> {
+        let Some(signer) = self.http_message_signer.as_ref() else {
+            return Ok(request);
+        };
+        if !is_http_message_signature_surface(request.url().path()) {
+            return Ok(request);
+        }
+
+        let body_digest = match request.body() {
+            Some(body) => {
+                let bytes = body.as_bytes().ok_or_else(|| {
+                    Error::Protocol(
+                        "HTTP message signing requires a buffered request body".to_owned(),
+                    )
+                })?;
+                if bytes.is_empty() {
+                    None
+                } else {
+                    Some(ContentDigest::compute(
+                        bytes,
+                        ContentDigestAlgorithm::Sha256,
+                    ))
+                }
+            }
+            None => None,
+        };
+
+        let mut covered_components = vec![
+            Component::Method,
+            Component::TargetUri,
+            Component::Authority,
+        ];
+        if body_digest.is_some() {
+            covered_components.push(Component::Header("content-digest".to_owned()));
+        }
+        let created = chrono::Utc::now().timestamp();
+        let validity = signer.validity_seconds();
+        if validity <= 0 || validity > 300 {
+            return Err(Error::Protocol(
+                "HTTP message signature validity must be within 1..=300 seconds".to_owned(),
+            ));
+        }
+        let expires = created + validity;
+        let signature_input_header =
+            format_signature_input_component_list("sig1", &covered_components)
+                .map_err(|error| Error::Protocol(format!("signature input: {error}")))?;
+        let signature_input_header = format!(
+            "{signature_input_header};created={created};expires={expires};keyid=\"{}\";alg=\"ed25519\"",
+            signer.key_id()
+        );
+        let signature_input = parse_signature_input(&signature_input_header)
+            .map_err(|error| Error::Protocol(format!("signature input: {error}")))?;
+        let url = request.url();
+        let parts = SignedRequestParts {
+            method: request.method().as_str().to_owned(),
+            target_uri: url.as_str().to_owned(),
+            authority: request_authority(url)?,
+            path: url.path().to_owned(),
+            headers: Vec::new(),
+            body_digest: body_digest.as_ref().map(|digest| digest.wire_value.clone()),
+        };
+        let message = canonical_message(&parts, &signature_input)
+            .map_err(|error| Error::Protocol(format!("canonical signature message: {error}")))?;
+        let signature_header =
+            format_signature_header("sig1", &sign_message(&message, signer.signing_key()))
+                .map_err(|error| Error::Protocol(format!("signature header: {error}")))?;
+
+        let headers = request.headers_mut();
+        if let Some(digest) = body_digest {
+            headers.insert(
+                "Content-Digest",
+                HeaderValue::from_str(&digest.wire_value)
+                    .map_err(|error| Error::Protocol(format!("content-digest header: {error}")))?,
+            );
+        }
+        headers.insert(
+            "Signature-Input",
+            HeaderValue::from_str(&signature_input_header)
+                .map_err(|error| Error::Protocol(format!("signature-input header: {error}")))?,
+        );
+        headers.insert(
+            "Signature",
+            HeaderValue::from_str(&signature_header)
+                .map_err(|error| Error::Protocol(format!("signature header: {error}")))?,
+        );
+        Ok(request)
+    }
+
+    fn build_signed_request(&self, builder: RequestBuilder) -> Result<reqwest::Request> {
+        let request = builder.build().map_err(transport_error)?;
+        self.sign_http_message(request)
+    }
+
+    async fn send_request_builder(&self, builder: RequestBuilder) -> Result<Response> {
+        let request = self.build_signed_request(builder)?;
+        self.http.execute(request).await.map_err(transport_error)
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) async fn execute(&self, builder: RequestBuilder) -> Result<Response> {
         validate_request_builder(&builder)?;
@@ -204,7 +307,7 @@ impl Client {
             );
         }
         if self.retry.max_retries == 0 {
-            let response = builder.send().await.map_err(transport_error)?;
+            let response = self.send_request_builder(builder).await?;
             #[cfg(feature = "tracing")]
             if let Some(trace) = &trace {
                 tracing::debug!(
@@ -218,7 +321,7 @@ impl Client {
         }
 
         let Some(template) = builder.try_clone() else {
-            let response = builder.send().await.map_err(transport_error)?;
+            let response = self.send_request_builder(builder).await?;
             #[cfg(feature = "tracing")]
             if let Some(trace) = &trace {
                 tracing::debug!(
@@ -258,7 +361,8 @@ impl Client {
             let attempt_builder = template.try_clone().ok_or_else(|| {
                 Error::Protocol("retryable request could not be cloned".to_owned())
             })?;
-            match attempt_builder.send().await {
+            let attempt_request = self.build_signed_request(attempt_builder)?;
+            match self.http.execute(attempt_request).await {
                 Ok(response)
                     if idempotent
                         && attempts < self.retry.max_retries
@@ -375,7 +479,7 @@ impl Client {
                 "sending Cokret HTTP request"
             );
         }
-        let response = builder.send().await.map_err(transport_error)?;
+        let response = self.send_request_builder(builder).await?;
         #[cfg(feature = "tracing")]
         if let Some(trace) = &trace {
             tracing::debug!(
@@ -387,6 +491,20 @@ impl Client {
         }
         Ok(response)
     }
+}
+
+fn is_http_message_signature_surface(path: &str) -> bool {
+    path.starts_with("/_cokret/self/") || path.starts_with("/_cokret/root/")
+}
+
+fn request_authority(url: &Url) -> Result<String> {
+    let host = url
+        .host_str()
+        .ok_or_else(|| Error::Protocol("request URL has no host".to_owned()))?;
+    Ok(match url.port() {
+        Some(port) => format!("{host}:{port}"),
+        None => host.to_owned(),
+    })
 }
 
 pub(crate) fn validate_base_url(url: &Url, allow_insecure_localhost: bool) -> Result<()> {

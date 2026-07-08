@@ -232,6 +232,9 @@ fn processor_dispatches_all_update_categories() {
         })
         .unwrap(),
     );
+    response.to_device_ack_token = Some("ack-sync-1".to_owned());
+    response.to_device_limited = true;
+    response.to_device_next_cursor = Some("device-cursor-2".to_owned());
     response.to_device_lost = Some(true);
     response.device_lists = json!({"changed": ["did:webvh:z6mkfixture:alice.example"], "left": []});
     response.presence.push(
@@ -275,6 +278,12 @@ fn processor_dispatches_all_update_categories() {
         3
     );
     assert_eq!(processor.drain_to_device().len(), 1);
+    assert_eq!(updates.to_device_ack_token.as_deref(), Some("ack-sync-1"));
+    assert!(updates.to_device_limited);
+    assert_eq!(
+        updates.to_device_next_cursor.as_deref(),
+        Some("device-cursor-2")
+    );
     assert!(updates.to_device_lost);
     let expected_recovery_actions = vec![
         SyncRecoveryAction::RefetchDeviceLists,

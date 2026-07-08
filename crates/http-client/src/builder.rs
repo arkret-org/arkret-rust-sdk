@@ -13,7 +13,7 @@ use url::Url;
 use crate::client_internals::{
     transport_error, validate_auth, validate_base_url, validate_header_value,
 };
-use crate::{Auth, Client, RetryConfig};
+use crate::{Auth, Client, HttpMessageSigner, RetryConfig};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{DEFAULT_CONNECT_TIMEOUT, DEFAULT_REQUEST_TIMEOUT};
 
@@ -165,6 +165,7 @@ pub struct ClientBuilder {
     base_url: Url,
     http: Option<reqwest::Client>,
     auth: Option<Auth>,
+    http_message_signer: Option<HttpMessageSigner>,
     allow_insecure_localhost: bool,
     transport: TransportConfig,
     retry: RetryConfig,
@@ -177,6 +178,7 @@ impl ClientBuilder {
             base_url,
             http: None,
             auth: None,
+            http_message_signer: None,
             allow_insecure_localhost: false,
             transport: TransportConfig::default(),
             retry: RetryConfig::default(),
@@ -195,6 +197,11 @@ impl ClientBuilder {
 
     pub fn auth(mut self, auth: Auth) -> Self {
         self.auth = Some(auth);
+        self
+    }
+
+    pub fn http_message_signer(mut self, signer: HttpMessageSigner) -> Self {
+        self.http_message_signer = Some(signer);
         self
     }
 
@@ -421,6 +428,7 @@ impl ClientBuilder {
             base_url: self.base_url,
             http,
             auth: self.auth,
+            http_message_signer: self.http_message_signer,
             retry: self.retry,
             user_agent: self.user_agent,
             #[cfg(not(target_arch = "wasm32"))]

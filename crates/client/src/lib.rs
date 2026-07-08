@@ -24,8 +24,9 @@ pub use executor::WasmExecutor;
 pub use facade::CokretClient;
 pub use outbound::{MessageCreateOptions, OutboundBuilder, OutboundCommandContext};
 pub use session::{
-    AgentKeyProofLogin, DidProofLogin, HolderProofLogin, LoginKind, OidcLogin, SessionHandle,
-    SessionProofFields,
+    AgentKeyProofLogin, DidProofLogin, HolderProofLogin, LoginKind, OidcLogin, SessionEngine,
+    SessionGrantState, SessionGrantTransport, SessionHandle, SessionProofFields,
+    SessionRefreshOptions,
 };
 pub use store::{
     CursorScope, CursorStore, EventCacheStore, MemorySecureKeyStore, MemoryStore, OpaqueCursor,
@@ -33,6 +34,7 @@ pub use store::{
     SecretDurability, SecureKeyStore, SecureKeyStoreBackendInfo, SecureKeyStoreError,
 };
 pub use subscribe::{
-    EventsScanRequest, EventsScanTransport, ScanCatchup, ScanCatchupOptions,
-    SubscriptionLoopDriver, SubscriptionStopReason, emit_account_updates,
+    EventsScanRequest, EventsScanTransport, RealmEventsDriver, RealmEventsFrameSource,
+    RealmEventsTransport, RealmStreamStopReason, ScanCatchup, ScanCatchupOptions,
+    SubscriptionEngine, SubscriptionLoopDriver, SubscriptionStopReason, emit_account_updates,
 };

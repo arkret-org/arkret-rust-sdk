@@ -23,6 +23,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use cokret_core::Result;
+use cokret_signatures::http_signature::Ed25519SigningKey;
 use reqwest::header::{HeaderMap, RETRY_AFTER};
 use reqwest::{Method, StatusCode};
 use url::Url;
@@ -30,6 +31,7 @@ use url::Url;
 mod builder;
 mod client_internals;
 mod endpoints_account;
+mod endpoints_agent;
 mod endpoints_data;
 mod endpoints_events;
 mod endpoints_identity;
@@ -45,6 +47,11 @@ pub use builder::RedirectPolicy;
 pub(crate) use client_internals::reject_path_segment;
 #[cfg(test)]
 pub(crate) use client_internals::validate_request_builder;
+pub use endpoints_data::{
+    BlobDownloadOptions, BlobResumableUploadOptions, RESUMABLE_UPLOAD_FEATURE,
+    RESUMABLE_UPLOAD_THRESHOLD_BYTES, blob_resumable_upload_base_url,
+};
+pub use endpoints_events::{EventsSubscribeFrameStream, EventsSubscribeOptions};
 pub use endpoints_misc::SignedAppletTransactionOptions;
 
 pub const HEADER_REQUEST_ID: &str = "X-Cokret-Request-Id";
@@ -151,6 +158,58 @@ impl DpopAuth {
             htu: dpop_htu(url),
             access_token: self.access_token.clone(),
         })
+    }
+}
+
+/// Optional RFC 9421 HTTP message signer for account-client requests.
+///
+/// The signer is applied immediately before a request is executed so retry
+/// attempts get fresh `created` / `expires` values. It is intentionally
+/// separate from [`Auth`]: Cokret account-client calls commonly present both a
+/// Bearer/DPoP session grant and an HTTP message signature bound to the grant's
+/// signing key.
+#[derive(Clone)]
+pub struct HttpMessageSigner {
+    key_id: String,
+    signing_key: Arc<Ed25519SigningKey>,
+    validity: Duration,
+}
+
+impl std::fmt::Debug for HttpMessageSigner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HttpMessageSigner")
+            .field("key_id", &self.key_id)
+            .field("validity", &self.validity)
+            .finish_non_exhaustive()
+    }
+}
+
+impl HttpMessageSigner {
+    pub fn new(key_id: impl Into<String>, signing_key: Ed25519SigningKey) -> Self {
+        Self {
+            key_id: key_id.into(),
+            signing_key: Arc::new(signing_key),
+            validity: Duration::from_secs(120),
+        }
+    }
+
+    #[must_use]
+    pub fn with_validity(mut self, validity: Duration) -> Self {
+        self.validity = validity;
+        self
+    }
+
+    #[must_use]
+    pub fn key_id(&self) -> &str {
+        &self.key_id
+    }
+
+    pub(crate) fn signing_key(&self) -> &Ed25519SigningKey {
+        &self.signing_key
+    }
+
+    pub(crate) fn validity_seconds(&self) -> i64 {
+        i64::try_from(self.validity.as_secs()).unwrap_or(i64::MAX)
     }
 }
 
@@ -332,6 +391,7 @@ pub struct Client {
     pub(crate) base_url: Url,
     pub(crate) http: reqwest::Client,
     pub(crate) auth: Option<Auth>,
+    pub(crate) http_message_signer: Option<HttpMessageSigner>,
     pub(crate) retry: RetryConfig,
     pub(crate) user_agent: Option<String>,
     /// Per-request total timeout applied by [`Client::request`] when the
@@ -695,9 +755,9 @@ mod tests {
         use std::collections::BTreeMap;
 
         use cokret_core::{
-            Did, DirectConversationResolveRequestBody, DirectoryPrivateContactDiscoveryRequestBody,
-            Event, EventId, EventRequirements, Hlc, MimiReportAbuseRequestBody, RealmId, StrandId,
-            SyncRequestBody,
+            BlobRef, BlobUploadMetadata, Did, DirectConversationResolveRequestBody,
+            DirectoryPrivateContactDiscoveryRequestBody, Event, EventId, EventRequirements, Hash,
+            Hlc, MimiReportAbuseRequestBody, RealmId, StrandId, SyncRequestBody,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -729,7 +789,7 @@ mod tests {
                 seal_basis: None,
                 requirements: EventRequirements::default(),
                 redacts: None,
-                content: json!({ "body": content_body }),
+                payload: json!({ "body": content_body }),
                 executed_by: None,
                 authorization_ref: None,
                 applet_id: None,
@@ -752,6 +812,16 @@ mod tests {
         async fn spawn_capture_server(
             body_response: &'static str,
         ) -> (Client, tokio::sync::oneshot::Receiver<Vec<u8>>) {
+            spawn_capture_server_with(body_response, |builder| builder).await
+        }
+
+        async fn spawn_capture_server_with<F>(
+            body_response: &'static str,
+            configure: F,
+        ) -> (Client, tokio::sync::oneshot::Receiver<Vec<u8>>)
+        where
+            F: FnOnce(ClientBuilder) -> ClientBuilder,
+        {
             let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
             let addr = listener.local_addr().unwrap();
             let (tx, rx) = tokio::sync::oneshot::channel();
@@ -803,8 +873,7 @@ mod tests {
             });
 
             let base = Url::parse(&format!("http://{addr}/")).unwrap();
-            let client = Client::builder(base)
-                .allow_insecure_localhost()
+            let client = configure(Client::builder(base).allow_insecure_localhost())
                 .build()
                 .unwrap();
             (client, rx)
@@ -854,6 +923,165 @@ mod tests {
             assert_eq!(parsed["kind"], "ck.message.create");
             assert_eq!(parsed["payload"]["body"], "hello");
             assert_eq!(parsed["actor_id"], "did:webvh:z6mkfixture:alice.example");
+        }
+
+        #[tokio::test]
+        async fn blob_upload_bytes_posts_multipart_form() {
+            let canned = r#"{"blob_ref":"ck:blob:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size_bytes":5,"media_type":"text/plain","content_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","upload_receipt":null}"#;
+            let (client, capture) = spawn_capture_server(canned).await;
+            let metadata = BlobUploadMetadata {
+                realm_id: None,
+                content_digest: Some(
+                    Hash::new(
+                        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    )
+                    .unwrap(),
+                ),
+                size_bytes: 5,
+                media_type: Some("text/plain".to_owned()),
+                filename: Some("note.txt".to_owned()),
+                purpose: Some("message_attachment".to_owned()),
+            };
+
+            let response = client
+                .blob_upload_bytes(&metadata, b"hello".to_vec())
+                .await
+                .unwrap();
+
+            assert_eq!(response.size_bytes, 5);
+            let raw = capture.await.unwrap();
+            let (request_line, headers, body) = split_request(&raw);
+            assert!(request_line.starts_with("POST /_cokret/self/blob/upload "));
+            assert!(headers.lines().any(|line| {
+                line.to_ascii_lowercase()
+                    .starts_with("content-type: multipart/form-data; boundary=")
+            }));
+            let body = String::from_utf8(body).unwrap();
+            assert!(body.contains("name=\"content\""));
+            assert!(body.contains("hello"));
+            assert!(body.contains("name=\"size_bytes\""));
+            assert!(body.contains("5"));
+            assert!(body.contains("name=\"media_type\""));
+            assert!(body.contains("text/plain"));
+            assert!(body.contains("name=\"filename\""));
+            assert!(body.contains("note.txt"));
+            assert!(body.contains("name=\"purpose\""));
+            assert!(body.contains("message_attachment"));
+        }
+
+        #[tokio::test]
+        async fn blob_download_bytes_gets_purpose_range_and_wait_for() {
+            let (client, capture) = spawn_capture_server("hello").await;
+            let blob_ref = BlobRef::new(
+                "ck:blob:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    .to_owned(),
+            )
+            .unwrap();
+            let options = BlobDownloadOptions::new()
+                .purpose("message_attachment")
+                .range("bytes=1-3")
+                .max_bytes(16);
+            let request_options = ClientRequestOptions::new().wait_for("ck:cursor:test");
+
+            let bytes = client
+                .blob_download_bytes_with_options(&blob_ref, &options, &request_options)
+                .await
+                .unwrap();
+
+            assert_eq!(bytes, b"hello");
+            let raw = capture.await.unwrap();
+            let (request_line, headers, _body) = split_request(&raw);
+            assert!(request_line.starts_with("GET /_cokret/self/blob/get?"));
+            assert!(
+                request_line.contains(
+                    "blob_ref=ck%3Ablob%3Asha256%3Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                ),
+                "unexpected request line: {request_line}",
+            );
+            assert!(request_line.contains("purpose=message_attachment"));
+            assert!(
+                headers
+                    .lines()
+                    .any(|line| { line.to_ascii_lowercase().starts_with("range: bytes=1-3") })
+            );
+            assert!(headers.lines().any(|line| {
+                line.to_ascii_lowercase()
+                    .starts_with("x-cokret-wait-for: ck:cursor:test")
+            }));
+        }
+
+        #[tokio::test]
+        async fn blob_download_bytes_enforces_configured_cap() {
+            let (client, _capture) = spawn_capture_server("hello").await;
+            let blob_ref = BlobRef::new(
+                "ck:blob:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    .to_owned(),
+            )
+            .unwrap();
+            let options = BlobDownloadOptions::new().max_bytes(4);
+
+            let error = client
+                .blob_download_bytes(&blob_ref, &options)
+                .await
+                .unwrap_err();
+
+            assert!(matches!(error, Error::Protocol(message) if message.contains("4-byte limit")));
+        }
+
+        #[tokio::test]
+        async fn http_message_signer_signs_self_requests_before_send() {
+            let canned = r#"{"status":"accepted","accepted":["ck:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let signer =
+                HttpMessageSigner::new("grant-key", Ed25519SigningKey::from_bytes(&[7u8; 32]));
+            let (client, capture) =
+                spawn_capture_server_with(canned, |builder| builder.http_message_signer(signer))
+                    .await;
+
+            let event = fixture_event("signed");
+            client.events_submit(&event).await.unwrap();
+
+            let raw = capture.await.unwrap();
+            let (_request_line, headers, _body) = split_request(&raw);
+            assert!(
+                headers
+                    .lines()
+                    .any(|line| line.to_ascii_lowercase().starts_with("signature-input:"))
+            );
+            assert!(
+                headers
+                    .lines()
+                    .any(|line| line.to_ascii_lowercase().starts_with("signature:"))
+            );
+            assert!(
+                headers
+                    .lines()
+                    .any(|line| line.to_ascii_lowercase().starts_with("content-digest:"))
+            );
+        }
+
+        #[tokio::test]
+        async fn http_message_signer_does_not_sign_public_describe() {
+            let canned = r#"{"name":"test","version":"v1"}"#;
+            let signer =
+                HttpMessageSigner::new("grant-key", Ed25519SigningKey::from_bytes(&[8u8; 32]));
+            let (client, capture) =
+                spawn_capture_server_with(canned, |builder| builder.http_message_signer(signer))
+                    .await;
+
+            let _: Value = client.get("/_cokret/describe").await.unwrap();
+
+            let raw = capture.await.unwrap();
+            let (_request_line, headers, _body) = split_request(&raw);
+            assert!(
+                !headers
+                    .lines()
+                    .any(|line| line.to_ascii_lowercase().starts_with("signature-input:"))
+            );
+            assert!(
+                !headers
+                    .lines()
+                    .any(|line| line.to_ascii_lowercase().starts_with("signature:"))
+            );
         }
 
         #[tokio::test]
@@ -910,6 +1138,79 @@ mod tests {
             assert!(request_line.contains("after=ck%3Acursor%3Anewer"));
             assert!(request_line.contains("order=descending"));
             assert!(request_line.contains("limit=20"));
+        }
+
+        #[tokio::test]
+        async fn events_query_outcome_uses_standard_shape_and_completeness_query() {
+            let canned = r#"{"events":[],"prev_cursor":null,"next_cursor":null,"has_more":false,"range_completeness":{"attestation_refs":[]}}"#;
+            let (client, capture) = spawn_capture_server(canned).await;
+
+            let response = client
+                .events_query_outcome(
+                    "ck:realm:test",
+                    None,
+                    Some("ck:cursor:newer"),
+                    Some("ascending"),
+                    Some(50),
+                    Some(true),
+                )
+                .await
+                .unwrap();
+            assert!(response.events.is_empty());
+            assert!(!response.has_more);
+            assert_eq!(
+                response.range_completeness["attestation_refs"]
+                    .as_array()
+                    .map(Vec::len),
+                Some(0)
+            );
+
+            let raw = capture.await.unwrap();
+            let (request_line, _headers, _body) = split_request(&raw);
+            assert!(
+                request_line.starts_with("GET /_cokret/self/events?"),
+                "unexpected request line: {request_line}",
+            );
+            assert!(request_line.contains("realms=ck%3Arealm%3Atest"));
+            assert!(request_line.contains("after=ck%3Acursor%3Anewer"));
+            assert!(request_line.contains("order=ascending"));
+            assert!(request_line.contains("limit=50"));
+            assert!(request_line.contains("include_completeness=true"));
+        }
+
+        #[tokio::test]
+        async fn list_key_backups_includes_series_id_query() {
+            let (client, capture) =
+                spawn_capture_server(r#"{"backups":[],"has_more":false}"#).await;
+            let query = cokret_core::KeyBackupsListQuery {
+                series_id: Some(
+                    cokret_core::BackupSeriesId::new(
+                        "ck:backup_series:01964137-0000-7000-8000-000000000777",
+                    )
+                    .unwrap(),
+                ),
+                backup_class: Some(cokret_core::BackupClass::DidRecovery),
+                cursor: None,
+                limit: Some(25),
+            };
+
+            let response = client.list_key_backups(&query).await.unwrap();
+            assert!(response.backups.is_empty());
+            assert!(!response.has_more);
+
+            let raw = capture.await.unwrap();
+            let (request_line, _headers, _body) = split_request(&raw);
+            assert!(
+                request_line.starts_with("GET /_cokret/self/keys/backups?"),
+                "unexpected request line: {request_line}",
+            );
+            assert!(
+                request_line.contains(
+                    "series_id=ck%3Abackup_series%3A01964137-0000-7000-8000-000000000777"
+                )
+            );
+            assert!(request_line.contains("backup_class=did_recovery"));
+            assert!(request_line.contains("limit=25"));
         }
 
         #[tokio::test]
