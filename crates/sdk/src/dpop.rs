@@ -4,7 +4,6 @@ use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::{Error, Result};
@@ -85,8 +84,7 @@ pub struct DpopProof {
 }
 
 pub fn dpop_access_token_hash(access_token: &str) -> String {
-    let digest = Sha256::digest(access_token.as_bytes());
-    cokret_core::base64url_encode(digest)
+    cokret_core::canonical::sha256_base64url(access_token.as_bytes())
 }
 
 pub fn dpop_jwk_thumbprint(jwk: &DpopJwk) -> Result<String> {
@@ -96,7 +94,7 @@ pub fn dpop_jwk_thumbprint(jwk: &DpopJwk) -> Result<String> {
         "x": jwk.x,
     });
     let bytes = cokret_core::canonical::canonical_json_bytes(&thumbprint_object)?;
-    Ok(cokret_core::base64url_encode(Sha256::digest(bytes)))
+    Ok(cokret_core::canonical::sha256_base64url(bytes))
 }
 
 pub fn build_dpop_proof(request: &DpopProofRequest, signing_key: &SigningKey) -> Result<DpopProof> {

@@ -24,9 +24,6 @@
 //! - [`composite_subject_pipe`] — produce the diagnostic `a|b|c` form (informational only; never
 //!   wire-canonical).
 
-use sha2::{Digest, Sha256};
-
-use crate::base64url::base64url_encode;
 use crate::{CellRef, Error, Result, canonical};
 
 const CELL_PREFIX: &str = "ck:cell:";
@@ -108,8 +105,7 @@ impl CellId {
 /// vectors MUST diverge from this form.
 pub fn composite_subject(parts: &[&str]) -> Result<String> {
     let bytes = canonical::canonical_json_bytes(&parts)?;
-    let digest = Sha256::digest(&bytes);
-    Ok(base64url_encode(digest))
+    Ok(canonical::sha256_base64url(&bytes))
 }
 
 /// Pipe-joined diagnostic form (`a|b|c`, with `|` and `%` percent-encoded).

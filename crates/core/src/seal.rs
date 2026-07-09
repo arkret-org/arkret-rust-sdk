@@ -7,7 +7,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 use crate::move_event::MoveSignature;
 use crate::{Did, Error, Hash, Hlc, MoveId, RealmId, Result, SealId, canonical};
@@ -167,8 +166,7 @@ impl Seal {
     }
 
     pub fn id_from_canonical_bytes(bytes: &[u8]) -> Result<SealId> {
-        let digest = Sha256::digest(bytes);
-        let id = format!("ck:seal:sha256:{}", hex::encode(digest));
+        let id = format!("ck:seal:{}", canonical::sha256_digest(bytes));
         SealId::new(id).map_err(|err| Error::Protocol(format!("invalid Seal id: {err}")))
     }
 

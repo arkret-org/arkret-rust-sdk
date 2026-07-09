@@ -231,14 +231,16 @@ mod tests {
             context: &[u8],
             length: usize,
         ) -> Result<Zeroizing<Vec<u8>>> {
-            use sha2::{Digest, Sha256};
-            let mut hasher = Sha256::new();
-            hasher.update(self.seed);
-            hasher.update((label.len() as u64).to_le_bytes());
-            hasher.update(label.as_bytes());
-            hasher.update((context.len() as u64).to_le_bytes());
-            hasher.update(context);
-            Ok(Zeroizing::new(hasher.finalize()[..length].to_vec()))
+            let label_len = (label.len() as u64).to_le_bytes();
+            let context_len = (context.len() as u64).to_le_bytes();
+            let digest = crate::canonical::sha256_bytes_from_slices(&[
+                self.seed,
+                &label_len,
+                label.as_bytes(),
+                &context_len,
+                context,
+            ]);
+            Ok(Zeroizing::new(digest[..length].to_vec()))
         }
     }
 

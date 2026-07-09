@@ -744,7 +744,7 @@ fn key_backup_supersedes_digest(predecessor: &KeyBackup) -> Result<String> {
 /// directly in another domain). Public for conformance KAT verification.
 pub fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_class: BackupClass) -> Vec<u8> {
     let mut commitment_key = derive_subkey(root, backup_class.hkdf_info("commitment").as_bytes());
-    let digest = Sha256::digest(commitment_key).to_vec();
+    let digest = cokret_core::canonical::sha256_bytes(&commitment_key).to_vec();
     commitment_key.zeroize();
     digest
 }

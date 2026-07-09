@@ -474,16 +474,11 @@ mod tests {
         });
         let body_bytes = canonical::canonical_json_bytes(&body).unwrap();
         let payload_digest = canonical::sha256_digest(&body_bytes);
-        let id_hex = {
-            use sha2::{Digest, Sha256};
-            let mut s = String::with_capacity(64);
-            for b in Sha256::digest(&body_bytes) {
-                s.push_str(&format!("{b:02x}"));
-            }
-            s
-        };
         let mut full = body.as_object().unwrap().clone();
-        full.insert("id".into(), Value::String(format!("sha256:{id_hex}")));
+        full.insert(
+            "id".into(),
+            Value::String(canonical::sha256_digest(&body_bytes)),
+        );
         full.insert(
             "sig".into(),
             json!({

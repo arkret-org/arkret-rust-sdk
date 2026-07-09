@@ -36,7 +36,6 @@ use ed25519_dalek::{
 };
 use rand_core::RngCore;
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use thiserror::Error;
 use url::Url;
 
@@ -686,7 +685,7 @@ fn substitute_scid(value: &Value, scid: &str) -> Value {
 }
 
 fn sha256_multihash_multibase(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
+    let digest = cokret_core::canonical::sha256_bytes(bytes);
     let mut multihash = Vec::with_capacity(34);
     multihash.push(0x12);
     multihash.push(0x20);

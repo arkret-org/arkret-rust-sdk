@@ -395,9 +395,12 @@ id_type!(CellRef, has_prefix("ck:cell:"));
 impl BlobRef {
     /// Create a content-addressed `sha256:...` blob reference from raw bytes.
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        let digest = format!("sha256:{}", hex::encode(Sha256::digest(bytes)));
-        Self(digest)
+        Self(sha256_digest(bytes))
     }
+}
+
+fn sha256_digest(bytes: &[u8]) -> String {
+    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
 }
 
 impl Did {

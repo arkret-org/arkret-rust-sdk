@@ -1,5 +1,3 @@
-use sha2::{Digest, Sha256};
-
 use super::basics::*;
 use crate::identity::helpers::*;
 use crate::identity::*;
@@ -412,8 +410,8 @@ fn verify_webvh_proof(raw_entry: &Value, proof: &Value, key_multibase: &str) -> 
         .map_err(|e| Error::Protocol(format!("did:webvh proof doc canonicalization: {e}")))?;
 
     let mut signing_input = Vec::with_capacity(64);
-    signing_input.extend_from_slice(&Sha256::digest(&proof_config_bytes));
-    signing_input.extend_from_slice(&Sha256::digest(&doc_bytes));
+    signing_input.extend_from_slice(&crate::canonical::sha256_bytes(&proof_config_bytes));
+    signing_input.extend_from_slice(&crate::canonical::sha256_bytes(&doc_bytes));
 
     // `proofValue` is multibase base58btc (`z…`) of the raw 64-byte
     // signature (no multicodec tag, per Data Integrity proofValue).

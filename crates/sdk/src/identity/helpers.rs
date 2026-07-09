@@ -247,7 +247,7 @@ pub(crate) fn encode_base58btc(bytes: &[u8]) -> String {
 /// **multibase** `z`-prefixed base58btc string. This is the form
 /// `did:webvh` v1.0 uses for both the SCID and per-entry hashes.
 pub(crate) fn webvh_multihash_base58(canonical_bytes: &[u8]) -> String {
-    let digest = Sha256::digest(canonical_bytes);
+    let digest = crate::canonical::sha256_bytes(canonical_bytes);
     let mut envelope = Vec::with_capacity(2 + digest.len());
     envelope.push(0x12); // sha2-256 multihash code
     envelope.push(0x20); // 32-byte digest length

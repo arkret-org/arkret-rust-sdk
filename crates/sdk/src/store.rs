@@ -10,7 +10,6 @@ use std::collections::{BTreeMap, VecDeque};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 use crate::auth::AuthSession;
 use crate::e2ee::AuditEntry;
@@ -83,15 +82,9 @@ pub struct StoreEncryptionKey([u8; 32]);
 impl StoreEncryptionKey {
     /// Derive a key using repeated SHA-256 rounds.
     pub fn derive(passphrase: &str, salt: &[u8], rounds: u32) -> Self {
-        let mut digest = Sha256::new();
-        digest.update(passphrase.as_bytes());
-        digest.update(salt);
-        let mut key: [u8; 32] = digest.finalize().into();
+        let mut key = crate::canonical::sha256_bytes_from_slices(&[passphrase.as_bytes(), salt]);
         for _ in 0..rounds.max(1) {
-            let mut digest = Sha256::new();
-            digest.update(key);
-            digest.update(salt);
-            key = digest.finalize().into();
+            key = crate::canonical::sha256_bytes_from_slices(&[&key, salt]);
         }
         Self(key)
     }

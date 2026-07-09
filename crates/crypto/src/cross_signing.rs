@@ -2,10 +2,9 @@
 //! stateless device cross-signing chain verifier.
 
 use chrono::{DateTime, Utc};
-use cokret_core::{DeviceId, Did, Error, Result};
+use cokret_core::{DeviceId, Did, Error, Result, binding_contexts};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 use crate::device::DeviceTrustState;
 use crate::errors::{
@@ -488,7 +487,7 @@ impl CrossSigningResetContent {
     /// time + proof family/body so the proof cannot be replayed onto a different
     /// reset or another proof shell.
     pub fn reset_signing_input(&self) -> Result<Vec<u8>> {
-        let mut out = b"ck-cross-signing-reset-v1\n".to_vec();
+        let mut out = binding_contexts::CROSS_SIGNING_RESET_PREFIX.to_vec();
         out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(
             &self.reset_signing_body(true),
         )?);
@@ -517,17 +516,12 @@ impl CrossSigningResetContent {
                 "recovery_unlock_commitment requires recovery_unlock proof".to_owned(),
             ));
         };
-        let mut hasher = Sha256::new();
-        hasher.update(b"ck-cross-signing-reset-unlock-binding-v1\n");
-        hasher.update(recovery_secret_ref.as_bytes());
-        hasher.update(self.recovery_unlock_binding_input()?);
-        let digest = hasher.finalize();
-        let mut hex = String::with_capacity(digest.len() * 2);
-        for byte in digest {
-            use std::fmt::Write as _;
-            let _ = write!(&mut hex, "{byte:02x}");
-        }
-        Ok(format!("sha256:{hex}"))
+        let binding_input = self.recovery_unlock_binding_input()?;
+        Ok(cokret_core::canonical::sha256_digest_from_slices(&[
+            binding_contexts::CROSS_SIGNING_RESET_UNLOCK_BINDING_PREFIX,
+            recovery_secret_ref.as_bytes(),
+            &binding_input,
+        ]))
     }
 }
 
@@ -623,7 +617,7 @@ fn canonical_cross_signing_binding_input(
         "subordinate_public_key": subordinate.public_key,
         "generation": generation,
     });
-    let mut out = b"ck-cross-signing-bind-v1\n".to_vec();
+    let mut out = binding_contexts::CROSS_SIGNING_BIND_PREFIX.to_vec();
     out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(&body)?);
     Ok(out)
 }
@@ -649,7 +643,7 @@ fn canonical_device_trust_binding_input(
         "algorithms": canonical_algorithms,
         "ssk_generation": ssk_generation,
     });
-    let mut out = b"ck-device-trust-bind-v1\n".to_vec();
+    let mut out = binding_contexts::DEVICE_TRUST_BIND_PREFIX.to_vec();
     out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(&body)?);
     Ok(out)
 }

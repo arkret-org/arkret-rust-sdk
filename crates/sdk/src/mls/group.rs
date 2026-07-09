@@ -15,7 +15,7 @@ use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 use zeroize::Zeroizing;
 
@@ -308,8 +308,7 @@ impl CokretMlsGroup {
     /// stay scoped to MLS-internal consistency checks per RFC 9420 §8.5.
     pub fn schedule_hash(&self) -> Hash {
         let authenticator = self.group.epoch_authenticator();
-        let digest = Sha256::digest(authenticator.as_slice());
-        Hash::new(format!("sha256:{}", hex::encode(digest)))
+        Hash::new(canonical::sha256_digest(authenticator.as_slice()))
             .expect("sha256:<hex> is always a valid Hash typed-id")
     }
 

@@ -1,5 +1,3 @@
-use sha2::{Digest, Sha256};
-
 use super::types::SnapshotChunk;
 use crate::{Error, Hash, Result};
 
@@ -186,10 +184,7 @@ pub(crate) fn parse_sha256(hash: &Hash) -> Option<[u8; 32]> {
 }
 
 pub(crate) fn hash_pair(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(left);
-    hasher.update(right);
-    hasher.finalize().into()
+    crate::canonical::sha256_bytes_from_slices(&[&left[..], &right[..]])
 }
 
 pub(crate) fn format_hash(bytes: &[u8; 32]) -> Hash {

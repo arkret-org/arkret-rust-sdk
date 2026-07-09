@@ -3,7 +3,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 use super::state_root::compute_state_root;
@@ -396,9 +395,7 @@ fn joined_control_view_hash(
     });
     let bytes = canonical::canonical_json_bytes(&json)
         .map_err(|e| SealReject::Store(format!("joined_control_view_hash: {e}")))?;
-    let digest = Sha256::digest(&bytes);
-    let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
-    Hash::new(format!("sha256:{hex}"))
+    Hash::new(canonical::sha256_digest(&bytes))
         .map_err(|e| SealReject::Structural(format!("invalid joined control view hash: {e}")))
 }
 
@@ -407,9 +404,7 @@ pub fn view_hash(leaves: &[SealId]) -> Result<Hash, crate::Error> {
     sorted.sort();
     let json: Value = serde_json::to_value(&sorted)?;
     let bytes = canonical::canonical_json_bytes(&json)?;
-    let digest = Sha256::digest(&bytes);
-    let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
-    Hash::new(format!("sha256:{hex}"))
+    Hash::new(canonical::sha256_digest(&bytes))
         .map_err(|e| crate::Error::Protocol(format!("invalid view_hash: {e}")))
 }
 

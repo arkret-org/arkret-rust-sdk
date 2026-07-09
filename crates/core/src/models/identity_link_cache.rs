@@ -30,9 +30,7 @@ pub fn compute_policy_frontier_digest(
 
     }))?;
 
-    let digest = Sha256::digest(&canonical);
-
-    Ok(digest.into())
+    Ok(canonical::sha256_bytes(&canonical))
 }
 /// Cached projection of an identity-link routing decision.
 ///

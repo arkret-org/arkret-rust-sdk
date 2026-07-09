@@ -42,7 +42,7 @@ use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 // -- public re-exports of the underlying crypto primitives so callers
 // -- can construct keys without depending on `ed25519-dalek` directly.
 pub use ed25519_dalek::{SigningKey as Ed25519SigningKey, VerifyingKey as Ed25519PublicKey};
-use sha2::{Digest, Sha256, Sha512};
+use sha2::{Digest, Sha512};
 use thiserror::Error;
 
 /// Errors emitted by the RFC 9421 helpers.
@@ -615,7 +615,7 @@ impl ContentDigest {
     /// RFC 9530.
     pub fn compute(body: &[u8], algorithm: ContentDigestAlgorithm) -> ContentDigest {
         let digest = match algorithm {
-            ContentDigestAlgorithm::Sha256 => Sha256::digest(body).to_vec(),
+            ContentDigestAlgorithm::Sha256 => cokret_core::canonical::sha256_bytes(body).to_vec(),
             ContentDigestAlgorithm::Sha512 => Sha512::digest(body).to_vec(),
         };
         let wire_value = format!(
@@ -670,7 +670,7 @@ impl ContentDigest {
 /// trusting any `content-digest` covered component in the signature.
 pub fn verify_content_digest(parsed: &ContentDigest, body: &[u8]) -> Result<(), SignatureError> {
     let recomputed = match parsed.algorithm {
-        ContentDigestAlgorithm::Sha256 => Sha256::digest(body).to_vec(),
+        ContentDigestAlgorithm::Sha256 => cokret_core::canonical::sha256_bytes(body).to_vec(),
         ContentDigestAlgorithm::Sha512 => Sha512::digest(body).to_vec(),
     };
     // Constant-time-ish comparison; the digest bytes are public so a

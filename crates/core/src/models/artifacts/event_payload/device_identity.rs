@@ -160,7 +160,7 @@ impl DeviceAuthorizePayload {
             "authorization_binding_kind": authorization_binding_kind,
             "cross_signing_generation": cross_signing_generation,
         });
-        let mut out = b"ck-device-authorize-possession-v1\n".to_vec();
+        let mut out = binding_contexts::DEVICE_AUTHORIZE_POSSESSION_PREFIX.to_vec();
         out.extend_from_slice(&canonical::canonical_json_bytes(&body)?);
         Ok(out)
     }
@@ -446,7 +446,11 @@ mod tests {
         let input = String::from_utf8(payload.device_possession_signature_input().unwrap())
             .expect("canonical input is utf8");
 
-        assert!(input.starts_with("ck-device-authorize-possession-v1\n"));
+        assert!(
+            input
+                .as_bytes()
+                .starts_with(binding_contexts::DEVICE_AUTHORIZE_POSSESSION_PREFIX)
+        );
         assert!(input.contains("\"authorization_binding_kind\":\"cross_signing\""));
         assert!(input.contains("\"cross_signing_generation\":1"));
         assert!(input.contains(

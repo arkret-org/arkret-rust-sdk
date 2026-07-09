@@ -30,8 +30,7 @@ pub fn compute_audit_policy_version_digest(
         "audit_disclosure": audit_disclosure,
         "audit_assurance": audit_assurance,
     }))?;
-    let digest = Sha256::digest(&canonical_bytes);
-    Ok(digest.into())
+    Ok(canonical::sha256_bytes(&canonical_bytes))
 }
 
 // ── PolicyCheck v2 ──────────────────────────────────────────────────────

@@ -6,7 +6,6 @@ use chrono::{DateTime, Utc};
 pub use cokret_core::identity::{DID_WEB_MAX_DOCUMENT_BYTES, DidDocument};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 use crate::{Did, Error, Result};
 

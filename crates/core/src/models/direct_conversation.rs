@@ -42,11 +42,10 @@ pub fn direct_conversation_pair_key(
         participants,
     };
     let canonical = canonical::canonical_json_bytes(&material)?;
-    let digest = Sha256::digest(&canonical);
     Ok(format!(
         "{}{}",
         DIRECT_CONVERSATION_PAIR_KEY_PREFIX,
-        crate::base64url_encode(digest)
+        canonical::sha256_base64url(&canonical)
     ))
 }
 

@@ -23,7 +23,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 use crate::{CellRef, Did, Error, Hash, Hlc, MoveId, RealmId, Result, SealId, canonical};
 
@@ -238,8 +237,7 @@ impl Move {
 
     /// Compute a Move id from already-canonicalized bytes.
     pub fn id_from_canonical_bytes(bytes: &[u8]) -> Result<MoveId> {
-        let digest = Sha256::digest(bytes);
-        let id = format!("sha256:{}", hex::encode(digest));
+        let id = canonical::sha256_digest(bytes);
         MoveId::new(id).map_err(|err| Error::Protocol(format!("invalid Move id: {err}")))
     }
 
@@ -353,12 +351,8 @@ mod tests {
         let body = sample_move_body_json();
         let body_bytes = canonical::canonical_json_bytes(&body).unwrap();
         let payload_digest = sha256_digest(&body_bytes);
-        let move_id_hex = {
-            let digest = Sha256::digest(&body_bytes);
-            format!("sha256:{}", hex::encode(digest))
-        };
         let mut full = body.as_object().unwrap().clone();
-        full.insert("id".to_owned(), Value::String(move_id_hex));
+        full.insert("id".to_owned(), Value::String(sha256_digest(&body_bytes)));
         full.insert(
             "sig".to_owned(),
             json!({

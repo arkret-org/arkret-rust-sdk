@@ -6,6 +6,7 @@
 
 pub mod admin_signer;
 pub mod base64url;
+pub mod binding_contexts;
 pub mod blind_payload_sanitizer;
 pub mod bottom;
 pub mod canonical;

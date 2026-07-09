@@ -1,5 +1,3 @@
-use sha2::{Digest, Sha256};
-
 pub const PROTOCOL_VERSION: &str = "1.0";
 pub const CORE_SCHEMA_PROFILE: &str = "ck.schema.core.v1";
 pub const CORE_REDUCER_PROFILE: &str = "ck.reducer.v1";
@@ -255,7 +253,7 @@ fn base32_lower_no_pad(bytes: &[u8]) -> String {
 
 pub fn agent_sidecar_circle_key(realm_id: &str, controller_principal_id: &str) -> String {
     let transcript = format!("ck.agent_sidecar_circle.v1\n{realm_id}\n{controller_principal_id}");
-    let digest = Sha256::digest(transcript.as_bytes());
+    let digest = crate::canonical::sha256_bytes(transcript.as_bytes());
     base32_lower_no_pad(&digest).chars().take(24).collect()
 }
 

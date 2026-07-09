@@ -1141,6 +1141,23 @@ pub struct SessionGrantIntrospectionProof {
     pub proof_jwt: String,
 }
 
+pub const SESSION_GRANT_INTROSPECTION_PROOF_CLAIMS_TYPE: &str =
+    "ck.session_grant.introspection_proof.v1";
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantIntrospectionProofClaims {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub grant_id: String,
+    pub grant_jwt_hash: String,
+    pub audience: String,
+    pub challenge: String,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+}
+
 // ─── DPoP-bound session-grant lifecycle (account-lifecycle §4.1) ─────────────
 //
 // Wire shapes for the `/_cokret/gate/account/session-grants/{refresh,

@@ -11,7 +11,7 @@ use cokret_core::error::{
 use hkdf::Hkdf;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use subtle::ConstantTimeEq;
 
 use crate::{Error, Result};
@@ -514,8 +514,8 @@ fn sha256_prefixed(bytes: &[u8]) -> String {
 /// compared with `subtle::ConstantTimeEq`. Shared crate-wide (see
 /// `key_verification::commitment`, `identity::records`, `auth::helpers`).
 pub(crate) fn constant_time_eq(left: &str, right: &str) -> bool {
-    let left = Sha256::digest(left.as_bytes());
-    let right = Sha256::digest(right.as_bytes());
+    let left = cokret_core::canonical::sha256_bytes(left.as_bytes());
+    let right = cokret_core::canonical::sha256_bytes(right.as_bytes());
     left.ct_eq(&right).into()
 }
 

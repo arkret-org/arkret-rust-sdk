@@ -46,7 +46,7 @@ fn vector_update_key(signing_key: &SigningKey) -> String {
 /// `webvh_multihash_base58`.
 fn vector_multihash(value: &Value) -> String {
     let bytes = cokret_core::canonical::canonical_json_bytes(value).unwrap();
-    let digest = Sha256::digest(&bytes);
+    let digest = crate::canonical::sha256_bytes(&bytes);
     let mut envelope = vec![0x12u8, 0x20];
     envelope.extend_from_slice(&digest);
     format!("z{}", encode_base58btc(&envelope))
@@ -73,9 +73,10 @@ fn vector_sign_entry(mut entry: Value, signing_key: &SigningKey) -> Value {
         "verificationMethod": vm,
     });
     let doc = entry.clone();
-    let config_hash =
-        Sha256::digest(cokret_core::canonical::canonical_json_bytes(&proof_config).unwrap());
-    let doc_hash = Sha256::digest(cokret_core::canonical::canonical_json_bytes(&doc).unwrap());
+    let config_bytes = cokret_core::canonical::canonical_json_bytes(&proof_config).unwrap();
+    let doc_bytes = cokret_core::canonical::canonical_json_bytes(&doc).unwrap();
+    let config_hash = crate::canonical::sha256_bytes(&config_bytes);
+    let doc_hash = crate::canonical::sha256_bytes(&doc_bytes);
     let mut signing_input = Vec::with_capacity(64);
     signing_input.extend_from_slice(&config_hash);
     signing_input.extend_from_slice(&doc_hash);

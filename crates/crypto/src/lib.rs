@@ -426,7 +426,7 @@ mod tests {
             issued_at: Utc::now(),
         };
         let base = content.reset_signing_input().unwrap();
-        assert!(base.starts_with(b"ck-cross-signing-reset-v1\n"));
+        assert!(base.starts_with(cokret_core::binding_contexts::CROSS_SIGNING_RESET_PREFIX));
         // Deterministic.
         assert_eq!(base, content.reset_signing_input().unwrap());
         // Generation transition is bound.

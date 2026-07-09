@@ -359,13 +359,36 @@ pub fn digest_suite(suite: &str) -> Result<DigestSuite> {
 
 /// Compute the SHA-256 of `bytes` and return the bare 64-character lowercase
 /// hex digest (no `sha256:` prefix).
-pub fn sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    hex::encode(digest)
+pub fn sha256_bytes(bytes: impl AsRef<[u8]>) -> [u8; 32] {
+    Sha256::digest(bytes.as_ref()).into()
+}
+
+pub fn sha256_bytes_from_slices(parts: &[&[u8]]) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    for part in parts {
+        hasher.update(part);
+    }
+    hasher.finalize().into()
+}
+
+pub fn sha256_hex(bytes: impl AsRef<[u8]>) -> String {
+    hex::encode(sha256_bytes(bytes))
+}
+
+pub fn sha256_hex_from_slices(parts: &[&[u8]]) -> String {
+    hex::encode(sha256_bytes_from_slices(parts))
 }
 
 pub fn sha256_digest(bytes: impl AsRef<[u8]>) -> String {
     format!("sha256:{}", sha256_hex(bytes.as_ref()))
+}
+
+pub fn sha256_digest_from_slices(parts: &[&[u8]]) -> String {
+    format!("sha256:{}", sha256_hex_from_slices(parts))
+}
+
+pub fn sha256_base64url(bytes: impl AsRef<[u8]>) -> String {
+    crate::base64url_encode(sha256_bytes(bytes))
 }
 
 pub fn blake3_hex(bytes: &[u8]) -> String {

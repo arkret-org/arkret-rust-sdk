@@ -14,7 +14,7 @@ pub use cokret_identifiers::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 
 use crate::{BottomKind, CellRef, Error, Result, SealId, canonical};
 

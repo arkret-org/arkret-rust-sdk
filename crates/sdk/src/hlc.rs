@@ -9,8 +9,6 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use sha2::{Digest, Sha256};
-
 use crate::{Error, Hlc as HlcType, Result};
 
 /// Validate HLC format according to Cokret v1 spec.
@@ -205,12 +203,12 @@ impl HlcGenerator {
     /// `SHA256("cokret-hlc-v1" || realm_id || device_id ||
     /// local_node_secret)[0:8]`.
     fn compute_node_id(realm_id: &str, device_id: &str, local_node_secret: &[u8]) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(NODE_ID_DOMAIN_SEPARATOR.as_bytes());
-        hasher.update(realm_id.as_bytes());
-        hasher.update(device_id.as_bytes());
-        hasher.update(local_node_secret);
-        let hash = hasher.finalize();
+        let hash = crate::canonical::sha256_bytes_from_slices(&[
+            NODE_ID_DOMAIN_SEPARATOR.as_bytes(),
+            realm_id.as_bytes(),
+            device_id.as_bytes(),
+            local_node_secret,
+        ]);
         hash[0..4].iter().map(|b| format!("{:02x}", b)).collect()
     }
 

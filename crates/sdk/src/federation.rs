@@ -20,7 +20,6 @@ pub use cokret_core::federation::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 use crate::{Did, Error, Hash, RealmId, Result};
 
@@ -210,9 +209,7 @@ pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> Result
 /// `sha256:<hex>` wire string), so this derives them from the canonical
 /// hex helper to keep a single hashing path.
 fn sha256_raw(bytes: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    hasher.finalize().into()
+    cokret_core::canonical::sha256_bytes(bytes)
 }
 
 pub fn did_document_service_endpoint_matches(

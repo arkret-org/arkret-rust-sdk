@@ -1,4 +1,5 @@
 use super::*;
+use crate::binding_contexts;
 
 fn now_utc_seconds() -> DateTime<Utc> {
     DateTime::<Utc>::from_timestamp(Utc::now().timestamp(), 0).unwrap_or_else(Utc::now)
@@ -824,16 +825,16 @@ impl IdentityLink {
             proof.remove("signature");
         }
         let canonical = canonical::canonical_json_bytes(&value)?;
-        let mut input = Vec::with_capacity(b"ck-identity-link-v1\n".len() + canonical.len());
-        input.extend_from_slice(b"ck-identity-link-v1\n");
+        let mut input =
+            Vec::with_capacity(binding_contexts::IDENTITY_LINK_PREFIX.len() + canonical.len());
+        input.extend_from_slice(binding_contexts::IDENTITY_LINK_PREFIX);
         input.extend_from_slice(&canonical);
         Ok(input)
     }
 
     pub fn canonical_payload_digest(&self) -> Result<Hash> {
         let input = self.canonical_proof_input()?;
-        let digest = Sha256::digest(&input);
-        Hash::new(format!("sha256:{}", hex::encode(digest))).map_err(|error| {
+        Hash::new(canonical::sha256_digest(&input)).map_err(|error| {
             Error::Protocol(format!("identity_link payload hash invalid: {error}"))
         })
     }
@@ -1042,8 +1043,7 @@ impl ErasureReceipt {
 
     pub fn canonical_payload_digest(&self) -> Result<Hash> {
         let input = self.canonical_proof_input()?;
-        let digest = <Sha256 as Digest>::digest(&input);
-        Ok(Hash::new(format!("sha256:{}", hex::encode(digest)))?)
+        Ok(Hash::new(canonical::sha256_digest(&input))?)
     }
 
     pub fn validate_proof_payload_digests(&self) -> Result<()> {

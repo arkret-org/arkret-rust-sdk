@@ -26,7 +26,6 @@
 use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 
 use crate::lattice::CellState;
 use crate::{Bottom, CellRef, Hash, canonical};
@@ -66,11 +65,11 @@ pub fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, 
         let mut i = 0;
         while i + 1 < layer.len() {
             // Internal node: H(0x01 || left || right) (spec §6.2.2).
-            let mut hasher = Sha256::new();
-            hasher.update([NODE_PREFIX]);
-            hasher.update(layer[i]);
-            hasher.update(layer[i + 1]);
-            next.push(hasher.finalize().into());
+            next.push(canonical::sha256_bytes_from_slices(&[
+                &[NODE_PREFIX][..],
+                &layer[i][..],
+                &layer[i + 1][..],
+            ]));
             i += 2;
         }
         if i < layer.len() {
@@ -104,10 +103,10 @@ pub fn leaf_hash(cell: &CellRef, state: &CellState) -> Result<[u8; 32], crate::E
     });
     let bytes = canonical::canonical_json_bytes(&leaf_input)?;
     // Leaf: H(0x00 || leaf_preimage_utf8_bytes) (spec §6.2.2).
-    let mut hasher = Sha256::new();
-    hasher.update([LEAF_PREFIX]);
-    hasher.update(&bytes);
-    Ok(hasher.finalize().into())
+    Ok(canonical::sha256_bytes_from_slices(&[
+        &[LEAF_PREFIX][..],
+        &bytes,
+    ]))
 }
 
 #[cfg(test)]

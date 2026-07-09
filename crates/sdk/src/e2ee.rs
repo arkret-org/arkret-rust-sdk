@@ -4,7 +4,6 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 use crate::canonical::sha256_hex;
 use crate::{AEAD_ALGORITHM, DeviceId, Did, Error, Result, crypto};
@@ -683,13 +682,13 @@ fn message_digest(
     sender_actor_id: &Did,
     ciphertext: &[u8],
 ) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(message_id.as_bytes());
-    hasher.update(group_id.as_bytes());
-    hasher.update(epoch.to_le_bytes());
-    hasher.update(sender_actor_id.as_str().as_bytes());
-    hasher.update(ciphertext);
-    hex::encode(hasher.finalize())
+    crate::canonical::sha256_hex_from_slices(&[
+        message_id.as_bytes(),
+        group_id.as_bytes(),
+        &epoch.to_le_bytes(),
+        sender_actor_id.as_str().as_bytes(),
+        ciphertext,
+    ])
 }
 
 #[cfg(test)]
