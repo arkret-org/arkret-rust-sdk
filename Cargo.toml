@@ -64,7 +64,7 @@ salvo-oapi = {git = "https://github.com/salvo-rs/salvo.git",rev = "d1365f0d0e8e0
 # Linux KeyStore backend, enabled only by the keystore crate target cfg.
 secret-service = {version = "5.1.0",default-features = false,features = ["rt-tokio-crypto-rust"]}
 rand_chacha = {version = "0.3.1",default-features = false}
-rand_core = {version = "0.6.4",default-features = false}
+rand_core = {version = "0.10.1",default-features = false}
 # rand_core 0.9 alias for the HPKE RNG interface (rust-hpke is on the 0.9
 # line; x25519-dalek keeps `rand_core` on 0.6). Same rename pattern as
 # `getrandom_02`; the 0.9 duplicate is already in the tree via the MLS stack.
