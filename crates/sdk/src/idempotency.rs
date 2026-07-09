@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use cokret_core::Hash;
+use arkret_core::Hash;
 
 /// `operation_id` component of the applet transaction idempotency identity
 /// (`operation-registry.json`).
@@ -258,7 +258,7 @@ impl<T: Clone> IdempotencyWindow<T> {
 
 #[cfg(test)]
 mod tests {
-    use cokret_core::canonical;
+    use arkret_core::canonical;
 
     use super::*;
 

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
+use arkret_core::base64url::base64url_encode;
 use chrono::Utc;
-use cokret_core::base64url::base64url_encode;
 use zeroize::Zeroizing;
 
 use super::commitment::{compute_key_commitment, ct_eq};

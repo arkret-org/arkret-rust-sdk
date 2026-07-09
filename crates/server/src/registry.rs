@@ -911,7 +911,7 @@ pub fn reject_query_auth(parameters: &BTreeMap<String, String>) -> Result<()> {
                 | "service_signature"
                 | "signature"
         ) {
-            return Err(cokret_core::Error::Protocol(
+            return Err(arkret_core::Error::Protocol(
                 "authentication material must be sent in headers, not query parameters".to_owned(),
             ));
         }
@@ -921,10 +921,10 @@ pub fn reject_query_auth(parameters: &BTreeMap<String, String>) -> Result<()> {
 
 pub fn protocol_golden_vectors() -> Vec<ProtocolGoldenVector> {
     // The cursor vector must be a real `ck:cursor:<base64url>` token that
-    // passes `cokret_core::Cursor::decode` (encoding.md §8) — static tokens
+    // passes `arkret_core::Cursor::decode` (encoding.md §8) — static tokens
     // would eventually fail the §8.3 rule-12 TTL/expiry checks, so mint a
     // fresh stateful-handle cursor per call.
-    let valid_cursor = cokret_core::Cursor::new()
+    let valid_cursor = arkret_core::Cursor::new()
         .and_then(|cursor| cursor.encode())
         .expect("minting a golden cursor vector must succeed");
     vec![

@@ -1,5 +1,5 @@
-use cokret_core::DetachedPayloadProof;
-use cokret_core::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
+use arkret_core::DetachedPayloadProof;
+use arkret_core::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
 
 use super::*;
 
@@ -115,8 +115,8 @@ impl DidKeyLogEntry {
 
     /// Recompute `head_event_digest` per §3.1.3.
     pub fn compute_head_event_digest(&self) -> Result<crate::Hash> {
-        let bytes = cokret_core::canonical::canonical_json_bytes(&self.digest_view(false)?)?;
-        Ok(crate::Hash::new(cokret_core::canonical::sha256_digest(
+        let bytes = arkret_core::canonical::canonical_json_bytes(&self.digest_view(false)?)?;
+        Ok(crate::Hash::new(arkret_core::canonical::sha256_digest(
             &bytes,
         ))?)
     }
@@ -124,8 +124,8 @@ impl DidKeyLogEntry {
     /// Recompute the proof `payload_digest`
     /// (`canonical_digest(entry_without_proofs)`, §3.1.3).
     pub fn proof_payload_digest(&self) -> Result<crate::Hash> {
-        let bytes = cokret_core::canonical::canonical_json_bytes(&self.digest_view(true)?)?;
-        Ok(crate::Hash::new(cokret_core::canonical::sha256_digest(
+        let bytes = arkret_core::canonical::canonical_json_bytes(&self.digest_view(true)?)?;
+        Ok(crate::Hash::new(arkret_core::canonical::sha256_digest(
             &bytes,
         ))?)
     }
@@ -151,7 +151,7 @@ impl DidKeyLogEntry {
         );
         object.insert(
             "created_at".to_owned(),
-            Value::String(cokret_core::canonical::format_timestamp_canonical(
+            Value::String(arkret_core::canonical::format_timestamp_canonical(
                 proof.created_at,
             )),
         );
@@ -161,7 +161,7 @@ impl DidKeyLogEntry {
         if let Some(audience) = &proof.audience {
             object.insert("audience".to_owned(), serde_json::to_value(audience)?);
         }
-        cokret_core::canonical::canonical_json_bytes(&Value::Object(object))
+        arkret_core::canonical::canonical_json_bytes(&Value::Object(object))
     }
 
     /// Structural validation against `did-key-log-entry.schema.json` +
@@ -363,7 +363,7 @@ pub enum IdentityReceiptWitnessRole {
 pub struct DidRegistryReceipt {
     /// Canonical schema discriminator (`ck.schema.identity_receipt.v1`).
     pub schema: String,
-    pub receipt_id: cokret_core::ReceiptId,
+    pub receipt_id: arkret_core::ReceiptId,
     /// DID whose key-log head this receipt witnesses.
     pub did: Did,
     /// Key-log sequence number of the witnessed head.
@@ -397,7 +397,7 @@ impl DidRegistryReceipt {
     /// Build and sign a receipt with the **registry's** Ed25519 key.
     #[allow(clippy::too_many_arguments)]
     pub fn signed(
-        receipt_id: cokret_core::ReceiptId,
+        receipt_id: arkret_core::ReceiptId,
         did: Did,
         seq: u64,
         head_event_digest: crate::Hash,
@@ -441,8 +441,8 @@ impl DidRegistryReceipt {
             .as_object_mut()
             .expect("DidRegistryReceipt serializes to an object")
             .remove("signature");
-        let bytes = cokret_core::canonical::canonical_json_bytes(&value)?;
-        Ok(crate::Hash::new(cokret_core::canonical::sha256_digest(
+        let bytes = arkret_core::canonical::canonical_json_bytes(&value)?;
+        Ok(crate::Hash::new(arkret_core::canonical::sha256_digest(
             &bytes,
         ))?)
     }
@@ -463,7 +463,7 @@ impl DidRegistryReceipt {
         );
         object.insert(
             "created_at".to_owned(),
-            Value::String(cokret_core::canonical::format_timestamp_canonical(
+            Value::String(arkret_core::canonical::format_timestamp_canonical(
                 self.signature.created_at,
             )),
         );
@@ -473,7 +473,7 @@ impl DidRegistryReceipt {
         if let Some(audience) = &self.signature.audience {
             object.insert("audience".to_owned(), serde_json::to_value(audience)?);
         }
-        cokret_core::canonical::canonical_json_bytes(&Value::Object(object))
+        arkret_core::canonical::canonical_json_bytes(&Value::Object(object))
     }
 
     /// Verify the receipt: digest recompute (constant-time compare) then

@@ -9,10 +9,10 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Duration, Utc};
-pub use cokret_core::{
+pub use arkret_core::{
     INVITE_SCHEMA, Invite, InviteState, MembershipPayloadState, ThirdPartyInvite,
 };
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -611,7 +611,7 @@ impl MembershipManager {
 
 #[cfg(test)]
 mod tests {
-    use cokret_core::ThirdPartyInviteOobKind;
+    use arkret_core::ThirdPartyInviteOobKind;
 
     use super::*;
 

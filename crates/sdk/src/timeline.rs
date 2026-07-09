@@ -1367,8 +1367,8 @@ mod tests {
 
         timeline.append_events(vec![message]).unwrap();
         timeline.apply_read_receipt(ReadReceipt {
-            receipt_type: cokret_core::READ_RECEIPT_TYPE.to_owned(),
-            schema: cokret_core::READ_RECEIPT_SCHEMA.to_owned(),
+            receipt_type: arkret_core::READ_RECEIPT_TYPE.to_owned(),
+            schema: arkret_core::READ_RECEIPT_SCHEMA.to_owned(),
             realm_id: realm_id.clone(),
             actor_id: actor.clone(),
             event_id: event_id.clone(),

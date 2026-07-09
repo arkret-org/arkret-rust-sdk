@@ -1,16 +1,16 @@
 #![no_main]
 
 //! Fuzz the multibase / multicodec decoders
-//! (`cokret_core::decode_multibase_base58btc`,
-//! `cokret_core::decode_ed25519_multibase`,
-//! `cokret_core::decode_multicodec_varint`).
+//! (`arkret_core::decode_multibase_base58btc`,
+//! `arkret_core::decode_ed25519_multibase`,
+//! `arkret_core::decode_multicodec_varint`).
 //!
 //! These decode attacker-controlled key material out of DID documents and
 //! verification methods. They MUST reject malformed base58, truncated varints,
 //! wrong multicodec prefixes and short key bytes with `Err`/`None`, never
 //! panicking or over-reading.
 
-use cokret_core::{
+use arkret_core::{
     decode_ed25519_multibase, decode_multibase_base58btc, decode_multicodec_varint,
 };
 use libfuzzer_sys::fuzz_target;

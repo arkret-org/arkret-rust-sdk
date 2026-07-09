@@ -180,8 +180,8 @@ impl PresentedClaim {
     }
 }
 
-impl From<cokret_core::DirectoryPresentedClaim> for PresentedClaim {
-    fn from(claim: cokret_core::DirectoryPresentedClaim) -> Self {
+impl From<arkret_core::DirectoryPresentedClaim> for PresentedClaim {
+    fn from(claim: arkret_core::DirectoryPresentedClaim) -> Self {
         Self {
             claim_id: claim.claim_id,
             subject: claim.subject,
@@ -197,7 +197,7 @@ impl From<cokret_core::DirectoryPresentedClaim> for PresentedClaim {
     }
 }
 
-impl From<PresentedClaim> for cokret_core::DirectoryPresentedClaim {
+impl From<PresentedClaim> for arkret_core::DirectoryPresentedClaim {
     fn from(claim: PresentedClaim) -> Self {
         Self {
             claim_id: claim.claim_id,

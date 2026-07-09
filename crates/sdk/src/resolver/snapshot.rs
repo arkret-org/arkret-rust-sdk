@@ -27,7 +27,7 @@ pub struct StateSnapshot {
 /// Dev-only reducer snapshot container.
 ///
 /// Current production snapshot bootstrap uses
-/// `ck.schema.snapshot.v1` [`cokret_core::SnapshotManifest`].
+/// `ck.schema.snapshot.v1` [`arkret_core::SnapshotManifest`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReducerSnapshotManifest {
     pub schema: String,
@@ -412,7 +412,7 @@ pub fn verify_snapshot_inclusion(
         } else {
             vec![running, sibling]
         };
-        running = cokret_core::merkle_root_from_hashes(leaves)?;
+        running = arkret_core::merkle_root_from_hashes(leaves)?;
     }
     if running.as_str() == root {
         Ok(())
@@ -446,7 +446,7 @@ pub fn merkle_root(leaves: Vec<String>) -> Result<String> {
         .into_iter()
         .map(crate::Hash::new)
         .collect::<std::result::Result<Vec<_>, _>>()?;
-    Ok(cokret_core::merkle_root_from_hashes(leaves)?.into_string())
+    Ok(arkret_core::merkle_root_from_hashes(leaves)?.into_string())
 }
 
 pub(super) struct StateHashInput<'a> {

@@ -59,7 +59,7 @@ pub struct AdminKeyStore {
 impl AdminKeyStore {
     /// Wrap `inner` with the given `application_id` namespace. The
     /// `application_id` MUST be the same one passed to
-    /// `cokret_keystore::platform_default_keystore_with_kind` when building
+    /// `arkret_keystore::platform_default_keystore_with_kind` when building
     /// `inner`, otherwise key ids will reference a different namespace
     /// than the backend's service-name suffix.
     pub fn new(application_id: impl Into<String>, inner: Box<dyn KeyStore>) -> Self {

@@ -14,8 +14,8 @@
 //! - `delete()` is idempotent — a "not found" error from the underlying `delete_generic_password`
 //!   is swallowed.
 
-use cokret_core::keystore::{service_name, validate_id};
-use cokret_core::{KeyBytes, Result};
+use arkret_core::keystore::{service_name, validate_id};
+use arkret_core::{KeyBytes, Result};
 use security_framework::base::Error as SfError;
 use security_framework::passwords::{
     delete_generic_password, get_generic_password, set_generic_password,

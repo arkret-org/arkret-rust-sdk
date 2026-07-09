@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
+use arkret_core::{base64url_decode, base64url_encode};
 use chacha20poly1305::XChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chrono::Utc;
-use cokret_core::{base64url_decode, base64url_encode};
 use hkdf::Hkdf;
 use openmls::prelude::{
     BasicCredential, Capabilities, CredentialWithKey, Extension, ExtensionType, Extensions,
@@ -944,7 +944,7 @@ impl CokretMlsGroup {
             ciphertext: encode(&message_bytes),
             aad,
             payload_digest,
-            key_ref: Some(cokret_core::KeyRefObject::mls_rfc9420(
+            key_ref: Some(arkret_core::KeyRefObject::mls_rfc9420(
                 self.group_id(),
                 epoch,
             )),
@@ -988,7 +988,7 @@ impl CokretMlsGroup {
             ciphertext: encode(&nonce_and_ct),
             aad: payload_aad,
             payload_digest,
-            key_ref: Some(cokret_core::KeyRefObject::mls_exporter_aead(
+            key_ref: Some(arkret_core::KeyRefObject::mls_exporter_aead(
                 self.group_id(),
                 epoch,
             )),

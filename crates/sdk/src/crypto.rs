@@ -2,12 +2,12 @@
 
 use std::collections::BTreeSet;
 
-use chacha20poly1305::XChaCha20Poly1305;
-use chacha20poly1305::aead::{Aead, KeyInit, Payload};
-use cokret_core::error::{
+use arkret_core::error::{
     REASON_AEAD_NONCE_COUNTER_REPLAY, REASON_AEAD_NONCE_DERIVATION_INVALID,
     REASON_AEAD_NONCE_SENDER_DOMAIN_COLLISION,
 };
+use chacha20poly1305::XChaCha20Poly1305;
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use hkdf::Hkdf;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -193,18 +193,18 @@ pub fn current_feature_safety_report() -> FeatureSafetyReport {
 }
 
 /// The crypto-relevant Cargo feature set compiled into this SDK build, in the
-/// spelling [`cokret_core::verify_declared_profiles_against_features`] expects.
+/// spelling [`arkret_core::verify_declared_profiles_against_features`] expects.
 ///
 /// The SDK crate can observe `mls` (OpenMLS group crypto) directly. Client-side
 /// key-backup crypto (`backup`) is a feature of the separate `arkret-crypto`
 /// crate, not re-exported as an SDK feature, so it is not visible to `cfg!`
 /// here; a caller that links `arkret-crypto` with `backup` should append
-/// [`cokret_core::profile_feature_guard::FEATURE_BACKUP`] to this list before
-/// calling [`cokret_core::verify_declared_profiles_against_features`].
+/// [`arkret_core::profile_feature_guard::FEATURE_BACKUP`] to this list before
+/// calling [`arkret_core::verify_declared_profiles_against_features`].
 pub fn current_profile_crypto_features() -> Vec<&'static str> {
     let mut features = Vec::new();
     if cfg!(feature = "mls") {
-        features.push(cokret_core::profile_feature_guard::FEATURE_MLS);
+        features.push(arkret_core::profile_feature_guard::FEATURE_MLS);
     }
     features
 }
@@ -212,14 +212,14 @@ pub fn current_profile_crypto_features() -> Vec<&'static str> {
 /// Cross-check the conformance profiles this build intends to declare against
 /// the crypto features actually compiled in, so a feature-trimmed binary never
 /// advertises `e2ee_client` (or any MLS/backup-bearing profile) it cannot
-/// serve. See [`cokret_core::verify_declared_profiles_against_features`].
+/// serve. See [`arkret_core::verify_declared_profiles_against_features`].
 pub fn verify_declared_profiles_against_current_features(
     declared: &[&str],
 ) -> std::result::Result<
-    std::result::Result<(), Vec<cokret_core::ProfileFeatureGap>>,
-    cokret_core::generated::profile_requirements::ProfileRequirementsError,
+    std::result::Result<(), Vec<arkret_core::ProfileFeatureGap>>,
+    arkret_core::generated::profile_requirements::ProfileRequirementsError,
 > {
-    cokret_core::verify_declared_profiles_against_features(
+    arkret_core::verify_declared_profiles_against_features(
         declared,
         &current_profile_crypto_features(),
     )
@@ -281,7 +281,7 @@ pub fn redact_log_value(value: &Value) -> Value {
 /// derivation, and the AAD is mixed into the `info` parameter so the same
 /// key material under a different context produces an independent key. The
 /// key material is still expected to be high-entropy; low-entropy
-/// passphrases MUST be stretched with `cokret_crypto::backup::derive_vault_kek`
+/// passphrases MUST be stretched with `arkret_crypto::backup::derive_vault_kek`
 /// (Argon2id) before being passed here.
 fn derive_aead_key(key_material: &[u8], aad: &[u8]) -> Result<[u8; 32]> {
     let hkdf = Hkdf::<Sha256>::new(Some(AEAD_HKDF_SALT), key_material);
@@ -504,7 +504,7 @@ pub fn encrypted_envelope_digest_report(
 fn sha256_prefixed(bytes: &[u8]) -> String {
     // Reuse the authoritative `sha256:<lowercase-hex>` formatter in
     // `arkret-core` (single source of truth for the digest prefix/encoding).
-    cokret_core::canonical::sha256_digest(bytes)
+    arkret_core::canonical::sha256_digest(bytes)
 }
 
 /// Constant-time string comparison backed by the audited `subtle` crate.
@@ -514,8 +514,8 @@ fn sha256_prefixed(bytes: &[u8]) -> String {
 /// compared with `subtle::ConstantTimeEq`. Shared crate-wide (see
 /// `key_verification::commitment`, `identity::records`, `auth::helpers`).
 pub(crate) fn constant_time_eq(left: &str, right: &str) -> bool {
-    let left = cokret_core::canonical::sha256_bytes(left.as_bytes());
-    let right = cokret_core::canonical::sha256_bytes(right.as_bytes());
+    let left = arkret_core::canonical::sha256_bytes(left.as_bytes());
+    let right = arkret_core::canonical::sha256_bytes(right.as_bytes());
     left.ct_eq(&right).into()
 }
 
@@ -710,7 +710,7 @@ mod tests {
                 .expect_err("e2ee_client still needs the backup crypto feature the SDK cannot see");
             assert!(
                 gaps.iter().all(|gap| gap.required_feature
-                    == cokret_core::profile_feature_guard::FEATURE_BACKUP),
+                    == arkret_core::profile_feature_guard::FEATURE_BACKUP),
                 "only the backup crypto feature should gap on an mls build: {gaps:?}"
             );
         }

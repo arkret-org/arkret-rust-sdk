@@ -856,15 +856,15 @@ impl AuthManager {
     /// no challenge sub-path under `/_cokret/`).
     pub async fn login_did_proof<S>(
         &mut self,
-        client: &cokret_http_client::Client,
+        client: &arkret_http_client::Client,
         principal_id: Did,
         device_id: DeviceId,
         signer: &S,
         challenge: &str,
         audience: &str,
-    ) -> Result<cokret_core::SessionGrantOutcome>
+    ) -> Result<arkret_core::SessionGrantOutcome>
     where
-        S: cokret_core::MoveSigner + ?Sized,
+        S: arkret_core::MoveSigner + ?Sized,
     {
         if challenge.len() < 16 {
             return Err(Error::Protocol(
@@ -883,8 +883,8 @@ impl AuthManager {
             "principal_id": principal_id.as_str(),
             "device_id": device_id.as_str(),
         });
-        let request_canonical_digest = crate::Hash::new(cokret_core::canonical::sha256_digest(
-            &cokret_core::canonical::canonical_json_bytes(&request_binding)?,
+        let request_canonical_digest = crate::Hash::new(arkret_core::canonical::sha256_digest(
+            &arkret_core::canonical::canonical_json_bytes(&request_binding)?,
         ))?;
 
         // `ck.did.proof` structured canonical-JSON signing payload per
@@ -898,14 +898,14 @@ impl AuthManager {
             "audience": audience,
             "challenge": challenge,
             "request_canonical_digest": request_canonical_digest.as_str(),
-            "issued_at": cokret_core::canonical::format_timestamp_canonical(issued_at),
-            "expires_at": cokret_core::canonical::format_timestamp_canonical(expires_at),
+            "issued_at": arkret_core::canonical::format_timestamp_canonical(issued_at),
+            "expires_at": arkret_core::canonical::format_timestamp_canonical(expires_at),
         });
-        let payload_bytes = cokret_core::canonical::canonical_json_bytes(&signing_payload)?;
+        let payload_bytes = arkret_core::canonical::canonical_json_bytes(&signing_payload)?;
         let move_sig = signer.sign_payload(&payload_bytes)?;
 
         client
-            .auth_issue_session_grant(&cokret_core::SessionGrantRequestBody {
+            .auth_issue_session_grant(&arkret_core::SessionGrantRequestBody {
                 principal_id: Some(principal_id),
                 device_id: Some(device_id),
                 requested_scope: Vec::new(),
@@ -913,8 +913,8 @@ impl AuthManager {
                 agent_scope_request: Value::Null,
                 dpop_binding_proof: None,
                 applet_delegation: None,
-                proof: cokret_core::SessionGrantRequestProof {
-                    proof_kind: cokret_core::SessionGrantProofKind::DidBoundSignature,
+                proof: arkret_core::SessionGrantRequestProof {
+                    proof_kind: arkret_core::SessionGrantProofKind::DidBoundSignature,
                     challenge: challenge.to_owned(),
                     request_canonical_digest,
                     audience: audience.to_owned(),

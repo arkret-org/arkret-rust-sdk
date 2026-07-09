@@ -23,10 +23,10 @@
 //! divergence so the canonicalizer / digest / raw-signature layers carry
 //! spec anchors while the transcript question is adjudicated.
 
-use cokret_core::schema::embedded_json_artifact;
-use cokret_core::{Did, Hash, Proof, base64url_decode, base64url_encode, canonical};
-use cokret_signatures::proof::{PublicKeyMaterial, verify_detached_ed25519_signature};
-use cokret_signatures::{
+use arkret_core::schema::embedded_json_artifact;
+use arkret_core::{Did, Hash, Proof, base64url_decode, base64url_encode, canonical};
+use arkret_signatures::proof::{PublicKeyMaterial, verify_detached_ed25519_signature};
+use arkret_signatures::{
     FUTURE_ALGORITHMS, PRODUCTION_ALGORITHMS, verify_eddsa_detached_jws_proof,
 };
 use ed25519_dalek::Signer as _;

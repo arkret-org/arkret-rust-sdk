@@ -1,4 +1,4 @@
-use cokret_core::canonical::{canonical_json_bytes, sha256_digest};
+use arkret_core::canonical::{canonical_json_bytes, sha256_digest};
 
 use super::envelopes::KeyVerificationStart;
 use crate::{Error, Result};

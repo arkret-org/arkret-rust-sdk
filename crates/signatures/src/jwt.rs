@@ -5,7 +5,7 @@
 //! and `OKP` / `Ed25519` JWKs. RSA and ECDSA JWTs must be verified by a host
 //! adapter until the SDK owns those algorithm implementations.
 
-use cokret_core::base64url_decode;
+use arkret_core::base64url_decode;
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -292,7 +292,7 @@ fn claim_audience_contains(claim: Option<&Value>, expected: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use cokret_core::base64url_encode;
+    use arkret_core::base64url_encode;
     use ed25519_dalek::{Signer, SigningKey};
     use serde_json::json;
 

@@ -25,8 +25,8 @@
 //! `history_secret` (§2.10.8 eager timing). The recovery recipient is an offline
 //! HPKE public key, NOT an MLS member or member device.
 
+use arkret_core::multibase::{decode_multibase_base58btc, decode_multicodec_varint};
 use chrono::{DateTime, Utc};
-use cokret_core::multibase::{decode_multibase_base58btc, decode_multicodec_varint};
 use serde_json::Value;
 
 use crate::secret_share::seal_history_secret_to_device_pubkey;
@@ -353,7 +353,7 @@ pub fn rrk_key_scope(
 
 #[cfg(test)]
 mod tests {
-    use cokret_core::multibase::encode_multibase_base58btc;
+    use arkret_core::multibase::encode_multibase_base58btc;
     use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
 
     use super::*;

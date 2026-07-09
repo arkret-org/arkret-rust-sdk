@@ -2,17 +2,17 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
-use cokret_core::base64url::base64url_decode;
-use cokret_core::canonical::canonical_json_bytes;
-use cokret_core::error::{
+use arkret_core::base64url::base64url_decode;
+use arkret_core::canonical::canonical_json_bytes;
+use arkret_core::error::{
     REASON_PARTICIPANT_BINDING_INVALID, REASON_TOKEN_ISSUER_UNAUTHORISED, REASON_UNKNOWN_FOCUS_TYPE,
 };
-use cokret_core::{
+use arkret_core::{
     CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
 };
 #[cfg(feature = "client")]
-use cokret_core::{MediaIceConfigOutcome, MediaIceConfigRequestBody};
+use arkret_core::{MediaIceConfigOutcome, MediaIceConfigRequestBody};
+use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +32,7 @@ pub const THUMBNAIL_DERIVATION_PROFILE: &str = "ck.profile.media.thumbnail_previ
 
 /// Backend type for a call's media focus. Wire enum mirrors
 /// `ck.realm.media_service.foci[].type`. Receivers MUST fail closed with
-/// [`unknown_focus_type`](cokret_core::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE)
+/// [`unknown_focus_type`](arkret_core::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE)
 /// on unrecognized variants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -62,7 +62,7 @@ impl MediaBackendType {
 }
 
 /// Validate that `expires_at - now` is within the spec TTL ceiling
-/// ([`MEDIA_TOKEN_TTL_MAX_SECS`](cokret_core::MEDIA_TOKEN_TTL_MAX_SECS)).
+/// ([`MEDIA_TOKEN_TTL_MAX_SECS`](arkret_core::MEDIA_TOKEN_TTL_MAX_SECS)).
 /// Returns [`Ok(())`] when the TTL is within bounds, otherwise a
 /// `participant_binding_invalid` protocol error.
 pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Result<()> {
@@ -72,7 +72,7 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
             "{REASON_PARTICIPANT_BINDING_INVALID}: token already expired"
         )));
     }
-    if (remaining as u64) > cokret_core::MEDIA_TOKEN_TTL_MAX_SECS {
+    if (remaining as u64) > arkret_core::MEDIA_TOKEN_TTL_MAX_SECS {
         return Err(Error::Protocol(format!(
             "{REASON_PARTICIPANT_BINDING_INVALID}: token TTL exceeds 600s ceiling"
         )));
@@ -82,7 +82,7 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
 
 /// Client helper that builds a `ck.self.call.media.exchange.issue_token` request body.
 ///
-/// The reqwest-backed transport (`cokret_http_client::Client::media_token_exchange`)
+/// The reqwest-backed transport (`arkret_http_client::Client::media_token_exchange`)
 /// POSTs this body to `/_cokret/self/rtc/token` and returns the raw
 /// [`CallMediaTokenExchangeOutcome`]. Callers MUST then pass the response through
 /// [`verify_call_media_token_outcome`], which anchors `participant_binding.issuer_kid`
@@ -221,18 +221,18 @@ pub struct VerifiedMediaIceConfig {
 #[cfg(feature = "client")]
 #[derive(Clone, Debug)]
 pub struct MediaClient {
-    client: cokret_http_client::Client,
+    client: arkret_http_client::Client,
 }
 
 #[cfg(feature = "client")]
 impl MediaClient {
-    /// Wrap an authenticated [`cokret_http_client::Client`].
-    pub fn new(client: cokret_http_client::Client) -> Self {
+    /// Wrap an authenticated [`arkret_http_client::Client`].
+    pub fn new(client: arkret_http_client::Client) -> Self {
         Self { client }
     }
 
     /// Borrow the underlying HTTP client for shared connection-pool use.
-    pub fn client(&self) -> &cokret_http_client::Client {
+    pub fn client(&self) -> &arkret_http_client::Client {
         &self.client
     }
 
@@ -266,8 +266,8 @@ impl MediaClient {
 }
 
 #[cfg(feature = "client")]
-impl From<cokret_http_client::Client> for MediaClient {
-    fn from(client: cokret_http_client::Client) -> Self {
+impl From<arkret_http_client::Client> for MediaClient {
+    fn from(client: arkret_http_client::Client) -> Self {
         Self::new(client)
     }
 }
@@ -406,7 +406,7 @@ pub fn verify_call_media_token_outcome(
         )));
     }
 
-    if binding.scheme != cokret_core::PARTICIPANT_BINDING_SCHEMA {
+    if binding.scheme != arkret_core::PARTICIPANT_BINDING_SCHEMA {
         return Err(Error::Protocol(format!(
             "{REASON_PARTICIPANT_BINDING_INVALID}: unexpected scheme {:?}",
             binding.scheme
@@ -1071,15 +1071,15 @@ mod tests {
     #[cfg(feature = "client")]
     #[test]
     fn media_client_wraps_authenticated_http_client() {
-        let http = cokret_http_client::Client::new(
+        let http = arkret_http_client::Client::new(
             reqwest::Url::parse("https://alice.example/arkret/").unwrap(),
         )
         .unwrap();
         let media = MediaClient::new(http.clone());
-        let _: &cokret_http_client::Client = media.client();
+        let _: &arkret_http_client::Client = media.client();
 
         let media_from: MediaClient = http.into();
-        let _: &cokret_http_client::Client = media_from.client();
+        let _: &arkret_http_client::Client = media_from.client();
     }
 
     fn token_request() -> CallMediaTokenExchangeRequestBody {
@@ -1106,7 +1106,7 @@ mod tests {
             backend_token: "opaque-backend-token".to_owned(),
             participant_identity: identity.clone(),
             participant_binding: CallMediaParticipantBinding {
-                scheme: cokret_core::PARTICIPANT_BINDING_SCHEMA.to_owned(),
+                scheme: arkret_core::PARTICIPANT_BINDING_SCHEMA.to_owned(),
                 sig: String::new(),
                 issuer_kid: ISSUER_KID.to_owned(),
                 realm_id: request.realm_id.clone(),
@@ -1119,7 +1119,7 @@ mod tests {
                 expires_at,
             },
             expires_at,
-            service_signature: cokret_core::CallMediaServiceSignature {
+            service_signature: arkret_core::CallMediaServiceSignature {
                 kid: ISSUER_KID.to_owned(),
                 sig: String::new(),
             },
@@ -1131,7 +1131,7 @@ mod tests {
     /// signatures cover the (possibly tampered) authoritative fields.
     fn sign_outcome(outcome: &mut CallMediaTokenExchangeOutcome, key: &SigningKey) {
         let input = participant_binding_signing_input(&outcome.participant_binding).unwrap();
-        let sig = cokret_core::base64url::base64url_encode(key.sign(&input).to_bytes());
+        let sig = arkret_core::base64url::base64url_encode(key.sign(&input).to_bytes());
         outcome.participant_binding.sig = sig.clone();
         outcome.service_signature.sig = sig;
     }

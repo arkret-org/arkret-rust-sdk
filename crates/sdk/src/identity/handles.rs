@@ -260,7 +260,7 @@ pub struct HandleAttestation {
 /// Client-local handle claim challenge state tracked by [`IdentityManager`].
 ///
 /// This is NOT the wire handle-claim resource — that is
-/// `cokret_core::HandleClaim` (handle-claim schema counterpart). This type
+/// `arkret_core::HandleClaim` (handle-claim schema counterpart). This type
 /// only tracks the local challenge/verification lifecycle before a claim is
 /// published.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -389,7 +389,7 @@ impl VerifiedHandleBinding {
         }
         handle_proof.validate()?;
 
-        let document_hash = sha256_hex(&cokret_core::canonical::canonical_json_bytes(document)?);
+        let document_hash = sha256_hex(&arkret_core::canonical::canonical_json_bytes(document)?);
 
         Ok(Self {
             handle: normalized,

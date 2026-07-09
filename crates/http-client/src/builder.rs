@@ -7,7 +7,7 @@
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 
-use cokret_core::{Error, Result};
+use arkret_core::{Error, Result};
 use url::Url;
 
 use crate::client_internals::{

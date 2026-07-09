@@ -3,7 +3,7 @@
 //! ## Feature flags
 //!
 //! * `backup` — pulls in the [`backup`] module, which provides client-side Argon2id KDF,
-//!   XChaCha20-Poly1305 AEAD, a recovery-key codec, and a typed [`cokret_core::KeyBackup`] envelope
+//!   XChaCha20-Poly1305 AEAD, a recovery-key codec, and a typed [`arkret_core::KeyBackup`] envelope
 //!   builder (spec: `crypto-media/key-management.md` §7). When the feature is off, the bare types
 //!   crate stays free of heavyweight crypto deps.
 
@@ -16,7 +16,7 @@ mod errors;
 mod session;
 
 // Crate-root re-export preserved from the original module layout.
-pub use cokret_signatures::{DetachedSignature, DetachedSignatureBinding, DetachedVerifier};
+pub use arkret_signatures::{DetachedSignature, DetachedSignatureBinding, DetachedVerifier};
 // Re-export every moved public item at the crate root so the public API is
 // byte-identical to the pre-split single-file module.
 pub use cross_signing::*;
@@ -32,11 +32,11 @@ pub use session::*;
 mod tests {
     use std::collections::BTreeMap;
 
-    use chrono::Utc;
-    use cokret_core::{
+    use arkret_core::{
         BlobRef, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash,
         RealmId,
     };
+    use chrono::Utc;
 
     use super::*;
 
@@ -412,7 +412,7 @@ mod tests {
     fn reset_signing_input_is_stable_and_binds_replay_fields() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
+            trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
                 .unwrap(),
             reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
@@ -426,7 +426,7 @@ mod tests {
             issued_at: Utc::now(),
         };
         let base = content.reset_signing_input().unwrap();
-        assert!(base.starts_with(cokret_core::binding_contexts::CROSS_SIGNING_RESET_PREFIX));
+        assert!(base.starts_with(arkret_core::binding_contexts::CROSS_SIGNING_RESET_PREFIX));
         // Deterministic.
         assert_eq!(base, content.reset_signing_input().unwrap());
         // Generation transition is bound.
@@ -437,7 +437,7 @@ mod tests {
         // trust_domain is bound (cross-deployment replay protection).
         let mut domain_changed = content.clone();
         domain_changed.trust_domain =
-            cokret_core::TypedTrustDomainId::new("ak:trust_domain:other.net").unwrap();
+            arkret_core::TypedTrustDomainId::new("ak:trust_domain:other.net").unwrap();
         assert_ne!(base, domain_changed.reset_signing_input().unwrap());
         // reset_event_id is bound (event-shell replay protection).
         let mut event_changed = content.clone();
@@ -471,7 +471,7 @@ mod tests {
     fn recovery_unlock_commitment_binds_reset_without_self_reference() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
+            trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
                 .unwrap(),
             reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
@@ -519,7 +519,7 @@ mod tests {
     fn cross_signing_reset_proof_threshold_zero_rejected() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
+            trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
                 .unwrap(),
             reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
@@ -554,7 +554,7 @@ mod tests {
         // PrincipalSigning with whitespace-only `verification_method`.
         let blank_verification_method = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
+            trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
                 .unwrap(),
             reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
@@ -628,7 +628,7 @@ mod tests {
     fn cross_signing_reset_proof_oversized_alg_rejected() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
+            trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
                 .unwrap(),
             reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,

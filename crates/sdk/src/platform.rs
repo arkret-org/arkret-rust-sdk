@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-pub use cokret_core::{WasmHttpRequestBody, WasmHttpResponseBody};
+pub use arkret_core::{WasmHttpRequestBody, WasmHttpResponseBody};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -31,7 +31,7 @@ where
 // `arkret-ffi`; the SDK surfaces them without redefining the shapes so the
 // serde contract (for example `quota_bytes` omission when `None`) has a
 // single source of truth.
-pub use cokret_ffi::{
+pub use arkret_ffi::{
     IndexedDbStoreDescriptor, IndexedDbStoreKind, WasmRuntimeContract, WebCryptoKeyHandle,
     WebCryptoOperation,
 };

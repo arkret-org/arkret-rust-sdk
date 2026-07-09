@@ -15,7 +15,7 @@ pub trait DidResolver {
 pub struct ResolvedVerificationMethodKey {
     pub did: Did,
     pub verification_method: String,
-    pub public_key: cokret_signatures::PublicKeyMaterial,
+    pub public_key: arkret_signatures::PublicKeyMaterial,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub controller: Option<Did>,
 }
@@ -79,7 +79,7 @@ impl<'a, R: DidResolver + ?Sized> DidDocumentVerificationMethodResolver<'a, R> {
     }
 }
 
-impl<R> cokret_signatures::DidVerificationMethodResolver
+impl<R> arkret_signatures::DidVerificationMethodResolver
     for DidDocumentVerificationMethodResolver<'_, R>
 where
     R: DidResolver + ?Sized,
@@ -87,12 +87,12 @@ where
     fn resolve_verification_method(
         &self,
         verification_method: &str,
-    ) -> Result<cokret_signatures::VerificationMethodDocument> {
+    ) -> Result<arkret_signatures::VerificationMethodDocument> {
         let did = verification_method_did(verification_method)?;
         let document = self.resolver.resolve_did(&did)?;
         let (method_id, public_key_value) =
             lookup_verification_method_value(&document, verification_method)?;
-        Ok(cokret_signatures::VerificationMethodDocument {
+        Ok(arkret_signatures::VerificationMethodDocument {
             did: document.id,
             verification_method: method_id,
             public_key_multibase: public_key_value,
@@ -112,16 +112,16 @@ pub fn verify_canonical_proof_with_did_resolver<R>(
     canonical_bytes: &[u8],
     proof: &crate::Proof,
     binding_actor_id: &Did,
-    context: &cokret_signatures::ProofVerificationContext,
+    context: &arkret_signatures::ProofVerificationContext,
     resolver: &R,
-) -> Result<cokret_signatures::SignatureVerification>
+) -> Result<arkret_signatures::SignatureVerification>
 where
     R: DidResolver + ?Sized,
 {
     let adapter = DidDocumentVerificationMethodResolver::new(resolver);
-    cokret_signatures::verify_proof_with_resolver(proof, context, &adapter, |method, proof| {
+    arkret_signatures::verify_proof_with_resolver(proof, context, &adapter, |method, proof| {
         let public_key = public_key_material_from_did_document_value(&method.public_key_multibase)?;
-        cokret_signatures::verify_eddsa_detached_jws_proof(
+        arkret_signatures::verify_eddsa_detached_jws_proof(
             proof,
             canonical_bytes,
             binding_actor_id,
@@ -140,7 +140,7 @@ pub fn verify_event_proof_with_did_resolver<R>(
     event: &crate::Event,
     proof: &crate::Proof,
     resolver: &R,
-) -> Result<cokret_signatures::SignatureVerification>
+) -> Result<arkret_signatures::SignatureVerification>
 where
     R: DidResolver + ?Sized,
 {
@@ -152,12 +152,12 @@ pub fn verify_event_proof_with_did_resolver_context<R>(
     event: &crate::Event,
     proof: &crate::Proof,
     resolver: &R,
-    context: cokret_signatures::ProofVerificationContext,
-) -> Result<cokret_signatures::SignatureVerification>
+    context: arkret_signatures::ProofVerificationContext,
+) -> Result<arkret_signatures::SignatureVerification>
 where
     R: DidResolver + ?Sized,
 {
-    let builder = cokret_signatures::EventProofBuilder::new();
+    let builder = arkret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(event)?;
     // Binding object `actor_id` is the Event envelope's `actor_id` (spec §6
     // L201), independent of the controller actor (`executed_by`) above.
@@ -172,16 +172,16 @@ where
 
 pub fn event_proof_verification_context(
     event: &crate::Event,
-) -> Result<cokret_signatures::ProofVerificationContext> {
-    let builder = cokret_signatures::EventProofBuilder::new();
+) -> Result<arkret_signatures::ProofVerificationContext> {
+    let builder = arkret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(event)?;
     let expected_digest =
-        crate::Hash::new(cokret_core::canonical::sha256_digest(&canonical_bytes))?;
+        crate::Hash::new(arkret_core::canonical::sha256_digest(&canonical_bytes))?;
     let signing_actor = event
         .executed_by
         .clone()
         .unwrap_or_else(|| event.actor_id.clone());
-    Ok(cokret_signatures::ProofVerificationContext::new(
+    Ok(arkret_signatures::ProofVerificationContext::new(
         signing_actor,
         expected_digest,
     ))
@@ -218,15 +218,15 @@ fn verification_method_fragment(verification_method: &str) -> Option<&str> {
 
 fn public_key_material_from_did_document_value(
     value: &str,
-) -> Result<cokret_signatures::PublicKeyMaterial> {
+) -> Result<arkret_signatures::PublicKeyMaterial> {
     let trimmed = value.trim();
     if trimmed.starts_with('{') {
         let jwk: Value = serde_json::from_str(trimmed)?;
-        return Ok(cokret_signatures::PublicKeyMaterial::Jwk { value: jwk });
+        return Ok(arkret_signatures::PublicKeyMaterial::Jwk { value: jwk });
     }
     let multibase = trimmed.strip_prefix("did:key:").unwrap_or(trimmed);
     if multibase.starts_with('z') {
-        return Ok(cokret_signatures::PublicKeyMaterial::Ed25519Multibase {
+        return Ok(arkret_signatures::PublicKeyMaterial::Ed25519Multibase {
             value: multibase.to_owned(),
         });
     }

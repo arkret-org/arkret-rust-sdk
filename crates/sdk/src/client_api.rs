@@ -19,14 +19,14 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use chrono::{DateTime, Utc};
-use cokret_core::push::{PushPriority, PushRule, PushRuleSet, Pusher};
-use cokret_core::{
+use arkret_core::push::{PushPriority, PushRule, PushRuleSet, Pusher};
+use arkret_core::{
     BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId,
     InviteSubjectProof, Notification, RealmId, Result, ThirdPartyInviteOobKind,
 };
-use cokret_crypto::MediaEncryptionInfo;
-use cokret_html::RichTextDocument;
+use arkret_crypto::MediaEncryptionInfo;
+use arkret_html::RichTextDocument;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -278,7 +278,7 @@ pub struct DeviceVerificationStrand {
 /// Alias for the canonical closed presence wire set
 /// (`discovery/profiles-presence.md` §3.2) — kept so existing
 /// `PresenceState` call sites keep compiling while the single enum
-/// lives in `cokret_core::sync`.
+/// lives in `arkret_core::sync`.
 pub type PresenceState = crate::sync::PresenceStatus;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -996,7 +996,7 @@ impl NotificationListRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct NotificationListOutcome {
     /// Spec-shaped notification objects (`notification.schema.json`,
-    /// mirrored by `cokret_core::Notification`). The former parallel
+    /// mirrored by `arkret_core::Notification`). The former parallel
     /// `ClientNotification` shape (notification_id / sender / read /
     /// highlighted / content) drifted from the closed authoritative
     /// schema and has been removed.
@@ -1321,7 +1321,7 @@ mod tests {
             pusher: Pusher {
                 user_id: did("alice"),
                 device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
-                platform: cokret_core::push::PushPlatform::Fcm,
+                platform: arkret_core::push::PushPlatform::Fcm,
                 push_gateway: "https://push.example".to_owned(),
                 push_key: "token".to_owned(),
                 app_id: Some("app".to_owned()),

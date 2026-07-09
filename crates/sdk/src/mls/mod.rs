@@ -686,7 +686,7 @@ mod tests {
         let revoke_step = revoke_key_package(&mut revoked_package);
         assert_eq!(
             revoked_package.state,
-            cokret_core::MlsKeyPackageState::Revoked
+            arkret_core::MlsKeyPackageState::Revoked
         );
         assert_eq!(
             revoke_step.action,

@@ -27,7 +27,7 @@
 //! for their own `seal_ref`'s governance frontier. [`e2ee_message_precondition`]
 //! produces the exact precondition shape so callers don't have to hand-derive it.
 
-use cokret_core::{
+use arkret_core::{
     CellRef, Effect, Hash, LatticeOp, LatticeOpType, Precondition, Predicate, PredicateOp, RealmId,
     SealId,
 };
@@ -40,36 +40,36 @@ pub const COVERED_SEALS_CELL_FAMILY: &str = "ck.component.covered_seals.v1";
 
 /// `ck:cell:ck.component.mls_epoch.v1:<group_id>` — cas-register on the
 /// MLS group's current epoch counter.
-pub fn mls_epoch_cell_id(group_id: &str) -> Result<CellRef, cokret_core::Error> {
+pub fn mls_epoch_cell_id(group_id: &str) -> Result<CellRef, arkret_core::Error> {
     if group_id.is_empty() {
-        return Err(cokret_core::Error::Protocol(
+        return Err(arkret_core::Error::Protocol(
             "MLS group_id must not be empty".to_owned(),
         ));
     }
     CellRef::new(format!("ak:cell:{MLS_EPOCH_CELL_FAMILY}:{group_id}"))
-        .map_err(|e| cokret_core::Error::Protocol(format!("invalid mls_epoch cell id: {e}")))
+        .map_err(|e| arkret_core::Error::Protocol(format!("invalid mls_epoch cell id: {e}")))
 }
 
 /// `ck:cell:ck.component.key_schedule.v1:<group_id>` — cas-register on
 /// the MLS group's latest key schedule pointer.
-pub fn key_schedule_cell_id(group_id: &str) -> Result<CellRef, cokret_core::Error> {
+pub fn key_schedule_cell_id(group_id: &str) -> Result<CellRef, arkret_core::Error> {
     if group_id.is_empty() {
-        return Err(cokret_core::Error::Protocol(
+        return Err(arkret_core::Error::Protocol(
             "MLS group_id must not be empty".to_owned(),
         ));
     }
     CellRef::new(format!("ak:cell:{KEY_SCHEDULE_CELL_FAMILY}:{group_id}"))
-        .map_err(|e| cokret_core::Error::Protocol(format!("invalid key_schedule cell id: {e}")))
+        .map_err(|e| arkret_core::Error::Protocol(format!("invalid key_schedule cell id: {e}")))
 }
 
 /// `ck:cell:ck.component.covered_seals.v1:<realm_id>` — or-set listing
 /// the governance Seal frontiers this MLS group is currently bound to.
-pub fn covered_seals_cell_id(realm_id: &RealmId) -> Result<CellRef, cokret_core::Error> {
+pub fn covered_seals_cell_id(realm_id: &RealmId) -> Result<CellRef, arkret_core::Error> {
     CellRef::new(format!(
         "ak:cell:{COVERED_SEALS_CELL_FAMILY}:{}",
         realm_id.as_str()
     ))
-    .map_err(|e| cokret_core::Error::Protocol(format!("invalid covered_seals cell id: {e}")))
+    .map_err(|e| arkret_core::Error::Protocol(format!("invalid covered_seals cell id: {e}")))
 }
 
 /// Deterministic or-set tag for "this MLS commit attests Seal X covers
@@ -92,7 +92,7 @@ pub fn mls_commit_preconditions(
     realm_id: &RealmId,
     prev_epoch: u64,
     required_governance_seal: &SealId,
-) -> Result<Vec<Precondition>, cokret_core::Error> {
+) -> Result<Vec<Precondition>, arkret_core::Error> {
     let epoch_cell = mls_epoch_cell_id(group_id)?;
     let frontier_cell = covered_seals_cell_id(realm_id)?;
     Ok(vec![
@@ -129,7 +129,7 @@ pub fn mls_commit_effects(
     new_epoch: u64,
     new_schedule: &Hash,
     attested_governance_seal: &SealId,
-) -> Result<Vec<Effect>, cokret_core::Error> {
+) -> Result<Vec<Effect>, arkret_core::Error> {
     let epoch_cell = mls_epoch_cell_id(group_id)?;
     let schedule_cell = key_schedule_cell_id(group_id)?;
     let frontier_cell = covered_seals_cell_id(realm_id)?;
@@ -186,7 +186,7 @@ pub fn mls_commit_effects(
 pub fn e2ee_message_precondition(
     realm_id: &RealmId,
     governance_seal: &SealId,
-) -> Result<Precondition, cokret_core::Error> {
+) -> Result<Precondition, arkret_core::Error> {
     let cell = covered_seals_cell_id(realm_id)?;
     Ok(Precondition {
         cell,
@@ -220,7 +220,7 @@ impl MlsCommitMoveSpec {
         new_schedule: &Hash,
         required_governance_seal: &SealId,
         attested_governance_seal: &SealId,
-    ) -> Result<Self, cokret_core::Error> {
+    ) -> Result<Self, arkret_core::Error> {
         Ok(Self {
             preconditions: mls_commit_preconditions(
                 group_id,
@@ -260,8 +260,8 @@ pub fn covered_seals_contains(cell_value: &Value, seal: &SealId) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use cokret_core::MoveId;
-    use cokret_core::lattice::{CellState, Lattice, OrSet, SealedOp};
+    use arkret_core::MoveId;
+    use arkret_core::lattice::{CellState, Lattice, OrSet, SealedOp};
 
     use super::*;
 

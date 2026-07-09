@@ -12,7 +12,7 @@
 //! intentionally tolerant of unknown fields (`extra: BTreeMap<String, Value>`)
 //! so forward-compatible non-critical extensions round-trip.
 
-pub use cokret_identifiers::CircleId;
+pub use arkret_identifiers::CircleId;
 
 /// Canonical schema id for `Circle`.
 ///

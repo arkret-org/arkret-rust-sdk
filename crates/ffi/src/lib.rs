@@ -1,11 +1,20 @@
-//! FFI and WASM runtime contracts.
+//! FFI and WASM runtime contracts — **contracts-only**.
+//!
+//! This crate is a *contract type layer*: it defines the layout-stable handle
+//! tables, error payloads, callback-result shapes and WASM runtime descriptors
+//! that a real host binding is expected to honour. It deliberately exports **no
+//! actual ABI**: there is no `extern "C"` / `#[no_mangle]` surface, and no
+//! UniFFI, `wasm-bindgen` or JNI glue is generated here. Concrete bindings are
+//! produced out-of-crate (UniFFI / `wasm-bindgen` / `cargo ndk`) against these
+//! types; the C / WASM / JNI snippets in the README are illustrative sketches of
+//! what such generated bindings would expose, not an ABI this crate emits.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use cokret_core::{Error, Result};
-pub use cokret_core::{WasmHttpRequestBody, WasmHttpResponseBody};
+use arkret_core::{Error, Result};
+pub use arkret_core::{WasmHttpRequestBody, WasmHttpResponseBody};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

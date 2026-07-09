@@ -6,12 +6,12 @@
 //! service MUST reject before advancing any server-side state
 //! (conformance-vectors.md §1.16). The positive opaqueness contract lives in
 //! `ck.vector.encoding.cursor_opaque.core.v1`; this suite pins the rejection
-//! surface of [`cokret_core::cursor::Cursor::decode`] to the spec vectors so
+//! surface of [`arkret_core::cursor::Cursor::decode`] to the spec vectors so
 //! the SDK's self-authored negative tests can no longer drift from the
 //! published rejection semantics.
 
-use cokret_core::cursor::Cursor;
-use cokret_core::schema::embedded_json_artifact;
+use arkret_core::cursor::Cursor;
+use arkret_core::schema::embedded_json_artifact;
 
 const FIXTURE_PATH: &str = "fixtures/cursor-negative-fixture.json";
 const VECTOR_ID: &str = "ck.vector.encoding.reject_invalid_cursor.core.v1";

@@ -2,9 +2,9 @@
 
 use std::collections::BTreeMap;
 
+use arkret_core::{DeviceId, Did, Error, Result};
+use arkret_signatures::DetachedSignature;
 use chrono::{DateTime, Utc};
-use cokret_core::{DeviceId, Did, Error, Result};
-use cokret_signatures::DetachedSignature;
 use serde::{Deserialize, Serialize};
 
 use crate::errors::{

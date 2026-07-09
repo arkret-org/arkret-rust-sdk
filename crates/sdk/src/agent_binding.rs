@@ -77,8 +77,8 @@ pub fn sign_ed25519_audit_binding(
         build_ed25519_canonical_subject(session_id, agent_principal_id, echo, actor_id);
     let signature: Signature = signing_key.sign(canonical_subject.as_bytes());
     Ed25519SignedAuditBinding {
-        signature_b64: cokret_core::base64url_encode(&signature.to_bytes()),
-        public_key_b64: cokret_core::base64url_encode(signing_key.verifying_key().as_bytes()),
+        signature_b64: arkret_core::base64url_encode(&signature.to_bytes()),
+        public_key_b64: arkret_core::base64url_encode(signing_key.verifying_key().as_bytes()),
         canonical_subject,
     }
 }
@@ -115,7 +115,7 @@ pub fn verify_ed25519_audit_binding(
     if expected_subject != canonical_subject_from_envelope {
         return Ed25519AuditBindingVerifyOutcome::SubjectMismatch;
     }
-    let Some(public_key_bytes) = cokret_core::base64url_decode(public_key_b64).ok() else {
+    let Some(public_key_bytes) = arkret_core::base64url_decode(public_key_b64).ok() else {
         return Ed25519AuditBindingVerifyOutcome::MalformedPublicKey;
     };
     if public_key_bytes.len() != 32 {
@@ -126,7 +126,7 @@ pub fn verify_ed25519_audit_binding(
     let Ok(verifying_key) = VerifyingKey::from_bytes(&pk_arr) else {
         return Ed25519AuditBindingVerifyOutcome::MalformedPublicKey;
     };
-    let Some(sig_bytes) = cokret_core::base64url_decode(signature_b64).ok() else {
+    let Some(sig_bytes) = arkret_core::base64url_decode(signature_b64).ok() else {
         return Ed25519AuditBindingVerifyOutcome::MalformedSignature;
     };
     if sig_bytes.len() != 64 {
@@ -285,9 +285,9 @@ mod tests {
             &echo,
             "did:webvh:z6mkfixture:alice.example",
         );
-        let pk_bytes = cokret_core::base64url_decode(&signed.public_key_b64).expect("pk decodes");
+        let pk_bytes = arkret_core::base64url_decode(&signed.public_key_b64).expect("pk decodes");
         assert_eq!(pk_bytes.len(), 32);
-        let sig_bytes = cokret_core::base64url_decode(&signed.signature_b64).expect("sig decodes");
+        let sig_bytes = arkret_core::base64url_decode(&signed.signature_b64).expect("sig decodes");
         assert_eq!(sig_bytes.len(), 64);
         let outcome = verify_ed25519_audit_binding(
             &signed.public_key_b64,

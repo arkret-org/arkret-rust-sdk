@@ -3,7 +3,7 @@
 //! (`ck.member.state{join}.delivery_binding` closure vectors).
 //!
 //! The SDK-implementable subset exercises the typed
-//! [`cokret_core::MemberDeliveryBinding`] model: wire-shape parsing and the
+//! [`arkret_core::MemberDeliveryBinding`] model: wire-shape parsing and the
 //! `binding_source`-conditional `validate()` rules. Vectors whose
 //! expectations are server-reducer semantics stay owned by the soland
 //! reducer suite and are consumed here at the metadata level only:
@@ -26,8 +26,8 @@
 //! `EventRef {id, role}` object. `binding_from_fixture` adapts the string
 //! form explicitly so the divergence stays visible in exactly one place.
 
-use cokret_core::schema::{embedded_error_code_identifiers, embedded_json_artifact};
-use cokret_core::{BindingSource, DeliveryStatus, MemberDeliveryBinding};
+use arkret_core::schema::{embedded_error_code_identifiers, embedded_json_artifact};
+use arkret_core::{BindingSource, DeliveryStatus, MemberDeliveryBinding};
 use serde_json::{Value, json};
 
 const FIXTURE_PATH: &str = "fixtures/membership-delivery-binding-fixture.json";

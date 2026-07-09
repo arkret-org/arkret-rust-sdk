@@ -56,7 +56,7 @@
 // The pure storage contract is re-exported from `arkret-core` so consumers
 // of `arkret-keystore` get the trait + in-memory backend + error type from a
 // single import surface alongside the platform backends below.
-pub use cokret_core::keystore::{InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError};
+pub use arkret_core::keystore::{InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError};
 
 #[cfg(all(target_os = "macos", feature = "keystore-macos"))]
 mod macos;
@@ -130,7 +130,7 @@ pub fn platform_default_keystore(application_id: &str) -> Box<dyn KeyStore> {
     let (store, kind) = platform_default_keystore_with_kind(application_id);
     if kind == BackendKind::InMemory {
         tracing::warn!(
-            target: "cokret_keystore",
+            target: "arkret_keystore",
             application_id,
             "platform_default_keystore fell back to the in-memory KeyStore: keys are \
              NOT persisted and have NO OS-level access protection. Use \

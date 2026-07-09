@@ -551,6 +551,180 @@ mod tests {
         );
     }
 
+    /// F-04 full-assertion guard (part 1): active standard kinds whose payload
+    /// the manual [`payload_def_candidates`] table intentionally resolves to the
+    /// loose `generic_standard_payload` shape — either through the explicit
+    /// [`generic_standard_payload_fallback_allowed`] allow-list or a family arm
+    /// that pushes the `generic_standard_payload` candidate directly (e.g.
+    /// `ck.applet.discovery`, `ck.strand.tracks.update`).
+    ///
+    /// Every entry is a deliberate "no dedicated event-payload def" decision. A
+    /// *new* active standard kind that silently inherits this loose shape must be
+    /// added here with a rationale, which is exactly what
+    /// [`every_active_standard_kind_resolves_to_dedicated_or_documented_catch_all`]
+    /// forces — so the hand-maintained match table cannot quietly drift a new
+    /// kind onto an under-specified payload surface.
+    const KINDS_USING_GENERIC_STANDARD_PAYLOAD: &[&str] = &[
+        "ck.applet.discovery",
+        "ck.attestation.range_completeness",
+        "ck.audit.erasure_receipt",
+        "ck.circle.archive",
+        "ck.circle.restore",
+        "ck.circle.tombstone",
+        "ck.circle.update",
+        "ck.did.proof",
+        "ck.key.verification.accept",
+        "ck.key.verification.cancel",
+        "ck.key.verification.done",
+        "ck.key.verification.key",
+        "ck.key.verification.mac",
+        "ck.key.verification.ready",
+        "ck.key.verification.request",
+        "ck.key.verification.start",
+        "ck.moderation.appeal.close",
+        "ck.moderation.appeal.decision",
+        "ck.moderation.appeal.review",
+        "ck.moderation.appeal.submit",
+        "ck.presence",
+        "ck.realm.asset_privacy_policy",
+        "ck.realm.delivery_binding_policy",
+        "ck.realm.discovery",
+        "ck.realm.join_rule",
+        "ck.realm.media_service",
+        "ck.realm.moderation_policy",
+        "ck.realm.plaintext_visible_services",
+        "ck.realm.policy",
+        "ck.realm.policy_components",
+        "ck.realm.policy_server",
+        "ck.realm.preview_policy",
+        "ck.realm.schema",
+        "ck.realm.upgrade",
+        "ck.realm_key.request",
+        "ck.receipt.read",
+        "ck.secret.request",
+        "ck.secret.send",
+        "ck.self.agent.deactivate",
+        "ck.self.agent.pause",
+        "ck.self.agent.resume",
+        "ck.self.moderation.report",
+        "ck.strand.tracks.update",
+        "ck.typing",
+    ];
+
+    /// F-04 full-assertion guard (part 2): active standard kinds validated only
+    /// against the generic `state_payload` state-transition shape, reached via a
+    /// broad family arm in [`payload_def_candidates`] (`["space", ..]`,
+    /// `["organization", ..]`, `["identity", ..]`, `["policy", ..]`, `["schema",
+    /// ..]`, `["actor", ..]`, `["handle", ..]`, `["sovereign", ..]`, plus the
+    /// `["strand", "track", ...]` state arm). Same fail-closed contract as the
+    /// generic list: a new family member that silently inherits `state_payload`
+    /// must be registered here explicitly.
+    const KINDS_USING_STATE_PAYLOAD: &[&str] = &[
+        "ck.actor.discovery",
+        "ck.handle.discovery",
+        "ck.identity.accountability_grant",
+        "ck.identity.disclosure_policy",
+        "ck.identity.disclosure_receipt",
+        "ck.identity.presentation_request",
+        "ck.identity.presentation_response",
+        "ck.organization.discovery",
+        "ck.organization.moderation_policy",
+        "ck.policy.action",
+        "ck.policy.rule",
+        "ck.policy.set",
+        "ck.profile.create",
+        "ck.schema.define",
+        "ck.schema.update",
+        "ck.sovereign.did_policy",
+    ];
+
+    /// F-04 residual closed: beyond [`catalog_covers_every_active_standard_kind`]
+    /// (which fails closed when a kind resolves to *no* validator), this test
+    /// pins *which* kinds are allowed to resolve to a **catch-all** payload shape
+    /// (`generic_standard_payload` / `state_payload`) rather than a dedicated
+    /// `event-payload.schema.json#/$defs/*_payload` def.
+    ///
+    /// It asserts, over the full embedded spec event-kind registry, that the set
+    /// of active standard kinds landing on each catch-all shape is *exactly* the
+    /// documented list — catching drift in both directions:
+    /// - a newly registered kind that silently inherits a catch-all via a broad family arm (appears
+    ///   in the computed set, absent from the list) → red;
+    /// - a kind that gained a dedicated def in the spec but is still listed as catch-all here
+    ///   (absent from the computed set, still listed) → red, prompting removal from the list.
+    ///
+    /// Any kind resolving to a dedicated `*_payload` def is, by construction, in
+    /// neither set and needs no maintenance here. This turns hand-table drift
+    /// toward under-validation into a CI-catchable failure.
+    #[test]
+    fn every_active_standard_kind_resolves_to_dedicated_or_documented_catch_all() {
+        const GENERIC_DEF: &str = "generic_standard_payload";
+        const STATE_DEF: &str = "state_payload";
+
+        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        let bundle = SpecArtifactBundle::load_embedded().unwrap();
+        let entries = bundle
+            .event_kind_registry
+            .get("event_kinds")
+            .and_then(Value::as_array)
+            .unwrap();
+
+        let mut generic = BTreeSet::new();
+        let mut state = BTreeSet::new();
+        for entry in entries {
+            if entry.get("status").and_then(Value::as_str) != Some("active") {
+                continue;
+            }
+            let Some(event_kind) = entry.get("event_kind").and_then(Value::as_str) else {
+                continue;
+            };
+            if !crate::events::is_standard_event_kind(event_kind) {
+                continue;
+            }
+            let Some(rule) = catalog.rules.get(event_kind) else {
+                // No validator at all is the concern of
+                // `catalog_covers_every_active_standard_kind`, not this test.
+                continue;
+            };
+            let def = rule
+                .payload_schema_id
+                .rsplit("#/$defs/")
+                .next()
+                .unwrap_or(rule.payload_schema_id.as_str());
+            match def {
+                GENERIC_DEF => {
+                    generic.insert(event_kind.to_owned());
+                }
+                STATE_DEF => {
+                    state.insert(event_kind.to_owned());
+                }
+                _ => {}
+            }
+        }
+
+        let expected_generic: BTreeSet<String> = KINDS_USING_GENERIC_STANDARD_PAYLOAD
+            .iter()
+            .map(|k| (*k).to_owned())
+            .collect();
+        let expected_state: BTreeSet<String> = KINDS_USING_STATE_PAYLOAD
+            .iter()
+            .map(|k| (*k).to_owned())
+            .collect();
+
+        assert_eq!(
+            generic, expected_generic,
+            "active standard kinds resolving to the loose `generic_standard_payload` shape \
+             drifted from the documented KINDS_USING_GENERIC_STANDARD_PAYLOAD set; either wire \
+             the new kind to a dedicated `*_payload` def in payload_def_candidates or register \
+             it here with a rationale"
+        );
+        assert_eq!(
+            state, expected_state,
+            "active standard kinds resolving to the loose `state_payload` shape drifted from the \
+             documented KINDS_USING_STATE_PAYLOAD set; either wire the new kind to a dedicated \
+             `*_payload` def in payload_def_candidates or register it here with a rationale"
+        );
+    }
+
     #[test]
     fn applet_registration_resolves_to_strong_payload_not_generic() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();

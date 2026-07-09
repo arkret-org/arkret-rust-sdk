@@ -22,8 +22,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use cokret_core::Result;
-use cokret_signatures::http_signature::Ed25519SigningKey;
+use arkret_core::Result;
+use arkret_signatures::http_signature::Ed25519SigningKey;
 use reqwest::header::{HeaderMap, RETRY_AFTER};
 use reqwest::{Method, StatusCode};
 use url::Url;
@@ -427,7 +427,7 @@ fn standard_retry_statuses() -> Vec<u16> {
 
 #[cfg(test)]
 mod tests {
-    use cokret_core::Error;
+    use arkret_core::Error;
     use reqwest::Method;
     use reqwest::header::{HeaderValue, USER_AGENT};
 
@@ -754,7 +754,7 @@ mod tests {
     mod events_submit_tests {
         use std::collections::BTreeMap;
 
-        use cokret_core::{
+        use arkret_core::{
             BlobRef, BlobUploadMetadata, Did, DirectConversationResolveRequestBody,
             DirectoryPrivateContactDiscoveryRequestBody, Event, EventId, EventRequirements, Hash,
             Hlc, MimiReportAbuseRequestBody, RealmId, StrandId, SyncRequestBody,
@@ -903,7 +903,7 @@ mod tests {
 
             assert!(matches!(
                 response.status,
-                cokret_core::EventsSubmitStatus::Accepted
+                arkret_core::EventsSubmitStatus::Accepted
             ));
             assert_eq!(response.accepted.len(), 1);
 
@@ -1093,7 +1093,7 @@ mod tests {
             let response = client.events_submit_batch(&events).await.unwrap();
             assert!(matches!(
                 response.status,
-                cokret_core::EventsSubmitStatus::Accepted
+                arkret_core::EventsSubmitStatus::Accepted
             ));
 
             let raw = capture.await.unwrap();
@@ -1182,14 +1182,14 @@ mod tests {
         async fn list_key_backups_includes_series_id_query() {
             let (client, capture) =
                 spawn_capture_server(r#"{"backups":[],"has_more":false}"#).await;
-            let query = cokret_core::KeyBackupsListQuery {
+            let query = arkret_core::KeyBackupsListQuery {
                 series_id: Some(
-                    cokret_core::BackupSeriesId::new(
+                    arkret_core::BackupSeriesId::new(
                         "ak:backup_series:01964137-0000-7000-8000-000000000777",
                     )
                     .unwrap(),
                 ),
-                backup_class: Some(cokret_core::BackupClass::DidRecovery),
+                backup_class: Some(arkret_core::BackupClass::DidRecovery),
                 cursor: None,
                 limit: Some(25),
             };
@@ -1277,7 +1277,7 @@ mod tests {
             let response = client.direct_conversation_resolve(&request).await.unwrap();
             assert_eq!(
                 response.state,
-                cokret_core::DirectConversationResolveState::Found
+                arkret_core::DirectConversationResolveState::Found
             );
             assert_eq!(
                 response.binding_event_ref.as_ref().map(|id| id.as_str()),
@@ -1368,7 +1368,7 @@ mod tests {
                 .unwrap();
 
             assert!(
-                matches!(response.status, cokret_core::EventsSubmitStatus::Partial),
+                matches!(response.status, arkret_core::EventsSubmitStatus::Partial),
                 "expected Partial status, got {:?}",
                 response.status
             );
@@ -1425,7 +1425,7 @@ mod tests {
 
         #[tokio::test]
         async fn account_subscribe_frames_yields_one_frame_per_line() {
-            use cokret_core::AccountSubscribeFrame;
+            use arkret_core::AccountSubscribeFrame;
             use futures_util::StreamExt;
 
             // Three frames split across 4 chunks; the second frame
@@ -1467,7 +1467,7 @@ mod tests {
 
         #[tokio::test]
         async fn account_subscribe_once_surfaces_dropped_interrupt() {
-            use cokret_core::AccountStreamInterrupt;
+            use arkret_core::AccountStreamInterrupt;
 
             // Benign keepalive first, then a `dropped` control frame: the
             // dropped frame must surface as a structured interrupt instead
@@ -1502,7 +1502,7 @@ mod tests {
 
         #[tokio::test]
         async fn account_subscribe_once_surfaces_unauthorized_interrupt() {
-            use cokret_core::AccountStreamInterrupt;
+            use arkret_core::AccountStreamInterrupt;
 
             let parts = vec!["{\"kind\":\"unauthorized\",\"reason\":\"revoked\"}\n"];
             let client = spawn_chunked_ndjson_server(parts).await;

@@ -18,15 +18,15 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use chrono::{DateTime, Utc};
-use cokret_core::ReadCursorId;
+use arkret_core::ReadCursorId;
 // Wire-shaped read receipt / read cursor types are owned by `arkret-core`
 // (mirroring `read-receipt.schema.json` / `read-cursor.schema.json`); the
 // manager reuses them instead of keeping `user_id`-shaped local copies.
-pub use cokret_core::{
+pub use arkret_core::{
     READ_CURSOR_SCHEMA, READ_RECEIPT_SCHEMA, READ_RECEIPT_TYPE, ReadCursor, ReadCursorPosition,
     ReadMarker, ReadReceipt, ReadScope, ReadScopeKind,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{DeviceId, Did, EventId, Hlc, RealmId, Result, StrandId};

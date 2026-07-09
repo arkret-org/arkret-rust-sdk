@@ -13,7 +13,7 @@
 //!    multiencoding stack.
 //! 4. base64url (`core::base64url`) remains unpadded and URL-safe.
 
-use cokret_core::{base64url_decode, base64url_encode, ed25519_pubkey_to_did_key_multibase};
+use arkret_core::{base64url_decode, base64url_encode, ed25519_pubkey_to_did_key_multibase};
 
 /// SDK-canonical detached-JWS protected header, base64url-no-pad.
 const PROTECTED_HEADER_B64URL: &str = "eyJhbGciOiJFZERTQSJ9";
@@ -34,10 +34,10 @@ fn detached_jws_protected_header_is_alg_eddsa_only() {
 #[cfg(feature = "signer")]
 #[test]
 fn move_signer_and_event_proof_signer_share_one_jws_header_and_signature() {
-    use cokret_core::move_event::{Effect, LatticeOp, LatticeOpType, SealBasis};
-    use cokret_core::{CellRef, Did, Hash, Hlc, MoveSigner, RealmId, SealId, UnsignedMove};
-    use cokret_signatures::Ed25519MoveSigner;
-    use cokret_signatures::proof::{Ed25519DetachedJwsSigner, EventSigner};
+    use arkret_core::move_event::{Effect, LatticeOp, LatticeOpType, SealBasis};
+    use arkret_core::{CellRef, Did, Hash, Hlc, MoveSigner, RealmId, SealId, UnsignedMove};
+    use arkret_signatures::Ed25519MoveSigner;
+    use arkret_signatures::proof::{Ed25519DetachedJwsSigner, EventSigner};
 
     let seed = [7u8; 32];
     let did = Did::new("did:web:alice.example".to_owned()).unwrap();
@@ -99,7 +99,7 @@ fn base58btc_did_key_ed25519_golden_vector() {
     let mb = ed25519_pubkey_to_did_key_multibase(&key);
     // Known-answer for the all-0x2A key under the Bitcoin base58 alphabet.
     assert_eq!(mb, "z6MkhHrTbtosB4xyyJM217fS4ry35F7JhZ5oA9uVHErBJDL5");
-    assert_eq!(cokret_core::decode_ed25519_multibase(&mb).unwrap(), key);
+    assert_eq!(arkret_core::decode_ed25519_multibase(&mb).unwrap(), key);
 }
 
 #[test]

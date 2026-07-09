@@ -1,7 +1,7 @@
 //! Push, policy, media, moderation, mimi, applet, and the generic HTTP-verb
 //! helper methods on [`Client`].
 
-use cokret_core::{
+use arkret_core::{
     AppletActorView, AppletDescription, AppletInstallOutcome, AppletInstallPlan,
     AppletInstallPreviewRequestBody, AppletInstallRequestBody, AppletPingOutcome,
     AppletProtocolMetadata, AppletRealmView, AppletRevokeOutcome, AppletRevokeRequestBody,
@@ -14,7 +14,7 @@ use cokret_core::{
     PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
     PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, Result, canonical,
 };
-use cokret_signatures::http_signature::{
+use arkret_signatures::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, Ed25519SigningKey, SignedRequestParts,
     canonical_message, format_signature_header, format_signature_input_component_list,
     parse_signature_input, sign_message,

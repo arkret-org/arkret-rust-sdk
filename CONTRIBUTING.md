@@ -35,6 +35,64 @@ For changes that touch canonical serialization, signed payloads, idempotency or
 authorization, add focused tests that prove the exact digest or conflict
 behavior being changed.
 
+## Breaking changes and the downstream compile gate
+
+The ten workspace crates share a single version (`shared-version = true`) and
+ship breaking changes git-only, with **no compatibility shim** — see the
+"Wire-breaking, no compatibility shim" entries in `CHANGELOG.md`. The
+correctness of that model rests entirely on the "change every consumer in the
+same commit" discipline. To keep that discipline from being purely a matter of
+memory, **any wire- or API-breaking SDK change MUST be compile-checked against
+the four first-party downstream repos before it lands**:
+
+- `soland`, `inkson`, `garth`, `bridges` (each an independent repo that consumes
+  the SDK via a relative path dependency, e.g.
+  `arkret = { version = "0.3.0", path = "../arkret-rust-sdk/crates/sdk" }`).
+
+Run them from a sibling checkout layout (each downstream repo next to
+`arkret-rust-sdk`, which their `../arkret-rust-sdk/...` path deps require):
+
+```sh
+for repo in soland inkson garth bridges; do
+  (cd "../$repo" && cargo check --workspace) || echo "DOWNSTREAM BREAK: $repo"
+done
+```
+
+If the break is intentional, update the downstream consumers (and, when the
+version is bumped, their pinned `version = "…"` requirement) in lockstep and
+record the affected repos in the `CHANGELOG.md` entry.
+
+### Why this is a documented gate and not a CI job
+
+Adding a "downstream four-repo compile smoke test" job to `.github/workflows/`
+was evaluated and rejected. Cross-repo checkout itself is supported (the
+`embedded-snapshot` and `spec-drift` jobs already check out `arkret/arkret-spec`
+into a sibling path), but a *reliable, cheap* downstream compile job is not
+practical here:
+
+- **Version-pin noise defeats the signal.** Downstream manifests pin
+  `version = "0.3.0"` alongside the path dependency. With `shared-version`, the
+  exact moment the SDK cuts a breaking bump, Cargo rejects the downstream build
+  on the version *requirement* (path crate no longer satisfies `0.3.0`) before
+  it compiles any real API surface — so the job would go red on every bump for a
+  trivial reason and hide the API-break signal it is meant to surface. Making it
+  meaningful requires bumping the downstream pins in lockstep, which is the very
+  local discipline above.
+- **`inkson` is not a cheap check.** It pulls custom git forks of Dioxus
+  (`github.com/arkret/dioxus*` at pinned revs) plus a full wasm + UI + crypto
+  (OpenMLS/HPKE) stack; `cargo check` there is a heavy, fork-availability-
+  dependent build. `soland` similarly carries a server/DB/Docker surface.
+- **Access and duplication cost.** The four are separate GitHub repos that each
+  already run their own `ci.yml`; checking them out from the SDK repo would
+  require cross-repo PAT secrets (only `arkret-spec` is public) and would
+  duplicate builds those repos already perform, coupling SDK CI latency and
+  flakiness to four heavy external builds for little marginal signal.
+
+The local gate above is therefore the enforced mechanism; revisit a CI job only
+if the downstream repos move to a published (versioned) SDK dependency, which
+would remove the path-layout and version-pin coupling that makes it impractical
+today.
+
 ## API Rules
 
 - Public model types must serialize to the documented wire shape.

@@ -5,7 +5,7 @@
 //! canonical-JSON + detached-JWS pipelines per Envelope. This module is
 //! the single one-shot entry point: compute the canonical event bytes
 //! (with `proofs` / `unsigned` removed), sign them with the supplied
-//! [`cokret_core::MoveSigner`], and append a [`Proof`] to
+//! [`arkret_core::MoveSigner`], and append a [`Proof`] to
 //! `event.proofs`.
 //!
 //! Per spec `encoding.md` §6 / `event-and-patch.md` §3 the detached JWS
@@ -24,12 +24,12 @@
 //! transitively via `event_digest` (they are top-level Envelope fields).
 //!
 //! The companion verification path is
-//! [`cokret_signatures::verify_eddsa_detached_jws_proof`]
+//! [`arkret_signatures::verify_eddsa_detached_jws_proof`]
 //! (`crates/signatures/src/proof.rs`), which rebuilds the same binding
-//! object via [`cokret_core::Proof::canonical_binding_bytes`].
+//! object via [`arkret_core::Proof::canonical_binding_bytes`].
 
+use arkret_core::{Audience, Error, Event, Hash, MoveSigner, Proof, Result, canonical, proof_kind};
 use chrono::{DateTime, Utc};
-use cokret_core::{Audience, Error, Event, Hash, MoveSigner, Proof, Result, canonical, proof_kind};
 
 /// Options threaded into [`sign_event`].
 ///
@@ -77,7 +77,7 @@ impl SignEventOptions {
 /// [`Proof::validate_binding`].
 ///
 /// The produced [`Proof::payload_digest`] equals
-/// [`cokret_core::Event::event_digest`].
+/// [`arkret_core::Event::event_digest`].
 ///
 /// Refuses to append if `event.proofs` already contains a [`Proof`]
 /// produced by a different `verification_method` — pass a fresh
@@ -148,12 +148,12 @@ pub fn sign_event<S: MoveSigner + ?Sized>(
 mod tests {
     use std::collections::BTreeMap;
 
-    use chrono::{TimeZone, Utc};
-    use cokret_core::move_event::Move;
-    use cokret_core::{
+    use arkret_core::move_event::Move;
+    use arkret_core::{
         Audience, Did, Event, EventId, EventRequirements, Hash, Hlc, MoveSignature, MoveSigner,
         RealmId, Result, UnsignedMove, canonical,
     };
+    use chrono::{TimeZone, Utc};
     use serde_json::json;
 
     use super::*;

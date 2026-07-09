@@ -1,6 +1,6 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-description = "Arkret v1 FFI and WASM embedding contracts."
+description = "Arkret v1 FFI/WASM embedding contract types (contracts-only; defines no ABI, exports no extern \"C\"/UniFFI/wasm-bindgen surface)."
 edition = "2024"
 homepage = "https://github.com/arkret/arkret-rust-sdk"
 keywords = ["arkret", "ffi", "wasm", "uniffi"]

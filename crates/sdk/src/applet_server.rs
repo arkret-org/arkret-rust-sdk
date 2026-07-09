@@ -18,7 +18,7 @@
 
 use std::sync::Arc;
 
-use cokret_core::Hash;
+use arkret_core::Hash;
 
 use crate::idempotency::{IdempotencyClaim, IdempotencyIdentity, IdempotencyWindow};
 use crate::identity::DidResolver;
@@ -178,7 +178,7 @@ impl AppletService {
 mod salvo_router {
     use std::sync::OnceLock;
 
-    use cokret_signatures::http_signature::{
+    use arkret_signatures::http_signature::{
         SignatureVerificationPolicy, parse_signature_input, public_key_from_bytes,
         verify_signed_http_message,
     };
@@ -676,7 +676,7 @@ mod tests {
     }
 
     fn digest_of(bytes: &[u8]) -> Hash {
-        Hash::new(cokret_core::canonical::sha256_digest(bytes)).unwrap()
+        Hash::new(arkret_core::canonical::sha256_digest(bytes)).unwrap()
     }
 
     #[test]

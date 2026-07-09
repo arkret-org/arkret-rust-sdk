@@ -1,7 +1,7 @@
 //! Capability grant wire form + engine-internal projection.
 //!
 //! The **only** wire shape for capability grants in this SDK is the core
-//! authority type [`cokret_core::CapabilityGrant`] (spec
+//! authority type [`arkret_core::CapabilityGrant`] (spec
 //! `capability-grant.schema.json`: required `id` / `schema` / `issuer` /
 //! `subject` / `actions` / `resources` / `proofs`; `resources` carrying spec
 //! selector objects and `constraints` carrying the core typed grant constraint
@@ -16,11 +16,11 @@
 //! `constraint_type = "delegation_control"` constraint with
 //! `max_delegation_depth` (no constraint ⇒ not delegable).
 
-use cokret_core::{CAPABILITY_SCHEMA, CapabilitySubject, GrantId};
+use arkret_core::{CAPABILITY_SCHEMA, CapabilitySubject, GrantId};
 
 use super::*;
 
-/// Engine-internal projection of a spec [`cokret_core::CapabilityGrant`].
+/// Engine-internal projection of a spec [`arkret_core::CapabilityGrant`].
 ///
 /// NOT a wire type: deliberately not serializable, crate-visible only. It
 /// exists so the evaluation hot path can pattern-match typed selectors and
@@ -48,7 +48,7 @@ impl GrantProjection {
     /// carries constraint / selector shapes this evaluator cannot enforce,
     /// which MUST fail closed) — callers reject the grant with
     /// `schema_violation` semantics.
-    pub(crate) fn from_wire(grant: &cokret_core::CapabilityGrant) -> Result<Self> {
+    pub(crate) fn from_wire(grant: &arkret_core::CapabilityGrant) -> Result<Self> {
         if grant.schema != CAPABILITY_SCHEMA {
             return Err(Error::Protocol(format!(
                 "schema_violation: capability grant schema must be '{}', got '{}'",
@@ -142,11 +142,11 @@ pub struct CapabilityFrontierValidation {
 
 /// Validate capability frontier invariants before using reduced grants.
 ///
-/// Grants are the spec wire form ([`cokret_core::CapabilityGrant`]); each is
+/// Grants are the spec wire form ([`arkret_core::CapabilityGrant`]); each is
 /// projected first, so schema violations (including any grant this evaluator
 /// cannot faithfully enforce) reject the whole frontier.
 pub fn validate_capability_frontier(
-    grants: &[cokret_core::CapabilityGrant],
+    grants: &[arkret_core::CapabilityGrant],
 ) -> Result<CapabilityFrontierValidation> {
     let mut projections = Vec::with_capacity(grants.len());
     for grant in grants {
@@ -423,7 +423,7 @@ fn option_narrowed(child: Option<&String>, parent: Option<&String>) -> bool {
 /// `schema_violation`.
 pub fn capability_grants_from_realm_state(
     state: &crate::RealmState,
-) -> Result<Vec<cokret_core::CapabilityGrant>> {
+) -> Result<Vec<arkret_core::CapabilityGrant>> {
     let mut grants = Vec::new();
 
     for event in state.resolved_state.values() {
@@ -445,7 +445,7 @@ pub fn capability_grants_from_realm_state(
 fn capability_grant_from_resolved_event(
     event: &crate::resolver::ResolvedStateEvent,
     default_realm_id: Option<RealmId>,
-) -> Result<cokret_core::CapabilityGrant> {
+) -> Result<arkret_core::CapabilityGrant> {
     let content = event
         .content
         .as_object()
@@ -472,7 +472,7 @@ fn capability_grant_from_resolved_event(
                 .to_owned(),
         ));
     }
-    let mut grant: cokret_core::CapabilityGrant = serde_json::from_value(artifact.clone())
+    let mut grant: arkret_core::CapabilityGrant = serde_json::from_value(artifact.clone())
         .map_err(|err| {
             Error::Protocol(format!(
                 "schema_violation: invalid capability grant content: {err}"
@@ -632,7 +632,7 @@ pub(crate) fn constraint_entries_from_spec(
                 "blob_presign_scope",
             ])?;
             if let Some(circle_ids) = object.get("allowed_circle_ids") {
-                let allowed_circle_ids: std::collections::BTreeSet<cokret_core::CircleId> =
+                let allowed_circle_ids: std::collections::BTreeSet<arkret_core::CircleId> =
                     serde_json::from_value(circle_ids.clone()).map_err(|err| {
                         Error::Protocol(format!("invalid allowed_circle_ids: {err}"))
                     })?;
@@ -640,7 +640,7 @@ pub(crate) fn constraint_entries_from_spec(
             }
             if let Some(session_ids) = object.get("allowed_session_ids") {
                 let allowed_session_ids: std::collections::BTreeSet<
-                    cokret_core::AgentInteropSessionId,
+                    arkret_core::AgentInteropSessionId,
                 > = serde_json::from_value(session_ids.clone()).map_err(|err| {
                     Error::Protocol(format!("invalid allowed_session_ids: {err}"))
                 })?;
@@ -1153,7 +1153,7 @@ fn parse_iso8601_duration(value: &str) -> Result<ConstraintDuration> {
 // ─── S-10 (savfox SDK gap): ck.capability.grant builder ───────────────────
 
 /// Build a `ck.capability.grant` Event Envelope around a spec
-/// [`cokret_core::CapabilityGrant`].
+/// [`arkret_core::CapabilityGrant`].
 ///
 /// Chain verification (subject ⇒ issuer narrowing, action / resource
 /// narrowing, time-window narrowing, cycle detection) is already in
@@ -1168,14 +1168,14 @@ pub struct CapabilityGrantBuilder {
     realm_id: RealmId,
     /// The Envelope `actor_id` (signer / issuer of the grant).
     actor_id: Did,
-    grant: cokret_core::CapabilityGrant,
+    grant: arkret_core::CapabilityGrant,
 }
 
 impl CapabilityGrantBuilder {
     /// Construct a new builder bound to the issuing Realm + actor.
     /// `grant.issuer` MUST equal `actor_id`; the builder enforces this
     /// at `build` time.
-    pub fn new(realm_id: RealmId, actor_id: Did, grant: cokret_core::CapabilityGrant) -> Self {
+    pub fn new(realm_id: RealmId, actor_id: Did, grant: arkret_core::CapabilityGrant) -> Self {
         Self {
             realm_id,
             actor_id,
@@ -1216,11 +1216,11 @@ impl CapabilityGrantBuilder {
         prohibit_subdelegation: bool,
     ) -> Self {
         self.grant.constraints.retain(|constraint| {
-            constraint.constraint_type != cokret_core::GrantConstraintType::DelegationControl
+            constraint.constraint_type != arkret_core::GrantConstraintType::DelegationControl
         });
         self.grant
             .constraints
-            .push(cokret_core::GrantConstraint::delegation_control(
+            .push(arkret_core::GrantConstraint::delegation_control(
                 u64::from(max_delegation_depth),
                 prohibit_subdelegation,
             ));
@@ -1236,7 +1236,7 @@ impl CapabilityGrantBuilder {
     /// Replace the constraint list with spec-shaped typed
     /// `grant-constraint.schema.json` DTOs. They are validated at
     /// [`Self::build`] time via the engine projection.
-    pub fn with_constraints(mut self, constraints: Vec<cokret_core::GrantConstraint>) -> Self {
+    pub fn with_constraints(mut self, constraints: Vec<arkret_core::GrantConstraint>) -> Self {
         self.grant.constraints = constraints;
         self
     }
@@ -1253,7 +1253,7 @@ impl CapabilityGrantBuilder {
 
     /// Attach the issuer proofs over the grant body (spec requires at least
     /// one).
-    pub fn with_proofs(mut self, proofs: Vec<cokret_core::Proof>) -> Self {
+    pub fn with_proofs(mut self, proofs: Vec<arkret_core::Proof>) -> Self {
         self.grant.proofs = proofs;
         self
     }
@@ -1313,12 +1313,12 @@ mod capability_grant_builder_tests {
         crate::Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
     }
 
-    fn proof(issuer: &Did) -> cokret_core::Proof {
-        cokret_core::Proof {
-            kind: cokret_core::proof_kind::DETACHED_JWS.to_owned(),
+    fn proof(issuer: &Did) -> arkret_core::Proof {
+        arkret_core::Proof {
+            kind: arkret_core::proof_kind::DETACHED_JWS.to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: format!("{issuer}#device-1"),
-            event_digest: cokret_core::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            event_digest: arkret_core::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
             domain: None,
             audience: None,
@@ -1326,8 +1326,8 @@ mod capability_grant_builder_tests {
         }
     }
 
-    fn base_grant() -> cokret_core::CapabilityGrant {
-        cokret_core::CapabilityGrant {
+    fn base_grant() -> arkret_core::CapabilityGrant {
+        arkret_core::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
             schema: CAPABILITY_SCHEMA.to_owned(),
             realm_id: None,
@@ -1383,7 +1383,7 @@ mod capability_grant_builder_tests {
         let event_view = crate::resolver::ResolvedStateEvent {
             kind: event.kind.to_string(),
             subject: "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
-            source_event_id: cokret_core::EventId::new(
+            source_event_id: arkret_core::EventId::new(
                 "ak:event:01904100-0000-7000-8000-bbbbbbbbbbbb",
             )
             .unwrap(),
@@ -1446,20 +1446,20 @@ mod capability_grant_builder_tests {
                 "constraint_type": "telepathy",
                 "effect": "allow",
         }]);
-        let err = serde_json::from_value::<cokret_core::CapabilityGrant>(artifact)
+        let err = serde_json::from_value::<arkret_core::CapabilityGrant>(artifact)
             .expect_err("unknown constraint family must fail closed");
         assert!(format!("{err}").contains("unknown variant"));
     }
 
     #[test]
     fn capability_chain_verifier_accepts_narrowing_child() {
-        let parent = cokret_core::CapabilityGrant {
+        let parent = arkret_core::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
             actions: vec!["*".to_owned()],
-            constraints: vec![cokret_core::GrantConstraint::delegation_control(1, false)],
+            constraints: vec![arkret_core::GrantConstraint::delegation_control(1, false)],
             ..base_grant()
         };
-        let child = cokret_core::CapabilityGrant {
+        let child = arkret_core::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000002").unwrap(),
             parent_grant_id: Some(parent.id.clone()),
             issuer: bob(),
@@ -1477,12 +1477,12 @@ mod capability_grant_builder_tests {
 
     #[test]
     fn capability_chain_verifier_rejects_parent_without_delegation_control() {
-        let parent = cokret_core::CapabilityGrant {
+        let parent = arkret_core::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
             actions: vec!["*".to_owned()],
             ..base_grant()
         };
-        let child = cokret_core::CapabilityGrant {
+        let child = arkret_core::CapabilityGrant {
             id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000002").unwrap(),
             parent_grant_id: Some(parent.id.clone()),
             issuer: bob(),
@@ -1507,7 +1507,7 @@ mod capability_grant_builder_tests {
         let event = crate::resolver::ResolvedStateEvent {
             kind: "ck.capability.grant".to_owned(),
             subject: "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
-            source_event_id: cokret_core::EventId::new(
+            source_event_id: arkret_core::EventId::new(
                 "ak:event:01904100-0000-7000-8000-bbbbbbbbbbbb",
             )
             .unwrap(),

@@ -45,7 +45,7 @@ fn vector_update_key(signing_key: &SigningKey) -> String {
 /// Multihash/multibase digest of canonical JSON, matching the verifier's
 /// `webvh_multihash_base58`.
 fn vector_multihash(value: &Value) -> String {
-    let bytes = cokret_core::canonical::canonical_json_bytes(value).unwrap();
+    let bytes = arkret_core::canonical::canonical_json_bytes(value).unwrap();
     let digest = crate::canonical::sha256_bytes(&bytes);
     let mut envelope = vec![0x12u8, 0x20];
     envelope.extend_from_slice(&digest);
@@ -73,8 +73,8 @@ fn vector_sign_entry(mut entry: Value, signing_key: &SigningKey) -> Value {
         "verificationMethod": vm,
     });
     let doc = entry.clone();
-    let config_bytes = cokret_core::canonical::canonical_json_bytes(&proof_config).unwrap();
-    let doc_bytes = cokret_core::canonical::canonical_json_bytes(&doc).unwrap();
+    let config_bytes = arkret_core::canonical::canonical_json_bytes(&proof_config).unwrap();
+    let doc_bytes = arkret_core::canonical::canonical_json_bytes(&doc).unwrap();
     let config_hash = crate::canonical::sha256_bytes(&config_bytes);
     let doc_hash = crate::canonical::sha256_bytes(&doc_bytes);
     let mut signing_input = Vec::with_capacity(64);
@@ -585,13 +585,13 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
         json!({"ok": true}),
     )
     .unwrap();
-    let builder = cokret_signatures::EventProofBuilder::new();
+    let builder = arkret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(&event).unwrap();
     let mut proof = crate::Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method,
-        event_digest: crate::Hash::new(cokret_core::canonical::sha256_digest(&canonical_bytes))
+        event_digest: crate::Hash::new(arkret_core::canonical::sha256_digest(&canonical_bytes))
             .unwrap(),
         created_at: Utc::now(),
         domain: None,
@@ -633,13 +633,13 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     .unwrap();
     event.executed_by = Some(bridge);
     event.authorization_ref = Some("ak:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
-    let builder = cokret_signatures::EventProofBuilder::new();
+    let builder = arkret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(&event).unwrap();
     let mut proof = crate::Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method,
-        event_digest: crate::Hash::new(cokret_core::canonical::sha256_digest(&canonical_bytes))
+        event_digest: crate::Hash::new(arkret_core::canonical::sha256_digest(&canonical_bytes))
             .unwrap(),
         created_at: Utc::now(),
         domain: None,
@@ -830,7 +830,7 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
 
     let alice = did("alice");
     let receipt = DidRegistryReceipt::signed(
-        cokret_core::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000001").unwrap(),
+        arkret_core::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000001").unwrap(),
         alice,
         7,
         crate::Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
@@ -878,7 +878,7 @@ fn starid_registry_adapter_resolves_records_and_control_proofs() {
     let head = crate::Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
     let document = DidDocument::new(alice.clone(), "root", "alice-public-key");
     let receipt = DidRegistryReceipt::signed(
-        cokret_core::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000002").unwrap(),
+        arkret_core::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000002").unwrap(),
         alice.clone(),
         0,
         head.clone(),

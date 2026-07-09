@@ -1,4 +1,4 @@
-use cokret_core::base64url::{base64url_decode, base64url_encode};
+use arkret_core::base64url::{base64url_decode, base64url_encode};
 use sha2::{Digest, Sha256};
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
 use zeroize::{Zeroize, Zeroizing};

@@ -121,36 +121,36 @@ pub mod client_api;
 // The pure KeyStore contract (trait + in-memory backend + error type) lives
 // in `arkret-core`; the OS-native backends and the platform-default
 // constructor now live in the dedicated `arkret-keystore` crate.
-pub use cokret_core::{
+pub use arkret_core::{
     InMemoryKeyStore, KeyRefObject, KeyStore, KeyStoreError, canonical, cursor, error, events,
     federation as federation_api, identifiers, identity as identity_api,
     integration as integration_api, keystore, lattice, models, operations, ops as ops_api,
     push as push_gateway_api, push_rule_core, schema, schema as schema_contracts, service, state,
     state as state_res, sync, *,
 };
-pub use cokret_crypto as crypto_protocol;
-pub use cokret_ffi as ffi;
-pub use cokret_html as html;
+pub use arkret_crypto as crypto_protocol;
+pub use arkret_ffi as ffi;
+pub use arkret_html as html;
 #[cfg(feature = "client")]
-pub use cokret_http_client as http_client;
+pub use arkret_http_client as http_client;
 // Deprecated convenience constructor kept re-exported so downstream callers
 // see the deprecation note instead of a hard break; the warning propagates.
 #[allow(deprecated)]
-pub use cokret_keystore::platform_default_keystore;
-pub use cokret_keystore::{
+pub use arkret_keystore::platform_default_keystore;
+pub use arkret_keystore::{
     BackendKind, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
     platform_default_keystore_with_kind,
 };
 #[cfg(feature = "server")]
-pub use cokret_server as server;
-pub use cokret_signatures as signatures;
+pub use arkret_server as server;
+pub use arkret_signatures as signatures;
 #[cfg(feature = "signer")]
-pub use cokret_signatures::Ed25519MoveSigner;
+pub use arkret_signatures::Ed25519MoveSigner;
 // Shared `did:webvh` inception builder + organization statement signer, surfaced
 // at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
 // reach one implementation: `cokret_sdk::webvh::prepare_inception`,
 // `cokret_sdk::realm_organization_statement_sign`.
-pub use cokret_signatures::{realm_organization, realm_organization_statement_sign, webvh};
+pub use arkret_signatures::{realm_organization, realm_organization_statement_sign, webvh};
 
 // Platform-native KeyStore backends. The glob import above already
 // re-exports these symbols, but listing them explicitly keeps them
@@ -219,7 +219,7 @@ pub mod history_recovery;
 // keeps the existing `arkret::http_signature::*` / `cokret_sdk::http_signature::*`
 // call paths stable.
 #[cfg(feature = "full-surface")]
-pub use cokret_signatures::http_signature;
+pub use arkret_signatures::http_signature;
 // HttpDidResolver leans on a live Tokio runtime, blocking off-thread
 // scheduling, and reqwest's native ClientBuilder transport knobs — none
 // of which are available on the wasm32 fetch backend. Gate the module out
@@ -340,9 +340,9 @@ pub use applet_server::router as applet_router;
 pub use applet_server::{AppletHandler, AppletService, TransactionDispatch};
 #[cfg(feature = "full-surface")]
 pub use auth::{
-    AccountAuthState, AccountRecoveryMethod, AccountRecoveryRequestBody, AuthClaimKind,
-    AuthManager, AuthRateLimitAction, AuthRateLimitContext, AuthRateLimitHook, AuthSession,
-    AuthStateSnapshot, ARKRET_DEVICE_SCOPE_PREFIX, ClaimDisclosurePolicy,
+    ARKRET_DEVICE_SCOPE_PREFIX, AccountAuthState, AccountRecoveryMethod,
+    AccountRecoveryRequestBody, AuthClaimKind, AuthManager, AuthRateLimitAction,
+    AuthRateLimitContext, AuthRateLimitHook, AuthSession, AuthStateSnapshot, ClaimDisclosurePolicy,
     ClaimDisclosureRequirement, DidProofVerification, DidProofVerificationRequestBody,
     DidProofVerifier, DisclosureProofAdapterBoundary, DisclosureProofFormat,
     MemorySessionGrantOutbox, MfaChallenge, OidcAuthRequestBody, OidcCredential,

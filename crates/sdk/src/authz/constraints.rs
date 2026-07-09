@@ -52,7 +52,7 @@ pub enum Resource {
     /// Actor resource (account-lifecycle, profile updates).
     Actor { actor_id: String },
     /// Circle resource.
-    Circle { circle_id: cokret_core::CircleId },
+    Circle { circle_id: arkret_core::CircleId },
 }
 
 impl Resource {
@@ -250,11 +250,11 @@ pub enum Constraint {
     /// `required_constraints=["allowed_circle_ids"]` on each gated action;
     /// unconstrained Realm-wide grants for these actions MUST be rejected.
     AllowedCircleIds {
-        allowed_circle_ids: std::collections::BTreeSet<cokret_core::CircleId>,
+        allowed_circle_ids: std::collections::BTreeSet<arkret_core::CircleId>,
     },
     /// Limits agent interop-session status/result writes to explicit session ids.
     AllowedSessionIds {
-        allowed_session_ids: std::collections::BTreeSet<cokret_core::AgentInteropSessionId>,
+        allowed_session_ids: std::collections::BTreeSet<arkret_core::AgentInteropSessionId>,
     },
 }
 
@@ -300,7 +300,7 @@ pub struct ConstraintDuration {
 
 /// Grant-constraint-local rate limit scope (quota constraint evaluation).
 ///
-/// Distinct from the wire `cokret_core::RateLimitScope`
+/// Distinct from the wire `arkret_core::RateLimitScope`
 /// (service-description `rate_limit_scope`: `string | string[]`).
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

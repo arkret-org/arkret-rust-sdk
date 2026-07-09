@@ -45,8 +45,8 @@ pub use strand::*;
 mod tests {
     use std::collections::BTreeMap;
 
+    use arkret_core::base64url::base64url_encode;
     use chrono::{DateTime, Utc};
-    use cokret_core::base64url::base64url_encode;
 
     use super::*;
     use crate::{DeviceId, Did};

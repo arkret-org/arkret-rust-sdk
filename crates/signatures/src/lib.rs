@@ -33,20 +33,20 @@ pub mod webvh;
 pub mod realm_organization;
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Duration, Utc};
 /// Production-grade proof algorithms this SDK can actually produce and verify.
 ///
 /// Re-export of the single source of truth in `arkret-core`
-/// ([`cokret_core::PRODUCTION_ALGORITHMS`]) so the structural gate
+/// ([`arkret_core::PRODUCTION_ALGORITHMS`]) so the structural gate
 /// (`Proof::validate_production`) and this crate's verifiers can never
 /// diverge again. The v1 set is exactly `["EdDSA"]` — see the core constant's
 /// documentation for why the other registry-active rows are excluded.
-pub use cokret_core::PRODUCTION_ALGORITHMS;
-pub use cokret_core::Proof as ProtocolProof;
-use cokret_core::{
+pub use arkret_core::PRODUCTION_ALGORITHMS;
+pub use arkret_core::Proof as ProtocolProof;
+use arkret_core::{
     Audience, Did, Error, Hash, Proof, ProofBindingRequirements, Result, SignatureBindingPayload,
     canonical,
 };
+use chrono::{DateTime, Duration, Utc};
 pub use jwt::{
     JwtVerificationError, JwtVerificationPolicy, VerifiedJwt, verify_eddsa_jwt_with_jwks,
 };
@@ -351,11 +351,11 @@ pub fn validate_production_proof(proof: &Proof) -> Result<()> {
 
 /// Wire-form HTTP Message Signature container.
 ///
-/// The canonical struct now lives in `arkret-core` (`cokret_core::http`) so the
+/// The canonical struct now lives in `arkret-core` (`arkret_core::http`) so the
 /// federation wire contracts can embed it without depending on this crate. The
 /// canonical signature base (the bytes actually signed) is still built by the
 /// single RFC 9421 implementation in [`crate::http_signature`].
-pub use cokret_core::HttpMessageSignature;
+pub use arkret_core::HttpMessageSignature;
 
 #[cfg(test)]
 mod tests {

@@ -39,7 +39,7 @@
 //! ## Example
 //!
 //! ```rust
-//! use cokret_core::{ProfileClaim, ProfileClaimKind, ProfileValidator, ServiceType};
+//! use arkret_core::{ProfileClaim, ProfileClaimKind, ProfileValidator, ServiceType};
 //!
 //! let validator = ProfileValidator::new(ServiceType::PushGateway);
 //! let claims = [

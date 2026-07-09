@@ -1,7 +1,7 @@
 //! Production typed device-message API per `crypto-media/device-lifecycle.md`.
 //!
 //! Production-shape `DeviceMessage` struct + builder + signer-aware
-//! `verify()` against the SDK [`cokret_core::MoveSigner`] trait, built
+//! `verify()` against the SDK [`arkret_core::MoveSigner`] trait, built
 //! on top of [`crate::DeviceMessageEnvelope`].
 //!
 //! Wire shape mirrors the spec contract — `recipient`, `sender`,
@@ -293,7 +293,7 @@ mod tests {
     }
 
     impl MoveSigner for TestSigner {
-        fn sign_move(&self, _unsigned: &UnsignedMove) -> Result<cokret_core::Move> {
+        fn sign_move(&self, _unsigned: &UnsignedMove) -> Result<arkret_core::Move> {
             panic!(
                 "TestSigner::sign_move is test-only and intentionally unsupported; \
                  device-message tests call sign_payload directly"

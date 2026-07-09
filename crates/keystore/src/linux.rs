@@ -13,8 +13,8 @@
 //! Collisions on `(service, account)` are resolved by overwriting the
 //! existing item (the Secret Service `replace` flag).
 
-use cokret_core::keystore::{service_name, validate_id};
-use cokret_core::{KeyBytes, Result};
+use arkret_core::keystore::{service_name, validate_id};
+use arkret_core::{KeyBytes, Result};
 use secret_service::EncryptionType;
 use secret_service::blocking::SecretService;
 

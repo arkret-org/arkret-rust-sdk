@@ -3,21 +3,21 @@
 //! The verifier (soland's `verify_realm_organization_proof_signature`) decodes
 //! `authorization.proof` with base64url (no padding) and runs
 //! `verify_strict(signing_bytes, signature)` where `signing_bytes` come from
-//! [`cokret_core::models::realm_organization_statement_signing_bytes`]. This
+//! [`arkret_core::models::realm_organization_statement_signing_bytes`]. This
 //! helper produces the byte-symmetric counterpart: a detached Ed25519 signature
 //! over those same `signing_bytes`, base64url-unpadded encoded, set as the
 //! `authorization.proof` `SignatureMaterial::NonEmptyString`.
 
-use cokret_core::base64url::base64url_encode;
-use cokret_core::models::{RealmOrganizationPayload, SignatureMaterial};
-use cokret_core::{Error, Result};
+use arkret_core::base64url::base64url_encode;
+use arkret_core::models::{RealmOrganizationPayload, SignatureMaterial};
+use arkret_core::{Error, Result};
 use ed25519_dalek::{Signer, SigningKey};
 
 /// Sign `payload` with `signing_key` and return a clone whose
 /// `authorization.proof` carries the detached Ed25519 signature.
 ///
 /// The signature is computed over
-/// [`cokret_core::models::realm_organization_statement_signing_bytes`] and
+/// [`arkret_core::models::realm_organization_statement_signing_bytes`] and
 /// encoded with base64url (no padding), so it round-trips through soland's
 /// `verify_realm_organization_proof_signature` (which decodes with
 /// `URL_SAFE_NO_PAD` and calls `verify_strict` over the same bytes).
@@ -30,7 +30,7 @@ pub fn realm_organization_statement_sign(
     payload: &RealmOrganizationPayload,
     signing_key: &SigningKey,
 ) -> Result<RealmOrganizationPayload> {
-    let signing_bytes = cokret_core::models::realm_organization_statement_signing_bytes(payload)?;
+    let signing_bytes = arkret_core::models::realm_organization_statement_signing_bytes(payload)?;
     let signature = signing_key.sign(&signing_bytes);
     let proof = base64url_encode(signature.to_bytes());
     if proof.trim().is_empty() {
@@ -45,13 +45,13 @@ pub fn realm_organization_statement_sign(
 
 #[cfg(test)]
 mod tests {
-    use chrono::{DateTime, TimeZone, Utc};
-    use cokret_core::base64url::base64url_decode;
-    use cokret_core::identifiers::{Did, RealmId};
-    use cokret_core::models::{
+    use arkret_core::base64url::base64url_decode;
+    use arkret_core::identifiers::{Did, RealmId};
+    use arkret_core::models::{
         RealmOrganizationAuthorization, RealmOrganizationControlScope, RealmOrganizationIssuerRole,
         RealmOrganizationRelationship, RealmOrganizationStatus,
     };
+    use chrono::{DateTime, TimeZone, Utc};
 
     use super::*;
 
@@ -115,7 +115,7 @@ mod tests {
         let signature = ed25519_dalek::Signature::from_slice(&sig_bytes).expect("64-byte sig");
 
         let signing_bytes =
-            cokret_core::models::realm_organization_statement_signing_bytes(&signed)
+            arkret_core::models::realm_organization_statement_signing_bytes(&signed)
                 .expect("signing bytes");
         verifying_key
             .verify_strict(&signing_bytes, &signature)

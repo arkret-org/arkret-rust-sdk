@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use cokret_core::{
+use arkret_core::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AppletActorView, AppletDescription,
     AppletPingOutcome, AppletProtocolMetadata, AppletRealmView, AppletTransactionOutcome,
     AppletTransactionRequestBody, AuthzCheckOutcome, AuthzCheckRequestBody, AuthzInviteList,
@@ -31,14 +31,14 @@ use cokret_core::{
     PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, Result, ServerDescription,
     SnapshotManifest, SyncBackfillOutcome, SyncDescription, SyncOutcome, SyncRequestBody,
 };
-pub use cokret_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
+pub use arkret_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
 // Shared protocol/product wire contracts now live in `arkret-core`; re-export
 // them under stable `*_api` aliases for server-side consumers.
-pub use cokret_core::{
+pub use arkret_core::{
     federation as federation_api, identity as identity_api, integration as integration_api,
     ops as ops_api, push as push_gateway_api,
 };
-pub use cokret_signatures as signatures;
+pub use arkret_signatures as signatures;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 

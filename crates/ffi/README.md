@@ -1,18 +1,21 @@
 # arkret-ffi
 
-FFI and WASM embedding contracts for Arkret.
+FFI/WASM embedding **contract types** for Arkret — contracts-only.
 
 This crate provides layout-stable handles, error payloads, callback results,
 WASM HTTP/store/WebCrypto descriptors and API-freeze review artifacts that can
-be shared by UniFFI, WASM and native host bindings.
+be shared by UniFFI, WASM and native host bindings. It is a *contract type
+layer*: it exports **no ABI of its own** — there is no `extern "C"` /
+`#[no_mangle]` surface and no UniFFI / `wasm-bindgen` / JNI glue is generated
+here. Concrete bindings are produced out-of-crate against these types.
 
 ## Binding examples
 
 The three snippets below are illustrative — they show the *shape* of the
-host-side calling convention against the C ABI exported by this crate. Real
-bindings should be generated (UniFFI / wasm-bindgen / `cargo ndk`) rather than
-hand-written, but these are useful when wiring a new host or auditing the
-ABI surface.
+host-side calling convention that generated bindings would expose over these
+contract types (this crate itself exports no such ABI). Real bindings should be
+generated (UniFFI / wasm-bindgen / `cargo ndk`) rather than hand-written, but
+these are useful when wiring a new host or auditing the intended ABI surface.
 
 ### C header
 

@@ -1,15 +1,15 @@
 //! Typed key-backup HTTP client for `ck.keys.backups.*`.
 
-use cokret_http_client::Client;
+use arkret_http_client::Client;
 
 use crate::{
     BackupId, KeyBackup, KeysBackupsDeleteRequestBody, KeysBackupsUnlockRequestBody,
     ProtocolKeyBackup, Result as SdkResult,
 };
 
-/// Typed key-backup HTTP client wrapping a [`cokret_http_client::Client`].
+/// Typed key-backup HTTP client wrapping a [`arkret_http_client::Client`].
 ///
-/// All methods return `Result<_, cokret_http_client::Error>` so the API and
+/// All methods return `Result<_, arkret_http_client::Error>` so the API and
 /// retry/backoff config strand through the underlying client builder. The
 /// caller is expected to construct the inner [`Client`] with the
 /// appropriate auth (Bearer / DeviceProof / ServiceSignature).
@@ -35,7 +35,7 @@ impl KeyBackupClient {
         &self,
         backup_id: &str,
         record: &ProtocolKeyBackup,
-    ) -> SdkResult<cokret_core::KeysBackupsPutOutcome> {
+    ) -> SdkResult<arkret_core::KeysBackupsPutOutcome> {
         let path = format!("/_cokret/self/keys/backups/{backup_id}");
         self.client.put(&path, record).await
     }
@@ -52,7 +52,7 @@ impl KeyBackupClient {
 
     /// `GET /_cokret/self/keys/backups` (list current backups for the
     /// authenticated principal).
-    pub async fn list_key_backups(&self) -> SdkResult<cokret_core::KeysBackupsList> {
+    pub async fn list_key_backups(&self) -> SdkResult<arkret_core::KeysBackupsList> {
         self.client.get("/_cokret/self/keys/backups").await
     }
 
@@ -61,7 +61,7 @@ impl KeyBackupClient {
         &self,
         backup_id: &str,
         request: &KeysBackupsDeleteRequestBody,
-    ) -> SdkResult<cokret_core::KeysBackupsDeleteOutcome> {
+    ) -> SdkResult<arkret_core::KeysBackupsDeleteOutcome> {
         let backup_id = BackupId::new(backup_id.to_owned())?;
         self.client.delete_key_backup(&backup_id, request).await
     }
@@ -87,10 +87,10 @@ mod tests {
             created_at: Utc::now(),
             updated_at: None,
             expires_at: None,
-            encryption: cokret_core::KeyBackupEncryption {
-                recipient_method: cokret_core::KeyBackupRecipientMethod::PassphraseKdf,
+            encryption: arkret_core::KeyBackupEncryption {
+                recipient_method: arkret_core::KeyBackupRecipientMethod::PassphraseKdf,
                 recipient_key_ref: None,
-                kdf: Some(cokret_core::KeyBackupKdf {
+                kdf: Some(arkret_core::KeyBackupKdf {
                     name: "argon2id".to_owned(),
                     salt: "salt".to_owned(),
                     params: json!({
@@ -101,7 +101,7 @@ mod tests {
                     degraded_profile_reason: None,
                     extra: std::collections::BTreeMap::new(),
                 }),
-                aead: cokret_core::KeyBackupAead {
+                aead: arkret_core::KeyBackupAead {
                     name: "xchacha20_poly1305".to_owned(),
                     aead_profile: Some("ck.aead.xchacha20_poly1305.v1".to_owned()),
                     nonce: Some("nonce".to_owned()),
@@ -147,14 +147,14 @@ mod tests {
     fn key_backup_put_response_round_trips() {
         let record = backup_record();
         let backup_id = BackupId::new(record.backup_id.clone()).unwrap();
-        let response = cokret_core::KeysBackupsPutOutcome {
-            status: cokret_core::KeyBackupPutStatus::Accepted,
+        let response = arkret_core::KeysBackupsPutOutcome {
+            status: arkret_core::KeyBackupPutStatus::Accepted,
             backup_id: backup_id.clone(),
             ciphertext_digest: record.ciphertext_digest,
         };
         let json = serde_json::to_value(&response).unwrap();
-        let back: cokret_core::KeysBackupsPutOutcome = serde_json::from_value(json).unwrap();
+        let back: arkret_core::KeysBackupsPutOutcome = serde_json::from_value(json).unwrap();
         assert_eq!(back.backup_id, backup_id);
-        assert_eq!(back.status, cokret_core::KeyBackupPutStatus::Accepted);
+        assert_eq!(back.status, arkret_core::KeyBackupPutStatus::Accepted);
     }
 }

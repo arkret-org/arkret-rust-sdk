@@ -216,7 +216,7 @@ pub const CX_SESSION_GRANT: &str = "ck.session.grant";
 /// this as opaque. This Realm holds the principal's device ledger, key
 /// log, and session grants.
 pub fn principal_control_realm_id(principal_id: &Did) -> String {
-    let digest = cokret_core::canonical::sha256_bytes_from_slices(&[
+    let digest = arkret_core::canonical::sha256_bytes_from_slices(&[
         b"ak:realm:principal-control:v1:",
         principal_id.as_str().as_bytes(),
     ]);

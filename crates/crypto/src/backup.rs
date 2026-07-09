@@ -15,8 +15,8 @@
 //! this passphrase builder.
 //!
 //! ```no_run
-//! use cokret_core::BackupClass;
-//! use cokret_crypto::backup::{build_key_backup_envelope, derive_vault_kek};
+//! use arkret_core::BackupClass;
+//! use arkret_crypto::backup::{build_key_backup_envelope, derive_vault_kek};
 //!
 //! let kek = derive_vault_kek(b"correct horse battery staple")?;
 //! let envelope = build_key_backup_envelope(
@@ -33,18 +33,18 @@
 //! ```
 
 use argon2::{Algorithm, Argon2, Params, Version};
-use chacha20poly1305::aead::{Aead, KeyInit, Payload};
-use chacha20poly1305::{XChaCha20Poly1305, XNonce};
-use chrono::{SubsecRound, Utc};
-use cokret_core::canonical::{
+use arkret_core::canonical::{
     canonical_json_bytes, canonical_sha256, format_timestamp_canonical, sha256_digest, sha256_hex,
 };
-use cokret_core::{
+use arkret_core::{
     BackupClass, BackupId, DeviceId, Did, Hash, KeyBackup, KeyBackupAead, KeyBackupContentItem,
     KeyBackupDomainSeparation, KeyBackupDomainSeparationAad, KeyBackupEncryption,
     KeyBackupFrontierRef, KeyBackupKdf, KeyBackupRecipientMethod, base64url_decode,
     base64url_encode,
 };
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
+use chacha20poly1305::{XChaCha20Poly1305, XNonce};
+use chrono::{SubsecRound, Utc};
 use getrandom::fill;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
@@ -629,7 +629,7 @@ pub fn build_key_backup_envelope(
     // genesis envelope by minting a fresh series_id and seq=0; successors are
     // built with `build_key_backup_successor_envelope`.
     let series_id =
-        cokret_core::BackupSeriesId::new(cokret_core::new_prefixed_uuid7("ak:backup_series:"))
+        arkret_core::BackupSeriesId::new(arkret_core::new_prefixed_uuid7("ak:backup_series:"))
             .map_err(|err| {
                 KeyBackupError::InvalidInput(format!("failed to mint backup_series id: {err}"))
             })?;
@@ -744,7 +744,7 @@ fn key_backup_supersedes_digest(predecessor: &KeyBackup) -> Result<String> {
 /// directly in another domain). Public for conformance KAT verification.
 pub fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_class: BackupClass) -> Vec<u8> {
     let mut commitment_key = derive_subkey(root, backup_class.hkdf_info("commitment").as_bytes());
-    let digest = cokret_core::canonical::sha256_bytes(&commitment_key).to_vec();
+    let digest = arkret_core::canonical::sha256_bytes(&commitment_key).to_vec();
     commitment_key.zeroize();
     digest
 }

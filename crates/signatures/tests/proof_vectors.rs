@@ -1,4 +1,4 @@
-//! Known-answer tests (KAT) for `cokret_signatures::proof`.
+//! Known-answer tests (KAT) for `arkret_signatures::proof`.
 //!
 //! These vectors are the migration checkpoint between coauth, soland and
 //! inkson: every downstream implementation MUST reproduce the canonical
@@ -72,7 +72,7 @@ fn read_vectors<T: for<'de> Deserialize<'de>>(name: &str) -> T {
 #[test]
 #[ignore]
 fn _dump_canonical_vectors_helper() {
-    use cokret_signatures::EventProofBuilder;
+    use arkret_signatures::EventProofBuilder;
     let suite: CanonicalVectors = read_vectors("canonical_json.json");
     let builder = EventProofBuilder::new();
     for v in suite.vectors {
@@ -89,7 +89,7 @@ fn _dump_canonical_vectors_helper() {
 
 #[test]
 fn canonical_json_vectors_match_event_proof_builder() {
-    use cokret_signatures::EventProofBuilder;
+    use arkret_signatures::EventProofBuilder;
     let suite: CanonicalVectors = read_vectors("canonical_json.json");
     assert!(
         suite.vectors.len() >= 5,
@@ -125,7 +125,7 @@ fn canonical_json_vectors_match_event_proof_builder() {
 #[test]
 #[ignore]
 fn _dump_ed25519_vectors_helper() {
-    use cokret_signatures::proof::{Ed25519DetachedJwsSigner, EventProofBuilder, EventSigner};
+    use arkret_signatures::proof::{Ed25519DetachedJwsSigner, EventProofBuilder, EventSigner};
     let cases = [
         (
             "seed_one_all_ones_with_object",
@@ -171,7 +171,7 @@ fn _dump_ed25519_vectors_helper() {
 #[cfg(feature = "signer")]
 #[test]
 fn ed25519_vectors_round_trip_through_signer_and_verifier() {
-    use cokret_signatures::proof::{
+    use arkret_signatures::proof::{
         Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier, EventProofBuilder, EventSigner,
         EventVerifier, PublicKeyMaterial,
     };
@@ -256,8 +256,8 @@ fn ed25519_vectors_round_trip_through_signer_and_verifier() {
 
 #[test]
 fn dev_proof_vectors_are_rejected_by_production_verifier() {
-    use cokret_core::Hash;
-    use cokret_signatures::proof::{
+    use arkret_core::Hash;
+    use arkret_signatures::proof::{
         EventVerifier, ProductionVerifier, ProofType, PublicKeyMaterial, VerifierError,
         build_proof_envelope,
     };

@@ -1,16 +1,16 @@
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
-use cokret_core::{
+use arkret_core::{
     DeviceId, Did, Error, Hash, IdentityLink, IdentityLinkStatus, RealmId, Result,
     compute_policy_frontier_digest,
 };
+use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// Client-local verified identity-link cache entry.
 ///
-/// Distinct from the wire cache model `cokret_core::IdentityLinkCacheEntry`
+/// Distinct from the wire cache model `arkret_core::IdentityLinkCacheEntry`
 /// (identity-link-cache schema counterpart): this type only wraps an
 /// in-memory verification result.
 pub struct VerifiedLinkCacheEntry {
@@ -132,7 +132,7 @@ impl IdentityLinkCache {
 
 #[cfg(test)]
 mod tests {
-    use cokret_core::{Hash, IdentityLinkProof, TypedTrustDomainId};
+    use arkret_core::{Hash, IdentityLinkProof, TypedTrustDomainId};
 
     use super::*;
 

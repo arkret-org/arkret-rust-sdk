@@ -41,9 +41,9 @@
 //! mismatches to distinct wire `schema_violation` / `invalid_signature` 4xx
 //! responses without string sniffing.
 
+use arkret_core::{Hash, canonical};
+use arkret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_eddsa_detached_jws};
 use chrono::{DateTime, Duration, Utc};
-use cokret_core::{Hash, canonical};
-use cokret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_eddsa_detached_jws};
 use ed25519_dalek::{SigningKey, VerifyingKey};
 
 use crate::identity::DidResolver;
@@ -86,7 +86,7 @@ pub enum JwsVerifyError {
     #[error("ed25519 multibase decode failed: {source}")]
     MultibaseDecode {
         #[source]
-        source: cokret_core::Error,
+        source: arkret_core::Error,
     },
     /// The decoded key bytes do not form a valid Ed25519 public key.
     #[error("Ed25519 public key parse failed: {reason}")]
@@ -98,7 +98,7 @@ pub enum JwsVerifyError {
     #[error("detached JWS rejected: {source}")]
     Proof {
         #[source]
-        source: cokret_signatures::VerifierError,
+        source: arkret_signatures::VerifierError,
     },
 }
 
@@ -193,7 +193,7 @@ pub fn verify_jws_ed25519(
     // Resolve verification_method via the supplied resolver chain. All JWS
     // shape/header/signature checks are delegated to arkret-signatures.
     let public_key = resolve_ed25519_pubkey(resolver, verification_method)?;
-    let proof = cokret_core::Proof {
+    let proof = arkret_core::Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: verification_method.to_owned(),
@@ -289,7 +289,7 @@ fn decode_ed25519_multibase(multibase: &str) -> Result<VerifyingKey, JwsVerifyEr
     // Underlying base58btc + multicodec strip is the single `core::multibase`
     // helper (backed by the `bs58` crate); this only adds the VerifyingKey
     // parse + typed-error mapping the JWS verify path expects.
-    let key_array = cokret_core::decode_ed25519_multibase(multibase)
+    let key_array = arkret_core::decode_ed25519_multibase(multibase)
         .map_err(|source| JwsVerifyError::MultibaseDecode { source })?;
     VerifyingKey::from_bytes(&key_array).map_err(|e| JwsVerifyError::PublicKeyParse {
         reason: e.to_string(),
@@ -428,7 +428,7 @@ pub fn verify_replay_window_at(
 mod tests {
     use std::collections::BTreeMap;
 
-    use cokret_core::{base64url_decode, base64url_encode};
+    use arkret_core::{base64url_decode, base64url_encode};
     use ed25519_dalek::SigningKey;
 
     use super::*;
@@ -471,7 +471,7 @@ mod tests {
     /// and DID Document verificationMethod entries. Pure test helper that
     /// reuses the single `core::multibase` encoder.
     fn encode_ed25519_multibase(verifying_key: &VerifyingKey) -> String {
-        cokret_core::ed25519_pubkey_to_did_key_multibase(verifying_key.as_bytes())
+        arkret_core::ed25519_pubkey_to_did_key_multibase(verifying_key.as_bytes())
     }
 
     #[test]
@@ -488,7 +488,7 @@ mod tests {
         // 0xe7 is secp256k1-pub, not ed25519.
         let mut bytes = vec![0xe7u8, 0x01];
         bytes.extend_from_slice(&[0u8; 32]);
-        let mb = cokret_core::encode_multibase_base58btc(bytes);
+        let mb = arkret_core::encode_multibase_base58btc(bytes);
         let err = decode_ed25519_multibase(&mb).unwrap_err();
         assert!(matches!(err, JwsVerifyError::MultibaseDecode { .. }));
         assert!(err.to_string().contains("ed25519-pub multicodec"));

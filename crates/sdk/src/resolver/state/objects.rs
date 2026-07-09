@@ -410,9 +410,9 @@ impl RealmState {
         let rank = self.extract_optional_field(object, "rank");
         let fields = self.extract_fields(object)?;
         let scope_circle_id =
-            self.extract_optional_field::<cokret_core::CircleId>(object, "scope_circle_id");
+            self.extract_optional_field::<arkret_core::CircleId>(object, "scope_circle_id");
         let effective_scope =
-            self.extract_optional_field::<cokret_core::EffectiveScope>(object, "effective_scope");
+            self.extract_optional_field::<arkret_core::EffectiveScope>(object, "effective_scope");
 
         let relation = Relation {
             schema: "ck.schema.relation.v1".to_owned(),

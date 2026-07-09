@@ -14,10 +14,10 @@
 //! These helpers operate on a [`Grant`] shape that intentionally mirrors
 //! soland's in-memory runtime form (stringly-typed `resource`, single
 //! [`GrantConstraint`] list, top-level `expires_at` + `delegated_from`). The
-//! wire-spec shape is the core authority [`cokret_core::CapabilityGrant`]
+//! wire-spec shape is the core authority [`arkret_core::CapabilityGrant`]
 //! (`capability-grant.schema.json`) used at the canonical event boundary.
 //! The two shapes are siblings, not alternatives: typically a capability
-//! event resolves into a `cokret_core::CapabilityGrant`, then projects down
+//! event resolves into a `arkret_core::CapabilityGrant`, then projects down
 //! to a `Grant` for fast in-memory check / delegation enforcement. The
 //! fields critical to delegation — `delegated_from` and `expires_at` — live
 //! on both shapes verbatim per
@@ -30,8 +30,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use arkret_core::{AgentInteropSessionId, CircleId};
 use chrono::{DateTime, Utc};
-use cokret_core::{AgentInteropSessionId, CircleId};
 use serde::{Deserialize, Serialize};
 
 use crate::authz::constraints::ConstraintDuration;

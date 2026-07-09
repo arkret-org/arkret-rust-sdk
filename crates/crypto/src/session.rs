@@ -3,11 +3,11 @@
 
 use std::collections::{BTreeMap, VecDeque};
 
-use chrono::{DateTime, Utc};
-use cokret_core::{
+use arkret_core::{
     BlobRef, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash,
     RealmId, Result,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -611,5 +611,5 @@ pub(crate) fn session_key(realm_id: &RealmId, session_id: &str) -> String {
 pub(crate) fn sha256_prefixed(bytes: &[u8]) -> String {
     // Delegate to the authoritative `sha256:<lowercase-hex>` formatter in
     // `arkret-core` so the prefix/encoding lives in a single place.
-    cokret_core::canonical::sha256_digest(bytes)
+    arkret_core::canonical::sha256_digest(bytes)
 }

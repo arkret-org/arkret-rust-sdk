@@ -31,7 +31,7 @@ fn fake_binding(generation: u64) -> DeviceTrustBinding {
 fn sample_publish(principal: &Did, generation: u64) -> CrossSigningPublishContent {
     CrossSigningPublishContent {
         principal_id: principal.clone(),
-        trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         principal_signing_key: CrossSigningKeyRecord {
             kid: format!("{principal}#cx_principal_signing_v1"),
             alg: "EdDSA".to_owned(),
@@ -332,7 +332,7 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
 
     let reset = CrossSigningResetContent {
         principal_id: alice.clone(),
-        trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
         previous_generation: 1,
         new_generation: 2,
@@ -650,7 +650,7 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
         .unwrap();
     let reset = CrossSigningResetContent {
         principal_id: alice.clone(),
-        trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
         previous_generation: 1,
         new_generation: 2,
@@ -706,21 +706,21 @@ fn signed_chain_fixture(
 ) -> (
     CrossSigningPublishContent,
     DeviceTrustBinding,
-    cokret_signatures::PublicKeyMaterial,
+    arkret_signatures::PublicKeyMaterial,
 ) {
     use ed25519_dalek::{Signer, SigningKey};
 
     let psk = SigningKey::from_bytes(&psk_seed);
     let ssk = SigningKey::from_bytes(&ssk_seed);
     let psk_multibase =
-        cokret_core::ed25519_pubkey_to_did_key_multibase(&psk.verifying_key().to_bytes());
+        arkret_core::ed25519_pubkey_to_did_key_multibase(&psk.verifying_key().to_bytes());
     let ssk_multibase =
-        cokret_core::ed25519_pubkey_to_did_key_multibase(&ssk.verifying_key().to_bytes());
+        arkret_core::ed25519_pubkey_to_did_key_multibase(&ssk.verifying_key().to_bytes());
 
     // The published SSK record (PSK signs this over the §5.1 canonical input).
     let mut publish = CrossSigningPublishContent {
         principal_id: principal.clone(),
-        trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         principal_signing_key: CrossSigningKeyRecord {
             kid: format!("{principal}#ck_principal_signing_v1"),
             alg: "EdDSA".to_owned(),
@@ -760,7 +760,7 @@ fn signed_chain_fixture(
     // PSK signs the SSK record over the canonical §5.1 input.
     let ssk_input = publish.self_signing_binding_input().unwrap();
     publish.self_signing_key.binding.signature =
-        cokret_core::base64url_encode(psk.sign(&ssk_input).to_bytes());
+        arkret_core::base64url_encode(psk.sign(&ssk_input).to_bytes());
 
     // SSK signs the device binding over the canonical §5.2 input.
     let device_input = DeviceTrustBinding::canonical_input(
@@ -776,10 +776,10 @@ fn signed_chain_fixture(
         verification_method: format!("{principal}#ck_self_signing_v1"),
         alg: "EdDSA".to_owned(),
         ssk_generation: binding_generation,
-        signature: cokret_core::base64url_encode(ssk.sign(&device_input).to_bytes()),
+        signature: arkret_core::base64url_encode(ssk.sign(&device_input).to_bytes()),
     };
 
-    let anchored_psk = cokret_signatures::PublicKeyMaterial::Ed25519Raw {
+    let anchored_psk = arkret_signatures::PublicKeyMaterial::Ed25519Raw {
         bytes: psk.verifying_key().to_bytes().to_vec(),
     };
     (publish, binding, anchored_psk)
@@ -791,7 +791,7 @@ fn verify_chain(
     principal_id: &Did,
     device_id: &DeviceId,
     device_public_key: &str,
-    anchored_psk: &cokret_signatures::PublicKeyMaterial,
+    anchored_psk: &arkret_signatures::PublicKeyMaterial,
 ) -> DeviceTrustState {
     let algorithms = test_algorithms();
     verify_device_cross_signing_chain(DeviceCrossSigningChainVerification {
@@ -846,9 +846,9 @@ fn verify_chain_rejects_tampered_device_binding() {
         1,
     );
     // Flip a byte in the device-binding signature → SSK→device check fails.
-    let mut raw = cokret_core::base64url_decode(&binding.signature).unwrap();
+    let mut raw = arkret_core::base64url_decode(&binding.signature).unwrap();
     raw[0] ^= 0xff;
-    binding.signature = cokret_core::base64url_encode(&raw);
+    binding.signature = arkret_core::base64url_encode(&raw);
     let state = verify_chain(
         &publish,
         &binding,
@@ -959,9 +959,9 @@ fn verify_chain_rejects_tampered_ssk_binding() {
     );
     // Corrupt the PSK→SSK binding signature → first check fails.
     let mut raw =
-        cokret_core::base64url_decode(&publish.self_signing_key.binding.signature).unwrap();
+        arkret_core::base64url_decode(&publish.self_signing_key.binding.signature).unwrap();
     raw[5] ^= 0xff;
-    publish.self_signing_key.binding.signature = cokret_core::base64url_encode(&raw);
+    publish.self_signing_key.binding.signature = arkret_core::base64url_encode(&raw);
     let state = verify_chain(
         &publish,
         &binding,
@@ -989,7 +989,7 @@ fn verify_chain_rejects_wrong_anchored_psk() {
     );
     // Caller anchors a DIFFERENT PSK than the one that signed the SSK record.
     let wrong_psk = ed25519_dalek::SigningKey::from_bytes(&[99u8; 32]);
-    let wrong = cokret_signatures::PublicKeyMaterial::Ed25519Raw {
+    let wrong = arkret_signatures::PublicKeyMaterial::Ed25519Raw {
         bytes: wrong_psk.verifying_key().to_bytes().to_vec(),
     };
     let state = verify_chain(

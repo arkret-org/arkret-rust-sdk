@@ -1,4 +1,4 @@
-use cokret_core::{base64url_token, content_type_token, major_minor_version};
+use arkret_core::{base64url_token, content_type_token, major_minor_version};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -202,10 +202,10 @@ impl EncryptedEnvelopeV1 {
             payload_digest: Hash::new(self.payload_digest.clone())?,
             key_ref: Some(match &self.scheme {
                 EncryptedPayloadScheme::MlsRfc9420 => {
-                    cokret_core::KeyRefObject::mls_rfc9420(self.group_id.clone(), self.epoch)
+                    arkret_core::KeyRefObject::mls_rfc9420(self.group_id.clone(), self.epoch)
                 }
                 EncryptedPayloadScheme::MlsExporterAeadV1 => {
-                    cokret_core::KeyRefObject::mls_exporter_aead(self.group_id.clone(), self.epoch)
+                    arkret_core::KeyRefObject::mls_exporter_aead(self.group_id.clone(), self.epoch)
                 }
             }),
         })

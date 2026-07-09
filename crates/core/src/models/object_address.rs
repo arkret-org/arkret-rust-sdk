@@ -34,7 +34,7 @@
 //! Strand/Message necessarily changes the digest, so a token cannot be replayed
 //! across objects (scope-confusion defence). See [`verify_token_target`].
 
-use cokret_identifiers::is_lowercase_uuidv7;
+use arkret_identifiers::is_lowercase_uuidv7;
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result, canonical};

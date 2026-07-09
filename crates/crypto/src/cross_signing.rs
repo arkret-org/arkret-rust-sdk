@@ -1,8 +1,8 @@
 //! Three-tier cross-signing key records, publish/reset content, and the
 //! stateless device cross-signing chain verifier.
 
+use arkret_core::{DeviceId, Did, Error, Result, binding_contexts};
 use chrono::{DateTime, Utc};
-use cokret_core::{DeviceId, Did, Error, Result, binding_contexts};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -83,7 +83,7 @@ pub struct CrossSigningPublishContent {
     /// Mixed into the canonical `ck-cross-signing-bind-v1` signing input
     /// so a publish from deployment A cannot be replayed into deployment
     /// B. MUST match the receiver's accepted trust domain.
-    pub trust_domain: cokret_core::TypedTrustDomainId,
+    pub trust_domain: arkret_core::TypedTrustDomainId,
     pub principal_signing_key: CrossSigningKeyRecord,
     pub self_signing_key: SignedCrossSigningKey,
     pub user_signing_key: SignedCrossSigningKey,
@@ -183,7 +183,7 @@ pub struct CrossSigningResetContent {
     pub principal_id: Did,
     /// Deployment-scope trust domain — enters the reset proof transcript so a
     /// proof cannot be replayed across deployments (spec §14.1).
-    pub trust_domain: cokret_core::TypedTrustDomainId,
+    pub trust_domain: arkret_core::TypedTrustDomainId,
     /// Typed event_id of the enclosing Event Envelope; bound into the transcript
     /// so the same proof bytes cannot be wrapped into a different Event shell.
     pub reset_event_id: String,
@@ -488,7 +488,7 @@ impl CrossSigningResetContent {
     /// reset or another proof shell.
     pub fn reset_signing_input(&self) -> Result<Vec<u8>> {
         let mut out = binding_contexts::CROSS_SIGNING_RESET_PREFIX.to_vec();
-        out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(
+        out.extend_from_slice(&arkret_core::canonical::canonical_json_bytes(
             &self.reset_signing_body(true),
         )?);
         Ok(out)
@@ -498,7 +498,7 @@ impl CrossSigningResetContent {
     /// commitment. This mirrors the reset signing body, except the proof body
     /// excludes both `signature` and `unlock_commitment` to avoid self-reference.
     pub fn recovery_unlock_binding_input(&self) -> Result<Vec<u8>> {
-        cokret_core::canonical::canonical_json_bytes(&self.reset_signing_body(false))
+        arkret_core::canonical::canonical_json_bytes(&self.reset_signing_body(false))
     }
 
     /// Expected `recovery_unlock.unlock_commitment` for this reset payload.
@@ -517,7 +517,7 @@ impl CrossSigningResetContent {
             ));
         };
         let binding_input = self.recovery_unlock_binding_input()?;
-        Ok(cokret_core::canonical::sha256_digest_from_slices(&[
+        Ok(arkret_core::canonical::sha256_digest_from_slices(&[
             binding_contexts::CROSS_SIGNING_RESET_UNLOCK_BINDING_PREFIX,
             recovery_secret_ref.as_bytes(),
             &binding_input,
@@ -594,7 +594,7 @@ pub enum DeviceTrustChainOutcome {
 
 fn canonical_cross_signing_binding_input(
     principal_id: &Did,
-    trust_domain: &cokret_core::TypedTrustDomainId,
+    trust_domain: &arkret_core::TypedTrustDomainId,
     subordinate_kind: CrossSigningKeyKind,
     subordinate: &CrossSigningKeyRecord,
     generation: u64,
@@ -618,7 +618,7 @@ fn canonical_cross_signing_binding_input(
         "generation": generation,
     });
     let mut out = binding_contexts::CROSS_SIGNING_BIND_PREFIX.to_vec();
-    out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(&body)?);
+    out.extend_from_slice(&arkret_core::canonical::canonical_json_bytes(&body)?);
     Ok(out)
 }
 
@@ -644,7 +644,7 @@ fn canonical_device_trust_binding_input(
         "ssk_generation": ssk_generation,
     });
     let mut out = binding_contexts::DEVICE_TRUST_BIND_PREFIX.to_vec();
-    out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(&body)?);
+    out.extend_from_slice(&arkret_core::canonical::canonical_json_bytes(&body)?);
     Ok(out)
 }
 
@@ -683,7 +683,7 @@ pub struct DeviceCrossSigningChainVerification<'a> {
     pub device_public_key: &'a str,
     pub hpke_key: &'a str,
     pub algorithms: &'a [String],
-    pub anchored_psk: &'a cokret_signatures::PublicKeyMaterial,
+    pub anchored_psk: &'a arkret_signatures::PublicKeyMaterial,
 }
 
 /// Returns [`DeviceTrustState`]. Malformed key material / decode failures map to
@@ -719,7 +719,7 @@ pub fn verify_device_cross_signing_chain(
     let Ok(ssk_input) = publish.self_signing_binding_input() else {
         return DeviceTrustState::Unverified;
     };
-    if !cokret_signatures::verify_detached_ed25519_signature(
+    if !arkret_signatures::verify_detached_ed25519_signature(
         anchored_psk,
         &ssk_input,
         &publish.self_signing_key.binding.signature,
@@ -736,7 +736,7 @@ pub fn verify_device_cross_signing_chain(
 
     // (c) SSK→device: the published SSK public key MUST sign the device
     // binding over the §5.2 ck-device-trust-bind-v1 canonical input.
-    let ssk_key = cokret_signatures::PublicKeyMaterial::Ed25519Multibase {
+    let ssk_key = arkret_signatures::PublicKeyMaterial::Ed25519Multibase {
         value: publish.self_signing_key.key.public_key.clone(),
     };
     let Ok(device_input) = DeviceTrustBinding::canonical_input(
@@ -749,7 +749,7 @@ pub fn verify_device_cross_signing_chain(
     ) else {
         return DeviceTrustState::Unverified;
     };
-    if !cokret_signatures::verify_detached_ed25519_signature(
+    if !arkret_signatures::verify_detached_ed25519_signature(
         &ssk_key,
         &device_input,
         &binding.signature,

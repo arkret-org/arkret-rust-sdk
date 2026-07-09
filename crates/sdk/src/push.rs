@@ -4,10 +4,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 // The provider payload helpers are owned by `arkret-core::push`; this module
 // only adds client-local gateway state and privacy policy.
-pub use cokret_core::push::{
+pub use arkret_core::push::{
     PushEventNotification, PushPayload, PushPlatform, PushPriority, PushRule,
 };
-use cokret_core::push::{
+use arkret_core::push::{
     blind_payload_data_for_event_kind, blind_push_body_for_wakeup_kind, wakeup_kind_for_event_kind,
 };
 use serde::{Deserialize, Serialize};

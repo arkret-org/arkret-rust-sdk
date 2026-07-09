@@ -8,7 +8,7 @@ pub struct StrandCreateMetadata {
     pub encrypted_metadata: Option<Value>,
     pub tracks: BTreeMap<String, crate::StrandTrackConfig>,
     /// CKP-0007 — optional Circle that defines this Strand's encryption scope.
-    pub scope_circle_id: Option<cokret_core::CircleId>,
+    pub scope_circle_id: Option<arkret_core::CircleId>,
 }
 
 /// Optional Strand patch metadata accepted by [`Space::update_strand_operation_with_metadata`].

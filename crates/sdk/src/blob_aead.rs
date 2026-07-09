@@ -36,9 +36,9 @@
 
 use std::collections::BTreeMap;
 
+use arkret_core::KeyRefObject;
 use chacha20poly1305::XChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
-use cokret_core::KeyRefObject;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 

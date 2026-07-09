@@ -39,12 +39,12 @@ fn protocol_golden_vectors_pass_real_validators() {
                 let token = vector.input["cursor"]
                     .as_str()
                     .expect("cursor vector input");
-                cokret_core::Cursor::decode(token)
+                arkret_core::Cursor::decode(token)
                     .unwrap_or_else(|err| panic!("golden cursor vector must decode: {err}"));
             }
             "ck.conformance.hlc.v1" => {
                 let hlc = vector.input["hlc"].as_str().expect("hlc vector input");
-                cokret_core::Hlc::new(hlc)
+                arkret_core::Hlc::new(hlc)
                     .unwrap_or_else(|err| panic!("golden HLC vector must validate: {err}"));
             }
             _ => {}
@@ -88,7 +88,7 @@ fn protocol_server_fixture_covers_core_strand_groups() {
 
 #[test]
 fn service_routes_match_embedded_operation_registry() {
-    let registry = cokret_core::schema::SpecArtifactBundle::load_embedded()
+    let registry = arkret_core::schema::SpecArtifactBundle::load_embedded()
         .unwrap()
         .operation_registry;
     let expected: Vec<(String, String, String)> = registry
@@ -137,14 +137,14 @@ fn framework_independent_handler_shape_can_be_mocked() {
             match request {
                 ServerRequestBody::ServerDescribe => Ok(ServerOutcome::ServerDescription(
                     Box::new(ServerDescription {
-                        service_did: cokret_core::Did::new("did:webvh:z6mkfixture:svc.example")
+                        service_did: arkret_core::Did::new("did:webvh:z6mkfixture:svc.example")
                             .unwrap(),
-                        trust_domain: cokret_core::TypedTrustDomainId::new(
+                        trust_domain: arkret_core::TypedTrustDomainId::new(
                             "ak:trust_domain:example.net",
                         )
                         .unwrap(),
                         service_type: "principal_server".to_owned(),
-                        protocol_version: cokret_core::PROTOCOL_VERSION.to_owned(),
+                        protocol_version: arkret_core::PROTOCOL_VERSION.to_owned(),
                         supported_profiles: vec![],
                         supported_features: vec![],
                         supported_operations: service_routes()
@@ -152,9 +152,9 @@ fn framework_independent_handler_shape_can_be_mocked() {
                             .map(|route| route.operation_id.to_owned())
                             .collect(),
                         supported_bindings: vec![],
-                        auth_metadata: cokret_core::AuthMetadata::minimal("development"),
+                        auth_metadata: arkret_core::AuthMetadata::minimal("development"),
                         limits: Value::Null,
-                        plaintext_visibility: cokret_core::PlaintextVisibility::none(),
+                        plaintext_visibility: arkret_core::PlaintextVisibility::none(),
                         privacy_derivation: None,
                         receive_policy_constraints: None,
                         implemented_features: vec![],
@@ -163,10 +163,10 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         experimental_features: vec![],
                         compat_surfaces: vec![],
                         development_mode: false,
-                        rate_limit_policy: Some(cokret_core::RateLimitPolicy::unspecified()),
+                        rate_limit_policy: Some(arkret_core::RateLimitPolicy::unspecified()),
                         rate_limit_policy_id: None,
                         egress_network_policy: Some(
-                            cokret_core::EgressNetworkPolicy::deny_private_defaults(),
+                            arkret_core::EgressNetworkPolicy::deny_private_defaults(),
                         ),
                         resource_types: vec![],
                         discovery_profiles: vec![],
@@ -189,7 +189,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         last_materialized_at: None,
                     }),
                 )),
-                _ => Err(cokret_core::Error::Protocol(
+                _ => Err(arkret_core::Error::Protocol(
                     "mock endpoint not implemented".to_owned(),
                 )),
             }

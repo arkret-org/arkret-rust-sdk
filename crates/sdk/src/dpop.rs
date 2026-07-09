@@ -25,7 +25,7 @@ impl DpopJwk {
         Self {
             kty: DPOP_JWK_KTY_OKP.to_owned(),
             crv: DPOP_JWK_CRV_ED25519.to_owned(),
-            x: cokret_core::base64url_encode(verifying_key.to_bytes()),
+            x: arkret_core::base64url_encode(verifying_key.to_bytes()),
         }
     }
 }
@@ -84,7 +84,7 @@ pub struct DpopProof {
 }
 
 pub fn dpop_access_token_hash(access_token: &str) -> String {
-    cokret_core::canonical::sha256_base64url(access_token.as_bytes())
+    arkret_core::canonical::sha256_base64url(access_token.as_bytes())
 }
 
 pub fn dpop_jwk_thumbprint(jwk: &DpopJwk) -> Result<String> {
@@ -93,8 +93,8 @@ pub fn dpop_jwk_thumbprint(jwk: &DpopJwk) -> Result<String> {
         "kty": jwk.kty,
         "x": jwk.x,
     });
-    let bytes = cokret_core::canonical::canonical_json_bytes(&thumbprint_object)?;
-    Ok(cokret_core::canonical::sha256_base64url(bytes))
+    let bytes = arkret_core::canonical::canonical_json_bytes(&thumbprint_object)?;
+    Ok(arkret_core::canonical::sha256_base64url(bytes))
 }
 
 pub fn build_dpop_proof(request: &DpopProofRequest, signing_key: &SigningKey) -> Result<DpopProof> {
@@ -136,15 +136,15 @@ pub fn build_dpop_proof(request: &DpopProofRequest, signing_key: &SigningKey) ->
     }
 
     let header_b64 =
-        cokret_core::base64url_encode(cokret_core::canonical::canonical_json_bytes(&header)?);
-    let payload_b64 = cokret_core::base64url_encode(cokret_core::canonical::canonical_json_bytes(
+        arkret_core::base64url_encode(arkret_core::canonical::canonical_json_bytes(&header)?);
+    let payload_b64 = arkret_core::base64url_encode(arkret_core::canonical::canonical_json_bytes(
         &Value::Object(claims),
     )?);
     let signing_input = format!("{header_b64}.{payload_b64}");
     let signature = signing_key.sign(signing_input.as_bytes());
     let proof_jwt = format!(
         "{signing_input}.{}",
-        cokret_core::base64url_encode(signature.to_bytes())
+        arkret_core::base64url_encode(signature.to_bytes())
     );
 
     Ok(DpopProof {
@@ -194,9 +194,9 @@ mod tests {
         let parts: Vec<&str> = proof.proof_jwt.split('.').collect();
         assert_eq!(parts.len(), 3);
         let header: Value =
-            serde_json::from_slice(&cokret_core::base64url_decode(parts[0]).unwrap()).unwrap();
+            serde_json::from_slice(&arkret_core::base64url_decode(parts[0]).unwrap()).unwrap();
         let payload: Value =
-            serde_json::from_slice(&cokret_core::base64url_decode(parts[1]).unwrap()).unwrap();
+            serde_json::from_slice(&arkret_core::base64url_decode(parts[1]).unwrap()).unwrap();
 
         assert_eq!(header["typ"], DPOP_PROOF_TYP);
         assert_eq!(header["alg"], DPOP_PROOF_ALG);

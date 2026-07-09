@@ -170,11 +170,11 @@ pub struct AgentKeyPairProofSigningInput {
 
 impl AgentKeyProofSigningInput {
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
-        cokret_core::canonical::canonical_json_bytes(self).map_err(Into::into)
+        arkret_core::canonical::canonical_json_bytes(self).map_err(Into::into)
     }
 
     pub fn canonical_digest(&self) -> Result<Hash> {
-        Ok(Hash::new(cokret_core::canonical::sha256_digest(
+        Ok(Hash::new(arkret_core::canonical::sha256_digest(
             self.canonical_bytes()?,
         ))?)
     }
@@ -182,11 +182,11 @@ impl AgentKeyProofSigningInput {
 
 impl AgentKeyPairProofSigningInput {
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
-        cokret_core::canonical::canonical_json_bytes(self).map_err(Into::into)
+        arkret_core::canonical::canonical_json_bytes(self).map_err(Into::into)
     }
 
     pub fn canonical_digest(&self) -> Result<Hash> {
-        Ok(Hash::new(cokret_core::canonical::sha256_digest(
+        Ok(Hash::new(arkret_core::canonical::sha256_digest(
             self.canonical_bytes()?,
         ))?)
     }
@@ -349,7 +349,7 @@ pub fn build_agent_key_authorize_event(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn build_signed_agent_key_authorize_event<S: cokret_core::MoveSigner + ?Sized>(
+pub fn build_signed_agent_key_authorize_event<S: arkret_core::MoveSigner + ?Sized>(
     payload: &AgentKeyAuthorizePayload,
     realm_id: RealmId,
     controller_actor_id: Did,
@@ -357,11 +357,11 @@ pub fn build_signed_agent_key_authorize_event<S: cokret_core::MoveSigner + ?Size
     hlc: Hlc,
     controller_signer: &S,
     controller_verification_method: &str,
-    proof_options: cokret_signatures::SignEventOptions,
+    proof_options: arkret_signatures::SignEventOptions,
 ) -> Result<Event> {
     let mut event =
         build_agent_key_authorize_event(payload, realm_id, controller_actor_id, actor_seq, hlc)?;
-    cokret_signatures::sign_event(
+    arkret_signatures::sign_event(
         &mut event,
         controller_signer,
         controller_verification_method,
@@ -423,7 +423,7 @@ pub fn agent_runtime_public_key_digest(public_key: &Value) -> Result<Hash> {
             "agent runtime public_key.key must be a 32-byte Ed25519 key".to_owned(),
         ));
     }
-    Ok(Hash::new(cokret_core::canonical::canonical_sha256(
+    Ok(Hash::new(arkret_core::canonical::canonical_sha256(
         public_key,
     )?)?)
 }
@@ -439,7 +439,7 @@ pub fn agent_key_pairing_request_binding_digest(
     pairing_expires_at: &str,
     audience: &str,
 ) -> Result<Hash> {
-    Ok(Hash::new(cokret_core::canonical::canonical_sha256(
+    Ok(Hash::new(arkret_core::canonical::canonical_sha256(
         &AgentKeyPairingRequestBinding {
             kind: "ck.agent.key_pairing_request_binding.v1",
             operation_id: OP_ACCOUNT_AGENT_KEY_PAIR,
@@ -462,7 +462,7 @@ pub fn agent_key_pair_proof_request_binding_digest(
     public_key: &Value,
     runtime_attestation: Option<&Value>,
 ) -> Result<Hash> {
-    Ok(Hash::new(cokret_core::canonical::canonical_sha256(
+    Ok(Hash::new(arkret_core::canonical::canonical_sha256(
         &AgentKeyPairProofRequestBinding {
             kind: "ck.agent.key_pair_proof_of_possession_request.v1",
             operation_id: OP_ACCOUNT_AGENT_KEY_PAIR,
@@ -499,7 +499,7 @@ pub fn agent_key_proof_request_binding_digest(body: &SessionGrantRequestBody) ->
         .ok_or_else(|| Error::Protocol("session grant proof must be an object".to_owned()))?;
     proof.remove("signature");
     proof.remove("request_canonical_digest");
-    Ok(Hash::new(cokret_core::canonical::canonical_sha256(
+    Ok(Hash::new(arkret_core::canonical::canonical_sha256(
         &value,
     )?)?)
 }
@@ -1100,9 +1100,9 @@ impl AgentProtocolBridge {
 
 #[cfg(test)]
 mod tests {
+    use arkret_core::move_event::Move;
+    use arkret_core::{MoveSignature, MoveSigner, UnsignedMove, canonical, proof_kind};
     use chrono::TimeZone;
-    use cokret_core::move_event::Move;
-    use cokret_core::{MoveSignature, MoveSigner, UnsignedMove, canonical, proof_kind};
     use serde_json::json;
 
     use super::*;
@@ -1378,7 +1378,7 @@ mod tests {
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             &signer,
             &controller_vm,
-            cokret_signatures::SignEventOptions::new()
+            arkret_signatures::SignEventOptions::new()
                 .with_created_at(Utc.with_ymd_and_hms(2026, 5, 26, 10, 1, 0).unwrap()),
         )
         .unwrap();

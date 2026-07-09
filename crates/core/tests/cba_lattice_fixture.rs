@@ -5,7 +5,7 @@
 //!
 //! * The `lattice_round_trip.cases` block names five pure-lattice vectors (`mv_register` /
 //!   `counter` / `ordered_log` x2 / `fsm`) whose join semantics are implemented directly by
-//!   [`cokret_core::lattice`]. This test executes every declared assertion of those cases against
+//!   [`arkret_core::lattice`]. This test executes every declared assertion of those cases against
 //!   the SDK lattice types, so a join-semantics drift fails in the SDK's own CI.
 //! * The sixteen `vectors` entries are dual-plane CBA scenarios (DataEvent vs control Move, seal
 //!   coverage, quarantine, notary faults). They need the full CBA reducer + seal pipeline, which
@@ -13,12 +13,12 @@
 //!   Here they are pinned as an inventory gate (vector_id + expected block present) so silent
 //!   fixture renames/removals still surface in the SDK.
 
-use cokret_core::lattice::ordered_log::IssuedOp;
-use cokret_core::lattice::{
+use arkret_core::lattice::ordered_log::IssuedOp;
+use arkret_core::lattice::{
     CasRegister, CellState, Counter, Fsm, Lattice, MvRegister, OrderedLog, SealedOp,
 };
-use cokret_core::schema::embedded_json_artifact;
-use cokret_core::{CellRef, Did, LatticeOp, LatticeOpType, MoveId};
+use arkret_core::schema::embedded_json_artifact;
+use arkret_core::{CellRef, Did, LatticeOp, LatticeOpType, MoveId};
 use serde_json::{Value, json};
 
 const FIXTURE_PATH: &str = "fixtures/cba-lattice-fixture.json";

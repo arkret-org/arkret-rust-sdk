@@ -26,11 +26,11 @@
 //! (sodmin / inkson) and servers (soland / coauth) can all share one
 //! implementation with no drift.
 
-use chrono::{DateTime, Utc};
-use cokret_core::{
+use arkret_core::{
     Did, DidOperationSubmitRequestBody, decode_base58btc, decode_ed25519_multibase,
     encode_base58btc,
 };
+use chrono::{DateTime, Utc};
 use ed25519_dalek::{
     SECRET_KEY_LENGTH, SIGNATURE_LENGTH, Signature, Signer, SigningKey, VerifyingKey,
 };
@@ -69,7 +69,7 @@ pub enum WebvhInceptionError {
 /// registration to soland and persist the secrets for later rotation.
 ///
 /// The two `*_seed` fields are DID root key material: `Debug` renders them
-/// redacted (mirroring `cokret_crypto::VaultKek`) and both are zeroized on
+/// redacted (mirroring `arkret_crypto::VaultKek`) and both are zeroized on
 /// drop so they never leak into logs, backtraces or freed memory.
 #[derive(Clone, zeroize::ZeroizeOnDrop)]
 pub struct PreparedInception {
@@ -480,7 +480,7 @@ fn random_seed<R: RngCore + ?Sized>(rng: &mut R) -> [u8; SECRET_KEY_LENGTH] {
 }
 
 fn canonical_bytes(value: &Value) -> Result<Vec<u8>, WebvhInceptionError> {
-    cokret_core::canonical::canonical_json_bytes(value)
+    arkret_core::canonical::canonical_json_bytes(value)
         .map_err(|err| WebvhInceptionError::Canonical(err.to_string()))
 }
 
@@ -531,7 +531,7 @@ fn embedded_webvh_document_value(
     if let Some(services) = document.get_mut("service").and_then(Value::as_array_mut) {
         services.push(json!({
             "id": format!("{did}#enrollment-authority"),
-            "type": cokret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY,
+            "type": arkret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY,
             "serviceEndpoint": enrollment_authority_did,
         }));
     }
@@ -647,7 +647,7 @@ fn verify_webvh_log_proof(entry: &Value) -> Result<(), String> {
         map.remove("proof");
     }
     let payload =
-        cokret_core::canonical::canonical_json_bytes(&canonical).map_err(|e| e.to_string())?;
+        arkret_core::canonical::canonical_json_bytes(&canonical).map_err(|e| e.to_string())?;
     public_key
         .verify_strict(&payload, &signature)
         .map_err(|_| "webvh log proof signature is invalid".to_owned())
@@ -685,7 +685,7 @@ fn substitute_scid(value: &Value, scid: &str) -> Value {
 }
 
 fn sha256_multihash_multibase(bytes: &[u8]) -> String {
-    let digest = cokret_core::canonical::sha256_bytes(bytes);
+    let digest = arkret_core::canonical::sha256_bytes(bytes);
     let mut multihash = Vec::with_capacity(34);
     multihash.push(0x12);
     multihash.push(0x20);
@@ -805,7 +805,7 @@ mod tests {
             map.remove("proof");
         }
         let payload =
-            cokret_core::canonical::canonical_json_bytes(&canonical).map_err(|e| e.to_string())?;
+            arkret_core::canonical::canonical_json_bytes(&canonical).map_err(|e| e.to_string())?;
         public_key
             .verify_strict(&payload, &signature)
             .map_err(|_| "signature invalid".to_owned())
@@ -968,7 +968,7 @@ mod tests {
             .iter()
             .find(|svc| {
                 svc.get("type").and_then(Value::as_str)
-                    == Some(cokret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
+                    == Some(arkret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
             })
             .expect("enrollment-authority service entry present");
         assert_eq!(
@@ -1082,7 +1082,7 @@ mod tests {
         assert!(
             services.iter().all(|svc| {
                 svc.get("type").and_then(Value::as_str)
-                    != Some(cokret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
+                    != Some(arkret_core::service::DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY)
             }),
             "service DID document must not carry a device-enrollment-authority entry",
         );

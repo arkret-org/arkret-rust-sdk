@@ -10,8 +10,8 @@
 use std::ffi::OsString;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 
-use cokret_core::keystore::{service_name, validate_id};
-use cokret_core::{KeyBytes, Result};
+use arkret_core::keystore::{service_name, validate_id};
+use arkret_core::{KeyBytes, Result};
 use windows::Win32::Foundation::ERROR_NOT_FOUND;
 use windows::Win32::Security::Credentials::{
     CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC, CREDENTIALW, CredDeleteW, CredEnumerateW,

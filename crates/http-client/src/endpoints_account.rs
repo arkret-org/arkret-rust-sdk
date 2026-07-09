@@ -1,7 +1,7 @@
 //! Session-grant, account-subscribe, contacts, and direct-conversation
 //! endpoint methods on [`Client`].
 
-use cokret_core::{
+use arkret_core::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountDeviceEnrollOutcome,
     AccountDeviceEnrollRequestBody, AccountDevicePairOutcome, AccountDevicePairRequestBody,
     AccountLogoutOutcome, AccountLogoutRequestBody, AccountRegisterOutcome,
@@ -381,7 +381,7 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use cokret_core::{RealmId, SubscriptionConfig, SyncFilter, WaitForFrontier};
+    use arkret_core::{RealmId, SubscriptionConfig, SyncFilter, WaitForFrontier};
     use url::Url;
 
     use super::*;

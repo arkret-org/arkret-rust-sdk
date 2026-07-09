@@ -2,15 +2,15 @@
 
 use std::collections::{BTreeMap, VecDeque};
 
-use chrono::{DateTime, Duration, Utc};
-pub use cokret_core::DeviceMessageEnvelope;
-pub use cokret_crypto::{
+pub use arkret_core::DeviceMessageEnvelope;
+pub use arkret_crypto::{
     CrossSigningBinding, CrossSigningKeyKind, CrossSigningKeyRecord, CrossSigningPublishContent,
     CrossSigningResetContent, CrossSigningResetProof, DeviceBootstrapBinding,
     DeviceCrossSigningChainVerification, DeviceQuorumSignature, DeviceTrustBinding,
     DeviceTrustChainOutcome, DeviceTrustState, SignedCrossSigningKey,
     cross_signing_publish_cell_subject, verify_device_cross_signing_chain,
 };
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};

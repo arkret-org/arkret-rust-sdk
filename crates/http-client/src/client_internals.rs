@@ -5,8 +5,8 @@
 //! helpers. Endpoint modules call into these via `pub(crate)` visibility;
 //! they are not part of the public API.
 
-use cokret_core::{Error, ErrorEnvelope, Result};
-use cokret_signatures::http_signature::{
+use arkret_core::{Error, ErrorEnvelope, Result};
+use arkret_signatures::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, SignedRequestParts, canonical_message,
     format_signature_header, format_signature_input_component_list, parse_signature_input,
     sign_message,
@@ -24,7 +24,7 @@ use crate::{
 };
 
 /// Wrap a reqwest transport error into the transport-agnostic
-/// `cokret_core::Error::Http` variant at the crate boundary. arkret-core
+/// `arkret_core::Error::Http` variant at the crate boundary. arkret-core
 /// deliberately carries no reqwest dependency (ARCHITECTURE.md: core is the
 /// wire-model layer; the HTTP stack lives in this crate), so the conversion
 /// is explicit here instead of a `#[from]` impl on the core error type.

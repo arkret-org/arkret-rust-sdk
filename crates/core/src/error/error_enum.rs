@@ -111,11 +111,11 @@ impl Error {
     }
 }
 
-impl From<cokret_identifiers::IdentifierError> for Error {
-    fn from(error: cokret_identifiers::IdentifierError) -> Self {
+impl From<arkret_identifiers::IdentifierError> for Error {
+    fn from(error: arkret_identifiers::IdentifierError) -> Self {
         match error {
-            cokret_identifiers::IdentifierError::InvalidId(value) => Self::InvalidId(value),
-            cokret_identifiers::IdentifierError::Random(error) => Self::Crypto(error),
+            arkret_identifiers::IdentifierError::InvalidId(value) => Self::InvalidId(value),
+            arkret_identifiers::IdentifierError::Random(error) => Self::Crypto(error),
         }
     }
 }

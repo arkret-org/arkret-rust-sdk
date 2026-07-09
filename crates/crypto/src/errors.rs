@@ -1,18 +1,18 @@
 //! Crypto-machine validation errors and shared validation bounds/helpers.
 
-use cokret_core::{Error, Result};
+use arkret_core::{Error, Result};
 
 /// Typed crypto-machine validation errors.
 ///
 /// Round 2 (post-improve): introduced so call sites can branch on the
 /// specific validation failure (bounds vs replay vs key mismatch)
 /// instead of inspecting the free-form `Error::Protocol` string. The
-/// `From<CryptoError> for cokret_core::Error` impl below preserves
+/// `From<CryptoError> for arkret_core::Error` impl below preserves
 /// the existing wire surface — every `CryptoError` still renders as
 /// `Error::Protocol(<message>)` for callers that haven't migrated.
 ///
 /// New code SHOULD return `CryptoError` directly; bridge to
-/// `cokret_core::Error` only at the protocol-boundary using `?` or
+/// `arkret_core::Error` only at the protocol-boundary using `?` or
 /// `Into::into`.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]

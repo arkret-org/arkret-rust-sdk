@@ -139,7 +139,7 @@ pub fn key_backup_aad(
 // The backup encryption descriptor is owned by `arkret-core`
 // (`models/key_backup.rs`, aligned with `key-backup.schema.json` including
 // `hpke_suite` and open extension fields); the SDK reuses it directly.
-use cokret_core::KeyBackupEncryption;
+use arkret_core::KeyBackupEncryption;
 
 /// Schema-aligned backup content item.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use cokret_core::{Error, Result};
+use arkret_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -142,7 +142,7 @@ pub enum MentionTarget {
 
 /// Parser-local mention span extracted from message text.
 ///
-/// Distinct from the wire `cokret_core::Mention`
+/// Distinct from the wire `arkret_core::Mention`
 /// (strand-and-message.md paragraph 9.4 structured mention node).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParsedMention {

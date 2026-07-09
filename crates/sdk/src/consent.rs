@@ -20,12 +20,12 @@
 //! do X to that resource"; consent says "I, as the contacted party,
 //! accept this kind of contact from that peer".
 
-use chrono::{DateTime, Utc};
-use cokret_core::lattice::CellState;
-use cokret_core::{
+use arkret_core::lattice::CellState;
+use arkret_core::{
     CellRef, Did, Effect, GrantConstraint, LatticeOp, LatticeOpType, Precondition, Predicate,
     PredicateOp,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -78,14 +78,14 @@ impl Scope {
 ///
 /// Returns a `CellRef` with the canonical wire form
 /// `ck:cell:ck.component.consent.grant.v1:<consent_id>`.
-pub fn consent_cell_id(consent_id: &str) -> Result<CellRef, cokret_core::Error> {
+pub fn consent_cell_id(consent_id: &str) -> Result<CellRef, arkret_core::Error> {
     if consent_id.is_empty() {
-        return Err(cokret_core::Error::Protocol(
+        return Err(arkret_core::Error::Protocol(
             "consent_id must not be empty".to_owned(),
         ));
     }
     CellRef::new(format!("ak:cell:{CONSENT_CELL_FAMILY}:{consent_id}"))
-        .map_err(|e| cokret_core::Error::Protocol(format!("invalid consent cell id: {e}")))
+        .map_err(|e| arkret_core::Error::Protocol(format!("invalid consent cell id: {e}")))
 }
 
 /// Deterministic tag for a `(consent_id, peer, scope)` grant.
@@ -145,7 +145,7 @@ pub fn grant_effect(
     peer: Did,
     scope: Scope,
     options: &ConsentGrantOptions,
-) -> Result<Effect, cokret_core::Error> {
+) -> Result<Effect, arkret_core::Error> {
     let cell = consent_cell_id(consent_id)?;
     let tag = consent_tag(consent_id, &peer, scope);
     let value = ConsentGrantValue {
@@ -185,7 +185,7 @@ pub fn revoke_effect_with_precondition(
     peer: &Did,
     scope: Scope,
     revoke_value: ConsentRevokeValue,
-) -> Result<(Precondition, Effect), cokret_core::Error> {
+) -> Result<(Precondition, Effect), arkret_core::Error> {
     let cell = consent_cell_id(consent_id)?;
     let tag = consent_tag(consent_id, peer, scope);
 
@@ -219,7 +219,7 @@ pub fn revoke_effect_with_precondition(
 /// Walk the consent cell's or-set join value and decide whether
 /// `(peer, scope)` is currently consented at `now`.
 ///
-/// `cell_state` is what [`cokret_core::lattice::Lattice::join`] produced for the consent cell.
+/// `cell_state` is what [`arkret_core::lattice::Lattice::join`] produced for the consent cell.
 /// For an `or-set` Lattice, the `Value` form is a JSON array of
 /// `{tag, value}` objects. Bottom states (which or-set never produces)
 /// are treated as no-consent.
@@ -270,7 +270,7 @@ pub fn require_consent_precondition(
     consent_id: &str,
     peer: &Did,
     scope: Scope,
-) -> Result<Precondition, cokret_core::Error> {
+) -> Result<Precondition, arkret_core::Error> {
     let cell = consent_cell_id(consent_id)?;
     Ok(Precondition {
         cell,
@@ -285,8 +285,8 @@ pub fn require_consent_precondition(
 
 #[cfg(test)]
 mod tests {
+    use arkret_core::lattice::{Lattice, OrSet, SealedOp};
     use chrono::TimeZone;
-    use cokret_core::lattice::{Lattice, OrSet, SealedOp};
 
     use super::*;
 
@@ -302,8 +302,8 @@ mod tests {
         Did::new("did:webvh:z6mkfixture:bob.example").unwrap()
     }
 
-    fn move_id(byte: u8) -> cokret_core::MoveId {
-        cokret_core::MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    fn move_id(byte: u8) -> arkret_core::MoveId {
+        arkret_core::MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     #[test]

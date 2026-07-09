@@ -4,7 +4,7 @@
 //! feature is disabled. Constructors return [`KeyStoreError::Unsupported`];
 //! trait methods do the same so naive callers don't panic.
 
-use cokret_core::{KeyBytes, Result};
+use arkret_core::{KeyBytes, Result};
 
 use crate::{KeyStore, KeyStoreError};
 

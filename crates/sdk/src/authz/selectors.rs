@@ -131,7 +131,7 @@ pub enum ResourceSelector {
     /// specific Circle by its `ck:circle:<uuid>` identifier. The Circle
     /// is scoped to its parent Realm; cross-Realm selectors MUST be
     /// rejected by the resolver (`circle_realm_mismatch`).
-    Circle { circle_id: cokret_core::CircleId },
+    Circle { circle_id: arkret_core::CircleId },
     /// Wildcard selector (all resources)
     Wildcard,
 }
@@ -414,7 +414,7 @@ impl ResourceSelector {
     /// `{"kind": "...", ...}`) into the engine selector model.
     ///
     /// This is the wire → engine direction used when projecting a
-    /// [`cokret_core::CapabilityGrant`] (whose `resources` are untyped spec
+    /// [`arkret_core::CapabilityGrant`] (whose `resources` are untyped spec
     /// values) for evaluation. Unknown `kind` values fail closed.
     pub fn from_spec_value(value: &Value) -> Result<Self> {
         let object = value
@@ -441,7 +441,7 @@ impl ResourceSelector {
                 let raw = field("circle_id").ok_or_else(|| {
                     Error::Protocol("circle selector requires circle_id".to_owned())
                 })?;
-                let circle_id = cokret_core::CircleId::new(raw)
+                let circle_id = arkret_core::CircleId::new(raw)
                     .map_err(|err| Error::Protocol(format!("invalid circle selector: {err}")))?;
                 Ok(Self::Circle { circle_id })
             }
@@ -794,7 +794,7 @@ impl ResourceSelector {
                 } else {
                     format!("ak:circle:{remainder}")
                 };
-                let circle_id = cokret_core::CircleId::new(raw)
+                let circle_id = arkret_core::CircleId::new(raw)
                     .map_err(|err| Error::Protocol(format!("invalid circle selector: {err}")))?;
                 Ok(Self::Circle { circle_id })
             }

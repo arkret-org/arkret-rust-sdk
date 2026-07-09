@@ -1,7 +1,7 @@
 //! Event stream / query / submit, snapshot, and authz endpoint methods
 //! on [`Client`].
 
-use cokret_core::{
+use arkret_core::{
     AuthzCheckOutcome, AuthzCheckRequestBody, AuthzInviteList, CollectionProjectionView,
     DocumentMorphProjectionOutcome, Error, Event, EventsQueryOutcome, EventsSubmitBatchRequestBody,
     EventsSubmitOutcome, EventsSubscribeFrame, GrantList, ProjectionSpaceList,
@@ -561,7 +561,7 @@ mod tests {
         assert_eq!(got.len(), 2, "expected 2 frames, got {got:?}");
         assert_eq!(
             got[0].kind,
-            cokret_core::EventsSubscribeFrameKind::Heartbeat
+            arkret_core::EventsSubscribeFrameKind::Heartbeat
         );
         assert!(got[1].is_catchup_complete());
     }

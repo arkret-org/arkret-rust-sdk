@@ -12,12 +12,12 @@
 //!     `member_delivery_binding` is present, both `handle` + `audience` + `expires_at` MUST also be
 //!     present.
 
-use chrono::{Duration, Utc};
-use cokret_core::Did;
-use cokret_core::models::{
+use arkret_core::Did;
+use arkret_core::models::{
     DeliveryBindingHint, Handle, HandleBindingState, HandleClaim, HandleHintBindingSource,
     RecipientServiceType,
 };
+use chrono::{Duration, Utc};
 use proptest::prelude::*;
 
 const PROPTEST_CASES: u32 = 64;

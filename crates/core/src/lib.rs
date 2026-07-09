@@ -44,6 +44,7 @@ pub mod state;
 pub mod sync;
 
 pub use admin_signer::{AdminKeyStore, SessionGrantIntrospection, admin_scopes};
+pub use arkret_identifiers as identifiers;
 pub use base64url::{
     base64_standard_decode, base64_standard_encode, base64url_decode, base64url_encode,
 };
@@ -57,7 +58,6 @@ pub use blind_payload_sanitizer::{
 };
 pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};
-pub use cokret_identifiers as identifiers;
 pub use cursor::{Cursor, CursorPurpose, SyncPositions, SyncTracker};
 pub use error::*;
 pub use generated::profiles::{PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role};

@@ -1,11 +1,11 @@
 //! Snapshot v1 signing and consumer verification helpers.
 
-use chrono::{DateTime, Utc};
-use cokret_core::{
+use arkret_core::{
     DETACHED_JWS_ALG_EDDSA, DETACHED_JWS_PROOF_KIND, DetachedJwsProof, Hash, SnapshotChunkPayload,
     SnapshotManifest, SnapshotValidationCode, SnapshotValidationError, SnapshotVerifyOptions,
     SnapshotVerifyReport,
 };
+use chrono::{DateTime, Utc};
 use ed25519_dalek::SigningKey;
 
 use crate::identity::DidResolver;
@@ -20,7 +20,7 @@ pub fn sign_snapshot_manifest_ed25519(
     created_at: DateTime<Utc>,
 ) -> Result<DetachedJwsProof> {
     let canonical_bytes = manifest.unsigned_canonical_bytes()?;
-    let payload_digest = Hash::new(cokret_core::canonical::sha256_digest(&canonical_bytes))?;
+    let payload_digest = Hash::new(arkret_core::canonical::sha256_digest(&canonical_bytes))?;
     let jws =
         crate::jws::sign_jws_ed25519(&canonical_bytes, signing_key).map_err(Error::Protocol)?;
     let proof =
@@ -57,7 +57,7 @@ pub fn verify_snapshot_manifest_signature(
             format!("snapshot signature transcript could not be canonicalized: {err}"),
         )
     })?;
-    let expected_digest = Hash::new(cokret_core::canonical::sha256_digest(&canonical_bytes))
+    let expected_digest = Hash::new(arkret_core::canonical::sha256_digest(&canonical_bytes))
         .map_err(|err| {
             SnapshotValidationError::new(
                 SnapshotValidationCode::DigestMismatch,
@@ -94,18 +94,18 @@ pub fn verify_snapshot_manifest(
     resolver: &dyn DidResolver,
 ) -> std::result::Result<SnapshotVerifyReport, SnapshotValidationError> {
     verify_snapshot_manifest_signature(manifest, resolver)?;
-    cokret_core::verify_snapshot_manifest(manifest, chunks, options)
+    arkret_core::verify_snapshot_manifest(manifest, chunks, options)
 }
 
 #[cfg(test)]
 mod tests {
-    use chrono::Duration;
-    use cokret_core::{
+    use arkret_core::{
         AuthorityBinding, Did, EventId, EventSetCommitmentAlgorithm, EventSetLeaf, Hlc, RealmId,
         SNAPSHOT_REDUCER_PROFILE_V1, SnapshotAuthorityKind, SnapshotFrontier,
         SnapshotMaterializedItem, SnapshotSecurityClass, SnapshotVerificationHints,
         build_snapshot_chunks, event_set_commitment, state_digest_from_items,
     };
+    use chrono::Duration;
     use serde_json::json;
 
     use super::*;
@@ -129,14 +129,14 @@ mod tests {
         Hash::new(format!("sha256:{}", format!("{seed:02x}").repeat(32))).unwrap()
     }
 
-    fn snapshot_id() -> cokret_core::SnapshotId {
-        cokret_core::SnapshotId::new("ak:snapshot:01904100-0000-7000-8000-000000000001").unwrap()
+    fn snapshot_id() -> arkret_core::SnapshotId {
+        arkret_core::SnapshotId::new("ak:snapshot:01904100-0000-7000-8000-000000000001").unwrap()
     }
 
     fn resolver_for(signing_key: &SigningKey) -> DidWebResolver {
         let did = did();
         let verification_method = format!("{did}#snapshot-key-1");
-        let public_key = cokret_core::ed25519_pubkey_to_did_key_multibase(
+        let public_key = arkret_core::ed25519_pubkey_to_did_key_multibase(
             signing_key.verifying_key().as_bytes(),
         );
         let mut resolver = DidWebResolver::new();

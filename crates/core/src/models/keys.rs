@@ -50,7 +50,7 @@ pub enum DeviceStatus {
 /// service-attested devices. Mirrors
 /// `keys-operations.schema.json#/$defs/cross_signing_binding`.
 ///
-/// Shape-identical to `cokret_crypto::DeviceTrustBinding` (the SDK chain
+/// Shape-identical to `arkret_crypto::DeviceTrustBinding` (the SDK chain
 /// verifier's input type), but defined here in `core` because `core` cannot
 /// depend on `crypto`; `alg` is optional per schema.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

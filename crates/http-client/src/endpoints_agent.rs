@@ -1,6 +1,6 @@
 //! Personal-agent endpoint methods on [`Client`].
 
-use cokret_core::{
+use arkret_core::{
     AgentDeactivateRequestBody, AgentGrantAttachOutcome, AgentGrantAttachRequestBody,
     AgentGrantDetachOutcome, AgentKeyPairOutcome, AgentKeyPairRequestBody, AgentLifecycleOutcome,
     AgentList, AgentParticipationOutcome, AgentParticipationReplaceRequestBody,

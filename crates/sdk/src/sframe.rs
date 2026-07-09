@@ -5,7 +5,7 @@
 //! the Arkret MLS exporter — never from a backend's own KMS or a self-generated
 //! random key. This module binds the two fixed wire labels to a real MLS
 //! exporter source and rejects any other key provenance with
-//! [`e2ee_key_source_unauthorised`](cokret_core::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED).
+//! [`e2ee_key_source_unauthorised`](arkret_core::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED).
 //!
 //! - Frame key: label `ck-rtc-frame-key/v1`, Context = canonical JSON of `{realm_id, call_id,
 //!   focus_id, epoch_id, participant_identity, device_id}`.
@@ -93,7 +93,7 @@ impl FrameKeyContext {
         if self.participant_identity.trim().is_empty() || self.focus_id.trim().is_empty() {
             return Err(Error::Protocol(format!(
                 "{}: frame key context missing sender binding (focus_id / participant_identity)",
-                cokret_core::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED
+                arkret_core::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED
             )));
         }
         Ok(())
@@ -119,7 +119,7 @@ impl RecordingKeyContext {
         {
             return Err(Error::Protocol(format!(
                 "{}: recording key context missing recording binding",
-                cokret_core::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED
+                arkret_core::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED
             )));
         }
         Ok(())
@@ -147,7 +147,7 @@ impl TranscriptKeyContext {
         {
             return Err(Error::Protocol(format!(
                 "{}: transcript key context missing transcript binding",
-                cokret_core::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED
+                arkret_core::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED
             )));
         }
         Ok(())
@@ -203,7 +203,7 @@ fn ensure_key_len(key: &[u8]) -> Result<()> {
     if key.len() != MEDIA_KEY_LEN {
         return Err(Error::Protocol(format!(
             "{}: media key exporter returned {} bytes, expected {}",
-            cokret_core::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED,
+            arkret_core::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED,
             key.len(),
             MEDIA_KEY_LEN
         )));

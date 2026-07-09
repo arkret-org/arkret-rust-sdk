@@ -3,7 +3,7 @@
 //! `ck.reaction.add` / `ck.reaction.remove`).
 //!
 //! The SDK-implementable subset runs the fixture events through
-//! [`cokret_core::events::ReactionManager`] and asserts the expected OR-Set
+//! [`arkret_core::events::ReactionManager`] and asserts the expected OR-Set
 //! terminal state (membership + counts). Cases whose expectations require a
 //! full server-side reducer (pending/dependency tracking, redaction view
 //! split, capability gating, rate limiting, MLS decryption) are consumed as
@@ -22,9 +22,9 @@
 //! * `after_client_decryption_summary` in the epoch-rotation case — needs live MLS decryption of
 //!   the routing-digest keys.
 
-use cokret_core::Did;
-use cokret_core::events::{ReactionManager, is_standard_event_kind};
-use cokret_core::schema::{embedded_error_code_identifiers, embedded_json_artifact};
+use arkret_core::Did;
+use arkret_core::events::{ReactionManager, is_standard_event_kind};
+use arkret_core::schema::{embedded_error_code_identifiers, embedded_json_artifact};
 use serde_json::Value;
 
 const FIXTURE_PATH: &str = "fixtures/reaction-fixture.json";

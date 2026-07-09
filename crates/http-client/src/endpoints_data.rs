@@ -1,6 +1,6 @@
 //! Blob, key, key-backup, and device-message endpoint methods on [`Client`].
 
-use cokret_core::{
+use arkret_core::{
     BackupId, BlobMetadata, BlobPresignOutcome, BlobPresignRequestBody, BlobRef,
     BlobUploadMetadata, BlobUploadOutcome, DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody,
     DeviceMessagesGetOutcome, DeviceMessagesPutOutcome, DeviceMessagesPutRequestBody, Error,
@@ -509,9 +509,9 @@ impl Client {
         }
         if let Some(class) = query.backup_class {
             let class_str = match class {
-                cokret_core::BackupClass::DidRecovery => "did_recovery",
-                cokret_core::BackupClass::SecretStorage => "secret_storage",
-                cokret_core::BackupClass::MlsHistory => "mls_history",
+                arkret_core::BackupClass::DidRecovery => "did_recovery",
+                arkret_core::BackupClass::SecretStorage => "secret_storage",
+                arkret_core::BackupClass::MlsHistory => "mls_history",
             };
             builder = builder.query(&[("backup_class", class_str)]);
         }

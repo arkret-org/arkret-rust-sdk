@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
+use arkret_core::base64url_encode;
 use chrono::{Duration, Utc};
-use cokret_core::base64url_encode;
 use openmls::prelude::{
     BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,
     MlsGroupCreateConfig, OpenMlsProvider, ProtocolVersion,
@@ -131,7 +131,7 @@ impl CokretMlsIdentity {
                 .iter()
                 .map(|capability| (*capability).to_owned())
                 .collect(),
-            state: cokret_core::MlsKeyPackageState::Published,
+            state: arkret_core::MlsKeyPackageState::Published,
             claim_id: None,
             created_at,
             expires_at: Some(created_at + Duration::days(7)),
@@ -288,7 +288,7 @@ pub(super) fn decode_key_package(
 }
 
 pub fn revoke_key_package(record: &mut MlsKeyPackageRecord) -> MlsDeviceWorkflowStep {
-    record.state = cokret_core::MlsKeyPackageState::Revoked;
+    record.state = arkret_core::MlsKeyPackageState::Revoked;
     MlsDeviceWorkflowStep {
         action: MlsDeviceWorkflowAction::RevokeKeyPackage,
         principal_id: record.principal_id.clone(),

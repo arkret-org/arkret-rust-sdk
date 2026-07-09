@@ -4,15 +4,15 @@
 //! canonical capability grant wire artifact. This module intentionally re-exports
 //! those core types instead of maintaining an SDK-local parallel model.
 
-pub type ProtocolGrantApprovalMode = cokret_core::ApprovalWorkflowMode;
-pub type ProtocolGrantApprovalRelation = cokret_core::GrantApprovalRelation;
-pub type ProtocolGrantClaimRequirement = cokret_core::GrantConstraintClaimRequirement;
-pub type ProtocolGrantConstraint = cokret_core::GrantConstraint;
-pub type ProtocolGrantConstraintEffect = cokret_core::GrantConstraintEffect;
-pub type ProtocolGrantConstraintScope = cokret_core::GrantConstraintScope;
-pub type ProtocolGrantConstraintSubtype = cokret_core::GrantConstraintSubtype;
-pub type ProtocolGrantConstraintType = cokret_core::GrantConstraintType;
-pub type ProtocolGrantExtensionKey = cokret_core::GrantConstraintExtensionKey;
+pub type ProtocolGrantApprovalMode = arkret_core::ApprovalWorkflowMode;
+pub type ProtocolGrantApprovalRelation = arkret_core::GrantApprovalRelation;
+pub type ProtocolGrantClaimRequirement = arkret_core::GrantConstraintClaimRequirement;
+pub type ProtocolGrantConstraint = arkret_core::GrantConstraint;
+pub type ProtocolGrantConstraintEffect = arkret_core::GrantConstraintEffect;
+pub type ProtocolGrantConstraintScope = arkret_core::GrantConstraintScope;
+pub type ProtocolGrantConstraintSubtype = arkret_core::GrantConstraintSubtype;
+pub type ProtocolGrantConstraintType = arkret_core::GrantConstraintType;
+pub type ProtocolGrantExtensionKey = arkret_core::GrantConstraintExtensionKey;
 
 #[cfg(test)]
 mod tests {

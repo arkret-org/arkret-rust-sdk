@@ -12,12 +12,12 @@
 //! their bespoke implementations with calls into this module.
 //!
 //! ```
-//! use cokret_signatures::proof::{EventProofBuilder, EventSigner};
+//! use arkret_signatures::proof::{EventProofBuilder, EventSigner};
 //! use serde_json::json;
 //!
 //! # #[cfg(feature = "signer")]
 //! # {
-//! use cokret_signatures::proof::Ed25519DetachedJwsSigner;
+//! use arkret_signatures::proof::Ed25519DetachedJwsSigner;
 //!
 //! let signer = Ed25519DetachedJwsSigner::from_seed(
 //!     [9u8; 32],
@@ -32,10 +32,10 @@
 
 use std::fmt;
 
-use chrono::Utc;
-use cokret_core::{
+use arkret_core::{
     Error, Hash, Proof, Result, base64url_decode, base64url_encode, canonical, proof_kind,
 };
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 /// Wire-form public key material used by [`EventVerifier`] adapters.
@@ -83,7 +83,7 @@ impl PublicKeyMaterial {
 ///
 /// Tolerates either the standard 2-byte multicodec prefix (`0xed 0x01`) or a
 /// bare 32-byte payload. The base58btc primitive comes from
-/// [`cokret_core::multibase`] — the single base58 home shared with `sdk`.
+/// [`arkret_core::multibase`] — the single base58 home shared with `sdk`.
 fn decode_multibase_btc58(value: &str) -> Result<Vec<u8>> {
     let decoded = canonical_decode_multibase(value)?;
     if decoded.len() == 34 && decoded[0] == 0xed && decoded[1] == 0x01 {
@@ -94,11 +94,11 @@ fn decode_multibase_btc58(value: &str) -> Result<Vec<u8>> {
 }
 
 fn canonical_decode_multibase(value: &str) -> Result<Vec<u8>> {
-    cokret_core::decode_multibase_base58btc(value)
+    arkret_core::decode_multibase_base58btc(value)
 }
 
 mod key_bytes {
-    use cokret_core::{base64url_decode, base64url_encode};
+    use arkret_core::{base64url_decode, base64url_encode};
     use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn serialize<S: Serializer>(bytes: &[u8], s: S) -> Result<S::Ok, S::Error> {
@@ -153,7 +153,7 @@ struct DetachedJwsProtectedHeader {
 pub fn verify_eddsa_detached_jws_proof(
     proof: &Proof,
     canonical_bytes: &[u8],
-    actor_id: &cokret_core::Did,
+    actor_id: &arkret_core::Did,
     public_key: &PublicKeyMaterial,
 ) -> std::result::Result<(), VerifierError> {
     if canonical_bytes.is_empty() {
@@ -229,7 +229,7 @@ pub fn verify_eddsa_detached_jws_proof(
 /// signing input and a proof binding object), this is the bare primitive: the
 /// signature is computed directly over `message` bytes. It is the verification
 /// half used by the cross-signing chain check
-/// (`cokret_crypto::verify_device_cross_signing_chain`), where the message is a
+/// (`arkret_crypto::verify_device_cross_signing_chain`), where the message is a
 /// `ck-cross-signing-bind-v1` / `ck-device-trust-bind-v1` canonical input and
 /// the signature is base64url(-no-pad).
 ///
@@ -381,7 +381,7 @@ impl EventProofBuilder {
     /// Strips `proofs` and `unsigned` so the bytes match what
     /// `Event::digest_payload` already produces. This wraps the same
     /// canonicalization rule callers would write by hand.
-    pub fn envelope_bytes(&self, event: &cokret_core::Event) -> Result<Vec<u8>> {
+    pub fn envelope_bytes(&self, event: &arkret_core::Event) -> Result<Vec<u8>> {
         let payload = event.digest_payload()?;
         canonical::canonical_json_bytes(&payload)
     }
@@ -540,10 +540,10 @@ impl<V: EventVerifier> EventVerifier for ProductionVerifier<V> {
 }
 
 mod ed25519_jws {
-    use chrono::Utc;
-    use cokret_core::{
+    use arkret_core::{
         Audience, Hash, Proof, base64url_decode, base64url_encode, canonical, proof_kind,
     };
+    use chrono::Utc;
     use ed25519_dalek::{Signer as _, SigningKey, VerifyingKey};
     use serde::Deserialize;
 
@@ -594,7 +594,7 @@ mod ed25519_jws {
             value: &T,
             domain: Option<String>,
             audience: Option<Audience>,
-        ) -> cokret_core::Result<(Vec<u8>, Proof)> {
+        ) -> arkret_core::Result<(Vec<u8>, Proof)> {
             let builder = EventProofBuilder::new();
             let bytes = builder.canonical_bytes(value)?;
             let proof = self.build_proof(&bytes, domain, audience)?;
@@ -607,7 +607,7 @@ mod ed25519_jws {
             bytes: &[u8],
             domain: Option<String>,
             audience: Option<Audience>,
-        ) -> cokret_core::Result<Proof> {
+        ) -> arkret_core::Result<Proof> {
             let jws = detached_jws_over(&self.signing_key, bytes);
             let event_digest = Hash::new(canonical::sha256_digest(bytes))?;
             Ok(Proof {
@@ -835,7 +835,7 @@ pub fn build_proof_envelope(
     verification_method: impl Into<String>,
     payload_digest: Hash,
     domain: Option<String>,
-    audience: Option<cokret_core::Audience>,
+    audience: Option<arkret_core::Audience>,
     jws: impl Into<String>,
 ) -> Proof {
     Proof {

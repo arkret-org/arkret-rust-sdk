@@ -546,7 +546,7 @@ impl ProfileCreateBuilder {
 
     /// Build the unsigned `Event` Envelope. Caller is responsible for
     /// `actor_seq` + `hlc` + (re-)signing via
-    /// [`cokret_signatures::sign_event`].
+    /// [`arkret_signatures::sign_event`].
     pub fn build(self, actor_seq: u64, hlc: Hlc) -> Result<crate::Event> {
         self.validate_authorization_fields()?;
         let content = match self.kind {

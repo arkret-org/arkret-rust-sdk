@@ -4,7 +4,7 @@
 //! regression baseline for canonical serialization, strict-form validation and
 //! parsing — the inner loop of every signing input and wire-envelope read.
 
-use cokret_core::canonical;
+use arkret_core::canonical;
 use criterion::{Criterion, criterion_group, criterion_main};
 use serde_json::json;
 

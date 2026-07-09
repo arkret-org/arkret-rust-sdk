@@ -11,13 +11,13 @@
 //! derivation stage is attributable, replacing the SDK's previous
 //! self-certifying determinism tests with spec-anchored bytes.
 
-use chrono::{DateTime, Utc};
-use cokret_core::BackupClass;
-use cokret_core::schema::embedded_json_artifact;
-use cokret_crypto::backup::{
+use arkret_core::BackupClass;
+use arkret_core::schema::embedded_json_artifact;
+use arkret_crypto::backup::{
     VAULT_AEAD_PROFILE, VaultBinding, commitment_digest, decrypt_vault, derive_subkey,
     derive_vault_kek_with_salt, encrypt_vault_with_nonce_salt,
 };
+use chrono::{DateTime, Utc};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
