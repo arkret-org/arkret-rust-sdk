@@ -64,6 +64,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloca"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5a7d05ea6aea7e9e64d25b9156ba2fee3fdd659e34e41063cd2fc7cd020d7f4"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -100,6 +109,192 @@ dependencies = [
  "blake2",
  "cpufeatures 0.2.17",
  "password-hash",
+]
+
+[[package]]
+name = "arkret"
+version = "0.3.0"
+dependencies = [
+ "argon2",
+ "arkret-core",
+ "arkret-crypto",
+ "arkret-ffi",
+ "arkret-html",
+ "arkret-http-client",
+ "arkret-keystore",
+ "arkret-server",
+ "arkret-signatures",
+ "base64",
+ "chacha20poly1305",
+ "chrono",
+ "chrono-tz",
+ "ed25519-dalek",
+ "getrandom 0.4.2",
+ "hex",
+ "hkdf 0.13.0",
+ "hpke",
+ "openmls",
+ "openmls_basic_credential",
+ "openmls_rust_crypto",
+ "parking_lot",
+ "rand_core 0.9.5",
+ "regex",
+ "reqwest",
+ "salvo",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "subtle",
+ "thiserror",
+ "tls_codec",
+ "tokio",
+ "tracing",
+ "url",
+ "uuid",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
+name = "arkret-core"
+version = "0.3.0"
+dependencies = [
+ "arkret-identifiers",
+ "base64",
+ "blake3",
+ "bs58",
+ "chrono",
+ "chrono-tz",
+ "criterion",
+ "getrandom 0.4.2",
+ "hex",
+ "hmac 0.13.0",
+ "proptest",
+ "regex",
+ "salvo",
+ "salvo-oapi",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "thiserror",
+ "tracing",
+ "unicode-normalization",
+ "url",
+ "zeroize",
+]
+
+[[package]]
+name = "arkret-crypto"
+version = "0.3.0"
+dependencies = [
+ "argon2",
+ "arkret-core",
+ "arkret-signatures",
+ "chacha20poly1305",
+ "chrono",
+ "getrandom 0.4.2",
+ "hkdf 0.13.0",
+ "hmac 0.13.0",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "thiserror",
+ "zeroize",
+]
+
+[[package]]
+name = "arkret-ffi"
+version = "0.3.0"
+dependencies = [
+ "arkret-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "arkret-html"
+version = "0.3.0"
+dependencies = [
+ "arkret-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "arkret-http-client"
+version = "0.3.0"
+dependencies = [
+ "arkret-core",
+ "arkret-signatures",
+ "base64",
+ "chrono",
+ "futures-util",
+ "getrandom 0.4.2",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "arkret-identifiers"
+version = "0.3.0"
+dependencies = [
+ "diesel",
+ "getrandom 0.2.17",
+ "getrandom 0.4.2",
+ "hex",
+ "salvo",
+ "salvo-oapi",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "arkret-keystore"
+version = "0.3.0"
+dependencies = [
+ "arkret-core",
+ "secret-service",
+ "security-framework",
+ "tracing",
+ "windows",
+]
+
+[[package]]
+name = "arkret-server"
+version = "0.3.0"
+dependencies = [
+ "arkret-core",
+ "arkret-signatures",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "arkret-signatures"
+version = "0.3.0"
+dependencies = [
+ "arkret-core",
+ "base64",
+ "chrono",
+ "criterion",
+ "ed25519-dalek",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "subtle",
+ "thiserror",
+ "url",
+ "zeroize",
 ]
 
 [[package]]
@@ -551,192 +746,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 
 [[package]]
-name = "cokret"
-version = "0.3.0"
-dependencies = [
- "argon2",
- "base64",
- "chacha20poly1305",
- "chrono",
- "chrono-tz",
- "cokret-core",
- "cokret-crypto",
- "cokret-ffi",
- "cokret-html",
- "cokret-http-client",
- "cokret-keystore",
- "cokret-server",
- "cokret-signatures",
- "ed25519-dalek",
- "getrandom 0.4.2",
- "hex",
- "hkdf 0.13.0",
- "hpke",
- "openmls",
- "openmls_basic_credential",
- "openmls_rust_crypto",
- "parking_lot",
- "rand_core 0.9.5",
- "regex",
- "reqwest",
- "salvo",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "subtle",
- "thiserror",
- "tls_codec",
- "tokio",
- "tracing",
- "url",
- "uuid",
- "x25519-dalek",
- "zeroize",
-]
-
-[[package]]
-name = "cokret-core"
-version = "0.3.0"
-dependencies = [
- "base64",
- "blake3",
- "bs58",
- "chrono",
- "chrono-tz",
- "cokret-identifiers",
- "criterion",
- "getrandom 0.4.2",
- "hex",
- "hmac 0.13.0",
- "proptest",
- "regex",
- "salvo",
- "salvo-oapi",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "thiserror",
- "tracing",
- "unicode-normalization",
- "url",
- "zeroize",
-]
-
-[[package]]
-name = "cokret-crypto"
-version = "0.3.0"
-dependencies = [
- "argon2",
- "chacha20poly1305",
- "chrono",
- "cokret-core",
- "cokret-signatures",
- "getrandom 0.4.2",
- "hkdf 0.13.0",
- "hmac 0.13.0",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "thiserror",
- "zeroize",
-]
-
-[[package]]
-name = "cokret-ffi"
-version = "0.3.0"
-dependencies = [
- "cokret-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "cokret-html"
-version = "0.3.0"
-dependencies = [
- "cokret-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "cokret-http-client"
-version = "0.3.0"
-dependencies = [
- "base64",
- "chrono",
- "cokret-core",
- "cokret-signatures",
- "futures-util",
- "getrandom 0.4.2",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tokio-util",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "cokret-identifiers"
-version = "0.3.0"
-dependencies = [
- "diesel",
- "getrandom 0.2.17",
- "getrandom 0.4.2",
- "hex",
- "salvo",
- "salvo-oapi",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "thiserror",
- "uuid",
-]
-
-[[package]]
-name = "cokret-keystore"
-version = "0.3.0"
-dependencies = [
- "cokret-core",
- "secret-service",
- "security-framework",
- "tracing",
- "windows",
-]
-
-[[package]]
-name = "cokret-server"
-version = "0.3.0"
-dependencies = [
- "cokret-core",
- "cokret-signatures",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "cokret-signatures"
-version = "0.3.0"
-dependencies = [
- "base64",
- "chrono",
- "cokret-core",
- "criterion",
- "ed25519-dalek",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "subtle",
- "thiserror",
- "url",
- "zeroize",
-]
-
-[[package]]
 name = "combine"
 version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -887,10 +896,11 @@ dependencies = [
 
 [[package]]
 name = "criterion"
-version = "0.7.0"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1c047a62b0cc3e145fa84415a3191f628e980b194c2755aa12300a4e6cbd928"
+checksum = "950046b2aa2492f9a536f5f4f9a3de7b9e2476e575e05bd6c333371add4d98f3"
 dependencies = [
+ "alloca",
  "anes",
  "cast",
  "ciborium",
@@ -899,6 +909,7 @@ dependencies = [
  "itertools",
  "num-traits",
  "oorandom",
+ "page_size",
  "regex",
  "serde",
  "serde_json",
@@ -908,9 +919,9 @@ dependencies = [
 
 [[package]]
 name = "criterion-plot"
-version = "0.6.0"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b1bcc0dc7dfae599d84ad0b1a55f80cde8af3725da8313b528da95ef783e338"
+checksum = "d8d80a2f4f5b554395e47b5d8305bc3d27813bacb73493eb1001e8f76dae29ea"
 dependencies = [
  "cast",
  "itertools",
@@ -2728,6 +2739,16 @@ checksum = "fe42f1670a52a47d448f14b6a5c61dd78fce51856e68edaa38f7ae3a46b8d6b6"
 dependencies = [
  "elliptic-curve",
  "primeorder",
+]
+
+[[package]]
+name = "page_size"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30d5b2194ed13191c1999ae0704b7839fb18384fa22e49b57eeaa97d79ce40da"
+dependencies = [
+ "libc",
+ "winapi",
 ]
 
 [[package]]
@@ -4607,6 +4628,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "winapi"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c839a674fcd7a98952e593242ea400abe93992746761e38641405d28b00f419"
+dependencies = [
+ "winapi-i686-pc-windows-gnu",
+ "winapi-x86_64-pc-windows-gnu",
+]
+
+[[package]]
+name = "winapi-i686-pc-windows-gnu"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
+
+[[package]]
 name = "winapi-util"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4614,6 +4651,12 @@ checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
  "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "winapi-x86_64-pc-windows-gnu"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windows"

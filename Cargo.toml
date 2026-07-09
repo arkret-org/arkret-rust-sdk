@@ -18,7 +18,7 @@ chrono = {version = "0.4.45",default-features = false,features = ["clock", "std"
 chrono-tz = {version = "0.10.4",default-features = false}
 # Dev-only microbenchmark harness (SDK-SOTA-03). Excluded from cargo-deny via
 # `.deny.toml`; benches compile under `--all-targets` but are never run in CI.
-criterion = {version = "0.7",default-features = false,features = ["cargo_bench_support"]}
+criterion = {version = "0.8",default-features = false,features = ["cargo_bench_support"]}
 arkret-core = {version = "0.3.0",path = "crates/core",default-features = false}
 arkret-crypto = {version = "0.3.0",path = "crates/crypto",default-features = false}
 arkret-ffi = {version = "0.3.0",path = "crates/ffi",default-features = false}
