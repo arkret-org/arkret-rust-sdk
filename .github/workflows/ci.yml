@@ -13,7 +13,7 @@ jobs:
     name: Rust checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
@@ -50,7 +50,7 @@ jobs:
     # is the regression guard for that claim (previously CI checked no wasm
     # target at all).
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.96"
@@ -69,10 +69,10 @@ jobs:
     # silently pass without comparing. Refresh the snapshot with
     # `python tools/refresh-embedded-artifacts.py` when the spec moves.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: arkret-rust-sdk
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: arkret/arkret-spec
           path: arkret-spec
@@ -95,7 +95,7 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.96"
@@ -110,7 +110,7 @@ jobs:
     name: MSRV check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           # Pinned MSRV — bumping requires a workspace Cargo.toml change and
@@ -123,7 +123,7 @@ jobs:
     name: cargo audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
@@ -141,7 +141,7 @@ jobs:
     name: cargo deny
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           # `.deny.toml` at repo root drives the policy. Run all checks so
@@ -153,7 +153,7 @@ jobs:
     name: cargo semver-checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.96"
@@ -167,7 +167,7 @@ jobs:
     name: coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.96"
@@ -186,7 +186,7 @@ jobs:
     name: local package check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.96"
@@ -205,10 +205,10 @@ jobs:
     # operation, and the new media-service-binding / accountable_to.strict_reject
     # profiles. See docs/architecture.md#spec-drift-coverage-ci for the runbook.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: arkret-rust-sdk
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: arkret/arkret-spec
           path: arkret-spec
