@@ -520,7 +520,7 @@ impl Default for MemoryCellRegistry {
             },
         );
 
-        // Consent or-set (ck.component.consent.grant.v1) — spec consent-model §3.1.
+        // Consent or-set (ak.component.consent.grant.v1) — spec consent-model §3.1.
         bindings.insert(
             "ak.component.consent.grant.v1".to_owned(),
             BindingDescriptor {
@@ -725,7 +725,7 @@ mod tests {
     }
 
     fn cell_member() -> CellRef {
-        CellRef::new("ak:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap()
     }
 
@@ -1032,7 +1032,7 @@ mod tests {
     #[test]
     fn cell_registry_unknown_family_fails_closed() {
         let reg = MemoryCellRegistry::new();
-        let weird = CellRef::new("ak:cell:ck.component.future.unknown.v1:x".to_owned()).unwrap();
+        let weird = CellRef::new("ak:cell:ak.component.future.unknown.v1:x".to_owned()).unwrap();
         let err = reg.resolve(&realm(), &weird).unwrap_err();
         assert!(format!("{err}").contains("unknown cell family"));
     }
@@ -1041,14 +1041,14 @@ mod tests {
     fn cell_registry_or_set_and_cas_lattices_resolve() {
         let reg = MemoryCellRegistry::new();
         let consent =
-            CellRef::new("ak:cell:ck.component.consent.grant.v1:ck.consent.x".to_owned()).unwrap();
+            CellRef::new("ak:cell:ak.component.consent.grant.v1:ak.consent.x".to_owned()).unwrap();
         assert_eq!(
             reg.resolve(&realm(), &consent).unwrap().lattice.kind(),
             LatticeKind::OrSet
         );
 
         let policy =
-            CellRef::new("ak:cell:ck.component.realm.policy.v1:ck.realm.x".to_owned()).unwrap();
+            CellRef::new("ak:cell:ak.component.realm.policy.v1:ak.realm.x".to_owned()).unwrap();
         assert_eq!(
             reg.resolve(&realm(), &policy).unwrap().lattice.kind(),
             LatticeKind::CasRegister

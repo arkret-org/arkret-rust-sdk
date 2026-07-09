@@ -65,9 +65,9 @@ The allowlisted headers should match what the client SDK sends — see
 ## Request limits & rate limiting
 
 - **Body size**. Configure the chosen runtime's body size limit explicitly if
-  your callers upload large blobs through the `ck.self.blob.upload.create` path. Reject
+  your callers upload large blobs through the `ak.self.blob.upload.create` path. Reject
   oversized uploads with a 413 carrying the standard
-  `ck.error.payload_too_large` error code.
+  `ak.error.payload_too_large` error code.
 - **Rate limit metadata**. The SDK exposes `service::RateLimitMetadata` and
   `service::QuotaMetadata` so the server can advertise its limits in
   `GET /_arkret/describe`. Use runtime middleware or a fronting tier

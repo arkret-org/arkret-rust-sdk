@@ -64,7 +64,7 @@ pub struct IdempotencyIdentity {
 }
 
 impl IdempotencyIdentity {
-    /// Identity for a `ck.edge.applet.command.transaction` delivery.
+    /// Identity for a `ak.edge.applet.command.transaction` delivery.
     pub fn applet_transaction(
         direction: IdempotencyDirection,
         source_service_did: impl Into<String>,

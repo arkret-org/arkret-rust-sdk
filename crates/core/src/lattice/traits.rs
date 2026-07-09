@@ -187,7 +187,7 @@ mod kind_tests {
 
     #[test]
     fn event_kinds_have_no_cross_kind_overlap() {
-        // Every ck.<...> event kind MUST belong to exactly one lattice kind
+        // Every ak.<...> event kind MUST belong to exactly one lattice kind
         // so the LatticeRegistry route is unambiguous.
         let mut seen: BTreeSet<&'static str> = BTreeSet::new();
         for kind in [

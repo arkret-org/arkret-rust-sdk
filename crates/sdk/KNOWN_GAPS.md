@@ -13,7 +13,7 @@ file.
 Spec `653ffb2` landed the finalized Applet install model. The SDK was
 brought into line:
 
-- **`ck.applet.registration.registration_epoch` is now required.**
+- **`ak.applet.registration.registration_epoch` is now required.**
   `WireAppletRegistration` gained a non-optional
   `registration_epoch: Hash` (canonical security epoch hash). The SDK
   cannot synthesize the full evidence digest, so
@@ -25,7 +25,7 @@ brought into line:
   `Vec<AppletNamespaceEntry>` (`{ exclusive, pattern }`) per
   `applet-schema.md` §2. **Breaking wire change**: a bare `["pattern"]`
   array no longer deserializes; use `[{ "exclusive": .., "pattern": .. }]`.
-- **`AppletPackage` (`ck.schema.applet_package.v1`) added.** Controller-
+- **`AppletPackage` (`ak.schema.applet_package.v1`) added.** Controller-
   signed distribution object with `seal()` (stamp `package_digest`),
   `sign()` (controller proof) and `to_registration()` (spec §1a
   Package→registration derivation). A package is NOT a grant and NOT
@@ -35,7 +35,7 @@ brought into line:
   `InstallCommitRequest`, `InstallCommitResponse`, `EffectiveScope`
   (realm / circle), `ApprovalRequest`, `ApprovedScope`, `ActorPolicy`,
   `InstallE2eePolicy`, `WidgetPolicy`.
-- **`ck.applet.bridge_error` reshaped.** `AppletBridgeErrorBuilder` now
+- **`ak.applet.bridge_error` reshaped.** `AppletBridgeErrorBuilder` now
   binds the spec §7 required fields (`realm_id`,
   `failed_transaction_ref`, `error_class`, `error_code`, `retriable`,
   `visibility_scope`). The old `severity` / `target_ref` slots and the
@@ -63,7 +63,7 @@ brought into line:
 
 **Status:** **Resolved this release (S-7).**
 
-`spec/v1/zh/applet-integration.md` §8 shows `ck.applet.bridge_event`
+`spec/v1/zh/applet-integration.md` §8 shows `ak.applet.bridge_event`
 Envelopes carrying top-level `applet_id` and `external_ref`. Prior to
 this release the SDK had no slot for either field; downstream
 integrators (savfox `crates/channels/src/arkret/applet/outbound.rs`)
@@ -85,13 +85,13 @@ populate the top-level slots directly. Re-sign the Envelope via
 `arkret_signatures::sign_event` (S-1) afterwards so the proof binds the
 new bytes.
 
-## 2. `SignedAppletRegistration` vs wire `ck.applet.registration`
+## 2. `SignedAppletRegistration` vs wire `ak.applet.registration`
 
 **Status:** **Resolved (S-13): `SignedAppletRegistration` removed.**
 
 The SDK-internal `SignedAppletRegistration` (plus its
 `AppletSchema` / `AppletNamespaceDeclaration` dependencies and the
-test-only `AppletRegistry`) has been deleted. `ck.applet.registration`
+test-only `AppletRegistry`) has been deleted. `ak.applet.registration`
 has exactly one representation:
 
 `arkret::WireAppletRegistration` — wire shape `kind / applet_id /
@@ -104,7 +104,7 @@ an `AppletPackage` via `package.to_registration()`.
 
 ## 3. Other intentionally-deferred items
 
-- `ck.principal.provision` / managed-account auto-creation lives in
+- `ak.principal.provision` / managed-account auto-creation lives in
   `arkret-spec` proposal review. Not in scope for the SDK until the
   spec lands.
 - MLS / E2EE Ghost actor encryption path: spec §12 defines it but

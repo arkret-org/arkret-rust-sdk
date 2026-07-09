@@ -355,13 +355,13 @@ pub enum IdentityReceiptWitnessRole {
 }
 
 /// Signed identity receipt from a DID registry
-/// (`ck.schema.identity_receipt.v1`, `identity-receipt.schema.json`).
+/// (`ak.schema.identity_receipt.v1`, `identity-receipt.schema.json`).
 /// The registry / witness endorsement of a key-log head travels here —
 /// never inside the key-log entry's `proofs[]`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DidRegistryReceipt {
-    /// Canonical schema discriminator (`ck.schema.identity_receipt.v1`).
+    /// Canonical schema discriminator (`ak.schema.identity_receipt.v1`).
     pub schema: String,
     pub receipt_id: arkret_core::ReceiptId,
     /// DID whose key-log head this receipt witnesses.

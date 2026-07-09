@@ -356,14 +356,14 @@ impl ProfileManager {
     }
 }
 
-// ─── S-9 (savfox SDK gap): ck.profile.create / ck.profile.update builder ──
+// ─── S-9 (savfox SDK gap): ak.profile.create / ak.profile.update builder ──
 
 /// Operation kind discriminant for [`ProfileCreateBuilder::build`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProfileEventKind {
-    /// `ck.profile.create` — first appearance of an actor profile.
+    /// `ak.profile.create` — first appearance of an actor profile.
     Create,
-    /// `ck.profile.update` — subsequent revisions.
+    /// `ak.profile.update` — subsequent revisions.
     Update,
 }
 
@@ -377,7 +377,7 @@ impl ProfileEventKind {
     }
 }
 
-/// Build a `ck.profile.create` / `ck.profile.update` Event Envelope
+/// Build a `ak.profile.create` / `ak.profile.update` Event Envelope
 /// payload using the spec wire shapes:
 ///
 /// - create: `{ "object": ActorProfile }`
@@ -408,8 +408,8 @@ pub struct ProfileCreateBuilder {
 }
 
 impl ProfileCreateBuilder {
-    /// Construct a new builder for a `ck.profile.create` Envelope.
-    /// Switch to `ck.profile.update` via [`Self::for_update`].
+    /// Construct a new builder for a `ak.profile.create` Envelope.
+    /// Switch to `ak.profile.update` via [`Self::for_update`].
     pub fn new(realm_id: RealmId, actor_id: Did) -> Self {
         Self {
             realm_id,
@@ -453,7 +453,7 @@ impl ProfileCreateBuilder {
     }
 
     /// Set the controller-scoped agent selector slug. Only meaningful when
-    /// `actor_kind=agent` under `ck.profile.personal_agent_provisioning.v1`;
+    /// `actor_kind=agent` under `ak.profile.personal_agent_provisioning.v1`;
     /// it is a projection hint, never an authorization or discovery handle
     /// (`actor-profile.schema.json` `agent_slug`).
     pub fn with_agent_slug(mut self, agent_slug: impl Into<String>) -> Self {

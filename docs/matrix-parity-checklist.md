@@ -44,12 +44,12 @@ The Arkret SDK ships the full three-key hierarchy as typed records, not as a sin
 | `principal_signing_key` (PSK) | [`CrossSigningKeyRecord` + `CrossSigningPublishContent.principal_signing_key`](../crates/crypto/src/lib.rs) | DID-method-rooted; rotation MUST enter the DID key log. |
 | `self_signing_key` (SSK) | [`SignedCrossSigningKey`](../crates/crypto/src/lib.rs) under `self_signing_key`, bound to PSK via [`CrossSigningBinding`](../crates/crypto/src/lib.rs) | SSK is the only signer on per-device trust bindings; canonical bytes are `ck-cross-signing-bind-v1\n` + canonical JSON. |
 | `user_signing_key` (USK) | Same envelope as SSK, distinct `public_key` | Signs other principals' identity keys; manual trust only — does NOT promote the other principal's device set. |
-| Wire envelope: `ck.cross_signing.publish.v1` | [`CrossSigningPublishContent`](../crates/crypto/src/lib.rs) + [`DeviceManager::record_cross_signing_publish`](../crates/sdk/src/devices/manager.rs) | `generation` is monotonic; stale publishes are rejected; advancing the generation drops every accepted device binding to `NeedsReverification`. |
-| Wire envelope: `ck.cross_signing.reset.v1` | [`CrossSigningResetContent` + `CrossSigningResetProof`](../crates/crypto/src/lib.rs) + [`DeviceManager::record_cross_signing_reset`](../crates/sdk/src/devices/manager.rs) | Requires `principal_signing` / `recovery_unlock` / `device_quorum` / `trusted_recovery_service` proof; cancels in-flight SAS / QR transactions for the principal. |
+| Wire envelope: `ak.cross_signing.publish.v1` | [`CrossSigningPublishContent`](../crates/crypto/src/lib.rs) + [`DeviceManager::record_cross_signing_publish`](../crates/sdk/src/devices/manager.rs) | `generation` is monotonic; stale publishes are rejected; advancing the generation drops every accepted device binding to `NeedsReverification`. |
+| Wire envelope: `ak.cross_signing.reset.v1` | [`CrossSigningResetContent` + `CrossSigningResetProof`](../crates/crypto/src/lib.rs) + [`DeviceManager::record_cross_signing_reset`](../crates/sdk/src/devices/manager.rs) | Requires `principal_signing` / `recovery_unlock` / `device_quorum` / `trusted_recovery_service` proof; cancels in-flight SAS / QR transactions for the principal. |
 
 ### Per-device trust binding (spec §5.2)
 
-`ck.device.authorize.content.cross_signing_binding` is a typed
+`ak.device.authorize.content.cross_signing_binding` is a typed
 [`DeviceTrustBinding`](../crates/crypto/src/lib.rs) on the SDK side, with `ssk_generation` so the verifier can detect stale bindings without re-fetching the publish stream:
 
 - [`DeviceTrustBinding::canonical_input`](../crates/crypto/src/lib.rs) returns the spec-canonical `ck-device-trust-bind-v1\n + canonical_json({principal_id, device_id, device_public_key, ssk_generation})` bytes.
@@ -66,12 +66,12 @@ Both `crypto::DeviceTrustState` and `core::models::api::DeviceVerificationState`
 
 ### Cancel code registry
 
-[`ck.key.verification.cancel`](../crates/sdk/src/devices/mod.rs) cancel-code set is aligned with spec §10.6 + §14.3, including the new `cross_signing_reset` code emitted when [`DeviceManager::record_cross_signing_reset`](../crates/sdk/src/devices/manager.rs) trips an in-flight transaction.
+[`ak.key.verification.cancel`](../crates/sdk/src/devices/mod.rs) cancel-code set is aligned with spec §10.6 + §14.3, including the new `cross_signing_reset` code emitted when [`DeviceManager::record_cross_signing_reset`](../crates/sdk/src/devices/manager.rs) trips an in-flight transaction.
 
 ### What's still spec-only, not yet in SDK
 
 - **PSK-signature verification glue**: `evaluate_trust_chain` takes a `verify_signature` closure so the SDK doesn't pull a DID-method resolver into `arkret-crypto`. Production adapters need to wire that closure to the same Ed25519 / EdDSA verifier used by [`arkret-signatures::verify_ed25519_move_signature`](../crates/signatures/src/signer.rs) plus the DID key-log resolver. The SDK ships the state machine; it does not ship a one-call "set up cross-signing end-to-end with my DID document" helper.
-- **`ck.device.authorize` payload schema**: the SDK's `ck.device.authorize` event still uses the JSON `Value` payload shape; a typed `ck.schema.device_authorize.v1` envelope mirroring `CrossSigningPublishContent` is the next layer.
+- **`ak.device.authorize` payload schema**: the SDK's `ak.device.authorize` event still uses the JSON `Value` payload shape; a typed `ak.schema.device_authorize.v1` envelope mirroring `CrossSigningPublishContent` is the next layer.
 - **MLS leaf re-key after reset**: spec §14.2 step 3 says senders SHOULD issue an Empty Commit after a reset so the new SSK generation is covered by transcript hashes. The SDK exposes the MLS commit primitives but doesn't auto-trigger this; downstream apps (inkson / soland) wire it.
 
 ## Matrix concepts intentionally NOT mirrored
@@ -79,9 +79,9 @@ Both `crypto::DeviceTrustState` and `core::models::api::DeviceVerificationState`
 These come straight from `matrix-core-differences.md` §4.5.7–§4.5.9; the SDK does not implement them under their Matrix names:
 
 - **Single "master key"**: replaced by DID-method-rooted PSK (the master signature is the DID-method history entry, not a homeserver-stored key).
-- **`m.cross_signing.master`/`self_signing`/`user_signing` keys-API records**: replaced by the `ck.cross_signing.publish.v1` event envelope on the principal control stream.
+- **`m.cross_signing.master`/`self_signing`/`user_signing` keys-API records**: replaced by the `ak.cross_signing.publish.v1` event envelope on the principal control stream.
 - **"Cross-signing trust propagates through cross-signed devices automatically"**: explicitly rejected (see [`DeviceManager::propagate_trust`](../crates/sdk/src/devices/manager.rs)). Every device needs its own SSK signature.
-- **`m.cross_signing.upgrade` reset event without proof material**: replaced by `ck.cross_signing.reset.v1` with four enumerated proof kinds.
+- **`m.cross_signing.upgrade` reset event without proof material**: replaced by `ak.cross_signing.reset.v1` with four enumerated proof kinds.
 
 ## Remaining Non-Goals / Future Work
 

@@ -32,10 +32,10 @@ pub const APPLET_REGISTRATION: &str = "ak.applet.registration";
 pub const ATTESTATION_RANGE_COMPLETENESS: &str = "ak.attestation.range_completeness";
 pub const AUDIT_ACCESSED: &str = "ak.audit.accessed";
 // Audit release session model (spec @ 2026-06-04): audit applets bind via
-// ck.audit.applet_binding and stage sealed historical releases through the
+// ak.audit.applet_binding and stage sealed historical releases through the
 // session lifecycle (request/authorize/notice/release/close). Replaces the
-// retired standing audit-member events ck.audit.epoch_key_destruction and
-// ck.realm.audit_policy_downgrade.
+// retired standing audit-member events ak.audit.epoch_key_destruction and
+// ak.realm.audit_policy_downgrade.
 pub const AUDIT_APPLET_BINDING: &str = "ak.audit.applet_binding";
 pub const AUDIT_ERASURE_RECEIPT: &str = "ak.audit.erasure_receipt";
 pub const AUDIT_RELEASE: &str = "ak.audit.release";
@@ -138,7 +138,7 @@ pub const MODERATION_REPORT: &str = "ak.self.moderation.report";
 pub const NOTARY_FAULT_CENSORSHIP: &str = "ak.notary.fault.censorship";
 pub const NOTARY_FAULT_EQUIVOCATION: &str = "ak.notary.fault.equivocation";
 
-/// Object-only schema id — `ck.event_batch_receipt` is NOT an Event.kind.
+/// Object-only schema id — `ak.event_batch_receipt` is NOT an Event.kind.
 /// Returns `true` for kinds that may only appear as a separate object,
 /// MUST NOT appear as `Event.kind` on the wire. Round R2/R3 (2026-05-20).
 pub const RECEIPT_OBJECT_KINDS: &[&str] = &["ak.event_batch_receipt"];
@@ -147,7 +147,7 @@ pub const RECEIPT_OBJECT_KINDS: &[&str] = &["ak.event_batch_receipt"];
 /// Round R2/R3 (2026-05-20). Items here MUST NOT be reduced into durable
 /// state, MUST NOT advance Seal frontier or Move state_root, MUST NOT
 /// carry preconditions/effects/seal_ref, and MUST NOT be submitted via
-/// `ck.self.events.command.submit`. See zh/sync/operations-sync.md §3.6 and
+/// `ak.self.events.command.submit`. See zh/sync/operations-sync.md §3.6 and
 /// schemas/ephemeral-envelope.schema.json (the 4 broadcast forms) and
 /// schemas/device-message.schema.json (the to-device key.verification forms).
 pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[
@@ -155,7 +155,7 @@ pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[
     PRESENCE,
     TYPING,
     RECEIPT_READ,
-    // ck.key.verification.* — point-to-point to-device family.
+    // ak.key.verification.* — point-to-point to-device family.
     KEY_VERIFICATION_ACCEPT,
     KEY_VERIFICATION_CANCEL,
     KEY_VERIFICATION_DONE,
@@ -166,14 +166,14 @@ pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[
     KEY_VERIFICATION_START,
     SECRET_REQUEST,
     SECRET_SEND,
-    // ck.realm_key.request — point-to-point to-device history-key request,
+    // ak.realm_key.request — point-to-point to-device history-key request,
     // relayed to the target source (device-lifecycle.md §13.2); ephemeral,
     // never a reducer-input durable event.
     REALM_KEY_REQUEST,
 ];
 
 /// True for the wire-scope-ephemeral kinds — broadcast ephemerals
-/// (`ck.call.signal`, `ck.presence`, `ck.typing`, `ck.receipt.read`) plus
+/// (`ak.call.signal`, `ak.presence`, `ak.typing`, `ak.receipt.read`) plus
 /// the to-device key-verification and secret-share families. These MUST be rejected by
 /// reducers if delivered as a durable Event (event-envelope.schema.json `not` branch).
 pub fn is_ephemeral_kind(kind: &str) -> bool {
@@ -184,7 +184,7 @@ pub fn is_ephemeral_kind(kind: &str) -> bool {
 }
 
 /// True for receipt-style object-only schema ids that MUST NOT appear as
-/// `Event.kind` on the wire (`ck.event_batch_receipt`). Round R2/R3.
+/// `Event.kind` on the wire (`ak.event_batch_receipt`). Round R2/R3.
 pub fn is_receipt_object_only(kind: &str) -> bool {
     RECEIPT_OBJECT_KINDS.contains(&kind)
 }
@@ -196,7 +196,7 @@ pub fn is_receipt_object_only(kind: &str) -> bool {
 /// for `kind`, or `None` when the SDK does not yet ship a typed payload
 /// schema ref (callers fall back to the generic event envelope check).
 ///
-/// R3.1 adds `ck.member.identity.update` →
+/// R3.1 adds `ak.member.identity.update` →
 /// `event-payload.schema.json#/$defs/member_identity_update_payload`.
 pub fn event_payload_schema_ref(kind: &str) -> Option<&'static str> {
     match kind {
@@ -218,7 +218,7 @@ pub fn event_payload_schema_ref(kind: &str) -> Option<&'static str> {
 /// Round R2/R3 (2026-05-20) — Realm lifecycle state classifier.
 ///
 /// Returned by [`is_terminal_realm_state`]. After a Realm has emitted
-/// `ck.realm.destroy`, no further state-changing events MUST be accepted
+/// `ak.realm.destroy`, no further state-changing events MUST be accepted
 /// (rejected as `realm_terminal_state`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -227,12 +227,12 @@ pub enum RealmLifecycleState {
     Frozen,
     Archived,
     Tombstoned,
-    /// `ck.realm.destroy` has been applied. Terminal.
+    /// `ak.realm.destroy` has been applied. Terminal.
     Destroyed,
 }
 
 /// Round R2/R3 — true once the Realm has reached the destroyed terminal
-/// state (`ck.realm.destroy` applied). Any subsequent state-changing
+/// state (`ak.realm.destroy` applied). Any subsequent state-changing
 /// event MUST be rejected as `ERROR_CODE_REALM_TERMINAL_STATE`.
 pub fn is_terminal_realm_state(state: RealmLifecycleState) -> bool {
     matches!(state, RealmLifecycleState::Destroyed)
@@ -525,7 +525,7 @@ pub const NON_REDUCER_EVENT_KINDS: &[&str] = &[
     AUDIT_ERASURE_RECEIPT,
     AUDIT_RYW_RECEIPT,
     CALL_SIGNAL,
-    // CKP-0007: ck.circle.seal_commit is reducer-derived (sub-seal
+    // CKP-0007: ak.circle.seal_commit is reducer-derived (sub-seal
     // commit emitted by the reducer on the Circle's profile cadence);
     // it is NOT a reducer-input event.
     CIRCLE_SEAL_COMMIT,
@@ -824,7 +824,7 @@ pub fn is_strand_tracks_kind(kind: &str) -> bool {
 
 // ── Typed `EventKind` ──────────────────────────────────────────────────
 //
-// The strongly-typed `EventKind` enum (one variant per active `ck.*` kind,
+// The strongly-typed `EventKind` enum (one variant per active `ak.*` kind,
 // plus an `Unknown(String)` forward-compat catch-all) is generated from
 // `event-kind-registry.json` into `crate::generated::event_kinds`; see
 // `tools/generate-sdk-event-kinds.ps1`. It is re-exported here so callers
@@ -841,7 +841,7 @@ impl salvo::oapi::ToSchema for EventKind {
     ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
         salvo::oapi::Object::new()
             .schema_type(salvo::oapi::BasicType::String)
-            .pattern(r"^ck\.[a-z0-9_]+(\.[a-z0-9_]+)*$")
+            .pattern(r"^ak\.[a-z0-9_]+(\.[a-z0-9_]+)*$")
             .into()
     }
 }

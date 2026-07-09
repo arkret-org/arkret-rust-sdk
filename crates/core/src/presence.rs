@@ -10,7 +10,7 @@
 //!   floor rules (§3.3);
 //! - `status_message` length / NFC / control-character constraints (§3.3, shared with the durable
 //!   profile field §2.2);
-//! - the `ck.presence.preference` account-data payload (§3.6) that pins a manual state across
+//! - the `ak.presence.preference` account-data payload (§3.6) that pins a manual state across
 //!   devices;
 //! - the deterministic multi-device aggregation order (§3.3).
 
@@ -22,7 +22,7 @@ use crate::sync::PresenceStatus;
 
 /// Account Data key holding the principal-private manual presence
 /// preference (profiles-presence.md §3.6). Written through
-/// `ck.account_data.set`; enforced client-side at send time. Servers
+/// `ak.account_data.set`; enforced client-side at send time. Servers
 /// MUST NOT require plaintext or a projection of this key.
 pub const PRESENCE_PREFERENCE_ACCOUNT_DATA_KEY: &str = "ak.presence.preference";
 
@@ -212,7 +212,7 @@ pub fn validate_status_message(value: &str) -> Result<(), PresenceValidationErro
     Ok(())
 }
 
-/// `ck.presence.preference` payload (profiles-presence.md §3.6):
+/// `ak.presence.preference` payload (profiles-presence.md §3.6):
 /// the principal-private manual presence preference. Enforced on the
 /// send side — every device of the principal reads the same account
 /// data and pins its broadcast `state` to `manual_state` while the
@@ -221,7 +221,7 @@ pub fn validate_status_message(value: &str) -> Result<(), PresenceValidationErro
 pub struct PresencePreference {
     /// Pinned manual state: `online`, `idle` or `dnd`. `offline` is
     /// expressed by ceasing broadcasts / TTL expiry and is not a
-    /// pinnable value; "invisible" is `ck.presence.visibility =
+    /// pinnable value; "invisible" is `ak.presence.visibility =
     /// "nobody"`, not a state.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manual_state: Option<PresenceStatus>,

@@ -9,7 +9,7 @@
 //! ## Why this exists
 //!
 //! Prior to T0.5 there was nothing preventing e.g. inkson (a client SDK
-//! consumer) from declaring `ck.profile.push_gateway.v1` in its
+//! consumer) from declaring `ak.profile.push_gateway.v1` in its
 //! `supported_profiles` manifest, because the spec layer only documented the
 //! prohibition in prose. This module surfaces the partition in code so a
 //! mismatched claim becomes a structured `ProfileClaimError` instead of

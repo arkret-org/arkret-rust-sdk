@@ -2,7 +2,7 @@ use super::super::*;
 use super::RealmState;
 
 impl RealmState {
-    /// Reducer for canonical `ck.strand.tracks.update`: merge a batch of
+    /// Reducer for canonical `ak.strand.tracks.update`: merge a batch of
     /// `StrandTrackConfig` entries into `Strand.tracks`. Accepts either a top-level
     /// `tracks` map or `patch.tracks`.
     pub(super) fn update_strand_tracks(&mut self, event: &Event) -> Result<()> {
@@ -76,9 +76,9 @@ impl RealmState {
             "ak.capability.grant"
             | "ak.capability.delegate"
             | "ak.capability.revoke"
-            | "ak.capability.derived" => "ck.capability",
-            "ak.invite.create" | "ck.invite.cancel" | "ck.invite.accept" => "ck.invite",
-            "ak.realm.policy" | "ck.policy.set" => "ck.policy",
+            | "ak.capability.derived" => "ak.capability",
+            "ak.invite.create" | "ak.invite.cancel" | "ak.invite.accept" => "ak.invite",
+            "ak.realm.policy" | "ak.policy.set" => "ak.policy",
             other => other,
         };
         let map_key = format!("{}|{}", family, subject);
@@ -240,7 +240,7 @@ impl RealmState {
     }
 
     /// Round 11 (2026-05-16) — Object-level redaction state-machine
-    /// guard for `ck.redaction` events. Looks at the redaction event's
+    /// guard for `ak.redaction` events. Looks at the redaction event's
     /// content for `object_ref`, and when that points to a Strand / Morph
     /// subject, flips the projection state to `ObjectState::Redacted` per
     /// spec common-fields.md §5.1. Source state MUST be `Active` or
@@ -250,7 +250,7 @@ impl RealmState {
     /// as restore guards). Returns `Ok(())` for redactions without
     /// `object_ref` (message-only path). Space (container) is intentionally
     /// excluded because `SpaceState` has no `Redacted` variant — spec routes
-    /// Space removal through `ck.space.tombstone` instead.
+    /// Space removal through `ak.space.tombstone` instead.
     pub(super) fn redact_object_for_event(&mut self, event: &Event) -> Result<()> {
         let Some(object_ref) = self.extract_optional_field::<String>(&event.payload, "object_ref")
         else {
@@ -280,9 +280,9 @@ impl RealmState {
         // Unknown object — causal / backfill window. Tolerate silently
         // (mirrors restore_*/archive_* guards). Note that Space is also
         // hit here when `object_ref` is `ak:space:...` and Space is
-        // unmaterialised; that's also fine because ck.redaction targeting
+        // unmaterialised; that's also fine because ak.redaction targeting
         // a Space is undefined per spec (no `Redacted` variant), and
-        // any space removal strand uses `ck.space.tombstone` directly.
+        // any space removal strand uses `ak.space.tombstone` directly.
         Ok(())
     }
 }

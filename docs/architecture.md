@@ -14,9 +14,9 @@ operator-facing API mapping see [`api-and-errors.md`](api-and-errors.md).
 R3 introduced three coupled wire surfaces that the SDK now exposes as
 first-class typed builders. They share three common invariants:
 
-1. **All three are protected by an FSM lattice** — `ck.agent.{pause,resume,
+1. **All three are protected by an FSM lattice** — `ak.agent.{pause,resume,
    deactivate}` carry `lattice = fsm, bottom = reject`; recovery completion is
-   driven by an idempotent `ck.recovery.session.complete` reducer; media tokens
+   driven by an idempotent `ak.recovery.session.complete` reducer; media tokens
    are bounded by a TTL gate (see [§Call media](#call-media-cxcallmediatoken_exchange)).
 2. **All three reject on unknown enums** — `MediaBackendType::Unknown(_)`,
    `RecoveryProofKind` enum, agent state enum all use the canonical
@@ -28,7 +28,7 @@ first-class typed builders. They share three common invariants:
 
 ### Agent FSM (active / paused / deactivated)
 
-The agent FSM is owned by soland's runtime cell `ck.component.agent_state.v1`.
+The agent FSM is owned by soland's runtime cell `ak.component.agent_state.v1`.
 The SDK models it as:
 
 ```rust
@@ -49,11 +49,11 @@ Transition matrix (informational — soland is canonical):
 
 Operations:
 
-- `ck.self.agent.command.pause` — `POST /agents/{agent_principal_id}/pause` — soft stop;
+- `ak.self.agent.command.pause` — `POST /agents/{agent_principal_id}/pause` — soft stop;
   outstanding tasks complete, no new tasks accepted.
-- `ck.self.agent.command.resume` — `POST /agents/{agent_principal_id}/resume` — reverse of
+- `ak.self.agent.command.resume` — `POST /agents/{agent_principal_id}/resume` — reverse of
   pause; rejected if state == Deactivated with `agent_deactivated`.
-- `ck.self.agent.command.deactivate` — `POST /agents/{agent_principal_id}/deactivate` —
+- `ak.self.agent.command.deactivate` — `POST /agents/{agent_principal_id}/deactivate` —
   terminal. The historical `/revoke` alias was dropped at R3. Validator
   ensures no callers reference `/revoke`.
 
@@ -61,7 +61,7 @@ Errors surfaced on this surface:
 
 - `agent_paused` — write attempted against a paused agent principal.
 - `agent_deactivated` — any write or resume against a deactivated agent.
-- `pairing_request_expired` — `ck.gate.account.command.pair_agent_key` window elapsed.
+- `pairing_request_expired` — `ak.gate.account.command.pair_agent_key` window elapsed.
 - `proof_invalid` — pairing proof bytes failed canonical-digest check.
 - `verification_method_principal_mismatch` — DID resolved to a different
   principal than the pairing payload claims.
@@ -70,12 +70,12 @@ Errors surfaced on this surface:
 - `sidecar_create_denied`, `approval_already_consumed` — sidecar thread /
   action-approval edge cases.
 
-The SDK exposes `ck.agent.draft.propose`, `ck.agent.action_request`,
-`ck.agent.action_approve`, `ck.agent.action_reject` as actor-private event
+The SDK exposes `ak.agent.draft.propose`, `ak.agent.action_request`,
+`ak.agent.action_approve`, `ak.agent.action_reject` as actor-private event
 kinds (`reducer_input = false`). These are *not* part of the FSM lattice; they
 ride on the agent's own actor stream.
 
-### Call media (`ck.self.call.media.exchange.issue_token`)
+### Call media (`ak.self.call.media.exchange.issue_token`)
 
 The call media surface lets a participant exchange a Arkret call grant for
 a backend-specific media token (LiveKit, Mediasoup, Janus, Arkret-native,
@@ -96,7 +96,7 @@ async fn call_media_token_exchange(
 ```rust
 pub struct CallMediaTokenExchangeOutcome {
     pub backend_token: String,           // opaque to SDK; passes through to backend
-    pub participant_identity: String,    // canonical: ck:participant:<realm>:<actor>:<device>:<call>
+    pub participant_identity: String,    // canonical: ak:participant:<realm>:<actor>:<device>:<call>
     pub participant_binding: ParticipantBinding,
     pub expires_at: Timestamp,           // <= 600s; SHOULD <= 300s
     pub service_signature: ServiceSignature, // includes rotating `kid`
@@ -109,11 +109,11 @@ pub struct CallMediaTokenExchangeOutcome {
 participant_identity, expires_at`. Verification checks:
 
 1. `issuer_kid` resolves to a known media-token issuer (soland canonical,
-   floria proxying allowed only when `ck.profile.media_service_binding.v1`
+   floria proxying allowed only when `ak.profile.media_service_binding.v1`
    declares so).
 2. `expires_at <= now + 600s` (hard); SDK soft-warns if `> 300s`.
 3. `participant_identity` matches the canonical join string.
-4. `focus_id` is one of the foci advertised by `ck.realm.media_service`.
+4. `focus_id` is one of the foci advertised by `ak.realm.media_service`.
 
 Errors:
 
@@ -148,7 +148,7 @@ pub enum MediaBackendType {
 
 `Unknown(String)` is preserved on decode so logs are useful, but every
 operational call site invokes `MediaBackendType::reject_if_unknown()` before
-trusting the value. The `ck.profile.media_service_binding.{livekit,
+trusting the value. The `ak.profile.media_service_binding.{livekit,
 arkret_native}.v1` profile entries gate which arms a client will negotiate.
 
 ### Recovery (policy + receipt)
@@ -173,7 +173,7 @@ pub struct RecoveryPolicy {
 ```rust
 pub struct RecoveryReceipt {
     pub receipt_id: Uuid,
-    pub recovery_session_id: RecoverySessionId, // ck:recovery_session:<uuid>
+    pub recovery_session_id: RecoverySessionId, // ak:recovery_session:<uuid>
     pub principal_id: Did,
     pub proof_summary: Vec<ProofSummaryEntry>,
     pub completion_timestamp: Timestamp,
@@ -191,7 +191,7 @@ pub enum RecoveryProofKind {
 }
 ```
 
-Identifier `RecoverySession` uses wire form `ck:recovery_session:<uuid>` and
+Identifier `RecoverySession` uses wire form `ak:recovery_session:<uuid>` and
 lives in `arkret-identifiers`.
 
 Round-trip validation matches the spec JSON-Schemas
@@ -208,12 +208,12 @@ Error surfaced specifically on this lane:
 
 ## Profiles wired in R3
 
-- `ck.profile.media_service_binding.v1` — generic media-service binding.
-- `ck.profile.media_service_binding.livekit.v1`
-- `ck.profile.media_service_binding.arkret_native.v1`
-- `ck.profile.accountable_principals.strict_reject.v1` — see soland runbook for
+- `ak.profile.media_service_binding.v1` — generic media-service binding.
+- `ak.profile.media_service_binding.livekit.v1`
+- `ak.profile.media_service_binding.arkret_native.v1`
+- `ak.profile.accountable_principals.strict_reject.v1` — see soland runbook for
   operational implications.
-- `ck.profile.stateless_cursor.v1` — feature-gated `stateless_cursor` cargo
+- `ak.profile.stateless_cursor.v1` — feature-gated `stateless_cursor` cargo
   feature; advertised separately from the stateful core wire path.
 
 ## Spec drift coverage (CI)
@@ -227,9 +227,9 @@ the SDK has not declared coverage for. It is a hard gate: drift in either
 direction fails CI, including active spec entries the SDK has not added to the
 declared-coverage set.
 
-R3's new event kinds (`ck.agent.draft.propose`, `ck.agent.action_request`,
-`ck.agent.action_approve`, `ck.agent.action_reject`), new operation
-(`ck.self.call.media.exchange.issue_token`), and new profiles are all in the SDK's
+R3's new event kinds (`ak.agent.draft.propose`, `ak.agent.action_request`,
+`ak.agent.action_approve`, `ak.agent.action_reject`), new operation
+(`ak.self.call.media.exchange.issue_token`), and new profiles are all in the SDK's
 declared-coverage set, so the drift report runs clean against
 `arkret-spec @ b47ff6ec`.
 

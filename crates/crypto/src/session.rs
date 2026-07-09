@@ -22,23 +22,23 @@ use crate::errors::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CryptoMachineRequestKind {
-    /// `ck.keys.upload_device_keys` — publish this device's keys.
+    /// `ak.keys.upload_device_keys` — publish this device's keys.
     UploadDeviceKeys,
-    /// `ck.keys.query_device_keys` — fetch peers' keys.
+    /// `ak.keys.query_device_keys` — fetch peers' keys.
     QueryDeviceKeys,
-    /// `ck.keys.claim_one_time_keys` — claim peers' one-time keys.
+    /// `ak.keys.claim_one_time_keys` — claim peers' one-time keys.
     ClaimOneTimeKeys,
-    /// `ck.event.encrypt` — encrypt an event into a Realm session.
+    /// `ak.event.encrypt` — encrypt an event into a Realm session.
     EncryptEvent,
-    /// `ck.event.decrypt` — decrypt a received encrypted event.
+    /// `ak.event.decrypt` — decrypt a received encrypted event.
     DecryptEvent,
-    /// `ck.keys.share_room_key` — distribute a Realm session key.
+    /// `ak.keys.share_room_key` — distribute a Realm session key.
     ShareRoomKey,
-    /// `ck.keys.request_room_key` — request a missing session key.
+    /// `ak.keys.request_room_key` — request a missing session key.
     RequestRoomKey,
-    /// `ck.keys.backup_secrets` — push to secret backup storage.
+    /// `ak.keys.backup_secrets` — push to secret backup storage.
     BackupSecrets,
-    /// `ck.keys.restore_secrets` — pull from secret backup storage.
+    /// `ak.keys.restore_secrets` — pull from secret backup storage.
     RestoreSecrets,
 }
 
@@ -224,7 +224,7 @@ pub enum SecretBackupState {
 }
 
 /// Public descriptor of the principal's secret-storage backup
-/// (`ck.schema.key_backup.v1`).
+/// (`ak.schema.key_backup.v1`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SecretBackupDescriptor {
     pub backup_id: String,
@@ -384,14 +384,14 @@ pub enum CryptoMachineRequestBody {
     },
     /// Matrix/MIMI compat name. The v1 concept is sharing a Realm
     /// E2EE session key — the `ShareRoomKey` variant name maps to the
-    /// `ck.keys.room_key` interop device-message kind.
+    /// `ak.keys.room_key` interop device-message kind.
     ShareRoomKey {
         realm_id: RealmId,
         session_id: String,
         recipients: Vec<DeviceId>,
     },
     /// Matrix/MIMI compat name. Requests a Realm E2EE session key
-    /// re-share from peers; maps to the interop `ck.keys.room_key`
+    /// re-share from peers; maps to the interop `ak.keys.room_key`
     /// device-message kind.
     RequestRoomKey {
         event_id: EventId,

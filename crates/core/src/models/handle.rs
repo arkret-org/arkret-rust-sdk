@@ -322,7 +322,7 @@ pub(crate) fn is_valid_domain(s: &str) -> bool {
     })
 }
 
-/// R3.2 — `ck.schema.handle_claim.v1.subject` validator.
+/// R3.2 — `ak.schema.handle_claim.v1.subject` validator.
 ///
 /// The handle claim subject MUST be a holder / principal DID. It is NOT a
 /// Realm `actor_id` (`ak:actor:`), a server-local `account_id`

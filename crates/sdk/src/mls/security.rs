@@ -24,7 +24,7 @@ pub fn minimal_metadata_max_epoch_lifetime() -> chrono::Duration {
     chrono::Duration::seconds(MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS)
 }
 
-/// AAD event-id visibility discriminator for `ck.schema.encrypted_envelope.v1`.
+/// AAD event-id visibility discriminator for `ak.schema.encrypted_envelope.v1`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AadVisibility {
@@ -60,7 +60,7 @@ pub fn enforce_minimal_metadata_aad(
 /// Pure, non-mutating predicate: it takes the externally supplied epoch start
 /// timestamp and the current time and returns `true` once the epoch age exceeds
 /// [`minimal_metadata_max_epoch_lifetime`] (1h). When `true` the caller MUST
-/// force-advance the group with a fresh `ck.mls.commit`; this helper
+/// force-advance the group with a fresh `ak.mls.commit`; this helper
 /// deliberately does **not** touch group state, leaving the commit decision to
 /// the caller (the least-invasive integration point). A `now` earlier than
 /// `epoch_started_at` (clock skew) is never reported as overdue.

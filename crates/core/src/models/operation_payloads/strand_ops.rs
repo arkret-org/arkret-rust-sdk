@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use crate::*;
 
-/// Optional CAS guard carried on `ck.strand.move`
+/// Optional CAS guard carried on `ak.strand.move`
 /// (`event-payload.schema.json#/$defs/strand_move_payload` `expected_position`).
 ///
 /// Compiles to a `head_eq` precondition against the current position cell.
@@ -23,7 +23,7 @@ pub struct StrandMoveExpectedPosition {
     pub relation_id: Option<RelationId>,
 }
 
-/// Strong type for `ck.strand.move` payloads
+/// Strong type for `ak.strand.move` payloads
 /// (`event-payload.schema.json#/$defs/strand_move_payload`).
 ///
 /// Moves a Strand between List Spaces. The destination is single-sourced by
@@ -79,7 +79,7 @@ impl StrandMovePayload {
     }
 }
 
-/// Optional CAS guard carried on `ck.strand.reorder`
+/// Optional CAS guard carried on `ak.strand.reorder`
 /// (`event-payload.schema.json#/$defs/strand_reorder_payload` `expected_position`).
 ///
 /// The reorder happens within a single List Space, so unlike
@@ -95,7 +95,7 @@ pub struct StrandReorderExpectedPosition {
     pub relation_id: Option<RelationId>,
 }
 
-/// Strong type for `ck.strand.reorder` payloads
+/// Strong type for `ak.strand.reorder` payloads
 /// (`event-payload.schema.json#/$defs/strand_reorder_payload`).
 ///
 /// Re-ranks a Strand within a single List Space (`space_id`); the Space is not
@@ -140,7 +140,7 @@ impl StrandReorderPayload {
     }
 }
 
-/// Strong type for `ck.strand.tracks.update` payloads
+/// Strong type for `ak.strand.tracks.update` payloads
 /// (`event-payload.schema.json#/$defs/strand_tracks_update_payload`).
 ///
 /// Track changes target a Strand through `strand_id`, not the generic
@@ -208,7 +208,7 @@ impl StrandTracksUpdatePayload {
     }
 }
 
-/// Watch level for `ck.strand.watch.set`
+/// Watch level for `ak.strand.watch.set`
 /// (`event-payload.schema.json#/$defs/strand_watch_set_payload` `level`).
 ///
 /// `null` on the wire (a cleared cell) is modeled as `None` on the
@@ -223,7 +223,7 @@ pub enum StrandWatchLevel {
     Muted,
 }
 
-/// CAS guard for `ck.strand.watch.set`
+/// CAS guard for `ak.strand.watch.set`
 /// (`event-payload.schema.json#/$defs/strand_watch_set_payload` `expected_value`).
 ///
 /// Carries the prior cell value `{ level, level_public? }` for a `head_eq`
@@ -237,7 +237,7 @@ pub struct StrandWatchExpectedValue {
     pub level_public: Option<bool>,
 }
 
-/// Strong type for `ck.strand.watch.set` payloads
+/// Strong type for `ak.strand.watch.set` payloads
 /// (`event-payload.schema.json#/$defs/strand_watch_set_payload`).
 ///
 /// Sets or clears the `(strand_id, watcher_actor_id)` watch cell. Required:

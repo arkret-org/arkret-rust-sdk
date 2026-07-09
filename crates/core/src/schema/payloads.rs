@@ -331,10 +331,10 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         // candidate above (agent_interop_session_*_payload /
         // applet_interop_session_*_payload), which the spec event-payload
         // schema defines directly. No family override needed.
-        // `ck.applet.registration` resolves through the `exact` candidate above
+        // `ak.applet.registration` resolves through the `exact` candidate above
         // (`applet_registration_payload`, defined directly in the spec
         // event-payload schema) — it MUST NOT fall back to the generic shape.
-        // Only `ck.applet.discovery` (no dedicated def) uses the generic body.
+        // Only `ak.applet.discovery` (no dedicated def) uses the generic body.
         ["applet", "discovery"] => {
             candidates.push("generic_standard_payload".to_owned());
         }
@@ -491,9 +491,9 @@ mod tests {
     /// `event-payload.schema.json#/$defs/*` entry, so the SDK event-payload
     /// catalog legitimately carries no validator rule for them:
     ///
-    /// - `ck.relation.tombstone` — `relation.schema.json`
-    /// - `ck.moderation.franking_proof` — `moderation-report.schema.json`
-    /// - `ck.read_cursor.advance` — `read-cursor-operations.schema.json` (actor-private,
+    /// - `ak.relation.tombstone` — `relation.schema.json`
+    /// - `ak.moderation.franking_proof` — `moderation-report.schema.json`
+    /// - `ak.read_cursor.advance` — `read-cursor-operations.schema.json` (actor-private,
     ///   `reducer_input:false`)
     ///
     /// Any *new* active standard kind that neither resolves to an event-payload
@@ -556,7 +556,7 @@ mod tests {
     /// loose `generic_standard_payload` shape — either through the explicit
     /// [`generic_standard_payload_fallback_allowed`] allow-list or a family arm
     /// that pushes the `generic_standard_payload` candidate directly (e.g.
-    /// `ck.applet.discovery`, `ck.strand.tracks.update`).
+    /// `ak.applet.discovery`, `ak.strand.tracks.update`).
     ///
     /// Every entry is a deliberate "no dedicated event-payload def" decision. A
     /// *new* active standard kind that silently inherits this loose shape must be
@@ -746,7 +746,7 @@ mod tests {
                 .is_err(),
             "legacy short-form applet registration payload must be rejected"
         );
-        // `ck.applet.discovery` retains the generic body (no dedicated def).
+        // `ak.applet.discovery` retains the generic body (no dedicated def).
         assert_eq!(
             catalog.rules["ak.applet.discovery"].payload_schema_id,
             format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/generic_standard_payload")
@@ -852,7 +852,7 @@ mod tests {
         })
     }
 
-    /// SDK-ORG-03: the strong catalog MUST resolve `ck.realm.organization` to
+    /// SDK-ORG-03: the strong catalog MUST resolve `ak.realm.organization` to
     /// the `realm_organization_payload` def (exact dispatch, no fallback to a
     /// generic / legacy shape) and derive the 8 top-level required fields.
     #[test]

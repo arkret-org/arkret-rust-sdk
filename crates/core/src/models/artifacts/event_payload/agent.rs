@@ -208,7 +208,7 @@ pub struct AgentInteropSessionStatusPayload {
     pub cleanup_required: Option<Vec<String>>,
 }
 
-/// External protocol carried on `ck.agent.interop_session.start`
+/// External protocol carried on `ak.agent.interop_session.start`
 /// (`event-payload.schema.json#/$defs/agent_interop_session_start_payload`
 /// `protocol` enum).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -232,7 +232,7 @@ impl AgentInteropProtocol {
     }
 }
 
-/// Canonical session state for `ck.agent.interop_session.status`
+/// Canonical session state for `ak.agent.interop_session.status`
 /// (`event-payload.schema.json#/$defs/agent_interop_session_status_payload`
 /// `status` enum).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -266,7 +266,7 @@ impl AgentInteropSessionStatus {
     }
 }
 
-/// Terminal status for `ck.agent.interop_session.result`
+/// Terminal status for `ak.agent.interop_session.result`
 /// (`event-payload.schema.json#/$defs/agent_interop_session_result_payload`
 /// `status` enum: the closed terminal subset of the session state machine).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -291,7 +291,7 @@ impl AgentInteropResultStatus {
 }
 
 impl AgentInteropSessionStartPayload {
-    /// Build a `ck.agent.interop_session.start` payload. Required per spec:
+    /// Build a `ak.agent.interop_session.start` payload. Required per spec:
     /// `session_id`, `counterparty_agent`, `protocol`, `capability_grant`.
     pub fn new(
         session_id: impl Into<String>,
@@ -353,7 +353,7 @@ impl AgentInteropSessionStartPayload {
 }
 
 impl AgentInteropSessionStatusPayload {
-    /// Build a `ck.agent.interop_session.status` payload. Required per spec:
+    /// Build a `ak.agent.interop_session.status` payload. Required per spec:
     /// `session_id`, `status`.
     pub fn new(session_id: impl Into<String>, status: AgentInteropSessionStatus) -> Self {
         Self {
@@ -426,7 +426,7 @@ impl AgentInteropSessionStatusPayload {
 }
 
 impl AgentInteropSessionResultPayload {
-    /// Build a `ck.agent.interop_session.result` payload. Required per spec:
+    /// Build a `ak.agent.interop_session.result` payload. Required per spec:
     /// `session_id`, `status`. The schema additionally requires at least one of
     /// `result_objects` / `artifacts` / `reason_code`, and — when
     /// `status=cancelled` — `cancelled_by`, `cancelled_at`, `reason_code`,

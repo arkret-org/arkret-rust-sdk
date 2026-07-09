@@ -225,7 +225,7 @@ pub struct Morph {
     pub scope_circle_id: Option<CircleId>,
     /// Round C47 (spec e10b6ad): authoritative schema set for Morph fields and
     /// transition validation. Reducers MUST validate Morph fields against
-    /// exactly these refs (set-equal compare on `ck.morph.schema_migrate`);
+    /// exactly these refs (set-equal compare on `ak.morph.schema_migrate`);
     /// `morph_type` / `facets` are not a replacement.
     #[serde(
         serialize_with = "serialize_non_empty_schema_refs",
@@ -326,14 +326,14 @@ impl Morph {
             .and_then(|metadata| metadata.summary.as_deref())
     }
 
-    /// Validate that `morph_type` does not use the reserved `ck.` prefix
+    /// Validate that `morph_type` does not use the reserved `ak.` prefix
     /// for unregistered types (morph.md §3 / data-structures.md §7).
     pub fn validate_morph_type(&self, registered_ck_types: &[&str]) -> Result<()> {
         if self.morph_type.starts_with("ak.")
             && !registered_ck_types.contains(&self.morph_type.as_str())
         {
             return Err(Error::Protocol(format!(
-                "morph_type '{}' uses reserved ck. prefix without registration",
+                "morph_type '{}' uses reserved ak. prefix without registration",
                 self.morph_type
             )));
         }
@@ -560,7 +560,7 @@ pub enum AuditAssurance {
 pub const PROFILE_ATTESTED_AUDIT_E2EE: &str = "ak.profile.attested_audit.e2ee.v1";
 pub const PROFILE_DISCLOSED_AUDIT_E2EE: &str = "ak.profile.disclosed_audit.e2ee.v1";
 
-/// Round R2/R3 (2026-05-20) — `ck.profile.e2ee_relaxed.v1`.
+/// Round R2/R3 (2026-05-20) — `ak.profile.e2ee_relaxed.v1`.
 ///
 /// Profile that permits temporarily widening the MLS send-pause window
 /// for advisory reasons. Round R2/R3 introduces an **absolute hard
@@ -573,14 +573,14 @@ pub const PROFILE_E2EE_RELAXED: &str = "ak.profile.e2ee_relaxed.v1";
 pub const E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES: &[&str] =
     &[PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DISCLOSED_AUDIT_E2EE];
 
-/// Absolute hard ceiling on the `ck.profile.e2ee_relaxed.v1` send-pause
+/// Absolute hard ceiling on the `ak.profile.e2ee_relaxed.v1` send-pause
 /// relaxation window, in milliseconds. Round R2/R3 (2026-05-20).
 /// Implementations MUST reject any `relaxed_window_ms` exceeding this
 /// value with `relaxed_window_exceeds_ceiling`.
 pub const ABSOLUTE_HARD_CEILING_MS: u32 = 300_000;
 
 /// Round R2/R3 — true when `active_profiles` is compatible with
-/// `ck.profile.e2ee_relaxed.v1`. False if any of the compliance audit
+/// `ak.profile.e2ee_relaxed.v1`. False if any of the compliance audit
 /// profiles is present (the two are mutually exclusive — declaring both
 /// MUST be rejected with
 /// `ERROR_CODE_E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE`).
@@ -677,11 +677,11 @@ pub struct RywFrontier {
     pub actor_frontier: BTreeMap<Did, RywActorFrontierEntry>,
 }
 
-/// `ck.audit.ryw_receipt` event payload
+/// `ak.audit.ryw_receipt` event payload
 /// (`audit-ryw-receipt.schema.json`).
 ///
 /// Issued by an Events API node, witness, or peer Principal Server to
-/// confirm a `ck.audit.accessed` envelope reached `accepted`. The Audit
+/// confirm a `ak.audit.accessed` envelope reached `accepted`. The Audit
 /// Agent MUST gate plaintext release on receiving a receipt that meets
 /// the Realm's declared `audit_assurance`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -707,7 +707,7 @@ pub struct AuditRywReceipt {
 }
 
 impl AuditRywReceipt {
-    /// Canonical schema id and event-kind constant for `ck.audit.ryw_receipt`.
+    /// Canonical schema id and event-kind constant for `ak.audit.ryw_receipt`.
     pub const SCHEMA: &'static str = "ak.schema.audit_ryw_receipt.v1";
     pub const EVENT_KIND: &'static str = "ak.audit.ryw_receipt";
 
@@ -785,7 +785,7 @@ impl IdentityLink {
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {
             return Err(Error::Protocol(
-                "identity_link schema must be ck.schema.identity_link.v1".to_owned(),
+                "identity_link schema must be ak.schema.identity_link.v1".to_owned(),
             ));
         }
         if self.strand_id.is_some() && self.track.as_deref().is_none_or(str::is_empty) {
@@ -927,7 +927,7 @@ pub struct ErasureReceiptProof {
 /// Cross-Principal-Server erasure-receipt fanout aggregate status tracked by
 /// the issuing server (mirrors `erasure-receipt.schema.json` `fanout_status`;
 /// models/realm-and-space.md §2.6.2). Replaces the dropped point-dotted pseudo
-/// kind `ck.audit.erasure_receipt.fanout_status`.
+/// kind `ak.audit.erasure_receipt.fanout_status`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -1152,7 +1152,7 @@ pub enum BackupClass {
 }
 
 impl BackupClass {
-    /// Canonical snake_case wire token used by `ck.schema.key_backup.v1`.
+    /// Canonical snake_case wire token used by `ak.schema.key_backup.v1`.
     pub const fn as_str(self) -> &'static str {
         match self {
             BackupClass::DidRecovery => "did_recovery",
@@ -1172,7 +1172,7 @@ impl BackupClass {
     }
 }
 
-/// Parse a `ck.schema.key_backup.v1` backup_class wire token.
+/// Parse a `ak.schema.key_backup.v1` backup_class wire token.
 impl TryFrom<&str> for BackupClass {
     type Error = String;
 

@@ -444,7 +444,7 @@ mod tests {
 
     fn capability_cell() -> CellRef {
         CellRef::new(
-            "ak:cell:ck.component.capability.grant.v1:ak:grant:0196410c-0000-7000-8000-000000000000"
+            "ak:cell:ak.component.capability.grant.v1:ak:grant:0196410c-0000-7000-8000-000000000000"
                 .to_owned(),
         )
         .unwrap()

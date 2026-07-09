@@ -39,7 +39,7 @@ use crate::authz::constraints::ConstraintDuration;
 /// A capability grant in its runtime / in-memory form.
 ///
 /// Mirrors soland's `crate::authz::Grant`. The fields `delegated_from` and
-/// `expires_at` are wire fields per `ck.schema.capability.v1`; the remaining
+/// `expires_at` are wire fields per `ak.schema.capability.v1`; the remaining
 /// fields are runtime projections (`resource` is a stringly-typed selector
 /// rather than the typed [`crate::authz::ResourceSelector`] enum so that this
 /// module can be reused by client pre-checks without forcing the full
@@ -97,8 +97,8 @@ pub enum GrantConstraint {
     ///   `Temporal { expires_at }` entry are intersected; the stricter wins (see
     ///   [`grant_effective_expiry`]).
     /// - Message edit / redact window (`subtype = "edit_window" | "redact_window"`,
-    ///   constraint-schema.md §14.2). `message_edit_window` governs `ck.message.revise[.own]`;
-    ///   `message_redact_window` governs `ck.message.redact[.own]`. `allow_redact_after_window`
+    ///   constraint-schema.md §14.2). `message_edit_window` governs `ak.message.revise[.own]`;
+    ///   `message_redact_window` governs `ak.message.redact[.own]`. `allow_redact_after_window`
     ///   controls whether redact stays coupled to the edit window when no separate redact window is
     ///   declared (default `false` = coupled; omitting a redact window then means unbounded recall
     ///   once the edit window closes only if this flag is `true`). When `message_redact_window` is
@@ -118,8 +118,8 @@ pub enum GrantConstraint {
         allow_redact_after_window: bool,
     },
     /// CKP-0007 (spec b7d35be) — narrow a Circle-management capability
-    /// (`ck.circle.manage`, `ck.circle.member.manage`,
-    /// `ck.circle.member.add.others`, `ck.circle.audit`) to a specific set
+    /// (`ak.circle.manage`, `ak.circle.member.manage`,
+    /// `ak.circle.member.add.others`, `ak.circle.audit`) to a specific set
     /// of Circle ids. Spec `capability-action-registry.json` declares
     /// `required_constraints=["allowed_circle_ids"]` on each gated
     /// action; unconstrained Realm-wide grants for these actions MUST be
@@ -137,7 +137,7 @@ pub enum GrantConstraint {
     AllowedObjectFacets { facets: Vec<String> },
     /// Runtime mirror of the spec `max_operations` + `period` constraint
     /// used by high-risk burst surfaces such as
-    /// `ck.message.mention.broadcast`. The pure delegation helper only
+    /// `ak.message.mention.broadcast`. The pure delegation helper only
     /// preserves and validates shape; concrete counter enforcement is done
     /// by the service-side evaluator for the relevant action.
     RateLimiting { max_operations: u64, period: String },

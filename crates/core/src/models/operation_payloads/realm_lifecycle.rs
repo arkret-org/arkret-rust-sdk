@@ -4,10 +4,10 @@ use serde_json::Value;
 use super::canonical::serialize_optional_canonical_timestamp;
 use crate::*;
 
-/// Strong type for `ck.realm.archive` payloads
+/// Strong type for `ak.realm.archive` payloads
 /// (`event-payload.schema.json#/$defs/realm_archive_payload`).
 ///
-/// Reversible boolean register (there is no separate `ck.realm.restore`):
+/// Reversible boolean register (there is no separate `ak.realm.restore`):
 /// `archived:false` un-archives. `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -48,7 +48,7 @@ impl RealmArchivePayload {
     }
 }
 
-/// Strong type for `ck.realm.tombstone` payloads
+/// Strong type for `ak.realm.tombstone` payloads
 /// (`event-payload.schema.json#/$defs/realm_tombstone_payload`).
 ///
 /// Terminal lifecycle event pointing at a successor Realm. `reason` and
@@ -88,7 +88,7 @@ impl RealmTombstonePayload {
     }
 }
 
-/// Strong type for `ck.realm.destroy` payloads
+/// Strong type for `ak.realm.destroy` payloads
 /// (`event-payload.schema.json#/$defs/realm_destroy_payload`).
 ///
 /// Terminal lifecycle event with no successor. `reason` is required;
@@ -132,7 +132,7 @@ impl RealmDestroyPayload {
 /// (`event-payload.schema.json#/$defs/object_lifecycle_payload`).
 ///
 /// Generic archive / restore / tombstone-style payload for Strand, Circle, and
-/// Morph lifecycle events (e.g. `ck.strand.archive` / `ck.strand.restore`). The
+/// Morph lifecycle events (e.g. `ak.strand.archive` / `ak.strand.restore`). The
 /// target object is single-sourced by `target_ref`. Required: `target_ref`.
 /// `additionalProperties:false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -180,7 +180,7 @@ impl ObjectLifecyclePayload {
     }
 }
 
-/// Strong type for `ck.realm.history_visibility` payloads
+/// Strong type for `ak.realm.history_visibility` payloads
 /// (`event-payload.schema.json#/$defs/history_visibility_payload`).
 ///
 /// `{ value, restricted_policy_digest?, reason? }`, `additionalProperties
@@ -188,7 +188,7 @@ impl ObjectLifecyclePayload {
 /// when `value == restricted`; [`HistoryVisibilityPayload::to_value`] enforces
 /// that conditional.
 ///
-/// The event-payload validator resolves `ck.realm.history_visibility` to this
+/// The event-payload validator resolves `ak.realm.history_visibility` to this
 /// named schema def, so producers and validators share the same fail-closed
 /// shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -196,7 +196,7 @@ impl ObjectLifecyclePayload {
 #[serde(deny_unknown_fields)]
 pub struct HistoryVisibilityPayload {
     pub value: HistoryVisibility,
-    /// Digest of the effective `ck.realm.history_sharing_policy` value;
+    /// Digest of the effective `ak.realm.history_sharing_policy` value;
     /// required when `value == restricted`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub restricted_policy_digest: Option<String>,

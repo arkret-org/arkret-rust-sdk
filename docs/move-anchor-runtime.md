@@ -392,7 +392,7 @@ SDK 实现 MUST 严格遵循。
   `sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`。
 
 genesis Seal 的 state_root 不是固定常量——它取决于 genesis frontier 内
-Move 写入的 cell 集合（典型至少含 `ck:cell:cx.component.space.lifecycle.v1:<space_id>`
+Move 写入的 cell 集合（典型至少含 `ak:cell:cx.component.space.lifecycle.v1:<space_id>`
 等核心 cell）。compute_state_root 一视同仁不分 genesis/非 genesis。
 
 ## 7. 缓存策略

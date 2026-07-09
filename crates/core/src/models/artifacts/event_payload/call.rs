@@ -51,7 +51,7 @@ pub struct CallParticipant {
     pub media: Option<CallParticipantMedia>,
 }
 
-/// Removed participant trace in `ck.call.state.removed_participants[]`.
+/// Removed participant trace in `ak.call.state.removed_participants[]`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RemovedCallParticipant {
@@ -62,7 +62,7 @@ pub struct RemovedCallParticipant {
     pub removed_at: DateTime<Utc>,
 }
 
-/// Current moderator mute override in `ck.call.state.participant_mute_overrides[]`.
+/// Current moderator mute override in `ak.call.state.participant_mute_overrides[]`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ParticipantMuteOverride {

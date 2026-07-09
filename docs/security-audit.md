@@ -116,12 +116,12 @@ revoking the controller. The agent runtime also exposes a quiesce surface
 (`pause`/`resume`/`deactivate`) that a hostile caller could abuse to stage
 DOS against the controller's automated workflows.
 
-*Mitigations.* `ck.profile.agent_auth.v1` constrains every agent-authenticated
+*Mitigations.* `ak.profile.agent_auth.v1` constrains every agent-authenticated
 request to a signed envelope binding the agent's S-1 key, the calling
 `agent_session_id` (S-2), and the controller DID; the verifier rejects any
 envelope whose `agent_key_id` is not in the active rotation window from
-`ck.self.agent.command.rotate_key`. `ck.self.agent.command.pause` / `ck.self.agent.command.deactivate` are gated on the
-controller's session grant (`ck.profile.agent_delegation_policy.v1`), so a
+`ak.self.agent.command.rotate_key`. `ak.self.agent.command.pause` / `ak.self.agent.command.deactivate` are gated on the
+controller's session grant (`ak.profile.agent_delegation_policy.v1`), so a
 stolen agent key cannot deactivate itself or extend its own scope. SDK
 helpers `agent_binding::sign_ed25519_audit_binding` /
 `verify_ed25519_audit_binding` produce and check the canonical subject so
@@ -135,10 +135,10 @@ Risks include receipt forgery, replay across realms, premature revocation
 acceptance, and confused-deputy attacks where a stale `recovery_policy`
 references a body branch the verifier does not understand.
 
-*Mitigations.* `ck.schema.recovery_policy.v1` pins the lifecycle and KDF
+*Mitigations.* `ak.schema.recovery_policy.v1` pins the lifecycle and KDF
 profile branch as canonical fields covered by the policy's signature;
 verifiers reject `body` branches they cannot parse rather than silently
-accepting them. `ck.schema.recovery_receipt.v1` binds the `policy_id`,
+accepting them. `ak.schema.recovery_receipt.v1` binds the `policy_id`,
 `recovery_session_id` and `frontier_ref` of the originating key state, so
 receipts cannot be replayed against a rotated frontier. The
 first-backup gate (below) ensures recovery cannot land before the controller
@@ -152,8 +152,8 @@ that a sidecar thread leaks events out of its parent Circle, or that a
 hostile agent fabricates a sidecar thread referencing a Circle it does not
 have a grant for.
 
-*Mitigations.* `ck.profile.agent_sidecar_thread.v1` requires every
-`ck.self.agent.sidecar_thread.command.ensure` request to carry a `SidecarCircleId`
+*Mitigations.* `ak.profile.agent_sidecar_thread.v1` requires every
+`ak.self.agent.sidecar_thread.command.ensure` request to carry a `SidecarCircleId`
 bounded by the controller's existing membership in the parent
 `CircleId`; the reducer cross-checks the bound circle's policy before
 creating the thread. The sidecar's audit log is isolated from the parent
@@ -168,11 +168,11 @@ controller switch with no historical state to compare against — the attacker
 becomes the canonical history.
 
 *Mitigations.* The gate requires at least one
-`ck.schema.key_backup.v1` envelope (with `series_seq == 0`) to be visible
+`ak.schema.key_backup.v1` envelope (with `series_seq == 0`) to be visible
 on the home soland before any `recovery_policy` can accept a binding. SDK
 callers see this as `Error::Protocol("first_backup_required")` from the
 recovery client; the spec layer codifies it as the
-`first_backup_required` failure mode on `ck.account.recovery.*` operations.
+`first_backup_required` failure mode on `ak.account.recovery.*` operations.
 Operators MUST NOT disable this gate in production.
 
 ### DID format regex

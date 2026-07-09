@@ -12,7 +12,7 @@ pub struct EncryptedMessage {
     pub payload: EncryptedPayload,
 }
 
-/// Structured AAD for `ck.schema.encrypted_envelope.v1`. `realm_id` +
+/// Structured AAD for `ak.schema.encrypted_envelope.v1`. `realm_id` +
 /// `event_kind` are mandatory; the event-id fields are governed by
 /// [`AadVisibility`] and the schema discriminator (a `hidden` envelope MUST
 /// omit both `event_id` and `event_ref_digest`).
@@ -45,9 +45,9 @@ impl EncryptedEnvelopeAadV1 {
     }
 }
 
-/// `key_ref` for `ck.schema.encrypted_envelope.v1`. `algorithm` is bound to
+/// `key_ref` for `ak.schema.encrypted_envelope.v1`. `algorithm` is bound to
 /// the envelope `scheme`; `group_state_ref` MUST point at an accepted
-/// `ck.mls.genesis` / winning `ck.mls.commit` event id (or equivalent group
+/// `ak.mls.genesis` / winning `ak.mls.commit` event id (or equivalent group
 /// state proof hash).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -57,10 +57,10 @@ pub struct EnvelopeKeyRefV1 {
 }
 
 /// Wire-canonical encrypted payload envelope matching
-/// `ck.schema.encrypted_envelope.v1` — the single source of truth for the
+/// `ak.schema.encrypted_envelope.v1` — the single source of truth for the
 /// encrypted-message wire shape across produce / validate / consume. Build it
 /// from an [`EncryptedPayload`] (the MLS encrypt primitive output) plus the
-/// caller-supplied AAD context and the `ck.mls.commit` event id that bounds
+/// caller-supplied AAD context and the `ak.mls.commit` event id that bounds
 /// the group state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -150,7 +150,7 @@ impl EncryptedEnvelopeV1 {
     /// [`CokretMlsGroup::encrypt_payload_with_aad`] with AAD equal to
     /// `serde_json::to_value(&aad)` — the AAD is bound into `payload_digest`,
     /// so a mismatch would make the receiver's digest verification fail. We
-    /// fail closed if they disagree. `group_state_ref` is the `ck.mls.commit`
+    /// fail closed if they disagree. `group_state_ref` is the `ak.mls.commit`
     /// (or genesis) event id carrying the epoch this payload was encrypted
     /// under.
     pub fn from_payload(

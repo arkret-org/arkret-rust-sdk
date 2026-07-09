@@ -19,13 +19,13 @@ pub enum CrossSigningKeyKind {
     /// DID-control-rooted principal signing key. Rotation MUST enter DID
     /// method history / key log.
     PrincipalSigning,
-    /// Signs the principal's own devices (`ck.device.authorize` bindings).
+    /// Signs the principal's own devices (`ak.device.authorize` bindings).
     SelfSigning,
     /// Signs other principals' identity keys to express manual trust.
     UserSigning,
 }
 
-/// Public key record used inside `ck.cross_signing.publish.v1` content.
+/// Public key record used inside `ak.cross_signing.publish.v1` content.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CrossSigningKeyRecord {
     /// Verification method id, e.g. `did:webvh:...#cx_self_signing_v1`.
@@ -66,7 +66,7 @@ pub struct CrossSigningBinding {
     pub signature: String,
 }
 
-/// `ck.cross_signing.publish.v1` content (spec §5.1).
+/// `ak.cross_signing.publish.v1` content (spec §5.1).
 ///
 /// Round 4 (2026-05-20, spec a77b995) — wire-breaking: adds required
 /// `expected_previous_generation` so the reducer can run a CAS check
@@ -99,7 +99,7 @@ pub struct CrossSigningPublishContent {
 }
 
 /// Round 4 (spec a77b995) — canonical cell_subject for the CAS-register
-/// guarding `ck.cross_signing.publish`. The wire form is the tuple
+/// guarding `ak.cross_signing.publish`. The wire form is the tuple
 /// `(principal_id, expected_previous_generation)` rendered as
 /// `<did>|<expected_previous_generation>` (the `|` is reserved in DID
 /// method-specific-ids by the round-4 DID regex tightening, so the boundary
@@ -177,7 +177,7 @@ impl CrossSigningPublishContent {
     }
 }
 
-/// `ck.cross_signing.reset.v1` content (spec §14.1).
+/// `ak.cross_signing.reset.v1` content (spec §14.1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CrossSigningResetContent {
     pub principal_id: Did,
@@ -480,7 +480,7 @@ impl CrossSigningResetContent {
         })
     }
 
-    /// Canonical signing input for a `ck.cross_signing.reset` proof
+    /// Canonical signing input for a `ak.cross_signing.reset` proof
     /// (`ck-cross-signing-reset-v1`, spec crypto-media/device-lifecycle.md §14.1).
     ///
     /// Binds the reset's principal + generation transition + reason + issued
@@ -525,7 +525,7 @@ impl CrossSigningResetContent {
     }
 }
 
-/// Per-device binding signed by SSK and embedded in `ck.device.authorize`
+/// Per-device binding signed by SSK and embedded in `ak.device.authorize`
 /// (spec §5.2 `content.cross_signing_binding`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceTrustBinding {

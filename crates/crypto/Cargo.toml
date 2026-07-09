@@ -14,7 +14,7 @@ version.workspace = true
 [features]
 default = []
 # Client-side key-backup helpers: Argon2id KDF + XChaCha20-Poly1305 AEAD +
-# typed `ck.schema.key_backup.v1` envelope builder + recovery-key codec.
+# typed `ak.schema.key_backup.v1` envelope builder + recovery-key codec.
 # Spec: crypto-media/key-management.md §7. Pulls in `argon2`,
 # `chacha20poly1305`, `getrandom`, and HKDF/HMAC only when enabled
 # so the bare `arkret-crypto` types crate stays light.

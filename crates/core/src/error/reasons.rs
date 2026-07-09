@@ -18,13 +18,13 @@ pub const REASON_INCEPTION_UPGRADE_EVIDENCE_INSUFFICIENT: &str =
 /// Inception key age (computed independently by the receiver / Auth Server from
 /// the verifiable `did:webvh` bootstrap timestamp against the local clock)
 /// exceeds the 24h protocol hard cap. The receiver MUST reject the
-/// `ck.device.authorize` / `ak.session.grant` / long-lived capability / ordinary
+/// `ak.device.authorize` / `ak.session.grant` / long-lived capability / ordinary
 /// DID update signed by that inception key regardless of any longer
 /// `inception_key_max_online_window` self-reported by deployment policy
 /// (key-management.md §5). `applies_to`: event_envelope / auth_decision.
 pub const REASON_INCEPTION_KEY_WINDOW_EXCEEDED: &str = "inception_key_window_exceeded";
 
-// P-D4 — `ck.profile.e2ee_relaxed.v1` profile interactions.
+// P-D4 — `ak.profile.e2ee_relaxed.v1` profile interactions.
 pub const REASON_MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE: &str =
     "mls_send_pause_advisory_requires_e2ee_relaxed_profile";
 pub const REASON_CONFLICTING_E2EE_PROFILES: &str = "conflicting_e2ee_profiles";
@@ -268,7 +268,7 @@ pub const REASON_CIRCLE_REALM_MISMATCH: &str = "circle_realm_mismatch";
 /// `failed_precondition` sub-reason: `scope_circle_id` points at a Circle
 /// whose state is `archived` or `tombstoned`.
 pub const REASON_CIRCLE_NOT_ACTIVE: &str = "circle_not_active";
-/// `failed_precondition` sub-reason on `ck.circle.member.state → active`
+/// `failed_precondition` sub-reason on `ak.circle.member.state → active`
 /// when the target actor is not yet an active member of the parent Realm.
 /// Reflects the strict-subset invariant
 /// `Circle.members ⊆ Realm.members`.
@@ -302,14 +302,14 @@ pub const REASON_AGENT_PARTICIPATION_DENIED: &str = "agent_participation_denied"
 /// the effective `metadata_encryption_floor` floor (max of parent
 /// Realm, Circle, Space child-scope-policy, and object profile floors).
 pub const REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION: &str = "metadata_encryption_floor_violation";
-/// `failed_precondition` sub-reason: a `ck.realm.policy_components` /
-/// `ck.circle.update` would lower a scope's effective
+/// `failed_precondition` sub-reason: a `ak.realm.policy_components` /
+/// `ak.circle.update` would lower a scope's effective
 /// `content_encryption_floor` from `e2ee_required` back to `allow_plaintext`.
 /// The effective content floor is a one-way ratchet (monotonically
 /// non-decreasing); tightening is allowed, lowering is rejected.
 pub const REASON_CONTENT_ENCRYPTION_FLOOR_DOWNGRADE: &str = "content_encryption_floor_downgrade";
-/// `failed_precondition` sub-reason: a `ck.realm.policy_components` /
-/// `ck.circle.update` would lower a scope's effective metadata encryption
+/// `failed_precondition` sub-reason: a `ak.realm.policy_components` /
+/// `ak.circle.update` would lower a scope's effective metadata encryption
 /// floor to a lower level (`allow_plaintext < e2ee_required`).
 /// The effective metadata floor is a one-way ratchet.
 pub const REASON_METADATA_ENCRYPTION_FLOOR_DOWNGRADE: &str = "metadata_encryption_floor_downgrade";
@@ -363,12 +363,12 @@ pub const KNOWN_REASON_CODES_ROUND_C44: &[&str] = &[
 // for the v1 Reaction target-scope invariants.
 // Spec: `error-code-registry.json#reason_codes` (commit 4d9438f).
 
-/// `schema_violation` sub-reason: a `ck.reaction.add` / `ck.reaction.remove`
+/// `schema_violation` sub-reason: a `ak.reaction.add` / `ak.reaction.remove`
 /// `target_ref` points at an object kind that the deployment does not allow
 /// reactions on. v1 core only allows `ak:message:` targets; profiles MAY
 /// register additional target kinds. See zh/models/strand-and-message.md §9.8.2.
 pub const REASON_REACTION_TARGET_UNSUPPORTED: &str = "reaction_target_unsupported";
-/// `failed_precondition` sub-reason: a `ck.reaction.*` `target_ref` resolves
+/// `failed_precondition` sub-reason: a `ak.reaction.*` `target_ref` resolves
 /// to an object outside the reaction event's stamped effective scope.
 /// Reactions MUST target an object within their own effective scope. See
 /// zh/models/strand-and-message.md §9.8.2.
@@ -402,13 +402,13 @@ pub const REASON_LEGAL_HOLD_ACTIVE: &str = "legal_hold_active";
 pub const REASON_TOKEN_ISSUER_UNAUTHORISED: &str = "token_issuer_unauthorised";
 pub const REASON_E2EE_KEY_SOURCE_UNAUTHORISED: &str = "e2ee_key_source_unauthorised";
 pub const REASON_AUDIT_RELEASE_BINDING_INACTIVE: &str = "audit_release_binding_inactive";
-/// `ck.mls.commit` reducer / federation-push reason: the commit's
+/// `ak.mls.commit` reducer / federation-push reason: the commit's
 /// `governance_binding.policy_root` does not match the policy root the MLS
 /// group's epoch chain is bound to (encryption-and-audit.md §2.5.1). The
 /// receiver MUST reject the commit (and, on a federation push, the batch)
 /// rather than advance an epoch under a forged / stale governance binding.
 pub const REASON_MLS_GOVERNANCE_BINDING_MISMATCH: &str = "governance_binding_mismatch";
-/// `ck.mls.commit` reducer reason: two commits attested the same base epoch
+/// `ak.mls.commit` reducer reason: two commits attested the same base epoch
 /// with different commit material, so the group's `covered_frontier_cell`
 /// resolves to `⊥` (encryption-and-audit.md §2.5.2). Sends / decrypts on the
 /// contested epoch fail closed as `decryption_pending` until a later commit
@@ -474,7 +474,7 @@ pub const REASON_CROSS_DOMAIN_REPLAY_REJECTED: &str = "cross_domain_replay_rejec
 // DID proof replay window (zh/identity/did.md).
 pub const REASON_DID_PROOF_REPLAY_WINDOW_EXCEEDED: &str = "did_proof_replay_window_exceeded";
 
-// `ck.profile.e2ee_relaxed.v1` disallowed under a compliance profile
+// `ak.profile.e2ee_relaxed.v1` disallowed under a compliance profile
 // (zh/crypto-media/encryption-and-audit.md).
 pub const REASON_E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE: &str =
     "e2ee_relaxed_disallowed_in_compliance_profile";

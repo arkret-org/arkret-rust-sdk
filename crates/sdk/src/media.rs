@@ -31,7 +31,7 @@ pub const THUMBNAIL_DERIVATION_PROFILE: &str = "ak.profile.media.thumbnail_previ
 // ─── CKP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
 
 /// Backend type for a call's media focus. Wire enum mirrors
-/// `ck.realm.media_service.foci[].type`. Receivers MUST fail closed with
+/// `ak.realm.media_service.foci[].type`. Receivers MUST fail closed with
 /// [`unknown_focus_type`](arkret_core::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE)
 /// on unrecognized variants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,14 +80,14 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
     Ok(())
 }
 
-/// Client helper that builds a `ck.self.call.media.exchange.issue_token` request body.
+/// Client helper that builds a `ak.self.call.media.exchange.issue_token` request body.
 ///
 /// The reqwest-backed transport (`arkret_http_client::Client::media_token_exchange`)
 /// POSTs this body to `/_arkret/self/rtc/token` and returns the raw
 /// [`CallMediaTokenExchangeOutcome`]. Callers MUST then pass the response through
 /// [`verify_call_media_token_outcome`], which anchors `participant_binding.issuer_kid`
 /// and the `service_signature` issuer to the current
-/// `ck.realm.media_service.service_id` ([`MediaServiceAnchors`]), enforces the
+/// `ak.realm.media_service.service_id` ([`MediaServiceAnchors`]), enforces the
 /// ≤ 600s TTL ([`validate_token_ttl`]), and checks the binding six-tuple against
 /// this request. Focus backend labels are rejected up front via
 /// [`MediaBackendType::ensure_known`].
@@ -110,7 +110,7 @@ pub fn call_media_token_exchange(
 }
 
 /// The set of media-service DIDs anchored by the current epoch's
-/// `ck.realm.media_service.service_id` (`media-service-binding.md` §2.1 / §3),
+/// `ak.realm.media_service.service_id` (`media-service-binding.md` §2.1 / §3),
 /// together with the ed25519 verifying keys those DIDs publish.
 ///
 /// Token issuer `kid`s MUST resolve to one of these DIDs, otherwise the client
@@ -214,7 +214,7 @@ pub struct VerifiedMediaIceConfig {
 /// verification.
 ///
 /// This wrapper intentionally keeps DID resolution outside the transport:
-/// callers resolve the current `ck.realm.media_service.service_id` documents
+/// callers resolve the current `ak.realm.media_service.service_id` documents
 /// and pass the anchored keys in [`MediaServiceAnchors`]. The methods below
 /// then perform the HTTP request and reject unanchored, expired or tampered
 /// responses before returning them to media setup code.
@@ -372,7 +372,7 @@ fn verify_issuer_signature(
 /// - required fields present (`connect_url`, `backend_token`, `participant_identity`,
 ///   `participant_binding.sig`, `issuer_kid`);
 /// - `participant_binding.issuer_kid` and the `service_signature.kid` resolve to an anchored
-///   `ck.realm.media_service.service_id` → else `token_issuer_unauthorised`;
+///   `ak.realm.media_service.service_id` → else `token_issuer_unauthorised`;
 /// - the binding's `(realm_id, call_id, focus_id, actor_id, device_id)` six-tuple matches the
 ///   request and `participant_identity` matches the top-level one;
 /// - the binding's `expires_at` is after its `issued_at`;

@@ -13,7 +13,7 @@ use crate::errors::{
 };
 
 /// Per-device public key bundle published via
-/// `ck.keys.upload_device_keys`.
+/// `ak.keys.upload_device_keys`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceKeyBundle {
     pub user_id: Did,
@@ -68,7 +68,7 @@ pub enum DeviceTrustState {
 }
 
 /// Interactive verification-strand state machine
-/// (`ck.device.verification.v1`).
+/// (`ak.device.verification.v1`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VerificationStrandState {

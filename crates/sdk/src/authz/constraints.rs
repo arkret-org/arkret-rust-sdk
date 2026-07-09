@@ -244,8 +244,8 @@ pub enum Constraint {
         denied_view_renderers: Vec<String>,
     },
     /// CKP-0007 (spec b7d35be) — narrow a Circle-management capability
-    /// (`ck.circle.manage`, `ck.circle.member.manage`,
-    /// `ck.circle.member.add.others`, `ck.circle.audit`) to a specific set
+    /// (`ak.circle.manage`, `ak.circle.member.manage`,
+    /// `ak.circle.member.add.others`, `ak.circle.audit`) to a specific set
     /// of Circle ids. Spec `capability-action-registry.json` declares
     /// `required_constraints=["allowed_circle_ids"]` on each gated action;
     /// unconstrained Realm-wide grants for these actions MUST be rejected.

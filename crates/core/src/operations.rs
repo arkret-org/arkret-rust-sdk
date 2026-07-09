@@ -522,7 +522,7 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
         | OP_OPEN_INVITE_LOCATOR_RESOLVE
         | OP_KEYS_BACKUPS_LIST
         // `unlock` is the proof-gated retrieval of a backup (POST wire shape,
-        // read semantics — it returns the stored ck.schema.key_backup.v1
+        // read semantics — it returns the stored ak.schema.key_backup.v1
         // envelope without mutating it).
         | OP_KEYS_BACKUPS_UNLOCK
         | OP_KEYS_QUERY

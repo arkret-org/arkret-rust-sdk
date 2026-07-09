@@ -80,14 +80,14 @@ impl EventsSubscribeFrameStream {
 }
 
 impl Client {
-    /// Describe the Event service via `ck.self.events.query.describe`
+    /// Describe the Event service via `ak.self.events.query.describe`
     /// (`GET /_arkret/self/events/describe`).
     pub async fn events_describe(&self) -> Result<ServiceDescribe> {
         self.get("/_arkret/self/events/describe").await
     }
 
     /// Subscribe to the Event stream for one or more Realms / actors via
-    /// `ck.self.events.stream.subscribe` (`GET /_arkret/self/events/subscribe`). The selector is
+    /// `ak.self.events.stream.subscribe` (`GET /_arkret/self/events/subscribe`). The selector is
     /// `realms[]` ∪ `actors[]` repeated query args, and frames use top-level
     /// `kind` with explicit control variants.
     ///
@@ -187,7 +187,7 @@ impl Client {
         Ok(builder)
     }
 
-    /// Range-read Events via `ck.self.events.query.scan` (`GET /_arkret/self/events`). Pass
+    /// Range-read Events via `ak.self.events.query.scan` (`GET /_arkret/self/events`). Pass
     /// `before` to walk older history, `after` to catch up toward newer events,
     /// and `order` to override the default proximity-to-seal ordering.
     pub async fn events_query(
@@ -217,7 +217,7 @@ impl Client {
     }
 
     /// Range-read Events via the standard `EventsQueryOutcome` response
-    /// shape (`has_more`, `range_completeness`) from `ck.self.events.query.scan`.
+    /// shape (`has_more`, `range_completeness`) from `ak.self.events.query.scan`.
     pub async fn events_query_outcome(
         &self,
         realm_id: &str,
@@ -248,7 +248,7 @@ impl Client {
         self.send_json(builder).await
     }
 
-    /// Walk every page of `ck.self.events.query.scan` for a Realm using
+    /// Walk every page of `ak.self.events.query.scan` for a Realm using
     /// the standard `has_more` / `next_cursor` contract.
     pub async fn events_query_all_pages(&self, realm_id: &str) -> Result<EventsQueryOutcome> {
         let mut combined = self
@@ -291,7 +291,7 @@ impl Client {
         Ok(combined)
     }
 
-    /// Submit a single signed Event Envelope via `ck.self.events.command.submit`
+    /// Submit a single signed Event Envelope via `ak.self.events.command.submit`
     /// (`POST /_arkret/self/events`). Wire body is the bare envelope per the OpenAPI
     /// `oneOf` first arm (`event-envelope.schema.json`).
     pub async fn events_submit(&self, event: &Event) -> Result<EventsSubmitOutcome> {
@@ -314,7 +314,7 @@ impl Client {
             .await
     }
 
-    /// Submit a batch of signed Event Envelopes via `ck.self.events.command.submit`
+    /// Submit a batch of signed Event Envelopes via `ak.self.events.command.submit`
     /// (`POST /_arkret/self/events`) using the `EventsSubmitBatchRequestBody` body shape.
     pub async fn events_submit_batch(&self, events: &[Event]) -> Result<EventsSubmitOutcome> {
         self.events_submit_batch_with_options(events, &ClientRequestOptions::default())
@@ -468,7 +468,7 @@ mod tests {
         let query = built.url().query().unwrap().to_owned();
 
         assert!(
-            query.contains("realms=ck%3Arealm%3A01904100-0000-7000-8000-000000000001"),
+            query.contains("realms=ak%3Arealm%3A01904100-0000-7000-8000-000000000001"),
             "query: {query}"
         );
         assert!(
@@ -476,7 +476,7 @@ mod tests {
             "query: {query}"
         );
         assert!(
-            query.contains("after=ck%3Acursor%3Astored"),
+            query.contains("after=ak%3Acursor%3Astored"),
             "query: {query}"
         );
         assert!(query.contains("include_history=true"), "query: {query}");

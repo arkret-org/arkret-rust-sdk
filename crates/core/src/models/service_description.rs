@@ -90,7 +90,7 @@ pub struct ServerDescription {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub egress_network_policy: Option<EgressNetworkPolicy>,
     /// Directory-service overlay: resource classes indexed by
-    /// `ck.find.directory.query.describe`. Required when
+    /// `ak.find.directory.query.describe`. Required when
     /// `service_type == "directory_service"`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub resource_types: Vec<DirectoryResourceKind>,
@@ -149,7 +149,7 @@ pub struct ServerDescription {
     /// (empty means snapshot-assisted resolution is unavailable).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub snapshot_frontier: Vec<EventId>,
-    /// Active reducer profile (e.g. `ck.reducer.v1`).
+    /// Active reducer profile (e.g. `ak.reducer.v1`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reducer_profile: Option<String>,
     /// Wall-clock time of the most recent successful state
@@ -186,7 +186,7 @@ impl ServerDescription {
             {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: service_type=directory_service requires \
-                     supported_profiles to include ck.profile.directory_service.v1 ({})",
+                     supported_profiles to include ak.profile.directory_service.v1 ({})",
                     crate::ERROR_CODE_SCHEMA_VIOLATION
                 )));
             }

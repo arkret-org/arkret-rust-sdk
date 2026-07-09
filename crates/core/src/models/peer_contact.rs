@@ -151,7 +151,7 @@ impl PeerContactDeliveryRequest {
         if self.fact_kind == PeerContactFactKind::Requested && self.introduction_evidence.is_none()
         {
             return Err(Error::Protocol(
-                "peer_contact_delivery_request.introduction_evidence is required for ck.contact.requested"
+                "peer_contact_delivery_request.introduction_evidence is required for ak.contact.requested"
                     .to_owned(),
             ));
         }

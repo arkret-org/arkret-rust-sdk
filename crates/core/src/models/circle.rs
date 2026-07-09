@@ -143,7 +143,7 @@ pub struct CircleDisplay {
     pub symbol: CircleSymbol,
 }
 
-/// Canonical Circle object — `ck.schema.circle.v1` (CKP-0007).
+/// Canonical Circle object — `ak.schema.circle.v1` (CKP-0007).
 ///
 /// Field order/shape mirrors `spec/v1/artifacts/schemas/circle.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -175,7 +175,7 @@ pub struct Circle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_participation: Option<AgentParticipationCeiling>,
     pub encryption_profile: EncryptionProfile,
-    /// Reducer-derived; populated by `ck.circle.create` reducer once the
+    /// Reducer-derived; populated by `ak.circle.create` reducer once the
     /// independent MLS group is bound. NOT actor-supplied on wire.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_ref: Option<String>,
@@ -199,7 +199,7 @@ pub struct CirclePendingMlsRemoval {
     pub principal_id: Did,
     /// Exact membership/device-trust frontier that caused this MLS-backed
     /// Circle scope to require a Remove commit. For device revocation this
-    /// MUST name the accepted `ck.device.revoke` or the Realm governance
+    /// MUST name the accepted `ak.device.revoke` or the Realm governance
     /// Control Move that imported that revocation.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub membership_frontier: Vec<EventId>,
@@ -377,12 +377,12 @@ pub struct CircleLifecycleRequestBody {
 ///   directory entry remains, but its MLS group is sealed and no further writes (or member changes)
 ///   are accepted.
 /// * `ObjectState::Redacted` is the object-payload terminal state (round C47, spec e10b6ad): the
-///   object's content is wiped via a `ck.redaction` event, but the object id and lifecycle history
+///   object's content is wiped via a `ak.redaction` event, but the object id and lifecycle history
 ///   remain.
 ///
 /// Reducers MUST keep these enums separate. In particular: never silently
 /// translate `Tombstoned ↔ Redacted` — Circle lifecycle events
-/// (`ck.circle.tombstone`) and per-object redaction events (`ck.redaction`)
+/// (`ak.circle.tombstone`) and per-object redaction events (`ak.redaction`)
 /// run on independent state machines.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -394,7 +394,7 @@ pub enum CircleState {
 }
 
 /// Per-actor Circle membership state. Mirrors CKP-0007 §3.6
-/// `ck.circle.member.state` `membership` enum.
+/// `ak.circle.member.state` `membership` enum.
 ///
 /// The transition table is encoded in [`validate_member_transition`];
 /// Circle membership reuses the Realm `membership_state` enum exactly:
@@ -411,7 +411,7 @@ pub enum CircleMemberState {
 
 impl CircleMemberState {
     /// Wire identifier (snake_case) for this membership state. Mirrors the
-    /// canonical strings in `ck.circle.member.state` payloads.
+    /// canonical strings in `ak.circle.member.state` payloads.
     pub fn as_str(self) -> &'static str {
         match self {
             CircleMemberState::Invite => "invite",
@@ -424,7 +424,7 @@ impl CircleMemberState {
 }
 
 /// Reducer-pure validator: returns `Ok(())` iff `prev → next` is a legal
-/// `ck.circle.member.state` transition under the parent Circle's
+/// `ak.circle.member.state` transition under the parent Circle's
 /// [`CircleJoinRule`] (CKP-0007 §3.6).
 ///
 /// `prev = None` denotes the `none` pseudo-state — an actor who has never
@@ -782,10 +782,10 @@ pub enum CircleScopeError {
          (reducer reason=circle_member_must_be_realm_member, CKP-0007)"
     )]
     NotStrictSubset,
-    /// `ck.circle.member.state` transition rejected by the
+    /// `ak.circle.member.state` transition rejected by the
     /// [CKP-0007 §3.6 table][validate_member_transition].
     #[error(
-        "illegal ck.circle.member.state transition {from:?} → {to:?}: {reason} \
+        "illegal ak.circle.member.state transition {from:?} → {to:?}: {reason} \
          (CKP-0007 §3.6)"
     )]
     IllegalMemberTransition {

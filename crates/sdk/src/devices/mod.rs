@@ -128,7 +128,7 @@ pub struct ToDeviceEnvelope {
     pub queued_at: DateTime<Utc>,
 }
 
-/// Known `ck.key.verification.*` device message kinds.
+/// Known `ak.key.verification.*` device message kinds.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceVerificationMessageKind {

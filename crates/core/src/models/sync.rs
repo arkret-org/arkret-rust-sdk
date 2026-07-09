@@ -2,7 +2,7 @@ use super::*;
 
 /// Folded account-aggregate delta used by SDK internals.
 ///
-/// Current wire delivery is `ck.self.account.stream.subscribe`: an NDJSON stream of
+/// Current wire delivery is `ak.self.account.stream.subscribe`: an NDJSON stream of
 /// [`AccountSubscribeFrame`] values. The SDK folds `delta` frames into this
 /// shape so existing reducers and UI code can consume a single account snapshot
 /// value without depending on transport streaming details.
@@ -58,7 +58,7 @@ impl SyncOutcome {
         &self.realms
     }
 
-    /// Fold a single `ck.self.account.stream.subscribe` data frame into the SDK aggregate
+    /// Fold a single `ak.self.account.stream.subscribe` data frame into the SDK aggregate
     /// snapshot shape. Control frames without data return `None`.
     pub fn from_account_subscribe_frame(frame: AccountSubscribeFrame) -> Option<Self> {
         if frame.kind != AccountSubscribeFrameKind::Delta {
@@ -121,7 +121,7 @@ impl SyncOutcome {
     }
 }
 
-/// One NDJSON frame on `ck.self.account.stream.subscribe`.
+/// One NDJSON frame on `ak.self.account.stream.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountSubscribeFrame {

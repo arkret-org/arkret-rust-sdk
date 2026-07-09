@@ -200,8 +200,8 @@ jobs:
     # Hard gate: fails when the SDK-declared spec coverage drifts in either
     # direction, including active spec entries missing from ARTIFACT_BACKED_*.
     # R3 sync (spec @ b47ff6ec): coverage extended to the new agent event
-    # kinds (ck.agent.draft.propose, ck.agent.action_request,
-    # ck.agent.action_{approve,reject}), the ck.self.call.media.exchange.issue_token
+    # kinds (ak.agent.draft.propose, ak.agent.action_request,
+    # ak.agent.action_{approve,reject}), the ak.self.call.media.exchange.issue_token
     # operation, and the new media-service-binding / accountable_to.strict_reject
     # profiles. See docs/architecture.md#spec-drift-coverage-ci for the runbook.
     steps:

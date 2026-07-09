@@ -8,7 +8,7 @@ use serde_json::Value;
 use super::canonical::now_utc_seconds;
 use crate::*;
 
-/// Current wire object carried by `ck.morph.create`.
+/// Current wire object carried by `ak.morph.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MorphCreateObject {
     pub id: MorphId,
@@ -143,7 +143,7 @@ impl MorphCreateObject {
     }
 }
 
-/// Payload for `ck.morph.update`.
+/// Payload for `ak.morph.update`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MorphUpdatePayload {
@@ -594,7 +594,7 @@ fn json_integer(value: &Value) -> bool {
     value.is_i64() || value.is_u64()
 }
 
-/// Expiry anchor trigger for `ck.profile.disappearing.v1` messages.
+/// Expiry anchor trigger for `ak.profile.disappearing.v1` messages.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DisappearingMessageExpiryTrigger {
@@ -613,7 +613,7 @@ impl DisappearingMessageExpiryTrigger {
     }
 }
 
-/// Disappearing-message expiry contract for `ck.message.create.payload.expiry`.
+/// Disappearing-message expiry contract for `ak.message.create.payload.expiry`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DisappearingMessageExpiry {
     pub ttl_ms: u64,
@@ -648,7 +648,7 @@ impl DisappearingMessageExpiry {
     }
 }
 
-/// Payload for `ck.message.create`.
+/// Payload for `ak.message.create`.
 ///
 /// Producers must choose exactly one of `content` or `encrypted_content`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

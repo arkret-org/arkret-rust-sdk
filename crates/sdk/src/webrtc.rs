@@ -386,7 +386,7 @@ fn verify_ice_config_signature(
 /// - the top-level `signature.kid` resolves to an anchored media-service DID → else
 ///   `ice_config_denied`;
 /// - `refresh_lead_seconds < ttl_seconds` (§4.1) and `ttl_seconds > 0`;
-/// - `signature.sig` verifies as EdDSA(ed25519) over `ck.media.ice_config.v1 || 0x00 ||
+/// - `signature.sig` verifies as EdDSA(ed25519) over `ak.media.ice_config.v1 || 0x00 ||
 ///   canonical_json(response minus signature)`;
 /// - every `ice_servers[]` TURN credential passes the pairwise-pseudonym privacy guard (no embedded
 ///   DID, B-14).
@@ -449,7 +449,7 @@ pub fn verify_ice_config_outcome(
     })
 }
 
-// ── Typed `ck.call.signal` payload.data (webrtc-signaling.md §6.1 / §8) ──────
+// ── Typed `ak.call.signal` payload.data (webrtc-signaling.md §6.1 / §8) ──────
 
 /// Media negotiation change reason (`renegotiate` payload).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -510,7 +510,7 @@ pub enum MuteSource {
     /// The participant muted themselves.
     #[serde(rename = "self")]
     Selff,
-    /// A moderator (holder of `ck.call.moderate`) forced the mute.
+    /// A moderator (holder of `ak.call.moderate`) forced the mute.
     Moderator,
 }
 
@@ -591,7 +591,7 @@ impl SpeakingData {
 
 // ── Recording / transcribe / moderation (call-state.md §5) ──────────────────
 
-/// Recording capture mode (`ck.call.recording.start`, `call-state.md` §5).
+/// Recording capture mode (`ak.call.recording.start`, `call-state.md` §5).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RecordingMode {
     #[serde(rename = "audio")]
@@ -600,7 +600,7 @@ pub enum RecordingMode {
     AudioVideo,
 }
 
-/// Capture dimension selected by `ck.call.recording.start`.
+/// Capture dimension selected by `ak.call.recording.start`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecordingCaptureKind {
@@ -608,7 +608,7 @@ pub enum RecordingCaptureKind {
     Transcript,
 }
 
-/// `ck.call.recording.start` payload (`call-state.md` §5). Field names are
+/// `ak.call.recording.start` payload (`call-state.md` §5). Field names are
 /// snake_case per spec; the recording artifact key is derived separately via
 /// [`crate::sframe::derive_recording_key`] over the
 /// `(realm_id, call_id, focus_id, recording_id, media_service_did,
@@ -627,7 +627,7 @@ pub struct RecordingStartPayload {
     pub visible_notice: Option<bool>,
 }
 
-/// Recording lifecycle state published on `ck.call.state.recording_state`
+/// Recording lifecycle state published on `ak.call.state.recording_state`
 /// (`call-state.md` §4.2 / §5). Orthogonal to call `state`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -638,12 +638,12 @@ pub enum RecordingState {
     Failed,
 }
 
-/// `ck.call.state.recording_result` artifact reference (`call-state.md` §5).
+/// `ak.call.state.recording_result` artifact reference (`call-state.md` §5).
 /// Published after a recording reaches `ready`; the artifact MUST be a Arkret
 /// encrypted blob (no backend-hosted URL).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordingResult {
-    /// `ck.call.recording.start` event id this segment derives from.
+    /// `ak.call.recording.start` event id this segment derives from.
     pub recording_start_event_id: crate::EventId,
     /// Content digest of the encrypted recording blob.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -664,7 +664,7 @@ pub struct RecordingResult {
     pub failure_message: Option<String>,
 }
 
-/// `ck.call.transcribe` request payload (`webrtc-signaling.md` §3 capability,
+/// `ak.call.transcribe` request payload (`webrtc-signaling.md` §3 capability,
 /// `call-state.md` §5). Transcript text is stored as a Morph / Artifact under
 /// the same Realm policy; only the binding metadata travels on the call.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -679,7 +679,7 @@ pub struct TranscribePayload {
     pub transcribe_initiator_capability_ref: Option<String>,
 }
 
-/// Moderation action kind for a `ck.call.moderate` operation
+/// Moderation action kind for a `ak.call.moderate` operation
 /// (`webrtc-signaling.md` §3, §6.1 `mute_state by=moderator`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -694,7 +694,7 @@ pub enum ModerationAction {
     EndForAll,
 }
 
-/// `ck.call.moderate` payload (`webrtc-signaling.md` §3 / §6.1). A moderator
+/// `ak.call.moderate` payload (`webrtc-signaling.md` §3 / §6.1). A moderator
 /// action MUST carry the moderator capability ref; participant-scoped actions
 /// MUST carry the target.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

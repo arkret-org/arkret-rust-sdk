@@ -17,7 +17,7 @@ use serde_json::Value;
 use crate::{DeviceId, Did, Error, Hlc, MoveSignature, MoveSigner, Result, canonical};
 
 /// Canonical signed device message envelope shipped over the
-/// `ck.device.message.v1` device-message transport.
+/// `ak.device.message.v1` device-message transport.
 ///
 /// `sig` is a detached JWS over canonical-JSON bytes covering
 /// `recipient`, `sender`, `message_type`, `body` and `hlc` — the `sig`
@@ -35,8 +35,8 @@ pub struct DeviceMessage {
     pub sender: Did,
     /// Sending device.
     pub sender_device_id: DeviceId,
-    /// Spec event-kind string, e.g. `ck.key.verification.start` or
-    /// `ck.keys.room_key` (the latter is a Matrix/MIMI interop name
+    /// Spec event-kind string, e.g. `ak.key.verification.start` or
+    /// `ak.keys.room_key` (the latter is a Matrix/MIMI interop name
     /// retained on the wire for E2EE key share — the v1 concept is
     /// the Space).
     pub message_type: String,

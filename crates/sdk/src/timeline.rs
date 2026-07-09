@@ -944,8 +944,8 @@ impl Timeline {
         match event.kind.as_str() {
             "ak.message.create" => self.upsert_message_item(event, order),
             "ak.message.revise" => self.apply_message_revision(event, order),
-            "ak.message.redact" | "ck.redaction" => self.apply_message_redaction(event, order),
-            "ak.reaction.add" | "ck.reaction.remove" => self.apply_reaction(event),
+            "ak.message.redact" | "ak.redaction" => self.apply_message_redaction(event, order),
+            "ak.reaction.add" | "ak.reaction.remove" => self.apply_reaction(event),
             _ if event.redacts.is_some() => self.apply_message_redaction(event, order),
             _ => self.upsert_generic_item(event, order),
         }

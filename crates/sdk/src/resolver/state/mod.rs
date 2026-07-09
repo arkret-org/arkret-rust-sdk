@@ -207,7 +207,7 @@ impl RealmState {
             OP_VIEW_RECONCILE => self.reconcile_view(event)?,
 
             // Realm lifecycle - generic state reduction. Container-level
-            // (`ck.space.*`) lifecycle is covered by the OP_SPACE_* arms above.
+            // (`ak.space.*`) lifecycle is covered by the OP_SPACE_* arms above.
             "ak.realm.create"
             | "ak.realm.update"
             | "ak.realm.organization"
@@ -249,7 +249,7 @@ impl RealmState {
             "ak.message.redact" => self.redact_message(event)?,
 
             // Reactions
-            "ak.reaction.add" | "ck.reaction.remove" => self.reduce_reaction(event)?,
+            "ak.reaction.add" | "ak.reaction.remove" => self.reduce_reaction(event)?,
 
             // Realm upgrade
             "ak.realm.upgrade" => self.upgrade_realm(event)?,
@@ -260,7 +260,7 @@ impl RealmState {
             // to a `ak:strand:` / `ak:morph:` typed-id. State-machine guard
             // rejects already-terminal source with `<kind>_already_terminal`.
             // Space is excluded — spec note "Space has no redacted state" routes
-            // Space removal through `ck.space.tombstone` only.
+            // Space removal through `ak.space.tombstone` only.
             "ak.redaction" => {
                 self.redact_object_for_event(event)?;
                 if let Some(redacted_ref) = &event.redacts {
@@ -370,7 +370,7 @@ impl RealmState {
             .filter(|event| {
                 matches!(
                     event.kind.as_str(),
-                    "ak.capability.grant" | "ck.capability.delegate"
+                    "ak.capability.grant" | "ak.capability.delegate"
                 )
             })
     }

@@ -215,7 +215,7 @@ pub struct InstallCommitRequestBody {
 }
 
 /// Install commit response (spec §1b). Carries the fan-out event refs
-/// (`ck.applet.registration`, `ck.capability.grant`, membership, E2EE
+/// (`ak.applet.registration`, `ak.capability.grant`, membership, E2EE
 /// authorization, widget policy).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

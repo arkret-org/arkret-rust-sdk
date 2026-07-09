@@ -111,7 +111,7 @@ pub enum AudienceMentionKind {
 ///
 /// This node is not expanded into direct [`Mention`] entries in shared
 /// history. Dispatcher-side expansion is gated by
-/// `ck.message.mention.broadcast`, Realm/Circle audience policy, finite
+/// `ak.message.mention.broadcast`, Realm/Circle audience policy, finite
 /// recipient/quota limits, and receiver visibility.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

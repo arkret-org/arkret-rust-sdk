@@ -179,8 +179,8 @@ pub mod auth;
 pub mod authz;
 #[cfg(feature = "full-surface")]
 pub mod base;
-/// Canonical encrypted attachment codec (`ck.blob.stream_aead.v1` /
-/// `ck.blob.whole_file_aead.v1`, `media-and-blob.md` §3.2/§3.3).
+/// Canonical encrypted attachment codec (`ak.blob.stream_aead.v1` /
+/// `ak.blob.whole_file_aead.v1`, `media-and-blob.md` §3.2/§3.3).
 #[cfg(feature = "full-surface")]
 pub mod blob_aead;
 #[cfg(feature = "full-surface")]
@@ -208,7 +208,7 @@ pub mod hlc;
 pub mod dpop;
 pub mod idempotency;
 // Realm Recovery Key (RRK) durable history sealing — provider-initiated
-// `ck.realm_key.share` to offline recovery recipients (encryption-and-audit.md
+// `ak.realm_key.share` to offline recovery recipients (encryption-and-audit.md
 // §2.10.8). Resolves the RRK HPKE public key from a recipient's DID Document
 // and HPKE-seals retained per-epoch history secrets to it. Reuses
 // `secret_share`'s HPKE seal primitive, so it carries the same feature gate.

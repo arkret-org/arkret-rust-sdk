@@ -807,7 +807,7 @@ impl ResourceSelector {
     }
 }
 
-/// Schema-aligned resource selector kind from `ck.schema.resource_selector.v1`.
+/// Schema-aligned resource selector kind from `ak.schema.resource_selector.v1`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProtocolResourceSelectorKind {
@@ -835,7 +835,7 @@ pub enum ProtocolResourceSelectorKind {
     Wildcard,
 }
 
-/// Scope field from `ck.schema.resource_selector.v1`.
+/// Scope field from `ak.schema.resource_selector.v1`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProtocolResourceSelectorScope {

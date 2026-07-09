@@ -19,7 +19,7 @@ pub enum FrontierPeerRole {
     AnonymousHealth,
 }
 
-/// `ck.self.events.query.frontier` account-client response
+/// `ak.self.events.query.frontier` account-client response
 /// (`service-operation-dtos.schema.json#/$defs/EventsFrontierAccountClientState`,
 /// SPEC-SOL-003 resolution): a single `frontier` object whose shape follows
 /// the request selector — actor (`{actor_id, actor_seq, event_id}`) or Realm
@@ -81,7 +81,7 @@ pub struct ActorFrontierView {
     pub event_id: EventId,
 }
 
-/// `ck.peer.events.query.frontier` federation-peer response
+/// `ak.peer.events.query.frontier` federation-peer response
 /// (`service-operation-dtos.schema.json#/$defs/EventsFrontierFederationPeerState`).
 /// Returned to an authorized federation peer over signed S2S trust-domain
 /// headers: the realm's federation-visible head Event IDs, the
@@ -143,7 +143,7 @@ pub enum EventsFrontierState {
 
 /// Round 4 (commit 7446832) — typed binding reference for federation
 /// transport. All six fields REQUIRED. Carried inside
-/// `ck.self.events.command.submit` (federation variant) and the
+/// `ak.self.events.command.submit` (federation variant) and the
 /// `events/frontier` federation-peer response so a receiver can verify
 /// the request is bound to the sender's current reducer state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -159,7 +159,7 @@ pub struct FederationServiceBindingRef {
 
 pub const FEDERATION_MINIMAL_PROFILE_ID: &str = "ak.profile.federation_minimal.v1";
 pub const FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST: &str =
-    "sha256:1fa83b8ca1719c604c298d83e89b0456f3af5ed1382cf8dcb025b074a34e0109";
+    "sha256:f275d2e5dd588758bd9a77254cbfa72fa187cc098e7f61a63c3d13609c34a09c";
 
 pub fn federation_minimal_reducer_profile_digest() -> &'static str {
     FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST
@@ -213,7 +213,7 @@ pub type EventsSubscribeFrameBody = crate::http::EventsSubscribeFrame;
 /// chunk by its declared digest before applying the snapshot.
 ///
 /// Dev-only shape. Current production snapshot bootstrap uses
-/// `ck.schema.snapshot.v1` [`crate::SnapshotManifest`].
+/// `ak.schema.snapshot.v1` [`crate::SnapshotManifest`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotBootstrap {

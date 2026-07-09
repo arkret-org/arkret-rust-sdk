@@ -305,7 +305,7 @@ fn encoding_vector(vector_id: &str) -> Value {
         .clone()
 }
 
-/// Executes spec vector `ck.vector.encoding.signature_binding_payload.v1`
+/// Executes spec vector `ak.vector.encoding.signature_binding_payload.v1`
 /// against the SDK's own proof binding-object construction
 /// (`Proof::canonical_binding_bytes`), asserting byte- and digest-level
 /// equality with the spec expectations.
@@ -377,7 +377,7 @@ fn fact_chain_echo_validates_server_proof_binding() {
     assert!(tampered.precheck_server_proofs().is_err());
 }
 
-/// Executes spec vector `ck.vector.encoding.encrypted_envelope_digest.v1`:
+/// Executes spec vector `ak.vector.encoding.encrypted_envelope_digest.v1`:
 /// `sha256(canonical_json(payload_metadata) || base64url_decode(ciphertext))`
 /// built from SDK canonical/base64url primitives, plus the AAD digest.
 #[test]
@@ -423,7 +423,7 @@ fn encrypted_envelope_digest_matches_spec_encoding_vector() {
 /// drift is caught across versions. Replace with a spec vector once the spec
 /// ships one for `EncryptedPayload::mls_payload_digest` (its metadata shape —
 /// `{aad?, content_type, encryption, epoch}` — differs from the envelope-level
-/// `ck.vector.encoding.encrypted_envelope_digest.v1` input).
+/// `ak.vector.encoding.encrypted_envelope_digest.v1` input).
 #[test]
 fn mls_payload_digest_regression_anchor() {
     let digest = EncryptedPayload::mls_payload_digest(

@@ -1,4 +1,4 @@
-//! Typed key-backup HTTP client for `ck.keys.backups.*`.
+//! Typed key-backup HTTP client for `ak.keys.backups.*`.
 
 use arkret_http_client::Client;
 

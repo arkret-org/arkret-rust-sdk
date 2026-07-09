@@ -4,7 +4,7 @@
 //! `docs/feature-matrix.md` carries a human-readable conformance-profile table
 //! maintained by hand, while `arkret_core::generated::profile_requirements` is
 //! derived from the spec artifact. These are two sources for the same facts and
-//! can drift. This test asserts every `ck.profile.*.vN` ID named in the doc is a
+//! can drift. This test asserts every `ak.profile.*.vN` ID named in the doc is a
 //! real profile in the generated (authoritative) table, so the mirror can never
 //! reference a profile the code does not back.
 
@@ -24,7 +24,7 @@ fn feature_matrix_markdown() -> String {
         .unwrap_or_else(|err| panic!("feature-matrix.md must be readable at {path:?}: {err}"))
 }
 
-/// Extract every `ck.profile.<...>.vN` identifier that appears in the document.
+/// Extract every `ak.profile.<...>.vN` identifier that appears in the document.
 fn documented_profile_ids(markdown: &str) -> BTreeSet<String> {
     let mut ids = BTreeSet::new();
     let mut rest = markdown;

@@ -87,7 +87,7 @@ pub struct AppletRegistrationPayload {
 }
 
 impl AppletRegistrationPayload {
-    /// Build a `ck.applet.registration` payload with the full closed field set
+    /// Build a `ak.applet.registration` payload with the full closed field set
     /// (`event-payload.schema.json#/$defs/applet_registration_payload`). The
     /// spec marks 14 fields required plus `created_at`; the collection / flag
     /// fields default to their empty / false forms (all schema-valid) and are
@@ -173,7 +173,7 @@ impl AppletRegistrationPayload {
     }
 }
 
-/// Bridge-implementation runtime status for `ck.applet.interop_session.status`
+/// Bridge-implementation runtime status for `ak.applet.interop_session.status`
 /// (`event-payload.schema.json#/$defs/applet_interop_session_status_payload`
 /// `runtime_status` enum). Named `runtime_status` (not `status`) so applet
 /// snapshots stay distinguishable from the canonical agent session state
@@ -202,7 +202,7 @@ impl AppletRuntimeStatus {
 }
 
 impl AppletInteropSessionStartPayload {
-    /// Build a `ck.applet.interop_session.start` payload. Required per spec:
+    /// Build a `ak.applet.interop_session.start` payload. Required per spec:
     /// `applet_id`, `session_id`. `params` are opaque to the protocol.
     pub fn new(applet_id: AppletIdentifier, session_id: impl Into<String>) -> Self {
         Self {
@@ -239,7 +239,7 @@ impl AppletInteropSessionStartPayload {
 }
 
 impl AppletInteropSessionStatusPayload {
-    /// Build a `ck.applet.interop_session.status` payload. Required per spec:
+    /// Build a `ak.applet.interop_session.status` payload. Required per spec:
     /// `applet_id`, `session_id`, `runtime_status`.
     pub fn new(
         applet_id: AppletIdentifier,

@@ -5,8 +5,8 @@ pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "arkret-sdk-builtin-v1";
 
 pub const CURSOR_SCHEMA: &str = "ak.schema.cursor.v1";
 // Realm/Space schema ids:
-//   - `ck.schema.realm.v1` is the security-boundary schema.
-//   - `ck.schema.space.v1` is the product container schema.
+//   - `ak.schema.realm.v1` is the security-boundary schema.
+//   - `ak.schema.space.v1` is the product container schema.
 pub const REALM_SCHEMA_ID: &str = "ak.schema.realm.v1";
 pub const REALM_JOIN_CANDIDATE_SCHEMA: &str = "ak.schema.realm_join_candidate.v1";
 pub const SPACE_SCHEMA: &str = "ak.schema.space.v1";
@@ -67,7 +67,7 @@ pub const MODERATION_APPEAL_SCHEMA: &str = "ak.schema.moderation_appeal.v1";
 pub const ATTESTATION_EVIDENCE_SCHEMA: &str = "ak.schema.attestation_evidence.v1";
 pub const CROSS_SIGNING_RESET_SCHEMA: &str = "ak.schema.cross_signing_reset.v1";
 
-// ── Canonical ck.* event kinds ──────────────────────────────────────────────
+// ── Canonical ak.* event kinds ──────────────────────────────────────────────
 /// Strand event kinds.
 pub const OP_STRAND_CREATE: &str = "ak.strand.create";
 pub const OP_STRAND_UPDATE: &str = "ak.strand.update";
@@ -78,7 +78,7 @@ pub const OP_STRAND_REORDER: &str = "ak.strand.reorder";
 pub const OP_STRAND_STAGE_SET: &str = "ak.strand.stage.set";
 
 /// CKP-0007 (spec b7d35be) — Circle event kinds. The 7th kind
-/// (`ck.circle.seal_commit`) is reducer-derived and MUST NOT be
+/// (`ak.circle.seal_commit`) is reducer-derived and MUST NOT be
 /// submitted by clients; it is exported for receiver-side dispatch only.
 pub const OP_CIRCLE_CREATE: &str = "ak.circle.create";
 pub const OP_CIRCLE_UPDATE: &str = "ak.circle.update";
@@ -89,9 +89,9 @@ pub const OP_CIRCLE_MEMBER_STATE: &str = "ak.circle.member.state";
 pub const OP_CIRCLE_SEAL_COMMIT: &str = "ak.circle.seal_commit";
 
 /// CKP-0007 (spec b7d35be) — Circle capability action ids. Spec
-/// `capability-action-registry.json`. `ck.circle.manage`,
-/// `ck.circle.member.manage`, `ck.circle.member.add.others`, and
-/// `ck.circle.audit` declare `required_constraints=["allowed_circle_ids"]`;
+/// `capability-action-registry.json`. `ak.circle.manage`,
+/// `ak.circle.member.manage`, `ak.circle.member.add.others`, and
+/// `ak.circle.audit` declare `required_constraints=["allowed_circle_ids"]`;
 /// unconstrained Realm-wide grants for those actions MUST be rejected.
 pub const CAP_ACTION_CIRCLE_CREATE: &str = "ak.circle.create";
 pub const CAP_ACTION_CIRCLE_MANAGE: &str = "ak.circle.manage";
@@ -273,8 +273,8 @@ pub const OP_MORPH_ARCHIVE: &str = "ak.morph.archive";
 pub const OP_MORPH_RESTORE: &str = "ak.morph.restore";
 pub const OP_MORPH_STAGE_SET: &str = "ak.morph.stage.set";
 
-/// Space (container) event kinds. Container events use `ck.space.*`; see the
-/// security-boundary OP_REALM_* family for `ck.realm.*` events.
+/// Space (container) event kinds. Container events use `ak.space.*`; see the
+/// security-boundary OP_REALM_* family for `ak.realm.*` events.
 pub const OP_SPACE_CREATE: &str = "ak.space.create";
 pub const OP_SPACE_UPDATE: &str = "ak.space.update";
 pub const OP_SPACE_PARENT: &str = "ak.space.parent";
@@ -303,7 +303,7 @@ pub const OP_REALM_LINK: &str = "ak.realm.link";
 /// Per-Realm governance of member `delivery_binding`: which `binding_source`
 /// values are admissible, which recipient services are allowed, whether DID
 /// Document fallback is permitted, who may sign rebind. cell_family
-/// `ck.component.realm.delivery_binding_policy.v1`, cas-register.
+/// `ak.component.realm.delivery_binding_policy.v1`, cas-register.
 pub const OP_REALM_DELIVERY_BINDING_POLICY: &str = "ak.realm.delivery_binding_policy";
 pub const OP_REALM_DISAPPEARING_POLICY: &str = "ak.realm.disappearing_policy";
 pub const OP_REALM_INHERITANCE_POLICY: &str = "ak.realm.inheritance_policy";
@@ -327,8 +327,8 @@ pub const OP_RSVP_SET: &str = "ak.rsvp.set";
 pub const OP_PIN_ADD: &str = "ak.pin.add";
 pub const OP_PIN_REMOVE: &str = "ak.pin.remove";
 pub const OP_PIN_REORDER: &str = "ak.pin.reorder";
-/// High-risk capability required in addition to `ck.message.create` or
-/// `ck.message.revise` whenever a Message introduces an `audience_mention`
+/// High-risk capability required in addition to `ak.message.create` or
+/// `ak.message.revise` whenever a Message introduces an `audience_mention`
 /// node such as `@all` or v1 `@here` (`audience="strand_engaged"`).
 pub const CAP_ACTION_MESSAGE_MENTION_BROADCAST: &str = "ak.message.mention.broadcast";
 pub const CAP_ACTION_RSVP_SET: &str = "ak.rsvp.set";
@@ -494,7 +494,7 @@ pub const OP_KEYS_KEYPACKAGES_CONSUME: &str = "ak.self.keys.keypackages.command.
 pub const OP_KEYS_KEYPACKAGES_REVOKE: &str = "ak.self.keys.keypackages.command.revoke";
 pub const OP_KEYS_BACKUPS_PUT: &str = "ak.self.keys.backups.resource.replace";
 pub const OP_KEYS_BACKUPS_LIST: &str = "ak.self.keys.backups.query.list";
-// Renamed from `ck.self.keys.backups.command.unlock` on 2026-06-11
+// Renamed from `ak.self.keys.backups.command.unlock` on 2026-06-11
 // (artifacts/migration/renames.json): backup retrieval is rebound to
 // `POST /_arkret/self/keys/backups/{backup_id}/unlock` with a body-borne
 // unlock proof.
@@ -584,7 +584,7 @@ pub const OP_EVENTS_FRONTIER: &str = "ak.self.events.query.frontier";
 pub const OP_EVENTS_GET: &str = "ak.self.events.resource.get";
 pub const OP_EVENTS_QUERY: &str = "ak.self.events.query.scan";
 /// Round C44 (2026-05-18; spec dc01ad7) — POST variant of
-/// `ck.self.events.query.scan` for selectors too long to fit in a `GET` query
+/// `ak.self.events.query.scan` for selectors too long to fit in a `GET` query
 /// string (large `spaces[]` / `actors[]` unions). HTTP path:
 /// `POST /events/query`. Identical selector / range / response shape.
 pub const OP_EVENTS_QUERY_POST: &str = "ak.self.events.query.scan_body";
@@ -726,13 +726,13 @@ pub const CAP_ACTION_MORPH_CREATE: &str = "ak.morph.create";
 /// media capability actions registered in
 /// `capability-action-registry.json`. These actions gate the join,
 /// screen-share, recording, transcription, moderation, and signal-send
-/// surfaces of the ck.call.* feature.
+/// surfaces of the ak.call.* feature.
 pub const CAP_ACTION_CALL_JOIN: &str = "ak.call.join";
 pub const CAP_ACTION_CALL_SCREEN_SHARE: &str = "ak.call.screen_share";
 pub const CAP_ACTION_CALL_RECORD: &str = "ak.call.record";
 pub const CAP_ACTION_CALL_TRANSCRIBE: &str = "ak.call.transcribe";
 pub const CAP_ACTION_CALL_MODERATE: &str = "ak.call.moderate";
-/// `service-http-binding.md` §162 — sending a `ck.call.signal` ephemeral
+/// `service-http-binding.md` §162 — sending a `ak.call.signal` ephemeral
 /// envelope via `POST /_arkret/self/ephemeral` requires the actor to hold
 /// this realm-scoped capability. Registered in
 /// `capability-action-registry.json`.
@@ -748,7 +748,7 @@ pub const CALL_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_CALL_SIGNAL_SEND,
 ];
 
-/// CKP-0010 — `ck.self.call.media.exchange.issue_token` operation id. HTTP route:
+/// CKP-0010 — `ak.self.call.media.exchange.issue_token` operation id. HTTP route:
 /// `POST /rtc/token`. Surface tier `core_personal`. Registered in
 /// `operation-registry.json` v2026-05-27.
 pub const OP_CALL_MEDIA_TOKEN_EXCHANGE: &str = "ak.self.call.media.exchange.issue_token";
@@ -773,7 +773,7 @@ pub const EXPORTER_LABEL_RTC_TRANSCRIPT_KEY: &str = "ak.rtc-transcript-key/v1";
 
 /// CKP-0008 / CKP-0009 (R3 spec-sync 2026-05-27) — agent_runtime
 /// surface tier: list of operations that live under the
-/// `ck.profile.agent_runtime.v1` server-profile surface.
+/// `ak.profile.agent_runtime.v1` server-profile surface.
 pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[
     OP_ACCOUNT_AGENT_KEY_PAIR,
     OP_AGENT_PROVISION,
@@ -789,7 +789,7 @@ pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[
 ];
 
 /// Round 4 (2026-05-20) — canonical signal_type enum values carried in the
-/// `ck.call.signal` ephemeral envelope payload. Wire-break: the
+/// `ak.call.signal` ephemeral envelope payload. Wire-break: the
 /// pre-round-4 6-value enum (`invite, answer, candidate, renegotiate,
 /// hangup, ack`) is replaced by this 14-value set. Spec
 /// `schemas/ephemeral-envelope.schema.json` (Round 4 commit 58c5926).
@@ -808,7 +808,7 @@ pub const CALL_SIGNAL_TYPE_FOCUS_LEAVE: &str = "focus_leave";
 pub const CALL_SIGNAL_TYPE_MODERATION: &str = "moderation";
 pub const CALL_SIGNAL_TYPE_ERROR: &str = "error";
 
-/// All canonical `ck.call.signal` signal_type values. Round 4 (spec a77b995).
+/// All canonical `ak.call.signal` signal_type values. Round 4 (spec a77b995).
 /// Receivers MUST reject any envelope whose `payload.signal_type` is not in
 /// this set with `ERROR_CODE_SCHEMA_VIOLATION`.
 pub const CALL_SIGNAL_TYPES: &[&str] = &[
@@ -887,9 +887,9 @@ pub const OP_RECOVERY_SESSION_CREATE: &str = "ak.root.identity.recovery_session.
 pub const OP_RECOVERY_SESSION_GET: &str = "ak.root.identity.recovery_session.resource.get";
 pub const OP_RECOVERY_SESSION_SUBMIT_PROOF: &str =
     "ak.root.identity.recovery_session.command.submit_proof";
-/// `POST /_arkret/self/agents/discover` — probe the `ck.agent.endpoint`
-/// registry; authorized by `ck.agent.protocol.discover` capability under
-/// `ck.profile.agent_runtime.v1`.
+/// `POST /_arkret/self/agents/discover` — probe the `ak.agent.endpoint`
+/// registry; authorized by `ak.agent.protocol.discover` capability under
+/// `ak.profile.agent_runtime.v1`.
 pub const OP_SELF_AGENT_PROTOCOL_DISCOVER: &str = "ak.self.agent.protocol.query.discover";
 /// `POST /_arkret/find/directory/takedown/appeal` — resource-side appeal of an
 /// operator takedown; returns a signed adjudication receipt.

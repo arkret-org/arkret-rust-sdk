@@ -85,8 +85,8 @@ pub struct AuthzContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wip_over_limit: Option<bool>,
     /// CKP-0007 — Circle id when the operation targets a Circle-management
-    /// capability (`ck.circle.manage`, `ck.circle.member.manage`,
-    /// `ck.circle.member.add.others`, `ck.circle.audit`). Used by
+    /// capability (`ak.circle.manage`, `ak.circle.member.manage`,
+    /// `ak.circle.member.add.others`, `ak.circle.audit`). Used by
     /// [`Constraint::AllowedCircleIds`] to membership-test against the
     /// grant's allow-list.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -158,7 +158,7 @@ impl AuthzContext {
 
     /// Set the target Circle id for `AllowedCircleIds` constraint
     /// evaluation. Pass when the operation targets a Circle-management
-    /// capability (`ck.circle.*`).
+    /// capability (`ak.circle.*`).
     pub fn with_circle_id(mut self, circle_id: arkret_core::CircleId) -> Self {
         self.circle_id = Some(circle_id);
         self
@@ -228,7 +228,7 @@ impl AuthzContext {
     }
 }
 
-/// Policy-server response for `ck.self.policy.query.check`.
+/// Policy-server response for `ak.self.policy.query.check`.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PolicyServerEffect {
@@ -1192,9 +1192,9 @@ impl AuthzEngine {
             // CKP-0007: gate Circle-management actions on a static
             // allow-list of Circle ids baked into the grant body. The
             // caller MUST set `ctx.circle_id` to the operation's target
-            // Circle for Circle-scoped actions (`ck.circle.manage`,
-            // `ck.circle.member.manage`, `ck.circle.member.add.others`,
-            // `ck.circle.audit`). Non-Circle-scoped operations leave
+            // Circle for Circle-scoped actions (`ak.circle.manage`,
+            // `ak.circle.member.manage`, `ak.circle.member.add.others`,
+            // `ak.circle.audit`). Non-Circle-scoped operations leave
             // `circle_id` unset; per the constraint's narrow scope it
             // does not apply and silently passes.
             Constraint::AllowedCircleIds { allowed_circle_ids } => {

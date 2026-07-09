@@ -10,7 +10,7 @@
 //! - `<component>` is the cell family (e.g. `ak.component.member.state.v1`,
 //!   `ak.component.capability.grant.v1`, `ak.component.consent.v1`).
 //! - `<subject>` may be a flat identifier (`did.web.alice.example`,
-//!   `ck.grant.01js0gr0000000000000000000`) or a deterministic composite subject when the spec
+//!   `ak.grant.01js0gr0000000000000000000`) or a deterministic composite subject when the spec
 //!   event-kind-registry's `cell_subject` declares `composite` form.
 //!
 //! Composite subjects are `base64url_nopad(sha256(canonical_json([...])))`

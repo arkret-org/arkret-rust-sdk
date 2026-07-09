@@ -319,7 +319,7 @@ mod tests {
             "realm_id": "ak:realm:0196419b-0000-7000-8000-00000000014a",
             "preconditions": [
                 {
-                    "cell": "ak:cell:ck.component.member.state.v1:did.web.alice.example",
+                    "cell": "ak:cell:ak.component.member.state.v1:did.web.alice.example",
                     "predicate": {
                         "op": "head_eq",
                         "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
@@ -328,7 +328,7 @@ mod tests {
             ],
             "effects": [
                 {
-                    "cell": "ak:cell:ck.component.member.state.v1:did.web.alice.example",
+                    "cell": "ak:cell:ak.component.member.state.v1:did.web.alice.example",
                     "op": {
                         "kind": "transition",
                         "from": "join",
@@ -517,10 +517,10 @@ mod tests {
 
     #[test]
     fn cell_ref_validator_accepts_simple_and_composite() {
-        CellRef::new("ak:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap();
         CellRef::new(
-            "ak:cell:ck.component.capability.grant.v1:ck.grant.01js0gr0000000000000000000"
+            "ak:cell:ak.component.capability.grant.v1:ak.grant.01js0gr0000000000000000000"
                 .to_owned(),
         )
         .unwrap();

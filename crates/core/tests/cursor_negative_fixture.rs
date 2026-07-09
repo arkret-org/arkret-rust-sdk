@@ -1,11 +1,11 @@
 //! Executable consumer for the spec fixture
 //! `fixtures/cursor-negative-fixture.json`
-//! (`ck.vector.encoding.reject_invalid_cursor.core.v1`).
+//! (`ak.vector.encoding.reject_invalid_cursor.core.v1`).
 //!
 //! Every case is a plausible-looking `ak:cursor:` token that the issuing
 //! service MUST reject before advancing any server-side state
 //! (conformance-vectors.md §1.16). The positive opaqueness contract lives in
-//! `ck.vector.encoding.cursor_opaque.core.v1`; this suite pins the rejection
+//! `ak.vector.encoding.cursor_opaque.core.v1`; this suite pins the rejection
 //! surface of [`arkret_core::cursor::Cursor::decode`] to the spec vectors so
 //! the SDK's self-authored negative tests can no longer drift from the
 //! published rejection semantics.

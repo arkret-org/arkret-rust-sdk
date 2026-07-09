@@ -1,10 +1,10 @@
 //! Per-message redaction tombstone wire shape.
 //!
 //! Spec `models/strand-and-message.md §9` (Message lifecycle): a redacted
-//! `ck.message.create` keeps its slot and audit metadata (`event_id`,
+//! `ak.message.create` keeps its slot and audit metadata (`event_id`,
 //! `created_at`, `sender`, `kind`) while its `content` is cleared and replaced
 //! with a redaction tombstone. The message-level `state` flips to `redacted`
-//! and `redaction_ref` points at the triggering `ck.message.redact` event.
+//! and `redaction_ref` points at the triggering `ak.message.redact` event.
 //!
 //! The server message stream (sync timeline / backfill projection) surfaces the
 //! tombstone instead of either dropping the row or leaking the original body, so

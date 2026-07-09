@@ -455,7 +455,7 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                 );
             }
             "multibase_did_key" => {
-                // ck.vector.encoding.multibase_did_key.core.v1: base58btc
+                // ak.vector.encoding.multibase_did_key.core.v1: base58btc
                 // multibase of Ed25519 public keys (0xed01 multicodec prefix)
                 // and the resulting did:key identifier, plus decode round-trip.
                 let cases = vector
@@ -534,7 +534,7 @@ fn hex_decode(input: &str) -> Option<Vec<u8>> {
 #[test]
 fn event_payload_catalog_validates_known_payload_fields() {
     let catalog = event_payload_validator_catalog().unwrap();
-    // `ck.strand.move` payload requires Space container ids:
+    // `ak.strand.move` payload requires Space container ids:
     // `board_space_id` (ak:space prefix) + `target_space_id`.
     catalog
         .validate_payload(
@@ -675,7 +675,7 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
     };
     let catalog = event_payload_validator_catalog().unwrap();
 
-    // ck.realm.archive: reversible boolean register; `archived:false` un-archives.
+    // ak.realm.archive: reversible boolean register; `archived:false` un-archives.
     let archive = RealmArchivePayload::new(true).with_reason("retiring inactive realm");
     catalog
         .validate_payload("ak.realm.archive", &archive.to_value().unwrap())
@@ -687,7 +687,7 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
         )
         .unwrap();
 
-    // ck.realm.freeze: reversible boolean register; `frozen:false` unfreezes.
+    // ak.realm.freeze: reversible boolean register; `frozen:false` unfreezes.
     let freeze = RealmFreezePayload::new(true).with_reason("incident response hold");
     catalog
         .validate_payload("ak.realm.freeze", &freeze.to_value().unwrap())
@@ -699,7 +699,7 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
         )
         .unwrap();
 
-    // ck.realm.tombstone: reason + successor_realm_id both required by spec.
+    // ak.realm.tombstone: reason + successor_realm_id both required by spec.
     let tombstone = RealmTombstonePayload::new(
         RealmId::new("ak:realm:01904100-0000-7000-8000-333333333333").unwrap(),
         "migrated to successor",
@@ -708,7 +708,7 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
         .validate_payload("ak.realm.tombstone", &tombstone.to_value().unwrap())
         .unwrap();
 
-    // ck.realm.destroy: reason required; verification_stub_required omitted so
+    // ak.realm.destroy: reason required; verification_stub_required omitted so
     // the reducer applies its default (true).
     let destroy = RealmDestroyPayload::new("permanent retirement");
     catalog
@@ -737,7 +737,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     let strand = || StrandId::new("ak:strand:01904100-0000-7000-8000-6c663fa0205f").unwrap();
     let actor = || Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
 
-    // ck.strand.move — board/target Space ids + rank; from_space_id +
+    // ak.strand.move — board/target Space ids + rank; from_space_id +
     // expected_position optional. Destination is single-sourced by
     // target_space_id (a stray `list_space_id` is reported as additive).
     let mv = StrandMovePayload::new(board(), strand(), target(), "U")
@@ -751,7 +751,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
         .validate_payload("ak.strand.move", &mv.to_value().unwrap())
         .unwrap();
 
-    // ck.strand.reorder — single List Space (`space_id`); no destination field.
+    // ak.strand.reorder — single List Space (`space_id`); no destination field.
     let reorder = StrandReorderPayload::new(board(), strand(), target(), "V")
         .with_expected_position(StrandReorderExpectedPosition {
             rank: Some("U".to_owned()),
@@ -761,7 +761,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
         .validate_payload("ak.strand.reorder", &reorder.to_value().unwrap())
         .unwrap();
 
-    // ck.strand.watch.set — concrete level + clear (level:null) + CAS guard.
+    // ak.strand.watch.set — concrete level + clear (level:null) + CAS guard.
     let set = StrandWatchSetPayload::set(strand(), actor(), StrandWatchLevel::All, Some(true));
     catalog
         .validate_payload("ak.strand.watch.set", &set.to_value().unwrap())
@@ -792,7 +792,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
         .validate_payload("ak.strand.watch.set", &guarded_null_value)
         .unwrap();
 
-    // ck.strand.archive / ck.strand.restore — object_lifecycle_payload, single
+    // ak.strand.archive / ak.strand.restore — object_lifecycle_payload, single
     // truth source `target_ref`.
     let archive = ObjectLifecyclePayload::new("ak:strand:01904100-0000-7000-8000-6c663fa0205f")
         .with_target_state("archived")
@@ -926,7 +926,7 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
         return;
     };
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
-    // `ck.strand.move` requires current Space container ids:
+    // `ak.strand.move` requires current Space container ids:
     // `board_space_id` and `target_space_id`.
     catalog
         .validate_payload(
@@ -1061,7 +1061,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             .validate_payload(event_kind, &payload)
             .unwrap_or_else(|err| panic!("{event_kind} should accept {payload_def}: {err}"));
     }
-    // ck.profile.realm_override carries a Realm-scoped override and needs
+    // ak.profile.realm_override carries a Realm-scoped override and needs
     // target_realm_id in addition to target_ref+patch, so the spec gives it a
     // dedicated profile_realm_override_payload def rather than folding it into
     // the generic object_patch_payload.
@@ -1384,7 +1384,7 @@ fn component_descriptor_resolves_canonical_and_alias_kinds() {
     assert_eq!(
         alias.component_slot_alias_of.as_deref(),
         Some("ak.capability.grant"),
-        "ak.capability.revoke should slot-alias ck.capability.grant"
+        "ak.capability.revoke should slot-alias ak.capability.grant"
     );
     assert_eq!(alias.component_type, canonical.component_type);
     assert_eq!(alias.component_version, canonical.component_version);

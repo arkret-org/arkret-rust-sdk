@@ -54,7 +54,7 @@ pub struct ModerationEvidencePolicy {
     pub legal_hold: Option<bool>,
 }
 
-/// Moderation queue container (`ck.component.moderation_queue.v1` cell
+/// Moderation queue container (`ak.component.moderation_queue.v1` cell
 /// body). Mirrors `moderation-queue-item.schema.json`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

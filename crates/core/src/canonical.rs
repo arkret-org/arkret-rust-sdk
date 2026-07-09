@@ -62,7 +62,7 @@ pub const MAX_CANONICAL_JSON_INGRESS_BYTES: usize = 1_048_576;
 /// (`scalability-constraints.md` §2: objects and arrays combined, the
 /// top-level container counts as depth 1, the limit is inclusive). Depth 64
 /// MUST be accepted, depth 65 MUST be rejected
-/// (`ck.vector.encoding.reject_structure_depth_exceeded.v1`). The cap keeps
+/// (`ak.vector.encoding.reject_structure_depth_exceeded.v1`). The cap keeps
 /// hand-crafted deep nesting from turning recursive parsing into a
 /// stack-overflow abort independently of `serde_json`'s own 128-level guard.
 pub const MAX_CANONICAL_JSON_NESTING_DEPTH: usize = 64;
@@ -1028,7 +1028,7 @@ mod tests {
 
     #[test]
     fn canonical_json_sorts_supplementary_before_u_ffff() {
-        // Mirrors ck.vector.encoding.canonical_json.utf16_supplementary_order.v1:
+        // Mirrors ak.vector.encoding.canonical_json.utf16_supplementary_order.v1:
         // U+1F600 (UTF-16 D83D DE00) sorts before U+FFFF because the high
         // surrogate 0xD83D compares below 0xFFFF, while code-point order would
         // reverse the two keys.

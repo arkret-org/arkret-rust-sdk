@@ -713,7 +713,7 @@ impl FileTransferRecord {
         let aad = &self.encryption.aad;
         if aad.schema != FILE_TRANSFER_SCHEMA {
             return Err(Error::Protocol(
-                "file-transfer AAD schema must be ck.schema.file_transfer.v1".to_owned(),
+                "file-transfer AAD schema must be ak.schema.file_transfer.v1".to_owned(),
             ));
         }
         if aad.purpose != "file_transfer" {
@@ -859,7 +859,7 @@ impl FileTransferAad {
     pub fn validate(&self) -> Result<()> {
         if self.schema != FILE_TRANSFER_SCHEMA {
             return Err(Error::Protocol(
-                "file-transfer AAD schema must be ck.schema.file_transfer.v1".to_owned(),
+                "file-transfer AAD schema must be ak.schema.file_transfer.v1".to_owned(),
             ));
         }
         if self.purpose != "file_transfer" {
@@ -893,7 +893,7 @@ impl FileTransferKeyDelivery {
                     Ok(())
                 } else {
                     Err(Error::Protocol(
-                        "to_device_wrapped_key key_message_kind must be ck.file_transfer.key.v1"
+                        "to_device_wrapped_key key_message_kind must be ak.file_transfer.key.v1"
                             .to_owned(),
                     ))
                 }
@@ -1187,7 +1187,7 @@ pub fn realm_id_from_realm_remark_account_data_key(key: &str) -> Option<RealmId>
 
 pub fn parse_realm_remark_account_data_key(key: &str) -> Result<RealmId> {
     realm_id_from_realm_remark_account_data_key(key).ok_or_else(|| {
-        Error::Protocol("realm remark key must be ck.contacts.realm.<realm_id>".to_owned())
+        Error::Protocol("realm remark key must be ak.contacts.realm.<realm_id>".to_owned())
     })
 }
 
@@ -1485,12 +1485,12 @@ pub fn realm_key(namespace_key: &[u8], realm_id: &str) -> Result<String> {
 pub fn validate_private_account_data_key(key: &str) -> Result<()> {
     if let Some(realm_id) = key.strip_prefix("ak.contacts.realm.") {
         return RealmId::new(realm_id.to_owned()).map(|_| ()).map_err(|_| {
-            Error::Protocol("realm remark key must be ck.contacts.realm.<realm_id>".to_owned())
+            Error::Protocol("realm remark key must be ak.contacts.realm.<realm_id>".to_owned())
         });
     }
     if let Some(actor_id) = key.strip_prefix("ak.contacts.actor.") {
         return Did::new(actor_id.to_owned()).map(|_| ()).map_err(|_| {
-            Error::Protocol("contact remark key must be ck.contacts.actor.<did>".to_owned())
+            Error::Protocol("contact remark key must be ak.contacts.actor.<did>".to_owned())
         });
     }
     if let Some(id) = key.strip_prefix("ak.reminders.v1:") {
@@ -1624,7 +1624,7 @@ pub fn validate_file_transfer_id(value: &str) -> Result<()> {
         Ok(())
     } else {
         Err(Error::Protocol(
-            "transfer_id must be 22-128 chars from the ck.file_transfer.v1 alphabet".to_owned(),
+            "transfer_id must be 22-128 chars from the ak.file_transfer.v1 alphabet".to_owned(),
         ))
     }
 }

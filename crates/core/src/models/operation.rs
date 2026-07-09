@@ -1179,9 +1179,9 @@ pub struct CapabilityGrant {
     pub not_before: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
-    // ck.profile.personal_agent_provisioning.v1 flag (CKP-0008 §4.3.2). When true, the
+    // ak.profile.personal_agent_provisioning.v1 flag (CKP-0008 §4.3.2). When true, the
     // grant is durable but inactive: the capability evaluator MUST fail closed until the
-    // agent principal has an accepted ck.agent.key.authorize, after which the reducer
+    // agent principal has an accepted ak.agent.key.authorize, after which the reducer
     // clears the flag. See capability-grant.schema.json and key-management.md §3.6.1.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_after_first_authorized_key: Option<bool>,
@@ -1637,7 +1637,7 @@ pub struct MlsKeyPackageRecord {
 }
 
 impl MlsKeyPackageRecord {
-    /// Schema id for `ck.mls.keypackage` events / records.
+    /// Schema id for `ak.mls.keypackage` events / records.
     pub const SCHEMA: &'static str = "ak.schema.mls_keypackage.v1";
 
     /// Whether the record is currently usable for a Welcome.

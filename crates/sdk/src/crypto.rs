@@ -67,7 +67,7 @@ impl AeadNonceReplayTracker {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EncryptedEnvelopeAad {
     pub realm_id: String,
-    /// Canonical event kind (`ck.<category>.<verb>`).
+    /// Canonical event kind (`ak.<category>.<verb>`).
     #[serde(rename = "event_kind")]
     pub event_kind: String,
     pub event_id: String,

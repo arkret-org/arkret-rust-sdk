@@ -19,7 +19,7 @@ pub struct Realm {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub security_class: Option<SecurityClass>,
     /// Round 4 (2026-05-20, spec a77b995) — REQUIRED trust domain binding.
-    /// Captured at create time (`ck.realm.create`) and immutable; any
+    /// Captured at create time (`ak.realm.create`) and immutable; any
     /// later event whose `trust_domain` mismatches MUST be rejected with
     /// `cross_domain_replay_rejected`. Mixed into the canonical signing
     /// transcript of high-risk proofs (cross-signing reset,
@@ -58,7 +58,7 @@ pub struct Realm {
     /// axis durability, orthogonal to `notary` / `notary.recovery_*` (finality
     /// axis). Only effective (`mode != none`) when
     /// `content_scheme == "mls-exporter-aead-v1"`. Reducer-derived (written via
-    /// `ck.realm.policy_components`); a value at create time is a hint only.
+    /// `ak.realm.policy_components`); a value at create time is a hint only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub durability_policy: Option<DurabilityPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -74,7 +74,7 @@ pub struct Realm {
     /// Initial notary cell value (data-structures.md §4). Reducers seed the
     /// authoritative notary cell from this genesis value at Realm creation.
     /// Subsequent notary changes strand through Move on the
-    /// `ak:cell:ck.component.notary.v1:<realm_id>` cell.
+    /// `ak:cell:ak.component.notary.v1:<realm_id>` cell.
     pub notary: crate::notary::NotaryValue,
     /// Soft cap on how stale the latest Seal leaf may be before clients
     /// SHOULD warn / re-fetch. `None` means "implementation default" (spec
@@ -175,7 +175,7 @@ pub struct RealmRecoveryRecipient {
 /// Move/Seal/Lattice).
 ///
 /// This is a **hint field on `Realm`** — the live notary identity always
-/// lives in the `ak:cell:ck.component.notary.v1:<realm_id>` cell. The
+/// lives in the `ak:cell:ak.component.notary.v1:<realm_id>` cell. The
 /// hint exists so clients can pre-allocate state before observing the cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -202,7 +202,7 @@ pub enum NotaryProfile {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CellLatticeDeclaration {
-    /// `ck.component.<...>.v<N>` cell family identifier.
+    /// `ak.component.<...>.v<N>` cell family identifier.
     pub cell_family: String,
     /// One of `or_set` / `mv_register` / `cas_register` / `fsm` / `counter` /
     /// `ordered_log` per spec event-auth-state-resolution.md §5.3.
@@ -232,7 +232,7 @@ fn default_max_delegation_lifetime_ms() -> u64 {
 
 impl Realm {
     /// Build a materialized Realm object. The deployment-scope trust domain
-    /// and genesis notary value are required because `ck.realm.create`
+    /// and genesis notary value are required because `ak.realm.create`
     /// validates the full Realm object schema.
     pub fn new(
         id: RealmId,
@@ -295,7 +295,7 @@ impl Realm {
     }
 
     /// Builder: declare the initial notary cell value. Servers seed the
-    /// `ak:cell:ck.component.notary.v1:<realm_id>` cell from this hint at
+    /// `ak:cell:ak.component.notary.v1:<realm_id>` cell from this hint at
     /// Realm creation time. Subsequent rotations strand through Move.
     pub fn with_notary(mut self, notary: crate::notary::NotaryValue) -> Self {
         self.notary = notary;

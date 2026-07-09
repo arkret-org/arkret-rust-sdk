@@ -135,7 +135,7 @@ pub struct KeyBackupSummary {
 }
 
 /// The list-summary projection of [`KeyBackupEncryption`]: only the non-secret
-/// recipient fields survive into `ck.self.keys.backups.list` responses.
+/// recipient fields survive into `ak.self.keys.backups.list` responses.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupSummaryEncryption {
@@ -292,7 +292,7 @@ pub struct KeyBackupEncryption {
     /// Registered active HPKE suite selector (key-backup.schema.json
     /// `encryption.hpke_suite`). Applies only to
     /// `recipient_method=recovery_public_key`; absent denotes the default-MUST
-    /// row `ck.hpke_x25519_aead_chacha20poly1305.v1`. Optional/ignored for the
+    /// row `ak.hpke_x25519_aead_chacha20poly1305.v1`. Optional/ignored for the
     /// symmetric methods (passphrase_kdf / secret_storage_key).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hpke_suite: Option<String>,
@@ -661,7 +661,7 @@ pub struct KeyBackupRetention {
 }
 
 /// REC-1 (spec head, `recovery-policy.schema.json`) — Rust shape for
-/// `ck.schema.recovery_policy.v1`. A principal's signed recovery policy,
+/// `ak.schema.recovery_policy.v1`. A principal's signed recovery policy,
 /// versioned and bound to the Principal Control Realm via publish / rotate /
 /// revoke control events.
 ///
@@ -674,7 +674,7 @@ pub struct KeyBackupRetention {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryPolicy {
-    /// Schema id (`ck.schema.recovery_policy.v1`).
+    /// Schema id (`ak.schema.recovery_policy.v1`).
     pub schema: String,
     pub policy_id: PolicyId,
     pub principal_id: Did,
@@ -755,7 +755,7 @@ pub struct RecoveryControlFrontier {
     pub observed_at: Option<DateTime<Utc>>,
 }
 
-/// Response for `ck.root.identity.recovery_policy.resource.get`.
+/// Response for `ak.root.identity.recovery_policy.resource.get`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -771,7 +771,7 @@ pub struct RecoveryPolicyActiveOutcome {
     pub control_frontier: Option<RecoveryControlFrontier>,
 }
 
-/// Response for `ck.root.identity.recovery_policy.command.publish`.
+/// Response for `ak.root.identity.recovery_policy.command.publish`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -936,7 +936,7 @@ impl RecoveryProofKind {
 }
 
 /// REC-1 (spec head, `recovery-receipt.schema.json`) — Rust shape for
-/// `ck.schema.recovery_receipt.v1`. Signed completion receipt for a principal
+/// `ak.schema.recovery_receipt.v1`. Signed completion receipt for a principal
 /// recovery strand, bound to the `recovery_session_id` used by every proof,
 /// backup unlock, and MLS Welcome replay action.
 ///
@@ -947,7 +947,7 @@ impl RecoveryProofKind {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryReceipt {
-    /// Schema id (`ck.schema.recovery_receipt.v1`).
+    /// Schema id (`ak.schema.recovery_receipt.v1`).
     pub schema: String,
     pub receipt_id: ReceiptId,
     pub principal_id: Did,
@@ -1048,7 +1048,7 @@ pub struct RecoveryReceiptAuthData {
 // ─── DID-proof session grant strand ──────────────────────────────────────────
 //
 // The wire shapes for `POST /_arkret/gate/account/session-grants`
-// (`ck.gate.account.command.issue_session_grant`) live in `crate::http` as
+// (`ak.gate.account.command.issue_session_grant`) live in `crate::http` as
 // `SessionGrantRequestBody` / `SessionGrantOutcome`, mirroring
 // `service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody`.
 // The spec HTTP binding registers exactly one operation (proof in body,

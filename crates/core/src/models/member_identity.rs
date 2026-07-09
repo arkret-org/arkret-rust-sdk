@@ -7,7 +7,7 @@
 //!
 //! R3.2 wire-breaking changes:
 //! * `MemberIdentity` no longer carries `primary_handle` / `handles[]`; handle lifecycle is
-//!   governed solely by `ck.schema.handle_claim.v1`. This object discloses `subject_id` +
+//!   governed solely by `ak.schema.handle_claim.v1`. This object discloses `subject_id` +
 //!   `display_profile` for Realm UI projection only.
 //! * Payload field `identity_state_digest` renamed to `identity_payload_digest` (carrier cache
 //!   key).
@@ -26,19 +26,19 @@ use super::*;
 use crate::canonical;
 
 /// Schema discriminator carried by [`MemberIdentity::schema`]. Matches the
-/// `ck.schema.member_identity.v1` constant in the spec schema.
+/// `ak.schema.member_identity.v1` constant in the spec schema.
 pub const MEMBER_IDENTITY_SCHEMA: &str = "ak.schema.member_identity.v1";
 
 /// Realm-scoped, actor-scoped full `member_identity` segment.
 ///
-/// Carried by `ck.member.identity.update` in plaintext or inside an
+/// Carried by `ak.member.identity.update` in plaintext or inside an
 /// `encrypted_envelope` carrier. Replacement events that name
 /// `segment=member_identity` MUST carry this complete object.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MemberIdentity {
-    /// `ck.schema.member_identity.v1`.
+    /// `ak.schema.member_identity.v1`.
     pub schema: String,
     pub realm_id: RealmId,
     pub actor_id: Did,
@@ -52,7 +52,7 @@ pub struct MemberIdentity {
 
 impl MemberIdentity {
     /// Constructor that fills in the canonical schema discriminator so
-    /// callers can't drift from `ck.schema.member_identity.v1`.
+    /// callers can't drift from `ak.schema.member_identity.v1`.
     pub fn new(
         realm_id: RealmId,
         actor_id: Did,
@@ -135,7 +135,7 @@ pub enum MemberIdentitySignatureAlgorithm {
     Es384,
 }
 
-/// `segment` field on a `ck.member.identity.update` payload. v1 core
+/// `segment` field on a `ak.member.identity.update` payload. v1 core
 /// defines a single full `member_identity` segment; v1 receivers MUST
 /// reject any other value. Narrower segments require a future
 /// schema/profile revision that extends this enum.
@@ -184,7 +184,7 @@ impl IdentityPayloadCarrier {
     }
 }
 
-/// Typed payload for `ck.member.identity.update`. Append-only
+/// Typed payload for `ak.member.identity.update`. Append-only
 /// replacement event for one Realm-scoped member identity segment.
 ///
 /// Service-visible metadata names the segment and the prior events it
@@ -390,7 +390,7 @@ pub struct MemberRosterEntry {
     /// authorized for the caller.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subject_id: Option<Did>,
-    /// Effective `ck.member.identity.update` event ids for this actor
+    /// Effective `ak.member.identity.update` event ids for this actor
     /// after replacement edges are applied.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub identity_event_ids: Vec<EventId>,
@@ -399,13 +399,13 @@ pub struct MemberRosterEntry {
     /// digests; see [`member_display_state_digest`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub member_display_state_digest: Option<Hash>,
-    /// Optional inline effective `ck.member.identity.update` Event
+    /// Optional inline effective `ak.member.identity.update` Event
     /// envelopes. When present these are the original events, NOT
     /// query-time re-encryption or projection rewrites. MUST be omitted
     /// unless `subject_id` is disclosed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub identity_events: Vec<Event>,
-    /// Digests of currently visible effective `ck.schema.handle_claim.v1`
+    /// Digests of currently visible effective `ak.schema.handle_claim.v1`
     /// objects. MUST be omitted unless `subject_id` is disclosed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle_claim_digests: Option<Vec<Hash>>,

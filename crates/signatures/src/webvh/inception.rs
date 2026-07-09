@@ -98,7 +98,7 @@ pub struct PreparedInception {
     /// attached.
     #[zeroize(skip)]
     pub log_entry: Value,
-    /// Typed request body for `ck.root.identity.command.submit_did_operation`.
+    /// Typed request body for `ak.root.identity.command.submit_did_operation`.
     #[zeroize(skip)]
     pub submit_body: DidOperationSubmitRequestBody,
     /// Multibase ed25519 **public** key for the DID's verification method.
@@ -173,7 +173,7 @@ pub struct InceptionInput<'a> {
     /// Device-enrollment-authority DID (`did:key:z…`) written into the minted
     /// DID document as the `CokretDeviceEnrollmentAuthority` service
     /// `serviceEndpoint`. This designates the authority allowed to attest
-    /// `service_attested` `ck.device.authorize` events for this principal
+    /// `service_attested` `ak.device.authorize` events for this principal
     /// (decision 0002 / device-lifecycle §5.4).
     pub enrollment_authority_did: &'a str,
 }

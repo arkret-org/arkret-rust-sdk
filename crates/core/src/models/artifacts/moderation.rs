@@ -141,7 +141,7 @@ impl FrankingProof {
     pub fn validate_event_time_anchor(&self, anchor: &FrankingProofEventTimeAnchor) -> Result<()> {
         if self.kind != MODERATION_FRANKING_PROOF_KIND {
             return Err(Error::Protocol(
-                "franking proof kind must be ck.moderation.franking_proof".to_owned(),
+                "franking proof kind must be ak.moderation.franking_proof".to_owned(),
             ));
         }
         if self.event_id != anchor.event_id {

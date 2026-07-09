@@ -451,7 +451,7 @@ pub struct EventsQueryParams {
 }
 
 impl EventsQueryParams {
-    /// Validate the selector part of `ck.self.events.query.scan`.
+    /// Validate the selector part of `ak.self.events.query.scan`.
     pub fn validate_non_empty(&self) -> Result<()> {
         if self.realms.is_empty() && self.actors.is_empty() {
             return Err(Error::Protocol(

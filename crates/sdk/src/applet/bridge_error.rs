@@ -3,9 +3,9 @@ use serde_json::Value;
 
 use crate::{Did, Event, Hlc, RealmId, Result};
 
-// ─── S-11 / S-13: ck.applet.bridge_error builder ──────────────────────────
+// ─── S-11 / S-13: ak.applet.bridge_error builder ──────────────────────────
 
-/// Who MAY see a `ck.applet.bridge_error` Event. Spec `applet-schema.md`
+/// Who MAY see a `ak.applet.bridge_error` Event. Spec `applet-schema.md`
 /// §7 makes `visibility_scope` a **required** enum; clients MUST restrict
 /// display accordingly and MUST NOT leak bridge-internal detail to
 /// unrelated members. Serializes as snake_case.
@@ -20,7 +20,7 @@ pub enum AppletBridgeErrorVisibility {
     RealmMembers,
 }
 
-/// Closed `error_class` enum for `ck.applet.bridge_error`.
+/// Closed `error_class` enum for `ak.applet.bridge_error`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AppletBridgeErrorClass {
@@ -31,7 +31,7 @@ pub enum AppletBridgeErrorClass {
     Policy,
 }
 
-/// Build a `ck.applet.bridge_error` Event per spec `applet-schema.md` §7
+/// Build a `ak.applet.bridge_error` Event per spec `applet-schema.md` §7
 /// (authoritative `applet_bridge_error_payload`).
 ///
 /// External Applets MUST emit this Event rather than silently dropping

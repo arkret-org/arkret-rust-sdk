@@ -4,11 +4,11 @@
 //! These types model the three new wire payloads that compose the
 //! cross-Realm governance surface:
 //!
-//! - [`RealmLink`] — `ck.realm.link` payload. Typed link between two Realm boundaries, one of eight
+//! - [`RealmLink`] — `ak.realm.link` payload. Typed link between two Realm boundaries, one of eight
 //!   canonical [`RealmLinkKind`] values.
-//! - [`RealmInheritancePolicy`] — `ck.realm.inheritance_policy` payload. Declares which policy
+//! - [`RealmInheritancePolicy`] — `ak.realm.inheritance_policy` payload. Declares which policy
 //!   names + capability bundles a child Realm inherits from a parent Realm, capped by `max_depth`.
-//! - [`CapabilityDerived`] — `ck.capability.derived` payload. Records a capability that was derived
+//! - [`CapabilityDerived`] — `ak.capability.derived` payload. Records a capability that was derived
 //!   by composing a parent Realm's grant with a child Realm's inheritance declaration.
 //!
 //! All three are wire-shape-only typed structs at this stage; the full
@@ -46,7 +46,7 @@ pub const REALM_MODERATION_POLICY_FANOUT_SOURCE_ORGANIZATION_POLICY: &str = "org
 pub const REALM_MODERATION_POLICY_WIRE_CODE_REQUIRES_ORGANIZATION_APPROVAL: &str =
     "requires_organization_approval";
 
-/// Canonical link_kind values for `ck.realm.link`. The eight values
+/// Canonical link_kind values for `ak.realm.link`. The eight values
 /// enumerate the typed cross-Realm relations the spec recognises after the
 /// Realm/Space boundary split; link payloads MUST carry exactly one of
 /// these. Wire form is snake_case.
@@ -62,7 +62,7 @@ pub enum RealmLinkKind {
     /// authenticated members.
     JoinGateFrom,
     /// Source Realm inherits policy from target Realm (paired with a
-    /// `ck.realm.inheritance_policy` declaration).
+    /// `ak.realm.inheritance_policy` declaration).
     InheritsPolicyFrom,
     /// Source Realm is a confidential extension (sub-Realm with stricter
     /// confidentiality envelope) of the target Realm.
@@ -122,7 +122,7 @@ impl RealmLinkKind {
     }
 }
 
-/// Lifecycle status of a `ck.realm.link`. The link cell is `or_set`-keyed
+/// Lifecycle status of a `ak.realm.link`. The link cell is `or_set`-keyed
 /// by `(source_realm_id, target_realm_id, link_kind)`; status flips this
 /// triple from `active` to `rejected` or `tombstoned` without producing
 /// a new key.
@@ -154,9 +154,9 @@ impl RealmLinkStatus {
     }
 }
 
-/// Typed payload for the `ck.realm.link` event.
+/// Typed payload for the `ak.realm.link` event.
 ///
-/// Cell family: `ck.component.realm.link.v1` (or_set lattice). Cell
+/// Cell family: `ak.component.realm.link.v1` (or_set lattice). Cell
 /// subject key: `(realm_id, target_realm_id, link_kind)`. The reducer
 /// resolves status flips by retaining the latest status per triple.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -393,7 +393,7 @@ pub struct RealmPolicyServerReplaceRequestBody {
     pub on_timeout: Option<RealmPolicyServerOnTimeout>,
 }
 
-/// `lifecycle_phase` discriminator for a projected `ck.realm.organization`
+/// `lifecycle_phase` discriminator for a projected `ak.realm.organization`
 /// relationship row
 /// (`realm-organization-operations.schema.json#/$defs/lifecycle_phase`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -407,8 +407,8 @@ pub enum RealmOrganizationLifecyclePhase {
     RevokedOrExpired,
 }
 
-/// One projected `ck.realm.organization` relationship row surfaced by
-/// `ck.self.realm_organization.query.list`. Mirrors the canonical
+/// One projected `ak.realm.organization` relationship row surfaced by
+/// `ak.self.realm_organization.query.list`. Mirrors the canonical
 /// `realm_organization_payload` field order; `lifecycle_phase` is
 /// reducer-derived. A row here is a projection only: an organization
 /// relationship is only verified when `lifecycle_phase=verified_active`.
@@ -440,7 +440,7 @@ pub struct RealmOrganizationRelationshipRow {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-/// Response DTO for `ck.self.realm_organization.query.list`
+/// Response DTO for `ak.self.realm_organization.query.list`
 /// (`realm-organization-operations.schema.json#/$defs/realm_organization_relationship_list`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -456,9 +456,9 @@ pub struct RealmOrganizationRelationshipList {
     pub declared_organization_hints: Vec<Did>,
 }
 
-/// Typed payload for the `ck.realm.inheritance_policy` event.
+/// Typed payload for the `ak.realm.inheritance_policy` event.
 ///
-/// Cell family: `ck.component.realm.inheritance_policy.v1` (cas-register).
+/// Cell family: `ak.component.realm.inheritance_policy.v1` (cas-register).
 /// Declares which policy names and capability bundles a Realm inherits
 /// from a parent (source) Realm. The reducer rejects payloads with
 /// `max_depth > 1` (the wire spec currently caps inheritance at depth 1).
@@ -506,9 +506,9 @@ impl RealmInheritancePolicy {
     }
 }
 
-/// Typed payload for the `ck.capability.derived` event.
+/// Typed payload for the `ak.capability.derived` event.
 ///
-/// Cell family: `ck.component.capability.derived.v1` (cas-register keyed
+/// Cell family: `ak.component.capability.derived.v1` (cas-register keyed
 /// by `capability_id`). Records a capability that was derived from
 /// composing a parent Realm grant (`source_grant_ref`) with a child
 /// Realm's inheritance declaration (`source_realm_inheritance_policy_ref`).
@@ -613,7 +613,7 @@ mod tests {
     }
 }
 
-// ── SDK-ORG-06 — ck.realm.organization statement verifier ──────────────
+// ── SDK-ORG-06 — ak.realm.organization statement verifier ──────────────
 //
 // Stateless, injectable verification of a [`RealmOrganizationPayload`]
 // relationship statement. This is the canonical organization-side check

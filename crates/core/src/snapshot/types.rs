@@ -22,7 +22,7 @@ mod base64_url {
     }
 }
 
-/// Full `ck.schema.snapshot.v1` manifest returned by `ck.self.snapshot.query.manifest_head`.
+/// Full `ak.schema.snapshot.v1` manifest returned by `ak.self.snapshot.query.manifest_head`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotManifest {

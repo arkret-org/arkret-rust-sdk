@@ -22,7 +22,7 @@ arkret (umbrella SDK)
     |-- content/media/profile/settings/search/discovery: feature helpers
     |-- auth/identity/e2ee/push: production protocol services
     |-- federation: discovery, replay/fork quarantine and digest helpers (the
-    |   protocol federation wire surface is the spec `ck.peer.*` family)
+    |   protocol federation wire surface is the spec `ak.peer.*` family)
     |-- typing/webrtc: realtime client features
     |-- mls: OpenMLS-backed group encryption and epoch handling
     `-- store: local persistence traits and in-memory implementation

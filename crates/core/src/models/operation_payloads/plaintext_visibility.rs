@@ -80,7 +80,7 @@ impl PlaintextVisibleService {
     }
 }
 
-/// Strong type for `ck.realm.plaintext_visible_services` payloads
+/// Strong type for `ak.realm.plaintext_visible_services` payloads
 /// (`event-payload.schema.json#/$defs/plaintext_visible_services_payload`).
 ///
 /// `{ services: [...] }`, top-level `additionalProperties:false`. Declares the
@@ -88,7 +88,7 @@ impl PlaintextVisibleService {
 /// the E2EE boundary.
 ///
 /// Note: like [`HistoryVisibilityPayload`], the SDK kind→def resolver currently
-/// routes `ck.realm.plaintext_visible_services` to `generic_standard_payload`;
+/// routes `ak.realm.plaintext_visible_services` to `generic_standard_payload`;
 /// this type still gives compile-time field safety, and the guard test
 /// validates directly against the named def schema_ref.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

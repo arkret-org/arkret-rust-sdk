@@ -73,7 +73,7 @@ impl GhostActorProvisionRequestBody {
 /// `POST /_arkret/self/applets/{applet_id}/ghosts/provision` response.
 ///
 /// Carries the durable event refs the Principal Server minted: the Ghost
-/// Actor `ck.profile.create` ref, the `ck.identity.accountability_grant` ref
+/// Actor `ak.profile.create` ref, the `ak.identity.accountability_grant` ref
 /// (also surfaced as the delegated `authorization_ref` for subsequent ghost
 /// events).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -154,7 +154,7 @@ impl GhostActorProfileFields {
 }
 
 /// SDK request object for constructing the schema-legal Ghost Actor profile
-/// used by `ck.profile.create`.
+/// used by `ak.profile.create`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GhostActorProfileRequest {
@@ -307,7 +307,7 @@ impl GhostActorProfileRequest {
     }
 }
 
-/// `ck.identity.accountability_grant.grant_status`.
+/// `ak.identity.accountability_grant.grant_status`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AccountabilityGrantStatus {
@@ -315,7 +315,7 @@ pub enum AccountabilityGrantStatus {
     Revoked,
 }
 
-/// `ck.identity.accountability_grant.accountability_scope`.
+/// `ak.identity.accountability_grant.accountability_scope`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AccountabilityScope {
@@ -323,7 +323,7 @@ pub enum AccountabilityScope {
     Multiple(Vec<String>),
 }
 
-/// Payload for durable `ck.identity.accountability_grant` events.
+/// Payload for durable `ak.identity.accountability_grant` events.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountabilityGrantPayload {

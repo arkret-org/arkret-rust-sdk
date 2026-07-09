@@ -21,16 +21,16 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
 
 ### Identifiers (`crates/identifiers/`)
 
-- Added id-kind `RecoverySession` (wire form `ck:recovery_session:<uuid>`).
-- Added id-kind / wire form for `CircleId` (`^ck:circle:[0-9a-f]{8}-...$`)
+- Added id-kind `RecoverySession` (wire form `ak:recovery_session:<uuid>`).
+- Added id-kind / wire form for `CircleId` (`^ak:circle:[0-9a-f]{8}-...$`)
   to back `ResourceSelector::Circle(CircleId)`.
 
 ### Core wire models (`crates/core/`)
 
 - `events/kinds.rs` — registered new agent event kinds
-  (`ck.agent.draft.propose`, `ck.agent.action_request`,
-  `ck.agent.action_approve`, `ck.agent.action_reject`) as actor-private
-  events with `reducer_input = false`. Marked `ck.agent.{pause, resume,
+  (`ak.agent.draft.propose`, `ak.agent.action_request`,
+  `ak.agent.action_approve`, `ak.agent.action_reject`) as actor-private
+  events with `reducer_input = false`. Marked `ak.agent.{pause, resume,
   deactivate}` with `lattice = fsm, bottom = reject`.
 - `model/call_media.rs` — `MediaTokenResponse`, `ParticipantBinding`,
   `MediaBackendType` (with `Unknown(String)` arm), TTL gate helper, and
@@ -45,7 +45,7 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
 - `cursor/` — default parser is now stateful `{v, purpose, t, x, h}`;
   stateless cursor (`{v, purpose, t, s, d?, target?, x, _mac/_sig,
   issuer_kid}`) is feature-gated under `stateless_cursor` and advertised via
-  `ck.profile.stateless_cursor.v1`.
+  `ak.profile.stateless_cursor.v1`.
 - `model/selector.rs` — `ResourceSelector::Circle(CircleId)`; `object_ref`
   union updated.
 - `model/account.rs` — `AccountDataSetPayload`, `AccountBlocklistPayload`
@@ -68,13 +68,13 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
 
 - New helper `call_media_token_exchange(realm_id, call_id, actor_id,
   device_id, focus_id) -> MediaTokenResponse`.
-- `ck.self.agent.command.deactivate` HTTP path is now
+- `ak.self.agent.command.deactivate` HTTP path is now
   `POST /agents/{agent_principal_id}/deactivate`; the historical `/revoke`
   alias is gone. Grep gate in the completion checklist enforces this.
 
 ### Server (`crates/server/`)
 
-- Operation registry adds `ck.self.call.media.exchange.issue_token`
+- Operation registry adds `ak.self.call.media.exchange.issue_token`
   (`POST /rtc/token`, `CallMedia/TokenExchange`,
   `call.media.exchange.issue_token`) to the `core_personal` surface tier.
 - Agent runtime tier surface declared:
@@ -107,7 +107,7 @@ relaxed validators would have let through.
   per-arm verifier table.
 - `crates/core/src/models/handle.rs::uts39_full_skeleton_table` — minimal
   confusable skeleton ships in R3; full UTS#39 table import deferred.
-- `crates/core/src/models/member_identity.rs` (R3.1) — `ck.member.identity.update`,
+- `crates/core/src/models/member_identity.rs` (R3.1) — `ak.member.identity.update`,
   `MemberIdentity` / `VerifiedHandle` shapes, effective-set computation,
   identity_state_digest helper. Tracked under R3.1 items HDLREN-* / MID-*
   in `_arkret-rust-sdk_todos.md`.
@@ -120,7 +120,7 @@ relaxed validators would have let through.
 The `spec-drift` job in `.github/workflows/ci.yml` (hard gate; named
 `spec artifact drift report` and referred to as **`spec-drift-report`** in
 the plan docs) was extended to cover the new event kinds, the new
-`ck.self.call.media.exchange.issue_token` operation, and the new profiles. See
+`ak.self.call.media.exchange.issue_token` operation, and the new profiles. See
 [`docs/architecture.md`](../architecture.md#spec-drift-coverage-ci) for the
 coverage description and the "how to re-add this job" runbook.
 

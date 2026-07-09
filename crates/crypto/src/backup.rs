@@ -1,4 +1,4 @@
-//! Client-side crypto for `ck.schema.key_backup.v1` envelopes.
+//! Client-side crypto for `ak.schema.key_backup.v1` envelopes.
 //!
 //! Spec: `crypto-media/key-management.md` §7 (Key Backup), §8 (Threshold
 //! Recovery) and `crypto-media/devices-and-auth.md` §4.1 (Encrypted Cloud
@@ -65,7 +65,7 @@ type Result<T> = std::result::Result<T, KeyBackupError>;
 /// (16) and the AAD construction below.
 pub const VAULT_AEAD_PROFILE: &str = "ak.aead.xchacha20_poly1305.v1";
 
-/// `ck.schema.key_backup.v1` schema id, bound into the AEAD AAD so a
+/// `ak.schema.key_backup.v1` schema id, bound into the AEAD AAD so a
 /// ciphertext cannot be replayed under a different schema (§7.1).
 pub const VAULT_SCHEMA_ID: &str = "ak.schema.key_backup.v1";
 
@@ -330,7 +330,7 @@ pub fn encrypt_vault(
 /// Variant of [`encrypt_vault`] with a caller-supplied producer
 /// `nonce_salt`. Production callers MUST use [`encrypt_vault`] (fresh
 /// random salt); this entry point exists so deterministic conformance
-/// KAT vectors (`ck.vector.key_backup.passphrase_kdf_kat.v1`) can be
+/// KAT vectors (`ak.vector.key_backup.passphrase_kdf_kat.v1`) can be
 /// generated and re-verified byte-for-byte from the same code path.
 pub fn encrypt_vault_with_nonce_salt(
     kek: &VaultKek,
@@ -507,7 +507,7 @@ pub fn estimate_passphrase_strength(passphrase: &str) -> u8 {
     score.clamp(0, 5) as u8
 }
 
-/// Build a typed `ck.schema.key_backup.v1` envelope, encrypting
+/// Build a typed `ak.schema.key_backup.v1` envelope, encrypting
 /// `plaintext` against the envelope's own identity binding.
 ///
 /// `contents` is `(item_type, optional secret_id)`. The AEAD key, nonce

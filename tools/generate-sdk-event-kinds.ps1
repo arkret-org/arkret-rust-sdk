@@ -7,9 +7,9 @@ param(
 # arkret-spec/spec/v1/artifacts/registry/event-kind-registry.json.
 #
 # Outputs the strongly-typed `EventKind` enum: one PascalCase variant per
-# active `ck.*` kind in the registry, plus an `Unknown(String)` catch-all that
+# active `ak.*` kind in the registry, plus an `Unknown(String)` catch-all that
 # carries any other wire string verbatim for forward compatibility (an older
-# build deserialising a newer ck.* kind keeps the bytes instead of failing the
+# build deserialising a newer ak.* kind keeps the bytes instead of failing the
 # parse; the spec's "unknown standard kind is schema_violation" rule is enforced
 # at the validation layer, not at deserialisation).
 
@@ -64,11 +64,11 @@ $add = { param($s) $lines.Add($s) | Out-Null }
 & $add "    is_reducer_input_event_kind,"
 & $add "};"
 & $add ""
-& $add "/// Count of standard `ck.*` event kinds the registry declares active."
+& $add "/// Count of standard `ak.*` event kinds the registry declares active."
 & $add "/// Excludes the [`EventKind::Unknown`] catch-all."
 & $add "pub const EVENT_KIND_COUNT: usize = $($entries.Count);"
 & $add ""
-& $add "/// Strongly-typed Arkret event kind. One variant per active `ck.*` kind in"
+& $add "/// Strongly-typed Arkret event kind. One variant per active `ak.*` kind in"
 & $add "/// ``event-kind-registry.json``, plus [`EventKind::Unknown`] which preserves"
 & $add "/// any other wire string verbatim for forward compatibility."
 & $add "///"

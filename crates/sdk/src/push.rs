@@ -97,7 +97,7 @@ pub struct EncryptedPushPayload {
 /// credentials. By default
 /// any payload whose body or data fields contain a `did:` substring is
 /// rejected. Callers MAY whitelist services they have explicitly listed
-/// under `ck.realm.plaintext_visible_services` by adding their service
+/// under `ak.realm.plaintext_visible_services` by adding their service
 /// DID to `allow_plaintext_for_services`.
 #[derive(Clone, Debug, Default)]
 pub struct PushPrivacyPolicy {

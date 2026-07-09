@@ -72,7 +72,7 @@ impl Client {
 
     /// CKP-0010 — exchange a committed `session_focus` for a backend media
     /// token + `participant_binding` via
-    /// `ck.self.call.media.exchange.issue_token` (`POST /_arkret/self/rtc/token`,
+    /// `ak.self.call.media.exchange.issue_token` (`POST /_arkret/self/rtc/token`,
     /// `media-service-binding.md` §3).
     ///
     /// Returns the raw signed outcome; callers MUST verify the response against

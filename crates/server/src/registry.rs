@@ -617,6 +617,16 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_arkret/self/rtc/ice-config"
     ),
     endpoint!(
+        "ak.open.agent_pairing.query.resolve",
+        Post,
+        "/_arkret/open/agent-pairing/resolve"
+    ),
+    endpoint!(
+        "ak.open.agent_pairing.command.submit_runtime_key_request",
+        Post,
+        "/_arkret/open/agent-pairing/runtime-key-requests"
+    ),
+    endpoint!(
         "ak.open.invite_locator.query.resolve",
         Post,
         "/_arkret/open/invite-locators/resolve"

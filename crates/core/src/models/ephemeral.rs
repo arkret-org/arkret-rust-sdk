@@ -12,13 +12,13 @@ use crate::ERROR_CODE_INVALID_PARAM;
 /// receivers (`invalid_param`)." Five minutes = 300_000 ms. Round R2/R3.
 pub const EPHEMERAL_ABSOLUTE_HARD_CEILING_MS: u32 = 300_000;
 
-/// Broadcast ephemeral envelope (`ck.schema.ephemeral_envelope.v1`).
+/// Broadcast ephemeral envelope (`ak.schema.ephemeral_envelope.v1`).
 ///
-/// Wire shape for the four broadcast ephemeral signal kinds — `ck.presence`,
-/// `ck.typing`, `ck.receipt.read`, `ck.call.signal`. Carried on dedicated
+/// Wire shape for the four broadcast ephemeral signal kinds — `ak.presence`,
+/// `ak.typing`, `ak.receipt.read`, `ak.call.signal`. Carried on dedicated
 /// ephemeral channels (sync subscribe live stream, presence/typing fanout,
 /// call signaling channel) and dropped at TTL. Point-to-point to-device
-/// signals (`ck.key.verification.*`) use the device message schema instead.
+/// signals (`ak.key.verification.*`) use the device message schema instead.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EphemeralEnvelope {
@@ -35,8 +35,8 @@ pub struct EphemeralEnvelope {
     pub payload: Value,
     /// Detached signature over canonical envelope bytes (excluding `proof`
     /// itself). Per `ephemeral-envelope.schema.json` this is REQUIRED for
-    /// every broadcast ephemeral kind (`ck.presence`, `ck.typing`,
-    /// `ck.receipt.read`, `ck.call.signal`); kept optional in the struct for
+    /// every broadcast ephemeral kind (`ak.presence`, `ak.typing`,
+    /// `ak.receipt.read`, `ak.call.signal`); kept optional in the struct for
     /// non-broadcast relay uses.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<Value>,
@@ -63,10 +63,10 @@ impl EphemeralEnvelope {
         let kind = kind.into();
         if !matches!(
             kind.as_str(),
-            "ak.call.signal" | "ck.presence" | "ck.typing" | "ck.receipt.read"
+            "ak.call.signal" | "ak.presence" | "ak.typing" | "ak.receipt.read"
         ) {
             return Err(Error::Protocol(format!(
-                "ephemeral envelope kind {kind:?} not in {{ck.call.signal, ck.presence, ck.typing, ck.receipt.read}}"
+                "ephemeral envelope kind {kind:?} not in {{ak.call.signal, ak.presence, ak.typing, ak.receipt.read}}"
             )));
         }
         if expires_at <= sent_at {
@@ -94,9 +94,9 @@ impl EphemeralEnvelope {
     }
 }
 
-// ── EphemeralEnvelope v2 / ck.call.signal ───────────────────────────────
+// ── EphemeralEnvelope v2 / ak.call.signal ───────────────────────────────
 
-/// Round 4 (commit 58c5926) — typed `ck.call.signal` envelope payload.
+/// Round 4 (commit 58c5926) — typed `ak.call.signal` envelope payload.
 ///
 /// The pre-round-4 envelope carried an open `Value` payload; the round-4
 /// wire requires the three fields `call_id` + `signal_type` + `seq` and
@@ -137,7 +137,7 @@ impl CallSignalPayload {
     }
 }
 
-/// Round 4 — composite key for the `ck.call.signal` `seq` monotonicity
+/// Round 4 — composite key for the `ak.call.signal` `seq` monotonicity
 /// guard. Receivers maintain one `seq` per `(realm, call, actor,
 /// device)` tuple; rollback rejects the signal and the receiver SHOULD
 /// emit `hangup` for that call.
@@ -204,16 +204,16 @@ impl CallSignalState {
     }
 }
 
-// ── EphemeralEnvelope v2 helpers (ck.call.signal required fields) ────
+// ── EphemeralEnvelope v2 helpers (ak.call.signal required fields) ────
 
-/// Round 4 — verify a `ck.call.signal` [`EphemeralEnvelope`] satisfies
+/// Round 4 — verify a `ak.call.signal` [`EphemeralEnvelope`] satisfies
 /// the v2 wire requirements: `device_id` + `proof` are REQUIRED, and
 /// the payload deserialises into a [`CallSignalPayload`] with a
 /// canonical `signal_type`.
 pub fn validate_call_signal_envelope(env: &EphemeralEnvelope) -> Result<CallSignalPayload> {
     if env.kind != "ak.call.signal" {
         return Err(Error::Protocol(format!(
-            "envelope kind {:?} is not ck.call.signal",
+            "envelope kind {:?} is not ak.call.signal",
             env.kind
         )));
     }

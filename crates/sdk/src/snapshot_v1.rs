@@ -11,7 +11,7 @@ use ed25519_dalek::SigningKey;
 use crate::identity::DidResolver;
 use crate::{Error, Result};
 
-/// Sign the unsigned `ck.schema.snapshot.v1` manifest transcript and attach
+/// Sign the unsigned `ak.schema.snapshot.v1` manifest transcript and attach
 /// the resulting detached JWS proof to the manifest.
 pub fn sign_snapshot_manifest_ed25519(
     manifest: &mut SnapshotManifest,

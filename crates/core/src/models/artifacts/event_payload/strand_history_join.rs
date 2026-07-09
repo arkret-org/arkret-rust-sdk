@@ -212,8 +212,8 @@ pub struct MemberApplicationAnswer {
 }
 
 /// Candidate `member.application` record (`governance/join-policy.md` §7.2).
-/// This is a profile-private workflow concept — NOT a standalone `ck.*`
-/// Event.kind. Carried on the active `ck.member.state{knock}` event under an
+/// This is a profile-private workflow concept — NOT a standalone `ak.*`
+/// Event.kind. Carried on the active `ak.member.state{knock}` event under an
 /// `application` sub-object.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MemberApplicationPayload {
@@ -234,7 +234,7 @@ pub struct MemberApplicationPayload {
 }
 
 /// Candidate `member.application.review` record (`governance/join-policy.md`
-/// §7.3). Profile-private, carried on a `ck.member.state` event under an
+/// §7.3). Profile-private, carried on a `ak.member.state` event under an
 /// `application_review` sub-object.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MemberApplicationReviewPayload {

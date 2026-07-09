@@ -3,7 +3,7 @@
 //!
 //! `generated::profile_requirements` is a static table with no `#[cfg(feature)]`
 //! gates: a `--no-default-features` build still declares the full
-//! `e2ee_client` required surface (`ck.mls.*` event kinds,
+//! `e2ee_client` required surface (`ak.mls.*` event kinds,
 //! `encrypted_envelope` / `key_backup` schemas), even though that binary has no
 //! MLS or key-backup code linked in. `conformance-profiles.md` requires an
 //! implementation to "only declare the profiles it actually supports", so a
@@ -14,7 +14,7 @@
 //! requirement table itself (so it never drifts from the profiles), which Cargo
 //! features a declared profile *implies*, then diffs that against the feature
 //! set the caller reports as compiled. The derivation is data-driven — a new
-//! MLS-bearing profile is caught automatically because it references `ck.mls.*`
+//! MLS-bearing profile is caught automatically because it references `ak.mls.*`
 //! kinds or the `encrypted_envelope` schema, not because it was hand-listed
 //! here.
 //!
@@ -159,7 +159,7 @@ mod tests {
             implied
                 .iter()
                 .any(|(feature, by)| feature == FEATURE_MLS && by.starts_with("ak.mls.")),
-            "e2ee_client requires ck.mls.* kinds -> mls feature: {implied:?}"
+            "e2ee_client requires ak.mls.* kinds -> mls feature: {implied:?}"
         );
         assert!(
             implied

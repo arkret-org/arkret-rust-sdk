@@ -66,7 +66,7 @@ use serde::{Deserialize, Serialize};
 /// `ES256` (ECDSA P-256, profile-gated classical interop) has no P-256
 /// signer/verifier in this workspace. `ML-DSA-65` (NIST FIPS 204 ML-DSA
 /// category 3, `role=v1_profile_gated_pqc` behind
-/// `ck.profile.signature.pqc.v1`) is here because the workspace pulls in no
+/// `ak.profile.signature.pqc.v1`) is here because the workspace pulls in no
 /// FIPS 204 / ML-DSA crate. The EdDSA verifier fails closed on both (they are
 /// never mistaken for valid). Activating either — adding the dependency and a
 /// dispatch arm — is a separate mid-term owner decision (SDK-SOTA-01), tracked

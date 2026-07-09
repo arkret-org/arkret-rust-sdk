@@ -84,9 +84,9 @@ impl RealmState {
                 .ok_or_else(|| {
                     Error::Protocol("member state requires payload.actor_id".to_owned())
                 }),
-            // Per spec event-kind-registry: all `ck.capability.*` kinds
+            // Per spec event-kind-registry: all `ak.capability.*` kinds
             // declare `cell_subject.field = payload.grant_id` over the shared
-            // `ck.component.capability.grant.v1` cell family.
+            // `ak.component.capability.grant.v1` cell family.
             "ak.capability.grant"
             | "ak.capability.delegate"
             | "ak.capability.revoke"
@@ -95,10 +95,10 @@ impl RealmState {
                 .ok_or_else(|| {
                     Error::Protocol("capability event requires payload.grant_id".to_owned())
                 }),
-            "ak.realm.policy" | "ck.policy.set" => Ok(self
+            "ak.realm.policy" | "ak.policy.set" => Ok(self
                 .extract_optional_field::<String>(&event.payload, "policy_id")
                 .unwrap_or_else(|| "space_policy".to_owned())),
-            "ak.invite.create" | "ck.invite.cancel" | "ck.invite.accept" => self
+            "ak.invite.create" | "ak.invite.cancel" | "ak.invite.accept" => self
                 .extract_optional_field::<String>(&event.payload, "invite_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.payload, "id"))
                 .ok_or_else(|| Error::Protocol("invite event requires invite_id or id".to_owned())),
@@ -108,7 +108,7 @@ impl RealmState {
                 .ok_or_else(|| {
                     Error::Protocol("read marker requires scope or target_ref".to_owned())
                 }),
-            // `ck.realm.organization` declares a tuple `cell_subject`
+            // `ak.realm.organization` declares a tuple `cell_subject`
             // `(organization_id, relationship)`; it is keyed by that composite
             // subject (matching the lattice registry `::` separator), NOT by
             // realm_id, so distinct organization/relationship statements coexist.
@@ -142,7 +142,7 @@ impl RealmState {
             | "ak.realm.destroy"
             | "ak.realm.upgrade" => Ok(event.realm_id.as_str().to_owned()),
             // View events use view_id as state key
-            "ak.view.create" | "ck.view.update" | "ck.view.reconcile" => self
+            "ak.view.create" | "ak.view.update" | "ak.view.reconcile" => self
                 .extract_optional_field::<String>(&event.payload, "view_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.payload, "id"))
                 .ok_or_else(|| Error::Protocol("view event requires view_id or id".to_owned())),
@@ -154,7 +154,7 @@ impl RealmState {
         existing: &ResolvedStateEvent,
         candidate: &ResolvedStateEvent,
     ) -> bool {
-        if candidate.kind == "ak.member.state" && existing.kind == "ck.member.state" {
+        if candidate.kind == "ak.member.state" && existing.kind == "ak.member.state" {
             let existing_rank = membership_rank(&existing.content);
             let candidate_rank = membership_rank(&candidate.content);
             if existing_rank != candidate_rank {

@@ -417,7 +417,7 @@ fn option_narrowed(child: Option<&String>, parent: Option<&String>) -> bool {
 
 /// Extract active grant/delegate capability events from a resolved Realm state.
 ///
-/// Event content MUST be the spec grant artifact (`ck.schema.capability.v1`).
+/// Event content MUST be the spec grant artifact (`ak.schema.capability.v1`).
 /// Content carrying the removed top-level `delegable` boolean, or failing to
 /// deserialize into the core authority form, is rejected as
 /// `schema_violation`.
@@ -429,7 +429,7 @@ pub fn capability_grants_from_realm_state(
     for event in state.resolved_state.values() {
         if !matches!(
             event.kind.as_str(),
-            "ak.capability.grant" | "ck.capability.delegate"
+            "ak.capability.grant" | "ak.capability.delegate"
         ) {
             continue;
         }
@@ -1150,9 +1150,9 @@ fn parse_iso8601_duration(value: &str) -> Result<ConstraintDuration> {
     Ok(duration)
 }
 
-// ─── S-10 (savfox SDK gap): ck.capability.grant builder ───────────────────
+// ─── S-10 (savfox SDK gap): ak.capability.grant builder ───────────────────
 
-/// Build a `ck.capability.grant` Event Envelope around a spec
+/// Build a `ak.capability.grant` Event Envelope around a spec
 /// [`arkret_core::CapabilityGrant`].
 ///
 /// Chain verification (subject ⇒ issuer narrowing, action / resource
@@ -1258,7 +1258,7 @@ impl CapabilityGrantBuilder {
         self
     }
 
-    /// Materialize the unsigned `ck.capability.grant` Envelope.
+    /// Materialize the unsigned `ak.capability.grant` Envelope.
     ///
     /// Validates the grant against the spec wire contract first (schema
     /// constant, non-empty actions / resources / proofs, parseable

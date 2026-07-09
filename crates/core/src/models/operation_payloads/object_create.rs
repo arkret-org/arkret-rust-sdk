@@ -39,7 +39,7 @@ impl<T: Serialize> ObjectCreatePayload<T> {
     }
 }
 
-/// Current wire object carried by `ck.space.create`.
+/// Current wire object carried by `ak.space.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpaceCreateObject {
     pub id: SpaceId,
@@ -119,7 +119,7 @@ impl SpaceCreateObject {
     }
 }
 
-/// Current wire object carried by `ck.strand.create`.
+/// Current wire object carried by `ak.strand.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StrandCreateObject {
     pub id: StrandId,
@@ -198,7 +198,7 @@ impl StrandCreateObject {
     }
 }
 
-/// Payload for `ck.strand.update`.
+/// Payload for `ak.strand.update`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StrandPatchPayload {
     pub target_ref: StrandId,

@@ -29,8 +29,8 @@ pub struct KeysQueryRequestBody {
 
 /// Directory status of a `(principal_id, device_id)` pair at query time.
 ///
-/// `active` = a `ck.device.authorize` is in effect and the device is not
-/// revoked; `revoked` = a `ck.device.revoke` is in effect. Servers MUST omit
+/// `active` = a `ak.device.authorize` is in effect and the device is not
+/// revoked; `revoked` = a `ak.device.revoke` is in effect. Servers MUST omit
 /// [`QueryDeviceRecord::device_signing_key`] for any non-active device.
 /// Mirrors `keys-operations.schema.json#/$defs/device_status`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,7 +42,7 @@ pub enum DeviceStatus {
 }
 
 /// Per-device cross-signing binding echoed from
-/// `ck.device.authorize.payload.cross_signing_binding`
+/// `ak.device.authorize.payload.cross_signing_binding`
 /// (`crypto-media/device-lifecycle.md` §5.2). The accepted-generation SSK signs
 /// `"ak.device-trust-bind-v1\n" + canonical_json({principal_id, device_id,
 /// device_public_key, hpke_key, algorithms, ssk_generation})`. Absent for
@@ -91,13 +91,13 @@ pub struct QueryDeviceRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_signing_key: Option<String>,
     /// Device HPKE sealing public key echoed verbatim from the authoritative
-    /// `ck.device.authorize.payload.hpke_key` (`device-lifecycle.md` §8.2).
+    /// `ak.device.authorize.payload.hpke_key` (`device-lifecycle.md` §8.2).
     /// Present only for verified, non-revoked devices; services MUST NOT
     /// substitute this value in projection.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hpke_key: Option<String>,
     /// Canonical (UTF-8 bytewise sorted, deduplicated) algorithm ids echoed
-    /// verbatim from `ck.device.authorize.payload.algorithms`; together with
+    /// verbatim from `ak.device.authorize.payload.algorithms`; together with
     /// `device_signing_key` and `hpke_key` this is the material the §5.2
     /// `ck-device-trust-bind-v1` transcript covers. Distinct from the sibling
     /// `algorithms` prekey-bundle map.
@@ -114,11 +114,11 @@ pub struct QueryDeviceRecord {
     pub cross_signing_binding: Option<QueryDeviceCrossSigningBinding>,
     /// Service-attested trust material for managed-DID devices
     /// (`device-lifecycle.md` §5.4), echoed from the accepted
-    /// `ck.device.authorize` payload. Present only for a verified, non-revoked
+    /// `ak.device.authorize` payload. Present only for a verified, non-revoked
     /// device authorized by the designated enrollment authority.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enrollment_authority_binding: Option<DeviceEnrollmentAuthorityBinding>,
-    /// Accepted `ck.device.authorize` event id that anchored the device-set
+    /// Accepted `ak.device.authorize` event id that anchored the device-set
     /// projection. For service-attested devices this pairs with
     /// [`Self::enrollment_authority_binding`] and is the hot-path trust anchor
     /// clients carry forward.
@@ -133,7 +133,7 @@ pub struct KeysQueryOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Value>,
     /// Tier-2: per-principal current accepted-generation
-    /// `ck.cross_signing.publish` payload (`device-lifecycle.md` §5.1), letting
+    /// `ak.cross_signing.publish` payload (`device-lifecycle.md` §5.1), letting
     /// the client anchor the SSK to the DID control set before trusting any
     /// `cross_signing_binding` (§8.3). Reuses the schema-counterpart type
     /// [`CrossSigningPublish`].
@@ -147,7 +147,7 @@ pub struct KeysQueryOutcome {
 /// This is the server-to-server read the Auth Server (coauth) issues when it
 /// must verify a device holder proof (session-grant refresh / soft-logout
 /// restore): the holder key is NOT in the principal's DID document, it is the
-/// device signing key authorized by `ck.device.authorize` and projected into
+/// device signing key authorized by `ak.device.authorize` and projected into
 /// the Principal Server's device directory. The directory is the source of
 /// truth; this lookup surfaces the authorized, non-revoked verify key so the
 /// caller can check the detached JWS holder proof against it.
@@ -164,7 +164,7 @@ pub struct DeviceSigningKeyDirectoryQueryRequestBody {
 }
 
 /// A single authorized, non-revoked device signing key as projected from the
-/// Principal Server's `ck.device.authorize` / `ck.device.revoke` directory.
+/// Principal Server's `ak.device.authorize` / `ak.device.revoke` directory.
 ///
 /// Only verified, non-revoked devices appear; a revoked or unverified device is
 /// omitted entirely (never returned with `status = revoked`), so the caller can
@@ -181,7 +181,7 @@ pub struct AuthorizedDeviceSigningKey {
     /// Always [`DeviceStatus::Active`] here (revoked devices are omitted), kept
     /// explicit so the wire shape mirrors the `keys/query` facet.
     pub device_status: DeviceStatus,
-    /// Accepted `ck.device.authorize` event id that anchored the device-set
+    /// Accepted `ak.device.authorize` event id that anchored the device-set
     /// projection, when recorded.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_authorize_event_id: Option<EventId>,

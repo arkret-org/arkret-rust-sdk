@@ -78,7 +78,7 @@ pub struct Strand {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_changed_at: Option<DateTime<Utc>>,
     /// Optional business-progression stage. Orthogonal to lifecycle `state`.
-    /// Mutated only via `ck.strand.stage.set`; constructors fill `draft`,
+    /// Mutated only via `ak.strand.stage.set`; constructors fill `draft`,
     /// while sparse wire objects may omit the field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stage: Option<ObjectStage>,

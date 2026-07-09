@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// DID-document `service[].type` value designating a device enrollment
-/// authority (the entity allowed to sign `service_attested` `ck.device.authorize`
+/// authority (the entity allowed to sign `service_attested` `ak.device.authorize`
 /// for this principal). PascalCase per DID-core service-type convention,
 /// mirroring `CokretPrincipalServer`. See `zh/identity/identity-did.md` and
 /// `zh/crypto-media/device-lifecycle.md` §5.4. This is distinct from the
@@ -64,7 +64,7 @@ impl ServiceType {
     /// Operation-kind prefixes a service of this type is allowed to
     /// advertise (T3-10 / `service-surface.md` capability matrix).
     ///
-    /// `ck.edge.applet.*` for applet services, `ck.self.events.*` for
+    /// `ak.edge.applet.*` for applet services, `ak.self.events.*` for
     /// principal sync/event surfaces, etc. An empty slice means "no
     /// allow-list constraint".
     pub fn allowed_operation_prefixes(&self) -> &'static [&'static str] {
@@ -83,19 +83,19 @@ impl ServiceType {
                 "ak.identity.",
                 "ak.account_data.",
             ],
-            Self::IdentityRegistry => &["ak.root.identity.", "ck.identity."],
-            Self::AuthServer => &["ak.gate.account.", "ck.self.policy.query.check"],
-            Self::SyncNode => &["ak.self.events.", "ck.self.account.", "ck.self.snapshot."],
+            Self::IdentityRegistry => &["ak.root.identity.", "ak.identity."],
+            Self::AuthServer => &["ak.gate.account.", "ak.self.policy.query.check"],
+            Self::SyncNode => &["ak.self.events.", "ak.self.account.", "ak.self.snapshot."],
             Self::BlobNode => &["ak.self.blob."],
-            Self::MediaService => &["ak.self.media.", "ck.self.call.media."],
+            Self::MediaService => &["ak.self.media.", "ak.self.call.media."],
             Self::DirectoryService => &["ak.find.directory."],
             Self::DeviceKeyService => &["ak.self.keys."],
-            Self::AuthzService => &["ak.self.authz.", "ck.self.policy.", "ck.policy."],
-            Self::PolicyServer => &["ak.self.policy.", "ck.policy."],
+            Self::AuthzService => &["ak.self.authz.", "ak.self.policy.", "ak.policy."],
+            Self::PolicyServer => &["ak.self.policy.", "ak.policy."],
             Self::PushGateway => &["ak.edge.push."],
             Self::AppletService => &["ak.edge.applet."],
-            Self::AgentRuntime => &["ak.self.agent.", "ck.gate.account.command.pair_agent_key"],
-            Self::SfuService => &["ak.self.call.media.", "ck.self.media."],
+            Self::AgentRuntime => &["ak.self.agent.", "ak.gate.account.command.pair_agent_key"],
+            Self::SfuService => &["ak.self.call.media.", "ak.self.media."],
             Self::TurnService => &["ak.self.media.query.ice_config"],
             Self::ModerationService => &["ak.self.moderation."],
         }
@@ -559,12 +559,12 @@ mod tests {
     #[test]
     fn push_gateway_permits_current_edge_push_operations() {
         let service_type = ServiceType::PushGateway;
-        // The three `ck.edge.push.*` operations registered in
+        // The three `ak.edge.push.*` operations registered in
         // `operation-registry.json` MUST all be advertisable by a push gateway.
         assert!(service_type.permits_operation("ak.edge.push.command.register_device"));
         assert!(service_type.permits_operation("ak.edge.push.command.unregister_device"));
         assert!(service_type.permits_operation("ak.edge.push.command.notify"));
-        // Operations outside the `ck.edge.push.` surface (e.g. applet or
+        // Operations outside the `ak.edge.push.` surface (e.g. applet or
         // self-API operations) MUST NOT be advertisable by a push gateway.
         assert!(!service_type.permits_operation("ak.edge.applet.command.invoke"));
         assert!(!service_type.permits_operation("ak.self.events.query.sync"));

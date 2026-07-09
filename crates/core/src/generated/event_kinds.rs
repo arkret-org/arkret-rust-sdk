@@ -9,11 +9,11 @@ use crate::events::kinds::{
     EventClass, EventWireScope, classify_event_kind, event_wire_scope, is_reducer_input_event_kind,
 };
 
-/// Count of standard ck.* event kinds the registry declares active.
+/// Count of standard ak.* event kinds the registry declares active.
 /// Excludes the [EventKind::Unknown] catch-all.
 pub const EVENT_KIND_COUNT: usize = 191;
 
-/// Strongly-typed Arkret event kind. One variant per active ck.* kind in
+/// Strongly-typed Arkret event kind. One variant per active ak.* kind in
 /// `event-kind-registry.json`, plus [EventKind::Unknown] which preserves
 /// any other wire string verbatim for forward compatibility.
 ///
@@ -27,387 +27,387 @@ pub const EVENT_KIND_COUNT: usize = 191;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum EventKind {
-    /// `ck.account.blocklist`
+    /// `ak.account.blocklist`
     AccountBlocklist,
-    /// `ck.account.status`
+    /// `ak.account.status`
     AccountStatus,
-    /// `ck.account_data.set`
+    /// `ak.account_data.set`
     AccountDataSet,
-    /// `ck.actor.discovery`
+    /// `ak.actor.discovery`
     ActorDiscovery,
-    /// `ck.agent.action_approve`
+    /// `ak.agent.action_approve`
     AgentActionApprove,
-    /// `ck.agent.action_reject`
+    /// `ak.agent.action_reject`
     AgentActionReject,
-    /// `ck.agent.action_request`
+    /// `ak.agent.action_request`
     AgentActionRequest,
-    /// `ck.agent.draft.propose`
+    /// `ak.agent.draft.propose`
     AgentDraftPropose,
-    /// `ck.agent.endpoint`
+    /// `ak.agent.endpoint`
     AgentEndpoint,
-    /// `ck.agent.interop_session.result`
+    /// `ak.agent.interop_session.result`
     AgentInteropSessionResult,
-    /// `ck.agent.interop_session.start`
+    /// `ak.agent.interop_session.start`
     AgentInteropSessionStart,
-    /// `ck.agent.interop_session.status`
+    /// `ak.agent.interop_session.status`
     AgentInteropSessionStatus,
-    /// `ck.agent.key.authorize`
+    /// `ak.agent.key.authorize`
     AgentKeyAuthorize,
-    /// `ck.agent.key.revoke`
+    /// `ak.agent.key.revoke`
     AgentKeyRevoke,
-    /// `ck.agent.key.rotate`
+    /// `ak.agent.key.rotate`
     AgentKeyRotate,
-    /// `ck.applet.bridge_error`
+    /// `ak.applet.bridge_error`
     AppletBridgeError,
-    /// `ck.applet.discovery`
+    /// `ak.applet.discovery`
     AppletDiscovery,
-    /// `ck.applet.interop_session.start`
+    /// `ak.applet.interop_session.start`
     AppletInteropSessionStart,
-    /// `ck.applet.interop_session.status`
+    /// `ak.applet.interop_session.status`
     AppletInteropSessionStatus,
-    /// `ck.applet.registration`
+    /// `ak.applet.registration`
     AppletRegistration,
-    /// `ck.attestation.range_completeness`
+    /// `ak.attestation.range_completeness`
     AttestationRangeCompleteness,
-    /// `ck.audit.accessed`
+    /// `ak.audit.accessed`
     AuditAccessed,
-    /// `ck.audit.applet_binding`
+    /// `ak.audit.applet_binding`
     AuditAppletBinding,
-    /// `ck.audit.erasure_receipt`
+    /// `ak.audit.erasure_receipt`
     AuditErasureReceipt,
-    /// `ck.audit.release`
+    /// `ak.audit.release`
     AuditRelease,
-    /// `ck.audit.ryw_receipt`
+    /// `ak.audit.ryw_receipt`
     AuditRywReceipt,
-    /// `ck.audit.session.authorize`
+    /// `ak.audit.session.authorize`
     AuditSessionAuthorize,
-    /// `ck.audit.session.close`
+    /// `ak.audit.session.close`
     AuditSessionClose,
-    /// `ck.audit.session.notice`
+    /// `ak.audit.session.notice`
     AuditSessionNotice,
-    /// `ck.audit.session.request`
+    /// `ak.audit.session.request`
     AuditSessionRequest,
-    /// `ck.call.recording.start`
+    /// `ak.call.recording.start`
     CallRecordingStart,
-    /// `ck.call.signal`
+    /// `ak.call.signal`
     CallSignal,
-    /// `ck.call.state`
+    /// `ak.call.state`
     CallState,
-    /// `ck.call.summary`
+    /// `ak.call.summary`
     CallSummary,
-    /// `ck.capability.delegate`
+    /// `ak.capability.delegate`
     CapabilityDelegate,
-    /// `ck.capability.derived`
+    /// `ak.capability.derived`
     CapabilityDerived,
-    /// `ck.capability.grant`
+    /// `ak.capability.grant`
     CapabilityGrant,
-    /// `ck.capability.revoke`
+    /// `ak.capability.revoke`
     CapabilityRevoke,
-    /// `ck.circle.archive`
+    /// `ak.circle.archive`
     CircleArchive,
-    /// `ck.circle.create`
+    /// `ak.circle.create`
     CircleCreate,
-    /// `ck.circle.member.state`
+    /// `ak.circle.member.state`
     CircleMemberState,
-    /// `ck.circle.restore`
+    /// `ak.circle.restore`
     CircleRestore,
-    /// `ck.circle.seal_commit`
+    /// `ak.circle.seal_commit`
     CircleSealCommit,
-    /// `ck.circle.tombstone`
+    /// `ak.circle.tombstone`
     CircleTombstone,
-    /// `ck.circle.update`
+    /// `ak.circle.update`
     CircleUpdate,
-    /// `ck.consent.grant`
+    /// `ak.consent.grant`
     ConsentGrant,
-    /// `ck.consent.revoke`
+    /// `ak.consent.revoke`
     ConsentRevoke,
-    /// `ck.contact.accepted`
+    /// `ak.contact.accepted`
     ContactAccepted,
-    /// `ck.contact.rejected`
+    /// `ak.contact.rejected`
     ContactRejected,
-    /// `ck.contact.requested`
+    /// `ak.contact.requested`
     ContactRequested,
-    /// `ck.contact.tombstoned`
+    /// `ak.contact.tombstoned`
     ContactTombstoned,
-    /// `ck.container.move_item`
+    /// `ak.container.move_item`
     ContainerMoveItem,
-    /// `ck.container.rebalance`
+    /// `ak.container.rebalance`
     ContainerRebalance,
-    /// `ck.cross_signing.publish`
+    /// `ak.cross_signing.publish`
     CrossSigningPublish,
-    /// `ck.cross_signing.reset`
+    /// `ak.cross_signing.reset`
     CrossSigningReset,
-    /// `ck.device.authorize`
+    /// `ak.device.authorize`
     DeviceAuthorize,
-    /// `ck.device.list_update`
+    /// `ak.device.list_update`
     DeviceListUpdate,
-    /// `ck.device.push_route`
+    /// `ak.device.push_route`
     DevicePushRoute,
-    /// `ck.device.revoke`
+    /// `ak.device.revoke`
     DeviceRevoke,
-    /// `ck.did.proof`
+    /// `ak.did.proof`
     DidProof,
-    /// `ck.direct_conversation.bound`
+    /// `ak.direct_conversation.bound`
     DirectConversationBound,
-    /// `ck.handle.discovery`
+    /// `ak.handle.discovery`
     HandleDiscovery,
-    /// `ck.identity.accountability_grant`
+    /// `ak.identity.accountability_grant`
     IdentityAccountabilityGrant,
-    /// `ck.identity.disclosure_policy`
+    /// `ak.identity.disclosure_policy`
     IdentityDisclosurePolicy,
-    /// `ck.identity.disclosure_receipt`
+    /// `ak.identity.disclosure_receipt`
     IdentityDisclosureReceipt,
-    /// `ck.identity.presentation_request`
+    /// `ak.identity.presentation_request`
     IdentityPresentationRequest,
-    /// `ck.identity.presentation_response`
+    /// `ak.identity.presentation_response`
     IdentityPresentationResponse,
-    /// `ck.invite.accept`
+    /// `ak.invite.accept`
     InviteAccept,
-    /// `ck.invite.cancel`
+    /// `ak.invite.cancel`
     InviteCancel,
-    /// `ck.invite.claim`
+    /// `ak.invite.claim`
     InviteClaim,
-    /// `ck.invite.create`
+    /// `ak.invite.create`
     InviteCreate,
-    /// `ck.invite.revoke`
+    /// `ak.invite.revoke`
     InviteRevoke,
-    /// `ck.invite.third_party`
+    /// `ak.invite.third_party`
     InviteThirdParty,
-    /// `ck.key.verification.accept`
+    /// `ak.key.verification.accept`
     KeyVerificationAccept,
-    /// `ck.key.verification.cancel`
+    /// `ak.key.verification.cancel`
     KeyVerificationCancel,
-    /// `ck.key.verification.done`
+    /// `ak.key.verification.done`
     KeyVerificationDone,
-    /// `ck.key.verification.key`
+    /// `ak.key.verification.key`
     KeyVerificationKey,
-    /// `ck.key.verification.mac`
+    /// `ak.key.verification.mac`
     KeyVerificationMac,
-    /// `ck.key.verification.ready`
+    /// `ak.key.verification.ready`
     KeyVerificationReady,
-    /// `ck.key.verification.request`
+    /// `ak.key.verification.request`
     KeyVerificationRequest,
-    /// `ck.key.verification.start`
+    /// `ak.key.verification.start`
     KeyVerificationStart,
-    /// `ck.key_backup.active_series`
+    /// `ak.key_backup.active_series`
     KeyBackupActiveSeries,
-    /// `ck.member.identity.update`
+    /// `ak.member.identity.update`
     MemberIdentityUpdate,
-    /// `ck.member.state`
+    /// `ak.member.state`
     MemberState,
-    /// `ck.message.create`
+    /// `ak.message.create`
     MessageCreate,
-    /// `ck.message.redact`
+    /// `ak.message.redact`
     MessageRedact,
-    /// `ck.message.revise`
+    /// `ak.message.revise`
     MessageRevise,
-    /// `ck.mimi.room_binding`
+    /// `ak.mimi.room_binding`
     MimiRoomBinding,
-    /// `ck.mls.commit`
+    /// `ak.mls.commit`
     MlsCommit,
-    /// `ck.mls.commit_failed`
+    /// `ak.mls.commit_failed`
     MlsCommitFailed,
-    /// `ck.mls.genesis`
+    /// `ak.mls.genesis`
     MlsGenesis,
-    /// `ck.mls.keypackage`
+    /// `ak.mls.keypackage`
     MlsKeypackage,
-    /// `ck.mls.proposal`
+    /// `ak.mls.proposal`
     MlsProposal,
-    /// `ck.mls.welcome`
+    /// `ak.mls.welcome`
     MlsWelcome,
-    /// `ck.moderation.appeal.close`
+    /// `ak.moderation.appeal.close`
     ModerationAppealClose,
-    /// `ck.moderation.appeal.decision`
+    /// `ak.moderation.appeal.decision`
     ModerationAppealDecision,
-    /// `ck.moderation.appeal.review`
+    /// `ak.moderation.appeal.review`
     ModerationAppealReview,
-    /// `ck.moderation.appeal.submit`
+    /// `ak.moderation.appeal.submit`
     ModerationAppealSubmit,
-    /// `ck.moderation.decision`
+    /// `ak.moderation.decision`
     ModerationDecision,
-    /// `ck.moderation.decision.lift`
+    /// `ak.moderation.decision.lift`
     ModerationDecisionLift,
-    /// `ck.moderation.franking_proof`
+    /// `ak.moderation.franking_proof`
     ModerationFrankingProof,
-    /// `ck.morph.archive`
+    /// `ak.morph.archive`
     MorphArchive,
-    /// `ck.morph.create`
+    /// `ak.morph.create`
     MorphCreate,
-    /// `ck.morph.restore`
+    /// `ak.morph.restore`
     MorphRestore,
-    /// `ck.morph.schema_migrate`
+    /// `ak.morph.schema_migrate`
     MorphSchemaMigrate,
-    /// `ck.morph.stage.set`
+    /// `ak.morph.stage.set`
     MorphStageSet,
-    /// `ck.morph.update`
+    /// `ak.morph.update`
     MorphUpdate,
-    /// `ck.notary.fault.censorship`
+    /// `ak.notary.fault.censorship`
     NotaryFaultCensorship,
-    /// `ck.notary.fault.equivocation`
+    /// `ak.notary.fault.equivocation`
     NotaryFaultEquivocation,
-    /// `ck.organization.discovery`
+    /// `ak.organization.discovery`
     OrganizationDiscovery,
-    /// `ck.organization.moderation_policy`
+    /// `ak.organization.moderation_policy`
     OrganizationModerationPolicy,
-    /// `ck.pin.add`
+    /// `ak.pin.add`
     PinAdd,
-    /// `ck.pin.remove`
+    /// `ak.pin.remove`
     PinRemove,
-    /// `ck.pin.reorder`
+    /// `ak.pin.reorder`
     PinReorder,
-    /// `ck.policy.action`
+    /// `ak.policy.action`
     PolicyAction,
-    /// `ck.policy.rule`
+    /// `ak.policy.rule`
     PolicyRule,
-    /// `ck.policy.set`
+    /// `ak.policy.set`
     PolicySet,
-    /// `ck.presence`
+    /// `ak.presence`
     Presence,
-    /// `ck.profile.create`
+    /// `ak.profile.create`
     ProfileCreate,
-    /// `ck.profile.realm_override`
+    /// `ak.profile.realm_override`
     ProfileRealmOverride,
-    /// `ck.profile.update`
+    /// `ak.profile.update`
     ProfileUpdate,
-    /// `ck.reaction.add`
+    /// `ak.reaction.add`
     ReactionAdd,
-    /// `ck.reaction.remove`
+    /// `ak.reaction.remove`
     ReactionRemove,
-    /// `ck.read_cursor.advance`
+    /// `ak.read_cursor.advance`
     ReadCursorAdvance,
-    /// `ck.realm.archive`
+    /// `ak.realm.archive`
     RealmArchive,
-    /// `ck.realm.asset_privacy_policy`
+    /// `ak.realm.asset_privacy_policy`
     RealmAssetPrivacyPolicy,
-    /// `ck.realm.create`
+    /// `ak.realm.create`
     RealmCreate,
-    /// `ck.realm.delivery_binding_policy`
+    /// `ak.realm.delivery_binding_policy`
     RealmDeliveryBindingPolicy,
-    /// `ck.realm.destroy`
+    /// `ak.realm.destroy`
     RealmDestroy,
-    /// `ck.realm.disappearing_policy`
+    /// `ak.realm.disappearing_policy`
     RealmDisappearingPolicy,
-    /// `ck.realm.discovery`
+    /// `ak.realm.discovery`
     RealmDiscovery,
-    /// `ck.realm.freeze`
+    /// `ak.realm.freeze`
     RealmFreeze,
-    /// `ck.realm.history_sharing_policy`
+    /// `ak.realm.history_sharing_policy`
     RealmHistorySharingPolicy,
-    /// `ck.realm.history_visibility`
+    /// `ak.realm.history_visibility`
     RealmHistoryVisibility,
-    /// `ck.realm.inheritance_policy`
+    /// `ak.realm.inheritance_policy`
     RealmInheritancePolicy,
-    /// `ck.realm.join_rule`
+    /// `ak.realm.join_rule`
     RealmJoinRule,
-    /// `ck.realm.link`
+    /// `ak.realm.link`
     RealmLink,
-    /// `ck.realm.media_service`
+    /// `ak.realm.media_service`
     RealmMediaService,
-    /// `ck.realm.moderation_policy`
+    /// `ak.realm.moderation_policy`
     RealmModerationPolicy,
-    /// `ck.realm.organization`
+    /// `ak.realm.organization`
     RealmOrganization,
-    /// `ck.realm.plaintext_visible_services`
+    /// `ak.realm.plaintext_visible_services`
     RealmPlaintextVisibleServices,
-    /// `ck.realm.policy`
+    /// `ak.realm.policy`
     RealmPolicy,
-    /// `ck.realm.policy_components`
+    /// `ak.realm.policy_components`
     RealmPolicyComponents,
-    /// `ck.realm.policy_server`
+    /// `ak.realm.policy_server`
     RealmPolicyServer,
-    /// `ck.realm.preview_policy`
+    /// `ak.realm.preview_policy`
     RealmPreviewPolicy,
-    /// `ck.realm.read_receipt_policy`
+    /// `ak.realm.read_receipt_policy`
     RealmReadReceiptPolicy,
-    /// `ck.realm.schema`
+    /// `ak.realm.schema`
     RealmSchema,
-    /// `ck.realm.search_policy`
+    /// `ak.realm.search_policy`
     RealmSearchPolicy,
-    /// `ck.realm.set_default_strand`
+    /// `ak.realm.set_default_strand`
     RealmSetDefaultStrand,
-    /// `ck.realm.tombstone`
+    /// `ak.realm.tombstone`
     RealmTombstone,
-    /// `ck.realm.update`
+    /// `ak.realm.update`
     RealmUpdate,
-    /// `ck.realm.upgrade`
+    /// `ak.realm.upgrade`
     RealmUpgrade,
-    /// `ck.realm_key.request`
+    /// `ak.realm_key.request`
     RealmKeyRequest,
-    /// `ck.realm_key.share`
+    /// `ak.realm_key.share`
     RealmKeyShare,
-    /// `ck.realm_key.share_audit`
+    /// `ak.realm_key.share_audit`
     RealmKeyShareAudit,
-    /// `ck.realm_key.withheld`
+    /// `ak.realm_key.withheld`
     RealmKeyWithheld,
-    /// `ck.receipt.read`
+    /// `ak.receipt.read`
     ReceiptRead,
-    /// `ck.redaction`
+    /// `ak.redaction`
     Redaction,
-    /// `ck.relation.create`
+    /// `ak.relation.create`
     RelationCreate,
-    /// `ck.relation.tombstone`
+    /// `ak.relation.tombstone`
     RelationTombstone,
-    /// `ck.relation.update`
+    /// `ak.relation.update`
     RelationUpdate,
-    /// `ck.rsvp.set`
+    /// `ak.rsvp.set`
     RsvpSet,
-    /// `ck.schema.define`
+    /// `ak.schema.define`
     SchemaDefine,
-    /// `ck.schema.update`
+    /// `ak.schema.update`
     SchemaUpdate,
-    /// `ck.secret.request`
+    /// `ak.secret.request`
     SecretRequest,
-    /// `ck.secret.send`
+    /// `ak.secret.send`
     SecretSend,
-    /// `ck.self.agent.deactivate`
+    /// `ak.self.agent.deactivate`
     SelfAgentDeactivate,
-    /// `ck.self.agent.pause`
+    /// `ak.self.agent.pause`
     SelfAgentPause,
-    /// `ck.self.agent.resume`
+    /// `ak.self.agent.resume`
     SelfAgentResume,
-    /// `ck.self.moderation.report`
+    /// `ak.self.moderation.report`
     SelfModerationReport,
     /// `ak.session.grant`
     SessionGrant,
-    /// `ck.sovereign.did_policy`
+    /// `ak.sovereign.did_policy`
     SovereignDidPolicy,
-    /// `ck.space.archive`
+    /// `ak.space.archive`
     SpaceArchive,
-    /// `ck.space.create`
+    /// `ak.space.create`
     SpaceCreate,
-    /// `ck.space.parent`
+    /// `ak.space.parent`
     SpaceParent,
-    /// `ck.space.restore`
+    /// `ak.space.restore`
     SpaceRestore,
-    /// `ck.space.tombstone`
+    /// `ak.space.tombstone`
     SpaceTombstone,
-    /// `ck.space.update`
+    /// `ak.space.update`
     SpaceUpdate,
-    /// `ck.strand.archive`
+    /// `ak.strand.archive`
     StrandArchive,
-    /// `ck.strand.create`
+    /// `ak.strand.create`
     StrandCreate,
-    /// `ck.strand.move`
+    /// `ak.strand.move`
     StrandMove,
-    /// `ck.strand.reorder`
+    /// `ak.strand.reorder`
     StrandReorder,
-    /// `ck.strand.restore`
+    /// `ak.strand.restore`
     StrandRestore,
-    /// `ck.strand.stage.set`
+    /// `ak.strand.stage.set`
     StrandStageSet,
-    /// `ck.strand.tracks.update`
+    /// `ak.strand.tracks.update`
     StrandTracksUpdate,
-    /// `ck.strand.update`
+    /// `ak.strand.update`
     StrandUpdate,
-    /// `ck.strand.watch.set`
+    /// `ak.strand.watch.set`
     StrandWatchSet,
-    /// `ck.typing`
+    /// `ak.typing`
     Typing,
-    /// `ck.view.create`
+    /// `ak.view.create`
     ViewCreate,
-    /// `ck.view.reconcile`
+    /// `ak.view.reconcile`
     ViewReconcile,
-    /// `ck.view.update`
+    /// `ak.view.update`
     ViewUpdate,
     /// Forward-compatibility catch-all for any kind not in the registry at
     /// build time. Carries the raw wire string.

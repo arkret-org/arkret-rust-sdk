@@ -835,7 +835,7 @@ impl AuthManager {
 
 /// One-shot DID-proof login strand that drives the single registered
 /// `POST /_arkret/gate/account/session-grants`
-/// (`ck.gate.account.command.issue_session_grant`) operation.
+/// (`ak.gate.account.command.issue_session_grant`) operation.
 ///
 /// The helper is split off into its own impl block (gated on `client`
 /// and `signer`) so the in-process `AuthManager` core surface stays
@@ -843,11 +843,11 @@ impl AuthManager {
 #[cfg(all(feature = "client", feature = "signer"))]
 impl AuthManager {
     /// Maximum `expires_at - issued_at` freshness window for a
-    /// `ck.did.proof` (`identity-did.md` §5.1: window upper bound MUST
+    /// `ak.did.proof` (`identity-did.md` §5.1: window upper bound MUST
     /// be ≤ 300s).
     const DID_PROOF_FRESHNESS_WINDOW_SECS: i64 = 300;
 
-    /// One-shot DID-proof login. Builds the `ck.did.proof` signing
+    /// One-shot DID-proof login. Builds the `ak.did.proof` signing
     /// payload (`identity-did.md` §5.1), signs it with `signer`, and
     /// submits the spec-shaped `SessionGrantRequestBody` to the single
     /// registered issuance operation. The `challenge` is the
@@ -887,7 +887,7 @@ impl AuthManager {
             &arkret_core::canonical::canonical_json_bytes(&request_binding)?,
         ))?;
 
-        // `ck.did.proof` structured canonical-JSON signing payload per
+        // `ak.did.proof` structured canonical-JSON signing payload per
         // `identity-did.md` §5.1 (device_id is signed-over for
         // multi-device principals; the SDK always supplies it).
         let signing_payload = serde_json::json!({

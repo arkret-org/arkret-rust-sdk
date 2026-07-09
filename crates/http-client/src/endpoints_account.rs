@@ -23,7 +23,7 @@ use crate::{Client, ClientRequestOptions, MAX_SUBSCRIBE_FRAME_BYTES};
 
 impl Client {
     /// `POST /_arkret/gate/account/session-grants`
-    /// (`ck.gate.account.command.issue_session_grant`): exchange a body-borne
+    /// (`ak.gate.account.command.issue_session_grant`): exchange a body-borne
     /// passkey / OIDC / device / DID proof for a session grant. This is
     /// the only session-grant issuance path registered in the spec HTTP
     /// binding (`x-arkret-auth.proof_in_body: true`); challenge
@@ -36,7 +36,7 @@ impl Client {
     }
 
     /// `POST /_arkret/gate/account/session-grants/refresh`
-    /// (`ck.gate.account.command.refresh_session_grant`): rotate a
+    /// (`ak.gate.account.command.refresh_session_grant`): rotate a
     /// DPoP-bound session grant without changing the grant audience.
     pub async fn auth_refresh_session_grant(
         &self,
@@ -47,8 +47,8 @@ impl Client {
     }
 
     /// `POST /_arkret/gate/account/device-enroll`
-    /// (`ck.gate.account.command.enroll_device`): ask the Account Authority
-    /// to mint a signed `service_attested` `ck.device.authorize` event for the
+    /// (`ak.gate.account.command.enroll_device`): ask the Account Authority
+    /// to mint a signed `service_attested` `ak.device.authorize` event for the
     /// current DPoP-bound session device.
     pub async fn auth_device_enroll(
         &self,
@@ -58,7 +58,7 @@ impl Client {
     }
 
     /// `POST /_arkret/gate/account/logout`
-    /// (`ck.gate.account.command.logout`): terminate the current
+    /// (`ak.gate.account.command.logout`): terminate the current
     /// DPoP-bound account session at the Account Authority.
     pub async fn auth_account_logout(&self) -> Result<AccountLogoutOutcome> {
         self.post(
@@ -99,7 +99,7 @@ impl Client {
         request: &SyncRequestBody,
         accept: &str,
     ) -> Result<RequestBuilder> {
-        // `ck.self.account.stream.subscribe` has no request body; its query
+        // `ak.self.account.stream.subscribe` has no request body; its query
         // surface is `after` / `catchup` / `filter.*` (client-sync.md §2
         // request-parameter table). `subscriptions` and `wait_for` are not
         // part of this transport — fail loudly instead of silently dropping
@@ -442,7 +442,7 @@ mod tests {
         assert!(query.contains("after=cur1"), "query: {query}");
         assert!(query.contains("catchup=true"), "query: {query}");
         assert!(
-            query.contains("filter.realms=ck%3Arealm%3A01904100-0000-7000-8000-000000000001"),
+            query.contains("filter.realms=ak%3Arealm%3A01904100-0000-7000-8000-000000000001"),
             "query: {query}"
         );
         assert!(query.contains("filter.timeline_limit=20"), "query: {query}");
@@ -456,11 +456,11 @@ mod tests {
             "query: {query}"
         );
         assert!(
-            query.contains("filter.event_types=ck.message.create"),
+            query.contains("filter.event_types=ak.message.create"),
             "query: {query}"
         );
         assert!(
-            query.contains("filter.not_event_types=ck.reaction.add"),
+            query.contains("filter.not_event_types=ak.reaction.add"),
             "query: {query}"
         );
     }

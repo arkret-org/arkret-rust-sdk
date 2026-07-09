@@ -21,7 +21,7 @@ const AGENT_SIDECAR_THREAD_ENSURE_PATH: &str = "/_arkret/self/agent-sidecar-thre
 
 impl Client {
     /// `POST /_arkret/gate/account/agent-key-pair`
-    /// (`ck.gate.account.command.pair_agent_key`).
+    /// (`ak.gate.account.command.pair_agent_key`).
     pub async fn agent_key_pair(
         &self,
         request: &AgentKeyPairRequestBody,
@@ -30,7 +30,7 @@ impl Client {
     }
 
     /// `POST /_arkret/open/agent-pairing/runtime-key-requests`
-    /// (`ck.open.agent_pairing.command.submit_runtime_key_request`).
+    /// (`ak.open.agent_pairing.command.submit_runtime_key_request`).
     pub async fn agent_runtime_approval_request(
         &self,
         request: &AgentRuntimeApprovalRequestBody,
@@ -39,7 +39,7 @@ impl Client {
             .await
     }
 
-    /// `POST /_arkret/self/agents` (`ck.self.agent.command.provision`).
+    /// `POST /_arkret/self/agents` (`ak.self.agent.command.provision`).
     pub async fn agent_provision(
         &self,
         request: &AgentProvisionRequestBody,
@@ -47,14 +47,14 @@ impl Client {
         self.post(AGENTS_PATH, request).await
     }
 
-    /// `GET /_arkret/self/agents` (`ck.self.agent.query.list`).
+    /// `GET /_arkret/self/agents` (`ak.self.agent.query.list`).
     pub async fn agent_list(&self) -> Result<AgentList> {
         let value: Value = self.get(AGENTS_PATH).await?;
         decode_agent_list_response(value)
     }
 
     /// `GET /_arkret/self/agents/{agent_principal_id}`
-    /// (`ck.self.agent.resource.get`).
+    /// (`ak.self.agent.resource.get`).
     pub async fn agent_get(&self, agent_principal_id: &str) -> Result<AgentView> {
         let path = format!(
             "{}/{}",
@@ -65,7 +65,7 @@ impl Client {
     }
 
     /// `POST /_arkret/self/agents/{agent_principal_id}/pause`
-    /// (`ck.self.agent.command.pause`).
+    /// (`ak.self.agent.command.pause`).
     pub async fn agent_pause(
         &self,
         agent_principal_id: &str,
@@ -80,7 +80,7 @@ impl Client {
     }
 
     /// `POST /_arkret/self/agents/{agent_principal_id}/resume`
-    /// (`ck.self.agent.command.resume`).
+    /// (`ak.self.agent.command.resume`).
     pub async fn agent_resume(
         &self,
         agent_principal_id: &str,
@@ -95,7 +95,7 @@ impl Client {
     }
 
     /// `POST /_arkret/self/agents/{agent_principal_id}/deactivate`
-    /// (`ck.self.agent.command.deactivate`).
+    /// (`ak.self.agent.command.deactivate`).
     pub async fn agent_deactivate(
         &self,
         agent_principal_id: &str,
@@ -110,7 +110,7 @@ impl Client {
     }
 
     /// `POST /_arkret/self/agents/{agent_principal_id}/rotate-key`
-    /// (`ck.self.agent.command.rotate_key`).
+    /// (`ak.self.agent.command.rotate_key`).
     pub async fn agent_rotate_key(
         &self,
         agent_principal_id: &str,
@@ -125,7 +125,7 @@ impl Client {
     }
 
     /// `POST /_arkret/self/agents/{agent_principal_id}/grants`
-    /// (`ck.self.agent.grant.command.attach`).
+    /// (`ak.self.agent.grant.command.attach`).
     pub async fn agent_grant_attach(
         &self,
         agent_principal_id: &str,
@@ -140,7 +140,7 @@ impl Client {
     }
 
     /// `DELETE /_arkret/self/agents/{agent_principal_id}/grants/{grant_id}`
-    /// (`ck.self.agent.grant.resource.delete`). The `_detach` method name is
+    /// (`ak.self.agent.grant.resource.delete`). The `_detach` method name is
     /// retained for API compatibility; the registered operation id is `.delete`.
     pub async fn agent_grant_detach(
         &self,
@@ -157,7 +157,7 @@ impl Client {
     }
 
     /// `GET /_arkret/self/agents/{agent_principal_id}/participation`
-    /// (`ck.self.agent.participation.resource.get`).
+    /// (`ak.self.agent.participation.resource.get`).
     pub async fn agent_participation_get(
         &self,
         agent_principal_id: &str,
@@ -171,7 +171,7 @@ impl Client {
     }
 
     /// `PUT /_arkret/self/agents/{agent_principal_id}/participation`
-    /// (`ck.self.agent.participation.resource.replace`).
+    /// (`ak.self.agent.participation.resource.replace`).
     pub async fn agent_participation_replace(
         &self,
         agent_principal_id: &str,
@@ -186,7 +186,7 @@ impl Client {
     }
 
     /// `POST /_arkret/self/agent-sidecar-threads:ensure`
-    /// (`ck.self.agent.sidecar_thread.command.ensure`).
+    /// (`ak.self.agent.sidecar_thread.command.ensure`).
     pub async fn agent_sidecar_thread_ensure(
         &self,
         request: &AgentSidecarThreadEnsureRequestBody,

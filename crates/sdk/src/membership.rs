@@ -32,8 +32,8 @@ fn generate_id(prefix: &str) -> String {
 /// [`MembershipManager::send_invite_with_expiry`].
 const DEFAULT_INVITE_TTL_DAYS: i64 = 7;
 
-/// Validate a membership transition against the authoritative `ck.member.state`
-/// FSM (`event-kind-registry.json` → `ck.member.state.parameters`).
+/// Validate a membership transition against the authoritative `ak.member.state`
+/// FSM (`event-kind-registry.json` → `ak.member.state.parameters`).
 ///
 /// The FSM uses `initial_state = leave`, so `from = None` ("no prior
 /// membership") is treated as `leave`. The `allowed_transitions` are:
@@ -298,8 +298,8 @@ impl MembershipManager {
     /// Query a named capability using coarse role mapping.
     pub fn has_capability(&self, capability: &str) -> bool {
         let required = match capability {
-            "ak.invite.create" | "ck.invite.cancel" => MemberRole::Moderator,
-            "ak.invite.revoke" | "ck.realm.policy" => MemberRole::Admin,
+            "ak.invite.create" | "ak.invite.cancel" => MemberRole::Moderator,
+            "ak.invite.revoke" | "ak.realm.policy" => MemberRole::Admin,
             "ak.realm.destroy" => MemberRole::Owner,
             "ak.event.read" => MemberRole::Viewer,
             "ak.message.create" => MemberRole::Member,
@@ -560,7 +560,7 @@ impl MembershipManager {
         Ok(())
     }
 
-    /// Build a `ck.member.state` operation for submission.
+    /// Build a `ak.member.state` operation for submission.
     ///
     /// The wire payload follows `event-payload.schema.json#/$defs/membership_payload`
     /// (`membership` state + `actor_id` cell subject). The acting principal is
@@ -601,11 +601,11 @@ impl MembershipManager {
     }
 }
 
-// Track-scoped membership (`ck.strand.track.member` and
+// Track-scoped membership (`ak.strand.track.member` and
 // `StrandTrackMembership` / `StrandTrackMembershipManager`) was REMOVED in
 // arkret-spec revision `0a5ab85`. Track no longer carries independent
 // membership; access semantics inherit from the Strand's Realm. Use
-// `ck.member.state` at the Realm or child Realm level instead.
+// `ak.member.state` at the Realm or child Realm level instead.
 //
 // See `arkret-spec/spec/v1/artifacts/registry/removed-event-kinds.json`.
 
@@ -657,7 +657,7 @@ mod tests {
             MembershipPayloadState::Leave
         );
 
-        // `leave → join` is a legal transition per `ck.member.state`
+        // `leave → join` is a legal transition per `ak.member.state`
         // (initial state is `leave`), so re-joining after leaving succeeds
         // directly without a fresh invite.
         manager.join(&alice).unwrap();

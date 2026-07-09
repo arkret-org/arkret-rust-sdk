@@ -2,8 +2,8 @@
 
 use super::*;
 
-// ── AccessKind (ck.audit.policy_access) ────────────────────────────────
-/// Round 4 (commit 7fae9ba) — `ck.audit.policy_access.access_kind`
+// ── AccessKind (ak.audit.policy_access) ────────────────────────────────
+/// Round 4 (commit 7fae9ba) — `ak.audit.policy_access.access_kind`
 /// enum. Round 4 adds `E2EELateRecovery`; deployments emitting it
 /// MUST also populate `late_recovery_original_event_id`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -22,7 +22,7 @@ pub enum AccessKind {
     #[serde(rename = "e2ee_late_recovery")]
     E2EELateRecovery,
 }
-/// Round 4 — typed `ck.audit.policy_access` payload.
+/// Round 4 — typed `ak.audit.policy_access` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AuditPolicyAccessPayload {
@@ -72,7 +72,7 @@ pub struct Dot {
 
     pub actor_seq: u64,
 }
-/// Round 4 — typed `ck.consent.revoke` payload with REQUIRED
+/// Round 4 — typed `ak.consent.revoke` payload with REQUIRED
 /// `observed_dots`. Reducers MUST reject envelopes that omit this
 /// field with `schema_violation` (it would otherwise enable implicit
 /// cascade revoke).

@@ -39,7 +39,7 @@ impl Realm {
     /// Build an invite operation from a validated
     /// [`MemberDeliveryBindingCandidate`].
     ///
-    /// The candidate MUST come from `ck.find.directory.query.resolve_handle(intent="invite")`
+    /// The candidate MUST come from `ak.find.directory.query.resolve_handle(intent="invite")`
     /// or a trusted issuer's signed payload. Per `identity-handles.md` §3.7
     /// the SDK only accepts a candidate or an already-materialised
     /// [`MemberDeliveryBinding`] at this entry point. The candidate is
@@ -88,13 +88,13 @@ impl Realm {
         ))
     }
 
-    /// Build a `member_add` (`ck.member.state{membership=join}`) operation
+    /// Build a `member_add` (`ak.member.state{membership=join}`) operation
     /// from a validated [`MemberDeliveryBindingCandidate`].
     ///
     /// Reducer-side Join Policy still applies (the candidate is input, not
     /// authority). On success the payload carries the spec membership fields
     /// plus a fully constructed `delivery_binding` so the reducer can land it
-    /// as `ck.member.state{join}.delivery_binding` directly.
+    /// as `ak.member.state{join}.delivery_binding` directly.
     pub fn member_add_with_candidate(
         &self,
         candidate: &MemberDeliveryBindingCandidate,
@@ -168,7 +168,7 @@ impl Realm {
 
     /// Create a `routable` join operation that carries a concrete
     /// [`MemberDeliveryBinding`]. The binding is serialised onto the
-    /// `ck.member.state{join}` payload under `delivery_binding` per
+    /// `ak.member.state{join}` payload under `delivery_binding` per
     /// `event-payload.schema.json#/$defs/membership_payload`.
     pub fn create_join_with_binding(&self, binding: MemberDeliveryBinding) -> Result<Operation> {
         let session_meta = self

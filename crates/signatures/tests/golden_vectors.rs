@@ -55,7 +55,7 @@ fn move_signer_and_event_proof_signer_share_one_jws_header_and_signature() {
         },
         vec![Effect {
             cell: CellRef::new(
-                "ak:cell:ck.component.member.state.v1:did.web.alice.example".to_owned(),
+                "ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned(),
             )
             .unwrap(),
             op: LatticeOp {

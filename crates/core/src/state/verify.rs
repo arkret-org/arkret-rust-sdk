@@ -438,13 +438,13 @@ mod tests {
     }
 
     fn cell_member() -> CellRef {
-        CellRef::new("ak:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap()
     }
 
     fn cell_capability_grant() -> CellRef {
         CellRef::new(
-            "ak:cell:ck.component.capability.grant.v1:ck.grant.01js0gr0000000000000000000"
+            "ak:cell:ak.component.capability.grant.v1:ak.grant.01js0gr0000000000000000000"
                 .to_owned(),
         )
         .unwrap()

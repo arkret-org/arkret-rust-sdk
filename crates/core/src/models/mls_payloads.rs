@@ -1,4 +1,4 @@
-//! MLS event payloads from `ck.schema.event_payload.v1`.
+//! MLS event payloads from `ak.schema.event_payload.v1`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
@@ -674,7 +674,7 @@ pub struct MediaPlaintextService {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MediaDecryptPolicyValue {
-    /// `ck.realm.policy_components.media_service_decrypts` (§10.5.1 rule 1).
+    /// `ak.realm.policy_components.media_service_decrypts` (§10.5.1 rule 1).
     pub media_service_decrypts: bool,
     /// `plaintext_visible_services[]` with `purpose=media_plaintext`
     /// (§10.5.1 rule 2). Order is normalised before hashing so two members
@@ -756,7 +756,7 @@ fn object_ref_regex() -> &'static Regex {
 fn profile_id_regex() -> &'static Regex {
     static PROFILE_ID: OnceLock<Regex> = OnceLock::new();
     PROFILE_ID.get_or_init(|| {
-        Regex::new(r"^ck\.profile\.[a-z0-9][a-z0-9_.-]*\.v[0-9]+$")
+        Regex::new(r"^ak\.profile\.[a-z0-9][a-z0-9_.-]*\.v[0-9]+$")
             .expect("profile id regex compiles")
     })
 }
@@ -799,7 +799,7 @@ const MAX_CBOR_NESTING_DEPTH: usize = 64;
 
 /// Maximum number of items a single definite-length CBOR array or map may
 /// declare or carry (`scalability-constraints.md` §2;
-/// `ck.vector.encoding.reject_cbor_array_bounds.v1`). Checked before any
+/// `ak.vector.encoding.reject_cbor_array_bounds.v1`). Checked before any
 /// storage is sized from the declared count.
 const MAX_CBOR_CONTAINER_ITEMS: usize = 65_536;
 

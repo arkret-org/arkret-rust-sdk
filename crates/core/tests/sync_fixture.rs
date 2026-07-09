@@ -1,5 +1,5 @@
 //! Executable consumer for the spec fixture `fixtures/sync-fixture.json`
-//! (`ck.vector_group.sync.v1` client-sync projection + cursor recovery
+//! (`ak.vector_group.sync.v1` client-sync projection + cursor recovery
 //! vectors).
 //!
 //! The SDK-implementable subset drives [`arkret_core::cursor::Cursor`] over the

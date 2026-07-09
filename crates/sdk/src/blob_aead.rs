@@ -1,5 +1,5 @@
-//! Canonical encrypted attachment codec — `ck.blob.stream_aead.v1`
-//! (chunked streaming AEAD, STREAM / OAE2) and `ck.blob.whole_file_aead.v1`
+//! Canonical encrypted attachment codec — `ak.blob.stream_aead.v1`
+//! (chunked streaming AEAD, STREAM / OAE2) and `ak.blob.whole_file_aead.v1`
 //! (whole-file AEAD).
 //!
 //! Implements `crypto-media/media-and-blob.md` §3.2 / §3.3 against the wire
@@ -259,7 +259,7 @@ fn segment_count_for(plaintext_size: usize, segment_size: u32) -> u32 {
 
 // ─── streaming encrypt ──────────────────────────────────────────────────────
 
-/// Encrypt `plaintext` into `ck.blob.stream_aead.v1` form.
+/// Encrypt `plaintext` into `ak.blob.stream_aead.v1` form.
 ///
 /// Returns `(ciphertext, envelope)` where `ciphertext` is the concatenation of
 /// every segment ciphertext (each carrying its own AEAD tag) in ascending
@@ -436,7 +436,7 @@ impl StreamContext {
     }
 }
 
-/// Incremental decryptor for `ck.blob.stream_aead.v1`.
+/// Incremental decryptor for `ak.blob.stream_aead.v1`.
 ///
 /// Supports Range / progressive playback: feed each segment ciphertext via
 /// [`push_segment`](Self::push_segment), which returns that segment's verified
@@ -651,7 +651,7 @@ pub fn decrypt_stream(
 
 // ─── whole-file ──────────────────────────────────────────────────────────────
 
-/// Encrypt `plaintext` into `ck.blob.whole_file_aead.v1` form (single nonce,
+/// Encrypt `plaintext` into `ak.blob.whole_file_aead.v1` form (single nonce,
 /// single ciphertext+tag). Returns `(ciphertext, envelope)` with `blob_ref`
 /// left empty for the caller.
 pub fn encrypt_whole_file(
@@ -696,7 +696,7 @@ pub fn encrypt_whole_file(
     Ok((ciphertext, envelope))
 }
 
-/// Decrypt a `ck.blob.whole_file_aead.v1` attachment. Verifies the overall
+/// Decrypt a `ak.blob.whole_file_aead.v1` attachment. Verifies the overall
 /// `ciphertext_digest` before AEAD, then the AEAD tag; on any mismatch the
 /// plaintext is never returned.
 pub fn decrypt_whole_file(

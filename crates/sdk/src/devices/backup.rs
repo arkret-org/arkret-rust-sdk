@@ -161,7 +161,7 @@ pub struct KeyBackupContentItem {
     pub extra: Value,
 }
 
-/// Schema-aligned encrypted key backup facade from `ck.schema.key_backup.v1`.
+/// Schema-aligned encrypted key backup facade from `ak.schema.key_backup.v1`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProtocolKeyBackup {
     pub backup_id: String,

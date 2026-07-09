@@ -159,7 +159,7 @@ mod tests {
     fn minimal_bottom_serializes_only_required_fields() {
         let b = Bottom::new(
             BottomKind::Conflict,
-            vec![cell("ak:cell:ck.component.realm.policy.v1:x")],
+            vec![cell("ak:cell:ak.component.realm.policy.v1:x")],
         );
         let s = serde_json::to_string(&b).unwrap();
         assert!(s.contains("\"kind\":\"conflict\""));
@@ -176,7 +176,7 @@ mod tests {
     fn conflict_bottom_with_heads_round_trips() {
         let b = Bottom {
             kind: BottomKind::Conflict,
-            cells: vec![cell("ak:cell:ck.component.realm.policy.v1:x")],
+            cells: vec![cell("ak:cell:ak.component.realm.policy.v1:x")],
             move_ids: vec![
                 move_id("4444444444444444444444444444444444444444444444444444444444444444"),
                 move_id("5555555555555555555555555555555555555555555555555555555555555555"),
@@ -201,7 +201,7 @@ mod tests {
         let b = Bottom {
             kind: BottomKind::InvalidTransition,
             cells: vec![cell(
-                "ak:cell:ck.component.member.state.v1:did.web.alice.example",
+                "ak:cell:ak.component.member.state.v1:did.web.alice.example",
             )],
             move_ids: vec![],
             seal_view: None,
@@ -223,7 +223,7 @@ mod tests {
         let b = Bottom::new(
             BottomKind::NotarySplit,
             vec![cell(
-                "ak:cell:ck.component.notary.v1:ck.space.01js0sp00000000000000000aa",
+                "ak:cell:ak.component.notary.v1:ak.space.01js0sp00000000000000000aa",
             )],
         );
         assert!(b.move_ids.is_empty());
@@ -235,7 +235,7 @@ mod tests {
     fn deserialize_unknown_kind_is_rejected() {
         let raw = json!({
             "kind": "future_unknown_bottom",
-            "cells": ["ak:cell:ck.component.member.state.v1:did.web.alice.example"]
+            "cells": ["ak:cell:ak.component.member.state.v1:did.web.alice.example"]
         });
         let r: Result<Bottom, _> = serde_json::from_value(raw);
         assert!(r.is_err(), "unknown BottomKind must fail closed");

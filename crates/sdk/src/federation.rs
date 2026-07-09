@@ -1,7 +1,7 @@
 //! Federation discovery, replay/fork quarantine, and content-digest
 //! helpers.
 //!
-//! The protocol federation surface is the registered `ck.peer.*`
+//! The protocol federation surface is the registered `ak.peer.*`
 //! operation family (`/_arkret/peer/*`) with Event proofs / HTTP
 //! message signatures via the `arkret-signatures` pipeline. A former
 //! SDK-local "federation transaction/request" layer (concatenation

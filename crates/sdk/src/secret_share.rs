@@ -1,6 +1,6 @@
 //! Typed to-device secret-share content per `crypto-media/device-lifecycle.md` §10.7.
 //!
-//! Two `ck.secret.*` to-device kinds let a newly authorized device pull an
+//! Two `ak.secret.*` to-device kinds let a newly authorized device pull an
 //! account-scope secret (e.g. the MLS account secret) from an existing
 //! authorized device over HPKE, after the two devices completed SAS
 //! verification (§10.3). This module provides the strongly-typed `content`
@@ -27,14 +27,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{DeviceId, Error, Result};
 
-/// Wire `kind` for the secret request (`ck.secret.request`).
+/// Wire `kind` for the secret request (`ak.secret.request`).
 pub const SECRET_REQUEST_KIND: &str = "ak.secret.request";
-/// Wire `kind` for the sealed secret response (`ck.secret.send`).
+/// Wire `kind` for the sealed secret response (`ak.secret.send`).
 pub const SECRET_SEND_KIND: &str = "ak.secret.send";
 
-/// HPKE scheme label required on `ck.secret.send` content. Matches the
+/// HPKE scheme label required on `ak.secret.send` content. Matches the
 /// v1 default-MUST device HPKE suite in `device-lifecycle.md` §4 / the
-/// `ck.hpke_x25519_aead_chacha20poly1305.v1` label used by
+/// `ak.hpke_x25519_aead_chacha20poly1305.v1` label used by
 /// file-transfer.schema.json (RFC 9180 base mode).
 pub const HPKE_SECRET_SHARE_SCHEME: &str = "ak.hpke_x25519_aead_chacha20poly1305.v1";
 
@@ -43,7 +43,7 @@ pub const HPKE_SECRET_SHARE_SCHEME: &str = "ak.hpke_x25519_aead_chacha20poly1305
 /// agree on the exact opaque token.
 pub const SECRET_ID_MLS_ACCOUNT: &str = "inkson_mls_account_secret";
 
-/// `ck.secret.request.content` — a newly authorized device asks an existing
+/// `ak.secret.request.content` — a newly authorized device asks an existing
 /// authorized device for `secret_id`, advertising the HPKE public key the
 /// responder should seal to. Carries no secret material itself.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -83,7 +83,7 @@ impl SecretShareRequestContent {
     }
 }
 
-/// `ck.secret.send.content` — the existing authorized device returns the
+/// `ak.secret.send.content` — the existing authorized device returns the
 /// requested secret HPKE-sealed to the requester's
 /// `recipient_hpke_public_key`. The plaintext is never visible to the queue
 /// service.
@@ -141,7 +141,7 @@ impl SecretShareSendContent {
 //
 // Standard RFC 9180 HPKE base mode, single-shot seal. Suite:
 // DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + ChaCha20-Poly1305 (the v1
-// default-MUST `ck.hpke_x25519_aead_chacha20poly1305.v1`). The crypto is the
+// default-MUST `ak.hpke_x25519_aead_chacha20poly1305.v1`). The crypto is the
 // audited rozbb/rust-hpke crate; this module owns only the wire framing and the
 // caller (info, aad) domain-separation contract. Used by the history-secret
 // share below and by inkson's `hpke_backup` path.
@@ -184,7 +184,7 @@ impl rand_core_09::RngCore for OsCsRng {
 impl rand_core_09::CryptoRng for OsCsRng {}
 
 /// RFC 9180 base-mode single-shot seal to a recipient X25519 public key
-/// (`ck.hpke_x25519_aead_chacha20poly1305.v1`), via the `hpke` crate. A fresh
+/// (`ak.hpke_x25519_aead_chacha20poly1305.v1`), via the `hpke` crate. A fresh
 /// ephemeral keypair is generated per seal. The wire blob is
 /// `base64url(enc || ciphertext)`.
 ///
@@ -293,7 +293,7 @@ fn decode_history_secrets(plaintext: &[u8]) -> Result<Vec<(u64, Vec<u8>)>> {
 
 /// HPKE-seal the retained `history_secrets` to `recipient_pubkey` (raw 32-byte
 /// X25519 public key). Returns the `base64url(ephemeral_pub || ciphertext)`
-/// blob to place in `ck.realm_key.share.ciphertext`.
+/// blob to place in `ak.realm_key.share.ciphertext`.
 ///
 /// Thin wrapper over [`seal_base_mode_to_x25519_pubkey`] with the
 /// history-share `info`/`aad` label; the produced bytes are identical to the
@@ -423,9 +423,9 @@ mod tests {
     }
 
     /// RFC 9180 base-mode known-answer test for
-    /// `ck.hpke_x25519_aead_chacha20poly1305.v1`, against the official CFRG
+    /// `ak.hpke_x25519_aead_chacha20poly1305.v1`, against the official CFRG
     /// vector mirrored in `arkret-spec/.../fixtures/hpke-suite-fixture.json`
-    /// (`ck.vector.hpke.x25519_chacha20poly1305_base.v1`). We reconstruct the
+    /// (`ak.vector.hpke.x25519_chacha20poly1305_base.v1`). We reconstruct the
     /// on-wire blob `base64url(enc || ciphertext)` from the vector's `enc`
     /// (= pkEm) and first ciphertext, then drive our [`open_base_mode_with_x25519_privkey`]
     /// (→ the `hpke` crate's SetupBaseR) with the vector's skR, info and aad and

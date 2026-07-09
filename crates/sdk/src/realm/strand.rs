@@ -21,7 +21,7 @@ pub struct StrandUpdateMetadata {
 }
 
 impl Realm {
-    /// Create a spec-shaped `ck.strand.create` operation.
+    /// Create a spec-shaped `ak.strand.create` operation.
     pub fn create_strand_operation(
         &self,
         title: impl Into<String>,
@@ -36,7 +36,7 @@ impl Realm {
         )
     }
 
-    /// Create a spec-shaped `ck.strand.create` operation with extended Strand fields.
+    /// Create a spec-shaped `ak.strand.create` operation with extended Strand fields.
     pub fn create_strand_operation_with_metadata(
         &self,
         title: impl Into<String>,
@@ -92,7 +92,7 @@ impl Realm {
         ))
     }
 
-    /// Create a spec-shaped `ck.strand.update` operation.
+    /// Create a spec-shaped `ak.strand.update` operation.
     pub fn update_strand_operation(
         &self,
         strand_id: StrandId,
@@ -109,7 +109,7 @@ impl Realm {
         )
     }
 
-    /// Create a spec-shaped `ck.strand.update` operation with extended Strand fields.
+    /// Create a spec-shaped `ak.strand.update` operation with extended Strand fields.
     pub fn update_strand_operation_with_metadata(
         &self,
         strand_id: StrandId,
@@ -199,7 +199,7 @@ impl Realm {
         Ok(operation)
     }
 
-    /// Create a `ck.strand.move` operation.
+    /// Create a `ak.strand.move` operation.
     pub fn move_strand_operation(
         &self,
         strand_id: StrandId,
@@ -233,7 +233,7 @@ impl Realm {
         Ok(operation)
     }
 
-    /// Create a `ck.strand.reorder` operation.
+    /// Create a `ak.strand.reorder` operation.
     pub fn reorder_strand_operation(
         &self,
         strand_id: StrandId,

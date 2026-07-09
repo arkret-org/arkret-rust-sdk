@@ -47,7 +47,7 @@ pub struct AppletNamespaceConflict {
     pub conflicting_pattern: String,
 }
 
-// ─── wire-format `ck.applet.registration` (spec `applet-schema.md` §1) ─────
+// ─── wire-format `ak.applet.registration` (spec `applet-schema.md` §1) ─────
 
 /// A single namespace claim entry. Wire shape per `applet-schema.md`
 /// §2: an `{ exclusive, pattern }` object, NOT a bare pattern string.
@@ -465,7 +465,7 @@ pub fn normalize_applet_signing_key_ref(service_did: &Did, key_ref: &str) -> Str
     }
 }
 
-/// Wire-format `ck.applet.registration` Event content per spec
+/// Wire-format `ak.applet.registration` Event content per spec
 /// `applet-schema.md` §1 (authoritative `applet_registration_payload`).
 ///
 /// This is the on-the-wire shape every external Applet implementation
@@ -592,10 +592,10 @@ pub fn sign_registration<S: arkret_core::MoveSigner + ?Sized>(
 // Spec `applet-schema.md` §1a/§1b + `applet-integration.md` §4a/§4b. The
 // Package is a controller-signed *distribution* object: it is NOT Realm
 // history and NOT a grant. The Principal Server / authz service derives a
-// canonical `ck.applet.registration` and capability grants during
-// `ck.self.applet.command.install`.
+// canonical `ak.applet.registration` and capability grants during
+// `ak.self.applet.command.install`.
 
-/// Controller-signed installable Applet package (`ck.schema.applet_package.v1`).
+/// Controller-signed installable Applet package (`ak.schema.applet_package.v1`).
 ///
 /// Build it unsigned via [`AppletPackage::new`], [`seal`](Self::seal) to
 /// stamp `package_digest`, then [`sign`](Self::sign) with the controller
@@ -604,7 +604,7 @@ pub fn sign_registration<S: arkret_core::MoveSigner + ?Sized>(
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletPackage {
-    /// Always `ck.schema.applet_package.v1`.
+    /// Always `ak.schema.applet_package.v1`.
     pub schema: String,
     /// Distribution identifier only — never a grant subject.
     pub package_id: String,
@@ -615,7 +615,7 @@ pub struct AppletPackage {
     pub base_url: String,
     /// Visible bot actor DID; MUST NOT carry a `#fragment`.
     pub bot_actor_id: Did,
-    /// MUST contain at least `ck.profile.applet_service.v1`.
+    /// MUST contain at least `ak.profile.applet_service.v1`.
     pub claimed_profiles: Vec<String>,
     pub protocols: Vec<String>,
     pub namespaces: AppletWireNamespaces,
@@ -777,7 +777,7 @@ impl AppletPackage {
             .any(|profile| profile == Self::BASE_PROFILE)
         {
             return Err(Error::Protocol(
-                "applet package MUST claim ck.profile.applet_service.v1".to_owned(),
+                "applet package MUST claim ak.profile.applet_service.v1".to_owned(),
             ));
         }
         if self.protocols.is_empty() {
@@ -850,7 +850,7 @@ impl AppletPackage {
         Value::Object(manifest)
     }
 
-    /// Derive the canonical `ck.applet.registration` payload per the
+    /// Derive the canonical `ak.applet.registration` payload per the
     /// spec §1a mapping table. The package `proof` is carried over; the
     /// authz service still re-verifies / re-signs the derived
     /// registration before fan-out.

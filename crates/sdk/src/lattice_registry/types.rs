@@ -32,12 +32,12 @@ pub enum Criticality {
 
 /// Stable identification of the logical cell this [`LatticeKind`] drives.
 /// Multiple kinds operating on the same cell (paired kinds, e.g.
-/// `ck.capability.grant` + `ck.capability.revoke`) MUST share
+/// `ak.capability.grant` + `ak.capability.revoke`) MUST share
 /// `component_type` so the receiver treats them as supersedes on the
 /// same cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ComponentDescriptor {
-    /// Stable URI in the `ck.component.<facet-path>.v<n>` namespace.
+    /// Stable URI in the `ak.component.<facet-path>.v<n>` namespace.
     pub component_type: &'static str,
     /// Monotonic version within the same `component_type`.
     pub component_version: u32,
@@ -119,7 +119,7 @@ impl std::error::Error for LatticeKindError {}
 
 /// One canonical Arkret cell-family implementation.
 ///
-/// Each impl owns one `cell_family` (e.g. `ck.component.consent.v1`),
+/// Each impl owns one `cell_family` (e.g. `ak.component.consent.v1`),
 /// declares the lattice algebra that resolves it (one of the six
 /// spec-normative lattices from [`crate::lattice::LatticeKind`]), and
 /// exposes subject-derivation + post-resolution validation hooks.

@@ -80,7 +80,7 @@ pub struct MlsAddMembersResult {
 /// Unlike `MlsAddMemberResult`, Remove never produces a Welcome — surviving
 /// members simply apply the commit to advance the epoch. The list of
 /// `removed_leaves` makes the audit trail explicit so callers can correlate
-/// the result with the originating `ck.device.revoke` / `ck.member.state`
+/// the result with the originating `ak.device.revoke` / `ak.member.state`
 /// events.
 #[derive(Clone, Debug)]
 pub struct MlsRemoveMemberResult {
@@ -91,7 +91,7 @@ pub struct MlsRemoveMemberResult {
     pub removed_leaves: Vec<u32>,
     /// The principal DIDs whose leaves were removed (one per leaf, may
     /// contain duplicates if the principal had multiple leaves / devices in
-    /// the same group). Useful for downstream `ck.device.revoke` event
+    /// the same group). Useful for downstream `ak.device.revoke` event
     /// envelopes that index by principal.
     pub removed_principals: Vec<Did>,
 }
@@ -291,8 +291,8 @@ impl CokretMlsGroup {
     }
 
     /// Content hash of the group's current key schedule, suitable for use as
-    /// the `key_schedule_hash` field in `ck.component.key_schedule.v1` cell
-    /// values and in `ck.profile.mls_governance_binding.full.v1` binding
+    /// the `key_schedule_hash` field in `ak.component.key_schedule.v1` cell
+    /// values and in `ak.profile.mls_governance_binding.full.v1` binding
     /// payloads. Derived deterministically from the OpenMLS
     /// `epoch_authenticator()` — a value the spec binds to the current
     /// (post-commit) MLS epoch + group state, so two clients on the same
@@ -411,7 +411,7 @@ impl CokretMlsGroup {
 
     /// Decrypt content produced by [`Self::encrypt_content_exporter_aead`] using
     /// a supplied `history_secret` (e.g. one retained locally for the sender's
-    /// own epoch, or unsealed from a `ck.realm_key.share`). `nonce_and_ct` is the
+    /// own epoch, or unsealed from a `ak.realm_key.share`). `nonce_and_ct` is the
     /// `nonce || ciphertext` blob; `aad_bytes` MUST be byte-identical to the AAD
     /// passed at encrypt time. Takes `&self` — it does not touch ratchet state.
     pub fn decrypt_content_exporter_aead(
@@ -430,7 +430,7 @@ impl CokretMlsGroup {
     }
 
     /// Return the retained `history_secret[from_epoch..=to_epoch]` subset a
-    /// provider seals into a `ck.realm_key.share`. Epochs outside the retained
+    /// provider seals into a `ak.realm_key.share`. Epochs outside the retained
     /// range (never derived, or pruned) are simply absent from the result.
     pub fn export_history_secret_range(
         &self,
@@ -481,7 +481,7 @@ impl CokretMlsGroup {
     /// Snapshot the current MLS group's member principals as canonical IDs.
     /// Iterates the OpenMLS `members()` view, parses each leaf's credential
     /// content as a UTF-8 DID string, and folds the results into a stable
-    /// (deduplicated, BTreeSet-sorted) `Vec<Did>`. Useful for `ck.audit.
+    /// (deduplicated, BTreeSet-sorted) `Vec<Did>`. Useful for `ak.audit.
     /// ryw_receipt.delivered_to_devices` and for downstream auditors that
     /// want to know "which principals does this commit reach".
     ///

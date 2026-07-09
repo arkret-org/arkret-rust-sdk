@@ -4,7 +4,7 @@
 //! - `set(value)` writes the cell.
 //! - Two concurrent `set` ops produce a `kind=conflict` Bottom (default `bottom=reject`). Unlike
 //!   `mv-register`, dependent Moves must fail closed because this Lattice serves safety-critical
-//!   state (e.g. `ck.component.realm.policy.v1`, `ck.component.notary.v1`).
+//!   state (e.g. `ak.component.realm.policy.v1`, `ak.component.notary.v1`).
 //!
 //! Wire-shape and signature mirror `MvRegister`; the only behavioural
 //! difference is the implicit `bottom=reject` semantics enforced by
@@ -75,7 +75,7 @@ mod tests {
 
     fn cell() -> CellRef {
         CellRef::new(
-            "ak:cell:ck.component.realm.policy.v1:ck.realm.01js0sp00000000000000000aa".to_owned(),
+            "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
         )
         .unwrap()
     }

@@ -6,8 +6,8 @@ use super::*;
 // Agent interop envelope (agent.schema.json)
 // ---------------------------------------------------------------------------
 
-/// Lifecycle state shared by `ck.agent.interop_session.status` events
-/// (and `ck.applet.interop_session.status` — see [`AppletInteropEnvelope`]).
+/// Lifecycle state shared by `ak.agent.interop_session.status` events
+/// (and `ak.applet.interop_session.status` — see [`AppletInteropEnvelope`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -19,7 +19,7 @@ pub enum InteropSessionStatus {
     Cancelled,
 }
 
-/// Wire shape for the `ck.agent.*` event family
+/// Wire shape for the `ak.agent.*` event family
 /// (`agent.schema.json`). Mirrors the applet envelope but terminates
 /// in a `*.result` event carrying [`AgentAuditBinding`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -28,21 +28,21 @@ pub struct AgentInteropEnvelope {
     /// Stable agent runtime identifier. Spec v1: this is a DID;
     /// `ak:agent:*` is not a registered typed-id kind.
     pub agent_id: Did,
-    /// HTTPS endpoint advertised by `ck.agent.endpoint` events.
+    /// HTTPS endpoint advertised by `ak.agent.endpoint` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub endpoint_url: Option<String>,
     /// Per-invocation correlation id used by `interop_session.start /
     /// .status / .result` to pair request/response.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
-    /// Lifecycle state for `ck.agent.interop_session.status` events.
+    /// Lifecycle state for `ak.agent.interop_session.status` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<InteropSessionStatus>,
     /// Caller-supplied parameters for `interop_session.start`. Opaque
     /// to soland — agent runtimes interpret per agent manifest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub params: Option<Value>,
-    /// Terminal payload for `ck.agent.interop_session.result`.
+    /// Terminal payload for `ak.agent.interop_session.result`.
     /// Free-form; agents document the shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result: Option<Value>,
@@ -57,7 +57,7 @@ pub struct AgentInteropEnvelope {
 }
 
 /// Signed audit binding emitted with the terminal
-/// `ck.agent.interop_session.result` event so callers can prove the
+/// `ak.agent.interop_session.result` event so callers can prove the
 /// agent runtime executed under a specific capability grant.
 ///
 /// This is the **wire envelope** that gets serialised onto the
@@ -80,7 +80,7 @@ pub struct AgentAuditBinding {
 // Applet interop envelope (applet.schema.json)
 // ---------------------------------------------------------------------------
 
-/// Wire shape for the `ck.applet.*` event family
+/// Wire shape for the `ak.applet.*` event family
 /// (`applet.schema.json`): registration, discovery,
 /// `interop_session.start`, `.status`, and `bridge_error`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -99,7 +99,7 @@ pub struct AppletInteropEnvelope {
     /// .status` to pair request/response.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
-    /// Lifecycle state for `ck.applet.interop_session.status` events.
+    /// Lifecycle state for `ak.applet.interop_session.status` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<InteropSessionStatus>,
     /// Caller-supplied parameters for `interop_session.start`. Opaque
@@ -110,7 +110,7 @@ pub struct AppletInteropEnvelope {
     /// context, bridge identifier, etc.).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<Value>,
-    /// Bridge-error context for `ck.applet.bridge_error` events.
+    /// Bridge-error context for `ak.applet.bridge_error` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<AppletErrorContext>,
     /// Applet manifest snapshot at registration time (capability
@@ -119,7 +119,7 @@ pub struct AppletInteropEnvelope {
     pub manifest: Option<Value>,
 }
 
-/// Bridge-error context for `ck.applet.bridge_error` events.
+/// Bridge-error context for `ak.applet.bridge_error` events.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletErrorContext {

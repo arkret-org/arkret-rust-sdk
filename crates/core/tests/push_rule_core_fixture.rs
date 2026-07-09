@@ -1,6 +1,6 @@
 //! Executable consumer for the spec fixture
 //! `fixtures/push-rule-core-fixture.json` (shared v1 push-rule watch-state
-//! vectors, `ck.profile.push_gateway.blind_wakeup.v1`).
+//! vectors, `ak.profile.push_gateway.blind_wakeup.v1`).
 //!
 //! Every case drives the SDK's shared push-rule core
 //! [`arkret_core::push_rule_core::evaluate_watch_level`] with the fixture's

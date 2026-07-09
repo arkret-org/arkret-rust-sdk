@@ -81,7 +81,7 @@ pub struct AgentRequestPlan<B> {
     pub body: Option<B>,
 }
 
-/// Builder for `ck.gate.account.command.pair_agent_key` request bodies.
+/// Builder for `ak.gate.account.command.pair_agent_key` request bodies.
 #[derive(Clone, Debug)]
 pub struct AgentKeyPairRequestBuilder {
     pairing_request_id: String,
@@ -158,7 +158,7 @@ pub struct AgentKeyProofSigningInput {
 }
 
 /// Canonical transcript signed by the agent runtime when presenting a
-/// proof-of-possession for `ck.gate.account.command.pair_agent_key`.
+/// proof-of-possession for `ak.gate.account.command.pair_agent_key`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentKeyPairProofSigningInput {
     pub audience: String,
@@ -252,7 +252,7 @@ pub fn agent_path_component(value: &str) -> String {
     encoded
 }
 
-/// Builder for `ck.self.agent.command.provision` request bodies.
+/// Builder for `ak.self.agent.command.provision` request bodies.
 #[derive(Clone, Debug, Default)]
 pub struct AgentProvisionRequestBuilder {
     display_name: Option<String>,
@@ -1218,7 +1218,7 @@ mod tests {
         assert_eq!(detach.method.as_str(), "DELETE");
         assert_eq!(
             detach.path,
-            "/_arkret/self/agents/did%3Awebvh%3Az6mkfixture%3Aagent.example/grants/ck%3Agrant%3A01964137-0000-7000-8000-000000000010"
+            "/_arkret/self/agents/did%3Awebvh%3Az6mkfixture%3Aagent.example/grants/ak%3Agrant%3A01964137-0000-7000-8000-000000000010"
         );
     }
 
@@ -1341,7 +1341,7 @@ mod tests {
             String::from_utf8(canonical::canonical_json_bytes(&event.payload).unwrap()).unwrap();
         assert_eq!(
             canonical_content,
-            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_key_scope":{"actions":["ak.self.events.stream.subscribe","ck.message.create"],"resources":[{"kind":"realm","realm_id":"ak:realm:01904100-0000-7000-8000-000000000001"}]},"agent_principal_id":"did:webvh:z6mkfixture:agent.example","approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","kind":"approval_event","ref":"ak:event:01970000-0000-7000-8000-000000000021"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_key_scope":{"actions":["ak.self.events.stream.subscribe","ak.message.create"],"resources":[{"kind":"realm","realm_id":"ak:realm:01904100-0000-7000-8000-000000000001"}]},"agent_principal_id":"did:webvh:z6mkfixture:agent.example","approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","kind":"approval_event","ref":"ak:event:01970000-0000-7000-8000-000000000021"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
         );
     }
 

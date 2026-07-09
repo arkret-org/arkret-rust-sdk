@@ -229,7 +229,7 @@ mod tests {
             seal_basis(0xaa),
             vec![Effect {
                 cell: CellRef::new(
-                    "ak:cell:ck.component.member.state.v1:did.web.alice.example".to_owned(),
+                    "ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned(),
                 )
                 .unwrap(),
                 op: LatticeOp {

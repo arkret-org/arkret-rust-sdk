@@ -7,7 +7,7 @@
 //! policy, not accident:
 //!
 //! - **`EventKind` keeps unknown values** (`EventKind::Unknown(String)`). The event-kind registry
-//!   is an *open, growing* namespace: new `ck.*` kinds are added in ordinary spec revisions and
+//!   is an *open, growing* namespace: new `ak.*` kinds are added in ordinary spec revisions and
 //!   vendor kinds exist by design. An older SDK deserialising a newer kind preserves the raw wire
 //!   string instead of failing the whole envelope; whether an unknown *standard* kind is acceptable
 //!   is the validation layer's decision (`schema_violation`), not the parser's.
@@ -537,25 +537,25 @@ impl Event {
     }
 
     event_payload_accessors! {
-        /// Parse a `ck.message.create` payload.
+        /// Parse a `ak.message.create` payload.
         as_message_create => (MessageCreatePayload, crate::events::kinds::MESSAGE_CREATE),
-        /// Parse a `ck.message.revise` payload.
+        /// Parse a `ak.message.revise` payload.
         as_message_revise => (MessageRevisePayload, crate::events::kinds::MESSAGE_REVISE),
-        /// Parse a `ck.message.redact` payload.
+        /// Parse a `ak.message.redact` payload.
         as_message_redact => (MessageRedactPayload, crate::events::kinds::MESSAGE_REDACT),
-        /// Parse a `ck.reaction.add` payload.
+        /// Parse a `ak.reaction.add` payload.
         as_reaction_add => (ReactionPayload, crate::events::kinds::REACTION_ADD),
-        /// Parse a `ck.reaction.remove` payload.
+        /// Parse a `ak.reaction.remove` payload.
         as_reaction_remove => (ReactionPayload, crate::events::kinds::REACTION_REMOVE),
-        /// Parse a `ck.strand.create` payload.
+        /// Parse a `ak.strand.create` payload.
         as_strand_create => (StrandCreatePayload, crate::events::kinds::STRAND_CREATE),
-        /// Parse a `ck.strand.update` payload.
+        /// Parse a `ak.strand.update` payload.
         as_strand_update => (StrandPatchPayload, crate::events::kinds::STRAND_UPDATE),
-        /// Parse a `ck.member.state` payload.
+        /// Parse a `ak.member.state` payload.
         as_member_state => (MembershipPayload, crate::events::kinds::MEMBER_STATE),
-        /// Parse a `ck.morph.create` payload.
+        /// Parse a `ak.morph.create` payload.
         as_morph_create => (MorphCreatePayload, crate::events::kinds::MORPH_CREATE),
-        /// Parse a `ck.morph.update` payload.
+        /// Parse a `ak.morph.update` payload.
         as_morph_update => (MorphUpdatePayload, crate::events::kinds::MORPH_UPDATE),
     }
 

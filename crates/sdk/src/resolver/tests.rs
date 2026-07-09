@@ -665,7 +665,7 @@ fn capability_rebind_uses_deterministic_lww_order() {
         json!({
             "grant_id": "cap-chan-post",
             "subject": "did:webvh:z6mkfixture:alice.example",
-            "actions": ["ak.message.create", "ck.reaction.add"]
+            "actions": ["ak.message.create", "ak.reaction.add"]
         }),
     );
 
@@ -845,8 +845,8 @@ fn reducer_convergence_is_order_independent() {
     assert_eq!(state_a.frontier, state_b.frontier);
 }
 
-// ── SDK Round 11 (2026-05-16): ck.redaction → Strand / Morph state flip ──
-// Mirror of soland round 14b. When ck.redaction event content carries
+// ── SDK Round 11 (2026-05-16): ak.redaction → Strand / Morph state flip ──
+// Mirror of soland round 14b. When ak.redaction event content carries
 // `object_ref` pointing to a Strand / Morph, the reducer flips the subject
 // state to Redacted (terminal). State-machine guard rejects already-
 // terminal source with `<kind>_already_terminal`.
@@ -860,7 +860,7 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
             "object_ref": object_ref,
         }),
     );
-    // `ck.redaction` dispatch path uses `event.redacts`; populate it so
+    // `ak.redaction` dispatch path uses `event.redacts`; populate it so
     // the dispatcher invokes redact_event AND redact_object_for_event.
     ev.redacts = Some(
         EventId::new(format!(
@@ -968,8 +968,8 @@ fn strand_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
     assert_eq!(strand.tracks["review"].template.as_deref(), Some("Review"));
 }
 
-// ── SDK-ORG-05 (2026-06-25): ck.realm.organization composite cell subject ──
-// `ck.realm.organization` declares a tuple cell_subject
+// ── SDK-ORG-05 (2026-06-25): ak.realm.organization composite cell subject ──
+// `ak.realm.organization` declares a tuple cell_subject
 // `(organization_id, relationship)`. Distinct pairs must form independent
 // CAS register cells so they never overwrite each other; only events sharing
 // the same `(organization_id, relationship)` compete under LWW.

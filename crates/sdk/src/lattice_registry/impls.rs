@@ -140,7 +140,7 @@ per_subject_lattice!(
     BottomPolicy::Reject,
     Criticality::Required,
     "grant_id",
-    &["ak.capability.grant", "ck.capability.revoke"]
+    &["ak.capability.grant", "ak.capability.revoke"]
 );
 
 per_subject_lattice!(
@@ -180,7 +180,7 @@ per_subject_lattice!(
     BottomPolicy::Reject,
     Criticality::Required,
     "device_id",
-    &["ak.device.authorize", "ck.device.revoke"]
+    &["ak.device.authorize", "ak.device.revoke"]
 );
 
 per_subject_lattice!(
@@ -367,7 +367,7 @@ per_subject_lattice!(
     BottomPolicy::Reject,
     Criticality::Required,
     "strand_id",
-    &["ak.strand.move", "ck.strand.reorder"]
+    &["ak.strand.move", "ak.strand.reorder"]
 );
 
 per_subject_lattice!(
@@ -565,7 +565,7 @@ singleton_lattice!(
     &["ak.circle.create"]
 );
 
-// `ck.space.parent` is a CAS register keyed by the child Space ID.
+// `ak.space.parent` is a CAS register keyed by the child Space ID.
 per_subject_lattice!(
     SpaceParent,
     "ak.component.space.parent.v1",
@@ -606,7 +606,7 @@ per_subject_lattice!(
     &["ak.cross_signing.reset"]
 );
 
-/// Lattice marker for the `ck.component.member.identity.v1` cell family.
+/// Lattice marker for the `ak.component.member.identity.v1` cell family.
 /// Named `MemberIdentityLattice` (not `MemberIdentity`) to avoid colliding
 /// with the wire object `models::MemberIdentity`.
 pub struct MemberIdentityLattice;
@@ -721,7 +721,7 @@ per_subject_lattice!(
     BottomPolicy::Expose,
     Criticality::Required,
     "actor_id",
-    &["ak.profile.create", "ck.profile.update"]
+    &["ak.profile.create", "ak.profile.update"]
 );
 
 per_subject_lattice!(
@@ -813,7 +813,7 @@ singleton_lattice!(
     &["ak.realm.discovery"]
 );
 
-// `ck.realm.organization` declares a tuple `cell_subject`:
+// `ak.realm.organization` declares a tuple `cell_subject`:
 // `(organization_id = payload.organization_id, relationship = payload.relationship)`.
 // It is NOT a singleton keyed by realm_id; distinct (organization_id, relationship)
 // pairs must form independent CAS register cells so they cannot overwrite each other.

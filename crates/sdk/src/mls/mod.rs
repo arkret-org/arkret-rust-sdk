@@ -1035,7 +1035,7 @@ mod tests {
             EncryptedEnvelopeV1::from_payload(&payload, aad, AadVisibility::Hidden, commit_ref)
                 .unwrap();
 
-        // Conformance with ck.schema.encrypted_envelope.v1: required fields,
+        // Conformance with ak.schema.encrypted_envelope.v1: required fields,
         // fixed consts, hidden-visibility AAD discipline, no forbidden extras.
         let json = serde_json::to_value(&envelope).unwrap();
         let obj = json.as_object().unwrap();

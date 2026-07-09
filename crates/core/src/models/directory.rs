@@ -1,6 +1,6 @@
 use super::*;
 
-/// `ck.find.directory.query.describe` returns the shared ServiceDescribe
+/// `ak.find.directory.query.describe` returns the shared ServiceDescribe
 /// contract with the registered directory-service overlay fields populated.
 pub type DirectoryDescription = ServiceDescribe;
 
@@ -187,7 +187,7 @@ pub enum RealmJoinCandidateSource {
     LocalCache,
 }
 
-/// `ck.schema.realm_join_candidate.v1`: time-bounded routing hint for
+/// `ak.schema.realm_join_candidate.v1`: time-bounded routing hint for
 /// submitting Realm join, invite-accept, knock, or restricted-join material.
 /// It is distinct from member delivery binding and does not authorize
 /// membership by itself.
@@ -263,7 +263,7 @@ pub enum TargetKind {
     Message,
 }
 
-/// R3.3 (CKP-0011) — request body for `ck.find.directory.query.resolve_target`.
+/// R3.3 (CKP-0011) — request body for `ak.find.directory.query.resolve_target`.
 ///
 /// `address` is a client-agnostic shareable object address in either the
 /// `web+arkret:` URI form or the HTTPS-landing fragment form (see
@@ -286,7 +286,7 @@ pub struct DirectoryResolveTargetRequestBody {
     pub token: Option<String>,
 }
 
-/// R3.3 (CKP-0011) — response body for `ck.find.directory.query.resolve_target`.
+/// R3.3 (CKP-0011) — response body for `ak.find.directory.query.resolve_target`.
 ///
 /// Common §9.1 directory fields (`as_of`, `source_refs`, `join_candidates`,
 /// `policy_revision`, `stale`, `divergent`) mirror the other directory
@@ -639,7 +639,7 @@ impl AgentSelectorClaim {
     }
 }
 
-/// Request body for `ck.find.directory.query.resolve_agent_selector`.
+/// Request body for `ak.find.directory.query.resolve_agent_selector`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveAgentSelectorRequestBody {
@@ -657,7 +657,7 @@ pub struct DirectoryResolveAgentSelectorRequestBody {
     pub proofs: Vec<Value>,
 }
 
-/// Response body for `ck.find.directory.query.resolve_agent_selector`.
+/// Response body for `ak.find.directory.query.resolve_agent_selector`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryAgentSelectorResolutionOutcome {
@@ -790,7 +790,7 @@ mod agent_selector_tests {
 }
 
 /// R3.2 (arkret-spec @ b56cab1) — request body for
-/// `ck.find.directory.query.list_handles_for_subject`. Known holder/principal DID +
+/// `ak.find.directory.query.list_handles_for_subject`. Known holder/principal DID +
 /// context → current visible handle claims (inverse of `resolve_handle`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -815,8 +815,8 @@ pub struct DirectoryListHandlesForSubjectRequestBody {
     pub limit: Option<u32>,
 }
 
-/// R3.2 — response body for `ck.find.directory.query.list_handles_for_subject`.
-/// Schema `ck.schema.list_handles_for_subject_response.v1`. Every
+/// R3.2 — response body for `ak.find.directory.query.list_handles_for_subject`.
+/// Schema `ak.schema.list_handles_for_subject_response.v1`. Every
 /// `claims[].subject` MUST equal [`Self::subject`] (byte-equal); use
 /// [`Self::validate`] to enforce.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -958,7 +958,7 @@ pub enum DirectoryTakedownAppealOutcomeRequest {
     Reinstate,
 }
 
-/// `ck.find.directory.command.takedown_appeal` request — resource-side appeal
+/// `ak.find.directory.command.takedown_appeal` request — resource-side appeal
 /// of an operator takedown. Mirrors
 /// `service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealRequestBody`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -979,7 +979,7 @@ pub struct DirectoryTakedownAppealRequestBody {
     pub governance_proof: Value,
 }
 
-/// `ck.find.directory.command.takedown_appeal` outcome — signed decision
+/// `ak.find.directory.command.takedown_appeal` outcome — signed decision
 /// receipt. Mirrors
 /// `service-operation-dtos.schema.json#/$defs/DirectoryTakedownAppealOutcome`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

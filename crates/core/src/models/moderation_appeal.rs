@@ -15,10 +15,10 @@ pub enum AppealVerdict {
     /// Original decision stands.
     Uphold,
     /// Original decision reversed; MUST be paired in the same Seal batch
-    /// with `ck.moderation.decision.lift` referencing the original decision.
+    /// with `ak.moderation.decision.lift` referencing the original decision.
     Overturn,
     /// Original decision adjusted; `modify_decision_ref` MUST point to a new
-    /// `ck.moderation.decision` event in the same batch.
+    /// `ak.moderation.decision` event in the same batch.
     Modify,
 }
 
@@ -33,7 +33,7 @@ pub enum AppealEvidenceVisibility {
     RealmMembers,
 }
 
-/// `ck.moderation.appeal.submit` payload.
+/// `ak.moderation.appeal.submit` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppealSubmitPayload {
@@ -50,7 +50,7 @@ pub struct AppealSubmitPayload {
     pub created_at: DateTime<Utc>,
 }
 
-/// `ck.moderation.appeal.review` payload.
+/// `ak.moderation.appeal.review` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppealReviewPayload {
@@ -62,7 +62,7 @@ pub struct AppealReviewPayload {
     pub notes_ref: Option<String>,
 }
 
-/// `ck.moderation.appeal.decision` payload.
+/// `ak.moderation.appeal.decision` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppealDecisionPayload {
@@ -77,7 +77,7 @@ pub struct AppealDecisionPayload {
     pub decided_at: DateTime<Utc>,
 }
 
-/// `ck.moderation.appeal.close` payload.
+/// `ak.moderation.appeal.close` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppealClosePayload {
@@ -91,7 +91,7 @@ pub struct AppealClosePayload {
     pub close_reason: Option<String>,
 }
 
-/// `ck.schema.moderation_appeal.v1` payload — `oneOf` of the four variants.
+/// `ak.schema.moderation_appeal.v1` payload — `oneOf` of the four variants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]

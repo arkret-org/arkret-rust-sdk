@@ -152,10 +152,10 @@ where
     }
 }
 
-/// Async streaming transport abstraction for `ck.self.events.stream.subscribe`
+/// Async streaming transport abstraction for `ak.self.events.stream.subscribe`
 /// (`/_arkret/self/events/subscribe`).
 ///
-/// Opens the `ck.self.events.stream.subscribe` stream. The transport accepts a single
+/// Opens the `ak.self.events.stream.subscribe` stream. The transport accepts a single
 /// `realm_id` selector; callers that need multi-Realm / actor selectors should
 /// use the lower-level HTTP client directly.
 pub trait EventsSubscribeTransport {
@@ -431,7 +431,7 @@ impl SyncLoop {
     /// Build the next long-poll request.
     ///
     /// The loop's `timeout` is intentionally not part of the wire request:
-    /// `ck.self.account.stream.subscribe` has no client-supplied long-poll
+    /// `ak.self.account.stream.subscribe` has no client-supplied long-poll
     /// timeout parameter (client-sync.md §2 — the wait window is a server /
     /// deployment default). It only feeds snapshot persistence and the
     /// caller's own scheduling.

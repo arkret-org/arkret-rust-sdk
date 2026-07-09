@@ -27,7 +27,7 @@ pub struct StateSnapshot {
 /// Dev-only reducer snapshot container.
 ///
 /// Current production snapshot bootstrap uses
-/// `ck.schema.snapshot.v1` [`arkret_core::SnapshotManifest`].
+/// `ak.schema.snapshot.v1` [`arkret_core::SnapshotManifest`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReducerSnapshotManifest {
     pub schema: String,

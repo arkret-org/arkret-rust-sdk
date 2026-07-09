@@ -435,8 +435,8 @@ pub enum ViewVisibility {
 ///
 /// Round C47 (spec e10b6ad): the `deleted` terminal state was dropped from
 /// both `strand.schema.json` and `morph.schema.json`. Only `redacted` is a
-/// terminal state now; `ck.strand.tombstone` / `ck.strand.delete` / equivalent
-/// kinds collapse into a single `ck.redaction` event targeting the object.
+/// terminal state now; `ak.strand.tombstone` / `ak.strand.delete` / equivalent
+/// kinds collapse into a single `ak.redaction` event targeting the object.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -449,7 +449,7 @@ pub enum ObjectState {
 /// Business progression stage shared by Strand and Morph objects.
 ///
 /// This is distinct from physical lifecycle [`ObjectState`]. The stage
-/// lattice is mutated only through the dedicated `ck.<object>.stage.set`
+/// lattice is mutated only through the dedicated `ak.<object>.stage.set`
 /// event family; create payloads must set an initial stage.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -629,7 +629,7 @@ impl ReadScopeKind {
         }
     }
 
-    /// Read-scope kinds valid for a `ck.read_cursor` object
+    /// Read-scope kinds valid for a `ak.read_cursor` object
     /// (`read-cursor.schema.json`: realm/circle/space/strand/thread).
     pub fn valid_for_read_cursor(&self) -> bool {
         matches!(
@@ -638,7 +638,7 @@ impl ReadScopeKind {
         )
     }
 
-    /// Read-scope kinds valid for a `ck.read_receipt` object
+    /// Read-scope kinds valid for a `ak.read_receipt` object
     /// (`read-receipt.schema.json`: realm/strand/thread/view/message/morph).
     pub fn valid_for_read_receipt(&self) -> bool {
         matches!(
@@ -855,7 +855,7 @@ pub enum EncryptedPayloadScheme {
     // §2.10 history-shareable content scheme: content is encrypted under a
     // retainable / re-sealable per-epoch `history_secret` (MLS exporter) instead
     // of the forward-secret message ratchet, so a late joiner granted the
-    // epoch's `history_secret` via `ck.realm_key.share` can decrypt pre-join
+    // epoch's `history_secret` via `ak.realm_key.share` can decrypt pre-join
     // content. Trades per-message forward secrecy for per-epoch (§2.10.5).
     #[serde(rename = "mls-exporter-aead-v1")]
     MlsExporterAeadV1,

@@ -192,16 +192,16 @@ pub struct ProjectionStrandRow {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
-    /// Derived board Space id from `ck.component.strand.position.v1`.
+    /// Derived board Space id from `ak.component.strand.position.v1`.
     /// This is read-model state, not canonical Strand object state.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub board_space_id: Option<SpaceId>,
-    /// Derived list Space id from `ck.component.strand.position.v1`.
+    /// Derived list Space id from `ak.component.strand.position.v1`.
     /// This is read-model state, not canonical Strand object state.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub list_space_id: Option<SpaceId>,
     /// Derived rank inside `list_space_id` from
-    /// `ck.component.strand.position.v1`.
+    /// `ak.component.strand.position.v1`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rank: Option<String>,
     /// Derived current assignee Actor DIDs from visible active
@@ -479,8 +479,8 @@ pub struct ContactRequestRequestBody {
     /// Cross-Principal-Server addressing (spec contact-and-direct-conversation.md
     /// §4.1): when `target` is hosted on a different Principal Server, the
     /// requester MUST supply the target's home service DID so the issuer-side
-    /// server can federate the signed `ck.contact.requested` fact via
-    /// `ck.peer.contacts.command.submit`. Omit for same-server requests.
+    /// server can federate the signed `ak.contact.requested` fact via
+    /// `ak.peer.contacts.command.submit`. Omit for same-server requests.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recipient_service_did: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -507,7 +507,7 @@ pub struct ContactRespondRequestBody {
     /// Cross-Principal-Server addressing (spec §4.1): when the original
     /// `requester` is hosted on a different Principal Server, the responder
     /// supplies the requester's home service DID so the accept / reject fact
-    /// is federated back via `ck.peer.contacts.command.submit`. Omit for same-server
+    /// is federated back via `ak.peer.contacts.command.submit`. Omit for same-server
     /// responses.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub requester_service_did: Option<Did>,
@@ -563,8 +563,8 @@ pub struct ContactTombstoneRequestBody {
     /// Cross-Principal-Server addressing (spec contact-and-direct-conversation.md
     /// §4.1): when `contact` (the peer) is hosted on a different Principal
     /// Server, the holder supplies the peer's home service DID so the
-    /// `ck.contact.tombstoned` fact is federated to the peer's server via
-    /// `ck.peer.contacts.command.submit`. Omit for same-server tombstones; when absent
+    /// `ak.contact.tombstoned` fact is federated to the peer's server via
+    /// `ak.peer.contacts.command.submit`. Omit for same-server tombstones; when absent
     /// the issuer falls back to the peer's recorded `peer_service_did` on the
     /// stored contact row.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1043,10 +1043,10 @@ pub struct SessionGrantRequestProof {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     pub signature: String,
-    // `ck.profile.agent_auth.v1` overlay (CKP-0008 §4.6): the agent runtime
+    // `ak.profile.agent_auth.v1` overlay (CKP-0008 §4.6): the agent runtime
     // key the proof is signed with. Required at runtime when
     // `proof_kind == agent_key_proof`; the server enforces presence and binds
-    // it to the active `ck.agent.key.authorize`. Absent for human proof kinds.
+    // it to the active `ak.agent.key.authorize`. Absent for human proof kinds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_method: Option<String>,
     // OIDC code-exchange fields. Required at runtime when
@@ -1092,7 +1092,7 @@ pub struct SessionGrantOutcome {
     pub audience: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub granted_scope: Vec<String>,
-    /// `ck.profile.agent_auth.v1` overlay (CKP-0008 §4.6). Materialized narrow
+    /// `ak.profile.agent_auth.v1` overlay (CKP-0008 §4.6). Materialized narrow
     /// scope granted to the agent runtime session. Service-surface scope is
     /// intersected separately from content capability grants. Present iff the
     /// request was the `agent_key_proof` branch; `None` (absent) for human
@@ -1101,7 +1101,7 @@ pub struct SessionGrantOutcome {
     pub scope_details: Option<SessionGrantScopeDetails>,
 }
 
-/// `ck.profile.agent_auth.v1` overlay describing the narrow scope actually
+/// `ak.profile.agent_auth.v1` overlay describing the narrow scope actually
 /// granted to an agent runtime session. Agent-only; absent for human grants.
 ///
 /// Mirrors `service-operation-dtos.schema.json#/$defs/SessionGrantOutcome.scope_details`
@@ -1116,7 +1116,7 @@ pub struct SessionGrantScopeDetails {
     pub strand_ids: Vec<StrandId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub track_names: Vec<String>,
-    /// `ck.profile.agent_participation_policy.v1` overlay (CKP-0016). Each entry
+    /// `ak.profile.agent_participation_policy.v1` overlay (CKP-0016). Each entry
     /// is isomorphic to `agent_participation_entry`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub participation: Vec<AgentParticipationEntry>,
@@ -1167,7 +1167,7 @@ pub struct SessionGrantIntrospectionProofClaims {
 // `AuthSessionLogout*`, and `AccountLogout*` so callers bind to the same strong
 // types the spec/OpenAPI declare instead of hand-rolled structs.
 
-/// `ck.gate.account.command.refresh_session_grant` request.
+/// `ak.gate.account.command.refresh_session_grant` request.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantRefreshRequestBody {
@@ -1206,7 +1206,7 @@ pub struct SessionGrantRefreshProof {
     pub verification_method: Option<String>,
 }
 
-/// `ck.gate.account.command.refresh_session_grant` outcome.
+/// `ak.gate.account.command.refresh_session_grant` outcome.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantRefreshOutcome {
@@ -1225,7 +1225,7 @@ pub struct SessionGrantRefreshOutcome {
     pub previous_grant_id: GrantId,
 }
 
-/// `ck.gate.account.command.logout_auth_session` request.
+/// `ak.gate.account.command.logout_auth_session` request.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AuthSessionLogoutRequestBody {
@@ -1238,7 +1238,7 @@ pub struct AuthSessionLogoutRequestBody {
     pub reason_code: Option<String>,
 }
 
-/// `ck.gate.account.command.logout_auth_session` outcome.
+/// `ak.gate.account.command.logout_auth_session` outcome.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AuthSessionLogoutOutcome {
@@ -1299,7 +1299,7 @@ pub struct SessionGrantIntrospectGrant {
     pub freshness_state: Option<FreshnessState>,
 }
 
-/// `ck.gate.account.command.introspect_session_grant` request. Exactly one of
+/// `ak.gate.account.command.introspect_session_grant` request. Exactly one of
 /// `id` / `grant_jwt` identifies the grant.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -1314,7 +1314,7 @@ pub struct SessionGrantIntrospectRequestBody {
     pub proof: Option<SessionGrantIntrospectionProof>,
 }
 
-/// `ck.gate.account.command.introspect_session_grant` outcome. READ-ONLY:
+/// `ak.gate.account.command.introspect_session_grant` outcome. READ-ONLY:
 /// introspection never consumes the grant.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -1328,13 +1328,13 @@ pub struct SessionGrantIntrospectOutcome {
     pub grant: Option<SessionGrantIntrospectGrant>,
 }
 
-/// `ck.gate.account.command.logout` request (Principal Server device logout).
+/// `ak.gate.account.command.logout` request (Principal Server device logout).
 /// Empty body — the session bearer identifies the device session to terminate.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountLogoutRequestBody {}
 
-/// `ck.gate.account.command.logout` outcome.
+/// `ak.gate.account.command.logout` outcome.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountLogoutOutcome {
@@ -1365,10 +1365,10 @@ pub struct AccountDevicePairOutcome {
     pub key_backup_hint: Value,
 }
 
-/// Request body for `ck.gate.account.command.enroll_device`
+/// Request body for `ak.gate.account.command.enroll_device`
 /// (`POST /_arkret/gate/account/device-enroll`). The authenticated session
 /// asks its designated enrollment authority to mint a `service_attested`
-/// `ck.device.authorize` for this session's own device (device-lifecycle.md
+/// `ak.device.authorize` for this session's own device (device-lifecycle.md
 /// §5.4, key-management.md §5.0.6). Mirrors
 /// `agent-operations.schema.json#/$defs/account_device_enroll_request_body`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1378,17 +1378,17 @@ pub struct AccountDeviceEnrollRequestBody {
     /// did:key multibase (`z6Mk…`) or base64 of this session's device public key.
     pub device_public_key: String,
     /// This device's HPKE sealing public key (multibase); enters
-    /// `ck.device.authorize.payload.hpke_key` verbatim (§5.4).
+    /// `ak.device.authorize.payload.hpke_key` verbatim (§5.4).
     pub hpke_key: String,
     /// Canonical sorted unique algorithm ids; enters
-    /// `ck.device.authorize.payload.algorithms` verbatim (§5.2/§5.4).
+    /// `ak.device.authorize.payload.algorithms` verbatim (§5.2/§5.4).
     pub algorithms: Vec<String>,
     pub actor_seq: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub not_before: Option<DateTime<Utc>>,
 }
 
-/// Outcome for `ck.gate.account.command.enroll_device`. The account authority
+/// Outcome for `ak.gate.account.command.enroll_device`. The account authority
 /// does not contact the Principal Server; the caller submits `authorized_event`
 /// verbatim to `POST /_arkret/self/events`. Mirrors
 /// `agent-operations.schema.json#/$defs/account_device_enroll_outcome`.
@@ -1400,7 +1400,7 @@ pub struct AccountDeviceEnrollOutcome {
     /// Enrollment authority DID (= `executed_by` /
     /// `enrollment_authority_binding.authority_did`).
     pub authority_did: Did,
-    /// Fully-signed `service_attested` `ck.device.authorize` Event envelope.
+    /// Fully-signed `service_attested` `ak.device.authorize` Event envelope.
     pub authorized_event: Event,
 }
 

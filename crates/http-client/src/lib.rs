@@ -994,7 +994,7 @@ mod tests {
             assert!(request_line.starts_with("GET /_arkret/self/blob/get?"));
             assert!(
                 request_line.contains(
-                    "blob_ref=ck%3Ablob%3Asha256%3Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    "blob_ref=ak%3Ablob%3Asha256%3Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 ),
                 "unexpected request line: {request_line}",
             );
@@ -1133,9 +1133,9 @@ mod tests {
                 "unexpected request line: {request_line}",
             );
             assert!(!request_line.contains("/_arkret/self/events/query?"));
-            assert!(request_line.contains("realms=ck%3Arealm%3Atest"));
-            assert!(request_line.contains("before=ck%3Acursor%3Aolder"));
-            assert!(request_line.contains("after=ck%3Acursor%3Anewer"));
+            assert!(request_line.contains("realms=ak%3Arealm%3Atest"));
+            assert!(request_line.contains("before=ak%3Acursor%3Aolder"));
+            assert!(request_line.contains("after=ak%3Acursor%3Anewer"));
             assert!(request_line.contains("order=descending"));
             assert!(request_line.contains("limit=20"));
         }
@@ -1171,8 +1171,8 @@ mod tests {
                 request_line.starts_with("GET /_arkret/self/events?"),
                 "unexpected request line: {request_line}",
             );
-            assert!(request_line.contains("realms=ck%3Arealm%3Atest"));
-            assert!(request_line.contains("after=ck%3Acursor%3Anewer"));
+            assert!(request_line.contains("realms=ak%3Arealm%3Atest"));
+            assert!(request_line.contains("after=ak%3Acursor%3Anewer"));
             assert!(request_line.contains("order=ascending"));
             assert!(request_line.contains("limit=50"));
             assert!(request_line.contains("include_completeness=true"));
@@ -1206,7 +1206,7 @@ mod tests {
             );
             assert!(
                 request_line.contains(
-                    "series_id=ck%3Abackup_series%3A01964137-0000-7000-8000-000000000777"
+                    "series_id=ak%3Abackup_series%3A01964137-0000-7000-8000-000000000777"
                 )
             );
             assert!(request_line.contains("backup_class=did_recovery"));

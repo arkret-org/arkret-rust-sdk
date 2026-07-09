@@ -8,7 +8,7 @@
 //! level's ceiling (CKP-0010 §3–§5).
 //!
 //! Enforcement is not in this module: `reply` / `act_on_behalf`
-//! materialize into ordinary `ck.capability.grant` records, and
+//! materialize into ordinary `ak.capability.grant` records, and
 //! `accept_third_party_mention` drives the dispatcher's mention fanout
 //! gate. This module only supplies the wire vocabulary and the
 //! reducer-pure tighten-only validators that those layers call.
@@ -27,7 +27,7 @@ pub const AGENT_PARTICIPATION_ACCOUNT_DATA_TYPE: &str = "ak.agent.participation.
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentParticipation {
-    /// Agent may author `ck.message.create` / `ck.reaction.add` as
+    /// Agent may author `ak.message.create` / `ak.reaction.add` as
     /// itself (reply-as-agent) in this scope.
     #[serde(default)]
     pub reply: bool,
@@ -270,7 +270,7 @@ pub fn validate_selection_within_ceiling(
     }
 }
 
-/// Request body for `ck.self.agent.participation.resource.replace`
+/// Request body for `ak.self.agent.participation.resource.replace`
 /// (`PUT /_arkret/self/agents/{agent_principal_id}/participation`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -294,7 +294,7 @@ pub struct AgentParticipationEntry {
     pub effective: AgentParticipation,
 }
 
-/// Response for `ck.self.agent.participation.{set,get}`.
+/// Response for `ak.self.agent.participation.{set,get}`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentParticipationOutcome {

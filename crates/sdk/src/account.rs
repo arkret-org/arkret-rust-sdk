@@ -19,7 +19,7 @@ use crate::{Did, Result};
 /// (`moderation.md` §4.1).
 pub const ACCOUNT_DATA_BLOCKLIST: &str = "ak.account.blocklist";
 
-/// CKP R3 spec-sync (2026-05-27) — wire payload for `ck.account_data.set`.
+/// CKP R3 spec-sync (2026-05-27) — wire payload for `ak.account_data.set`.
 /// Mirrors the spec event payload `account-data-set.schema.json` shape:
 /// owner/key/body/encrypted_content/body_digest/tombstone/updated_at/
 /// expected_state_digest.
@@ -27,7 +27,7 @@ pub const ACCOUNT_DATA_BLOCKLIST: &str = "ak.account.blocklist";
 pub struct AccountDataSetPayload {
     /// Account owner DID. MUST equal the submitting actor.
     pub owner: Did,
-    /// Account-data type key (e.g. `ck.account.blocklist`,
+    /// Account-data type key (e.g. `ak.account.blocklist`,
     /// `m.push_rules`).
     pub key: String,
     /// Cleartext body. Mutually exclusive with `encrypted_content`.
@@ -48,7 +48,7 @@ pub struct AccountDataSetPayload {
     pub expected_state_digest: Option<String>,
 }
 
-/// CKP R3 spec-sync (2026-05-27) — `ck.account.blocklist` payload shape.
+/// CKP R3 spec-sync (2026-05-27) — `ak.account.blocklist` payload shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountBlocklistPayload {
     pub owner: Did,
@@ -116,12 +116,12 @@ impl BlocklistEntry {
     }
 }
 
-/// Personal blocklist (`ck.account.blocklist`) — actor-private filter list
+/// Personal blocklist (`ak.account.blocklist`) — actor-private filter list
 /// kept in account data.
 ///
 /// Storage rules per `moderation.md` §4.1:
 ///
-/// - Persisted only as `ck.account.blocklist` account data (not as a shared Space state event).
+/// - Persisted only as `ak.account.blocklist` account data (not as a shared Space state event).
 /// - MUST NOT be exfiltrated to federation peers, push gateways, or directory services.
 /// - When a Space is encrypted with MLS, the blocklist MAY be stored inside the actor's encrypted
 ///   account data backup, never as plaintext on the principal server.

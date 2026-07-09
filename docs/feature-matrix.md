@@ -40,14 +40,14 @@ storage and service-level interoperability tests.
 
 ## Conformance Profile Coverage
 
-This table mirrors `ck.profile.*.vN` IDs the SDK `0.3.x` development line implements. New
+This table mirrors `ak.profile.*.vN` IDs the SDK `0.3.x` development line implements. New
 profiles introduced in P5 (spec head 37ce729) are listed first; the
 remainder of the catalog is represented by the generated
 `generated::profile_requirements` table.
 
 | Profile ID | SDK 0.3.x | Notes |
 | --- | --- | --- |
-| `ck.profile.personal_agent_provisioning.v1` | ✓ implemented | Full `ck.gate.account.command.pair_agent_key` + `ck.agent.*` (provision / list / get / pause / resume / rotate-key / grant.attach / grant.detach / sidecar_thread.ensure / deactivate) wiring; example: `personal_agent_provision.rs`. |
-| `ck.profile.agent_auth.v1` | ✓ implemented | S-1 signing-key + S-2 session-key binding via `agent_binding::{sign,verify}_ed25519_audit_binding`; controller-grant verification on every agent envelope. |
-| `ck.profile.agent_delegation_policy.v1` | ✓ implemented | Delegation grants gated by `ck.profile.agent_delegation_policy.v1` via `authz::delegation`; controller can revoke without rotating the agent key. |
-| `ck.profile.agent_sidecar_thread.v1` | ✓ implemented | `SidecarCircleId`-bounded sidecar threads with isolated audit logs and parent-Circle membership cross-check. |
+| `ak.profile.personal_agent_provisioning.v1` | ✓ implemented | Full `ak.gate.account.command.pair_agent_key` + `ak.agent.*` (provision / list / get / pause / resume / rotate-key / grant.attach / grant.detach / sidecar_thread.ensure / deactivate) wiring; example: `personal_agent_provision.rs`. |
+| `ak.profile.agent_auth.v1` | ✓ implemented | S-1 signing-key + S-2 session-key binding via `agent_binding::{sign,verify}_ed25519_audit_binding`; controller-grant verification on every agent envelope. |
+| `ak.profile.agent_delegation_policy.v1` | ✓ implemented | Delegation grants gated by `ak.profile.agent_delegation_policy.v1` via `authz::delegation`; controller can revoke without rotating the agent key. |
+| `ak.profile.agent_sidecar_thread.v1` | ✓ implemented | `SidecarCircleId`-bounded sidecar threads with isolated audit logs and parent-Circle membership cross-check. |

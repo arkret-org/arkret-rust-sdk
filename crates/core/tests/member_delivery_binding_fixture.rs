@@ -1,6 +1,6 @@
 //! Executable consumer for the spec fixture
 //! `fixtures/membership-delivery-binding-fixture.json`
-//! (`ck.member.state{join}.delivery_binding` closure vectors).
+//! (`ak.member.state{join}.delivery_binding` closure vectors).
 //!
 //! The SDK-implementable subset exercises the typed
 //! [`arkret_core::MemberDeliveryBinding`] model: wire-shape parsing and the
@@ -8,12 +8,12 @@
 //! expectations are server-reducer semantics stay owned by the soland
 //! reducer suite and are consumed here at the metadata level only:
 //!
-//! * `ck.vector.membership.delivery_binding.handover.v1` — federation frontier-driven route
+//! * `ak.vector.membership.delivery_binding.handover.v1` — federation frontier-driven route
 //!   resolution (`delivery_binding_stale` / `delivery_binding_handed_over` responses, fail-closed
 //!   after leave).
 //! * The policy-evaluation half of `policy_mismatch.v1` — evaluating
 //!   `delivery_binding_policy.allow_binding_sources` / `allowed_recipient_services` against a
-//!   landing `ck.member.state` needs the Realm policy reducer; the SDK asserts the binding is
+//!   landing `ak.member.state` needs the Realm policy reducer; the SDK asserts the binding is
 //!   structurally valid (the rejection is policy-level, not schema-level) plus the promised reason
 //!   code registration.
 //! * `unroutable.v1` delivery-side effects (skipping notifications / sync / push / to-device /

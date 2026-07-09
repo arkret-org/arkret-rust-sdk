@@ -280,7 +280,7 @@ impl RealmOrganizationIssuerRole {
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_organization_payload`.
 ///
 /// This is the organization-side authorization proof, independent of the
-/// Realm-side `ck.realm.admin` authorization required to write the event into
+/// Realm-side `ak.realm.admin` authorization required to write the event into
 /// Realm history.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -417,10 +417,10 @@ pub struct RealmKeyRequestScope {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/device-message.schema.json#/$defs/realm_key_request_content`.
 ///
-/// Ephemeral `ck.realm_key.request` body: a device asks a provider to seal the
+/// Ephemeral `ak.realm_key.request` body: a device asks a provider to seal the
 /// retained `history_secret[from..to]` for a Realm to its HPKE public key so it
 /// can decrypt pre-join content. The sealed material rides back inside a
-/// `ck.realm_key.share` `ciphertext`.
+/// `ak.realm_key.share` `ciphertext`.
 ///
 /// `requested_source_class` reuses the authoritative
 /// [`crate::models::HistoryKeySource`] (defined in `history_visibility.rs`).

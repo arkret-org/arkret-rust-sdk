@@ -125,11 +125,11 @@ pub enum AuditPurpose {
 
     InternalPolicyAudit,
 }
-/// `ck.schema.attestation_evidence.v1` structured evidence carrier.
+/// `ak.schema.attestation_evidence.v1` structured evidence carrier.
 ///
 /// Used at Audit Agent join time and by the reducer when validating the
-/// current audit release-session model (`ck.audit.applet_binding` + audit
-/// session lifecycle). The former `ck.audit.epoch_key_destruction` standing
+/// current audit release-session model (`ak.audit.applet_binding` + audit
+/// session lifecycle). The former `ak.audit.epoch_key_destruction` standing
 /// audit kind was removed (`removed-event-kinds.json`) and replaced by that
 /// model — see `crates/core/src/events/kinds.rs` and
 /// zh/crypto-media/audited-e2ee.md §2 (attested_hardware binding).

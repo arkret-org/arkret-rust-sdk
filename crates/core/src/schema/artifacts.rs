@@ -81,8 +81,8 @@ pub enum Criticality {
 /// event-kind-registry.
 ///
 /// Returned by [`SpecArtifactBundle::component`]. Multiple event kinds MAY
-/// share a `component_type` (e.g. `ck.capability.grant` and
-/// `ck.capability.revoke`) — the alias entry will set
+/// share a `component_type` (e.g. `ak.capability.grant` and
+/// `ak.capability.revoke`) — the alias entry will set
 /// `component_slot_alias_of` to the canonical kind that owns the slot.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ComponentDescriptor {
@@ -274,7 +274,7 @@ impl SpecArtifactBundle {
         ))
     }
 
-    /// Return every `ck.profile.*.vN` ID referenced by the conformance profile
+    /// Return every `ak.profile.*.vN` ID referenced by the conformance profile
     /// artifact, including profile requirement keys and optional-extension refs.
     pub fn profile_ids(&self) -> BTreeSet<String> {
         let mut ids = BTreeSet::new();
@@ -546,8 +546,8 @@ impl ArtifactDriftReport {
 /// Update this constant whenever the SDK adds typed support for a new
 /// schema; the drift report will then enforce that the spec still ships it.
 pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
-    // Realm/Space schemas: `ck.schema.realm.v1` is the security-boundary
-    // schema; `ck.schema.space.v1` is the product container schema.
+    // Realm/Space schemas: `ak.schema.realm.v1` is the security-boundary
+    // schema; `ak.schema.space.v1` is the product container schema.
     "ak.schema.realm.v1",
     REALM_JOIN_CANDIDATE_SCHEMA,
     "ak.schema.actor_profile.v1",

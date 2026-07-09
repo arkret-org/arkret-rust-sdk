@@ -6,9 +6,9 @@
 //!
 //! | cell family | lattice | bottom | role |
 //! | --- | --- | --- | --- |
-//! | `ck.component.mls_epoch.v1` | cas-register | reject | current epoch counter for the MLS group |
-//! | `ck.component.key_schedule.v1` | cas-register | reject | latest key schedule pointer |
-//! | `ck.component.covered_seals.v1` | or-set | expose | governance Seal frontier this MLS group has bound |
+//! | `ak.component.mls_epoch.v1` | cas-register | reject | current epoch counter for the MLS group |
+//! | `ak.component.key_schedule.v1` | cas-register | reject | latest key schedule pointer |
+//! | `ak.component.covered_seals.v1` | or-set | expose | governance Seal frontier this MLS group has bound |
 //!
 //! `cell_subject` for `mls_epoch` / `key_schedule` is the MLS group id;
 //! for `covered_seals` it is the Realm id.
@@ -22,7 +22,7 @@
 //!   (cas-register set), and add the new attested governance frontier tag to the covered_seals
 //!   or-set.
 //!
-//! E2EE message Moves (e.g. `ck.message.create` in an E2EE Realm) MUST
+//! E2EE message Moves (e.g. `ak.message.create` in an E2EE Realm) MUST
 //! independently include a `contains` precondition on covered_seals_cell
 //! for their own `seal_ref`'s governance frontier. [`e2ee_message_precondition`]
 //! produces the exact precondition shape so callers don't have to hand-derive it.
@@ -38,7 +38,7 @@ pub const MLS_EPOCH_CELL_FAMILY: &str = "ak.component.mls_epoch.v1";
 pub const KEY_SCHEDULE_CELL_FAMILY: &str = "ak.component.key_schedule.v1";
 pub const COVERED_SEALS_CELL_FAMILY: &str = "ak.component.covered_seals.v1";
 
-/// `ak:cell:ck.component.mls_epoch.v1:<group_id>` — cas-register on the
+/// `ak:cell:ak.component.mls_epoch.v1:<group_id>` — cas-register on the
 /// MLS group's current epoch counter.
 pub fn mls_epoch_cell_id(group_id: &str) -> Result<CellRef, arkret_core::Error> {
     if group_id.is_empty() {
@@ -50,7 +50,7 @@ pub fn mls_epoch_cell_id(group_id: &str) -> Result<CellRef, arkret_core::Error> 
         .map_err(|e| arkret_core::Error::Protocol(format!("invalid mls_epoch cell id: {e}")))
 }
 
-/// `ak:cell:ck.component.key_schedule.v1:<group_id>` — cas-register on
+/// `ak:cell:ak.component.key_schedule.v1:<group_id>` — cas-register on
 /// the MLS group's latest key schedule pointer.
 pub fn key_schedule_cell_id(group_id: &str) -> Result<CellRef, arkret_core::Error> {
     if group_id.is_empty() {
@@ -62,7 +62,7 @@ pub fn key_schedule_cell_id(group_id: &str) -> Result<CellRef, arkret_core::Erro
         .map_err(|e| arkret_core::Error::Protocol(format!("invalid key_schedule cell id: {e}")))
 }
 
-/// `ak:cell:ck.component.covered_seals.v1:<realm_id>` — or-set listing
+/// `ak:cell:ak.component.covered_seals.v1:<realm_id>` — or-set listing
 /// the governance Seal frontiers this MLS group is currently bound to.
 pub fn covered_seals_cell_id(realm_id: &RealmId) -> Result<CellRef, arkret_core::Error> {
     CellRef::new(format!(
@@ -173,7 +173,7 @@ pub fn mls_commit_effects(
     ])
 }
 
-/// Build the precondition an E2EE message Move (e.g. `ck.message.create`
+/// Build the precondition an E2EE message Move (e.g. `ak.message.create`
 /// in an E2EE Realm) MUST carry to prove the MLS group's
 /// `covered_seals_cell` already covers the Move's `seal_ref`'s
 /// governance frontier.
@@ -290,15 +290,15 @@ mod tests {
         let group = "group.01js0mls0000000000000000";
         assert_eq!(
             mls_epoch_cell_id(group).unwrap().as_str(),
-            format!("ak:cell:ck.component.mls_epoch.v1:{group}")
+            format!("ak:cell:ak.component.mls_epoch.v1:{group}")
         );
         assert_eq!(
             key_schedule_cell_id(group).unwrap().as_str(),
-            format!("ak:cell:ck.component.key_schedule.v1:{group}")
+            format!("ak:cell:ak.component.key_schedule.v1:{group}")
         );
         assert_eq!(
             covered_seals_cell_id(&realm()).unwrap().as_str(),
-            format!("ak:cell:ck.component.covered_seals.v1:{}", realm().as_str())
+            format!("ak:cell:ak.component.covered_seals.v1:{}", realm().as_str())
         );
     }
 
@@ -324,7 +324,7 @@ mod tests {
         assert_eq!(
             pres[0].cell.as_str(),
             format!(
-                "ak:cell:ck.component.mls_epoch.v1:{}",
+                "ak:cell:ak.component.mls_epoch.v1:{}",
                 "group.01js0mls0000000000000000"
             )
         );
@@ -336,7 +336,7 @@ mod tests {
         // Second: contains on covered_seals_cell.
         assert_eq!(
             pres[1].cell.as_str(),
-            format!("ak:cell:ck.component.covered_seals.v1:{}", realm().as_str())
+            format!("ak:cell:ak.component.covered_seals.v1:{}", realm().as_str())
         );
         assert_eq!(pres[1].predicate.op, PredicateOp::Contains);
         assert_eq!(
@@ -394,7 +394,7 @@ mod tests {
         let pre = e2ee_message_precondition(&realm(), &seal(0xaa)).unwrap();
         assert_eq!(
             pre.cell.as_str(),
-            format!("ak:cell:ck.component.covered_seals.v1:{}", realm().as_str())
+            format!("ak:cell:ak.component.covered_seals.v1:{}", realm().as_str())
         );
         assert_eq!(pre.predicate.op, PredicateOp::Contains);
         assert_eq!(

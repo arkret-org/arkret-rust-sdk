@@ -2,17 +2,17 @@
 //! surface. Wires every operation from the `agent_runtime` group of
 //! `operation-registry.json` (spec head 37ce729):
 //!
-//! 1. `ck.self.agent.command.provision`               — create the agent principal
-//! 2. `ck.gate.account.command.pair_agent_key`        — pair a fresh runtime key
-//! 3. `ck.self.agent.query.list`                    — confirm registry membership
-//! 4. `ck.self.agent.resource.get`                     — fetch the principal record
-//! 5. `ck.self.agent.command.pause`                   — quiesce the runtime
-//! 6. `ck.self.agent.command.resume`                  — un-quiesce
-//! 7. `ck.self.agent.command.rotate_key`              — roll the signing key
-//! 8. `ck.self.agent.grant.command.attach`            — bind a delegation grant
-//! 9. `ck.self.agent.grant.resource.delete`            — release the grant
-//! 10. `ck.self.agent.sidecar_thread.command.ensure`  — pin a sidecar thread for tool calls
-//! 11. `ck.self.agent.command.deactivate`             — terminate the principal
+//! 1. `ak.self.agent.command.provision`               — create the agent principal
+//! 2. `ak.gate.account.command.pair_agent_key`        — pair a fresh runtime key
+//! 3. `ak.self.agent.query.list`                    — confirm registry membership
+//! 4. `ak.self.agent.resource.get`                     — fetch the principal record
+//! 5. `ak.self.agent.command.pause`                   — quiesce the runtime
+//! 6. `ak.self.agent.command.resume`                  — un-quiesce
+//! 7. `ak.self.agent.command.rotate_key`              — roll the signing key
+//! 8. `ak.self.agent.grant.command.attach`            — bind a delegation grant
+//! 9. `ak.self.agent.grant.resource.delete`            — release the grant
+//! 10. `ak.self.agent.sidecar_thread.command.ensure`  — pin a sidecar thread for tool calls
+//! 11. `ak.self.agent.command.deactivate`             — terminate the principal
 //!
 //! The example does NOT require a live soland deployment. Each step is built
 //! from `arkret::agent::*` request-plan helpers so a reader can audit the exact
@@ -153,10 +153,10 @@ fn main() -> arkret::Result<()> {
     };
     let _key = send_plan(plan_agent_key_pair(key_pair_body))?;
 
-    // 3. ck.self.agent.query.list
+    // 3. ak.self.agent.query.list
     let _list = send_plan(plan_agent_list())?;
 
-    // 4. ck.self.agent.resource.get
+    // 4. ak.self.agent.resource.get
     let _get = send_plan(plan_agent_get(&agent_principal_id))?;
 
     // 5-6. pause + resume

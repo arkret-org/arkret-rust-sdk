@@ -25,7 +25,7 @@ pub struct SpaceUpdateMetadata {
 }
 
 impl Realm {
-    /// Create a spec-shaped `ck.space.create` operation.
+    /// Create a spec-shaped `ak.space.create` operation.
     pub fn create_space_operation(
         &self,
         kind: impl Into<String>,
@@ -46,7 +46,7 @@ impl Realm {
         )
     }
 
-    /// Create a spec-shaped `ck.space.create` operation with extended Space (container) fields.
+    /// Create a spec-shaped `ak.space.create` operation with extended Space (container) fields.
     pub fn create_space_operation_with_metadata(
         &self,
         kind: impl Into<String>,
@@ -91,7 +91,7 @@ impl Realm {
         Ok(operation)
     }
 
-    /// Create a spec-shaped `ck.space.update` operation.
+    /// Create a spec-shaped `ak.space.update` operation.
     pub fn update_space_operation(
         &self,
         space_id: SpaceId,
@@ -108,7 +108,7 @@ impl Realm {
         )
     }
 
-    /// Create a spec-shaped `ck.space.update` operation with extended Space (container) fields.
+    /// Create a spec-shaped `ak.space.update` operation with extended Space (container) fields.
     pub fn update_space_operation_with_metadata(
         &self,
         space_id: SpaceId,
@@ -162,7 +162,7 @@ impl Realm {
         Ok(operation)
     }
 
-    /// Create a `ck.space.parent` operation.
+    /// Create a `ak.space.parent` operation.
     pub fn set_space_parent_operation(
         &self,
         space_id: SpaceId,
@@ -189,18 +189,18 @@ impl Realm {
         Ok(operation)
     }
 
-    /// Create a `ck.space.archive` operation.
+    /// Create a `ak.space.archive` operation.
     pub fn archive_space_operation(&self, space_id: SpaceId) -> Result<Operation> {
         self.space_lifecycle_operation(space_id, crate::OP_SPACE_ARCHIVE, OperationType::Update)
     }
 
-    /// Create a `ck.space.restore` operation (`archived -> active`).
+    /// Create a `ak.space.restore` operation (`archived -> active`).
     /// Reducer rejects with `space_not_archived` when current state is not archived.
     pub fn restore_space_operation(&self, space_id: SpaceId) -> Result<Operation> {
         self.space_lifecycle_operation(space_id, crate::OP_SPACE_RESTORE, OperationType::Update)
     }
 
-    /// Create a `ck.space.tombstone` operation.
+    /// Create a `ak.space.tombstone` operation.
     pub fn tombstone_space_operation(&self, space_id: SpaceId) -> Result<Operation> {
         self.space_lifecycle_operation(space_id, crate::OP_SPACE_TOMBSTONE, OperationType::Delete)
     }

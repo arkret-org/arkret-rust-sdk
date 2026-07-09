@@ -1,5 +1,5 @@
 //! Realm Recovery Key (RRK) durable history sealing — provider-initiated
-//! `ck.realm_key.share` to offline recovery recipients
+//! `ak.realm_key.share` to offline recovery recipients
 //! (`crypto-media/encryption-and-audit.md` §2.10.8, `identity/identity-did.md`
 //! §8.3, `models/realm-and-space.md` §2.3.1).
 //!
@@ -16,7 +16,7 @@
 //! 2. [`seal_history_secrets_to_recovery_recipient`] — HPKE-seal a retained `{(epoch,
 //!    history_secret)}` set to that RRK public key and assemble the provider-initiated
 //!    [`RealmKeySharePayload`]. Reuses the same HPKE seal primitive
-//!    (`ck.hpke_x25519_aead_chacha20poly1305.v1`) as the member device key-share path
+//!    (`ak.hpke_x25519_aead_chacha20poly1305.v1`) as the member device key-share path
 //!    ([`crate::secret_share`]).
 //!
 //! Unlike the §2.10.4 join-time request/response path, RRK sealing is
@@ -258,7 +258,7 @@ fn decode_x25519_multibase(
 }
 
 /// HPKE-seal a retained per-epoch `history_secrets` set to a resolved RRK and
-/// assemble the provider-initiated `ck.realm_key.share` payload
+/// assemble the provider-initiated `ak.realm_key.share` payload
 /// (`encryption-and-audit.md` §2.10.8 sealing obligation).
 ///
 /// `history_secrets` is the `{(epoch, history_secret[epoch])}` set covering the
@@ -276,7 +276,7 @@ fn decode_x25519_multibase(
 /// signing layer and threaded in here).
 ///
 /// Returns the durable `RealmKeySharePayload` with `ciphertext` populated; the
-/// caller wraps it in a `ck.realm_key.share` Event and submits it.
+/// caller wraps it in a `ak.realm_key.share` Event and submits it.
 #[allow(clippy::too_many_arguments)]
 pub fn seal_history_secrets_to_recovery_recipient(
     recovery_key: &ResolvedRealmHistoryRecoveryKey,

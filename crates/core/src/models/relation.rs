@@ -38,7 +38,7 @@ pub struct Relation {
 /// Relation cardinality declared by a `RelationProfile` (data-structures.md
 /// §relation-profile).
 ///
-/// Resolvers MUST refuse a `ck.relation.create` event whose
+/// Resolvers MUST refuse a `ak.relation.create` event whose
 /// `(from, relation_kind, to)` tuple would violate the declared
 /// cardinality of its profile.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

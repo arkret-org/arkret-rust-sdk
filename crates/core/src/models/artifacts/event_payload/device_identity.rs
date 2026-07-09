@@ -104,7 +104,7 @@ impl DeviceAuthorizePayload {
     }
 
     /// Canonical signing input for
-    /// `ck.device.authorize.payload.device_signature`.
+    /// `ak.device.authorize.payload.device_signature`.
     ///
     /// The signature proves possession of the private key corresponding to
     /// `device_public_key`; it is deliberately separate from the SSK-signed
@@ -166,7 +166,7 @@ impl DeviceAuthorizePayload {
     }
 
     /// Validate the provenance anchor for a `service_attested`
-    /// `ck.device.authorize` payload.
+    /// `ak.device.authorize` payload.
     ///
     /// The payload binding is not authority by itself: the accepted Event
     /// envelope must name the same service DID as `executed_by`, carry the same
@@ -194,7 +194,7 @@ impl DeviceAuthorizePayload {
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
 /// device_enrollment_authority_binding`.
 ///
-/// Delegated-authority binding for a `service_attested` `ck.device.authorize`
+/// Delegated-authority binding for a `service_attested` `ak.device.authorize`
 /// (managed-DID / account-authority onboarding). The cryptographic signer is the
 /// envelope proof (`verification_method` maps to `executed_by`); this object
 /// records the trust root. See `zh/crypto-media/device-lifecycle.md` §5.4.
@@ -478,7 +478,7 @@ mod tests {
             "device_id": "ak:device:019eefcb-5882-7861-bc30-3033fa32dcf6",
             "device_public_key": "z6MkjHNtpwuhc2QSXzkf4DWoWp7eSMKB9PzfdnvaLB7kb3dG",
             "hpke_key": "z6LSgy7T8CEsMDMzk1e4EBFVX8CDXWWzvkFZWSXhsC97zjcM",
-            "algorithms": ["ak.hpke_x25519_aead_chacha20poly1305.v1", "ck.mls.v1"],
+            "algorithms": ["ak.hpke_x25519_aead_chacha20poly1305.v1", "ak.mls.v1"],
             "authorized_by": "did:key:z6MknBuwKMPAzbhp6EwCnaxsEDk4G2KFeWRu273gYVuTY5jw",
             "not_before": "2026-06-22T14:45:51Z",
             "enrollment_authority_binding": {

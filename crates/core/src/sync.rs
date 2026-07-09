@@ -14,7 +14,7 @@ use serde_json::Value;
 
 use crate::{Cursor, DeviceId, Did, Error, Event, EventId, Hlc, RealmId, Result, canonical};
 
-/// Query parameters for `ck.self.account.stream.subscribe`.
+/// Query parameters for `ak.self.account.stream.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncRequestBody {
@@ -56,8 +56,8 @@ pub struct SyncRealm {
     pub unread: UnreadCounts,
     /// R3.1 — typed member roster projection (per
     /// `account-subscribe-frame.schema.json#/$defs/member_roster_entry`).
-    /// Entries are derived from effective `ck.member.state` plus the
-    /// effective set of `ck.member.identity.update` references; raw
+    /// Entries are derived from effective `ak.member.state` plus the
+    /// effective set of `ak.member.identity.update` references; raw
     /// handle / display fields MUST NOT be carried here.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub members: Vec<crate::models::MemberRosterEntry>,
@@ -990,12 +990,12 @@ pub struct SyncUpdates {
     /// Opaque acknowledgement token for the delivered to-device batch.
     ///
     /// Issued by account subscribe when `to_device.messages[]` is non-empty
-    /// and passed verbatim to `ck.self.device_messages.command.ack` after the
+    /// and passed verbatim to `ak.self.device_messages.command.ack` after the
     /// client durably records the batch.
     pub to_device_ack_token: Option<String>,
     /// Whether the account-subscribe to-device batch was truncated.
     pub to_device_limited: bool,
-    /// Continuation cursor for `ck.self.device_messages.query.list` when the
+    /// Continuation cursor for `ak.self.device_messages.query.list` when the
     /// account-subscribe to-device batch is limited.
     pub to_device_next_cursor: Option<String>,
     /// Whether the server reports an unacknowledged to-device queue gap.
@@ -1209,7 +1209,7 @@ mod tests {
                 "ak.message.create".to_owned(),
                 "ak.message.create".to_owned(),
             ],
-            not_event_types: vec!["ak.audit.accessed".to_owned(), "ck.redaction".to_owned()],
+            not_event_types: vec!["ak.audit.accessed".to_owned(), "ak.redaction".to_owned()],
             extra: BTreeMap::new(),
         };
         let filter_b = SyncFilter {
@@ -1217,8 +1217,8 @@ mod tests {
             timeline_limit: Some(20),
             lazy_load_members: true,
             include_redundant_members: false,
-            event_types: vec!["ak.message.create".to_owned(), "ck.reaction.add".to_owned()],
-            not_event_types: vec!["ak.redaction".to_owned(), "ck.audit.accessed".to_owned()],
+            event_types: vec!["ak.message.create".to_owned(), "ak.reaction.add".to_owned()],
+            not_event_types: vec!["ak.redaction".to_owned(), "ak.audit.accessed".to_owned()],
             extra: BTreeMap::new(),
         };
         let subscriptions_a = SubscriptionConfig {

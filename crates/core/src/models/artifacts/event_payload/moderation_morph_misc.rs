@@ -413,7 +413,7 @@ mod tests {
     #[test]
     fn morph_schema_refs_additive_accepts_superset_and_relaxed_field_constraints() {
         let from_refs = refs(&["ak.schema.risk.v1"]);
-        let to_refs = refs(&["ak.schema.risk.v1", "ck.schema.risk.notes.v1"]);
+        let to_refs = refs(&["ak.schema.risk.v1", "ak.schema.risk.notes.v1"]);
         let mut from_fields = MorphSchemaFieldSet::new();
         let mut status = field("string");
         status.required = true;
@@ -440,7 +440,7 @@ mod tests {
 
     #[test]
     fn morph_schema_refs_additive_rejects_removed_ref_and_field() {
-        let from_refs = refs(&["ak.schema.risk.v1", "ck.schema.extra.v1"]);
+        let from_refs = refs(&["ak.schema.risk.v1", "ak.schema.extra.v1"]);
         let to_refs = refs(&["ak.schema.risk.v1"]);
         let from_fields =
             MorphSchemaFieldSet::from([("fields.status".to_owned(), field("string"))]);

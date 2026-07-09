@@ -6,7 +6,7 @@ use serde_json::Value;
 use super::canonical::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
 use crate::*;
 
-/// Canonical membership state for `ck.member.state` payloads
+/// Canonical membership state for `ak.member.state` payloads
 /// (`event-payload.schema.json#/$defs/membership_state`).
 ///
 /// Distinct from [`super::MembershipState`] (the roster projection enum, which
@@ -23,7 +23,7 @@ pub enum MembershipPayloadState {
     Ban,
 }
 
-/// Strong type for `ck.member.state` payloads
+/// Strong type for `ak.member.state` payloads
 /// (`event-payload.schema.json#/$defs/membership_payload`).
 ///
 /// `additionalProperties:false`: the removed `handle` / `from` keys that older
@@ -195,7 +195,7 @@ mod x_prefixed_map {
 /// Directed-create form of `invite_payload`
 /// (`event-payload.schema.json#/$defs/invite_payload`, anyOf branch that
 /// requires `invitee + invite_delivery_target + introduction_evidence_digest
-/// + expires_at`). Carried by `ck.invite.create`.
+/// + expires_at`). Carried by `ak.invite.create`.
 ///
 /// The schema allows `x_*` extension properties (patternProperties
 /// `^x_[a-z][a-z0-9_]{0,63}$`) but is otherwise `additionalProperties:false`;
@@ -307,8 +307,8 @@ fn valid_invite_create_extension_key(key: &str) -> bool {
 }
 
 /// Reference-by-id form of `invite_payload` (anyOf branch requiring
-/// `invite_id`). Carried by `ck.invite.accept` / `ck.invite.cancel` /
-/// `ck.invite.revoke`.
+/// `invite_id`). Carried by `ak.invite.accept` / `ak.invite.cancel` /
+/// `ak.invite.revoke`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -341,7 +341,7 @@ pub const INVITE_CLAIM_AUDIENCE: &str = "arkret.invite.claim";
 pub const INVITE_SUBJECT_PROOF_ALG: &str = "EdDSA";
 pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.subject_proof.v1\n";
 
-/// Subject DID proof carried by `ck.invite.claim`.
+/// Subject DID proof carried by `ak.invite.claim`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -391,7 +391,7 @@ impl InviteSubjectProof {
     }
 }
 
-/// Canonical `ck.invite.claim.subject_proof.v1` transcript body.
+/// Canonical `ak.invite.claim.subject_proof.v1` transcript body.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -529,7 +529,7 @@ pub fn invite_subject_proof_transcript_digest(
     ))?)
 }
 
-/// Flat-form payload for `ck.relation.create`
+/// Flat-form payload for `ak.relation.create`
 /// (`#/$defs/relation_create_payload`).
 ///
 /// The spec `anyOf` allows either an embedded `{relation: <object_snapshot>}`
@@ -539,7 +539,7 @@ pub fn invite_subject_proof_transcript_digest(
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RelationCreatePayload {
-    /// Registered `relation_kind` (e.g. `ck.relation.parent_of`).
+    /// Registered `relation_kind` (e.g. `ak.relation.parent_of`).
     pub kind: String,
     /// Source endpoint `object_ref` (canonical typed id / did / digest).
     pub from_ref: ObjectRef,

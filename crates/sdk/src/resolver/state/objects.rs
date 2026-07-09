@@ -116,7 +116,7 @@ impl RealmState {
         Ok(())
     }
 
-    // Reducer for `ck.morph.archive`: validate current state == active per
+    // Reducer for `ak.morph.archive`: validate current state == active per
     // arkret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Deleted / Redacted / unset MUST be rejected with
     // `morph_not_active`; unknown Morph is tolerated (causal / backfill).
@@ -131,7 +131,7 @@ impl RealmState {
         self.set_morph_state(event, crate::ObjectState::Archived)
     }
 
-    // Reducer for `ck.morph.restore`: same state-machine contract as
+    // Reducer for `ak.morph.restore`: same state-machine contract as
     // `restore_strand` / `restore_space` — current state MUST == archived.
     // Active / Deleted / Redacted / unset → `morph_not_archived`. Unknown
     // Morph is tolerated for causal / backfill ordering. Morph has no
@@ -336,7 +336,7 @@ impl RealmState {
         Ok(())
     }
 
-    // Reducer for `ck.space.archive`: validate current state == active per
+    // Reducer for `ak.space.archive`: validate current state == active per
     // arkret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Tombstoned / unset MUST be rejected with `space_not_active`;
     // unknown Space is tolerated (causal / backfill).
@@ -351,7 +351,7 @@ impl RealmState {
         self.set_space_state(event, crate::models::SpaceState::Archived)
     }
 
-    // Reducer for `ck.space.tombstone`: validate current state ∈
+    // Reducer for `ak.space.tombstone`: validate current state ∈
     // {Active, Archived} per arkret-spec common-fields.md §5.1. Tombstoned /
     // unset MUST be rejected with `space_already_terminal`; unknown Space is
     // tolerated (causal / backfill).
@@ -368,7 +368,7 @@ impl RealmState {
         self.set_space_state(event, crate::models::SpaceState::Tombstoned)
     }
 
-    // Reducer for `ck.space.restore`: validate current state == archived per
+    // Reducer for `ak.space.restore`: validate current state == archived per
     // arkret-spec space-and-space.md §4.4. Active / Tombstoned / unset MUST
     // be rejected with `space_not_archived`; unknown Space is tolerated
     // (causal / backfill not yet caught up — mirrors set_space_state).
@@ -493,7 +493,7 @@ impl RealmState {
         // Spec common-fields.md §5.1 final paragraph: update on a non-active
         // object MUST fail — otherwise an edit would silently revive an
         // archived / tombstoned / redacted Strand, conflicting with the
-        // `ck.strand.restore` semantic. Unknown Strand is tolerated below
+        // `ak.strand.restore` semantic. Unknown Strand is tolerated below
         // (extract step succeeds, lookup returns None, current code returns
         // Err with "strand not found" — this guard runs before that).
         if let Some(subject) = self.subjects.get(&strand_id_str)
@@ -557,7 +557,7 @@ impl RealmState {
         Ok(())
     }
 
-    // Reducer for `ck.strand.archive`: validate current state == active per
+    // Reducer for `ak.strand.archive`: validate current state == active per
     // arkret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Deleted / Redacted / unset MUST be rejected with
     // `strand_not_active`; unknown Strand is tolerated (causal / backfill not
@@ -573,7 +573,7 @@ impl RealmState {
         self.set_strand_state(event, crate::ObjectState::Archived)
     }
 
-    // Reducer for `ck.strand.restore`: validate current state == archived per
+    // Reducer for `ak.strand.restore`: validate current state == archived per
     // arkret-spec common-fields.md §5 (`*.restore` is the canonical
     // archived -> active path; tombstoned / deleted / redacted MUST NOT be
     // restored). Active / Deleted / Redacted / unset MUST be rejected with

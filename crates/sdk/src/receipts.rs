@@ -2,14 +2,14 @@
 //!
 //! In addition to per-actor receipts and markers, this module hosts the
 //! Realm `ReadReceiptPolicy` typed model (component cell
-//! `ck.component.realm.read_receipt_policy.v1`) and the
+//! `ak.component.realm.read_receipt_policy.v1`) and the
 //! `ReadReceiptPreferences` actor-private account-data model
-//! (standard key `ck.read_receipt.preferences`). Together they implement
+//! (standard key `ak.read_receipt.preferences`). Together they implement
 //! the disclosure / preference rules from spec
 //! `discovery/read-receipts.md` §2.4-§2.5 and
 //! `discovery/client-preferences.md` §3.6.
 //!
-//! Note: the `ck.strand.track.read_receipt_policy` cell was REMOVED in
+//! Note: the `ak.strand.track.read_receipt_policy` cell was REMOVED in
 //! arkret-spec revision `0a5ab85` (see
 //! `arkret-spec/spec/v1/artifacts/registry/removed-event-kinds.json`).
 //! Read receipts evaluate at the Realm level; create a child Realm or Circle
@@ -89,7 +89,7 @@ impl ReceiptManager {
         self
     }
 
-    /// Set a read marker (a `ck.schema.read_cursor.v1` value).
+    /// Set a read marker (a `ak.schema.read_cursor.v1` value).
     pub fn set_read_marker(
         &mut self,
         realm_id: RealmId,
@@ -130,7 +130,7 @@ impl ReceiptManager {
         ))
     }
 
-    /// Send/store a read receipt (a `ck.schema.read_receipt.v1` value).
+    /// Send/store a read receipt (a `ak.schema.read_receipt.v1` value).
     ///
     /// Honors the active de-duplication window: when a receipt for the
     /// same `(realm_id, actor_id, thread_id)` was issued within the
@@ -221,26 +221,26 @@ impl ReceiptManager {
 
 // ─── Read Receipt disclosure policy (spec read-receipts.md §2.5) ────────
 
-/// `disclosure` field of `ck.realm.read_receipt_policy`. Soft policy —
+/// `disclosure` field of `ak.realm.read_receipt_policy`. Soft policy —
 /// not cryptographically enforceable. Compliant clients honor `Required`
 /// by sending and `Disabled` by suppressing; `Optional` defers to user
 /// [`ReadReceiptPreferences`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReadReceiptDisclosure {
-    /// All compliant members SHOULD send `ck.receipt.read`. Client UI
+    /// All compliant members SHOULD send `ak.receipt.read`. Client UI
     /// MUST lock the per-scope `send=false` toggle.
     Required,
     /// User preference decides. Default.
     #[default]
     Optional,
     /// Compliant clients MUST NOT generate; Sync Service MUST drop
-    /// inbound `ck.receipt.read` for this scope.
+    /// inbound `ak.receipt.read` for this scope.
     Disabled,
 }
 
 /// `visibility` field of `ReadReceiptPolicy`. Controls who Sync Service
-/// fanouts `ck.receipt.read` to.
+/// fanouts `ak.receipt.read` to.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReadReceiptVisibility {
@@ -266,8 +266,8 @@ impl ReadReceiptVisibility {
 /// Typed value of the read-receipt disclosure policy cell.
 ///
 /// Carried only by the Realm-level cell
-/// `ck.component.realm.read_receipt_policy.v1`. The Strand-track variant
-/// (`ck.strand.track.read_receipt_policy`) was removed from spec
+/// `ak.component.realm.read_receipt_policy.v1`. The Strand-track variant
+/// (`ak.strand.track.read_receipt_policy`) was removed from spec
 /// revision `0a5ab85`; create a child Realm or Circle for an independent
 /// disclosure boundary instead.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -416,7 +416,7 @@ impl ScopePref {
     }
 }
 
-/// Account-data value for `ck.read_receipt.preferences`.
+/// Account-data value for `ak.read_receipt.preferences`.
 ///
 /// Resolution order is (strand -> Realm -> default); the first non-`None`
 /// field wins independently for `send` and `display`.
@@ -504,7 +504,7 @@ impl ReceiptDecision {
     }
 }
 
-/// Compute whether to generate a `ck.receipt.read` for the given scope.
+/// Compute whether to generate a `ak.receipt.read` for the given scope.
 ///
 /// `policy` is the effective policy at the Realm
 /// boundary. Pass `None` to represent "no policy declared" (treated as

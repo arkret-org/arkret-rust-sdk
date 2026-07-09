@@ -1,6 +1,6 @@
 //! Executable consumer for the spec fixture
 //! `fixtures/reaction-fixture.json` (OR-Set reducer vectors for
-//! `ck.reaction.add` / `ck.reaction.remove`).
+//! `ak.reaction.add` / `ak.reaction.remove`).
 //!
 //! The SDK-implementable subset runs the fixture events through
 //! [`arkret_core::events::ReactionManager`] and asserts the expected OR-Set
@@ -12,7 +12,7 @@
 //! * `dangling_reaction_before_target_arrives` — needs a message store to park the reaction as
 //!   pending (`dependency_missing`).
 //! * `target_redacted_drops_default_view_keeps_audit` — needs the default-view / audit-view split
-//!   driven by `ck.message.redact`.
+//!   driven by `ak.message.redact`.
 //! * `capability_revoked_blocks_subsequent_add` — needs capability evaluation before reducer state
 //!   changes.
 //! * `rate_limit_high_rate_reaction_burst` — carries no events at all, only a rate-limit policy

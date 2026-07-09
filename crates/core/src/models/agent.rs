@@ -80,7 +80,7 @@ pub struct AgentProvisionOutcome {
 /// and CKP-0008 §4.4: a short-lived, revocable pairing input only. It is not a
 /// session grant, capability grant or long-term secret, and it deliberately
 /// carries no scope payload (the authoritative ceiling lives in
-/// `ck.agent.key.authorize` and the effective-permission intersection).
+/// `ak.agent.key.authorize` and the effective-permission intersection).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -156,8 +156,8 @@ pub struct AgentLifecycleOutcome {
 }
 
 /// Request body for `POST /_arkret/self/agents/discover`
-/// (`ck.agent.protocol.discover`). The caller names the target agent
-/// runtime DID; soland reflects the registered `ck.agent.endpoint`
+/// (`ak.agent.protocol.discover`). The caller names the target agent
+/// runtime DID; soland reflects the registered `ak.agent.endpoint`
 /// projection back as the supported protocol catalogue.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -165,10 +165,10 @@ pub struct AgentProtocolDiscoverRequestBody {
     pub agent_id: Did,
 }
 
-/// Outcome for `ck.agent.protocol.discover`. `supported_protocols` is a
+/// Outcome for `ak.agent.protocol.discover`. `supported_protocols` is a
 /// subset of the §11 adapter registry ids (`a2a` / `acp` / `mcp_bridge`
 /// / `http_custom`). `agent_card_url` / `metadata_url` mirror the
-/// `ck.agent.endpoint` declaration (§5.1) when present.
+/// `ak.agent.endpoint` declaration (§5.1) when present.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentProtocolDiscoverOutcome {

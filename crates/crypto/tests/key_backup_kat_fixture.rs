@@ -1,5 +1,5 @@
 #![cfg(feature = "backup")]
-//! Executable consumer for `ck.vector.key_backup.passphrase_kdf_kat.v1`
+//! Executable consumer for `ak.vector.key_backup.passphrase_kdf_kat.v1`
 //! (spec fixture `fixtures/key-backup-hardening-fixture.json`, case
 //! `passphrase_kdf_kat`).
 //!
