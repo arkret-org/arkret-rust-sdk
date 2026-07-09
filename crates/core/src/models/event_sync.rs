@@ -157,7 +157,7 @@ pub struct FederationServiceBindingRef {
     pub reducer_profile_digest: Hash,
 }
 
-pub const FEDERATION_MINIMAL_PROFILE_ID: &str = "ck.profile.federation_minimal.v1";
+pub const FEDERATION_MINIMAL_PROFILE_ID: &str = "ak.profile.federation_minimal.v1";
 pub const FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST: &str =
     "sha256:1fa83b8ca1719c604c298d83e89b0456f3af5ed1382cf8dcb025b074a34e0109";
 
@@ -240,7 +240,7 @@ pub struct SnapshotBootstrapSignature {
 }
 
 impl SnapshotBootstrap {
-    pub const SIGNING_DOMAIN: &'static str = "ck.snapshot.bootstrap.v1";
+    pub const SIGNING_DOMAIN: &'static str = "ak.snapshot.bootstrap.v1";
 
     pub fn chunk_digest_root(&self) -> Result<Hash> {
         let digests: Vec<&str> = self
@@ -304,7 +304,7 @@ mod tests {
     fn federation_minimal_reducer_profile_digest_is_well_formed() {
         assert_eq!(
             FEDERATION_MINIMAL_PROFILE_ID,
-            "ck.profile.federation_minimal.v1"
+            "ak.profile.federation_minimal.v1"
         );
         assert_eq!(
             federation_minimal_reducer_profile_digest(),

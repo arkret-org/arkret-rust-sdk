@@ -33,7 +33,7 @@ use ed25519_dalek::Signer as _;
 use serde_json::Value;
 
 const FIXTURE_PATH: &str = "fixtures/crypto-signature-fixture.json";
-const ED25519_VECTOR: &str = "ck.vector.encoding.crypto.ed25519_detached_jws.v1";
+const ED25519_VECTOR: &str = "ak.vector.encoding.crypto.ed25519_detached_jws.v1";
 
 fn fixture() -> Value {
     embedded_json_artifact(FIXTURE_PATH).expect("embedded crypto-signature fixture must load")
@@ -184,14 +184,14 @@ fn ed25519_detached_jws_vector_verifies_with_sdk_primitives() {
 fn non_eddsa_vectors_pin_canonical_chain_and_stay_wire_reserved() {
     let fixture = fixture();
 
-    let es256 = vector(&fixture, "ck.vector.encoding.crypto.es256_detached_jws.v1");
+    let es256 = vector(&fixture, "ak.vector.encoding.crypto.es256_detached_jws.v1");
     assert_canonical_chain(&es256);
     assert!(!PRODUCTION_ALGORITHMS.contains(&"ES256"));
     assert!(FUTURE_ALGORITHMS.contains(&"ES256"));
 
     let mldsa = vector(
         &fixture,
-        "ck.vector.encoding.crypto.mldsa65_raw_detached_signature.v1",
+        "ak.vector.encoding.crypto.mldsa65_raw_detached_signature.v1",
     );
     // Raw detached signature vector: no JWS header, but the canonical event
     // + binding chain still pins the canonicalizer.

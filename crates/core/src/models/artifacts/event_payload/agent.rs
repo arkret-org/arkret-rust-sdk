@@ -770,7 +770,7 @@ mod interop_builder_tests {
         assert_eq!(value["protocol"], json!("a2a"));
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
         catalog
-            .validate_payload("ck.agent.interop_session.start", &value)
+            .validate_payload("ak.agent.interop_session.start", &value)
             .unwrap();
     }
 
@@ -784,7 +784,7 @@ mod interop_builder_tests {
         assert_eq!(value["status"], json!("working"));
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
         catalog
-            .validate_payload("ck.agent.interop_session.status", &value)
+            .validate_payload("ak.agent.interop_session.status", &value)
             .unwrap();
     }
 
@@ -808,7 +808,7 @@ mod interop_builder_tests {
         let value = completed.to_value().unwrap();
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
         catalog
-            .validate_payload("ck.agent.interop_session.result", &value)
+            .validate_payload("ak.agent.interop_session.result", &value)
             .unwrap();
 
         // Cancelled without the full cancellation surface -> allOf failure.
@@ -827,7 +827,7 @@ mod interop_builder_tests {
         .with_cancellation("local", Utc::now(), "user_abort", "none");
         catalog
             .validate_payload(
-                "ck.agent.interop_session.result",
+                "ak.agent.interop_session.result",
                 &cancelled.to_value().unwrap(),
             )
             .unwrap();

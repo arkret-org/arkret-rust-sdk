@@ -23,7 +23,7 @@ use crate::{Client, ClientRequestOptions};
 
 /// Protocol-level feature id the server must advertise before a caller uses
 /// the optional tus upload binding.
-pub const RESUMABLE_UPLOAD_FEATURE: &str = "ck.feature.blob.resumable_upload.tus.v1";
+pub const RESUMABLE_UPLOAD_FEATURE: &str = "ak.feature.blob.resumable_upload.tus.v1";
 /// Default ciphertext size where callers should prefer the resumable binding
 /// over the canonical single-shot multipart upload when the server advertises
 /// it. Below this threshold the extra tus round-trips usually do not pay off.
@@ -92,7 +92,7 @@ pub fn blob_resumable_upload_base_url(description: &ServerDescription) -> Option
         .and_then(|value| value.as_array())
         && !operations
             .iter()
-            .any(|operation| operation.as_str() == Some("ck.self.blob.upload.create"))
+            .any(|operation| operation.as_str() == Some("ak.self.blob.upload.create"))
     {
         return None;
     }
@@ -631,7 +631,7 @@ mod tests {
             "supported_bindings": [{
                 "kind": "tus",
                 "base_url": "https://server.local/uploads/",
-                "operations": ["ck.self.blob.upload.create"]
+                "operations": ["ak.self.blob.upload.create"]
             }],
             "supported_features": [RESUMABLE_UPLOAD_FEATURE],
             "auth_metadata": {"mode": "development", "methods": []},

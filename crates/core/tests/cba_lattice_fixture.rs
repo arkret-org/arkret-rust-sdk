@@ -424,7 +424,7 @@ fn dual_plane_vector_inventory_is_pinned() {
     let fixture = fixture();
     assert_eq!(
         fixture["profile"].as_str(),
-        Some("ck.vector_group.cba_lattice.v1")
+        Some("ak.vector_group.cba_lattice.v1")
     );
     let vectors = fixture["vectors"]
         .as_array()
@@ -439,7 +439,7 @@ fn dual_plane_vector_inventory_is_pinned() {
             .as_str()
             .expect("dual-plane vector missing vector_id");
         assert!(
-            vector_id.starts_with("ck.vector.cba_lattice."),
+            vector_id.starts_with("ak.vector.cba_lattice."),
             "unexpected vector id {vector_id}"
         );
         // Expectations are carried either as a top-level `expected*` block or

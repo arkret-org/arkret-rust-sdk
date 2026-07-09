@@ -249,7 +249,7 @@ fn processor_dispatches_all_update_categories() {
     );
     response.account_data.push(
         serde_json::to_value(AccountData {
-            data_type: "ck.settings".to_owned(),
+            data_type: "ak.settings".to_owned(),
             content: json!({"theme":"light"}),
         })
         .unwrap(),
@@ -298,7 +298,7 @@ fn processor_dispatches_all_update_categories() {
             .presence("did:webvh:z6mkfixture:alice.example")
             .is_some()
     );
-    assert!(processor.account_data("ck.settings").is_some());
+    assert!(processor.account_data("ak.settings").is_some());
     assert!(processor.notification("n1").is_some());
     assert_eq!(processor.device_lists().changed.len(), 1);
 }
@@ -308,7 +308,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
     let realm_id = "ak:realm:01904100-0000-7000-8000-9b64700c6ee8";
     let parsed_realm_id = RealmId::new(realm_id).unwrap();
     let event = Event::new(
-        "ck.message.create",
+        "ak.message.create",
         parsed_realm_id.clone(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,

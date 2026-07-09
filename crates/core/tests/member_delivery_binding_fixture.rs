@@ -81,11 +81,11 @@ fn fixture_vector_manifest_is_pinned() {
     assert_eq!(
         ids,
         vec![
-            "ck.vector.membership.delivery_binding.explicit.v1",
-            "ck.vector.membership.delivery_binding.did_document_default.v1",
-            "ck.vector.membership.delivery_binding.unroutable.v1",
-            "ck.vector.membership.delivery_binding.handover.v1",
-            "ck.vector.membership.delivery_binding.policy_mismatch.v1",
+            "ak.vector.membership.delivery_binding.explicit.v1",
+            "ak.vector.membership.delivery_binding.did_document_default.v1",
+            "ak.vector.membership.delivery_binding.unroutable.v1",
+            "ak.vector.membership.delivery_binding.handover.v1",
+            "ak.vector.membership.delivery_binding.policy_mismatch.v1",
         ],
         "membership delivery binding fixture manifest drifted — update the SDK consumers"
     );
@@ -95,7 +95,7 @@ fn fixture_vector_manifest_is_pinned() {
 fn explicit_binding_parses_and_validates_to_expected_route() {
     let vector = vector(
         &fixture(),
-        "ck.vector.membership.delivery_binding.explicit.v1",
+        "ak.vector.membership.delivery_binding.explicit.v1",
     );
     let payload = &vector["input"]["payload"];
     assert_eq!(payload["delivery_status"].as_str(), Some("routable"));
@@ -121,7 +121,7 @@ fn explicit_binding_parses_and_validates_to_expected_route() {
 fn did_document_default_binding_requires_digest() {
     let vector = vector(
         &fixture(),
-        "ck.vector.membership.delivery_binding.did_document_default.v1",
+        "ak.vector.membership.delivery_binding.did_document_default.v1",
     );
     let raw_binding = &vector["input"]["payload"]["delivery_binding"];
 
@@ -162,7 +162,7 @@ fn did_document_default_binding_requires_digest() {
 fn unroutable_membership_carries_no_binding_and_no_route() {
     let vector = vector(
         &fixture(),
-        "ck.vector.membership.delivery_binding.unroutable.v1",
+        "ak.vector.membership.delivery_binding.unroutable.v1",
     );
     let payload = &vector["input"]["payload"];
 
@@ -192,7 +192,7 @@ fn policy_mismatch_binding_is_structurally_valid_but_policy_rejected() {
     // rejection is Realm policy evaluation, which is soland-reducer residual.
     let vector = vector(
         &fixture(),
-        "ck.vector.membership.delivery_binding.policy_mismatch.v1",
+        "ak.vector.membership.delivery_binding.policy_mismatch.v1",
     );
     let binding = binding_from_fixture(&vector["input"]["payload"]["delivery_binding"]);
     binding
@@ -231,7 +231,7 @@ fn handover_vector_reason_codes_are_registered() {
     // promises is a registered identifier.
     let vector = vector(
         &fixture(),
-        "ck.vector.membership.delivery_binding.handover.v1",
+        "ak.vector.membership.delivery_binding.handover.v1",
     );
     let identifiers = registered_identifiers();
     let mut checked = 0usize;

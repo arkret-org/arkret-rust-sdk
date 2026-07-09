@@ -18,7 +18,7 @@ pub const REASON_INCEPTION_UPGRADE_EVIDENCE_INSUFFICIENT: &str =
 /// Inception key age (computed independently by the receiver / Auth Server from
 /// the verifiable `did:webvh` bootstrap timestamp against the local clock)
 /// exceeds the 24h protocol hard cap. The receiver MUST reject the
-/// `ck.device.authorize` / `ck.session.grant` / long-lived capability / ordinary
+/// `ck.device.authorize` / `ak.session.grant` / long-lived capability / ordinary
 /// DID update signed by that inception key regardless of any longer
 /// `inception_key_max_online_window` self-reported by deployment policy
 /// (key-management.md §5). `applies_to`: event_envelope / auth_decision.

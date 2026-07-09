@@ -70,10 +70,10 @@ fn apply_reaction_events(case: &Value) -> ReactionManager {
         let target = payload["target_ref"].as_str().expect("target_ref");
         let key = payload["key"].as_str().expect("key");
         match kind {
-            "ck.reaction.add" => {
+            "ak.reaction.add" => {
                 manager.add_reaction(target, actor, key);
             }
-            "ck.reaction.remove" => {
+            "ak.reaction.remove" => {
                 manager.remove_reaction(target, &actor, key);
             }
             other => panic!("case contains kind {other} the OR-Set manager cannot consume"),

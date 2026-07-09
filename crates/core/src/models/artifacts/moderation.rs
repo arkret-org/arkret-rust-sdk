@@ -80,7 +80,7 @@ pub struct SubmitPayload {
 pub type TargetRef = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/moderation-report.schema.json#/$defs/franking_proof`.
-pub const MODERATION_FRANKING_PROOF_KIND: &str = "ck.moderation.franking_proof";
+pub const MODERATION_FRANKING_PROOF_KIND: &str = "ak.moderation.franking_proof";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

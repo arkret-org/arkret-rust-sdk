@@ -88,12 +88,12 @@ fn preserved_fields_survive_tombstone_and_body_is_erased() {
     // A redacted message-create carrying every preserved field plus a
     // plaintext body and derived surfaces that MUST NOT survive.
     let mut event = json!({
-        "kind": "ck.message.create",
+        "kind": "ak.message.create",
         "event_id": "ak:event:01970e58-0004-7000-8000-0000000005a1",
         "created_at": "2026-04-26T00:00:00Z",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "redacts": "ak:event:01970e58-0004-7000-8000-0000000005a0",
-        "content": {"kind": "ck.content.text", "body": "secret plaintext"},
+        "content": {"kind": "ak.content.text", "body": "secret plaintext"},
         "reactions": [{"actor": "did:webvh:z6mkfixture:bob.example", "key": "+1"}],
         "mentions": [{"actor_id": "did:webvh:z6mkfixture:bob.example"}],
         "search_terms": ["secret", "plaintext"],

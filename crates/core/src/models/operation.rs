@@ -1638,7 +1638,7 @@ pub struct MlsKeyPackageRecord {
 
 impl MlsKeyPackageRecord {
     /// Schema id for `ck.mls.keypackage` events / records.
-    pub const SCHEMA: &'static str = "ck.schema.mls_keypackage.v1";
+    pub const SCHEMA: &'static str = "ak.schema.mls_keypackage.v1";
 
     /// Whether the record is currently usable for a Welcome.
     pub fn is_usable(&self) -> bool {

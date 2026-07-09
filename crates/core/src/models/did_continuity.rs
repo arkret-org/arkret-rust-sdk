@@ -75,8 +75,8 @@ pub struct DidContinuityProof {
 }
 
 impl DidContinuityProof {
-    pub const SCHEMA: &'static str = "ck.schema.did_continuity_proof.v1";
-    pub const DIGEST_PREFIX: &'static [u8] = b"ck-did-continuity-proof-v1\n";
+    pub const SCHEMA: &'static str = "ak.schema.did_continuity_proof.v1";
+    pub const DIGEST_PREFIX: &'static [u8] = b"ak.did-continuity-proof-v1\n";
 
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {
@@ -237,7 +237,7 @@ pub fn inception_key_max_online_window() -> chrono::Duration {
 /// evidence-age comparison — an RFC3339 wall-clock subtraction with no added
 /// skew tolerance (24h dwarfs ordinary clock skew). Returns `true` when the age
 /// exceeds the [`INCEPTION_KEY_MAX_ONLINE_WINDOW`] hard cap, in which case the
-/// caller MUST reject the `ck.device.authorize` / `ck.session.grant` /
+/// caller MUST reject the `ck.device.authorize` / `ak.session.grant` /
 /// long-lived capability / ordinary DID update signed by that inception key and
 /// assign reason [`crate::REASON_INCEPTION_KEY_WINDOW_EXCEEDED`], regardless of
 /// any longer window the deployment self-reports. The cap is

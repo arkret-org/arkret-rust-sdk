@@ -37,7 +37,7 @@ pub enum KeyBackupDeleteProof {
     Development(KeyBackupDeleteDevelopmentProof),
 }
 
-pub const KEY_BACKUP_DELETE_DEVELOPMENT_PROOF_KIND: &str = "ck.key_backup.delete.development.v1";
+pub const KEY_BACKUP_DELETE_DEVELOPMENT_PROOF_KIND: &str = "ak.key_backup.delete.development.v1";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -275,7 +275,7 @@ pub enum KeyBackupRecipientMethod {
 /// `encryption.hpke_suite` on a `recovery_public_key` envelope denotes this row
 /// (key-backup.schema.json `encryption.hpke_suite`; hpke-suite-registry.json
 /// `role=v1_default_must`).
-pub const DEFAULT_HPKE_SUITE: &str = "ck.hpke_x25519_aead_chacha20poly1305.v1";
+pub const DEFAULT_HPKE_SUITE: &str = "ak.hpke_x25519_aead_chacha20poly1305.v1";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -1136,12 +1136,12 @@ mod encryption_validate_tests {
     fn recovery_public_key_rejects_inactive_suite() {
         // Reserved (not active) PQ hybrid row MUST fail closed.
         let envelope = recovery_public_key(
-            Some("ck.hpke_xwing_aead_chacha20poly1305.v1"),
+            Some("ak.hpke_xwing_aead_chacha20poly1305.v1"),
             "xchacha20_poly1305",
         );
         assert!(envelope.validate().is_err());
         // Wholly unregistered id MUST fail closed.
-        let bogus = recovery_public_key(Some("ck.hpke_bogus.v1"), "xchacha20_poly1305");
+        let bogus = recovery_public_key(Some("ak.hpke_bogus.v1"), "xchacha20_poly1305");
         assert!(bogus.validate().is_err());
     }
 
@@ -1149,12 +1149,12 @@ mod encryption_validate_tests {
     fn recovery_public_key_rejects_aead_suite_mismatch() {
         // active aes256gcm suite but aead.name is xchacha → mismatch.
         let envelope = recovery_public_key(
-            Some("ck.hpke_x25519_aead_aes256gcm.v1"),
+            Some("ak.hpke_x25519_aead_aes256gcm.v1"),
             "xchacha20_poly1305",
         );
         assert!(envelope.validate().is_err());
         // Matching aead passes.
-        recovery_public_key(Some("ck.hpke_x25519_aead_aes256gcm.v1"), "aes_256_gcm")
+        recovery_public_key(Some("ak.hpke_x25519_aead_aes256gcm.v1"), "aes_256_gcm")
             .validate()
             .expect("matching aead is valid");
     }

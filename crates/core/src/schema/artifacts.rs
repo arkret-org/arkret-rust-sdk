@@ -548,76 +548,76 @@ impl ArtifactDriftReport {
 pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     // Realm/Space schemas: `ck.schema.realm.v1` is the security-boundary
     // schema; `ck.schema.space.v1` is the product container schema.
-    "ck.schema.realm.v1",
+    "ak.schema.realm.v1",
     REALM_JOIN_CANDIDATE_SCHEMA,
-    "ck.schema.actor_profile.v1",
-    "ck.schema.message.v1",
-    "ck.schema.content_block_poll.v1",
-    "ck.schema.morph.v1",
-    "ck.schema.morph.customer_risk.v1",
-    "ck.schema.morph.customer_risk.ext.v1",
-    "ck.schema.relation.v1",
-    "ck.schema.policy.v1",
-    "ck.schema.invite.v1",
+    "ak.schema.actor_profile.v1",
+    "ak.schema.message.v1",
+    "ak.schema.content_block_poll.v1",
+    "ak.schema.morph.v1",
+    "ak.schema.morph.customer_risk.v1",
+    "ak.schema.morph.customer_risk.ext.v1",
+    "ak.schema.relation.v1",
+    "ak.schema.policy.v1",
+    "ak.schema.invite.v1",
     PRINCIPAL_LOCATOR_SCHEMA,
     INVITE_DELIVERY_REQUEST_SCHEMA,
     INVITE_RECEIVE_POLICY_SCHEMA,
-    "ck.schema.availability_receipt.v1",
-    "ck.schema.event_batch_receipt.v1",
-    "ck.schema.patch.v1",
-    "ck.schema.range_completeness_attestation.v1",
-    "ck.schema.ice_config_response.v1",
-    "ck.schema.device_message.v1",
-    "ck.schema.blob.v1",
-    "ck.schema.media_metadata.v1",
-    "ck.schema.key_backup.v1",
-    "ck.schema.notification.v1",
-    "ck.schema.read_cursor.v1",
-    "ck.schema.read_receipt.v1",
-    "ck.schema.did_key_log_entry.v1",
-    "ck.schema.did_continuity_proof.v1",
-    "ck.schema.identity_receipt.v1",
-    "ck.schema.identity_link.v1",
-    "ck.schema.handle_claim.v1",
-    "ck.schema.member_delivery_binding_candidate.v1",
+    "ak.schema.availability_receipt.v1",
+    "ak.schema.event_batch_receipt.v1",
+    "ak.schema.patch.v1",
+    "ak.schema.range_completeness_attestation.v1",
+    "ak.schema.ice_config_response.v1",
+    "ak.schema.device_message.v1",
+    "ak.schema.blob.v1",
+    "ak.schema.media_metadata.v1",
+    "ak.schema.key_backup.v1",
+    "ak.schema.notification.v1",
+    "ak.schema.read_cursor.v1",
+    "ak.schema.read_receipt.v1",
+    "ak.schema.did_key_log_entry.v1",
+    "ak.schema.did_continuity_proof.v1",
+    "ak.schema.identity_receipt.v1",
+    "ak.schema.identity_link.v1",
+    "ak.schema.handle_claim.v1",
+    "ak.schema.member_delivery_binding_candidate.v1",
     // R3.1 spec-sync (arkret-spec @ 7157ee8, 2026-05-27).
-    "ck.schema.member_identity.v1",
+    "ak.schema.member_identity.v1",
     // R3.2 spec-sync (arkret-spec @ b56cab1, 2026-05-28).
-    "ck.schema.list_handles_for_subject_response.v1",
-    "ck.schema.grant_constraint.v1",
-    "ck.schema.resource_selector.v1",
-    "ck.schema.mimi_interop.v1",
-    "ck.schema.moderation_report.v1",
-    "ck.schema.moderation_queue_item.v1",
-    "ck.schema.applet.v1",
-    "ck.schema.agent.v1",
-    "ck.schema.agent_selector_claim.v1",
-    "ck.schema.audit_ryw_receipt.v1",
-    "ck.schema.erasure_receipt.v1",
-    "ck.schema.erasure_verification_stub.v1",
+    "ak.schema.list_handles_for_subject_response.v1",
+    "ak.schema.grant_constraint.v1",
+    "ak.schema.resource_selector.v1",
+    "ak.schema.mimi_interop.v1",
+    "ak.schema.moderation_report.v1",
+    "ak.schema.moderation_queue_item.v1",
+    "ak.schema.applet.v1",
+    "ak.schema.agent.v1",
+    "ak.schema.agent_selector_claim.v1",
+    "ak.schema.audit_ryw_receipt.v1",
+    "ak.schema.erasure_receipt.v1",
+    "ak.schema.erasure_verification_stub.v1",
     PERSONAL_PRODUCTIVITY_SCHEMA,
     DRAFT_SYNC_SCHEMA,
     CALENDAR_EVENT_SCHEMA,
     DISAPPEARING_MESSAGES_SCHEMA,
     SEARCH_SERVICE_SCHEMA,
-    "ck.schema.cross_signing_publish.v1",
-    "ck.schema.cross_signing_reset.v1",
-    "ck.schema.inclusion_list.v1",
-    "ck.schema.key_view_proof.v1",
-    "ck.schema.seal_transparency.v1",
+    "ak.schema.cross_signing_publish.v1",
+    "ak.schema.cross_signing_reset.v1",
+    "ak.schema.inclusion_list.v1",
+    "ak.schema.key_view_proof.v1",
+    "ak.schema.seal_transparency.v1",
     // Round R2/R3 (2026-05-20) — broadcast ephemeral envelope, moderation
     // appeal payloads, structured attestation evidence.
-    "ck.schema.ephemeral_envelope.v1",
-    "ck.schema.moderation_appeal.v1",
-    "ck.schema.attestation_evidence.v1",
+    "ak.schema.ephemeral_envelope.v1",
+    "ak.schema.moderation_appeal.v1",
+    "ak.schema.attestation_evidence.v1",
     // CKP-0007 (spec b7d35be) — Circle primitive schema.
-    "ck.schema.circle.v1",
+    "ak.schema.circle.v1",
     // Key-backup hardening (B-C, spec head 37ce729) — recovery policy and
     // recovery receipt schemas.
-    "ck.schema.recovery_policy.v1",
-    "ck.schema.recovery_receipt.v1",
-    "ck.schema.recovery_session.v1",
-    "ck.schema.service_describe.v1",
+    "ak.schema.recovery_policy.v1",
+    "ak.schema.recovery_receipt.v1",
+    "ak.schema.recovery_session.v1",
+    "ak.schema.service_describe.v1",
     EVENT_SCHEMA,
     EVENT_PAYLOAD_SCHEMA,
     STRAND_SCHEMA,
@@ -633,44 +633,44 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     // Spec-sync (schema-registry.json) — service-operation DTO schemas and
     // newer feature schemas the registry ships that the SDK had not yet
     // declared coverage for.
-    "ck.schema.account_operations.v1",
-    "ck.schema.account_data_operations.v1",
-    "ck.schema.agent_pairing_bootstrap.v1",
-    "ck.schema.agent_operations.v1",
-    "ck.schema.applet_edge_operations.v1",
-    "ck.schema.applet_ghost_operations.v1",
-    "ck.schema.applet_install_operations.v1",
-    "ck.schema.applet_install_plan.v1",
-    "ck.schema.applet_package.v1",
-    "ck.schema.applet_widget_declaration.v1",
-    "ck.schema.authz_operations.v1",
-    "ck.schema.blob_operations.v1",
-    "ck.schema.call_recording_artifact.v1",
-    "ck.schema.circle_operations.v1",
-    "ck.schema.common_ids.v1",
-    "ck.schema.consent_operations.v1",
-    "ck.schema.contact_operations.v1",
-    "ck.schema.delivery_binding_stale.v1",
-    "ck.schema.directory_operations.v1",
-    "ck.schema.file_transfer.v1",
-    "ck.schema.key_backup_active_series.v1",
-    "ck.schema.key_backup_plaintext.v1",
-    "ck.schema.key_backup_unlock_proof.v1",
-    "ck.schema.keypackage_operations.v1",
-    "ck.schema.keys_operations.v1",
-    "ck.schema.media_operations.v1",
-    "ck.schema.mimi_operations.v1",
-    "ck.schema.peer_contact_delivery_request.v1",
-    "ck.schema.pin.v1",
-    "ck.schema.push_operations.v1",
-    "ck.schema.query.v1",
-    "ck.schema.read_cursor_operations.v1",
-    "ck.schema.realm_link_operations.v1",
-    "ck.schema.realm_organization_operations.v1",
-    "ck.schema.realm_policy_server_operations.v1",
-    "ck.schema.realm_read_operations.v1",
-    "ck.schema.rsvp.v1",
-    "ck.schema.service_operation_dtos.v1",
+    "ak.schema.account_operations.v1",
+    "ak.schema.account_data_operations.v1",
+    "ak.schema.agent_pairing_bootstrap.v1",
+    "ak.schema.agent_operations.v1",
+    "ak.schema.applet_edge_operations.v1",
+    "ak.schema.applet_ghost_operations.v1",
+    "ak.schema.applet_install_operations.v1",
+    "ak.schema.applet_install_plan.v1",
+    "ak.schema.applet_package.v1",
+    "ak.schema.applet_widget_declaration.v1",
+    "ak.schema.authz_operations.v1",
+    "ak.schema.blob_operations.v1",
+    "ak.schema.call_recording_artifact.v1",
+    "ak.schema.circle_operations.v1",
+    "ak.schema.common_ids.v1",
+    "ak.schema.consent_operations.v1",
+    "ak.schema.contact_operations.v1",
+    "ak.schema.delivery_binding_stale.v1",
+    "ak.schema.directory_operations.v1",
+    "ak.schema.file_transfer.v1",
+    "ak.schema.key_backup_active_series.v1",
+    "ak.schema.key_backup_plaintext.v1",
+    "ak.schema.key_backup_unlock_proof.v1",
+    "ak.schema.keypackage_operations.v1",
+    "ak.schema.keys_operations.v1",
+    "ak.schema.media_operations.v1",
+    "ak.schema.mimi_operations.v1",
+    "ak.schema.peer_contact_delivery_request.v1",
+    "ak.schema.pin.v1",
+    "ak.schema.push_operations.v1",
+    "ak.schema.query.v1",
+    "ak.schema.read_cursor_operations.v1",
+    "ak.schema.realm_link_operations.v1",
+    "ak.schema.realm_organization_operations.v1",
+    "ak.schema.realm_policy_server_operations.v1",
+    "ak.schema.realm_read_operations.v1",
+    "ak.schema.rsvp.v1",
+    "ak.schema.service_operation_dtos.v1",
 ];
 
 /// Active event kinds the SDK recognises from the spec registry.
@@ -990,7 +990,7 @@ fn collect_profile_ids(value: &Value, out: &mut BTreeSet<String>) {
 }
 
 fn is_profile_id(value: &str) -> bool {
-    value.starts_with("ck.profile.") && value.rsplit_once(".v").is_some()
+    value.starts_with("ak.profile.") && value.rsplit_once(".v").is_some()
 }
 
 fn optional_string_array(value: &Value, field: &str, profile_id: &str) -> Result<Vec<String>> {
@@ -1223,14 +1223,14 @@ mod tests {
 
     #[test]
     fn embedded_capability_action_reads_core_write_surface() {
-        let message = embedded_capability_action("ck.message.create")
+        let message = embedded_capability_action("ak.message.create")
             .expect("embedded registry should parse")
             .expect("message create should be registered");
         assert_eq!(message.risk_tier, CapabilityRiskTier::Medium);
         assert_eq!(message.profile, None);
-        assert_eq!(message.target_event_kinds, vec!["ck.message.create"]);
+        assert_eq!(message.target_event_kinds, vec!["ak.message.create"]);
 
-        let policy = embedded_capability_action("ck.policy.manage")
+        let policy = embedded_capability_action("ak.policy.manage")
             .expect("embedded registry should parse")
             .expect("policy manage should be registered");
         assert_eq!(policy.risk_tier, CapabilityRiskTier::High);
@@ -1239,12 +1239,12 @@ mod tests {
 
     #[test]
     fn embedded_capability_action_exposes_candidate_profile_gate() {
-        let action = embedded_capability_action("ck.realm.join.review")
+        let action = embedded_capability_action("ak.realm.join.review")
             .expect("embedded registry should parse")
             .expect("candidate action should be registered");
         assert_eq!(
             action.profile.as_deref(),
-            Some("ck.profile.candidate.join_policy.v1")
+            Some("ak.profile.candidate.join_policy.v1")
         );
         assert_eq!(action.risk_tier, CapabilityRiskTier::Medium);
     }

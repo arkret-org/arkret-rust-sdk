@@ -49,7 +49,7 @@ function Sort-Ordinal {
 
 # Collect ids from a regex pass first, so we still notice ids that are
 # referenced without a profile_roles entry (e.g. transitional candidates).
-$idsFromRegex = Sort-Ordinal -Values @([regex]::Matches($raw, 'ck\.profile\.[A-Za-z0-9_.-]+\.v[0-9]+') |
+$idsFromRegex = Sort-Ordinal -Values @([regex]::Matches($raw, 'ak..profile\.[A-Za-z0-9_.-]+\.v[0-9]+') |
     ForEach-Object { $_.Value })
 
 if ($null -eq $artifact.profile_roles) {

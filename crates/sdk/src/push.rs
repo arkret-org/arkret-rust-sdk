@@ -349,7 +349,7 @@ mod tests {
             event_id: EventId::new("ak:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
             user_id: did("alice"),
             realm_id: Some(RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
-            event_kind: "ck.message.create".to_owned(),
+            event_kind: "ak.message.create".to_owned(),
         }
     }
 
@@ -366,7 +366,7 @@ mod tests {
         gateway.upsert_rule(PushRule {
             rule_id: "messages".to_owned(),
             enabled: true,
-            event_kind: Some("ck.message.create".to_owned()),
+            event_kind: Some("ak.message.create".to_owned()),
             priority: PushPriority::High,
         });
 

@@ -43,13 +43,13 @@ impl AuditPolicyAccessPayload {
     pub fn validate_minimal(&self) -> Result<()> {
         match (self.access_kind, &self.late_recovery_original_event_id) {
             (AccessKind::E2EELateRecovery, None) => Err(Error::Protocol(format!(
-                "ck.audit.policy_access access_kind=e2ee_late_recovery requires late_recovery_original_event_id ({})",
+                "ak.audit.policy_access access_kind=e2ee_late_recovery requires late_recovery_original_event_id ({})",
                 crate::ERROR_CODE_SCHEMA_VIOLATION
             ))),
 
             (kind, Some(_)) if !matches!(kind, AccessKind::E2EELateRecovery) => {
                 Err(Error::Protocol(format!(
-                    "ck.audit.policy_access late_recovery_original_event_id is only valid for access_kind=e2ee_late_recovery ({})",
+                    "ak.audit.policy_access late_recovery_original_event_id is only valid for access_kind=e2ee_late_recovery ({})",
                     crate::ERROR_CODE_SCHEMA_VIOLATION
                 )))
             }
@@ -96,7 +96,7 @@ impl ConsentRevokePayload {
     pub fn validate_minimal(&self) -> Result<()> {
         if self.observed_dots.is_empty() {
             return Err(Error::Protocol(format!(
-                "ck.consent.revoke MUST carry non-empty observed_dots ({})",
+                "ak.consent.revoke MUST carry non-empty observed_dots ({})",
                 crate::ERROR_CODE_SCHEMA_VIOLATION
             )));
         }

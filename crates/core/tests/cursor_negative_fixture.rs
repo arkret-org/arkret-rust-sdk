@@ -14,7 +14,7 @@ use arkret_core::cursor::Cursor;
 use arkret_core::schema::embedded_json_artifact;
 
 const FIXTURE_PATH: &str = "fixtures/cursor-negative-fixture.json";
-const VECTOR_ID: &str = "ck.vector.encoding.reject_invalid_cursor.core.v1";
+const VECTOR_ID: &str = "ak.vector.encoding.reject_invalid_cursor.core.v1";
 
 #[test]
 fn cursor_negative_fixture_cases_all_reject() {

@@ -89,7 +89,7 @@ pub type PollReplyContext = BTreeMap<String, Value>;
 /// Discriminator for `content-block-poll.schema.json#/$defs/poll_block.kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PollBlockKind {
-    #[serde(rename = "ck.content.poll")]
+    #[serde(rename = "ak.content.poll")]
     Poll,
 }
 
@@ -112,7 +112,7 @@ pub struct PollBlock {
 /// `content-block-poll.schema.json#/$defs/poll_response_block.kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PollResponseBlockKind {
-    #[serde(rename = "ck.content.poll.response")]
+    #[serde(rename = "ak.content.poll.response")]
     PollResponse,
 }
 

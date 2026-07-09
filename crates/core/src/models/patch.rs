@@ -30,7 +30,7 @@ use crate::{Error, Hash, Result};
 /// Registered schema id for the field-patch wire format.
 ///
 /// The in-prose name `ck.patch.v1` resolves to this same artifact.
-pub const PATCH_SCHEMA: &str = "ck.schema.patch.v1";
+pub const PATCH_SCHEMA: &str = "ak.schema.patch.v1";
 
 /// Maximum patch-path length in bytes, per spec.
 pub const PATCH_PATH_MAX_BYTES: usize = 1024;
@@ -633,7 +633,7 @@ mod tests {
 
         crate::schema::event_payload_validator_catalog()
             .unwrap()
-            .validate_payload("ck.morph.update", &payload)
+            .validate_payload("ak.morph.update", &payload)
             .unwrap();
     }
 

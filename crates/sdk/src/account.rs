@@ -17,7 +17,7 @@ use crate::{Did, Result};
 
 /// Standard account-data type for the personal blocklist
 /// (`moderation.md` §4.1).
-pub const ACCOUNT_DATA_BLOCKLIST: &str = "ck.account.blocklist";
+pub const ACCOUNT_DATA_BLOCKLIST: &str = "ak.account.blocklist";
 
 /// CKP R3 spec-sync (2026-05-27) — wire payload for `ck.account_data.set`.
 /// Mirrors the spec event payload `account-data-set.schema.json` shape:

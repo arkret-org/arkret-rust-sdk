@@ -567,7 +567,7 @@ mod tests {
                 event_id: EventId::new("ak:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
                 user_id: did("alice"),
                 realm_id: None,
-                event_kind: "ck.message.create".to_owned(),
+                event_kind: "ak.message.create".to_owned(),
             },
         );
         assert_eq!(payload.body, "New message");
@@ -618,7 +618,7 @@ mod tests {
     fn bridge_notify_descriptor_exposes_dedup_and_rate_limit_windows() {
         let descriptor = PushBridgeDescribeNotifyDescriptor {
             notify_path: "/_cokret/edge/push/notify".to_owned(),
-            operation_id: "ck.edge.push.command.notify".to_owned(),
+            operation_id: "ak.edge.push.command.notify".to_owned(),
             request_id_header: "X-Arkret-Request-Id".to_owned(),
             idempotency_key_header: "X-Arkret-Idempotency-Key".to_owned(),
             origin_service_did_header: "X-Arkret-Origin-Service-Did".to_owned(),
@@ -680,13 +680,13 @@ mod tests {
     #[test]
     fn bridge_describe_response_decodes_without_optional_matrices() {
         let json = serde_json::json!({
-            "contract": "ck.push.bridge.v1",
+            "contract": "ak.push.bridge.v1",
             "version": "1.0.0",
             "api_base_path": "/_cokret/edge/push",
             "gateway": {},
             "notify": {
                 "notify_path": "/_cokret/edge/push/notify",
-                "operation_id": "ck.edge.push.command.notify",
+                "operation_id": "ak.edge.push.command.notify",
                 "request_id_header": "X-Arkret-Request-Id",
                 "idempotency_key_header": "X-Arkret-Idempotency-Key",
                 "origin_service_did_header": "X-Arkret-Origin-Service-Did",
@@ -716,7 +716,7 @@ mod tests {
     #[test]
     fn integration_view_exposes_manifest_dependency_lookup() {
         let manifest = PushGatewayIntegrationDescribeOutcome {
-            contract: "ck.integration.push_gateway.v1".to_owned(),
+            contract: "ak.integration.push_gateway.v1".to_owned(),
             version: "1.0.0".to_owned(),
             service: "push-gateway".to_owned(),
             service_kind: "push-gateway".to_owned(),
@@ -725,7 +725,7 @@ mod tests {
             dependencies: vec![PushGatewayIntegrationDependency {
                 service: "soland".to_owned(),
                 purpose: "register-device".to_owned(),
-                required_contract: "ck.auth.bridge.v1".to_owned(),
+                required_contract: "ak.auth.bridge.v1".to_owned(),
                 discovery_path: "/_soland/gate/auth/bridge/describe".to_owned(),
                 mode: "required".to_owned(),
             }],
@@ -734,13 +734,13 @@ mod tests {
             todos: Vec::new(),
         };
         let bridge = PushBridgeDescribeOutcome {
-            contract: "ck.push.bridge.v1".to_owned(),
+            contract: "ak.push.bridge.v1".to_owned(),
             ..Default::default()
         };
 
         let view = IntegrationView::new(manifest, bridge);
         assert!(view.requires("soland", "register-device"));
         assert!(!view.requires("soland", "unregister-device"));
-        assert_eq!(view.contract_digest(), "ck.push.bridge.v1");
+        assert_eq!(view.contract_digest(), "ak.push.bridge.v1");
     }
 }

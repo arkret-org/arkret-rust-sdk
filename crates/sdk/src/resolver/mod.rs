@@ -24,8 +24,8 @@ use crate::{
     SpaceId, Strand,
 };
 
-pub const REDUCER_SNAPSHOT_SCHEMA: &str = "ck.schema.reducer_snapshot.v1";
-pub const REDUCER_SNAPSHOT_PROFILE: &str = "ck.reducer.v1";
+pub const REDUCER_SNAPSHOT_SCHEMA: &str = "ak.schema.reducer_snapshot.v1";
+pub const REDUCER_SNAPSHOT_PROFILE: &str = "ak.reducer.v1";
 
 mod snapshot;
 mod state;

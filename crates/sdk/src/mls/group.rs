@@ -35,9 +35,9 @@ pub const MLS_EXPORTER_AEAD_CONTENT_SCHEME: &str = "mls-exporter-aead-v1";
 /// AAD / nonce-context `purpose` for the exporter-aead content scheme.
 pub const MLS_EXPORTER_AEAD_CONTENT_PURPOSE: &str = "mls_exporter_aead_content";
 /// MLS exporter label for the per-epoch history secret.
-const HISTORY_SECRET_LABEL: &str = "ck-history-v1";
+const HISTORY_SECRET_LABEL: &str = "ak.history-v1";
 /// HKDF-Expand label deriving the content key from the history secret.
-const CONTENT_KEY_LABEL: &str = "ck-content-v1";
+const CONTENT_KEY_LABEL: &str = "ak.content-v1";
 /// XChaCha20-Poly1305 key length, `AEAD.Nk`.
 const CONTENT_AEAD_KEY_LEN: usize = 32;
 /// XChaCha20-Poly1305 nonce length (24 bytes; §10.1 prefix || counter_be64).
@@ -158,7 +158,7 @@ impl MlsAddMemberResult {
 
     pub fn welcome_to_device_message(&self) -> Result<ToDeviceMessage> {
         Ok(ToDeviceMessage {
-            message_type: "ck.mls.welcome.v1".to_owned(),
+            message_type: "ak.mls.welcome.v1".to_owned(),
             sender_principal_id: None,
             sender_device_id: None,
             recipient_principal_id: None,
@@ -340,8 +340,8 @@ impl CokretMlsGroup {
     //
     // The content key for epoch `N` is derived purely from the MLS exporter at
     // that epoch:
-    //   history_secret[N] = MLS-Exporter("ck-history-v1", realm_id, 32)
-    //   K_content[N]      = HKDF-Expand(history_secret[N], "ck-content-v1", 32)
+    //   history_secret[N] = MLS-Exporter("ak.history-v1", realm_id, 32)
+    //   K_content[N]      = HKDF-Expand(history_secret[N], "ak.content-v1", 32)
     // Content is XChaCha20-Poly1305 over (nonce, aad, plaintext) with the §10.1
     // nonce `sender_nonce_prefix || counter_be64`. Because `history_secret[N]`
     // is reproducible from `history_secret` alone (no ratchet state), a provider
@@ -1118,7 +1118,7 @@ impl CokretMlsGroup {
     }
 }
 
-/// `K_content = HKDF-Expand(history_secret, "ck-content-v1", AEAD.Nk)`.
+/// `K_content = HKDF-Expand(history_secret, "ak.content-v1", AEAD.Nk)`.
 ///
 /// Per spec the history_secret already has full entropy (it is an MLS exporter
 /// output), so the history_secret is used directly as the HKDF PRK (Expand-only,
@@ -1331,7 +1331,7 @@ mod content_scheme_anchor_tests {
         assert_eq!(
             hex(content_key.as_ref()),
             "4642059a41bc938003f5594dba0c8baa69631408c417ff5fba205c4de1affa98",
-            "ck-content-v1 HKDF content key drifted"
+            "ak.content-v1 HKDF content key drifted"
         );
 
         // Exporter label/context binding: the deterministic mirror of the

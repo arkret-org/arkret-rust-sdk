@@ -222,7 +222,7 @@ mod tests {
         manager.upsert_rule(NotificationRule {
             rule_id: "mentions".to_owned(),
             enabled: true,
-            event_kind: Some("ck.mention".to_owned()),
+            event_kind: Some("ak.mention".to_owned()),
             sender: None,
             action: NotificationAction::Highlight,
         });
@@ -233,7 +233,7 @@ mod tests {
                 Some(realm_id.clone()),
                 EventId::new("ak:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
                 alice,
-                "ck.mention",
+                "ak.mention",
                 Some(json!({"body":"hi"})),
             )
             .unwrap();
@@ -252,7 +252,7 @@ mod tests {
         manager.upsert_rule(NotificationRule {
             rule_id: "suppress".to_owned(),
             enabled: true,
-            event_kind: Some("ck.noisy".to_owned()),
+            event_kind: Some("ak.noisy".to_owned()),
             sender: None,
             action: NotificationAction::DontNotify,
         });
@@ -264,7 +264,7 @@ mod tests {
                     Some(realm_id.clone()),
                     EventId::new("ak:event:01904100-0000-7000-8000-155d51e9508a").unwrap(),
                     did("alice"),
-                    "ck.noisy",
+                    "ak.noisy",
                     None,
                 )
                 .is_none()
@@ -275,7 +275,7 @@ mod tests {
             Some(realm_id.clone()),
             EventId::new("ak:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
             did("bob"),
-            "ck.message.create",
+            "ak.message.create",
             None,
         );
         manager.add_notification(
@@ -283,7 +283,7 @@ mod tests {
             Some(realm_id.clone()),
             EventId::new("ak:event:01904100-0000-7000-8000-6008ddd67225").unwrap(),
             did("carol"),
-            "ck.message.create",
+            "ak.message.create",
             None,
         );
 

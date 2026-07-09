@@ -168,5 +168,5 @@ pub struct AttestationEvidence {
 }
 
 impl AttestationEvidence {
-    pub const SCHEMA: &'static str = "ck.schema.attestation_evidence.v1";
+    pub const SCHEMA: &'static str = "ak.schema.attestation_evidence.v1";
 }

@@ -513,7 +513,7 @@ mod applet_builder_tests {
             "2026-07-08T10:05:00Z".parse().unwrap(),
         )
         .with_protocols(vec!["a2a".to_owned()])
-        .with_requested_scopes(vec!["ck.message.create".to_owned()])
+        .with_requested_scopes(vec!["ak.message.create".to_owned()])
         .with_receive_events(true);
         let value = payload.to_value().unwrap();
         assert_eq!(
@@ -522,7 +522,7 @@ mod applet_builder_tests {
         );
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
         catalog
-            .validate_payload("ck.applet.registration", &value)
+            .validate_payload("ak.applet.registration", &value)
             .unwrap();
     }
 
@@ -550,7 +550,7 @@ mod applet_builder_tests {
             .with_service_did(did("did:webvh:z6mkfixture:svc.example"));
         catalog
             .validate_payload(
-                "ck.applet.interop_session.start",
+                "ak.applet.interop_session.start",
                 &start.to_value().unwrap(),
             )
             .unwrap();
@@ -563,7 +563,7 @@ mod applet_builder_tests {
         let value = status.to_value().unwrap();
         assert_eq!(value["runtime_status"], json!("running"));
         catalog
-            .validate_payload("ck.applet.interop_session.status", &value)
+            .validate_payload("ak.applet.interop_session.status", &value)
             .unwrap();
     }
 }

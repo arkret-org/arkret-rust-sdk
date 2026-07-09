@@ -773,7 +773,7 @@ mod tests {
         fn fixture_event(content_body: &str) -> Event {
             Event {
                 event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
-                kind: "ck.message.create".into(),
+                kind: "ak.message.create".into(),
                 realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
                 actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                 actor_seq: 1,
@@ -920,7 +920,7 @@ mod tests {
                 parsed.get("events").is_none(),
                 "single-event POST must not wrap in events[]: {parsed}"
             );
-            assert_eq!(parsed["kind"], "ck.message.create");
+            assert_eq!(parsed["kind"], "ak.message.create");
             assert_eq!(parsed["payload"]["body"], "hello");
             assert_eq!(parsed["actor_id"], "did:webvh:z6mkfixture:alice.example");
         }

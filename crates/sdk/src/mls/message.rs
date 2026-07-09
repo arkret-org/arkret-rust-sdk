@@ -290,7 +290,7 @@ fn validate_envelope_aad(aad: &EncryptedEnvelopeAadV1, visibility: AadVisibility
 // `arkret-core` (see `models::artifacts::event_wire`); only the
 // MLS-specific `event_kind_token` lives here.
 fn event_kind_token(value: &str) -> bool {
-    let Some(rest) = value.strip_prefix("ck.") else {
+    let Some(rest) = value.strip_prefix("ak.") else {
         return false;
     };
     !rest.is_empty()

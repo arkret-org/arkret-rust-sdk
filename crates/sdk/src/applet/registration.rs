@@ -474,7 +474,7 @@ pub fn normalize_applet_signing_key_ref(service_did: &Did, key_ref: &str) -> Str
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct WireAppletRegistration {
-    /// Always `"ck.applet.registration"`. Reducer rejects other values.
+    /// Always `"ak.applet.registration"`. Reducer rejects other values.
     pub kind: String,
     pub applet_id: String,
     pub service_did: Did,
@@ -515,7 +515,7 @@ pub struct WireAppletRegistration {
 }
 
 impl WireAppletRegistration {
-    pub const KIND: &'static str = "ck.applet.registration";
+    pub const KIND: &'static str = "ak.applet.registration";
 
     /// Build an unsigned registration. Caller MUST attach `proof` via
     /// [`sign_registration`].
@@ -664,9 +664,9 @@ pub struct AppletPackage {
 }
 
 impl AppletPackage {
-    pub const SCHEMA: &'static str = "ck.schema.applet_package.v1";
+    pub const SCHEMA: &'static str = "ak.schema.applet_package.v1";
     /// The base profile every Applet package MUST claim.
-    pub const BASE_PROFILE: &'static str = "ck.profile.applet_service.v1";
+    pub const BASE_PROFILE: &'static str = "ak.profile.applet_service.v1";
 
     /// Build an unsigned, unsealed package. Caller MUST
     /// [`seal`](Self::seal) then [`sign`](Self::sign) before publishing.

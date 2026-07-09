@@ -77,7 +77,7 @@ impl RealmState {
     /// per the spec event-kind-registry's `cell_subject` declaration.
     pub(super) fn subject_for_event(&self, event: &Event) -> Result<String> {
         match event.kind.as_str() {
-            "ck.member.state" => self
+            "ak.member.state" => self
                 .extract_optional_field::<String>(&event.payload, "actor_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.payload, "principal_id"))
                 .or_else(|| self.extract_optional_field::<String>(&event.payload, "member_id"))
@@ -87,22 +87,22 @@ impl RealmState {
             // Per spec event-kind-registry: all `ck.capability.*` kinds
             // declare `cell_subject.field = payload.grant_id` over the shared
             // `ck.component.capability.grant.v1` cell family.
-            "ck.capability.grant"
-            | "ck.capability.delegate"
-            | "ck.capability.revoke"
-            | "ck.capability.derived" => self
+            "ak.capability.grant"
+            | "ak.capability.delegate"
+            | "ak.capability.revoke"
+            | "ak.capability.derived" => self
                 .extract_optional_field::<String>(&event.payload, "grant_id")
                 .ok_or_else(|| {
                     Error::Protocol("capability event requires payload.grant_id".to_owned())
                 }),
-            "ck.realm.policy" | "ck.policy.set" => Ok(self
+            "ak.realm.policy" | "ck.policy.set" => Ok(self
                 .extract_optional_field::<String>(&event.payload, "policy_id")
                 .unwrap_or_else(|| "space_policy".to_owned())),
-            "ck.invite.create" | "ck.invite.cancel" | "ck.invite.accept" => self
+            "ak.invite.create" | "ck.invite.cancel" | "ck.invite.accept" => self
                 .extract_optional_field::<String>(&event.payload, "invite_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.payload, "id"))
                 .ok_or_else(|| Error::Protocol("invite event requires invite_id or id".to_owned())),
-            "ck.read_cursor.advance" => self
+            "ak.read_cursor.advance" => self
                 .extract_optional_field::<String>(&event.payload, "scope")
                 .or_else(|| self.extract_optional_field::<String>(&event.payload, "target_ref"))
                 .ok_or_else(|| {
@@ -112,7 +112,7 @@ impl RealmState {
             // `(organization_id, relationship)`; it is keyed by that composite
             // subject (matching the lattice registry `::` separator), NOT by
             // realm_id, so distinct organization/relationship statements coexist.
-            "ck.realm.organization" => {
+            "ak.realm.organization" => {
                 let organization_id = self
                     .extract_optional_field::<String>(&event.payload, "organization_id")
                     .ok_or_else(|| {
@@ -130,19 +130,19 @@ impl RealmState {
                 Ok(format!("{organization_id}::{relationship}"))
             }
             // Realm lifecycle events use the realm_id as state key.
-            "ck.realm.create"
-            | "ck.realm.update"
-            | "ck.realm.link"
-            | "ck.realm.inheritance_policy"
-            | "ck.realm.join_rule"
-            | "ck.realm.history_visibility"
-            | "ck.realm.discovery"
-            | "ck.realm.archive"
-            | "ck.realm.freeze"
-            | "ck.realm.destroy"
-            | "ck.realm.upgrade" => Ok(event.realm_id.as_str().to_owned()),
+            "ak.realm.create"
+            | "ak.realm.update"
+            | "ak.realm.link"
+            | "ak.realm.inheritance_policy"
+            | "ak.realm.join_rule"
+            | "ak.realm.history_visibility"
+            | "ak.realm.discovery"
+            | "ak.realm.archive"
+            | "ak.realm.freeze"
+            | "ak.realm.destroy"
+            | "ak.realm.upgrade" => Ok(event.realm_id.as_str().to_owned()),
             // View events use view_id as state key
-            "ck.view.create" | "ck.view.update" | "ck.view.reconcile" => self
+            "ak.view.create" | "ck.view.update" | "ck.view.reconcile" => self
                 .extract_optional_field::<String>(&event.payload, "view_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.payload, "id"))
                 .ok_or_else(|| Error::Protocol("view event requires view_id or id".to_owned())),
@@ -154,7 +154,7 @@ impl RealmState {
         existing: &ResolvedStateEvent,
         candidate: &ResolvedStateEvent,
     ) -> bool {
-        if candidate.kind == "ck.member.state" && existing.kind == "ck.member.state" {
+        if candidate.kind == "ak.member.state" && existing.kind == "ck.member.state" {
             let existing_rank = membership_rank(&existing.content);
             let candidate_rank = membership_rank(&candidate.content);
             if existing_rank != candidate_rank {

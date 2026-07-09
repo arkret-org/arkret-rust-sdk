@@ -50,7 +50,7 @@ fn strand_tracks_update_payload_uses_strand_id_not_target_ref() {
     assert!(payload.get("patch").is_some());
     schema::event_payload_validator_catalog()
         .unwrap()
-        .validate_payload("ck.strand.tracks.update", &payload)
+        .validate_payload("ak.strand.tracks.update", &payload)
         .unwrap();
 }
 
@@ -84,7 +84,7 @@ fn message_create_payload_requires_exactly_one_content_carrier() {
     )
     .to_value()
     .unwrap();
-    assert_eq!(payload["content"]["kind"], "ck.content.text");
+    assert_eq!(payload["content"]["kind"], "ak.content.text");
     assert!(payload.get("encrypted_content").is_none());
 }
 
@@ -118,14 +118,14 @@ fn message_create_payload_reads_plain_body_and_first_media_block() {
 #[test]
 fn content_block_validator_accepts_canonical_poll_block() {
     let block = json!({
-        "kind": "ck.content.poll",
+        "kind": "ak.content.poll",
         "body": "ship?",
         "poll": {
             "kind": "disclosed",
             "max_selections": 1,
             "answers": [
-                {"id": "yes", "text": {"kind": "ck.content.text", "body": "yes"}},
-                {"id": "no", "text": {"kind": "ck.content.text", "body": "no"}}
+                {"id": "yes", "text": {"kind": "ak.content.text", "body": "yes"}},
+                {"id": "no", "text": {"kind": "ak.content.text", "body": "no"}}
             ]
         }
     });
@@ -136,7 +136,7 @@ fn content_block_validator_accepts_canonical_poll_block() {
 #[test]
 fn content_block_validator_rejects_legacy_flat_poll_block() {
     let block = json!({
-        "kind": "ck.content.poll",
+        "kind": "ak.content.poll",
         "body": "ship?",
         "question": "ship?",
         "options": ["yes", "no"]
@@ -202,7 +202,7 @@ fn message_create_payload_carries_disappearing_expiry() {
     assert_eq!(payload["expiry"]["grace_ms"], 5_000);
     schema::event_payload_validator_catalog()
         .unwrap()
-        .validate_payload("ck.message.create", &payload)
+        .validate_payload("ak.message.create", &payload)
         .unwrap();
 }
 
@@ -212,7 +212,7 @@ fn morph_create_object_rejects_both_content_carriers() {
     let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
     let morph_id = MorphId::new("ak:morph:01904100-0000-7000-8000-000000000003").unwrap();
     let mut morph = MorphCreateObject::new(morph_id, realm_id, "document", actor);
-    morph.content = Some(json!({"kind": "ck.content.text", "body": "hello"}));
+    morph.content = Some(json!({"kind": "ak.content.text", "body": "hello"}));
     morph.encrypted_content = Some(json!({"schema": ENCRYPTED_ENVELOPE_SCHEMA}));
 
     let err = morph.to_create_payload_value().unwrap_err();

@@ -554,7 +554,7 @@ fn did_submit_body(
         operation,
         policy_context: json!({
             "provider_id": "soland.protocol",
-            "profile": "ck.identity.webvh.provider.v1",
+            "profile": "ak.identity.webvh.provider.v1",
             "local_id": local_id,
         }),
         proofs: Vec::new(),

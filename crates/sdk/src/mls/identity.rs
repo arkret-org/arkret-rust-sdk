@@ -34,7 +34,7 @@ pub const ARKRET_MLS_CIPHERSUITE: Ciphersuite =
 /// upstream drift fails loudly rather than reaching the wire.
 pub const ARKRET_MLS_CIPHERSUITE_CANONICAL_ID: &str =
     "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519";
-pub const ARKRET_MLS_KEY_PACKAGE_CAPABILITIES: &[&str] = &["mimi.content.v1", "ck.content.v1"];
+pub const ARKRET_MLS_KEY_PACKAGE_CAPABILITIES: &[&str] = &["mimi.content.v1", "ak.content.v1"];
 
 const ARKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT: &str = "arkret-openmls-identity-state-v1";
 
@@ -329,7 +329,7 @@ mod tests {
         let record = identity.key_package_record().unwrap();
         assert_eq!(
             record.capabilities,
-            vec!["mimi.content.v1".to_owned(), "ck.content.v1".to_owned()]
+            vec!["mimi.content.v1".to_owned(), "ak.content.v1".to_owned()]
         );
 
         let value = serde_json::to_value(&record).unwrap();

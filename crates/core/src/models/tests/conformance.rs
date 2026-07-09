@@ -93,7 +93,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
         "event_id": "ak:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ak:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
-        "kind": "ck.message.create",
+        "kind": "ak.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
@@ -109,7 +109,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
         "event_id": "ak:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ak:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
-        "kind": "ck.message.create",
+        "kind": "ak.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
@@ -124,7 +124,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
         "event_id": "ak:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ak:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
-        "kind": "ck.message.create",
+        "kind": "ak.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
@@ -143,10 +143,10 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
         .unwrap();
 
     registry.register(
-        "ck.schema.strict.v1",
+        "ak.schema.strict.v1",
         json!({
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "ck.schema.strict.v1",
+            "$id": "ak.schema.strict.v1",
             "type": "object",
             "required": ["id"],
             "properties": {"id": {"type": "string"}},
@@ -154,7 +154,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
         }),
     );
     let warnings = registry
-        .generated_validator("ck.schema.strict.v1")
+        .generated_validator("ak.schema.strict.v1")
         .unwrap()
         .validate_with_warnings(&json!({"id": "1", "extra": true}))
         .unwrap();
@@ -173,7 +173,7 @@ fn schema_registry_fails_closed_for_unknown_security_extensions() {
         "event_id": "ak:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ak:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
-        "kind": "ck.message.create",
+        "kind": "ak.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
@@ -192,7 +192,7 @@ fn schema_registry_fails_closed_for_unknown_security_extensions() {
         "event_id": "ak:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ak:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
-        "kind": "ck.message.create",
+        "kind": "ak.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
@@ -311,7 +311,7 @@ fn encoding_vector(vector_id: &str) -> Value {
 /// equality with the spec expectations.
 #[test]
 fn signature_binding_payload_matches_spec_encoding_vector() {
-    let vector = encoding_vector("ck.vector.encoding.signature_binding_payload.v1");
+    let vector = encoding_vector("ak.vector.encoding.signature_binding_payload.v1");
     let input = &vector["input"];
     let actor = Did::new(input["actor_id"].as_str().unwrap()).unwrap();
     let proof = Proof {
@@ -382,7 +382,7 @@ fn fact_chain_echo_validates_server_proof_binding() {
 /// built from SDK canonical/base64url primitives, plus the AAD digest.
 #[test]
 fn encrypted_envelope_digest_matches_spec_encoding_vector() {
-    let vector = encoding_vector("ck.vector.encoding.encrypted_envelope_digest.v1");
+    let vector = encoding_vector("ak.vector.encoding.encrypted_envelope_digest.v1");
     let metadata = &vector["payload_metadata"];
 
     let metadata_bytes = canonical::canonical_json_bytes(metadata).unwrap();

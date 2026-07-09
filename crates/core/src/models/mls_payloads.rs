@@ -17,8 +17,8 @@ pub const MLS_GOVERNANCE_BINDING_VERSION: u8 = 1;
 pub const MLS_GOVERNANCE_BINDING_ENCODING_PROFILE: &str = "cbor-deterministic-rfc8949-v1";
 pub const MLS_GOVERNANCE_BINDING_EXTENSION_TYPE: u16 = 0xF1C0;
 pub const MLS_GOVERNANCE_BINDING_EXTENSION_NAME: &str = "mls_governance_binding";
-pub const MLS_GOVERNANCE_BINDING_FULL_PROFILE: &str = "ck.profile.mls_governance_binding.full.v1";
-pub const MLS_GOVERNANCE_BINDING_RELAXED_PROFILE: &str = "ck.profile.e2ee_relaxed.v1";
+pub const MLS_GOVERNANCE_BINDING_FULL_PROFILE: &str = "ak.profile.mls_governance_binding.full.v1";
+pub const MLS_GOVERNANCE_BINDING_RELAXED_PROFILE: &str = "ak.profile.e2ee_relaxed.v1";
 
 /// `event-payload.schema.json#/$defs/mls_governance_binding`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1184,7 +1184,7 @@ mod tests {
     }
 
     fn reducer_profile() -> &'static str {
-        "ck.reducer.v1"
+        "ak.reducer.v1"
     }
 
     fn full_binding() -> MlsGovernanceBindingPayload {
@@ -1273,7 +1273,7 @@ mod tests {
 
         binding
             .clone()
-            .with_binding_profile("ck.profile.mls_governance_binding.full.v1")
+            .with_binding_profile("ak.profile.mls_governance_binding.full.v1")
             .unwrap();
         assert!(binding.clone().with_binding_profile("mls.full").is_err());
         assert!(binding.with_reducer_profile("").is_err());

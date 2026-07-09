@@ -31,7 +31,7 @@ use serde_json::Value;
 
 /// Cell family for consent grants. Used as the prefix in cell ids of the
 /// form `ck:cell:ck.component.consent.grant.v1:<consent_id>`.
-pub const CONSENT_CELL_FAMILY: &str = "ck.component.consent.grant.v1";
+pub const CONSENT_CELL_FAMILY: &str = "ak.component.consent.grant.v1";
 
 /// Scope of the consent grant. See spec consent-model §4.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

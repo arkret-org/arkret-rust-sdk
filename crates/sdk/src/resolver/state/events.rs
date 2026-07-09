@@ -64,7 +64,7 @@ impl RealmState {
 
     /// Reduce realm lifecycle events into resolved state.
     pub(super) fn reduce_realm_lifecycle_event(&mut self, event: &Event) -> Result<()> {
-        if event.kind == "ck.realm.destroy" {
+        if event.kind == "ak.realm.destroy" {
             self.tombstone_event_id = Some(event.event_id.clone());
         }
         self.reduce_generic_state_event(event)
@@ -73,12 +73,12 @@ impl RealmState {
     pub(super) fn reduce_generic_state_event(&mut self, event: &Event) -> Result<()> {
         let subject = self.subject_for_event(event)?;
         let family = match event.kind.as_str() {
-            "ck.capability.grant"
-            | "ck.capability.delegate"
-            | "ck.capability.revoke"
-            | "ck.capability.derived" => "ck.capability",
-            "ck.invite.create" | "ck.invite.cancel" | "ck.invite.accept" => "ck.invite",
-            "ck.realm.policy" | "ck.policy.set" => "ck.policy",
+            "ak.capability.grant"
+            | "ak.capability.delegate"
+            | "ak.capability.revoke"
+            | "ak.capability.derived" => "ck.capability",
+            "ak.invite.create" | "ck.invite.cancel" | "ck.invite.accept" => "ck.invite",
+            "ak.realm.policy" | "ck.policy.set" => "ck.policy",
             other => other,
         };
         let map_key = format!("{}|{}", family, subject);
@@ -200,7 +200,7 @@ impl RealmState {
             source_event_id: event.event_id.clone(),
             actor_seq: event.actor_seq,
             hlc: event.hlc.clone(),
-            active: event.kind == "ck.reaction.add",
+            active: event.kind == "ak.reaction.add",
         };
         match self.reactions.get(&key) {
             Some(existing) if !Self::reaction_candidate_wins(existing, &candidate) => {}

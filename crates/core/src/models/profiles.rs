@@ -329,7 +329,7 @@ impl Morph {
     /// Validate that `morph_type` does not use the reserved `ck.` prefix
     /// for unregistered types (morph.md §3 / data-structures.md §7).
     pub fn validate_morph_type(&self, registered_ck_types: &[&str]) -> Result<()> {
-        if self.morph_type.starts_with("ck.")
+        if self.morph_type.starts_with("ak.")
             && !registered_ck_types.contains(&self.morph_type.as_str())
         {
             return Err(Error::Protocol(format!(
@@ -545,7 +545,7 @@ pub fn project_account_status_heads<'a>(
 }
 
 /// Service implementation profile IDs surfaced by discovery / requirements.
-pub const PROFILE_DIRECTORY_SERVICE: &str = "ck.profile.directory_service.v1";
+pub const PROFILE_DIRECTORY_SERVICE: &str = "ak.profile.directory_service.v1";
 
 /// Audit assurance class (encryption-and-audit.md §3.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -557,15 +557,15 @@ pub enum AuditAssurance {
 }
 
 /// Profile id constants for audit profiles (encryption-and-audit.md §3.1).
-pub const PROFILE_ATTESTED_AUDIT_E2EE: &str = "ck.profile.attested_audit.e2ee.v1";
-pub const PROFILE_DISCLOSED_AUDIT_E2EE: &str = "ck.profile.disclosed_audit.e2ee.v1";
+pub const PROFILE_ATTESTED_AUDIT_E2EE: &str = "ak.profile.attested_audit.e2ee.v1";
+pub const PROFILE_DISCLOSED_AUDIT_E2EE: &str = "ak.profile.disclosed_audit.e2ee.v1";
 
 /// Round R2/R3 (2026-05-20) — `ck.profile.e2ee_relaxed.v1`.
 ///
 /// Profile that permits temporarily widening the MLS send-pause window
 /// for advisory reasons. Round R2/R3 introduces an **absolute hard
 /// ceiling** of 5 minutes (300_000 ms) on the relaxed window.
-pub const PROFILE_E2EE_RELAXED: &str = "ck.profile.e2ee_relaxed.v1";
+pub const PROFILE_E2EE_RELAXED: &str = "ak.profile.e2ee_relaxed.v1";
 
 /// Compliance profiles that MUST NOT coexist with
 /// [`PROFILE_E2EE_RELAXED`]. Round R2/R3 — declaring both is rejected as
@@ -708,8 +708,8 @@ pub struct AuditRywReceipt {
 
 impl AuditRywReceipt {
     /// Canonical schema id and event-kind constant for `ck.audit.ryw_receipt`.
-    pub const SCHEMA: &'static str = "ck.schema.audit_ryw_receipt.v1";
-    pub const EVENT_KIND: &'static str = "ck.audit.ryw_receipt";
+    pub const SCHEMA: &'static str = "ak.schema.audit_ryw_receipt.v1";
+    pub const EVENT_KIND: &'static str = "ak.audit.ryw_receipt";
 
     /// Validate independence vs the declared assurance class. Returns
     /// `Err` when an attested-mode receipt is single-source (which fails
@@ -780,7 +780,7 @@ pub struct IdentityLink {
 }
 
 impl IdentityLink {
-    pub const SCHEMA: &'static str = "ck.schema.identity_link.v1";
+    pub const SCHEMA: &'static str = "ak.schema.identity_link.v1";
 
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {
@@ -1005,8 +1005,8 @@ pub struct ErasureReceipt {
 }
 
 impl ErasureReceipt {
-    pub const SCHEMA: &'static str = "ck.schema.erasure_receipt.v1";
-    pub const EVENT_KIND: &'static str = "ck.audit.erasure_receipt";
+    pub const SCHEMA: &'static str = "ak.schema.erasure_receipt.v1";
+    pub const EVENT_KIND: &'static str = "ak.audit.erasure_receipt";
 
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {
@@ -1125,7 +1125,7 @@ mod erasure_receipt_tests {
     #[test]
     fn retained_stub_digest_mismatch_fails_closed() {
         let stub = serde_json::json!({
-            "stub_schema": "ck.schema.erasure_verification_stub.v1",
+            "stub_schema": "ak.schema.erasure_verification_stub.v1",
             "subject": {"kind": "event", "ref": "ak:event:01970e58-0004-7000-8000-000000000004"},
             "receipt_id": "ak:receipt:01970e58-0004-7000-8000-000000000010"
         });
@@ -1133,7 +1133,7 @@ mod erasure_receipt_tests {
         assert!(receipt.validate_with_retained_stub(&stub).is_ok());
 
         let tampered = serde_json::json!({
-            "stub_schema": "ck.schema.erasure_verification_stub.v1",
+            "stub_schema": "ak.schema.erasure_verification_stub.v1",
             "subject": {"kind": "event", "ref": "ak:event:01970e58-0004-7000-8000-ffffffffffff"},
             "receipt_id": "ak:receipt:01970e58-0004-7000-8000-000000000010"
         });

@@ -577,7 +577,7 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
         .unwrap();
 
     let event = crate::Event::new(
-        "ck.test.event",
+        "ak.test.event",
         realm(),
         actor,
         1,
@@ -623,7 +623,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
         .unwrap();
 
     let mut event = crate::Event::new(
-        "ck.test.event",
+        "ak.test.event",
         realm(),
         controller,
         1,

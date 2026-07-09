@@ -365,23 +365,23 @@ mod tests {
     #[test]
     fn semantic_validation_reports_missing_capability_actions() {
         let err = validate_profile_semantic_coverage(
-            &["ck.profile.candidate.join_policy.v1"],
+            &["ak.profile.candidate.join_policy.v1"],
             &ProfileSemanticSurface::default(),
         )
         .unwrap_err();
         let report = err.report().expect("missing requirements carry a report");
         assert_eq!(
             report.missing_capability_actions,
-            vec!["ck.realm.join.review".to_owned()]
+            vec!["ak.realm.join.review".to_owned()]
         );
     }
 
     #[test]
     fn capability_action_coverage_can_satisfy_action_only_profile() {
         validate_profile_semantic_coverage(
-            &["ck.profile.candidate.join_policy.v1"],
+            &["ak.profile.candidate.join_policy.v1"],
             &ProfileSemanticSurface {
-                capability_actions: vec!["ck.realm.join.review".to_owned()],
+                capability_actions: vec!["ak.realm.join.review".to_owned()],
                 ..ProfileSemanticSurface::default()
             },
         )

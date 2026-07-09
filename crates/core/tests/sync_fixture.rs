@@ -33,7 +33,7 @@ fn sync_fixture_profile_is_pinned() {
     let fixture = fixture();
     assert_eq!(
         fixture["profile"].as_str(),
-        Some("ck.vector_group.sync.v1"),
+        Some("ak.vector_group.sync.v1"),
         "sync fixture profile drifted"
     );
     // Guard: pin the case keys so a silently reshaped fixture is caught.

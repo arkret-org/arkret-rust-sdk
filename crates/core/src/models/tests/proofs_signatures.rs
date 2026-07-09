@@ -455,7 +455,7 @@ fn proof_validate_binding_rejects_excessive_time_drift() {
 #[test]
 fn event_validate_proof_bindings_checks_digest_match() {
     let event = Event::new(
-        "ck.message.create",
+        "ak.message.create",
         test_realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
@@ -484,7 +484,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
 #[test]
 fn event_validate_proof_bindings_rejects_mismatched_digest() {
     let event = Event::new(
-        "ck.message.create",
+        "ak.message.create",
         test_realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
@@ -515,7 +515,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
 #[test]
 fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     let event = Event::new(
-        "ck.message.create",
+        "ak.message.create",
         test_realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
@@ -579,7 +579,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
     .with_payload(json!({
         "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
         "track_name": "discussion",
-        "content": {"kind": "ck.content.text", "body": "hello"}
+        "content": {"kind": "ak.content.text", "body": "hello"}
     }))
     .build(&OperationKindRegistry::default())
     .unwrap();
@@ -615,7 +615,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
 #[test]
 fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     let mut event = Event::new(
-        "ck.message.create",
+        "ak.message.create",
         test_realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
@@ -628,19 +628,19 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     event
         .requirements
         .schema_profile_refs
-        .push("ck.schema.core_event.v1".to_owned());
-    event.requirements.reducer_profile_ref = Some("ck.reducer.core_event.v1".to_owned());
+        .push("ak.schema.core_event.v1".to_owned());
+    event.requirements.reducer_profile_ref = Some("ak.reducer.core_event.v1".to_owned());
     event
         .requirements
         .required_features
-        .push("ck.feature.event_extensions.v1".to_owned());
+        .push("ak.feature.event_extensions.v1".to_owned());
     event
         .requirements
         .critical_extensions
         .push(CriticalExtension {
-            id: "ck.feature.policy_gate.v1".to_owned(),
+            id: "ak.feature.policy_gate.v1".to_owned(),
             extension_scope: "authz".to_owned(),
-            schema_ref: Some("ck.schema.policy.v1".to_owned()),
+            schema_ref: Some("ak.schema.policy.v1".to_owned()),
             profile_ref: None,
             parameters: None,
             material_digest: None,
@@ -653,12 +653,12 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     assert!(value.get("schema_profile_refs").is_none());
     assert_eq!(
         value["requirements"]["schema"][0],
-        "ck.schema.core_event.v1"
+        "ak.schema.core_event.v1"
     );
-    assert_eq!(value["requirements"]["reducer"], "ck.reducer.core_event.v1");
+    assert_eq!(value["requirements"]["reducer"], "ak.reducer.core_event.v1");
     assert_eq!(
         value["requirements"]["features"][0],
-        "ck.feature.event_extensions.v1"
+        "ak.feature.event_extensions.v1"
     );
 
     event.requirements.critical_extensions[0].fail_closed = false;
@@ -668,10 +668,10 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
 #[test]
 fn critical_extension_uses_spec_extension_scope_field() {
     let extension: CriticalExtension = serde_json::from_value(json!({
-        "id": "ck.feature.policy_gate.v1",
+        "id": "ak.feature.policy_gate.v1",
         "extension_scope": "payload",
-        "schema_ref": "ck.schema.policy.v1",
-        "profile_ref": "ck.profile.policy.v1",
+        "schema_ref": "ak.schema.policy.v1",
+        "profile_ref": "ak.profile.policy.v1",
         "parameters": {"mode": "strict"},
         "material_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "evidence_ref": "ak:event:01904100-0000-7000-8000-6c663fa0205f",
@@ -685,7 +685,7 @@ fn critical_extension_uses_spec_extension_scope_field() {
     assert!(value.get("scope").is_none());
 
     let error = serde_json::from_value::<CriticalExtension>(json!({
-        "id": "ck.feature.policy_gate.v1",
+        "id": "ak.feature.policy_gate.v1",
         "scope": "payload",
         "fail_closed": true
     }))
@@ -706,7 +706,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
     .with_payload(json!({
         "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
         "track_name": "discussion",
-        "content": {"kind": "ck.content.text", "body": "hello"}
+        "content": {"kind": "ak.content.text", "body": "hello"}
     }))
     .build(&OperationKindRegistry::default())
     .unwrap();
@@ -721,7 +721,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
         json!({
             "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
-            "content": {"kind": "ck.content.text", "body": "hello"}
+            "content": {"kind": "ak.content.text", "body": "hello"}
         })
     );
     assert_eq!(

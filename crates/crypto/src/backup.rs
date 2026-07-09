@@ -63,11 +63,11 @@ type Result<T> = std::result::Result<T, KeyBackupError>;
 /// AEAD profile id for the XChaCha20-Poly1305 envelope produced by this
 /// module (key-management.md §7.2). Binds nonce length (24), tag length
 /// (16) and the AAD construction below.
-pub const VAULT_AEAD_PROFILE: &str = "ck.aead.xchacha20_poly1305.v1";
+pub const VAULT_AEAD_PROFILE: &str = "ak.aead.xchacha20_poly1305.v1";
 
 /// `ck.schema.key_backup.v1` schema id, bound into the AEAD AAD so a
 /// ciphertext cannot be replayed under a different schema (§7.1).
-pub const VAULT_SCHEMA_ID: &str = "ck.schema.key_backup.v1";
+pub const VAULT_SCHEMA_ID: &str = "ak.schema.key_backup.v1";
 
 /// Length of the producer-generated `aead.nonce_salt` in bytes. Spec
 /// requires at least 128 bits; we use 16 bytes (128 bits).
@@ -954,7 +954,7 @@ mod tests {
         assert_eq!(envelope.encryption.aead.name, "xchacha20_poly1305");
         assert_eq!(
             envelope.encryption.aead.aead_profile.as_deref(),
-            Some("ck.aead.xchacha20_poly1305.v1")
+            Some("ak.aead.xchacha20_poly1305.v1")
         );
         assert!(envelope.encryption.aead.nonce_salt.is_some());
         assert!(envelope.encryption.aead.nonce.is_some());

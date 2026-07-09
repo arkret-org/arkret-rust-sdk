@@ -8,7 +8,7 @@ use super::test_realm_id;
 #[test]
 fn event_new_sets_required_event_id() {
     let event = Event::new(
-        "ck.message.create",
+        "ak.message.create",
         test_realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         1,
@@ -24,7 +24,7 @@ fn event_new_sets_required_event_id() {
 fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
     let event = Event {
         event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
-        kind: "ck.message.create".into(),
+        kind: "ak.message.create".into(),
         realm_id: test_realm_id(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         actor_seq: 1,
@@ -149,7 +149,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
             .unwrap(),
         realm_id: test_realm_id(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        kind: "ck.message.create".to_owned(),
+        kind: "ak.message.create".to_owned(),
         target_ref: Some("ak:thread:general".to_owned()),
         causal: CausalRef {
             deps: vec![
@@ -176,7 +176,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
 
     let encoded = serde_json::to_value(&envelope).unwrap();
     assert_eq!(encoded["actor_id"], "did:webvh:z6mkfixture:alice.example");
-    assert_eq!(encoded["kind"], "ck.message.create");
+    assert_eq!(encoded["kind"], "ak.message.create");
     assert_eq!(encoded["payload"]["body"], "hello");
     assert!(encoded.get("content").is_none());
     assert!(encoded.get("actor").is_none());
@@ -235,7 +235,7 @@ fn operation_kind_registry_drives_envelope_semantics() {
         payload: json!({
             "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
-            "content": {"kind": "ck.content.text", "body": "hello"}
+            "content": {"kind": "ak.content.text", "body": "hello"}
         }),
         authz_ref: None,
         proofs: Vec::new(),

@@ -22,7 +22,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 const FIXTURE_PATH: &str = "fixtures/key-backup-hardening-fixture.json";
-const VECTOR_ID: &str = "ck.vector.key_backup.passphrase_kdf_kat.v1";
+const VECTOR_ID: &str = "ak.vector.key_backup.passphrase_kdf_kat.v1";
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()

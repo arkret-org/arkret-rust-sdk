@@ -275,10 +275,10 @@ pub struct AccountLifecycleProof {
     pub signature: String,
 }
 
-pub const ACCOUNT_LIFECYCLE_PROOF_SCHEMA: &str = "ck.schema.account_lifecycle_proof.v1";
+pub const ACCOUNT_LIFECYCLE_PROOF_SCHEMA: &str = "ak.schema.account_lifecycle_proof.v1";
 pub const SESSION_REVOKE_LIFECYCLE_PROOF_KIND: &str =
-    "ck.account.lifecycle_proof.session_revoke.v1";
-pub const SESSION_REVOKE_OPERATION_ID: &str = "ck.gate.account.command.revoke_session";
+    "ak.account.lifecycle_proof.session_revoke.v1";
+pub const SESSION_REVOKE_OPERATION_ID: &str = "ak.gate.account.command.revoke_session";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -303,7 +303,7 @@ impl AccountLifecycleProof {
         applet_selector: Option<&SessionGrantAppletSelector>,
     ) -> Result<Hash> {
         let request = json!({
-            "schema": "ck.schema.session_revoke.request.v1",
+            "schema": "ak.schema.session_revoke.request.v1",
             "operation": SESSION_REVOKE_OPERATION_ID,
             "actor_id": actor_id,
             "service_did": service_did,

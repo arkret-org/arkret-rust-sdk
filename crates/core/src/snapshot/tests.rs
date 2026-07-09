@@ -47,7 +47,7 @@ fn manifest_for_items(
         id: snapshot_v1_id(),
         realm_id: realm(),
         reducer_profile: SNAPSHOT_REDUCER_PROFILE_V1.to_owned(),
-        schema_profile_refs: vec!["ck.profile.core_event_store.v1".to_owned()],
+        schema_profile_refs: vec!["ak.profile.core_event_store.v1".to_owned()],
         state_digest,
         frontier: SnapshotFrontier {
             event_ids: vec![snapshot_v1_event_id("000000000001")],
@@ -91,7 +91,7 @@ fn snapshot_v1_manifest_and_chunk_verify() {
         id: "ak:strand:01904100-0000-7000-8000-000000000001".to_owned(),
         object: serde_json::json!({
             "id": "ak:strand:01904100-0000-7000-8000-000000000001",
-            "schema": "ck.schema.strand.v1"
+            "schema": "ak.schema.strand.v1"
         }),
         source_event_id: snapshot_v1_event_id("000000000001"),
     };
@@ -446,7 +446,7 @@ fn state_item(kind: &str, id: &str, source_suffix: &str) -> SnapshotMaterialized
         object: serde_json::json!({
             "id": id,
             "kind": kind,
-            "schema": "ck.schema.test.v1"
+            "schema": "ak.schema.test.v1"
         }),
         source_event_id: event_id(source_suffix),
     }

@@ -979,7 +979,7 @@ mod tests {
 
     #[test]
     fn applet_delegation_binding_must_match_epoch_subject_and_applet() {
-        let mut grant = root_grant("g1", &["ck.message.create"], "ak:realm:1");
+        let mut grant = root_grant("g1", &["ak.message.create"], "ak:realm:1");
         assert!(matches!(
             validate_applet_delegation_binding(
                 &grant,

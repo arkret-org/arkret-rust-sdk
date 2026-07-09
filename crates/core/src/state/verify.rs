@@ -161,7 +161,7 @@ where
 }
 
 const AUTHORIZED_BY_ROLE: &str = "authorized_by";
-const CAPABILITY_GRANT_CELL_FAMILY: &str = "ck.component.capability.grant.v1";
+const CAPABILITY_GRANT_CELL_FAMILY: &str = "ak.component.capability.grant.v1";
 
 #[derive(Debug, Deserialize)]
 struct CapabilityGrantCellValue {
@@ -508,7 +508,7 @@ mod tests {
                     "id": grant_id,
                     "issuer": "did:webvh:z6mkfixture:owner.example",
                     "subject": subject,
-                    "actions": ["ck.member.state"],
+                    "actions": ["ak.member.state"],
                     "resources": [{"kind": "Realm", "realm_id": realm().as_str()}]
                 }
             }

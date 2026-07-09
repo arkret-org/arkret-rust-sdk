@@ -1338,7 +1338,7 @@ mod tests {
             rule: PushRule {
                 rule_id: "mention".to_owned(),
                 enabled: true,
-                event_kind: Some("ck.message.create".to_owned()),
+                event_kind: Some("ak.message.create".to_owned()),
                 priority: PushPriority::High,
             },
         }

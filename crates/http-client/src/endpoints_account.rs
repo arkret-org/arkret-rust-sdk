@@ -421,8 +421,8 @@ mod tests {
             timeline_limit: Some(20),
             lazy_load_members: true,
             include_redundant_members: false,
-            event_types: vec!["ck.message.create".to_owned()],
-            not_event_types: vec!["ck.reaction.add".to_owned()],
+            event_types: vec!["ak.message.create".to_owned()],
+            not_event_types: vec!["ak.reaction.add".to_owned()],
             extra: Default::default(),
         };
         let request = SyncRequestBody {

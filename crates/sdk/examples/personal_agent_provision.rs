@@ -46,44 +46,44 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
     println!("→ {method} {path}  ({op_id})");
     println!("  request: {body}");
     match op_id {
-        "ck.self.agent.command.provision" => json!({
+        "ak.self.agent.command.provision" => json!({
             "agent_principal_id": "did:webvh:z6mkfixture:agent.example",
             "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
             "pairing_code": "12345678",
             "expires_at": "2026-06-18T12:15:00Z",
         }),
-        "ck.gate.account.command.pair_agent_key" => json!({
+        "ak.gate.account.command.pair_agent_key" => json!({
             "ok": true,
             "authorized_event_ref": "ak:event:01964137-0000-7000-8000-000000000101",
         }),
-        "ck.self.agent.query.list" => {
+        "ak.self.agent.query.list" => {
             json!({ "agents": [], "next_cursor": null, "has_more": false })
         }
-        "ck.self.agent.resource.get" => {
+        "ak.self.agent.resource.get" => {
             json!({ "agent_principal_id": body["agent_principal_id"], "status": "active" })
         }
-        "ck.self.agent.command.pause" => json!({ "ok": true, "status": "paused" }),
-        "ck.self.agent.command.resume" => json!({ "ok": true, "status": "active" }),
-        "ck.self.agent.command.rotate_key" => json!({
+        "ak.self.agent.command.pause" => json!({ "ok": true, "status": "paused" }),
+        "ak.self.agent.command.resume" => json!({ "ok": true, "status": "active" }),
+        "ak.self.agent.command.rotate_key" => json!({
             "ok": true,
             "authorized_event_ref": "ak:event:01964137-0000-7000-8000-000000000102",
         }),
-        "ck.self.agent.grant.command.attach" => json!({
+        "ak.self.agent.grant.command.attach" => json!({
             "ok": true,
             "grant_id": "ak:grant:01964137-0000-7000-8000-000000000010",
         }),
-        "ck.self.agent.grant.resource.delete" => json!({
+        "ak.self.agent.grant.resource.delete" => json!({
             "ok": true,
             "revoked_at": "2026-06-18T12:05:00Z",
         }),
-        "ck.self.agent.sidecar_thread.command.ensure" => json!({
+        "ak.self.agent.sidecar_thread.command.ensure" => json!({
             "ok": true,
             "private_circle_id": "ak:circle:01964137-0000-7000-8000-000000000020",
             "private_strand_id": "ak:strand:01964137-0000-7000-8000-000000000021",
             "private_relation_id": "ak:relation:01964137-0000-7000-8000-000000000022",
             "pending_member_reconciliations": [],
         }),
-        "ck.self.agent.command.deactivate" => json!({ "ok": true, "status": "deactivated" }),
+        "ak.self.agent.command.deactivate" => json!({ "ok": true, "status": "deactivated" }),
         _ => Value::Null,
     }
 }
@@ -105,7 +105,7 @@ fn main() -> arkret::Result<()> {
         .display_name("alice-personal-agent")
         .agent_slug("summary")
         .requested_scope(AgentKeyScope {
-            actions: vec!["ck.message.create".to_owned()],
+            actions: vec!["ak.message.create".to_owned()],
             resources: vec![AgentKeyScopeResource {
                 kind: AgentKeyScopeResourceKind::Realm,
                 realm_id: Some(RealmId::new(
@@ -144,7 +144,7 @@ fn main() -> arkret::Result<()> {
         }),
         runtime_attestation: None,
         authorize_event: json!({
-            "kind": "ck.agent.key.authorize",
+            "kind": "ak.agent.key.authorize",
             "payload": {
                 "agent_principal_id": agent_principal_id.clone(),
                 "verification_method": format!("{agent_principal_id}#runtime-key-1"),
@@ -194,7 +194,7 @@ fn main() -> arkret::Result<()> {
         &agent_principal_id,
         AgentGrantAttachRequestBody {
             grant: json!({
-                "actions": ["ck.message.create"],
+                "actions": ["ak.message.create"],
                 "resources": [{ "kind": "realm", "realm_id": "ak:realm:01964137-0000-7000-8000-000000000030" }],
             }),
         },

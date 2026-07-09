@@ -432,7 +432,7 @@ pub struct ReadReceiptPreferences {
 
 impl ReadReceiptPreferences {
     /// Standard account-data key.
-    pub const ACCOUNT_DATA_KEY: &'static str = "ck.read_receipt.preferences";
+    pub const ACCOUNT_DATA_KEY: &'static str = "ak.read_receipt.preferences";
 
     /// Effective `send` for a `(strand, Realm)` scope. If neither strand
     /// nor Realm declares an override, falls back to `default.send`,

@@ -1142,7 +1142,7 @@ pub struct SessionGrantIntrospectionProof {
 }
 
 pub const SESSION_GRANT_INTROSPECTION_PROOF_CLAIMS_TYPE: &str =
-    "ck.session_grant.introspection_proof.v1";
+    "ak.session_grant.introspection_proof.v1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

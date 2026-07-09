@@ -298,11 +298,11 @@ impl MembershipManager {
     /// Query a named capability using coarse role mapping.
     pub fn has_capability(&self, capability: &str) -> bool {
         let required = match capability {
-            "ck.invite.create" | "ck.invite.cancel" => MemberRole::Moderator,
-            "ck.invite.revoke" | "ck.realm.policy" => MemberRole::Admin,
-            "ck.realm.destroy" => MemberRole::Owner,
-            "ck.event.read" => MemberRole::Viewer,
-            "ck.message.create" => MemberRole::Member,
+            "ak.invite.create" | "ck.invite.cancel" => MemberRole::Moderator,
+            "ak.invite.revoke" | "ck.realm.policy" => MemberRole::Admin,
+            "ak.realm.destroy" => MemberRole::Owner,
+            "ak.event.read" => MemberRole::Viewer,
+            "ak.message.create" => MemberRole::Member,
             _ => return false,
         };
         self.current_user_can(required)
@@ -680,8 +680,8 @@ mod tests {
         manager.upsert_member(alice, MembershipPayloadState::Join, MemberRole::Admin, None);
 
         assert!(manager.current_user_can(MemberRole::Moderator));
-        assert!(manager.has_capability("ck.realm.policy"));
-        assert!(!manager.has_capability("ck.realm.destroy"));
+        assert!(manager.has_capability("ak.realm.policy"));
+        assert!(!manager.has_capability("ak.realm.destroy"));
     }
 
     #[test]

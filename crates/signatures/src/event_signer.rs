@@ -177,7 +177,7 @@ mod tests {
     fn make_event() -> Event {
         Event {
             event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
-            kind: "ck.message.create".into(),
+            kind: "ak.message.create".into(),
             realm_id: realm(),
             actor_id: alice(),
             actor_seq: 1,

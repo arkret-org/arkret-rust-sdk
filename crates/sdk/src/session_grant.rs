@@ -174,7 +174,7 @@ mod tests {
         let request = holder_proof_session_grant_request(
             did(),
             Some(device_id()),
-            vec!["ck.self.account.query.viewer".to_owned()],
+            vec!["ak.self.account.query.viewer".to_owned()],
             Some(SessionGrantDpopBindingProof {
                 proof_jwt: "holder-dpop-proof".to_owned(),
             }),
@@ -197,7 +197,7 @@ mod tests {
         let request = did_proof_session_grant_request(
             did(),
             device_id(),
-            vec!["ck.self.events.stream.subscribe".to_owned()],
+            vec!["ak.self.events.stream.subscribe".to_owned()],
             None,
             None,
             proof_fields(),

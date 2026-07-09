@@ -800,7 +800,7 @@ mod event_wire_surface_tests {
     fn base_event() -> Event {
         Event {
             event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
-            kind: "ck.message.create".into(),
+            kind: "ak.message.create".into(),
             realm_id: realm(),
             actor_id: alice(),
             actor_seq: 1,
@@ -819,7 +819,7 @@ mod event_wire_surface_tests {
             payload: json!({
                 "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
                 "track_name": "discussion",
-                "content": {"kind": "ck.content.text", "body": "hello"}
+                "content": {"kind": "ak.content.text", "body": "hello"}
             }),
             executed_by: None,
             authorization_ref: None,
@@ -882,7 +882,7 @@ mod event_wire_surface_tests {
             "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
             "encrypted_content": {
-                "scheme": "ck.test.encrypted",
+                "scheme": "ak.test.encrypted",
                 "ciphertext": "opaque"
             }
         });
@@ -913,7 +913,7 @@ mod event_wire_surface_tests {
         let mut event = base_event();
         event.payload = json!({
             "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
-            "content": {"kind": "ck.content.text", "body": "hello"}
+            "content": {"kind": "ak.content.text", "body": "hello"}
         });
 
         assert!(event.payload_as::<MessageCreatePayload>().is_err());

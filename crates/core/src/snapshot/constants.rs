@@ -2,9 +2,9 @@
 /// becomes ~400 chunks — small enough for HTTP delivery, large enough
 /// that the per-chunk audit-path overhead stays negligible.
 pub const DEFAULT_SNAPSHOT_CHUNK_BYTES: usize = 256 * 1024;
-pub const SNAPSHOT_MANIFEST_SCHEMA_V1: &str = "ck.schema.snapshot.v1";
+pub const SNAPSHOT_MANIFEST_SCHEMA_V1: &str = "ak.schema.snapshot.v1";
 pub const SNAPSHOT_CHUNK_TYPE: &str = "snapshot_chunk";
-pub const SNAPSHOT_REDUCER_PROFILE_V1: &str = "ck.reducer.v1";
+pub const SNAPSHOT_REDUCER_PROFILE_V1: &str = "ak.reducer.v1";
 pub const EVENT_SET_ALGORITHM_ORDERED_SHA256_V1: &str = "ordered_event_id_sha256_v1";
 pub const EVENT_SET_ALGORITHM_MERKLE_V1: &str = "merkle_event_set_v1";
 pub const SNAPSHOT_SECURITY_STANDARD: &str = "standard";

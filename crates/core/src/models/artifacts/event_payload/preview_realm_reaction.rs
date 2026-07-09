@@ -446,17 +446,17 @@ impl RealmKeyRequestPayload {
     pub fn validate(&self) -> Result<()> {
         if self.recipient_device_id.trim().is_empty() {
             return Err(Error::Protocol(
-                "ck.realm_key.request.recipient_device_id must not be empty".to_owned(),
+                "ak.realm_key.request.recipient_device_id must not be empty".to_owned(),
             ));
         }
         if self.recipient_hpke_public_key.trim().is_empty() {
             return Err(Error::Protocol(
-                "ck.realm_key.request.recipient_hpke_public_key must not be empty".to_owned(),
+                "ak.realm_key.request.recipient_hpke_public_key must not be empty".to_owned(),
             ));
         }
         if self.requested_source_class == HistoryKeySource::KeyBackup {
             return Err(Error::Protocol(
-                "ck.realm_key.request.requested_source_class must not be key_backup".to_owned(),
+                "ak.realm_key.request.requested_source_class must not be key_backup".to_owned(),
             ));
         }
         Ok(())
@@ -538,7 +538,7 @@ impl RealmKeySharePayload {
     /// independently of the durable Event-envelope signature.
     pub fn sender_signing_input(&self) -> Vec<u8> {
         let covered = serde_json::json!({
-            "purpose": "ck.realm_key.share.sender_device_signature.v1",
+            "purpose": "ak.realm_key.share.sender_device_signature.v1",
             "share_class": self.share_class,
             "sender_device_id": self.sender_device_id,
             "recipient_principal_id": self.recipient_principal_id,

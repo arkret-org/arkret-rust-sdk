@@ -43,7 +43,7 @@ pub struct EphemeralEnvelope {
 }
 
 impl EphemeralEnvelope {
-    pub const SCHEMA: &'static str = "ck.schema.ephemeral_envelope.v1";
+    pub const SCHEMA: &'static str = "ak.schema.ephemeral_envelope.v1";
 
     /// Construct with validation. Rejects:
     /// - non-ephemeral `kind`
@@ -63,7 +63,7 @@ impl EphemeralEnvelope {
         let kind = kind.into();
         if !matches!(
             kind.as_str(),
-            "ck.call.signal" | "ck.presence" | "ck.typing" | "ck.receipt.read"
+            "ak.call.signal" | "ck.presence" | "ck.typing" | "ck.receipt.read"
         ) {
             return Err(Error::Protocol(format!(
                 "ephemeral envelope kind {kind:?} not in {{ck.call.signal, ck.presence, ck.typing, ck.receipt.read}}"
@@ -127,7 +127,7 @@ impl CallSignalPayload {
     pub fn validate_signal_type(&self) -> Result<()> {
         if !self.signal_type_is_canonical() {
             return Err(Error::Protocol(format!(
-                "ck.call.signal payload.signal_type {:?} not in canonical 14-value enum \
+                "ak.call.signal payload.signal_type {:?} not in canonical 14-value enum \
                  ({})",
                 self.signal_type,
                 crate::ERROR_CODE_SCHEMA_VIOLATION
@@ -170,7 +170,7 @@ pub fn validate_signal_seq(prev: Option<u64>, next: u64) -> Result<()> {
         None => Ok(()),
         Some(prev) if next > prev => Ok(()),
         Some(prev) => Err(Error::Protocol(format!(
-            "ck.call.signal seq rollback prev={prev} next={next} ({})",
+            "ak.call.signal seq rollback prev={prev} next={next} ({})",
             crate::ERROR_CODE_SCHEMA_VIOLATION
         ))),
     }
@@ -211,7 +211,7 @@ impl CallSignalState {
 /// the payload deserialises into a [`CallSignalPayload`] with a
 /// canonical `signal_type`.
 pub fn validate_call_signal_envelope(env: &EphemeralEnvelope) -> Result<CallSignalPayload> {
-    if env.kind != "ck.call.signal" {
+    if env.kind != "ak.call.signal" {
         return Err(Error::Protocol(format!(
             "envelope kind {:?} is not ck.call.signal",
             env.kind
@@ -219,19 +219,19 @@ pub fn validate_call_signal_envelope(env: &EphemeralEnvelope) -> Result<CallSign
     }
     if env.device_id.is_none() {
         return Err(Error::Protocol(format!(
-            "ck.call.signal envelope MUST carry device_id ({})",
+            "ak.call.signal envelope MUST carry device_id ({})",
             crate::ERROR_CODE_SCHEMA_VIOLATION
         )));
     }
     if env.proof.is_none() {
         return Err(Error::Protocol(format!(
-            "ck.call.signal envelope MUST carry proof ({})",
+            "ak.call.signal envelope MUST carry proof ({})",
             crate::ERROR_CODE_SCHEMA_VIOLATION
         )));
     }
     let payload: CallSignalPayload = serde_json::from_value(env.payload.clone()).map_err(|e| {
         Error::Protocol(format!(
-            "ck.call.signal payload must carry {{call_id, signal_type, seq}}: {e} ({})",
+            "ak.call.signal payload must carry {{call_id, signal_type, seq}}: {e} ({})",
             crate::ERROR_CODE_SCHEMA_VIOLATION
         ))
     })?;

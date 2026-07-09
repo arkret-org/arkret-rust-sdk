@@ -339,7 +339,7 @@ impl InviteRefPayload {
 
 pub const INVITE_CLAIM_AUDIENCE: &str = "arkret.invite.claim";
 pub const INVITE_SUBJECT_PROOF_ALG: &str = "EdDSA";
-pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ck.invite.claim.subject_proof.v1\n";
+pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.subject_proof.v1\n";
 
 /// Subject DID proof carried by `ck.invite.claim`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -603,7 +603,7 @@ mod tests {
         assert_eq!(
             actual,
             concat!(
-                "ck.invite.claim.subject_proof.v1\n",
+                "ak.invite.claim.subject_proof.v1\n",
                 "{\"audience\":\"arkret.invite.claim\",",
                 "\"binding_proof_digest\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",",
                 "\"claim_nonce\":\"nonce-claim-proof-1\",",

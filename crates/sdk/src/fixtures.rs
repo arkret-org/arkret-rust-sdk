@@ -171,17 +171,17 @@ mod tests {
     #[test]
     fn fixture_builder_emits_spec_fixture_fields() {
         let mut builder =
-            CanonicalFixtureBuilder::new("ck.vector_group.encoding.v1").version("2026-06-19");
+            CanonicalFixtureBuilder::new("ak.vector_group.encoding.v1").version("2026-06-19");
         builder
             .push_with_rules(
-                "ck.vector.encoding.canonical_json.basic.v1",
+                "ak.vector.encoding.canonical_json.basic.v1",
                 "canonical_json_digest",
                 json!({ "b": 2, "a": 1 }),
                 ["object keys are sorted"],
             )
             .unwrap();
         let suite = builder.finish();
-        assert_eq!(suite.profile, "ck.vector_group.encoding.v1");
+        assert_eq!(suite.profile, "ak.vector_group.encoding.v1");
         assert_eq!(suite.version.as_deref(), Some("2026-06-19"));
         assert_eq!(suite.vectors.len(), 1);
         let vector = &suite.vectors[0];
@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn fixture_builder_rejects_non_canonical_numbers() {
         let err = CanonicalFixtureVector::from_input(
-            "ck.vector.encoding.reject_float.v1",
+            "ak.vector.encoding.reject_float.v1",
             "canonical_json_digest",
             json!({ "n": 1.5 }),
         )

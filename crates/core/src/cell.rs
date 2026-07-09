@@ -49,7 +49,7 @@ impl CellId {
     /// after the `ck:cell:` prefix to keep the component canonical.
     pub fn parse(value: &str) -> Result<Self> {
         let rest = value.strip_prefix(CELL_PREFIX).ok_or_else(|| {
-            Error::Protocol(format!("cell id missing 'ck:cell:' prefix: {value}"))
+            Error::Protocol(format!("cell id missing 'ak.cell:' prefix: {value}"))
         })?;
         let (component, subject) = rest.split_once(':').ok_or_else(|| {
             Error::Protocol(format!(
@@ -126,7 +126,7 @@ mod tests {
     fn parse_simple_cell_id() {
         let id =
             CellId::parse("ak:cell:ck.component.member.state.v1:did.web.alice.example").unwrap();
-        assert_eq!(id.component(), "ck.component.member.state.v1");
+        assert_eq!(id.component(), "ak.component.member.state.v1");
         assert_eq!(id.subject(), "did.web.alice.example");
     }
 
@@ -136,8 +136,8 @@ mod tests {
             "ak:cell:ck.component.capability.grant.v1:ck.grant.01js0gr0000000000000000000",
         )
         .unwrap();
-        assert_eq!(id.component(), "ck.component.capability.grant.v1");
-        assert_eq!(id.subject(), "ck.grant.01js0gr0000000000000000000");
+        assert_eq!(id.component(), "ak.component.capability.grant.v1");
+        assert_eq!(id.subject(), "ak.grant.01js0gr0000000000000000000");
     }
 
     #[test]
@@ -146,14 +146,14 @@ mod tests {
         let id =
             CellId::parse("ak:cell:ck.component.consent.v1:ck:consent:01js0c00000000000000000000")
                 .unwrap();
-        assert_eq!(id.component(), "ck.component.consent.v1");
+        assert_eq!(id.component(), "ak.component.consent.v1");
         assert_eq!(id.subject(), "ak:consent:01js0c00000000000000000000");
     }
 
     #[test]
     fn parse_rejects_missing_prefix() {
         let err = CellId::parse("cell:foo:bar").unwrap_err();
-        assert!(format!("{err}").contains("missing 'ck:cell:' prefix"));
+        assert!(format!("{err}").contains("missing 'ak.cell:' prefix"));
     }
 
     #[test]
@@ -217,13 +217,13 @@ mod tests {
             CellRef::new("ak:cell:ck.component.consent.v1:ck.consent.01js0cc0000000000000000000")
                 .unwrap();
         let id = CellId::from_ref(&cref).unwrap();
-        assert_eq!(id.component(), "ck.component.consent.v1");
+        assert_eq!(id.component(), "ak.component.consent.v1");
     }
 
     #[test]
     fn to_cell_ref_round_trips_through_ref_validator() {
         let id = CellId {
-            component: "ck.component.member.state.v1".to_owned(),
+            component: "ak.component.member.state.v1".to_owned(),
             subject: "did.web.alice.example".to_owned(),
         };
         let cref = id.to_cell_ref().unwrap();

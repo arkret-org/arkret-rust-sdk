@@ -27,7 +27,7 @@ fn query_auth_and_wire_negative_vectors_are_available() {
     assert!(
         golden
             .iter()
-            .any(|vector| vector.profile == "ck.conformance.digest.v1")
+            .any(|vector| vector.profile == "ak.conformance.digest.v1")
     );
 }
 
@@ -35,14 +35,14 @@ fn query_auth_and_wire_negative_vectors_are_available() {
 fn protocol_golden_vectors_pass_real_validators() {
     for vector in protocol_golden_vectors() {
         match vector.profile.as_str() {
-            "ck.conformance.cursor.v1" => {
+            "ak.conformance.cursor.v1" => {
                 let token = vector.input["cursor"]
                     .as_str()
                     .expect("cursor vector input");
                 arkret_core::Cursor::decode(token)
                     .unwrap_or_else(|err| panic!("golden cursor vector must decode: {err}"));
             }
-            "ck.conformance.hlc.v1" => {
+            "ak.conformance.hlc.v1" => {
                 let hlc = vector.input["hlc"].as_str().expect("hlc vector input");
                 arkret_core::Hlc::new(hlc)
                     .unwrap_or_else(|err| panic!("golden HLC vector must validate: {err}"));
@@ -78,11 +78,11 @@ fn protocol_server_fixture_covers_core_strand_groups() {
             .steps
             .iter()
             .any(|step| step.strand == ProtocolFixtureStrand::Blob
-                && step.operation_id == "ck.self.blob.resource.get")
+                && step.operation_id == "ak.self.blob.resource.get")
     );
     assert!(report.steps.iter().any(|step| {
         step.strand == ProtocolFixtureStrand::Sync
-            && step.operation_id == "ck.self.events.command.submit"
+            && step.operation_id == "ak.self.events.command.submit"
     }));
 }
 
@@ -204,6 +204,6 @@ fn framework_independent_handler_shape_can_be_mocked() {
     assert!(
         description
             .supported_operations
-            .contains(&"ck.self.account.stream.subscribe".to_owned())
+            .contains(&"ak.self.account.stream.subscribe".to_owned())
     );
 }

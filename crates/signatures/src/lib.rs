@@ -73,7 +73,7 @@ use serde::{Deserialize, Serialize};
 /// so this constant is the single place to flip an entry into
 /// [`PRODUCTION_ALGORITHMS`] once implemented.
 pub const FUTURE_ALGORITHMS: &[&str] = &["ES256", "ML-DSA-65"];
-pub const HTTP_MESSAGE_SIGNATURE_PROFILE: &str = "ck.http-message-signature.v1";
+pub const HTTP_MESSAGE_SIGNATURE_PROFILE: &str = "ak.http-message-signature.v1";
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DetachedSignatureBinding {

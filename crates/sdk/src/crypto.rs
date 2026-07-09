@@ -533,7 +533,7 @@ mod tests {
             }),
             epoch: 42,
             device_id: device_id.to_owned(),
-            purpose: "ck.message.encrypted_payload".to_owned(),
+            purpose: "ak.message.encrypted_payload".to_owned(),
             aead_profile: AEAD_PROFILE_XCHACHA20_POLY1305.to_owned(),
         }
     }
@@ -624,7 +624,7 @@ mod tests {
     fn encrypted_envelope_aad_digest_is_canonical() {
         let aad = EncryptedEnvelopeAad {
             realm_id: "ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
-            event_kind: "ck.message.create".to_owned(),
+            event_kind: "ak.message.create".to_owned(),
             event_id: "ak:event:01904100-0000-7000-8000-51495aba0a08".to_owned(),
             causal_refs: vec!["ak:event:01904100-0000-7000-8000-2b39e7197b88".to_owned()],
         };
@@ -695,7 +695,7 @@ mod tests {
     fn declared_profiles_are_cross_checked_against_compiled_crypto_features() {
         // A plaintext core profile never depends on crypto features, so it
         // passes regardless of how this build was compiled.
-        verify_declared_profiles_against_current_features(&["ck.profile.minimal_client.v1"])
+        verify_declared_profiles_against_current_features(&["ak.profile.minimal_client.v1"])
             .expect("known profile")
             .expect("plaintext profile needs no crypto features");
 
@@ -703,7 +703,7 @@ mod tests {
         // feature, so a default (mls-on) build declaring `e2ee_client` reports a
         // `backup` gap — the intended SPEC-FEAT-01 signal.
         let outcome =
-            verify_declared_profiles_against_current_features(&["ck.profile.e2ee_client.v1"])
+            verify_declared_profiles_against_current_features(&["ak.profile.e2ee_client.v1"])
                 .expect("known profile");
         if cfg!(feature = "mls") {
             let gaps = outcome
@@ -840,7 +840,7 @@ mod tests {
     fn canonical_digest_is_deterministic_for_same_input() {
         let aad = EncryptedEnvelopeAad {
             realm_id: "ak:realm:01904100-0000-7000-8000-cfc039892036".to_owned(),
-            event_kind: "ck.message.create".to_owned(),
+            event_kind: "ak.message.create".to_owned(),
             event_id: "ak:event:01904100-0000-7000-8000-b70714ca75c5".to_owned(),
             causal_refs: vec![],
         };
@@ -854,13 +854,13 @@ mod tests {
     fn canonical_digest_differs_for_different_inputs() {
         let aad1 = EncryptedEnvelopeAad {
             realm_id: "ak:realm:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            event_kind: "ck.message.create".to_owned(),
+            event_kind: "ak.message.create".to_owned(),
             event_id: "ak:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
             causal_refs: vec![],
         };
         let aad2 = EncryptedEnvelopeAad {
             realm_id: "ak:realm:01904100-0000-7000-8000-2a9d538f2fcf".to_owned(),
-            event_kind: "ck.message.create".to_owned(),
+            event_kind: "ak.message.create".to_owned(),
             event_id: "ak:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
             causal_refs: vec![],
         };

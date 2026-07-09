@@ -3,7 +3,7 @@ use crate::serde_helpers::{
     deserialize_optional_canonical_timestamp, serialize_optional_canonical_timestamp,
 };
 
-pub const PEER_CONTACT_DELIVERY_REQUEST_SCHEMA: &str = "ck.schema.peer_contact_delivery_request.v1";
+pub const PEER_CONTACT_DELIVERY_REQUEST_SCHEMA: &str = "ak.schema.peer_contact_delivery_request.v1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -18,32 +18,32 @@ pub struct PeerContactAddress {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub enum PeerContactFactKind {
-    #[serde(rename = "ck.contact.requested")]
+    #[serde(rename = "ak.contact.requested")]
     Requested,
-    #[serde(rename = "ck.contact.accepted")]
+    #[serde(rename = "ak.contact.accepted")]
     Accepted,
-    #[serde(rename = "ck.contact.rejected")]
+    #[serde(rename = "ak.contact.rejected")]
     Rejected,
-    #[serde(rename = "ck.contact.tombstoned")]
+    #[serde(rename = "ak.contact.tombstoned")]
     Tombstoned,
 }
 
 impl PeerContactFactKind {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Requested => "ck.contact.requested",
-            Self::Accepted => "ck.contact.accepted",
-            Self::Rejected => "ck.contact.rejected",
-            Self::Tombstoned => "ck.contact.tombstoned",
+            Self::Requested => "ak.contact.requested",
+            Self::Accepted => "ak.contact.accepted",
+            Self::Rejected => "ak.contact.rejected",
+            Self::Tombstoned => "ak.contact.tombstoned",
         }
     }
 
     pub fn from_wire(value: &str) -> Result<Self> {
         match value {
-            "ck.contact.requested" => Ok(Self::Requested),
-            "ck.contact.accepted" => Ok(Self::Accepted),
-            "ck.contact.rejected" => Ok(Self::Rejected),
-            "ck.contact.tombstoned" => Ok(Self::Tombstoned),
+            "ak.contact.requested" => Ok(Self::Requested),
+            "ak.contact.accepted" => Ok(Self::Accepted),
+            "ak.contact.rejected" => Ok(Self::Rejected),
+            "ak.contact.tombstoned" => Ok(Self::Tombstoned),
             _ => Err(Error::Protocol(format!(
                 "unsupported peer_contact_delivery_request.fact_kind: {value}"
             ))),
@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn requested_requires_introduction_evidence() {
         let request = PeerContactDeliveryRequest::new(
-            event("ck.contact.requested"),
+            event("ak.contact.requested"),
             PeerContactAddress {
                 subject_id: did("did:webvh:z6mkfixture:bob.example"),
                 recipient_service_did: did("did:webvh:z6mkfixture:bob.example"),

@@ -629,12 +629,12 @@ fn realm_state_sorts_events_by_hlc() {
 #[test]
 fn member_state_conflict_prefers_ban_semantics() {
     let leave = event(
-        "ck.member.state",
+        "ak.member.state",
         4,
         json!({ "actor_id": "did:webvh:z6mkfixture:alice.example", "membership": "leave" }),
     );
     let mut ban = event(
-        "ck.member.state",
+        "ak.member.state",
         5,
         json!({ "actor_id": "did:webvh:z6mkfixture:alice.example", "membership": "ban" }),
     );
@@ -646,7 +646,7 @@ fn member_state_conflict_prefers_ban_semantics() {
 
     let resolved = state
         .resolved_state
-        .get("ck.member.state|did:webvh:z6mkfixture:alice.example")
+        .get("ak.member.state|did:webvh:z6mkfixture:alice.example")
         .unwrap();
     assert_eq!(resolved.content["membership"], "ban");
     assert_eq!(state.conflict_records.len(), 1);
@@ -655,17 +655,17 @@ fn member_state_conflict_prefers_ban_semantics() {
 #[test]
 fn capability_rebind_uses_deterministic_lww_order() {
     let revoke = event(
-        "ck.capability.revoke",
+        "ak.capability.revoke",
         1,
         json!({ "grant_id": "cap-chan-post" }),
     );
     let grant = event(
-        "ck.capability.grant",
+        "ak.capability.grant",
         2,
         json!({
             "grant_id": "cap-chan-post",
             "subject": "did:webvh:z6mkfixture:alice.example",
-            "actions": ["ck.message.create", "ck.reaction.add"]
+            "actions": ["ak.message.create", "ck.reaction.add"]
         }),
     );
 
@@ -674,17 +674,17 @@ fn capability_rebind_uses_deterministic_lww_order() {
 
     let resolved = state
         .resolved_state
-        .get("ck.capability|cap-chan-post")
+        .get("ak.capability|cap-chan-post")
         .unwrap();
-    assert_eq!(resolved.content["actions"][1], "ck.reaction.add");
-    assert!(state.capability_allows("cap-chan-post", "ck.reaction.add"));
+    assert_eq!(resolved.content["actions"][1], "ak.reaction.add");
+    assert!(state.capability_allows("cap-chan-post", "ak.reaction.add"));
     assert!(!state.capability_allows("cap-chan-post", "message.delete"));
 }
 
 #[test]
 fn message_revision_redaction_and_reaction_converge() {
     let base = event(
-        "ck.message.create",
+        "ak.message.create",
         1,
         json!({
             "strand_id": "ak:strand:01904100-0000-7000-8000-1fb50799ad50",
@@ -694,13 +694,13 @@ fn message_revision_redaction_and_reaction_converge() {
         }),
     );
     let mut revise = event(
-        "ck.message.revise",
+        "ak.message.revise",
         2,
         json!({ "target_message_id": "m1", "content": { "body": "edited" } }),
     );
     revise.prev_refs.push(base.event_id.clone());
     let mut reaction_add = event(
-        "ck.reaction.add",
+        "ak.reaction.add",
         3,
         json!({ "message_id": "m1", "reaction_key": "+1" }),
     );
@@ -853,7 +853,7 @@ fn reducer_convergence_is_order_independent() {
 
 fn redaction_event(seq: u64, object_ref: &str) -> Event {
     let mut ev = event(
-        "ck.redaction",
+        "ak.redaction",
         seq,
         json!({
             "target_event_id": format!("ak:event:01904100-0000-7000-8000-{:012x}", 0xdeadbeef + seq),
@@ -976,7 +976,7 @@ fn strand_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
 
 fn realm_organization_event(seq: u64, organization_id: &str, relationship: &str) -> Event {
     event(
-        "ck.realm.organization",
+        "ak.realm.organization",
         seq,
         json!({
             "organization_id": organization_id,
@@ -999,12 +999,12 @@ fn realm_organization_distinct_organizations_coexist() {
     assert!(
         state
             .resolved_state
-            .contains_key(&format!("ck.realm.organization|{org_a}::member"))
+            .contains_key(&format!("ak.realm.organization|{org_a}::member"))
     );
     assert!(
         state
             .resolved_state
-            .contains_key(&format!("ck.realm.organization|{org_b}::member"))
+            .contains_key(&format!("ak.realm.organization|{org_b}::member"))
     );
     assert!(state.conflict_records.is_empty());
 }
@@ -1022,12 +1022,12 @@ fn realm_organization_distinct_relationships_coexist() {
     assert!(
         state
             .resolved_state
-            .contains_key(&format!("ck.realm.organization|{org}::member"))
+            .contains_key(&format!("ak.realm.organization|{org}::member"))
     );
     assert!(
         state
             .resolved_state
-            .contains_key(&format!("ck.realm.organization|{org}::partner"))
+            .contains_key(&format!("ak.realm.organization|{org}::partner"))
     );
     assert!(state.conflict_records.is_empty());
 }
@@ -1055,7 +1055,7 @@ fn realm_organization_same_subject_replaces_under_lww() {
 
     let resolved = state
         .resolved_state
-        .get(&format!("ck.realm.organization|{org}::member"))
+        .get(&format!("ak.realm.organization|{org}::member"))
         .unwrap();
     assert_eq!(resolved.content["label"], "second");
     // A single cell keyed by the composite subject; the loser is a conflict.

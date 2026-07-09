@@ -25,18 +25,18 @@ use crate::{CallId, DeviceId, Did, Error, RealmId, Result};
 /// Fixed canonical wire label for SFrame media frame keys
 /// (`media-service-binding.md` §8.1). Used byte-for-byte; MUST NOT be mixed
 /// with any other exporter label.
-pub const FRAME_KEY_LABEL: &str = "ck-rtc-frame-key/v1";
+pub const FRAME_KEY_LABEL: &str = "ak.rtc-frame-key/v1";
 
 /// Fixed canonical wire label for backend-generated recording artifact keys
 /// (`call-state.md` §5). Distinct from [`FRAME_KEY_LABEL`]; reusing the SFrame
 /// label for a recording key is a wire violation.
-pub const RECORDING_KEY_LABEL: &str = "ck-rtc-recording-key/v1";
+pub const RECORDING_KEY_LABEL: &str = "ak.rtc-recording-key/v1";
 
 /// Fixed canonical wire label for backend-generated transcription artifact keys
 /// (`call-state.md` §5.1). Distinct from [`FRAME_KEY_LABEL`] and
 /// [`RECORDING_KEY_LABEL`]; reusing either of those labels for a transcript key
 /// is a wire violation.
-pub const TRANSCRIPT_KEY_LABEL: &str = "ck-rtc-transcript-key/v1";
+pub const TRANSCRIPT_KEY_LABEL: &str = "ak.rtc-transcript-key/v1";
 
 /// Output length of every media key derivation, in bytes (`KDF.Nh = 32`).
 pub const MEDIA_KEY_LEN: usize = 32;

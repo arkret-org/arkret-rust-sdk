@@ -461,8 +461,8 @@ state-bearing kind 在
 
 ```json
 {
-  "kind": "ck.member.state",
-  "cell_family": "ck.component.member.state.v1",
+  "kind": "ak.member.state",
+  "cell_family": "ak.component.member.state.v1",
   "cell_subject": { "form": "did", "field": "actor_id" },
   "lattice": {
     "type": "fsm",

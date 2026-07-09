@@ -429,7 +429,7 @@ pub fn capability_grants_from_realm_state(
     for event in state.resolved_state.values() {
         if !matches!(
             event.kind.as_str(),
-            "ck.capability.grant" | "ck.capability.delegate"
+            "ak.capability.grant" | "ck.capability.delegate"
         ) {
             continue;
         }
@@ -1333,7 +1333,7 @@ mod capability_grant_builder_tests {
             realm_id: None,
             issuer: alice(),
             subject: CapabilitySubject::Did(bob()),
-            actions: vec!["ck.message.create".to_owned()],
+            actions: vec!["ak.message.create".to_owned()],
             resources: vec![json!({"kind": "*"})],
             constraints: Vec::new(),
             parent_grant_id: None,
@@ -1420,7 +1420,7 @@ mod capability_grant_builder_tests {
     #[test]
     fn capability_grant_builder_rejects_wrong_schema() {
         let mut grant = base_grant();
-        grant.schema = "ck.schema.capability.v0".to_owned();
+        grant.schema = "ak.schema.capability.v0".to_owned();
         let err = CapabilityGrantBuilder::new(realm(), alice(), grant)
             .build(1, hlc())
             .expect_err("wrong schema constant must be rejected");
@@ -1466,7 +1466,7 @@ mod capability_grant_builder_tests {
             subject: CapabilitySubject::Did(
                 Did::new("did:webvh:z6mkfixture:carol.example").unwrap(),
             ),
-            actions: vec!["ck.message.create".to_owned()],
+            actions: vec!["ak.message.create".to_owned()],
             proofs: vec![proof(&bob())],
             ..base_grant()
         };
@@ -1505,7 +1505,7 @@ mod capability_grant_builder_tests {
             "grant": artifact,
         });
         let event = crate::resolver::ResolvedStateEvent {
-            kind: "ck.capability.grant".to_owned(),
+            kind: "ak.capability.grant".to_owned(),
             subject: "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
             source_event_id: arkret_core::EventId::new(
                 "ak:event:01904100-0000-7000-8000-bbbbbbbbbbbb",

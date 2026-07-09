@@ -27,7 +27,7 @@ use crate::canonical;
 
 /// Schema discriminator carried by [`MemberIdentity::schema`]. Matches the
 /// `ck.schema.member_identity.v1` constant in the spec schema.
-pub const MEMBER_IDENTITY_SCHEMA: &str = "ck.schema.member_identity.v1";
+pub const MEMBER_IDENTITY_SCHEMA: &str = "ak.schema.member_identity.v1";
 
 /// Realm-scoped, actor-scoped full `member_identity` segment.
 ///

@@ -206,9 +206,9 @@ pub struct SessionPrincipalBinding {
 /// (`key-management.md` §4.1). These events MUST be written into the
 /// principal's dedicated control Realm; resolvers and federation peers
 /// MUST refuse them in any other Realm.
-pub const CX_DEVICE_AUTHORIZED: &str = "ck.device.authorize";
-pub const CX_DEVICE_REVOKED: &str = "ck.device.revoke";
-pub const CX_SESSION_GRANT: &str = "ck.session.grant";
+pub const CX_DEVICE_AUTHORIZED: &str = "ak.device.authorize";
+pub const CX_DEVICE_REVOKED: &str = "ak.device.revoke";
+pub const CX_SESSION_GRANT: &str = "ak.session.grant";
 
 /// Derive the canonical principal control Realm ID from a principal DID.
 ///

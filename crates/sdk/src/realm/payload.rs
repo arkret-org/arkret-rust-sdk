@@ -17,7 +17,7 @@ pub(super) fn decode_payload<T: DeserializeOwned>(value: Value, context: &str) -
 pub(super) fn content_block_from_value(mut content: Value) -> Result<ContentBlock> {
     if let Value::Object(map) = &mut content {
         map.entry("kind".to_owned())
-            .or_insert_with(|| Value::String("ck.content.text".to_owned()));
+            .or_insert_with(|| Value::String("ak.content.text".to_owned()));
     }
     decode_payload(content, "message content block")
 }

@@ -24,11 +24,11 @@ use crate::sync::PresenceStatus;
 /// preference (profiles-presence.md §3.6). Written through
 /// `ck.account_data.set`; enforced client-side at send time. Servers
 /// MUST NOT require plaintext or a projection of this key.
-pub const PRESENCE_PREFERENCE_ACCOUNT_DATA_KEY: &str = "ck.presence.preference";
+pub const PRESENCE_PREFERENCE_ACCOUNT_DATA_KEY: &str = "ak.presence.preference";
 
 /// Account Data key holding the principal-private presence visibility
 /// policy (profiles-presence.md §3.4).
-pub const PRESENCE_VISIBILITY_ACCOUNT_DATA_KEY: &str = "ck.presence.visibility";
+pub const PRESENCE_VISIBILITY_ACCOUNT_DATA_KEY: &str = "ak.presence.visibility";
 
 /// Protocol floor for `last_active_at` bucket granularity (§3.3):
 /// finer buckets degrade into a near-second activity timing side

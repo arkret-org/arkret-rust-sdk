@@ -54,7 +54,7 @@ pub fn redaction_tombstone_message_value(
     object.insert(
         "content".to_owned(),
         json!({
-            "kind": "ck.content.text",
+            "kind": "ak.content.text",
             "body": REDACTED_MESSAGE_PLACEHOLDER,
         }),
     );
@@ -99,13 +99,13 @@ mod tests {
     #[test]
     fn tombstone_preserves_audit_metadata_and_strips_body() {
         let mut event = json!({
-            "kind": "ck.message.create",
+            "kind": "ak.message.create",
             "event_id": "ak:event:01970e58-0004-7000-8000-0000000005a1",
             "message_id": "ak:message:01970e58-0004-7000-8000-0000000005a1",
             "realm_id": "ak:realm:01970e58-0004-7000-8000-000000000001",
             "sender": "did:webvh:z6mkfixture:bob.example",
             "created_at": "2026-04-26T00:00:00Z",
-            "content": {"kind": "ck.content.text", "body": "secret"},
+            "content": {"kind": "ak.content.text", "body": "secret"},
             "reactions": [{"actor": "did:webvh:z6mkfixture:alice.example", "key": "+1"}],
             "reply_to": "ak:event:01970e58-0004-7000-8000-0000000005a0",
             "mentions": [{"actor_id": "did:webvh:z6mkfixture:alice.example"}],
@@ -120,7 +120,7 @@ mod tests {
             Some("ak:event:01970e58-0004-7000-8000-0000000005a2"),
         );
 
-        assert_eq!(event["kind"], json!("ck.message.create"));
+        assert_eq!(event["kind"], json!("ak.message.create"));
         assert_eq!(
             event["event_id"],
             json!("ak:event:01970e58-0004-7000-8000-0000000005a1")
@@ -144,8 +144,8 @@ mod tests {
     #[test]
     fn tombstone_without_redaction_ref_omits_field() {
         let mut event = json!({
-            "kind": "ck.message.create",
-            "content": {"kind": "ck.content.text", "body": "secret"},
+            "kind": "ak.message.create",
+            "content": {"kind": "ak.content.text", "body": "secret"},
         });
         let redacted_at = Utc::now();
 

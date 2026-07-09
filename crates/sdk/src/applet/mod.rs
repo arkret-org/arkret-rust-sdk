@@ -119,7 +119,7 @@ mod tests {
                 Some(&authorization),
             )
             .unwrap();
-        assert_eq!(event.kind, "ck.profile.create");
+        assert_eq!(event.kind, "ak.profile.create");
         assert_eq!(event.executed_by.as_ref().unwrap(), &did("bridge"));
         assert_eq!(
             event.authorization_ref.as_deref(),
@@ -430,7 +430,7 @@ mod tests {
             did("alice"),
             "https://applet.example/cx",
             did("bot"),
-            vec!["ck.applet.v1".to_owned()],
+            vec!["ak.applet.v1".to_owned()],
             AppletWireNamespaces {
                 actors: vec![AppletNamespaceEntry::exclusive(
                     "did:webvh:z6mkfixture:slackbridge.example#ghost-*",
@@ -446,7 +446,7 @@ mod tests {
     fn wire_registration_round_trips_through_json() {
         let reg = sample_wire_registration();
         let value = serde_json::to_value(&reg).unwrap();
-        assert_eq!(value["kind"], "ck.applet.registration");
+        assert_eq!(value["kind"], "ak.applet.registration");
         assert_eq!(value["applet_id"], reg.applet_id);
         assert_eq!(value["service_did"], reg.service_did.as_str());
         assert_eq!(value["controller_did"], reg.controller_did.as_str());
@@ -507,7 +507,7 @@ mod tests {
         .with_retry_after_ms(1000)
         .build(1, hlc())
         .unwrap();
-        assert_eq!(event.kind, "ck.applet.bridge_error");
+        assert_eq!(event.kind, "ak.applet.bridge_error");
         assert_eq!(event.payload["realm_id"], realm().as_str());
         assert_eq!(
             event.payload["failed_transaction_ref"],
@@ -561,7 +561,7 @@ mod tests {
             },
             sample_epoch(),
         );
-        package.requested_scopes = vec!["ck.message.create".to_owned()];
+        package.requested_scopes = vec!["ak.message.create".to_owned()];
         package.webhook_auth = WebhookAuth::http_message_signature(
             "ak:keyref:webhook",
             vec![WebhookSignatureAlg::EdDsa],
@@ -619,8 +619,8 @@ mod tests {
             AppletWireNamespaces::default(),
             sample_epoch(),
         );
-        package.claimed_profiles = vec!["ck.profile.applet_bridge.v1".to_owned()];
-        package.requested_scopes = vec!["ck.message.create".to_owned()];
+        package.claimed_profiles = vec!["ak.profile.applet_bridge.v1".to_owned()];
+        package.requested_scopes = vec!["ak.message.create".to_owned()];
         package.seal().unwrap();
         assert!(package.validate().is_err());
     }
@@ -628,13 +628,13 @@ mod tests {
     #[test]
     fn install_plan_digest_excludes_itself_and_effective_scope_round_trips() {
         let mut plan = InstallPlan {
-            schema: "ck.schema.applet_install_plan.v1".to_owned(),
+            schema: "ak.schema.applet_install_plan.v1".to_owned(),
             plan_id: "plan_1".to_owned(),
             applet_id: "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
             package_digest: sample_epoch(),
             registration_epoch: sample_epoch(),
             effective_scope: EffectiveScope::Realm { realm_id: realm() },
-            requested_scopes: vec!["ck.message.create".to_owned()],
+            requested_scopes: vec!["ak.message.create".to_owned()],
             approved_scopes: vec![],
             denied_scopes: vec![],
             events_to_submit: vec![],

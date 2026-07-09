@@ -35,7 +35,7 @@ pub struct GhostActorProvisionRequestBody {
 }
 
 impl GhostActorProvisionRequestBody {
-    pub const SCHEMA: &'static str = "ck.applet.ghost_actor.provision_request.v1";
+    pub const SCHEMA: &'static str = "ak.applet.ghost_actor.provision_request.v1";
 
     /// Build a request body with `schema` stamped and no `display_name`.
     /// Add a display name with [`with_display_name`](Self::with_display_name).
@@ -293,7 +293,7 @@ impl GhostActorProfileRequest {
         authorization: Option<&AppletDelegatedEventAuthorization>,
     ) -> Result<Event> {
         let mut event = Event::new(
-            "ck.profile.create",
+            "ak.profile.create",
             realm_id,
             self.principal_id.clone(),
             actor_seq,

@@ -28,15 +28,15 @@ use serde::{Deserialize, Serialize};
 use crate::{DeviceId, Error, Result};
 
 /// Wire `kind` for the secret request (`ck.secret.request`).
-pub const SECRET_REQUEST_KIND: &str = "ck.secret.request";
+pub const SECRET_REQUEST_KIND: &str = "ak.secret.request";
 /// Wire `kind` for the sealed secret response (`ck.secret.send`).
-pub const SECRET_SEND_KIND: &str = "ck.secret.send";
+pub const SECRET_SEND_KIND: &str = "ak.secret.send";
 
 /// HPKE scheme label required on `ck.secret.send` content. Matches the
 /// v1 default-MUST device HPKE suite in `device-lifecycle.md` §4 / the
 /// `ck.hpke_x25519_aead_chacha20poly1305.v1` label used by
 /// file-transfer.schema.json (RFC 9180 base mode).
-pub const HPKE_SECRET_SHARE_SCHEME: &str = "ck.hpke_x25519_aead_chacha20poly1305.v1";
+pub const HPKE_SECRET_SHARE_SCHEME: &str = "ak.hpke_x25519_aead_chacha20poly1305.v1";
 
 /// `secret_id` for the inkson MLS account secret — the only secret class the
 /// D2D direct-share path ships in v1. Kept here so client and conformance code
@@ -66,17 +66,17 @@ impl SecretShareRequestContent {
     pub fn validate(&self) -> Result<()> {
         if self.request_id.trim().is_empty() {
             return Err(Error::Protocol(
-                "ck.secret.request.request_id must not be empty".to_owned(),
+                "ak.secret.request.request_id must not be empty".to_owned(),
             ));
         }
         if self.secret_id.trim().is_empty() {
             return Err(Error::Protocol(
-                "ck.secret.request.secret_id must not be empty".to_owned(),
+                "ak.secret.request.secret_id must not be empty".to_owned(),
             ));
         }
         if self.recipient_hpke_public_key.trim().is_empty() {
             return Err(Error::Protocol(
-                "ck.secret.request.recipient_hpke_public_key must not be empty".to_owned(),
+                "ak.secret.request.recipient_hpke_public_key must not be empty".to_owned(),
             ));
         }
         Ok(())
@@ -114,23 +114,23 @@ impl SecretShareSendContent {
     pub fn validate(&self) -> Result<()> {
         if self.request_id.trim().is_empty() {
             return Err(Error::Protocol(
-                "ck.secret.send.request_id must not be empty".to_owned(),
+                "ak.secret.send.request_id must not be empty".to_owned(),
             ));
         }
         if self.secret_id.trim().is_empty() {
             return Err(Error::Protocol(
-                "ck.secret.send.secret_id must not be empty".to_owned(),
+                "ak.secret.send.secret_id must not be empty".to_owned(),
             ));
         }
         if self.scheme != HPKE_SECRET_SHARE_SCHEME {
             return Err(Error::Protocol(format!(
-                "ck.secret.send.scheme must be {HPKE_SECRET_SHARE_SCHEME}, got {}",
+                "ak.secret.send.scheme must be {HPKE_SECRET_SHARE_SCHEME}, got {}",
                 self.scheme
             )));
         }
         if self.enc.trim().is_empty() || self.ciphertext.trim().is_empty() {
             return Err(Error::Protocol(
-                "ck.secret.send.enc and ciphertext must not be empty".to_owned(),
+                "ak.secret.send.enc and ciphertext must not be empty".to_owned(),
             ));
         }
         Ok(())
@@ -151,7 +151,7 @@ impl SecretShareSendContent {
 // `base_nonce` (single-shot seq=0), NOT carried on the wire.
 
 /// HKDF info / AEAD-AAD domain separator for the history-secret seal.
-const HISTORY_SEAL_INFO: &[u8] = b"ck-realm-history-secret-share-v1";
+const HISTORY_SEAL_INFO: &[u8] = b"ak.realm-history-secret-share-v1";
 
 // The v1 default-MUST HPKE suite as `hpke`-crate trait types.
 type HpkeKem = X25519HkdfSha256;
@@ -458,8 +458,8 @@ mod tests {
     fn hpke_seal_open_roundtrips_and_rejects_tamper() {
         let (recipient_priv, recipient_pub) = hpke_keypair();
         let pt = b"account-secret-bytes";
-        let info = b"ck-test-info-v1";
-        let aad = b"ck-test-aad-v1";
+        let info = b"ak.test-info-v1";
+        let aad = b"ak.test-aad-v1";
 
         let sealed = seal_base_mode_to_x25519_pubkey(&recipient_pub, pt, info, aad).unwrap();
         let opened =

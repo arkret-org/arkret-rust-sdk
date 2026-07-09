@@ -5,7 +5,7 @@ use crate::{Error, Result};
 
 /// Profile id whose Realms are subject to the SEC-08 minimal-metadata
 /// hardening (epoch lifetime ≤ 1h MUST + `aad_visibility=hidden` MUST).
-pub const MINIMAL_METADATA_REALM_PROFILE: &str = "ck.profile.mls.minimal_metadata_realm.v1";
+pub const MINIMAL_METADATA_REALM_PROFILE: &str = "ak.profile.mls.minimal_metadata_realm.v1";
 
 /// SEC-08 — maximum MLS epoch lifetime for a `minimal_metadata_realm` Realm,
 /// per `crypto-media/encryption-and-audit.md` §2.9.

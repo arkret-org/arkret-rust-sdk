@@ -103,7 +103,7 @@ pub enum ModerationAppealPayload {
 }
 
 impl ModerationAppealPayload {
-    pub const SCHEMA: &'static str = "ck.schema.moderation_appeal.v1";
+    pub const SCHEMA: &'static str = "ak.schema.moderation_appeal.v1";
 
     /// Companion event kind this payload variant is submitted on.
     pub fn event_kind(&self) -> &'static str {

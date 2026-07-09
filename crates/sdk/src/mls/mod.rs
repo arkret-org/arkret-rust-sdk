@@ -10,7 +10,7 @@ pub use message::*;
 pub use recovery::*;
 pub use security::*;
 
-pub const ARKRET_MLS_ALGORITHM: &str = "ck.mls.v1";
+pub const ARKRET_MLS_ALGORITHM: &str = "ak.mls.v1";
 
 #[cfg(test)]
 mod tests {
@@ -25,7 +25,7 @@ mod tests {
         base64url_encode,
     };
 
-    const GOVERNANCE_REDUCER_PROFILE: &str = "ck.reducer.v1";
+    const GOVERNANCE_REDUCER_PROFILE: &str = "ak.reducer.v1";
 
     fn governance_realm() -> RealmId {
         RealmId::new("ak:realm:01904100-0000-7000-8000-00000000f1c0").unwrap()
@@ -392,7 +392,7 @@ mod tests {
         assert_ne!(
             a,
             alice_group
-                .export_secret("ck-rtc-frame-key/v1", realm, 32)
+                .export_secret("ak.rtc-frame-key/v1", realm, 32)
                 .unwrap()
         );
     }
@@ -604,7 +604,7 @@ mod tests {
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let aad = serde_json::json!({
             "realm_id": "ak:realm:01904100-0000-7000-8000-65bef476aed3",
-            "event_kind": "ck.message.create",
+            "event_kind": "ak.message.create",
             "event_id": "ak:event:01904100-0000-7000-8000-d5afe7e3de96",
             "causal_refs": []
         });
@@ -746,7 +746,7 @@ mod tests {
         let to_device = add_result.welcome_to_device_message().unwrap();
 
         assert_eq!(operation.object_type, "mls_commit");
-        assert_eq!(to_device.message_type, "ck.mls.welcome.v1");
+        assert_eq!(to_device.message_type, "ak.mls.welcome.v1");
         assert_eq!(
             to_device.content["recipient_device_id"],
             "ak:device:01904100-0000-7000-8000-00000000000e"
@@ -1019,7 +1019,7 @@ mod tests {
             .unwrap();
 
         let realm_id = "ak:realm:01904100-0000-7000-8000-0abc0abc0abc";
-        let aad = EncryptedEnvelopeAadV1::hidden(realm_id, "ck.message.create");
+        let aad = EncryptedEnvelopeAadV1::hidden(realm_id, "ak.message.create");
         let aad_value = serde_json::to_value(&aad).unwrap();
         let plaintext = br#"{"body":"hello encrypted discussion"}"#;
         let payload = group
@@ -1060,7 +1060,7 @@ mod tests {
         assert_eq!(obj["key_ref"]["algorithm"], "MLS");
         assert_eq!(obj["key_ref"]["group_state_ref"], commit_ref);
         assert_eq!(obj["aad"]["realm_id"], realm_id);
-        assert_eq!(obj["aad"]["event_kind"], "ck.message.create");
+        assert_eq!(obj["aad"]["event_kind"], "ak.message.create");
         let aad_obj = obj["aad"].as_object().unwrap();
         assert!(!aad_obj.contains_key("event_id"));
         assert!(!aad_obj.contains_key("event_ref_digest"));
@@ -1086,7 +1086,7 @@ mod tests {
         // payload_digest at encryption time.
         let mismatch = EncryptedEnvelopeV1::from_payload(
             &payload,
-            EncryptedEnvelopeAadV1::hidden(realm_id, "ck.strand.update"),
+            EncryptedEnvelopeAadV1::hidden(realm_id, "ak.strand.update"),
             AadVisibility::Hidden,
             commit_ref,
         );
@@ -1203,7 +1203,7 @@ mod tests {
     #[test]
     fn encrypted_envelope_v1_binds_exporter_scheme_to_exporter_key_algorithm() {
         let mut group = exporter_aead_founder();
-        let envelope_aad = EncryptedEnvelopeAadV1::hidden(HISTORY_REALM, "ck.message.create");
+        let envelope_aad = EncryptedEnvelopeAadV1::hidden(HISTORY_REALM, "ak.message.create");
         let payload_aad = serde_json::to_value(&envelope_aad).unwrap();
         let payload = group
             .encrypt_payload_exporter_aead(

@@ -27,7 +27,7 @@ use arkret_core::Hash;
 
 /// `operation_id` component of the applet transaction idempotency identity
 /// (`operation-registry.json`).
-pub const APPLET_TRANSACTION_OPERATION_ID: &str = "ck.edge.applet.command.transaction";
+pub const APPLET_TRANSACTION_OPERATION_ID: &str = "ak.edge.applet.command.transaction";
 
 /// Delivery direction component of the idempotency identity
 /// (`applet-integration.md` §7.3.1).

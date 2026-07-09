@@ -34,9 +34,9 @@ use arkret_core::{
 use serde_json::Value;
 
 /// Cell families used by MLS commit Moves.
-pub const MLS_EPOCH_CELL_FAMILY: &str = "ck.component.mls_epoch.v1";
-pub const KEY_SCHEDULE_CELL_FAMILY: &str = "ck.component.key_schedule.v1";
-pub const COVERED_SEALS_CELL_FAMILY: &str = "ck.component.covered_seals.v1";
+pub const MLS_EPOCH_CELL_FAMILY: &str = "ak.component.mls_epoch.v1";
+pub const KEY_SCHEDULE_CELL_FAMILY: &str = "ak.component.key_schedule.v1";
+pub const COVERED_SEALS_CELL_FAMILY: &str = "ak.component.covered_seals.v1";
 
 /// `ck:cell:ck.component.mls_epoch.v1:<group_id>` — cas-register on the
 /// MLS group's current epoch counter.

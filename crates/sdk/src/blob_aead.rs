@@ -47,9 +47,9 @@ use crate::canonical::{canonical_json_bytes, sha256_hex};
 use crate::{Error, Result};
 
 /// Whole-file AEAD scheme id.
-pub const SCHEME_WHOLE_FILE: &str = "ck.blob.whole_file_aead.v1";
+pub const SCHEME_WHOLE_FILE: &str = "ak.blob.whole_file_aead.v1";
 /// Chunked streaming AEAD scheme id (STREAM / OAE2).
-pub const SCHEME_STREAM: &str = "ck.blob.stream_aead.v1";
+pub const SCHEME_STREAM: &str = "ak.blob.stream_aead.v1";
 
 /// XChaCha20-Poly1305 streaming `alg` value.
 pub const ALG_STREAM_XCHACHA: &str = "mls_exporter_aead_xchacha20poly1305_stream";
@@ -982,7 +982,7 @@ mod tests {
 
         // unknown scheme
         let mut bad = env.clone();
-        bad.scheme = "ck.blob.unknown.v1".to_owned();
+        bad.scheme = "ak.blob.unknown.v1".to_owned();
         let err = decrypt_stream(&ct, &bad, &key).unwrap_err();
         assert_eq!(reason(&err), "unsupported_attachment_scheme");
 
@@ -1040,7 +1040,7 @@ mod tests {
         let raw = r#"{
             "blob_ref": "ak:blob:sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
             "encrypted": true,
-            "scheme": "ck.blob.stream_aead.v1",
+            "scheme": "ak.blob.stream_aead.v1",
             "alg": "mls_exporter_aead_xchacha20poly1305_stream",
             "key_ref": { "algorithm": "MLS", "group_state_ref": "ak:event:01964148-0000-7000-8000-000000000000" },
             "epoch": 42,

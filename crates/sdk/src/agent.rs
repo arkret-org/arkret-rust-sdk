@@ -441,7 +441,7 @@ pub fn agent_key_pairing_request_binding_digest(
 ) -> Result<Hash> {
     Ok(Hash::new(arkret_core::canonical::canonical_sha256(
         &AgentKeyPairingRequestBinding {
-            kind: "ck.agent.key_pairing_request_binding.v1",
+            kind: "ak.agent.key_pairing_request_binding.v1",
             operation_id: OP_ACCOUNT_AGENT_KEY_PAIR,
             controller_principal_id: controller_principal_id.as_str(),
             agent_principal_id: agent_principal_id.as_str(),
@@ -464,7 +464,7 @@ pub fn agent_key_pair_proof_request_binding_digest(
 ) -> Result<Hash> {
     Ok(Hash::new(arkret_core::canonical::canonical_sha256(
         &AgentKeyPairProofRequestBinding {
-            kind: "ck.agent.key_pair_proof_of_possession_request.v1",
+            kind: "ak.agent.key_pair_proof_of_possession_request.v1",
             operation_id: OP_ACCOUNT_AGENT_KEY_PAIR,
             pairing_request_id,
             agent_principal_id: agent_principal_id.as_str(),
@@ -1159,7 +1159,7 @@ mod tests {
         AgentKeyScope {
             actions: vec![
                 SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE.to_owned(),
-                "ck.message.create".to_owned(),
+                "ak.message.create".to_owned(),
             ],
             resources: vec![AgentKeyScopeResource {
                 kind: AgentKeyScopeResourceKind::Realm,
@@ -1180,7 +1180,7 @@ mod tests {
             .display_name("summary agent")
             .agent_slug("summary")
             .requested_scope(AgentKeyScope {
-                actions: vec!["ck.message.create".to_owned()],
+                actions: vec!["ak.message.create".to_owned()],
                 resources: vec![AgentKeyScopeResource {
                     kind: AgentKeyScopeResourceKind::Realm,
                     realm_id: Some(
@@ -1200,7 +1200,7 @@ mod tests {
         let body = plan.body_value().unwrap().unwrap();
         assert_eq!(body["display_name"], "summary agent");
         assert_eq!(body["agent_slug"], "summary");
-        assert_eq!(body["requested_scope"]["actions"][0], "ck.message.create");
+        assert_eq!(body["requested_scope"]["actions"][0], "ak.message.create");
         assert_eq!(body["requested_scope"]["resources"][0]["kind"], "realm");
 
         let get = plan_agent_get("did:webvh:z6mkfixture:agent.example");
@@ -1341,7 +1341,7 @@ mod tests {
             String::from_utf8(canonical::canonical_json_bytes(&event.payload).unwrap()).unwrap();
         assert_eq!(
             canonical_content,
-            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_key_scope":{"actions":["ck.self.events.stream.subscribe","ck.message.create"],"resources":[{"kind":"realm","realm_id":"ak:realm:01904100-0000-7000-8000-000000000001"}]},"agent_principal_id":"did:webvh:z6mkfixture:agent.example","approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","kind":"approval_event","ref":"ak:event:01970000-0000-7000-8000-000000000021"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_key_scope":{"actions":["ak.self.events.stream.subscribe","ck.message.create"],"resources":[{"kind":"realm","realm_id":"ak:realm:01904100-0000-7000-8000-000000000001"}]},"agent_principal_id":"did:webvh:z6mkfixture:agent.example","approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","kind":"approval_event","ref":"ak:event:01970000-0000-7000-8000-000000000021"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
         );
     }
 
@@ -1404,7 +1404,7 @@ mod tests {
         let principal_id = did("agent");
         let requested_scope = vec![
             SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE.to_owned(),
-            "ck.message.create".to_owned(),
+            "ak.message.create".to_owned(),
         ];
         let agent_scope_request = json!({
             "realm_ids": ["ak:realm:01904100-0000-7000-8000-000000000001"],
@@ -1483,7 +1483,7 @@ mod tests {
             SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE
         ));
         assert!(!crate::is_personal_agent_runtime_event_service_scope(
-            "ck.message.create"
+            "ak.message.create"
         ));
     }
 

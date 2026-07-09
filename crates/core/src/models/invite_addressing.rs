@@ -10,9 +10,9 @@ use crate::serde_helpers::{
     serialize_canonical_timestamp, serialize_optional_canonical_timestamp,
 };
 
-pub const PRINCIPAL_LOCATOR_SCHEMA: &str = "ck.schema.principal_locator.v1";
-pub const INVITE_DELIVERY_REQUEST_SCHEMA: &str = "ck.schema.invite_delivery_request.v1";
-pub const INVITE_RECEIVE_POLICY_SCHEMA: &str = "ck.schema.invite_receive_policy.v1";
+pub const PRINCIPAL_LOCATOR_SCHEMA: &str = "ak.schema.principal_locator.v1";
+pub const INVITE_DELIVERY_REQUEST_SCHEMA: &str = "ak.schema.invite_delivery_request.v1";
+pub const INVITE_RECEIVE_POLICY_SCHEMA: &str = "ak.schema.invite_receive_policy.v1";
 pub const INVITE_RECIPIENT_SERVICE_TYPE_PRINCIPAL_SERVER: &str = "principal_server";
 pub const INVITE_LOCATOR_RESOLVE_PATH: &str = "_cokret/open/invite-locators/resolve";
 

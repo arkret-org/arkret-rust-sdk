@@ -538,7 +538,7 @@ fn event_payload_catalog_validates_known_payload_fields() {
     // `board_space_id` (ck:space prefix) + `target_space_id`.
     catalog
         .validate_payload(
-            "ck.strand.move",
+            "ak.strand.move",
             &json!({
                 "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
                 "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
@@ -549,7 +549,7 @@ fn event_payload_catalog_validates_known_payload_fields() {
         .unwrap();
     assert!(matches!(
         catalog.validate_payload(
-            "ck.strand.move",
+            "ak.strand.move",
             &json!({
                 "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
                 "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
@@ -564,20 +564,20 @@ fn event_payload_catalog_validates_known_payload_fields() {
 fn relation_create_payload_strong_type_passes_spec_validator() {
     let catalog = event_payload_validator_catalog().unwrap();
     let payload = crate::models::RelationCreatePayload::new(
-        "ck.relation.parent_of",
+        "ak.relation.parent_of",
         "ak:strand:01904100-0000-7000-8000-111111111111",
         "ak:strand:01904100-0000-7000-8000-222222222222",
     )
     .with_rank("U");
     catalog
-        .validate_payload("ck.relation.create", &payload.to_value().unwrap())
+        .validate_payload("ak.relation.create", &payload.to_value().unwrap())
         .unwrap();
 
     // Unknown additive keys are reported but do not fail schema validation.
     let mut leaky = payload.to_value().unwrap();
     leaky["fields"] = json!({"role": "x"});
     let warnings = catalog
-        .validate_payload_with_warnings("ck.relation.create", &leaky)
+        .validate_payload_with_warnings("ak.relation.create", &leaky)
         .unwrap();
     assert_warns_additional_field(&warnings, "fields");
 }
@@ -594,7 +594,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
         "space_create",
     );
     catalog
-        .validate_payload("ck.member.state", &invite.to_value().unwrap())
+        .validate_payload("ak.member.state", &invite.to_value().unwrap())
         .unwrap();
 
     // join transition (unroutable): realm_id + actor_id + delivery_status
@@ -607,7 +607,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
     )
     .with_invite_ref("ak:event:01904100-0000-7000-8000-222222222222");
     catalog
-        .validate_payload("ck.member.state", &join.to_value().unwrap())
+        .validate_payload("ak.member.state", &join.to_value().unwrap())
         .unwrap();
 
     // join missing delivery_status is rejected by to_value (conditional req).
@@ -619,7 +619,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
     let mut leaky = invite.to_value().unwrap();
     leaky["handle"] = json!("bob:example.com");
     let warnings = catalog
-        .validate_payload_with_warnings("ck.member.state", &leaky)
+        .validate_payload_with_warnings("ak.member.state", &leaky)
         .unwrap();
     assert_warns_additional_field(&warnings, "handle");
 }
@@ -646,7 +646,7 @@ fn invite_payload_strong_types_pass_spec_validator() {
     let create_value = create.to_value().unwrap();
     assert_eq!(create_value["x_role"], "member");
     catalog
-        .validate_payload("ck.invite.create", &create_value)
+        .validate_payload("ak.invite.create", &create_value)
         .unwrap();
     InviteCreatePayload::from_wire_value(&create_value).unwrap();
     let mut leaky_create = create_value;
@@ -660,10 +660,10 @@ fn invite_payload_strong_types_pass_spec_validator() {
     .with_reason("withdrawn");
     let cancel_value = cancel.to_value().unwrap();
     catalog
-        .validate_payload("ck.invite.cancel", &cancel_value)
+        .validate_payload("ak.invite.cancel", &cancel_value)
         .unwrap();
     catalog
-        .validate_payload("ck.invite.revoke", &cancel_value)
+        .validate_payload("ak.invite.revoke", &cancel_value)
         .unwrap();
 }
 
@@ -678,11 +678,11 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
     // ck.realm.archive: reversible boolean register; `archived:false` un-archives.
     let archive = RealmArchivePayload::new(true).with_reason("retiring inactive realm");
     catalog
-        .validate_payload("ck.realm.archive", &archive.to_value().unwrap())
+        .validate_payload("ak.realm.archive", &archive.to_value().unwrap())
         .unwrap();
     catalog
         .validate_payload(
-            "ck.realm.archive",
+            "ak.realm.archive",
             &RealmArchivePayload::new(false).to_value().unwrap(),
         )
         .unwrap();
@@ -690,11 +690,11 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
     // ck.realm.freeze: reversible boolean register; `frozen:false` unfreezes.
     let freeze = RealmFreezePayload::new(true).with_reason("incident response hold");
     catalog
-        .validate_payload("ck.realm.freeze", &freeze.to_value().unwrap())
+        .validate_payload("ak.realm.freeze", &freeze.to_value().unwrap())
         .unwrap();
     catalog
         .validate_payload(
-            "ck.realm.freeze",
+            "ak.realm.freeze",
             &RealmFreezePayload::new(false).to_value().unwrap(),
         )
         .unwrap();
@@ -705,21 +705,21 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
         "migrated to successor",
     );
     catalog
-        .validate_payload("ck.realm.tombstone", &tombstone.to_value().unwrap())
+        .validate_payload("ak.realm.tombstone", &tombstone.to_value().unwrap())
         .unwrap();
 
     // ck.realm.destroy: reason required; verification_stub_required omitted so
     // the reducer applies its default (true).
     let destroy = RealmDestroyPayload::new("permanent retirement");
     catalog
-        .validate_payload("ck.realm.destroy", &destroy.to_value().unwrap())
+        .validate_payload("ak.realm.destroy", &destroy.to_value().unwrap())
         .unwrap();
 
     // Unknown additive keys are reported but do not fail schema validation.
     let mut leaky = archive.to_value().unwrap();
     leaky["successor_realm_id"] = json!("ak:realm:01904100-0000-7000-8000-444444444444");
     let warnings = catalog
-        .validate_payload_with_warnings("ck.realm.archive", &leaky)
+        .validate_payload_with_warnings("ak.realm.archive", &leaky)
         .unwrap();
     assert_warns_additional_field(&warnings, "successor_realm_id");
 }
@@ -748,7 +748,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
             relation_id: None,
         });
     catalog
-        .validate_payload("ck.strand.move", &mv.to_value().unwrap())
+        .validate_payload("ak.strand.move", &mv.to_value().unwrap())
         .unwrap();
 
     // ck.strand.reorder — single List Space (`space_id`); no destination field.
@@ -758,13 +758,13 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
             relation_id: None,
         });
     catalog
-        .validate_payload("ck.strand.reorder", &reorder.to_value().unwrap())
+        .validate_payload("ak.strand.reorder", &reorder.to_value().unwrap())
         .unwrap();
 
     // ck.strand.watch.set — concrete level + clear (level:null) + CAS guard.
     let set = StrandWatchSetPayload::set(strand(), actor(), StrandWatchLevel::All, Some(true));
     catalog
-        .validate_payload("ck.strand.watch.set", &set.to_value().unwrap())
+        .validate_payload("ak.strand.watch.set", &set.to_value().unwrap())
         .unwrap();
     let cleared = StrandWatchSetPayload::clear(strand(), actor());
     let cleared_value = cleared.to_value().unwrap();
@@ -772,7 +772,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     // allOf: level_public MUST be omitted when level is null.
     assert!(cleared_value.get("level_public").is_none());
     catalog
-        .validate_payload("ck.strand.watch.set", &cleared_value)
+        .validate_payload("ak.strand.watch.set", &cleared_value)
         .unwrap();
     let guarded =
         StrandWatchSetPayload::set(strand(), actor(), StrandWatchLevel::Participating, None)
@@ -781,7 +781,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
                 level_public: None,
             }));
     catalog
-        .validate_payload("ck.strand.watch.set", &guarded.to_value().unwrap())
+        .validate_payload("ak.strand.watch.set", &guarded.to_value().unwrap())
         .unwrap();
     // expected_value may also assert "no prior cell" via null.
     let guarded_null = StrandWatchSetPayload::set(strand(), actor(), StrandWatchLevel::All, None)
@@ -789,7 +789,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     let guarded_null_value = guarded_null.to_value().unwrap();
     assert!(guarded_null_value["expected_value"].is_null());
     catalog
-        .validate_payload("ck.strand.watch.set", &guarded_null_value)
+        .validate_payload("ak.strand.watch.set", &guarded_null_value)
         .unwrap();
 
     // ck.strand.archive / ck.strand.restore — object_lifecycle_payload, single
@@ -798,11 +798,11 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
         .with_target_state("archived")
         .with_reason("season closed");
     catalog
-        .validate_payload("ck.strand.archive", &archive.to_value().unwrap())
+        .validate_payload("ak.strand.archive", &archive.to_value().unwrap())
         .unwrap();
     catalog
         .validate_payload(
-            "ck.strand.restore",
+            "ak.strand.restore",
             &ObjectLifecyclePayload::new("ak:strand:01904100-0000-7000-8000-6c663fa0205f")
                 .to_value()
                 .unwrap(),
@@ -813,7 +813,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     let mut leaky = mv.to_value().unwrap();
     leaky["list_space_id"] = json!("ak:space:01904100-0000-7000-8000-222222222222");
     let warnings = catalog
-        .validate_payload_with_warnings("ck.strand.move", &leaky)
+        .validate_payload_with_warnings("ak.strand.move", &leaky)
         .unwrap();
     assert_warns_additional_field(&warnings, "list_space_id");
 }
@@ -975,21 +975,21 @@ fn artifact_payload_catalog_prefers_registered_specialized_defs_over_name_matche
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
 
     assert_eq!(
-        catalog.rules["ck.space.archive"].payload_schema_id,
+        catalog.rules["ak.space.archive"].payload_schema_id,
         format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/space_state_transition_payload")
     );
     assert_eq!(
-        catalog.rules["ck.space.restore"].payload_schema_id,
+        catalog.rules["ak.space.restore"].payload_schema_id,
         format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/space_state_transition_payload")
     );
     assert_eq!(
-        catalog.rules["ck.space.tombstone"].payload_schema_id,
+        catalog.rules["ak.space.tombstone"].payload_schema_id,
         format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/space_object_tombstone_payload")
     );
 
     catalog
         .validate_payload(
-            "ck.space.archive",
+            "ak.space.archive",
             &json!({
                 "space_id": "ak:space:01904100-0000-7000-8000-111111111111",
                 "reason": "done"
@@ -998,7 +998,7 @@ fn artifact_payload_catalog_prefers_registered_specialized_defs_over_name_matche
         .unwrap();
     assert!(
         catalog
-            .validate_payload("ck.space.archive", &json!({ "archived": true }))
+            .validate_payload("ak.space.archive", &json!({ "archived": true }))
             .is_err()
     );
 }
@@ -1011,7 +1011,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
     let patch_kinds = [
         (
-            "ck.realm.update",
+            "ak.realm.update",
             "object_patch_payload",
             json!({
                 "target_ref": "ak:realm:0196419b-0000-7000-8000-000000000001",
@@ -1019,7 +1019,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             }),
         ),
         (
-            "ck.strand.update",
+            "ak.strand.update",
             "strand_patch_payload",
             json!({
                 "target_ref": "ak:strand:0196419b-0000-7000-8000-000000000001",
@@ -1027,7 +1027,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             }),
         ),
         (
-            "ck.morph.update",
+            "ak.morph.update",
             "morph_update_payload",
             json!({
                 "target_ref": "ak:morph:0196419b-0000-7000-8000-000000000001",
@@ -1035,7 +1035,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             }),
         ),
         (
-            "ck.space.update",
+            "ak.space.update",
             "space_patch_payload",
             json!({
                 "space_id": "ak:space:0196419b-0000-7000-8000-000000000001",
@@ -1043,7 +1043,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             }),
         ),
         (
-            "ck.profile.update",
+            "ak.profile.update",
             "object_patch_payload",
             json!({
                 "target_ref": "ak:actor_profile:0196419b-0000-7000-8000-000000000001",
@@ -1066,13 +1066,13 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
     // dedicated profile_realm_override_payload def rather than folding it into
     // the generic object_patch_payload.
     assert_eq!(
-        catalog.rules["ck.profile.realm_override"].payload_schema_id,
+        catalog.rules["ak.profile.realm_override"].payload_schema_id,
         format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/profile_realm_override_payload"),
-        "ck.profile.realm_override must use the dedicated profile_realm_override_payload schema"
+        "ak.profile.realm_override must use the dedicated profile_realm_override_payload schema"
     );
     catalog
         .validate_payload(
-            "ck.profile.realm_override",
+            "ak.profile.realm_override",
             &json!({
                 "target_ref": "ak:actor_profile:0196419b-0000-7000-8000-000000000001",
                 "target_realm_id": "ak:realm:0196419b-0000-7000-8000-000000000002",
@@ -1080,16 +1080,16 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             }),
         )
         .unwrap_or_else(|err| {
-            panic!("ck.profile.realm_override should accept profile_realm_override_payload: {err}")
+            panic!("ak.profile.realm_override should accept profile_realm_override_payload: {err}")
         });
     assert_eq!(
-        catalog.rules["ck.strand.tracks.update"].payload_schema_id,
+        catalog.rules["ak.strand.tracks.update"].payload_schema_id,
         format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/generic_standard_payload"),
-        "ck.strand.tracks.update has dedicated track-table semantics and must not be folded into object_patch_payload"
+        "ak.strand.tracks.update has dedicated track-table semantics and must not be folded into object_patch_payload"
     );
     catalog
         .validate_payload(
-            "ck.strand.tracks.update",
+            "ak.strand.tracks.update",
             &json!({
                 "strand_id": "ak:strand:0196419b-0000-7000-8000-000000000001",
                 "tracks": {
@@ -1098,31 +1098,31 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             }),
         )
         .unwrap_or_else(|err| {
-            panic!("ck.strand.tracks.update should accept track payloads: {err}")
+            panic!("ak.strand.tracks.update should accept track payloads: {err}")
         });
     assert!(
         catalog
             .validate_payload(
-                "ck.strand.tracks.update",
+                "ak.strand.tracks.update",
                 &json!({
-                    "type": "ck.strand.tracks.update",
+                    "type": "ak.strand.tracks.update",
                     "strand_id": "ak:strand:0196419b-0000-7000-8000-000000000001"
                 }),
             )
             .is_err(),
-        "ck.strand.tracks.update must still reject the retired type discriminator"
+        "ak.strand.tracks.update must still reject the retired type discriminator"
     );
     assert!(
         catalog
             .validate_payload(
-                "ck.strand.update",
+                "ak.strand.update",
                 &json!({
                     "target_ref": "ak:morph:0196419b-0000-7000-8000-000000000001",
                     "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
                 }),
             )
             .is_err(),
-        "ck.strand.update target_ref must be a Strand id"
+        "ak.strand.update target_ref must be a Strand id"
     );
 }
 
@@ -1135,7 +1135,7 @@ fn morph_update_payload_rejects_create_locked_morph_type() {
 
     catalog
         .validate_payload(
-            "ck.morph.update",
+            "ak.morph.update",
             &json!({
                 "target_ref": "ak:morph:0196419b-0000-7000-8000-000000000001",
                 "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
@@ -1145,26 +1145,26 @@ fn morph_update_payload_rejects_create_locked_morph_type() {
     assert!(
         catalog
             .validate_payload(
-                "ck.morph.update",
+                "ak.morph.update",
                 &json!({
                     "target_ref": "ak:morph:0196419b-0000-7000-8000-000000000001",
                     "patch": { "morph_type": { "$op": "set", "value": "task" } }
                 }),
             )
             .is_err(),
-        "ck.morph.update must reject create-locked morph_type changes"
+        "ak.morph.update must reject create-locked morph_type changes"
     );
     assert!(
         catalog
             .validate_payload(
-                "ck.morph.update",
+                "ak.morph.update",
                 &json!({
                     "target_ref": "ak:strand:0196419b-0000-7000-8000-000000000001",
                     "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
                 }),
             )
             .is_err(),
-        "ck.morph.update target_ref must be a Morph id"
+        "ak.morph.update target_ref must be a Morph id"
     );
 }
 
@@ -1195,11 +1195,11 @@ fn artifact_payload_catalog_enforces_invite_create_payload_shape() {
             .required_fields
             .iter()
             .any(|field| field == "invite_id"),
-        "ck.invite.create must require invite_id"
+        "ak.invite.create must require invite_id"
     );
     catalog
         .validate_payload(crate::events::INVITE_CREATE, &payload)
-        .unwrap_or_else(|err| panic!("ck.invite.create should accept directed invite: {err}"));
+        .unwrap_or_else(|err| panic!("ak.invite.create should accept directed invite: {err}"));
 
     let mut missing_invite_id = payload.clone();
     missing_invite_id
@@ -1210,7 +1210,7 @@ fn artifact_payload_catalog_enforces_invite_create_payload_shape() {
         catalog
             .validate_payload(crate::events::INVITE_CREATE, &missing_invite_id)
             .is_err(),
-        "ck.invite.create must reject directed invite payloads without invite_id"
+        "ak.invite.create must reject directed invite payloads without invite_id"
     );
 
     let mut missing_expires_at = payload;
@@ -1222,7 +1222,7 @@ fn artifact_payload_catalog_enforces_invite_create_payload_shape() {
         catalog
             .validate_payload(crate::events::INVITE_CREATE, &missing_expires_at)
             .is_err(),
-        "ck.invite.create must reject directed invite payloads without expires_at"
+        "ak.invite.create must reject directed invite payloads without expires_at"
     );
 }
 
@@ -1285,10 +1285,10 @@ fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
 fn schema_registry_enforces_json_schema_composition_and_value_rules() {
     let mut registry = ProtocolSchemaRegistry::new();
     registry.register(
-        "ck.schema.deep_test.v1",
+        "ak.schema.deep_test.v1",
         json!({
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "ck.schema.deep_test.v1",
+            "$id": "ak.schema.deep_test.v1",
             "type": "object",
             "required": ["kind", "items", "target"],
             "properties": {
@@ -1314,14 +1314,14 @@ fn schema_registry_enforces_json_schema_composition_and_value_rules() {
     );
     registry
         .validate_value(
-            "ck.schema.deep_test.v1",
+            "ak.schema.deep_test.v1",
             &json!({"kind": "demo", "items": ["alpha"], "target": "user", "x_role": "member"}),
         )
         .unwrap();
     assert!(
         registry
             .validate_value(
-                "ck.schema.deep_test.v1",
+                "ak.schema.deep_test.v1",
                 &json!({"kind": "demo", "items": [], "target": "user"}),
             )
             .is_err()
@@ -1329,7 +1329,7 @@ fn schema_registry_enforces_json_schema_composition_and_value_rules() {
     assert!(
         registry
             .validate_value(
-                "ck.schema.deep_test.v1",
+                "ak.schema.deep_test.v1",
                 &json!({"kind": "demo", "items": ["alpha"], "target": "other"}),
             )
             .is_err()
@@ -1337,14 +1337,14 @@ fn schema_registry_enforces_json_schema_composition_and_value_rules() {
     assert!(
         registry
             .validate_value(
-                "ck.schema.deep_test.v1",
+                "ak.schema.deep_test.v1",
                 &json!({"kind": "other", "items": ["alpha"], "target": "user"}),
             )
             .is_err()
     );
     let warnings = registry
         .validate_value_with_warnings(
-            "ck.schema.deep_test.v1",
+            "ak.schema.deep_test.v1",
             &json!({"kind": "demo", "items": ["alpha"], "target": "user", "extra": true}),
         )
         .unwrap();
@@ -1352,7 +1352,7 @@ fn schema_registry_enforces_json_schema_composition_and_value_rules() {
     assert!(
         registry
             .validate_value(
-                "ck.schema.deep_test.v1",
+                "ak.schema.deep_test.v1",
                 &json!({"kind": "demo", "items": ["alpha"], "target": "user", "x_role": false}),
             )
             .is_err()
@@ -1368,29 +1368,29 @@ fn component_descriptor_resolves_canonical_and_alias_kinds() {
 
     // Canonical kind owns its slot — no alias_of.
     let canonical = bundle
-        .component("ck.capability.grant")
+        .component("ak.capability.grant")
         .unwrap()
-        .expect("ck.capability.grant should be registered");
+        .expect("ak.capability.grant should be registered");
     assert_eq!(canonical.criticality, Criticality::Required);
-    assert!(canonical.component_type.starts_with("ck.component."));
+    assert!(canonical.component_type.starts_with("ak.component."));
     assert!(canonical.component_version >= 1);
     assert!(canonical.component_slot_alias_of.is_none());
 
     // Alias kind shares the canonical kind's slot.
     let alias = bundle
-        .component("ck.capability.revoke")
+        .component("ak.capability.revoke")
         .unwrap()
-        .expect("ck.capability.revoke should be registered");
+        .expect("ak.capability.revoke should be registered");
     assert_eq!(
         alias.component_slot_alias_of.as_deref(),
-        Some("ck.capability.grant"),
-        "ck.capability.revoke should slot-alias ck.capability.grant"
+        Some("ak.capability.grant"),
+        "ak.capability.revoke should slot-alias ck.capability.grant"
     );
     assert_eq!(alias.component_type, canonical.component_type);
     assert_eq!(alias.component_version, canonical.component_version);
 
     // Unknown kind is a clean None, not an error.
-    assert!(bundle.component("ck.bogus.kind").unwrap().is_none());
+    assert!(bundle.component("ak.bogus.kind").unwrap().is_none());
 }
 
 #[test]

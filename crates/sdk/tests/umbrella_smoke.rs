@@ -18,7 +18,7 @@ fn umbrella_crate_builds_client_signs_event_and_verifies_binding() {
             "message_id": "ak:message:01904100-0000-7000-8000-000000000001",
             "strand_id": "ak:strand:01904100-0000-7000-8000-000000000001",
             "track_name": "discussion",
-            "content": {"kind": "ck.content.text", "body": "hello"}
+            "content": {"kind": "ak.content.text", "body": "hello"}
         }),
     )
     .unwrap();

@@ -71,7 +71,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             name: "strand minimal valid".to_owned(),
             schema_id: STRAND_SCHEMA.to_owned(),
             input: json!({
-                "schema": "ck.schema.strand.v1",
+                "schema": "ak.schema.strand.v1",
                 "id": "ak:strand:01904100-0000-7000-8000-b30c13414158",
                 "realm_id": "ak:realm:01904100-0000-7000-8000-65c7feb295d7",
                 "metadata": {"title": "Payment refactor"},
@@ -87,7 +87,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             schema_id: EVENT_SCHEMA.to_owned(),
             input: json!({
                 "event_id": "ak:event:01904100-0000-7000-8000-a0086f45c575",
-                "kind": "ck.message.create",
+                "kind": "ak.message.create",
                 "space_id": "ak:space:01904100-0000-7000-8000-65c7feb295d7",
                 "actor_id": "did:webvh:z6mkfixture:alice.example",
                 "actor_seq": 1,
@@ -115,7 +115,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                 "space_id": "ak:space:01904100-0000-7000-8000-65c7feb295d7",
                 "actor_id": "did:webvh:z6mkfixture:alice.example",
                 "actor_seq": 1,
-                "kind": "ck.message.create",
+                "kind": "ak.message.create",
                 "created_at": "2026-05-02T00:00:00Z",
                 "hlc": "01970e589d21-0000-a13f9c2e",
                 "prev_refs": [],

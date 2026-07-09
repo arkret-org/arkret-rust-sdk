@@ -891,8 +891,8 @@ impl AuthManager {
         // `identity-did.md` §5.1 (device_id is signed-over for
         // multi-device principals; the SDK always supplies it).
         let signing_payload = serde_json::json!({
-            "kind": "ck.did.proof",
-            "purpose": "ck.session.grant",
+            "kind": "ak.did.proof",
+            "purpose": "ak.session.grant",
             "did": principal_id.as_str(),
             "device_id": device_id.as_str(),
             "audience": audience,

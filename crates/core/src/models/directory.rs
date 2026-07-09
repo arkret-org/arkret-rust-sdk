@@ -5,7 +5,7 @@ use super::*;
 pub type DirectoryDescription = ServiceDescribe;
 
 pub const DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND: &str =
-    "ck.directory.restricted_claim_presentation.v1";
+    "ak.directory.restricted_claim_presentation.v1";
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

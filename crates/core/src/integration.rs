@@ -70,7 +70,7 @@ mod tests {
     #[test]
     fn integration_describe_round_trips_common_wire_shape() {
         let value = json!({
-            "contract": "ck.integration.manifest.v1",
+            "contract": "ak.integration.manifest.v1",
             "version": "2026-05-07",
             "service": "floria",
             "service_kind": "push_gateway",
@@ -79,7 +79,7 @@ mod tests {
             "dependencies": [{
                 "service": "soland",
                 "purpose": "principal_outbound_push_delivery",
-                "required_contract": "ck.push.bridge.v1",
+                "required_contract": "ak.push.bridge.v1",
                 "discovery_path": "/_floria/push/bridge/describe",
                 "mode": "remote_principal_contract"
             }],
@@ -87,7 +87,7 @@ mod tests {
                 "name": "push_bridge",
                 "method": "GET",
                 "path": "/_floria/push/bridge/describe",
-                "contract": "ck.push.bridge.describe",
+                "contract": "ak.push.bridge.describe",
                 "stability": "active",
                 "todo": "pin provider_capabilities_version"
             }],

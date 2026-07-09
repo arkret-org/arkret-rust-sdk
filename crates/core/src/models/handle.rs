@@ -421,7 +421,7 @@ pub enum HandleHintBindingSource {
 }
 
 /// Canonical handle claim shape — matches `handle-claim.schema.json`.
-pub const HANDLE_CLAIM_SCHEMA: &str = "ck.schema.handle_claim.v1";
+pub const HANDLE_CLAIM_SCHEMA: &str = "ak.schema.handle_claim.v1";
 
 fn default_handle_claim_schema() -> String {
     HANDLE_CLAIM_SCHEMA.to_owned()

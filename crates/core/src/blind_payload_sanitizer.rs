@@ -758,7 +758,7 @@ mod tests {
                 "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
             },
-            "operation_id": "ck.edge.push.command.notify",
+            "operation_id": "ak.edge.push.command.notify",
             "context": { "trace": "did:webvh:z6mkfixture:alice.example" },
         });
         let err = sanitize_blind_payload(&payload).unwrap_err();

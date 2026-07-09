@@ -44,7 +44,7 @@ pub enum DeviceStatus {
 /// Per-device cross-signing binding echoed from
 /// `ck.device.authorize.payload.cross_signing_binding`
 /// (`crypto-media/device-lifecycle.md` §5.2). The accepted-generation SSK signs
-/// `"ck-device-trust-bind-v1\n" + canonical_json({principal_id, device_id,
+/// `"ak.device-trust-bind-v1\n" + canonical_json({principal_id, device_id,
 /// device_public_key, hpke_key, algorithms, ssk_generation})`. Absent for
 /// inception bootstrap and
 /// service-attested devices. Mirrors

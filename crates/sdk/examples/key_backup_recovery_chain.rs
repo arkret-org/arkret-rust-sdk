@@ -78,7 +78,7 @@ fn build_envelope(
             }),
             aead: KeyBackupAead {
                 name: "xchacha20_poly1305".to_owned(),
-                aead_profile: Some("ck.aead.xchacha20_poly1305.v1".to_owned()),
+                aead_profile: Some("ak.aead.xchacha20_poly1305.v1".to_owned()),
                 nonce: Some(format!("nonce-{seq}")),
                 nonce_salt: Some(format!("nonce-salt-{seq}")),
                 enc: None,
@@ -100,7 +100,7 @@ fn build_envelope(
             hkdf_info: "arkret-key-backup/secret_storage/recovery/v1".to_owned(),
             subdomain: "recovery".to_owned(),
             aead_aad: KeyBackupDomainSeparationAad {
-                schema: "ck.schema.key_backup.v1".to_owned(),
+                schema: "ak.schema.key_backup.v1".to_owned(),
                 actor_id: actor_id.clone(),
                 device_id: device_id.as_str().to_owned(),
                 backup_class: BackupClass::SecretStorage,

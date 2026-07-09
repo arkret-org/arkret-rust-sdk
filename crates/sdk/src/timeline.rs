@@ -942,10 +942,10 @@ impl Timeline {
 
     fn apply_item_event(&mut self, event: &Event, order: TimelineOrderKey) {
         match event.kind.as_str() {
-            "ck.message.create" => self.upsert_message_item(event, order),
-            "ck.message.revise" => self.apply_message_revision(event, order),
-            "ck.message.redact" | "ck.redaction" => self.apply_message_redaction(event, order),
-            "ck.reaction.add" | "ck.reaction.remove" => self.apply_reaction(event),
+            "ak.message.create" => self.upsert_message_item(event, order),
+            "ak.message.revise" => self.apply_message_revision(event, order),
+            "ak.message.redact" | "ck.redaction" => self.apply_message_redaction(event, order),
+            "ak.reaction.add" | "ck.reaction.remove" => self.apply_reaction(event),
             _ if event.redacts.is_some() => self.apply_message_redaction(event, order),
             _ => self.upsert_generic_item(event, order),
         }
@@ -1033,7 +1033,7 @@ impl Timeline {
             return;
         };
 
-        let active = event.kind == "ck.reaction.add";
+        let active = event.kind == "ak.reaction.add";
         self.reaction_index.insert(
             (
                 item_id.clone(),
@@ -1326,16 +1326,16 @@ mod tests {
         let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(realm_id.clone(), base_client);
         let mut message = create_test_event(&realm_id, 1);
-        message.kind = "ck.message.create".into();
+        message.kind = "ak.message.create".into();
         message.payload = json!({"message_id":"m1","body":"hello"});
         let mut edit = create_test_event(&realm_id, 2);
-        edit.kind = "ck.message.revise".into();
+        edit.kind = "ak.message.revise".into();
         edit.payload = json!({"target_message_id":"m1","content":{"body":"hi"}});
         let mut reaction = create_test_event(&realm_id, 3);
-        reaction.kind = "ck.reaction.add".into();
+        reaction.kind = "ak.reaction.add".into();
         reaction.payload = json!({"message_id":"m1","reaction_key":"+1"});
         let mut redaction = create_test_event(&realm_id, 4);
-        redaction.kind = "ck.message.redact".into();
+        redaction.kind = "ak.message.redact".into();
         redaction.payload = json!({"target_message_id":"m1"});
 
         timeline
@@ -1360,7 +1360,7 @@ mod tests {
         let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(realm_id.clone(), base_client);
         let mut message = create_test_event(&realm_id, 1);
-        message.kind = "ck.message.create".into();
+        message.kind = "ak.message.create".into();
         message.payload = json!({"message_id":"m1","body":"hello"});
         let event_id = message.event_id.clone();
         let actor = Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap();

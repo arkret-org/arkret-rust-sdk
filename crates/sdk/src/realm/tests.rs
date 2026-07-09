@@ -230,7 +230,7 @@ fn realm_queries_searches_and_aggregates_morphs() {
                             "schema_refs": [crate::MORPH_SCHEMA],
                             "morph_type": "task",
                             "metadata": {"title": "Alpha task"},
-                            "content": {"kind": "ck.content.text", "body": "implement local search"},
+                            "content": {"kind": "ak.content.text", "body": "implement local search"},
                             "fields": {"status": "todo", "priority": 2},
                             "stage": "draft",
                             "created_by": "did:webvh:z6mkfixture:alice.example.com",
@@ -467,14 +467,14 @@ fn realm_provides_message_membership_and_media_convenience_helpers() {
     let bob = Did::new("did:webvh:z6mkfixture:bob.example.com").unwrap();
 
     let text = realm.send_text("hello").unwrap();
-    assert_eq!(text.object_type, "ck.message.create");
+    assert_eq!(text.object_type, "ak.message.create");
     assert_eq!(text.payload["content"]["body"], "hello");
 
     let message_id = MessageId::new(text.payload["message_id"].as_str().unwrap()).unwrap();
     let edit = realm
         .edit_message(message_id.clone(), json!({"body": "updated"}))
         .unwrap();
-    assert_eq!(edit.object_type, "ck.message.revise");
+    assert_eq!(edit.object_type, "ak.message.revise");
     assert_eq!(edit.object_id, Some(message_id.as_str().to_owned()));
 
     let redact = realm
@@ -483,14 +483,14 @@ fn realm_provides_message_membership_and_media_convenience_helpers() {
     assert_eq!(redact.operation_type, OperationType::Redact);
 
     let join = realm.join_realm().unwrap();
-    assert_eq!(join.object_type, "ck.member.state");
+    assert_eq!(join.object_type, "ak.member.state");
     assert_eq!(
         base_client.get_realm(&realm_id).unwrap().state,
         RealmMembershipState::Joined
     );
 
     let leave = realm.leave_realm().unwrap();
-    assert_eq!(leave.object_type, "ck.member.state");
+    assert_eq!(leave.object_type, "ak.member.state");
     assert_eq!(
         base_client.get_realm(&realm_id).unwrap().state,
         RealmMembershipState::Left
@@ -501,9 +501,9 @@ fn realm_provides_message_membership_and_media_convenience_helpers() {
             .ban(bob.clone(), Some("spam".to_owned()))
             .unwrap()
             .object_type,
-        "ck.member.state"
+        "ak.member.state"
     );
-    assert_eq!(realm.unban(bob).unwrap().object_type, "ck.member.state");
+    assert_eq!(realm.unban(bob).unwrap().object_type, "ak.member.state");
 
     let media = realm
         .upload_media(b"bytes", "text/plain", Some("note.txt".to_owned()))
@@ -568,7 +568,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
     };
 
     let op = realm.member_add_with_candidate(&candidate).unwrap();
-    assert_eq!(op.object_type, "ck.member.state");
+    assert_eq!(op.object_type, "ak.member.state");
     let payload = &op.payload;
     assert_eq!(payload["actor_id"], serde_json::json!(subject));
     assert_eq!(payload["membership"], "join");

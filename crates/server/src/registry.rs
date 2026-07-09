@@ -40,855 +40,855 @@ pub(crate) struct ServiceRoute {
 // kept in the registry's own file order.
 const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!(
-        "ck.gate.account.command.register",
+        "ak.gate.account.command.register",
         Post,
         "/_cokret/gate/account/register"
     ),
     endpoint!(
-        "ck.gate.account.command.pair_device",
+        "ak.gate.account.command.pair_device",
         Post,
         "/_cokret/gate/account/device-pair"
     ),
     endpoint!(
-        "ck.gate.account.command.enroll_device",
+        "ak.gate.account.command.enroll_device",
         Post,
         "/_cokret/gate/account/device-enroll"
     ),
     endpoint!(
-        "ck.gate.account.command.issue_session_grant",
+        "ak.gate.account.command.issue_session_grant",
         Post,
         "/_cokret/gate/account/session-grants"
     ),
     endpoint!(
-        "ck.gate.account.command.revoke_session",
+        "ak.gate.account.command.revoke_session",
         Post,
         "/_cokret/gate/account/session-grants/revoke"
     ),
     endpoint!(
-        "ck.gate.account.command.refresh_session_grant",
+        "ak.gate.account.command.refresh_session_grant",
         Post,
         "/_cokret/gate/account/session-grants/refresh"
     ),
     endpoint!(
-        "ck.gate.account.command.logout_auth_session",
+        "ak.gate.account.command.logout_auth_session",
         Post,
         "/_cokret/gate/account/auth-sessions/logout"
     ),
     endpoint!(
-        "ck.gate.account.command.introspect_session_grant",
+        "ak.gate.account.command.introspect_session_grant",
         Post,
         "/_cokret/gate/account/session-grants/introspect"
     ),
     endpoint!(
-        "ck.gate.account.command.logout",
+        "ak.gate.account.command.logout",
         Post,
         "/_cokret/gate/account/logout"
     ),
     endpoint!(
-        "ck.gate.account.command.pair_agent_key",
+        "ak.gate.account.command.pair_agent_key",
         Post,
         "/_cokret/gate/account/agent-key-pair"
     ),
     endpoint!(
-        "ck.self.agent.command.provision",
+        "ak.self.agent.command.provision",
         Post,
         "/_cokret/self/agents"
     ),
-    endpoint!("ck.self.agent.query.list", Get, "/_cokret/self/agents"),
+    endpoint!("ak.self.agent.query.list", Get, "/_cokret/self/agents"),
     endpoint!(
-        "ck.self.agent.protocol.query.discover",
+        "ak.self.agent.protocol.query.discover",
         Post,
         "/_cokret/self/agents/discover"
     ),
     endpoint!(
-        "ck.self.agent.resource.get",
+        "ak.self.agent.resource.get",
         Get,
         "/_cokret/self/agents/{agent_principal_id}"
     ),
     endpoint!(
-        "ck.self.agent.command.pause",
+        "ak.self.agent.command.pause",
         Post,
         "/_cokret/self/agents/{agent_principal_id}/pause"
     ),
     endpoint!(
-        "ck.self.agent.command.resume",
+        "ak.self.agent.command.resume",
         Post,
         "/_cokret/self/agents/{agent_principal_id}/resume"
     ),
     endpoint!(
-        "ck.self.agent.command.deactivate",
+        "ak.self.agent.command.deactivate",
         Post,
         "/_cokret/self/agents/{agent_principal_id}/deactivate"
     ),
     endpoint!(
-        "ck.self.agent.command.rotate_key",
+        "ak.self.agent.command.rotate_key",
         Post,
         "/_cokret/self/agents/{agent_principal_id}/rotate-key"
     ),
     endpoint!(
-        "ck.self.agent.grant.command.attach",
+        "ak.self.agent.grant.command.attach",
         Post,
         "/_cokret/self/agents/{agent_principal_id}/grants"
     ),
     endpoint!(
-        "ck.self.agent.grant.resource.delete",
+        "ak.self.agent.grant.resource.delete",
         Delete,
         "/_cokret/self/agents/{agent_principal_id}/grants/{grant_id}"
     ),
     endpoint!(
-        "ck.self.agent.sidecar_thread.command.ensure",
+        "ak.self.agent.sidecar_thread.command.ensure",
         Post,
         "/_cokret/self/agent-sidecar-threads:ensure"
     ),
     endpoint!(
-        "ck.self.agent.participation.resource.replace",
+        "ak.self.agent.participation.resource.replace",
         Put,
         "/_cokret/self/agents/{agent_principal_id}/participation"
     ),
     endpoint!(
-        "ck.self.agent.participation.resource.get",
+        "ak.self.agent.participation.resource.get",
         Get,
         "/_cokret/self/agents/{agent_principal_id}/participation"
     ),
     endpoint!(
-        "ck.gate.account.exchange.complete_oidc",
+        "ak.gate.account.exchange.complete_oidc",
         Post,
         "/_cokret/gate/account/oidc/callback"
     ),
     endpoint!(
-        "ck.edge.applet.query.describe",
+        "ak.edge.applet.query.describe",
         Get,
         "/_cokret/edge/applet/describe"
     ),
     endpoint!(
-        "ck.self.applet.install.command.preview",
+        "ak.self.applet.install.command.preview",
         Post,
         "/_cokret/self/applets/install/preview"
     ),
     endpoint!(
-        "ck.self.applet.command.install",
+        "ak.self.applet.command.install",
         Post,
         "/_cokret/self/applets/install"
     ),
     endpoint!(
-        "ck.edge.applet.query.ping",
+        "ak.edge.applet.query.ping",
         Get,
         "/_cokret/edge/applet/ping"
     ),
     endpoint!(
-        "ck.edge.applet.query.protocol_metadata",
+        "ak.edge.applet.query.protocol_metadata",
         Get,
         "/_cokret/edge/applet/protocols/{protocol}"
     ),
     endpoint!(
-        "ck.edge.applet.actor.query.resolve",
+        "ak.edge.applet.actor.query.resolve",
         Get,
         "/_cokret/edge/applet/actors/{actor_id}"
     ),
     endpoint!(
-        "ck.edge.applet.realm.query.resolve",
+        "ak.edge.applet.realm.query.resolve",
         Get,
         "/_cokret/edge/applet/realms/{realm_id_or_alias}"
     ),
     endpoint!(
-        "ck.self.applet.command.revoke",
+        "ak.self.applet.command.revoke",
         Post,
         "/_cokret/self/applets/{applet_id}/revoke"
     ),
     endpoint!(
-        "ck.self.applet.ghost.command.provision",
+        "ak.self.applet.ghost.command.provision",
         Post,
         "/_cokret/self/applets/{applet_id}/ghosts/provision"
     ),
     endpoint!(
-        "ck.edge.applet.third_party_locations.query.list",
+        "ak.edge.applet.third_party_locations.query.list",
         Get,
         "/_cokret/edge/applet/third_party/locations"
     ),
     endpoint!(
-        "ck.edge.applet.third_party_users.query.list",
+        "ak.edge.applet.third_party_users.query.list",
         Get,
         "/_cokret/edge/applet/third_party/users"
     ),
     endpoint!(
-        "ck.edge.applet.command.transaction",
+        "ak.edge.applet.command.transaction",
         Post,
         "/_cokret/edge/applet/transactions"
     ),
     endpoint!(
-        "ck.self.authz.query.check",
+        "ak.self.authz.query.check",
         Post,
         "/_cokret/self/authz/check"
     ),
     endpoint!(
-        "ck.self.authz.grants.query.effective",
+        "ak.self.authz.grants.query.effective",
         Get,
         "/_cokret/self/authz/effective-grants"
     ),
     endpoint!(
-        "ck.self.authz.invites.query.list",
+        "ak.self.authz.invites.query.list",
         Get,
         "/_cokret/self/authz/invites"
     ),
-    endpoint!("ck.self.blob.resource.get", Get, "/_cokret/self/blob/get"),
-    endpoint!("ck.self.blob.resource.head", Head, "/_cokret/self/blob/get"),
+    endpoint!("ak.self.blob.resource.get", Get, "/_cokret/self/blob/get"),
+    endpoint!("ak.self.blob.resource.head", Head, "/_cokret/self/blob/get"),
     endpoint!(
-        "ck.self.blob.upload.create",
+        "ak.self.blob.upload.create",
         Post,
         "/_cokret/self/blob/upload"
     ),
     endpoint!(
-        "ck.self.blob.command.presign",
+        "ak.self.blob.command.presign",
         Post,
         "/_cokret/self/blob/presign"
     ),
     endpoint!(
-        "ck.self.device_messages.query.list",
+        "ak.self.device_messages.query.list",
         Get,
         "/_cokret/self/device_messages"
     ),
     endpoint!(
-        "ck.self.device_messages.command.send",
+        "ak.self.device_messages.command.send",
         Post,
         "/_cokret/self/device_messages"
     ),
     endpoint!(
-        "ck.self.device_messages.command.ack",
+        "ak.self.device_messages.command.ack",
         Post,
         "/_cokret/self/device_messages/ack"
     ),
     endpoint!(
-        "ck.self.contact.command.request",
+        "ak.self.contact.command.request",
         Post,
         "/_cokret/self/contacts/request"
     ),
     endpoint!(
-        "ck.self.contact.command.respond",
+        "ak.self.contact.command.respond",
         Post,
         "/_cokret/self/contacts/respond"
     ),
-    endpoint!("ck.self.contact.query.list", Get, "/_cokret/self/contacts"),
+    endpoint!("ak.self.contact.query.list", Get, "/_cokret/self/contacts"),
     endpoint!(
-        "ck.self.contact.command.tombstone",
+        "ak.self.contact.command.tombstone",
         Post,
         "/_cokret/self/contacts/tombstone"
     ),
     endpoint!(
-        "ck.self.invite_receive_policy.resource.get",
+        "ak.self.invite_receive_policy.resource.get",
         Get,
         "/_cokret/self/invite-receive-policy"
     ),
     endpoint!(
-        "ck.self.invite_receive_policy.resource.replace",
+        "ak.self.invite_receive_policy.resource.replace",
         Put,
         "/_cokret/self/invite-receive-policy"
     ),
     endpoint!(
-        "ck.self.direct_conversation.command.resolve",
+        "ak.self.direct_conversation.command.resolve",
         Post,
         "/_cokret/self/direct-conversations/resolve"
     ),
     endpoint!(
-        "ck.self.circle.command.create",
+        "ak.self.circle.command.create",
         Post,
         "/_cokret/self/circles"
     ),
-    endpoint!("ck.self.circle.query.list", Get, "/_cokret/self/circles"),
+    endpoint!("ak.self.circle.query.list", Get, "/_cokret/self/circles"),
     endpoint!(
-        "ck.self.circle.resource.get",
+        "ak.self.circle.resource.get",
         Get,
         "/_cokret/self/circles/{circle_id}"
     ),
     endpoint!(
-        "ck.self.circle.member.command.add",
+        "ak.self.circle.member.command.add",
         Post,
         "/_cokret/self/circles/{circle_id}/members"
     ),
     endpoint!(
-        "ck.self.circle.member.resource.delete",
+        "ak.self.circle.member.resource.delete",
         Delete,
         "/_cokret/self/circles/{circle_id}/members/{actor_id}"
     ),
     endpoint!(
-        "ck.self.circle.command.rotate_scope",
+        "ak.self.circle.command.rotate_scope",
         Post,
         "/_cokret/self/circles/{circle_id}/scope-rotate"
     ),
     endpoint!(
-        "ck.self.circle.command.archive",
+        "ak.self.circle.command.archive",
         Post,
         "/_cokret/self/circles/{circle_id}/archive"
     ),
     endpoint!(
-        "ck.self.circle.command.restore",
+        "ak.self.circle.command.restore",
         Post,
         "/_cokret/self/circles/{circle_id}/restore"
     ),
     endpoint!(
-        "ck.self.circle.command.tombstone",
+        "ak.self.circle.command.tombstone",
         Post,
         "/_cokret/self/circles/{circle_id}/tombstone"
     ),
     endpoint!(
-        "ck.find.directory.command.announce",
+        "ak.find.directory.command.announce",
         Post,
         "/_cokret/find/directory/announce"
     ),
     endpoint!(
-        "ck.find.directory.query.describe",
+        "ak.find.directory.query.describe",
         Get,
         "/_cokret/find/directory/describe"
     ),
     endpoint!(
-        "ck.find.directory.query.private_contact_discovery",
+        "ak.find.directory.query.private_contact_discovery",
         Post,
         "/_cokret/find/directory/private-contact-discovery"
     ),
     endpoint!(
-        "ck.find.directory.query.resolve_handle",
+        "ak.find.directory.query.resolve_handle",
         Post,
         "/_cokret/find/directory/resolve-handle"
     ),
     endpoint!(
-        "ck.find.directory.query.resolve_agent_selector",
+        "ak.find.directory.query.resolve_agent_selector",
         Post,
         "/_cokret/find/directory/resolve-agent-selector"
     ),
     endpoint!(
-        "ck.find.directory.query.list_handles_for_subject",
+        "ak.find.directory.query.list_handles_for_subject",
         Post,
         "/_cokret/find/directory/list-handles-for-subject"
     ),
     endpoint!(
-        "ck.find.directory.query.resolve_organization",
+        "ak.find.directory.query.resolve_organization",
         Post,
         "/_cokret/find/directory/resolve-organization"
     ),
     endpoint!(
-        "ck.find.directory.query.resolve_realm",
+        "ak.find.directory.query.resolve_realm",
         Post,
         "/_cokret/find/directory/resolve-realm"
     ),
     endpoint!(
-        "ck.find.directory.query.resolve_target",
+        "ak.find.directory.query.resolve_target",
         Post,
         "/_cokret/find/directory/resolve-target"
     ),
     endpoint!(
-        "ck.find.directory.query.search_actors",
+        "ak.find.directory.query.search_actors",
         Post,
         "/_cokret/find/directory/search-actors"
     ),
     endpoint!(
-        "ck.find.directory.query.search_organizations",
+        "ak.find.directory.query.search_organizations",
         Post,
         "/_cokret/find/directory/search-organizations"
     ),
     endpoint!(
-        "ck.find.directory.query.search_realms",
+        "ak.find.directory.query.search_realms",
         Post,
         "/_cokret/find/directory/search-realms"
     ),
     endpoint!(
-        "ck.find.directory.query.search_users",
+        "ak.find.directory.query.search_users",
         Post,
         "/_cokret/find/directory/search-users"
     ),
     endpoint!(
-        "ck.find.directory.push.command.register",
+        "ak.find.directory.push.command.register",
         Post,
         "/_cokret/find/directory/push/register"
     ),
     endpoint!(
-        "ck.find.directory.command.withdraw",
+        "ak.find.directory.command.withdraw",
         Post,
         "/_cokret/find/directory/withdraw"
     ),
     endpoint!(
-        "ck.find.directory.command.takedown_appeal",
+        "ak.find.directory.command.takedown_appeal",
         Post,
         "/_cokret/find/directory/takedown/appeal"
     ),
     endpoint!(
-        "ck.self.events.query.describe",
+        "ak.self.events.query.describe",
         Get,
         "/_cokret/self/events/describe"
     ),
     endpoint!(
-        "ck.self.events.query.frontier",
+        "ak.self.events.query.frontier",
         Get,
         "/_cokret/self/events/frontier"
     ),
     endpoint!(
-        "ck.self.events.resource.get",
+        "ak.self.events.resource.get",
         Get,
         "/_cokret/self/events/{event_id}"
     ),
-    endpoint!("ck.self.events.query.scan", Get, "/_cokret/self/events"),
+    endpoint!("ak.self.events.query.scan", Get, "/_cokret/self/events"),
     endpoint!(
-        "ck.self.events.query.scan_body",
+        "ak.self.events.query.scan_body",
         Post,
         "/_cokret/self/events/query"
     ),
     endpoint!(
-        "ck.self.events.query.resolve",
+        "ak.self.events.query.resolve",
         Post,
         "/_cokret/self/events/resolve"
     ),
     endpoint!(
-        "ck.self.events.stream.subscribe",
+        "ak.self.events.stream.subscribe",
         Get,
         "/_cokret/self/events/subscribe"
     ),
     endpoint!(
-        "ck.self.events.command.submit",
+        "ak.self.events.command.submit",
         Post,
         "/_cokret/self/events"
     ),
     endpoint!(
-        "ck.peer.events.query.describe",
+        "ak.peer.events.query.describe",
         Get,
         "/_cokret/peer/events/describe"
     ),
     endpoint!(
-        "ck.peer.events.query.frontier",
+        "ak.peer.events.query.frontier",
         Get,
         "/_cokret/peer/events/frontier"
     ),
-    endpoint!("ck.peer.events.query.scan", Get, "/_cokret/peer/events"),
+    endpoint!("ak.peer.events.query.scan", Get, "/_cokret/peer/events"),
     endpoint!(
-        "ck.peer.events.query.scan_body",
+        "ak.peer.events.query.scan_body",
         Post,
         "/_cokret/peer/events/query"
     ),
     endpoint!(
-        "ck.peer.events.query.resolve",
+        "ak.peer.events.query.resolve",
         Post,
         "/_cokret/peer/events/resolve"
     ),
     endpoint!(
-        "ck.peer.events.command.submit",
+        "ak.peer.events.command.submit",
         Post,
         "/_cokret/peer/events"
     ),
     endpoint!(
-        "ck.peer.invites.command.submit",
+        "ak.peer.invites.command.submit",
         Post,
         "/_cokret/peer/invites"
     ),
     endpoint!(
-        "ck.peer.contacts.command.submit",
+        "ak.peer.contacts.command.submit",
         Post,
         "/_cokret/peer/contacts"
     ),
     endpoint!(
-        "ck.peer.snapshot.query.manifest_head",
+        "ak.peer.snapshot.query.manifest_head",
         Get,
         "/_cokret/peer/snapshot/head"
     ),
     endpoint!(
-        "ck.self.ephemeral.command.send",
+        "ak.self.ephemeral.command.send",
         Post,
         "/_cokret/self/ephemeral"
     ),
     endpoint!(
-        "ck.self.call.media.exchange.issue_token",
+        "ak.self.call.media.exchange.issue_token",
         Post,
         "/_cokret/self/rtc/token"
     ),
     endpoint!(
-        "ck.root.identity.registry.query.describe",
+        "ak.root.identity.registry.query.describe",
         Get,
         "/_cokret/root/identity/describe"
     ),
     endpoint!(
-        "ck.root.identity.document.resource.get",
+        "ak.root.identity.document.resource.get",
         Get,
         "/_cokret/root/identity/document"
     ),
     endpoint!(
-        "ck.root.identity.log.query.list",
+        "ak.root.identity.log.query.list",
         Get,
         "/_cokret/root/identity/log"
     ),
     endpoint!(
-        "ck.root.identity.receipts.query.list",
+        "ak.root.identity.receipts.query.list",
         Get,
         "/_cokret/root/identity/receipts"
     ),
     endpoint!(
-        "ck.root.identity.query.resolve",
+        "ak.root.identity.query.resolve",
         Post,
         "/_cokret/root/identity/resolve"
     ),
     endpoint!(
-        "ck.root.identity.command.submit_did_operation",
+        "ak.root.identity.command.submit_did_operation",
         Post,
         "/_cokret/root/identity/submit-did-operation"
     ),
     endpoint!(
-        "ck.root.identity.recovery_policy.resource.get",
+        "ak.root.identity.recovery_policy.resource.get",
         Get,
         "/_cokret/root/identity/recovery-policy"
     ),
     endpoint!(
-        "ck.root.identity.recovery_policy.command.publish",
+        "ak.root.identity.recovery_policy.command.publish",
         Post,
         "/_cokret/root/identity/recovery-policy"
     ),
     endpoint!(
-        "ck.root.identity.recovery_session.command.create",
+        "ak.root.identity.recovery_session.command.create",
         Post,
         "/_cokret/root/identity/recovery-sessions"
     ),
     endpoint!(
-        "ck.root.identity.recovery_session.resource.get",
+        "ak.root.identity.recovery_session.resource.get",
         Get,
         "/_cokret/root/identity/recovery-sessions/{recovery_session_id}"
     ),
     endpoint!(
-        "ck.root.identity.recovery_session.command.submit_proof",
+        "ak.root.identity.recovery_session.command.submit_proof",
         Post,
         "/_cokret/root/identity/recovery-sessions/{recovery_session_id}/proofs"
     ),
     endpoint!(
-        "ck.root.identity.recovery_session.command.complete",
+        "ak.root.identity.recovery_session.command.complete",
         Post,
         "/_cokret/root/identity/recovery-sessions/{recovery_session_id}/complete"
     ),
     endpoint!(
-        "ck.self.keys.command.claim",
+        "ak.self.keys.command.claim",
         Post,
         "/_cokret/self/keys/claim"
     ),
     endpoint!(
-        "ck.self.keys.backups.resource.delete",
+        "ak.self.keys.backups.resource.delete",
         Delete,
         "/_cokret/self/keys/backups/{backup_id}"
     ),
     endpoint!(
-        "ck.self.keys.backups.query.list",
+        "ak.self.keys.backups.query.list",
         Get,
         "/_cokret/self/keys/backups"
     ),
     endpoint!(
-        "ck.self.keys.backups.resource.replace",
+        "ak.self.keys.backups.resource.replace",
         Put,
         "/_cokret/self/keys/backups/{backup_id}"
     ),
     endpoint!(
-        "ck.self.keys.backups.command.unlock",
+        "ak.self.keys.backups.command.unlock",
         Post,
         "/_cokret/self/keys/backups/{backup_id}/unlock"
     ),
     endpoint!(
-        "ck.self.keys.keypackages.command.claim",
+        "ak.self.keys.keypackages.command.claim",
         Post,
         "/_cokret/self/keys/keypackages/claim"
     ),
     endpoint!(
-        "ck.self.keys.keypackages.command.consume",
+        "ak.self.keys.keypackages.command.consume",
         Post,
         "/_cokret/self/keys/keypackages/consume"
     ),
     endpoint!(
-        "ck.self.keys.keypackages.command.revoke",
+        "ak.self.keys.keypackages.command.revoke",
         Post,
         "/_cokret/self/keys/keypackages/revoke"
     ),
     endpoint!(
-        "ck.self.keys.keypackages.upload.create",
+        "ak.self.keys.keypackages.upload.create",
         Post,
         "/_cokret/self/keys/keypackages/upload"
     ),
     endpoint!(
-        "ck.self.keys.query.lookup",
+        "ak.self.keys.query.lookup",
         Post,
         "/_cokret/self/keys/query"
     ),
     endpoint!(
-        "ck.self.keys.upload.create",
+        "ak.self.keys.upload.create",
         Post,
         "/_cokret/self/keys/upload"
     ),
     endpoint!(
-        "ck.self.media.query.ice_config",
+        "ak.self.media.query.ice_config",
         Post,
         "/_cokret/self/rtc/ice-config"
     ),
     endpoint!(
-        "ck.open.invite_locator.query.resolve",
+        "ak.open.invite_locator.query.resolve",
         Post,
         "/_cokret/open/invite-locators/resolve"
     ),
     endpoint!(
-        "ck.open.mimi.query.group_info",
+        "ak.open.mimi.query.group_info",
         Get,
         "/_cokret/open/mimi/strands/{strand_id}/group-info"
     ),
     endpoint!(
-        "ck.open.mimi.query.identifiers",
+        "ak.open.mimi.query.identifiers",
         Post,
         "/_cokret/open/mimi/identifiers/query"
     ),
     endpoint!(
-        "ck.open.mimi.exchange.request_key_material",
+        "ak.open.mimi.exchange.request_key_material",
         Post,
         "/_cokret/open/mimi/key-material"
     ),
     endpoint!(
-        "ck.open.mimi.command.notify",
+        "ak.open.mimi.command.notify",
         Post,
         "/_cokret/open/mimi/strands/{strand_id}/notify"
     ),
     endpoint!(
-        "ck.open.mimi.query.provider_directory",
+        "ak.open.mimi.query.provider_directory",
         Get,
         "/_cokret/open/mimi/provider-directory"
     ),
     endpoint!(
-        "ck.open.mimi.command.proxy_download",
+        "ak.open.mimi.command.proxy_download",
         Post,
         "/_cokret/open/mimi/proxy-download"
     ),
     endpoint!(
-        "ck.open.mimi.command.report_abuse",
+        "ak.open.mimi.command.report_abuse",
         Post,
         "/_cokret/open/mimi/report-abuse"
     ),
     endpoint!(
-        "ck.open.mimi.command.request_consent",
+        "ak.open.mimi.command.request_consent",
         Post,
         "/_cokret/open/mimi/consent/request"
     ),
     endpoint!(
-        "ck.open.mimi.command.update_room",
+        "ak.open.mimi.command.update_room",
         Post,
         "/_cokret/open/mimi/strands/{strand_id}/update"
     ),
     endpoint!(
-        "ck.open.mimi.command.submit_message",
+        "ak.open.mimi.command.submit_message",
         Post,
         "/_cokret/open/mimi/strands/{strand_id}/messages"
     ),
     endpoint!(
-        "ck.open.mimi.command.update_consent",
+        "ak.open.mimi.command.update_consent",
         Post,
         "/_cokret/open/mimi/consent/update"
     ),
     endpoint!(
-        "ck.self.moderation.command.report",
+        "ak.self.moderation.command.report",
         Post,
         "/_cokret/self/moderation/report"
     ),
     endpoint!(
-        "ck.self.policy.query.check",
+        "ak.self.policy.query.check",
         Post,
         "/_cokret/self/policy/check"
     ),
     endpoint!(
-        "ck.self.realm_link.query.list",
+        "ak.self.realm_link.query.list",
         Get,
         "/_cokret/self/realms/{realm_id}/links"
     ),
     endpoint!(
-        "ck.self.realm_link.command.create",
+        "ak.self.realm_link.command.create",
         Post,
         "/_cokret/self/realms/{realm_id}/links"
     ),
     endpoint!(
-        "ck.self.realm_link.resource.delete",
+        "ak.self.realm_link.resource.delete",
         Delete,
         "/_cokret/self/realms/{realm_id}/links/{target_realm_id}"
     ),
     endpoint!(
-        "ck.self.realm_link.query.effective_policy",
+        "ak.self.realm_link.query.effective_policy",
         Get,
         "/_cokret/self/realms/{realm_id}/effective-policy"
     ),
     endpoint!(
-        "ck.self.realm_organization.query.list",
+        "ak.self.realm_organization.query.list",
         Get,
         "/_cokret/self/realms/{realm_id}/organizations"
     ),
     endpoint!(
-        "ck.self.realm_policy_server.resource.get",
+        "ak.self.realm_policy_server.resource.get",
         Get,
         "/_cokret/self/realms/{realm_id}/policy-server"
     ),
     endpoint!(
-        "ck.self.realm_policy_server.resource.replace",
+        "ak.self.realm_policy_server.resource.replace",
         Put,
         "/_cokret/self/realms/{realm_id}/policy-server"
     ),
     endpoint!(
-        "ck.self.realm_policy_server.resource.delete",
+        "ak.self.realm_policy_server.resource.delete",
         Delete,
         "/_cokret/self/realms/{realm_id}/policy-server"
     ),
     endpoint!(
-        "ck.self.realm.resource.get",
+        "ak.self.realm.resource.get",
         Get,
         "/_cokret/self/realms/{realm_id}"
     ),
     endpoint!(
-        "ck.self.realm.command.archive",
+        "ak.self.realm.command.archive",
         Post,
         "/_cokret/self/realms/{realm_id}/archive"
     ),
     endpoint!(
-        "ck.self.realm.command.freeze",
+        "ak.self.realm.command.freeze",
         Post,
         "/_cokret/self/realms/{realm_id}/freeze"
     ),
     endpoint!(
-        "ck.self.realm.command.tombstone",
+        "ak.self.realm.command.tombstone",
         Post,
         "/_cokret/self/realms/{realm_id}/tombstone"
     ),
     endpoint!(
-        "ck.self.realm.command.destroy",
+        "ak.self.realm.command.destroy",
         Post,
         "/_cokret/self/realms/{realm_id}/destroy"
     ),
     endpoint!(
-        "ck.self.realm.query.export",
+        "ak.self.realm.query.export",
         Get,
         "/_cokret/self/realms/{realm_id}/export"
     ),
     endpoint!(
-        "ck.self.realm.moderation_policy.query.effective",
+        "ak.self.realm.moderation_policy.query.effective",
         Get,
         "/_cokret/self/realms/{realm_id}/moderation-policy/effective"
     ),
     endpoint!(
-        "ck.self.realm.moderation_policy.resource.replace",
+        "ak.self.realm.moderation_policy.resource.replace",
         Put,
         "/_cokret/self/realms/{realm_id}/moderation-policy"
     ),
     endpoint!(
-        "ck.self.consent.query.list",
+        "ak.self.consent.query.list",
         Get,
         "/_cokret/self/consent/cells"
     ),
     endpoint!(
-        "ck.self.consent.resource.get",
+        "ak.self.consent.resource.get",
         Get,
         "/_cokret/self/consent/cells/{holder_did}"
     ),
     endpoint!(
-        "ck.self.consent.command.grant",
+        "ak.self.consent.command.grant",
         Post,
         "/_cokret/self/consent/cells/{holder_did}/grant"
     ),
     endpoint!(
-        "ck.self.consent.command.revoke",
+        "ak.self.consent.command.revoke",
         Post,
         "/_cokret/self/consent/cells/{holder_did}/revoke"
     ),
     endpoint!(
-        "ck.self.consent.command.request",
+        "ak.self.consent.command.request",
         Post,
         "/_cokret/self/consent/request"
     ),
     endpoint!(
-        "ck.self.account_data.query.list",
+        "ak.self.account_data.query.list",
         Get,
         "/_cokret/self/account_data"
     ),
     endpoint!(
-        "ck.self.account_data.resource.get",
+        "ak.self.account_data.resource.get",
         Get,
         "/_cokret/self/account_data/{data_type}"
     ),
     endpoint!(
-        "ck.self.account_data.resource.replace",
+        "ak.self.account_data.resource.replace",
         Put,
         "/_cokret/self/account_data/{data_type}"
     ),
     endpoint!(
-        "ck.self.account_data.resource.delete",
+        "ak.self.account_data.resource.delete",
         Delete,
         "/_cokret/self/account_data/{data_type}"
     ),
     endpoint!(
-        "ck.self.read_cursor.command.advance",
+        "ak.self.read_cursor.command.advance",
         Post,
         "/_cokret/self/read-cursors"
     ),
     endpoint!(
-        "ck.self.read_cursor.query.list",
+        "ak.self.read_cursor.query.list",
         Get,
         "/_cokret/self/read-cursors"
     ),
     endpoint!(
-        "ck.self.strand.query.list",
+        "ak.self.strand.query.list",
         Get,
         "/_cokret/self/realms/{realm_id}/strands"
     ),
     endpoint!(
-        "ck.self.morph.query.list",
+        "ak.self.morph.query.list",
         Get,
         "/_cokret/self/realms/{realm_id}/morphs"
     ),
     endpoint!(
-        "ck.self.space.query.list",
+        "ak.self.space.query.list",
         Get,
         "/_cokret/self/realms/{realm_id}/spaces"
     ),
     endpoint!(
-        "ck.self.views.collection_projection.command.materialize",
+        "ak.self.views.collection_projection.command.materialize",
         Post,
         "/_cokret/self/views/{view_id}/projection"
     ),
     endpoint!(
-        "ck.self.morph.resource.get",
+        "ak.self.morph.resource.get",
         Get,
         "/_cokret/self/realms/{realm_id}/morphs/{morph_id}"
     ),
     endpoint!(
-        "ck.edge.push.command.notify",
+        "ak.edge.push.command.notify",
         Post,
         "/_cokret/edge/push/notify"
     ),
     endpoint!(
-        "ck.edge.push.command.register_device",
+        "ak.edge.push.command.register_device",
         Post,
         "/_cokret/edge/push/register-device"
     ),
     endpoint!(
-        "ck.edge.push.command.unregister_device",
+        "ak.edge.push.command.unregister_device",
         Post,
         "/_cokret/edge/push/unregister-device"
     ),
-    endpoint!("ck.server.query.describe", Get, "/_cokret/describe"),
+    endpoint!("ak.server.query.describe", Get, "/_cokret/describe"),
     endpoint!(
-        "ck.self.account.query.describe",
+        "ak.self.account.query.describe",
         Get,
         "/_cokret/self/account/describe"
     ),
     endpoint!(
-        "ck.self.account.query.viewer",
+        "ak.self.account.query.viewer",
         Get,
         "/_cokret/self/account/viewer"
     ),
     endpoint!(
-        "ck.self.account.command.update_profile",
+        "ak.self.account.command.update_profile",
         Post,
         "/_cokret/self/account/profile"
     ),
     endpoint!(
-        "ck.self.account.stream.subscribe",
+        "ak.self.account.stream.subscribe",
         Get,
         "/_cokret/self/account/subscribe"
     ),
     endpoint!(
-        "ck.self.account.command.revoke_cursor",
+        "ak.self.account.command.revoke_cursor",
         Post,
         "/_cokret/self/account/cursor/revoke"
     ),
     endpoint!(
-        "ck.self.snapshot.query.manifest_head",
+        "ak.self.snapshot.query.manifest_head",
         Get,
         "/_cokret/self/snapshot/head"
     ),
@@ -930,25 +930,25 @@ pub fn protocol_golden_vectors() -> Vec<ProtocolGoldenVector> {
     vec![
         ProtocolGoldenVector {
             name: "cursor_prefix".to_owned(),
-            profile: "ck.conformance.cursor.v1".to_owned(),
+            profile: "ak.conformance.cursor.v1".to_owned(),
             input: json!({"cursor": valid_cursor}),
             expected: json!({"valid": true}),
         },
         ProtocolGoldenVector {
             name: "canonical_digest_prefix".to_owned(),
-            profile: "ck.conformance.digest.v1".to_owned(),
+            profile: "ak.conformance.digest.v1".to_owned(),
             input: json!({"hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"}),
             expected: json!({"valid": true, "algorithm": "sha256"}),
         },
         ProtocolGoldenVector {
             name: "canonical_json_object_order".to_owned(),
-            profile: "ck.conformance.canonical_json.v1".to_owned(),
+            profile: "ak.conformance.canonical_json.v1".to_owned(),
             input: json!({"b": 2, "a": 1}),
             expected: json!({"canonical": "{\"a\":1,\"b\":2}"}),
         },
         ProtocolGoldenVector {
             name: "hlc_shape".to_owned(),
-            profile: "ck.conformance.hlc.v1".to_owned(),
+            profile: "ak.conformance.hlc.v1".to_owned(),
             // encoding.md §7: `^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$`.
             input: json!({"hlc": "01970e589d21-0004-a13f9c2e"}),
             expected: json!({"valid": true, "monotonic_components": ["wall_time", "counter", "node"]}),

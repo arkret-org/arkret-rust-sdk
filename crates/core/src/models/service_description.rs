@@ -182,7 +182,7 @@ impl ServerDescription {
             if !self
                 .supported_profiles
                 .iter()
-                .any(|profile| profile == "ck.profile.directory_service.v1")
+                .any(|profile| profile == "ak.profile.directory_service.v1")
             {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: service_type=directory_service requires \
@@ -263,7 +263,7 @@ mod tests {
             service_type: "directory_service".to_owned(),
             protocol_version: PROTOCOL_VERSION.to_owned(),
             supported_profiles: vec![PROFILE_DIRECTORY_SERVICE.to_owned()],
-            supported_operations: vec!["ck.find.directory.query.describe".to_owned()],
+            supported_operations: vec!["ak.find.directory.query.describe".to_owned()],
             supported_bindings: vec![],
             supported_features: vec![],
             auth_metadata: AuthMetadata::minimal("development"),
@@ -506,7 +506,7 @@ pub struct AppletInstallPlan {
 }
 
 impl AppletInstallPlan {
-    pub const SCHEMA: &'static str = "ck.schema.applet_install_plan.v1";
+    pub const SCHEMA: &'static str = "ak.schema.applet_install_plan.v1";
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

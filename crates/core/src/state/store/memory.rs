@@ -494,7 +494,7 @@ impl Default for MemoryCellRegistry {
 
         // Membership FSM (per spec event-auth-state-resolution.md §5).
         bindings.insert(
-            "ck.component.member.state.v1".to_owned(),
+            "ak.component.member.state.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::Fsm,
                 bottom_mode: BottomMode::Reject,
@@ -511,7 +511,7 @@ impl Default for MemoryCellRegistry {
 
         // Capability grant or-set.
         bindings.insert(
-            "ck.component.capability.grant.v1".to_owned(),
+            "ak.component.capability.grant.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrSet,
                 bottom_mode: BottomMode::Reject,
@@ -522,7 +522,7 @@ impl Default for MemoryCellRegistry {
 
         // Consent or-set (ck.component.consent.grant.v1) — spec consent-model §3.1.
         bindings.insert(
-            "ck.component.consent.grant.v1".to_owned(),
+            "ak.component.consent.grant.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrSet,
                 bottom_mode: BottomMode::Reject,
@@ -533,7 +533,7 @@ impl Default for MemoryCellRegistry {
 
         // Notary cell — cas-register, bottom=reject.
         bindings.insert(
-            "ck.component.notary.v1".to_owned(),
+            "ak.component.notary.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -544,7 +544,7 @@ impl Default for MemoryCellRegistry {
 
         // Generic Realm policy — cas-register, bottom=reject (spec §5 example).
         bindings.insert(
-            "ck.component.realm.policy.v1".to_owned(),
+            "ak.component.realm.policy.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -555,7 +555,7 @@ impl Default for MemoryCellRegistry {
 
         // Soft display state — mv-register, bottom=expose.
         bindings.insert(
-            "ck.component.Realm.title.v1".to_owned(),
+            "ak.component.Realm.title.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::MvRegister,
                 bottom_mode: BottomMode::Expose,
@@ -566,7 +566,7 @@ impl Default for MemoryCellRegistry {
 
         // Counter (audit / quota counters).
         bindings.insert(
-            "ck.component.metric.counter.v1".to_owned(),
+            "ak.component.metric.counter.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::Counter,
                 bottom_mode: BottomMode::Reject,
@@ -577,7 +577,7 @@ impl Default for MemoryCellRegistry {
 
         // Audit log / message log — ordered-log.
         bindings.insert(
-            "ck.component.audit.log.v1".to_owned(),
+            "ak.component.audit.log.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrderedLog,
                 bottom_mode: BottomMode::Reject,
@@ -589,7 +589,7 @@ impl Default for MemoryCellRegistry {
         // MLS commit Move target cells (spec §10).
         // mls_epoch: cas-register, bottom=reject (racing commits fail closed).
         bindings.insert(
-            "ck.component.mls_epoch.v1".to_owned(),
+            "ak.component.mls_epoch.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -599,7 +599,7 @@ impl Default for MemoryCellRegistry {
         );
         // key_schedule: cas-register, bottom=reject (one schedule per epoch).
         bindings.insert(
-            "ck.component.key_schedule.v1".to_owned(),
+            "ak.component.key_schedule.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -611,7 +611,7 @@ impl Default for MemoryCellRegistry {
         // accumulate; lag exposes multi-head to projection but doesn't
         // block governance Moves).
         bindings.insert(
-            "ck.component.covered_seals.v1".to_owned(),
+            "ak.component.covered_seals.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrSet,
                 bottom_mode: BottomMode::Expose,

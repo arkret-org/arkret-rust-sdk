@@ -214,16 +214,16 @@ const FORBIDDEN_PLAINTEXT_PARENT_LEAF: &[(&str, &str)] = &[
 ];
 
 pub const AGENT_LIFECYCLE_SILENT_KINDS: &[&str] = &[
-    "ck.self.agent.pause",
-    "ck.self.agent.resume",
-    "ck.self.agent.deactivate",
+    "ak.self.agent.pause",
+    "ak.self.agent.resume",
+    "ak.self.agent.deactivate",
 ];
 
 pub const AGENT_ACTOR_PRIVATE_KINDS: &[&str] = &[
-    "ck.agent.draft.propose",
-    "ck.agent.action_request",
-    "ck.agent.action_approve",
-    "ck.agent.action_reject",
+    "ak.agent.draft.propose",
+    "ak.agent.action_request",
+    "ak.agent.action_approve",
+    "ak.agent.action_reject",
 ];
 
 pub const PHASE_P2_AGENT_TYPED_ID_PREFIXES: &[&str] = &[
@@ -423,14 +423,14 @@ mod tests {
     #[test]
     fn classifies_agent_event_kinds() {
         assert_eq!(
-            classify_agent_event_kind("ck.self.agent.pause"),
+            classify_agent_event_kind("ak.self.agent.pause"),
             Some(AgentEventRouting::DurableLifecycle)
         );
         assert_eq!(
-            classify_agent_event_kind("ck.agent.action_request"),
+            classify_agent_event_kind("ak.agent.action_request"),
             Some(AgentEventRouting::ActorPrivateDrop)
         );
-        assert_eq!(classify_agent_event_kind("ck.message.create"), None);
+        assert_eq!(classify_agent_event_kind("ak.message.create"), None);
     }
 
     #[test]

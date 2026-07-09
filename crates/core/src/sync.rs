@@ -1162,7 +1162,7 @@ mod tests {
             timeline_limit: Some(20),
             lazy_load_members: true,
             include_redundant_members: false,
-            event_types: vec!["ck.message.create".to_owned()],
+            event_types: vec!["ak.message.create".to_owned()],
             not_event_types: Vec::new(),
             extra: BTreeMap::new(),
         };
@@ -1205,11 +1205,11 @@ mod tests {
             lazy_load_members: true,
             include_redundant_members: false,
             event_types: vec![
-                "ck.reaction.add".to_owned(),
-                "ck.message.create".to_owned(),
-                "ck.message.create".to_owned(),
+                "ak.reaction.add".to_owned(),
+                "ak.message.create".to_owned(),
+                "ak.message.create".to_owned(),
             ],
-            not_event_types: vec!["ck.audit.accessed".to_owned(), "ck.redaction".to_owned()],
+            not_event_types: vec!["ak.audit.accessed".to_owned(), "ck.redaction".to_owned()],
             extra: BTreeMap::new(),
         };
         let filter_b = SyncFilter {
@@ -1217,8 +1217,8 @@ mod tests {
             timeline_limit: Some(20),
             lazy_load_members: true,
             include_redundant_members: false,
-            event_types: vec!["ck.message.create".to_owned(), "ck.reaction.add".to_owned()],
-            not_event_types: vec!["ck.redaction".to_owned(), "ck.audit.accessed".to_owned()],
+            event_types: vec!["ak.message.create".to_owned(), "ck.reaction.add".to_owned()],
+            not_event_types: vec!["ak.redaction".to_owned(), "ck.audit.accessed".to_owned()],
             extra: BTreeMap::new(),
         };
         let subscriptions_a = SubscriptionConfig {
@@ -1232,8 +1232,8 @@ mod tests {
                     realm_id: realm_a.clone(),
                     timeline_filter: None,
                     required_state: vec![
-                        "ck.member.state".to_owned(),
-                        "ck.realm.policy".to_owned(),
+                        "ak.member.state".to_owned(),
+                        "ak.realm.policy".to_owned(),
                     ],
                 },
                 RealmSubscription {
@@ -1251,8 +1251,8 @@ mod tests {
                     realm_id: realm_a,
                     timeline_filter: None,
                     required_state: vec![
-                        "ck.realm.policy".to_owned(),
-                        "ck.member.state".to_owned(),
+                        "ak.realm.policy".to_owned(),
+                        "ak.member.state".to_owned(),
                     ],
                 },
                 RealmSubscription {
@@ -1271,7 +1271,7 @@ mod tests {
         );
 
         let mut changed = filter_b;
-        changed.event_types = vec!["ck.message.create".to_owned()];
+        changed.event_types = vec!["ak.message.create".to_owned()];
         assert_ne!(
             sync_filter_digest(Some(&filter_a), Some(&subscriptions_a)).unwrap(),
             sync_filter_digest(Some(&changed), Some(&subscriptions_b)).unwrap()
@@ -1283,7 +1283,7 @@ mod tests {
         let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let actor = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
         let mut newer_hlc = Event::new(
-            "ck.message.create",
+            "ak.message.create",
             realm_id.clone(),
             actor.clone(),
             2,
@@ -1293,7 +1293,7 @@ mod tests {
         .unwrap();
         newer_hlc.event_id = EventId::new("ak:event:01904100-0000-7000-8000-233457bf6148").unwrap();
         let mut deeper = Event::new(
-            "ck.message.create",
+            "ak.message.create",
             realm_id,
             actor,
             1,
@@ -1343,7 +1343,7 @@ mod tests {
     fn limited_timeline_creates_backfill_gap_and_request() {
         let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = Event::new(
-            "ck.message.create",
+            "ak.message.create",
             realm_id.clone(),
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             1,

@@ -704,7 +704,7 @@ where
     // 1. realm binding.
     if &payload.realm_id != expected_realm_id {
         return Err(Error::Protocol(format!(
-            "ck.realm.organization realm_id must equal Event.realm_id ({})",
+            "ak.realm.organization realm_id must equal Event.realm_id ({})",
             crate::ERROR_CODE_SCHEMA_VIOLATION
         )));
     }
@@ -716,7 +716,7 @@ where
     };
     if !proof_ok {
         return Err(Error::Protocol(format!(
-            "ck.realm.organization authorization.proof must be present ({})",
+            "ak.realm.organization authorization.proof must be present ({})",
             crate::ERROR_CODE_INVALID_SIGNATURE
         )));
     }
@@ -729,13 +729,13 @@ where
     ) {
         (true, None) => {
             return Err(Error::Protocol(format!(
-                "ck.realm.organization issuer_role requires delegation_ref ({})",
+                "ak.realm.organization issuer_role requires delegation_ref ({})",
                 crate::ERROR_CODE_SCHEMA_VIOLATION
             )));
         }
         (false, Some(_)) => {
             return Err(Error::Protocol(format!(
-                "ck.realm.organization delegation_ref only valid for delegated issuer_role ({})",
+                "ak.realm.organization delegation_ref only valid for delegated issuer_role ({})",
                 crate::ERROR_CODE_SCHEMA_VIOLATION
             )));
         }
@@ -744,19 +744,19 @@ where
                 .resolve_delegation(delegation_ref, &payload.organization_id)?
                 .ok_or_else(|| {
                     Error::Protocol(format!(
-                        "ck.realm.organization delegation_ref did not resolve ({})",
+                        "ak.realm.organization delegation_ref did not resolve ({})",
                         crate::REASON_GRANT_REVOKED_UPSTREAM
                     ))
                 })?;
             if !delegation.is_live {
                 return Err(Error::Protocol(format!(
-                    "ck.realm.organization delegation is not live ({})",
+                    "ak.realm.organization delegation is not live ({})",
                     crate::REASON_GRANT_REVOKED_UPSTREAM
                 )));
             }
             if delegation.organization_id != payload.organization_id {
                 return Err(Error::Protocol(format!(
-                    "ck.realm.organization delegation anchored to a different organization ({})",
+                    "ak.realm.organization delegation anchored to a different organization ({})",
                     crate::REASON_GRANT_EXCEEDS_ISSUER_AUTHORITY
                 )));
             }
@@ -765,7 +765,7 @@ where
                 .contains(&payload.relationship)
             {
                 return Err(Error::Protocol(format!(
-                    "ck.realm.organization delegation does not cover relationship ({})",
+                    "ak.realm.organization delegation does not cover relationship ({})",
                     crate::REASON_GRANT_EXCEEDS_ISSUER_AUTHORITY
                 )));
             }
@@ -775,7 +775,7 @@ where
                 .all(|scope| delegation.covered_control_scopes.contains(scope))
             {
                 return Err(Error::Protocol(format!(
-                    "ck.realm.organization delegation does not cover all control_scopes ({})",
+                    "ak.realm.organization delegation does not cover all control_scopes ({})",
                     crate::REASON_GRANT_EXCEEDS_ISSUER_AUTHORITY
                 )));
             }
@@ -786,13 +786,13 @@ where
     // 4. validity window.
     if payload.is_not_yet_valid(now) {
         return Err(Error::Protocol(format!(
-            "ck.realm.organization statement is not yet valid ({})",
+            "ak.realm.organization statement is not yet valid ({})",
             crate::ERROR_CODE_FAILED_PRECONDITION
         )));
     }
     if payload.is_expired(now) {
         return Err(Error::Protocol(format!(
-            "ck.realm.organization statement is expired ({})",
+            "ak.realm.organization statement is expired ({})",
             crate::REASON_TTL_EXPIRED
         )));
     }
@@ -801,13 +801,13 @@ where
     match payload.status {
         RealmOrganizationStatus::Revoked if payload.revokes_statement_id.is_none() => {
             Err(Error::Protocol(format!(
-                "ck.realm.organization revoked status requires revokes_statement_id ({})",
+                "ak.realm.organization revoked status requires revokes_statement_id ({})",
                 crate::ERROR_CODE_SCHEMA_VIOLATION
             )))
         }
         RealmOrganizationStatus::Active if payload.revokes_statement_id.is_some() => {
             Err(Error::Protocol(format!(
-                "ck.realm.organization active status must not carry revokes_statement_id ({})",
+                "ak.realm.organization active status must not carry revokes_statement_id ({})",
                 crate::ERROR_CODE_SCHEMA_VIOLATION
             )))
         }
@@ -816,7 +816,7 @@ where
 }
 
 /// Transcript discriminator for the bytes an organization-side proof signs over.
-pub const ORGANIZATION_STATEMENT_TRANSCRIPT_KIND: &str = "ck.realm.organization.statement.v1";
+pub const ORGANIZATION_STATEMENT_TRANSCRIPT_KIND: &str = "ak.realm.organization.statement.v1";
 
 /// Canonical transcript the organization-side proof signs over. Every statement
 /// field except `authorization.proof` (the signature itself) and the redundant

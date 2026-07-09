@@ -392,7 +392,7 @@ pub struct DidRegistryReceipt {
 }
 
 impl DidRegistryReceipt {
-    pub const SCHEMA: &'static str = "ck.schema.identity_receipt.v1";
+    pub const SCHEMA: &'static str = "ak.schema.identity_receipt.v1";
 
     /// Build and sign a receipt with the **registry's** Ed25519 key.
     #[allow(clippy::too_many_arguments)]

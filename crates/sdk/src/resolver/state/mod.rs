@@ -208,51 +208,51 @@ impl RealmState {
 
             // Realm lifecycle - generic state reduction. Container-level
             // (`ck.space.*`) lifecycle is covered by the OP_SPACE_* arms above.
-            "ck.realm.create"
-            | "ck.realm.update"
-            | "ck.realm.organization"
-            | "ck.realm.link"
-            | "ck.realm.inheritance_policy"
-            | "ck.realm.join_rule"
-            | "ck.realm.history_visibility"
-            | "ck.realm.discovery"
-            | "ck.realm.archive"
-            | "ck.realm.freeze"
-            | "ck.realm.destroy" => self.reduce_realm_lifecycle_event(event)?,
+            "ak.realm.create"
+            | "ak.realm.update"
+            | "ak.realm.organization"
+            | "ak.realm.link"
+            | "ak.realm.inheritance_policy"
+            | "ak.realm.join_rule"
+            | "ak.realm.history_visibility"
+            | "ak.realm.discovery"
+            | "ak.realm.archive"
+            | "ak.realm.freeze"
+            | "ak.realm.destroy" => self.reduce_realm_lifecycle_event(event)?,
 
             // Member / capability / invite / policy / read-marker state
-            "ck.member.state"
-            | "ck.capability.grant"
-            | "ck.capability.delegate"
-            | "ck.capability.revoke"
-            | "ck.realm.policy"
-            | "ck.policy.set"
-            | "ck.invite.create"
-            | "ck.invite.cancel"
-            | "ck.invite.accept"
-            | "ck.read_cursor.advance"
+            "ak.member.state"
+            | "ak.capability.grant"
+            | "ak.capability.delegate"
+            | "ak.capability.revoke"
+            | "ak.realm.policy"
+            | "ak.policy.set"
+            | "ak.invite.create"
+            | "ak.invite.cancel"
+            | "ak.invite.accept"
+            | "ak.read_cursor.advance"
             // Account lifecycle (account-lifecycle.md §3 +
             // event-auth-state-resolution.md). The cell subject is the
             // account DID; the latest event wins per HLC ordering.
-            | "ck.account.status"
-            | "ck.account.deactivation"
-            | "ck.account.erasure"
+            | "ak.account.status"
+            | "ak.account.deactivation"
+            | "ak.account.erasure"
             // Moderation reports / franks (moderation.md §3).
             // Reports are state events keyed by `(target_ref, reporter)`;
             // franks bind a per-message receipt for E2EE accountability.
-            | "ck.self.moderation.report"
-            | "ck.moderation.franking_proof" => self.reduce_generic_state_event(event)?,
+            | "ak.self.moderation.report"
+            | "ak.moderation.franking_proof" => self.reduce_generic_state_event(event)?,
 
             // Message timeline
-            "ck.message.create" => self.create_message(event)?,
-            "ck.message.revise" => self.revise_message(event)?,
-            "ck.message.redact" => self.redact_message(event)?,
+            "ak.message.create" => self.create_message(event)?,
+            "ak.message.revise" => self.revise_message(event)?,
+            "ak.message.redact" => self.redact_message(event)?,
 
             // Reactions
-            "ck.reaction.add" | "ck.reaction.remove" => self.reduce_reaction(event)?,
+            "ak.reaction.add" | "ck.reaction.remove" => self.reduce_reaction(event)?,
 
             // Realm upgrade
-            "ck.realm.upgrade" => self.upgrade_realm(event)?,
+            "ak.realm.upgrade" => self.upgrade_realm(event)?,
 
             // Generic redaction. Round 11 (2026-05-16): also flips Strand /
             // Morph subject state to Redacted per spec common-fields.md
@@ -261,7 +261,7 @@ impl RealmState {
             // rejects already-terminal source with `<kind>_already_terminal`.
             // Space is excluded — spec note "Space has no redacted state" routes
             // Space removal through `ck.space.tombstone` only.
-            "ck.redaction" => {
+            "ak.redaction" => {
                 self.redact_object_for_event(event)?;
                 if let Some(redacted_ref) = &event.redacts {
                     self.redact_event(redacted_ref)?;
@@ -330,14 +330,14 @@ impl RealmState {
     pub(super) fn is_maintenance_event(event: &Event) -> bool {
         matches!(
             event.kind.as_str(),
-            "ck.message.redact"
-                | "ck.realm.redact"
-                | "ck.realm.export"
-                | "ck.realm.legal_hold"
-                | "ck.realm.migration_proof"
-                | "ck.realm.upgrade"
-                | "ck.realm.destroy"
-                | "ck.redaction"
+            "ak.message.redact"
+                | "ak.realm.redact"
+                | "ak.realm.export"
+                | "ak.realm.legal_hold"
+                | "ak.realm.migration_proof"
+                | "ak.realm.upgrade"
+                | "ak.realm.destroy"
+                | "ak.redaction"
         ) || event.redacts.is_some()
     }
 
@@ -366,11 +366,11 @@ impl RealmState {
 
     pub fn effective_capability(&self, capability_id: &str) -> Option<&ResolvedStateEvent> {
         self.resolved_state
-            .get(&format!("ck.capability|{}", capability_id))
+            .get(&format!("ak.capability|{}", capability_id))
             .filter(|event| {
                 matches!(
                     event.kind.as_str(),
-                    "ck.capability.grant" | "ck.capability.delegate"
+                    "ak.capability.grant" | "ck.capability.delegate"
                 )
             })
     }

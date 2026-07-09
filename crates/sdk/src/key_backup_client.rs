@@ -103,7 +103,7 @@ mod tests {
                 }),
                 aead: arkret_core::KeyBackupAead {
                     name: "xchacha20_poly1305".to_owned(),
-                    aead_profile: Some("ck.aead.xchacha20_poly1305.v1".to_owned()),
+                    aead_profile: Some("ak.aead.xchacha20_poly1305.v1".to_owned()),
                     nonce: Some("nonce".to_owned()),
                     nonce_salt: Some("nonce-salt".to_owned()),
                     enc: None,

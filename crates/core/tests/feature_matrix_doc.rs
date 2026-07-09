@@ -28,9 +28,9 @@ fn feature_matrix_markdown() -> String {
 fn documented_profile_ids(markdown: &str) -> BTreeSet<String> {
     let mut ids = BTreeSet::new();
     let mut rest = markdown;
-    // Simple, dependency-free scan: find each "ck.profile." occurrence and read
+    // Simple, dependency-free scan: find each "ak.profile." occurrence and read
     // the identifier run (letters, digits, '_', '.').
-    while let Some(start) = rest.find("ck.profile.") {
+    while let Some(start) = rest.find("ak.profile.") {
         let tail = &rest[start..];
         let end = tail
             .char_indices()
@@ -43,7 +43,7 @@ fn documented_profile_ids(markdown: &str) -> BTreeSet<String> {
             id.pop();
         }
         // Only keep versioned profile IDs (`...vN`), skipping bare prose like
-        // "ck.profile." mentions without a version suffix.
+        // "ak.profile." mentions without a version suffix.
         if id.rsplit('.').next().is_some_and(|last| {
             last.starts_with('v') && last[1..].chars().all(|c| c.is_ascii_digit()) && last.len() > 1
         }) {

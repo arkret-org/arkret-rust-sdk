@@ -31,5 +31,5 @@ pub struct CrossSigningResetPayload {
 }
 
 impl CrossSigningResetPayload {
-    pub const SCHEMA: &'static str = "ck.schema.cross_signing_reset.v1";
+    pub const SCHEMA: &'static str = "ak.schema.cross_signing_reset.v1";
 }

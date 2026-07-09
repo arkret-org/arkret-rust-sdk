@@ -145,14 +145,14 @@ pub enum DeviceVerificationMessageKind {
 impl DeviceVerificationMessageKind {
     pub fn as_event_kind(&self) -> &'static str {
         match self {
-            Self::Request => "ck.key.verification.request",
-            Self::Ready => "ck.key.verification.ready",
-            Self::Start => "ck.key.verification.start",
-            Self::Accept => "ck.key.verification.accept",
-            Self::Key => "ck.key.verification.key",
-            Self::Mac => "ck.key.verification.mac",
-            Self::Done => "ck.key.verification.done",
-            Self::Cancel => "ck.key.verification.cancel",
+            Self::Request => "ak.key.verification.request",
+            Self::Ready => "ak.key.verification.ready",
+            Self::Start => "ak.key.verification.start",
+            Self::Accept => "ak.key.verification.accept",
+            Self::Key => "ak.key.verification.key",
+            Self::Mac => "ak.key.verification.mac",
+            Self::Done => "ak.key.verification.done",
+            Self::Cancel => "ak.key.verification.cancel",
         }
     }
 }

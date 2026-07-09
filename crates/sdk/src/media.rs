@@ -23,10 +23,10 @@ use crate::{AEAD_ALGORITHM, BlobRef, CallId, DeviceId, Did, Error, RealmId, Resu
 /// signing input (`media-service-binding.md` §3). Equals the v1 binding
 /// `scheme` byte-for-byte; a single `0x00` separates it from the canonical
 /// JSON of the seven authoritative fields.
-pub const PARTICIPANT_BINDING_LABEL: &str = "ck.media.participant_binding.v1";
+pub const PARTICIPANT_BINDING_LABEL: &str = "ak.media.participant_binding.v1";
 
 /// Derivation profile for the SDK's deterministic local thumbnail preview.
-pub const THUMBNAIL_DERIVATION_PROFILE: &str = "ck.profile.media.thumbnail_preview.v1";
+pub const THUMBNAIL_DERIVATION_PROFILE: &str = "ak.profile.media.thumbnail_preview.v1";
 
 // ─── CKP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
 
@@ -296,7 +296,7 @@ struct ParticipantBindingSigningFields<'a> {
 /// Rebuild the normative `signing_input` for a participant binding:
 ///
 /// ```text
-/// "ck.media.participant_binding.v1" || 0x00 ||
+/// "ak.media.participant_binding.v1" || 0x00 ||
 /// canonical_json({ actor_id, call_id, device_id, expires_at,
 ///                  focus_id, participant_identity, realm_id })
 /// ```
@@ -1178,7 +1178,7 @@ mod tests {
         // this same function.
         let signing_input =
             participant_binding_signing_input(&outcome.participant_binding).unwrap();
-        assert!(signing_input.starts_with(b"ck.media.participant_binding.v1\x00"));
+        assert!(signing_input.starts_with(b"ak.media.participant_binding.v1\x00"));
     }
 
     #[test]

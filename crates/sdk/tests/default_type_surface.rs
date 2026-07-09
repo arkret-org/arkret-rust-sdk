@@ -17,7 +17,7 @@ fn default_feature_surface_exposes_protocol_types() -> arkret::Result<()> {
     .with_payload(json!({
         "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
         "track_name": "main",
-        "content": {"kind": "ck.content.text", "body": "hello"}
+        "content": {"kind": "ak.content.text", "body": "hello"}
     }))
     .build(&OperationKindRegistry::default())?;
 

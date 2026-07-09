@@ -44,11 +44,11 @@
 //! let validator = ProfileValidator::new(ServiceType::PushGateway);
 //! let claims = [
 //!     ProfileClaim::new(
-//!         "ck.profile.push_gateway.v1",
+//!         "ak.profile.push_gateway.v1",
 //!         ProfileClaimKind::ConformanceVerified,
 //!     ),
 //!     ProfileClaim::new(
-//!         "ck.profile.push_gateway.matrix_passthrough.v1",
+//!         "ak.profile.push_gateway.matrix_passthrough.v1",
 //!         ProfileClaimKind::ConformanceVerified,
 //!     ),
 //! ];
@@ -366,7 +366,7 @@ mod tests {
     fn client_validator_rejects_gateway_profile_claim() {
         let validator = ProfileValidator::for_client();
         let errors = validator
-            .validate(&[ProfileClaim::self_claimed("ck.profile.push_gateway.v1")])
+            .validate(&[ProfileClaim::self_claimed("ak.profile.push_gateway.v1")])
             .expect_err("client must not claim a gateway profile");
         assert_eq!(errors.len(), 1);
         match &errors[0] {
@@ -382,12 +382,12 @@ mod tests {
         let validator = ProfileValidator::for_client();
         validator
             .validate(&[
-                ProfileClaim::conformance_verified("ck.profile.chat_mvp.v1"),
-                ProfileClaim::conformance_verified("ck.profile.kanban_mvp.v1"),
+                ProfileClaim::conformance_verified("ak.profile.chat_mvp.v1"),
+                ProfileClaim::conformance_verified("ak.profile.kanban_mvp.v1"),
                 // Admin profiles (deployment posture) are allowed on the
                 // client because clients ship with a deployment stance.
-                ProfileClaim::self_claimed("ck.profile.personal_node.v1"),
-                ProfileClaim::conformance_verified("ck.profile.matrix_compat.v1"),
+                ProfileClaim::self_claimed("ak.profile.personal_node.v1"),
+                ProfileClaim::conformance_verified("ak.profile.matrix_compat.v1"),
             ])
             .expect("client + client_profile + admin + interop must validate");
     }
@@ -397,9 +397,9 @@ mod tests {
         let validator = ProfileValidator::new(ServiceType::PushGateway);
         validator
             .validate(&[
-                ProfileClaim::conformance_verified("ck.profile.push_gateway.v1"),
-                ProfileClaim::conformance_verified("ck.profile.push_gateway.blind_wakeup.v1"),
-                ProfileClaim::conformance_verified("ck.profile.push_gateway.matrix_passthrough.v1"),
+                ProfileClaim::conformance_verified("ak.profile.push_gateway.v1"),
+                ProfileClaim::conformance_verified("ak.profile.push_gateway.blind_wakeup.v1"),
+                ProfileClaim::conformance_verified("ak.profile.push_gateway.matrix_passthrough.v1"),
             ])
             .expect("push_gateway may claim gateway + interop");
     }
@@ -408,7 +408,7 @@ mod tests {
     fn directory_service_rejects_server_profile() {
         let validator = ProfileValidator::new(ServiceType::DirectoryService);
         let errors = validator
-            .validate(&[ProfileClaim::self_claimed("ck.profile.principal_server.v1")])
+            .validate(&[ProfileClaim::self_claimed("ak.profile.principal_server.v1")])
             .expect_err("directory service must not claim server profile");
         assert_eq!(errors.len(), 1);
     }
@@ -418,7 +418,7 @@ mod tests {
         let validator = ProfileValidator::for_client();
         let errors = validator
             .validate(&[ProfileClaim::conformance_verified(
-                "ck.profile.not_in_spec.v1",
+                "ak.profile.not_in_spec.v1",
             )])
             .expect_err("unknown profile must fail closed");
         assert!(matches!(
@@ -428,7 +428,7 @@ mod tests {
 
         let errors = validator
             .validate(&[ProfileClaim::experimental(
-                "ck.profile.experimental_thing.v1",
+                "ak.profile.experimental_thing.v1",
             )])
             .expect_err("experimental + unknown surfaces by default");
         assert!(matches!(
@@ -439,7 +439,7 @@ mod tests {
         let permissive = ProfileValidator::for_client().accept_experimental_unknown();
         permissive
             .validate(&[ProfileClaim::experimental(
-                "ck.profile.experimental_thing.v1",
+                "ak.profile.experimental_thing.v1",
             )])
             .expect("permissive validator accepts experimental unknown ids");
     }
@@ -449,9 +449,9 @@ mod tests {
         let validator = ProfileValidator::for_client();
         let errors = validator
             .validate(&[
-                ProfileClaim::self_claimed("ck.profile.push_gateway.v1"),
-                ProfileClaim::self_claimed("ck.profile.directory_service.v1"),
-                ProfileClaim::self_claimed("ck.profile.principal_server.v1"),
+                ProfileClaim::self_claimed("ak.profile.push_gateway.v1"),
+                ProfileClaim::self_claimed("ak.profile.directory_service.v1"),
+                ProfileClaim::self_claimed("ak.profile.principal_server.v1"),
             ])
             .expect_err("three mismatched claims => three errors");
         assert_eq!(errors.len(), 3);

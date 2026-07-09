@@ -384,7 +384,7 @@ fn joined_control_view_hash(
     state_root: &Hash,
 ) -> Result<Hash, SealReject> {
     let json = serde_json::json!({
-        "schema": "ck.schema.joined_control_view.v1",
+        "schema": "ak.schema.joined_control_view.v1",
         "leaves": leaves.iter().map(|leaf| leaf.as_str()).collect::<Vec<_>>(),
         "covered_event_digests": covered_event_digests
             .iter()

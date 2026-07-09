@@ -1,147 +1,147 @@
 use serde::{Deserialize, Serialize};
 
-pub const ACCOUNT_BLOCKLIST: &str = "ck.account.blocklist";
-pub const ACCOUNT_STATUS: &str = "ck.account.status";
-pub const ACCOUNT_DATA_SET: &str = "ck.account_data.set";
-pub const ACTOR_DISCOVERY: &str = "ck.actor.discovery";
-pub const AGENT_ENDPOINT: &str = "ck.agent.endpoint";
-pub const AGENT_KEY_AUTHORIZE: &str = "ck.agent.key.authorize";
-pub const AGENT_KEY_REVOKE: &str = "ck.agent.key.revoke";
-pub const AGENT_KEY_ROTATE: &str = "ck.agent.key.rotate";
+pub const ACCOUNT_BLOCKLIST: &str = "ak.account.blocklist";
+pub const ACCOUNT_STATUS: &str = "ak.account.status";
+pub const ACCOUNT_DATA_SET: &str = "ak.account_data.set";
+pub const ACTOR_DISCOVERY: &str = "ak.actor.discovery";
+pub const AGENT_ENDPOINT: &str = "ak.agent.endpoint";
+pub const AGENT_KEY_AUTHORIZE: &str = "ak.agent.key.authorize";
+pub const AGENT_KEY_REVOKE: &str = "ak.agent.key.revoke";
+pub const AGENT_KEY_ROTATE: &str = "ak.agent.key.rotate";
 pub const AGENT_KEY_AUTHORIZED: &str = AGENT_KEY_AUTHORIZE;
 pub const AGENT_KEY_REVOKED: &str = AGENT_KEY_REVOKE;
 pub const AGENT_KEY_ROTATED: &str = AGENT_KEY_ROTATE;
 // CKP-0008 / CKP-0009 (spec head 37ce729) — personal-agent lifecycle event
 // kinds (durable, reducer-input).
-pub const AGENT_PAUSE: &str = "ck.self.agent.pause";
-pub const AGENT_RESUME: &str = "ck.self.agent.resume";
-pub const AGENT_DEACTIVATE: &str = "ck.self.agent.deactivate";
+pub const AGENT_PAUSE: &str = "ak.self.agent.pause";
+pub const AGENT_RESUME: &str = "ak.self.agent.resume";
+pub const AGENT_DEACTIVATE: &str = "ak.self.agent.deactivate";
 // CKP-0008 / CKP-0009 — agent action / draft event kinds (actor_private).
-pub const AGENT_DRAFT_PROPOSE: &str = "ck.agent.draft.propose";
-pub const AGENT_ACTION_REQUEST: &str = "ck.agent.action_request";
-pub const AGENT_ACTION_APPROVE: &str = "ck.agent.action_approve";
-pub const AGENT_ACTION_REJECT: &str = "ck.agent.action_reject";
-pub const AGENT_INTEROP_SESSION_RESULT: &str = "ck.agent.interop_session.result";
-pub const AGENT_INTEROP_SESSION_START: &str = "ck.agent.interop_session.start";
-pub const AGENT_INTEROP_SESSION_STATUS: &str = "ck.agent.interop_session.status";
-pub const APPLET_BRIDGE_ERROR: &str = "ck.applet.bridge_error";
-pub const APPLET_DISCOVERY: &str = "ck.applet.discovery";
-pub const APPLET_INTEROP_SESSION_START: &str = "ck.applet.interop_session.start";
-pub const APPLET_INTEROP_SESSION_STATUS: &str = "ck.applet.interop_session.status";
-pub const APPLET_REGISTRATION: &str = "ck.applet.registration";
-pub const ATTESTATION_RANGE_COMPLETENESS: &str = "ck.attestation.range_completeness";
-pub const AUDIT_ACCESSED: &str = "ck.audit.accessed";
+pub const AGENT_DRAFT_PROPOSE: &str = "ak.agent.draft.propose";
+pub const AGENT_ACTION_REQUEST: &str = "ak.agent.action_request";
+pub const AGENT_ACTION_APPROVE: &str = "ak.agent.action_approve";
+pub const AGENT_ACTION_REJECT: &str = "ak.agent.action_reject";
+pub const AGENT_INTEROP_SESSION_RESULT: &str = "ak.agent.interop_session.result";
+pub const AGENT_INTEROP_SESSION_START: &str = "ak.agent.interop_session.start";
+pub const AGENT_INTEROP_SESSION_STATUS: &str = "ak.agent.interop_session.status";
+pub const APPLET_BRIDGE_ERROR: &str = "ak.applet.bridge_error";
+pub const APPLET_DISCOVERY: &str = "ak.applet.discovery";
+pub const APPLET_INTEROP_SESSION_START: &str = "ak.applet.interop_session.start";
+pub const APPLET_INTEROP_SESSION_STATUS: &str = "ak.applet.interop_session.status";
+pub const APPLET_REGISTRATION: &str = "ak.applet.registration";
+pub const ATTESTATION_RANGE_COMPLETENESS: &str = "ak.attestation.range_completeness";
+pub const AUDIT_ACCESSED: &str = "ak.audit.accessed";
 // Audit release session model (spec @ 2026-06-04): audit applets bind via
 // ck.audit.applet_binding and stage sealed historical releases through the
 // session lifecycle (request/authorize/notice/release/close). Replaces the
 // retired standing audit-member events ck.audit.epoch_key_destruction and
 // ck.realm.audit_policy_downgrade.
-pub const AUDIT_APPLET_BINDING: &str = "ck.audit.applet_binding";
-pub const AUDIT_ERASURE_RECEIPT: &str = "ck.audit.erasure_receipt";
-pub const AUDIT_RELEASE: &str = "ck.audit.release";
-pub const AUDIT_RYW_RECEIPT: &str = "ck.audit.ryw_receipt";
-pub const AUDIT_SESSION_AUTHORIZE: &str = "ck.audit.session.authorize";
-pub const AUDIT_SESSION_CLOSE: &str = "ck.audit.session.close";
-pub const AUDIT_SESSION_NOTICE: &str = "ck.audit.session.notice";
-pub const AUDIT_SESSION_REQUEST: &str = "ck.audit.session.request";
-pub const CALL_RECORDING_START: &str = "ck.call.recording.start";
-pub const CALL_SIGNAL: &str = "ck.call.signal";
-pub const CALL_STATE: &str = "ck.call.state";
-pub const CALL_SUMMARY: &str = "ck.call.summary";
-pub const CAPABILITY_DELEGATE: &str = "ck.capability.delegate";
-pub const CAPABILITY_DERIVED: &str = "ck.capability.derived";
-pub const CAPABILITY_GRANT: &str = "ck.capability.grant";
-pub const CAPABILITY_REVOKE: &str = "ck.capability.revoke";
+pub const AUDIT_APPLET_BINDING: &str = "ak.audit.applet_binding";
+pub const AUDIT_ERASURE_RECEIPT: &str = "ak.audit.erasure_receipt";
+pub const AUDIT_RELEASE: &str = "ak.audit.release";
+pub const AUDIT_RYW_RECEIPT: &str = "ak.audit.ryw_receipt";
+pub const AUDIT_SESSION_AUTHORIZE: &str = "ak.audit.session.authorize";
+pub const AUDIT_SESSION_CLOSE: &str = "ak.audit.session.close";
+pub const AUDIT_SESSION_NOTICE: &str = "ak.audit.session.notice";
+pub const AUDIT_SESSION_REQUEST: &str = "ak.audit.session.request";
+pub const CALL_RECORDING_START: &str = "ak.call.recording.start";
+pub const CALL_SIGNAL: &str = "ak.call.signal";
+pub const CALL_STATE: &str = "ak.call.state";
+pub const CALL_SUMMARY: &str = "ak.call.summary";
+pub const CAPABILITY_DELEGATE: &str = "ak.capability.delegate";
+pub const CAPABILITY_DERIVED: &str = "ak.capability.derived";
+pub const CAPABILITY_GRANT: &str = "ak.capability.grant";
+pub const CAPABILITY_REVOKE: &str = "ak.capability.revoke";
 // CKP-0007 (spec b7d35be) — Circle primitive event kinds. 7 active kinds
 // registered in `event-kind-registry.json` v2026-05-08.
-pub const CIRCLE_CREATE: &str = "ck.circle.create";
-pub const CIRCLE_UPDATE: &str = "ck.circle.update";
-pub const CIRCLE_ARCHIVE: &str = "ck.circle.archive";
-pub const CIRCLE_RESTORE: &str = "ck.circle.restore";
-pub const CIRCLE_TOMBSTONE: &str = "ck.circle.tombstone";
-pub const CIRCLE_MEMBER_STATE: &str = "ck.circle.member.state";
-pub const CIRCLE_SEAL_COMMIT: &str = "ck.circle.seal_commit";
-pub const CONSENT_GRANT: &str = "ck.consent.grant";
-pub const CONSENT_REVOKE: &str = "ck.consent.revoke";
+pub const CIRCLE_CREATE: &str = "ak.circle.create";
+pub const CIRCLE_UPDATE: &str = "ak.circle.update";
+pub const CIRCLE_ARCHIVE: &str = "ak.circle.archive";
+pub const CIRCLE_RESTORE: &str = "ak.circle.restore";
+pub const CIRCLE_TOMBSTONE: &str = "ak.circle.tombstone";
+pub const CIRCLE_MEMBER_STATE: &str = "ak.circle.member.state";
+pub const CIRCLE_SEAL_COMMIT: &str = "ak.circle.seal_commit";
+pub const CONSENT_GRANT: &str = "ak.consent.grant";
+pub const CONSENT_REVOKE: &str = "ak.consent.revoke";
 // CKP-0015 contact enhancement — durable, reducer-input contact-request
 // lifecycle and the direct-conversation Realm binding it produces.
-pub const CONTACT_ACCEPTED: &str = "ck.contact.accepted";
-pub const CONTACT_REJECTED: &str = "ck.contact.rejected";
-pub const CONTACT_REQUESTED: &str = "ck.contact.requested";
-pub const CONTACT_TOMBSTONED: &str = "ck.contact.tombstoned";
-pub const CONTAINER_MOVE_ITEM: &str = "ck.container.move_item";
-pub const CONTAINER_REBALANCE: &str = "ck.container.rebalance";
-pub const CROSS_SIGNING_PUBLISH: &str = "ck.cross_signing.publish";
-pub const CROSS_SIGNING_RESET: &str = "ck.cross_signing.reset";
-pub const DEVICE_AUTHORIZE: &str = "ck.device.authorize";
+pub const CONTACT_ACCEPTED: &str = "ak.contact.accepted";
+pub const CONTACT_REJECTED: &str = "ak.contact.rejected";
+pub const CONTACT_REQUESTED: &str = "ak.contact.requested";
+pub const CONTACT_TOMBSTONED: &str = "ak.contact.tombstoned";
+pub const CONTAINER_MOVE_ITEM: &str = "ak.container.move_item";
+pub const CONTAINER_REBALANCE: &str = "ak.container.rebalance";
+pub const CROSS_SIGNING_PUBLISH: &str = "ak.cross_signing.publish";
+pub const CROSS_SIGNING_RESET: &str = "ak.cross_signing.reset";
+pub const DEVICE_AUTHORIZE: &str = "ak.device.authorize";
 pub const DEVICE_AUTHORIZED: &str = DEVICE_AUTHORIZE;
-pub const DEVICE_LIST_UPDATE: &str = "ck.device.list_update";
-pub const DEVICE_PUSH_ROUTE: &str = "ck.device.push_route";
-pub const DEVICE_REVOKE: &str = "ck.device.revoke";
+pub const DEVICE_LIST_UPDATE: &str = "ak.device.list_update";
+pub const DEVICE_PUSH_ROUTE: &str = "ak.device.push_route";
+pub const DEVICE_REVOKE: &str = "ak.device.revoke";
 pub const DEVICE_REVOKED: &str = DEVICE_REVOKE;
-pub const DID_PROOF: &str = "ck.did.proof";
+pub const DID_PROOF: &str = "ak.did.proof";
 // CKP-0015 contact enhancement — direct-conversation Realm binding emitted
 // when a contact request is accepted (category `contact`).
-pub const DIRECT_CONVERSATION_BOUND: &str = "ck.direct_conversation.bound";
-pub const STRAND_ARCHIVE: &str = "ck.strand.archive";
-pub const STRAND_CREATE: &str = "ck.strand.create";
-pub const STRAND_MOVE: &str = "ck.strand.move";
-pub const STRAND_REORDER: &str = "ck.strand.reorder";
-pub const STRAND_RESTORE: &str = "ck.strand.restore";
-pub const STRAND_STAGE_SET: &str = "ck.strand.stage.set";
-pub const STRAND_TRACKS_UPDATE: &str = "ck.strand.tracks.update";
-pub const STRAND_UPDATE: &str = "ck.strand.update";
-pub const STRAND_WATCH_SET: &str = "ck.strand.watch.set";
-pub const HANDLE_DISCOVERY: &str = "ck.handle.discovery";
-pub const IDENTITY_ACCOUNTABILITY_GRANT: &str = "ck.identity.accountability_grant";
-pub const IDENTITY_DISCLOSURE_POLICY: &str = "ck.identity.disclosure_policy";
-pub const IDENTITY_DISCLOSURE_RECEIPT: &str = "ck.identity.disclosure_receipt";
-pub const IDENTITY_PRESENTATION_REQUEST: &str = "ck.identity.presentation_request";
-pub const IDENTITY_PRESENTATION_RESPONSE: &str = "ck.identity.presentation_response";
-pub const INVITE_ACCEPT: &str = "ck.invite.accept";
-pub const INVITE_CANCEL: &str = "ck.invite.cancel";
-pub const INVITE_CLAIM: &str = "ck.invite.claim";
-pub const INVITE_CREATE: &str = "ck.invite.create";
-pub const INVITE_REVOKE: &str = "ck.invite.revoke";
-pub const INVITE_THIRD_PARTY: &str = "ck.invite.third_party";
+pub const DIRECT_CONVERSATION_BOUND: &str = "ak.direct_conversation.bound";
+pub const STRAND_ARCHIVE: &str = "ak.strand.archive";
+pub const STRAND_CREATE: &str = "ak.strand.create";
+pub const STRAND_MOVE: &str = "ak.strand.move";
+pub const STRAND_REORDER: &str = "ak.strand.reorder";
+pub const STRAND_RESTORE: &str = "ak.strand.restore";
+pub const STRAND_STAGE_SET: &str = "ak.strand.stage.set";
+pub const STRAND_TRACKS_UPDATE: &str = "ak.strand.tracks.update";
+pub const STRAND_UPDATE: &str = "ak.strand.update";
+pub const STRAND_WATCH_SET: &str = "ak.strand.watch.set";
+pub const HANDLE_DISCOVERY: &str = "ak.handle.discovery";
+pub const IDENTITY_ACCOUNTABILITY_GRANT: &str = "ak.identity.accountability_grant";
+pub const IDENTITY_DISCLOSURE_POLICY: &str = "ak.identity.disclosure_policy";
+pub const IDENTITY_DISCLOSURE_RECEIPT: &str = "ak.identity.disclosure_receipt";
+pub const IDENTITY_PRESENTATION_REQUEST: &str = "ak.identity.presentation_request";
+pub const IDENTITY_PRESENTATION_RESPONSE: &str = "ak.identity.presentation_response";
+pub const INVITE_ACCEPT: &str = "ak.invite.accept";
+pub const INVITE_CANCEL: &str = "ak.invite.cancel";
+pub const INVITE_CLAIM: &str = "ak.invite.claim";
+pub const INVITE_CREATE: &str = "ak.invite.create";
+pub const INVITE_REVOKE: &str = "ak.invite.revoke";
+pub const INVITE_THIRD_PARTY: &str = "ak.invite.third_party";
 // Key-backup active-series pointer (durable, reducer-input; category `device`).
-pub const KEY_BACKUP_ACTIVE_SERIES: &str = "ck.key_backup.active_series";
-pub const KEY_VERIFICATION_ACCEPT: &str = "ck.key.verification.accept";
-pub const KEY_VERIFICATION_CANCEL: &str = "ck.key.verification.cancel";
-pub const KEY_VERIFICATION_DONE: &str = "ck.key.verification.done";
-pub const KEY_VERIFICATION_KEY: &str = "ck.key.verification.key";
-pub const KEY_VERIFICATION_MAC: &str = "ck.key.verification.mac";
-pub const KEY_VERIFICATION_READY: &str = "ck.key.verification.ready";
-pub const KEY_VERIFICATION_REQUEST: &str = "ck.key.verification.request";
-pub const KEY_VERIFICATION_START: &str = "ck.key.verification.start";
-pub const MEMBER_IDENTITY_UPDATE: &str = "ck.member.identity.update";
-pub const MEMBER_STATE: &str = "ck.member.state";
-pub const MESSAGE_CREATE: &str = "ck.message.create";
-pub const MESSAGE_REDACT: &str = "ck.message.redact";
-pub const MESSAGE_REVISE: &str = "ck.message.revise";
-pub const MIMI_ROOM_BINDING: &str = "ck.mimi.room_binding";
-pub const MLS_COMMIT: &str = "ck.mls.commit";
-pub const MLS_COMMIT_FAILED: &str = "ck.mls.commit_failed";
-pub const MLS_GENESIS: &str = "ck.mls.genesis";
-pub const MLS_KEYPACKAGE: &str = "ck.mls.keypackage";
-pub const MLS_PROPOSAL: &str = "ck.mls.proposal";
-pub const MLS_WELCOME: &str = "ck.mls.welcome";
-pub const MODERATION_APPEAL_CLOSE: &str = "ck.moderation.appeal.close";
-pub const MODERATION_APPEAL_DECISION: &str = "ck.moderation.appeal.decision";
-pub const MODERATION_APPEAL_REVIEW: &str = "ck.moderation.appeal.review";
-pub const MODERATION_APPEAL_SUBMIT: &str = "ck.moderation.appeal.submit";
-pub const MODERATION_DECISION: &str = "ck.moderation.decision";
-pub const MODERATION_DECISION_LIFT: &str = "ck.moderation.decision.lift";
-pub const MODERATION_FRANKING_PROOF: &str = "ck.moderation.franking_proof";
+pub const KEY_BACKUP_ACTIVE_SERIES: &str = "ak.key_backup.active_series";
+pub const KEY_VERIFICATION_ACCEPT: &str = "ak.key.verification.accept";
+pub const KEY_VERIFICATION_CANCEL: &str = "ak.key.verification.cancel";
+pub const KEY_VERIFICATION_DONE: &str = "ak.key.verification.done";
+pub const KEY_VERIFICATION_KEY: &str = "ak.key.verification.key";
+pub const KEY_VERIFICATION_MAC: &str = "ak.key.verification.mac";
+pub const KEY_VERIFICATION_READY: &str = "ak.key.verification.ready";
+pub const KEY_VERIFICATION_REQUEST: &str = "ak.key.verification.request";
+pub const KEY_VERIFICATION_START: &str = "ak.key.verification.start";
+pub const MEMBER_IDENTITY_UPDATE: &str = "ak.member.identity.update";
+pub const MEMBER_STATE: &str = "ak.member.state";
+pub const MESSAGE_CREATE: &str = "ak.message.create";
+pub const MESSAGE_REDACT: &str = "ak.message.redact";
+pub const MESSAGE_REVISE: &str = "ak.message.revise";
+pub const MIMI_ROOM_BINDING: &str = "ak.mimi.room_binding";
+pub const MLS_COMMIT: &str = "ak.mls.commit";
+pub const MLS_COMMIT_FAILED: &str = "ak.mls.commit_failed";
+pub const MLS_GENESIS: &str = "ak.mls.genesis";
+pub const MLS_KEYPACKAGE: &str = "ak.mls.keypackage";
+pub const MLS_PROPOSAL: &str = "ak.mls.proposal";
+pub const MLS_WELCOME: &str = "ak.mls.welcome";
+pub const MODERATION_APPEAL_CLOSE: &str = "ak.moderation.appeal.close";
+pub const MODERATION_APPEAL_DECISION: &str = "ak.moderation.appeal.decision";
+pub const MODERATION_APPEAL_REVIEW: &str = "ak.moderation.appeal.review";
+pub const MODERATION_APPEAL_SUBMIT: &str = "ak.moderation.appeal.submit";
+pub const MODERATION_DECISION: &str = "ak.moderation.decision";
+pub const MODERATION_DECISION_LIFT: &str = "ak.moderation.decision.lift";
+pub const MODERATION_FRANKING_PROOF: &str = "ak.moderation.franking_proof";
 pub const MODERATION_FRANK: &str = MODERATION_FRANKING_PROOF;
-pub const MODERATION_REPORT: &str = "ck.self.moderation.report";
-pub const NOTARY_FAULT_CENSORSHIP: &str = "ck.notary.fault.censorship";
-pub const NOTARY_FAULT_EQUIVOCATION: &str = "ck.notary.fault.equivocation";
+pub const MODERATION_REPORT: &str = "ak.self.moderation.report";
+pub const NOTARY_FAULT_CENSORSHIP: &str = "ak.notary.fault.censorship";
+pub const NOTARY_FAULT_EQUIVOCATION: &str = "ak.notary.fault.equivocation";
 
 /// Object-only schema id — `ck.event_batch_receipt` is NOT an Event.kind.
 /// Returns `true` for kinds that may only appear as a separate object,
 /// MUST NOT appear as `Event.kind` on the wire. Round R2/R3 (2026-05-20).
-pub const RECEIPT_OBJECT_KINDS: &[&str] = &["ck.event_batch_receipt"];
+pub const RECEIPT_OBJECT_KINDS: &[&str] = &["ak.event_batch_receipt"];
 
 /// Broadcast ephemeral signal kinds + the to-device key-verification family.
 /// Round R2/R3 (2026-05-20). Items here MUST NOT be reduced into durable
@@ -177,7 +177,7 @@ pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[
 /// the to-device key-verification and secret-share families. These MUST be rejected by
 /// reducers if delivered as a durable Event (event-envelope.schema.json `not` branch).
 pub fn is_ephemeral_kind(kind: &str) -> bool {
-    if kind.starts_with("ck.key.verification.") {
+    if kind.starts_with("ak.key.verification.") {
         return true;
     }
     EPHEMERAL_EVENT_KIND_PATTERNS.contains(&kind)
@@ -237,88 +237,88 @@ pub enum RealmLifecycleState {
 pub fn is_terminal_realm_state(state: RealmLifecycleState) -> bool {
     matches!(state, RealmLifecycleState::Destroyed)
 }
-pub const MORPH_ARCHIVE: &str = "ck.morph.archive";
-pub const MORPH_CREATE: &str = "ck.morph.create";
-pub const MORPH_RESTORE: &str = "ck.morph.restore";
-pub const MORPH_SCHEMA_MIGRATE: &str = "ck.morph.schema_migrate";
-pub const MORPH_STAGE_SET: &str = "ck.morph.stage.set";
-pub const MORPH_UPDATE: &str = "ck.morph.update";
-pub const ORGANIZATION_DISCOVERY: &str = "ck.organization.discovery";
-pub const ORGANIZATION_MODERATION_POLICY: &str = "ck.organization.moderation_policy";
-pub const PIN_ADD: &str = "ck.pin.add";
-pub const PIN_REMOVE: &str = "ck.pin.remove";
-pub const PIN_REORDER: &str = "ck.pin.reorder";
+pub const MORPH_ARCHIVE: &str = "ak.morph.archive";
+pub const MORPH_CREATE: &str = "ak.morph.create";
+pub const MORPH_RESTORE: &str = "ak.morph.restore";
+pub const MORPH_SCHEMA_MIGRATE: &str = "ak.morph.schema_migrate";
+pub const MORPH_STAGE_SET: &str = "ak.morph.stage.set";
+pub const MORPH_UPDATE: &str = "ak.morph.update";
+pub const ORGANIZATION_DISCOVERY: &str = "ak.organization.discovery";
+pub const ORGANIZATION_MODERATION_POLICY: &str = "ak.organization.moderation_policy";
+pub const PIN_ADD: &str = "ak.pin.add";
+pub const PIN_REMOVE: &str = "ak.pin.remove";
+pub const PIN_REORDER: &str = "ak.pin.reorder";
 // Realm event kinds (security boundary).
 // Top-level governance of the security boundary lives here.
-pub const REALM_ARCHIVE: &str = "ck.realm.archive";
-pub const REALM_ASSET_PRIVACY_POLICY: &str = "ck.realm.asset_privacy_policy";
-pub const REALM_CREATE: &str = "ck.realm.create";
-pub const REALM_DELIVERY_BINDING_POLICY: &str = "ck.realm.delivery_binding_policy";
-pub const REALM_DISAPPEARING_POLICY: &str = "ck.realm.disappearing_policy";
-pub const REALM_DESTROY: &str = "ck.realm.destroy";
-pub const REALM_DISCOVERY: &str = "ck.realm.discovery";
-pub const REALM_FREEZE: &str = "ck.realm.freeze";
-pub const REALM_HISTORY_SHARING_POLICY: &str = "ck.realm.history_sharing_policy";
-pub const REALM_HISTORY_VISIBILITY: &str = "ck.realm.history_visibility";
-pub const REALM_INHERITANCE_POLICY: &str = "ck.realm.inheritance_policy";
-pub const REALM_KEY_REQUEST: &str = "ck.realm_key.request";
-pub const REALM_KEY_SHARE: &str = "ck.realm_key.share";
-pub const REALM_KEY_SHARE_AUDIT: &str = "ck.realm_key.share_audit";
-pub const REALM_KEY_WITHHELD: &str = "ck.realm_key.withheld";
-pub const REALM_JOIN_RULE: &str = "ck.realm.join_rule";
-pub const REALM_LINK: &str = "ck.realm.link";
-pub const REALM_MEDIA_SERVICE: &str = "ck.realm.media_service";
-pub const REALM_MODERATION_POLICY: &str = "ck.realm.moderation_policy";
-pub const REALM_ORGANIZATION: &str = "ck.realm.organization";
-pub const REALM_PLAINTEXT_VISIBLE_SERVICES: &str = "ck.realm.plaintext_visible_services";
-pub const REALM_POLICY: &str = "ck.realm.policy";
-pub const REALM_POLICY_COMPONENTS: &str = "ck.realm.policy_components";
-pub const REALM_POLICY_SERVER: &str = "ck.realm.policy_server";
-pub const REALM_PREVIEW_POLICY: &str = "ck.realm.preview_policy";
-pub const REALM_READ_RECEIPT_POLICY: &str = "ck.realm.read_receipt_policy";
-pub const REALM_SCHEMA: &str = "ck.realm.schema";
-pub const REALM_SEARCH_POLICY: &str = "ck.realm.search_policy";
-pub const REALM_SET_DEFAULT_STRAND: &str = "ck.realm.set_default_strand";
-pub const REALM_TOMBSTONE: &str = "ck.realm.tombstone";
-pub const REALM_UPDATE: &str = "ck.realm.update";
-pub const REALM_UPGRADE: &str = "ck.realm.upgrade";
-pub const POLICY_ACTION: &str = "ck.policy.action";
-pub const POLICY_RULE: &str = "ck.policy.rule";
-pub const POLICY_SET: &str = "ck.policy.set";
-pub const PRESENCE: &str = "ck.presence";
-pub const PROFILE_CREATE: &str = "ck.profile.create";
-pub const PROFILE_REALM_OVERRIDE: &str = "ck.profile.realm_override";
-pub const PROFILE_UPDATE: &str = "ck.profile.update";
-pub const REACTION_ADD: &str = "ck.reaction.add";
-pub const REACTION_REMOVE: &str = "ck.reaction.remove";
-pub const READ_CURSOR_ADVANCE: &str = "ck.read_cursor.advance";
+pub const REALM_ARCHIVE: &str = "ak.realm.archive";
+pub const REALM_ASSET_PRIVACY_POLICY: &str = "ak.realm.asset_privacy_policy";
+pub const REALM_CREATE: &str = "ak.realm.create";
+pub const REALM_DELIVERY_BINDING_POLICY: &str = "ak.realm.delivery_binding_policy";
+pub const REALM_DISAPPEARING_POLICY: &str = "ak.realm.disappearing_policy";
+pub const REALM_DESTROY: &str = "ak.realm.destroy";
+pub const REALM_DISCOVERY: &str = "ak.realm.discovery";
+pub const REALM_FREEZE: &str = "ak.realm.freeze";
+pub const REALM_HISTORY_SHARING_POLICY: &str = "ak.realm.history_sharing_policy";
+pub const REALM_HISTORY_VISIBILITY: &str = "ak.realm.history_visibility";
+pub const REALM_INHERITANCE_POLICY: &str = "ak.realm.inheritance_policy";
+pub const REALM_KEY_REQUEST: &str = "ak.realm_key.request";
+pub const REALM_KEY_SHARE: &str = "ak.realm_key.share";
+pub const REALM_KEY_SHARE_AUDIT: &str = "ak.realm_key.share_audit";
+pub const REALM_KEY_WITHHELD: &str = "ak.realm_key.withheld";
+pub const REALM_JOIN_RULE: &str = "ak.realm.join_rule";
+pub const REALM_LINK: &str = "ak.realm.link";
+pub const REALM_MEDIA_SERVICE: &str = "ak.realm.media_service";
+pub const REALM_MODERATION_POLICY: &str = "ak.realm.moderation_policy";
+pub const REALM_ORGANIZATION: &str = "ak.realm.organization";
+pub const REALM_PLAINTEXT_VISIBLE_SERVICES: &str = "ak.realm.plaintext_visible_services";
+pub const REALM_POLICY: &str = "ak.realm.policy";
+pub const REALM_POLICY_COMPONENTS: &str = "ak.realm.policy_components";
+pub const REALM_POLICY_SERVER: &str = "ak.realm.policy_server";
+pub const REALM_PREVIEW_POLICY: &str = "ak.realm.preview_policy";
+pub const REALM_READ_RECEIPT_POLICY: &str = "ak.realm.read_receipt_policy";
+pub const REALM_SCHEMA: &str = "ak.realm.schema";
+pub const REALM_SEARCH_POLICY: &str = "ak.realm.search_policy";
+pub const REALM_SET_DEFAULT_STRAND: &str = "ak.realm.set_default_strand";
+pub const REALM_TOMBSTONE: &str = "ak.realm.tombstone";
+pub const REALM_UPDATE: &str = "ak.realm.update";
+pub const REALM_UPGRADE: &str = "ak.realm.upgrade";
+pub const POLICY_ACTION: &str = "ak.policy.action";
+pub const POLICY_RULE: &str = "ak.policy.rule";
+pub const POLICY_SET: &str = "ak.policy.set";
+pub const PRESENCE: &str = "ak.presence";
+pub const PROFILE_CREATE: &str = "ak.profile.create";
+pub const PROFILE_REALM_OVERRIDE: &str = "ak.profile.realm_override";
+pub const PROFILE_UPDATE: &str = "ak.profile.update";
+pub const REACTION_ADD: &str = "ak.reaction.add";
+pub const REACTION_REMOVE: &str = "ak.reaction.remove";
+pub const READ_CURSOR_ADVANCE: &str = "ak.read_cursor.advance";
 pub const READ_MARKER: &str = READ_CURSOR_ADVANCE;
-pub const RECEIPT_READ: &str = "ck.receipt.read";
-pub const REDACTION: &str = "ck.redaction";
-pub const RELATION_CREATE: &str = "ck.relation.create";
-pub const RELATION_TOMBSTONE: &str = "ck.relation.tombstone";
+pub const RECEIPT_READ: &str = "ak.receipt.read";
+pub const REDACTION: &str = "ak.redaction";
+pub const RELATION_CREATE: &str = "ak.relation.create";
+pub const RELATION_TOMBSTONE: &str = "ak.relation.tombstone";
 pub const RELATION_DELETE: &str = RELATION_TOMBSTONE;
-pub const RELATION_UPDATE: &str = "ck.relation.update";
-pub const RSVP_SET: &str = "ck.rsvp.set";
-pub const SCHEMA_DEFINE: &str = "ck.schema.define";
-pub const SCHEMA_UPDATE: &str = "ck.schema.update";
-pub const SECRET_REQUEST: &str = "ck.secret.request";
-pub const SECRET_SEND: &str = "ck.secret.send";
-pub const SESSION_GRANT: &str = "ck.session.grant";
-pub const SOVEREIGN_DID_POLICY: &str = "ck.sovereign.did_policy";
+pub const RELATION_UPDATE: &str = "ak.relation.update";
+pub const RSVP_SET: &str = "ak.rsvp.set";
+pub const SCHEMA_DEFINE: &str = "ak.schema.define";
+pub const SCHEMA_UPDATE: &str = "ak.schema.update";
+pub const SECRET_REQUEST: &str = "ak.secret.request";
+pub const SECRET_SEND: &str = "ak.secret.send";
+pub const SESSION_GRANT: &str = "ak.session.grant";
+pub const SOVEREIGN_DID_POLICY: &str = "ak.sovereign.did_policy";
 // Space event kinds (product container).
 // Boards / lists / arbitrary nestable containers live here. Security
 // policies are NOT in this family — see REALM_* above.
-pub const SPACE_ARCHIVE: &str = "ck.space.archive";
-pub const SPACE_CREATE: &str = "ck.space.create";
-pub const SPACE_PARENT: &str = "ck.space.parent";
-pub const SPACE_RESTORE: &str = "ck.space.restore";
-pub const SPACE_TOMBSTONE: &str = "ck.space.tombstone";
-pub const SPACE_UPDATE: &str = "ck.space.update";
-pub const TYPING: &str = "ck.typing";
-pub const VIEW_CREATE: &str = "ck.view.create";
-pub const VIEW_RECONCILE: &str = "ck.view.reconcile";
-pub const VIEW_UPDATE: &str = "ck.view.update";
+pub const SPACE_ARCHIVE: &str = "ak.space.archive";
+pub const SPACE_CREATE: &str = "ak.space.create";
+pub const SPACE_PARENT: &str = "ak.space.parent";
+pub const SPACE_RESTORE: &str = "ak.space.restore";
+pub const SPACE_TOMBSTONE: &str = "ak.space.tombstone";
+pub const SPACE_UPDATE: &str = "ak.space.update";
+pub const TYPING: &str = "ak.typing";
+pub const VIEW_CREATE: &str = "ak.view.create";
+pub const VIEW_RECONCILE: &str = "ak.view.reconcile";
+pub const VIEW_UPDATE: &str = "ak.view.update";
 
 pub const STANDARD_EVENT_KINDS: &[&str] = &[
     ACCOUNT_BLOCKLIST,
@@ -775,7 +775,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
 }
 
 pub fn is_audit_kind(kind: &str) -> bool {
-    kind.starts_with("ck.audit.")
+    kind.starts_with("ak.audit.")
 }
 
 pub fn is_redaction_kind(kind: &str) -> bool {
@@ -916,14 +916,14 @@ mod tests {
         // Forward compatibility: an unrecognised kind deserialises into
         // `Unknown(raw)` instead of failing the parse. Rejecting unknown
         // standard kinds is the validation layer's job, not serde's.
-        let parsed: EventKind = serde_json::from_str(r#""ck.future.kind""#).unwrap();
-        assert_eq!(parsed, EventKind::Unknown("ck.future.kind".to_owned()));
-        assert_eq!(parsed.as_str(), "ck.future.kind");
+        let parsed: EventKind = serde_json::from_str(r#""ak.future.kind""#).unwrap();
+        assert_eq!(parsed, EventKind::Unknown("ak.future.kind".to_owned()));
+        assert_eq!(parsed.as_str(), "ak.future.kind");
         assert!(!parsed.is_standard());
         // Round-trips back to the same wire string.
         assert_eq!(
             serde_json::to_string(&parsed).unwrap(),
-            r#""ck.future.kind""#
+            r#""ak.future.kind""#
         );
     }
 

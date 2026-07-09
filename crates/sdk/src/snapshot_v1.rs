@@ -155,7 +155,7 @@ mod tests {
             object: json!({
                 "id": "ak:strand:01904100-0000-7000-8000-000000000001",
                 "kind": "strand",
-                "schema": "ck.schema.test.v1"
+                "schema": "ak.schema.test.v1"
             }),
             source_event_id: event_id("000000000001"),
         };
@@ -190,7 +190,7 @@ mod tests {
             id: snapshot_id(),
             realm_id: realm(),
             reducer_profile: SNAPSHOT_REDUCER_PROFILE_V1.to_owned(),
-            schema_profile_refs: vec!["ck.profile.core_event_store.v1".to_owned()],
+            schema_profile_refs: vec!["ak.profile.core_event_store.v1".to_owned()],
             state_digest,
             frontier: SnapshotFrontier {
                 event_ids: vec![covered_event.clone()],
@@ -258,7 +258,7 @@ mod tests {
     fn manifest_tamper_rejects_on_signature_digest() {
         let signing_key = SigningKey::from_bytes(&[8u8; 32]);
         let (mut manifest, _chunks, resolver) = manifest_fixture(&signing_key);
-        manifest.reducer_profile = "ck.reducer.other.v1".to_owned();
+        manifest.reducer_profile = "ak.reducer.other.v1".to_owned();
 
         let err = verify_snapshot_manifest_signature(&manifest, &resolver).unwrap_err();
         assert_eq!(err.code, SnapshotValidationCode::DigestMismatch);
@@ -282,7 +282,7 @@ mod tests {
     fn signed_manifest_still_rejects_tampered_chunk_state() {
         let signing_key = SigningKey::from_bytes(&[10u8; 32]);
         let (manifest, mut chunks, resolver) = manifest_fixture(&signing_key);
-        chunks[0].items[0].object["schema"] = json!("ck.schema.tampered.v1");
+        chunks[0].items[0].object["schema"] = json!("ak.schema.tampered.v1");
 
         let err = verify_snapshot_manifest(
             &manifest,

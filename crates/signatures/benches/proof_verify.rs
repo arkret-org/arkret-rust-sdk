@@ -28,7 +28,7 @@ fn bench_proof_verify(c: &mut Criterion) {
     // Canonical event bytes the proof is anchored to.
     let canonical_bytes = canonical::canonical_json_bytes(&serde_json::json!({
         "actor_id": "did:webvh:z6mkfixture:alice.example",
-        "kind": "ck.message.create",
+        "kind": "ak.message.create",
         "created_at": "2026-06-29T00:00:00Z"
     }))
     .expect("canonicalize event");

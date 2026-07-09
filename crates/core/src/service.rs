@@ -70,34 +70,34 @@ impl ServiceType {
     pub fn allowed_operation_prefixes(&self) -> &'static [&'static str] {
         match self {
             Self::PrincipalServer => &[
-                "ck.self.account.",
-                "ck.self.authz.",
-                "ck.self.blob.",
-                "ck.self.call.",
-                "ck.self.events.",
-                "ck.self.keys.",
-                "ck.self.moderation.",
-                "ck.self.policy.",
-                "ck.self.snapshot.",
-                "ck.policy.",
-                "ck.identity.",
-                "ck.account_data.",
+                "ak.self.account.",
+                "ak.self.authz.",
+                "ak.self.blob.",
+                "ak.self.call.",
+                "ak.self.events.",
+                "ak.self.keys.",
+                "ak.self.moderation.",
+                "ak.self.policy.",
+                "ak.self.snapshot.",
+                "ak.policy.",
+                "ak.identity.",
+                "ak.account_data.",
             ],
-            Self::IdentityRegistry => &["ck.root.identity.", "ck.identity."],
-            Self::AuthServer => &["ck.gate.account.", "ck.self.policy.query.check"],
-            Self::SyncNode => &["ck.self.events.", "ck.self.account.", "ck.self.snapshot."],
-            Self::BlobNode => &["ck.self.blob."],
-            Self::MediaService => &["ck.self.media.", "ck.self.call.media."],
-            Self::DirectoryService => &["ck.find.directory."],
-            Self::DeviceKeyService => &["ck.self.keys."],
-            Self::AuthzService => &["ck.self.authz.", "ck.self.policy.", "ck.policy."],
-            Self::PolicyServer => &["ck.self.policy.", "ck.policy."],
-            Self::PushGateway => &["ck.edge.push."],
-            Self::AppletService => &["ck.edge.applet."],
-            Self::AgentRuntime => &["ck.self.agent.", "ck.gate.account.command.pair_agent_key"],
-            Self::SfuService => &["ck.self.call.media.", "ck.self.media."],
-            Self::TurnService => &["ck.self.media.query.ice_config"],
-            Self::ModerationService => &["ck.self.moderation."],
+            Self::IdentityRegistry => &["ak.root.identity.", "ck.identity."],
+            Self::AuthServer => &["ak.gate.account.", "ck.self.policy.query.check"],
+            Self::SyncNode => &["ak.self.events.", "ck.self.account.", "ck.self.snapshot."],
+            Self::BlobNode => &["ak.self.blob."],
+            Self::MediaService => &["ak.self.media.", "ck.self.call.media."],
+            Self::DirectoryService => &["ak.find.directory."],
+            Self::DeviceKeyService => &["ak.self.keys."],
+            Self::AuthzService => &["ak.self.authz.", "ck.self.policy.", "ck.policy."],
+            Self::PolicyServer => &["ak.self.policy.", "ck.policy."],
+            Self::PushGateway => &["ak.edge.push."],
+            Self::AppletService => &["ak.edge.applet."],
+            Self::AgentRuntime => &["ak.self.agent.", "ck.gate.account.command.pair_agent_key"],
+            Self::SfuService => &["ak.self.call.media.", "ck.self.media."],
+            Self::TurnService => &["ak.self.media.query.ice_config"],
+            Self::ModerationService => &["ak.self.moderation."],
         }
     }
 
@@ -427,7 +427,7 @@ mod tests {
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![crate::PROFILE_DIRECTORY_SERVICE.to_owned()],
             supported_features: vec![],
-            supported_operations: vec!["ck.find.directory.query.search_realms".to_owned()],
+            supported_operations: vec!["ak.find.directory.query.search_realms".to_owned()],
             supported_bindings: vec![],
             auth_metadata: AuthMetadata::minimal("development"),
             limits: Value::Null,
@@ -470,8 +470,8 @@ mod tests {
             accepted_did_methods: vec!["did:web".to_owned(), "did:webvh".to_owned()],
             takedown_contact: None,
             rate_limits: Some(serde_json::json!({})),
-            supported_reducer_profiles: vec!["ck.reducer.v1".to_owned()],
-            supported_schema_profiles: vec!["ck.schema.core.v1".to_owned()],
+            supported_reducer_profiles: vec!["ak.reducer.v1".to_owned()],
+            supported_schema_profiles: vec!["ak.schema.core.v1".to_owned()],
             frontier: Vec::new(),
             snapshot_frontier: Vec::new(),
             reducer_profile: None,
@@ -481,9 +481,9 @@ mod tests {
         ServiceRequirements::new()
             .service_type(ServiceType::DirectoryService)
             .profile(crate::PROFILE_DIRECTORY_SERVICE)
-            .reducer_profile("ck.reducer.v1")
-            .schema_profile("ck.schema.core.v1")
-            .operation("ck.find.directory.query.search_realms")
+            .reducer_profile("ak.reducer.v1")
+            .schema_profile("ak.schema.core.v1")
+            .operation("ak.find.directory.query.search_realms")
             .verify(&description)
             .unwrap();
     }
@@ -495,7 +495,7 @@ mod tests {
             service_did: service_did.clone(),
             service_type: ServiceType::DirectoryService,
             endpoint: "https://svc.example/_cokret/find/directory".to_owned(),
-            operations: vec!["ck.find.directory.query.search_realms".to_owned()],
+            operations: vec!["ak.find.directory.query.search_realms".to_owned()],
         });
         let description = ServerDescription {
             service_did,
@@ -504,7 +504,7 @@ mod tests {
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![crate::PROFILE_DIRECTORY_SERVICE.to_owned()],
             supported_features: vec![],
-            supported_operations: vec!["ck.find.directory.query.search_realms".to_owned()],
+            supported_operations: vec!["ak.find.directory.query.search_realms".to_owned()],
             supported_bindings: vec![],
             auth_metadata: AuthMetadata::minimal("development"),
             limits: Value::Null,
@@ -561,13 +561,13 @@ mod tests {
         let service_type = ServiceType::PushGateway;
         // The three `ck.edge.push.*` operations registered in
         // `operation-registry.json` MUST all be advertisable by a push gateway.
-        assert!(service_type.permits_operation("ck.edge.push.command.register_device"));
-        assert!(service_type.permits_operation("ck.edge.push.command.unregister_device"));
-        assert!(service_type.permits_operation("ck.edge.push.command.notify"));
+        assert!(service_type.permits_operation("ak.edge.push.command.register_device"));
+        assert!(service_type.permits_operation("ak.edge.push.command.unregister_device"));
+        assert!(service_type.permits_operation("ak.edge.push.command.notify"));
         // Operations outside the `ck.edge.push.` surface (e.g. applet or
         // self-API operations) MUST NOT be advertisable by a push gateway.
-        assert!(!service_type.permits_operation("ck.edge.applet.command.invoke"));
-        assert!(!service_type.permits_operation("ck.self.events.query.sync"));
+        assert!(!service_type.permits_operation("ak.edge.applet.command.invoke"));
+        assert!(!service_type.permits_operation("ak.self.events.query.sync"));
     }
 
     #[test]

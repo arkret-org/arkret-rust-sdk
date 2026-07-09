@@ -14,7 +14,7 @@ pub use crate::client_api::{CallSessionDescription, IceCandidate, SdpType};
 use crate::media::MediaServiceAnchors;
 use crate::{Did, Error, RealmId, Result};
 
-const ICE_CONFIG_SIGNING_LABEL: &str = "ck.media.ice_config.v1";
+const ICE_CONFIG_SIGNING_LABEL: &str = "ak.media.ice_config.v1";
 
 /// To-device WebRTC signaling message kind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

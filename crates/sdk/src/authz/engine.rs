@@ -249,7 +249,7 @@ pub struct PolicyEvaluationRequest {
 impl PolicyEvaluationRequest {
     pub fn new(context: AuthzContext) -> Self {
         Self {
-            operation: "ck.self.policy.query.check".to_owned(),
+            operation: "ak.self.policy.query.check".to_owned(),
             context,
         }
     }
@@ -270,7 +270,7 @@ pub struct PolicyEvaluationResult {
 impl PolicyEvaluationResult {
     pub fn no_action() -> Self {
         Self {
-            operation: "ck.self.policy.query.check".to_owned(),
+            operation: "ak.self.policy.query.check".to_owned(),
             effect: PolicyServerEffect::NoAction,
             reason: "no policy restriction".to_owned(),
             policy_id: None,
@@ -1542,7 +1542,7 @@ mod engine_wire_tests {
             realm_id: None,
             issuer: alice(),
             subject: CapabilitySubject::Did(bob()),
-            actions: vec!["ck.message.create".to_owned()],
+            actions: vec!["ak.message.create".to_owned()],
             resources: vec![json!({"kind": "*"})],
             constraints,
             parent_grant_id: None,
@@ -1561,7 +1561,7 @@ mod engine_wire_tests {
     fn ctx() -> AuthzContext {
         AuthzContext::new(
             bob(),
-            "ck.message.create".to_owned(),
+            "ak.message.create".to_owned(),
             Resource::Realm {
                 realm_id: "ak:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
             },
@@ -1643,7 +1643,7 @@ mod engine_wire_tests {
     fn schema_violating_grant_contributes_no_authority() {
         let mut engine = AuthzEngine::new();
         let mut grant = wire_grant(Vec::new());
-        grant.schema = "ck.schema.capability.v0".to_owned();
+        grant.schema = "ak.schema.capability.v0".to_owned();
         let decision = engine.check_authorization(&ctx(), &[grant]);
         assert!(matches!(
             decision,

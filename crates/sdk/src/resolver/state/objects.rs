@@ -415,7 +415,7 @@ impl RealmState {
             self.extract_optional_field::<arkret_core::EffectiveScope>(object, "effective_scope");
 
         let relation = Relation {
-            schema: "ck.schema.relation.v1".to_owned(),
+            schema: "ak.schema.relation.v1".to_owned(),
             id: relation_id,
             realm_id: event.realm_id.clone(),
             scope_circle_id,

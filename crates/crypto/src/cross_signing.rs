@@ -49,7 +49,7 @@ fn default_key_format() -> String {
 /// Canonical signing input (spec §5.1):
 ///
 /// ```text
-/// "ck-cross-signing-bind-v1\n"
+/// "ak.cross-signing-bind-v1\n"
 ///   + canonical_json({
 ///       "principal_id": <did>,
 ///       "subordinate_key_kind": "self_signing" | "user_signing",

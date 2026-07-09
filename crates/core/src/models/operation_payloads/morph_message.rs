@@ -191,19 +191,19 @@ fn validate_morph_update_patch(patch: &Patch) -> Result<()> {
     Ok(())
 }
 
-pub const CONTENT_KIND_COMPOSITE: &str = "ck.content.composite";
-pub const CONTENT_KIND_TEXT: &str = "ck.content.text";
-pub const CONTENT_KIND_FORMATTED_TEXT: &str = "ck.content.formatted_text";
-pub const CONTENT_KIND_CODE: &str = "ck.content.code";
-pub const CONTENT_KIND_IMAGE: &str = "ck.content.image";
-pub const CONTENT_KIND_VIDEO: &str = "ck.content.video";
-pub const CONTENT_KIND_AUDIO: &str = "ck.content.audio";
-pub const CONTENT_KIND_FILE: &str = "ck.content.file";
-pub const CONTENT_KIND_LOCATION: &str = "ck.content.location";
-pub const CONTENT_KIND_POLL: &str = "ck.content.poll";
-pub const CONTENT_KIND_POLL_RESPONSE: &str = "ck.content.poll.response";
-pub const CONTENT_KIND_POLL_CLOSE: &str = "ck.content.poll.close";
-pub const CONTENT_KIND_AUDIENCE_MENTION: &str = "ck.content.audience_mention";
+pub const CONTENT_KIND_COMPOSITE: &str = "ak.content.composite";
+pub const CONTENT_KIND_TEXT: &str = "ak.content.text";
+pub const CONTENT_KIND_FORMATTED_TEXT: &str = "ak.content.formatted_text";
+pub const CONTENT_KIND_CODE: &str = "ak.content.code";
+pub const CONTENT_KIND_IMAGE: &str = "ak.content.image";
+pub const CONTENT_KIND_VIDEO: &str = "ak.content.video";
+pub const CONTENT_KIND_AUDIO: &str = "ak.content.audio";
+pub const CONTENT_KIND_FILE: &str = "ak.content.file";
+pub const CONTENT_KIND_LOCATION: &str = "ak.content.location";
+pub const CONTENT_KIND_POLL: &str = "ak.content.poll";
+pub const CONTENT_KIND_POLL_RESPONSE: &str = "ak.content.poll.response";
+pub const CONTENT_KIND_POLL_CLOSE: &str = "ak.content.poll.close";
+pub const CONTENT_KIND_AUDIENCE_MENTION: &str = "ak.content.audience_mention";
 
 pub const MEDIA_CONTENT_KINDS: [&str; 4] = [
     CONTENT_KIND_IMAGE,

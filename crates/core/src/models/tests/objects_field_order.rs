@@ -209,7 +209,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         })
         .with_revocation_freshness_window(60_000)
         .with_cell_lattice(
-            "ck.component.strand.track.v1",
+            "ak.component.strand.track.v1",
             "or_set",
             Some("reject".to_owned()),
         )
@@ -248,7 +248,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(realm.cell_lattices.len(), 1);
     assert_eq!(
         realm.cell_lattices[0].cell_family,
-        "ck.component.strand.track.v1"
+        "ak.component.strand.track.v1"
     );
     assert_eq!(realm.cell_lattices[0].lattice, "or_set");
     assert_eq!(realm.cell_lattices[0].bottom.as_deref(), Some("reject"));
@@ -273,7 +273,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(json["updated_by"], "did:webvh:z6mkfixture:bob.example");
     assert_eq!(
         json["cell_lattices"][0]["cell_family"],
-        "ck.component.strand.track.v1"
+        "ak.component.strand.track.v1"
     );
 
     let restored: Realm = serde_json::from_value(json).unwrap();
@@ -596,7 +596,7 @@ fn morph_schema_refs_are_required_non_empty_and_unique() {
     let morph = Morph::new(
         MorphId::new("ak:morph:01904100-0000-7000-8000-0000000000b0").unwrap(),
         RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000b1").unwrap(),
-        "ck.demo.morph",
+        "ak.demo.morph",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
     let value = serde_json::to_value(&morph).unwrap();
@@ -620,7 +620,7 @@ fn morph_labels_are_sdk_local_not_wire() {
     let mut morph = Morph::new(
         MorphId::new("ak:morph:01904100-0000-7000-8000-0000000000c0").unwrap(),
         RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000c1").unwrap(),
-        "ck.demo.morph",
+        "ak.demo.morph",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
     morph.labels.push("urgent".to_owned());
@@ -688,7 +688,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     realm.max_delegation_lifetime_ms = 3_600_000;
     realm.bottom_escalation_after_ms = Some(120_000);
     realm.cell_lattices.push(CellLatticeDeclaration {
-        cell_family: "ck.component.strand.track.v1".to_owned(),
+        cell_family: "ak.component.strand.track.v1".to_owned(),
         lattice: "or_set".to_owned(),
         bottom: Some("reject".to_owned()),
     });
@@ -711,7 +711,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     let mut morph = Morph::new(
         MorphId::new("ak:morph:01904100-0000-7000-8000-0000000000a0").unwrap(),
         RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000a1").unwrap(),
-        "ck.demo.morph",
+        "ak.demo.morph",
         created_by,
     )
     .with_metadata_title("Demo morph");

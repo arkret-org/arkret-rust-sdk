@@ -104,7 +104,7 @@ pub struct CallMediaTokenExchangeOutcome {
 }
 ```
 
-`ParticipantBinding` (`scheme = "ck.media.participant_binding.v1"`) carries
+`ParticipantBinding` (`scheme = "ak.media.participant_binding.v1"`) carries
 `sig, issuer_kid, realm_id, call_id, focus_id, actor_id, device_id,
 participant_identity, expires_at`. Verification checks:
 

@@ -5,17 +5,17 @@ use unicode_normalization::UnicodeNormalization;
 use super::*;
 use crate::base64url_encode;
 
-pub const PROFILE_CALENDAR_EVENT: &str = "ck.profile.calendar_event.v1";
-pub const PROFILE_PERSONAL_PRODUCTIVITY: &str = "ck.profile.personal_productivity.v1";
-pub const PROFILE_DRAFT_SYNC: &str = "ck.profile.draft_sync.v1";
-pub const PROFILE_FILE_TRANSFER: &str = "ck.profile.file_transfer.v1";
-pub const PROFILE_PINNED_ITEMS: &str = "ck.profile.pinned_items.v1";
-pub const PROFILE_DISAPPEARING_MESSAGES: &str = "ck.profile.disappearing_messages.v1";
-pub const PROFILE_SEARCH_CLIENT_INDEX: &str = "ck.profile.search.client_index.v1";
-pub const PROFILE_SEARCH_BLIND_INDEX: &str = "ck.profile.search.blind_index.v1";
-pub const PROFILE_SEARCH_FORWARD_PRIVATE: &str = "ck.profile.search.forward_private.v1";
-pub const FILE_TRANSFER_KEY_MESSAGE_KIND: &str = "ck.file_transfer.key.v1";
-pub const FILE_TRANSFER_KEY_ENVELOPE_SCHEME: &str = "ck.hpke_x25519_aead_chacha20poly1305.v1";
+pub const PROFILE_CALENDAR_EVENT: &str = "ak.profile.calendar_event.v1";
+pub const PROFILE_PERSONAL_PRODUCTIVITY: &str = "ak.profile.personal_productivity.v1";
+pub const PROFILE_DRAFT_SYNC: &str = "ak.profile.draft_sync.v1";
+pub const PROFILE_FILE_TRANSFER: &str = "ak.profile.file_transfer.v1";
+pub const PROFILE_PINNED_ITEMS: &str = "ak.profile.pinned_items.v1";
+pub const PROFILE_DISAPPEARING_MESSAGES: &str = "ak.profile.disappearing_messages.v1";
+pub const PROFILE_SEARCH_CLIENT_INDEX: &str = "ak.profile.search.client_index.v1";
+pub const PROFILE_SEARCH_BLIND_INDEX: &str = "ak.profile.search.blind_index.v1";
+pub const PROFILE_SEARCH_FORWARD_PRIVATE: &str = "ak.profile.search.forward_private.v1";
+pub const FILE_TRANSFER_KEY_MESSAGE_KIND: &str = "ak.file_transfer.key.v1";
+pub const FILE_TRANSFER_KEY_ENVELOPE_SCHEME: &str = "ak.hpke_x25519_aead_chacha20poly1305.v1";
 
 pub const MAX_CALENDAR_ATTENDEES: usize = 1_000;
 pub const MAX_CALENDAR_RECURRENCE_COUNT: u64 = 10_000;
@@ -499,11 +499,11 @@ pub struct PinReorderPayload {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum SearchProfileRef {
-    #[serde(rename = "ck.profile.search.client_index.v1")]
+    #[serde(rename = "ak.profile.search.client_index.v1")]
     ClientIndex,
-    #[serde(rename = "ck.profile.search.blind_index.v1")]
+    #[serde(rename = "ak.profile.search.blind_index.v1")]
     BlindIndex,
-    #[serde(rename = "ck.profile.search.forward_private.v1")]
+    #[serde(rename = "ak.profile.search.forward_private.v1")]
     ForwardPrivate,
 }
 
@@ -829,12 +829,12 @@ pub struct FileTransferEncryption {
 
 impl FileTransferEncryption {
     pub fn validate(&self) -> Result<()> {
-        if self.scheme != "ck.file_transfer.encrypted_blob.v1" {
+        if self.scheme != "ak.file_transfer.encrypted_blob.v1" {
             return Err(Error::Protocol(
                 "file-transfer encryption scheme mismatch".to_owned(),
             ));
         }
-        if self.aead_profile != "ck.aead.xchacha20_poly1305.v1" {
+        if self.aead_profile != "ak.aead.xchacha20_poly1305.v1" {
             return Err(Error::Protocol(
                 "file-transfer AEAD profile mismatch".to_owned(),
             ));
@@ -920,7 +920,7 @@ impl FileTransferKeyMessage {
         validate_blob_ref(&self.blob_ref)?;
         Hash::new(self.content_digest.clone())?;
         validate_file_transfer_blob_digest_binding(&self.blob_ref, &self.content_digest)?;
-        if self.aead_profile != "ck.aead.xchacha20_poly1305.v1" {
+        if self.aead_profile != "ak.aead.xchacha20_poly1305.v1" {
             return Err(Error::Protocol(
                 "file-transfer key message AEAD profile mismatch".to_owned(),
             ));
@@ -1181,7 +1181,7 @@ pub fn realm_remark_account_data_key(realm_id: &RealmId) -> String {
 }
 
 pub fn realm_id_from_realm_remark_account_data_key(key: &str) -> Option<RealmId> {
-    key.strip_prefix("ck.contacts.realm.")
+    key.strip_prefix("ak.contacts.realm.")
         .and_then(|realm_id| RealmId::new(realm_id.to_owned()).ok())
 }
 
@@ -1214,7 +1214,7 @@ pub fn validate_no_realm_remark_private_fields_in_shared_payload(payload: &Value
         match value {
             Value::Object(object) => {
                 for key in object.keys() {
-                    if key.starts_with("ck.contacts.realm.") || key == "realm_remark" {
+                    if key.starts_with("ak.contacts.realm.") || key == "realm_remark" {
                         return Err(Error::Protocol(format!(
                             "shared payload must not contain private realm remark at {path}.{key}"
                         )));
@@ -1483,38 +1483,38 @@ pub fn realm_key(namespace_key: &[u8], realm_id: &str) -> Result<String> {
 }
 
 pub fn validate_private_account_data_key(key: &str) -> Result<()> {
-    if let Some(realm_id) = key.strip_prefix("ck.contacts.realm.") {
+    if let Some(realm_id) = key.strip_prefix("ak.contacts.realm.") {
         return RealmId::new(realm_id.to_owned()).map(|_| ()).map_err(|_| {
             Error::Protocol("realm remark key must be ck.contacts.realm.<realm_id>".to_owned())
         });
     }
-    if let Some(actor_id) = key.strip_prefix("ck.contacts.actor.") {
+    if let Some(actor_id) = key.strip_prefix("ak.contacts.actor.") {
         return Did::new(actor_id.to_owned()).map(|_| ()).map_err(|_| {
             Error::Protocol("contact remark key must be ck.contacts.actor.<did>".to_owned())
         });
     }
-    if let Some(id) = key.strip_prefix("ck.reminders.v1:") {
+    if let Some(id) = key.strip_prefix("ak.reminders.v1:") {
         return if !id.is_empty() && !contains_raw_object_ref(id) {
             Ok(())
         } else {
             private_key_error()
         };
     }
-    if let Some(planned_message_id) = key.strip_prefix("ck.scheduled_send.v1:") {
+    if let Some(planned_message_id) = key.strip_prefix("ak.scheduled_send.v1:") {
         return MessageId::new(planned_message_id.to_owned())
             .map(|_| ())
             .map_err(|_| {
                 Error::Protocol("scheduled-send key must end with planned_message_id".to_owned())
             });
     }
-    if let Some(target_key) = key.strip_prefix("ck.snooze.v1:") {
+    if let Some(target_key) = key.strip_prefix("ak.snooze.v1:") {
         return if looks_derived_key(target_key) {
             Ok(())
         } else {
             private_key_error()
         };
     }
-    if let Some(rest) = key.strip_prefix("ck.saved.v1:") {
+    if let Some(rest) = key.strip_prefix("ak.saved.v1:") {
         let parts = rest.split(':').collect::<Vec<_>>();
         return if matches!(parts.as_slice(), [collection_key, target_key] if looks_derived_key(collection_key) && looks_derived_key(target_key))
         {
@@ -1523,7 +1523,7 @@ pub fn validate_private_account_data_key(key: &str) -> Result<()> {
             private_key_error()
         };
     }
-    if let Some(rest) = key.strip_prefix("ck.draft.v1:") {
+    if let Some(rest) = key.strip_prefix("ak.draft.v1:") {
         let parts = rest.split(':').collect::<Vec<_>>();
         return if matches!(parts.as_slice(), ["message" | "strand_field", target_key, slot_key] if looks_derived_key(target_key) && !slot_key.is_empty() && !contains_raw_object_ref(slot_key))
         {
@@ -1532,14 +1532,14 @@ pub fn validate_private_account_data_key(key: &str) -> Result<()> {
             private_key_error()
         };
     }
-    if let Some(realm_key) = key.strip_prefix("ck.search.index_manifest.v1:") {
+    if let Some(realm_key) = key.strip_prefix("ak.search.index_manifest.v1:") {
         return if looks_derived_key(realm_key) {
             Ok(())
         } else {
             private_key_error()
         };
     }
-    if let Some(transfer_key) = key.strip_prefix("ck.file_transfer.v1:") {
+    if let Some(transfer_key) = key.strip_prefix("ak.file_transfer.v1:") {
         return if looks_derived_key(transfer_key) && !contains_raw_object_ref(transfer_key) {
             Ok(())
         } else {
@@ -2007,19 +2007,19 @@ mod tests {
         let ns = b"test namespace key";
         let target_ref = "ak:message:01904100-0000-7000-8000-000000000001";
         let snooze = snooze_account_data_key(ns, target_ref).unwrap();
-        assert!(snooze.starts_with("ck.snooze.v1:"));
+        assert!(snooze.starts_with("ak.snooze.v1:"));
         assert!(!snooze.contains(target_ref));
         validate_private_account_data_key(&snooze).unwrap();
 
         let saved = saved_account_data_key(ns, "Inbox", target_ref).unwrap();
-        assert!(saved.starts_with("ck.saved.v1:"));
+        assert!(saved.starts_with("ak.saved.v1:"));
         assert!(!saved.contains("Inbox"));
         assert!(!saved.contains(target_ref));
         validate_private_account_data_key(&saved).unwrap();
 
         let transfer_id = "0123456789abcdefghijkl";
         let transfer = file_transfer_account_data_key(ns, transfer_id).unwrap();
-        assert!(transfer.starts_with("ck.file_transfer.v1:"));
+        assert!(transfer.starts_with("ak.file_transfer.v1:"));
         assert!(!transfer.contains(transfer_id));
         validate_private_account_data_key(&transfer).unwrap();
     }
@@ -2027,14 +2027,14 @@ mod tests {
     #[test]
     fn private_key_validator_rejects_raw_refs() {
         let err = validate_private_account_data_key(
-            "ck.draft.v1:message:ck:message:01904100-0000-7000-8000-000000000001:main",
+            "ak.draft.v1:message:ck:message:01904100-0000-7000-8000-000000000001:main",
         )
         .unwrap_err();
         assert!(err.to_string().contains("must not leak raw typed refs"));
 
         assert!(file_transfer_account_data_key(b"ns", "short-transfer").is_err());
         assert!(
-            validate_private_account_data_key("ck.file_transfer.v1:ck:blob:sha256:abc").is_err()
+            validate_private_account_data_key("ak.file_transfer.v1:ck:blob:sha256:abc").is_err()
         );
     }
 
@@ -2053,8 +2053,8 @@ mod tests {
                 recipient_device_ids: Vec::new(),
             },
             encryption: FileTransferEncryption {
-                scheme: "ck.file_transfer.encrypted_blob.v1".to_owned(),
-                aead_profile: "ck.aead.xchacha20_poly1305.v1".to_owned(),
+                scheme: "ak.file_transfer.encrypted_blob.v1".to_owned(),
+                aead_profile: "ak.aead.xchacha20_poly1305.v1".to_owned(),
                 nonce: "abc_DEF-012".to_owned(),
                 aad: FileTransferAad {
                     schema: FILE_TRANSFER_SCHEMA.to_owned(),
@@ -2197,13 +2197,13 @@ mod tests {
         let value = serde_json::to_value(&remark).unwrap();
 
         assert!(validate_realm_remark_account_data_value(&key, &value).is_err());
-        assert!(validate_realm_remark_account_data_value("ck.tags.realm.bad", &json!({})).is_err());
+        assert!(validate_realm_remark_account_data_value("ak.tags.realm.bad", &json!({})).is_err());
         assert!(
             validate_realm_remark_account_data_value(&key, &json!({"tombstone": true})).is_ok()
         );
 
         let leaked_shared_payload = json!({
-            "event_kind": "ck.realm.update",
+            "event_kind": "ak.realm.update",
             "realm_remark": {
                 "subject": {"kind": "realm", "id": realm_id.as_str()},
                 "pinned": true

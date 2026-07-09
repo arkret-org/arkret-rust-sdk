@@ -17,10 +17,10 @@
       "public_key_hex": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
       "value": {
         "actor_id": "did:web:alice.example",
-        "kind": "ck.message.posted.v1",
+        "kind": "ak.message.posted.v1",
         "payload": {"text": "hi"}
       },
-      "canonical_bytes": "{\"actor_id\":\"did:web:alice.example\",\"kind\":\"ck.message.posted.v1\",\"payload\":{\"text\":\"hi\"}}",
+      "canonical_bytes": "{\"actor_id\":\"did:web:alice.example\",\"kind\":\"ak.message.posted.v1\",\"payload\":{\"text\":\"hi\"}}",
       "payload_digest": "sha256:2cd093faa64434f21f4c3c5db94c059597972936d85ce88eaebb5924d487aeb5",
       "signature_hex": "00b4a0618a30bd562e94aef3d73d07d02ba7b75a309cc946f78b2ce2c782f6448f9a1281b91ebda8c8427d56b4ea4bbae42e359239b0f4411cbcd9180137130a",
       "detached_jws": "eyJhbGciOiJFZERTQSJ9..ALSgYYowvVYulK7z1z0H0Cunt1ownMlG94ss4seC9kSPmhKBuR69qMhCfVa06ku65C41kjmw9EEcvNkYATcTCg"

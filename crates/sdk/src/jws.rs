@@ -602,7 +602,7 @@ mod tests {
     fn effective_window_uses_notary_override_when_notary_cell_touched() {
         let m = build_test_move_touching("ak:cell:ck.component.notary.v1:ck.realm.x", 0);
         let mut overrides = BTreeMap::new();
-        overrides.insert("ck.component.notary.v1", 60u64);
+        overrides.insert("ak.component.notary.v1", 60u64);
         // Default 300, notary override 60 -> effective 60.
         assert_eq!(effective_window_for_move(&m, 300, &overrides), 60);
     }
@@ -611,7 +611,7 @@ mod tests {
     fn effective_window_takes_minimum_when_default_tighter_than_override() {
         let m = build_test_move_touching("ak:cell:ck.component.notary.v1:ck.realm.x", 0);
         let mut overrides = BTreeMap::new();
-        overrides.insert("ck.component.notary.v1", 600u64); // looser than default
+        overrides.insert("ak.component.notary.v1", 600u64); // looser than default
         // Default 300, notary override 600 -> min = 300 (default wins because tighter).
         assert_eq!(effective_window_for_move(&m, 300, &overrides), 300);
     }
@@ -622,7 +622,7 @@ mod tests {
         // be window-checked. The override "wins" in this case.
         let m = build_test_move_touching("ak:cell:ck.component.notary.v1:ck.realm.x", 0);
         let mut overrides = BTreeMap::new();
-        overrides.insert("ck.component.notary.v1", 60u64);
+        overrides.insert("ak.component.notary.v1", 60u64);
         assert_eq!(effective_window_for_move(&m, 0, &overrides), 60);
     }
 
@@ -633,7 +633,7 @@ mod tests {
         let m =
             build_test_move_touching("ak:cell:ck.component.notary.v1:ck.realm.x", two_min_ago_ms);
         let mut overrides = BTreeMap::new();
-        overrides.insert("ck.component.notary.v1", 60u64);
+        overrides.insert("ak.component.notary.v1", 60u64);
         let err = verify_replay_window_for_move_at(&m, 300, &overrides, now).unwrap_err();
         assert!(
             matches!(err, ReplayWindowError::TooOld { .. }),
@@ -651,7 +651,7 @@ mod tests {
         );
         // Default 300s, no override for message family -> 2min = 120s < 300s -> accept.
         let mut overrides = BTreeMap::new();
-        overrides.insert("ck.component.notary.v1", 60u64);
+        overrides.insert("ak.component.notary.v1", 60u64);
         verify_replay_window_for_move_at(&m, 300, &overrides, now).unwrap();
     }
 

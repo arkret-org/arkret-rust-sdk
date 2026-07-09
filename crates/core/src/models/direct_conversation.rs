@@ -2,7 +2,7 @@
 
 use super::*;
 
-pub const DIRECT_CONVERSATION_PAIR_KEY_VERSION: &str = "ck.direct_conversation.pair_key.v1";
+pub const DIRECT_CONVERSATION_PAIR_KEY_VERSION: &str = "ak.direct_conversation.pair_key.v1";
 pub const DIRECT_CONVERSATION_PAIR_KEY_PREFIX: &str = "ak:direct_pair:";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -371,8 +371,8 @@ impl ProfileEventKind {
     /// Wire string for `Event::kind`.
     pub fn as_str(self) -> &'static str {
         match self {
-            ProfileEventKind::Create => "ck.profile.create",
-            ProfileEventKind::Update => "ck.profile.update",
+            ProfileEventKind::Create => "ak.profile.create",
+            ProfileEventKind::Update => "ak.profile.update",
         }
     }
 }
@@ -708,7 +708,7 @@ mod profile_builder_tests {
             .with_display_name("Alice")
             .build(1, hlc())
             .unwrap();
-        assert_eq!(event.kind, "ck.profile.create");
+        assert_eq!(event.kind, "ak.profile.create");
         assert_eq!(
             event.payload["object"]["principal_id"],
             "did:webvh:z6mkfixture:alice.example"
@@ -724,7 +724,7 @@ mod profile_builder_tests {
             .with_display_name("Alice 2")
             .build(2, hlc())
             .unwrap();
-        assert_eq!(event.kind, "ck.profile.update");
+        assert_eq!(event.kind, "ak.profile.update");
         assert_eq!(
             event.payload["target_ref"],
             "ak:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa"

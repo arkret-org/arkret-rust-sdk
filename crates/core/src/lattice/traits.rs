@@ -42,64 +42,64 @@ impl LatticeKind {
     pub fn event_kinds(self) -> &'static [&'static str] {
         match self {
             Self::OrSet => &[
-                "ck.capability.grant",
-                "ck.capability.delegate",
-                "ck.capability.revoke",
-                "ck.capability.derived",
-                "ck.session.grant",
-                "ck.consent.grant",
-                "ck.consent.revoke",
-                "ck.device.authorize",
-                "ck.device.revoke",
-                "ck.device.list_update",
+                "ak.capability.grant",
+                "ak.capability.delegate",
+                "ak.capability.revoke",
+                "ak.capability.derived",
+                "ak.session.grant",
+                "ak.consent.grant",
+                "ak.consent.revoke",
+                "ak.device.authorize",
+                "ak.device.revoke",
+                "ak.device.list_update",
             ],
             Self::MvRegister => &[
-                "ck.view.create",
-                "ck.view.update",
-                "ck.view.reconcile",
-                "ck.profile.create",
-                "ck.profile.update",
-                "ck.mimi.room_binding",
+                "ak.view.create",
+                "ak.view.update",
+                "ak.view.reconcile",
+                "ak.profile.create",
+                "ak.profile.update",
+                "ak.mimi.room_binding",
             ],
             Self::CasRegister => &[
-                "ck.realm.upgrade",
-                "ck.realm.organization",
-                "ck.realm.policy",
-                "ck.realm.join_rule",
-                "ck.realm.history_visibility",
-                "ck.realm.discovery",
-                "ck.realm.policy_server",
-                "ck.realm.policy_components",
-                "ck.realm.history_sharing_policy",
-                "ck.realm.asset_privacy_policy",
-                "ck.realm.read_receipt_policy",
-                "ck.realm.moderation_policy",
-                "ck.realm.plaintext_visible_services",
-                "ck.realm.media_service",
-                "ck.realm.schema",
-                "ck.realm.inheritance_policy",
-                "ck.realm.archive",
-                "ck.realm.freeze",
-                "ck.realm.tombstone",
-                "ck.realm.destroy",
-                "ck.strand.move",
-                "ck.strand.reorder",
-                "ck.space.parent",
+                "ak.realm.upgrade",
+                "ak.realm.organization",
+                "ak.realm.policy",
+                "ak.realm.join_rule",
+                "ak.realm.history_visibility",
+                "ak.realm.discovery",
+                "ak.realm.policy_server",
+                "ak.realm.policy_components",
+                "ak.realm.history_sharing_policy",
+                "ak.realm.asset_privacy_policy",
+                "ak.realm.read_receipt_policy",
+                "ak.realm.moderation_policy",
+                "ak.realm.plaintext_visible_services",
+                "ak.realm.media_service",
+                "ak.realm.schema",
+                "ak.realm.inheritance_policy",
+                "ak.realm.archive",
+                "ak.realm.freeze",
+                "ak.realm.tombstone",
+                "ak.realm.destroy",
+                "ak.strand.move",
+                "ak.strand.reorder",
+                "ak.space.parent",
             ],
             Self::Fsm => &[
-                "ck.member.state",
+                "ak.member.state",
                 // CKP-0008 / CKP-0009 (R3 spec-sync 2026-05-27) — personal-agent
                 // lifecycle is an FSM with bottom=reject; deactivate is terminal.
-                "ck.self.agent.pause",
-                "ck.self.agent.resume",
-                "ck.self.agent.deactivate",
+                "ak.self.agent.pause",
+                "ak.self.agent.resume",
+                "ak.self.agent.deactivate",
             ],
             Self::Counter => &[],
             Self::OrderedLog => &[
-                "ck.space.create",
-                "ck.space.child",
-                "ck.policy.rule",
-                "ck.account.status",
+                "ak.space.create",
+                "ak.space.child",
+                "ak.policy.rule",
+                "ak.account.status",
             ],
         }
     }
@@ -178,8 +178,8 @@ mod kind_tests {
         ] {
             for ek in kind.event_kinds() {
                 assert!(
-                    ek.starts_with("ck."),
-                    "lattice kind {kind:?} event kind {ek} must start with 'ck.'"
+                    ek.starts_with("ak."),
+                    "lattice kind {kind:?} event kind {ek} must start with 'ak.'"
                 );
             }
         }
@@ -210,30 +210,30 @@ mod kind_tests {
     #[test]
     fn or_set_handles_consent_and_capability() {
         let kinds = LatticeKind::OrSet.event_kinds();
-        assert!(kinds.contains(&"ck.consent.grant"));
-        assert!(kinds.contains(&"ck.consent.revoke"));
-        assert!(kinds.contains(&"ck.capability.grant"));
-        assert!(kinds.contains(&"ck.capability.revoke"));
+        assert!(kinds.contains(&"ak.consent.grant"));
+        assert!(kinds.contains(&"ak.consent.revoke"));
+        assert!(kinds.contains(&"ak.capability.grant"));
+        assert!(kinds.contains(&"ak.capability.revoke"));
     }
 
     #[test]
     fn cas_register_handles_mls_commit_and_creates() {
         let kinds = LatticeKind::CasRegister.event_kinds();
-        assert!(kinds.contains(&"ck.realm.policy"));
-        assert!(kinds.contains(&"ck.strand.move"));
-        assert!(kinds.contains(&"ck.space.parent"));
+        assert!(kinds.contains(&"ak.realm.policy"));
+        assert!(kinds.contains(&"ak.strand.move"));
+        assert!(kinds.contains(&"ak.space.parent"));
     }
 
     #[test]
     fn ordered_log_handles_registry_ordered_cells() {
         let kinds = LatticeKind::OrderedLog.event_kinds();
-        assert!(kinds.contains(&"ck.space.create"));
-        assert!(kinds.contains(&"ck.policy.rule"));
-        assert!(kinds.contains(&"ck.account.status"));
+        assert!(kinds.contains(&"ak.space.create"));
+        assert!(kinds.contains(&"ak.policy.rule"));
+        assert!(kinds.contains(&"ak.account.status"));
     }
 
     #[test]
     fn fsm_handles_member_state() {
-        assert!(LatticeKind::Fsm.event_kinds().contains(&"ck.member.state"));
+        assert!(LatticeKind::Fsm.event_kinds().contains(&"ak.member.state"));
     }
 }

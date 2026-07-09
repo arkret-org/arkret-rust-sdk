@@ -103,7 +103,7 @@ fn end_to_end_auth_session_realm_query_and_notifications() {
         Some(realm_id.clone()),
         EventId::new("ak:event:01904100-0000-7000-8000-b2b79cd5161d").unwrap(),
         alice,
-        "ck.message.create",
+        "ak.message.create",
         Some(json!({"body": "hello"})),
     );
     assert_eq!(notifications.counts(Some(&realm_id)).notification_count, 1);
