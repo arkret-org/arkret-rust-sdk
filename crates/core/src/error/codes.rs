@@ -169,6 +169,88 @@ pub const ERROR_CODE_E2EE_REQUIRED: &str = "e2ee_required";
 pub const ERROR_CODE_RECORDING_DENIED: &str = "recording_denied";
 pub const ERROR_CODE_MORPH_PROFILE_WIDENS_SCHEMA_REF: &str = "morph_profile_widens_schema_ref";
 pub const ERROR_CODE_MORPH_TYPE_IMMUTABLE: &str = "morph_type_immutable";
+pub const ERROR_CODE_APPLET_ALREADY_REGISTERED: &str = "applet_already_registered";
+pub const ERROR_CODE_APPLET_EFFECTIVE_SCOPE_MISMATCH: &str = "applet_effective_scope_mismatch";
+pub const ERROR_CODE_APPLET_INSTALL_PROJECTION_INCOMPLETE: &str =
+    "applet_install_projection_incomplete";
+pub const ERROR_CODE_APPLET_INSTALL_REQUIRED: &str = "applet_install_required";
+pub const ERROR_CODE_APPLET_NAMESPACE_CONFLICT: &str = "applet_namespace_conflict";
+pub const ERROR_CODE_APPLET_PACKAGE_EXPIRED: &str = "applet_package_expired";
+pub const ERROR_CODE_APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH: &str =
+    "applet_registration_epoch_evidence_mismatch";
+pub const ERROR_CODE_APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING: &str =
+    "applet_registration_epoch_evidence_missing";
+pub const ERROR_CODE_APPLET_REGISTRATION_EPOCH_SIGNING_KEY_MISMATCH: &str =
+    "applet_registration_epoch_signing_key_mismatch";
+pub const ERROR_CODE_APPLET_TRANSACTION_IN_PROGRESS: &str = "applet_transaction_in_progress";
+pub const ERROR_CODE_BOT_ACTOR_REVOKED: &str = "bot_actor_revoked";
+pub const ERROR_CODE_ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL: &str =
+    "enclave_no_upstream_proxy_for_external";
+pub const ERROR_CODE_ENCLAVE_NOT_TRUSTED: &str = "enclave_not_trusted";
+pub const ERROR_CODE_EXTERNAL_INVITE_ACTOR_MISMATCH: &str = "external_invite_actor_mismatch";
+pub const ERROR_CODE_EXTERNAL_USER_NO_MAIN_ACCESS: &str = "external_user_no_main_access";
+pub const ERROR_CODE_UPSTREAM_UNAVAILABLE: &str = "upstream_unavailable";
+pub const ERROR_CODE_AGENT_PROVISION_FANOUT_UNAVAILABLE: &str =
+    "agent_provision_fanout_unavailable";
+pub const ERROR_CODE_CANNOT_PAIR_CURRENT_DEVICE: &str = "cannot_pair_current_device";
+pub const ERROR_CODE_CROSS_SIGNING_STATE_MISSING: &str = "cross_signing_state_missing";
+pub const ERROR_CODE_DEVICE_ALREADY_AUTHORIZED: &str = "device_already_authorized";
+pub const ERROR_CODE_DEVICE_NOT_AUTHORIZED: &str = "device_not_authorized";
+pub const ERROR_CODE_DEVICE_REVOKED: &str = "device_revoked";
+pub const ERROR_CODE_DISCOVERY_FAILED: &str = "discovery_failed";
+pub const ERROR_CODE_FIRST_BACKUP_GATE_UNSATISFIED: &str = "first_backup_gate_unsatisfied";
+pub const ERROR_CODE_FRESH_DEVICE_SCOPE_VIOLATION: &str = "fresh_device_scope_violation";
+pub const ERROR_CODE_INVALID_AVATAR_URL: &str = "invalid_avatar_url";
+pub const ERROR_CODE_RECOVERY_AUTHORIZATION_DEVICE_MISMATCH: &str =
+    "recovery_authorization_device_mismatch";
+pub const ERROR_CODE_RECOVERY_AUTHORIZATION_PRINCIPAL_MISMATCH: &str =
+    "recovery_authorization_principal_mismatch";
+pub const ERROR_CODE_RECOVERY_AUTHORIZATION_SESSION_MISMATCH: &str =
+    "recovery_authorization_session_mismatch";
+pub const ERROR_CODE_RECOVERY_CONTROL_EVENT_KIND_MISMATCH: &str =
+    "recovery_control_event_kind_mismatch";
+pub const ERROR_CODE_RECOVERY_CONTROL_EVENT_NOT_FOUND: &str = "recovery_control_event_not_found";
+pub const ERROR_CODE_RECOVERY_LIST_UPDATE_DEVICE_MISMATCH: &str =
+    "recovery_list_update_device_mismatch";
+pub const ERROR_CODE_RECOVERY_LIST_UPDATE_PRINCIPAL_MISMATCH: &str =
+    "recovery_list_update_principal_mismatch";
+pub const ERROR_CODE_RECOVERY_POLICY_CONFLICT: &str = "recovery_policy_conflict";
+pub const ERROR_CODE_RECOVERY_POLICY_DEVICE_NOT_AUTHORIZED: &str =
+    "recovery_policy_device_not_authorized";
+pub const ERROR_CODE_RECOVERY_POLICY_ID_MISMATCH: &str = "recovery_policy_id_mismatch";
+pub const ERROR_CODE_RECOVERY_POLICY_MISSING: &str = "recovery_policy_missing";
+pub const ERROR_CODE_RECOVERY_POLICY_REVOKED: &str = "recovery_policy_revoked";
+pub const ERROR_CODE_RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH: &str =
+    "recovery_policy_trust_domain_mismatch";
+pub const ERROR_CODE_RECOVERY_POLICY_VERSION_MISMATCH: &str = "recovery_policy_version_mismatch";
+pub const ERROR_CODE_RECOVERY_PROOF_AUTHORITY_INVALID: &str = "recovery_proof_authority_invalid";
+pub const ERROR_CODE_RECOVERY_PROOF_KIND_NOT_ALLOWED: &str = "recovery_proof_kind_not_allowed";
+pub const ERROR_CODE_RECOVERY_PROOF_KIND_UNIMPLEMENTED: &str = "recovery_proof_kind_unimplemented";
+pub const ERROR_CODE_RECOVERY_RECEIPT_CONFLICT: &str = "recovery_receipt_conflict";
+pub const ERROR_CODE_RECOVERY_SESSION_CONFLICT: &str = "recovery_session_conflict";
+pub const ERROR_CODE_RECOVERY_SESSION_ID_REUSED: &str = "recovery_session_id_reused";
+pub const ERROR_CODE_RECOVERY_SESSION_NOT_PENDING: &str = "recovery_session_not_pending";
+pub const ERROR_CODE_FEDERATION_ACTOR_ORIGIN_REJECTED: &str = "federation_actor_origin_rejected";
+pub const ERROR_CODE_FEDERATION_INTEROP_TRACK_ONLY: &str = "federation_interop_track_only";
+pub const ERROR_CODE_FEDERATION_ORIGIN_DENIED: &str = "federation_origin_denied";
+pub const ERROR_CODE_FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY: &str =
+    "federation_private_read_rail_local_only";
+pub const ERROR_CODE_REALM_FEDERATION_POLICY_CLOSED: &str = "realm_federation_policy_closed";
+pub const ERROR_CODE_REALM_FEDERATION_POLICY_INVALID: &str = "realm_federation_policy_invalid";
+pub const ERROR_CODE_REALM_FEDERATION_POLICY_QUARANTINE: &str =
+    "realm_federation_policy_quarantine";
+pub const ERROR_CODE_REALM_FEDERATION_POLICY_RESTRICTED: &str =
+    "realm_federation_policy_restricted";
+pub const ERROR_CODE_REALM_MODERATION_POLICY_DENIED: &str = "realm_moderation_policy_denied";
+pub const ERROR_CODE_MIMI_E2EE_BOUNDARY_UNMARKED: &str = "mimi_e2ee_boundary_unmarked";
+pub const ERROR_CODE_MIMI_PAYLOAD_DIGEST_MISMATCH: &str = "mimi_payload_digest_mismatch";
+pub const ERROR_CODE_MIMI_PAYLOAD_INVALID: &str = "mimi_payload_invalid";
+pub const ERROR_CODE_MIMI_REPORTER_RESOLUTION_REQUIRED: &str = "mimi_reporter_resolution_required";
+pub const ERROR_CODE_STALE_PEER_STATE_UNAVAILABLE: &str = "stale_peer_state_unavailable";
+pub const ERROR_CODE_FRANKING_TAMPERED: &str = "franking_tampered";
+pub const ERROR_CODE_MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED: &str =
+    "mls_keypackage_claim_request_expired";
+pub const ERROR_CODE_SNAPSHOT_CHUNK_DIGEST_MISMATCH: &str = "snapshot_chunk_digest_mismatch";
 
 /// Canonical top-level error codes from error-code-registry.json, in registry order.
 pub const KNOWN_ERROR_CODES: &[&str] = &[
@@ -333,4 +415,68 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_RECORDING_DENIED,
     ERROR_CODE_MORPH_PROFILE_WIDENS_SCHEMA_REF,
     ERROR_CODE_MORPH_TYPE_IMMUTABLE,
+    ERROR_CODE_APPLET_ALREADY_REGISTERED,
+    ERROR_CODE_APPLET_EFFECTIVE_SCOPE_MISMATCH,
+    ERROR_CODE_APPLET_INSTALL_PROJECTION_INCOMPLETE,
+    ERROR_CODE_APPLET_INSTALL_REQUIRED,
+    ERROR_CODE_APPLET_NAMESPACE_CONFLICT,
+    ERROR_CODE_APPLET_PACKAGE_EXPIRED,
+    ERROR_CODE_APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH,
+    ERROR_CODE_APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING,
+    ERROR_CODE_APPLET_REGISTRATION_EPOCH_SIGNING_KEY_MISMATCH,
+    ERROR_CODE_APPLET_TRANSACTION_IN_PROGRESS,
+    ERROR_CODE_BOT_ACTOR_REVOKED,
+    ERROR_CODE_ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL,
+    ERROR_CODE_ENCLAVE_NOT_TRUSTED,
+    ERROR_CODE_EXTERNAL_INVITE_ACTOR_MISMATCH,
+    ERROR_CODE_EXTERNAL_USER_NO_MAIN_ACCESS,
+    ERROR_CODE_UPSTREAM_UNAVAILABLE,
+    ERROR_CODE_AGENT_PROVISION_FANOUT_UNAVAILABLE,
+    ERROR_CODE_CANNOT_PAIR_CURRENT_DEVICE,
+    ERROR_CODE_CROSS_SIGNING_STATE_MISSING,
+    ERROR_CODE_DEVICE_ALREADY_AUTHORIZED,
+    ERROR_CODE_DEVICE_NOT_AUTHORIZED,
+    ERROR_CODE_DEVICE_REVOKED,
+    ERROR_CODE_DISCOVERY_FAILED,
+    ERROR_CODE_FIRST_BACKUP_GATE_UNSATISFIED,
+    ERROR_CODE_FRESH_DEVICE_SCOPE_VIOLATION,
+    ERROR_CODE_INVALID_AVATAR_URL,
+    ERROR_CODE_RECOVERY_AUTHORIZATION_DEVICE_MISMATCH,
+    ERROR_CODE_RECOVERY_AUTHORIZATION_PRINCIPAL_MISMATCH,
+    ERROR_CODE_RECOVERY_AUTHORIZATION_SESSION_MISMATCH,
+    ERROR_CODE_RECOVERY_CONTROL_EVENT_KIND_MISMATCH,
+    ERROR_CODE_RECOVERY_CONTROL_EVENT_NOT_FOUND,
+    ERROR_CODE_RECOVERY_LIST_UPDATE_DEVICE_MISMATCH,
+    ERROR_CODE_RECOVERY_LIST_UPDATE_PRINCIPAL_MISMATCH,
+    ERROR_CODE_RECOVERY_POLICY_CONFLICT,
+    ERROR_CODE_RECOVERY_POLICY_DEVICE_NOT_AUTHORIZED,
+    ERROR_CODE_RECOVERY_POLICY_ID_MISMATCH,
+    ERROR_CODE_RECOVERY_POLICY_MISSING,
+    ERROR_CODE_RECOVERY_POLICY_REVOKED,
+    ERROR_CODE_RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH,
+    ERROR_CODE_RECOVERY_POLICY_VERSION_MISMATCH,
+    ERROR_CODE_RECOVERY_PROOF_AUTHORITY_INVALID,
+    ERROR_CODE_RECOVERY_PROOF_KIND_NOT_ALLOWED,
+    ERROR_CODE_RECOVERY_PROOF_KIND_UNIMPLEMENTED,
+    ERROR_CODE_RECOVERY_RECEIPT_CONFLICT,
+    ERROR_CODE_RECOVERY_SESSION_CONFLICT,
+    ERROR_CODE_RECOVERY_SESSION_ID_REUSED,
+    ERROR_CODE_RECOVERY_SESSION_NOT_PENDING,
+    ERROR_CODE_FEDERATION_ACTOR_ORIGIN_REJECTED,
+    ERROR_CODE_FEDERATION_INTEROP_TRACK_ONLY,
+    ERROR_CODE_FEDERATION_ORIGIN_DENIED,
+    ERROR_CODE_FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY,
+    ERROR_CODE_REALM_FEDERATION_POLICY_CLOSED,
+    ERROR_CODE_REALM_FEDERATION_POLICY_INVALID,
+    ERROR_CODE_REALM_FEDERATION_POLICY_QUARANTINE,
+    ERROR_CODE_REALM_FEDERATION_POLICY_RESTRICTED,
+    ERROR_CODE_REALM_MODERATION_POLICY_DENIED,
+    ERROR_CODE_MIMI_E2EE_BOUNDARY_UNMARKED,
+    ERROR_CODE_MIMI_PAYLOAD_DIGEST_MISMATCH,
+    ERROR_CODE_MIMI_PAYLOAD_INVALID,
+    ERROR_CODE_MIMI_REPORTER_RESOLUTION_REQUIRED,
+    ERROR_CODE_STALE_PEER_STATE_UNAVAILABLE,
+    ERROR_CODE_FRANKING_TAMPERED,
+    ERROR_CODE_MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED,
+    ERROR_CODE_SNAPSHOT_CHUNK_DIGEST_MISMATCH,
 ];

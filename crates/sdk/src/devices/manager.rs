@@ -704,6 +704,16 @@ impl DeviceManager {
             return Ok(DeviceTrustChainOutcome::Unverified);
         };
 
+        // DID anchoring (§5.2.1): the PSK we evaluate against MUST belong to
+        // this principal. Assert it cheaply here so a naive caller closure that
+        // only "resolve verification_method → verify → Ok(true)" cannot have the
+        // trust chain anchored to a foreign principal's PSK. The stateless
+        // verifier (`crypto::verify_device_cross_signing_chain`) requires a
+        // pre-anchored PSK for the same reason; keep both paths consistent.
+        if kid_did_part(&publish.principal_signing_key.kid) != user_id.as_str() {
+            return Ok(DeviceTrustChainOutcome::Invalid);
+        }
+
         let accepted_generation = publish.generation;
         if binding.ssk_generation < accepted_generation {
             return Ok(DeviceTrustChainOutcome::NeedsReverification);
@@ -749,8 +759,17 @@ impl DeviceManager {
             algorithms,
             binding.ssk_generation,
         )?;
+        // Anchor the device binding to the *published* SSK, not to the
+        // device-self-reported `verification_method`. The device binding was
+        // stored after only checking `ssk_generation` matched
+        // (`attach_cross_signing_binding`), so its `verification_method` is not
+        // otherwise guaranteed to reference the SSK the PSK cross-signed. Pin
+        // the locator to `publish.self_signing_key.key.kid` so the closure
+        // resolves the published SSK — mirroring `verify_device_cross_signing_chain`,
+        // which verifies against `publish.self_signing_key.key.public_key`.
+        let ssk_locator = &publish.self_signing_key.key.kid;
         let device_ok = verify_signature(
-            &binding.verification_method,
+            ssk_locator,
             &binding.alg,
             &device_input,
             &binding.signature,
@@ -775,6 +794,13 @@ impl DeviceManager {
         }
         Ok(())
     }
+}
+
+/// Return the DID portion of a `did:...#fragment` key id (kid), i.e. everything
+/// before the first `#`. Used to assert cross-signing keys are anchored to the
+/// expected principal DID.
+fn kid_did_part(kid: &str) -> &str {
+    kid.split_once('#').map(|(did, _)| did).unwrap_or(kid)
 }
 
 pub fn device_verification_commitment(

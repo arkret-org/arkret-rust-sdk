@@ -529,6 +529,97 @@ fn evaluate_trust_chain_states() {
 }
 
 #[test]
+fn evaluate_trust_chain_rejects_psk_not_anchored_to_principal() {
+    // SEC-01: a publish whose PSK kid belongs to a foreign DID must not be
+    // accepted as the principal's trust anchor, even if a naive caller closure
+    // would verify every signature it is handed.
+    let alice = did("alice");
+    let phone = device("phone");
+    let mut manager = DeviceManager::new();
+    manager.upsert_device_with_key(
+        alice.clone(),
+        phone.clone(),
+        DeviceMetadata {
+            name: None,
+            model: None,
+            os: None,
+            last_seen_at: None,
+        },
+        "z6MkVerifyKey",
+        "z6LSTestHpkeKey".to_owned(),
+        vec!["ck.hpke_x25519_aead_chacha20poly1305.v1".to_owned()],
+    );
+
+    // Point the PSK (and its dependent bindings, so `validate_structure`
+    // passes) at a foreign principal's DID.
+    let foreign_kid = "did:webvh:z6mkfixture:mallory.example#cx_principal_signing_v1".to_owned();
+    let mut publish = sample_publish(&alice, 1);
+    publish.principal_signing_key.kid = foreign_kid.clone();
+    publish.self_signing_key.binding.verification_method = foreign_kid.clone();
+    publish.user_signing_key.binding.verification_method = foreign_kid;
+    manager.record_cross_signing_publish(publish).unwrap();
+    manager
+        .attach_cross_signing_binding(&alice, &phone, fake_binding(1))
+        .unwrap();
+
+    let outcome = manager
+        .evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true))
+        .unwrap();
+    assert_eq!(outcome, DeviceTrustChainOutcome::Invalid);
+}
+
+#[test]
+fn evaluate_trust_chain_pins_device_check_to_published_ssk() {
+    // SEC-01: the device-key verification must be anchored to the *published*
+    // SSK kid, not to the device-self-reported `verification_method`.
+    let alice = did("alice");
+    let phone = device("phone");
+    let mut manager = DeviceManager::new();
+    manager.upsert_device_with_key(
+        alice.clone(),
+        phone.clone(),
+        DeviceMetadata {
+            name: None,
+            model: None,
+            os: None,
+            last_seen_at: None,
+        },
+        "z6MkVerifyKey",
+        "z6LSTestHpkeKey".to_owned(),
+        vec!["ck.hpke_x25519_aead_chacha20poly1305.v1".to_owned()],
+    );
+    manager
+        .record_cross_signing_publish(sample_publish(&alice, 1))
+        .unwrap();
+    // Attach a binding whose declared verification_method points at an
+    // attacker-chosen key id.
+    let mut binding = fake_binding(1);
+    binding.verification_method = "did:webvh:z6mkfixture:attacker.example#evil".to_owned();
+    manager
+        .attach_cross_signing_binding(&alice, &phone, binding)
+        .unwrap();
+
+    let mut locators = Vec::new();
+    let outcome = manager
+        .evaluate_trust_chain(&alice, &phone, |vm, _, _, _| {
+            locators.push(vm.to_owned());
+            Ok(true)
+        })
+        .unwrap();
+    assert_eq!(outcome, DeviceTrustChainOutcome::CrossSigned);
+    // The device-binding check used the published SSK kid, never the bogus
+    // verification_method the device reported.
+    assert!(
+        locators.contains(&format!("{alice}#cx_self_signing_v1")),
+        "device check must use the published SSK kid, got {locators:?}"
+    );
+    assert!(
+        !locators.iter().any(|locator| locator.contains("attacker")),
+        "device check must not use the device-reported verification_method"
+    );
+}
+
+#[test]
 fn cross_signing_reset_cancels_in_flight_verifications() {
     let alice = did("alice");
     let phone = device("phone");

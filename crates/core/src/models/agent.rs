@@ -187,7 +187,7 @@ pub struct AgentProtocolDiscoverOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentList {
     #[serde(default)]
-    pub agents: Vec<Value>,
+    pub agents: Vec<AgentProjection>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
     pub has_more: bool,

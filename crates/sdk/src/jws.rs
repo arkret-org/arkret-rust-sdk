@@ -257,9 +257,14 @@ pub fn resolve_ed25519_pubkey(
                 .and_then(|f| document.verification_methods.get(f))
         })
         .or_else(|| {
-            // Single-key fallback: if there's exactly one verification
-            // method, use it (common for did:key documents).
-            if document.verification_methods.len() == 1 {
+            // Single-key fallback: only for `did:key` documents, where the
+            // key is embedded in the DID itself and the single verification
+            // method's id canonically matches the full URL. Restricting the
+            // fallback to `did:key` keeps the `verification_method` key-id
+            // binding strict for `did:webvh` (and any multi-key-capable
+            // method) so a JWS referencing a wrong/absent fragment is not
+            // silently verified against an unrelated key.
+            if did.method() == "key" && document.verification_methods.len() == 1 {
                 document.verification_methods.values().next()
             } else {
                 None
@@ -431,10 +436,10 @@ mod tests {
     use crate::identity::DidDocument;
 
     /// Minimal in-memory resolver used by the sign-then-verify round-trip
-    /// tests. Holds a single `(did, multibase_pubkey)` pair and surfaces
-    /// it as a one-key DID Document so the verify path's
-    /// "single-key fallback" lookup succeeds for arbitrary
-    /// `verification_method` strings.
+    /// tests. Holds a single `(did, multibase_pubkey)` pair and surfaces it as
+    /// a one-key DID Document under the id `{did}#k1`. The round-trip tests
+    /// pass that exact `verification_method`, so they do not depend on the
+    /// single-key fallback (which is now restricted to `did:key`).
     struct StubResolver {
         did: Did,
         multibase: String,
@@ -698,6 +703,43 @@ mod tests {
             rendered.contains("duplicate key") || rendered.contains("canonical JSON"),
             "got `{rendered}`"
         );
+    }
+
+    #[test]
+    fn single_key_fallback_rejected_for_did_webvh_wrong_fragment() {
+        // SEC-02: for a `did:webvh` document with exactly one key, a JWS that
+        // references a wrong/absent fragment MUST NOT silently fall back to the
+        // sole key — the key-id binding stays strict for multi-key-capable
+        // methods.
+        let signing = SigningKey::from_bytes(&[7u8; 32]);
+        let did = Did::new("did:webvh:z6mkfixture:single.example".to_owned()).unwrap();
+        let resolver = StubResolver {
+            did: did.clone(),
+            multibase: encode_ed25519_multibase(&signing.verifying_key()),
+        };
+        let err = resolve_ed25519_pubkey(&resolver, &format!("{did}#does-not-exist")).unwrap_err();
+        assert!(
+            matches!(err, JwsVerifyError::VerificationMethodNotFound { .. }),
+            "wrong fragment on did:webvh must not fall back to the single key (got `{err}`)"
+        );
+    }
+
+    #[test]
+    fn single_key_fallback_allowed_for_did_key() {
+        // SEC-02: `did:key` documents embed the key in the DID and carry exactly
+        // one verification method, so the single-key fallback is still honoured.
+        let signing = SigningKey::from_bytes(&[8u8; 32]);
+        let multibase = encode_ed25519_multibase(&signing.verifying_key());
+        let did = Did::new(format!("did:key:{multibase}")).unwrap();
+        let resolver = StubResolver {
+            did: did.clone(),
+            multibase: multibase.clone(),
+        };
+        // A reference with a mismatched fragment still resolves via the
+        // single-key fallback for did:key.
+        let resolved =
+            resolve_ed25519_pubkey(&resolver, &format!("{did}#anything")).expect("did:key fallback");
+        assert_eq!(resolved.as_bytes(), signing.verifying_key().as_bytes());
     }
 
     #[test]
