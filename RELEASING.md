@@ -1,6 +1,6 @@
 # Local Release Readiness
 
-The Cokret Rust SDK is a 12-crate Cargo workspace. This repository's release
+The Cokret Rust SDK is a 10-crate Cargo workspace. This repository's release
 readiness strand is local-only: it validates the coordinated crate set without
 publishing to crates.io, creating GitHub releases, or pushing tags.
 

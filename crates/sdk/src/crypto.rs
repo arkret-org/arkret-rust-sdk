@@ -502,15 +502,18 @@ pub fn encrypted_envelope_digest_report(
 }
 
 fn sha256_prefixed(bytes: &[u8]) -> String {
-    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
+    // Reuse the authoritative `sha256:<lowercase-hex>` formatter in
+    // `cokret-core` (single source of truth for the digest prefix/encoding).
+    cokret_core::canonical::sha256_digest(bytes)
 }
 
 /// Constant-time string comparison backed by the audited `subtle` crate.
 ///
 /// Both inputs are reduced to a fixed-length SHA-256 digest first so the
 /// comparison loop bound never depends on the secret's length, then
-/// compared with `subtle::ConstantTimeEq`.
-fn constant_time_eq(left: &str, right: &str) -> bool {
+/// compared with `subtle::ConstantTimeEq`. Shared crate-wide (see
+/// `key_verification::commitment`, `identity::records`, `auth::helpers`).
+pub(crate) fn constant_time_eq(left: &str, right: &str) -> bool {
     let left = Sha256::digest(left.as_bytes());
     let right = Sha256::digest(right.as_bytes());
     left.ct_eq(&right).into()

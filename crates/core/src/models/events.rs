@@ -583,11 +583,24 @@ impl Event {
         }
     }
 
+    /// Top-level Envelope fields that are stamped by the reducer AFTER the
+    /// producer signs, and therefore MUST NOT enter the signature/digest
+    /// input (otherwise a federated peer independently recomputing the
+    /// digest would mismatch the producer's `proof.event_digest`).
+    ///
+    /// Kept in lockstep with `conformance/encoding.md` §2 / §6 (v1 set:
+    /// `effective_scope`, `actor_kind`).
+    pub const REDUCER_STAMPED_TOP_LEVEL_FIELDS: [&'static str; 2] =
+        ["effective_scope", "actor_kind"];
+
     pub fn digest_payload(&self) -> Result<Value> {
         let mut value = serde_json::to_value(self)?;
         if let Value::Object(map) = &mut value {
             map.remove("proofs");
             map.remove("unsigned");
+            for field in Self::REDUCER_STAMPED_TOP_LEVEL_FIELDS {
+                map.remove(field);
+            }
         }
         Ok(value)
     }
@@ -961,6 +974,26 @@ mod event_wire_surface_tests {
             event.event_digest().unwrap(),
             mutated.event_digest().unwrap()
         );
+    }
+
+    #[test]
+    fn reducer_stamped_fields_do_not_affect_event_digest() {
+        // A reducer-stamped `effective_scope` / `actor_kind` MUST NOT change
+        // the `event_digest`, so a producer signature computed before stamping
+        // still validates on the accepted envelope (and matches a federated
+        // peer's independent recomputation). See `encoding.md` §2 / §6.
+        let event = base_event();
+        let baseline = event.event_digest().unwrap();
+
+        let mut stamped = event.clone();
+        stamped.effective_scope = Some(EffectiveScope::Realm { realm_id: realm() });
+        stamped.actor_kind = Some(EnvelopeActorKind::Agent);
+
+        assert_eq!(baseline, stamped.event_digest().unwrap());
+        // The stamped fields are absent from the digest payload entirely.
+        let digest_payload = stamped.digest_payload().unwrap();
+        assert!(digest_payload.get("effective_scope").is_none());
+        assert!(digest_payload.get("actor_kind").is_none());
     }
 
     #[test]

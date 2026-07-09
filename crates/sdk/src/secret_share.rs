@@ -204,6 +204,15 @@ pub fn seal_base_mode_to_x25519_pubkey(
             ))
         })?;
 
+    // Probe the OS CSPRNG up front so an unavailable entropy source (early
+    // boot, seccomp-restricted `getrandom`) surfaces as a propagated
+    // `Error::Crypto` instead of panicking inside `OsCsRng::fill_bytes`
+    // (the rand_core trait offers no fallible variant, so the seal path
+    // cannot otherwise recover).
+    let mut rng_probe = [0u8; 1];
+    getrandom::fill(&mut rng_probe)
+        .map_err(|err| Error::Crypto(format!("OS CSPRNG unavailable for HPKE seal: {err}")))?;
+
     let (encapped, ciphertext) = single_shot_seal::<HpkeAead, HpkeKdf, HpkeKem, _>(
         &OpModeS::Base,
         &recipient_pub,

@@ -80,7 +80,7 @@ pub fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, 
         layer = next;
     }
     let root = layer[0];
-    Hash::new(format!("sha256:{}", encode_hex(&root)))
+    Hash::new(format!("sha256:{}", hex::encode(root)))
         .map_err(|e| crate::Error::Protocol(format!("invalid state root: {e}")))
 }
 
@@ -108,14 +108,6 @@ pub fn leaf_hash(cell: &CellRef, state: &CellState) -> Result<[u8; 32], crate::E
     hasher.update([LEAF_PREFIX]);
     hasher.update(&bytes);
     Ok(hasher.finalize().into())
-}
-
-fn encode_hex(bytes: &[u8; 32]) -> String {
-    let mut s = String::with_capacity(64);
-    for byte in bytes {
-        s.push_str(&format!("{byte:02x}"));
-    }
-    s
 }
 
 #[cfg(test)]

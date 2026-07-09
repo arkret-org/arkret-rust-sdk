@@ -40,12 +40,12 @@ where
         .map_err(serde::de::Error::custom)
 }
 
-/// Length-guarded constant-time digest string comparison (service-surface.md
-/// §3.1.3 requires constant-time comparison of recomputed digests).
+/// Constant-time digest string comparison (service-surface.md §3.1.3 requires
+/// constant-time comparison of recomputed digests). Delegates to the single
+/// crate-wide [`crate::crypto::constant_time_eq`], which is backed by the
+/// audited `subtle` crate (replaces the previous hand-rolled XOR fold).
 fn constant_time_digest_eq(a: &crate::Hash, b: &crate::Hash) -> bool {
-    let a = a.as_str().as_bytes();
-    let b = b.as_str().as_bytes();
-    a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+    crate::crypto::constant_time_eq(a.as_str(), b.as_str())
 }
 
 fn placeholder_digest() -> crate::Hash {

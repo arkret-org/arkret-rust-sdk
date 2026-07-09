@@ -10,7 +10,6 @@ use cokret_core::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 use crate::device::{DeviceKeyBundle, DeviceTrustState, DeviceVerificationStrand};
 use crate::errors::{
@@ -610,15 +609,7 @@ pub(crate) fn session_key(realm_id: &RealmId, session_id: &str) -> String {
 }
 
 pub(crate) fn sha256_prefixed(bytes: &[u8]) -> String {
-    format!("sha256:{}", base16_lower(&Sha256::digest(bytes)))
-}
-
-pub(crate) fn base16_lower(bytes: &[u8]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        out.push(HEX[(byte >> 4) as usize] as char);
-        out.push(HEX[(byte & 0x0f) as usize] as char);
-    }
-    out
+    // Delegate to the authoritative `sha256:<lowercase-hex>` formatter in
+    // `cokret-core` so the prefix/encoding lives in a single place.
+    cokret_core::canonical::sha256_digest(bytes)
 }

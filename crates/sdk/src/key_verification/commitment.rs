@@ -1,6 +1,4 @@
-use cokret_core::canonical::canonical_json_bytes;
-use sha2::{Digest, Sha256};
-use subtle::ConstantTimeEq as _;
+use cokret_core::canonical::{canonical_json_bytes, sha256_digest};
 
 use super::envelopes::KeyVerificationStart;
 use crate::{Error, Result};
@@ -21,13 +19,17 @@ pub fn compute_key_commitment(
         .map_err(|err| Error::Protocol(format!("serialize start for commitment: {err}")))?;
     let canonical_start = canonical_json_bytes(&start_value)
         .map_err(|err| Error::Protocol(format!("canonicalize start for commitment: {err}")))?;
-    let mut hasher = Sha256::new();
-    hasher.update(ephemeral_public_b64.as_bytes());
-    hasher.update(&canonical_start);
-    Ok(format!("sha256:{}", hex::encode(hasher.finalize())))
+    // SHA256(key_b64 || canonical_json(start)); the concatenation is
+    // equivalent to the streaming `update` form. `sha256_digest` is the
+    // authoritative `sha256:<hex>` formatter in `cokret-core`.
+    let mut input = Vec::with_capacity(ephemeral_public_b64.len() + canonical_start.len());
+    input.extend_from_slice(ephemeral_public_b64.as_bytes());
+    input.extend_from_slice(&canonical_start);
+    Ok(sha256_digest(&input))
 }
 
-/// Constant-time string equality for MAC / commitment comparisons.
+/// Constant-time string equality for MAC / commitment comparisons —
+/// delegates to the single crate-wide [`crate::crypto::constant_time_eq`].
 pub(super) fn ct_eq(a: &str, b: &str) -> bool {
-    bool::from(a.as_bytes().ct_eq(b.as_bytes()))
+    crate::crypto::constant_time_eq(a, b)
 }

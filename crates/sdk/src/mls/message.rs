@@ -1,3 +1,4 @@
+use cokret_core::{base64url_token, content_type_token, major_minor_version};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -96,7 +97,7 @@ impl EncryptedEnvelopeV1 {
     }
 
     pub fn validate_spec(&self) -> Result<()> {
-        if !version_major_minor(&self.version) {
+        if !major_minor_version(&self.version) {
             return Err(Error::Protocol(
                 "encrypted envelope version must be major.minor".to_owned(),
             ));
@@ -284,36 +285,10 @@ fn validate_envelope_aad(aad: &EncryptedEnvelopeAadV1, visibility: AadVisibility
     Ok(())
 }
 
-fn version_major_minor(value: &str) -> bool {
-    value.split_once('.').is_some_and(|(major, minor)| {
-        !major.is_empty()
-            && !minor.is_empty()
-            && major.bytes().all(|byte| byte.is_ascii_digit())
-            && minor.bytes().all(|byte| byte.is_ascii_digit())
-    })
-}
-
-fn base64url_token(value: &str) -> bool {
-    !value.is_empty()
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-}
-
-fn content_type_token(value: &str) -> bool {
-    let Some((ty, subtype)) = value.split_once('/') else {
-        return false;
-    };
-    !ty.is_empty()
-        && !subtype.is_empty()
-        && ty.bytes().all(content_type_byte)
-        && subtype.bytes().all(content_type_byte)
-}
-
-fn content_type_byte(byte: u8) -> bool {
-    byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'+' | b'-')
-}
-
+// `major_minor_version`, `base64url_token`, `content_type_token` and
+// `content_type_byte` are the shared wire-token validators reused from
+// `cokret-core` (see `models::artifacts::event_wire`); only the
+// MLS-specific `event_kind_token` lives here.
 fn event_kind_token(value: &str) -> bool {
     let Some(rest) = value.strip_prefix("ck.") else {
         return false;

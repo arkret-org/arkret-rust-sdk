@@ -1,6 +1,5 @@
 use argon2::Argon2;
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
-use subtle::ConstantTimeEq;
 
 use super::*;
 pub(super) use crate::canonical::sha256_hex;
@@ -97,16 +96,11 @@ pub(super) fn verify_password(password: &str, phc: &str) -> bool {
         .is_ok()
 }
 
-/// Constant-time string comparison backed by the audited `subtle` crate.
-///
-/// Both inputs are first hashed to a fixed-length (32-byte) SHA-256 digest
-/// so the comparison loop bound never depends on the secret's length, then
-/// compared with `subtle::ConstantTimeEq`. This removes the length
-/// side-channel of the previous hand-rolled byte-XOR loop.
+/// Constant-time string comparison — delegates to the single crate-wide
+/// implementation in [`crate::crypto::constant_time_eq`] (hash both inputs
+/// to a fixed-length SHA-256 digest, then compare with `subtle`).
 pub(super) fn constant_time_eq(left: &str, right: &str) -> bool {
-    let left = Sha256::digest(left.as_bytes());
-    let right = Sha256::digest(right.as_bytes());
-    left.ct_eq(&right).into()
+    crate::crypto::constant_time_eq(left, right)
 }
 
 /// Verify a built-in account-recovery proof.

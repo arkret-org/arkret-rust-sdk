@@ -16,6 +16,7 @@ pub use cokret_core::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::models::{DeliveryStatus, MembershipPayload, OP_MEMBER_STATE};
 use crate::{Did, Error, InviteId, Operation, OperationId, RealmId, Result};
 
 /// Generate a new UUIDv7-based wire ID with the given Cokret typed prefix
@@ -31,17 +32,17 @@ fn generate_id(prefix: &str) -> String {
 /// [`MembershipManager::send_invite_with_expiry`].
 const DEFAULT_INVITE_TTL_DAYS: i64 = 7;
 
-/// Validate a membership transition per `event-auth-state-resolution.md` §5.
+/// Validate a membership transition against the authoritative `ck.member.state`
+/// FSM (`event-kind-registry.json` → `ck.member.state.parameters`).
 ///
-/// `from = None` represents the "no prior membership" state (the spec calls
-/// this `none`). The legal transition table covers:
+/// The FSM uses `initial_state = leave`, so `from = None` ("no prior
+/// membership") is treated as `leave`. The `allowed_transitions` are:
 ///
-/// - `none → {join, invite, knock}`
-/// - `invite → {join, leave}`
-/// - `knock → {invite, leave}`
+/// - `leave → {invite, knock, join, ban}`
+/// - `invite → {join, leave, ban}`
+/// - `knock → {invite, join, leave, ban}`
 /// - `join → {leave, ban}`
-/// - `leave → {invite, knock}` (re-enter via fresh invite or knock)
-/// - `ban → leave` (only via unban; reducer MUST emit `Leave` then a fresh invite for re-admission)
+/// - `ban → {leave, invite}`
 ///
 /// Same-state writes (e.g. `Join → Join`) are allowed as idempotent
 /// no-ops; reducers may still emit a profile/role change without flipping
@@ -52,23 +53,29 @@ pub fn is_legal_membership_transition(
     to: MembershipPayloadState,
 ) -> bool {
     use MembershipPayloadState::*;
-    if Some(to) == from {
+    // Spec initial state is `leave`; the "no prior membership" sentinel maps
+    // onto it (there is no distinct `none` wire value).
+    let from = from.unwrap_or(Leave);
+    if to == from {
         return true;
     }
     matches!(
         (from, to),
-        (None, Join)
-            | (None, Invite)
-            | (None, Knock)
-            | (Some(Invite), Join)
-            | (Some(Invite), Leave)
-            | (Some(Knock), Invite)
-            | (Some(Knock), Leave)
-            | (Some(Join), Leave)
-            | (Some(Join), Ban)
-            | (Some(Leave), Invite)
-            | (Some(Leave), Knock)
-            | (Some(Ban), Leave)
+        (Leave, Invite)
+            | (Leave, Knock)
+            | (Leave, Join)
+            | (Leave, Ban)
+            | (Invite, Join)
+            | (Invite, Leave)
+            | (Invite, Ban)
+            | (Knock, Invite)
+            | (Knock, Join)
+            | (Knock, Leave)
+            | (Knock, Ban)
+            | (Join, Leave)
+            | (Join, Ban)
+            | (Ban, Leave)
+            | (Ban, Invite)
     )
 }
 
@@ -553,22 +560,43 @@ impl MembershipManager {
         Ok(())
     }
 
-    /// Build a membership operation payload for submission.
+    /// Build a `ck.member.state` operation for submission.
+    ///
+    /// The wire payload follows `event-payload.schema.json#/$defs/membership_payload`
+    /// (`membership` state + `actor_id` cell subject). The acting principal is
+    /// carried by the Event envelope's `created_by`, not the payload, so the
+    /// `actor_id` argument does not appear in the payload body; the membership
+    /// cell subject is `target_did`.
     pub fn membership_operation(
         &self,
         actor_id: Did,
         target_did: Did,
         state: MembershipPayloadState,
     ) -> Result<Operation> {
+        // The acting principal is authenticated at the envelope layer; it is
+        // intentionally not echoed into the membership payload.
+        let _ = actor_id;
+        let realm_id = RealmId::new(self.realm_id.to_string())?;
+        let mut payload = if state == MembershipPayloadState::Join {
+            // `membership=join` requires realm_id + delivery_status per schema;
+            // this thin helper produces an `unroutable` join (no concrete
+            // delivery binding). Callers needing a routable join use
+            // `Realm::create_join_with_binding`.
+            MembershipPayload::join(
+                realm_id.clone(),
+                target_did,
+                DeliveryStatus::Unroutable,
+                String::new(),
+            )
+        } else {
+            MembershipPayload::transition(state, target_did, String::new())
+        };
+        payload.reason = None;
         Ok(Operation::create(
             OperationId::new(generate_id("ck:operation:"))?,
-            RealmId::new(self.realm_id.to_string())?,
-            "membership",
-            json!({
-                "actor_id": actor_id.as_str(),
-                "target_did": target_did.as_str(),
-                "membership": state,
-            }),
+            realm_id,
+            OP_MEMBER_STATE,
+            payload.to_value()?,
         ))
     }
 }
@@ -629,12 +657,13 @@ mod tests {
             MembershipPayloadState::Leave
         );
 
-        assert!(manager.join(&alice).is_err());
-        manager
-            .send_invite(alice.clone(), alice.clone(), MemberRole::Member)
-            .unwrap();
+        // `leave → join` is a legal transition per `ck.member.state`
+        // (initial state is `leave`), so re-joining after leaving succeeds
+        // directly without a fresh invite.
         manager.join(&alice).unwrap();
         manager.ban(&alice).unwrap();
+        // `ban → join` is not allowed; a banned member must be unbanned
+        // (→ `leave`) before re-admission.
         assert!(manager.join(&alice).is_err());
         manager.unban(&alice).unwrap();
         assert_eq!(

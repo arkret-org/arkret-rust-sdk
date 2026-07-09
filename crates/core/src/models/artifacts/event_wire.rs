@@ -142,7 +142,9 @@ impl EncryptedEnvelope {
     }
 }
 
-fn major_minor_version(value: &str) -> bool {
+/// `major.minor` numeric version token (e.g. `1.0`); both parts non-empty and
+/// ASCII-digit only. Shared wire-token validator (reused by `cokret-sdk`).
+pub fn major_minor_version(value: &str) -> bool {
     let Some((major, minor)) = value.split_once('.') else {
         return false;
     };
@@ -152,14 +154,18 @@ fn major_minor_version(value: &str) -> bool {
         && minor.bytes().all(|byte| byte.is_ascii_digit())
 }
 
-fn base64url_token(value: &str) -> bool {
+/// Non-empty base64url token (`[A-Za-z0-9_-]+`, no padding). Shared wire-token
+/// validator (reused by `cokret-sdk`).
+pub fn base64url_token(value: &str) -> bool {
     !value.is_empty()
         && value
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
 }
 
-fn content_type_token(value: &str) -> bool {
+/// `type/subtype` content-type token with restricted byte alphabet. Shared
+/// wire-token validator (reused by `cokret-sdk`).
+pub fn content_type_token(value: &str) -> bool {
     let Some((ty, subtype)) = value.split_once('/') else {
         return false;
     };
@@ -169,7 +175,9 @@ fn content_type_token(value: &str) -> bool {
         && subtype.bytes().all(content_type_byte)
 }
 
-fn content_type_byte(byte: u8) -> bool {
+/// Admissible byte inside a [`content_type_token`] segment. Shared wire-token
+/// validator (reused by `cokret-sdk`).
+pub fn content_type_byte(byte: u8) -> bool {
     byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'+' | b'-')
 }
 

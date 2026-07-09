@@ -140,7 +140,8 @@ impl Client {
     }
 
     /// `DELETE /_cokret/self/agents/{agent_principal_id}/grants/{grant_id}`
-    /// (`ck.self.agent.grant.resource.detach`).
+    /// (`ck.self.agent.grant.resource.delete`). The `_detach` method name is
+    /// retained for API compatibility; the registered operation id is `.delete`.
     pub async fn agent_grant_detach(
         &self,
         agent_principal_id: &str,
