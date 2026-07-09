@@ -601,7 +601,7 @@ pub fn handle_claim_proof(handle: &str, subject: &Did, challenge: &str) -> Strin
 /// DNS TXT name that should contain the Arkret handle proof.
 pub fn handle_dns_txt_name(handle: &str) -> Result<String> {
     let (local, domain) = split_domain_handle(handle)?;
-    Ok(format!("_cokret-handle.{local}.{domain}"))
+    Ok(format!("_arkret-handle.{local}.{domain}"))
 }
 
 /// HTTPS well-known URL that should return the Arkret handle proof.

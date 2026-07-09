@@ -60,7 +60,7 @@ pub struct AppletBridgeErrorBuilder {
 }
 
 impl AppletBridgeErrorBuilder {
-    /// `applet_id` is the typed `ck:applet:<uuidv7>` (or DID); `actor_id`
+    /// `applet_id` is the typed `ak:applet:<uuidv7>` (or DID); `actor_id`
     /// is the bot / system DID emitting the error. `failed_transaction_ref`
     /// points at the failed transaction / source Event (e.g. a push
     /// `event_id`) and MUST NOT inline unauthorized external plaintext.

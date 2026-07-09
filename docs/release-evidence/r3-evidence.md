@@ -110,7 +110,7 @@ relaxed validators would have let through.
 - `crates/core/src/models/member_identity.rs` (R3.1) — `ck.member.identity.update`,
   `MemberIdentity` / `VerifiedHandle` shapes, effective-set computation,
   identity_state_digest helper. Tracked under R3.1 items HDLREN-* / MID-*
-  in `_cokret-rust-sdk_todos.md`.
+  in `_arkret-rust-sdk_todos.md`.
 - `crates/core/src/errors.rs::operations_error_mapping_table` —
   per-operation error-code mapping table (`operations-error-mapping.json`
   v2026-05-27) deferred; HTTP-status mapping updated for new codes.
@@ -126,7 +126,7 @@ coverage description and the "how to re-add this job" runbook.
 
 ## Completion gate snapshot
 
-The completion gate from `_cokret-rust-sdk_todos.md`:
+The completion gate from `_arkret-rust-sdk_todos.md`:
 
 - `cargo check --workspace` — passes.
 - `cargo clippy --workspace -- -D warnings` — passes.

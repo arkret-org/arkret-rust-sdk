@@ -257,7 +257,7 @@ impl RealmState {
             // Generic redaction. Round 11 (2026-05-16): also flips Strand /
             // Morph subject state to Redacted per spec common-fields.md
             // §5.1 when the event content carries an `object_ref` pointing
-            // to a `ck:strand:` / `ck:morph:` typed-id. State-machine guard
+            // to a `ak:strand:` / `ak:morph:` typed-id. State-machine guard
             // rejects already-terminal source with `<kind>_already_terminal`.
             // Space is excluded — spec note "Space has no redacted state" routes
             // Space removal through `ck.space.tombstone` only.

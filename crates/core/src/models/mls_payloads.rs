@@ -747,7 +747,7 @@ fn object_ref_regex() -> &'static Regex {
     static OBJECT_REF: OnceLock<Regex> = OnceLock::new();
     OBJECT_REF.get_or_init(|| {
         Regex::new(
-            r"^(ck:(realm|circle|space|actor_profile|strand|message|morph|relation|view|policy|grant|invite|call|agent_interop_session|blob|snapshot|event|franking_proof|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|ck:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
+            r"^(ak:(realm|circle|space|actor_profile|strand|message|morph|relation|view|policy|grant|invite|call|agent_interop_session|blob|snapshot|event|franking_proof|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|ak:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
         )
         .expect("object_ref regex compiles")
     })

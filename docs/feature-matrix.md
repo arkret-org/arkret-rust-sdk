@@ -1,7 +1,7 @@
 # Feature Matrix
 
 > **Authoritative source.** The conformance-profile requirement surface is
-> defined by the generated `cokret_core::generated::profile_requirements` table
+> defined by the generated `arkret_core::generated::profile_requirements` table
 > (derived from `arkret-spec` `conformance-profiles.json`). The profile tables
 > in this document are a **human-readable mirror only** — when they disagree,
 > the generated table wins. The `feature_matrix_profiles_subset_of_generated`

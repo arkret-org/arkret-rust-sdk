@@ -35,7 +35,7 @@ fn session_grant_notification(
         audience: vec!["did:webvh:z6mkfixture:soland.example".to_owned()],
         scopes: vec![
             "urn:arkret:principal-server:session.bind".to_owned(),
-            cokret_device_scope(&device_id),
+            arkret_device_scope(&device_id),
         ],
         session_id: "browser-session-1".to_owned(),
         grant_jti: "grant-1".to_owned(),
@@ -346,7 +346,7 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
         audience: vec!["did:webvh:z6mkfixture:soland.example".to_owned()],
         scopes: vec![
             "urn:arkret:principal-server:session.bind".to_owned(),
-            cokret_device_scope(&device_id),
+            arkret_device_scope(&device_id),
         ],
         session_id: "browser-session-1".to_owned(),
         grant_jti: "grant-1".to_owned(),
@@ -513,9 +513,9 @@ fn session_grant_outbox_slot_accepts_memory_and_pg_like_backends() {
 }
 
 #[test]
-fn device_scope_helpers_accept_only_cokret_scope() {
+fn device_scope_helpers_accept_only_arkret_scope() {
     let device = device("phone");
-    let scope = cokret_device_scope(&device);
+    let scope = arkret_device_scope(&device);
     assert_eq!(device_id_from_scope_token(&scope).unwrap(), device);
     assert_eq!(
         primary_device_id_from_scopes(["openid", scope.as_str()]).unwrap(),

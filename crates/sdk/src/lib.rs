@@ -148,8 +148,8 @@ pub use arkret_signatures as signatures;
 pub use arkret_signatures::Ed25519MoveSigner;
 // Shared `did:webvh` inception builder + organization statement signer, surfaced
 // at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
-// reach one implementation: `cokret_sdk::webvh::prepare_inception`,
-// `cokret_sdk::realm_organization_statement_sign`.
+// reach one implementation: `arkret_sdk::webvh::prepare_inception`,
+// `arkret_sdk::realm_organization_statement_sign`.
 pub use arkret_signatures::{realm_organization, realm_organization_statement_sign, webvh};
 
 // Platform-native KeyStore backends. The glob import above already
@@ -216,7 +216,7 @@ pub mod idempotency;
 pub mod history_recovery;
 // RFC 9421 HTTP Message Signatures (Ed25519) + RFC 9530 Content-Digest.
 // The single source of truth now lives in `arkret-signatures`; this re-export
-// keeps the existing `arkret::http_signature::*` / `cokret_sdk::http_signature::*`
+// keeps the existing `arkret::http_signature::*` / `arkret_sdk::http_signature::*`
 // call paths stable.
 #[cfg(feature = "full-surface")]
 pub use arkret_signatures::http_signature;
@@ -356,7 +356,7 @@ pub use auth::{
     SessionGrantNotificationKind, SessionGrantOutboxEntry, SessionGrantOutboxState,
     SessionGrantPayload, SessionGrantRecord, SessionGrantRetryPolicy, SessionGrantSigner,
     SessionGrantVerification, SessionGrantVerifier, SessionPrincipalBinding, SessionRevocation,
-    WebAuthnPasskeyOutcome, cokret_device_scope, device_id_from_scope_token,
+    WebAuthnPasskeyOutcome, arkret_device_scope, device_id_from_scope_token,
     issue_session_grant_with_signer, primary_device_id_from_scopes, validate_presentation,
     verify_presentation_with_adapter, verify_session_grant_with_verifier,
 };

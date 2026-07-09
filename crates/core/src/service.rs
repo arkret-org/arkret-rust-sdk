@@ -494,7 +494,7 @@ mod tests {
         let allowlist = ServiceDidAllowlist::new().allow(ServiceEndpointBinding {
             service_did: service_did.clone(),
             service_type: ServiceType::DirectoryService,
-            endpoint: "https://svc.example/_cokret/find/directory".to_owned(),
+            endpoint: "https://svc.example/_arkret/find/directory".to_owned(),
             operations: vec!["ak.find.directory.query.search_realms".to_owned()],
         });
         let description = ServerDescription {

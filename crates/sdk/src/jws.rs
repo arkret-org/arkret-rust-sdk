@@ -354,7 +354,7 @@ pub fn effective_window_for_move(
 ) -> u64 {
     let mut effective = default_window_seconds;
     for effect in &move_obj.effects {
-        // CellRef shape: `ck:cell:<family>:<subject>` — extract family.
+        // CellRef shape: `ak:cell:<family>:<subject>` — extract family.
         let Ok(cell_id) = crate::CellId::parse(effect.cell.as_str()) else {
             continue;
         };

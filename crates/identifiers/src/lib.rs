@@ -87,12 +87,12 @@ macro_rules! id_type {
     };
 }
 
-/// Like [`id_type!`] but for **pure uuidv7 typed ids** (`ck:<kind>:<uuidv7>`,
+/// Like [`id_type!`] but for **pure uuidv7 typed ids** (`ak:<kind>:<uuidv7>`,
 /// single prefix, no hash alternative). In addition to the string-newtype API
 /// it exposes the at-rest bare-uuid form:
 ///
 /// - [`uuid()`](#method.uuid) — the bare RFC 9562 UUIDv7 payload, the DB storage form. Wire /
-///   `Display` / `as_str` keep the canonical `ck:<kind>:<uuid>` string, so the protocol surface is
+///   `Display` / `as_str` keep the canonical `ak:<kind>:<uuid>` string, so the protocol surface is
 ///   unchanged.
 /// - [`from_uuid()`](#method.from_uuid) — rebuild the typed id from a bare DB uuid + this type's
 ///   kind prefix.
@@ -108,12 +108,12 @@ macro_rules! uuid_id_type {
         id_type!($name, |value: &str| is_strict_typed_id(value, $prefix));
 
         impl $name {
-            /// The `ck:<kind>:` wire prefix this id-kind validates against.
+            /// The `ak:<kind>:` wire prefix this id-kind validates against.
             pub const KIND_PREFIX: &'static str = $prefix;
 
             /// Bare RFC 9562 UUIDv7 payload — the database at-rest form.
             /// Infallible: construction already validated the canonical
-            /// `ck:<kind>:<uuidv7>` shape.
+            /// `ak:<kind>:<uuidv7>` shape.
             pub fn uuid(&self) -> uuid::Uuid {
                 uuid::Uuid::parse_str(&self.0[$prefix.len()..])
                     .expect("validated typed id carries a canonical uuidv7 payload")
@@ -206,11 +206,11 @@ fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
     move |value| value.starts_with(prefix) && value.len() > prefix.len()
 }
 
-/// Validate the `ck:trust_domain:<scope>` wire form. Scope MUST be lowercase
+/// Validate the `ak:trust_domain:<scope>` wire form. Scope MUST be lowercase
 /// `[a-z0-9._:-]` (alphanumerics + dot/dash/underscore/colon), max 128 chars,
 /// non-empty. Round R2/R3 (2026-05-20). Spec: id-kind-registry.json
 /// special_forms[trust_domain]; pattern matches cross-signing-reset.schema.json
-/// `^ck:trust_domain:[a-z0-9][a-z0-9._\-:]{0,127}$`.
+/// `^ak:trust_domain:[a-z0-9][a-z0-9._\-:]{0,127}$`.
 ///
 /// Zero-allocation public validator for the trust-domain wire form. This is
 /// the same predicate used by `id_type!(TypedTrustDomainId, is_trust_domain)`.
@@ -248,7 +248,7 @@ pub fn is_strict_typed_id(value: &str, prefix: &str) -> bool {
 /// Generate a fresh canonical `<prefix><uuidv7>` identifier string using a
 /// freshly generated RFC 9562 UUIDv7. The output is always lowercase hex per
 /// `conformance/encoding.md` §4 and is the canonical wire form for typed
-/// `ck:<kind>:` identifiers (Arkret v1, 2026-05-09 onward).
+/// `ak:<kind>:` identifiers (Arkret v1, 2026-05-09 onward).
 pub fn new_prefixed_uuid7(prefix: &str) -> String {
     format!("{prefix}{}", uuid::Uuid::now_v7())
 }
@@ -300,7 +300,7 @@ pub fn is_lowercase_uuidv7(value: &str) -> bool {
 id_type!(Did, is_did);
 // Protocol object IDs use typed prefixes with canonical RFC 9562 UUIDv7
 // payloads. Pure-uuid kinds use `uuid_id_type!` so they persist as native
-// `uuid` columns (bare) while keeping the `ck:<kind>:<uuid>` wire form.
+// `uuid` columns (bare) while keeping the `ak:<kind>:<uuid>` wire form.
 uuid_id_type!(ActorProfileId, "ak:actor_profile:");
 // CKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
 // `agent_principal_id` is a DID scalar, represented by `Did`.
@@ -338,17 +338,17 @@ uuid_id_type!(FilterId, "ak:filter:");
 uuid_id_type!(FrameId, "ak:frame:");
 uuid_id_type!(FrankingProofId, "ak:franking_proof:");
 uuid_id_type!(MorphId, "ak:morph:");
-// Round R2/R3 (2026-05-20) — moderation appeal cell key (`ck:appeal:<uuidv7>`).
+// Round R2/R3 (2026-05-20) — moderation appeal cell key (`ak:appeal:<uuidv7>`).
 // id-kind-registry kind=appeal; see schemas/moderation-appeal.schema.json.
 uuid_id_type!(TypedAppealId, "ak:appeal:");
 // Round R2/R3 (2026-05-20) — deployment-scope trust domain identifier.
-// Wire form `ck:trust_domain:<scope>` where scope is lowercase
+// Wire form `ak:trust_domain:<scope>` where scope is lowercase
 // `[a-z0-9._:-]` max 128 chars. NOT a typed-UUIDv7 object id (stays text).
 id_type!(TypedTrustDomainId, is_trust_domain);
 uuid_id_type!(MessageId, "ak:message:");
 uuid_id_type!(RelationId, "ak:relation:");
 uuid_id_type!(EventId, "ak:event:");
-// OperationId is hybrid: `ck:operation:<uuidv7>` OR a content hash. No bare
+// OperationId is hybrid: `ak:operation:<uuidv7>` OR a content hash. No bare
 // uuid form, so it stays a text `id_type!`.
 id_type!(OperationId, |value: &str| is_strict_typed_id(
     value,
@@ -368,7 +368,7 @@ uuid_id_type!(ModerationQueueItemId, "ak:moderation_queue_item:");
 uuid_id_type!(RequestId, "ak:request:");
 uuid_id_type!(SnapshotId, "ak:snapshot:");
 uuid_id_type!(TransactionId, "ak:transaction:");
-// BlobRef is hybrid (hash or `ck:blob:` typed) — stays text.
+// BlobRef is hybrid (hash or `ak:blob:` typed) — stays text.
 id_type!(BlobRef, is_blob_ref);
 uuid_id_type!(ViewId, "ak:view:");
 id_type!(Hash, is_hash);
@@ -636,7 +636,7 @@ mod tests {
         assert!(Hash::new(format!("sha3_256:{digest64}")).is_err());
         assert!(Hash::new(format!("sha512:{digest128}")).is_err());
         assert!(BlobRef::new(format!("ak:blob:sha3_256:{digest64}")).is_err());
-        // event_digest (C47 / spec e10b6ad): bare hash, no `ck:move:` prefix.
+        // event_digest (C47 / spec e10b6ad): bare hash, no `ak:move:` prefix.
         assert!(MoveId::new(format!("blake3:{digest64}")).is_ok());
         assert!(MoveId::new(format!("sha256:{digest64}")).is_ok());
         assert!(MoveId::new(format!("sha512:{digest128}")).is_err());

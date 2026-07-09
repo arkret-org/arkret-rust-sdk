@@ -365,7 +365,7 @@ pub const KNOWN_REASON_CODES_ROUND_C44: &[&str] = &[
 
 /// `schema_violation` sub-reason: a `ck.reaction.add` / `ck.reaction.remove`
 /// `target_ref` points at an object kind that the deployment does not allow
-/// reactions on. v1 core only allows `ck:message:` targets; profiles MAY
+/// reactions on. v1 core only allows `ak:message:` targets; profiles MAY
 /// register additional target kinds. See zh/models/strand-and-message.md §9.8.2.
 pub const REASON_REACTION_TARGET_UNSUPPORTED: &str = "reaction_target_unsupported";
 /// `failed_precondition` sub-reason: a `ck.reaction.*` `target_ref` resolves

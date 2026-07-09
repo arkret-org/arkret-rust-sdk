@@ -1,5 +1,5 @@
 {
-  "_description": "Known-answer Ed25519 detached-JWS signatures over canonical Event Envelope bytes. signer = cokret_signatures::Ed25519DetachedJwsSigner. The signing input is `b64url(header).b64url(canonical_bytes)`. JWS shape: `b64url(header) .. b64url(signature)` (payload segment empty).",
+  "_description": "Known-answer Ed25519 detached-JWS signatures over canonical Event Envelope bytes. signer = arkret_signatures::Ed25519DetachedJwsSigner. The signing input is `b64url(header).b64url(canonical_bytes)`. JWS shape: `b64url(header) .. b64url(signature)` (payload segment empty).",
   "vectors": [
     {
       "name": "seed_one_all_ones_with_object",

@@ -179,7 +179,7 @@ pub enum AuditBindingVerifyOutcome {
 /// `audit_binding` block, dispatched by `binding_kind`.
 ///
 /// The `payload` is the projection event's `payload` field as
-/// returned by `/_cokret/self/events`. The dispatcher reads the binding
+/// returned by `/_arkret/self/events`. The dispatcher reads the binding
 /// plus the four canonical-subject inputs (`session_id`,
 /// `result.agent_principal_id`, `result.echo`, `audit_binding.actor_id`) and
 /// routes to the scheme-specific verifier:
@@ -313,7 +313,7 @@ mod tests {
             "did:webvh:z6mkfixture:alice.example",
         );
         assert!(subject.ends_with("binding_kind=ed25519_v1"));
-        assert!(subject.contains("session_id=ck:session:cross"));
+        assert!(subject.contains("session_id=ak:session:cross"));
         assert!(subject.contains("agent_principal_id=did:webvh:z6mkfixture:agent.example"));
         assert!(subject.contains("actor_id=did:webvh:z6mkfixture:alice.example"));
     }

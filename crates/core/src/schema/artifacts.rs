@@ -743,7 +743,7 @@ pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
 
 /// Special-form id kinds (non-UUIDv7) the SDK declares coverage for from
 /// the spec id-kind-registry `special_forms` array. Round R2/R3 (2026-05-20)
-/// adds `trust_domain` (`ck:trust_domain:<scope>`). These are validated
+/// adds `trust_domain` (`ak:trust_domain:<scope>`). These are validated
 /// separately from `ARTIFACT_BACKED_ID_KINDS` because the spec lists them
 /// under `special_forms`, not `id_kinds`.
 pub const ARTIFACT_BACKED_SPECIAL_FORM_ID_KINDS: &[&str] = &[

@@ -242,7 +242,7 @@ fn is_valid_directory_did_method(value: &str) -> bool {
 }
 
 impl ServerDescription {
-    pub fn supports_cokret_v1(&self) -> bool {
+    pub fn supports_arkret_v1(&self) -> bool {
         self.protocol_version == PROTOCOL_VERSION
     }
 }
@@ -388,7 +388,7 @@ impl AuthMetadata {
 
 /// Mirrors `service-describe.schema.json#/$defs/account_authority`. Carries
 /// the client-visible Account Authority origin and the gate/account base URL
-/// from which all `/_cokret/gate/account/*` endpoints are derived.
+/// from which all `/_arkret/gate/account/*` endpoints are derived.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountAuthority {

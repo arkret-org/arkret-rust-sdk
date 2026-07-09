@@ -128,7 +128,7 @@ pub enum ResourceSelector {
     /// Actor selector (e.g. account-lifecycle, profile updates).
     Actor { actor_id: String },
     /// CKP-0007 (R3 spec-sync 2026-05-27) — Circle selector. Matches a
-    /// specific Circle by its `ck:circle:<uuid>` identifier. The Circle
+    /// specific Circle by its `ak:circle:<uuid>` identifier. The Circle
     /// is scoped to its parent Realm; cross-Realm selectors MUST be
     /// rejected by the resolver (`circle_realm_mismatch`).
     Circle { circle_id: arkret_core::CircleId },
@@ -693,10 +693,10 @@ impl ResourceSelector {
     /// Parse a resource selector from a string.
     ///
     /// Supports formats like:
-    /// - "realm:ck:realm:..."
-    /// - "space:ck:space:..."
-    /// - "object:ck:realm:...:task"
-    /// - "relation:ck:realm:...:assigned_to"
+    /// - "realm:ak:realm:..."
+    /// - "space:ak:space:..."
+    /// - "object:ak:realm:...:task"
+    /// - "relation:ak:realm:...:assigned_to"
     pub fn parse(selector: &str) -> Result<Self> {
         // Split on the first colon to get the type
         let parts: Vec<&str> = selector.splitn(2, ':').collect();
@@ -787,7 +787,7 @@ impl ResourceSelector {
                 realm_id: realm_part(remainder, selector)?,
             }),
             "circle" => {
-                // Accept either `circle:ck:circle:<uuid>` (typed) or bare
+                // Accept either `circle:ak:circle:<uuid>` (typed) or bare
                 // `circle:<uuid>` (parser tail).
                 let raw = if remainder.starts_with("ak:circle:") {
                     remainder.to_owned()
@@ -1262,7 +1262,7 @@ fn split_realm_tail(remainder: &str, selector: &str) -> Result<(String, Option<S
     }
 
     let parts = remainder.split(':').collect::<Vec<_>>();
-    if parts.len() < 3 || parts[0] != "ak. || parts[1] != "realm" || parts[2].is_empty() {
+    if parts.len() < 3 || parts[0] != "ak" || parts[1] != "realm" || parts[2].is_empty() {
         return Err(Error::Protocol(format!(
             "invalid realm-scoped selector: {selector}"
         )));
@@ -1346,7 +1346,7 @@ mod spec_selector_tests {
     #[test]
     fn spec_value_rejects_compact_string_selector() {
         let err = ResourceSelector::from_spec_value(&json!(
-            "realm:ck:realm:01904100-0000-7000-8000-65c7feb295d7"
+            "realm:ak:realm:01904100-0000-7000-8000-65c7feb295d7"
         ))
         .unwrap_err();
         assert!(format!("{err}").contains("resource selector must be an object"));

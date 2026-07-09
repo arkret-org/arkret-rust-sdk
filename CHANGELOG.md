@@ -15,7 +15,7 @@ release, GitHub release, or release tag.
 
 ### R4.3 — sdk authz `CapabilityGrant` converges on the core authority form 2026-06-12 (SDK-05-003)
 
-- **Wire-breaking, no compatibility shim**: the sdk-local `authz::CapabilityGrant` (string `id`, `subject: Did`, missing `schema`/`issued_at`/`proofs`, non-spec top-level `delegable` + `revoked_*` semantics) is **removed**. The only wire shape is now the core authority `cokret_core::CapabilityGrant` (`capability-grant.schema.json`: required `id`/`schema`/`issuer`/`subject`/`actions`/`resources`/`proofs`). `AuthzEngine::check_authorization*`, `validate_capability_frontier`, `capability_grants_from_realm_state`, `grant_requires_approval`, `GrantProposal.grant` and `CapabilityGrantBuilder` all take/return the core form.
+- **Wire-breaking, no compatibility shim**: the sdk-local `authz::CapabilityGrant` (string `id`, `subject: Did`, missing `schema`/`issued_at`/`proofs`, non-spec top-level `delegable` + `revoked_*` semantics) is **removed**. The only wire shape is now the core authority `arkret_core::CapabilityGrant` (`capability-grant.schema.json`: required `id`/`schema`/`issuer`/`subject`/`actions`/`resources`/`proofs`). `AuthzEngine::check_authorization*`, `validate_capability_frontier`, `capability_grants_from_realm_state`, `grant_requires_approval`, `GrantProposal.grant` and `CapabilityGrantBuilder` all take/return the core form.
 - **Engine-internal projection**: evaluation now goes through the crate-private, non-serializable `GrantProjection` (typed `ResourceSelector` / `ConstraintEntry`), parsed from the core wire form. Projection failure carries `schema_violation` semantics — the grant contributes no authority. Spec constraint families / subtypes / restriction fields the evaluator cannot enforce **fail closed** (e.g. `claim_based.device_session`, `value_constraints`, `allowed_space_kinds`).
 - **Top-level `delegable` removed** per spec: resolved `ck.capability.grant`/`ck.capability.delegate` content carrying `delegable` is rejected as `schema_violation`. Delegation is expressed via `constraint_type="delegation_control"` + `max_delegation_depth` (absent ⇒ not delegable). `CapabilityGrantBuilder::with_delegable` is replaced by `with_delegation_control(max_delegation_depth, prohibit_subdelegation)`; the delegation-chain validator enforces the depth budget along the chain.
 - **Spec-shaped constraint/selector parsing**: new wire→engine projections for `grant-constraint.schema.json` objects (8 families, ISO 8601 durations → engine durations, calendar-ambiguous components fail closed) and `resource-selector.schema.json` objects (`ResourceSelector::from_spec_value` / `to_spec_value`). `ProtocolResourceSelectorKind::Wildcard` now (de)serializes as the spec's `"*"` instead of `"wildcard"`.
@@ -52,7 +52,7 @@ release, GitHub release, or release tag.
 
 - **`metadata_encryption_profile` → `metadata_encryption_floor`**: the Realm-side field is renamed to match the Circle field. The same concept previously carried two names (`_profile` on Realm, `_floor` on Circle).
 - **Metadata floor collapsed from three tiers to binary**: `metadata_encryption_floor` is now `allow_plaintext` / `e2ee_required` (was `content_only` / `minimal_encrypted` / `full_encrypted`), fully symmetric with `content_encryption_floor`. The server-visibility axis that `minimal` vs `full` used to express now lives solely in `plaintext_visible_services`. Supersedes the three-tier form introduced in R4.0.
-- **`ContentEncryptionFloor` + `CircleMetadataEncryptionFloor` merged into `cokret_core::EncryptionFloor`**: identical value sets and semantics (`AllowPlaintext` / `E2eeRequired`); the content and metadata floors now share one type. The `CircleMetadataEncryptionFloor` name referenced under R4.0 no longer exists. The `ContentEncryptionFloorViolation` error variant name is retained (content-side semantics).
+- **`ContentEncryptionFloor` + `CircleMetadataEncryptionFloor` merged into `arkret_core::EncryptionFloor`**: identical value sets and semantics (`AllowPlaintext` / `E2eeRequired`); the content and metadata floors now share one type. The `CircleMetadataEncryptionFloor` name referenced under R4.0 no longer exists. The `ContentEncryptionFloorViolation` error variant name is retained (content-side semantics).
 
 ### R3.5 — Applet protocol sync 2026-06-04 (arkret-spec @ 653ffb2)
 
@@ -77,7 +77,7 @@ release, GitHub release, or release tag.
 
 - **New operation**: `ck.find.directory.query.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `ck.find.directory.query.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `ck.schema.*`, or wire/reducer changes.
 - **Wire types**: `DirectoryResolveTargetRequestBody { address, requester, proofs, token }` + `DirectoryTargetResolutionOutcome { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Strand, Message }`. http-client method `directory_resolve_target`.
-- **Object-addressing grammar** (`cokret_core::models::object_address`): client-agnostic shareable address pointing at a Realm / Strand / Message. `parse_address` accepts both the `web+arkret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `strand` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid strand/message segment, or a strand/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
+- **Object-addressing grammar** (`arkret_core::models::object_address`): client-agnostic shareable address pointing at a Realm / Strand / Message. `parse_address` accepts both the `web+arkret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `strand` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid strand/message segment, or a strand/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
 - **Invite-token target binding** (scope-confusion defence): `TargetDescriptor { realm_id, strand_id?, message_id?, link_type }` with absent hierarchy fields OMITTED (never `null`) and typed canonical id values (`ck:realm:` / `ck:strand:` / `ck:message:`). `target_digest` reuses the shared canonicalizer (`canonical::canonical_sha256`) and covers ONLY the identity tuple + `link_type` — never `via` / `action` / `tok` / `lt`. `verify_token_target` recomputes + compares the digest so a token minted for object A cannot be replayed onto a different object B (and fails closed when the realm is still an unresolved alias).
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
@@ -181,7 +181,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
   (`validate_core_wire_shape`); stateless body remains accessible
   via the `ck.profile.stateless_cursor.v1` profile gate.
 - Profile ids `ck.profile.{accountable_principals.strict_reject,
-  media_service_binding[.livekit/.cokret_native]}.v1` already
+  media_service_binding[.livekit/.arkret_native]}.v1` already
   present in `crates/core/src/generated/profiles.rs`.
 
 #### Deferred (R3.1)
@@ -459,7 +459,7 @@ signatures, schema-id constants, and validation helpers. See arkret-spec
   decision out) so inkson and sodmin admin can pre-validate grant requests
   client-side before submission — the existing soland HTTP handler keeps
   the server-side enforcement contract unchanged via re-exports
-  (`pub use cokret_sdk::authz::delegation::{Grant, ...}`). Enforces
+  (`pub use arkret_sdk::authz::delegation::{Grant, ...}`). Enforces
   capabilities.md §10 (delegation MUST NOT widen actions, resources, or
   expiry; non-holder MUST NOT re-delegate; chain breaks on any
   revoked/expired ancestor) plus the BFS cascade contract.
@@ -478,7 +478,7 @@ signatures, schema-id constants, and validation helpers. See arkret-spec
 
 ### Added — `profile_requirements` codegen + validator (2026-05-18)
 
-- **`cokret_core::generated::profile_requirements`** — new generated
+- **`arkret_core::generated::profile_requirements`** — new generated
   module exposing per-profile `ProfileRequirements`
   (`required_operations` / `required_event_kinds` / `required_schemas`
   / `required_constraint_kinds`) as a `LazyLock<BTreeMap<&'static
@@ -1244,8 +1244,8 @@ removed-form fallback in `Deserialize`.
   - `Client::send_device_messages(idempotency_key, request)` switches
     to `POST` and propagates the key via the `Idempotency-Key`
     request header.
-  - `ToDeviceMessage` (in both `cokret_core::models` and
-    `cokret_core::sync`) drops its `Option<String> txn_id` field —
+  - `ToDeviceMessage` (in both `arkret_core::models` and
+    `arkret_core::sync`) drops its `Option<String> txn_id` field —
     the wire envelope no longer carries it.
   - `OP_DEVICE_MESSAGES_PUT` required-fields list drops `txn_id`.
   - `DeviceMessageEnvelope` (`crates/sdk/src/devices.rs`) drops its
@@ -1312,7 +1312,7 @@ unchanged; this is an additive SDK API release.
 ### Changed
 
 - Crate version `0.5.0 → 0.5.1` across the workspace; `v1` wire format
-  unchanged. Public re-export at `cokret_core::{KeyStoreError,
+  unchanged. Public re-export at `arkret_core::{KeyStoreError,
   platform_default_keystore}`.
 
 ## [0.5.0] – 2026-05-09 — Move/Seal signer surface + EventsQuery typed wrappers

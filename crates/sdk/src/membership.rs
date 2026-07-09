@@ -20,7 +20,7 @@ use crate::models::{DeliveryStatus, MembershipPayload, OP_MEMBER_STATE};
 use crate::{Did, Error, InviteId, Operation, OperationId, RealmId, Result};
 
 /// Generate a new UUIDv7-based wire ID with the given Arkret typed prefix
-/// (e.g. `ck:invite:`, `ck:operation:`). RFC 9562 §5.7 / `conformance/encoding.md` §4.
+/// (e.g. `ak:invite:`, `ak:operation:`). RFC 9562 §5.7 / `conformance/encoding.md` §4.
 fn generate_id(prefix: &str) -> String {
     format!("{prefix}{}", uuid::Uuid::now_v7())
 }

@@ -2,11 +2,11 @@
 //! helpers.
 //!
 //! The protocol federation surface is the registered `ck.peer.*`
-//! operation family (`/_cokret/peer/*`) with Event proofs / HTTP
+//! operation family (`/_arkret/peer/*`) with Event proofs / HTTP
 //! message signatures via the `arkret-signatures` pipeline. A former
 //! SDK-local "federation transaction/request" layer (concatenation
 //! SHA-256 pseudo-signatures, free-form `txn_*` ids, unregistered
-//! `/_cokret/federation/*` paths) was removed as non-spec — do not
+//! `/_arkret/federation/*` paths) was removed as non-spec — do not
 //! reintroduce it.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -435,7 +435,7 @@ mod tests {
             "service": [{
                 "id": "did:webvh:z6mkfixture:a.example#arkret-federation",
                 "type": "CokretFederation",
-                "serviceEndpoint": "https://a.example/_cokret/peer/events"
+                "serviceEndpoint": "https://a.example/_arkret/peer/events"
             }]
         });
 
@@ -443,13 +443,13 @@ mod tests {
             &document,
             &did,
             "CokretFederation",
-            "https://a.example/_cokret/peer/events"
+            "https://a.example/_arkret/peer/events"
         ));
         assert!(!did_document_service_endpoint_matches(
             &document,
             &Did::new("did:webvh:z6mkfixture:b.example").unwrap(),
             "CokretFederation",
-            "https://a.example/_cokret/peer/events"
+            "https://a.example/_arkret/peer/events"
         ));
     }
 

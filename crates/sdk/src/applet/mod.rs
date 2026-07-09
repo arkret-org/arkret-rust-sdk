@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn applet_endpoint_routes_and_bridge_mappings_cover_queries() {
-        assert_eq!(AppletEndpointRouteSet::cokret_default().routes.len(), 8);
+        assert_eq!(AppletEndpointRouteSet::arkret_default().routes.len(), 8);
 
         let mut mappings = BridgeMappingStore::new();
         mappings.upsert_user(RemoteUserMapping {

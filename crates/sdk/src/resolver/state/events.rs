@@ -279,7 +279,7 @@ impl RealmState {
         }
         // Unknown object — causal / backfill window. Tolerate silently
         // (mirrors restore_*/archive_* guards). Note that Space is also
-        // hit here when `object_ref` is `ck:space:...` and Space is
+        // hit here when `object_ref` is `ak:space:...` and Space is
         // unmaterialised; that's also fine because ck.redaction targeting
         // a Space is undefined per spec (no `Redacted` variant), and
         // any space removal strand uses `ck.space.tombstone` directly.

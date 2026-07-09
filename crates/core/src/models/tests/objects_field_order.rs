@@ -218,7 +218,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         Some(PolicyId::new("ak:policy:0196419b-0000-7000-8000-000000000003").unwrap());
     realm.sync_endpoints.push(SyncEndpoint {
         did: Did::new("did:webvh:z6mkfixture:sync.example").unwrap(),
-        endpoint: "https://sync.example/_cokret".to_owned(),
+        endpoint: "https://sync.example/_arkret".to_owned(),
         role: "primary".to_owned(),
         service_type: "principal_server".to_owned(),
         plaintext_visible: false,
@@ -675,7 +675,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     realm.federation_policy = Some(FederationPolicy::Restricted);
     realm.sync_endpoints.push(SyncEndpoint {
         did: Did::new("did:webvh:z6mkfixture:sync.example").unwrap(),
-        endpoint: "https://sync.example/_cokret".to_owned(),
+        endpoint: "https://sync.example/_arkret".to_owned(),
         role: "primary".to_owned(),
         service_type: "principal_server".to_owned(),
         plaintext_visible: false,

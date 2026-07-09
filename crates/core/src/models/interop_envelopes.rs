@@ -26,7 +26,7 @@ pub enum InteropSessionStatus {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentInteropEnvelope {
     /// Stable agent runtime identifier. Spec v1: this is a DID;
-    /// `ck:agent:*` is not a registered typed-id kind.
+    /// `ak:agent:*` is not a registered typed-id kind.
     pub agent_id: Did,
     /// HTTPS endpoint advertised by `ck.agent.endpoint` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -63,11 +63,11 @@ pub struct AgentInteropEnvelope {
 /// This is the **wire envelope** that gets serialised onto the
 /// `audit_binding` field of [`AgentInteropEnvelope`]. Verification and
 /// signing of these bindings lives in
-/// `cokret_sdk::agent_binding` (Ed25519 implementation).
+/// `arkret_sdk::agent_binding` (Ed25519 implementation).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentAuditBinding {
-    /// Grant reference. Wire form: `ck:grant:<uuidv7>`.
+    /// Grant reference. Wire form: `ak:grant:<uuidv7>`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grant_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -87,7 +87,7 @@ pub struct AgentAuditBinding {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletInteropEnvelope {
     /// Stable applet identifier. Either a DID or the registered
-    /// typed-id form `ck:applet:<uuidv7>`. Arbitrary opaque strings
+    /// typed-id form `ak:applet:<uuidv7>`. Arbitrary opaque strings
     /// are NOT valid wire identifiers — bridge-specific aliases
     /// belong in `namespace` / `external_ref` extension fields.
     pub applet_id: String,

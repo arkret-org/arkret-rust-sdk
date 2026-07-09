@@ -11,7 +11,7 @@
 //!     forbidden name) or, when not on the list, validated as ordinary unknown keys (forbidden
 //!     because the allow-list is closed).
 //!  3. **Sensitive literals are caught everywhere except `push_target_id`.** A string value
-//!     containing `did:` or `ck:` in any non-pseudonym slot MUST be rejected.
+//!     containing `did:` or `ak:` in any non-pseudonym slot MUST be rejected.
 //!
 //! All proptest blocks use 64 cases to keep CI fast.
 
@@ -201,7 +201,7 @@ fn contains_forbidden_key(value: &Value) -> bool {
 }
 
 /// Helper: recursively scan a JSON value for any string containing
-/// `did:` or `ck:` (case-insensitive) in any path EXCEPT inside a
+/// `did:` or `ak:` (case-insensitive) in any path EXCEPT inside a
 /// `push_target_id` slot.
 fn contains_sensitive_literal(path: &str, value: &Value) -> bool {
     match value {
@@ -337,7 +337,7 @@ proptest! {
         );
     }
 
-    /// Property 5 — `did:` / `ck:` literals in any non-pseudonym slot
+    /// Property 5 — `did:` / `ak:` literals in any non-pseudonym slot
     /// trigger SensitiveLiteral.
     #[test]
     fn sensitive_literals_caught_everywhere(
@@ -361,7 +361,7 @@ proptest! {
         );
         prop_assert!(
             sanitize_blind_payload(&payload).is_err(),
-            "sanitizer must reject `did:` / `ck:` literal `{literal}`"
+            "sanitizer must reject `did:` / `ak:` literal `{literal}`"
         );
     }
 

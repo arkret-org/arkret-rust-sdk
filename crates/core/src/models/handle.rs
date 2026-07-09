@@ -325,8 +325,8 @@ pub(crate) fn is_valid_domain(s: &str) -> bool {
 /// R3.2 — `ck.schema.handle_claim.v1.subject` validator.
 ///
 /// The handle claim subject MUST be a holder / principal DID. It is NOT a
-/// Realm `actor_id` (`ck:actor:`), a server-local `account_id`
-/// (`ck:account:`), a service DID, an administrative identifier, or a
+/// Realm `actor_id` (`ak:actor:`), a server-local `account_id`
+/// (`ak:account:`), a service DID, an administrative identifier, or a
 /// generic resource id. We accept any `did:<method>:...` and reject the
 /// typed-id prefixes; a deployment-specific "is this a service DID"
 /// distinction is left to the issuer, but the typed-id rejection here

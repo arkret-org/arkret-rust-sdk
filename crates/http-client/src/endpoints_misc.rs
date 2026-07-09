@@ -40,7 +40,7 @@ impl Client {
         &self,
         request: &PushRegisterDeviceRequestBody,
     ) -> Result<PushRegisterDeviceOutcome> {
-        self.post("/_cokret/edge/push/register-device", request)
+        self.post("/_arkret/edge/push/register-device", request)
             .await
     }
 
@@ -48,31 +48,31 @@ impl Client {
         &self,
         request: &PushUnregisterDeviceRequestBody,
     ) -> Result<OkOutcome> {
-        self.post("/_cokret/edge/push/unregister-device", request)
+        self.post("/_arkret/edge/push/unregister-device", request)
             .await
     }
 
     pub async fn push_notify(&self, request: &PushNotifyRequestBody) -> Result<PushNotifyOutcome> {
-        self.post("/_cokret/edge/push/notify", request).await
+        self.post("/_arkret/edge/push/notify", request).await
     }
 
     pub async fn policy_check(
         &self,
         request: &PolicyCheckRequestBody,
     ) -> Result<PolicyCheckOutcome> {
-        self.post("/_cokret/self/policy/check", request).await
+        self.post("/_arkret/self/policy/check", request).await
     }
 
     pub async fn media_ice_config(
         &self,
         request: &MediaIceConfigRequestBody,
     ) -> Result<MediaIceConfigOutcome> {
-        self.post("/_cokret/self/rtc/ice-config", request).await
+        self.post("/_arkret/self/rtc/ice-config", request).await
     }
 
     /// CKP-0010 — exchange a committed `session_focus` for a backend media
     /// token + `participant_binding` via
-    /// `ck.self.call.media.exchange.issue_token` (`POST /_cokret/self/rtc/token`,
+    /// `ck.self.call.media.exchange.issue_token` (`POST /_arkret/self/rtc/token`,
     /// `media-service-binding.md` §3).
     ///
     /// Returns the raw signed outcome; callers MUST verify the response against
@@ -84,14 +84,14 @@ impl Client {
         &self,
         request: &CallMediaTokenExchangeRequestBody,
     ) -> Result<CallMediaTokenExchangeOutcome> {
-        self.post("/_cokret/self/rtc/token", request).await
+        self.post("/_arkret/self/rtc/token", request).await
     }
 
     pub async fn moderation_report(
         &self,
         request: &ModerationReportRequestBody,
     ) -> Result<ModerationReportOutcome> {
-        self.post("/_cokret/self/moderation/report", request).await
+        self.post("/_arkret/self/moderation/report", request).await
     }
 
     pub async fn mimi_provider_directory(
@@ -99,7 +99,7 @@ impl Client {
         provider_id: Option<&str>,
         features: &[String],
     ) -> Result<MimiProviderDirectory> {
-        let mut builder = self.request(Method::GET, "/_cokret/open/mimi/provider-directory")?;
+        let mut builder = self.request(Method::GET, "/_arkret/open/mimi/provider-directory")?;
         if let Some(provider_id) = provider_id {
             builder = builder.query(&[("provider_id", provider_id)]);
         }
@@ -113,22 +113,22 @@ impl Client {
         &self,
         request: &MimiReportAbuseRequestBody,
     ) -> Result<MimiReportAbuseOutcome> {
-        self.post("/_cokret/open/mimi/report-abuse", request).await
+        self.post("/_arkret/open/mimi/report-abuse", request).await
     }
 
     pub async fn applet_ping(&self) -> Result<AppletPingOutcome> {
-        self.get("/_cokret/edge/applet/ping").await
+        self.get("/_arkret/edge/applet/ping").await
     }
 
     pub async fn applet_describe(&self) -> Result<AppletDescription> {
-        self.get("/_cokret/edge/applet/describe").await
+        self.get("/_arkret/edge/applet/describe").await
     }
 
     pub async fn applet_install_preview(
         &self,
         request: &AppletInstallPreviewRequestBody,
     ) -> Result<AppletInstallPlan> {
-        self.post("/_cokret/self/applets/install/preview", request)
+        self.post("/_arkret/self/applets/install/preview", request)
             .await
     }
 
@@ -138,7 +138,7 @@ impl Client {
         request: &AppletInstallRequestBody,
     ) -> Result<AppletInstallOutcome> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.post_with_options("/_cokret/self/applets/install", request, &options)
+        self.post_with_options("/_arkret/self/applets/install", request, &options)
             .await
     }
 
@@ -148,7 +148,7 @@ impl Client {
         request: &AppletRevokeRequestBody,
     ) -> Result<AppletRevokeOutcome> {
         reject_path_segment(applet_id)?;
-        let path = format!("/_cokret/self/applets/{applet_id}/revoke");
+        let path = format!("/_arkret/self/applets/{applet_id}/revoke");
         self.post(&path, request).await
     }
 
@@ -158,7 +158,7 @@ impl Client {
         request: &AppletTransactionRequestBody,
     ) -> Result<AppletTransactionOutcome> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.post_with_options("/_cokret/edge/applet/transactions", request, &options)
+        self.post_with_options("/_arkret/edge/applet/transactions", request, &options)
             .await
     }
 
@@ -173,7 +173,7 @@ impl Client {
                 "applet transaction source_service_did must match signing source".to_owned(),
             ));
         }
-        let path = "/_cokret/edge/applet/transactions";
+        let path = "/_arkret/edge/applet/transactions";
         let url = self.base_url.join(path.trim_start_matches('/'))?;
         let target_uri = url.to_string();
         let authority = request_authority(&url)?;
@@ -253,35 +253,35 @@ impl Client {
 
     pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorView> {
         reject_path_segment(actor_id)?;
-        let path = format!("/_cokret/edge/applet/actors/{actor_id}");
+        let path = format!("/_arkret/edge/applet/actors/{actor_id}");
         self.get(&path).await
     }
 
     pub async fn applet_realm(&self, realm_id_or_alias: &str) -> Result<AppletRealmView> {
         reject_path_segment(realm_id_or_alias)?;
-        let path = format!("/_cokret/edge/applet/realms/{realm_id_or_alias}");
+        let path = format!("/_arkret/edge/applet/realms/{realm_id_or_alias}");
         self.get(&path).await
     }
 
     pub async fn applet_protocol(&self, protocol: &str) -> Result<AppletProtocolMetadata> {
         reject_path_segment(protocol)?;
-        let path = format!("/_cokret/edge/applet/protocols/{protocol}");
+        let path = format!("/_arkret/edge/applet/protocols/{protocol}");
         self.get(&path).await
     }
 
     /// Query third-party users for an applet.
     pub async fn applet_third_party_users(&self) -> Result<AppletThirdPartyUserList> {
-        self.get("/_cokret/edge/applet/third_party/users").await
+        self.get("/_arkret/edge/applet/third_party/users").await
     }
 
     /// Query third-party locations for an applet.
     pub async fn applet_third_party_locations(&self) -> Result<AppletThirdPartyLocationList> {
-        self.get("/_cokret/edge/applet/third_party/locations").await
+        self.get("/_arkret/edge/applet/third_party/locations").await
     }
 
     pub async fn circle_list(&self, realm_id: &str) -> Result<CircleList> {
         let builder = self
-            .request(Method::GET, "/_cokret/self/circles")?
+            .request(Method::GET, "/_arkret/self/circles")?
             .query(&[("realm_id", realm_id)]);
         self.send_json(builder).await
     }
@@ -293,7 +293,7 @@ impl Client {
         request: &CircleScopeRotateRequestBody,
     ) -> Result<CircleScopeRotateOutcome> {
         reject_path_segment(circle_id)?;
-        let path = format!("/_cokret/self/circles/{circle_id}/scope-rotate");
+        let path = format!("/_arkret/self/circles/{circle_id}/scope-rotate");
         let options = ClientRequestOptions::new()
             .request_id(idempotency_key)
             .idempotency_key(idempotency_key);

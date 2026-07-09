@@ -45,7 +45,7 @@ impl IdempotencyDirection {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::NodeToApplet => "node_to_applet",
-            Self::AppletToCokretInbound => "applet_to_cokret_inbound",
+            Self::AppletToCokretInbound => "applet_to_arkret_inbound",
         }
     }
 }

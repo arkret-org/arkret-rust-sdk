@@ -22,7 +22,7 @@ use crate::client_internals::{read_body_limited, transport_error, trim_ascii};
 use crate::{Client, ClientRequestOptions, MAX_SUBSCRIBE_FRAME_BYTES};
 
 impl Client {
-    /// `POST /_cokret/gate/account/session-grants`
+    /// `POST /_arkret/gate/account/session-grants`
     /// (`ck.gate.account.command.issue_session_grant`): exchange a body-borne
     /// passkey / OIDC / device / DID proof for a session grant. This is
     /// the only session-grant issuance path registered in the spec HTTP
@@ -32,21 +32,21 @@ impl Client {
         &self,
         req: &SessionGrantRequestBody,
     ) -> Result<SessionGrantOutcome> {
-        self.post("/_cokret/gate/account/session-grants", req).await
+        self.post("/_arkret/gate/account/session-grants", req).await
     }
 
-    /// `POST /_cokret/gate/account/session-grants/refresh`
+    /// `POST /_arkret/gate/account/session-grants/refresh`
     /// (`ck.gate.account.command.refresh_session_grant`): rotate a
     /// DPoP-bound session grant without changing the grant audience.
     pub async fn auth_refresh_session_grant(
         &self,
         req: &SessionGrantRefreshRequestBody,
     ) -> Result<SessionGrantRefreshOutcome> {
-        self.post("/_cokret/gate/account/session-grants/refresh", req)
+        self.post("/_arkret/gate/account/session-grants/refresh", req)
             .await
     }
 
-    /// `POST /_cokret/gate/account/device-enroll`
+    /// `POST /_arkret/gate/account/device-enroll`
     /// (`ck.gate.account.command.enroll_device`): ask the Account Authority
     /// to mint a signed `service_attested` `ck.device.authorize` event for the
     /// current DPoP-bound session device.
@@ -54,43 +54,43 @@ impl Client {
         &self,
         req: &AccountDeviceEnrollRequestBody,
     ) -> Result<AccountDeviceEnrollOutcome> {
-        self.post("/_cokret/gate/account/device-enroll", req).await
+        self.post("/_arkret/gate/account/device-enroll", req).await
     }
 
-    /// `POST /_cokret/gate/account/logout`
+    /// `POST /_arkret/gate/account/logout`
     /// (`ck.gate.account.command.logout`): terminate the current
     /// DPoP-bound account session at the Account Authority.
     pub async fn auth_account_logout(&self) -> Result<AccountLogoutOutcome> {
         self.post(
-            "/_cokret/gate/account/logout",
+            "/_arkret/gate/account/logout",
             &AccountLogoutRequestBody::default(),
         )
         .await
     }
 
     pub async fn account_viewer(&self) -> Result<AccountView> {
-        self.get("/_cokret/self/account/viewer").await
+        self.get("/_arkret/self/account/viewer").await
     }
 
     pub async fn account_register(
         &self,
         request: &AccountRegisterRequestBody,
     ) -> Result<AccountRegisterOutcome> {
-        self.post("/_cokret/gate/account/register", request).await
+        self.post("/_arkret/gate/account/register", request).await
     }
 
     pub async fn account_update_profile(
         &self,
         request: &AccountUpdateProfileRequestBody,
     ) -> Result<AccountUpdateProfileOutcome> {
-        self.post("/_cokret/self/account/profile", request).await
+        self.post("/_arkret/self/account/profile", request).await
     }
 
     pub async fn account_device_pair(
         &self,
         request: &AccountDevicePairRequestBody,
     ) -> Result<AccountDevicePairOutcome> {
-        self.post("/_cokret/gate/account/device-pair", request)
+        self.post("/_arkret/gate/account/device-pair", request)
             .await
     }
 
@@ -120,7 +120,7 @@ impl Client {
         }
 
         let mut builder = self
-            .request_unbounded(Method::GET, "/_cokret/self/account/subscribe")?
+            .request_unbounded(Method::GET, "/_arkret/self/account/subscribe")?
             .header("accept", accept);
         if let Some(after) = request.after.as_deref() {
             builder = builder.query(&[("after", after)]);
@@ -182,7 +182,7 @@ impl Client {
     /// Subscribe and return the first delta frame, then drop the
     /// connection.
     ///
-    /// `/_cokret/self/account/subscribe` is a long-lived NDJSON stream:
+    /// `/_arkret/self/account/subscribe` is a long-lived NDJSON stream:
     /// the server keeps pushing frames and does not close the response
     /// on its own, so reading the whole body up front would never
     /// return (and would buffer the stream without bound). The body is
@@ -334,14 +334,14 @@ impl Client {
     }
 
     pub async fn account_describe(&self) -> Result<SyncDescription> {
-        self.get("/_cokret/self/account/describe").await
+        self.get("/_arkret/self/account/describe").await
     }
 
     pub async fn account_cursor_revoke(
         &self,
         request: &AccountCursorRevokeRequestBody,
     ) -> Result<AccountCursorRevokeOutcome> {
-        self.post("/_cokret/self/account/cursor/revoke", request)
+        self.post("/_arkret/self/account/cursor/revoke", request)
             .await
     }
 
@@ -491,7 +491,7 @@ mod tests {
             raw
         });
 
-        let expected_htu = format!("http://{addr}/_cokret/gate/account/logout");
+        let expected_htu = format!("http://{addr}/_arkret/gate/account/logout");
         let client = Client::builder(Url::parse(&format!("http://{addr}/")).unwrap())
             .allow_insecure_localhost()
             .auth(Auth::Dpop(DpopAuth::with_access_token(
@@ -513,7 +513,7 @@ mod tests {
         let raw = capture.await.unwrap();
         let (request_line, headers, body) = split_request(&raw);
         assert!(
-            request_line.starts_with("POST /_cokret/gate/account/logout "),
+            request_line.starts_with("POST /_arkret/gate/account/logout "),
             "unexpected request line: {request_line}"
         );
         assert!(

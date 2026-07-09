@@ -83,7 +83,7 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
 /// Client helper that builds a `ck.self.call.media.exchange.issue_token` request body.
 ///
 /// The reqwest-backed transport (`arkret_http_client::Client::media_token_exchange`)
-/// POSTs this body to `/_cokret/self/rtc/token` and returns the raw
+/// POSTs this body to `/_arkret/self/rtc/token` and returns the raw
 /// [`CallMediaTokenExchangeOutcome`]. Callers MUST then pass the response through
 /// [`verify_call_media_token_outcome`], which anchors `participant_binding.issuer_kid`
 /// and the `service_signature` issuer to the current
@@ -236,7 +236,7 @@ impl MediaClient {
         &self.client
     }
 
-    /// `POST /_cokret/self/rtc/token`, followed by participant-binding and
+    /// `POST /_arkret/self/rtc/token`, followed by participant-binding and
     /// service-signature verification.
     pub async fn call_media_token_exchange(
         &self,
@@ -252,7 +252,7 @@ impl MediaClient {
         })
     }
 
-    /// `POST /_cokret/self/rtc/ice-config`, followed by issuer, TTL and TURN
+    /// `POST /_arkret/self/rtc/ice-config`, followed by issuer, TTL and TURN
     /// credential privacy checks.
     pub async fn media_ice_config(
         &self,

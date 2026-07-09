@@ -212,7 +212,7 @@ pub const CX_SESSION_GRANT: &str = "ak.session.grant";
 
 /// Derive the canonical principal control Realm ID from a principal DID.
 ///
-/// The format is deterministic under the `ck:realm:` namespace; downstream code MUST treat
+/// The format is deterministic under the `ak:realm:` namespace; downstream code MUST treat
 /// this as opaque. This Realm holds the principal's device ledger, key
 /// log, and session grants.
 pub fn principal_control_realm_id(principal_id: &Did) -> String {
@@ -271,7 +271,7 @@ pub fn assert_control_realm_pinning(
 pub const ARKRET_DEVICE_SCOPE_PREFIX: &str = "urn:arkret:client:device:";
 
 /// Build the canonical Arkret device scope token for a device.
-pub fn cokret_device_scope(device_id: &DeviceId) -> String {
+pub fn arkret_device_scope(device_id: &DeviceId) -> String {
     format!("{ARKRET_DEVICE_SCOPE_PREFIX}{device_id}")
 }
 

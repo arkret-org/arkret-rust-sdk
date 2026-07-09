@@ -608,7 +608,7 @@ pub struct AppletPackage {
     pub schema: String,
     /// Distribution identifier only — never a grant subject.
     pub package_id: String,
-    /// DID or `ck:applet:<uuidv7>`.
+    /// DID or `ak:applet:<uuidv7>`.
     pub applet_id: String,
     pub service_did: Did,
     pub controller_did: Did,

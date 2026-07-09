@@ -16,7 +16,7 @@ pub struct SyncOutcome {
     /// Opaque stream cursor — clients MUST treat it as opaque and pass it back
     /// as `after` on the next `/account/subscribe` request.
     pub cursor: String,
-    /// Realm sync bodies keyed by `ck:realm:*`. Kept as `Value` so the HTTP
+    /// Realm sync bodies keyed by `ak:realm:*`. Kept as `Value` so the HTTP
     /// layer doesn't constrain per-realm extra
     /// fields (e.g. `state_after`, `strands`) that the spec leaves open.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]

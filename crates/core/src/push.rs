@@ -617,7 +617,7 @@ mod tests {
     #[test]
     fn bridge_notify_descriptor_exposes_dedup_and_rate_limit_windows() {
         let descriptor = PushBridgeDescribeNotifyDescriptor {
-            notify_path: "/_cokret/edge/push/notify".to_owned(),
+            notify_path: "/_arkret/edge/push/notify".to_owned(),
             operation_id: "ak.edge.push.command.notify".to_owned(),
             request_id_header: "X-Arkret-Request-Id".to_owned(),
             idempotency_key_header: "X-Arkret-Idempotency-Key".to_owned(),
@@ -682,10 +682,10 @@ mod tests {
         let json = serde_json::json!({
             "contract": "ak.push.bridge.v1",
             "version": "1.0.0",
-            "api_base_path": "/_cokret/edge/push",
+            "api_base_path": "/_arkret/edge/push",
             "gateway": {},
             "notify": {
-                "notify_path": "/_cokret/edge/push/notify",
+                "notify_path": "/_arkret/edge/push/notify",
                 "operation_id": "ak.edge.push.command.notify",
                 "request_id_header": "X-Arkret-Request-Id",
                 "idempotency_key_header": "X-Arkret-Idempotency-Key",

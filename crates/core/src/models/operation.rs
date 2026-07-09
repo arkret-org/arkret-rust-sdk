@@ -1601,7 +1601,7 @@ pub enum MlsKeyPackageState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MlsKeyPackageRecord {
-    /// Globally unique identifier (`ck:mls:kp:<uuid>`, RFC 9562 UUIDv7).
+    /// Globally unique identifier (`ak:mls:kp:<uuid>`, RFC 9562 UUIDv7).
     pub keypackage_id: String,
     pub principal_id: Did,
     pub device_id: DeviceId,

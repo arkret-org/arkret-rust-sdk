@@ -877,7 +877,7 @@ impl SyncClient {
     ///
     /// Presence intent is never part of the subscribe request — the
     /// account subscribe surface is read-only (client-sync.md).
-    /// Broadcast presence through `POST /_cokret/self/ephemeral`
+    /// Broadcast presence through `POST /_arkret/self/ephemeral`
     /// instead.
     pub fn create_request(&self) -> SyncRequestBody {
         SyncRequestBody {
@@ -980,7 +980,7 @@ impl Default for SyncClient {
 pub struct SyncUpdates {
     /// Realm updates.
     pub realm_updates: Vec<RealmUpdate>,
-    /// Realm keys in the response that were not valid `ck:realm:*` ids and
+    /// Realm keys in the response that were not valid `ak:realm:*` ids and
     /// were skipped (per-realm degradation instead of failing the whole
     /// batch, preserving at-least-once for the well-formed realms). A
     /// non-empty value indicates a misbehaving server.

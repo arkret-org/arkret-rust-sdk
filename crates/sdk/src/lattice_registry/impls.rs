@@ -130,7 +130,7 @@ per_subject_lattice!(
     BottomPolicy::Reject,
     Criticality::Required,
     "consent_id",
-    &["ak.consent.grant", "ck.consent.revoke"]
+    &["ak.consent.grant", "ak.consent.revoke"]
 );
 
 per_subject_lattice!(

@@ -71,7 +71,7 @@ impl AgentHttpMethod {
     }
 }
 
-/// A transport-neutral plan for one standard `/_cokret/...` personal-agent
+/// A transport-neutral plan for one standard `/_arkret/...` personal-agent
 /// HTTP operation.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AgentRequestPlan<B> {
@@ -232,11 +232,11 @@ impl<B: Serialize> AgentRequestPlan<B> {
     }
 }
 
-pub const AGENT_KEY_PAIR_PATH: &str = "/_cokret/gate/account/agent-key-pair";
+pub const AGENT_KEY_PAIR_PATH: &str = "/_arkret/gate/account/agent-key-pair";
 pub const AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH: &str =
-    "/_cokret/open/agent-pairing/runtime-key-requests";
-pub const AGENTS_PATH: &str = "/_cokret/self/agents";
-pub const AGENT_SIDECAR_THREAD_ENSURE_PATH: &str = "/_cokret/self/agent-sidecar-threads:ensure";
+    "/_arkret/open/agent-pairing/runtime-key-requests";
+pub const AGENTS_PATH: &str = "/_arkret/self/agents";
+pub const AGENT_SIDECAR_THREAD_ENSURE_PATH: &str = "/_arkret/self/agent-sidecar-threads:ensure";
 
 /// Percent-encode one path component for the personal-agent HTTP surface.
 pub fn agent_path_component(value: &str) -> String {
@@ -310,7 +310,7 @@ impl AgentProvisionRequestBuilder {
 }
 
 pub fn agent_pairing_bootstrap(
-    cokret_base_url: impl Into<String>,
+    arkret_base_url: impl Into<String>,
     service_did: Did,
     agent_principal_id: Did,
     pairing_request_id: impl Into<String>,
@@ -318,7 +318,7 @@ pub fn agent_pairing_bootstrap(
     pairing_expires_at: DateTime<Utc>,
 ) -> AgentPairingBootstrap {
     AgentPairingBootstrap {
-        cokret_base_url: cokret_base_url.into(),
+        arkret_base_url: arkret_base_url.into(),
         service_did,
         agent_principal_id,
         pairing_request_id: pairing_request_id.into(),
@@ -1196,7 +1196,7 @@ mod tests {
         let plan = plan_agent_provision(provision);
         assert_eq!(plan.operation_id, OP_AGENT_PROVISION);
         assert_eq!(plan.method.as_str(), "POST");
-        assert_eq!(plan.path, "/_cokret/self/agents");
+        assert_eq!(plan.path, "/_arkret/self/agents");
         let body = plan.body_value().unwrap().unwrap();
         assert_eq!(body["display_name"], "summary agent");
         assert_eq!(body["agent_slug"], "summary");
@@ -1208,7 +1208,7 @@ mod tests {
         assert_eq!(get.method.as_str(), "GET");
         assert_eq!(
             get.path,
-            "/_cokret/self/agents/did%3Awebvh%3Az6mkfixture%3Aagent.example"
+            "/_arkret/self/agents/did%3Awebvh%3Az6mkfixture%3Aagent.example"
         );
 
         let grant_id =
@@ -1218,7 +1218,7 @@ mod tests {
         assert_eq!(detach.method.as_str(), "DELETE");
         assert_eq!(
             detach.path,
-            "/_cokret/self/agents/did%3Awebvh%3Az6mkfixture%3Aagent.example/grants/ck%3Agrant%3A01964137-0000-7000-8000-000000000010"
+            "/_arkret/self/agents/did%3Awebvh%3Az6mkfixture%3Aagent.example/grants/ck%3Agrant%3A01964137-0000-7000-8000-000000000010"
         );
     }
 
@@ -1278,7 +1278,7 @@ mod tests {
         let value = serde_json::to_value(bootstrap).unwrap();
 
         // CKP-0008 §4.4: exactly six fields, no scope payload.
-        assert_eq!(value["cokret_base_url"], "https://arkret.example");
+        assert_eq!(value["arkret_base_url"], "https://arkret.example");
         assert_eq!(value["pairing_code"], "R7K9-2M4P");
         assert_eq!(
             value["pairing_request_id"],

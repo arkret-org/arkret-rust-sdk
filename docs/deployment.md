@@ -70,13 +70,13 @@ The allowlisted headers should match what the client SDK sends — see
   `ck.error.payload_too_large` error code.
 - **Rate limit metadata**. The SDK exposes `service::RateLimitMetadata` and
   `service::QuotaMetadata` so the server can advertise its limits in
-  `GET /_cokret/describe`. Use runtime middleware or a fronting tier
+  `GET /_arkret/describe`. Use runtime middleware or a fronting tier
   (e.g. nginx `limit_req_zone`) to enforce them. Match the advertised window
   to the enforcement.
 
 ## Health and readiness
 
-Operate the standard `GET /_cokret/describe` endpoint as the health
+Operate the standard `GET /_arkret/describe` endpoint as the health
 check — it returns the service identity and capability advertisement. For
 load balancers that require a tiny dedicated path, add a runtime-specific
 `/healthz` handler that returns 200 once the service has finished startup

@@ -72,9 +72,9 @@ were stuffing them into `Event.unsigned` and tagging the line with
 
 As of this commit:
 
-- `cokret_core::Event::applet_id: Option<String>` is a first-class
+- `arkret_core::Event::applet_id: Option<String>` is a first-class
   field.
-- `cokret_core::Event::external_ref: Option<serde_json::Value>` is a
+- `arkret_core::Event::external_ref: Option<serde_json::Value>` is a
   first-class field.
 - Both are folded into `Event::event_digest()` (canonical event bytes)
   whenever set — no special-cased signing transcript wiring is needed.
@@ -82,7 +82,7 @@ As of this commit:
 
 **Action for integrators:** drop the `unsigned`-hosted shims and
 populate the top-level slots directly. Re-sign the Envelope via
-`cokret_signatures::sign_event` (S-1) afterwards so the proof binds the
+`arkret_signatures::sign_event` (S-1) afterwards so the proof binds the
 new bytes.
 
 ## 2. `SignedAppletRegistration` vs wire `ck.applet.registration`

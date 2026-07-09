@@ -291,7 +291,7 @@ pub struct SnapshotBootstrapChunk {
     pub chunk_id: String,
     pub digest: Hash,
     pub size_bytes: u64,
-    /// HTTP URL or `ck:blob:` reference where the chunk bytes can be
+    /// HTTP URL or `ak:blob:` reference where the chunk bytes can be
     /// fetched.
     pub fetch_ref: String,
 }

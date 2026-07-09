@@ -15,7 +15,7 @@ pub struct AccountSessionGrantParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -37,7 +37,7 @@ pub struct AccountDevicePairParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -59,7 +59,7 @@ pub struct AccountOidcCallbackParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -85,7 +85,7 @@ pub struct AdminServerStatusParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -110,7 +110,7 @@ pub struct AdminAccountStatusParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -135,7 +135,7 @@ pub struct AdminRevokeDeviceParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -170,7 +170,7 @@ pub struct AdminModerationQueueParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -193,7 +193,7 @@ pub struct AppletPingParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -215,7 +215,7 @@ pub struct AppletDescribeParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -241,7 +241,7 @@ pub struct AppletTransactionParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -266,7 +266,7 @@ pub struct AppletActorParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -291,7 +291,7 @@ pub struct AppletRealmParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -316,7 +316,7 @@ pub struct AppletProtocolParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -344,7 +344,7 @@ pub struct AppletThirdPartyUsersParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -372,7 +372,7 @@ pub struct AppletThirdPartyLocationsParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,

@@ -49,7 +49,7 @@ pub struct ApprovalRequest {
     pub allow_widget: bool,
 }
 
-/// `POST /_cokret/self/applets/install/preview` request body.
+/// `POST /_arkret/self/applets/install/preview` request body.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct InstallPreviewRequestBody {
@@ -197,7 +197,7 @@ pub struct WidgetPolicy {
     pub allow_widget: bool,
 }
 
-/// `POST /_cokret/self/applets/install` request body. MUST carry the
+/// `POST /_arkret/self/applets/install` request body. MUST carry the
 /// preview `plan_digest`; the server fails closed on a mismatch.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -239,7 +239,7 @@ pub struct InstallCommitOutcome {
     pub rejected: Vec<Value>,
 }
 
-/// `POST /_cokret/self/applets/{applet_id}/revoke` request body. Revoke
+/// `POST /_arkret/self/applets/{applet_id}/revoke` request body. Revoke
 /// targets the active install bound to `applet_id` + `effective_scope` and
 /// `revoke_mode` (spec §4b): all active grants, widget scoped token,
 /// delegated session and (where required) bot/ghost membership.

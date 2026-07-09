@@ -21,9 +21,9 @@
 //!   are committed in the Merkle root that the proof signs.
 //!
 //! Wire shape (round 8): the snapshot manifest endpoint
-//! (`/_cokret/self/snapshot/head`) returns `chunk_count`, `merkle_root`,
+//! (`/_arkret/self/snapshot/head`) returns `chunk_count`, `merkle_root`,
 //! and `generator_proof`; the chunk endpoint
-//! (`/_cokret/self/snapshot/chunk?chunk_id=N`) returns the chunk bytes
+//! (`/_arkret/self/snapshot/chunk?chunk_id=N`) returns the chunk bytes
 //! plus the `audit_path[]` Merkle siblings. Receivers verify per-chunk.
 
 mod chunking;

@@ -1,6 +1,6 @@
 //! Notary cell typed value.
 //!
-//! The notary cell `ck:cell:ck.component.notary.v1:<realm_id>` is a
+//! The notary cell `ak:cell:ck.component.notary.v1:<realm_id>` is a
 //! cas-register (bottom=reject) holding the current authoritative value
 //! that says **who is allowed to sign Seals for this Realm**. The four
 //! profile variants:

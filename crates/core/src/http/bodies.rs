@@ -1082,7 +1082,7 @@ pub struct SessionGrantOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grant_id: Option<GrantId>,
     /// JWK of the holder/session key the grant is bound to. The client needs
-    /// this for RFC 9421 PoP / DPoP `cnf.jkt` derivation on `/_cokret/self/*`
+    /// this for RFC 9421 PoP / DPoP `cnf.jkt` derivation on `/_arkret/self/*`
     /// requests, returned at issue time to avoid a mandatory introspect
     /// round-trip. Mirrors `SessionGrantRefreshOutcome.session_public_key`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1160,9 +1160,9 @@ pub struct SessionGrantIntrospectionProofClaims {
 
 // ─── DPoP-bound session-grant lifecycle (account-lifecycle §4.1) ─────────────
 //
-// Wire shapes for the `/_cokret/gate/account/session-grants/{refresh,
-// introspect}`, `/_cokret/gate/account/auth-sessions/logout`, and
-// `/_cokret/gate/account/logout` operations. These mirror
+// Wire shapes for the `/_arkret/gate/account/session-grants/{refresh,
+// introspect}`, `/_arkret/gate/account/auth-sessions/logout`, and
+// `/_arkret/gate/account/logout` operations. These mirror
 // `service-operation-dtos.schema.json#/$defs/SessionGrant{Refresh,Introspect}*`,
 // `AuthSessionLogout*`, and `AccountLogout*` so callers bind to the same strong
 // types the spec/OpenAPI declare instead of hand-rolled structs.
@@ -1282,11 +1282,11 @@ pub struct SessionGrantIntrospectGrant {
     pub revoked_at: Option<DateTime<Utc>>,
     pub revocation_ref: String,
     /// Session signing key (JWK) for RFC 9421 PoP verification on
-    /// `/_cokret/self/*`. Server-to-server only.
+    /// `/_arkret/self/*`. Server-to-server only.
     pub session_public_key: String,
     /// RFC 7638 JWK SHA-256 thumbprint of the holder (DPoP) key the grant is
     /// bound to (the grant's `cnf.jkt`); the Principal Server uses it to verify
-    /// the per-request DPoP proof on `/_cokret/self/*`.
+    /// the per-request DPoP proof on `/_arkret/self/*`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cnf_jkt: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1366,7 +1366,7 @@ pub struct AccountDevicePairOutcome {
 }
 
 /// Request body for `ck.gate.account.command.enroll_device`
-/// (`POST /_cokret/gate/account/device-enroll`). The authenticated session
+/// (`POST /_arkret/gate/account/device-enroll`). The authenticated session
 /// asks its designated enrollment authority to mint a `service_attested`
 /// `ck.device.authorize` for this session's own device (device-lifecycle.md
 /// §5.4, key-management.md §5.0.6). Mirrors
@@ -1390,7 +1390,7 @@ pub struct AccountDeviceEnrollRequestBody {
 
 /// Outcome for `ck.gate.account.command.enroll_device`. The account authority
 /// does not contact the Principal Server; the caller submits `authorized_event`
-/// verbatim to `POST /_cokret/self/events`. Mirrors
+/// verbatim to `POST /_arkret/self/events`. Mirrors
 /// `agent-operations.schema.json#/$defs/account_device_enroll_outcome`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

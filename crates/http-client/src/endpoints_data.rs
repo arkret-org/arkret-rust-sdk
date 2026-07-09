@@ -163,24 +163,24 @@ impl Client {
 
     pub async fn blob_metadata(&self, blob_ref: &BlobRef) -> Result<BlobMetadata> {
         let builder = self
-            .request(Method::GET, "/_cokret/self/blob/get")?
+            .request(Method::GET, "/_arkret/self/blob/get")?
             .query(&[("blob_ref", blob_ref.as_str())]);
         self.send_json(builder).await
     }
 
     pub async fn blob_head(&self, blob_ref: &BlobRef) -> Result<HeaderMap> {
         let builder = self
-            .request(Method::HEAD, "/_cokret/self/blob/get")?
+            .request(Method::HEAD, "/_arkret/self/blob/get")?
             .query(&[("blob_ref", blob_ref.as_str())]);
         self.send_empty(builder).await
     }
 
     pub async fn blob_upload(&self, body: &BlobUploadMetadata) -> Result<BlobUploadOutcome> {
-        self.post("/_cokret/self/blob/upload", body).await
+        self.post("/_arkret/self/blob/upload", body).await
     }
 
     pub async fn blob_presign(&self, body: &BlobPresignRequestBody) -> Result<BlobPresignOutcome> {
-        self.post("/_cokret/self/blob/presign", body).await
+        self.post("/_arkret/self/blob/presign", body).await
     }
 
     pub async fn blob_upload_bytes(
@@ -216,7 +216,7 @@ impl Client {
             form = form.text("purpose", purpose.clone());
         }
         let builder = self
-            .request(Method::POST, "/_cokret/self/blob/upload")?
+            .request(Method::POST, "/_arkret/self/blob/upload")?
             .multipart(form);
         self.send_json(builder).await
     }
@@ -256,7 +256,7 @@ impl Client {
         request_options: &ClientRequestOptions,
     ) -> Result<reqwest::Response> {
         let mut builder = self
-            .request(Method::GET, "/_cokret/self/blob/get")?
+            .request(Method::GET, "/_arkret/self/blob/get")?
             .query(&[("blob_ref", blob_ref.as_str())]);
         if let Some(purpose) = options
             .purpose
@@ -442,22 +442,22 @@ impl Client {
     }
 
     pub async fn keys_upload(&self, request: &KeysUploadRequestBody) -> Result<KeysUploadOutcome> {
-        self.post("/_cokret/self/keys/upload", request).await
+        self.post("/_arkret/self/keys/upload", request).await
     }
 
     pub async fn keys_query(&self, request: &KeysQueryRequestBody) -> Result<KeysQueryOutcome> {
-        self.post("/_cokret/self/keys/query", request).await
+        self.post("/_arkret/self/keys/query", request).await
     }
 
     pub async fn keys_claim(&self, request: &KeysClaimRequestBody) -> Result<KeysClaimOutcome> {
-        self.post("/_cokret/self/keys/claim", request).await
+        self.post("/_arkret/self/keys/claim", request).await
     }
 
     pub async fn keypackages_upload(
         &self,
         request: &KeyPackagesUploadRequestBody,
     ) -> Result<KeyPackagesUploadOutcome> {
-        self.post("/_cokret/self/keys/keypackages/upload", request)
+        self.post("/_arkret/self/keys/keypackages/upload", request)
             .await
     }
 
@@ -465,7 +465,7 @@ impl Client {
         &self,
         request: &KeyPackagesClaimRequestBody,
     ) -> Result<KeyPackagesClaimOutcome> {
-        self.post("/_cokret/self/keys/keypackages/claim", request)
+        self.post("/_arkret/self/keys/keypackages/claim", request)
             .await
     }
 
@@ -473,7 +473,7 @@ impl Client {
         &self,
         request: &KeyPackagesConsumeRequestBody,
     ) -> Result<KeyPackagesConsumeOutcome> {
-        self.post("/_cokret/self/keys/keypackages/consume", request)
+        self.post("/_arkret/self/keys/keypackages/consume", request)
             .await
     }
 
@@ -481,21 +481,21 @@ impl Client {
         &self,
         request: &KeyPackagesRevokeRequestBody,
     ) -> Result<KeyPackagesRevokeOutcome> {
-        self.post("/_cokret/self/keys/keypackages/revoke", request)
+        self.post("/_arkret/self/keys/keypackages/revoke", request)
             .await
     }
 
     /// Upload (create or update) an encrypted [`KeyBackup`] envelope.
     /// Spec: `crypto-media/key-management.md` §7.2 +
     /// `sync/service-http-binding.md` §3 (PUT
-    /// `/_cokret/self/keys/backups/{backup_id}`). The envelope's
+    /// `/_arkret/self/keys/backups/{backup_id}`). The envelope's
     /// `ciphertext_digest` is the server-side idempotency / dedup key.
     pub async fn put_key_backup(
         &self,
         backup_id: &BackupId,
         body: &KeyBackup,
     ) -> Result<KeysBackupsPutOutcome> {
-        let path = format!("/_cokret/self/keys/backups/{}", backup_id.as_str());
+        let path = format!("/_arkret/self/keys/backups/{}", backup_id.as_str());
         self.put(&path, body).await
     }
 
@@ -503,7 +503,7 @@ impl Client {
     /// `series_id` / `backup_class` / `cursor` / `limit` filters from
     /// [`KeyBackupsListQuery`] (key-management.md §7.5).
     pub async fn list_key_backups(&self, query: &KeyBackupsListQuery) -> Result<KeysBackupsList> {
-        let mut builder = self.request(Method::GET, "/_cokret/self/keys/backups")?;
+        let mut builder = self.request(Method::GET, "/_arkret/self/keys/backups")?;
         if let Some(ref series_id) = query.series_id {
             builder = builder.query(&[("series_id", series_id.as_str())]);
         }
@@ -541,13 +541,13 @@ impl Client {
     /// Unlock and fetch a single encrypted [`KeyBackup`] envelope for local
     /// decryption. The full ciphertext is returned only through the
     /// proof-bearing command body registered as
-    /// `POST /_cokret/self/keys/backups/{backup_id}/unlock`.
+    /// `POST /_arkret/self/keys/backups/{backup_id}/unlock`.
     pub async fn unlock_key_backup(
         &self,
         backup_id: &BackupId,
         request: &KeysBackupsUnlockRequestBody,
     ) -> Result<KeyBackup> {
-        let path = format!("/_cokret/self/keys/backups/{}/unlock", backup_id.as_str());
+        let path = format!("/_arkret/self/keys/backups/{}/unlock", backup_id.as_str());
         self.post(&path, request).await
     }
 
@@ -560,7 +560,7 @@ impl Client {
         backup_id: &BackupId,
         request: &KeysBackupsDeleteRequestBody,
     ) -> Result<KeysBackupsDeleteOutcome> {
-        let path = format!("/_cokret/self/keys/backups/{}", backup_id.as_str());
+        let path = format!("/_arkret/self/keys/backups/{}", backup_id.as_str());
         let builder = self.request(Method::DELETE, &path)?.json(request);
         self.send_json(builder).await
     }
@@ -571,7 +571,7 @@ impl Client {
         request: &DeviceMessagesPutRequestBody,
     ) -> Result<DeviceMessagesPutOutcome> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.post_with_options("/_cokret/self/device_messages", request, &options)
+        self.post_with_options("/_arkret/self/device_messages", request, &options)
             .await
     }
 
@@ -580,7 +580,7 @@ impl Client {
         from: Option<&str>,
         limit: Option<u32>,
     ) -> Result<DeviceMessagesGetOutcome> {
-        let mut builder = self.request(Method::GET, "/_cokret/self/device_messages")?;
+        let mut builder = self.request(Method::GET, "/_arkret/self/device_messages")?;
         if let Some(from) = from {
             builder = builder.query(&[("from", from)]);
         }
@@ -594,7 +594,7 @@ impl Client {
         &self,
         request: &DeviceMessagesAckRequestBody,
     ) -> Result<DeviceMessagesAckOutcome> {
-        self.post("/_cokret/self/device_messages/ack", request)
+        self.post("/_arkret/self/device_messages/ack", request)
             .await
     }
 }

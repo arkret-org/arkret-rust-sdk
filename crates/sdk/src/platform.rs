@@ -271,7 +271,7 @@ mod tests {
         let response = transport
             .send_wasm_http(WasmHttpRequestBody {
                 method: "POST".to_owned(),
-                url: "https://sync.example/_cokret/self/account/subscribe".to_owned(),
+                url: "https://sync.example/_arkret/self/account/subscribe".to_owned(),
                 headers: BTreeMap::new(),
                 body: Vec::new(),
             })

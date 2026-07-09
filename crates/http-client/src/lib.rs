@@ -437,13 +437,13 @@ mod tests {
     fn builds_relative_api_url() {
         let client = Client::new(Url::parse("https://alice.example/arkret/").unwrap()).unwrap();
         let request = client
-            .request(Method::GET, "/_cokret/describe")
+            .request(Method::GET, "/_arkret/describe")
             .unwrap()
             .build()
             .unwrap();
         assert_eq!(
             request.url().as_str(),
-            "https://alice.example/arkret/_cokret/describe"
+            "https://alice.example/arkret/_arkret/describe"
         );
     }
 
@@ -489,7 +489,7 @@ mod tests {
                 "grant.jwt",
                 |req| {
                     assert_eq!(req.method, "POST");
-                    assert_eq!(req.htu, "https://alice.example/arkret/_cokret/self/events");
+                    assert_eq!(req.htu, "https://alice.example/arkret/_arkret/self/events");
                     assert_eq!(req.access_token.as_deref(), Some("grant.jwt"));
                     Ok("proof.jwt".to_owned())
                 },
@@ -497,7 +497,7 @@ mod tests {
             .build()
             .unwrap();
         let request = client
-            .request(Method::POST, "/_cokret/self/events?cursor=ignored")
+            .request(Method::POST, "/_arkret/self/events?cursor=ignored")
             .unwrap()
             .build()
             .unwrap();
@@ -517,7 +517,7 @@ mod tests {
             .build()
             .unwrap();
         let request = client
-            .request(Method::POST, "/_cokret/gate/account/session-grants")
+            .request(Method::POST, "/_arkret/gate/account/session-grants")
             .unwrap()
             .build()
             .unwrap();
@@ -544,7 +544,7 @@ mod tests {
             .wait_for("ak:cursor:01");
         let request = client
             .apply_request_options(
-                client.request(Method::PUT, "/_cokret/self/events").unwrap(),
+                client.request(Method::PUT, "/_arkret/self/events").unwrap(),
                 &options,
             )
             .unwrap()
@@ -564,7 +564,7 @@ mod tests {
 
         let error = client
             .apply_request_options(
-                client.request(Method::GET, "/_cokret/describe").unwrap(),
+                client.request(Method::GET, "/_arkret/describe").unwrap(),
                 &options,
             )
             .unwrap_err();
@@ -580,7 +580,7 @@ mod tests {
 
         let client = Client::new(Url::parse("https://alice.example/arkret/").unwrap()).unwrap();
         let builder = client
-            .request(Method::GET, "/_cokret/self/events")
+            .request(Method::GET, "/_arkret/self/events")
             .unwrap()
             .query(&[("access_token", "secret")]);
 
@@ -910,7 +910,7 @@ mod tests {
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
             assert!(
-                request_line.starts_with("POST /_cokret/self/events "),
+                request_line.starts_with("POST /_arkret/self/events "),
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
@@ -951,7 +951,7 @@ mod tests {
             assert_eq!(response.size_bytes, 5);
             let raw = capture.await.unwrap();
             let (request_line, headers, body) = split_request(&raw);
-            assert!(request_line.starts_with("POST /_cokret/self/blob/upload "));
+            assert!(request_line.starts_with("POST /_arkret/self/blob/upload "));
             assert!(headers.lines().any(|line| {
                 line.to_ascii_lowercase()
                     .starts_with("content-type: multipart/form-data; boundary=")
@@ -991,7 +991,7 @@ mod tests {
             assert_eq!(bytes, b"hello");
             let raw = capture.await.unwrap();
             let (request_line, headers, _body) = split_request(&raw);
-            assert!(request_line.starts_with("GET /_cokret/self/blob/get?"));
+            assert!(request_line.starts_with("GET /_arkret/self/blob/get?"));
             assert!(
                 request_line.contains(
                     "blob_ref=ck%3Ablob%3Asha256%3Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -1006,7 +1006,7 @@ mod tests {
             );
             assert!(headers.lines().any(|line| {
                 line.to_ascii_lowercase()
-                    .starts_with("x-arkret-wait-for: ck:cursor:test")
+                    .starts_with("x-arkret-wait-for: ak:cursor:test")
             }));
         }
 
@@ -1068,7 +1068,7 @@ mod tests {
                 spawn_capture_server_with(canned, |builder| builder.http_message_signer(signer))
                     .await;
 
-            let _: Value = client.get("/_cokret/describe").await.unwrap();
+            let _: Value = client.get("/_arkret/describe").await.unwrap();
 
             let raw = capture.await.unwrap();
             let (_request_line, headers, _body) = split_request(&raw);
@@ -1098,7 +1098,7 @@ mod tests {
 
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
-            assert!(request_line.starts_with("POST /_cokret/self/events "));
+            assert!(request_line.starts_with("POST /_arkret/self/events "));
             let parsed: Value = serde_json::from_slice(&body).unwrap();
             let events_value = parsed
                 .get("events")
@@ -1129,10 +1129,10 @@ mod tests {
             let raw = capture.await.unwrap();
             let (request_line, _headers, _body) = split_request(&raw);
             assert!(
-                request_line.starts_with("GET /_cokret/self/events?"),
+                request_line.starts_with("GET /_arkret/self/events?"),
                 "unexpected request line: {request_line}",
             );
-            assert!(!request_line.contains("/_cokret/self/events/query?"));
+            assert!(!request_line.contains("/_arkret/self/events/query?"));
             assert!(request_line.contains("realms=ck%3Arealm%3Atest"));
             assert!(request_line.contains("before=ck%3Acursor%3Aolder"));
             assert!(request_line.contains("after=ck%3Acursor%3Anewer"));
@@ -1168,7 +1168,7 @@ mod tests {
             let raw = capture.await.unwrap();
             let (request_line, _headers, _body) = split_request(&raw);
             assert!(
-                request_line.starts_with("GET /_cokret/self/events?"),
+                request_line.starts_with("GET /_arkret/self/events?"),
                 "unexpected request line: {request_line}",
             );
             assert!(request_line.contains("realms=ck%3Arealm%3Atest"));
@@ -1201,7 +1201,7 @@ mod tests {
             let raw = capture.await.unwrap();
             let (request_line, _headers, _body) = split_request(&raw);
             assert!(
-                request_line.starts_with("GET /_cokret/self/keys/backups?"),
+                request_line.starts_with("GET /_arkret/self/keys/backups?"),
                 "unexpected request line: {request_line}",
             );
             assert!(
@@ -1233,7 +1233,7 @@ mod tests {
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
             assert!(
-                request_line.starts_with("POST /_cokret/find/directory/private-contact-discovery "),
+                request_line.starts_with("POST /_arkret/find/directory/private-contact-discovery "),
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
@@ -1253,7 +1253,7 @@ mod tests {
             let raw = capture.await.unwrap();
             let (request_line, _headers, _body) = split_request(&raw);
             assert!(
-                request_line.starts_with("GET /_cokret/self/contacts "),
+                request_line.starts_with("GET /_arkret/self/contacts "),
                 "unexpected request line: {request_line}",
             );
         }
@@ -1288,7 +1288,7 @@ mod tests {
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
             assert!(
-                request_line.starts_with("POST /_cokret/self/direct-conversations/resolve "),
+                request_line.starts_with("POST /_arkret/self/direct-conversations/resolve "),
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
@@ -1311,7 +1311,7 @@ mod tests {
             let raw = capture.await.unwrap();
             let (request_line, _headers, _body) = split_request(&raw);
             assert!(
-                request_line.starts_with("GET /_cokret/open/mimi/provider-directory?"),
+                request_line.starts_with("GET /_arkret/open/mimi/provider-directory?"),
                 "unexpected request line: {request_line}",
             );
             assert!(request_line.contains("provider_id=provider-a"));
@@ -1343,7 +1343,7 @@ mod tests {
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
             assert!(
-                request_line.starts_with("POST /_cokret/open/mimi/report-abuse "),
+                request_line.starts_with("POST /_arkret/open/mimi/report-abuse "),
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
@@ -1537,7 +1537,7 @@ mod tests {
 
             let raw = capture.await.unwrap();
             let (request_line, headers, _body) = split_request(&raw);
-            assert!(request_line.starts_with("POST /_cokret/self/events "));
+            assert!(request_line.starts_with("POST /_arkret/self/events "));
             assert!(
                 headers
                     .lines()

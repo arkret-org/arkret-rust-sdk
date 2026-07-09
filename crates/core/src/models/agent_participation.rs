@@ -271,7 +271,7 @@ pub fn validate_selection_within_ceiling(
 }
 
 /// Request body for `ck.self.agent.participation.resource.replace`
-/// (`PUT /_cokret/self/agents/{agent_principal_id}/participation`).
+/// (`PUT /_arkret/self/agents/{agent_principal_id}/participation`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentParticipationSetRequestBody {

@@ -1047,14 +1047,14 @@ pub struct RecoveryReceiptAuthData {
 
 // ─── DID-proof session grant strand ──────────────────────────────────────────
 //
-// The wire shapes for `POST /_cokret/gate/account/session-grants`
+// The wire shapes for `POST /_arkret/gate/account/session-grants`
 // (`ck.gate.account.command.issue_session_grant`) live in `crate::http` as
 // `SessionGrantRequestBody` / `SessionGrantOutcome`, mirroring
 // `service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody`.
 // The spec HTTP binding registers exactly one operation (proof in body,
 // `x-arkret-auth.proof_in_body: true`); challenge acquisition is a
 // deployment-local concern per `identity-did.md` §5.1 and has no
-// dedicated `/_cokret/` sub-path.
+// dedicated `/_arkret/` sub-path.
 
 #[cfg(test)]
 mod encryption_validate_tests {

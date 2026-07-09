@@ -91,7 +91,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             "ssk_generation": 3,
             "expires_at": "2100-01-01T00:00:00Z",
             "device_signature": {
-                "kid": "did:webvh:z6mkfixture:alice.example#ck:device:01904100-0000-7000-8000-000000000001",
+                "kid": "did:webvh:z6mkfixture:alice.example#ak:device:01904100-0000-7000-8000-000000000001",
                 "alg": "EdDSA",
                 "sig": "c2ln"
             },
@@ -215,7 +215,7 @@ fn events_query_params_helpers_use_core_wire_types() {
         after: Some(identifiers::Cursor::new("ak:cursor:newer").unwrap()),
         order: Some(EventsQueryOrder::Descending),
         limit: Some(50),
-        x_cokret_request_id: None,
+        x_arkret_request_id: None,
         traceparent: None,
     };
 

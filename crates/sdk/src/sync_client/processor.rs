@@ -51,7 +51,7 @@ impl SyncResponseProcessor {
     /// `project_typed_*` helpers so the wire layer doesn't have to
     /// commit to typed shapes that real servers may not emit.
     ///
-    /// A realm key that is not a valid `ck:realm:*` id (server bug or a
+    /// A realm key that is not a valid `ak:realm:*` id (server bug or a
     /// hostile sync service) degrades per-realm: the malformed entry is
     /// skipped and reported via [`SyncUpdates::malformed_realms`] while
     /// every well-formed realm — and the batch's to-device / device-list /

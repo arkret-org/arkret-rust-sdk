@@ -1,7 +1,7 @@
 //! Embedded `did:webvh` inception builder, shared by clients and servers.
 //!
 //! Soland accepts WebVH inception as a protocol DID operation at
-//! `/_cokret/root/identity/submit-did-operation`. Soland's embedded WebVH
+//! `/_arkret/root/identity/submit-did-operation`. Soland's embedded WebVH
 //! profile requires the client to:
 //!
 //! 1. generate the DID's verification keypair and a separate update keypair,
@@ -563,7 +563,7 @@ fn did_submit_body(
 
 fn identity_document_url(endpoint: &Url, did: &str) -> Result<String, WebvhInceptionError> {
     let mut url = endpoint
-        .join("/_cokret/root/identity/document")
+        .join("/_arkret/root/identity/document")
         .map_err(WebvhInceptionError::InvalidEndpoint)?;
     url.query_pairs_mut().append_pair("did", did);
     Ok(url.to_string())
@@ -571,7 +571,7 @@ fn identity_document_url(endpoint: &Url, did: &str) -> Result<String, WebvhIncep
 
 fn identity_log_url(endpoint: &Url, did: &str) -> Result<String, WebvhInceptionError> {
     let mut url = endpoint
-        .join("/_cokret/root/identity/log")
+        .join("/_arkret/root/identity/log")
         .map_err(WebvhInceptionError::InvalidEndpoint)?;
     url.query_pairs_mut().append_pair("did", did);
     Ok(url.to_string())
@@ -892,7 +892,7 @@ mod tests {
     }
 
     #[test]
-    fn submit_body_matches_cokret_protocol() {
+    fn submit_body_matches_arkret_protocol() {
         let prepared = run_prepare(3);
         let body = &prepared.submit_body;
         assert_eq!(body.did.as_str(), prepared.did.as_str());

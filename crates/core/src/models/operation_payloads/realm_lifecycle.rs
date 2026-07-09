@@ -60,7 +60,7 @@ impl RealmArchivePayload {
 pub struct RealmTombstonePayload {
     pub reason: String,
     pub successor_realm_id: RealmId,
-    /// Optional `event_ref` (`^ck:event:` typed id) of the replacing event;
+    /// Optional `event_ref` (`^ak:event:` typed id) of the replacing event;
     /// carried as a bare string per the spec wire shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replacement_event: Option<ObjectRef>,

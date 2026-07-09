@@ -496,7 +496,7 @@ pub const OP_KEYS_BACKUPS_PUT: &str = "ak.self.keys.backups.resource.replace";
 pub const OP_KEYS_BACKUPS_LIST: &str = "ak.self.keys.backups.query.list";
 // Renamed from `ck.self.keys.backups.command.unlock` on 2026-06-11
 // (artifacts/migration/renames.json): backup retrieval is rebound to
-// `POST /_cokret/self/keys/backups/{backup_id}/unlock` with a body-borne
+// `POST /_arkret/self/keys/backups/{backup_id}/unlock` with a body-borne
 // unlock proof.
 pub const OP_KEYS_BACKUPS_UNLOCK: &str = "ak.self.keys.backups.command.unlock";
 pub const OP_KEYS_BACKUPS_DELETE: &str = "ak.self.keys.backups.resource.delete";
@@ -733,7 +733,7 @@ pub const CAP_ACTION_CALL_RECORD: &str = "ak.call.record";
 pub const CAP_ACTION_CALL_TRANSCRIBE: &str = "ak.call.transcribe";
 pub const CAP_ACTION_CALL_MODERATE: &str = "ak.call.moderate";
 /// `service-http-binding.md` §162 — sending a `ck.call.signal` ephemeral
-/// envelope via `POST /_cokret/self/ephemeral` requires the actor to hold
+/// envelope via `POST /_arkret/self/ephemeral` requires the actor to hold
 /// this realm-scoped capability. Registered in
 /// `capability-action-registry.json`.
 pub const CAP_CALL_SIGNAL_SEND: &str = "ak.call.signal.send";
@@ -887,11 +887,11 @@ pub const OP_RECOVERY_SESSION_CREATE: &str = "ak.root.identity.recovery_session.
 pub const OP_RECOVERY_SESSION_GET: &str = "ak.root.identity.recovery_session.resource.get";
 pub const OP_RECOVERY_SESSION_SUBMIT_PROOF: &str =
     "ak.root.identity.recovery_session.command.submit_proof";
-/// `POST /_cokret/self/agents/discover` — probe the `ck.agent.endpoint`
+/// `POST /_arkret/self/agents/discover` — probe the `ck.agent.endpoint`
 /// registry; authorized by `ck.agent.protocol.discover` capability under
 /// `ck.profile.agent_runtime.v1`.
 pub const OP_SELF_AGENT_PROTOCOL_DISCOVER: &str = "ak.self.agent.protocol.query.discover";
-/// `POST /_cokret/find/directory/takedown/appeal` — resource-side appeal of an
+/// `POST /_arkret/find/directory/takedown/appeal` — resource-side appeal of an
 /// operator takedown; returns a signed adjudication receipt.
 pub const OP_DIRECTORY_TAKEDOWN_APPEAL: &str = "ak.find.directory.command.takedown_appeal";
 

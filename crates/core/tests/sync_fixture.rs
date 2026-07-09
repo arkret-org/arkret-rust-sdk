@@ -55,12 +55,12 @@ fn sync_fixture_profile_is_pinned() {
 
 #[test]
 fn next_cursor_is_a_well_formed_opaque_stream_cursor() {
-    // The timeline continuation `next_cursor` is a valid `ck:cursor:` token,
+    // The timeline continuation `next_cursor` is a valid `ak:cursor:` token,
     // but its `t`/`x` are pinned to a fixed future test clock (2026-12-30), so
     // `Cursor::decode` — which enforces wall-clock TTL bounds and rejects a
     // `t` beyond the clock-skew tolerance — cannot accept it at an arbitrary
     // real clock. `Cursor` exposes no injectable clock, so this consumer pins
-    // the opaqueness contract instead: the token is a `ck:cursor:` prefixed,
+    // the opaqueness contract instead: the token is a `ak:cursor:` prefixed,
     // Base64URL body whose decoded payload is a v1 stream cursor carrying the
     // pinned opaque handle. The wall-clock TTL path is exercised by the
     // expired-cursor test below.
@@ -71,7 +71,7 @@ fn next_cursor_is_a_well_formed_opaque_stream_cursor() {
 
     let body = token
         .strip_prefix("ak:cursor:")
-        .expect("next_cursor must use the ck:cursor: transport prefix");
+        .expect("next_cursor must use the ak:cursor: transport prefix");
     let json =
         arkret_core::base64url::base64url_decode(body).expect("next_cursor body must be Base64URL");
     let payload: Value = serde_json::from_slice(&json).expect("cursor payload must be JSON");

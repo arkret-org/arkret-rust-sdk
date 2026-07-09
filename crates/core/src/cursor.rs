@@ -1,7 +1,7 @@
 //! Cursor encoding, decoding, and validation.
 //!
 //! This module implements the Arkret v1 cursor specification. Cursors are
-//! opaque `ck:cursor:<base64url(canonical_json)>` tokens used for stream
+//! opaque `ak:cursor:<base64url(canonical_json)>` tokens used for stream
 //! continuation and read-your-writes barriers.
 
 use std::collections::{BTreeMap, HashMap};
@@ -213,7 +213,7 @@ impl Cursor {
     pub fn decode(encoded: &str) -> Result<Self> {
         let encoded = encoded
             .strip_prefix("ak:cursor:")
-            .ok_or_else(|| Error::Protocol("cursor token must start with ck:cursor:".to_owned()))?;
+            .ok_or_else(|| Error::Protocol("cursor token must start with ak:cursor:".to_owned()))?;
 
         // Receivers MUST enforce the same 4KB body cap that `encode`
         // enforces — reject oversized tokens before spending any base64 /

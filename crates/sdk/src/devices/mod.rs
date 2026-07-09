@@ -49,12 +49,12 @@ pub struct Device {
     pub metadata: DeviceMetadata,
     /// Verification state.
     pub verification: DeviceVerificationState,
-    /// Public verify_key of the device. SDK-side mirror of `ck:device:`
+    /// Public verify_key of the device. SDK-side mirror of `ak:device:`
     /// record `verify_key` (`crypto-media/device-lifecycle.md` §4); used as
     /// the canonical input to the SSK trust binding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_public_key: Option<String>,
-    /// Device HPKE sealing key mirrored from the `ck:device:` record
+    /// Device HPKE sealing key mirrored from the `ak:device:` record
     /// (`crypto-media/device-lifecycle.md` §4/§5.2). Enters the SSK trust
     /// binding transcript together with `device_public_key` and `algorithms`.
     #[serde(default, skip_serializing_if = "Option::is_none")]

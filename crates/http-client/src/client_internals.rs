@@ -494,7 +494,7 @@ impl Client {
 }
 
 fn is_http_message_signature_surface(path: &str) -> bool {
-    path.starts_with("/_cokret/self/") || path.starts_with("/_cokret/root/")
+    path.starts_with("/_arkret/self/") || path.starts_with("/_arkret/root/")
 }
 
 fn request_authority(url: &Url) -> Result<String> {

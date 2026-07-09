@@ -433,7 +433,7 @@ fn handle_external_proof_profiles_validate_dns_and_well_known_shapes() {
 
     assert_eq!(
         handle_dns_txt_name(handle).unwrap(),
-        "_cokret-handle.alice.example.com"
+        "_arkret-handle.alice.example.com"
     );
     assert_eq!(
         handle_well_known_url(handle).unwrap(),

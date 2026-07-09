@@ -151,5 +151,5 @@ fn server_description_checks_protocol_version() {
         reducer_profile: None,
         last_materialized_at: None,
     };
-    assert!(desc.supports_cokret_v1());
+    assert!(desc.supports_arkret_v1());
 }

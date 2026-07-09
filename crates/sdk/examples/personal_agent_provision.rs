@@ -16,7 +16,7 @@
 //!
 //! The example does NOT require a live soland deployment. Each step is built
 //! from `arkret::agent::*` request-plan helpers so a reader can audit the exact
-//! standard `/_cokret/...` path and typed request body a real transport would
+//! standard `/_arkret/...` path and typed request body a real transport would
 //! send.
 //!
 //! Build with the high-level SDK surface:

@@ -536,7 +536,7 @@ pub struct SignedRequestParts {
     /// canonicalization that floria emits and signs against).
     pub method: String,
     /// Absolute target URI of the request, e.g.
-    /// `"https://push.example.com/_cokret/edge/push/notify"`.
+    /// `"https://push.example.com/_arkret/edge/push/notify"`.
     pub target_uri: String,
     /// Authority component (host + optional port).
     pub authority: String,
@@ -1046,9 +1046,9 @@ mod tests {
 
         let req = SignedRequestParts {
             method: "POST".to_owned(),
-            target_uri: "http://127.0.0.1/_cokret/edge/push/notify".to_owned(),
+            target_uri: "http://127.0.0.1/_arkret/edge/push/notify".to_owned(),
             authority: "127.0.0.1".to_owned(),
-            path: "/_cokret/edge/push/notify".to_owned(),
+            path: "/_arkret/edge/push/notify".to_owned(),
             headers: vec![
                 (
                     "x-arkret-origin-service-did".to_owned(),
@@ -1066,7 +1066,7 @@ mod tests {
         let text = String::from_utf8(message).unwrap();
         let expected = format!(
             "\"@method\": post\n\
-             \"@target-uri\": http://127.0.0.1/_cokret/edge/push/notify\n\
+             \"@target-uri\": http://127.0.0.1/_arkret/edge/push/notify\n\
              \"@authority\": 127.0.0.1\n\
              \"content-digest\": {digest_val}\n\
              \"x-arkret-origin-service-did\": did:webvh:z6mkfixture:sync.example.com\n\
@@ -1090,9 +1090,9 @@ mod tests {
         let digest = ContentDigest::compute(body, ContentDigestAlgorithm::Sha256);
         let req = SignedRequestParts {
             method: "POST".to_owned(),
-            target_uri: "https://push.example/_cokret/edge/push/notify".to_owned(),
+            target_uri: "https://push.example/_arkret/edge/push/notify".to_owned(),
             authority: "push.example".to_owned(),
-            path: "/_cokret/edge/push/notify".to_owned(),
+            path: "/_arkret/edge/push/notify".to_owned(),
             headers: vec![
                 (
                     "x-arkret-origin-service-did".to_owned(),
@@ -1127,9 +1127,9 @@ mod tests {
         let digest = ContentDigest::compute(body, ContentDigestAlgorithm::Sha256);
         let req = SignedRequestParts {
             method: "POST".to_owned(),
-            target_uri: "https://push.example/_cokret/edge/push/notify".to_owned(),
+            target_uri: "https://push.example/_arkret/edge/push/notify".to_owned(),
             authority: "push.example".to_owned(),
-            path: "/_cokret/edge/push/notify".to_owned(),
+            path: "/_arkret/edge/push/notify".to_owned(),
             headers: vec![
                 (
                     "x-arkret-origin-service-did".to_owned(),
@@ -1161,9 +1161,9 @@ mod tests {
 
         let verified = verify_signed_http_message(
             "POST",
-            "https://push.example/_cokret/edge/push/notify",
+            "https://push.example/_arkret/edge/push/notify",
             "push.example",
-            "/_cokret/edge/push/notify",
+            "/_arkret/edge/push/notify",
             headers.clone(),
             body,
             &public_key,
@@ -1182,9 +1182,9 @@ mod tests {
 
         let err = verify_signed_http_message(
             "POST",
-            "https://push.example/_cokret/edge/push/notify",
+            "https://push.example/_arkret/edge/push/notify",
             "push.example",
-            "/_cokret/edge/push/notify",
+            "/_arkret/edge/push/notify",
             headers,
             br#"{"op":"tampered"}"#,
             &public_key,

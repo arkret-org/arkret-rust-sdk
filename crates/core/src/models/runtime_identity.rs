@@ -8,7 +8,7 @@ use super::*;
 pub type AgentId = Did;
 /// Round 4 — typed `applet_id`. Accepts either a DID
 /// (`did:webvh:applet.example`) or a strictly-validated
-/// `ck:applet:<uuidv7>`.
+/// `ak:applet:<uuidv7>`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]

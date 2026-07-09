@@ -21,7 +21,7 @@ pub struct MimiProviderDirectoryParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -43,7 +43,7 @@ pub struct MimiKeyMaterialParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -68,7 +68,7 @@ pub struct MimiRoomUpdateParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -93,7 +93,7 @@ pub struct MimiNotifyParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -118,7 +118,7 @@ pub struct MimiSubmitMessageParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -149,7 +149,7 @@ pub struct MimiGroupInfoParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -171,7 +171,7 @@ pub struct MimiConsentParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -193,7 +193,7 @@ pub struct MimiConsentUpdateParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -215,7 +215,7 @@ pub struct MimiIdentifierQueryParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -237,7 +237,7 @@ pub struct MimiReportAbuseParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -259,7 +259,7 @@ pub struct MimiProxyDownloadParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,

@@ -698,7 +698,7 @@ impl FileTransferRecord {
         self.access.validate()?;
         self.encryption.validate()?;
         DeviceId::new(self.origin_device_id.clone()).map_err(|_| {
-            Error::Protocol("file-transfer origin_device_id must be a ck:device id".to_owned())
+            Error::Protocol("file-transfer origin_device_id must be a ak:device id".to_owned())
         })?;
         canonical::validate_timestamp_canonical(&self.created_at)?;
         Hlc::new(self.updated_hlc.clone()).map_err(|_| {
@@ -792,7 +792,7 @@ impl FileTransferAccess {
         for device_id in &self.recipient_device_ids {
             DeviceId::new(device_id.clone()).map_err(|_| {
                 Error::Protocol(
-                    "file-transfer recipient_device_ids must contain ck:device ids".to_owned(),
+                    "file-transfer recipient_device_ids must contain ak:device ids".to_owned(),
                 )
             })?;
             if !seen.insert(device_id) {
@@ -869,7 +869,7 @@ impl FileTransferAad {
         }
         validate_file_transfer_id(&self.transfer_id)?;
         DeviceId::new(self.origin_device_id.clone()).map_err(|_| {
-            Error::Protocol("file-transfer AAD origin_device_id must be a ck:device id".to_owned())
+            Error::Protocol("file-transfer AAD origin_device_id must be a ak:device id".to_owned())
         })?;
         canonical::validate_timestamp_canonical(&self.created_at)
     }
@@ -1473,7 +1473,7 @@ pub fn saved_target_key(
 pub fn realm_key(namespace_key: &[u8], realm_id: &str) -> Result<String> {
     if !realm_id.starts_with("ak:realm:") {
         return Err(Error::Protocol(
-            "realm_key input must be ck:realm typed id".to_owned(),
+            "realm_key input must be ak:realm typed id".to_owned(),
         ));
     }
     Ok(base64url_encode(hmac_sha256(
@@ -1643,7 +1643,7 @@ fn validate_blob_ref(value: &str) -> Result<()> {
         Ok(())
     } else {
         Err(Error::Protocol(
-            "file-transfer blob_ref must be ck:blob:<uuidv7|digest>".to_owned(),
+            "file-transfer blob_ref must be ak:blob:<uuidv7|digest>".to_owned(),
         ))
     }
 }
@@ -2027,14 +2027,14 @@ mod tests {
     #[test]
     fn private_key_validator_rejects_raw_refs() {
         let err = validate_private_account_data_key(
-            "ak.draft.v1:message:ck:message:01904100-0000-7000-8000-000000000001:main",
+            "ak.draft.v1:message:ak:message:01904100-0000-7000-8000-000000000001:main",
         )
         .unwrap_err();
         assert!(err.to_string().contains("must not leak raw typed refs"));
 
         assert!(file_transfer_account_data_key(b"ns", "short-transfer").is_err());
         assert!(
-            validate_private_account_data_key("ak.file_transfer.v1:ck:blob:sha256:abc").is_err()
+            validate_private_account_data_key("ak.file_transfer.v1:ak:blob:sha256:abc").is_err()
         );
     }
 

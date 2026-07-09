@@ -37,7 +37,7 @@ pub struct ContentMappingReceipt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mimi_message_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cokret_event_id: Option<EventId>,
+    pub arkret_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accepted_at: Option<DateTime<Utc>>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]

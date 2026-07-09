@@ -30,17 +30,17 @@ impl KeyBackupClient {
         &self.client
     }
 
-    /// `PUT /_cokret/self/keys/backups/{backup_id}`.
+    /// `PUT /_arkret/self/keys/backups/{backup_id}`.
     pub async fn put_key_backup(
         &self,
         backup_id: &str,
         record: &ProtocolKeyBackup,
     ) -> SdkResult<arkret_core::KeysBackupsPutOutcome> {
-        let path = format!("/_cokret/self/keys/backups/{backup_id}");
+        let path = format!("/_arkret/self/keys/backups/{backup_id}");
         self.client.put(&path, record).await
     }
 
-    /// `POST /_cokret/self/keys/backups/{backup_id}/unlock`.
+    /// `POST /_arkret/self/keys/backups/{backup_id}/unlock`.
     pub async fn unlock_key_backup(
         &self,
         backup_id: &str,
@@ -50,13 +50,13 @@ impl KeyBackupClient {
         self.client.unlock_key_backup(&backup_id, request).await
     }
 
-    /// `GET /_cokret/self/keys/backups` (list current backups for the
+    /// `GET /_arkret/self/keys/backups` (list current backups for the
     /// authenticated principal).
     pub async fn list_key_backups(&self) -> SdkResult<arkret_core::KeysBackupsList> {
-        self.client.get("/_cokret/self/keys/backups").await
+        self.client.get("/_arkret/self/keys/backups").await
     }
 
-    /// `DELETE /_cokret/self/keys/backups/{backup_id}`.
+    /// `DELETE /_arkret/self/keys/backups/{backup_id}`.
     pub async fn delete_key_backup(
         &self,
         backup_id: &str,

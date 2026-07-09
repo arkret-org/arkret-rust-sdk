@@ -58,7 +58,7 @@ pub struct MembershipPayload {
     /// fields (e.g. `service_acceptance_ref`) as the rich `EventRef`
     /// `{id, role, …}` object, whereas the spec
     /// `member_delivery_binding.service_acceptance_ref` is a bare
-    /// `event_ref` string (`^ck:event:…$`). Routing a spec-correct binding
+    /// `event_ref` string (`^ak:event:…$`). Routing a spec-correct binding
     /// through that struct fails to deserialize. The binding wire shape is
     /// validated by soland's `validate_payload` against the canonical schema;
     /// see the "real wire divergence" note in the migration spec. Producers

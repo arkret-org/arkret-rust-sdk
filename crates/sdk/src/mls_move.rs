@@ -38,7 +38,7 @@ pub const MLS_EPOCH_CELL_FAMILY: &str = "ak.component.mls_epoch.v1";
 pub const KEY_SCHEDULE_CELL_FAMILY: &str = "ak.component.key_schedule.v1";
 pub const COVERED_SEALS_CELL_FAMILY: &str = "ak.component.covered_seals.v1";
 
-/// `ck:cell:ck.component.mls_epoch.v1:<group_id>` — cas-register on the
+/// `ak:cell:ck.component.mls_epoch.v1:<group_id>` — cas-register on the
 /// MLS group's current epoch counter.
 pub fn mls_epoch_cell_id(group_id: &str) -> Result<CellRef, arkret_core::Error> {
     if group_id.is_empty() {
@@ -50,7 +50,7 @@ pub fn mls_epoch_cell_id(group_id: &str) -> Result<CellRef, arkret_core::Error> 
         .map_err(|e| arkret_core::Error::Protocol(format!("invalid mls_epoch cell id: {e}")))
 }
 
-/// `ck:cell:ck.component.key_schedule.v1:<group_id>` — cas-register on
+/// `ak:cell:ck.component.key_schedule.v1:<group_id>` — cas-register on
 /// the MLS group's latest key schedule pointer.
 pub fn key_schedule_cell_id(group_id: &str) -> Result<CellRef, arkret_core::Error> {
     if group_id.is_empty() {
@@ -62,7 +62,7 @@ pub fn key_schedule_cell_id(group_id: &str) -> Result<CellRef, arkret_core::Erro
         .map_err(|e| arkret_core::Error::Protocol(format!("invalid key_schedule cell id: {e}")))
 }
 
-/// `ck:cell:ck.component.covered_seals.v1:<realm_id>` — or-set listing
+/// `ak:cell:ck.component.covered_seals.v1:<realm_id>` — or-set listing
 /// the governance Seal frontiers this MLS group is currently bound to.
 pub fn covered_seals_cell_id(realm_id: &RealmId) -> Result<CellRef, arkret_core::Error> {
     CellRef::new(format!(

@@ -349,7 +349,7 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                 let token = vector["input_cursor"].as_str().unwrap();
                 let body = token
                     .strip_prefix("ak:cursor:")
-                    .unwrap_or_else(|| panic!("{vector_id}: cursor missing ck:cursor: prefix"));
+                    .unwrap_or_else(|| panic!("{vector_id}: cursor missing ak:cursor: prefix"));
                 let bytes = crate::base64url::base64url_decode(body).unwrap();
                 let expected = vector["decoded_payload_canonical_bytes_utf8"]
                     .as_str()
@@ -535,7 +535,7 @@ fn hex_decode(input: &str) -> Option<Vec<u8>> {
 fn event_payload_catalog_validates_known_payload_fields() {
     let catalog = event_payload_validator_catalog().unwrap();
     // `ck.strand.move` payload requires Space container ids:
-    // `board_space_id` (ck:space prefix) + `target_space_id`.
+    // `board_space_id` (ak:space prefix) + `target_space_id`.
     catalog
         .validate_payload(
             "ak.strand.move",

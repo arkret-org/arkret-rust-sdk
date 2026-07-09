@@ -834,7 +834,7 @@ impl AuthManager {
 }
 
 /// One-shot DID-proof login strand that drives the single registered
-/// `POST /_cokret/gate/account/session-grants`
+/// `POST /_arkret/gate/account/session-grants`
 /// (`ck.gate.account.command.issue_session_grant`) operation.
 ///
 /// The helper is split off into its own impl block (gated on `client`
@@ -853,7 +853,7 @@ impl AuthManager {
     /// registered issuance operation. The `challenge` is the
     /// server-issued one-time challenge obtained through the
     /// deployment-local channel (the protocol HTTP binding registers
-    /// no challenge sub-path under `/_cokret/`).
+    /// no challenge sub-path under `/_arkret/`).
     pub async fn login_did_proof<S>(
         &mut self,
         client: &arkret_http_client::Client,

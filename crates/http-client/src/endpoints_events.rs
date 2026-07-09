@@ -81,13 +81,13 @@ impl EventsSubscribeFrameStream {
 
 impl Client {
     /// Describe the Event service via `ck.self.events.query.describe`
-    /// (`GET /_cokret/self/events/describe`).
+    /// (`GET /_arkret/self/events/describe`).
     pub async fn events_describe(&self) -> Result<ServiceDescribe> {
-        self.get("/_cokret/self/events/describe").await
+        self.get("/_arkret/self/events/describe").await
     }
 
     /// Subscribe to the Event stream for one or more Realms / actors via
-    /// `ck.self.events.stream.subscribe` (`GET /_cokret/self/events/subscribe`). The selector is
+    /// `ck.self.events.stream.subscribe` (`GET /_arkret/self/events/subscribe`). The selector is
     /// `realms[]` ∪ `actors[]` repeated query args, and frames use top-level
     /// `kind` with explicit control variants.
     ///
@@ -163,7 +163,7 @@ impl Client {
         // Long-lived NDJSON stream — exempt from the per-request default
         // total timeout (see `DEFAULT_REQUEST_TIMEOUT`).
         let mut builder = self
-            .request_unbounded(Method::GET, "/_cokret/self/events/subscribe")?
+            .request_unbounded(Method::GET, "/_arkret/self/events/subscribe")?
             .header("accept", "application/x-ndjson");
         for realm_id in &options.realms {
             builder = builder.query(&[("realms", realm_id)]);
@@ -187,7 +187,7 @@ impl Client {
         Ok(builder)
     }
 
-    /// Range-read Events via `ck.self.events.query.scan` (`GET /_cokret/self/events`). Pass
+    /// Range-read Events via `ck.self.events.query.scan` (`GET /_arkret/self/events`). Pass
     /// `before` to walk older history, `after` to catch up toward newer events,
     /// and `order` to override the default proximity-to-seal ordering.
     pub async fn events_query(
@@ -199,7 +199,7 @@ impl Client {
         limit: Option<u32>,
     ) -> Result<SyncBackfillOutcome> {
         let mut builder = self
-            .request(Method::GET, "/_cokret/self/events")?
+            .request(Method::GET, "/_arkret/self/events")?
             .query(&[("realms", realm_id)]);
         if let Some(before) = before {
             builder = builder.query(&[("before", before)]);
@@ -228,7 +228,7 @@ impl Client {
         include_completeness: Option<bool>,
     ) -> Result<EventsQueryOutcome> {
         let mut builder = self
-            .request(Method::GET, "/_cokret/self/events")?
+            .request(Method::GET, "/_arkret/self/events")?
             .query(&[("realms", realm_id)]);
         if let Some(before) = before {
             builder = builder.query(&[("before", before)]);
@@ -292,10 +292,10 @@ impl Client {
     }
 
     /// Submit a single signed Event Envelope via `ck.self.events.command.submit`
-    /// (`POST /_cokret/self/events`). Wire body is the bare envelope per the OpenAPI
+    /// (`POST /_arkret/self/events`). Wire body is the bare envelope per the OpenAPI
     /// `oneOf` first arm (`event-envelope.schema.json`).
     pub async fn events_submit(&self, event: &Event) -> Result<EventsSubmitOutcome> {
-        self.post("/_cokret/self/events", event).await
+        self.post("/_arkret/self/events", event).await
     }
 
     /// [`events_submit`](Self::events_submit) with per-request options.
@@ -310,12 +310,12 @@ impl Client {
         event: &Event,
         options: &ClientRequestOptions,
     ) -> Result<EventsSubmitOutcome> {
-        self.post_with_options("/_cokret/self/events", event, options)
+        self.post_with_options("/_arkret/self/events", event, options)
             .await
     }
 
     /// Submit a batch of signed Event Envelopes via `ck.self.events.command.submit`
-    /// (`POST /_cokret/self/events`) using the `EventsSubmitBatchRequestBody` body shape.
+    /// (`POST /_arkret/self/events`) using the `EventsSubmitBatchRequestBody` body shape.
     pub async fn events_submit_batch(&self, events: &[Event]) -> Result<EventsSubmitOutcome> {
         self.events_submit_batch_with_options(events, &ClientRequestOptions::default())
             .await
@@ -333,19 +333,19 @@ impl Client {
             events: events.to_vec(),
             idempotency_key: options.idempotency_key.clone(),
         };
-        self.post_with_options("/_cokret/self/events", &body, options)
+        self.post_with_options("/_arkret/self/events", &body, options)
             .await
     }
 
     pub async fn snapshot_head(&self, realm_id: &str) -> Result<SnapshotManifest> {
         let builder = self
-            .request(Method::GET, "/_cokret/self/snapshot/head")?
+            .request(Method::GET, "/_arkret/self/snapshot/head")?
             .query(&[("realm_id", realm_id)]);
         self.send_json(builder).await
     }
 
     pub async fn authz_check(&self, request: &AuthzCheckRequestBody) -> Result<AuthzCheckOutcome> {
-        self.post("/_cokret/self/authz/check", request).await
+        self.post("/_arkret/self/authz/check", request).await
     }
 
     pub async fn authz_effective_grants(
@@ -355,7 +355,7 @@ impl Client {
         at: Option<&str>,
     ) -> Result<GrantList> {
         let mut builder = self
-            .request(Method::GET, "/_cokret/self/authz/effective-grants")?
+            .request(Method::GET, "/_arkret/self/authz/effective-grants")?
             .query(&[("realm_id", realm_id), ("subject", subject)]);
         if let Some(at) = at {
             builder = builder.query(&[("at", at)]);
@@ -369,7 +369,7 @@ impl Client {
         at: Option<&str>,
     ) -> Result<GrantList> {
         let mut builder = self
-            .request(Method::GET, "/_cokret/self/authz/effective-grants")?
+            .request(Method::GET, "/_arkret/self/authz/effective-grants")?
             .query(&[("subject", subject)]);
         if let Some(at) = at {
             builder = builder.query(&[("at", at)]);
@@ -384,7 +384,7 @@ impl Client {
         cursor: Option<&str>,
     ) -> Result<AuthzInviteList> {
         let mut builder = self
-            .request(Method::GET, "/_cokret/self/authz/invites")?
+            .request(Method::GET, "/_arkret/self/authz/invites")?
             .query(&[("subject", subject)]);
         if let Some(realm_id) = realm_id {
             builder = builder.query(&[("realm_id", realm_id)]);
@@ -401,19 +401,19 @@ impl Client {
         request: &ViewProjectionRequestBody,
     ) -> Result<CollectionProjectionView> {
         reject_path_segment(view_id)?;
-        let path = format!("/_cokret/self/views/{view_id}/projection");
+        let path = format!("/_arkret/self/views/{view_id}/projection");
         self.post(&path, request).await
     }
 
     pub async fn realm_spaces(&self, realm_id: &str) -> Result<ProjectionSpaceList> {
         reject_path_segment(realm_id)?;
-        let path = format!("/_cokret/self/realms/{realm_id}/spaces");
+        let path = format!("/_arkret/self/realms/{realm_id}/spaces");
         self.get(&path).await
     }
 
     pub async fn realm_strands(&self, realm_id: &str) -> Result<ProjectionStrandList> {
         reject_path_segment(realm_id)?;
-        let path = format!("/_cokret/self/realms/{realm_id}/strands");
+        let path = format!("/_arkret/self/realms/{realm_id}/strands");
         self.get(&path).await
     }
 
@@ -424,7 +424,7 @@ impl Client {
     ) -> Result<DocumentMorphProjectionOutcome> {
         reject_path_segment(realm_id)?;
         reject_path_segment(morph_id)?;
-        let path = format!("/_cokret/self/realms/{realm_id}/morphs/{morph_id}");
+        let path = format!("/_arkret/self/realms/{realm_id}/morphs/{morph_id}");
         self.get(&path).await
     }
 
@@ -433,7 +433,7 @@ impl Client {
         realm_id: &str,
     ) -> Result<RealmOrganizationRelationshipList> {
         reject_path_segment(realm_id)?;
-        let path = format!("/_cokret/self/realms/{realm_id}/organizations");
+        let path = format!("/_arkret/self/realms/{realm_id}/organizations");
         self.get(&path).await
     }
 }

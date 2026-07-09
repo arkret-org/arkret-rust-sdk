@@ -153,7 +153,7 @@ where
 }
 
 /// Async streaming transport abstraction for `ck.self.events.stream.subscribe`
-/// (`/_cokret/self/events/subscribe`).
+/// (`/_arkret/self/events/subscribe`).
 ///
 /// Opens the `ck.self.events.stream.subscribe` stream. The transport accepts a single
 /// `realm_id` selector; callers that need multi-Realm / actor selectors should

@@ -22,7 +22,7 @@ pub struct AuthzEffectiveGrantsParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -53,7 +53,7 @@ pub struct AuthzInvitesParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -75,7 +75,7 @@ pub struct AuthzCheckParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -97,7 +97,7 @@ pub struct PolicyCheckParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -119,7 +119,7 @@ pub struct MediaIceConfigParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -141,7 +141,7 @@ pub struct ModerationReportParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,

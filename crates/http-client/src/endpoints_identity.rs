@@ -22,7 +22,7 @@ use crate::Client;
 
 impl Client {
     pub async fn describe(&self) -> Result<ServerDescription> {
-        self.get("/_cokret/describe").await
+        self.get("/_arkret/describe").await
     }
 
     pub async fn describe_and_verify(
@@ -35,14 +35,14 @@ impl Client {
     }
 
     pub async fn identity_describe(&self) -> Result<IdentityDescription> {
-        self.get("/_cokret/root/identity/describe").await
+        self.get("/_arkret/root/identity/describe").await
     }
 
     pub async fn identity_resolve(
         &self,
         request: &IdentityResolveRequestBody,
     ) -> Result<IdentityResolveOutcome> {
-        self.post("/_cokret/root/identity/resolve", request).await
+        self.post("/_arkret/root/identity/resolve", request).await
     }
 
     pub async fn identity_document(
@@ -51,7 +51,7 @@ impl Client {
         version: Option<&str>,
     ) -> Result<IdentityDocumentView> {
         let mut builder = self
-            .request(Method::GET, "/_cokret/root/identity/document")?
+            .request(Method::GET, "/_arkret/root/identity/document")?
             .query(&[("did", did)]);
         if let Some(version) = version {
             builder = builder.query(&[("version", version)]);
@@ -66,7 +66,7 @@ impl Client {
         limit: Option<u32>,
     ) -> Result<IdentityLogListOutcome> {
         let mut builder = self
-            .request(Method::GET, "/_cokret/root/identity/log")?
+            .request(Method::GET, "/_arkret/root/identity/log")?
             .query(&[("did", did)]);
         if let Some(cursor) = cursor {
             builder = builder.query(&[("cursor", cursor)]);
@@ -81,7 +81,7 @@ impl Client {
         &self,
         request: &DidOperationSubmitRequestBody,
     ) -> Result<DidOperationSubmitOutcome> {
-        self.post("/_cokret/root/identity/submit-did-operation", request)
+        self.post("/_arkret/root/identity/submit-did-operation", request)
             .await
     }
 
@@ -91,20 +91,20 @@ impl Client {
         head: &str,
     ) -> Result<IdentityReceiptListOutcome> {
         let builder = self
-            .request(Method::GET, "/_cokret/root/identity/receipts")?
+            .request(Method::GET, "/_arkret/root/identity/receipts")?
             .query(&[("did", did), ("head", head)]);
         self.send_json(builder).await
     }
 
     pub async fn directory_describe(&self) -> Result<DirectoryDescription> {
-        self.get("/_cokret/find/directory/describe").await
+        self.get("/_arkret/find/directory/describe").await
     }
 
     pub async fn directory_search_realms(
         &self,
         request: &DirectorySearchRealmsRequestBody,
     ) -> Result<DirectoryRealmSearchOutcome> {
-        self.post("/_cokret/find/directory/search-realms", request)
+        self.post("/_arkret/find/directory/search-realms", request)
             .await
     }
 
@@ -112,7 +112,7 @@ impl Client {
         &self,
         request: &DirectoryResolveRealmRequestBody,
     ) -> Result<DirectoryRealmResolutionOutcome> {
-        self.post("/_cokret/find/directory/resolve-realm", request)
+        self.post("/_arkret/find/directory/resolve-realm", request)
             .await
     }
 
@@ -126,7 +126,7 @@ impl Client {
         &self,
         request: &DirectoryResolveTargetRequestBody,
     ) -> Result<DirectoryTargetResolutionOutcome> {
-        self.post("/_cokret/find/directory/resolve-target", request)
+        self.post("/_arkret/find/directory/resolve-target", request)
             .await
     }
 
@@ -134,7 +134,7 @@ impl Client {
         &self,
         request: &DirectorySearchOrganizationsRequestBody,
     ) -> Result<DirectoryOrganizationSearchOutcome> {
-        self.post("/_cokret/find/directory/search-organizations", request)
+        self.post("/_arkret/find/directory/search-organizations", request)
             .await
     }
 
@@ -142,7 +142,7 @@ impl Client {
         &self,
         request: &DirectoryResolveOrganizationRequestBody,
     ) -> Result<DirectoryOrganizationResolutionOutcome> {
-        self.post("/_cokret/find/directory/resolve-organization", request)
+        self.post("/_arkret/find/directory/resolve-organization", request)
             .await
     }
 
@@ -150,7 +150,7 @@ impl Client {
         &self,
         request: &DirectorySearchActorsRequestBody,
     ) -> Result<DirectoryActorSearchOutcome> {
-        self.post("/_cokret/find/directory/search-actors", request)
+        self.post("/_arkret/find/directory/search-actors", request)
             .await
     }
 
@@ -167,7 +167,7 @@ impl Client {
             limit,
             intent: None,
         };
-        self.post("/_cokret/find/directory/search-users", &request)
+        self.post("/_arkret/find/directory/search-users", &request)
             .await
     }
 
@@ -175,7 +175,7 @@ impl Client {
         &self,
         request: &DirectoryResolveHandleRequestBody,
     ) -> Result<DirectoryHandleResolutionOutcome> {
-        self.post("/_cokret/find/directory/resolve-handle", request)
+        self.post("/_arkret/find/directory/resolve-handle", request)
             .await
     }
 
@@ -185,7 +185,7 @@ impl Client {
         request: &DirectoryResolveAgentSelectorRequestBody,
     ) -> Result<DirectoryAgentSelectorResolutionOutcome> {
         let body: DirectoryAgentSelectorResolutionOutcome = self
-            .post("/_cokret/find/directory/resolve-agent-selector", request)
+            .post("/_arkret/find/directory/resolve-agent-selector", request)
             .await?;
         body.validate()?;
         Ok(body)
@@ -200,7 +200,7 @@ impl Client {
         request: &DirectoryListHandlesForSubjectRequestBody,
     ) -> Result<DirectorySubjectHandleList> {
         let body: DirectorySubjectHandleList = self
-            .post("/_cokret/find/directory/list-handles-for-subject", request)
+            .post("/_arkret/find/directory/list-handles-for-subject", request)
             .await?;
         body.validate()?;
         Ok(body)
@@ -210,7 +210,7 @@ impl Client {
         &self,
         request: &DirectoryPrivateContactDiscoveryRequestBody,
     ) -> Result<DirectoryPrivateContactDiscoveryOutcome> {
-        self.post("/_cokret/find/directory/private-contact-discovery", request)
+        self.post("/_arkret/find/directory/private-contact-discovery", request)
             .await
     }
 }

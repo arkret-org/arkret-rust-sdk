@@ -14,7 +14,7 @@ pub struct BlobUploadParams {
         rename = "X-Arkret-Blob-Metadata"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Blob-Metadata", parameter(parameter_in = Header)))]
-    pub x_cokret_blob_metadata: Option<String>,
+    pub x_arkret_blob_metadata: Option<String>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -39,7 +39,7 @@ pub struct BlobUploadParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -64,7 +64,7 @@ pub struct BlobHeadParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -92,7 +92,7 @@ pub struct BlobGetParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -115,7 +115,7 @@ pub struct PushRegisterDeviceParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -137,7 +137,7 @@ pub struct PushUnregisterDeviceParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -160,7 +160,7 @@ pub struct PushNotifyParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -186,7 +186,7 @@ pub struct DeviceMessagesPutParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -215,7 +215,7 @@ pub struct DeviceMessagesGetParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -238,7 +238,7 @@ pub struct KeysUploadParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -260,7 +260,7 @@ pub struct KeysQueryParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -282,7 +282,7 @@ pub struct KeysClaimParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -310,7 +310,7 @@ pub struct KeysBackupsPutParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -342,7 +342,7 @@ pub struct KeysBackupsListParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -367,7 +367,7 @@ pub struct KeysBackupsGetParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -395,7 +395,7 @@ pub struct KeysBackupsDeleteParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -417,7 +417,7 @@ pub struct KeyPackagesUploadParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -439,7 +439,7 @@ pub struct KeyPackagesClaimParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -461,7 +461,7 @@ pub struct KeyPackagesConsumeParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -483,7 +483,7 @@ pub struct KeyPackagesRevokeParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,

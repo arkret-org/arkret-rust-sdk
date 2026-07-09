@@ -149,7 +149,7 @@ pub enum MediaBackendType {
 `Unknown(String)` is preserved on decode so logs are useful, but every
 operational call site invokes `MediaBackendType::reject_if_unknown()` before
 trusting the value. The `ck.profile.media_service_binding.{livekit,
-cokret_native}.v1` profile entries gate which arms a client will negotiate.
+arkret_native}.v1` profile entries gate which arms a client will negotiate.
 
 ### Recovery (policy + receipt)
 
@@ -210,7 +210,7 @@ Error surfaced specifically on this lane:
 
 - `ck.profile.media_service_binding.v1` — generic media-service binding.
 - `ck.profile.media_service_binding.livekit.v1`
-- `ck.profile.media_service_binding.cokret_native.v1`
+- `ck.profile.media_service_binding.arkret_native.v1`
 - `ck.profile.accountable_principals.strict_reject.v1` — see soland runbook for
   operational implications.
 - `ck.profile.stateless_cursor.v1` — feature-gated `stateless_cursor` cargo

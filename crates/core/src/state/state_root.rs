@@ -134,7 +134,7 @@ mod tests {
             CellState::Value(json!("join")),
         );
         let root = compute_state_root(&map).unwrap();
-        // Format must match ck:hash:sha256: prefix.
+        // Format must match ak:hash:sha256: prefix.
         assert!(root.as_str().starts_with("sha256:"));
         // Single-leaf root MUST equal the leaf hash directly (per spec §6.2.2).
         let leaf = leaf_hash(

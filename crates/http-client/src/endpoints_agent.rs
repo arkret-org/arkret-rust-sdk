@@ -13,14 +13,14 @@ use serde_json::Value;
 
 use crate::Client;
 
-const AGENT_KEY_PAIR_PATH: &str = "/_cokret/gate/account/agent-key-pair";
+const AGENT_KEY_PAIR_PATH: &str = "/_arkret/gate/account/agent-key-pair";
 const AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH: &str =
-    "/_cokret/open/agent-pairing/runtime-key-requests";
-const AGENTS_PATH: &str = "/_cokret/self/agents";
-const AGENT_SIDECAR_THREAD_ENSURE_PATH: &str = "/_cokret/self/agent-sidecar-threads:ensure";
+    "/_arkret/open/agent-pairing/runtime-key-requests";
+const AGENTS_PATH: &str = "/_arkret/self/agents";
+const AGENT_SIDECAR_THREAD_ENSURE_PATH: &str = "/_arkret/self/agent-sidecar-threads:ensure";
 
 impl Client {
-    /// `POST /_cokret/gate/account/agent-key-pair`
+    /// `POST /_arkret/gate/account/agent-key-pair`
     /// (`ck.gate.account.command.pair_agent_key`).
     pub async fn agent_key_pair(
         &self,
@@ -29,7 +29,7 @@ impl Client {
         self.post(AGENT_KEY_PAIR_PATH, request).await
     }
 
-    /// `POST /_cokret/open/agent-pairing/runtime-key-requests`
+    /// `POST /_arkret/open/agent-pairing/runtime-key-requests`
     /// (`ck.open.agent_pairing.command.submit_runtime_key_request`).
     pub async fn agent_runtime_approval_request(
         &self,
@@ -39,7 +39,7 @@ impl Client {
             .await
     }
 
-    /// `POST /_cokret/self/agents` (`ck.self.agent.command.provision`).
+    /// `POST /_arkret/self/agents` (`ck.self.agent.command.provision`).
     pub async fn agent_provision(
         &self,
         request: &AgentProvisionRequestBody,
@@ -47,13 +47,13 @@ impl Client {
         self.post(AGENTS_PATH, request).await
     }
 
-    /// `GET /_cokret/self/agents` (`ck.self.agent.query.list`).
+    /// `GET /_arkret/self/agents` (`ck.self.agent.query.list`).
     pub async fn agent_list(&self) -> Result<AgentList> {
         let value: Value = self.get(AGENTS_PATH).await?;
         decode_agent_list_response(value)
     }
 
-    /// `GET /_cokret/self/agents/{agent_principal_id}`
+    /// `GET /_arkret/self/agents/{agent_principal_id}`
     /// (`ck.self.agent.resource.get`).
     pub async fn agent_get(&self, agent_principal_id: &str) -> Result<AgentView> {
         let path = format!(
@@ -64,7 +64,7 @@ impl Client {
         self.get(&path).await
     }
 
-    /// `POST /_cokret/self/agents/{agent_principal_id}/pause`
+    /// `POST /_arkret/self/agents/{agent_principal_id}/pause`
     /// (`ck.self.agent.command.pause`).
     pub async fn agent_pause(
         &self,
@@ -79,7 +79,7 @@ impl Client {
         self.post(&path, request).await
     }
 
-    /// `POST /_cokret/self/agents/{agent_principal_id}/resume`
+    /// `POST /_arkret/self/agents/{agent_principal_id}/resume`
     /// (`ck.self.agent.command.resume`).
     pub async fn agent_resume(
         &self,
@@ -94,7 +94,7 @@ impl Client {
         self.post(&path, request).await
     }
 
-    /// `POST /_cokret/self/agents/{agent_principal_id}/deactivate`
+    /// `POST /_arkret/self/agents/{agent_principal_id}/deactivate`
     /// (`ck.self.agent.command.deactivate`).
     pub async fn agent_deactivate(
         &self,
@@ -109,7 +109,7 @@ impl Client {
         self.post(&path, request).await
     }
 
-    /// `POST /_cokret/self/agents/{agent_principal_id}/rotate-key`
+    /// `POST /_arkret/self/agents/{agent_principal_id}/rotate-key`
     /// (`ck.self.agent.command.rotate_key`).
     pub async fn agent_rotate_key(
         &self,
@@ -124,7 +124,7 @@ impl Client {
         self.post(&path, request).await
     }
 
-    /// `POST /_cokret/self/agents/{agent_principal_id}/grants`
+    /// `POST /_arkret/self/agents/{agent_principal_id}/grants`
     /// (`ck.self.agent.grant.command.attach`).
     pub async fn agent_grant_attach(
         &self,
@@ -139,7 +139,7 @@ impl Client {
         self.post(&path, request).await
     }
 
-    /// `DELETE /_cokret/self/agents/{agent_principal_id}/grants/{grant_id}`
+    /// `DELETE /_arkret/self/agents/{agent_principal_id}/grants/{grant_id}`
     /// (`ck.self.agent.grant.resource.delete`). The `_detach` method name is
     /// retained for API compatibility; the registered operation id is `.delete`.
     pub async fn agent_grant_detach(
@@ -156,7 +156,7 @@ impl Client {
         self.delete(&path).await
     }
 
-    /// `GET /_cokret/self/agents/{agent_principal_id}/participation`
+    /// `GET /_arkret/self/agents/{agent_principal_id}/participation`
     /// (`ck.self.agent.participation.resource.get`).
     pub async fn agent_participation_get(
         &self,
@@ -170,7 +170,7 @@ impl Client {
         self.get(&path).await
     }
 
-    /// `PUT /_cokret/self/agents/{agent_principal_id}/participation`
+    /// `PUT /_arkret/self/agents/{agent_principal_id}/participation`
     /// (`ck.self.agent.participation.resource.replace`).
     pub async fn agent_participation_replace(
         &self,
@@ -185,7 +185,7 @@ impl Client {
         self.put(&path, request).await
     }
 
-    /// `POST /_cokret/self/agent-sidecar-threads:ensure`
+    /// `POST /_arkret/self/agent-sidecar-threads:ensure`
     /// (`ck.self.agent.sidecar_thread.command.ensure`).
     pub async fn agent_sidecar_thread_ensure(
         &self,
@@ -239,7 +239,7 @@ mod tests {
         );
         assert_eq!(
             agent_path_component("ak:grant:01964137-0000-7000-8000-000000000a01").unwrap(),
-            "ak.3Agrant%3A01964137-0000-7000-8000-000000000a01"
+            "ak%3Agrant%3A01964137-0000-7000-8000-000000000a01"
         );
     }
 
@@ -263,7 +263,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(list.agents.len(), 1);
-        assert_eq!(list.agents[0]["agent_slug"], "summary");
+        assert_eq!(list.agents[0].agent_slug.as_deref(), Some("summary"));
         assert!(!list.has_more);
     }
 }

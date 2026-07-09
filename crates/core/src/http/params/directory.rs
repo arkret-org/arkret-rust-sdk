@@ -12,7 +12,7 @@ pub struct DirectoryDescribeParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -34,7 +34,7 @@ pub struct DirectorySearchRealmsParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -56,7 +56,7 @@ pub struct DirectoryResolveRealmParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -78,7 +78,7 @@ pub struct DirectorySearchOrganizationsParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -100,7 +100,7 @@ pub struct DirectoryResolveOrganizationParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -122,7 +122,7 @@ pub struct DirectorySearchActorsParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -144,7 +144,7 @@ pub struct DirectorySearchUsersParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -166,7 +166,7 @@ pub struct DirectoryResolveHandleParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -188,7 +188,7 @@ pub struct PrivateContactDiscoveryParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -214,7 +214,7 @@ pub struct DirectoryAnnounceParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,
@@ -240,7 +240,7 @@ pub struct DirectoryWithdrawParams {
         rename = "X-Arkret-Request-Id"
     )]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_cokret_request_id: Option<String>,
+    pub x_arkret_request_id: Option<String>,
 
     #[serde(
         default,

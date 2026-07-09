@@ -85,7 +85,7 @@ pub struct AgentProvisionOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentPairingBootstrap {
-    pub cokret_base_url: String,
+    pub arkret_base_url: String,
     pub service_did: Did,
     pub agent_principal_id: Did,
     pub pairing_request_id: String,
@@ -155,7 +155,7 @@ pub struct AgentLifecycleOutcome {
     pub status: AgentLifecycleState,
 }
 
-/// Request body for `POST /_cokret/self/agents/discover`
+/// Request body for `POST /_arkret/self/agents/discover`
 /// (`ck.agent.protocol.discover`). The caller names the target agent
 /// runtime DID; soland reflects the registered `ck.agent.endpoint`
 /// projection back as the supported protocol catalogue.

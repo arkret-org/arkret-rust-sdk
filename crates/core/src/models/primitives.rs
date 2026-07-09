@@ -73,7 +73,7 @@ pub enum ActorKind {
     Service,
     // No Device variant: a device is not an actor principal and has no DID of
     // its own. It belongs to a principal, is identified by
-    // device_id (ck:device:<uuid>), and uses a verification method under the
+    // device_id (ak:device:<uuid>), and uses a verification method under the
     // principal DID. See spec models/actor.md §2.
     Integration,
 }

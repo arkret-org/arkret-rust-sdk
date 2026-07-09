@@ -1155,9 +1155,9 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             },
         );
         map.insert(
-            "ak.profile.media_service_binding.cokret_native.v1",
+            "ak.profile.media_service_binding.arkret_native.v1",
             ProfileRequirements {
-                profile_id: "ak.profile.media_service_binding.cokret_native.v1",
+                profile_id: "ak.profile.media_service_binding.arkret_native.v1",
                 inherits: &[],
                 required_operations: &["ak.self.call.media.exchange.issue_token"],
                 required_event_kinds: &["ak.call.state", "ck.realm.media_service"],

@@ -4,7 +4,7 @@
 //!
 //! The chain semantics this example exercises:
 //!
-//! * Every envelope in a chain shares the same `series_id` (a `ck:backup_series:` strict-typed id).
+//! * Every envelope in a chain shares the same `series_id` (a `ak:backup_series:` strict-typed id).
 //! * `series_seq == 0` marks the genesis envelope; `supersedes` MUST be absent.
 //! * `series_seq >= 1` marks a successor; `supersedes` and `supersedes_digest` are REQUIRED and the
 //!   chain must be contiguous.
@@ -249,11 +249,11 @@ fn main() -> arkret::Result<()> {
     validate_chain(&chain).expect("chain must be well-formed");
     println!("chain validates cleanly");
 
-    // The real recovery strand: GET /_cokret/self/keys/backups?series_id=<sid>,
+    // The real recovery strand: GET /_arkret/self/keys/backups?series_id=<sid>,
     // sort by series_seq, walk genesis → head verifying supersedes_digest
     // against the prior envelope's ciphertext_digest at each step.
     let recovery_path = format!(
-        "/_cokret/self/keys/backups?series_id={}",
+        "/_arkret/self/keys/backups?series_id={}",
         series_id.as_str()
     );
     println!("recovery list path: {recovery_path}");

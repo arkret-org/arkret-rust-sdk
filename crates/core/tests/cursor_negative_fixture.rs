@@ -2,7 +2,7 @@
 //! `fixtures/cursor-negative-fixture.json`
 //! (`ck.vector.encoding.reject_invalid_cursor.core.v1`).
 //!
-//! Every case is a plausible-looking `ck:cursor:` token that the issuing
+//! Every case is a plausible-looking `ak:cursor:` token that the issuing
 //! service MUST reject before advancing any server-side state
 //! (conformance-vectors.md §1.16). The positive opaqueness contract lives in
 //! `ck.vector.encoding.cursor_opaque.core.v1`; this suite pins the rejection

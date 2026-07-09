@@ -74,7 +74,7 @@ pub struct Realm {
     /// Initial notary cell value (data-structures.md §4). Reducers seed the
     /// authoritative notary cell from this genesis value at Realm creation.
     /// Subsequent notary changes strand through Move on the
-    /// `ck:cell:ck.component.notary.v1:<realm_id>` cell.
+    /// `ak:cell:ck.component.notary.v1:<realm_id>` cell.
     pub notary: crate::notary::NotaryValue,
     /// Soft cap on how stale the latest Seal leaf may be before clients
     /// SHOULD warn / re-fetch. `None` means "implementation default" (spec
@@ -175,7 +175,7 @@ pub struct RealmRecoveryRecipient {
 /// Move/Seal/Lattice).
 ///
 /// This is a **hint field on `Realm`** — the live notary identity always
-/// lives in the `ck:cell:ck.component.notary.v1:<realm_id>` cell. The
+/// lives in the `ak:cell:ck.component.notary.v1:<realm_id>` cell. The
 /// hint exists so clients can pre-allocate state before observing the cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -295,7 +295,7 @@ impl Realm {
     }
 
     /// Builder: declare the initial notary cell value. Servers seed the
-    /// `ck:cell:ck.component.notary.v1:<realm_id>` cell from this hint at
+    /// `ak:cell:ck.component.notary.v1:<realm_id>` cell from this hint at
     /// Realm creation time. Subsequent rotations strand through Move.
     pub fn with_notary(mut self, notary: crate::notary::NotaryValue) -> Self {
         self.notary = notary;

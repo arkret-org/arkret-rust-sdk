@@ -10,7 +10,7 @@ use crate::{
     Event, Hlc, ObjectCreatePayload, Proof, RealmId, Result,
 };
 
-/// `POST /_cokret/self/applets/{applet_id}/ghosts/provision` request body.
+/// `POST /_arkret/self/applets/{applet_id}/ghosts/provision` request body.
 ///
 /// An Applet service / bridge asks the Principal Server to provision (or
 /// re-validate) an Applet-managed Ghost Actor profile plus accountability
@@ -70,7 +70,7 @@ impl GhostActorProvisionRequestBody {
     }
 }
 
-/// `POST /_cokret/self/applets/{applet_id}/ghosts/provision` response.
+/// `POST /_arkret/self/applets/{applet_id}/ghosts/provision` response.
 ///
 /// Carries the durable event refs the Principal Server minted: the Ghost
 /// Actor `ck.profile.create` ref, the `ck.identity.accountability_grant` ref

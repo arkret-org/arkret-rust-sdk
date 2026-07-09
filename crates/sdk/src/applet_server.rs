@@ -37,7 +37,7 @@ use crate::{Error, Result};
 /// router uses.
 pub trait AppletHandler: Send + Sync + 'static {
     /// DID resolver used by the [`router`] factory to authenticate inbound
-    /// `POST /_cokret/edge/applet/transactions` pushes.
+    /// `POST /_arkret/edge/applet/transactions` pushes.
     ///
     /// The router resolves both the source service DID's HTTP message
     /// signature key and every pushed Event's `proof.verification_method`
@@ -49,11 +49,11 @@ pub trait AppletHandler: Send + Sync + 'static {
     /// never observes an unauthenticated or forged push.
     fn source_did_resolver(&self) -> &dyn DidResolver;
 
-    /// `GET /_cokret/edge/applet/ping`
+    /// `GET /_arkret/edge/applet/ping`
     fn ping(&self) -> Result<AppletPingOutcome>;
-    /// `GET /_cokret/edge/applet/describe`
+    /// `GET /_arkret/edge/applet/describe`
     fn describe(&self) -> Result<AppletDescription>;
-    /// `POST /_cokret/edge/applet/transactions`
+    /// `POST /_arkret/edge/applet/transactions`
     ///
     /// The [`router`] factory only dispatches here **after** it has
     /// verified the inbound HTTP message signature against the source
@@ -69,11 +69,11 @@ pub trait AppletHandler: Send + Sync + 'static {
         idempotency_key: &str,
         req: AppletTransactionRequestBody,
     ) -> Result<AppletTransactionOutcome>;
-    /// `GET /_cokret/edge/applet/actors/{actor_id}`
+    /// `GET /_arkret/edge/applet/actors/{actor_id}`
     fn resolve_actor(&self, actor_id: &str) -> Result<AppletActorView>;
-    /// `GET /_cokret/edge/applet/realms/{realm_id_or_alias}`
+    /// `GET /_arkret/edge/applet/realms/{realm_id_or_alias}`
     fn resolve_realm(&self, realm_id_or_alias: &str) -> Result<AppletRealmView>;
-    /// `GET /_cokret/edge/applet/protocols/{protocol}`
+    /// `GET /_arkret/edge/applet/protocols/{protocol}`
     fn resolve_protocol(&self, protocol: &str) -> Result<AppletProtocolMetadata>;
 }
 
@@ -204,7 +204,7 @@ mod salvo_router {
         SERVICE
             .set(service)
             .map_err(|_| Error::Protocol("applet_server::router already installed".to_owned()))?;
-        Ok(Router::with_path("_cokret/edge/applet")
+        Ok(Router::with_path("_arkret/edge/applet")
             .push(Router::with_path("ping").get(ping_handler))
             .push(Router::with_path("describe").get(describe_handler))
             .push(Router::with_path("transactions").post(transactions_handler))

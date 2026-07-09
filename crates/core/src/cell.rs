@@ -4,11 +4,11 @@
 //! protocol-level state unit identified as
 //!
 //! ```text
-//! ck:cell:<component>:<subject>
+//! ak:cell:<component>:<subject>
 //! ```
 //!
-//! - `<component>` is the cell family (e.g. `ck.component.member.state.v1`,
-//!   `ck.component.capability.grant.v1`, `ck.component.consent.v1`).
+//! - `<component>` is the cell family (e.g. `ak.component.member.state.v1`,
+//!   `ak.component.capability.grant.v1`, `ak.component.consent.v1`).
 //! - `<subject>` may be a flat identifier (`did.web.alice.example`,
 //!   `ck.grant.01js0gr0000000000000000000`) or a deterministic composite subject when the spec
 //!   event-kind-registry's `cell_subject` declares `composite` form.
@@ -17,7 +17,7 @@
 //! over an ordered components array. The order is fixed per cell family
 //! (encoding.md §9.5). This module exposes:
 //!
-//! - [`CellId::parse`] — strict parser for `ck:cell:<component>:<subject>`.
+//! - [`CellId::parse`] — strict parser for `ak:cell:<component>:<subject>`.
 //! - [`CellId::component`] / [`CellId::subject`] — accessors.
 //! - [`composite_subject`] — produce the canonical composite subject hash for a fixed-order list of
 //!   string parts (the wire-canonical form).
@@ -41,15 +41,15 @@ pub struct CellId {
 }
 
 impl CellId {
-    /// Parse a `ck:cell:<component>:<subject>` string into typed parts.
+    /// Parse a `ak:cell:<component>:<subject>` string into typed parts.
     ///
     /// Both `<component>` and `<subject>` may contain dots and additional
     /// colons (subject can itself be a typed id like
-    /// `ck.grant.01js0gr...`). The split happens on the **first** colon
-    /// after the `ck:cell:` prefix to keep the component canonical.
+    /// `ak.grant.01js0gr...`). The split happens on the **first** colon
+    /// after the `ak:cell:` prefix to keep the component canonical.
     pub fn parse(value: &str) -> Result<Self> {
         let rest = value.strip_prefix(CELL_PREFIX).ok_or_else(|| {
-            Error::Protocol(format!("cell id missing 'ak.cell:' prefix: {value}"))
+            Error::Protocol(format!("cell id missing 'ak:cell:' prefix: {value}"))
         })?;
         let (component, subject) = rest.split_once(':').ok_or_else(|| {
             Error::Protocol(format!(
@@ -72,7 +72,7 @@ impl CellId {
         Self::parse(value.as_str())
     }
 
-    /// The cell family / component portion (e.g. `ck.component.member.state.v1`).
+    /// The cell family / component portion (e.g. `ak.component.member.state.v1`).
     pub fn component(&self) -> &str {
         &self.component
     }
@@ -125,7 +125,7 @@ mod tests {
     #[test]
     fn parse_simple_cell_id() {
         let id =
-            CellId::parse("ak:cell:ck.component.member.state.v1:did.web.alice.example").unwrap();
+            CellId::parse("ak:cell:ak.component.member.state.v1:did.web.alice.example").unwrap();
         assert_eq!(id.component(), "ak.component.member.state.v1");
         assert_eq!(id.subject(), "did.web.alice.example");
     }
@@ -133,7 +133,7 @@ mod tests {
     #[test]
     fn parse_composite_typed_id_subject() {
         let id = CellId::parse(
-            "ak:cell:ck.component.capability.grant.v1:ck.grant.01js0gr0000000000000000000",
+            "ak:cell:ak.component.capability.grant.v1:ak.grant.01js0gr0000000000000000000",
         )
         .unwrap();
         assert_eq!(id.component(), "ak.component.capability.grant.v1");
@@ -144,7 +144,7 @@ mod tests {
     fn parse_subject_with_inner_colons_keeps_them_in_subject() {
         // Subject can include further colons (e.g. typed ids inside).
         let id =
-            CellId::parse("ak:cell:ck.component.consent.v1:ck:consent:01js0c00000000000000000000")
+            CellId::parse("ak:cell:ak.component.consent.v1:ak:consent:01js0c00000000000000000000")
                 .unwrap();
         assert_eq!(id.component(), "ak.component.consent.v1");
         assert_eq!(id.subject(), "ak:consent:01js0c00000000000000000000");
@@ -153,12 +153,12 @@ mod tests {
     #[test]
     fn parse_rejects_missing_prefix() {
         let err = CellId::parse("cell:foo:bar").unwrap_err();
-        assert!(format!("{err}").contains("missing 'ak.cell:' prefix"));
+        assert!(format!("{err}").contains("missing 'ak:cell:' prefix"));
     }
 
     #[test]
     fn parse_rejects_missing_separator() {
-        let err = CellId::parse("ak:cell:ck.component.consent.v1").unwrap_err();
+        let err = CellId::parse("ak:cell:ak.component.consent.v1").unwrap_err();
         assert!(format!("{err}").contains("missing component:subject separator"));
     }
 
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn round_trip_wire_string() {
-        let original = "ak:cell:ck.component.member.state.v1:did.web.alice.example";
+        let original = "ak:cell:ak.component.member.state.v1:did.web.alice.example";
         let id = CellId::parse(original).unwrap();
         assert_eq!(id.to_wire(), original);
     }
@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn from_ref_uses_typed_cell_ref() {
         let cref =
-            CellRef::new("ak:cell:ck.component.consent.v1:ck.consent.01js0cc0000000000000000000")
+            CellRef::new("ak:cell:ak.component.consent.v1:ak.consent.01js0cc0000000000000000000")
                 .unwrap();
         let id = CellId::from_ref(&cref).unwrap();
         assert_eq!(id.component(), "ak.component.consent.v1");
@@ -229,7 +229,7 @@ mod tests {
         let cref = id.to_cell_ref().unwrap();
         assert_eq!(
             cref.as_str(),
-            "ak:cell:ck.component.member.state.v1:did.web.alice.example"
+            "ak:cell:ak.component.member.state.v1:did.web.alice.example"
         );
     }
 }

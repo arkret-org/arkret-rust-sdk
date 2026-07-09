@@ -806,7 +806,7 @@ pub fn device_verification_commitment(
     created_at: DateTime<Utc>,
 ) -> Result<String> {
     let payload = serde_json::json!({
-        "context": "cokretice-verification-v1",
+        "context": "arkretice-verification-v1",
         "user_id": user_id,
         "device_id": device_id,
         "challenge": challenge,

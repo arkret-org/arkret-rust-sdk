@@ -4,14 +4,14 @@
 //! A shareable address points at a Realm, a Strand inside a Realm, or a Message
 //! inside a Strand. Three envelopes share ONE grammar:
 //!
-//! * logical id `ck:<kind>:<uuid>` — opaque, never carries via/action/token.
+//! * logical id `ak:<kind>:<uuid>` — opaque, never carries via/action/token.
 //! * `web+arkret:` URI scheme: `web+arkret:realm/<realm>/strand/<strand>/m/<msg>?action=view`
 //! * HTTPS landing: `https://<landing>/#realm/.../strand/...?action=...` — everything AFTER the `#`
 //!   is the SAME grammar as the `web+arkret:` form (strip the `https://<host>/#` shell, then reuse
 //!   the same parser).
 //!
 //! ## Normative grammar rules
-//! * PATH carries identity: keyword + bare uuid (the `ck:<kind>:` sigil is stripped). Hierarchy is
+//! * PATH carries identity: keyword + bare uuid (the `ak:<kind>:` sigil is stripped). Hierarchy is
 //!   fixed `realm/<r>` ⊃ `strand/<f>` ⊃ `m/<msg>`. The message seal keyword is exactly `m/`.
 //! * The `<realm>` segment: a UUIDv7 textual form is a `realm_id`; otherwise it is an ALIAS
 //!   (domain-style). `<strand>` and `<msg>` segments accept ONLY a bare uuid.
@@ -113,7 +113,7 @@ impl AddressAction {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmRef {
-    /// Bare lowercase UUIDv7 (sigil-stripped `ck:realm:` identity).
+    /// Bare lowercase UUIDv7 (sigil-stripped `ak:realm:` identity).
     RealmId(String),
     /// Domain-style alias requiring server-side resolution.
     Alias(String),
@@ -139,7 +139,7 @@ impl RealmRef {
 }
 
 /// A parsed shareable address. `strand` / `message` are bare uuid strings (the
-/// `ck:<kind>:` sigil is stripped on the wire).
+/// `ak:<kind>:` sigil is stripped on the wire).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParsedAddress {
     pub realm: RealmRef,
@@ -447,7 +447,7 @@ fn build_query(parsed: &ParsedAddress) -> String {
     }
 }
 
-/// Wrap a bare uuid (or already-typed id) into a canonical `ck:<kind>:<uuid>`
+/// Wrap a bare uuid (or already-typed id) into a canonical `ak:<kind>:<uuid>`
 /// identifier. Idempotent if the input already carries the prefix.
 fn typed_id(prefix: &str, bare: &str) -> String {
     if bare.starts_with(prefix) {
@@ -463,7 +463,7 @@ fn typed_id(prefix: &str, bare: &str) -> String {
 /// only for strand/message targets; `message_id` only for message targets. Absent
 /// hierarchy fields are OMITTED ENTIRELY (never serialized as `null`) so the
 /// canonical-JSON digest does not drift. VALUES are typed canonical ids
-/// (`ck:realm:<uuid>` etc.), never the bare path uuid or an alias string.
+/// (`ak:realm:<uuid>` etc.), never the bare path uuid or an alias string.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct TargetDescriptor {
@@ -502,7 +502,7 @@ impl TargetDescriptor {
         }
     }
 
-    /// Inject the server-resolved canonical `ck:realm:<uuid>` id (used when the
+    /// Inject the server-resolved canonical `ak:realm:<uuid>` id (used when the
     /// address arrived as an alias). Idempotent prefix handling.
     pub fn set_realm_id(&mut self, realm_id: impl Into<String>) {
         let realm_id = realm_id.into();
@@ -627,7 +627,7 @@ mod tests {
     // ── Round-trip equivalence ──────────────────────────────────────────────
 
     #[test]
-    fn web_cokret_roundtrip() {
+    fn web_arkret_roundtrip() {
         let parsed = parse_address(&format!("web+arkret:realm/{R}/strand/{F}/m/{M}")).unwrap();
         let rebuilt = build_address(&parsed);
         let reparsed = parse_address(&rebuilt).unwrap();

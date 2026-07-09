@@ -535,7 +535,7 @@ soland 接线。
 - Move / Seal wire schema 字段细节 →
   [`move.schema.json`](../../arkret-spec/spec/v1/artifacts/schemas/move.schema.json)
   / [`seal.schema.json`](../../arkret-spec/spec/v1/artifacts/schemas/seal.schema.json)。
-- HTTP binding（POST `/_cokret/self/moves`、`/_cokret/self/seals`）→
+- HTTP binding（POST `/_arkret/self/moves`、`/_arkret/self/seals`）→
   [`service-http-binding.md`](../../arkret-spec/spec/v1/zh/sync/service-http-binding.md)。
 - Federation Move 广播 + Seal 拉取语义 →
   [`federation.md`](../../arkret-spec/spec/v1/zh/sync/federation.md)。

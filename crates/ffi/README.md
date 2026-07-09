@@ -31,18 +31,18 @@ typedef struct {
     const char *message;    // UTF-8, owned by SDK; valid until next call
 } CokretError;
 
-CokretHandle *cokret_client_new(const char *base_url, CokretError *err);
-int32_t        cokret_client_whoami(CokretHandle *h, char **out_json,
+CokretHandle *arkret_client_new(const char *base_url, CokretError *err);
+int32_t        arkret_client_whoami(CokretHandle *h, char **out_json,
                                      CokretError *err);
-void           cokret_string_free(char *s);
-void           cokret_client_free(CokretHandle *h);
+void           arkret_string_free(char *s);
+void           arkret_client_free(CokretHandle *h);
 ```
 
 ### WASM glue (TypeScript host)
 
 ```ts
 // arkret-wasm.ts — calling the Wasm export surface from a browser host.
-import init, { CokretClient } from "./cokret_ffi_wasm.js";
+import init, { CokretClient } from "./arkret_ffi_wasm.js";
 
 await init();                                  // load .wasm
 const client = new CokretClient("https://home.example");
@@ -68,6 +68,6 @@ class CokretClient(baseUrl: String) : AutoCloseable {
     private external fun nativeWhoami(handle: Long): String
     private external fun nativeFree(handle: Long)
 
-    companion object { init { System.loadLibrary("cokret_ffi") } }
+    companion object { init { System.loadLibrary("arkret_ffi") } }
 }
 ```

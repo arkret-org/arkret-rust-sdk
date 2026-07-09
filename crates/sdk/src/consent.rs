@@ -2,7 +2,7 @@
 //!
 //! Per [`identity/consent-model.md`](https://arkret.org/spec/v1/zh/identity/consent-model.md)
 //! §3, consent is a Move on the holder's principal-control-Space cell
-//! `ck:cell:ck.component.consent.grant.v1:<consent_id>` (or-set lattice).
+//! `ak:cell:ck.component.consent.grant.v1:<consent_id>` (or-set lattice).
 //!
 //! - `grant` = `add(tag, value)`, where `tag = "grant:<consent_id>:<peer>:<scope>"` (deterministic
 //!   so identical intents idempotently dedupe), and `value` carries the typed
@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// Cell family for consent grants. Used as the prefix in cell ids of the
-/// form `ck:cell:ck.component.consent.grant.v1:<consent_id>`.
+/// form `ak:cell:ck.component.consent.grant.v1:<consent_id>`.
 pub const CONSENT_CELL_FAMILY: &str = "ak.component.consent.grant.v1";
 
 /// Scope of the consent grant. See spec consent-model §4.
@@ -77,7 +77,7 @@ impl Scope {
 /// Build the canonical consent cell id for a `consent_id`.
 ///
 /// Returns a `CellRef` with the canonical wire form
-/// `ck:cell:ck.component.consent.grant.v1:<consent_id>`.
+/// `ak:cell:ck.component.consent.grant.v1:<consent_id>`.
 pub fn consent_cell_id(consent_id: &str) -> Result<CellRef, arkret_core::Error> {
     if consent_id.is_empty() {
         return Err(arkret_core::Error::Protocol(
@@ -137,7 +137,7 @@ pub struct ConsentRevokeValue {
 
 /// Build the [`Effect`] that a consent.grant Move writes.
 ///
-/// Spec §3.2: cell = `ck:cell:ck.component.consent.grant.v1:<consent_id>`,
+/// Spec §3.2: cell = `ak:cell:ck.component.consent.grant.v1:<consent_id>`,
 /// op = `add(tag, value)`, tag = `grant:<consent_id>:<peer>:<scope>`,
 /// value = [`ConsentGrantValue`].
 pub fn grant_effect(

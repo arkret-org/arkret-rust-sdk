@@ -21,7 +21,7 @@
 //!
 //! Known wire-shape divergence (reported, not papered over in the model):
 //! the payload-schema `event_ref` (`event-payload.schema.json#/$defs/
-//! event_ref`) is a bare `ck:event:...` string, while the SDK
+//! event_ref`) is a bare `ak:event:...` string, while the SDK
 //! `MemberDeliveryBinding.service_acceptance_ref` is the envelope-style
 //! `EventRef {id, role}` object. `binding_from_fixture` adapts the string
 //! form explicitly so the divergence stays visible in exactly one place.

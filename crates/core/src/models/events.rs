@@ -319,14 +319,14 @@ pub struct Event {
     /// proof verification method DID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executed_by: Option<Did>,
-    /// CKP-0008 / CKP-0009 typed reference (e.g. `ck:grant:<uuidv7>` /
-    /// `ck:accountability_grant:<uuidv7>`) to the authorization artifact
+    /// CKP-0008 / CKP-0009 typed reference (e.g. `ak:grant:<uuidv7>` /
+    /// `ak:accountability_grant:<uuidv7>`) to the authorization artifact
     /// that authorized this envelope. Conditional; when present, MUST be
     /// included in the canonical signing transcript.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<String>,
     /// Signed Applet provenance (`event-envelope.schema.json#/$defs/applet_id`,
-    /// shape `ck:applet:<uuidv7>`). Present when the Event is introduced by an
+    /// shape `ak:applet:<uuidv7>`). Present when the Event is introduced by an
     /// Applet / Ghost Actor / bridge / delegated applet path. Enters canonical
     /// event bytes and therefore `proof.event_digest`. Invariant: when present,
     /// `authorization_ref` MUST also be present (the accepted grant that binds

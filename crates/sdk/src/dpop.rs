@@ -179,7 +179,7 @@ mod tests {
     #[test]
     fn dpop_proof_binds_method_htu_key_and_access_token() {
         let key = signing_key();
-        let request = DpopProofRequest::new("post", "https://arkret.example/_cokret/self/events")
+        let request = DpopProofRequest::new("post", "https://arkret.example/_arkret/self/events")
             .access_token("grant-token")
             .nonce("server-nonce")
             .issued_at(Utc.timestamp_opt(1_780_000_000, 0).unwrap())
@@ -203,7 +203,7 @@ mod tests {
         assert_eq!(header["jwk"]["kty"], DPOP_JWK_KTY_OKP);
         assert_eq!(header["jwk"]["crv"], DPOP_JWK_CRV_ED25519);
         assert_eq!(payload["htm"], "POST");
-        assert_eq!(payload["htu"], "https://arkret.example/_cokret/self/events");
+        assert_eq!(payload["htu"], "https://arkret.example/_arkret/self/events");
         assert_eq!(payload["ath"], dpop_access_token_hash("grant-token"));
         assert_eq!(payload["nonce"], "server-nonce");
     }

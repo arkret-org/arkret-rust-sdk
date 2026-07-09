@@ -57,7 +57,7 @@ pub const PROFILE_IDS: &[&str] = &[
     "ak.profile.key_backup.memory_hard.v1",
     "ak.profile.key_transparency.v1",
     "ak.profile.matrix_compat.v1",
-    "ak.profile.media_service_binding.cokret_native.v1",
+    "ak.profile.media_service_binding.arkret_native.v1",
     "ak.profile.media_service_binding.livekit.v1",
     "ak.profile.media_service_binding.v1",
     "ak.profile.mimi_interop.v1",
@@ -227,7 +227,7 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
     ("ak.profile.key_transparency.v1", ProfileRole::Directory),
     ("ak.profile.matrix_compat.v1", ProfileRole::Interop),
     (
-        "ak.profile.media_service_binding.cokret_native.v1",
+        "ak.profile.media_service_binding.arkret_native.v1",
         ProfileRole::Server,
     ),
     (

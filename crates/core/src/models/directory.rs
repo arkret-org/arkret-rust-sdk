@@ -986,7 +986,7 @@ pub struct DirectoryTakedownAppealRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryTakedownAppealOutcome {
     /// Directory-local audit reference (`appeal:<token>`); not a registered
-    /// `ck:<kind>` typed id.
+    /// `ak:<kind>` typed id.
     pub appeal_id: String,
     pub received_at: DateTime<Utc>,
     /// Signed Directory decision receipt; status pending until adjudicated.
