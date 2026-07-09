@@ -191,6 +191,27 @@ fn validate_morph_update_patch(patch: &Patch) -> Result<()> {
     Ok(())
 }
 
+pub const CONTENT_KIND_COMPOSITE: &str = "ck.content.composite";
+pub const CONTENT_KIND_TEXT: &str = "ck.content.text";
+pub const CONTENT_KIND_FORMATTED_TEXT: &str = "ck.content.formatted_text";
+pub const CONTENT_KIND_CODE: &str = "ck.content.code";
+pub const CONTENT_KIND_IMAGE: &str = "ck.content.image";
+pub const CONTENT_KIND_VIDEO: &str = "ck.content.video";
+pub const CONTENT_KIND_AUDIO: &str = "ck.content.audio";
+pub const CONTENT_KIND_FILE: &str = "ck.content.file";
+pub const CONTENT_KIND_LOCATION: &str = "ck.content.location";
+pub const CONTENT_KIND_POLL: &str = "ck.content.poll";
+pub const CONTENT_KIND_POLL_RESPONSE: &str = "ck.content.poll.response";
+pub const CONTENT_KIND_POLL_CLOSE: &str = "ck.content.poll.close";
+pub const CONTENT_KIND_AUDIENCE_MENTION: &str = "ck.content.audience_mention";
+
+pub const MEDIA_CONTENT_KINDS: [&str; 4] = [
+    CONTENT_KIND_IMAGE,
+    CONTENT_KIND_VIDEO,
+    CONTENT_KIND_AUDIO,
+    CONTENT_KIND_FILE,
+];
+
 /// Extensible ContentBlock used by message, Strand, and Morph content fields.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ContentBlock {
@@ -213,7 +234,12 @@ impl ContentBlock {
     }
 
     pub fn text(body: impl Into<String>) -> Self {
-        Self::new("ck.content.text", body)
+        Self::new(CONTENT_KIND_TEXT, body)
+    }
+
+    pub fn from_value(value: Value) -> Result<Self> {
+        serde_json::from_value(value)
+            .map_err(|err| Error::Protocol(format!("content block decode: {err}")))
     }
 
     pub fn with_field(mut self, key: impl Into<String>, value: Value) -> Self {
@@ -248,6 +274,48 @@ impl ContentBlock {
         serde_json::to_value(self)
             .map_err(|err| Error::Protocol(format!("content block serialize: {err}")))
     }
+
+    pub fn parsed_kind(&self) -> Option<ContentBlockKind> {
+        ContentBlockKind::parse(&self.kind)
+    }
+
+    pub fn is_media(&self) -> bool {
+        self.parsed_kind().is_some_and(|kind| kind.is_media())
+    }
+
+    pub fn first_media_block(&self) -> Option<&ContentBlock> {
+        if self.is_media() {
+            return Some(self);
+        }
+        if self.kind != CONTENT_KIND_COMPOSITE {
+            return None;
+        }
+        self.parts.iter().find(|part| part.is_media())
+    }
+
+    pub fn extra_str(&self, key: &str) -> Option<&str> {
+        self.extra.get(key).and_then(Value::as_str)
+    }
+
+    pub fn extra_u64(&self, key: &str) -> Option<u64> {
+        self.extra.get(key).and_then(Value::as_u64)
+    }
+
+    pub fn blob_ref(&self) -> Option<&str> {
+        self.extra_str("blob_ref")
+    }
+
+    pub fn mime_type(&self) -> Option<&str> {
+        self.extra_str("mime_type")
+    }
+
+    pub fn filename(&self) -> Option<&str> {
+        self.extra_str("filename")
+    }
+
+    pub fn size_bytes(&self) -> Option<u64> {
+        self.extra_u64("size_bytes")
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -270,40 +338,53 @@ pub enum ContentBlockKind {
 impl ContentBlockKind {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
-            "ck.content.composite" => Some(Self::Composite),
-            "ck.content.text" => Some(Self::Text),
-            "ck.content.formatted_text" => Some(Self::FormattedText),
-            "ck.content.code" => Some(Self::Code),
-            "ck.content.image" => Some(Self::Image),
-            "ck.content.video" => Some(Self::Video),
-            "ck.content.audio" => Some(Self::Audio),
-            "ck.content.file" => Some(Self::File),
-            "ck.content.location" => Some(Self::Location),
-            "ck.content.poll" => Some(Self::Poll),
-            "ck.content.poll.response" => Some(Self::PollResponse),
-            "ck.content.poll.close" => Some(Self::PollClose),
-            "audience_mention" | "ck.content.audience_mention" => Some(Self::AudienceMention),
+            CONTENT_KIND_COMPOSITE => Some(Self::Composite),
+            CONTENT_KIND_TEXT => Some(Self::Text),
+            CONTENT_KIND_FORMATTED_TEXT => Some(Self::FormattedText),
+            CONTENT_KIND_CODE => Some(Self::Code),
+            CONTENT_KIND_IMAGE => Some(Self::Image),
+            CONTENT_KIND_VIDEO => Some(Self::Video),
+            CONTENT_KIND_AUDIO => Some(Self::Audio),
+            CONTENT_KIND_FILE => Some(Self::File),
+            CONTENT_KIND_LOCATION => Some(Self::Location),
+            CONTENT_KIND_POLL => Some(Self::Poll),
+            CONTENT_KIND_POLL_RESPONSE => Some(Self::PollResponse),
+            CONTENT_KIND_POLL_CLOSE => Some(Self::PollClose),
+            "audience_mention" | CONTENT_KIND_AUDIENCE_MENTION => Some(Self::AudienceMention),
             _ => None,
         }
     }
 
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Composite => "ck.content.composite",
-            Self::Text => "ck.content.text",
-            Self::FormattedText => "ck.content.formatted_text",
-            Self::Code => "ck.content.code",
-            Self::Image => "ck.content.image",
-            Self::Video => "ck.content.video",
-            Self::Audio => "ck.content.audio",
-            Self::File => "ck.content.file",
-            Self::Location => "ck.content.location",
-            Self::Poll => "ck.content.poll",
-            Self::PollResponse => "ck.content.poll.response",
-            Self::PollClose => "ck.content.poll.close",
+            Self::Composite => CONTENT_KIND_COMPOSITE,
+            Self::Text => CONTENT_KIND_TEXT,
+            Self::FormattedText => CONTENT_KIND_FORMATTED_TEXT,
+            Self::Code => CONTENT_KIND_CODE,
+            Self::Image => CONTENT_KIND_IMAGE,
+            Self::Video => CONTENT_KIND_VIDEO,
+            Self::Audio => CONTENT_KIND_AUDIO,
+            Self::File => CONTENT_KIND_FILE,
+            Self::Location => CONTENT_KIND_LOCATION,
+            Self::Poll => CONTENT_KIND_POLL,
+            Self::PollResponse => CONTENT_KIND_POLL_RESPONSE,
+            Self::PollClose => CONTENT_KIND_POLL_CLOSE,
             Self::AudienceMention => "audience_mention",
         }
     }
+
+    pub fn is_media(&self) -> bool {
+        matches!(self, Self::Image | Self::Video | Self::Audio | Self::File)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ContentBlockMediaAttachment {
+    pub blob_ref: String,
+    pub mime_type: Option<String>,
+    pub filename: Option<String>,
+    pub size_bytes: Option<u64>,
+    pub caption: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -652,6 +733,55 @@ impl MessageCreatePayload {
 
     pub fn content_mut(&mut self) -> Option<&mut Value> {
         self.content.as_mut()
+    }
+
+    pub fn content_block(&self) -> Result<Option<ContentBlock>> {
+        self.content
+            .as_ref()
+            .cloned()
+            .map(ContentBlock::from_value)
+            .transpose()
+    }
+
+    pub fn plain_body(&self) -> Result<String> {
+        Ok(self
+            .content_block()?
+            .map(|content| content.body)
+            .unwrap_or_default())
+    }
+
+    pub fn first_media_content_block(&self) -> Result<Option<ContentBlock>> {
+        let Some(content) = self.content_block()? else {
+            return Ok(None);
+        };
+        Ok(content.first_media_block().cloned())
+    }
+
+    pub fn first_media_attachment(&self) -> Result<Option<ContentBlockMediaAttachment>> {
+        let Some(content) = self.content_block()? else {
+            return Ok(None);
+        };
+        let Some(block) = content.first_media_block() else {
+            return Ok(None);
+        };
+        let Some(blob_ref) = block
+            .blob_ref()
+            .map(str::to_owned)
+            .or_else(|| self.blob_refs.first().cloned())
+        else {
+            return Ok(None);
+        };
+        let mime_type = block.mime_type().map(str::to_owned);
+        let filename = block.filename().map(str::to_owned);
+        let size_bytes = block.size_bytes();
+        let caption = content.body;
+        Ok(Some(ContentBlockMediaAttachment {
+            blob_ref,
+            mime_type,
+            filename,
+            size_bytes,
+            caption,
+        }))
     }
 
     pub fn to_value(&self) -> Result<Value> {

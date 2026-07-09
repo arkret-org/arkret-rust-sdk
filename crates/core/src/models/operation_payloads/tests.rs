@@ -89,6 +89,33 @@ fn message_create_payload_requires_exactly_one_content_carrier() {
 }
 
 #[test]
+fn message_create_payload_reads_plain_body_and_first_media_block() {
+    let strand_id = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let blob_ref = format!("ck:blob:sha256:{}", "a".repeat(64));
+    let media = ContentBlock::new(CONTENT_KIND_FILE, "spec.pdf")
+        .with_field("mime_type", json!("application/pdf"))
+        .with_field("filename", json!("spec.pdf"))
+        .with_field("size_bytes", json!(7));
+    let content = ContentBlock::new(CONTENT_KIND_COMPOSITE, "caption text")
+        .with_part(ContentBlock::text("caption text"))
+        .with_part(media);
+    let mut payload =
+        MessageCreatePayload::with_content(strand_id, "discussion", content.to_value().unwrap());
+    payload.blob_refs.push(blob_ref.clone());
+
+    assert_eq!(payload.plain_body().unwrap(), "caption text");
+    assert!(MEDIA_CONTENT_KINDS.contains(&CONTENT_KIND_FILE));
+    let block = payload.first_media_content_block().unwrap().unwrap();
+    assert_eq!(block.kind, CONTENT_KIND_FILE);
+    let attachment = payload.first_media_attachment().unwrap().unwrap();
+    assert_eq!(attachment.blob_ref, blob_ref);
+    assert_eq!(attachment.mime_type.as_deref(), Some("application/pdf"));
+    assert_eq!(attachment.filename.as_deref(), Some("spec.pdf"));
+    assert_eq!(attachment.size_bytes, Some(7));
+    assert_eq!(attachment.caption, "caption text");
+}
+
+#[test]
 fn content_block_validator_accepts_canonical_poll_block() {
     let block = json!({
         "kind": "ck.content.poll",
