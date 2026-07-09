@@ -1,4 +1,4 @@
-//! Presence management for Cokret v1.
+//! Presence management for Arkret v1.
 //!
 //! This module provides user presence management, including:
 //! - Online/offline status tracking

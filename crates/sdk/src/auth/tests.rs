@@ -11,7 +11,7 @@ fn device(id: &str) -> DeviceId {
         acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
     }
     DeviceId::new(format!(
-        "ck:device:01904100-0000-7000-8000-{:012x}",
+        "ak:device:01904100-0000-7000-8000-{:012x}",
         acc & 0x0000_ffff_ffff_ffff
     ))
     .unwrap()
@@ -34,7 +34,7 @@ fn session_grant_notification(
         subject: did("alice"),
         audience: vec!["did:webvh:z6mkfixture:soland.example".to_owned()],
         scopes: vec![
-            "urn:cokret:principal-server:session.bind".to_owned(),
+            "urn:arkret:principal-server:session.bind".to_owned(),
             cokret_device_scope(&device_id),
         ],
         session_id: "browser-session-1".to_owned(),
@@ -345,7 +345,7 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
         subject: did("alice"),
         audience: vec!["did:webvh:z6mkfixture:soland.example".to_owned()],
         scopes: vec![
-            "urn:cokret:principal-server:session.bind".to_owned(),
+            "urn:arkret:principal-server:session.bind".to_owned(),
             cokret_device_scope(&device_id),
         ],
         session_id: "browser-session-1".to_owned(),
@@ -535,7 +535,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
     let request = PresentationRequestBody {
         request_id: "presentation-1".to_owned(),
         subject: alice.clone(),
-        audience: "cokret-auth".to_owned(),
+        audience: "arkret-auth".to_owned(),
         nonce: "nonce".to_owned(),
         policy: ClaimDisclosurePolicy {
             policy_id: "policy-1".to_owned(),
@@ -617,11 +617,11 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
         issuer,
         audience: request.audience.clone(),
         nonce: request.nonce.clone(),
-        domain: Some("cokret-auth".to_owned()),
+        domain: Some("arkret-auth".to_owned()),
         encoded_presentation: "compact.sd-jwt".to_owned(),
     };
     boundary
-        .validate_request_binding(&request, Some("cokret-auth"))
+        .validate_request_binding(&request, Some("arkret-auth"))
         .unwrap();
     let verified = verify_presentation_with_adapter(
         &request,
@@ -633,7 +633,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
         ],
         &BTreeSet::new(),
         Utc::now(),
-        Some("cokret-auth"),
+        Some("arkret-auth"),
         |proof| {
             if proof.encoded_presentation == "compact.sd-jwt" {
                 Ok(())
@@ -651,7 +651,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
             &[handle.clone(), membership, guardian_controller],
             &BTreeSet::new(),
             Utc::now(),
-            Some("cokret-auth"),
+            Some("arkret-auth"),
             |_| Err(Error::Protocol("bad proof".to_owned())),
         )
         .is_err()
@@ -660,7 +660,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
     wrong_audience.audience = "other-audience".to_owned();
     assert!(
         wrong_audience
-            .validate_request_binding(&request, Some("cokret-auth"))
+            .validate_request_binding(&request, Some("arkret-auth"))
             .is_err()
     );
 
@@ -699,7 +699,7 @@ fn auth_uses_provider_did_proof_verifier_for_recovery() {
         verification_method: verification_method.to_owned(),
         event_digest: crate::Hash::new(format!("sha256:{}", sha256_hex(b"payload"))).unwrap(),
         created_at: Utc::now(),
-        domain: Some("cokret-auth".to_owned()),
+        domain: Some("arkret-auth".to_owned()),
         audience: None,
         jws: "signed-proof".to_owned(),
     };

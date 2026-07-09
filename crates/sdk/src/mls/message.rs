@@ -287,7 +287,7 @@ fn validate_envelope_aad(aad: &EncryptedEnvelopeAadV1, visibility: AadVisibility
 
 // `major_minor_version`, `base64url_token`, `content_type_token` and
 // `content_type_byte` are the shared wire-token validators reused from
-// `cokret-core` (see `models::artifacts::event_wire`); only the
+// `arkret-core` (see `models::artifacts::event_wire`); only the
 // MLS-specific `event_kind_token` lives here.
 fn event_kind_token(value: &str) -> bool {
     let Some(rest) = value.strip_prefix("ck.") else {

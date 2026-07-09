@@ -833,7 +833,7 @@ impl MemoryBlobStore {
         uploaded_by: Did,
     ) -> Result<Attachment> {
         let plaintext = plaintext.as_ref();
-        let ciphertext = crypto::seal(plaintext, key, b"cokret-media-attachment-v1")?;
+        let ciphertext = crypto::seal(plaintext, key, b"arkret-media-attachment-v1")?;
         let filename = filename.into();
         let media_type = media_type.into();
         let metadata = self.upload(
@@ -880,7 +880,7 @@ impl MemoryBlobStore {
                 "unsupported attachment encryption algorithm".to_owned(),
             ));
         }
-        let plaintext = crypto::open(ciphertext, key, b"cokret-media-attachment-v1")?;
+        let plaintext = crypto::open(ciphertext, key, b"arkret-media-attachment-v1")?;
         if encryption.plaintext_sha256 != sha256_hex(&plaintext) {
             return Err(Error::Protocol("attachment digest mismatch".to_owned()));
         }
@@ -1041,7 +1041,7 @@ pub fn safe_content_disposition(filename: &str) -> String {
 
 fn blob_ref_for(bytes: &[u8]) -> Result<BlobRef> {
     Ok(BlobRef::new(format!(
-        "ck:blob:sha256:{}",
+        "ak:blob:sha256:{}",
         sha256_hex(bytes)
     ))?)
 }
@@ -1072,7 +1072,7 @@ mod tests {
     #[test]
     fn media_client_wraps_authenticated_http_client() {
         let http = cokret_http_client::Client::new(
-            reqwest::Url::parse("https://alice.example/cokret/").unwrap(),
+            reqwest::Url::parse("https://alice.example/arkret/").unwrap(),
         )
         .unwrap();
         let media = MediaClient::new(http.clone());
@@ -1084,10 +1084,10 @@ mod tests {
 
     fn token_request() -> CallMediaTokenExchangeRequestBody {
         call_media_token_exchange(
-            RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
-            CallId::new("ck:call:0196441c-0000-7000-8000-000000000000").unwrap(),
+            RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            CallId::new("ak:call:0196441c-0000-7000-8000-000000000000").unwrap(),
             did("alice"),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap(),
             "fra-1",
         )
     }
@@ -1098,7 +1098,7 @@ mod tests {
         request: &CallMediaTokenExchangeRequestBody,
         expires_at: DateTime<Utc>,
     ) -> CallMediaTokenExchangeOutcome {
-        let identity = "ck:rtc_participant:0198c2f4-0000-7000-8000-000000000000".to_owned();
+        let identity = "ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000".to_owned();
         CallMediaTokenExchangeOutcome {
             focus_id: request.focus_id.clone(),
             backend_type: "livekit".to_owned(),
@@ -1228,8 +1228,8 @@ mod tests {
         // structural cross-check passes and the failure is signature-only.
         let mut t_identity = signed_outcome(&request, &key, expires_at);
         t_identity.participant_binding.participant_identity =
-            "ck:rtc_participant:tampered".to_owned();
-        t_identity.participant_identity = "ck:rtc_participant:tampered".to_owned();
+            "ak:rtc_participant:tampered".to_owned();
+        t_identity.participant_identity = "ak:rtc_participant:tampered".to_owned();
         assert!(
             verify_call_media_token_outcome(&request, &t_identity, &anchors, now)
                 .unwrap_err()
@@ -1279,7 +1279,7 @@ mod tests {
 
         // participant_identity mismatch between binding and outcome.
         let mut id_mismatch = signed_outcome(&request, &key, now + chrono::Duration::minutes(5));
-        id_mismatch.participant_identity = "ck:rtc_participant:elsewhere".to_owned();
+        id_mismatch.participant_identity = "ak:rtc_participant:elsewhere".to_owned();
         assert!(verify_call_media_token_outcome(&request, &id_mismatch, &anchors, now).is_err());
     }
 
@@ -1312,7 +1312,7 @@ mod tests {
             thumbnail
                 .thumbnail_blob_ref
                 .as_str()
-                .starts_with("ck:blob:")
+                .starts_with("ak:blob:")
         );
         let expected_source_digest = format!("sha256:{}", metadata.sha256);
         assert_eq!(

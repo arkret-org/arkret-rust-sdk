@@ -311,25 +311,25 @@ impl Default for WasmRuntimeContract {
             http_transport: true,
             state_store: IndexedDbStoreDescriptor {
                 kind: IndexedDbStoreKind::State,
-                database: "cokret-state".to_owned(),
+                database: "arkret-state".to_owned(),
                 object_store: "records".to_owned(),
                 schema_version: 1,
                 quota_bytes: Some(64 * 1024 * 1024),
             },
             crypto_store: IndexedDbStoreDescriptor {
                 kind: IndexedDbStoreKind::Crypto,
-                database: "cokret-crypto".to_owned(),
+                database: "arkret-crypto".to_owned(),
                 object_store: "records".to_owned(),
                 schema_version: 1,
                 quota_bytes: Some(16 * 1024 * 1024),
             },
             webcrypto_key: WebCryptoKeyHandle {
-                key_id: "cokret-webcrypto-root".to_owned(),
+                key_id: "arkret-webcrypto-root".to_owned(),
                 algorithm: "AES-GCM".to_owned(),
                 extractable: false,
                 usages: vec![WebCryptoOperation::Encrypt, WebCryptoOperation::Decrypt],
             },
-            sync_state_cache: "cokret-sync-state".to_owned(),
+            sync_state_cache: "arkret-sync-state".to_owned(),
         }
     }
 }

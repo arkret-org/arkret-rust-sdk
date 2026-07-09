@@ -668,7 +668,7 @@ impl MemoryCellRegistry {
 
 impl CellRegistry for MemoryCellRegistry {
     fn resolve(&self, _realm_id: &RealmId, cell: &CellRef) -> StoreResult<CellLatticeBinding> {
-        // Parse "ck:cell:<family>:<subject>" — family is between the 2nd and 3rd colons.
+        // Parse "ak:cell:<family>:<subject>" — family is between the 2nd and 3rd colons.
         let cell_id = crate::CellId::parse(cell.as_str())
             .map_err(|e| StoreError::Backend(format!("invalid cell ref: {e}")))?;
         let family = cell_id.component();
@@ -705,7 +705,7 @@ mod tests {
     use crate::{Hlc, LatticeOp, LatticeOpType, MoveSignature, NotarySig};
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn move_id(byte: u8) -> MoveId {
@@ -714,7 +714,7 @@ mod tests {
 
     fn seal_id(byte: u8) -> SealId {
         SealId::new(format!(
-            "ck:seal:sha256:{}",
+            "ak:seal:sha256:{}",
             format!("{byte:02x}").repeat(32)
         ))
         .unwrap()
@@ -725,7 +725,7 @@ mod tests {
     }
 
     fn cell_member() -> CellRef {
-        CellRef::new("ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ak:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap()
     }
 
@@ -739,7 +739,7 @@ mod tests {
                 "op": { "kind": "transition", "from": "invited", "to": "join" }
             }],
             "seal_basis": {
-                "leaves": [format!("ck:seal:sha256:{}", "aa".repeat(32))],
+                "leaves": [format!("ak:seal:sha256:{}", "aa".repeat(32))],
                 "control_event_set_root": format!("sha256:{}", "22".repeat(32)),
                 "state_root": format!("sha256:{}", "33".repeat(32))
             },
@@ -1032,7 +1032,7 @@ mod tests {
     #[test]
     fn cell_registry_unknown_family_fails_closed() {
         let reg = MemoryCellRegistry::new();
-        let weird = CellRef::new("ck:cell:ck.component.future.unknown.v1:x".to_owned()).unwrap();
+        let weird = CellRef::new("ak:cell:ck.component.future.unknown.v1:x".to_owned()).unwrap();
         let err = reg.resolve(&realm(), &weird).unwrap_err();
         assert!(format!("{err}").contains("unknown cell family"));
     }
@@ -1041,14 +1041,14 @@ mod tests {
     fn cell_registry_or_set_and_cas_lattices_resolve() {
         let reg = MemoryCellRegistry::new();
         let consent =
-            CellRef::new("ck:cell:ck.component.consent.grant.v1:ck.consent.x".to_owned()).unwrap();
+            CellRef::new("ak:cell:ck.component.consent.grant.v1:ck.consent.x".to_owned()).unwrap();
         assert_eq!(
             reg.resolve(&realm(), &consent).unwrap().lattice.kind(),
             LatticeKind::OrSet
         );
 
         let policy =
-            CellRef::new("ck:cell:ck.component.realm.policy.v1:ck.realm.x".to_owned()).unwrap();
+            CellRef::new("ak:cell:ck.component.realm.policy.v1:ck.realm.x".to_owned()).unwrap();
         assert_eq!(
             reg.resolve(&realm(), &policy).unwrap().lattice.kind(),
             LatticeKind::CasRegister

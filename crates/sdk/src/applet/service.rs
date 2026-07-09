@@ -24,7 +24,7 @@ pub(crate) struct AppletEndpointRouteSet {
 
 #[cfg(test)]
 impl AppletEndpointRouteSet {
-    /// Standard applet service routes from the Cokret service binding.
+    /// Standard applet service routes from the Arkret service binding.
     pub fn cokret_default() -> Self {
         Self {
             routes: vec![
@@ -157,7 +157,7 @@ pub enum ThirdPartyLookupOutcome {
     Location(AppletRealmView),
 }
 
-/// Bridge mapping from a remote user to a Cokret virtual actor.
+/// Bridge mapping from a remote user to a Arkret virtual actor.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RemoteUserMapping {
     pub protocol: String,
@@ -169,7 +169,7 @@ pub struct RemoteUserMapping {
     pub external_ref: Value,
 }
 
-/// Bridge mapping from a remote location to a Cokret Realm.
+/// Bridge mapping from a remote location to a Arkret Realm.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RemoteRealmMapping {
     pub protocol: String,

@@ -5,7 +5,7 @@ use crate::events::kinds::STRAND_TRACKS_UPDATE as OP_STRAND_TRACKS_UPDATE;
 use crate::{EventRequirements, Hlc, RealmId};
 
 fn realm_id() -> RealmId {
-    RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+    RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
 }
 
 fn actor_id() -> Did {
@@ -14,7 +14,7 @@ fn actor_id() -> Did {
 
 fn event(kind: &str, seq: u64, content: Value) -> Event {
     Event {
-        event_id: EventId::new(format!("ck:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
+        event_id: EventId::new(format!("ak:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.into(),
         realm_id: realm_id(),
         actor_id: actor_id(),
@@ -73,8 +73,8 @@ fn realm_state_creates_empty() {
 
 #[test]
 fn space_events_create_update_parent_and_tombstone() {
-    let space_id = "ck:space:01904100-0000-7000-8000-1fb50799ad3f";
-    let parent_space_id = "ck:space:01904100-0000-7000-8000-1fb50799ad40";
+    let space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad3f";
+    let parent_space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad40";
     let create = event(
         OP_SPACE_CREATE,
         1,
@@ -152,7 +152,7 @@ fn space_create_event(seq: u64, space_id: &str) -> Event {
 
 #[test]
 fn space_archive_then_restore_round_trip() {
-    let space_id = "ck:space:01904100-0000-7000-8000-1fb50799ad42";
+    let space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad42";
     let create = space_create_event(1, space_id);
 
     let mut archive = event(OP_SPACE_ARCHIVE, 2, json!({ "space_id": space_id }));
@@ -172,7 +172,7 @@ fn space_archive_then_restore_round_trip() {
 
 #[test]
 fn space_restore_rejected_when_active() {
-    let space_id = "ck:space:01904100-0000-7000-8000-1fb50799ad43";
+    let space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad43";
     let create = space_create_event(1, space_id);
 
     let mut restore = event(OP_SPACE_RESTORE, 2, json!({ "space_id": space_id }));
@@ -191,7 +191,7 @@ fn space_restore_rejected_when_active() {
 
 #[test]
 fn space_restore_rejected_when_tombstoned() {
-    let space_id = "ck:space:01904100-0000-7000-8000-1fb50799ad44";
+    let space_id = "ak:space:01904100-0000-7000-8000-1fb50799ad44";
     let create = space_create_event(1, space_id);
 
     let mut tombstone = event(OP_SPACE_TOMBSTONE, 2, json!({ "space_id": space_id }));
@@ -235,7 +235,7 @@ fn strand_create_event(seq: u64, strand_id: &str) -> Event {
 
 #[test]
 fn strand_archive_then_restore_round_trip() {
-    let strand_id = "ck:strand:01904100-0000-7000-8000-1fb50799ad50";
+    let strand_id = "ak:strand:01904100-0000-7000-8000-1fb50799ad50";
     let create = strand_create_event(1, strand_id);
 
     let mut archive = event(OP_STRAND_ARCHIVE, 2, json!({ "target_ref": strand_id }));
@@ -255,7 +255,7 @@ fn strand_archive_then_restore_round_trip() {
 
 #[test]
 fn strand_restore_rejected_when_active() {
-    let strand_id = "ck:strand:01904100-0000-7000-8000-1fb50799ad51";
+    let strand_id = "ak:strand:01904100-0000-7000-8000-1fb50799ad51";
     let create = strand_create_event(1, strand_id);
 
     let mut restore = event(OP_STRAND_RESTORE, 2, json!({ "target_ref": strand_id }));
@@ -281,7 +281,7 @@ fn strand_restore_rejected_when_active() {
 
 #[test]
 fn morph_archive_then_restore_round_trip() {
-    let morph_id = "ck:morph:01904100-0000-7000-8000-1fb50799ad60";
+    let morph_id = "ak:morph:01904100-0000-7000-8000-1fb50799ad60";
     let create = morph_event(1, morph_id, "Task A");
 
     let mut archive = event(OP_MORPH_ARCHIVE, 2, json!({ "target_ref": morph_id }));
@@ -299,7 +299,7 @@ fn morph_archive_then_restore_round_trip() {
 
 #[test]
 fn morph_restore_rejected_when_active() {
-    let morph_id = "ck:morph:01904100-0000-7000-8000-1fb50799ad61";
+    let morph_id = "ak:morph:01904100-0000-7000-8000-1fb50799ad61";
     let create = morph_event(1, morph_id, "Task B");
 
     let mut restore = event(OP_MORPH_RESTORE, 2, json!({ "target_ref": morph_id }));
@@ -325,7 +325,7 @@ fn morph_restore_rejected_when_active() {
 
 #[test]
 fn space_archive_rejected_when_already_archived() {
-    let space_id = "ck:space:01904100-0000-7000-8000-2fb50799ad42";
+    let space_id = "ak:space:01904100-0000-7000-8000-2fb50799ad42";
     let create = space_create_event(1, space_id);
     let mut archive1 = event(OP_SPACE_ARCHIVE, 2, json!({ "space_id": space_id }));
     archive1.prev_refs.push(create.event_id.clone());
@@ -349,7 +349,7 @@ fn space_archive_rejected_when_already_archived() {
 
 #[test]
 fn space_archive_rejected_when_tombstoned() {
-    let space_id = "ck:space:01904100-0000-7000-8000-2fb50799ad43";
+    let space_id = "ak:space:01904100-0000-7000-8000-2fb50799ad43";
     let create = space_create_event(1, space_id);
     let mut tombstone = event(OP_SPACE_TOMBSTONE, 2, json!({ "space_id": space_id }));
     tombstone.prev_refs.push(create.event_id.clone());
@@ -372,7 +372,7 @@ fn space_archive_rejected_when_tombstoned() {
 
 #[test]
 fn space_tombstone_rejected_when_already_terminal() {
-    let space_id = "ck:space:01904100-0000-7000-8000-2fb50799ad44";
+    let space_id = "ak:space:01904100-0000-7000-8000-2fb50799ad44";
     let create = space_create_event(1, space_id);
     let mut tombstone1 = event(OP_SPACE_TOMBSTONE, 2, json!({ "space_id": space_id }));
     tombstone1.prev_refs.push(create.event_id.clone());
@@ -395,7 +395,7 @@ fn space_tombstone_rejected_when_already_terminal() {
 
 #[test]
 fn strand_archive_rejected_when_already_archived() {
-    let strand_id = "ck:strand:01904100-0000-7000-8000-2fb50799ad50";
+    let strand_id = "ak:strand:01904100-0000-7000-8000-2fb50799ad50";
     let create = strand_create_event(1, strand_id);
     let mut archive1 = event(OP_STRAND_ARCHIVE, 2, json!({ "target_ref": strand_id }));
     archive1.prev_refs.push(create.event_id.clone());
@@ -418,7 +418,7 @@ fn strand_archive_rejected_when_already_archived() {
 
 #[test]
 fn morph_archive_rejected_when_already_archived() {
-    let morph_id = "ck:morph:01904100-0000-7000-8000-2fb50799ad60";
+    let morph_id = "ak:morph:01904100-0000-7000-8000-2fb50799ad60";
     let create = morph_event(1, morph_id, "Task C");
     let mut archive1 = event(OP_MORPH_ARCHIVE, 2, json!({ "target_ref": morph_id }));
     archive1.prev_refs.push(create.event_id.clone());
@@ -441,7 +441,7 @@ fn morph_archive_rejected_when_already_archived() {
 
 #[test]
 fn space_update_rejected_when_archived() {
-    let space_id = "ck:space:01904100-0000-7000-8000-3fb50799ad42";
+    let space_id = "ak:space:01904100-0000-7000-8000-3fb50799ad42";
     let create = space_create_event(1, space_id);
     let mut archive = event(OP_SPACE_ARCHIVE, 2, json!({ "space_id": space_id }));
     archive.prev_refs.push(create.event_id.clone());
@@ -464,7 +464,7 @@ fn space_update_rejected_when_archived() {
 
 #[test]
 fn strand_update_rejected_when_archived() {
-    let strand_id = "ck:strand:01904100-0000-7000-8000-3fb50799ad50";
+    let strand_id = "ak:strand:01904100-0000-7000-8000-3fb50799ad50";
     let create = strand_create_event(1, strand_id);
     let mut archive = event(OP_STRAND_ARCHIVE, 2, json!({ "target_ref": strand_id }));
     archive.prev_refs.push(create.event_id.clone());
@@ -489,7 +489,7 @@ fn strand_update_rejected_when_archived() {
 
 #[test]
 fn morph_update_rejected_when_archived() {
-    let morph_id = "ck:morph:01904100-0000-7000-8000-3fb50799ad60";
+    let morph_id = "ak:morph:01904100-0000-7000-8000-3fb50799ad60";
     let create = morph_event(1, morph_id, "Original Title");
     let mut archive = event(OP_MORPH_ARCHIVE, 2, json!({ "target_ref": morph_id }));
     archive.prev_refs.push(create.event_id.clone());
@@ -514,8 +514,8 @@ fn morph_update_rejected_when_archived() {
 
 #[test]
 fn strand_events_create_update_and_default_view_relation() {
-    let strand_id = "ck:strand:01904100-0000-7000-8000-1fb50799ad3f";
-    let view_ref = "ck:view:01904100-0000-7000-8000-08ca7b733afd";
+    let strand_id = "ak:strand:01904100-0000-7000-8000-1fb50799ad3f";
+    let view_ref = "ak:view:01904100-0000-7000-8000-08ca7b733afd";
 
     let create = Event::new(
         OP_STRAND_CREATE,
@@ -574,7 +574,7 @@ fn strand_events_create_update_and_default_view_relation() {
     let relation_id = relation
         .event_id
         .as_str()
-        .replacen("ck:event:", "ck:relation:", 1);
+        .replacen("ak:event:", "ak:relation:", 1);
 
     let mut state = RealmState::new(realm_id());
     state.apply_events(&[relation, update, create]).unwrap();
@@ -598,7 +598,7 @@ fn realm_state_applies_morph_events() {
     let mut state = RealmState::new(realm_id());
     let create_event = morph_event(
         1,
-        "ck:morph:01904100-0000-7000-8000-bbe051c5f72e",
+        "ak:morph:01904100-0000-7000-8000-bbe051c5f72e",
         "Test task",
     );
 
@@ -610,11 +610,11 @@ fn realm_state_applies_morph_events() {
 fn realm_state_sorts_events_by_hlc() {
     let event1 = Event {
         hlc: Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
-        ..morph_event(1, "ck:morph:01904100-0000-7000-8000-d48c478ecd0b", "Task 1")
+        ..morph_event(1, "ak:morph:01904100-0000-7000-8000-d48c478ecd0b", "Task 1")
     };
     let event2 = Event {
         hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
-        ..morph_event(2, "ck:morph:01904100-0000-7000-8000-e75dc3f6ab2e", "Task 2")
+        ..morph_event(2, "ak:morph:01904100-0000-7000-8000-e75dc3f6ab2e", "Task 2")
     };
 
     let mut state = RealmState::new(realm_id());
@@ -622,7 +622,7 @@ fn realm_state_sorts_events_by_hlc() {
 
     assert_eq!(
         state.frontier.first().unwrap().as_str(),
-        "ck:event:01904100-0000-7000-8000-000000000001"
+        "ak:event:01904100-0000-7000-8000-000000000001"
     );
 }
 
@@ -639,7 +639,7 @@ fn member_state_conflict_prefers_ban_semantics() {
         json!({ "actor_id": "did:webvh:z6mkfixture:alice.example", "membership": "ban" }),
     );
     ban.hlc = leave.hlc.clone();
-    ban.event_id = EventId::new("ck:event:01904100-0000-7000-8000-c9d398595fe8").unwrap();
+    ban.event_id = EventId::new("ak:event:01904100-0000-7000-8000-c9d398595fe8").unwrap();
 
     let mut state = RealmState::new(realm_id());
     state.apply_events(&[leave, ban]).unwrap();
@@ -687,7 +687,7 @@ fn message_revision_redaction_and_reaction_converge() {
         "ck.message.create",
         1,
         json!({
-            "strand_id": "ck:strand:01904100-0000-7000-8000-1fb50799ad50",
+            "strand_id": "ak:strand:01904100-0000-7000-8000-1fb50799ad50",
             "message_id": "m1",
             "track_name": "discussion",
             "content": { "body": "hello" }
@@ -724,7 +724,7 @@ fn message_revision_redaction_and_reaction_converge() {
 fn snapshot_manifest_tracks_state_digest_and_merkle_root() {
     let event = morph_event(
         9,
-        "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77",
+        "ak:morph:01904100-0000-7000-8000-b7a4e10c8c77",
         "Snapshot task",
     );
     let mut state = RealmState::new(realm_id());
@@ -794,7 +794,7 @@ fn merkle_root_promotes_odd_tail_without_duplication() {
 fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
     let event = morph_event(
         10,
-        "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77",
+        "ak:morph:01904100-0000-7000-8000-b7a4e10c8c77",
         "Replayed task",
     );
     let mut state = RealmState::new(realm_id());
@@ -822,7 +822,7 @@ fn reducer_convergence_is_order_independent() {
         .map(|i| {
             morph_event(
                 i + 1,
-                &format!("ck:morph:01904100-0000-7000-8000-{i:012x}"),
+                &format!("ak:morph:01904100-0000-7000-8000-{i:012x}"),
                 &format!("Task {i}"),
             )
         })
@@ -856,7 +856,7 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
         "ck.redaction",
         seq,
         json!({
-            "target_event_id": format!("ck:event:01904100-0000-7000-8000-{:012x}", 0xdeadbeef + seq),
+            "target_event_id": format!("ak:event:01904100-0000-7000-8000-{:012x}", 0xdeadbeef + seq),
             "object_ref": object_ref,
         }),
     );
@@ -864,7 +864,7 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
     // the dispatcher invokes redact_event AND redact_object_for_event.
     ev.redacts = Some(
         EventId::new(format!(
-            "ck:event:01904100-0000-7000-8000-{:012x}",
+            "ak:event:01904100-0000-7000-8000-{:012x}",
             0xdeadbeef + seq
         ))
         .unwrap(),
@@ -874,7 +874,7 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
 
 #[test]
 fn redaction_with_strand_object_ref_flips_subject_to_redacted() {
-    let strand_id = "ck:strand:01904100-0000-7000-8000-3fb50799ad50";
+    let strand_id = "ak:strand:01904100-0000-7000-8000-3fb50799ad50";
     let create = strand_create_event(1, strand_id);
     let mut redact = redaction_event(2, strand_id);
     redact.prev_refs.push(create.event_id.clone());
@@ -890,7 +890,7 @@ fn redaction_with_strand_object_ref_flips_subject_to_redacted() {
 
 #[test]
 fn redaction_with_morph_object_ref_flips_subject_to_redacted() {
-    let morph_id = "ck:morph:01904100-0000-7000-8000-3fb50799ad60";
+    let morph_id = "ak:morph:01904100-0000-7000-8000-3fb50799ad60";
     let create = morph_event(1, morph_id, "Sensitive task");
     let mut redact = redaction_event(2, morph_id);
     redact.prev_refs.push(create.event_id.clone());
@@ -904,7 +904,7 @@ fn redaction_with_morph_object_ref_flips_subject_to_redacted() {
 
 #[test]
 fn redaction_against_already_redacted_strand_rejects() {
-    let strand_id = "ck:strand:01904100-0000-7000-8000-3fb50799ad51";
+    let strand_id = "ak:strand:01904100-0000-7000-8000-3fb50799ad51";
     let create = strand_create_event(1, strand_id);
     let mut redact1 = redaction_event(2, strand_id);
     redact1.prev_refs.push(create.event_id.clone());
@@ -925,7 +925,7 @@ fn redaction_against_already_redacted_strand_rejects() {
 
 #[test]
 fn strand_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
-    let strand_id = "ck:strand:01904100-0000-7000-8000-4fb50799ad55";
+    let strand_id = "ak:strand:01904100-0000-7000-8000-4fb50799ad55";
     let create = strand_create_event(1, strand_id);
     let mut update = event(
         OP_STRAND_TRACKS_UPDATE,
@@ -1079,7 +1079,7 @@ fn realm_organization_requires_subject_fields() {
 
 #[test]
 fn redaction_against_already_redacted_morph_rejects() {
-    let morph_id = "ck:morph:01904100-0000-7000-8000-3fb50799ad61";
+    let morph_id = "ak:morph:01904100-0000-7000-8000-3fb50799ad61";
     let create = morph_event(1, morph_id, "Task");
     let mut redact1 = redaction_event(2, morph_id);
     redact1.prev_refs.push(create.event_id.clone());

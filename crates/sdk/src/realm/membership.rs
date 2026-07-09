@@ -59,13 +59,13 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let digest = match candidate.claim_digest.as_ref() {
             Some(claim_digest) => claim_digest.clone(),
             None => candidate.canonical_sha256().map_err(map_candidate_err)?,
         };
         let mut payload = InviteCreatePayload::new(
-            InviteId::new(generate_id("ck:invite:"))?,
+            InviteId::new(generate_id("ak:invite:"))?,
             candidate.subject_id.clone(),
             InviteDeliveryTarget::principal_server(
                 candidate
@@ -110,7 +110,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let payload = MembershipPayload {
             membership: MembershipPayloadState::Join,
             strand_id: None,
@@ -144,7 +144,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let payload = MembershipPayload {
             membership: MembershipPayloadState::Join,
             strand_id: None,
@@ -176,7 +176,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let payload = MembershipPayload {
             membership: MembershipPayloadState::Join,
             strand_id: None,
@@ -205,7 +205,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let payload = MembershipPayload {
             membership: MembershipPayloadState::Leave,
             strand_id: None,
@@ -234,7 +234,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let payload = MembershipPayload {
             membership: MembershipPayloadState::Ban,
             strand_id: None,
@@ -263,7 +263,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let payload = MembershipPayload {
             membership: MembershipPayloadState::Invite,
             strand_id: None,

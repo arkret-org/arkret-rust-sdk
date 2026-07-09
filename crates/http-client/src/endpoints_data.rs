@@ -625,7 +625,7 @@ mod tests {
             "protocol_version": "1.0",
             "service_type": "principal_server",
             "service_did": "did:web:server.local",
-            "trust_domain": "ck:trust_domain:server.local",
+            "trust_domain": "ak:trust_domain:server.local",
             "supported_profiles": [],
             "supported_operations": [],
             "supported_bindings": [{

@@ -2,7 +2,7 @@
 //!
 //! The SDK keeps this layer independent from OpenMLS internals. Applications can
 //! serialize provider-specific MLS state into `MlsGroupStateRecord` while using
-//! the typed Cokret envelopes for KeyPackages, Welcomes and Commits.
+//! the typed Arkret envelopes for KeyPackages, Welcomes and Commits.
 
 use std::collections::BTreeMap;
 
@@ -15,7 +15,7 @@ use crate::{
     MlsWelcomeEnvelope, Result,
 };
 
-pub const CRYPTO_STORE_BACKUP_VERSION: &str = "cokret.crypto_store.backup.v1";
+pub const CRYPTO_STORE_BACKUP_VERSION: &str = "arkret.crypto_store.backup.v1";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -677,7 +677,7 @@ mod tests {
             acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
         }
         DeviceId::new(format!(
-            "ck:device:01904100-0000-7000-8000-{:012x}",
+            "ak:device:01904100-0000-7000-8000-{:012x}",
             acc & 0x0000_ffff_ffff_ffff
         ))
         .unwrap()
@@ -703,7 +703,7 @@ mod tests {
 
         store
             .put_key_package(MlsKeyPackageRecord {
-                keypackage_id: format!("ck:mls:kp:{}", uuid::Uuid::now_v7()),
+                keypackage_id: format!("ak:mls:kp:{}", uuid::Uuid::now_v7()),
                 principal_id: alice.clone(),
                 device_id: device_id.clone(),
                 key_package: "kp".to_owned(),
@@ -842,7 +842,7 @@ mod tests {
 
         store
             .put_key_package(MlsKeyPackageRecord {
-                keypackage_id: format!("ck:mls:kp:{}", uuid::Uuid::now_v7()),
+                keypackage_id: format!("ak:mls:kp:{}", uuid::Uuid::now_v7()),
                 principal_id: alice.clone(),
                 device_id: device_id.clone(),
                 key_package: "kp-secret".to_owned(),
@@ -875,7 +875,7 @@ mod tests {
         let device_id = device("phone");
         let descriptor = PlatformKeyStoreDescriptor {
             kind: PlatformKeyStoreKind::NativeKeychain,
-            key_ref: "cokret-crypto-root".to_owned(),
+            key_ref: "arkret-crypto-root".to_owned(),
             hardware_backed: true,
             exportable: false,
         };

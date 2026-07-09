@@ -1,6 +1,6 @@
 //! Realm membership management.
 //!
-//! Wire-shaped types are reused from `cokret-core`:
+//! Wire-shaped types are reused from `arkret-core`:
 //! [`MembershipPayloadState`] (spec vocabulary `invite/join/knock/leave/ban`),
 //! [`Invite`] (mirrors `invite.schema.json`) and [`ThirdPartyInvite`]
 //! (3PID carrier — the plaintext address MUST NEVER appear on the wire).
@@ -19,7 +19,7 @@ use serde_json::json;
 use crate::models::{DeliveryStatus, MembershipPayload, OP_MEMBER_STATE};
 use crate::{Did, Error, InviteId, Operation, OperationId, RealmId, Result};
 
-/// Generate a new UUIDv7-based wire ID with the given Cokret typed prefix
+/// Generate a new UUIDv7-based wire ID with the given Arkret typed prefix
 /// (e.g. `ck:invite:`, `ck:operation:`). RFC 9562 §5.7 / `conformance/encoding.md` §4.
 fn generate_id(prefix: &str) -> String {
     format!("{prefix}{}", uuid::Uuid::now_v7())
@@ -342,7 +342,7 @@ impl MembershipManager {
         expires_at: DateTime<Utc>,
     ) -> Result<Invite> {
         Ok(Invite {
-            id: InviteId::new(generate_id("ck:invite:"))?,
+            id: InviteId::new(generate_id("ak:invite:"))?,
             schema: INVITE_SCHEMA.to_owned(),
             realm_id: self.realm_id.clone(),
             inviter,
@@ -593,7 +593,7 @@ impl MembershipManager {
         };
         payload.reason = None;
         Ok(Operation::create(
-            OperationId::new(generate_id("ck:operation:"))?,
+            OperationId::new(generate_id("ak:operation:"))?,
             realm_id,
             OP_MEMBER_STATE,
             payload.to_value()?,
@@ -603,11 +603,11 @@ impl MembershipManager {
 
 // Track-scoped membership (`ck.strand.track.member` and
 // `StrandTrackMembership` / `StrandTrackMembershipManager`) was REMOVED in
-// cokret-spec revision `0a5ab85`. Track no longer carries independent
+// arkret-spec revision `0a5ab85`. Track no longer carries independent
 // membership; access semantics inherit from the Strand's Realm. Use
 // `ck.member.state` at the Realm or child Realm level instead.
 //
-// See `cokret-spec/spec/v1/artifacts/registry/removed-event-kinds.json`.
+// See `arkret-spec/spec/v1/artifacts/registry/removed-event-kinds.json`.
 
 #[cfg(test)]
 mod tests {
@@ -635,7 +635,7 @@ mod tests {
 
     #[test]
     fn membership_transitions_cover_invite_join_leave_and_ban() {
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = MembershipManager::new(realm_id, alice.clone());
 
@@ -674,7 +674,7 @@ mod tests {
 
     #[test]
     fn membership_checks_role_capabilities() {
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = MembershipManager::new(realm_id, alice.clone());
         manager.upsert_member(alice, MembershipPayloadState::Join, MemberRole::Admin, None);
@@ -686,7 +686,7 @@ mod tests {
 
     #[test]
     fn membership_manages_member_list_profiles_and_changes() {
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(realm_id, alice);
@@ -724,7 +724,7 @@ mod tests {
 
     #[test]
     fn membership_handles_did_and_third_party_invites() {
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(realm_id, alice.clone());
@@ -752,7 +752,7 @@ mod tests {
 
     #[test]
     fn invite_revocation_blocks_acceptance() {
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(realm_id, alice.clone());
@@ -772,7 +772,7 @@ mod tests {
 
     #[test]
     fn invite_cannot_revoke_accepted() {
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(realm_id, alice.clone());
@@ -786,7 +786,7 @@ mod tests {
 
     #[test]
     fn invite_expiration_marks_expired() {
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(realm_id, alice.clone());
@@ -810,7 +810,7 @@ mod tests {
 
     #[test]
     fn invite_pending_invites_excludes_expired_and_revoked() {
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let carol = did("carol");

@@ -1,7 +1,7 @@
 # SDK Architecture (v1 wire surfaces — R3 sync)
 
 This page is a focused architectural reference for the **R3** sync of
-`cokret-rust-sdk` against `cokret-spec @ b47ff6ec`. The umbrella architecture
+`arkret-rust-sdk` against `arkret-spec @ b47ff6ec`. The umbrella architecture
 at [`ARCHITECTURE.md`](../ARCHITECTURE.md) covers crate layering and the broad
 client/server split; this document drills into the surfaces that R3 added or
 re-shaped.
@@ -77,8 +77,8 @@ ride on the agent's own actor stream.
 
 ### Call media (`ck.self.call.media.exchange.issue_token`)
 
-The call media surface lets a participant exchange a Cokret call grant for
-a backend-specific media token (LiveKit, Mediasoup, Janus, Cokret-native,
+The call media surface lets a participant exchange a Arkret call grant for
+a backend-specific media token (LiveKit, Mediasoup, Janus, Arkret-native,
 MoQ relay). The SDK helper:
 
 ```rust
@@ -192,7 +192,7 @@ pub enum RecoveryProofKind {
 ```
 
 Identifier `RecoverySession` uses wire form `ck:recovery_session:<uuid>` and
-lives in `cokret-identifiers`.
+lives in `arkret-identifiers`.
 
 Round-trip validation matches the spec JSON-Schemas
 (`recovery-policy.schema.json`, `recovery-receipt.schema.json`). Proof-witness
@@ -222,7 +222,7 @@ The `spec-drift` job in
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (named
 `spec artifact drift report` — also referred to as **`spec-drift-report`** in
 plans) runs `cargo run --example spec_drift_report` against the latest
-`cokret-spec` checkout and prints any event kinds, operations, or profiles
+`arkret-spec` checkout and prints any event kinds, operations, or profiles
 the SDK has not declared coverage for. It is a hard gate: drift in either
 direction fails CI, including active spec entries the SDK has not added to the
 declared-coverage set.
@@ -231,15 +231,15 @@ R3's new event kinds (`ck.agent.draft.propose`, `ck.agent.action_request`,
 `ck.agent.action_approve`, `ck.agent.action_reject`), new operation
 (`ck.self.call.media.exchange.issue_token`), and new profiles are all in the SDK's
 declared-coverage set, so the drift report runs clean against
-`cokret-spec @ b47ff6ec`.
+`arkret-spec @ b47ff6ec`.
 
 If the spec-drift job is ever removed or its coverage list narrowed, the
 runbook for adding it back is:
 
 1. Add a `spec-drift` job to `.github/workflows/ci.yml` with
    normal fail-fast behavior.
-2. Check out `cokret/cokret-spec` at the SDK's pinned spec SHA into a
-   sibling path; set `COKRET_SPEC_ARTIFACTS` to its `spec/v1/artifacts`
+2. Check out `arkret/arkret-spec` at the SDK's pinned spec SHA into a
+   sibling path; set `ARKRET_SPEC_ARTIFACTS` to its `spec/v1/artifacts`
    directory.
 3. Invoke `cargo run --example spec_drift_report`. The example crate iterates
    `event-kinds.json`, `operations.json`, `profiles.json` and compares

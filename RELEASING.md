@@ -1,6 +1,6 @@
 # Local Release Readiness
 
-The Cokret Rust SDK is a 10-crate Cargo workspace. This repository's release
+The Arkret Rust SDK is a 10-crate Cargo workspace. This repository's release
 readiness strand is local-only: it validates the coordinated crate set without
 publishing to crates.io, creating GitHub releases, or pushing tags.
 
@@ -10,16 +10,16 @@ These crates are packaged in dependency order so local package checks catch
 workspace dependency and manifest drift:
 
 ```text
-cokret-identifiers
-cokret-core
-cokret-ffi
-cokret-html
-cokret-signatures
-cokret-http-client
-cokret-crypto
-cokret-keystore
-cokret-server
-cokret    # umbrella SDK; depends on every other crate above
+arkret-identifiers
+arkret-core
+arkret-ffi
+arkret-html
+arkret-signatures
+arkret-http-client
+arkret-crypto
+arkret-keystore
+arkret-server
+arkret    # umbrella SDK; depends on every other crate above
 ```
 
 The order is generated from `cargo metadata --no-deps`. If any crate is added
@@ -37,9 +37,9 @@ Run verification locally:
 
 ```sh
 cargo +nightly fmt --all -- --check
-cargo check -p cokret
+cargo check -p arkret
 cargo check --no-default-features
-cargo check -p cokret --no-default-features --features full-surface
+cargo check -p arkret --no-default-features --features full-surface
 cargo check --no-default-features --features client
 cargo check --no-default-features --features server
 cargo check --no-default-features --features mls
@@ -61,7 +61,7 @@ The two `cargo audit` ignores are tracked upstream-dependency exceptions for
 packages that are present in `Cargo.lock` but have no current upstream upgrade
 path: `RUSTSEC-2024-0384` is `instant` via OpenMLS's wasm timer dependency,
 and `RUSTSEC-2026-0124` is the optional `hpke-rs-libcrux` backend recorded in
-the lockfile while Cokret uses the RustCrypto HPKE backend.
+the lockfile while Arkret uses the RustCrypto HPKE backend.
 
 ## Compatibility notes
 

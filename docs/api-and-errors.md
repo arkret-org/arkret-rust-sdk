@@ -7,20 +7,20 @@ as `membership`, `devices`, `receipts`, `notifications`, `content`, `media`,
 `profile`, `settings`, `search`, `discovery`, `e2ee`, `auth`, `identity`,
 `federation`, `push`, `typing`, `webrtc` and `store`.
 
-Shared product and service DTOs live in `cokret-core` and are re-exported
-from the umbrella crate as `cokret::api`, with narrower facades for
+Shared product and service DTOs live in `arkret-core` and are re-exported
+from the umbrella crate as `arkret::api`, with narrower facades for
 `identity_api`, `federation_api` and `push_gateway_api`. Product-local client
-DTOs live in the SDK's own `cokret::client_api`.
+DTOs live in the SDK's own `arkret::client_api`.
 
-Most fallible APIs return `cokret::Result<T>`, whose error type is
-`cokret::Error`.
+Most fallible APIs return `arkret::Result<T>`, whose error type is
+`arkret::Error`.
 
 Common error categories:
 
 - `InvalidId`: identifier validation failed.
 - `IdempotencyConflict`: a Repo object ID was reused with different bytes.
 - `Protocol`: local protocol contract failure.
-- `Api`: remote Cokret API error envelope.
+- `Api`: remote Arkret API error envelope.
 - `Http` and `Url`: client feature transport failures.
 - `Mls`: MLS feature failures.
 
@@ -36,7 +36,7 @@ and soland can consume grant-created / grant-revoked notifications without
 copying private key material into persistence. `SessionGrant` redacts the
 serialized grant token in `Debug`; durable stores should persist `grant_hash`.
 
-Device binding scopes must use `urn:cokret:client:device:{id}`. Non-Cokret
+Device binding scopes must use `urn:arkret:client:device:{id}`. Non-Arkret
 scope prefixes are rejected by `device_id_from_scope_token(...)`.
 
 The identity surface exposes `StaridRegistryAdapter` and
@@ -45,10 +45,10 @@ adapter is for tests and offline development only; production adapters still
 need registry-network fetching, key-log receipt validation, stale-head handling
 and bounded response parsing.
 
-Server bindings should preserve the standard Cokret error envelope and retry
+Server bindings should preserve the standard Arkret error envelope and retry
 metadata while implementing authentication, idempotency and rate limiting in
 their host framework stack.
 
-The HTTP client preserves Cokret error envelopes and retry metadata. Standard
+The HTTP client preserves Arkret error envelopes and retry metadata. Standard
 retry mode covers transient statuses, applies bounded exponential backoff, and
 uses `Retry-After` when the server supplies it.

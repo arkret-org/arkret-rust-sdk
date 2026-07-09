@@ -28,7 +28,7 @@ fn fixture() -> Value {
 }
 
 fn cell() -> CellRef {
-    CellRef::new("ck:cell:ck.component.fixture.v1:ck.subject.fixture".to_owned())
+    CellRef::new("ak:cell:ck.component.fixture.v1:ck.subject.fixture".to_owned())
         .expect("fixture cell id must be valid")
 }
 

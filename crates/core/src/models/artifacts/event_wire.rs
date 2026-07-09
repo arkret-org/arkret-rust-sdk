@@ -143,7 +143,7 @@ impl EncryptedEnvelope {
 }
 
 /// `major.minor` numeric version token (e.g. `1.0`); both parts non-empty and
-/// ASCII-digit only. Shared wire-token validator (reused by `cokret-sdk`).
+/// ASCII-digit only. Shared wire-token validator (reused by `arkret-sdk`).
 pub fn major_minor_version(value: &str) -> bool {
     let Some((major, minor)) = value.split_once('.') else {
         return false;
@@ -155,7 +155,7 @@ pub fn major_minor_version(value: &str) -> bool {
 }
 
 /// Non-empty base64url token (`[A-Za-z0-9_-]+`, no padding). Shared wire-token
-/// validator (reused by `cokret-sdk`).
+/// validator (reused by `arkret-sdk`).
 pub fn base64url_token(value: &str) -> bool {
     !value.is_empty()
         && value
@@ -164,7 +164,7 @@ pub fn base64url_token(value: &str) -> bool {
 }
 
 /// `type/subtype` content-type token with restricted byte alphabet. Shared
-/// wire-token validator (reused by `cokret-sdk`).
+/// wire-token validator (reused by `arkret-sdk`).
 pub fn content_type_token(value: &str) -> bool {
     let Some((ty, subtype)) = value.split_once('/') else {
         return false;
@@ -176,7 +176,7 @@ pub fn content_type_token(value: &str) -> bool {
 }
 
 /// Admissible byte inside a [`content_type_token`] segment. Shared wire-token
-/// validator (reused by `cokret-sdk`).
+/// validator (reused by `arkret-sdk`).
 pub fn content_type_byte(byte: u8) -> bool {
     byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'+' | b'-')
 }

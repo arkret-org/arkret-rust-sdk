@@ -1,13 +1,13 @@
-//! R3.3 (CKP-0011, cokret-spec @ cced4b8) — client-agnostic shareable object
+//! R3.3 (CKP-0011, arkret-spec @ cced4b8) — client-agnostic shareable object
 //! addressing grammar + invite-token target binding.
 //!
 //! A shareable address points at a Realm, a Strand inside a Realm, or a Message
 //! inside a Strand. Three envelopes share ONE grammar:
 //!
 //! * logical id `ck:<kind>:<uuid>` — opaque, never carries via/action/token.
-//! * `web+cokret:` URI scheme: `web+cokret:realm/<realm>/strand/<strand>/m/<msg>?action=view`
+//! * `web+arkret:` URI scheme: `web+arkret:realm/<realm>/strand/<strand>/m/<msg>?action=view`
 //! * HTTPS landing: `https://<landing>/#realm/.../strand/...?action=...` — everything AFTER the `#`
-//!   is the SAME grammar as the `web+cokret:` form (strip the `https://<host>/#` shell, then reuse
+//!   is the SAME grammar as the `web+arkret:` form (strip the `https://<host>/#` shell, then reuse
 //!   the same parser).
 //!
 //! ## Normative grammar rules
@@ -39,8 +39,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result, canonical};
 
-/// `web+cokret:` URI scheme prefix.
-pub const WEB_COKRET_SCHEME: &str = "web+cokret:";
+/// `web+arkret:` URI scheme prefix.
+pub const WEB_ARKRET_SCHEME: &str = "web+arkret:";
 
 /// Link type carried by an address. `reference` is the default and carries no
 /// authorization; `invite` carries membership/join material; `preview` carries
@@ -174,12 +174,12 @@ fn protocol_err(reason: &str) -> Error {
 }
 
 /// Split an address string into its `(path, query)` halves after stripping the
-/// envelope shell. Accepts the `web+cokret:` scheme and the HTTPS-fragment
+/// envelope shell. Accepts the `web+arkret:` scheme and the HTTPS-fragment
 /// landing form. Returns the raw path (no leading `/`) and the raw query (no
 /// leading `?`), both percent-encoded as received.
 fn strip_shell(input: &str) -> Result<(String, String)> {
-    let body = if let Some(rest) = input.strip_prefix(WEB_COKRET_SCHEME) {
-        // `web+cokret:realm/...` — opaque-path URI, no `//` authority.
+    let body = if let Some(rest) = input.strip_prefix(WEB_ARKRET_SCHEME) {
+        // `web+arkret:realm/...` — opaque-path URI, no `//` authority.
         rest.trim_start_matches('/').to_owned()
     } else if input.starts_with("https://") || input.starts_with("http://") {
         // HTTPS landing: everything AFTER the first `#` is the same grammar.
@@ -191,7 +191,7 @@ fn strip_shell(input: &str) -> Result<(String, String)> {
         fragment.trim_start_matches('/').to_owned()
     } else {
         return Err(protocol_err(
-            "unrecognized address envelope (expected web+cokret: or https://.../#)",
+            "unrecognized address envelope (expected web+arkret: or https://.../#)",
         ));
     };
 
@@ -365,7 +365,7 @@ fn parse_query(query: &str) -> (AddressAction, LinkType, Option<String>) {
     (action, link_type, tok)
 }
 
-/// Parse a shareable object address from EITHER the `web+cokret:` URI form or
+/// Parse a shareable object address from EITHER the `web+arkret:` URI form or
 /// the HTTPS-landing fragment form into a [`ParsedAddress`].
 ///
 /// Fails closed on: unrecognized envelope, unknown/misordered path keyword, a
@@ -386,11 +386,11 @@ pub fn parse_address(input: &str) -> Result<ParsedAddress> {
     })
 }
 
-/// Build a canonical `web+cokret:` address from its parts. `action` is emitted
+/// Build a canonical `web+arkret:` address from its parts. `action` is emitted
 /// only when non-default; `lt`/`tok` are emitted
 /// only for invite / preview links.
 pub fn build_address(parsed: &ParsedAddress) -> String {
-    let mut out = String::from(WEB_COKRET_SCHEME);
+    let mut out = String::from(WEB_ARKRET_SCHEME);
     out.push_str("realm/");
     out.push_str(parsed.realm.path_segment());
     if let Some(strand) = &parsed.strand {
@@ -407,7 +407,7 @@ pub fn build_address(parsed: &ParsedAddress) -> String {
 }
 
 /// Build an HTTPS landing URL. The target + token live in the fragment, which
-/// reuses the canonical `web+cokret:` grammar (sans scheme).
+/// reuses the canonical `web+arkret:` grammar (sans scheme).
 ///
 /// The caller supplies the deployment-owned landing URL. This helper appends
 /// the canonical fragment grammar unchanged; accepted ids and query atoms are
@@ -485,7 +485,7 @@ impl TargetDescriptor {
     /// digest is computed — the digest is meaningless over an alias.
     pub fn from_parsed(parsed: &ParsedAddress) -> Self {
         let realm_id = match &parsed.realm {
-            RealmRef::RealmId(uuid) => typed_id("ck:realm:", uuid),
+            RealmRef::RealmId(uuid) => typed_id("ak:realm:", uuid),
             // Alias targets need directory resolution before signing. Keep the
             // alias placeholder here, then inject the canonical id via
             // `set_realm_id` before digesting/signing.
@@ -493,11 +493,11 @@ impl TargetDescriptor {
         };
         TargetDescriptor {
             realm_id,
-            strand_id: parsed.strand.as_deref().map(|f| typed_id("ck:strand:", f)),
+            strand_id: parsed.strand.as_deref().map(|f| typed_id("ak:strand:", f)),
             message_id: parsed
                 .message
                 .as_deref()
-                .map(|m| typed_id("ck:message:", m)),
+                .map(|m| typed_id("ak:message:", m)),
             link_type: parsed.link_type,
         }
     }
@@ -506,7 +506,7 @@ impl TargetDescriptor {
     /// address arrived as an alias). Idempotent prefix handling.
     pub fn set_realm_id(&mut self, realm_id: impl Into<String>) {
         let realm_id = realm_id.into();
-        self.realm_id = typed_id("ck:realm:", &realm_id);
+        self.realm_id = typed_id("ak:realm:", &realm_id);
     }
 }
 
@@ -545,7 +545,7 @@ pub fn verify_token_target(
 
     // If the address still carries an alias realm, we cannot honestly compare
     // identity — fail closed.
-    if !expected.realm_id.starts_with("ck:realm:") {
+    if !expected.realm_id.starts_with("ak:realm:") {
         return false;
     }
 
@@ -578,7 +578,7 @@ mod tests {
 
     #[test]
     fn parse_realm_address_uuid() {
-        let parsed = parse_address(&format!("web+cokret:realm/{R}")).unwrap();
+        let parsed = parse_address(&format!("web+arkret:realm/{R}")).unwrap();
         assert_eq!(parsed.realm, RealmRef::RealmId(R.to_owned()));
         assert!(parsed.is_realm());
         assert_eq!(parsed.link_type, LinkType::Reference);
@@ -587,18 +587,18 @@ mod tests {
 
     #[test]
     fn parse_realm_address_alias() {
-        let parsed = parse_address("web+cokret:realm/team.example.com").unwrap();
+        let parsed = parse_address("web+arkret:realm/team.example.com").unwrap();
         assert_eq!(parsed.realm, RealmRef::Alias("team.example.com".to_owned()));
     }
 
     #[test]
     fn parse_strand_and_message_addresses() {
-        let strand = parse_address(&format!("web+cokret:realm/{R}/strand/{F}")).unwrap();
+        let strand = parse_address(&format!("web+arkret:realm/{R}/strand/{F}")).unwrap();
         assert!(strand.is_strand());
         assert_eq!(strand.strand.as_deref(), Some(F));
 
         let msg = parse_address(&format!(
-            "web+cokret:realm/{R}/strand/{F}/m/{M}?action=reply"
+            "web+arkret:realm/{R}/strand/{F}/m/{M}?action=reply"
         ))
         .unwrap();
         assert!(msg.is_message());
@@ -609,7 +609,7 @@ mod tests {
     #[test]
     fn retired_via_hint_is_ignored() {
         let parsed = parse_address(&format!(
-            "web+cokret:realm/{R}/strand/{F}?via=did:webvh:z6mkfixture:a&via=did:webvh:z6mkfixture:b"
+            "web+arkret:realm/{R}/strand/{F}?via=did:webvh:z6mkfixture:a&via=did:webvh:z6mkfixture:b"
         ))
         .unwrap();
         assert!(parsed.is_strand());
@@ -618,7 +618,7 @@ mod tests {
     #[test]
     fn query_percent_decode_handles_complete_and_truncated_octets() {
         let parsed = parse_address(&format!(
-            "web+cokret:realm/{R}/strand/{F}?lt=preview&tok=a%2Fb%25c%2"
+            "web+arkret:realm/{R}/strand/{F}?lt=preview&tok=a%2Fb%25c%2"
         ))
         .unwrap();
         assert_eq!(parsed.token.as_deref(), Some("a/b%c%2"));
@@ -628,7 +628,7 @@ mod tests {
 
     #[test]
     fn web_cokret_roundtrip() {
-        let parsed = parse_address(&format!("web+cokret:realm/{R}/strand/{F}/m/{M}")).unwrap();
+        let parsed = parse_address(&format!("web+arkret:realm/{R}/strand/{F}/m/{M}")).unwrap();
         let rebuilt = build_address(&parsed);
         let reparsed = parse_address(&rebuilt).unwrap();
         assert_eq!(parsed, reparsed);
@@ -637,11 +637,11 @@ mod tests {
     #[test]
     fn https_landing_equivalence() {
         let parsed =
-            parse_address(&format!("web+cokret:realm/{R}/strand/{F}?action=join")).unwrap();
-        let landing = build_https_landing("https://share.cokret.example", &parsed);
-        assert!(landing.starts_with("https://share.cokret.example/#realm/"));
+            parse_address(&format!("web+arkret:realm/{R}/strand/{F}?action=join")).unwrap();
+        let landing = build_https_landing("https://share.arkret.example", &parsed);
+        assert!(landing.starts_with("https://share.arkret.example/#realm/"));
         // Everything after `#` is the same grammar → reparse yields the same
-        // ParsedAddress as the web+cokret: form.
+        // ParsedAddress as the web+arkret: form.
         let reparsed = parse_address(&landing).unwrap();
         assert_eq!(parsed, reparsed);
     }
@@ -668,31 +668,31 @@ mod tests {
 
     #[test]
     fn unknown_keyword_fails_closed() {
-        assert!(parse_address(&format!("web+cokret:space/{R}")).is_err());
-        assert!(parse_address(&format!("web+cokret:realm/{R}/thread/{F}?via={VIA}")).is_err());
+        assert!(parse_address(&format!("web+arkret:space/{R}")).is_err());
+        assert!(parse_address(&format!("web+arkret:realm/{R}/thread/{F}?via={VIA}")).is_err());
     }
 
     #[test]
     fn strand_or_message_without_via_is_valid() {
-        assert!(parse_address(&format!("web+cokret:realm/{R}/strand/{F}")).is_ok());
-        assert!(parse_address(&format!("web+cokret:realm/{R}/strand/{F}/m/{M}")).is_ok());
+        assert!(parse_address(&format!("web+arkret:realm/{R}/strand/{F}")).is_ok());
+        assert!(parse_address(&format!("web+arkret:realm/{R}/strand/{F}/m/{M}")).is_ok());
     }
 
     #[test]
     fn missing_intermediate_level_fails_closed() {
         // `m/` without a `strand/` level.
-        assert!(parse_address(&format!("web+cokret:realm/{R}/m/{M}?via={VIA}")).is_err());
+        assert!(parse_address(&format!("web+arkret:realm/{R}/m/{M}?via={VIA}")).is_err());
     }
 
     #[test]
     fn wrong_order_fails_closed() {
-        assert!(parse_address(&format!("web+cokret:strand/{F}/realm/{R}?via={VIA}")).is_err());
+        assert!(parse_address(&format!("web+arkret:strand/{F}/realm/{R}?via={VIA}")).is_err());
     }
 
     #[test]
     fn non_uuid_strand_segment_fails_closed() {
         assert!(
-            parse_address(&format!("web+cokret:realm/{R}/strand/not-a-uuid?via={VIA}")).is_err()
+            parse_address(&format!("web+arkret:realm/{R}/strand/not-a-uuid?via={VIA}")).is_err()
         );
     }
 
@@ -703,11 +703,11 @@ mod tests {
 
     #[test]
     fn preview_link_type_round_trips_token() {
-        let parsed = parse_address(&format!("web+cokret:realm/{R}/strand/{F}?lt=preview")).unwrap();
+        let parsed = parse_address(&format!("web+arkret:realm/{R}/strand/{F}?lt=preview")).unwrap();
         assert_eq!(parsed.link_type, LinkType::Preview);
         assert_eq!(parsed.token, None);
         let parsed2 = parse_address(&format!(
-            "web+cokret:realm/{R}/strand/{F}?lt=preview&tok=xyz"
+            "web+arkret:realm/{R}/strand/{F}?lt=preview&tok=xyz"
         ))
         .unwrap();
         assert_eq!(parsed2.link_type, LinkType::Preview);
@@ -720,7 +720,7 @@ mod tests {
     fn descriptor_uses_typed_ids_and_omits_absent_levels() {
         let parsed = realm_addr();
         let desc = TargetDescriptor::from_parsed(&parsed);
-        assert_eq!(desc.realm_id, format!("ck:realm:{R}"));
+        assert_eq!(desc.realm_id, format!("ak:realm:{R}"));
         assert_eq!(desc.strand_id, None);
         assert_eq!(desc.message_id, None);
         // Absent levels MUST be omitted, not null.
@@ -732,9 +732,9 @@ mod tests {
 
     #[test]
     fn target_digest_ignores_via_action_tok_lt() {
-        let base = parse_address(&format!("web+cokret:realm/{R}/strand/{F}")).unwrap();
+        let base = parse_address(&format!("web+arkret:realm/{R}/strand/{F}")).unwrap();
         let hinted = parse_address(&format!(
-            "web+cokret:realm/{R}/strand/{F}?via=did:webvh:z6mkfixture:a&via=did:webvh:z6mkfixture:b&action=join"
+            "web+arkret:realm/{R}/strand/{F}?via=did:webvh:z6mkfixture:a&via=did:webvh:z6mkfixture:b&action=join"
         ))
         .unwrap();
         let d1 = target_digest(&TargetDescriptor::from_parsed(&base)).unwrap();
@@ -745,9 +745,9 @@ mod tests {
 
     #[test]
     fn target_digest_changes_when_object_changes() {
-        let strand_a = parse_address(&format!("web+cokret:realm/{R}/strand/{F}")).unwrap();
-        let strand_b = parse_address(&format!("web+cokret:realm/{R}/strand/{F2}")).unwrap();
-        let msg = parse_address(&format!("web+cokret:realm/{R}/strand/{F}/m/{M}")).unwrap();
+        let strand_a = parse_address(&format!("web+arkret:realm/{R}/strand/{F}")).unwrap();
+        let strand_b = parse_address(&format!("web+arkret:realm/{R}/strand/{F2}")).unwrap();
+        let msg = parse_address(&format!("web+arkret:realm/{R}/strand/{F}/m/{M}")).unwrap();
         let d_a = target_digest(&TargetDescriptor::from_parsed(&strand_a)).unwrap();
         let d_b = target_digest(&TargetDescriptor::from_parsed(&strand_b)).unwrap();
         let d_m = target_digest(&TargetDescriptor::from_parsed(&msg)).unwrap();
@@ -759,7 +759,7 @@ mod tests {
     fn verify_token_target_accepts_matching_object() {
         // Token minted for strand A (invite link).
         let addr_a =
-            parse_address(&format!("web+cokret:realm/{R}/strand/{F}?lt=invite&tok=t")).unwrap();
+            parse_address(&format!("web+arkret:realm/{R}/strand/{F}?lt=invite&tok=t")).unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&addr_a);
             d.link_type = LinkType::Invite;
@@ -772,7 +772,7 @@ mod tests {
     fn verify_token_target_rejects_scope_confusion_replay() {
         // Token minted for object A.
         let addr_a =
-            parse_address(&format!("web+cokret:realm/{R}/strand/{F}?lt=invite&tok=t")).unwrap();
+            parse_address(&format!("web+arkret:realm/{R}/strand/{F}?lt=invite&tok=t")).unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&addr_a);
             d.link_type = LinkType::Invite;
@@ -780,7 +780,7 @@ mod tests {
         };
         // Replayed onto a different object B (different strand).
         let addr_b =
-            parse_address(&format!("web+cokret:realm/{R}/strand/{F2}?lt=invite&tok=t")).unwrap();
+            parse_address(&format!("web+arkret:realm/{R}/strand/{F2}?lt=invite&tok=t")).unwrap();
         assert!(
             !verify_token_target(&token_desc, &addr_b, LinkType::Invite),
             "A-object token must not validate against a B address"
@@ -790,7 +790,7 @@ mod tests {
     #[test]
     fn verify_token_target_fails_closed_on_alias_realm() {
         let alias_addr = parse_address(&format!(
-            "web+cokret:realm/team.example.com/strand/{F}?lt=invite&tok=t"
+            "web+arkret:realm/team.example.com/strand/{F}?lt=invite&tok=t"
         ))
         .unwrap();
         let token_desc = {

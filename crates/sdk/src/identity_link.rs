@@ -141,11 +141,11 @@ mod tests {
     }
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()
     }
 
     fn device() -> DeviceId {
-        DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap()
+        DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap()
     }
 
     fn link(status: IdentityLinkStatus, epoch: u64) -> IdentityLink {
@@ -156,7 +156,7 @@ mod tests {
             principal_id: did("did:webvh:z6mkfixture:alice.example"),
             device_id: device(),
             realm_id: realm(),
-            trust_domain: TypedTrustDomainId::new("ck:trust_domain:example").unwrap(),
+            trust_domain: TypedTrustDomainId::new("ak:trust_domain:example").unwrap(),
             strand_id: None,
             track: None,
             mls_group_id: Some("group-1".to_owned()),

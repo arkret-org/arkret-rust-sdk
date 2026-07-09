@@ -701,10 +701,10 @@ mod realm_key_request_tests {
                 "did:webvh:example.test:users:01J0000000000000000000000A".to_owned(),
             )
             .unwrap(),
-            recipient_device_id: "ck:device:01J0000000000000000000000B".to_owned(),
+            recipient_device_id: "ak:device:01J0000000000000000000000B".to_owned(),
             recipient_hpke_public_key: "cHVia2V5".to_owned(),
             requested_source_class: source,
-            target_source_ref: "ck:device:01J0000000000000000000000C".to_owned(),
+            target_source_ref: "ak:device:01J0000000000000000000000C".to_owned(),
             target_principal_id: Did::new(
                 "did:webvh:example.test:users:01J0000000000000000000000D".to_owned(),
             )
@@ -746,7 +746,7 @@ mod realm_organization_tests {
     fn active_value() -> Value {
         json!({
             "statement_id": "org-stmt-1",
-            "realm_id": "ck:realm:0196419b-0000-7000-8000-000000000010",
+            "realm_id": "ak:realm:0196419b-0000-7000-8000-000000000010",
             "organization_id": "did:webvh:example.test:orgs:01J0000000000000000000000A",
             "relationship": "owner",
             "status": "active",

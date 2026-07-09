@@ -55,7 +55,7 @@ impl From<CryptoError> for Error {
 /// a failure. This enum lets callers branch on the concrete cause (KDF vs AEAD
 /// vs input validation vs envelope construction) and map deterministically to
 /// `FfiErrorCode` / fail-closed handling, and aligns backup with the
-/// `thiserror`-based error model used by `cokret-core` and `cokret-signatures`.
+/// `thiserror`-based error model used by `arkret-core` and `arkret-signatures`.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum KeyBackupError {

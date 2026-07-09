@@ -123,7 +123,7 @@ mod tests {
     use crate::{LatticeOp, MoveId};
 
     fn cell() -> CellRef {
-        CellRef::new("ck:cell:ck.component.metric.counter.v1:ck.metric.signups".to_owned()).unwrap()
+        CellRef::new("ak:cell:ck.component.metric.counter.v1:ck.metric.signups".to_owned()).unwrap()
     }
 
     fn move_id(byte: u8) -> MoveId {

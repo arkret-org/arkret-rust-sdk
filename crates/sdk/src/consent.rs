@@ -1,6 +1,6 @@
 //! Holder-private **consent** as an or-set Lattice cell.
 //!
-//! Per [`identity/consent-model.md`](https://cokret.org/spec/v1/zh/identity/consent-model.md)
+//! Per [`identity/consent-model.md`](https://arkret.org/spec/v1/zh/identity/consent-model.md)
 //! §3, consent is a Move on the holder's principal-control-Space cell
 //! `ck:cell:ck.component.consent.grant.v1:<consent_id>` (or-set lattice).
 //!
@@ -84,7 +84,7 @@ pub fn consent_cell_id(consent_id: &str) -> Result<CellRef, cokret_core::Error> 
             "consent_id must not be empty".to_owned(),
         ));
     }
-    CellRef::new(format!("ck:cell:{CONSENT_CELL_FAMILY}:{consent_id}"))
+    CellRef::new(format!("ak:cell:{CONSENT_CELL_FAMILY}:{consent_id}"))
         .map_err(|e| cokret_core::Error::Protocol(format!("invalid consent cell id: {e}")))
 }
 
@@ -311,7 +311,7 @@ mod tests {
         let cell = consent_cell_id("cs-001").unwrap();
         assert_eq!(
             cell.as_str(),
-            "ck:cell:ck.component.consent.grant.v1:cs-001"
+            "ak:cell:ck.component.consent.grant.v1:cs-001"
         );
     }
 
@@ -340,7 +340,7 @@ mod tests {
     fn grant_effect_produces_or_set_add() {
         let opts = ConsentGrantOptions {
             expires_at: Some(ts(2026, 12, 31)),
-            evidence_ref: Some("ck:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
+            evidence_ref: Some("ak:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
             ..Default::default()
         };
         let eff = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
@@ -519,7 +519,7 @@ mod tests {
         let pre = require_consent_precondition("cs-001", &bob(), Scope::Invite).unwrap();
         assert_eq!(
             pre.cell.as_str(),
-            "ck:cell:ck.component.consent.grant.v1:cs-001"
+            "ak:cell:ck.component.consent.grant.v1:cs-001"
         );
         assert_eq!(pre.predicate.op, PredicateOp::Contains);
         assert_eq!(
@@ -548,7 +548,7 @@ mod tests {
             scope: Scope::Invite,
             not_before: None,
             expires_at: Some(ts(2026, 12, 31)),
-            evidence_ref: Some("ck:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
+            evidence_ref: Some("ak:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
             reason: None,
             constraints: vec![],
         };

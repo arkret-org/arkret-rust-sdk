@@ -7,24 +7,24 @@
 //! [`InMemoryKeyStore`]. OS-native backends (macOS Keychain, Linux Secret
 //! Service, Windows Credential Manager) and the
 //! `platform_default_keystore_with_kind` constructor live in the separate
-//! `cokret-keystore` crate so this crate stays free of platform IO and
+//! `arkret-keystore` crate so this crate stays free of platform IO and
 //! native OS dependencies.
 //!
 //! ## Service-name namespacing
 //!
-//! Platform backends namespace credentials under `"cokret.<application_id>"`
-//! so multiple Cokret-using apps on the same host (inkson, sodmin, soland
+//! Platform backends namespace credentials under `"arkret.<application_id>"`
+//! so multiple Arkret-using apps on the same host (inkson, sodmin, soland
 //! notary, …) don't trample each other's keychain items. The
 //! `application_id` is supplied at construction time and SHOULD be a stable
 //! reverse-DNS-like identifier for the host application
 //! (e.g. `"chat.acroidea.inkson"`). [`service_name`] builds that prefix and
-//! is re-used by the `cokret-keystore` backends.
+//! is re-used by the `arkret-keystore` backends.
 //!
 //! ## Key ids
 //!
 //! Keys are addressed by an opaque `id: &str`; the SDK does not interpret
 //! the id beyond passing it through to the backend. Conventional ids look
-//! like `"cokret:signer:<did>:<kid>"` so independent backends can share a
+//! like `"arkret:signer:<did>:<kid>"` so independent backends can share a
 //! namespace without collisions.
 
 use std::collections::BTreeMap;
@@ -134,10 +134,10 @@ pub fn validate_id(id: &str) -> std::result::Result<(), KeyStoreError> {
 }
 
 /// Build the per-backend service / target name. All platform backends use
-/// `cokret.<application_id>` as the service-prefix so independent Cokret
+/// `arkret.<application_id>` as the service-prefix so independent Arkret
 /// apps on the same host don't collide.
 pub fn service_name(application_id: &str) -> String {
-    format!("cokret.{application_id}")
+    format!("arkret.{application_id}")
 }
 
 /// In-process [`KeyStore`] backed by a `BTreeMap`. Suitable for tests and
@@ -195,13 +195,13 @@ mod tests {
     fn in_memory_key_store_round_trips_store_load_delete() {
         let store = InMemoryKeyStore::new();
         store
-            .store("cokret:signer:alice:key-1", b"secret-bytes-1")
+            .store("arkret:signer:alice:key-1", b"secret-bytes-1")
             .unwrap();
         store
-            .store("cokret:signer:bob:key-1", b"secret-bytes-2")
+            .store("arkret:signer:bob:key-1", b"secret-bytes-2")
             .unwrap();
 
-        let loaded = store.load("cokret:signer:alice:key-1").unwrap();
+        let loaded = store.load("arkret:signer:alice:key-1").unwrap();
         assert_eq!(loaded.as_slice(), b"secret-bytes-1");
 
         let mut listed = store.list().unwrap();
@@ -209,13 +209,13 @@ mod tests {
         assert_eq!(
             listed,
             vec![
-                "cokret:signer:alice:key-1".to_owned(),
-                "cokret:signer:bob:key-1".to_owned(),
+                "arkret:signer:alice:key-1".to_owned(),
+                "arkret:signer:bob:key-1".to_owned(),
             ]
         );
 
-        store.delete("cokret:signer:alice:key-1").unwrap();
-        let err = store.load("cokret:signer:alice:key-1").unwrap_err();
+        store.delete("arkret:signer:alice:key-1").unwrap();
+        let err = store.load("arkret:signer:alice:key-1").unwrap_err();
         assert!(err.is_key_store_not_found());
     }
 
@@ -261,7 +261,7 @@ mod tests {
 
     #[test]
     fn service_name_namespaces_per_application_id() {
-        assert_eq!(service_name("inkson"), "cokret.inkson");
-        assert_eq!(service_name("soland.notary"), "cokret.soland.notary");
+        assert_eq!(service_name("inkson"), "arkret.inkson");
+        assert_eq!(service_name("soland.notary"), "arkret.soland.notary");
     }
 }

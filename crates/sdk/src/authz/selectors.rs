@@ -727,7 +727,7 @@ impl ResourceSelector {
                 let (object_type, object_ref) = match tail {
                     None => (None, None),
                     Some(tail) if tail == "*" => (None, None),
-                    Some(tail) if tail.starts_with("ck:") || tail.starts_with("did:") => {
+                    Some(tail) if tail.starts_with("ak:") || tail.starts_with("did:") => {
                         (None, Some(tail))
                     }
                     Some(tail) => (Some(tail), None),
@@ -789,10 +789,10 @@ impl ResourceSelector {
             "circle" => {
                 // Accept either `circle:ck:circle:<uuid>` (typed) or bare
                 // `circle:<uuid>` (parser tail).
-                let raw = if remainder.starts_with("ck:circle:") {
+                let raw = if remainder.starts_with("ak:circle:") {
                     remainder.to_owned()
                 } else {
-                    format!("ck:circle:{remainder}")
+                    format!("ak:circle:{remainder}")
                 };
                 let circle_id = cokret_core::CircleId::new(raw)
                     .map_err(|err| Error::Protocol(format!("invalid circle selector: {err}")))?;
@@ -1060,10 +1060,10 @@ impl ProtocolResourceSelector {
         vec![
             Self {
                 kind: ProtocolResourceSelectorKind::Event,
-                realm_id: Some("ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                realm_id: Some("ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
                 space_id: None,
                 circle_id: None,
-                event_id: Some("ck:event:01904100-0000-7000-8000-51495aba0a08".to_owned()),
+                event_id: Some("ak:event:01904100-0000-7000-8000-51495aba0a08".to_owned()),
                 object_type: None,
                 object_ref: None,
                 strand_id: None,
@@ -1104,13 +1104,13 @@ impl ProtocolResourceSelector {
             },
             Self {
                 kind: ProtocolResourceSelectorKind::Notification,
-                realm_id: Some("ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                realm_id: Some("ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
                 space_id: None,
                 circle_id: None,
                 actor_id: Some("did:webvh:z6mkfixture:alice.example".to_owned()),
                 object_type: Some("device_verification".to_owned()),
-                object_ref: Some("ck:notify:01JS0NT000000000000000000".to_owned()),
-                strand_id: Some("ck:strand:01904100-0000-7000-8000-a1fffe3a8cc9".to_owned()),
+                object_ref: Some("ak:notify:01JS0NT000000000000000000".to_owned()),
+                strand_id: Some("ak:strand:01904100-0000-7000-8000-a1fffe3a8cc9".to_owned()),
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -1126,10 +1126,10 @@ impl ProtocolResourceSelector {
             },
             Self {
                 kind: ProtocolResourceSelectorKind::Blob,
-                realm_id: Some("ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                realm_id: Some("ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
                 space_id: None,
                 circle_id: None,
-                blob_ref: Some("ck:blob:sha256:0123456789abcdef".to_owned()),
+                blob_ref: Some("ak:blob:sha256:0123456789abcdef".to_owned()),
                 object_type: Some("encrypted_backup".to_owned()),
                 object_ref: Some("backup-scaffold-current-device".to_owned()),
                 strand_id: None,
@@ -1215,7 +1215,7 @@ fn selector_uses_governance_wildcard(object: &serde_json::Map<String, Value>) ->
             let object_ref = object.get("object_ref").and_then(Value::as_str);
             let governance_type = matches!(object_type, Some("policy" | "schema"));
             let governance_ref = object_ref.is_some_and(|value| {
-                value.starts_with("ck:policy:") || value.starts_with("ck:schema:")
+                value.starts_with("ak:policy:") || value.starts_with("ak:schema:")
             });
             (governance_type
                 && (selector_field_missing_or_wildcard(object, "object_ref")
@@ -1287,14 +1287,14 @@ mod spec_selector_tests {
     fn spec_object_round_trips_through_engine_form() {
         let spec = json!({
             "kind": "object",
-            "realm_id": "ck:realm:01904100-0000-7000-8000-65c7feb295d7",
+            "realm_id": "ak:realm:01904100-0000-7000-8000-65c7feb295d7",
             "object_type": "strand"
         });
         let selector = ResourceSelector::from_spec_value(&spec).unwrap();
         assert_eq!(
             selector,
             ResourceSelector::Object {
-                realm_id: "ck:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
+                realm_id: "ak:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
                 object_type: Some("strand".to_owned()),
                 object_ref: None,
             }
@@ -1337,7 +1337,7 @@ mod spec_selector_tests {
     fn governance_wildcard_fails_closed() {
         let err = ResourceSelector::from_spec_value(&json!({
             "kind": "policy",
-            "realm_id": "ck:realm:01904100-0000-7000-8000-65c7feb295d7"
+            "realm_id": "ak:realm:01904100-0000-7000-8000-65c7feb295d7"
         }))
         .unwrap_err();
         assert!(format!("{err}").contains("selector_governance_wildcard_forbidden"));

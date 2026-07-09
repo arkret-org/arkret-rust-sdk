@@ -177,7 +177,7 @@ impl OperationEnvelope {
 
     /// Materialize this SDK-local operation draft as a signed Event Envelope.
     ///
-    /// Operation envelopes are not Cokret v1 wire facts. Callers must choose
+    /// Operation envelopes are not Arkret v1 wire facts. Callers must choose
     /// the event causal/auth references during conversion, then submit the
     /// returned [`EventEnvelope`] to network, sync, federation or reducers.
     pub fn into_event_envelope(
@@ -1099,7 +1099,7 @@ impl GrantConstraint {
         approval.subtype = Some(GrantConstraintSubtype::Approval);
         approval.denied_write_fields = vec!["assignee".to_owned(), "status".to_owned()];
         approval.allowed_object_types = vec!["strand".to_owned()];
-        approval.allowed_view_ids = vec!["ck:view:01904100-0000-7000-8000-b74ef68eeddf".to_owned()];
+        approval.allowed_view_ids = vec!["ak:view:01904100-0000-7000-8000-b74ef68eeddf".to_owned()];
         approval.allowed_relation_kinds = vec!["responsible".to_owned()];
         approval.wip_limit_override = Some(false);
         approval.denied_view_kinds = vec!["public_board".to_owned()];
@@ -1143,8 +1143,8 @@ impl GrantConstraint {
             GrantConstraintEffect::Deny,
         );
         container_move.allowed_object_types = vec!["strand".to_owned()];
-        container_move.allowed_from_container_refs = vec!["ck:list:triage".to_owned()];
-        container_move.allowed_to_container_refs = vec!["ck:list:ready".to_owned()];
+        container_move.allowed_from_container_refs = vec!["ak:list:triage".to_owned()];
+        container_move.allowed_to_container_refs = vec!["ak:list:ready".to_owned()];
         container_move.wip_limit_override = Some(false);
         container_move.allowed_tracks = vec!["synthesis".to_owned()];
         container_move.denied_tracks = vec!["discussion".to_owned()];
@@ -1681,7 +1681,7 @@ impl MlsProposalEnvelope {
 /// `cx_app_state_ref` MLS GroupContext extension
 /// (encryption-and-audit.md / B-12).
 ///
-/// Binds a Cokret Space's reduced state into the MLS GroupContext so
+/// Binds a Arkret Space's reduced state into the MLS GroupContext so
 /// that any commit's signature transcript covers the application-layer
 /// frontier. Carried as a private-use GroupContext extension at
 /// codepoint [`MlsAppStateRef::CODEPOINT`] (within the IANA private
@@ -1706,7 +1706,7 @@ pub struct MlsAppStateRef {
 
 impl MlsAppStateRef {
     /// IANA private-use codepoint chosen for `cx_app_state_ref`. The
-    /// Cokret spec reserves it within the `[0xF000, 0xFFFF]` MLS
+    /// Arkret spec reserves it within the `[0xF000, 0xFFFF]` MLS
     /// extension private-use range; deployments MAY override via
     /// future negotiation but MUST stay inside the private range.
     pub const CODEPOINT: u16 = 0xCAFE;
@@ -1838,8 +1838,8 @@ mod actor_accessor_tests {
 
     fn operation_with_payload(payload: Value) -> Operation {
         Operation::create(
-            OperationId::new("ck:operation:01904100-0000-7000-8000-000000000001").unwrap(),
-            RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            OperationId::new("ak:operation:01904100-0000-7000-8000-000000000001").unwrap(),
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
             "message",
             payload,
         )

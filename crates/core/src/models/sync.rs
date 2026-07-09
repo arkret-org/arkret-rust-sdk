@@ -346,7 +346,7 @@ mod account_subscribe_frame_tests {
 
     #[test]
     fn account_subscribe_delta_projects_to_device_ack_fields() {
-        let line = r#"{"cursor":"ck:cursor:account-1","kind":"delta","to_device":{"ack_token":"ack-account-1","limited":true,"lost":false,"messages":[],"next_cursor":"ck:cursor:device-2"}}"#;
+        let line = r#"{"cursor":"ak:cursor:account-1","kind":"delta","to_device":{"ack_token":"ack-account-1","limited":true,"lost":false,"messages":[],"next_cursor":"ak:cursor:device-2"}}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line)
             .unwrap()
             .unwrap();
@@ -359,7 +359,7 @@ mod account_subscribe_frame_tests {
         assert!(outcome.to_device_limited);
         assert_eq!(
             outcome.to_device_next_cursor.as_deref(),
-            Some("ck:cursor:device-2")
+            Some("ak:cursor:device-2")
         );
         assert_eq!(outcome.to_device_lost, Some(false));
     }
@@ -448,7 +448,7 @@ mod sync_description_tests {
             "service_did": "did:web:server.local",
             "supported_sync_profiles": ["initial"],
             "limits": {},
-            "frontier": ["ck:event:0196419b-0000-7000-8000-000000000001"]
+            "frontier": ["ak:event:0196419b-0000-7000-8000-000000000001"]
         }))
         .unwrap();
         assert_eq!(
@@ -458,7 +458,7 @@ mod sync_description_tests {
                 .and_then(Value::as_array)
                 .and_then(|frontier| frontier.first())
                 .and_then(Value::as_str),
-            Some("ck:event:0196419b-0000-7000-8000-000000000001")
+            Some("ak:event:0196419b-0000-7000-8000-000000000001")
         );
     }
 }

@@ -24,12 +24,12 @@
 
 use std::collections::BTreeMap;
 
-use cokret::models::{
+use arkret::models::{
     BackupClass, KeyBackup, KeyBackupAead, KeyBackupAuthData, KeyBackupContentItem,
     KeyBackupDomainSeparation, KeyBackupDomainSeparationAad, KeyBackupEncryption,
     KeyBackupFrontierRef, KeyBackupKdf, KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm,
 };
-use cokret::{BackupId, BackupSeriesId, DeviceId, Did, Hash};
+use arkret::{BackupId, BackupSeriesId, DeviceId, Did, Hash};
 use serde_json::json;
 
 fn build_envelope(
@@ -41,7 +41,7 @@ fn build_envelope(
     ciphertext: &str,
 ) -> KeyBackup {
     let backup_id_str = format!(
-        "ck:backup:01964137-0000-7000-8000-{:012x}",
+        "ak:backup:01964137-0000-7000-8000-{:012x}",
         0xA000_u64 + seq
     );
     let ciphertext_digest = format!(
@@ -97,7 +97,7 @@ fn build_envelope(
             extra: BTreeMap::new(),
         },
         domain_separation: KeyBackupDomainSeparation {
-            hkdf_info: "cokret-key-backup/secret_storage/recovery/v1".to_owned(),
+            hkdf_info: "arkret-key-backup/secret_storage/recovery/v1".to_owned(),
             subdomain: "recovery".to_owned(),
             aead_aad: KeyBackupDomainSeparationAad {
                 schema: "ck.schema.key_backup.v1".to_owned(),
@@ -207,10 +207,10 @@ fn validate_chain(envelopes: &[KeyBackup]) -> Result<(), String> {
     Ok(())
 }
 
-fn main() -> cokret::Result<()> {
+fn main() -> arkret::Result<()> {
     let actor_id = Did::new("did:webvh:z6mkfixture:alice.example")?;
-    let device_id = DeviceId::new("ck:device:01964137-0000-7000-8000-000000000009")?;
-    let series_id = BackupSeriesId::new("ck:backup_series:01964137-0000-7000-8000-000000000777")?;
+    let device_id = DeviceId::new("ak:device:01964137-0000-7000-8000-000000000009")?;
+    let series_id = BackupSeriesId::new("ak:backup_series:01964137-0000-7000-8000-000000000777")?;
 
     // Build the chain: genesis + two rotations.
     let genesis = build_envelope(

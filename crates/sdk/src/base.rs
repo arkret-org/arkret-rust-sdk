@@ -1,4 +1,4 @@
-//! Base client state machine for Cokret v1.
+//! Base client state machine for Arkret v1.
 //!
 //! This module implements the core client state management without IO operations.
 //! It handles:
@@ -716,7 +716,7 @@ mod tests {
     fn session_meta_checks_expiration() {
         let meta = SessionMeta {
             user_id: Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
-            device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
+            device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap(),
             session_credential: Some("token".to_owned()),
             expires_at: Some(Utc::now() - chrono::Duration::hours(1)),
         };
@@ -728,7 +728,7 @@ mod tests {
     fn session_meta_valid_when_not_expired() {
         let meta = SessionMeta {
             user_id: Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
-            device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
+            device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap(),
             session_credential: Some("token".to_owned()),
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
         };
@@ -748,7 +748,7 @@ mod tests {
         let client = BaseClient::new();
         let meta = SessionMeta::new(
             Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap(),
         );
 
         client.set_session_meta(meta.clone()).unwrap();
@@ -764,7 +764,7 @@ mod tests {
         let client = BaseClient::new();
         let meta = SessionMeta::new(
             Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap(),
         );
 
         client.set_session_meta(meta).unwrap();
@@ -780,7 +780,7 @@ mod tests {
         let meta = client
             .login_with_session(
                 Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
-                DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
+                DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap(),
                 Some("token".to_owned()),
                 None,
             )
@@ -806,9 +806,9 @@ mod tests {
         let client = BaseClient::new();
         let positions = SyncPositions {
             realms: BTreeMap::from([(
-                "ck:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
+                "ak:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
                 crate::cursor::RealmSyncPosition {
-                    frontier: vec!["ck:event:019640ed-8000-7000-8000-000000000000".to_owned()],
+                    frontier: vec!["ak:event:019640ed-8000-7000-8000-000000000000".to_owned()],
                     timeline_order: "01970e589d21-0004-a13f9c2e".to_owned(),
                     state_digest:
                         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -835,7 +835,7 @@ mod tests {
     #[test]
     fn bootstrap_sequence_tracks_ordered_runtime_steps() {
         let principal = Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap();
-        let device = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap();
+        let device = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap();
         let mut sequence = BootstrapSequence::new(principal, device, None);
 
         assert_eq!(sequence.next_pending(), Some(BootstrapStepKind::Resolve));
@@ -867,7 +867,7 @@ mod tests {
         client
             .login_with_session(
                 alice.clone(),
-                DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
+                DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap(),
                 None,
                 None,
             )
@@ -913,7 +913,7 @@ mod tests {
     #[test]
     fn base_client_tracks_realm_state() {
         let client = BaseClient::new();
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
 
         client
             .update_realm_membership_state(&realm_id, RealmMembershipState::Joined)
@@ -927,9 +927,9 @@ mod tests {
     #[test]
     fn base_client_filters_joined_realms() {
         let client = BaseClient::new();
-        let realm1 = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-        let realm2 = RealmId::new("ck:realm:01904100-0000-7000-8000-f949e0272316").unwrap();
-        let realm3 = RealmId::new("ck:realm:01904100-0000-7000-8000-46f8537dc94e").unwrap();
+        let realm1 = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm2 = RealmId::new("ak:realm:01904100-0000-7000-8000-f949e0272316").unwrap();
+        let realm3 = RealmId::new("ak:realm:01904100-0000-7000-8000-46f8537dc94e").unwrap();
 
         client
             .update_realm_membership_state(&realm1, RealmMembershipState::Joined)

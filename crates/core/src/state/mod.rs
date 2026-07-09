@@ -1,4 +1,4 @@
-//! Cokret v1 Move/Seal/Lattice state resolution.
+//! Arkret v1 Move/Seal/Lattice state resolution.
 //!
 //! This module hosts the SDK-side runtime for the Move/Seal/Lattice model
 //! introduced in spec 2026-05-08. It provides:
@@ -11,8 +11,8 @@
 //! - [`state_root`] — canonical Merkle compute per spec §4.2 normative.
 //!
 //! Architecture rationale + design tradeoffs live in
-//! `cokret-rust-sdk/docs/move-seal-runtime.md`. Wire / protocol rules
-//! live in `cokret-spec/spec/v1/zh/authz/event-auth-state-resolution.md`
+//! `arkret-rust-sdk/docs/move-seal-runtime.md`. Wire / protocol rules
+//! live in `arkret-spec/spec/v1/zh/authz/event-auth-state-resolution.md`
 //! §3-§5.
 pub mod compaction;
 pub mod seal;

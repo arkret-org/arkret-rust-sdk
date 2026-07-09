@@ -4,7 +4,7 @@ use crate::lattice::LatticeKind as SdkLatticeKind;
 use crate::state_res::BottomMode;
 
 /// Cell-cardinality declared by a [`LatticeKind`] — corresponds to the
-/// cokret-spec event-kind-registry's `cell_subject` shape.
+/// arkret-spec event-kind-registry's `cell_subject` shape.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StateCardinality {
     /// One projection slot per `(space_id, cell_family)`. Subject empty.
@@ -18,7 +18,7 @@ pub enum StateCardinality {
 }
 
 /// Receiver behaviour when an unknown component_type/version is seen
-/// (matches the `criticality` field in the cokret-spec registry).
+/// (matches the `criticality` field in the arkret-spec registry).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Criticality {
     /// MUST fail closed (schema_violation / soft_fail / quarantine
@@ -117,7 +117,7 @@ impl std::fmt::Display for LatticeKindError {
 
 impl std::error::Error for LatticeKindError {}
 
-/// One canonical Cokret cell-family implementation.
+/// One canonical Arkret cell-family implementation.
 ///
 /// Each impl owns one `cell_family` (e.g. `ck.component.consent.v1`),
 /// declares the lattice algebra that resolves it (one of the six
@@ -152,7 +152,7 @@ pub trait LatticeKind: Send + Sync {
         Ok(None)
     }
 
-    /// Durable Cokret event kinds whose projection feeds this cell
+    /// Durable Arkret event kinds whose projection feeds this cell
     /// family. Empty by default — only kinds with a 1:N event-kind →
     /// cell-family mapping declare it.
     fn event_kinds(&self) -> &'static [&'static str] {

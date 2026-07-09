@@ -217,7 +217,7 @@ pub const CX_SESSION_GRANT: &str = "ck.session.grant";
 /// log, and session grants.
 pub fn principal_control_realm_id(principal_id: &Did) -> String {
     let digest = cokret_core::canonical::sha256_bytes_from_slices(&[
-        b"ck:realm:principal-control:v1:",
+        b"ak:realm:principal-control:v1:",
         principal_id.as_str().as_bytes(),
     ]);
     let mut bytes = [0u8; 16];
@@ -227,7 +227,7 @@ pub fn principal_control_realm_id(principal_id: &Did) -> String {
     let group =
         |slice: &[u8]| -> String { slice.iter().map(|b| format!("{b:02x}")).collect::<String>() };
     format!(
-        "ck:realm:{}-{}-{}-{}-{}",
+        "ak:realm:{}-{}-{}-{}-{}",
         group(&bytes[0..4]),
         group(&bytes[4..6]),
         group(&bytes[6..8]),
@@ -267,17 +267,17 @@ pub fn assert_control_realm_pinning(
     }
 }
 
-/// Canonical OAuth2 scope prefix for binding a Cokret client device to a session.
-pub const COKRET_DEVICE_SCOPE_PREFIX: &str = "urn:cokret:client:device:";
+/// Canonical OAuth2 scope prefix for binding a Arkret client device to a session.
+pub const ARKRET_DEVICE_SCOPE_PREFIX: &str = "urn:arkret:client:device:";
 
-/// Build the canonical Cokret device scope token for a device.
+/// Build the canonical Arkret device scope token for a device.
 pub fn cokret_device_scope(device_id: &DeviceId) -> String {
-    format!("{COKRET_DEVICE_SCOPE_PREFIX}{device_id}")
+    format!("{ARKRET_DEVICE_SCOPE_PREFIX}{device_id}")
 }
 
-/// Extract a device ID from a canonical Cokret device scope token.
+/// Extract a device ID from a canonical Arkret device scope token.
 pub fn device_id_from_scope_token(scope_token: &str) -> Option<DeviceId> {
-    let raw = scope_token.strip_prefix(COKRET_DEVICE_SCOPE_PREFIX)?;
+    let raw = scope_token.strip_prefix(ARKRET_DEVICE_SCOPE_PREFIX)?;
     DeviceId::new(raw).ok()
 }
 

@@ -1,4 +1,4 @@
-//! Salvo OpenAPI-facing HTTP DTOs for the Cokret service binding.
+//! Salvo OpenAPI-facing HTTP DTOs for the Arkret service binding.
 //!
 //! These types model endpoint transport roles explicitly:
 //! - path, query-string and header inputs are grouped as `<Operation>Params`;

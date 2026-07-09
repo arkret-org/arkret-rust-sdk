@@ -1,6 +1,6 @@
-# cokret-crypto
+# arkret-crypto
 
-Protocol crypto machine contracts for Cokret.
+Protocol crypto machine contracts for Arkret.
 
 This crate models the E2EE boundary that client runtimes and stores need to
 agree on: device-key upload/query/claim, key lifecycle, secret backup,

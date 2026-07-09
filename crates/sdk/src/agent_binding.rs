@@ -280,7 +280,7 @@ mod tests {
         let echo = json!({"op": "ping", "payload": "hello"});
         let signed = sign_ed25519_audit_binding(
             TEST_ED25519_SEED,
-            "ck:session:e1",
+            "ak:session:e1",
             "did:webvh:z6mkfixture:agent.example",
             &echo,
             "did:webvh:z6mkfixture:alice.example",
@@ -291,7 +291,7 @@ mod tests {
         assert_eq!(sig_bytes.len(), 64);
         let outcome = verify_ed25519_audit_binding(
             &signed.public_key_b64,
-            "ck:session:e1",
+            "ak:session:e1",
             "did:webvh:z6mkfixture:agent.example",
             &echo,
             "did:webvh:z6mkfixture:alice.example",
@@ -307,7 +307,7 @@ mod tests {
         // hypothetical future scheme from re-using these bytes.
         let echo = json!({"k": "v"});
         let subject = build_ed25519_canonical_subject(
-            "ck:session:cross",
+            "ak:session:cross",
             "did:webvh:z6mkfixture:agent.example",
             &echo,
             "did:webvh:z6mkfixture:alice.example",
@@ -323,14 +323,14 @@ mod tests {
         let echo = json!({"op": "ping"});
         let signed = sign_ed25519_audit_binding(
             TEST_ED25519_SEED,
-            "ck:session:e2",
+            "ak:session:e2",
             "did:webvh:z6mkfixture:agent.example",
             &echo,
             "did:webvh:z6mkfixture:alice.example",
         );
         let outcome = verify_ed25519_audit_binding(
             &signed.public_key_b64,
-            "ck:session:e2",
+            "ak:session:e2",
             "did:webvh:z6mkfixture:agent.example",
             &echo,
             "did:webvh:z6mkfixture:carol.example",
@@ -345,21 +345,21 @@ mod tests {
         let echo = json!({});
         let signed = sign_ed25519_audit_binding(
             TEST_ED25519_SEED,
-            "ck:session:e3",
+            "ak:session:e3",
             "did:webvh:z6mkfixture:agent.example",
             &echo,
             "did:webvh:z6mkfixture:alice.example",
         );
         let other_signed = sign_ed25519_audit_binding(
             &[0xAAu8; 32],
-            "ck:session:e3",
+            "ak:session:e3",
             "did:webvh:z6mkfixture:agent.example",
             &echo,
             "did:webvh:z6mkfixture:alice.example",
         );
         let outcome = verify_ed25519_audit_binding(
             &other_signed.public_key_b64,
-            "ck:session:e3",
+            "ak:session:e3",
             "did:webvh:z6mkfixture:agent.example",
             &echo,
             "did:webvh:z6mkfixture:alice.example",
@@ -374,14 +374,14 @@ mod tests {
         let echo = json!({});
         let signed = sign_ed25519_audit_binding(
             TEST_ED25519_SEED,
-            "ck:session:e4",
+            "ak:session:e4",
             "did:webvh:z6mkfixture:agent.example",
             &echo,
             "did:webvh:z6mkfixture:alice.example",
         );
         let outcome = verify_ed25519_audit_binding(
             &signed.public_key_b64,
-            "ck:session:e4",
+            "ak:session:e4",
             "did:webvh:z6mkfixture:agent.example",
             &echo,
             "did:webvh:z6mkfixture:alice.example",
@@ -399,14 +399,14 @@ mod tests {
         let echo = json!({});
         let signed = sign_ed25519_audit_binding(
             TEST_ED25519_SEED,
-            "ck:session:e5",
+            "ak:session:e5",
             "did:webvh:z6mkfixture:agent.example",
             &echo,
             "did:webvh:z6mkfixture:alice.example",
         );
         let outcome = verify_ed25519_audit_binding(
             "AA",
-            "ck:session:e5",
+            "ak:session:e5",
             "did:webvh:z6mkfixture:agent.example",
             &echo,
             "did:webvh:z6mkfixture:alice.example",
@@ -444,7 +444,7 @@ mod tests {
     #[test]
     fn verify_by_kind_returns_valid_for_well_formed_ed25519_payload() {
         let payload = build_signed_payload(
-            "ck:session:dispatch-ok",
+            "ak:session:dispatch-ok",
             "did:webvh:z6mkfixture:alice.example",
             json!({"op": "ping"}),
         );
@@ -457,7 +457,7 @@ mod tests {
     #[test]
     fn verify_by_kind_returns_absent_when_audit_binding_missing() {
         let payload = json!({
-            "session_id": "ck:session:no-binding",
+            "session_id": "ak:session:no-binding",
             "result": { "agent_principal_id": "did:webvh:z6mkfixture:agent.example", "echo": {} },
         });
         assert_eq!(
@@ -469,7 +469,7 @@ mod tests {
     #[test]
     fn verify_by_kind_returns_unsupported_for_unknown_binding_kind() {
         let payload = json!({
-            "session_id": "ck:session:future",
+            "session_id": "ak:session:future",
             "result": { "agent_principal_id": "did:webvh:z6mkfixture:agent.example", "echo": {} },
             "audit_binding": {
                 "binding_kind": "future_scheme_v9",
@@ -491,7 +491,7 @@ mod tests {
         // a future/unknown scheme — same outcome as an explicit
         // unrecognized kind so callers don't have to special-case it.
         let payload = json!({
-            "session_id": "ck:session:no-kind",
+            "session_id": "ak:session:no-kind",
             "result": { "agent_principal_id": "did:webvh:z6mkfixture:agent.example", "echo": {} },
             "audit_binding": {
                 "actor_id": "did:webvh:z6mkfixture:alice.example",
@@ -507,7 +507,7 @@ mod tests {
     #[test]
     fn verify_by_kind_returns_malformed_for_invalid_signature_encoding() {
         let mut payload = build_signed_payload(
-            "ck:session:malformed-sig",
+            "ak:session:malformed-sig",
             "did:webvh:z6mkfixture:alice.example",
             json!({"op": "ping"}),
         );
@@ -521,7 +521,7 @@ mod tests {
     #[test]
     fn verify_by_kind_returns_subject_mismatch_when_actor_field_differs() {
         let mut payload = build_signed_payload(
-            "ck:session:actor-drift",
+            "ak:session:actor-drift",
             "did:webvh:z6mkfixture:alice.example",
             json!({"op": "ping"}),
         );

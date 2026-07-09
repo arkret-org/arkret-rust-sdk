@@ -100,14 +100,14 @@ mod tests {
     fn tombstone_preserves_audit_metadata_and_strips_body() {
         let mut event = json!({
             "kind": "ck.message.create",
-            "event_id": "ck:event:01970e58-0004-7000-8000-0000000005a1",
-            "message_id": "ck:message:01970e58-0004-7000-8000-0000000005a1",
-            "realm_id": "ck:realm:01970e58-0004-7000-8000-000000000001",
+            "event_id": "ak:event:01970e58-0004-7000-8000-0000000005a1",
+            "message_id": "ak:message:01970e58-0004-7000-8000-0000000005a1",
+            "realm_id": "ak:realm:01970e58-0004-7000-8000-000000000001",
             "sender": "did:webvh:z6mkfixture:bob.example",
             "created_at": "2026-04-26T00:00:00Z",
             "content": {"kind": "ck.content.text", "body": "secret"},
             "reactions": [{"actor": "did:webvh:z6mkfixture:alice.example", "key": "+1"}],
-            "reply_to": "ck:event:01970e58-0004-7000-8000-0000000005a0",
+            "reply_to": "ak:event:01970e58-0004-7000-8000-0000000005a0",
             "mentions": [{"actor_id": "did:webvh:z6mkfixture:alice.example"}],
         });
         let redacted_at = DateTime::parse_from_rfc3339("2026-04-26T00:05:00Z")
@@ -117,19 +117,19 @@ mod tests {
         redaction_tombstone_message_value(
             &mut event,
             redacted_at,
-            Some("ck:event:01970e58-0004-7000-8000-0000000005a2"),
+            Some("ak:event:01970e58-0004-7000-8000-0000000005a2"),
         );
 
         assert_eq!(event["kind"], json!("ck.message.create"));
         assert_eq!(
             event["event_id"],
-            json!("ck:event:01970e58-0004-7000-8000-0000000005a1")
+            json!("ak:event:01970e58-0004-7000-8000-0000000005a1")
         );
         assert_eq!(event["redacted"], json!(true));
         assert_eq!(event["state"], json!("redacted"));
         assert_eq!(
             event["redaction_ref"],
-            json!("ck:event:01970e58-0004-7000-8000-0000000005a2")
+            json!("ak:event:01970e58-0004-7000-8000-0000000005a2")
         );
         assert_eq!(
             event["content"]["body"],

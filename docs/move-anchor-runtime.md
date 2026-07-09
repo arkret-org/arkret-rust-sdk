@@ -1,14 +1,14 @@
 ---
-title: Move / Seal / Lattice Runtime — cokret-rust-sdk 实现设计
+title: Move / Seal / Lattice Runtime — arkret-rust-sdk 实现设计
 ---
 
-> 本文是 **cokret-rust-sdk 内部实现设计**，不是 normative 协议。
-> 协议层规则参见 cokret-spec：
+> 本文是 **arkret-rust-sdk 内部实现设计**，不是 normative 协议。
+> 协议层规则参见 arkret-spec：
 >
-> - Move/Seal/Lattice 语义：[`authz/event-auth-state-resolution.md`](../../cokret-spec/spec/v1/zh/authz/event-auth-state-resolution.md) §3-§5
+> - Move/Seal/Lattice 语义：[`authz/event-auth-state-resolution.md`](../../arkret-spec/spec/v1/zh/authz/event-auth-state-resolution.md) §3-§5
 > - `state_root` canonical Merkle 编码（normative）：同上 §4.2
 > - Seal batch 语义（`apply_seal` pseudocode）：同上 §4.3
-> - Bottom diagnostics typed wire：[`bottom.schema.json`](../../cokret-spec/spec/v1/artifacts/schemas/bottom.schema.json)
+> - Bottom diagnostics typed wire：[`bottom.schema.json`](../../arkret-spec/spec/v1/artifacts/schemas/bottom.schema.json)
 >
 > 本文给出 SDK 侧的 Rust 落地：crate 拆分、trait 签名、Move verifier
 > 实现细节、缓存策略、与 soland 现有 reducer/projection 代码的迁移路径。
@@ -18,7 +18,7 @@ title: Move / Seal / Lattice Runtime — cokret-rust-sdk 实现设计
 
 ## 1. 范围与读者
 
-读者：在 cokret-rust-sdk 上写 M7-M10 PR 的开发者、要在 soland 上接线 store
+读者：在 arkret-rust-sdk 上写 M7-M10 PR 的开发者、要在 soland 上接线 store
 backend 的开发者、需要理解 SDK 内部边界的 third-party 用户。
 
 涵盖：
@@ -33,9 +33,9 @@ backend 的开发者、需要理解 SDK 内部边界的 third-party 用户。
 
 不涵盖：
 
-- 协议层 normative 规则（在 cokret-spec）。
-- wire schema 字段（在 [`cokret-spec/spec/v1/artifacts/schemas/`](../../cokret-spec/spec/v1/artifacts/schemas/)）。
-- HTTP binding（在 [`cokret-spec/spec/v1/zh/sync/service-http-binding.md`](../../cokret-spec/spec/v1/zh/sync/service-http-binding.md)）。
+- 协议层 normative 规则（在 arkret-spec）。
+- wire schema 字段（在 [`arkret-spec/spec/v1/artifacts/schemas/`](../../arkret-spec/spec/v1/artifacts/schemas/)）。
+- HTTP binding（在 [`arkret-spec/spec/v1/zh/sync/service-http-binding.md`](../../arkret-spec/spec/v1/zh/sync/service-http-binding.md)）。
 - `state_root` Merkle 编码（normative，在 spec §4.2）。
 
 ## 2. 模块拆分
@@ -75,9 +75,9 @@ backend 的开发者、需要理解 SDK 内部边界的 third-party 用户。
 
 依赖方向：上层只依赖下层抽象；下层不引用上层具体类型。
 
-- `cokret-core`：typed model（`Move`、`Seal`、`Bottom`、`CellId`、`NotaryValue`）。
-- `cokret-core::lattice`：纯 Lattice trait + 6 实现，不依赖 store。
-- `cokret-core::state`：托管 verifier 流水线、`apply_seal`、
+- `arkret-core`：typed model（`Move`、`Seal`、`Bottom`、`CellId`、`NotaryValue`）。
+- `arkret-core::lattice`：纯 Lattice trait + 6 实现，不依赖 store。
+- `arkret-core::state`：托管 verifier 流水线、`apply_seal`、
   `effective_seal_view`、`state_root` 编码。**store traits 也住在这里**，
   让 SDK 用户 / soland / 第三方 server 三方都能依赖一份。
 - `soland` / 第三方 server：实现 `MoveStore` / `SealStore` / `CellStore` /
@@ -87,8 +87,8 @@ backend 的开发者、需要理解 SDK 内部边界的 third-party 用户。
 
 ## 3. Store 接口契约
 
-四个 trait 全部住在 `cokret-core::state::store` 模块。所有方法都返回 `Result`，
-错误用 `cokret-core::Error::Protocol` 表达 wire 级问题，用专属
+四个 trait 全部住在 `arkret-core::state::store` 模块。所有方法都返回 `Result`，
+错误用 `arkret-core::Error::Protocol` 表达 wire 级问题，用专属
 `StoreError` 表达 IO / 后端失败。
 
 ### 3.1 MoveStore
@@ -263,7 +263,7 @@ verify_move(M, pre_state, registry) -> Result<(), MoveReject>:
 ```
 
 `MoveReject` 区分四类原因，对应 spec
-[`error-code-registry.json`](../../cokret-spec/spec/v1/artifacts/registry/error-code-registry.json)
+[`error-code-registry.json`](../../arkret-spec/spec/v1/artifacts/registry/error-code-registry.json)
 中已有的 wire error codes：
 
 | MoveReject 变体 | wire error_code |
@@ -277,7 +277,7 @@ verify_move(M, pre_state, registry) -> Result<(), MoveReject>:
 ## 5. `apply_seal` 算法
 
 `apply_seal(A, stores, registry)` 是 server 接收 Seal 时的入口。算法实现
-spec §4.2 normative 文本，可以放在 `cokret-core::state::seal::apply_seal`。
+spec §4.2 normative 文本，可以放在 `arkret-core::state::seal::apply_seal`。
 
 ```rust
 fn apply_seal(
@@ -371,15 +371,15 @@ fn apply_seal(
 ## 6. `state_root` 计算（Rust 实现层）
 
 `state_root` 的 canonical Merkle 编码是 **normative**，定义在
-[cokret-spec event-auth-state-resolution.md §4.2](../../cokret-spec/spec/v1/zh/authz/event-auth-state-resolution.md)
+[arkret-spec event-auth-state-resolution.md §4.2](../../arkret-spec/spec/v1/zh/authz/event-auth-state-resolution.md)
 （leaf shape、tree 形、空 list 处理、`bottom.anchor_view` 字段必须省略）。
 SDK 实现 MUST 严格遵循。
 
-实现位置：`cokret-core::state::state_root::compute_state_root(view: &SealView, cells: &dyn CellStore) -> Result<Hash>`。
+实现位置：`arkret-core::state::state_root::compute_state_root(view: &SealView, cells: &dyn CellStore) -> Result<Hash>`。
 
 实现要点：
 
-- Leaf JSON 序列化复用 `cokret-core::canonical::canonical_json_bytes`，确保
+- Leaf JSON 序列化复用 `arkret-core::canonical::canonical_json_bytes`，确保
   与 Move/Seal canonical bytes 同一编码 profile（key 排序、no whitespace、
   integer-only number、UTF-8）。
 - `Bottom` 序列化时 set `bottom.anchor_view = None` 后再 canonical_json，
@@ -456,7 +456,7 @@ cell effective state 是协议授权与 Seal finality 的源。用户面 project
 
 cell_family → Lattice 的映射来自 spec event-kind-registry。每个 active
 state-bearing kind 在
-[`event-kind-registry.json`](../../cokret-spec/spec/v1/artifacts/registry/event-kind-registry.json)
+[`event-kind-registry.json`](../../arkret-spec/spec/v1/artifacts/registry/event-kind-registry.json)
 中声明：
 
 ```json
@@ -504,12 +504,12 @@ fn resolve(&self, space_id, cell) -> Result<CellLatticeBinding> {
 
 落地顺序（每条 ≤1 PR）：
 
-1. **store traits + 内存实现**（`cokret-core::state::store::memory`）：让 SDK
+1. **store traits + 内存实现**（`arkret-core::state::store::memory`）：让 SDK
    测试不依赖 Pg。
 2. **CellRegistry + spec registry 加载器**：消费 event-kind-registry.json 的
    `cell_family` / `lattice` / `bottom` 字段。
 3. **Move verifier**：四步流水线，单元测试用现有
-   [`move-seal-lattice-fixture.json`](../../cokret-spec/spec/v1/artifacts/fixtures/move-seal-lattice-fixture.json)
+   [`move-seal-lattice-fixture.json`](../../arkret-spec/spec/v1/artifacts/fixtures/move-seal-lattice-fixture.json)
    verify_move 期望。
 4. **state_root Merkle 计算**：纯函数（按 spec §4.2 normative 编码），可单测。
 5. **`apply_seal` 算法**：把上面 1-4 串起来。
@@ -533,13 +533,13 @@ soland 接线。
 ## 12. 不在本文范围
 
 - Move / Seal wire schema 字段细节 →
-  [`move.schema.json`](../../cokret-spec/spec/v1/artifacts/schemas/move.schema.json)
-  / [`seal.schema.json`](../../cokret-spec/spec/v1/artifacts/schemas/seal.schema.json)。
+  [`move.schema.json`](../../arkret-spec/spec/v1/artifacts/schemas/move.schema.json)
+  / [`seal.schema.json`](../../arkret-spec/spec/v1/artifacts/schemas/seal.schema.json)。
 - HTTP binding（POST `/_cokret/self/moves`、`/_cokret/self/seals`）→
-  [`service-http-binding.md`](../../cokret-spec/spec/v1/zh/sync/service-http-binding.md)。
+  [`service-http-binding.md`](../../arkret-spec/spec/v1/zh/sync/service-http-binding.md)。
 - Federation Move 广播 + Seal 拉取语义 →
-  [`federation.md`](../../cokret-spec/spec/v1/zh/sync/federation.md)。
+  [`federation.md`](../../arkret-spec/spec/v1/zh/sync/federation.md)。
 - MLS commit Move + covered_seals cell 联动细节 →
-  [`audited-e2ee.md`](../../cokret-spec/spec/v1/zh/crypto-media/audited-e2ee.md)。
+  [`audited-e2ee.md`](../../arkret-spec/spec/v1/zh/crypto-media/audited-e2ee.md)。
 - Recovery notary / emergency quorum 启用程序 →
-  [`event-auth-state-resolution.md`](../../cokret-spec/spec/v1/zh/authz/event-auth-state-resolution.md) §13。
+  [`event-auth-state-resolution.md`](../../arkret-spec/spec/v1/zh/authz/event-auth-state-resolution.md) §13。

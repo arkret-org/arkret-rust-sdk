@@ -1088,12 +1088,12 @@ mod erasure_receipt_tests {
 
     fn receipt(stub: &Value) -> ErasureReceipt {
         let mut receipt = ErasureReceipt {
-            receipt_id: "ck:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
+            receipt_id: "ak:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
             schema: ErasureReceipt::SCHEMA.to_owned(),
             issuer: Did::new("did:webvh:z6mkfixture:erasure.example".to_owned()).unwrap(),
             subject: ErasureSubject {
                 kind: ErasureSubjectKind::Event,
-                reference: "ck:event:01970e58-0004-7000-8000-000000000004".to_owned(),
+                reference: "ak:event:01970e58-0004-7000-8000-000000000004".to_owned(),
             },
             scope: ErasureScope {
                 storage_boundary: ErasureStorageBoundary::CanonicalLogMinimization,
@@ -1126,16 +1126,16 @@ mod erasure_receipt_tests {
     fn retained_stub_digest_mismatch_fails_closed() {
         let stub = serde_json::json!({
             "stub_schema": "ck.schema.erasure_verification_stub.v1",
-            "subject": {"kind": "event", "ref": "ck:event:01970e58-0004-7000-8000-000000000004"},
-            "receipt_id": "ck:receipt:01970e58-0004-7000-8000-000000000010"
+            "subject": {"kind": "event", "ref": "ak:event:01970e58-0004-7000-8000-000000000004"},
+            "receipt_id": "ak:receipt:01970e58-0004-7000-8000-000000000010"
         });
         let receipt = receipt(&stub);
         assert!(receipt.validate_with_retained_stub(&stub).is_ok());
 
         let tampered = serde_json::json!({
             "stub_schema": "ck.schema.erasure_verification_stub.v1",
-            "subject": {"kind": "event", "ref": "ck:event:01970e58-0004-7000-8000-ffffffffffff"},
-            "receipt_id": "ck:receipt:01970e58-0004-7000-8000-000000000010"
+            "subject": {"kind": "event", "ref": "ak:event:01970e58-0004-7000-8000-ffffffffffff"},
+            "receipt_id": "ak:receipt:01970e58-0004-7000-8000-000000000010"
         });
         assert!(receipt.validate_with_retained_stub(&tampered).is_err());
     }
@@ -1168,7 +1168,7 @@ impl BackupClass {
             BackupClass::SecretStorage => "secret_storage",
             BackupClass::MlsHistory => "mls_history",
         };
-        format!("cokret-key-backup/{class}/{subdomain}/v1")
+        format!("arkret-key-backup/{class}/{subdomain}/v1")
     }
 }
 

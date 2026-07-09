@@ -750,7 +750,7 @@ mod interop_builder_tests {
     use crate::schema::event_payload_validator_catalog_from_embedded_spec_artifacts;
 
     fn session_id() -> &'static str {
-        "ck:agent_interop_session:01904100-0000-7000-8000-000000000001"
+        "ak:agent_interop_session:01904100-0000-7000-8000-000000000001"
     }
 
     #[test]
@@ -759,10 +759,10 @@ mod interop_builder_tests {
             session_id(),
             Did::new("did:webvh:z6mkfixture:agent.example").unwrap(),
             AgentInteropProtocol::A2a,
-            GrantId::new("ck:grant:01904100-0000-7000-8000-000000000002").unwrap(),
+            GrantId::new("ak:grant:01904100-0000-7000-8000-000000000002").unwrap(),
         )
         .with_task_strand_id(
-            StrandId::new("ck:strand:01904100-0000-7000-8000-000000000003").unwrap(),
+            StrandId::new("ak:strand:01904100-0000-7000-8000-000000000003").unwrap(),
         )
         .with_audit_mode("status_only")
         .with_max_duration_seconds(600);

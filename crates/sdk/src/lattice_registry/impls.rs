@@ -391,7 +391,7 @@ per_subject_lattice!(
 );
 
 // Strand notification subscription cell, keyed by (strand_id, watcher_actor_id).
-// Spec: cokret-spec/spec/v1/zh/models/strand-and-message.md §8.
+// Spec: arkret-spec/spec/v1/zh/models/strand-and-message.md §8.
 // SDK's subject derivation composes both keys into a single string so the
 // existing per-subject lattice infra (single Option<String>) works without
 // growing tuple support; the cell store still treats each (strand, actor)

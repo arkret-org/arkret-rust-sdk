@@ -17,9 +17,9 @@ fn rank_helpers_generate_between_and_rebalance_assignments() {
     assert!(rank_exhausted(None, Some("0")).unwrap());
 
     let assignments = container_rebalance_assignments(&[
-        "ck:morph:01904100-0000-7000-8000-8b4aa2ca29ef".to_owned(),
-        "ck:morph:01904100-0000-7000-8000-d5864c129df4".to_owned(),
-        "ck:morph:01904100-0000-7000-8000-6057e4215f24".to_owned(),
+        "ak:morph:01904100-0000-7000-8000-8b4aa2ca29ef".to_owned(),
+        "ak:morph:01904100-0000-7000-8000-d5864c129df4".to_owned(),
+        "ak:morph:01904100-0000-7000-8000-6057e4215f24".to_owned(),
     ])
     .unwrap();
     assert_eq!(assignments.len(), 3);
@@ -36,8 +36,8 @@ fn rank_helpers_generate_between_and_rebalance_assignments() {
 #[test]
 fn strand_constructor_sets_protocol_shape() {
     let mut subject = Strand::new(
-        StrandId::new("ck:strand:01904100-0000-7000-8000-6c663fa0205f").unwrap(),
-        RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
+        StrandId::new("ak:strand:01904100-0000-7000-8000-6c663fa0205f").unwrap(),
+        RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         "Payment refactor",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
@@ -62,8 +62,8 @@ fn strand_constructor_sets_protocol_shape() {
 #[test]
 fn strand_stage_is_optional_on_wire() {
     let strand = Strand::new(
-        StrandId::new("ck:strand:01904100-0000-7000-8000-6c663fa0206f").unwrap(),
-        RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8362f").unwrap(),
+        StrandId::new("ak:strand:01904100-0000-7000-8000-6c663fa0206f").unwrap(),
+        RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8362f").unwrap(),
         "Payment refactor",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
@@ -85,8 +85,8 @@ fn strand_stage_is_optional_on_wire() {
 #[test]
 fn strand_discussion_constructor_sets_room_shape() {
     let strand = Strand::discussion(
-        StrandId::new("ck:strand:01904100-0000-7000-8000-58754cf88c25").unwrap(),
-        RealmId::new("ck:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
+        StrandId::new("ak:strand:01904100-0000-7000-8000-58754cf88c25").unwrap(),
+        RealmId::new("ak:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
         "Launch board discussion",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
@@ -110,7 +110,7 @@ fn strand_discussion_constructor_sets_room_shape() {
 #[test]
 fn read_scope_strand_track_uses_explicit_track_field() {
     let scope = ReadScope::strand(
-        "ck:strand:01904100-0000-7000-8000-58754cf88c25",
+        "ak:strand:01904100-0000-7000-8000-58754cf88c25",
         Some("discussion"),
     );
     scope.validate().unwrap();
@@ -120,7 +120,7 @@ fn read_scope_strand_track_uses_explicit_track_field() {
         value,
         serde_json::json!({
             "kind": "strand",
-            "ref": "ck:strand:01904100-0000-7000-8000-58754cf88c25",
+            "ref": "ak:strand:01904100-0000-7000-8000-58754cf88c25",
             "track_name": "discussion"
         })
     );
@@ -136,8 +136,8 @@ fn read_scope_rejects_removed_track_kind_variants() {
 #[test]
 fn synthesis_strand_is_not_conversational() {
     let strand = Strand::new(
-        StrandId::new("ck:strand:01904100-0000-7000-8000-58754cf88c25").unwrap(),
-        RealmId::new("ck:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
+        StrandId::new("ak:strand:01904100-0000-7000-8000-58754cf88c25").unwrap(),
+        RealmId::new("ak:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
         "Launch board synthesis",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
@@ -174,10 +174,10 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     use crate::notary::NotaryValue;
 
     let mut realm = Realm::new(
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000001").unwrap(),
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000001").unwrap(),
         "Seal Test",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         NotaryProfile::SingleDid,
         single_did_notary("did:webvh:z6mkfixture:alice.example"),
     );
@@ -215,7 +215,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         )
         .with_co_write_policy(CoWritePolicy::CausalOnly);
     realm.preview_policy_id =
-        Some(PolicyId::new("ck:policy:0196419b-0000-7000-8000-000000000003").unwrap());
+        Some(PolicyId::new("ak:policy:0196419b-0000-7000-8000-000000000003").unwrap());
     realm.sync_endpoints.push(SyncEndpoint {
         did: Did::new("did:webvh:z6mkfixture:sync.example").unwrap(),
         endpoint: "https://sync.example/_cokret".to_owned(),
@@ -233,7 +233,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
 
     assert_eq!(
         realm.preview_policy_id.as_ref().map(PolicyId::as_str),
-        Some("ck:policy:0196419b-0000-7000-8000-000000000003")
+        Some("ak:policy:0196419b-0000-7000-8000-000000000003")
     );
     assert_eq!(realm.sync_endpoints.len(), 1);
     assert_eq!(realm.notary_profile, NotaryProfile::Threshold);
@@ -258,7 +258,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     let json = serde_json::to_value(&realm).unwrap();
     assert_eq!(
         json["preview_policy_id"],
-        "ck:policy:0196419b-0000-7000-8000-000000000003"
+        "ak:policy:0196419b-0000-7000-8000-000000000003"
     );
     assert_eq!(
         json["sync_endpoints"][0]["did"],
@@ -308,10 +308,10 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
 #[test]
 fn realm_anchor_fields_include_required_notary() {
     let realm = Realm::new(
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000002").unwrap(),
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000002").unwrap(),
         "No Seal Hint",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         NotaryProfile::SingleDid,
         single_did_notary("did:webvh:z6mkfixture:alice.example"),
     );
@@ -337,10 +337,10 @@ fn realm_anchor_fields_include_required_notary() {
 #[test]
 fn realm_notary_profile_must_match_notary_type() {
     let realm = Realm::new(
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000005").unwrap(),
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000005").unwrap(),
         "Mismatched Notary",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         NotaryProfile::Threshold,
         single_did_notary("did:webvh:z6mkfixture:notary.example"),
     );
@@ -352,10 +352,10 @@ fn realm_notary_profile_must_match_notary_type() {
 #[test]
 fn realm_digest_algorithm_defaults_and_rejects_unknown_values() {
     let realm = Realm::new(
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000004").unwrap(),
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000004").unwrap(),
         "Digest Defaults",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-        TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         NotaryProfile::SingleDid,
         single_did_notary("did:webvh:z6mkfixture:alice.example"),
     );
@@ -380,22 +380,22 @@ fn collection_projection_response_serde_round_trip() {
     let payload = serde_json::json!({
         "kind": "collection",
         "renderer": "board",
-        "view_id": "ck:view:019641be-0000-7000-8000-000000000000",
-        "frontier": ["ck:event:01904100-0000-7000-8000-69b393b5179f"],
+        "view_id": "ak:view:019641be-0000-7000-8000-000000000000",
+        "frontier": ["ak:event:01904100-0000-7000-8000-69b393b5179f"],
         "groups": [
             {
-                "group_id": "ck:space:01c3b617-7000-7000-8000-000000000000",
+                "group_id": "ak:space:01c3b617-7000-7000-8000-000000000000",
                 "title": "Review",
                 "rank": "mV",
                 "items": [
                     {
                         "object": {
-                            "id": "ck:strand:01d2b330-0000-7000-8000-000000000000",
+                            "id": "ak:strand:01d2b330-0000-7000-8000-000000000000",
                             "type": "strand",
                             "title": "Legal review"
                         },
                         "position": {
-                            "relation_id": "ck:relation:01b03200-0000-7000-8000-000000000000",
+                            "relation_id": "ak:relation:01b03200-0000-7000-8000-000000000000",
                             "rank": "mV"
                         },
                         "discussion": {
@@ -414,14 +414,14 @@ fn collection_projection_response_serde_round_trip() {
     assert!(matches!(resp.renderer, ViewRenderer::Board));
     assert_eq!(
         resp.view_id.as_str(),
-        "ck:view:019641be-0000-7000-8000-000000000000"
+        "ak:view:019641be-0000-7000-8000-000000000000"
     );
     assert_eq!(resp.frontier.len(), 1);
     assert_eq!(resp.groups.len(), 1);
     let group = &resp.groups[0];
     assert_eq!(
         group.group_id,
-        "ck:space:01c3b617-7000-7000-8000-000000000000"
+        "ak:space:01c3b617-7000-7000-8000-000000000000"
     );
     assert_eq!(group.title, "Review");
     assert_eq!(group.rank.as_deref(), Some("mV"));
@@ -429,12 +429,12 @@ fn collection_projection_response_serde_round_trip() {
     let item = &group.items[0];
     assert_eq!(
         item.object.get("id").and_then(|v| v.as_str()),
-        Some("ck:strand:01d2b330-0000-7000-8000-000000000000")
+        Some("ak:strand:01d2b330-0000-7000-8000-000000000000")
     );
     let position = item.position.as_ref().expect("position");
     assert_eq!(
         position.relation_id,
-        "ck:relation:01b03200-0000-7000-8000-000000000000"
+        "ak:relation:01b03200-0000-7000-8000-000000000000"
     );
     assert_eq!(position.rank, "mV");
     let discussion = item.discussion.as_ref().expect("discussion");
@@ -453,7 +453,7 @@ fn collection_projection_response_serde_round_trip() {
 #[test]
 fn collection_projection_group_omits_hidden_count_when_none() {
     let group = CollectionProjectionGroup {
-        group_id: "ck:space:01904100-0000-7000-8000-b83c6d2ca363".to_owned(),
+        group_id: "ak:space:01904100-0000-7000-8000-b83c6d2ca363".to_owned(),
         title: "List".to_owned(),
         rank: Some("a0".to_owned()),
         items: Vec::new(),
@@ -594,8 +594,8 @@ fn assert_field_order(object: &str, keys: &[String]) {
 #[test]
 fn morph_schema_refs_are_required_non_empty_and_unique() {
     let morph = Morph::new(
-        MorphId::new("ck:morph:01904100-0000-7000-8000-0000000000b0").unwrap(),
-        RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000b1").unwrap(),
+        MorphId::new("ak:morph:01904100-0000-7000-8000-0000000000b0").unwrap(),
+        RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000b1").unwrap(),
         "ck.demo.morph",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
@@ -618,8 +618,8 @@ fn morph_schema_refs_are_required_non_empty_and_unique() {
 #[test]
 fn morph_labels_are_sdk_local_not_wire() {
     let mut morph = Morph::new(
-        MorphId::new("ck:morph:01904100-0000-7000-8000-0000000000c0").unwrap(),
-        RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000c1").unwrap(),
+        MorphId::new("ak:morph:01904100-0000-7000-8000-0000000000c0").unwrap(),
+        RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000c1").unwrap(),
         "ck.demo.morph",
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
     );
@@ -646,8 +646,8 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
 
     // Strand — id, schema, …, state, state_changed_at, stage, stage_changed_at, audit.
     let mut strand = Strand::new(
-        StrandId::new("ck:strand:01904100-0000-7000-8000-0000000000f0").unwrap(),
-        RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000f1").unwrap(),
+        StrandId::new("ak:strand:01904100-0000-7000-8000-0000000000f0").unwrap(),
+        RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000f1").unwrap(),
         "Order guard strand",
         created_by.clone(),
     );
@@ -661,17 +661,17 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     );
 
     let mut realm = Realm::new(
-        RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000f2").unwrap(),
+        RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000f2").unwrap(),
         "Order guard realm",
         created_by.clone(),
-        TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         NotaryProfile::SingleDid,
         single_did_notary("did:webvh:z6mkfixture:notary.example"),
     );
     realm.policy_id =
-        Some(PolicyId::new("ck:policy:01904100-0000-7000-8000-0000000000f3").unwrap());
+        Some(PolicyId::new("ak:policy:01904100-0000-7000-8000-0000000000f3").unwrap());
     realm.preview_policy_id =
-        Some(PolicyId::new("ck:policy:01904100-0000-7000-8000-0000000000f4").unwrap());
+        Some(PolicyId::new("ak:policy:01904100-0000-7000-8000-0000000000f4").unwrap());
     realm.federation_policy = Some(FederationPolicy::Restricted);
     realm.sync_endpoints.push(SyncEndpoint {
         did: Did::new("did:webvh:z6mkfixture:sync.example").unwrap(),
@@ -709,8 +709,8 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
 
     // Morph — scope/container cluster `scope_circle_id` precedes lifecycle `state`.
     let mut morph = Morph::new(
-        MorphId::new("ck:morph:01904100-0000-7000-8000-0000000000a0").unwrap(),
-        RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000a1").unwrap(),
+        MorphId::new("ak:morph:01904100-0000-7000-8000-0000000000a0").unwrap(),
+        RealmId::new("ak:realm:01904100-0000-7000-8000-0000000000a1").unwrap(),
         "ck.demo.morph",
         created_by,
     )

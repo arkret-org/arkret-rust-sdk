@@ -1,6 +1,6 @@
 //! `ck.schema.patch.v1` — canonical field-patch grammar.
 //!
-//! Mirrors `cokret-spec/spec/v1/artifacts/schemas/patch.schema.json`. A
+//! Mirrors `arkret-spec/spec/v1/artifacts/schemas/patch.schema.json`. A
 //! patch is an object whose property names are dotted field paths
 //! (snake_case identifiers, optional stable-key selectors
 //! `field[<key>=<canonical-json-string>]`, backtick-quoted literals for
@@ -603,14 +603,14 @@ mod tests {
             .unwrap();
 
         let payload =
-            ObjectPatchPayload::for_target("ck:strand:0196419b-0000-7000-8000-000000000001", patch)
+            ObjectPatchPayload::for_target("ak:strand:0196419b-0000-7000-8000-000000000001", patch)
                 .unwrap();
         let value = payload.to_value().unwrap();
 
         assert_eq!(
             value,
             json!({
-                "target_ref": "ck:strand:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ak:strand:0196419b-0000-7000-8000-000000000001",
                 "patch": {
                     "fields.document": {
                         "$op": "set",
@@ -626,7 +626,7 @@ mod tests {
         let mut patch = Patch::new();
         patch.insert_op("title", PatchOp::set("Roadmap")).unwrap();
         let payload =
-            ObjectPatchPayload::for_target("ck:morph:0196419b-0000-7000-8000-000000000002", patch)
+            ObjectPatchPayload::for_target("ak:morph:0196419b-0000-7000-8000-000000000002", patch)
                 .unwrap()
                 .to_value()
                 .unwrap();
@@ -640,7 +640,7 @@ mod tests {
     #[test]
     fn object_patch_payload_deserialize_rejects_empty_patch() {
         let err = serde_json::from_value::<ObjectPatchPayload>(json!({
-            "target_ref": "ck:strand:0196419b-0000-7000-8000-000000000003",
+            "target_ref": "ak:strand:0196419b-0000-7000-8000-000000000003",
             "patch": {}
         }))
         .unwrap_err();
@@ -651,7 +651,7 @@ mod tests {
     fn object_patch_payload_rejects_non_schema_object_ref() {
         let mut patch = Patch::new();
         patch.insert_op("title", PatchOp::set("Roadmap")).unwrap();
-        let err = ObjectPatchPayload::for_target("ck:strand:not-a-uuid7", patch).unwrap_err();
+        let err = ObjectPatchPayload::for_target("ak:strand:not-a-uuid7", patch).unwrap_err();
         assert!(err.to_string().contains("object_ref"));
     }
 
@@ -663,7 +663,7 @@ mod tests {
             .unwrap();
 
         let err =
-            ObjectPatchPayload::for_target("ck:strand:0196419b-0000-7000-8000-000000000004", patch)
+            ObjectPatchPayload::for_target("ak:strand:0196419b-0000-7000-8000-000000000004", patch)
                 .unwrap_err();
         assert!(
             err.to_string()
@@ -679,7 +679,7 @@ mod tests {
             .unwrap();
 
         let err = ObjectPatchPayload::for_target(
-            "ck:message:0196419b-0000-7000-8000-000000000005",
+            "ak:message:0196419b-0000-7000-8000-000000000005",
             patch,
         )
         .unwrap_err();
@@ -694,7 +694,7 @@ mod tests {
         let mut patch = Patch::new();
         patch.insert_op("metadata.title", PatchOp::unset()).unwrap();
 
-        ObjectPatchPayload::for_target("ck:strand:0196419b-0000-7000-8000-000000000006", patch)
+        ObjectPatchPayload::for_target("ak:strand:0196419b-0000-7000-8000-000000000006", patch)
             .unwrap();
     }
 }

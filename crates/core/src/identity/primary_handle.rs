@@ -1,4 +1,4 @@
-//! R3.2 (cokret-spec @ b56cab1) — §3.2.1 primary handle selection,
+//! R3.2 (arkret-spec @ b56cab1) — §3.2.1 primary handle selection,
 //! `claim_digest(c)`, and §3.8.2 mention rendering.
 //!
 //! These helpers are shared across inkson / sodmin / soland / cotest so
@@ -8,11 +8,11 @@
 //! injected via [`DidDocumentSnapshotResolver`] so the algorithm stays a
 //! pure function of its inputs.
 //!
-//! This module is wasm-safe: it depends only on `cokret-core` primitives
+//! This module is wasm-safe: it depends only on `arkret-core` primitives
 //! (`canonical`, `models::{Handle, HandleClaim, HandleBindingState}`,
 //! `Did`/`Error`/`Result`) and pulls in no client / keystore / salvo / MLS
-//! native-only dependency. The umbrella `cokret` crate re-exports these
-//! symbols from `cokret::identity` so existing SDK callers are unaffected,
+//! native-only dependency. The umbrella `arkret` crate re-exports these
+//! symbols from `arkret::identity` so existing SDK callers are unaffected,
 //! and wasm-only consumers (e.g. sodmin) depend on this authoritative
 //! implementation directly instead of mirroring the algorithm by hand.
 
@@ -414,7 +414,7 @@ mod tests {
             "did:webvh:z6mkfixture:acme.example",
             earlier,
             expires,
-            Some("ck:realm:r1"),
+            Some("ak:realm:r1"),
         );
         let newer = verified_claim(
             "alice:other.example",
@@ -426,7 +426,7 @@ mod tests {
         let snapshot = vec![newer, matching];
         let input = PrimaryHandleSelectInput {
             subject_id: s.as_str(),
-            context: Some("ck:realm:r1"),
+            context: Some("ak:realm:r1"),
             claim_set_snapshot: &snapshot,
             accepted_issuers: &acc,
             holder_primary_handle_at_as_of: None,

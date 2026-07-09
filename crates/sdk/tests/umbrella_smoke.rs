@@ -1,4 +1,4 @@
-use cokret::*;
+use arkret::*;
 use serde_json::json;
 
 fn did(name: &str) -> Did {
@@ -7,7 +7,7 @@ fn did(name: &str) -> Did {
 
 #[test]
 fn umbrella_crate_builds_client_signs_event_and_verifies_binding() {
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
     let mut event = Event::new(
         OP_MESSAGE_CREATE,
         realm_id.clone(),
@@ -15,8 +15,8 @@ fn umbrella_crate_builds_client_signs_event_and_verifies_binding() {
         1,
         Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         json!({
-            "message_id": "ck:message:01904100-0000-7000-8000-000000000001",
-            "strand_id": "ck:strand:01904100-0000-7000-8000-000000000001",
+            "message_id": "ak:message:01904100-0000-7000-8000-000000000001",
+            "strand_id": "ak:strand:01904100-0000-7000-8000-000000000001",
             "track_name": "discussion",
             "content": {"kind": "ck.content.text", "body": "hello"}
         }),
@@ -42,6 +42,6 @@ fn umbrella_crate_builds_client_signs_event_and_verifies_binding() {
         realm
             .realm_state
             .messages
-            .contains_key("ck:message:01904100-0000-7000-8000-000000000001")
+            .contains_key("ak:message:01904100-0000-7000-8000-000000000001")
     );
 }

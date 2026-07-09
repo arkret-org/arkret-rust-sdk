@@ -11,9 +11,9 @@ pub struct BlobUploadParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Blob-Metadata"
+        rename = "X-Arkret-Blob-Metadata"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Blob-Metadata", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Blob-Metadata", parameter(parameter_in = Header)))]
     pub x_cokret_blob_metadata: Option<String>,
     #[serde(
         default,
@@ -36,9 +36,9 @@ pub struct BlobUploadParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -61,9 +61,9 @@ pub struct BlobHeadParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -89,9 +89,9 @@ pub struct BlobGetParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -112,9 +112,9 @@ pub struct PushRegisterDeviceParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -134,9 +134,9 @@ pub struct PushUnregisterDeviceParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -157,9 +157,9 @@ pub struct PushNotifyParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -183,9 +183,9 @@ pub struct DeviceMessagesPutParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -212,9 +212,9 @@ pub struct DeviceMessagesGetParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -235,9 +235,9 @@ pub struct KeysUploadParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -257,9 +257,9 @@ pub struct KeysQueryParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -279,9 +279,9 @@ pub struct KeysClaimParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -307,9 +307,9 @@ pub struct KeysBackupsPutParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -339,9 +339,9 @@ pub struct KeysBackupsListParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -364,9 +364,9 @@ pub struct KeysBackupsGetParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -392,9 +392,9 @@ pub struct KeysBackupsDeleteParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -414,9 +414,9 @@ pub struct KeyPackagesUploadParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -436,9 +436,9 @@ pub struct KeyPackagesClaimParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -458,9 +458,9 @@ pub struct KeyPackagesConsumeParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -480,9 +480,9 @@ pub struct KeyPackagesRevokeParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(

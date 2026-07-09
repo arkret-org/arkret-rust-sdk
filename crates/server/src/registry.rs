@@ -36,7 +36,7 @@ pub(crate) struct ServiceRoute {
 }
 
 // HTTP/JSON bindings generated from the canonical spec operation registry
-// (`cokret-spec/spec/v1/artifacts/registry/operation-registry.json`),
+// (`arkret-spec/spec/v1/artifacts/registry/operation-registry.json`),
 // kept in the registry's own file order.
 const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!(
@@ -992,7 +992,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             name: "account_subscribe_stale_cursor_rejected".to_owned(),
             method: "GET".to_owned(),
             path: "/_cokret/self/account/subscribe".to_owned(),
-            query: BTreeMap::from([("after".to_owned(), "ck:cursor:expired".to_owned())]),
+            query: BTreeMap::from([("after".to_owned(), "ak:cursor:expired".to_owned())]),
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: Value::Null,
             expected_status: 410,
@@ -1015,9 +1015,9 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             query: BTreeMap::from([
                 (
                     "realms".to_owned(),
-                    "ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+                    "ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
                 ),
-                ("after".to_owned(), "ck:cursor:expired".to_owned()),
+                ("after".to_owned(), "ak:cursor:expired".to_owned()),
             ]),
             headers: BTreeMap::new(),
             body: Value::Null,

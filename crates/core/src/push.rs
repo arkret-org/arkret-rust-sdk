@@ -1,4 +1,4 @@
-//! Cokret push surface models and helpers.
+//! Arkret push surface models and helpers.
 
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -109,9 +109,9 @@ pub fn format_push_payload(
     let wakeup_kind = wakeup_kind_for_event_kind(&notification.event_kind);
     let body = blind_push_body_for_wakeup_kind(wakeup_kind).to_owned();
     let title = match pusher.platform {
-        PushPlatform::Apns => "Cokret",
-        PushPlatform::Fcm => "Cokret update",
-        PushPlatform::WebPush => "Cokret notification",
+        PushPlatform::Apns => "Arkret",
+        PushPlatform::Fcm => "Arkret update",
+        PushPlatform::WebPush => "Arkret notification",
     }
     .to_owned();
     PushPayload {
@@ -226,13 +226,13 @@ impl PushRuleSet {
 /// B.5 #6 — spec revision chime was compiled against. Used by
 /// [`PushBridgeDescribeOutcome::warn_on_spec_version_mismatch`] to flag
 /// gateway responses pinned to a different revision.
-pub const EXPECTED_SPEC_VERSION: &str = "cokret-spec@2026-05-26";
+pub const EXPECTED_SPEC_VERSION: &str = "arkret-spec@2026-05-26";
 
 /// Response body for `GET /_floria/push/bridge/describe`.
 ///
 /// This is a product-local push-gateway contract shared by the gateway
 /// implementation and clients that probe it before registration / notify
-/// strands. It intentionally lives in `cokret-core` rather than individual
+/// strands. It intentionally lives in `arkret-core` rather than individual
 /// services so bridge producers and consumers cannot drift silently.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -531,7 +531,7 @@ mod tests {
     #[test]
     fn pusher_builds_from_register_request() {
         let request = PushRegisterDeviceRequestBody {
-            device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
+            device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
             push_gateway: "https://push.example".to_owned(),
             push_key: "token".to_owned(),
             platform: Some("fcm".to_owned()),
@@ -547,7 +547,7 @@ mod tests {
     fn payload_uses_blind_wakeup_shape() {
         let pusher = Pusher {
             user_id: did("alice"),
-            device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
+            device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
             platform: PushPlatform::Apns,
             push_gateway: "https://push.example".to_owned(),
             push_key: "token".to_owned(),
@@ -564,7 +564,7 @@ mod tests {
             &pusher,
             &rule,
             &PushEventNotification {
-                event_id: EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
+                event_id: EventId::new("ak:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
                 user_id: did("alice"),
                 realm_id: None,
                 event_kind: "ck.message.create".to_owned(),
@@ -580,9 +580,9 @@ mod tests {
     #[test]
     fn rejected_response_serializes_wire_rejections() {
         let rejected = rejected_response([PushNotifyRejection {
-            push_target_id: "ck:pseudonym:push:01js0pt0000000000000000000".to_owned(),
+            push_target_id: "ak:pseudonym:push:01js0pt0000000000000000000".to_owned(),
             device_id: Some(
-                DeviceId::new("ck:device:01904100-0000-7000-8000-000000000003").unwrap(),
+                DeviceId::new("ak:device:01904100-0000-7000-8000-000000000003").unwrap(),
             ),
             reason_code: "invalid_token".to_owned(),
             retry_after_ms: None,
@@ -591,7 +591,7 @@ mod tests {
         assert_eq!(rejected.rejected.len(), 1);
         assert_eq!(
             rejected.rejected[0]["push_target_id"],
-            "ck:pseudonym:push:01js0pt0000000000000000000"
+            "ak:pseudonym:push:01js0pt0000000000000000000"
         );
         assert_eq!(rejected.rejected[0]["reason_code"], "invalid_token");
         assert!(rejected.rejected[0].get("event_id").is_none());
@@ -619,10 +619,10 @@ mod tests {
         let descriptor = PushBridgeDescribeNotifyDescriptor {
             notify_path: "/_cokret/edge/push/notify".to_owned(),
             operation_id: "ck.edge.push.command.notify".to_owned(),
-            request_id_header: "X-Cokret-Request-Id".to_owned(),
-            idempotency_key_header: "X-Cokret-Idempotency-Key".to_owned(),
-            origin_service_did_header: "X-Cokret-Origin-Service-Did".to_owned(),
-            destination_service_did_header: "X-Cokret-Destination-Service-Did".to_owned(),
+            request_id_header: "X-Arkret-Request-Id".to_owned(),
+            idempotency_key_header: "X-Arkret-Idempotency-Key".to_owned(),
+            origin_service_did_header: "X-Arkret-Origin-Service-Did".to_owned(),
+            destination_service_did_header: "X-Arkret-Destination-Service-Did".to_owned(),
             max_request_size_bytes: 16 * 1024,
             dedup_backend: Some("redis".to_owned()),
             dedup_ttl_seconds: Some(300),
@@ -687,10 +687,10 @@ mod tests {
             "notify": {
                 "notify_path": "/_cokret/edge/push/notify",
                 "operation_id": "ck.edge.push.command.notify",
-                "request_id_header": "X-Cokret-Request-Id",
-                "idempotency_key_header": "X-Cokret-Idempotency-Key",
-                "origin_service_did_header": "X-Cokret-Origin-Service-Did",
-                "destination_service_did_header": "X-Cokret-Destination-Service-Did",
+                "request_id_header": "X-Arkret-Request-Id",
+                "idempotency_key_header": "X-Arkret-Idempotency-Key",
+                "origin_service_did_header": "X-Arkret-Origin-Service-Did",
+                "destination_service_did_header": "X-Arkret-Destination-Service-Did",
                 "max_request_size_bytes": 16384,
             },
             "privacy": {

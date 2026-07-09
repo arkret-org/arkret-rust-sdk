@@ -33,10 +33,10 @@ pub const APPLET_TRANSACTION_OPERATION_ID: &str = "ck.edge.applet.command.transa
 /// (`applet-integration.md` §7.3.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IdempotencyDirection {
-    /// Cokret node pushing a transaction to an Applet service.
+    /// Arkret node pushing a transaction to an Applet service.
     NodeToApplet,
     /// Installed Applet service / bridge pushing an external-network
-    /// transaction to the cokret edge inbound endpoint.
+    /// transaction to the arkret edge inbound endpoint.
     AppletToCokretInbound,
 }
 

@@ -314,7 +314,7 @@ impl KeyVerificationStrand {
 
     /// HKDF-derived MAC key for `sender_device`, bound to the full SAS
     /// transcript: `HKDF-Expand(HMAC(0, shared_secret),
-    /// "cokret-sas-mac-v1|<transcript>|<sender_device>", 32)`.
+    /// "arkret-sas-mac-v1|<transcript>|<sender_device>", 32)`.
     fn mac_key_for(&self, sender_device: &DeviceId) -> Result<Zeroizing<[u8; 32]>> {
         let ephemeral = self
             .ephemeral
@@ -329,7 +329,7 @@ impl KeyVerificationStrand {
         let shared = ephemeral.compute_shared_secret(peer_public)?;
         let prk = Zeroizing::new(hmac_sha256(&[0u8; 32], &shared[..]));
         let transcript = self.sas_transcript()?;
-        let info = format!("cokret-sas-mac-v1|{transcript}|{}", sender_device.as_str());
+        let info = format!("arkret-sas-mac-v1|{transcript}|{}", sender_device.as_str());
         let mut mac_key = Zeroizing::new([0u8; 32]);
         hkdf_expand_sha256(&prk, info.as_bytes(), &mut mac_key[..]);
         Ok(mac_key)
@@ -534,7 +534,7 @@ impl KeyVerificationStrand {
                 .map(|(_, d)| d.clone())
                 .or_else(|| self.responder.as_ref().map(|(_, d)| d.clone()))
                 .unwrap_or_else(|| {
-                    DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000d").unwrap()
+                    DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000d").unwrap()
                 }),
             code: code.to_owned(),
             reason: reason.to_owned(),

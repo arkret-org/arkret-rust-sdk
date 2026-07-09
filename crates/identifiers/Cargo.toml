@@ -1,14 +1,14 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["data-structures", "encoding"]
-description = "Validated Cokret v1 identifiers, DID helpers, hashes, cursors and HLC values."
+description = "Validated Arkret v1 identifiers, DID helpers, hashes, cursors and HLC values."
 edition = "2024"
-homepage = "https://github.com/cokret/cokret-rust-sdk"
-keywords = ["cokret", "identifiers", "did", "protocol"]
+homepage = "https://github.com/arkret/arkret-rust-sdk"
+keywords = ["arkret", "identifiers", "did", "protocol"]
 license = "Apache-2.0"
-name = "cokret-identifiers"
+name = "arkret-identifiers"
 readme = "README.md"
-repository = "https://github.com/cokret/cokret-rust-sdk"
+repository = "https://github.com/arkret/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 

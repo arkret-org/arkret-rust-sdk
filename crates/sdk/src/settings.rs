@@ -198,7 +198,7 @@ mod tests {
     #[test]
     fn settings_manage_theme_language_notifications_and_privacy() {
         let alice = did("alice");
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut manager = SettingsManager::new();
 
         manager.set_theme(alice.clone(), ThemeSetting::Dark);

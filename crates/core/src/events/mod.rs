@@ -1,6 +1,6 @@
-//! Cokret-native event taxonomy, reaction helpers, and redaction helpers.
+//! Arkret-native event taxonomy, reaction helpers, and redaction helpers.
 //!
-//! Rich text parsing/sanitizing lives in the `cokret-html` crate, which is
+//! Rich text parsing/sanitizing lives in the `arkret-html` crate, which is
 //! the single authoritative implementation.
 
 pub mod kinds;

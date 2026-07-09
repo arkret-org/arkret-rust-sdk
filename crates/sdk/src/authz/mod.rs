@@ -1,4 +1,4 @@
-//! Authorization engine for Cokret v1 capability-based authorization.
+//! Authorization engine for Arkret v1 capability-based authorization.
 //!
 //! This module implements:
 //! - Resource selector matching

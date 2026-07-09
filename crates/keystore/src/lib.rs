@@ -1,9 +1,9 @@
-//! Platform-native [`KeyStore`] backends for the Cokret v1 SDK.
+//! Platform-native [`KeyStore`] backends for the Arkret v1 SDK.
 //!
 //! The pure storage contract — the [`KeyStore`] trait, [`KeyStoreError`] and
-//! the dependency-free [`InMemoryKeyStore`] — lives in `cokret-core`. This
+//! the dependency-free [`InMemoryKeyStore`] — lives in `arkret-core`. This
 //! crate adds the OS-native backends that carry platform IO and native OS
-//! dependencies, kept out of `cokret-core` so the core wire/model crate
+//! dependencies, kept out of `arkret-core` so the core wire/model crate
 //! stays light and free of platform crates.
 //!
 //! ## Backends
@@ -39,8 +39,8 @@
 //!
 //! ## Service-name namespacing
 //!
-//! Backends namespace credentials under `"cokret.<application_id>"` so
-//! multiple Cokret-using apps on the same host (inkson, sodmin, soland
+//! Backends namespace credentials under `"arkret.<application_id>"` so
+//! multiple Arkret-using apps on the same host (inkson, sodmin, soland
 //! notary, …) don't trample each other's keychain items. The
 //! `application_id` is supplied at construction time and SHOULD be a stable
 //! reverse-DNS-like identifier for the host application
@@ -50,11 +50,11 @@
 //!
 //! Keys are addressed by an opaque `id: &str`; the SDK does not interpret
 //! the id beyond passing it through to the backend. Conventional ids look
-//! like `"cokret:signer:<did>:<kid>"` so independent backends can share a
+//! like `"arkret:signer:<did>:<kid>"` so independent backends can share a
 //! namespace without collisions.
 
-// The pure storage contract is re-exported from `cokret-core` so consumers
-// of `cokret-keystore` get the trait + in-memory backend + error type from a
+// The pure storage contract is re-exported from `arkret-core` so consumers
+// of `arkret-keystore` get the trait + in-memory backend + error type from a
 // single import surface alongside the platform backends below.
 pub use cokret_core::keystore::{InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError};
 
@@ -194,14 +194,14 @@ mod tests {
         // InMemoryKeyStore. On targets WITH a native backend, the native
         // backend is constructed; either way we can round-trip a key. The
         // resolved kind is surfaced so callers can reject the downgrade.
-        let (store, kind) = platform_default_keystore_with_kind("cokret.test.platform_default");
+        let (store, kind) = platform_default_keystore_with_kind("arkret.test.platform_default");
         if cfg!(all(target_os = "windows", feature = "keystore-windows")) {
             assert_eq!(kind, BackendKind::WindowsCredential);
         }
         // We can't reuse a fixed id across runs because some backends
         // persist; use a per-process unique id instead.
         let id = format!(
-            "cokret:test:platform-default:{}",
+            "arkret:test:platform-default:{}",
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()

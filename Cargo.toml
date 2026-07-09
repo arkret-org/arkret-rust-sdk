@@ -19,15 +19,15 @@ chrono-tz = {version = "0.10.4",default-features = false}
 # Dev-only microbenchmark harness (SDK-SOTA-03). Excluded from cargo-deny via
 # `.deny.toml`; benches compile under `--all-targets` but are never run in CI.
 criterion = {version = "0.7",default-features = false,features = ["cargo_bench_support"]}
-cokret-core = {version = "0.3.0",path = "crates/core",default-features = false}
-cokret-crypto = {version = "0.3.0",path = "crates/crypto",default-features = false}
-cokret-ffi = {version = "0.3.0",path = "crates/ffi",default-features = false}
-cokret-html = {version = "0.3.0",path = "crates/html",default-features = false}
-cokret-http-client = {version = "0.3.0",path = "crates/http-client",default-features = false}
-cokret-identifiers = {version = "0.3.0",path = "crates/identifiers",default-features = false}
-cokret-keystore = {version = "0.3.0",path = "crates/keystore",default-features = false}
-cokret-server = {version = "0.3.0",path = "crates/server",default-features = false}
-cokret-signatures = {version = "0.3.0",path = "crates/signatures",default-features = false}
+arkret-core = {version = "0.3.0",path = "crates/core",default-features = false}
+arkret-crypto = {version = "0.3.0",path = "crates/crypto",default-features = false}
+arkret-ffi = {version = "0.3.0",path = "crates/ffi",default-features = false}
+arkret-html = {version = "0.3.0",path = "crates/html",default-features = false}
+arkret-http-client = {version = "0.3.0",path = "crates/http-client",default-features = false}
+arkret-identifiers = {version = "0.3.0",path = "crates/identifiers",default-features = false}
+arkret-keystore = {version = "0.3.0",path = "crates/keystore",default-features = false}
+arkret-server = {version = "0.3.0",path = "crates/server",default-features = false}
+arkret-signatures = {version = "0.3.0",path = "crates/signatures",default-features = false}
 diesel = {version = "2.3",default-features = false}
 ed25519-dalek = {version = "2.2.0",default-features = false,features = ["std", "rand_core"]}
 futures-util = {version = "0.3",default-features = false}

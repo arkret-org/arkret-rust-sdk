@@ -1,6 +1,6 @@
 //! State resolution and event reduction.
 //!
-//! This module implements the Cokret v1 state resolution algorithm:
+//! This module implements the Arkret v1 state resolution algorithm:
 //! - Event reduction to compute current state
 //! - Conflict resolution using HLC ordering
 //! - Tombstone handling

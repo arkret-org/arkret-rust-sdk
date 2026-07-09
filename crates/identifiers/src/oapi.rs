@@ -1,4 +1,4 @@
-//! Salvo OpenAPI schema impls for Cokret identifier types.
+//! Salvo OpenAPI schema impls for Arkret identifier types.
 //!
 //! Each identifier is a `String` newtype that validates a specific prefix or
 //! hex-encoded shape. We hand-implement [`ToSchema`] so the generated

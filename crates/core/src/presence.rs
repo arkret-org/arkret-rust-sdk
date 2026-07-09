@@ -1,4 +1,4 @@
-//! Shared presence validation and aggregation for Cokret v1
+//! Shared presence validation and aggregation for Arkret v1
 //! (`discovery/profiles-presence.md`).
 //!
 //! This module is the single home for the receiver- and sender-side

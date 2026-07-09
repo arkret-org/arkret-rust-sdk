@@ -28,7 +28,7 @@ where
 }
 
 // The IndexedDB / WebCrypto / WASM runtime contract types are owned by
-// `cokret-ffi`; the SDK surfaces them without redefining the shapes so the
+// `arkret-ffi`; the SDK surfaces them without redefining the shapes so the
 // serde contract (for example `quota_bytes` omission when `None`) has a
 // single source of truth.
 pub use cokret_ffi::{

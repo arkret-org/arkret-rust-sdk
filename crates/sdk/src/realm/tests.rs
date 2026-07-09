@@ -6,7 +6,7 @@ fn sessioned_base() -> Arc<BaseClient> {
     let base_client = Arc::new(BaseClient::new());
     let meta = SessionMeta::new(
         Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
-        DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
+        DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap(),
     );
     base_client.set_session_meta(meta).unwrap();
     base_client
@@ -14,7 +14,7 @@ fn sessioned_base() -> Arc<BaseClient> {
 
 fn event(kind: &str, seq: u64, realm_id: &RealmId, content: Value) -> Event {
     Event {
-        event_id: EventId::new(format!("ck:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
+        event_id: EventId::new(format!("ak:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.into(),
         realm_id: realm_id.clone(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
@@ -47,7 +47,7 @@ fn morph_create_payload(morph_id: &MorphId, morph_type: &str, title: &str) -> Va
         "object": {
             "id": morph_id.as_str(),
             "schema": crate::MORPH_SCHEMA,
-            "realm_id": "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "realm_id": "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
             "schema_refs": [crate::MORPH_SCHEMA],
             "morph_type": morph_type,
             "metadata": {"title": title},
@@ -61,7 +61,7 @@ fn morph_create_payload(morph_id: &MorphId, morph_type: &str, title: &str) -> Va
 #[test]
 fn realm_checks_membership() {
     let base_client = Arc::new(BaseClient::new());
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
 
     base_client
         .update_realm_membership_state(&realm_id, RealmMembershipState::Joined)
@@ -76,7 +76,7 @@ fn realm_checks_membership() {
 #[test]
 fn realm_creates_morph_operation() {
     let base_client = sessioned_base();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let realm = Realm::new(realm_id.clone(), base_client);
 
     let op = realm
@@ -98,20 +98,20 @@ fn realm_creates_morph_operation() {
         op.payload["object"]["id"]
             .as_str()
             .unwrap()
-            .starts_with("ck:morph:")
+            .starts_with("ak:morph:")
     );
 }
 
 #[test]
 fn realm_creates_relation_operation() {
     let base_client = sessioned_base();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let realm = Realm::new(realm_id.clone(), base_client);
 
     let input = RelationOperationInput::new(
         RelationKind::DependsOn,
-        "ck:morph:01904100-0000-7000-8000-d48c478ecd0b",
-        "ck:morph:01904100-0000-7000-8000-e75dc3f6ab2e",
+        "ak:morph:01904100-0000-7000-8000-d48c478ecd0b",
+        "ak:morph:01904100-0000-7000-8000-e75dc3f6ab2e",
     );
     let op = realm.create_relation_operation(input).unwrap();
 
@@ -120,18 +120,18 @@ fn realm_creates_relation_operation() {
     assert_eq!(op.payload["kind"], "depends_on");
     assert_eq!(
         op.payload["from_ref"],
-        "ck:morph:01904100-0000-7000-8000-d48c478ecd0b"
+        "ak:morph:01904100-0000-7000-8000-d48c478ecd0b"
     );
     assert_eq!(
         op.payload["to_ref"],
-        "ck:morph:01904100-0000-7000-8000-e75dc3f6ab2e"
+        "ak:morph:01904100-0000-7000-8000-e75dc3f6ab2e"
     );
 }
 
 #[test]
 fn realm_creates_strand_operations_and_reads_default_view_relations() {
     let base_client = sessioned_base();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let realm = Realm::new(realm_id.clone(), base_client.clone());
 
     let create = realm
@@ -173,7 +173,7 @@ fn realm_creates_strand_operations_and_reads_default_view_relations() {
                     json!({
                         "kind": "has_default_view",
                         "from_ref": strand_id.as_str(),
-                        "to_ref": "ck:view:01904100-0000-7000-8000-08ca7b733afd"
+                        "to_ref": "ak:view:01904100-0000-7000-8000-08ca7b733afd"
                     }),
                 ),
             ],
@@ -188,11 +188,11 @@ fn realm_creates_strand_operations_and_reads_default_view_relations() {
 #[test]
 fn realm_strand_move_operation_uses_target_space_id() {
     let base_client = sessioned_base();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let realm = Realm::new(realm_id.clone(), base_client);
-    let strand_id = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000010").unwrap();
-    let board_space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000020").unwrap();
-    let target_space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000030").unwrap();
+    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000010").unwrap();
+    let board_space_id = SpaceId::new("ak:space:01904100-0000-7000-8000-000000000020").unwrap();
+    let target_space_id = SpaceId::new("ak:space:01904100-0000-7000-8000-000000000030").unwrap();
 
     let op = realm
         .move_strand_operation(strand_id, board_space_id, target_space_id, "a0", None)
@@ -203,7 +203,7 @@ fn realm_strand_move_operation_uses_target_space_id() {
     assert_eq!(op.object_type, crate::OP_STRAND_MOVE);
     assert_eq!(
         op.payload["target_space_id"],
-        "ck:space:01904100-0000-7000-8000-000000000030"
+        "ak:space:01904100-0000-7000-8000-000000000030"
     );
     assert!(op.payload.get("target_realm_id").is_none());
 }
@@ -211,9 +211,9 @@ fn realm_strand_move_operation_uses_target_space_id() {
 #[test]
 fn realm_queries_searches_and_aggregates_morphs() {
     let base_client = sessioned_base();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let task_id = MorphId::new("ck:morph:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
-    let doc_id = MorphId::new("ck:morph:01904100-0000-7000-8000-e75dc3f6ab2e").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let task_id = MorphId::new("ak:morph:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
+    let doc_id = MorphId::new("ak:morph:01904100-0000-7000-8000-e75dc3f6ab2e").unwrap();
     base_client
         .process_events(
             &realm_id,
@@ -290,10 +290,10 @@ fn realm_queries_searches_and_aggregates_morphs() {
 #[test]
 fn realm_traverses_relation_ref_graph_paths_and_cycles() {
     let base_client = sessioned_base();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let a = "ck:morph:01904100-0000-7000-8000-093d58d9d0c4";
-    let b = "ck:morph:01904100-0000-7000-8000-af13d24f756d";
-    let c = "ck:morph:01904100-0000-7000-8000-28bb259aec1d";
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let a = "ak:morph:01904100-0000-7000-8000-093d58d9d0c4";
+    let b = "ak:morph:01904100-0000-7000-8000-af13d24f756d";
+    let c = "ak:morph:01904100-0000-7000-8000-28bb259aec1d";
     base_client
         .process_events(
             &realm_id,
@@ -360,8 +360,8 @@ fn realm_traverses_relation_ref_graph_paths_and_cycles() {
 #[test]
 fn realm_tracks_morph_versions_compares_and_rolls_back() {
     let base_client = sessioned_base();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let morph_id = MorphId::new("ck:morph:01904100-0000-7000-8000-69c57da8d707").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let morph_id = MorphId::new("ak:morph:01904100-0000-7000-8000-69c57da8d707").unwrap();
     base_client
         .process_events(
             &realm_id,
@@ -417,7 +417,7 @@ fn realm_tracks_morph_versions_compares_and_rolls_back() {
 #[test]
 fn realm_creates_batch_morph_operations() {
     let base_client = sessioned_base();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let realm = Realm::new(realm_id, base_client);
 
     let creates = realm
@@ -442,7 +442,7 @@ fn realm_creates_batch_morph_operations() {
 
     let updates = realm
         .batch_update_morph_operations(vec![BatchUpdateMorph {
-            morph_id: MorphId::new("ck:morph:01904100-0000-7000-8000-604e58949e32").unwrap(),
+            morph_id: MorphId::new("ak:morph:01904100-0000-7000-8000-604e58949e32").unwrap(),
             title: Some("Updated".to_owned()),
             summary: None,
             content: None,
@@ -453,7 +453,7 @@ fn realm_creates_batch_morph_operations() {
 
     let archives = realm
         .batch_archive_morph_operations(vec![
-            MorphId::new("ck:morph:01904100-0000-7000-8000-604e58949e32").unwrap(),
+            MorphId::new("ak:morph:01904100-0000-7000-8000-604e58949e32").unwrap(),
         ])
         .unwrap();
     assert_eq!(archives.len(), 1);
@@ -462,7 +462,7 @@ fn realm_creates_batch_morph_operations() {
 #[test]
 fn realm_provides_message_membership_and_media_convenience_helpers() {
     let base_client = sessioned_base();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let realm = Realm::new(realm_id.clone(), base_client.clone());
     let bob = Did::new("did:webvh:z6mkfixture:bob.example.com").unwrap();
 
@@ -527,7 +527,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
     };
 
     let base_client = sessioned_base();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000300").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000300").unwrap();
     let realm = Realm::new(realm_id.clone(), base_client);
 
     let subject = Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap();
@@ -545,15 +545,15 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
             binding_source: HandleHintBindingSource::OrganizationPolicy,
             delivery_modes: modes,
             service_acceptance_ref: Some(
-                "ck:event:01890000-0000-7000-8000-0000000000a1".to_owned(),
+                "ak:event:01890000-0000-7000-8000-0000000000a1".to_owned(),
             ),
-            policy_event_ref: Some("ck:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
+            policy_event_ref: Some("ak:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
         },
         issuer_service_did: principal,
         audience: realm_id.as_str().to_owned(),
         expires_at: Utc::now() + chrono::Duration::hours(1),
         issued_at: Some(Utc::now()),
-        source_refs: vec!["ck:event:01890000-0000-7000-8000-0000000000a3".to_owned()],
+        source_refs: vec!["ak:event:01890000-0000-7000-8000-0000000000a3".to_owned()],
         proofs: vec![serde_json::json!({
             "kind": "detached_jws",
             "alg": "EdDSA",
@@ -586,7 +586,7 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
     };
 
     let base_client = sessioned_base();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000301").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000301").unwrap();
     let realm = Realm::new(realm_id, base_client);
 
     let principal = Did::new("did:webvh:z6mkfixture:principal.acme.example".to_owned()).unwrap();
@@ -602,16 +602,16 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
             binding_source: HandleHintBindingSource::OrganizationPolicy,
             delivery_modes: modes,
             service_acceptance_ref: Some(
-                "ck:event:01890000-0000-7000-8000-0000000000a1".to_owned(),
+                "ak:event:01890000-0000-7000-8000-0000000000a1".to_owned(),
             ),
-            policy_event_ref: Some("ck:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
+            policy_event_ref: Some("ak:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
         },
         issuer_service_did: principal,
         // Wrong audience — Realm id does not match.
-        audience: "ck:realm:DEADBEEF-0000-7000-8000-00000000ffff".to_owned(),
+        audience: "ak:realm:DEADBEEF-0000-7000-8000-00000000ffff".to_owned(),
         expires_at: Utc::now() + chrono::Duration::hours(1),
         issued_at: Some(Utc::now()),
-        source_refs: vec!["ck:event:01890000-0000-7000-8000-0000000000a3".to_owned()],
+        source_refs: vec!["ak:event:01890000-0000-7000-8000-0000000000a3".to_owned()],
         proofs: vec![serde_json::json!({"kind":"detached_jws","jws":"a.b.c"})],
         claim_digest: None,
         intent: CandidateIntent::MemberAdd,

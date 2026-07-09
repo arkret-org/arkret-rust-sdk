@@ -8,5 +8,5 @@ mod proofs_signatures;
 
 // Shared helper used by multiple submodules.
 pub(crate) fn test_realm_id() -> RealmId {
-    RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
 }

@@ -8,7 +8,7 @@ fn local_spec_artifacts_dir() -> Option<PathBuf> {
     }
     let candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../..")
-        .join("cokret-spec")
+        .join("arkret-spec")
         .join("spec")
         .join("v1")
         .join("artifacts");
@@ -169,7 +169,7 @@ fn every_variant_has_http_status() {
 }
 
 /// Resolve the registry identifier union (`codes` ∪ `reason_codes`) from the
-/// live spec checkout when available (`COKRET_SPEC_ARTIFACTS` or the
+/// live spec checkout when available (`ARKRET_SPEC_ARTIFACTS` or the
 /// co-checkout path), falling back to the embedded snapshot. The live file
 /// wins so the gate tracks in-flight registry edits before the embedded
 /// artifacts are refreshed.

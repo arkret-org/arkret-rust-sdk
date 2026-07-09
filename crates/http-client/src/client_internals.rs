@@ -24,7 +24,7 @@ use crate::{
 };
 
 /// Wrap a reqwest transport error into the transport-agnostic
-/// `cokret_core::Error::Http` variant at the crate boundary. cokret-core
+/// `cokret_core::Error::Http` variant at the crate boundary. arkret-core
 /// deliberately carries no reqwest dependency (ARCHITECTURE.md: core is the
 /// wire-model layer; the HTTP stack lives in this crate), so the conversion
 /// is explicit here instead of a `#[from]` impl on the core error type.
@@ -118,12 +118,12 @@ impl Client {
                 builder = builder.bearer_auth(token);
             }
             Some(Auth::DeviceProof(proof)) => {
-                builder = builder.header("X-Cokret-Device-Proof", proof);
+                builder = builder.header("X-Arkret-Device-Proof", proof);
             }
             Some(Auth::ServiceSignature(signature)) => {
                 builder = builder
                     .header("Signature", signature)
-                    .header("X-Cokret-Service-Signature", "1");
+                    .header("X-Arkret-Service-Signature", "1");
             }
             Some(Auth::Dpop(auth)) => {
                 let proof = auth.proof_for(method, url)?;
@@ -303,7 +303,7 @@ impl Client {
                 method = %trace.method,
                 path = %trace.path,
                 max_retries = self.retry.max_retries,
-                "sending Cokret HTTP request"
+                "sending Arkret HTTP request"
             );
         }
         if self.retry.max_retries == 0 {
@@ -314,7 +314,7 @@ impl Client {
                     method = %trace.method,
                     path = %trace.path,
                     status = response.status().as_u16(),
-                    "received Cokret HTTP response"
+                    "received Arkret HTTP response"
                 );
             }
             return Ok(response);
@@ -328,7 +328,7 @@ impl Client {
                     method = %trace.method,
                     path = %trace.path,
                     status = response.status().as_u16(),
-                    "received Cokret HTTP response"
+                    "received Arkret HTTP response"
                 );
             }
             return Ok(response);
@@ -377,7 +377,7 @@ impl Client {
                             status = response.status().as_u16(),
                             attempt = attempts,
                             max_retries = self.retry.max_retries,
-                            "retrying Cokret HTTP request after retryable status"
+                            "retrying Arkret HTTP request after retryable status"
                         );
                     }
                     sleep(
@@ -394,7 +394,7 @@ impl Client {
                             path = %trace.path,
                             status = response.status().as_u16(),
                             attempts = attempts + 1,
-                            "received Cokret HTTP response"
+                            "received Arkret HTTP response"
                         );
                     }
                     return Ok(response);
@@ -413,7 +413,7 @@ impl Client {
                                 method = %trace.method,
                                 path = %trace.path,
                                 error = %error,
-                                "Cokret HTTP request failed without retry"
+                                "Arkret HTTP request failed without retry"
                             );
                         }
                         return Err(transport_error(error));
@@ -426,7 +426,7 @@ impl Client {
                             error = %error,
                             attempt = attempts,
                             max_retries = self.retry.max_retries,
-                            "retrying Cokret HTTP request after transport error"
+                            "retrying Arkret HTTP request after transport error"
                         );
                     }
                     sleep(self.retry.retry_delay(attempts)).await;
@@ -439,7 +439,7 @@ impl Client {
                             path = %trace.path,
                             error = %error,
                             attempts = attempts + 1,
-                            "Cokret HTTP request failed"
+                            "Arkret HTTP request failed"
                         );
                     }
                     return Err(transport_error(error));
@@ -449,7 +449,7 @@ impl Client {
     }
 
     /// Wasm32 fast path. The browser fetch backend has neither a sleep
-    /// primitive we can call from the cokret-http-client crate (no
+    /// primitive we can call from the arkret-http-client crate (no
     /// `tokio::time` driver) nor an `is_connect` accessor on
     /// `reqwest::Error`, and status-based retry windows would require
     /// pulling in `gloo-timers` or similar. We deliberately collapse retry
@@ -476,7 +476,7 @@ impl Client {
             tracing::debug!(
                 method = %trace.method,
                 path = %trace.path,
-                "sending Cokret HTTP request"
+                "sending Arkret HTTP request"
             );
         }
         let response = self.send_request_builder(builder).await?;
@@ -486,7 +486,7 @@ impl Client {
                 method = %trace.method,
                 path = %trace.path,
                 status = response.status().as_u16(),
-                "received Cokret HTTP response"
+                "received Arkret HTTP response"
             );
         }
         Ok(response)
@@ -550,7 +550,7 @@ fn is_localhost(url: &Url) -> bool {
 fn reject_absolute_path(path: &str) -> Result<()> {
     if path.starts_with("//") || Url::parse(path).is_ok() {
         return Err(Error::Protocol(
-            "request path must be relative to the Cokret service".to_owned(),
+            "request path must be relative to the Arkret service".to_owned(),
         ));
     }
     Ok(())

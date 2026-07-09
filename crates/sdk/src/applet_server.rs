@@ -450,7 +450,7 @@ mod salvo_router {
         };
 
         // Pass every request header so any covered component (e.g.
-        // `x-cokret-origin-service-did`) participates in canonicalization.
+        // `x-arkret-origin-service-did`) participates in canonicalization.
         let headers: Vec<(String, String)> = req
             .headers()
             .iter()
@@ -592,14 +592,14 @@ mod tests {
         fn ping(&self) -> Result<AppletPingOutcome> {
             Ok(AppletPingOutcome {
                 ok: true,
-                applet_id: "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
+                applet_id: "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
                 service_did: crate::Did::new("did:webvh:QmSvc:svc.example").unwrap(),
                 protocol_version: "1.0".to_owned(),
             })
         }
         fn describe(&self) -> Result<AppletDescription> {
             Ok(AppletDescription {
-                applet_id: "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
+                applet_id: "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
                 service_did: crate::Did::new("did:webvh:QmSvc:svc.example").unwrap(),
                 protocols: vec!["ck.applet.v1".to_owned()],
                 namespaces: serde_json::Value::Null,

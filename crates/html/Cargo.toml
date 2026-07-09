@@ -1,13 +1,13 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-description = "Cokret v1 rich text, mention, and link normalization contracts."
+description = "Arkret v1 rich text, mention, and link normalization contracts."
 edition = "2024"
-homepage = "https://github.com/cokret/cokret-rust-sdk"
-keywords = ["cokret", "html", "rich-text", "mentions"]
+homepage = "https://github.com/arkret/arkret-rust-sdk"
+keywords = ["arkret", "html", "rich-text", "mentions"]
 license = "Apache-2.0"
-name = "cokret-html"
+name = "arkret-html"
 readme = "README.md"
-repository = "https://github.com/cokret/cokret-rust-sdk"
+repository = "https://github.com/arkret/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 
@@ -15,7 +15,7 @@ version.workspace = true
 default = []
 
 [dependencies]
-cokret-core = {workspace = true}
+arkret-core = {workspace = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 

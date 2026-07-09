@@ -1,12 +1,12 @@
-//! HTTP transport bindings for Cokret v1 service endpoints.
+//! HTTP transport bindings for Arkret v1 service endpoints.
 //!
 //! # TLS backend and PQ-hybrid requirement
 //!
 //! This crate is TLS-neutral by default: no TLS backend is compiled in, and
 //! the deploying service picks its own (`reqwest/rustls-tls` or the
-//! `tls-rustls` passthrough feature here / on the umbrella `cokret` crate).
+//! `tls-rustls` passthrough feature here / on the umbrella `arkret` crate).
 //!
-//! **PQ-hybrid TLS is a protocol MUST**: `cokret-spec`
+//! **PQ-hybrid TLS is a protocol MUST**: `arkret-spec`
 //! `transport-bindings` §5 (2026-06-13 ruling) requires post-quantum hybrid
 //! key exchange (X25519MLKEM768) for **all** profiles, fail-closed — a
 //! deployment MUST NOT fall back to classical-only key exchange. When using
@@ -54,15 +54,15 @@ pub use endpoints_data::{
 pub use endpoints_events::{EventsSubscribeFrameStream, EventsSubscribeOptions};
 pub use endpoints_misc::SignedAppletTransactionOptions;
 
-pub const HEADER_REQUEST_ID: &str = "X-Cokret-Request-Id";
-pub const HEADER_WAIT_FOR: &str = "X-Cokret-Wait-For";
+pub const HEADER_REQUEST_ID: &str = "X-Arkret-Request-Id";
+pub const HEADER_WAIT_FOR: &str = "X-Arkret-Wait-For";
 pub const HEADER_IDEMPOTENCY_KEY: &str = "Idempotency-Key";
 
 /// Default total request timeout applied per request when
 /// [`ClientBuilder::timeout`] is not called. reqwest itself defaults to
 /// *no* timeout, which would let a hung server (SYN black hole,
 /// never-ending body) suspend the caller forever; this crate is the
-/// shared transport for all Cokret services, so the default must be
+/// shared transport for all Arkret services, so the default must be
 /// bounded. The long-lived NDJSON subscribe streams
 /// (`account_subscribe`, `events_subscribe_stream`) are exempt — they
 /// stay open by design. Override with [`ClientBuilder::timeout`] (an
@@ -165,7 +165,7 @@ impl DpopAuth {
 ///
 /// The signer is applied immediately before a request is executed so retry
 /// attempts get fresh `created` / `expires` values. It is intentionally
-/// separate from [`Auth`]: Cokret account-client calls commonly present both a
+/// separate from [`Auth`]: Arkret account-client calls commonly present both a
 /// Bearer/DPoP session grant and an HTTP message signature bound to the grant's
 /// signing key.
 #[derive(Clone)]
@@ -435,7 +435,7 @@ mod tests {
 
     #[test]
     fn builds_relative_api_url() {
-        let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
+        let client = Client::new(Url::parse("https://alice.example/arkret/").unwrap()).unwrap();
         let request = client
             .request(Method::GET, "/_cokret/describe")
             .unwrap()
@@ -443,13 +443,13 @@ mod tests {
             .unwrap();
         assert_eq!(
             request.url().as_str(),
-            "https://alice.example/cokret/_cokret/describe"
+            "https://alice.example/arkret/_cokret/describe"
         );
     }
 
     #[test]
     fn rejects_remote_http_by_default() {
-        let error = Client::new(Url::parse("http://alice.example/cokret/").unwrap()).unwrap_err();
+        let error = Client::new(Url::parse("http://alice.example/arkret/").unwrap()).unwrap_err();
         assert!(matches!(error, Error::InsecureUrl(_)));
     }
 
@@ -466,7 +466,7 @@ mod tests {
 
     #[test]
     fn rejects_absolute_request_paths() {
-        let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
+        let client = Client::new(Url::parse("https://alice.example/arkret/").unwrap()).unwrap();
         let error = client
             .request(Method::GET, "https://evil.example/api")
             .unwrap_err();
@@ -475,7 +475,7 @@ mod tests {
 
     #[test]
     fn rejects_header_unsafe_auth_material() {
-        let error = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
+        let error = Client::builder(Url::parse("https://alice.example/arkret/").unwrap())
             .auth(Auth::Bearer("token\r\nX-Evil: true".to_owned()))
             .build()
             .unwrap_err();
@@ -484,12 +484,12 @@ mod tests {
 
     #[test]
     fn dpop_auth_adds_bearer_and_per_request_proof() {
-        let client = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
+        let client = Client::builder(Url::parse("https://alice.example/arkret/").unwrap())
             .auth(Auth::Dpop(DpopAuth::with_access_token(
                 "grant.jwt",
                 |req| {
                     assert_eq!(req.method, "POST");
-                    assert_eq!(req.htu, "https://alice.example/cokret/_cokret/self/events");
+                    assert_eq!(req.htu, "https://alice.example/arkret/_cokret/self/events");
                     assert_eq!(req.access_token.as_deref(), Some("grant.jwt"));
                     Ok("proof.jwt".to_owned())
                 },
@@ -508,7 +508,7 @@ mod tests {
 
     #[test]
     fn dpop_auth_supports_proof_only_kickoff() {
-        let client = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
+        let client = Client::builder(Url::parse("https://alice.example/arkret/").unwrap())
             .auth(Auth::Dpop(DpopAuth::proof_only(|req| {
                 assert_eq!(req.method, "POST");
                 assert_eq!(req.access_token, None);
@@ -534,14 +534,14 @@ mod tests {
 
     #[test]
     fn request_options_add_standard_headers() {
-        let client = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
-            .user_agent("cokret-sdk-test/1")
+        let client = Client::builder(Url::parse("https://alice.example/arkret/").unwrap())
+            .user_agent("arkret-sdk-test/1")
             .build()
             .unwrap();
         let options = ClientRequestOptions::new()
             .request_id("req-1")
             .idempotency_key("idem-1")
-            .wait_for("ck:cursor:01");
+            .wait_for("ak:cursor:01");
         let request = client
             .apply_request_options(
                 client.request(Method::PUT, "/_cokret/self/events").unwrap(),
@@ -551,15 +551,15 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(request.headers()[USER_AGENT], "cokret-sdk-test/1");
+        assert_eq!(request.headers()[USER_AGENT], "arkret-sdk-test/1");
         assert_eq!(request.headers()[HEADER_REQUEST_ID], "req-1");
         assert_eq!(request.headers()[HEADER_IDEMPOTENCY_KEY], "idem-1");
-        assert_eq!(request.headers()[HEADER_WAIT_FOR], "ck:cursor:01");
+        assert_eq!(request.headers()[HEADER_WAIT_FOR], "ak:cursor:01");
     }
 
     #[test]
     fn request_options_reject_header_injection() {
-        let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
+        let client = Client::new(Url::parse("https://alice.example/arkret/").unwrap()).unwrap();
         let options = ClientRequestOptions::new().request_id("req\r\nX-Evil: true");
 
         let error = client
@@ -574,11 +574,11 @@ mod tests {
     #[test]
     fn rejects_query_auth_on_base_path_and_built_request() {
         assert!(
-            Client::new(Url::parse("https://alice.example/cokret/?access_token=secret").unwrap())
+            Client::new(Url::parse("https://alice.example/arkret/?access_token=secret").unwrap())
                 .is_err()
         );
 
-        let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
+        let client = Client::new(Url::parse("https://alice.example/arkret/").unwrap()).unwrap();
         let builder = client
             .request(Method::GET, "/_cokret/self/events")
             .unwrap()
@@ -698,7 +698,7 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn transport_options_apply_without_panic() {
-        let client = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
+        let client = Client::builder(Url::parse("https://alice.example/arkret/").unwrap())
             .timeout(Duration::from_secs(30))
             .connect_timeout(Duration::from_secs(5))
             .pool_idle_timeout(Duration::from_secs(60))
@@ -714,25 +714,25 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(client.base_url().as_str(), "https://alice.example/cokret/");
+        assert_eq!(client.base_url().as_str(), "https://alice.example/arkret/");
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn proxy_can_be_added_via_builder() {
         let proxy = reqwest::Proxy::http("http://proxy.example:3128").unwrap();
-        let client = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
+        let client = Client::builder(Url::parse("https://alice.example/arkret/").unwrap())
             .proxy(proxy)
             .build()
             .unwrap();
-        assert_eq!(client.base_url().as_str(), "https://alice.example/cokret/");
+        assert_eq!(client.base_url().as_str(), "https://alice.example/arkret/");
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn transport_options_conflict_with_pre_built_http_client() {
         let http = reqwest::Client::new();
-        let error = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
+        let error = Client::builder(Url::parse("https://alice.example/arkret/").unwrap())
             .http_client(http)
             .timeout(Duration::from_secs(5))
             .build()
@@ -743,11 +743,11 @@ mod tests {
     #[test]
     fn pre_built_http_client_alone_is_accepted() {
         let http = reqwest::Client::new();
-        let client = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
+        let client = Client::builder(Url::parse("https://alice.example/arkret/").unwrap())
             .http_client(http)
             .build()
             .unwrap();
-        assert_eq!(client.base_url().as_str(), "https://alice.example/cokret/");
+        assert_eq!(client.base_url().as_str(), "https://alice.example/arkret/");
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -772,9 +772,9 @@ mod tests {
         /// stripped down so the serialised body is easy to assert against.
         fn fixture_event(content_body: &str) -> Event {
             Event {
-                event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
+                event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
                 kind: "ck.message.create".into(),
-                realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
                 actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
                 actor_seq: 1,
                 created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
@@ -895,7 +895,7 @@ mod tests {
 
         #[tokio::test]
         async fn events_submit_single_event_posts_envelope() {
-            let canned = r#"{"status":"accepted","accepted":["ck:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
             let event = fixture_event("hello");
@@ -927,7 +927,7 @@ mod tests {
 
         #[tokio::test]
         async fn blob_upload_bytes_posts_multipart_form() {
-            let canned = r#"{"blob_ref":"ck:blob:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size_bytes":5,"media_type":"text/plain","content_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","upload_receipt":null}"#;
+            let canned = r#"{"blob_ref":"ak:blob:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size_bytes":5,"media_type":"text/plain","content_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","upload_receipt":null}"#;
             let (client, capture) = spawn_capture_server(canned).await;
             let metadata = BlobUploadMetadata {
                 realm_id: None,
@@ -973,7 +973,7 @@ mod tests {
         async fn blob_download_bytes_gets_purpose_range_and_wait_for() {
             let (client, capture) = spawn_capture_server("hello").await;
             let blob_ref = BlobRef::new(
-                "ck:blob:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                "ak:blob:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                     .to_owned(),
             )
             .unwrap();
@@ -981,7 +981,7 @@ mod tests {
                 .purpose("message_attachment")
                 .range("bytes=1-3")
                 .max_bytes(16);
-            let request_options = ClientRequestOptions::new().wait_for("ck:cursor:test");
+            let request_options = ClientRequestOptions::new().wait_for("ak:cursor:test");
 
             let bytes = client
                 .blob_download_bytes_with_options(&blob_ref, &options, &request_options)
@@ -1006,7 +1006,7 @@ mod tests {
             );
             assert!(headers.lines().any(|line| {
                 line.to_ascii_lowercase()
-                    .starts_with("x-cokret-wait-for: ck:cursor:test")
+                    .starts_with("x-arkret-wait-for: ck:cursor:test")
             }));
         }
 
@@ -1014,7 +1014,7 @@ mod tests {
         async fn blob_download_bytes_enforces_configured_cap() {
             let (client, _capture) = spawn_capture_server("hello").await;
             let blob_ref = BlobRef::new(
-                "ck:blob:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                "ak:blob:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                     .to_owned(),
             )
             .unwrap();
@@ -1030,7 +1030,7 @@ mod tests {
 
         #[tokio::test]
         async fn http_message_signer_signs_self_requests_before_send() {
-            let canned = r#"{"status":"accepted","accepted":["ck:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
             let signer =
                 HttpMessageSigner::new("grant-key", Ed25519SigningKey::from_bytes(&[7u8; 32]));
             let (client, capture) =
@@ -1086,7 +1086,7 @@ mod tests {
 
         #[tokio::test]
         async fn events_submit_batch_posts_events_array() {
-            let canned = r#"{"status":"accepted","accepted":["ck:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
             let events = vec![fixture_event("first"), fixture_event("second")];
@@ -1116,9 +1116,9 @@ mod tests {
 
             let response = client
                 .events_query(
-                    "ck:realm:test",
-                    Some("ck:cursor:older"),
-                    Some("ck:cursor:newer"),
+                    "ak:realm:test",
+                    Some("ak:cursor:older"),
+                    Some("ak:cursor:newer"),
                     Some("descending"),
                     Some(20),
                 )
@@ -1147,9 +1147,9 @@ mod tests {
 
             let response = client
                 .events_query_outcome(
-                    "ck:realm:test",
+                    "ak:realm:test",
                     None,
-                    Some("ck:cursor:newer"),
+                    Some("ak:cursor:newer"),
                     Some("ascending"),
                     Some(50),
                     Some(true),
@@ -1185,7 +1185,7 @@ mod tests {
             let query = cokret_core::KeyBackupsListQuery {
                 series_id: Some(
                     cokret_core::BackupSeriesId::new(
-                        "ck:backup_series:01964137-0000-7000-8000-000000000777",
+                        "ak:backup_series:01964137-0000-7000-8000-000000000777",
                     )
                     .unwrap(),
                 ),
@@ -1262,9 +1262,9 @@ mod tests {
         async fn direct_conversation_resolve_posts_spec_path_and_current_shape() {
             let canned = r#"{
                 "state":"found",
-                "realm_id":"ck:realm:01904100-0000-7000-8000-d10000000001",
-                "main_strand_id":"ck:strand:01904100-0000-7000-8000-d10000000002",
-                "binding_event_ref":"ck:event:01904100-0000-7000-8000-d10000000003",
+                "realm_id":"ak:realm:01904100-0000-7000-8000-d10000000001",
+                "main_strand_id":"ak:strand:01904100-0000-7000-8000-d10000000002",
+                "binding_event_ref":"ak:event:01904100-0000-7000-8000-d10000000003",
                 "created":false
             }"#;
             let (client, capture) = spawn_capture_server(canned).await;
@@ -1281,7 +1281,7 @@ mod tests {
             );
             assert_eq!(
                 response.binding_event_ref.as_ref().map(|id| id.as_str()),
-                Some("ck:event:01904100-0000-7000-8000-d10000000003")
+                Some("ak:event:01904100-0000-7000-8000-d10000000003")
             );
             assert_eq!(response.created, Some(false));
 
@@ -1322,11 +1322,11 @@ mod tests {
         #[tokio::test]
         async fn mimi_report_abuse_posts_canonical_path() {
             let (client, capture) = spawn_capture_server(
-                r#"{"report_id":"ck:report:01904100-0000-7000-8000-a0086f45c575","status":"queued","routed_to":[]}"#,
+                r#"{"report_id":"ak:report:01904100-0000-7000-8000-a0086f45c575","status":"queued","routed_to":[]}"#,
             )
             .await;
             let request = MimiReportAbuseRequestBody {
-                strand_id: StrandId::new("ck:strand:01904100-0000-7000-8000-f571eead1fc4").unwrap(),
+                strand_id: StrandId::new("ak:strand:01904100-0000-7000-8000-f571eead1fc4").unwrap(),
                 mimi_room_uri: Some("mimi://provider/rooms/room-1".to_owned()),
                 realm_id: None,
                 target_ref: "mimi://provider/rooms/room-1/messages/msg-1".to_owned(),
@@ -1355,9 +1355,9 @@ mod tests {
         async fn events_submit_returns_partial_status() {
             let canned = r#"{
                 "status": "partial",
-                "accepted": ["ck:event:01904100-0000-7000-8000-a0086f45c575"],
+                "accepted": ["ak:event:01904100-0000-7000-8000-a0086f45c575"],
                 "rejected": [
-                    {"id": "ck:event:01904100-0000-7000-8000-deadbeefdead", "reason_code": "schema_violation"}
+                    {"id": "ak:event:01904100-0000-7000-8000-deadbeefdead", "reason_code": "schema_violation"}
                 ]
             }"#;
             let (client, _capture) = spawn_capture_server(canned).await;
@@ -1526,7 +1526,7 @@ mod tests {
 
         #[tokio::test]
         async fn events_submit_with_options_sends_idempotency_key() {
-            let canned = r#"{"status":"accepted","accepted":["ck:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let canned = r#"{"status":"accepted","accepted":["ak:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
             let options = ClientRequestOptions::new().idempotency_key("evt-idem-1");

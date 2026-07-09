@@ -36,7 +36,7 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, Duration, Utc};
 /// Production-grade proof algorithms this SDK can actually produce and verify.
 ///
-/// Re-export of the single source of truth in `cokret-core`
+/// Re-export of the single source of truth in `arkret-core`
 /// ([`cokret_core::PRODUCTION_ALGORITHMS`]) so the structural gate
 /// (`Proof::validate_production`) and this crate's verifiers can never
 /// diverge again. The v1 set is exactly `["EdDSA"]` — see the core constant's
@@ -351,7 +351,7 @@ pub fn validate_production_proof(proof: &Proof) -> Result<()> {
 
 /// Wire-form HTTP Message Signature container.
 ///
-/// The canonical struct now lives in `cokret-core` (`cokret_core::http`) so the
+/// The canonical struct now lives in `arkret-core` (`cokret_core::http`) so the
 /// federation wire contracts can embed it without depending on this crate. The
 /// canonical signature base (the bytes actually signed) is still built by the
 /// single RFC 9421 implementation in [`crate::http_signature`].
@@ -493,7 +493,7 @@ mod tests {
             jws: "sig".to_owned(),
         };
         let context = ProofVerificationContext::new(actor, payload_digest).cross_domain(
-            "ck:trust_domain:example.net",
+            "ak:trust_domain:example.net",
             Audience::Single("did:webvh:z6mkfixture:service.example".to_owned()),
         );
 
@@ -504,7 +504,7 @@ mod tests {
             "{error}"
         );
 
-        proof.domain = Some("ck:trust_domain:example.net".to_owned());
+        proof.domain = Some("ak:trust_domain:example.net".to_owned());
         assert!(
             verify_proof_with_resolver(&proof, &context, &resolver, |_, _| Ok(true))
                 .unwrap()

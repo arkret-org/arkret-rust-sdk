@@ -200,7 +200,7 @@ impl DeviceManager {
         let created_at = Utc::now();
         let expires_at = created_at + Duration::minutes(10);
         let transaction_id = format!(
-            "ck:verify:{}:{}:{}",
+            "ak:verify:{}:{}:{}",
             user_id.as_str(),
             device_id.as_str(),
             created_at.timestamp_millis()

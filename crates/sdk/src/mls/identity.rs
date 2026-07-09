@@ -21,10 +21,10 @@ use crate::{
     DeviceId, Did, Error, Hash, MlsGovernanceBindingPayload, MlsKeyPackageRecord, Result, canonical,
 };
 
-pub const COKRET_MLS_CIPHERSUITE: Ciphersuite =
+pub const ARKRET_MLS_CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
 
-/// Canonical wire string for [`COKRET_MLS_CIPHERSUITE`], taken verbatim from
+/// Canonical wire string for [`ARKRET_MLS_CIPHERSUITE`], taken verbatim from
 /// `mls-ciphersuite-registry.json` (`canonical_id`). This is the ONLY source
 /// of the `cipher_suite` / `cipher_suites` wire value — implementations MUST
 /// NOT derive it from the third-party `Ciphersuite` `Debug` representation,
@@ -32,11 +32,11 @@ pub const COKRET_MLS_CIPHERSUITE: Ciphersuite =
 /// upgrade. The `ciphersuite_canonical_id_matches_registry` test pins that
 /// the current openmls `Debug` output still equals this constant so any
 /// upstream drift fails loudly rather than reaching the wire.
-pub const COKRET_MLS_CIPHERSUITE_CANONICAL_ID: &str =
+pub const ARKRET_MLS_CIPHERSUITE_CANONICAL_ID: &str =
     "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519";
-pub const COKRET_MLS_KEY_PACKAGE_CAPABILITIES: &[&str] = &["mimi.content.v1", "ck.content.v1"];
+pub const ARKRET_MLS_KEY_PACKAGE_CAPABILITIES: &[&str] = &["mimi.content.v1", "ck.content.v1"];
 
-const COKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT: &str = "cokret-openmls-identity-state-v1";
+const ARKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT: &str = "arkret-openmls-identity-state-v1";
 
 pub struct CokretMlsIdentity {
     pub principal_id: Did,
@@ -58,7 +58,7 @@ struct OpenMlsIdentityStateSnapshot {
 impl CokretMlsIdentity {
     pub fn new_basic(principal_id: Did, device_id: DeviceId) -> Result<Self> {
         let provider = OpenMlsRustCrypto::default();
-        let signer = SignatureKeyPair::new(COKRET_MLS_CIPHERSUITE.signature_algorithm())
+        let signer = SignatureKeyPair::new(ARKRET_MLS_CIPHERSUITE.signature_algorithm())
             .map_err(mls_error)?;
         signer.store(provider.storage()).map_err(mls_error)?;
         let credential = CredentialWithKey {
@@ -109,7 +109,7 @@ impl CokretMlsIdentity {
         }
         let key_package = builder
             .build(
-                COKRET_MLS_CIPHERSUITE,
+                ARKRET_MLS_CIPHERSUITE,
                 &self.provider,
                 &self.signer,
                 self.credential.clone(),
@@ -121,13 +121,13 @@ impl CokretMlsIdentity {
 
         let created_at = Utc::now();
         Ok(MlsKeyPackageRecord {
-            keypackage_id: format!("ck:mls:kp:{}", uuid::Uuid::now_v7()),
+            keypackage_id: format!("ak:mls:kp:{}", uuid::Uuid::now_v7()),
             principal_id: self.principal_id.clone(),
             device_id: self.device_id.clone(),
             key_package: encode(&key_package_bytes),
             keypackage_ref,
-            cipher_suites: vec![COKRET_MLS_CIPHERSUITE_CANONICAL_ID.to_owned()],
-            capabilities: COKRET_MLS_KEY_PACKAGE_CAPABILITIES
+            cipher_suites: vec![ARKRET_MLS_CIPHERSUITE_CANONICAL_ID.to_owned()],
+            capabilities: ARKRET_MLS_KEY_PACKAGE_CAPABILITIES
                 .iter()
                 .map(|capability| (*capability).to_owned())
                 .collect(),
@@ -142,7 +142,7 @@ impl CokretMlsIdentity {
 
     pub fn export_private_state(&self) -> Result<Vec<u8>> {
         let snapshot = OpenMlsIdentityStateSnapshot {
-            context: COKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT.to_owned(),
+            context: ARKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT.to_owned(),
             principal_id: self.principal_id.clone(),
             device_id: self.device_id.clone(),
             signer_public_key: encode(self.signer.public()),
@@ -157,7 +157,7 @@ impl CokretMlsIdentity {
         serialized_state: &[u8],
     ) -> Result<Self> {
         let snapshot: OpenMlsIdentityStateSnapshot = serde_json::from_slice(serialized_state)?;
-        if snapshot.context != COKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT {
+        if snapshot.context != ARKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT {
             return Err(Error::Protocol(
                 "unsupported OpenMLS identity state snapshot".to_owned(),
             ));
@@ -174,7 +174,7 @@ impl CokretMlsIdentity {
         let signer = SignatureKeyPair::read(
             provider.storage(),
             &signer_public_key,
-            COKRET_MLS_CIPHERSUITE.signature_algorithm(),
+            ARKRET_MLS_CIPHERSUITE.signature_algorithm(),
         )
         .ok_or_else(|| Error::Protocol("OpenMLS signer is missing from snapshot".to_owned()))?;
         let credential = CredentialWithKey {
@@ -204,7 +204,7 @@ impl CokretMlsIdentity {
 
     pub fn create_group(self, group_id: impl AsRef<[u8]>) -> Result<CokretMlsGroup> {
         let config = MlsGroupCreateConfig::builder()
-            .ciphersuite(COKRET_MLS_CIPHERSUITE)
+            .ciphersuite(ARKRET_MLS_CIPHERSUITE)
             .capabilities(governance_binding_openmls_capabilities())
             .with_group_context_extensions(governance_binding_group_context_extensions(None)?)
             .use_ratchet_tree_extension(true)
@@ -245,7 +245,7 @@ impl CokretMlsIdentity {
         }
 
         let config = MlsGroupCreateConfig::builder()
-            .ciphersuite(COKRET_MLS_CIPHERSUITE)
+            .ciphersuite(ARKRET_MLS_CIPHERSUITE)
             .capabilities(governance_binding_openmls_capabilities())
             .with_group_context_extensions(governance_binding_group_context_extensions(Some(
                 binding,
@@ -308,13 +308,13 @@ mod tests {
     #[test]
     fn ciphersuite_canonical_id_matches_registry() {
         // The wire `cipher_suite(s)` value is sourced from
-        // COKRET_MLS_CIPHERSUITE_CANONICAL_ID (the registry canonical_id),
+        // ARKRET_MLS_CIPHERSUITE_CANONICAL_ID (the registry canonical_id),
         // NOT from the openmls `Debug` impl. Pin that the two still agree so
         // an upstream openmls change to `Debug` fails here instead of
         // silently emitting an off-registry cipher_suite string on the wire.
         assert_eq!(
-            format!("{COKRET_MLS_CIPHERSUITE:?}"),
-            COKRET_MLS_CIPHERSUITE_CANONICAL_ID
+            format!("{ARKRET_MLS_CIPHERSUITE:?}"),
+            ARKRET_MLS_CIPHERSUITE_CANONICAL_ID
         );
     }
 
@@ -322,7 +322,7 @@ mod tests {
     fn key_package_record_carries_required_capabilities() {
         let identity = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
-            DeviceId::new("ck:device:01964137-0000-7000-8000-000000000001".to_owned()).unwrap(),
+            DeviceId::new("ak:device:01964137-0000-7000-8000-000000000001".to_owned()).unwrap(),
         )
         .unwrap();
 
@@ -347,16 +347,16 @@ mod tests {
     fn last_resort_key_package_is_addable_to_a_group() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
-            DeviceId::new("ck:device:01964137-0000-7000-8000-00000000000a".to_owned()).unwrap(),
+            DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000a".to_owned()).unwrap(),
         )
         .unwrap();
         let mut group = alice
-            .create_group(b"ck:mls_group:last-resort-add-test")
+            .create_group(b"ak:mls_group:last-resort-add-test")
             .unwrap();
 
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
-            DeviceId::new("ck:device:01964137-0000-7000-8000-00000000000b".to_owned()).unwrap(),
+            DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000b".to_owned()).unwrap(),
         )
         .unwrap();
         let bob_last_resort = bob.last_resort_key_package_record().unwrap();
@@ -372,7 +372,7 @@ mod tests {
         // Sanity: the single-use KeyPackage path still adds cleanly.
         let carol = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:carol.example".to_owned()).unwrap(),
-            DeviceId::new("ck:device:01964137-0000-7000-8000-00000000000c".to_owned()).unwrap(),
+            DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000c".to_owned()).unwrap(),
         )
         .unwrap();
         let carol_kp = carol.key_package_record().unwrap();

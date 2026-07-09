@@ -70,7 +70,7 @@ fn next_cursor_is_a_well_formed_opaque_stream_cursor() {
         .expect("strand_discussion_timeline.next_cursor");
 
     let body = token
-        .strip_prefix("ck:cursor:")
+        .strip_prefix("ak:cursor:")
         .expect("next_cursor must use the ck:cursor: transport prefix");
     let json =
         cokret_core::base64url::base64url_decode(body).expect("next_cursor body must be Base64URL");

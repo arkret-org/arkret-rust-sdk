@@ -630,7 +630,7 @@ mod tests {
     fn service_attested_device_authorize_payload() -> Value {
         json!({
             "principal_id": "did:webvh:z6mkfixture:alice.example",
-            "device_id": "ck:device:0196419b-0000-7000-8000-000000000001",
+            "device_id": "ak:device:0196419b-0000-7000-8000-000000000001",
             "device_public_key": "z6Mki3devicepublickey",
             "hpke_key": "z6LSdevicehpke",
             "algorithms": ["ed25519", "x25519-hpke"],
@@ -639,7 +639,7 @@ mod tests {
             "enrollment_authority_binding": {
                 "kind": "service_attested",
                 "authority_did": "did:webvh:z6mkfixture:authority.example",
-                "authorization_ref": "ck:grant:0196419b-0000-7000-8000-000000000002"
+                "authorization_ref": "ak:grant:0196419b-0000-7000-8000-000000000002"
             }
         })
     }
@@ -662,7 +662,7 @@ mod tests {
     fn realm_organization_active_payload() -> Value {
         json!({
             "statement_id": "org-stmt-1",
-            "realm_id": "ck:realm:0196419b-0000-7000-8000-000000000010",
+            "realm_id": "ak:realm:0196419b-0000-7000-8000-000000000010",
             "organization_id": "did:webvh:example.test:orgs:org1",
             "relationship": "owner",
             "status": "active",

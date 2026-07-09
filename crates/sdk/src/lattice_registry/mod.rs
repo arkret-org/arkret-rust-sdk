@@ -91,19 +91,19 @@ mod tests {
         assert_eq!(state.lattice(), SdkLatticeKind::Fsm);
         assert_eq!(
             state
-                .subject_for_effect(&json!({"call_id": "ck:call:01"}))
+                .subject_for_effect(&json!({"call_id": "ak:call:01"}))
                 .unwrap()
                 .as_deref(),
-            Some("ck:call:01")
+            Some("ak:call:01")
         );
         let summary = registry.lookup("ck.component.call.summary.v1").unwrap();
         assert_eq!(summary.lattice(), SdkLatticeKind::CasRegister);
         assert_eq!(
             summary
-                .subject_for_effect(&json!({"call_id": "ck:call:01"}))
+                .subject_for_effect(&json!({"call_id": "ak:call:01"}))
                 .unwrap()
                 .as_deref(),
-            Some("ck:call:01")
+            Some("ak:call:01")
         );
     }
 

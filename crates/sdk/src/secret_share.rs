@@ -330,7 +330,7 @@ mod tests {
     use super::*;
 
     fn device() -> DeviceId {
-        DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000a").unwrap()
+        DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000a").unwrap()
     }
 
     #[test]
@@ -424,7 +424,7 @@ mod tests {
 
     /// RFC 9180 base-mode known-answer test for
     /// `ck.hpke_x25519_aead_chacha20poly1305.v1`, against the official CFRG
-    /// vector mirrored in `cokret-spec/.../fixtures/hpke-suite-fixture.json`
+    /// vector mirrored in `arkret-spec/.../fixtures/hpke-suite-fixture.json`
     /// (`ck.vector.hpke.x25519_chacha20poly1305_base.v1`). We reconstruct the
     /// on-wire blob `base64url(enc || ciphertext)` from the vector's `enc`
     /// (= pkEm) and first ciphertext, then drive our [`open_base_mode_with_x25519_privkey`]

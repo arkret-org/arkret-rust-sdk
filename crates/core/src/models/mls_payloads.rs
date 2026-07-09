@@ -705,7 +705,7 @@ impl MediaDecryptPolicyValue {
 /// `discussion_metadata_digest` from the section 10.5.1 rule 1-3 policy cell value.
 ///
 /// The digest is `sha256(canonical_json(value))` using the same canonical /
-/// hash primitives as every other Cokret digest:
+/// hash primitives as every other Arkret digest:
 /// [`canonical::canonical_json_bytes`] and [`canonical::sha256_digest`].
 /// The result is byte-identical across every member and service. The fact
 /// `media_service_decrypts=true` is bound into the member-visible metadata covered
@@ -1168,11 +1168,11 @@ mod tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000001").unwrap()
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000001").unwrap()
     }
 
     fn event(n: u8) -> EventId {
-        EventId::new(format!("ck:event:0196419b-0000-7000-8000-00000000000{n}")).unwrap()
+        EventId::new(format!("ak:event:0196419b-0000-7000-8000-00000000000{n}")).unwrap()
     }
 
     fn hash(byte: char) -> Hash {
@@ -1180,7 +1180,7 @@ mod tests {
     }
 
     fn group_id() -> String {
-        base64url_encode(b"cokret-mls-test-group")
+        base64url_encode(b"arkret-mls-test-group")
     }
 
     fn reducer_profile() -> &'static str {
@@ -1244,7 +1244,7 @@ mod tests {
             "encoding_profile": MLS_GOVERNANCE_BINDING_ENCODING_PROFILE,
             "realm_id": realm(),
             "effective_scope": {"kind": "realm", "realm_id": realm()},
-            "mls_group_id": "ck:mls_group:test",
+            "mls_group_id": "ak:mls_group:test",
             "previous_epoch": 0,
             "next_epoch": 1,
             "membership_frontier": [event(2)],
@@ -1296,7 +1296,7 @@ mod tests {
 
     #[test]
     fn mls_governance_binding_cbor_round_trips_circle_payload() {
-        let circle_id = CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000009").unwrap();
+        let circle_id = CircleId::new("ak:circle:0196419b-0000-7000-8000-000000000009").unwrap();
         let binding = MlsGovernanceBindingPayload::circle(
             realm(),
             circle_id.clone(),

@@ -36,15 +36,15 @@ pub(crate) fn is_security_sensitive_extension(field: &str) -> bool {
         "x-authz"
             | "x-policy"
             | "x-security"
-            | "x-cokret-authz"
-            | "x-cokret-policy"
-            | "x-cokret-security"
+            | "x-arkret-authz"
+            | "x-arkret-policy"
+            | "x-arkret-security"
     ) || field.starts_with("x-authz-")
         || field.starts_with("x-policy-")
         || field.starts_with("x-security-")
-        || field.starts_with("x-cokret-authz-")
-        || field.starts_with("x-cokret-policy-")
-        || field.starts_with("x-cokret-security-")
+        || field.starts_with("x-arkret-authz-")
+        || field.starts_with("x-arkret-policy-")
+        || field.starts_with("x-arkret-security-")
 }
 
 pub(crate) fn validate_json_schema_type_value(

@@ -26,7 +26,7 @@ impl Client {
     /// (`ck.gate.account.command.issue_session_grant`): exchange a body-borne
     /// passkey / OIDC / device / DID proof for a session grant. This is
     /// the only session-grant issuance path registered in the spec HTTP
-    /// binding (`x-cokret-auth.proof_in_body: true`); challenge
+    /// binding (`x-arkret-auth.proof_in_body: true`); challenge
     /// acquisition is deployment-local per `identity-did.md` §5.1.
     pub async fn auth_issue_session_grant(
         &self,
@@ -113,7 +113,7 @@ impl Client {
         }
         if request.wait_for.is_some() {
             return Err(Error::Protocol(
-                "account subscribe does not support `wait_for`; use the X-Cokret-Wait-For \
+                "account subscribe does not support `wait_for`; use the X-Arkret-Wait-For \
                  header on read endpoints instead"
                     .to_owned(),
             ));
@@ -417,7 +417,7 @@ mod tests {
     #[test]
     fn account_subscribe_request_serializes_filter_deep_object() {
         let filter = SyncFilter {
-            realms: vec![RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap()],
+            realms: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()],
             timeline_limit: Some(20),
             lazy_load_members: true,
             include_redundant_members: false,
@@ -561,7 +561,7 @@ mod tests {
 
     #[test]
     fn account_subscribe_request_options_attach_wait_for_header() {
-        let options = ClientRequestOptions::new().wait_for("ck:cursor:01904100");
+        let options = ClientRequestOptions::new().wait_for("ak:cursor:01904100");
         let built = client()
             .account_subscribe_request(&empty_request(), "application/x-ndjson")
             .and_then(|request| client().apply_request_options(request, &options))
@@ -574,7 +574,7 @@ mod tests {
                 .headers()
                 .get(crate::HEADER_WAIT_FOR)
                 .and_then(|value| value.to_str().ok()),
-            Some("ck:cursor:01904100")
+            Some("ak:cursor:01904100")
         );
     }
 

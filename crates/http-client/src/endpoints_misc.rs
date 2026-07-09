@@ -77,7 +77,7 @@ impl Client {
     ///
     /// Returns the raw signed outcome; callers MUST verify the response against
     /// the realm media-service anchors and the issuing request before use (the
-    /// `cokret` crate provides `verify_call_media_token_outcome`): check that
+    /// `arkret` crate provides `verify_call_media_token_outcome`): check that
     /// `service_signature` / `participant_binding.issuer_kid` resolve to an
     /// anchored `service_id`, the TTL is ≤ 600s, and the binding tuple matches.
     pub async fn media_token_exchange(

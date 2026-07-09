@@ -1,18 +1,18 @@
-# Cokret Rust SDK
+# Arkret Rust SDK
 
-> **Spec target**: [cokret-spec @ 074aefee](../cokret-spec) (v1 artifacts 2026-06-23)
+> **Spec target**: [arkret-spec @ 074aefee](../arkret-spec) (v1 artifacts 2026-06-23)
 
-[![codecov](https://codecov.io/gh/cokret/cokret-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/cokret/cokret-rust-sdk)
+[![codecov](https://codecov.io/gh/arkret/arkret-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/arkret/arkret-rust-sdk)
 
-Release status: active Cokret v1 SDK `0.3.x` development line, with workspace
-crates still at `0.3.0` until an explicit release cut. The default `cokret`
+Release status: active Arkret v1 SDK `0.3.x` development line, with workspace
+crates still at `0.3.0` until an explicit release cut. The default `arkret`
 feature set is the protocol/type surface only. Authenticated local encryption
 helpers, OpenMLS MLS group encryption, framework-independent server contracts,
 HTTP client bindings and runtime helpers are explicit opt-in features. The
 local security-review packet and cotest release-gate interoperability suite are
 recorded under `docs/`.
 
-This repository contains the Rust SDK for Cokret v1. The public SDK surface is
+This repository contains the Rust SDK for Arkret v1. The public SDK surface is
 centered on:
 
 - DID principals
@@ -23,7 +23,7 @@ centered on:
 - MLS RFC 9420 group E2EE based on OpenMLS behind the `mls` feature
 - Principal Server, Events, Index, Blob, Directory and Authz service surfaces
 
-The active v1 wire contract follows `cokret-spec/spec/v1/zh` plus `cokret-spec/spec/v1/artifacts`.
+The active v1 wire contract follows `arkret-spec/spec/v1/zh` plus `arkret-spec/spec/v1/artifacts`.
 All public SDK surfaces are expected to use `strand`, `track`, relation and
 message semantics directly.
 
@@ -42,7 +42,7 @@ security boundary, `Space` for the product container.
 Use the top-level crate:
 
 ```toml
-cokret = { path = "crates/sdk" }
+arkret = { path = "crates/sdk" }
 ```
 
 The default feature set exposes protocol IDs, wire models, canonical helpers
@@ -50,24 +50,24 @@ and shared DTO contracts without enabling `openmls`, `reqwest`, `tokio`,
 `full-surface` or runtime modules. Enable only the surface a consumer needs:
 
 ```toml
-cokret = { path = "crates/sdk", features = ["client"] }
-cokret = { path = "crates/sdk", features = ["mls"] }
-cokret = { path = "crates/sdk", features = ["full-surface"] }
+arkret = { path = "crates/sdk", features = ["client"] }
+arkret = { path = "crates/sdk", features = ["mls"] }
+arkret = { path = "crates/sdk", features = ["full-surface"] }
 ```
 
-The workspace is split into focused crates and the top-level `cokret` crate
+The workspace is split into focused crates and the top-level `arkret` crate
 re-exports the public SDK surface:
 
-- `cokret-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types, service metadata and the shared wire-contract DTOs (identity, federation and push gateway integration)
-- `cokret-crypto`: local encryption, backup and key-management helpers
-- `cokret-ffi`: C ABI surface for core identifiers, canonical helpers and runtime bridges
-- `cokret-html`: rich-text sanitization helpers and conformance fixtures
-- `cokret-identifiers`: validated DIDs, typed IDs, hashes, cursors and HLC values
-- `cokret-http-client`: HTTP transport bindings
-- `cokret-keystore`: platform KeyStore backends behind target-specific feature gates
-- `cokret-server`: framework-independent server handler contracts, service route metadata and endpoint fixture coverage
-- `cokret-signatures`: HTTP signatures, JWS/JWT and proof verification helpers
-- `cokret`: umbrella SDK crate with high-level state managers and feature forwarding
+- `arkret-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types, service metadata and the shared wire-contract DTOs (identity, federation and push gateway integration)
+- `arkret-crypto`: local encryption, backup and key-management helpers
+- `arkret-ffi`: C ABI surface for core identifiers, canonical helpers and runtime bridges
+- `arkret-html`: rich-text sanitization helpers and conformance fixtures
+- `arkret-identifiers`: validated DIDs, typed IDs, hashes, cursors and HLC values
+- `arkret-http-client`: HTTP transport bindings
+- `arkret-keystore`: platform KeyStore backends behind target-specific feature gates
+- `arkret-server`: framework-independent server handler contracts, service route metadata and endpoint fixture coverage
+- `arkret-signatures`: HTTP signatures, JWS/JWT and proof verification helpers
+- `arkret`: umbrella SDK crate with high-level state managers and feature forwarding
 
 The workspace default members include all crates:
 
@@ -91,7 +91,7 @@ cargo test
 
 ## Protocol review closures
 
-Spec review closure `cokret-spec` range `2a4d39b..a77b995` (8 commits)
+Spec review closure `arkret-spec` range `2a4d39b..a77b995` (8 commits)
 lands in the SDK as domain-named model modules re-exported from the
 umbrella crate.
 See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` for the canonical
@@ -128,7 +128,7 @@ Headline additions:
   `[Unreleased]` Round R4 / R2 / R3 entries track the most recent
   spec close-outs (round 4 ranges `2a4d39b..a77b995`; round 2+3 lands
   4 new event kinds, 3 new schemas, 2 new typed ID kinds, 15 new error
-  codes); see [`../cokret-spec/CHANGELOG.md`](../cokret-spec/CHANGELOG.md)
+  codes); see [`../arkret-spec/CHANGELOG.md`](../arkret-spec/CHANGELOG.md)
   for the normative source.
 - [Security policy](SECURITY.md) — supported versions and how to report
   vulnerabilities responsibly.
@@ -137,9 +137,9 @@ Headline additions:
 - [Contributing](CONTRIBUTING.md) — development checks, API rules, commit
   style.
 
-## Implemented Cokret Surface
+## Implemented Arkret Surface
 
-The first Cokret crate currently includes:
+The first Arkret crate currently includes:
 
 - v1 identifiers and protocol constants
 - canonical JSON and SHA-256 digest helpers
@@ -154,9 +154,9 @@ The first Cokret crate currently includes:
 - OpenMLS-backed group creation, member add, Welcome join, payload encryption and decryption behind the `mls` feature
 - in-memory persistence helpers for event cache, verified state snapshots and account-local records
 - Server description and profile version checks
-- HTTP client methods for the Cokret v1 service HTTP binding behind the `client` feature, including request metadata, retry/backoff and `Retry-After` handling
-- shared contract DTOs that live in `cokret-core` and are re-exported from the umbrella SDK as `cokret::api`, `cokret::identity_api`, `cokret::federation_api` and `cokret::push_gateway_api` (product-local client DTOs live in the SDK's own `cokret::client_api`)
-- framework-independent server handler contracts, endpoint fixture coverage and Salvo OAPI DTO support through `cokret-core`
+- HTTP client methods for the Arkret v1 service HTTP binding behind the `client` feature, including request metadata, retry/backoff and `Retry-After` handling
+- shared contract DTOs that live in `arkret-core` and are re-exported from the umbrella SDK as `arkret::api`, `arkret::identity_api`, `arkret::federation_api` and `arkret::push_gateway_api` (product-local client DTOs live in the SDK's own `arkret::client_api`)
+- framework-independent server handler contracts, endpoint fixture coverage and Salvo OAPI DTO support through `arkret-core`
 - high-level `full-surface` sync loop, membership, devices, receipts, notifications, content,
   media, profile/settings, discovery, E2EE, auth/identity, federation, push,
   typing, WebRTC, store and event-handler helpers
@@ -169,5 +169,5 @@ Apache-2.0
 
 <!-- circle-rollout milestone pointer -->
 > **Active milestone tracking** (local-only, gitignored): see
-> `_cokret-rust-sdk_todos.md` in the parent `cokret/` directory for the
+> `_cokret-rust-sdk_todos.md` in the parent `arkret/` directory for the
 > circle-rollout (CKP-0007) work item list and per-stage checkpoints.

@@ -484,13 +484,13 @@ fn classify_mention_token(token: &str) -> (Option<MentionTarget>, Option<String>
         )
     } else if token.starts_with("did:") {
         (Some(MentionTarget::Actor), Some(token.to_owned()))
-    } else if token.starts_with("ck:space:") {
+    } else if token.starts_with("ak:space:") {
         (Some(MentionTarget::Space), Some(token.to_owned()))
-    } else if token.starts_with("ck:strand:") {
+    } else if token.starts_with("ak:strand:") {
         (Some(MentionTarget::Strand), Some(token.to_owned()))
-    } else if token.starts_with("ck:message:") {
+    } else if token.starts_with("ak:message:") {
         (Some(MentionTarget::Message), Some(token.to_owned()))
-    } else if token.starts_with("ck:morph:") {
+    } else if token.starts_with("ak:morph:") {
         (Some(MentionTarget::Morph), Some(token.to_owned()))
     } else {
         (None, None)

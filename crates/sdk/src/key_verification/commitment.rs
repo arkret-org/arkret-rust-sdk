@@ -21,7 +21,7 @@ pub fn compute_key_commitment(
         .map_err(|err| Error::Protocol(format!("canonicalize start for commitment: {err}")))?;
     // SHA256(key_b64 || canonical_json(start)); the concatenation is
     // equivalent to the streaming `update` form. `sha256_digest` is the
-    // authoritative `sha256:<hex>` formatter in `cokret-core`.
+    // authoritative `sha256:<hex>` formatter in `arkret-core`.
     let mut input = Vec::with_capacity(ephemeral_public_b64.len() + canonical_start.len());
     input.extend_from_slice(ephemeral_public_b64.as_bytes());
     input.extend_from_slice(&canonical_start);

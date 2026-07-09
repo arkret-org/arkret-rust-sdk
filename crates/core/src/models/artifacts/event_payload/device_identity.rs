@@ -372,7 +372,7 @@ mod tests {
     fn base_device_authorize_payload() -> DeviceAuthorizePayload {
         DeviceAuthorizePayload {
             principal_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            device_id: "ck:device:01904100-0000-7000-8000-a11ce0000001".to_owned(),
+            device_id: "ak:device:01904100-0000-7000-8000-a11ce0000001".to_owned(),
             device_public_key: "z6MkDeviceKey".to_owned(),
             hpke_key: "z6LSHpkeKey".to_owned(),
             algorithms: vec![
@@ -439,7 +439,7 @@ mod tests {
             "read".to_owned(),
         ]);
         payload.recovery_session_id = Some(
-            RecoverySessionId::new("ck:recovery_session:01904100-0000-7000-8000-000000000042")
+            RecoverySessionId::new("ak:recovery_session:01904100-0000-7000-8000-000000000042")
                 .unwrap(),
         );
 
@@ -454,7 +454,7 @@ mod tests {
         assert!(input.contains("\"authorization_binding_kind\":\"cross_signing\""));
         assert!(input.contains("\"cross_signing_generation\":1"));
         assert!(input.contains(
-            "\"recovery_session_id\":\"ck:recovery_session:01904100-0000-7000-8000-000000000042\""
+            "\"recovery_session_id\":\"ak:recovery_session:01904100-0000-7000-8000-000000000042\""
         ));
         assert!(input.contains("\"scopes\":[\"read\",\"write\"]"));
     }
@@ -475,7 +475,7 @@ mod tests {
     fn device_authorize_accepts_service_attested_did_key_authority() {
         let payload = json!({
             "principal_id": "did:webvh:zQmZcDaFwUR8yQCZRkXoYEBi9hdzMSCCLASUVdwT1J4Qyc6:local.host:webvh:01kvqwpxssfq3bqm15rcd0g99x",
-            "device_id": "ck:device:019eefcb-5882-7861-bc30-3033fa32dcf6",
+            "device_id": "ak:device:019eefcb-5882-7861-bc30-3033fa32dcf6",
             "device_public_key": "z6MkjHNtpwuhc2QSXzkf4DWoWp7eSMKB9PzfdnvaLB7kb3dG",
             "hpke_key": "z6LSgy7T8CEsMDMzk1e4EBFVX8CDXWWzvkFZWSXhsC97zjcM",
             "algorithms": ["ck.hpke_x25519_aead_chacha20poly1305.v1", "ck.mls.v1"],
@@ -529,7 +529,7 @@ mod tests {
     #[test]
     fn device_or_principal_ref_accepts_device_id_and_did_key() {
         serde_json::from_value::<DeviceOrPrincipalRef>(json!(
-            "ck:device:01904100-0000-7000-8000-000000000001"
+            "ak:device:01904100-0000-7000-8000-000000000001"
         ))
         .unwrap();
         serde_json::from_value::<DeviceOrPrincipalRef>(json!(

@@ -191,12 +191,12 @@ mod tests {
     }
 
     fn space() -> RealmId {
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn seal_id(byte: u8) -> SealId {
         SealId::new(format!(
-            "ck:seal:sha256:{}",
+            "ak:seal:sha256:{}",
             format!("{byte:02x}").repeat(32)
         ))
         .unwrap()
@@ -229,7 +229,7 @@ mod tests {
             seal_basis(0xaa),
             vec![Effect {
                 cell: CellRef::new(
-                    "ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned(),
+                    "ak:cell:ck.component.member.state.v1:did.web.alice.example".to_owned(),
                 )
                 .unwrap(),
                 op: LatticeOp {

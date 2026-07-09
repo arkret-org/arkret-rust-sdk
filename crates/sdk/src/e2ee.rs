@@ -852,7 +852,7 @@ mod tests {
     #[test]
     fn e2ee_device_revocation_fails_closed_on_encrypted_writes() {
         let alice = did("alice");
-        let device_id = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap();
+        let device_id = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap();
         let mut manager = E2eeManager::new();
         manager.create_group("g1", alice.clone(), BTreeSet::new());
 

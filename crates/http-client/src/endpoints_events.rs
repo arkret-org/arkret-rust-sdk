@@ -453,9 +453,9 @@ mod tests {
     #[test]
     fn events_subscribe_request_serializes_stream_options() {
         let options = EventsSubscribeOptions::new()
-            .realm("ck:realm:01904100-0000-7000-8000-000000000001")
+            .realm("ak:realm:01904100-0000-7000-8000-000000000001")
             .actor("did:webvh:z6mkfixture:alice.example")
-            .after("ck:cursor:stored")
+            .after("ak:cursor:stored")
             .include_history(true)
             .max_duration_ms(150)
             .heartbeat_ms(100);
@@ -545,7 +545,7 @@ mod tests {
             .await
             .events_subscribe_frames(
                 &EventsSubscribeOptions::new()
-                    .realm("ck:realm:01904100-0000-7000-8000-000000000001")
+                    .realm("ak:realm:01904100-0000-7000-8000-000000000001")
                     .include_history(true)
                     .max_duration_ms(150)
                     .heartbeat_ms(100),

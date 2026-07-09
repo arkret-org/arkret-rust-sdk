@@ -216,9 +216,9 @@ impl CallRecordingArtifact {
         if !recording_id_is_canonical(&self.recording_id) {
             return schema_violation("recording_id must be ASCII [A-Za-z0-9._-], length 1..=128");
         }
-        if !self.blob_ref.as_str().starts_with("ck:blob:") {
+        if !self.blob_ref.as_str().starts_with("ak:blob:") {
             return recording_artifact_pipeline_bypassed(
-                "recording artifact blob_ref must be a Cokret blob reference",
+                "recording artifact blob_ref must be a Arkret blob reference",
             );
         }
         if self.media_type.trim().is_empty() || !self.media_type.contains('/') {
@@ -544,18 +544,18 @@ mod tests {
     #[test]
     fn call_state_transcript_result_round_trips_and_validates() {
         let value = json!({
-            "call_id": "ck:call:019a7360-0000-7000-8000-000000000001",
+            "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
             "state": "ended",
             "transcript_state": "ready",
             "transcript_result": {
                 "content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "media_type": "text/vtt",
                 "language": "en-US",
-                "retention_policy_id": "ck:policy:019a7360-0000-7000-8000-000000000005",
+                "retention_policy_id": "ak:policy:019a7360-0000-7000-8000-000000000005",
                 "retention": {
                     "consent_confirmed": true
                 },
-                "transcript_start_event_id": "ck:event:019a7360-0000-7000-8000-000000000003"
+                "transcript_start_event_id": "ak:event:019a7360-0000-7000-8000-000000000003"
             }
         });
         let payload: CallStatePayload = serde_json::from_value(value).unwrap();
@@ -565,14 +565,14 @@ mod tests {
         assert_eq!(encoded["transcript_result"]["media_type"], "text/vtt");
         assert_eq!(
             encoded["transcript_result"]["transcript_start_event_id"],
-            "ck:event:019a7360-0000-7000-8000-000000000003"
+            "ak:event:019a7360-0000-7000-8000-000000000003"
         );
     }
 
     #[test]
     fn call_state_removed_participants_round_trips() {
         let value = json!({
-            "call_id": "ck:call:019a7360-0000-7000-8000-000000000001",
+            "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
             "state": "active",
             "removed_participants": [{
                 "actor_id": "did:webvh:z6mkfixture:bob.example",
@@ -600,11 +600,11 @@ mod tests {
     #[test]
     fn call_state_participant_mute_overrides_round_trips() {
         let value = json!({
-            "call_id": "ck:call:019a7360-0000-7000-8000-000000000001",
+            "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
             "state": "active",
             "participant_mute_overrides": [{
                 "actor_id": "did:webvh:z6mkfixture:bob.example",
-                "device_id": "ck:device:019a7360-0000-7000-8000-000000000002",
+                "device_id": "ak:device:019a7360-0000-7000-8000-000000000002",
                 "audio_muted": true,
                 "video_muted": false,
                 "muted_by": "did:webvh:z6mkfixture:mod.example",
@@ -625,14 +625,14 @@ mod tests {
         let encoded = serde_json::to_value(payload).unwrap();
         assert_eq!(
             encoded["participant_mute_overrides"][0]["device_id"],
-            "ck:device:019a7360-0000-7000-8000-000000000002"
+            "ak:device:019a7360-0000-7000-8000-000000000002"
         );
     }
 
     #[test]
     fn call_state_transcript_result_rejects_direct_backend_refs() {
         let value = json!({
-            "call_id": "ck:call:019a7360-0000-7000-8000-000000000001",
+            "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
             "state": "ended",
             "transcript_state": "ready",
             "transcript_result": {
@@ -646,7 +646,7 @@ mod tests {
     #[test]
     fn call_state_transcribing_requires_second_consent() {
         let value = json!({
-            "call_id": "ck:call:019a7360-0000-7000-8000-000000000001",
+            "call_id": "ak:call:019a7360-0000-7000-8000-000000000001",
             "state": "active",
             "transcript_state": "transcribing"
         });

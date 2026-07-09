@@ -6,7 +6,7 @@
 //! collection (`/org/freedesktop/secrets/aliases/default`) and are tagged
 //! with two attributes:
 //!
-//! - `service = "cokret.<application_id>"` — namespaces items so multiple Cokret-using apps on the
+//! - `service = "arkret.<application_id>"` — namespaces items so multiple Arkret-using apps on the
 //!   same desktop don't collide.
 //! - `account = <key_id>` — the caller-supplied opaque key id.
 //!
@@ -127,7 +127,7 @@ impl KeyStore for LinuxSecretServiceKeyStore {
 
     fn list(&self) -> Result<Vec<String>> {
         let ss = Self::connect()?;
-        // Search by `service = "cokret.<app>"` only; account is the key
+        // Search by `service = "arkret.<app>"` only; account is the key
         // id we're enumerating.
         let mut attrs = std::collections::HashMap::new();
         attrs.insert("service", self.service.as_str());
@@ -166,13 +166,13 @@ impl KeyStore for LinuxSecretServiceKeyStore {
 mod tests {
     //! Skipped automatically off-Linux. On Linux CI without a running
     //! D-Bus Secret Service these tests fail at construction with
-    //! `KeyStoreError::Backend`; gate `COKRET_TEST_LINUX_KEYSTORE=1`
+    //! `KeyStoreError::Backend`; gate `ARKRET_TEST_LINUX_KEYSTORE=1`
     //! before running.
 
     use super::*;
 
     fn enabled() -> bool {
-        std::env::var("COKRET_TEST_LINUX_KEYSTORE").as_deref() == Ok("1")
+        std::env::var("ARKRET_TEST_LINUX_KEYSTORE").as_deref() == Ok("1")
     }
 
     fn unique_app_id() -> String {
@@ -190,7 +190,7 @@ mod tests {
             return;
         }
         let store = LinuxSecretServiceKeyStore::new(&unique_app_id()).unwrap();
-        let id = "cokret:signer:alice:k1";
+        let id = "arkret:signer:alice:k1";
         store.store(id, b"linux-secret-1").unwrap();
         assert_eq!(store.load(id).unwrap().as_slice(), b"linux-secret-1");
         store.delete(id).unwrap();
@@ -204,7 +204,7 @@ mod tests {
             return;
         }
         let store = LinuxSecretServiceKeyStore::new(&unique_app_id()).unwrap();
-        let id = "cokret:signer:bob:k1";
+        let id = "arkret:signer:bob:k1";
         store.store(id, b"first").unwrap();
         store.store(id, b"second").unwrap();
         assert_eq!(store.load(id).unwrap().as_slice(), b"second");

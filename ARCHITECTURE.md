@@ -7,16 +7,16 @@ re-exports the cohesive public surface.
 ```text
 application
     |
-cokret (umbrella SDK)
-    |-- cokret-identifiers: validated DIDs, typed IDs, hashes, cursors and HLC values
-    |-- cokret-core: wire models, canonical JSON, sync/cursor, service metadata and the protocol-adjacent service / product DTOs
-    |-- cokret-crypto: local encryption, backup and key-management helpers
-    |-- cokret-ffi: C ABI bindings and runtime bridge helpers
-    |-- cokret-html: rich-text sanitization and conformance helpers
-    |-- cokret-http-client: HTTP transport for Cokret service endpoints
-    |-- cokret-keystore: platform KeyStore backends behind target feature gates
-    |-- cokret-server: endpoint registry, routed dispatch, server middleware, adapter contracts, OpenAPI helpers and optional Salvo router
-    |-- cokret-signatures: HTTP signatures, JWS/JWT and proof verification
+arkret (umbrella SDK)
+    |-- arkret-identifiers: validated DIDs, typed IDs, hashes, cursors and HLC values
+    |-- arkret-core: wire models, canonical JSON, sync/cursor, service metadata and the protocol-adjacent service / product DTOs
+    |-- arkret-crypto: local encryption, backup and key-management helpers
+    |-- arkret-ffi: C ABI bindings and runtime bridge helpers
+    |-- arkret-html: rich-text sanitization and conformance helpers
+    |-- arkret-http-client: HTTP transport for Arkret service endpoints
+    |-- arkret-keystore: platform KeyStore backends behind target feature gates
+    |-- arkret-server: endpoint registry, routed dispatch, server middleware, adapter contracts, OpenAPI helpers and optional Salvo router
+    |-- arkret-signatures: HTTP signatures, JWS/JWT and proof verification
     |-- base + sync_client: local client state, response processing and account subscribe
     |-- membership/devices/receipts/notifications: client business state
     |-- content/media/profile/settings/search/discovery: feature helpers
@@ -31,7 +31,7 @@ cokret (umbrella SDK)
 ## Protocol Model
 
 `crates/identifiers/src/lib.rs` owns identifier validation for DIDs, typed
-Cokret IDs, hashes, cursor tokens and HLC values. Serde decoding validates
+Arkret IDs, hashes, cursor tokens and HLC values. Serde decoding validates
 the same invariants as constructors so malformed wire identifiers fail at the
 edge.
 
@@ -56,9 +56,9 @@ integer numbers only and rejects floating point values.
 
 ## Client Layer
 
-`cokret-http-client` (`crates/http-client/src/lib.rs`) is a thin HTTP adapter. It is responsible for
+`arkret-http-client` (`crates/http-client/src/lib.rs`) is a thin HTTP adapter. It is responsible for
 base URL handling, authentication headers, JSON transport, service description
-verification and Cokret error envelope parsing.
+verification and Arkret error envelope parsing.
 
 It must not hide protocol concepts behind application-specific abstractions.
 Higher-level workflows can be added as helpers, but the low-level endpoints
@@ -66,16 +66,16 @@ should remain available.
 
 ## MLS Layer
 
-`crates/sdk/src/mls/mod.rs` binds Cokret encrypted Realms to OpenMLS. It
+`crates/sdk/src/mls/mod.rs` binds Arkret encrypted Realms to OpenMLS. It
 creates device KeyPackages, creates MLS groups, adds members, consumes Welcome
 messages, emits Commit / Welcome envelopes and encrypts application payloads
-into Cokret `EncryptedPayload` values.
+into Arkret `EncryptedPayload` values.
 
 The SDK treats MLS state as local cryptographic state. Repo and Sync services
 carry Commit, Welcome and encrypted application bytes, but they do not decrypt
 payloads or gain group secrets.
 
-Encrypted payload integrity follows the Cokret envelope rule:
+Encrypted payload integrity follows the Arkret envelope rule:
 `sha256(canonical_json(cleartext_metadata) || ciphertext_bytes)`. The SDK does
 not hash plaintext payloads into `payload_digest`.
 

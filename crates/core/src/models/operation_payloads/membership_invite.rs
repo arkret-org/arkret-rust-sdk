@@ -337,7 +337,7 @@ impl InviteRefPayload {
     }
 }
 
-pub const INVITE_CLAIM_AUDIENCE: &str = "cokret.invite.claim";
+pub const INVITE_CLAIM_AUDIENCE: &str = "arkret.invite.claim";
 pub const INVITE_SUBJECT_PROOF_ALG: &str = "EdDSA";
 pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ck.invite.claim.subject_proof.v1\n";
 
@@ -461,7 +461,7 @@ impl InviteSubjectProofBody {
         }
         if self.audience != INVITE_CLAIM_AUDIENCE {
             return Err(Error::Protocol(
-                "invite subject proof audience must be cokret.invite.claim".to_owned(),
+                "invite subject proof audience must be arkret.invite.claim".to_owned(),
             ));
         }
         if !self.binding_proof_digest.as_str().starts_with("sha256:") {
@@ -580,8 +580,8 @@ mod tests {
     use super::*;
 
     const SUBJECT: &str = "did:web:bob.example";
-    const INVITE: &str = "ck:invite:0196419b-0000-7000-8000-000000000101";
-    const REALM: &str = "ck:realm:0196419b-0000-7000-8000-000000000001";
+    const INVITE: &str = "ak:invite:0196419b-0000-7000-8000-000000000101";
+    const REALM: &str = "ak:realm:0196419b-0000-7000-8000-000000000001";
     const TOKEN: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const SERVICE: &str = "did:web:verify.example";
     const BINDING: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -604,11 +604,11 @@ mod tests {
             actual,
             concat!(
                 "ck.invite.claim.subject_proof.v1\n",
-                "{\"audience\":\"cokret.invite.claim\",",
+                "{\"audience\":\"arkret.invite.claim\",",
                 "\"binding_proof_digest\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",",
                 "\"claim_nonce\":\"nonce-claim-proof-1\",",
-                "\"invite_id\":\"ck:invite:0196419b-0000-7000-8000-000000000101\",",
-                "\"realm_id\":\"ck:realm:0196419b-0000-7000-8000-000000000001\",",
+                "\"invite_id\":\"ak:invite:0196419b-0000-7000-8000-000000000101\",",
+                "\"realm_id\":\"ak:realm:0196419b-0000-7000-8000-000000000001\",",
                 "\"subject_id\":\"did:web:bob.example\",",
                 "\"token_commitment\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
                 "\"verification_service_did\":\"did:web:verify.example\"}"

@@ -195,10 +195,10 @@ mod tests {
         let alice = did("alice");
         let mut index = RealmSearchIndex::new();
         let mut entry = RealmSearchEntry::new(
-            RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "Rust SDK",
         );
-        entry.description = Some("Cokret development".to_owned());
+        entry.description = Some("Arkret development".to_owned());
         entry.tags.insert("rust".to_owned());
         entry.members.insert(alice.clone());
         entry.public = true;
@@ -211,7 +211,7 @@ mod tests {
         let mut tags = BTreeSet::new();
         tags.insert("rust".to_owned());
         let results = index.search(RealmSearchQuery {
-            text: Some("cokret".to_owned()),
+            text: Some("arkret".to_owned()),
             tags,
             members: BTreeSet::from([alice]),
             public_only: true,

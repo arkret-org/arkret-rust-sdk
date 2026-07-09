@@ -1,6 +1,6 @@
 //! Move verifier pipeline.
 //!
-//! Per `cokret-rust-sdk/docs/move-seal-runtime.md` §4 and spec §3-§4.
+//! Per `arkret-rust-sdk/docs/move-seal-runtime.md` §4 and spec §3-§4.
 //! Five steps; failure at any step rejects the Move with a typed reason
 //! that maps onto a wire `error_code`:
 //!
@@ -13,7 +13,7 @@
 //! | 5 effect-shape | every effect's `LatticeOp` passes the cell's `validate_op` | `schema_violation` |
 //!
 //! `verify_jws` and `resolve_grant` are out-of-scope here: they live in
-//! `cokret-signatures` and `cokret-sdk::authz` respectively. This
+//! `arkret-signatures` and `arkret-sdk::authz` respectively. This
 //! module assumes those primitives are passed in (or stubbed) so the
 //! pipeline orchestration stays pure.
 
@@ -55,7 +55,7 @@ impl From<StoreError> for MoveReject {
 }
 
 /// Map a [`MoveReject`] variant to its wire-level `error_code` constant
-/// (from `cokret-spec` `error-code-registry.json`).
+/// (from `arkret-spec` `error-code-registry.json`).
 pub fn reject_to_error_code(r: &MoveReject) -> &'static str {
     match r {
         MoveReject::SchemaViolation(_) => crate::ERROR_CODE_SCHEMA_VIOLATION,
@@ -434,17 +434,17 @@ mod tests {
     };
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn cell_member() -> CellRef {
-        CellRef::new("ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ak:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap()
     }
 
     fn cell_capability_grant() -> CellRef {
         CellRef::new(
-            "ck:cell:ck.component.capability.grant.v1:ck.grant.01js0gr0000000000000000000"
+            "ak:cell:ck.component.capability.grant.v1:ck.grant.01js0gr0000000000000000000"
                 .to_owned(),
         )
         .unwrap()
@@ -465,7 +465,7 @@ mod tests {
             "preconditions": preconditions,
             "effects": effects,
             "seal_basis": {
-                "leaves": [format!("ck:seal:sha256:{}", "aa".repeat(32))],
+                "leaves": [format!("ak:seal:sha256:{}", "aa".repeat(32))],
                 "control_event_set_root": format!("sha256:{}", "22".repeat(32)),
                 "state_root": format!("sha256:{}", "33".repeat(32))
             },
@@ -574,7 +574,7 @@ mod tests {
 
     #[test]
     fn authorized_by_ref_resolves_capability_grant_cell() {
-        let grant_id = "ck:grant:0196419b-0000-7000-8000-000000000111";
+        let grant_id = "ak:grant:0196419b-0000-7000-8000-000000000111";
         let eff = Effect {
             cell: cell_member(),
             op: LatticeOp {
@@ -599,7 +599,7 @@ mod tests {
 
     #[test]
     fn missing_authorized_by_grant_rejects() {
-        let grant_id = "ck:grant:0196419b-0000-7000-8000-000000000111";
+        let grant_id = "ak:grant:0196419b-0000-7000-8000-000000000111";
         let eff = Effect {
             cell: cell_member(),
             op: LatticeOp {
@@ -624,7 +624,7 @@ mod tests {
 
     #[test]
     fn authorized_by_subject_mismatch_rejects() {
-        let grant_id = "ck:grant:0196419b-0000-7000-8000-000000000111";
+        let grant_id = "ak:grant:0196419b-0000-7000-8000-000000000111";
         let eff = Effect {
             cell: cell_member(),
             op: LatticeOp {

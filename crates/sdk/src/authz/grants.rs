@@ -1298,7 +1298,7 @@ mod capability_grant_builder_tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
     }
 
     fn alice() -> Did {
@@ -1328,7 +1328,7 @@ mod capability_grant_builder_tests {
 
     fn base_grant() -> cokret_core::CapabilityGrant {
         cokret_core::CapabilityGrant {
-            id: GrantId::new("ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
             schema: CAPABILITY_SCHEMA.to_owned(),
             realm_id: None,
             issuer: alice(),
@@ -1358,12 +1358,12 @@ mod capability_grant_builder_tests {
         // Canonical capability_grant_payload wrapper: {grant_id, grant}.
         assert_eq!(
             event.payload["grant_id"],
-            "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
+            "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
         let artifact = &event.payload["grant"];
         assert_eq!(
             artifact["id"],
-            "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
+            "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
         assert_eq!(artifact["schema"], CAPABILITY_SCHEMA);
         assert_eq!(artifact["issuer"], "did:webvh:z6mkfixture:alice.example");
@@ -1382,9 +1382,9 @@ mod capability_grant_builder_tests {
         // Wrapper round-trips back into the core authority form.
         let event_view = crate::resolver::ResolvedStateEvent {
             kind: event.kind.to_string(),
-            subject: "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
+            subject: "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
             source_event_id: cokret_core::EventId::new(
-                "ck:event:01904100-0000-7000-8000-bbbbbbbbbbbb",
+                "ak:event:01904100-0000-7000-8000-bbbbbbbbbbbb",
             )
             .unwrap(),
             actor_id: alice(),
@@ -1395,7 +1395,7 @@ mod capability_grant_builder_tests {
         let grant = capability_grant_from_resolved_event(&event_view, None).unwrap();
         assert_eq!(
             grant.id.as_str(),
-            "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
+            "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
     }
 
@@ -1454,13 +1454,13 @@ mod capability_grant_builder_tests {
     #[test]
     fn capability_chain_verifier_accepts_narrowing_child() {
         let parent = cokret_core::CapabilityGrant {
-            id: GrantId::new("ck:grant:01904100-0000-7000-8000-000000000001").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
             actions: vec!["*".to_owned()],
             constraints: vec![cokret_core::GrantConstraint::delegation_control(1, false)],
             ..base_grant()
         };
         let child = cokret_core::CapabilityGrant {
-            id: GrantId::new("ck:grant:01904100-0000-7000-8000-000000000002").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000002").unwrap(),
             parent_grant_id: Some(parent.id.clone()),
             issuer: bob(),
             subject: CapabilitySubject::Did(
@@ -1478,12 +1478,12 @@ mod capability_grant_builder_tests {
     #[test]
     fn capability_chain_verifier_rejects_parent_without_delegation_control() {
         let parent = cokret_core::CapabilityGrant {
-            id: GrantId::new("ck:grant:01904100-0000-7000-8000-000000000001").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
             actions: vec!["*".to_owned()],
             ..base_grant()
         };
         let child = cokret_core::CapabilityGrant {
-            id: GrantId::new("ck:grant:01904100-0000-7000-8000-000000000002").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000002").unwrap(),
             parent_grant_id: Some(parent.id.clone()),
             issuer: bob(),
             subject: CapabilitySubject::Did(
@@ -1501,14 +1501,14 @@ mod capability_grant_builder_tests {
         let mut artifact = serde_json::to_value(base_grant()).unwrap();
         artifact["delegable"] = json!(true);
         let content = json!({
-            "grant_id": "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            "grant_id": "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa",
             "grant": artifact,
         });
         let event = crate::resolver::ResolvedStateEvent {
             kind: "ck.capability.grant".to_owned(),
-            subject: "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
+            subject: "ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
             source_event_id: cokret_core::EventId::new(
-                "ck:event:01904100-0000-7000-8000-bbbbbbbbbbbb",
+                "ak:event:01904100-0000-7000-8000-bbbbbbbbbbbb",
             )
             .unwrap(),
             actor_id: alice(),

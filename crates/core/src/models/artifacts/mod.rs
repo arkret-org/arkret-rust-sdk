@@ -4,7 +4,7 @@
 //! Concrete OpenAPI body DTOs and stable protocol resources live in sibling
 //! domain modules such as `api`, `operation_payloads`, `objects`, and
 //! `registry`. These modules keep remaining artifact-local schema names
-//! addressable from `cokret-core` while reusing those canonical SDK types
+//! addressable from `arkret-core` while reusing those canonical SDK types
 //! where possible; open extension fields remain `serde_json::Value` or
 //! `BTreeMap<String, Value>` where the schema explicitly permits arbitrary
 //! JSON.

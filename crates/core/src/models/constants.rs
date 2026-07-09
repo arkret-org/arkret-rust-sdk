@@ -1,7 +1,7 @@
 pub const PROTOCOL_VERSION: &str = "1.0";
 pub const CORE_SCHEMA_PROFILE: &str = "ck.schema.core.v1";
 pub const CORE_REDUCER_PROFILE: &str = "ck.reducer.v1";
-pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "cokret-sdk-builtin-v1";
+pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "arkret-sdk-builtin-v1";
 
 pub const CURSOR_SCHEMA: &str = "ck.schema.cursor.v1";
 // Realm/Space schema ids:
@@ -27,7 +27,7 @@ pub const READ_RECEIPT_TYPE: &str = "read";
 pub const NOTIFICATION_SCHEMA: &str = "ck.schema.notification.v1";
 /// SDK-local operation draft schema marker.
 ///
-/// Operation drafts are builder inputs only; they are not a Cokret wire
+/// Operation drafts are builder inputs only; they are not a Arkret wire
 /// schema and must be materialized as Event envelopes before submission.
 pub const OPERATION_SCHEMA: &str = "ck.local.operation_draft.v1";
 pub const BLOB_SCHEMA: &str = "ck.schema.blob.v1";
@@ -514,7 +514,7 @@ pub const OP_ACCOUNT_OIDC_CALLBACK: &str = "ck.gate.account.exchange.complete_oi
 
 // Admin / operator APIs (moderation queue, server status, device revocation,
 // account status) are product-local per spec @ 2026-06-04 and MUST NOT be
-// registered under the Cokret protocol namespace; servers expose them on
+// registered under the Arkret protocol namespace; servers expose them on
 // their own negative-space root such as /_soland/admin/*. They were removed
 // from the operation registry (see migration/removed-operation-ids.json) and
 // therefore carry no `OP_ADMIN_*` protocol constants here.
@@ -560,13 +560,13 @@ pub const OP_DIRECTORY_ANNOUNCE: &str = "ck.find.directory.command.announce";
 pub const OP_DIRECTORY_RESOLVE_AGENT_SELECTOR: &str =
     "ck.find.directory.query.resolve_agent_selector";
 pub const OP_DIRECTORY_RESOLVE_HANDLE: &str = "ck.find.directory.query.resolve_handle";
-/// R3.2 (cokret-spec @ b56cab1) — subject/context → current visible
+/// R3.2 (arkret-spec @ b56cab1) — subject/context → current visible
 /// handle claims; the inverse of `resolve_handle`.
 pub const OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT: &str =
     "ck.find.directory.query.list_handles_for_subject";
 pub const OP_DIRECTORY_RESOLVE_ORGANIZATION: &str = "ck.find.directory.query.resolve_organization";
 pub const OP_DIRECTORY_RESOLVE_REALM: &str = "ck.find.directory.query.resolve_realm";
-/// R3.3 (CKP-0011, cokret-spec @ cced4b8) — resolve a client-agnostic
+/// R3.3 (CKP-0011, arkret-spec @ cced4b8) — resolve a client-agnostic
 /// shareable object address (Realm / Strand / Message) to a preview. Pure ADD;
 /// `resolve_realm` is retained and NOT deprecated.
 pub const OP_DIRECTORY_RESOLVE_TARGET: &str = "ck.find.directory.query.resolve_target";
@@ -722,7 +722,7 @@ pub const CAP_ACTION_MODERATION_APPEAL_REVIEW: &str = "ck.moderation.appeal.revi
 /// `capability-action-registry.json` declares `required_constraints=[allowed_morph_types]`.
 pub const CAP_ACTION_MORPH_CREATE: &str = "ck.morph.create";
 
-/// CKP-0010 (R3 spec-sync 2026-05-27, cokret-spec b47ff6ec) — call /
+/// CKP-0010 (R3 spec-sync 2026-05-27, arkret-spec b47ff6ec) — call /
 /// media capability actions registered in
 /// `capability-action-registry.json`. These actions gate the join,
 /// screen-share, recording, transcription, moderation, and signal-send
@@ -1110,16 +1110,16 @@ mod tests {
     #[test]
     fn agent_sidecar_home_prefers_context_realm() {
         assert_eq!(
-            select_agent_sidecar_home_realm(Some("ck:realm:context"), "ck:realm:home"),
-            Some("ck:realm:context")
+            select_agent_sidecar_home_realm(Some("ak:realm:context"), "ak:realm:home"),
+            Some("ak:realm:context")
         );
-        assert_eq!(select_agent_sidecar_home_realm(None, "ck:realm:home"), None);
+        assert_eq!(select_agent_sidecar_home_realm(None, "ak:realm:home"), None);
     }
 
     #[test]
     fn agent_sidecar_circle_key_is_stable_and_short_name_derives() {
         let key = agent_sidecar_circle_key(
-            "ck:realm:context",
+            "ak:realm:context",
             "did:webvh:z6mkfixture:example.com:users:alice",
         );
         assert_eq!(key.len(), 24);

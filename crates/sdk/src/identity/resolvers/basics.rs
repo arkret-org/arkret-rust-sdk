@@ -101,7 +101,7 @@ where
     }
 }
 
-/// Verify a Cokret [`Proof`] over caller-supplied canonical bytes by
+/// Verify a Arkret [`Proof`] over caller-supplied canonical bytes by
 /// resolving `proof.verification_method` through a DID document.
 ///
 /// `binding_actor_id` is the `actor_id` folded into the canonical proof

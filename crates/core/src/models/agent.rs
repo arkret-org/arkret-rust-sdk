@@ -330,8 +330,8 @@ mod tests {
                 Did::new("did:webvh:z6mkfixture:agent.example").unwrap(),
             ],
             context_ref: AgentSidecarContextRef::strand(
-                RealmId::new("ck:realm:01964137-0000-7000-8000-000000000030").unwrap(),
-                StrandId::new("ck:strand:01964137-0000-7000-8000-000000000031").unwrap(),
+                RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030").unwrap(),
+                StrandId::new("ak:strand:01964137-0000-7000-8000-000000000031").unwrap(),
             ),
         };
         let value = serde_json::to_value(request).unwrap();
@@ -347,11 +347,11 @@ mod tests {
         );
         assert_eq!(
             value["context_ref"]["realm_id"],
-            "ck:realm:01964137-0000-7000-8000-000000000030"
+            "ak:realm:01964137-0000-7000-8000-000000000030"
         );
         assert_eq!(
             value["context_ref"]["strand_id"],
-            "ck:strand:01964137-0000-7000-8000-000000000031"
+            "ak:strand:01964137-0000-7000-8000-000000000031"
         );
     }
 }

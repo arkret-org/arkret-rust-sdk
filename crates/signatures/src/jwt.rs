@@ -303,7 +303,7 @@ mod tests {
             kid,
             json!({
                 "iss": "https://issuer.example",
-                "aud": ["cokret-client", "other"],
+                "aud": ["arkret-client", "other"],
                 "sub": "alice",
                 "iat": now - 1,
                 "nbf": now - 1,
@@ -341,7 +341,7 @@ mod tests {
         let (jwt, jwks) = jwt_fixture(now, Some("key-1"));
         let policy = JwtVerificationPolicy::new(now)
             .issuer("https://issuer.example")
-            .audience("cokret-client");
+            .audience("arkret-client");
 
         let verified = verify_eddsa_jwt_with_jwks(&jwt, &jwks, &policy).unwrap();
         assert_eq!(verified.key_id.as_deref(), Some("key-1"));
@@ -357,7 +357,7 @@ mod tests {
         let tampered = parts.join(".");
         let policy = JwtVerificationPolicy::new(now)
             .issuer("https://issuer.example")
-            .audience("cokret-client");
+            .audience("arkret-client");
         assert_eq!(
             verify_eddsa_jwt_with_jwks(&tampered, &jwks, &policy),
             Err(JwtVerificationError::InvalidSignature)
@@ -389,7 +389,7 @@ mod tests {
             Some("key-1"),
             json!({
                 "iss": "https://issuer.example",
-                "aud": "cokret-client",
+                "aud": "arkret-client",
                 "sub": "alice",
                 "iat": now - 1,
                 "nbf": now - 1

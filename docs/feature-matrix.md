@@ -2,22 +2,22 @@
 
 > **Authoritative source.** The conformance-profile requirement surface is
 > defined by the generated `cokret_core::generated::profile_requirements` table
-> (derived from `cokret-spec` `conformance-profiles.json`). The profile tables
+> (derived from `arkret-spec` `conformance-profiles.json`). The profile tables
 > in this document are a **human-readable mirror only** — when they disagree,
 > the generated table wins. The `feature_matrix_profiles_subset_of_generated`
 > test in `crates/core/tests/feature_matrix_doc.rs` fails if any profile ID
 > named here is absent from the generated table, so the mirror cannot drift
 > ahead of the code.
 
-Cokret SDK uses additive Cargo features.
+Arkret SDK uses additive Cargo features.
 
 | Build | Feature flags | Intended use |
 | --- | --- | --- |
 | Default / type surface | none, or `default-features = false` | Protocol IDs, wire models, canonical digests and shared DTO contracts without `openmls`, `reqwest`, `tokio`, `full-surface`, `applet-runtime`, `device-runtime`, `sync-runtime` or `timeline-runtime`. |
 | Full surface | `--features full-surface` | High-level SDK managers, local state helpers, stores and runtime-neutral facades. This does not by itself enable HTTP, OpenMLS or Tokio-backed runtime integrations. |
-| Client | `--features client` | Reqwest/tokio-based HTTP client for the Cokret v1 service binding. |
+| Client | `--features client` | Reqwest/tokio-based HTTP client for the Arkret v1 service binding. |
 | Server | `--features server` | Framework-independent server handler contracts, shared contract re-exports and endpoint fixture coverage. Implies `full-surface`. |
-| Salvo OAPI | `--features salvo` | Server feature plus Salvo OAPI derives on Cokret DTO and identifier types. |
+| Salvo OAPI | `--features salvo` | Server feature plus Salvo OAPI derives on Arkret DTO and identifier types. |
 | Applet | `--features applet` | Convenience umbrella for Applet developers: `applet-runtime` + `client` + `server` + `salvo`. One flag turns on the applet wire surface (`AppletPackage`, `WireAppletRegistration`, install objects, bridge-error builder), the HTTP client, the `AppletHandler` contracts and the ready-made `applet_router` Salvo factory. |
 | MLS | `--features mls` | OpenMLS-backed group creation, Welcome/Commit envelopes and payload encryption/decryption. |
 | Device runtime | `--features device-runtime` | Device, key-verification and secret-share helpers. Implies `full-surface`. |

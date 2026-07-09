@@ -767,7 +767,7 @@ mod tests {
     fn test_key_ref() -> KeyRefObject {
         KeyRefObject {
             algorithm: "MLS".to_owned(),
-            group_state_ref: "ck:event:01964148-0000-7000-8000-000000000000".to_owned(),
+            group_state_ref: "ak:event:01964148-0000-7000-8000-000000000000".to_owned(),
         }
     }
 
@@ -1038,11 +1038,11 @@ mod tests {
     fn envelope_serde_matches_schema_field_names() {
         // Stream envelope from a hand-written JSON with exact schema field names.
         let raw = r#"{
-            "blob_ref": "ck:blob:sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "blob_ref": "ak:blob:sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
             "encrypted": true,
             "scheme": "ck.blob.stream_aead.v1",
             "alg": "mls_exporter_aead_xchacha20poly1305_stream",
-            "key_ref": { "algorithm": "MLS", "group_state_ref": "ck:event:01964148-0000-7000-8000-000000000000" },
+            "key_ref": { "algorithm": "MLS", "group_state_ref": "ak:event:01964148-0000-7000-8000-000000000000" },
             "epoch": 42,
             "nonce_prefix": "AAAAAAAAAAAAAAAAAAAAAAAAAA",
             "segment_size": 262144,

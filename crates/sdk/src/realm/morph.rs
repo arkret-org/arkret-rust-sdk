@@ -16,8 +16,8 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let morph_id = MorphId::new(generate_id("ck:morph:"))?;
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let morph_id = MorphId::new(generate_id("ak:morph:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
 
         let mut object = MorphCreateObject::new(
             morph_id,
@@ -59,7 +59,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let mut patch = Patch::new();
 
         if let Some(title) = title {
@@ -93,7 +93,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,

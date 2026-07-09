@@ -1,6 +1,6 @@
 //! R3.2 — Realm-scoped `MemberIdentity` segment + replacement event payload.
 //!
-//! Spec source (cokret-spec @ b56cab1, 2026-05-28):
+//! Spec source (arkret-spec @ b56cab1, 2026-05-28):
 //! * `artifacts/schemas/member-identity.schema.json`
 //! * `artifacts/schemas/event-payload.schema.json#/$defs/member_identity_update_payload`
 //! * `artifacts/schemas/account-subscribe-frame.schema.json#/$defs/member_roster_entry`
@@ -458,7 +458,7 @@ mod tests {
     use super::*;
 
     fn fake_realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()
     }
 
     fn fake_actor(label: &str) -> Did {
@@ -488,7 +488,7 @@ mod tests {
     }
 
     fn fake_event_ref(suffix: &str) -> EventId {
-        EventId::new(format!("ck:event:01904100-0000-7000-8000-{:0>12}", suffix)).unwrap()
+        EventId::new(format!("ak:event:01904100-0000-7000-8000-{:0>12}", suffix)).unwrap()
     }
 
     #[test]

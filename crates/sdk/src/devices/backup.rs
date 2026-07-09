@@ -33,9 +33,9 @@ impl KeyBackupClass {
 
     /// HKDF `info` string for deriving an in-domain subkey from the
     /// passphrase-derived root unlock key, per `key-management.md`
-    /// §7.2: `cokret-key-backup/<class>/<sub>/v1`.
+    /// §7.2: `arkret-key-backup/<class>/<sub>/v1`.
     pub fn hkdf_info(&self, subdomain: &str) -> String {
-        format!("cokret-key-backup/{}/{}/v1", self.as_str(), subdomain)
+        format!("arkret-key-backup/{}/{}/v1", self.as_str(), subdomain)
     }
 }
 
@@ -81,7 +81,7 @@ fn hkdf_expand_32(prk: &[u8], info: &[u8]) -> [u8; 32] {
 /// (`key-management.md` §7.2):
 ///
 /// ```text
-/// commitment_key = HKDF(derived_key, info="cokret-key-backup-commitment-v1")
+/// commitment_key = HKDF(derived_key, info="arkret-key-backup-commitment-v1")
 /// key_commitment = SHA256(commitment_key)
 /// ```
 ///
@@ -90,7 +90,7 @@ fn hkdf_expand_32(prk: &[u8], info: &[u8]) -> [u8; 32] {
 pub fn key_backup_commitment(derived_key: &[u8]) -> String {
     // HKDF-Extract with empty salt: PRK = HMAC-SHA256(zeros, IKM).
     let prk = hmac_sha256(&[0u8; 32], derived_key);
-    let commitment_key = hkdf_expand_32(&prk, b"cokret-key-backup-commitment-v1");
+    let commitment_key = hkdf_expand_32(&prk, b"arkret-key-backup-commitment-v1");
     canonical::sha256_digest(commitment_key)
 }
 
@@ -136,7 +136,7 @@ pub fn key_backup_aad(
     canonical::canonical_json_bytes(&aad)
 }
 
-// The backup encryption descriptor is owned by `cokret-core`
+// The backup encryption descriptor is owned by `arkret-core`
 // (`models/key_backup.rs`, aligned with `key-backup.schema.json` including
 // `hpke_suite` and open extension fields); the SDK reuses it directly.
 use cokret_core::KeyBackupEncryption;

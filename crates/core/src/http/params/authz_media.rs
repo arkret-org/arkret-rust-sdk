@@ -19,9 +19,9 @@ pub struct AuthzEffectiveGrantsParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -50,9 +50,9 @@ pub struct AuthzInvitesParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -72,9 +72,9 @@ pub struct AuthzCheckParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -94,9 +94,9 @@ pub struct PolicyCheckParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -116,9 +116,9 @@ pub struct MediaIceConfigParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -138,9 +138,9 @@ pub struct ModerationReportParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(

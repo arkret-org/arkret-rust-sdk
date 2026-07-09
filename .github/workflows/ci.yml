@@ -23,18 +23,18 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo +nightly fmt --all -- --check
-      - run: cargo check -p cokret
-      - name: Guard default cokret dependency surface
+      - run: cargo check -p arkret
+      - name: Guard default arkret dependency surface
         shell: bash
         run: |
           set -euo pipefail
-          cargo tree -p cokret --edges normal > /tmp/cokret-default-tree.txt
-          if grep -E '(^|[[:space:]])(openmls|reqwest|tokio|cokret-http-client|cokret-server) v' /tmp/cokret-default-tree.txt; then
-            echo "default cokret feature pulled a heavy runtime dependency"
+          cargo tree -p arkret --edges normal > /tmp/arkret-default-tree.txt
+          if grep -E '(^|[[:space:]])(openmls|reqwest|tokio|arkret-http-client|arkret-server) v' /tmp/arkret-default-tree.txt; then
+            echo "default arkret feature pulled a heavy runtime dependency"
             exit 1
           fi
       - run: cargo check --no-default-features
-      - run: cargo check -p cokret --no-default-features --features full-surface
+      - run: cargo check -p arkret --no-default-features --features full-surface
       - run: cargo check --no-default-features --features client
       - run: cargo check --no-default-features --features server
       - run: cargo check --no-default-features --features mls
@@ -57,25 +57,25 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - run: rustup target add wasm32-unknown-unknown
-      - run: cargo check -p cokret-core --target wasm32-unknown-unknown --no-default-features --features client
-      - run: cargo check -p cokret-identifiers --target wasm32-unknown-unknown --no-default-features
+      - run: cargo check -p arkret-core --target wasm32-unknown-unknown --no-default-features --features client
+      - run: cargo check -p arkret-identifiers --target wasm32-unknown-unknown --no-default-features
 
   embedded-snapshot:
     name: embedded spec snapshot drift gate
     runs-on: ubuntu-latest
     # Hard gate (SDK-TEST-07): the embedded spec artifact snapshot MUST match
-    # the live spec. COKRET_REQUIRE_SPEC=1 turns the otherwise-skipping test
+    # the live spec. ARKRET_REQUIRE_SPEC=1 turns the otherwise-skipping test
     # into a failure when the spec checkout is missing, so this job can never
     # silently pass without comparing. Refresh the snapshot with
     # `python tools/refresh-embedded-artifacts.py` when the spec moves.
     steps:
       - uses: actions/checkout@v4
         with:
-          path: cokret-rust-sdk
+          path: arkret-rust-sdk
       - uses: actions/checkout@v4
         with:
-          repository: cokret/cokret-spec
-          path: cokret-spec
+          repository: arkret/arkret-spec
+          path: arkret-spec
           # Public spec repo; if private, set a PAT under
           # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.
       - uses: dtolnay/rust-toolchain@master
@@ -83,13 +83,13 @@ jobs:
           toolchain: "1.96"
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: cokret-rust-sdk
+          workspaces: arkret-rust-sdk
       - name: Run embedded snapshot drift gate
-        working-directory: cokret-rust-sdk
+        working-directory: arkret-rust-sdk
         env:
-          COKRET_REQUIRE_SPEC: "1"
-          COKRET_SPEC_ARTIFACTS: ${{ github.workspace }}/cokret-spec/spec/v1/artifacts
-        run: cargo test -p cokret-core --lib embedded_spec_artifacts_match_live_spec_when_available
+          ARKRET_REQUIRE_SPEC: "1"
+          ARKRET_SPEC_ARTIFACTS: ${{ github.workspace }}/arkret-spec/spec/v1/artifacts
+        run: cargo test -p arkret-core --lib embedded_spec_artifacts_match_live_spec_when_available
 
   docs:
     name: Documentation
@@ -207,11 +207,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          path: cokret-rust-sdk
+          path: arkret-rust-sdk
       - uses: actions/checkout@v4
         with:
-          repository: cokret/cokret-spec
-          path: cokret-spec
+          repository: arkret/arkret-spec
+          path: arkret-spec
           # Public spec repo; if private, set a PAT under
           # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.
       - uses: dtolnay/rust-toolchain@master
@@ -219,9 +219,9 @@ jobs:
           toolchain: "1.96"
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: cokret-rust-sdk
+          workspaces: arkret-rust-sdk
       - name: Run spec_drift_report
-        working-directory: cokret-rust-sdk
+        working-directory: arkret-rust-sdk
         env:
-          COKRET_SPEC_ARTIFACTS: ${{ github.workspace }}/cokret-spec/spec/v1/artifacts
+          ARKRET_SPEC_ARTIFACTS: ${{ github.workspace }}/arkret-spec/spec/v1/artifacts
         run: cargo run --example spec_drift_report

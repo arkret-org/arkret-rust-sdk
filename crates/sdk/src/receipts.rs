@@ -10,8 +10,8 @@
 //! `discovery/client-preferences.md` §3.6.
 //!
 //! Note: the `ck.strand.track.read_receipt_policy` cell was REMOVED in
-//! cokret-spec revision `0a5ab85` (see
-//! `cokret-spec/spec/v1/artifacts/registry/removed-event-kinds.json`).
+//! arkret-spec revision `0a5ab85` (see
+//! `arkret-spec/spec/v1/artifacts/registry/removed-event-kinds.json`).
 //! Read receipts evaluate at the Realm level; create a child Realm or Circle
 //! if a discussion needs an independent boundary.
 
@@ -20,7 +20,7 @@ use std::fmt;
 
 use chrono::{DateTime, Utc};
 use cokret_core::ReadCursorId;
-// Wire-shaped read receipt / read cursor types are owned by `cokret-core`
+// Wire-shaped read receipt / read cursor types are owned by `arkret-core`
 // (mirroring `read-receipt.schema.json` / `read-cursor.schema.json`); the
 // manager reuses them instead of keeping `user_id`-shaped local copies.
 pub use cokret_core::{
@@ -100,7 +100,7 @@ impl ReceiptManager {
         thread_id: Option<String>,
     ) -> Result<ReadMarker> {
         let marker = ReadCursor {
-            id: ReadCursorId::new(format!("ck:read_cursor:{}", uuid::Uuid::now_v7()))?,
+            id: ReadCursorId::new(format!("ak:read_cursor:{}", uuid::Uuid::now_v7()))?,
             schema: READ_CURSOR_SCHEMA.to_owned(),
             actor_id: actor_id.clone(),
             device_id,
@@ -539,10 +539,10 @@ mod tests {
 
     #[test]
     fn receipts_manage_markers_and_threads() {
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
-        let device = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap();
-        let event = EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap();
+        let device = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap();
+        let event = EventId::new("ak:event:01904100-0000-7000-8000-834e21b98552").unwrap();
         let hlc = Hlc::new("01970e589d21-0004-a13f9c2e").unwrap();
         let mut manager = ReceiptManager::new();
 
@@ -590,11 +590,11 @@ mod tests {
     }
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-906bb8c30a80").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-906bb8c30a80").unwrap()
     }
 
     fn strand() -> StrandId {
-        StrandId::new("ck:strand:01904100-0000-7000-8000-c1fe7e18f6fe").unwrap()
+        StrandId::new("ak:strand:01904100-0000-7000-8000-c1fe7e18f6fe").unwrap()
     }
 
     #[test]
@@ -637,7 +637,7 @@ mod tests {
         assert!(!prefs.effective_send(None, Some(&realm())));
         assert!(!prefs.effective_display(None, Some(&realm())));
         // default applies when nothing else matches
-        let other_realm = RealmId::new("ck:realm:01904100-0000-7000-8000-de7b2d3c4472").unwrap();
+        let other_realm = RealmId::new("ak:realm:01904100-0000-7000-8000-de7b2d3c4472").unwrap();
         assert!(prefs.effective_send(None, Some(&other_realm)));
         assert!(prefs.effective_display(None, Some(&other_realm)));
     }

@@ -15,8 +15,8 @@
 //!
 //! ```text
 //! Signature-Input: sig1=("@method" "@target-uri" "@authority" \
-//!     "content-digest" "x-cokret-origin-service-did" \
-//!     "x-cokret-destination-service-did");\
+//!     "content-digest" "x-arkret-origin-service-did" \
+//!     "x-arkret-destination-service-did");\
 //!     created=1715990000;expires=1715990300;\
 //!     keyid="did:webvh:z6mkfixture:sync.example.com#push";alg="ed25519"
 //! Signature: sig1=:BASE64URLSAFE_OR_STANDARD_64B:
@@ -142,7 +142,7 @@ pub enum HttpMessageVerificationError {
     /// RFC 9421 / RFC 9530 parsing, canonicalization or signature math failed.
     #[error(transparent)]
     Signature(#[from] SignatureError),
-    /// Cokret profile policy rejected the otherwise parseable signature input.
+    /// Arkret profile policy rejected the otherwise parseable signature input.
     #[error(transparent)]
     Policy(#[from] SignaturePolicyError),
 }
@@ -288,7 +288,7 @@ impl SignatureVerificationPolicy {
         }
     }
 
-    /// Minimal Cokret service-ingest policy: method, absolute target URI,
+    /// Minimal Arkret service-ingest policy: method, absolute target URI,
     /// authority and content digest must all be covered.
     pub fn service_ingest() -> Self {
         Self::new(vec![
@@ -688,7 +688,7 @@ pub fn verify_content_digest(parsed: &ContentDigest, body: &[u8]) -> Result<(), 
 ///
 /// 1. `Signature-Input` / `Signature` header extraction.
 /// 2. `Content-Digest` parsing and raw-body verification, when present.
-/// 3. Cokret policy validation (`required_components`, digest requirement and created/expires
+/// 3. Arkret policy validation (`required_components`, digest requirement and created/expires
 ///    window).
 /// 4. RFC 9421 canonical message construction.
 /// 5. Ed25519 verification against the supplied public key.
@@ -913,7 +913,7 @@ mod tests {
     fn floria_signature_input(created: i64, expires: i64) -> String {
         format!(
             "sig1=(\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \
-             \"x-cokret-origin-service-did\" \"x-cokret-destination-service-did\");\
+             \"x-arkret-origin-service-did\" \"x-arkret-destination-service-did\");\
              created={created};expires={expires};\
              keyid=\"did:webvh:z6mkfixture:sync.example.com#push\";alg=\"ed25519\""
         )
@@ -938,7 +938,7 @@ mod tests {
         );
         assert_eq!(
             parsed.covered_components[4],
-            Component::Header("x-cokret-origin-service-did".to_owned())
+            Component::Header("x-arkret-origin-service-did".to_owned())
         );
         // covers_all check
         assert!(parsed.covers_all(&[
@@ -1051,11 +1051,11 @@ mod tests {
             path: "/_cokret/edge/push/notify".to_owned(),
             headers: vec![
                 (
-                    "x-cokret-origin-service-did".to_owned(),
+                    "x-arkret-origin-service-did".to_owned(),
                     "did:webvh:z6mkfixture:sync.example.com".to_owned(),
                 ),
                 (
-                    "x-cokret-destination-service-did".to_owned(),
+                    "x-arkret-destination-service-did".to_owned(),
                     "did:webvh:z6mkfixture:push.example.com".to_owned(),
                 ),
             ],
@@ -1069,11 +1069,11 @@ mod tests {
              \"@target-uri\": http://127.0.0.1/_cokret/edge/push/notify\n\
              \"@authority\": 127.0.0.1\n\
              \"content-digest\": {digest_val}\n\
-             \"x-cokret-origin-service-did\": did:webvh:z6mkfixture:sync.example.com\n\
-             \"x-cokret-destination-service-did\": did:webvh:z6mkfixture:push.example.com\n\
+             \"x-arkret-origin-service-did\": did:webvh:z6mkfixture:sync.example.com\n\
+             \"x-arkret-destination-service-did\": did:webvh:z6mkfixture:push.example.com\n\
              \"@signature-params\": ({components});created={created};expires={expires};keyid=\"did:webvh:z6mkfixture:sync.example.com#push\";alg=\"ed25519\"",
             digest_val = digest.wire_value,
-            components = "\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \"x-cokret-origin-service-did\" \"x-cokret-destination-service-did\"",
+            components = "\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \"x-arkret-origin-service-did\" \"x-arkret-destination-service-did\"",
         );
         assert_eq!(text, expected);
     }
@@ -1095,11 +1095,11 @@ mod tests {
             path: "/_cokret/edge/push/notify".to_owned(),
             headers: vec![
                 (
-                    "x-cokret-origin-service-did".to_owned(),
+                    "x-arkret-origin-service-did".to_owned(),
                     "did:webvh:z6mkfixture:sync.example.com".to_owned(),
                 ),
                 (
-                    "x-cokret-destination-service-did".to_owned(),
+                    "x-arkret-destination-service-did".to_owned(),
                     "did:webvh:z6mkfixture:push.example.com".to_owned(),
                 ),
             ],
@@ -1132,11 +1132,11 @@ mod tests {
             path: "/_cokret/edge/push/notify".to_owned(),
             headers: vec![
                 (
-                    "x-cokret-origin-service-did".to_owned(),
+                    "x-arkret-origin-service-did".to_owned(),
                     "did:webvh:z6mkfixture:sync.example.com".to_owned(),
                 ),
                 (
-                    "x-cokret-destination-service-did".to_owned(),
+                    "x-arkret-destination-service-did".to_owned(),
                     "did:webvh:z6mkfixture:push.example.com".to_owned(),
                 ),
             ],
@@ -1150,11 +1150,11 @@ mod tests {
             ("Signature", signature_header.as_str()),
             ("Content-Digest", digest.wire_value.as_str()),
             (
-                "X-Cokret-Origin-Service-Did",
+                "X-Arkret-Origin-Service-Did",
                 "did:webvh:z6mkfixture:sync.example.com",
             ),
             (
-                "X-Cokret-Destination-Service-Did",
+                "X-Arkret-Destination-Service-Did",
                 "did:webvh:z6mkfixture:push.example.com",
             ),
         ];
@@ -1211,11 +1211,11 @@ mod tests {
             path: "/".to_owned(),
             headers: vec![
                 (
-                    "x-cokret-origin-service-did".to_owned(),
+                    "x-arkret-origin-service-did".to_owned(),
                     "did:webvh:z6mkfixture:sync.example.com".to_owned(),
                 ),
                 (
-                    "x-cokret-destination-service-did".to_owned(),
+                    "x-arkret-destination-service-did".to_owned(),
                     "did:webvh:z6mkfixture:push.example.com".to_owned(),
                 ),
             ],

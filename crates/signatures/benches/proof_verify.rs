@@ -1,6 +1,6 @@
 //! Criterion microbenchmark for detached-JWS proof verification (SDK-SOTA-03).
 //!
-//! Run on demand with `cargo bench -p cokret-signatures`; never run in CI.
+//! Run on demand with `cargo bench -p arkret-signatures`; never run in CI.
 //! Benches the Ed25519 detached-JWS proof verifier — the per-event signature
 //! check on every ingest / federation path — over a fully valid proof so the
 //! crypto cost (binding-object canonicalization + Ed25519 verify) is measured,

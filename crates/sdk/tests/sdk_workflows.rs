@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use cokret::{canonical, *};
+use arkret::{canonical, *};
 use serde_json::json;
 
 fn did(name: &str) -> Did {
@@ -14,7 +14,7 @@ fn device(id: &str) -> DeviceId {
         acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
     }
     DeviceId::new(format!(
-        "ck:device:01904100-0000-7000-8000-{:012x}",
+        "ak:device:01904100-0000-7000-8000-{:012x}",
         acc & 0x0000_ffff_ffff_ffff
     ))
     .unwrap()
@@ -22,7 +22,7 @@ fn device(id: &str) -> DeviceId {
 
 fn event(kind: &str, seq: u64, realm_id: &RealmId, content: serde_json::Value) -> Event {
     Event {
-        event_id: EventId::new(format!("ck:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
+        event_id: EventId::new(format!("ak:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.into(),
         realm_id: realm_id.clone(),
         actor_id: did("alice"),
@@ -69,8 +69,8 @@ fn end_to_end_auth_session_realm_query_and_notifications() {
     })
     .unwrap();
 
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let morph_id = MorphId::new("ck:morph:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let morph_id = MorphId::new("ak:morph:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
     base.process_events(
         &realm_id,
         vec![event(
@@ -101,7 +101,7 @@ fn end_to_end_auth_session_realm_query_and_notifications() {
     notifications.add_notification(
         "n1",
         Some(realm_id.clone()),
-        EventId::new("ck:event:01904100-0000-7000-8000-b2b79cd5161d").unwrap(),
+        EventId::new("ak:event:01904100-0000-7000-8000-b2b79cd5161d").unwrap(),
         alice,
         "ck.message.create",
         Some(json!({"body": "hello"})),
@@ -144,7 +144,7 @@ fn protocol_conformance_vectors_remain_stable() {
 fn interoperability_serialization_roundtrips() {
     let mut realms = BTreeMap::new();
     realms.insert(
-        "ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+        "ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
         serde_json::to_value(SyncRealm::default()).unwrap(),
     );
     let response = SyncOutcome {
@@ -173,7 +173,7 @@ fn stress_smoke_processes_many_index_and_cache_entries() {
     let mut directory = DirectoryService::new();
     for index in 0..250 {
         let mut entry = RealmSearchEntry::new(
-            RealmId::new(format!("ck:realm:01904100-0000-7000-8000-{index:012x}")).unwrap(),
+            RealmId::new(format!("ak:realm:01904100-0000-7000-8000-{index:012x}")).unwrap(),
             format!("Realm {index}"),
         );
         entry

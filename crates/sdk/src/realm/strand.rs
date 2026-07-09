@@ -49,8 +49,8 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let strand_id = StrandId::new(generate_id("ck:strand:"))?;
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let strand_id = StrandId::new(generate_id("ak:strand:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let tracks = if metadata.tracks.is_empty() {
             default_strand_tracks()
         } else {
@@ -122,7 +122,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let mut patch = Patch::new();
 
         if let Some(title) = title {
@@ -184,7 +184,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let target_state = if kind == crate::OP_STRAND_RESTORE {
             "active"
         } else {
@@ -212,7 +212,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let mut payload =
             StrandMovePayload::new(board_space_id, strand_id.clone(), target_space_id, rank);
         if let Some(expected_position) = expected_position {
@@ -246,7 +246,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let mut payload =
             StrandReorderPayload::new(board_space_id, strand_id.clone(), space_id, rank);
         if let Some(expected_position) = expected_position {

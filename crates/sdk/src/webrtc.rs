@@ -639,7 +639,7 @@ pub enum RecordingState {
 }
 
 /// `ck.call.state.recording_result` artifact reference (`call-state.md` §5).
-/// Published after a recording reaches `ready`; the artifact MUST be a Cokret
+/// Published after a recording reaches `ready`; the artifact MUST be a Arkret
 /// encrypted blob (no backend-hosted URL).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordingResult {
@@ -740,7 +740,7 @@ mod tests {
     }
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
     }
 
     const MEDIA_KID: &str = "did:webvh:z6mkfixture:media.example#notary-key";
@@ -781,9 +781,9 @@ mod tests {
     fn ice_outcome(kid: &str) -> MediaIceConfigOutcome {
         MediaIceConfigOutcome {
             realm_id: realm(),
-            call_id: "ck:call:0196441c-0000-7000-8000-000000000000".to_owned(),
+            call_id: "ak:call:0196441c-0000-7000-8000-000000000000".to_owned(),
             actor_id: did("alice"),
-            device_id: crate::DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005")
+            device_id: crate::DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005")
                 .unwrap(),
             ice_servers: vec![
                 serde_json::json!({ "urls": ["stun:stun.example.com"] }),
@@ -937,7 +937,7 @@ mod tests {
             by: MuteSource::Moderator,
             target_actor_id: Some(did("bob")),
             target_device_id: Some(
-                crate::DeviceId::new("ck:device:01964137-0000-7000-8000-000000000000").unwrap(),
+                crate::DeviceId::new("ak:device:01964137-0000-7000-8000-000000000000").unwrap(),
             ),
         };
         moderator.validate().unwrap();
@@ -985,9 +985,9 @@ mod tests {
     #[test]
     fn moderate_payload_enforces_target_presence() {
         let mute = ModeratePayload {
-            call_id: crate::CallId::new("ck:call:0196441c-0000-7000-8000-000000000000").unwrap(),
+            call_id: crate::CallId::new("ak:call:0196441c-0000-7000-8000-000000000000").unwrap(),
             action: ModerationAction::Mute,
-            moderate_capability_ref: "ck:grant:01".to_owned(),
+            moderate_capability_ref: "ak:grant:01".to_owned(),
             target_actor_id: Some(did("bob")),
             target_device_id: None,
         };
@@ -1002,9 +1002,9 @@ mod tests {
         assert!(no_target.validate().is_err());
 
         let end_for_all = ModeratePayload {
-            call_id: crate::CallId::new("ck:call:0196441c-0000-7000-8000-000000000000").unwrap(),
+            call_id: crate::CallId::new("ak:call:0196441c-0000-7000-8000-000000000000").unwrap(),
             action: ModerationAction::EndForAll,
-            moderate_capability_ref: "ck:grant:01".to_owned(),
+            moderate_capability_ref: "ak:grant:01".to_owned(),
             target_actor_id: None,
             target_device_id: None,
         };
@@ -1017,7 +1017,7 @@ mod tests {
     #[test]
     fn recording_and_transcribe_payloads_serialize_snake_case() {
         let start = RecordingStartPayload {
-            call_id: crate::CallId::new("ck:call:0196441c-0000-7000-8000-000000000000").unwrap(),
+            call_id: crate::CallId::new("ak:call:0196441c-0000-7000-8000-000000000000").unwrap(),
             recording_id: "rtc-recording-1".to_owned(),
             recording_agent: did("recorder"),
             capture_kind: Some(RecordingCaptureKind::Recording),
@@ -1046,7 +1046,7 @@ mod tests {
 
         let result = RecordingResult {
             recording_start_event_id: crate::EventId::new(
-                "ck:event:019a7360-0000-7000-8000-000000000003",
+                "ak:event:019a7360-0000-7000-8000-000000000003",
             )
             .unwrap(),
             content_digest: Some(
@@ -1065,7 +1065,7 @@ mod tests {
         };
         assert_eq!(
             serde_json::to_value(&result).unwrap()["recording_start_event_id"],
-            "ck:event:019a7360-0000-7000-8000-000000000003"
+            "ak:event:019a7360-0000-7000-8000-000000000003"
         );
     }
 

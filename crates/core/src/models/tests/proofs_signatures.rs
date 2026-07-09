@@ -48,12 +48,12 @@ fn hlc_sorts_by_structured_parts() {
 fn relation_requires_exact_wire_endpoints() {
     let relation = Relation {
         schema: RELATION_SCHEMA.to_owned(),
-        id: RelationId::new("ck:relation:01904100-0000-7000-8000-7b3bf7d6e46b").unwrap(),
-        realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
+        id: RelationId::new("ak:relation:01904100-0000-7000-8000-7b3bf7d6e46b").unwrap(),
+        realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         scope_circle_id: None,
         effective_scope: None,
         relation_kind: RelationKind::Mentions,
-        from_ref: "ck:morph:01904100-0000-7000-8000-c12dc98b2948".to_owned(),
+        from_ref: "ak:morph:01904100-0000-7000-8000-c12dc98b2948".to_owned(),
         to_ref: "did:webvh:z6mkfixture:alice.example".to_owned(),
         rank: None,
         fields: BTreeMap::new(),
@@ -70,7 +70,7 @@ fn relation_requires_exact_wire_endpoints() {
 #[test]
 fn query_request_uses_protocol_filters_array() {
     let request = ViewQuery {
-        realm_ids: vec![RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
+        realm_ids: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
         object_types: vec!["morph".to_owned()],
         morph_types: vec!["task".to_owned()],
         facets: vec![Facet::Stateful, Facet::Rankable],
@@ -119,7 +119,7 @@ fn facets_accept_name_lists_and_config_maps() {
 #[test]
 fn view_supports_renderer_and_facet_config_facades() {
     let request = ViewQuery {
-        realm_ids: vec![RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
+        realm_ids: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
         object_types: Vec::new(),
         morph_types: Vec::new(),
         facets: vec![Facet::Stateful, Facet::Rankable],
@@ -135,8 +135,8 @@ fn view_supports_renderer_and_facet_config_facades() {
     };
     let view = View {
         schema: VIEW_SCHEMA.to_owned(),
-        id: ViewId::new("ck:view:01904100-0000-7000-8000-848727f328fe").unwrap(),
-        realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
+        id: ViewId::new("ak:view:01904100-0000-7000-8000-848727f328fe").unwrap(),
+        realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         kind: ViewKind::Collection,
         visibility: None,
         renderer: Some(ViewRenderer::Board),
@@ -172,12 +172,12 @@ fn view_supports_renderer_and_facet_config_facades() {
 #[test]
 fn operation_serializes_protocol_field_names() {
     let mut operation = Operation::create(
-        OperationId::new("ck:operation:01904100-0000-7000-8000-d408d6a2241c").unwrap(),
-        RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
+        OperationId::new("ak:operation:01904100-0000-7000-8000-d408d6a2241c").unwrap(),
+        RealmId::new("ak:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         "morph",
-        json!({"id":"ck:morph:01904100-0000-7000-8000-c12dc98b2948"}),
+        json!({"id":"ak:morph:01904100-0000-7000-8000-c12dc98b2948"}),
     );
-    operation.object_id = Some("ck:morph:01904100-0000-7000-8000-c12dc98b2948".to_owned());
+    operation.object_id = Some("ak:morph:01904100-0000-7000-8000-c12dc98b2948".to_owned());
 
     let value = serde_json::to_value(operation).unwrap();
 
@@ -185,7 +185,7 @@ fn operation_serializes_protocol_field_names() {
     assert_eq!(value["operation_type"], "create");
     assert_eq!(
         value["object_id"],
-        "ck:morph:01904100-0000-7000-8000-c12dc98b2948"
+        "ak:morph:01904100-0000-7000-8000-c12dc98b2948"
     );
     assert_eq!(value["object_type"], "morph");
     assert!(value.get("target_object_id").is_none());
@@ -376,7 +376,7 @@ fn proof_validate_binding_accepts_multi_audience_covering_required_context() {
 #[test]
 fn proof_validate_binding_ignores_domain_and_audience_when_context_is_local() {
     let mut proof = valid_proof();
-    proof.domain = Some("ck:trust_domain:example.net".to_owned());
+    proof.domain = Some("ak:trust_domain:example.net".to_owned());
     proof.audience = Some(Audience::Single(
         "did:webvh:z6mkfixture:service.example".to_owned(),
     ));
@@ -395,7 +395,7 @@ fn proof_validate_cross_domain_binding_requires_domain_and_audience() {
     ));
     let mut expected =
         proof.binding_payload(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap());
-    expected.domain = Some("ck:trust_domain:example.net".to_owned());
+    expected.domain = Some("ak:trust_domain:example.net".to_owned());
     expected.audience = Some(Audience::Single(
         "did:webvh:z6mkfixture:service.example".to_owned(),
     ));
@@ -405,14 +405,14 @@ fn proof_validate_cross_domain_binding_requires_domain_and_audience() {
         "{error}"
     );
 
-    proof.domain = Some("ck:trust_domain:example.net".to_owned());
+    proof.domain = Some("ak:trust_domain:example.net".to_owned());
     assert!(proof.validate_cross_domain_binding(&expected).is_ok());
 }
 
 #[test]
 fn proof_validate_cross_domain_binding_requires_expected_context() {
     let mut proof = valid_proof();
-    proof.domain = Some("ck:trust_domain:example.net".to_owned());
+    proof.domain = Some("ak:trust_domain:example.net".to_owned());
     proof.audience = Some(Audience::Single(
         "did:webvh:z6mkfixture:service.example".to_owned(),
     ));
@@ -541,7 +541,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     signed_event.proofs = vec![proof];
     let error = signed_event
         .validate_proof_bindings_with_context(
-            Some("ck:trust_domain:example.net".to_owned()),
+            Some("ak:trust_domain:example.net".to_owned()),
             Some(Audience::Single(
                 "did:webvh:z6mkfixture:service.example".to_owned(),
             )),
@@ -552,11 +552,11 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         error.to_string().contains("proof_binding_missing"),
         "{error}"
     );
-    signed_event.proofs[0].domain = Some("ck:trust_domain:example.net".to_owned());
+    signed_event.proofs[0].domain = Some("ak:trust_domain:example.net".to_owned());
     assert!(
         signed_event
             .validate_proof_bindings_with_context(
-                Some("ck:trust_domain:example.net".to_owned()),
+                Some("ak:trust_domain:example.net".to_owned()),
                 Some(Audience::Single(
                     "did:webvh:z6mkfixture:service.example".to_owned()
                 )),
@@ -569,7 +569,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
 #[test]
 fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     let mut operation = OperationEnvelopeBuilder::new(
-        OperationId::new("ck:operation:01904100-0000-7000-8000-9c5aa4740640").unwrap(),
+        OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa4740640").unwrap(),
         test_realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         OP_MESSAGE_CREATE,
@@ -577,7 +577,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     )
     .with_payload(json!({
-        "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+        "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
         "track_name": "discussion",
         "content": {"kind": "ck.content.text", "body": "hello"}
     }))
@@ -600,7 +600,7 @@ fn operation_validate_proof_bindings_with_context_requires_cross_domain_binding(
     assert!(
         operation
             .validate_proof_bindings_with_context(
-                Some("ck:trust_domain:example.net".to_owned()),
+                Some("ak:trust_domain:example.net".to_owned()),
                 Some(Audience::Single(
                     "did:webvh:z6mkfixture:service.example".to_owned()
                 )),
@@ -674,7 +674,7 @@ fn critical_extension_uses_spec_extension_scope_field() {
         "profile_ref": "ck.profile.policy.v1",
         "parameters": {"mode": "strict"},
         "material_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "evidence_ref": "ck:event:01904100-0000-7000-8000-6c663fa0205f",
+        "evidence_ref": "ak:event:01904100-0000-7000-8000-6c663fa0205f",
         "fail_closed": true
     }))
     .unwrap();
@@ -696,7 +696,7 @@ fn critical_extension_uses_spec_extension_scope_field() {
 #[test]
 fn operation_draft_explicitly_materializes_event_envelope_without_signed_operation_id() {
     let operation = OperationEnvelopeBuilder::new(
-        OperationId::new("ck:operation:01904100-0000-7000-8000-9c5aa474063f").unwrap(),
+        OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa474063f").unwrap(),
         test_realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         OP_MESSAGE_CREATE,
@@ -704,7 +704,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     )
     .with_payload(json!({
-        "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+        "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
         "track_name": "discussion",
         "content": {"kind": "ck.content.text", "body": "hello"}
     }))
@@ -719,14 +719,14 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
     assert_eq!(
         event.payload,
         json!({
-            "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+            "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
             "content": {"kind": "ck.content.text", "body": "hello"}
         })
     );
     assert_eq!(
         event.unsigned["local_operation_idempotency_alias"],
-        json!("ck:operation:01904100-0000-7000-8000-9c5aa474063f")
+        json!("ak:operation:01904100-0000-7000-8000-9c5aa474063f")
     );
     assert!(
         !event

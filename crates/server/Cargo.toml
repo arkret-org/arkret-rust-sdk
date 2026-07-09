@@ -1,14 +1,14 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "network-programming", "web-programming::http-server"]
-description = "Framework-independent Cokret v1 server protocol contracts."
+description = "Framework-independent Arkret v1 server protocol contracts."
 edition = "2024"
-homepage = "https://github.com/cokret/cokret-rust-sdk"
-keywords = ["cokret", "server", "protocol", "sdk"]
+homepage = "https://github.com/arkret/arkret-rust-sdk"
+keywords = ["arkret", "server", "protocol", "sdk"]
 license = "Apache-2.0"
-name = "cokret-server"
+name = "arkret-server"
 readme = "README.md"
-repository = "https://github.com/cokret/cokret-rust-sdk"
+repository = "https://github.com/arkret/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 
@@ -18,11 +18,11 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-salvo = ["cokret-core/salvo"]
+salvo = ["arkret-core/salvo"]
 
 [dependencies]
-cokret-core = {workspace = true}
-cokret-signatures = {workspace = true}
+arkret-core = {workspace = true}
+arkret-signatures = {workspace = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 

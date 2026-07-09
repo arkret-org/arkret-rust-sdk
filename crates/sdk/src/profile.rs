@@ -670,7 +670,7 @@ impl ProfileCreateBuilder {
 }
 
 fn new_actor_profile_id() -> ActorProfileId {
-    ActorProfileId::new(format!("ck:actor_profile:{}", uuid::Uuid::now_v7()))
+    ActorProfileId::new(format!("ak:actor_profile:{}", uuid::Uuid::now_v7()))
         .expect("uuid v7 produces a valid actor_profile id")
 }
 
@@ -679,7 +679,7 @@ mod profile_builder_tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
     }
 
     fn alice() -> Did {
@@ -691,11 +691,11 @@ mod profile_builder_tests {
     }
 
     fn profile_id() -> ActorProfileId {
-        ActorProfileId::new("ck:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap()
+        ActorProfileId::new("ak:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap()
     }
 
     fn applet_id() -> AppletId {
-        AppletId::new("ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap()
+        AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap()
     }
 
     fn hlc() -> Hlc {
@@ -727,7 +727,7 @@ mod profile_builder_tests {
         assert_eq!(event.kind, "ck.profile.update");
         assert_eq!(
             event.payload["target_ref"],
-            "ck:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa"
+            "ak:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
         assert_eq!(event.payload["patch"]["display_name"], "Alice 2");
     }
@@ -744,7 +744,7 @@ mod profile_builder_tests {
         assert_eq!(object["actor_kind"], "integration");
         assert_eq!(
             object["profile_fields"]["managed_by_applet"],
-            "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"
+            "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
         assert_eq!(
             object["accountable_principal_ids"][0],
@@ -776,10 +776,10 @@ mod tests {
         assert_eq!(v1.version, 1);
         assert_eq!(v1.display_name, Some("Alice".to_owned()));
 
-        let v2 = manager.set_avatar_url(alice.clone(), "ck:blob:avatar");
+        let v2 = manager.set_avatar_url(alice.clone(), "ak:blob:avatar");
         assert_eq!(v2.version, 2);
         assert_eq!(v2.display_name, Some("Alice".to_owned()));
-        assert_eq!(v2.avatar_url, Some("ck:blob:avatar".to_owned()));
+        assert_eq!(v2.avatar_url, Some("ak:blob:avatar".to_owned()));
 
         let v3 = manager.set_bio(alice.clone(), "Builder");
         assert_eq!(v3.version, 3);
@@ -808,7 +808,7 @@ mod tests {
 
         let manifest = RealmExportManifest {
             export_id: "export1".to_owned(),
-            realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             exported_by: alice,
             source_service_did: service.clone(),
             event_count: 10,

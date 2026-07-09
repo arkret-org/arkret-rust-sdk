@@ -333,7 +333,7 @@ impl ServiceRequirements {
     pub fn verify(&self, description: &ServerDescription) -> Result<()> {
         if description.protocol_version != PROTOCOL_VERSION {
             return Err(Error::Protocol(format!(
-                "service protocol_version {} does not match Cokret {PROTOCOL_VERSION}",
+                "service protocol_version {} does not match Arkret {PROTOCOL_VERSION}",
                 description.protocol_version
             )));
         }
@@ -422,7 +422,7 @@ mod tests {
     fn verifies_required_service_profile_and_operation() {
         let description = ServerDescription {
             service_did: Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
-            trust_domain: crate::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+            trust_domain: crate::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_type: "directory_service".to_owned(),
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![crate::PROFILE_DIRECTORY_SERVICE.to_owned()],
@@ -499,7 +499,7 @@ mod tests {
         });
         let description = ServerDescription {
             service_did,
-            trust_domain: crate::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+            trust_domain: crate::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_type: "directory_service".to_owned(),
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![crate::PROFILE_DIRECTORY_SERVICE.to_owned()],
@@ -576,7 +576,7 @@ mod tests {
             request_id: Some("req_123".to_owned()),
             actor_id: Some(Did::new("did:webvh:z6mkfixture:alice.example").unwrap()),
             device_id: None,
-            realm_id: Some(RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
+            realm_id: Some(RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
             operation_id: None,
         };
         let not_found = privacy_preserving_not_found(Some(trace));

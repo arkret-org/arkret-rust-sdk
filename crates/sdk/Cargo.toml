@@ -1,14 +1,14 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "network-programming", "cryptography"]
-description = "Cokret v1 decentralized collaboration protocol SDK."
+description = "Arkret v1 decentralized collaboration protocol SDK."
 edition = "2024"
-homepage = "https://github.com/cokret/cokret-rust-sdk"
-keywords = ["cokret", "collaboration", "did", "sdk"]
+homepage = "https://github.com/arkret/arkret-rust-sdk"
+keywords = ["arkret", "collaboration", "did", "sdk"]
 license = "Apache-2.0"
-name = "cokret"
+name = "arkret"
 readme = "README.md"
-repository = "https://github.com/cokret/cokret-rust-sdk"
+repository = "https://github.com/arkret/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 
@@ -18,32 +18,32 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-client = ["dep:cokret-http-client", "dep:reqwest", "dep:tokio", "cokret-core/client", "cokret-ffi/client"]
-signer = ["cokret-signatures/signer"]
-server = ["dep:cokret-server", "full-surface"]
+client = ["dep:arkret-http-client", "dep:reqwest", "dep:tokio", "arkret-core/client", "arkret-ffi/client"]
+signer = ["arkret-signatures/signer"]
+server = ["dep:arkret-server", "full-surface"]
 mls = [
     "full-surface",
-    "cokret-core/mls",
-    "cokret-ffi/mls",
+    "arkret-core/mls",
+    "arkret-ffi/mls",
     "dep:openmls",
     "dep:openmls_basic_credential",
     "dep:openmls_rust_crypto",
     "dep:tls_codec",
 ]
 full-surface = []
-# TLS backend passthrough (`cargo add cokret --features client,tls-rustls`
+# TLS backend passthrough (`cargo add arkret --features client,tls-rustls`
 # gives a working https client out of the box). The SDK stays TLS-neutral
 # without this feature. PQ-hybrid TLS (X25519MLKEM768) is a MUST for all
-# profiles per cokret-spec transport-bindings section 5 — see the
-# cokret-http-client crate docs for the recommended provider configuration.
-tls-rustls = ["client", "cokret-http-client/tls-rustls", "reqwest/rustls"]
-tracing = ["dep:tracing", "cokret-http-client?/tracing"]
+# profiles per arkret-spec transport-bindings section 5 — see the
+# arkret-http-client crate docs for the recommended provider configuration.
+tls-rustls = ["client", "arkret-http-client/tls-rustls", "reqwest/rustls"]
+tracing = ["dep:tracing", "arkret-http-client?/tracing"]
 salvo = [
     "server",
     "dep:salvo",
     "salvo/oapi",
-    "cokret-server/salvo",
-    "cokret-core/salvo",
+    "arkret-server/salvo",
+    "arkret-core/salvo",
     # The applet transactions handler verifies signatures / resolves DIDs on
     # the blocking pool (tokio::task::spawn_blocking).
     "dep:tokio",
@@ -53,17 +53,17 @@ applet-runtime = ["full-surface"]
 # surface (`applet` / `applet_server` modules), the reqwest HTTP client
 # (push transactions / query actors-realms), the framework-neutral
 # server handler contracts and the ready-made Salvo `Router` factory.
-# `cargo add cokret --features applet` is all an Applet service needs.
+# `cargo add arkret --features applet` is all an Applet service needs.
 applet = ["applet-runtime", "client", "server", "salvo"]
 device-runtime = ["full-surface"]
 sync-runtime = ["full-surface"]
 timeline-runtime = ["full-surface"]
 # Round 23 (2026-05-09): expose the platform KeyStore feature gates so apps
-# embedding the umbrella `cokret` crate can opt into OS-native key storage
-# without a direct cokret-keystore dependency.
-keystore-macos = ["cokret-keystore/keystore-macos"]
-keystore-linux = ["cokret-keystore/keystore-linux"]
-keystore-windows = ["cokret-keystore/keystore-windows"]
+# embedding the umbrella `arkret` crate can opt into OS-native key storage
+# without a direct arkret-keystore dependency.
+keystore-macos = ["arkret-keystore/keystore-macos"]
+keystore-linux = ["arkret-keystore/keystore-linux"]
+keystore-windows = ["arkret-keystore/keystore-windows"]
 
 [dependencies]
 
@@ -75,14 +75,14 @@ base64 = {workspace = true}
 chacha20poly1305 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 chrono-tz = {workspace = true}
-cokret-core = {workspace = true}
-cokret-crypto = {workspace = true}
-cokret-ffi = {workspace = true}
-cokret-html = {workspace = true}
-cokret-http-client = {workspace = true,optional = true}
-cokret-keystore = {workspace = true}
-cokret-server = {workspace = true,optional = true}
-cokret-signatures = {workspace = true}
+arkret-core = {workspace = true}
+arkret-crypto = {workspace = true}
+arkret-ffi = {workspace = true}
+arkret-html = {workspace = true}
+arkret-http-client = {workspace = true,optional = true}
+arkret-keystore = {workspace = true}
+arkret-server = {workspace = true,optional = true}
+arkret-signatures = {workspace = true}
 ed25519-dalek = {workspace = true}
 getrandom = {workspace = true}
 hex = {workspace = true}

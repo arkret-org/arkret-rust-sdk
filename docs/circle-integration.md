@@ -1,14 +1,14 @@
 # Circle integration guide (CKP-0007)
 
-> Spec baseline: `cokret-spec` 2b0d70d (`zh/models/circle.md`,
+> Spec baseline: `arkret-spec` 2b0d70d (`zh/models/circle.md`,
 > `artifacts/schemas/circle.schema.json`).
 >
 > Normative language in this document follows
-> [`spec/v1/zh/conformance/normative-language.md`](https://github.com/cokret-spec/spec/blob/main/v1/zh/conformance/normative-language.md)
+> [`spec/v1/zh/conformance/normative-language.md`](https://github.com/arkret-spec/spec/blob/main/v1/zh/conformance/normative-language.md)
 > (RFC 2119 / 8174 keywords).
 
 This guide explains when and how to use `Circle` in services that
-consume the Cokret Rust SDK.
+consume the Arkret Rust SDK.
 
 ## What is a Circle?
 
@@ -43,7 +43,7 @@ organisation-level federation boundaries (use a child Realm).
 ## How a Strand picks its scope
 
 ```rust
-use cokret::{
+use arkret::{
     Circle, CircleColorToken, CircleDisplay, CircleGlyph, CircleId,
     CircleSymbol, Did, StrandCreateMetadata, RealmId,
 };
@@ -51,10 +51,10 @@ use cokret::{
 // 1. Create the Circle (typically via a dedicated ck.circle.create
 //    event; the example below shows the local in-memory struct).
 let circle_id = CircleId::new(
-    "ck:circle:0196419b-0000-7000-8000-000000000001".to_owned(),
+    "ak:circle:0196419b-0000-7000-8000-000000000001".to_owned(),
 )?;
 let realm_id = RealmId::new(
-    "ck:realm:0196419b-0000-7000-8000-000000000002".to_owned(),
+    "ak:realm:0196419b-0000-7000-8000-000000000002".to_owned(),
 )?;
 let alice: Did = "did:webvh:z6mkexample:alice.example".parse()?;
 let display = CircleDisplay {
@@ -95,7 +95,7 @@ Realm-default scope) plus a confidential discussion (the "narrow" Strand
 bound to a Circle), link the two Strands with the new Relation kind:
 
 ```rust
-use cokret::RelationKind;
+use arkret::RelationKind;
 
 let rel = RelationKind::ConfidentialDiscussionOf;
 // emit ck.relation.create with `from = <wide strand>` and

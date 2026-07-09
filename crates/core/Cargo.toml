@@ -1,14 +1,14 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "data-structures", "encoding"]
-description = "Core Cokret v1 protocol types, canonical JSON, cursors, sync models, and service metadata."
+description = "Core Arkret v1 protocol types, canonical JSON, cursors, sync models, and service metadata."
 edition = "2024"
-homepage = "https://github.com/cokret/cokret-rust-sdk"
-keywords = ["cokret", "collaboration", "did", "protocol"]
+homepage = "https://github.com/arkret/arkret-rust-sdk"
+keywords = ["arkret", "collaboration", "did", "protocol"]
 license = "Apache-2.0"
-name = "cokret-core"
+name = "arkret-core"
 readme = "README.md"
-repository = "https://github.com/cokret/cokret-rust-sdk"
+repository = "https://github.com/arkret/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 
@@ -20,10 +20,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = []
 # Client-side URL handling + the transport-agnostic `Error::Http`/`Error::Url`
 # variants. Deliberately does NOT pull in a concrete HTTP stack — reqwest
-# lives in cokret-http-client (ARCHITECTURE.md: core is the wire-model layer).
+# lives in arkret-http-client (ARCHITECTURE.md: core is the wire-model layer).
 client = ["dep:url"]
 mls = []
-salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "cokret-identifiers/salvo"]
+salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "arkret-identifiers/salvo"]
 
 [dependencies]
 base64 = {workspace = true}
@@ -31,7 +31,7 @@ blake3 = {workspace = true}
 bs58 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 chrono-tz = {workspace = true}
-cokret-identifiers = {workspace = true}
+arkret-identifiers = {workspace = true}
 getrandom = {workspace = true}
 hex = {workspace = true}
 hmac = {workspace = true}

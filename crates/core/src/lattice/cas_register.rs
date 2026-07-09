@@ -75,7 +75,7 @@ mod tests {
 
     fn cell() -> CellRef {
         CellRef::new(
-            "ck:cell:ck.component.realm.policy.v1:ck.realm.01js0sp00000000000000000aa".to_owned(),
+            "ak:cell:ck.component.realm.policy.v1:ck.realm.01js0sp00000000000000000aa".to_owned(),
         )
         .unwrap()
     }

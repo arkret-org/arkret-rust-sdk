@@ -1,4 +1,4 @@
-//! Cokret Move typed model.
+//! Arkret Move typed model.
 //!
 //! A Move is the protocol's atomic conditional multi-cell write primitive
 //! introduced by spec 2026-05-08 (`spec/v1/zh/authz/event-auth-state-resolution.md`
@@ -316,10 +316,10 @@ mod tests {
     fn sample_move_body_json() -> Value {
         json!({
             "issuer": "did:webvh:z6mkfixture:admin.example",
-            "realm_id": "ck:realm:0196419b-0000-7000-8000-00000000014a",
+            "realm_id": "ak:realm:0196419b-0000-7000-8000-00000000014a",
             "preconditions": [
                 {
-                    "cell": "ck:cell:ck.component.member.state.v1:did.web.alice.example",
+                    "cell": "ak:cell:ck.component.member.state.v1:did.web.alice.example",
                     "predicate": {
                         "op": "head_eq",
                         "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
@@ -328,7 +328,7 @@ mod tests {
             ],
             "effects": [
                 {
-                    "cell": "ck:cell:ck.component.member.state.v1:did.web.alice.example",
+                    "cell": "ak:cell:ck.component.member.state.v1:did.web.alice.example",
                     "op": {
                         "kind": "transition",
                         "from": "join",
@@ -338,7 +338,7 @@ mod tests {
                 }
             ],
             "seal_basis": {
-                "leaves": ["ck:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+                "leaves": ["ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
                 "control_event_set_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 "state_root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
             },
@@ -476,7 +476,7 @@ mod tests {
     #[test]
     fn semantic_ref_default_critical_true_omitted_on_serialize() {
         let r = SemanticRef {
-            id: "ck:grant:01964105-0000-7000-8000-000000000000".to_owned(),
+            id: "ak:grant:01964105-0000-7000-8000-000000000000".to_owned(),
             role: "authorized_by".to_owned(),
             critical: true,
         };
@@ -491,7 +491,7 @@ mod tests {
     #[test]
     fn semantic_ref_critical_false_serialized() {
         let r = SemanticRef {
-            id: "ck:grant:01964105-0000-7000-8000-000000000000".to_owned(),
+            id: "ak:grant:01964105-0000-7000-8000-000000000000".to_owned(),
             role: "after".to_owned(),
             critical: false,
         };
@@ -509,7 +509,7 @@ mod tests {
     #[test]
     fn seal_id_validator_accepts_valid() {
         SealId::new(
-            "ck:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            "ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 .to_owned(),
         )
         .expect("valid seal id");
@@ -517,10 +517,10 @@ mod tests {
 
     #[test]
     fn cell_ref_validator_accepts_simple_and_composite() {
-        CellRef::new("ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ak:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap();
         CellRef::new(
-            "ck:cell:ck.component.capability.grant.v1:ck.grant.01js0gr0000000000000000000"
+            "ak:cell:ck.component.capability.grant.v1:ck.grant.01js0gr0000000000000000000"
                 .to_owned(),
         )
         .unwrap();

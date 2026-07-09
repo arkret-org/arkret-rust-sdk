@@ -6,7 +6,7 @@ fn local_spec_artifacts_dir() -> Option<PathBuf> {
     }
     let candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../..")
-        .join("cokret-spec")
+        .join("arkret-spec")
         .join("spec")
         .join("v1")
         .join("artifacts");
@@ -45,13 +45,13 @@ fn embedded_spec_artifacts_match_live_spec_when_available() {
         // Without a spec checkout this drift gate cannot run. By default it
         // skips (downstream consumers build the SDK without the spec repo),
         // but environments that exist to enforce the gate — CI with a spec
-        // co-checkout, release runners — set COKRET_REQUIRE_SPEC=1 so a
+        // co-checkout, release runners — set ARKRET_REQUIRE_SPEC=1 so a
         // missing/misconfigured spec path fails loudly instead of silently
         // passing (SDK-TEST-07).
-        if std::env::var("COKRET_REQUIRE_SPEC").as_deref() == Ok("1") {
+        if std::env::var("ARKRET_REQUIRE_SPEC").as_deref() == Ok("1") {
             panic!(
-                "COKRET_REQUIRE_SPEC=1 but no spec artifacts directory was found; \
-                 set COKRET_SPEC_ARTIFACTS or provide a ../cokret-spec co-checkout"
+                "ARKRET_REQUIRE_SPEC=1 but no spec artifacts directory was found; \
+                 set ARKRET_SPEC_ARTIFACTS or provide a ../arkret-spec co-checkout"
             );
         }
         return;
@@ -328,7 +328,7 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                 // "wait for the next millisecond" outcome sorts strictly
                 // after it while a wrap-around would sort before it (the
                 // declared fail condition). The producer-side error path is
-                // exercised by `cokret::hlc` generator tests.
+                // exercised by `arkret::hlc` generator tests.
                 let last =
                     crate::Hlc::new(vector["input"]["last_emitted_hlc"].as_str().unwrap()).unwrap();
                 let outcomes = vector["expected_acceptable_outcomes"].as_array().unwrap();
@@ -348,7 +348,7 @@ fn encoding_fixture_vectors_execute_against_sdk() {
             "cursor_opaqueness" => {
                 let token = vector["input_cursor"].as_str().unwrap();
                 let body = token
-                    .strip_prefix("ck:cursor:")
+                    .strip_prefix("ak:cursor:")
                     .unwrap_or_else(|| panic!("{vector_id}: cursor missing ck:cursor: prefix"));
                 let bytes = crate::base64url::base64url_decode(body).unwrap();
                 let expected = vector["decoded_payload_canonical_bytes_utf8"]
@@ -373,7 +373,7 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                 );
                 assert_eq!(
                     format!(
-                        "ck:cursor:{}",
+                        "ak:cursor:{}",
                         crate::base64url::base64url_encode(&reencoded)
                     ),
                     token,
@@ -540,9 +540,9 @@ fn event_payload_catalog_validates_known_payload_fields() {
         .validate_payload(
             "ck.strand.move",
             &json!({
-                "board_space_id": "ck:space:01904100-0000-7000-8000-111111111111",
-                "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
-                "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
+                "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
+                "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+                "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
                 "rank": "U"
             }),
         )
@@ -551,8 +551,8 @@ fn event_payload_catalog_validates_known_payload_fields() {
         catalog.validate_payload(
             "ck.strand.move",
             &json!({
-                "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
-                "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
+                "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+                "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
                 "rank": "U"
             })
         ),
@@ -565,8 +565,8 @@ fn relation_create_payload_strong_type_passes_spec_validator() {
     let catalog = event_payload_validator_catalog().unwrap();
     let payload = crate::models::RelationCreatePayload::new(
         "ck.relation.parent_of",
-        "ck:strand:01904100-0000-7000-8000-111111111111",
-        "ck:strand:01904100-0000-7000-8000-222222222222",
+        "ak:strand:01904100-0000-7000-8000-111111111111",
+        "ak:strand:01904100-0000-7000-8000-222222222222",
     )
     .with_rank("U");
     catalog
@@ -600,12 +600,12 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // join transition (unroutable): realm_id + actor_id + delivery_status
     // required, but delivery_binding only when routable.
     let join = MembershipPayload::join(
-        crate::models::RealmId::new("ck:realm:01904100-0000-7000-8000-111111111111").unwrap(),
+        crate::models::RealmId::new("ak:realm:01904100-0000-7000-8000-111111111111").unwrap(),
         crate::models::Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
         DeliveryStatus::Unroutable,
         "invite_accept",
     )
-    .with_invite_ref("ck:event:01904100-0000-7000-8000-222222222222");
+    .with_invite_ref("ak:event:01904100-0000-7000-8000-222222222222");
     catalog
         .validate_payload("ck.member.state", &join.to_value().unwrap())
         .unwrap();
@@ -634,7 +634,7 @@ fn invite_payload_strong_types_pass_spec_validator() {
     // Directed-create (anyOf branch: invitee + invite_delivery_target +
     // introduction_evidence_digest + expires_at), with an `x_role` extension.
     let create = InviteCreatePayload::new(
-        InviteId::new("ck:invite:01904100-0000-7000-8000-111111111111").unwrap(),
+        InviteId::new("ak:invite:01904100-0000-7000-8000-111111111111").unwrap(),
         Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
         InviteDeliveryTarget::principal_server(
             Did::new("did:webvh:z6mkfixture:ps.example").unwrap(),
@@ -655,7 +655,7 @@ fn invite_payload_strong_types_pass_spec_validator() {
 
     // invite_id ref form (accept / cancel / revoke).
     let cancel = InviteRefPayload::new(
-        InviteId::new("ck:invite:01904100-0000-7000-8000-222222222222").unwrap(),
+        InviteId::new("ak:invite:01904100-0000-7000-8000-222222222222").unwrap(),
     )
     .with_reason("withdrawn");
     let cancel_value = cancel.to_value().unwrap();
@@ -701,7 +701,7 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // ck.realm.tombstone: reason + successor_realm_id both required by spec.
     let tombstone = RealmTombstonePayload::new(
-        RealmId::new("ck:realm:01904100-0000-7000-8000-333333333333").unwrap(),
+        RealmId::new("ak:realm:01904100-0000-7000-8000-333333333333").unwrap(),
         "migrated to successor",
     );
     catalog
@@ -717,7 +717,7 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // Unknown additive keys are reported but do not fail schema validation.
     let mut leaky = archive.to_value().unwrap();
-    leaky["successor_realm_id"] = json!("ck:realm:01904100-0000-7000-8000-444444444444");
+    leaky["successor_realm_id"] = json!("ak:realm:01904100-0000-7000-8000-444444444444");
     let warnings = catalog
         .validate_payload_with_warnings("ck.realm.archive", &leaky)
         .unwrap();
@@ -732,9 +732,9 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
         StrandWatchLevel, StrandWatchSetPayload,
     };
     let catalog = event_payload_validator_catalog().unwrap();
-    let board = || SpaceId::new("ck:space:01904100-0000-7000-8000-111111111111").unwrap();
-    let target = || SpaceId::new("ck:space:01904100-0000-7000-8000-222222222222").unwrap();
-    let strand = || StrandId::new("ck:strand:01904100-0000-7000-8000-6c663fa0205f").unwrap();
+    let board = || SpaceId::new("ak:space:01904100-0000-7000-8000-111111111111").unwrap();
+    let target = || SpaceId::new("ak:space:01904100-0000-7000-8000-222222222222").unwrap();
+    let strand = || StrandId::new("ak:strand:01904100-0000-7000-8000-6c663fa0205f").unwrap();
     let actor = || Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
 
     // ck.strand.move — board/target Space ids + rank; from_space_id +
@@ -794,7 +794,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // ck.strand.archive / ck.strand.restore — object_lifecycle_payload, single
     // truth source `target_ref`.
-    let archive = ObjectLifecyclePayload::new("ck:strand:01904100-0000-7000-8000-6c663fa0205f")
+    let archive = ObjectLifecyclePayload::new("ak:strand:01904100-0000-7000-8000-6c663fa0205f")
         .with_target_state("archived")
         .with_reason("season closed");
     catalog
@@ -803,7 +803,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
     catalog
         .validate_payload(
             "ck.strand.restore",
-            &ObjectLifecyclePayload::new("ck:strand:01904100-0000-7000-8000-6c663fa0205f")
+            &ObjectLifecyclePayload::new("ak:strand:01904100-0000-7000-8000-6c663fa0205f")
                 .to_value()
                 .unwrap(),
         )
@@ -811,7 +811,7 @@ fn strand_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // Unknown additive keys are reported but do not fail schema validation.
     let mut leaky = mv.to_value().unwrap();
-    leaky["list_space_id"] = json!("ck:space:01904100-0000-7000-8000-222222222222");
+    leaky["list_space_id"] = json!("ak:space:01904100-0000-7000-8000-222222222222");
     let warnings = catalog
         .validate_payload_with_warnings("ck.strand.move", &leaky)
         .unwrap();
@@ -932,9 +932,9 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
         .validate_payload(
             crate::events::STRAND_MOVE,
             &json!({
-                "board_space_id": "ck:space:01904100-0000-7000-8000-111111111111",
-                "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
-                "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
+                "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
+                "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+                "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
                 "rank": "U"
             }),
         )
@@ -945,8 +945,8 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
                 crate::events::STRAND_MOVE,
                 &json!({
                     "board_space_id": "not-a-space-id",
-                    "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
-                    "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
+                    "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+                    "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
                     "rank": "U"
                 }),
             )
@@ -956,9 +956,9 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
         .validate_payload_with_warnings(
             crate::events::STRAND_MOVE,
             &json!({
-                "board_space_id": "ck:space:01904100-0000-7000-8000-111111111111",
-                "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
-                "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
+                "board_space_id": "ak:space:01904100-0000-7000-8000-111111111111",
+                "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+                "target_space_id": "ak:space:01904100-0000-7000-8000-222222222222",
                 "rank": "U",
                 "unexpected": true
             }),
@@ -991,7 +991,7 @@ fn artifact_payload_catalog_prefers_registered_specialized_defs_over_name_matche
         .validate_payload(
             "ck.space.archive",
             &json!({
-                "space_id": "ck:space:01904100-0000-7000-8000-111111111111",
+                "space_id": "ak:space:01904100-0000-7000-8000-111111111111",
                 "reason": "done"
             }),
         )
@@ -1014,7 +1014,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             "ck.realm.update",
             "object_patch_payload",
             json!({
-                "target_ref": "ck:realm:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ak:realm:0196419b-0000-7000-8000-000000000001",
                 "patch": { "title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -1022,7 +1022,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             "ck.strand.update",
             "strand_patch_payload",
             json!({
-                "target_ref": "ck:strand:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ak:strand:0196419b-0000-7000-8000-000000000001",
                 "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -1030,7 +1030,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             "ck.morph.update",
             "morph_update_payload",
             json!({
-                "target_ref": "ck:morph:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ak:morph:0196419b-0000-7000-8000-000000000001",
                 "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -1038,7 +1038,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             "ck.space.update",
             "space_patch_payload",
             json!({
-                "space_id": "ck:space:0196419b-0000-7000-8000-000000000001",
+                "space_id": "ak:space:0196419b-0000-7000-8000-000000000001",
                 "patch": { "title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -1046,7 +1046,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             "ck.profile.update",
             "object_patch_payload",
             json!({
-                "target_ref": "ck:actor_profile:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ak:actor_profile:0196419b-0000-7000-8000-000000000001",
                 "patch": { "title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -1074,8 +1074,8 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
         .validate_payload(
             "ck.profile.realm_override",
             &json!({
-                "target_ref": "ck:actor_profile:0196419b-0000-7000-8000-000000000001",
-                "target_realm_id": "ck:realm:0196419b-0000-7000-8000-000000000002",
+                "target_ref": "ak:actor_profile:0196419b-0000-7000-8000-000000000001",
+                "target_realm_id": "ak:realm:0196419b-0000-7000-8000-000000000002",
                 "patch": { "title": { "$op": "set", "value": "Roadmap" } }
             }),
         )
@@ -1091,7 +1091,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
         .validate_payload(
             "ck.strand.tracks.update",
             &json!({
-                "strand_id": "ck:strand:0196419b-0000-7000-8000-000000000001",
+                "strand_id": "ak:strand:0196419b-0000-7000-8000-000000000001",
                 "tracks": {
                     "main": { "title": "Main", "rank": "a0" }
                 }
@@ -1106,7 +1106,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
                 "ck.strand.tracks.update",
                 &json!({
                     "type": "ck.strand.tracks.update",
-                    "strand_id": "ck:strand:0196419b-0000-7000-8000-000000000001"
+                    "strand_id": "ak:strand:0196419b-0000-7000-8000-000000000001"
                 }),
             )
             .is_err(),
@@ -1117,7 +1117,7 @@ fn artifact_payload_catalog_maps_patch_event_family_to_canonical_payloads() {
             .validate_payload(
                 "ck.strand.update",
                 &json!({
-                    "target_ref": "ck:morph:0196419b-0000-7000-8000-000000000001",
+                    "target_ref": "ak:morph:0196419b-0000-7000-8000-000000000001",
                     "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
                 }),
             )
@@ -1137,7 +1137,7 @@ fn morph_update_payload_rejects_create_locked_morph_type() {
         .validate_payload(
             "ck.morph.update",
             &json!({
-                "target_ref": "ck:morph:0196419b-0000-7000-8000-000000000001",
+                "target_ref": "ak:morph:0196419b-0000-7000-8000-000000000001",
                 "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
             }),
         )
@@ -1147,7 +1147,7 @@ fn morph_update_payload_rejects_create_locked_morph_type() {
             .validate_payload(
                 "ck.morph.update",
                 &json!({
-                    "target_ref": "ck:morph:0196419b-0000-7000-8000-000000000001",
+                    "target_ref": "ak:morph:0196419b-0000-7000-8000-000000000001",
                     "patch": { "morph_type": { "$op": "set", "value": "task" } }
                 }),
             )
@@ -1159,7 +1159,7 @@ fn morph_update_payload_rejects_create_locked_morph_type() {
             .validate_payload(
                 "ck.morph.update",
                 &json!({
-                    "target_ref": "ck:strand:0196419b-0000-7000-8000-000000000001",
+                    "target_ref": "ak:strand:0196419b-0000-7000-8000-000000000001",
                     "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
                 }),
             )
@@ -1175,7 +1175,7 @@ fn artifact_payload_catalog_enforces_invite_create_payload_shape() {
     };
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
     let payload = json!({
-        "invite_id": "ck:invite:01904100-0000-7000-8000-000000000001",
+        "invite_id": "ak:invite:01904100-0000-7000-8000-000000000001",
         "invitee": "did:webvh:z6mkfixture:bob.example",
         "invite_delivery_target": {
             "recipient_service_did": "did:webvh:z6mkfixture:server.example",
@@ -1254,7 +1254,7 @@ fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
             crate::events::CROSS_SIGNING_PUBLISH,
             &json!({
                 "principal_id": "did:webvh:z6mkfixture:alice.example",
-                "trust_domain": "ck:trust_domain:example.net",
+                "trust_domain": "ak:trust_domain:example.net",
                 "principal_signing_key": key,
                 "self_signing_key": subordinate_key,
                 "user_signing_key": subordinate_key,

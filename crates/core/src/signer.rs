@@ -7,8 +7,8 @@
 //! production keys in without re-implementing canonical bytes / id / payload
 //! hash plumbing.
 //!
-//! The trait deliberately stays in `cokret-core` (no crypto deps): an
-//! Ed25519 implementation lives in `cokret-signatures` behind the `signer`
+//! The trait deliberately stays in `arkret-core` (no crypto deps): an
+//! Ed25519 implementation lives in `arkret-signatures` behind the `signer`
 //! feature, and other backends (HSM, threshold scheme) can layer on the
 //! same trait.
 
@@ -703,7 +703,7 @@ mod tests {
     use crate::move_event::{LatticeOp, LatticeOpType};
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn alice() -> Did {
@@ -712,7 +712,7 @@ mod tests {
 
     fn seal_id(byte: u8) -> SealId {
         SealId::new(format!(
-            "ck:seal:sha256:{}",
+            "ak:seal:sha256:{}",
             format!("{byte:02x}").repeat(32)
         ))
         .unwrap()
@@ -740,7 +740,7 @@ mod tests {
 
     /// Deterministic test signer: produces a JWS that's just hex(payload_digest)
     /// so test vectors don't need real ed25519. Real signers live in
-    /// `cokret-signatures::signer`.
+    /// `arkret-signatures::signer`.
     struct StubSigner {
         did: Did,
         kid: String,
@@ -798,7 +798,7 @@ mod tests {
             seal_basis(0xaa),
             vec![Effect {
                 cell: CellRef::new(
-                    "ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned(),
+                    "ak:cell:ck.component.member.state.v1:did.web.alice.example".to_owned(),
                 )
                 .unwrap(),
                 op: LatticeOp {

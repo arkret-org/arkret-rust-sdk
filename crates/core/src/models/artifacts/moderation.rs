@@ -202,21 +202,21 @@ mod tests {
     }
 
     fn realm_id() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-d0d0d0d0d0d0").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-d0d0d0d0d0d0").unwrap()
     }
 
     fn proof() -> FrankingProof {
         FrankingProof {
             kind: MODERATION_FRANKING_PROOF_KIND.to_owned(),
-            franking_proof_id: "ck:franking_proof:01904100-0000-7000-8000-000000000111".to_owned(),
+            franking_proof_id: "ak:franking_proof:01904100-0000-7000-8000-000000000111".to_owned(),
             realm_id: realm_id(),
-            event_id: event_id("ck:event:01904100-0000-7000-8000-000000000222"),
+            event_id: event_id("ak:event:01904100-0000-7000-8000-000000000222"),
             routing_metadata_digest: Value::String(hash('c').to_string()),
             ciphertext_digest: hash('d'),
             aad_digest: hash('e'),
             sender_claim: FrankingProofSenderClaim {
                 actor_id: did("did:webvh:z6mkfixture:alice.example"),
-                device_id: "ck:device:01904100-0000-7000-8000-000000000333".to_owned(),
+                device_id: "ak:device:01904100-0000-7000-8000-000000000333".to_owned(),
                 mls_group_id_digest: hash('f'),
             },
             received_by: did("did:webvh:z6mkfixture:soland.local"),
@@ -228,7 +228,7 @@ mod tests {
 
     fn anchor(received_at: DateTime<Utc>) -> FrankingProofEventTimeAnchor {
         FrankingProofEventTimeAnchor::new(
-            event_id("ck:event:01904100-0000-7000-8000-000000000222"),
+            event_id("ak:event:01904100-0000-7000-8000-000000000222"),
             realm_id(),
             did("did:webvh:z6mkfixture:soland.local"),
             received_at,

@@ -58,8 +58,8 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let space_id = SpaceId::new(generate_id("ck:space:"))?;
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let space_id = SpaceId::new(generate_id("ak:space:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let mut object = SpaceCreateObject::new(
             space_id.clone(),
             self.realm_id()?,
@@ -119,7 +119,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let mut patch = Patch::new();
         if let Some(title) = title {
             patch.insert("title", title)?;
@@ -172,7 +172,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let payload = SpaceParentPayload {
             space_id: space_id.clone(),
             parent_space_id: Some(parent_space_id),
@@ -215,7 +215,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let payload = if kind == crate::OP_SPACE_TOMBSTONE {
             payload_value(
                 &SpaceObjectTombstonePayload {

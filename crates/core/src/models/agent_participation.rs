@@ -404,9 +404,9 @@ mod tests {
     #[test]
     fn scope_key_canonical() {
         let realm =
-            RealmId::new("ck:realm:01970000-0000-7000-8000-000000000000".to_owned()).unwrap();
+            RealmId::new("ak:realm:01970000-0000-7000-8000-000000000000".to_owned()).unwrap();
         let strand =
-            StrandId::new("ck:strand:01970000-0000-7000-8000-000000000001".to_owned()).unwrap();
+            StrandId::new("ak:strand:01970000-0000-7000-8000-000000000001".to_owned()).unwrap();
         let scope = AgentParticipationScope::Strand {
             realm_id: realm,
             strand_id: strand,

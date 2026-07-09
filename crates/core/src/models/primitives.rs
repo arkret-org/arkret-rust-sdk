@@ -1058,7 +1058,7 @@ pub struct CriticalExtension {
 }
 
 /// Allowed proof algorithms for production use — the single source of truth
-/// for the SDK's proof-algorithm gate (`cokret-signatures` re-exports it).
+/// for the SDK's proof-algorithm gate (`arkret-signatures` re-exports it).
 ///
 /// This is the intersection of the `active` rows of
 /// `artifacts/registry/signature-alg-registry.json` (`proof_alg` values, per
@@ -1336,7 +1336,7 @@ impl FactChainEcho {
 
     /// Precheck server proof structure and echo digest binding.
     ///
-    /// This does not verify detached JWS signatures because `cokret-core`
+    /// This does not verify detached JWS signatures because `arkret-core`
     /// deliberately has no DID/public-key resolver. Callers that need a
     /// trusted fact-chain echo must verify every proof with the signatures
     /// crate after this structural precheck.

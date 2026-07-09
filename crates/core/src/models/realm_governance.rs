@@ -551,7 +551,7 @@ mod tests {
     #[test]
     fn realm_link_status_default_is_active() {
         let payload: RealmLinkPayload = serde_json::from_value(serde_json::json!({
-            "target_realm_id": "ck:realm:01904100-0000-7000-8000-cfc039892036",
+            "target_realm_id": "ak:realm:01904100-0000-7000-8000-cfc039892036",
             "link_kind": "governed_by",
         }))
         .unwrap();
@@ -561,11 +561,11 @@ mod tests {
     #[test]
     fn realm_link_payload_serde_roundtrip() {
         let payload = RealmLinkPayload {
-            target_realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-cfc039892036").unwrap(),
+            target_realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-cfc039892036").unwrap(),
             link_kind: RealmLinkKind::JoinGateFrom,
             status: RealmLinkStatus::Active,
             label: Some("compliance gate".to_owned()),
-            commitment: Some("ck:event:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned()),
+            commitment: Some("ak:event:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned()),
         };
         let v = serde_json::to_value(&payload).unwrap();
         let back: RealmLinkPayload = serde_json::from_value(v).unwrap();
@@ -575,7 +575,7 @@ mod tests {
     #[test]
     fn realm_inheritance_policy_validate_rejects_excessive_depth() {
         let bad = RealmInheritancePolicy {
-            source_realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-cfc039892036").unwrap(),
+            source_realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-cfc039892036").unwrap(),
             allowed_policies: vec!["join_policy.v1".to_owned()],
             allowed_capability_bundles: vec!["bundle.admin.v1".to_owned()],
             max_depth: 2,
@@ -583,7 +583,7 @@ mod tests {
         assert!(bad.validate().is_err());
 
         let good = RealmInheritancePolicy {
-            source_realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-cfc039892036").unwrap(),
+            source_realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-cfc039892036").unwrap(),
             allowed_policies: vec!["join_policy.v1".to_owned()],
             allowed_capability_bundles: vec!["bundle.admin.v1".to_owned()],
             max_depth: 1,
@@ -594,17 +594,17 @@ mod tests {
     #[test]
     fn capability_derived_serde_roundtrip() {
         let cap = CapabilityDerived {
-            capability_id: CapabilityId::new("ck:capability:01904100-0000-7000-8000-bbbbbbbbbbbb")
+            capability_id: CapabilityId::new("ak:capability:01904100-0000-7000-8000-bbbbbbbbbbbb")
                 .unwrap(),
             source_grant_ref: EventRef::new(
-                "ck:event:01904100-0000-7000-8000-cccccccccccc".to_owned(),
+                "ak:event:01904100-0000-7000-8000-cccccccccccc".to_owned(),
                 "authorized_by".to_owned(),
             ),
             source_realm_inheritance_policy_ref: EventRef::new(
-                "ck:event:01904100-0000-7000-8000-dddddddddddd".to_owned(),
+                "ak:event:01904100-0000-7000-8000-dddddddddddd".to_owned(),
                 "inherits_from".to_owned(),
             ),
-            causal_frontier: "ck:frontier:02000000".to_owned(),
+            causal_frontier: "ak:frontier:02000000".to_owned(),
             bundle: Some(serde_json::json!({"capabilities": ["read", "write"]})),
         };
         let v = serde_json::to_value(&cap).unwrap();
@@ -896,7 +896,7 @@ mod realm_organization_verifier_tests {
     use super::*;
 
     fn realm_id() -> RealmId {
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000010").unwrap()
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000010").unwrap()
     }
 
     fn org_did() -> Did {
@@ -973,7 +973,7 @@ mod realm_organization_verifier_tests {
 
     #[test]
     fn realm_id_mismatch_fails() {
-        let other = RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000099").unwrap();
+        let other = RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000099").unwrap();
         assert!(
             verify_realm_organization_statement(
                 &active_payload(),
@@ -1000,7 +1000,7 @@ mod realm_organization_verifier_tests {
         let mut p = active_payload();
         p.authorization.issuer_role = RealmOrganizationIssuerRole::AccountAuthority;
         p.authorization.delegation_ref =
-            Some("ck:grant:01904100-0000-7000-8000-000000000001".to_owned());
+            Some("ak:grant:01904100-0000-7000-8000-000000000001".to_owned());
         assert!(
             verify_realm_organization_statement(&p, &realm_id(), now(), &NoDelegationResolver)
                 .is_err()
@@ -1012,7 +1012,7 @@ mod realm_organization_verifier_tests {
         let mut p = active_payload();
         p.authorization.issuer_role = RealmOrganizationIssuerRole::GovernanceService;
         p.authorization.delegation_ref =
-            Some("ck:grant:01904100-0000-7000-8000-000000000001".to_owned());
+            Some("ak:grant:01904100-0000-7000-8000-000000000001".to_owned());
         verify_realm_organization_statement(
             &p,
             &realm_id(),
@@ -1026,7 +1026,7 @@ mod realm_organization_verifier_tests {
     fn non_delegated_role_with_delegation_ref_fails() {
         let mut p = active_payload();
         p.authorization.delegation_ref =
-            Some("ck:grant:01904100-0000-7000-8000-000000000001".to_owned());
+            Some("ak:grant:01904100-0000-7000-8000-000000000001".to_owned());
         assert!(
             verify_realm_organization_statement(&p, &realm_id(), now(), &NoDelegationResolver)
                 .is_err()
@@ -1038,7 +1038,7 @@ mod realm_organization_verifier_tests {
         let mut p = active_payload();
         p.authorization.issuer_role = RealmOrganizationIssuerRole::GovernanceService;
         p.authorization.delegation_ref =
-            Some("ck:grant:01904100-0000-7000-8000-000000000001".to_owned());
+            Some("ak:grant:01904100-0000-7000-8000-000000000001".to_owned());
         let mut delegation = live_delegation();
         delegation.covered_control_scopes = vec![RealmOrganizationControlScope::OfficialBadge];
         assert!(

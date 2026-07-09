@@ -50,7 +50,7 @@ impl AgentPrincipal {
     }
 }
 
-/// HTTP method used by a Cokret personal-agent operation plan.
+/// HTTP method used by a Arkret personal-agent operation plan.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AgentHttpMethod {
     Get,
@@ -1164,7 +1164,7 @@ mod tests {
             resources: vec![AgentKeyScopeResource {
                 kind: AgentKeyScopeResourceKind::Realm,
                 realm_id: Some(
-                    RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+                    RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
                 ),
                 r#ref: None,
                 operation: None,
@@ -1184,7 +1184,7 @@ mod tests {
                 resources: vec![AgentKeyScopeResource {
                     kind: AgentKeyScopeResourceKind::Realm,
                     realm_id: Some(
-                        RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+                        RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
                     ),
                     r#ref: None,
                     operation: None,
@@ -1212,7 +1212,7 @@ mod tests {
         );
 
         let grant_id =
-            GrantId::new("ck:grant:01964137-0000-7000-8000-000000000010".to_owned()).unwrap();
+            GrantId::new("ak:grant:01964137-0000-7000-8000-000000000010".to_owned()).unwrap();
         let detach = plan_agent_grant_detach("did:webvh:z6mkfixture:agent.example", &grant_id);
         assert_eq!(detach.operation_id, OP_AGENT_GRANT_DETACH);
         assert_eq!(detach.method.as_str(), "DELETE");
@@ -1268,7 +1268,7 @@ mod tests {
     #[test]
     fn agent_pairing_bootstrap_serializes_spec_shape() {
         let bootstrap = agent_pairing_bootstrap(
-            "https://cokret.example",
+            "https://arkret.example",
             did("service"),
             did("agent"),
             "01970000-0000-7000-8000-000000000020",
@@ -1278,7 +1278,7 @@ mod tests {
         let value = serde_json::to_value(bootstrap).unwrap();
 
         // CKP-0008 §4.4: exactly six fields, no scope payload.
-        assert_eq!(value["cokret_base_url"], "https://cokret.example");
+        assert_eq!(value["cokret_base_url"], "https://arkret.example");
         assert_eq!(value["pairing_code"], "R7K9-2M4P");
         assert_eq!(
             value["pairing_request_id"],
@@ -1303,12 +1303,12 @@ mod tests {
             public_key_digest: None,
             accountable_principal_id: controller_id.clone(),
             agent_key_scope: test_scope(),
-            audience: vec!["https://cokret.example".to_owned()],
+            audience: vec!["https://arkret.example".to_owned()],
             issued_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 0, 0).unwrap(),
             expires_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap(),
             approval_evidence: AgentKeyApprovalEvidence {
                 kind: AgentKeyApprovalEvidenceKind::ApprovalEvent,
-                r#ref: "ck:event:01970000-0000-7000-8000-000000000021".to_owned(),
+                r#ref: "ak:event:01970000-0000-7000-8000-000000000021".to_owned(),
                 request_canonical_digest: None,
                 approved_by: Some(controller_id.clone()),
             },
@@ -1318,7 +1318,7 @@ mod tests {
 
         let event = build_agent_key_authorize_event(
             &payload,
-            RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
             controller_id.clone(),
             7,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -1341,7 +1341,7 @@ mod tests {
             String::from_utf8(canonical::canonical_json_bytes(&event.payload).unwrap()).unwrap();
         assert_eq!(
             canonical_content,
-            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_key_scope":{"actions":["ck.self.events.stream.subscribe","ck.message.create"],"resources":[{"kind":"realm","realm_id":"ck:realm:01904100-0000-7000-8000-000000000001"}]},"agent_principal_id":"did:webvh:z6mkfixture:agent.example","approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","kind":"approval_event","ref":"ck:event:01970000-0000-7000-8000-000000000021"},"audience":["https://cokret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_key_scope":{"actions":["ck.self.events.stream.subscribe","ck.message.create"],"resources":[{"kind":"realm","realm_id":"ak:realm:01904100-0000-7000-8000-000000000001"}]},"agent_principal_id":"did:webvh:z6mkfixture:agent.example","approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","kind":"approval_event","ref":"ak:event:01970000-0000-7000-8000-000000000021"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
         );
     }
 
@@ -1356,12 +1356,12 @@ mod tests {
             public_key_digest: None,
             accountable_principal_id: controller_id.clone(),
             agent_key_scope: test_scope(),
-            audience: vec!["https://cokret.example".to_owned()],
+            audience: vec!["https://arkret.example".to_owned()],
             issued_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 0, 0).unwrap(),
             expires_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap(),
             approval_evidence: AgentKeyApprovalEvidence {
                 kind: AgentKeyApprovalEvidenceKind::ApprovalEvent,
-                r#ref: "ck:event:01970000-0000-7000-8000-000000000021".to_owned(),
+                r#ref: "ak:event:01970000-0000-7000-8000-000000000021".to_owned(),
                 request_canonical_digest: None,
                 approved_by: Some(controller_id.clone()),
             },
@@ -1372,7 +1372,7 @@ mod tests {
         let signer = StubMoveSigner::new(controller_id.clone(), controller_vm.clone());
         let event = build_signed_agent_key_authorize_event(
             &payload,
-            RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
             controller_id.clone(),
             7,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
@@ -1407,14 +1407,14 @@ mod tests {
             "ck.message.create".to_owned(),
         ];
         let agent_scope_request = json!({
-            "realm_ids": ["ck:realm:01904100-0000-7000-8000-000000000001"],
+            "realm_ids": ["ak:realm:01904100-0000-7000-8000-000000000001"],
             "track_names": ["summary"],
         });
         let dpop_binding_proof = SessionGrantDpopBindingProof {
             proof_jwt: "dpop.jwt.value".to_owned(),
         };
         let expires_at = Utc.with_ymd_and_hms(2026, 5, 26, 10, 5, 0).unwrap();
-        let authorization_ref = "ck:event:01970000-0000-7000-8000-000000000021";
+        let authorization_ref = "ak:event:01970000-0000-7000-8000-000000000021";
         let nonce = "nonce-abc";
         let signing_input = agent_key_proof_signing_input_for_session_grant(
             &principal_id,
@@ -1425,14 +1425,14 @@ mod tests {
             format!("{}#runtime-key-1", principal_id.as_str()),
             "challenge",
             nonce,
-            "https://cokret.example",
+            "https://arkret.example",
             expires_at,
         )
         .unwrap();
         let signing_json = String::from_utf8(signing_input.canonical_bytes().unwrap()).unwrap();
         assert_eq!(
             signing_json,
-            r#"{"audience":"https://cokret.example","challenge":"challenge","expires_at":"2026-05-26T10:05:00Z","nonce":"nonce-abc","request_canonical_digest":"sha256:36b158c5b5ceafe211d21558731991459d80ebc7b6ddd8749d99360f116d9e3b","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+            r#"{"audience":"https://arkret.example","challenge":"challenge","expires_at":"2026-05-26T10:05:00Z","nonce":"nonce-abc","request_canonical_digest":"sha256:36b158c5b5ceafe211d21558731991459d80ebc7b6ddd8749d99360f116d9e3b","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
         );
         assert!(!signing_json.contains(AGENT_KEY_PROOF_KIND));
 
@@ -1445,7 +1445,7 @@ mod tests {
             format!("{}#runtime-key-1", principal_id.as_str()),
             "challenge",
             nonce,
-            "https://cokret.example",
+            "https://arkret.example",
             expires_at,
             "agent-key-signature",
         )

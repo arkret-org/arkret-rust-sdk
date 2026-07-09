@@ -3,7 +3,7 @@
 //!
 //! The protocol federation surface is the registered `ck.peer.*`
 //! operation family (`/_cokret/peer/*`) with Event proofs / HTTP
-//! message signatures via the `cokret-signatures` pipeline. A former
+//! message signatures via the `arkret-signatures` pipeline. A former
 //! SDK-local "federation transaction/request" layer (concatenation
 //! SHA-256 pseudo-signatures, free-form `txn_*` ids, unregistered
 //! `/_cokret/federation/*` paths) was removed as non-spec — do not
@@ -156,7 +156,7 @@ impl FederationReplayStore for FederationManager {
     }
 }
 
-/// Build a Cokret wire-form digest (`sha256:<hex>`) over `bytes`.
+/// Build a Arkret wire-form digest (`sha256:<hex>`) over `bytes`.
 ///
 /// Reuse the single `core::canonical::sha256_digest` helper instead of
 /// hand-rolling `Sha256::new()` in federation code, keeping digest strings
@@ -169,7 +169,7 @@ pub fn content_digest_sha256(bytes: &[u8]) -> String {
 /// (`sha-256=:<base64>:`).
 ///
 /// RFC 9530 wraps the raw 32-byte digest in **standard base64** with padding.
-/// That differs from the Cokret wire-form `sha256:<hex>` encoding, so this
+/// That differs from the Arkret wire-form `sha256:<hex>` encoding, so this
 /// helper computes the raw digest and standard-base64 encodes it.
 pub fn rfc9530_content_digest_sha256(bytes: &[u8]) -> String {
     let raw = sha256_raw(bytes);
@@ -383,7 +383,7 @@ mod tests {
     #[test]
     fn federation_forwards_queries_and_backfills_events() {
         let mut manager = FederationManager::new();
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         manager.forward_event(realm_id.clone(), json!({"event": 1}));
         manager.forward_event(realm_id.clone(), json!({"event": 2}));
 
@@ -433,7 +433,7 @@ mod tests {
         let document = json!({
             "id": did.as_str(),
             "service": [{
-                "id": "did:webvh:z6mkfixture:a.example#cokret-federation",
+                "id": "did:webvh:z6mkfixture:a.example#arkret-federation",
                 "type": "CokretFederation",
                 "serviceEndpoint": "https://a.example/_cokret/peer/events"
             }]
@@ -484,7 +484,7 @@ mod tests {
         );
         let fork = fork_quarantine_record(
             FederationQuarantineKind::OperationFork,
-            "ck:operation:01904100-0000-7000-8000-b24c1b0f1a32",
+            "ak:operation:01904100-0000-7000-8000-b24c1b0f1a32",
             "sha256:first",
             "sha256:second",
         )
@@ -499,7 +499,7 @@ mod tests {
         // plaintext_visible_to_service.
         let fully_authorized = FederationBackfillAuthorization {
             requester_service_did: Did::new("did:webvh:z6mkfixture:b.example").unwrap(),
-            realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
             service_delegated: true,
             plaintext_visible_to_service: true,

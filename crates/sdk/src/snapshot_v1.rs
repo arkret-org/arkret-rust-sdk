@@ -118,11 +118,11 @@ mod tests {
     }
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn event_id(suffix: &str) -> EventId {
-        EventId::new(format!("ck:event:01904100-0000-7000-8000-{suffix}")).unwrap()
+        EventId::new(format!("ak:event:01904100-0000-7000-8000-{suffix}")).unwrap()
     }
 
     fn hash(seed: u8) -> Hash {
@@ -130,7 +130,7 @@ mod tests {
     }
 
     fn snapshot_id() -> cokret_core::SnapshotId {
-        cokret_core::SnapshotId::new("ck:snapshot:01904100-0000-7000-8000-000000000001").unwrap()
+        cokret_core::SnapshotId::new("ak:snapshot:01904100-0000-7000-8000-000000000001").unwrap()
     }
 
     fn resolver_for(signing_key: &SigningKey) -> DidWebResolver {
@@ -151,9 +151,9 @@ mod tests {
     ) -> (SnapshotManifest, Vec<SnapshotChunkPayload>, DidWebResolver) {
         let item = SnapshotMaterializedItem {
             kind: "strand".to_owned(),
-            id: "ck:strand:01904100-0000-7000-8000-000000000001".to_owned(),
+            id: "ak:strand:01904100-0000-7000-8000-000000000001".to_owned(),
             object: json!({
-                "id": "ck:strand:01904100-0000-7000-8000-000000000001",
+                "id": "ak:strand:01904100-0000-7000-8000-000000000001",
                 "kind": "strand",
                 "schema": "ck.schema.test.v1"
             }),

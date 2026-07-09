@@ -1,6 +1,6 @@
 //! Blind push-payload sanitizer (T1.1).
 //!
-//! Single source of truth for the Cokret v1 push gateway "blind wakeup"
+//! Single source of truth for the Arkret v1 push gateway "blind wakeup"
 //! payload contract. Both push gateways (e.g. floria) and gateway clients
 //! (e.g. chime) call into the same sanitizer so the allowed/forbidden field
 //! rules cannot drift between implementations.
@@ -410,7 +410,7 @@ fn check_sensitive_literal(path: &str, raw: &str) -> Result<(), BlindPayloadErro
         return Ok(());
     }
     let lower = raw.to_ascii_lowercase();
-    if lower.contains("did:") || lower.contains("ck:") {
+    if lower.contains("did:") || lower.contains("ak:") {
         return Err(BlindPayloadError::sensitive(path));
     }
     Ok(())
@@ -575,9 +575,9 @@ pub fn is_valid_push_target_id(value: &str) -> bool {
     if lower.contains("did:") {
         return false;
     }
-    let token = if let Some(token) = trimmed.strip_prefix("ck:pseudonym:push:") {
+    let token = if let Some(token) = trimmed.strip_prefix("ak:pseudonym:push:") {
         token
-    } else if trimmed.starts_with("ck:") || trimmed.contains(':') {
+    } else if trimmed.starts_with("ak:") || trimmed.contains(':') {
         return false;
     } else {
         trimmed
@@ -605,7 +605,7 @@ pub fn is_valid_custom_wakeup_kind(value: &str) -> bool {
         return false;
     }
     let lower = value.to_ascii_lowercase();
-    if lower.contains("did:") || lower.contains("ck:") {
+    if lower.contains("did:") || lower.contains("ak:") {
         return false;
     }
     value
@@ -623,7 +623,7 @@ pub fn is_valid_push_hint(value: &str) -> bool {
             return false;
         }
         let lower = token.to_ascii_lowercase();
-        if lower.contains("did:") || lower.contains("ck:") {
+        if lower.contains("did:") || lower.contains("ak:") {
             return false;
         }
         return token
@@ -642,7 +642,7 @@ mod tests {
     fn ok_notification() -> Value {
         json!({
             "notification": {
-                "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
                 "timing_profile_hint": "default",
                 "push_hint": "new_message",
@@ -660,7 +660,7 @@ mod tests {
     #[test]
     fn accepts_bare_notification_object() {
         sanitize_blind_payload(&json!({
-            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+            "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "call_invite",
             "timing_profile_hint": "traffic_metadata_hardened",
         }))
@@ -677,7 +677,7 @@ mod tests {
             "expiry_invalidation",
         ] {
             sanitize_blind_payload(&json!({
-                "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": kind,
                 "timing_profile_hint": "default",
             }))
@@ -701,7 +701,7 @@ mod tests {
     #[test]
     fn rejects_event_id() {
         let mut v = ok_notification();
-        v["notification"]["event_id"] = json!("ck:event:01JS0EV000000000000000000");
+        v["notification"]["event_id"] = json!("ak:event:01JS0EV000000000000000000");
         let err = sanitize_blind_payload(&v).unwrap_err();
         assert_eq!(err.reason_code, BlindPayloadReasonCode::ForbiddenField);
     }
@@ -755,7 +755,7 @@ mod tests {
         // catch it at the wrapper-scan stage.
         let payload = json!({
             "notification": {
-                "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
             },
             "operation_id": "ck.edge.push.command.notify",
@@ -787,9 +787,9 @@ mod tests {
         assert!(!is_valid_push_target_id(
             "did:webvh:z6mkfixture:alice.example"
         ));
-        assert!(!is_valid_push_target_id("ck:device:01HYZ8Z000000000000000"));
+        assert!(!is_valid_push_target_id("ak:device:01HYZ8Z000000000000000"));
         assert!(is_valid_push_target_id(
-            "ck:pseudonym:push:01HYZ8Z000000000000000"
+            "ak:pseudonym:push:01HYZ8Z000000000000000"
         ));
         assert!(is_valid_push_target_id("01HYZ8Z000000000000000"));
     }

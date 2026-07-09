@@ -1,9 +1,9 @@
 //! Client-server product API contracts.
 //!
-//! Owner: the Cokret client SDK. These product-local client API DTOs need
-//! `cokret-crypto` / `cokret-html` types (encrypted media metadata, rich text)
-//! so they live in the SDK rather than `cokret-core`. Canonical protocol
-//! request/response bodies generated from `cokret-spec` stay in `cokret-core`.
+//! Owner: the Arkret client SDK. These product-local client API DTOs need
+//! `arkret-crypto` / `arkret-html` types (encrypted media metadata, rich text)
+//! so they live in the SDK rather than `arkret-core`. Canonical protocol
+//! request/response bodies generated from `arkret-spec` stay in `arkret-core`.
 //!
 //! Naming convention follows the OpenAPI shape of each operation:
 //!
@@ -1251,7 +1251,7 @@ mod tests {
     }
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-a035cff9ef92").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-a035cff9ef92").unwrap()
     }
 
     #[test]
@@ -1320,7 +1320,7 @@ mod tests {
         SetPusherRequestBody {
             pusher: Pusher {
                 user_id: did("alice"),
-                device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
+                device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
                 platform: cokret_core::push::PushPlatform::Fcm,
                 push_gateway: "https://push.example".to_owned(),
                 push_key: "token".to_owned(),

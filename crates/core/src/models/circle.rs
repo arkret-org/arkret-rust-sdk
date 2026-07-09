@@ -952,9 +952,9 @@ mod tests {
     #[test]
     fn circle_round_trips_json() {
         let id =
-            CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000001".to_owned()).unwrap();
+            CircleId::new("ak:circle:0196419b-0000-7000-8000-000000000001".to_owned()).unwrap();
         let realm_id =
-            RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000002".to_owned()).unwrap();
+            RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000002".to_owned()).unwrap();
         let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
         let circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let json = serde_json::to_value(&circle).unwrap();
@@ -967,9 +967,9 @@ mod tests {
     #[test]
     fn circle_agent_participation_round_trips_partial_ceiling() {
         let id =
-            CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000011".to_owned()).unwrap();
+            CircleId::new("ak:circle:0196419b-0000-7000-8000-000000000011".to_owned()).unwrap();
         let realm_id =
-            RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000012".to_owned()).unwrap();
+            RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000012".to_owned()).unwrap();
         let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         circle.agent_participation = Some(AgentParticipationCeiling {
@@ -995,7 +995,7 @@ mod tests {
         let value = serde_json::json!({
             "principal_id": "did:webvh:z6mkfixture:bob.example",
             "membership_frontier": [
-                "ck:event:0196419b-0000-7000-8000-000000000001"
+                "ak:event:0196419b-0000-7000-8000-000000000001"
             ]
         });
         let parsed: CirclePendingMlsRemoval = serde_json::from_value(value).unwrap();
@@ -1006,7 +1006,7 @@ mod tests {
         );
         assert_eq!(
             parsed.membership_frontier()[0].as_str(),
-            "ck:event:0196419b-0000-7000-8000-000000000001"
+            "ak:event:0196419b-0000-7000-8000-000000000001"
         );
     }
 
@@ -1023,9 +1023,9 @@ mod tests {
     #[test]
     fn circle_agent_participation_validates_tighten_only() {
         let id =
-            CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000021".to_owned()).unwrap();
+            CircleId::new("ak:circle:0196419b-0000-7000-8000-000000000021".to_owned()).unwrap();
         let realm_id =
-            RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000022".to_owned()).unwrap();
+            RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000022".to_owned()).unwrap();
         let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
         let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let parent = AgentParticipation {
@@ -1145,10 +1145,10 @@ mod tests {
     // ── validate_no_scope_rebind ───────────────────────────────────────────
 
     fn circle_a() -> CircleId {
-        CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000a01".to_owned()).unwrap()
+        CircleId::new("ak:circle:0196419b-0000-7000-8000-000000000a01".to_owned()).unwrap()
     }
     fn circle_b() -> CircleId {
-        CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000a02".to_owned()).unwrap()
+        CircleId::new("ak:circle:0196419b-0000-7000-8000-000000000a02".to_owned()).unwrap()
     }
 
     #[test]

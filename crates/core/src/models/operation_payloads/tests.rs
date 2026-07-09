@@ -6,8 +6,8 @@ use crate::{canonical, *};
 #[test]
 fn object_create_payload_wraps_object() {
     let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
-    let strand_id = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
+    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
     let strand = StrandCreateObject::new(strand_id, realm_id, actor)
         .with_metadata_title("Incident")
         .with_track("discussion", StrandTrackConfig::discussion_primary());
@@ -22,8 +22,8 @@ fn object_create_payload_wraps_object() {
 #[test]
 fn space_create_object_uses_canonical_timestamp() {
     let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
-    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000002").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
+    let space_id = SpaceId::new("ak:space:01904100-0000-7000-8000-000000000002").unwrap();
     let space = SpaceCreateObject::new(space_id, realm_id, "board", "Board", actor);
     let payload = ObjectCreatePayload::new(space).to_value().unwrap();
     canonical::validate_timestamp_canonical(payload["object"]["created_at"].as_str().unwrap())
@@ -32,7 +32,7 @@ fn space_create_object_uses_canonical_timestamp() {
 
 #[test]
 fn strand_tracks_update_payload_uses_strand_id_not_target_ref() {
-    let strand_id = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
     let patch: Patch = serde_json::from_value(json!({
         "tracks.discussion.is_primary": {"$op": "set", "value": true}
     }))
@@ -44,7 +44,7 @@ fn strand_tracks_update_payload_uses_strand_id_not_target_ref() {
 
     assert_eq!(
         payload["strand_id"],
-        "ck:strand:01904100-0000-7000-8000-000000000002"
+        "ak:strand:01904100-0000-7000-8000-000000000002"
     );
     assert!(payload.get("target_ref").is_none());
     assert!(payload.get("patch").is_some());
@@ -57,8 +57,8 @@ fn strand_tracks_update_payload_uses_strand_id_not_target_ref() {
 #[test]
 fn morph_create_payload_uses_metadata_and_encrypted_content_names() {
     let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
-    let morph_id = MorphId::new("ck:morph:01904100-0000-7000-8000-000000000002").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
+    let morph_id = MorphId::new("ak:morph:01904100-0000-7000-8000-000000000002").unwrap();
     let morph = MorphCreateObject::new(morph_id, realm_id, "document", actor)
         .with_title("Spec")
         .with_summary("Draft")
@@ -76,7 +76,7 @@ fn morph_create_payload_uses_metadata_and_encrypted_content_names() {
 
 #[test]
 fn message_create_payload_requires_exactly_one_content_carrier() {
-    let strand_id = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
     let payload = MessageCreatePayload::with_content(
         strand_id,
         "discussion",
@@ -90,8 +90,8 @@ fn message_create_payload_requires_exactly_one_content_carrier() {
 
 #[test]
 fn message_create_payload_reads_plain_body_and_first_media_block() {
-    let strand_id = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000002").unwrap();
-    let blob_ref = format!("ck:blob:sha256:{}", "a".repeat(64));
+    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let blob_ref = format!("ak:blob:sha256:{}", "a".repeat(64));
     let media = ContentBlock::new(CONTENT_KIND_FILE, "spec.pdf")
         .with_field("mime_type", json!("application/pdf"))
         .with_field("filename", json!("spec.pdf"))
@@ -182,7 +182,7 @@ fn message_expiry_rejects_non_positive_ttl() {
 
 #[test]
 fn message_create_payload_carries_disappearing_expiry() {
-    let strand_id = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000002").unwrap();
+    let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
     let expiry =
         DisappearingMessageExpiry::new(60_000, DisappearingMessageExpiryTrigger::OnLastRead)
             .unwrap()
@@ -192,7 +192,7 @@ fn message_create_payload_carries_disappearing_expiry() {
         "discussion",
         ContentBlock::text("hello").to_value().unwrap(),
     )
-    .with_message_id("ck:message:01904100-0000-7000-8000-000000000003")
+    .with_message_id("ak:message:01904100-0000-7000-8000-000000000003")
     .with_expiry(expiry)
     .to_value()
     .unwrap();
@@ -209,8 +209,8 @@ fn message_create_payload_carries_disappearing_expiry() {
 #[test]
 fn morph_create_object_rejects_both_content_carriers() {
     let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
-    let morph_id = MorphId::new("ck:morph:01904100-0000-7000-8000-000000000003").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
+    let morph_id = MorphId::new("ak:morph:01904100-0000-7000-8000-000000000003").unwrap();
     let mut morph = MorphCreateObject::new(morph_id, realm_id, "document", actor);
     morph.content = Some(json!({"kind": "ck.content.text", "body": "hello"}));
     morph.encrypted_content = Some(json!({"schema": ENCRYPTED_ENVELOPE_SCHEMA}));

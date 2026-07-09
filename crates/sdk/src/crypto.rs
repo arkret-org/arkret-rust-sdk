@@ -19,11 +19,11 @@ use crate::{Error, Result};
 pub const AEAD_ALGORITHM: &str = "xchacha20poly1305-hkdf-sha256-v1";
 /// HKDF salt that domain-separates the `seal`/`open` AEAD key derivation
 /// from any other use of the same key material.
-const AEAD_HKDF_SALT: &[u8] = b"cokret-aead-seal-hkdf-v1";
-pub const ENCRYPTED_ENVELOPE_AAD_CONTEXT: &str = "cokret-encrypted-envelope-aad-v1";
+const AEAD_HKDF_SALT: &[u8] = b"arkret-aead-seal-hkdf-v1";
+pub const ENCRYPTED_ENVELOPE_AAD_CONTEXT: &str = "arkret-encrypted-envelope-aad-v1";
 pub const REDACTED_SECRET: &str = "<redacted>";
 const NONCE_LEN: usize = 24;
-pub const AEAD_NONCE_EXPORTER_LABEL: &str = "cokret-aead-sender-nonce-prefix-v1";
+pub const AEAD_NONCE_EXPORTER_LABEL: &str = "arkret-aead-sender-nonce-prefix-v1";
 pub const AEAD_NONCE_COUNTER_LEN: usize = 8;
 pub const AEAD_NONCE_XCHACHA20_POLY1305_LEN: usize = 24;
 pub const AEAD_NONCE_AES_GCM_LEN: usize = 12;
@@ -196,9 +196,9 @@ pub fn current_feature_safety_report() -> FeatureSafetyReport {
 /// spelling [`cokret_core::verify_declared_profiles_against_features`] expects.
 ///
 /// The SDK crate can observe `mls` (OpenMLS group crypto) directly. Client-side
-/// key-backup crypto (`backup`) is a feature of the separate `cokret-crypto`
+/// key-backup crypto (`backup`) is a feature of the separate `arkret-crypto`
 /// crate, not re-exported as an SDK feature, so it is not visible to `cfg!`
-/// here; a caller that links `cokret-crypto` with `backup` should append
+/// here; a caller that links `arkret-crypto` with `backup` should append
 /// [`cokret_core::profile_feature_guard::FEATURE_BACKUP`] to this list before
 /// calling [`cokret_core::verify_declared_profiles_against_features`].
 pub fn current_profile_crypto_features() -> Vec<&'static str> {
@@ -503,7 +503,7 @@ pub fn encrypted_envelope_digest_report(
 
 fn sha256_prefixed(bytes: &[u8]) -> String {
     // Reuse the authoritative `sha256:<lowercase-hex>` formatter in
-    // `cokret-core` (single source of truth for the digest prefix/encoding).
+    // `arkret-core` (single source of truth for the digest prefix/encoding).
     cokret_core::canonical::sha256_digest(bytes)
 }
 
@@ -529,7 +529,7 @@ mod tests {
         AeadNonceContext {
             key_ref: json!({
                 "algorithm": "MLS",
-                "group_state_ref": "ck:event:01964148-0000-7000-8000-000000000000"
+                "group_state_ref": "ak:event:01964148-0000-7000-8000-000000000000"
             }),
             epoch: 42,
             device_id: device_id.to_owned(),
@@ -549,8 +549,8 @@ mod tests {
     #[test]
     fn aead_sender_nonce_prefix_context_and_replay_are_enforced() {
         const EXPORTER_SECRET: [u8; 32] = [0x24u8; 32];
-        const DEVICE_ONE: &str = "ck:device:01964137-0000-7000-8000-000000000001";
-        const DEVICE_TWO: &str = "ck:device:01964137-0000-7000-8000-000000000002";
+        const DEVICE_ONE: &str = "ak:device:01964137-0000-7000-8000-000000000001";
+        const DEVICE_TWO: &str = "ak:device:01964137-0000-7000-8000-000000000002";
         const EXPECTED_PREFIX_HEX: &str = "3625435ed962752ae133dd014413a855";
 
         let context = fixture_nonce_context(DEVICE_ONE);
@@ -623,10 +623,10 @@ mod tests {
     #[test]
     fn encrypted_envelope_aad_digest_is_canonical() {
         let aad = EncryptedEnvelopeAad {
-            realm_id: "ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+            realm_id: "ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
             event_kind: "ck.message.create".to_owned(),
-            event_id: "ck:event:01904100-0000-7000-8000-51495aba0a08".to_owned(),
-            causal_refs: vec!["ck:event:01904100-0000-7000-8000-2b39e7197b88".to_owned()],
+            event_id: "ak:event:01904100-0000-7000-8000-51495aba0a08".to_owned(),
+            causal_refs: vec!["ak:event:01904100-0000-7000-8000-2b39e7197b88".to_owned()],
         };
         let digest = envelope_aad_digest(&aad).unwrap();
         verify_envelope_aad_digest(&aad, &digest).unwrap();
@@ -699,7 +699,7 @@ mod tests {
             .expect("known profile")
             .expect("plaintext profile needs no crypto features");
 
-        // The SDK crate can observe `mls` but not the `cokret-crypto` `backup`
+        // The SDK crate can observe `mls` but not the `arkret-crypto` `backup`
         // feature, so a default (mls-on) build declaring `e2ee_client` reports a
         // `backup` gap — the intended SPEC-FEAT-01 signal.
         let outcome =
@@ -839,9 +839,9 @@ mod tests {
     #[test]
     fn canonical_digest_is_deterministic_for_same_input() {
         let aad = EncryptedEnvelopeAad {
-            realm_id: "ck:realm:01904100-0000-7000-8000-cfc039892036".to_owned(),
+            realm_id: "ak:realm:01904100-0000-7000-8000-cfc039892036".to_owned(),
             event_kind: "ck.message.create".to_owned(),
-            event_id: "ck:event:01904100-0000-7000-8000-b70714ca75c5".to_owned(),
+            event_id: "ak:event:01904100-0000-7000-8000-b70714ca75c5".to_owned(),
             causal_refs: vec![],
         };
         let digest1 = envelope_aad_digest(&aad).unwrap();
@@ -853,15 +853,15 @@ mod tests {
     #[test]
     fn canonical_digest_differs_for_different_inputs() {
         let aad1 = EncryptedEnvelopeAad {
-            realm_id: "ck:realm:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            realm_id: "ak:realm:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             event_kind: "ck.message.create".to_owned(),
-            event_id: "ck:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
+            event_id: "ak:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
             causal_refs: vec![],
         };
         let aad2 = EncryptedEnvelopeAad {
-            realm_id: "ck:realm:01904100-0000-7000-8000-2a9d538f2fcf".to_owned(),
+            realm_id: "ak:realm:01904100-0000-7000-8000-2a9d538f2fcf".to_owned(),
             event_kind: "ck.message.create".to_owned(),
-            event_id: "ck:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
+            event_id: "ak:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
             causal_refs: vec![],
         };
         let digest1 = envelope_aad_digest(&aad1).unwrap();

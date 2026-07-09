@@ -56,7 +56,7 @@ mod tests {
     use super::*;
 
     fn realm_id() -> RealmId {
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000010").unwrap()
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000010").unwrap()
     }
 
     fn org_did() -> Did {

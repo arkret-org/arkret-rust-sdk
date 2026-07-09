@@ -3,7 +3,7 @@
 Add the SDK crate:
 
 ```toml
-cokret = { path = "crates/sdk" }
+arkret = { path = "crates/sdk" }
 ```
 
 This default dependency exposes protocol IDs, wire models, canonical helpers
@@ -13,41 +13,41 @@ high-level runtime modules.
 For the local client-state examples below, enable the high-level SDK surface:
 
 ```toml
-cokret = { path = "crates/sdk", features = ["full-surface"] }
+arkret = { path = "crates/sdk", features = ["full-surface"] }
 ```
 
 Create local client state and a session:
 
 ```rust
 use std::sync::Arc;
-use cokret::{BaseClient, DeviceId, Did, SessionMeta};
+use arkret::{BaseClient, DeviceId, Did, SessionMeta};
 
 let base = Arc::new(BaseClient::new());
 base.set_session_meta(SessionMeta::new(
     Did::new("did:webvh:z6mkexample:alice.example")?,
-    DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001")?,
+    DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001")?,
 ))?;
-# Ok::<(), cokret::Error>(())
+# Ok::<(), arkret::Error>(())
 ```
 
 Process events and query a Realm-local Space container. Typed ids carry a
 canonical lowercase UUIDv7 payload — mint fresh ones with
-`cokret::new_prefixed_uuid7("ck:realm:")`:
+`arkret::new_prefixed_uuid7("ak:realm:")`:
 
 ```rust
-use cokret::{Realm, RealmId, SpaceId};
+use arkret::{Realm, RealmId, SpaceId};
 
-let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-668e2181b41d")?;
-let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-6c663fa0205f")?;
+let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-668e2181b41d")?;
+let space_id = SpaceId::new("ak:space:01904100-0000-7000-8000-6c663fa0205f")?;
 let realm = Realm::new(realm_id, base);
 let maybe_space = realm.get_space(&space_id);
-# Ok::<(), cokret::Error>(())
+# Ok::<(), arkret::Error>(())
 ```
 
 Run verification:
 
 ```sh
-cargo test -p cokret --features full-surface
+cargo test -p arkret --features full-surface
 ```
 
 ## Task Guides
@@ -55,7 +55,7 @@ cargo test -p cokret --features full-surface
 ### Build A Simple Client
 
 Use `BaseClient` for local session and space state, then enable the `client`
-feature when the application is ready to call a Cokret service over HTTP.
+feature when the application is ready to call a Arkret service over HTTP.
 
 ### Run Sync With Durable Storage
 
@@ -99,7 +99,7 @@ Use the `EndpointHandler` shape and the typed `ServerRequest` /
 `ServerResponse` protocol enums. Host applications own HTTP parsing, routing,
 authentication and response writing.
 
-When `salvo` is enabled, every public `cokret-core` model and identifier
+When `salvo` is enabled, every public `arkret-core` model and identifier
 type derives `salvo::oapi::ToSchema` / `ToParameters`, so applications that use
 Salvo OAPI can attach real field-level schemas directly to their own handlers.
 

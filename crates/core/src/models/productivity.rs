@@ -1471,7 +1471,7 @@ pub fn saved_target_key(
 }
 
 pub fn realm_key(namespace_key: &[u8], realm_id: &str) -> Result<String> {
-    if !realm_id.starts_with("ck:realm:") {
+    if !realm_id.starts_with("ak:realm:") {
         return Err(Error::Protocol(
             "realm_key input must be ck:realm typed id".to_owned(),
         ));
@@ -1558,15 +1558,15 @@ fn private_key_error() -> Result<()> {
 
 fn contains_raw_object_ref(value: &str) -> bool {
     [
-        "ck:strand:",
-        "ck:message:",
-        "ck:realm:",
-        "ck:space:",
-        "ck:morph:",
-        "ck:relation:",
-        "ck:view:",
-        "ck:circle:",
-        "ck:event:",
+        "ak:strand:",
+        "ak:message:",
+        "ak:realm:",
+        "ak:space:",
+        "ak:morph:",
+        "ak:relation:",
+        "ak:view:",
+        "ak:circle:",
+        "ak:event:",
     ]
     .iter()
     .any(|needle| value.contains(needle))
@@ -1584,15 +1584,15 @@ fn normalize_collection_title(collection_title: &str) -> Result<String> {
 
 fn validate_object_ref_string(field: &str, value: &str) -> Result<()> {
     let valid = [
-        "ck:realm:",
-        "ck:space:",
-        "ck:strand:",
-        "ck:message:",
-        "ck:morph:",
-        "ck:relation:",
-        "ck:view:",
-        "ck:circle:",
-        "ck:event:",
+        "ak:realm:",
+        "ak:space:",
+        "ak:strand:",
+        "ak:message:",
+        "ak:morph:",
+        "ak:relation:",
+        "ak:view:",
+        "ak:circle:",
+        "ak:event:",
     ]
     .iter()
     .any(|prefix| value.starts_with(prefix));
@@ -1630,8 +1630,8 @@ pub fn validate_file_transfer_id(value: &str) -> Result<()> {
 }
 
 fn validate_blob_ref(value: &str) -> Result<()> {
-    let valid_uuid = value.strip_prefix("ck:blob:").is_some_and(is_uuid_v7);
-    let valid_digest = ["ck:blob:sha256:", "ck:blob:blake3:"].iter().any(|prefix| {
+    let valid_uuid = value.strip_prefix("ak:blob:").is_some_and(is_uuid_v7);
+    let valid_digest = ["ak:blob:sha256:", "ak:blob:blake3:"].iter().any(|prefix| {
         value.strip_prefix(prefix).is_some_and(|hex| {
             hex.len() == 64
                 && hex
@@ -1650,8 +1650,8 @@ fn validate_blob_ref(value: &str) -> Result<()> {
 
 fn validate_file_transfer_blob_digest_binding(blob_ref: &str, content_digest: &str) -> Result<()> {
     for (prefix, digest_prefix) in [
-        ("ck:blob:sha256:", "sha256:"),
-        ("ck:blob:blake3:", "blake3:"),
+        ("ak:blob:sha256:", "sha256:"),
+        ("ak:blob:blake3:", "blake3:"),
     ] {
         if let Some(hex) = blob_ref.strip_prefix(prefix) {
             let expected = format!("{digest_prefix}{hex}");
@@ -1885,15 +1885,15 @@ mod tests {
     use super::*;
 
     fn test_realm_id(seed: &str) -> RealmId {
-        RealmId::new(format!("ck:realm:01904100-0000-7000-8000-{seed}")).unwrap()
+        RealmId::new(format!("ak:realm:01904100-0000-7000-8000-{seed}")).unwrap()
     }
 
     fn test_circle_id(seed: &str) -> CircleId {
-        CircleId::new(format!("ck:circle:01904100-0000-7000-8000-{seed}")).unwrap()
+        CircleId::new(format!("ak:circle:01904100-0000-7000-8000-{seed}")).unwrap()
     }
 
     fn test_blob_id(seed: &str) -> BlobId {
-        BlobId::new(format!("ck:blob:01904100-0000-7000-8000-{seed}")).unwrap()
+        BlobId::new(format!("ak:blob:01904100-0000-7000-8000-{seed}")).unwrap()
     }
 
     fn test_time(second: u32) -> DateTime<Utc> {
@@ -1904,9 +1904,9 @@ mod tests {
 
     #[test]
     fn scheduled_send_validates_payload_id_and_digest() {
-        let message_id = MessageId::new("ck:message:01904100-0000-7000-8000-000000000001").unwrap();
+        let message_id = MessageId::new("ak:message:01904100-0000-7000-8000-000000000001").unwrap();
         let payload = json!({
-            "strand_id": "ck:strand:01904100-0000-7000-8000-000000000002",
+            "strand_id": "ak:strand:01904100-0000-7000-8000-000000000002",
             "track_name": "discussion",
             "message_id": message_id.as_str(),
             "content": {"body": "hello"}
@@ -2005,7 +2005,7 @@ mod tests {
     #[test]
     fn private_key_builders_do_not_leak_raw_target_refs() {
         let ns = b"test namespace key";
-        let target_ref = "ck:message:01904100-0000-7000-8000-000000000001";
+        let target_ref = "ak:message:01904100-0000-7000-8000-000000000001";
         let snooze = snooze_account_data_key(ns, target_ref).unwrap();
         assert!(snooze.starts_with("ck.snooze.v1:"));
         assert!(!snooze.contains(target_ref));
@@ -2042,7 +2042,7 @@ mod tests {
         FileTransferRecord {
             kind: "file_transfer".to_owned(),
             transfer_id: "0123456789abcdefghijkl".to_owned(),
-            blob_ref: format!("ck:blob:sha256:{}", "ab".repeat(32)),
+            blob_ref: format!("ak:blob:sha256:{}", "ab".repeat(32)),
             content_digest: format!("sha256:{}", "ab".repeat(32)),
             blob_size_bytes: 42,
             media_type: "text/plain".to_owned(),
@@ -2060,14 +2060,14 @@ mod tests {
                     schema: FILE_TRANSFER_SCHEMA.to_owned(),
                     purpose: "file_transfer".to_owned(),
                     transfer_id: "0123456789abcdefghijkl".to_owned(),
-                    origin_device_id: "ck:device:01904100-0000-7000-8000-000000000002".to_owned(),
+                    origin_device_id: "ak:device:01904100-0000-7000-8000-000000000002".to_owned(),
                     created_at: "2026-06-22T00:00:00Z".to_owned(),
                 },
                 key_delivery: FileTransferKeyDelivery::AccountDataWrappedKey {
                     content_key: "abc_DEF-012".to_owned(),
                 },
             },
-            origin_device_id: "ck:device:01904100-0000-7000-8000-000000000002".to_owned(),
+            origin_device_id: "ak:device:01904100-0000-7000-8000-000000000002".to_owned(),
             created_at: "2026-06-22T00:00:00Z".to_owned(),
             updated_hlc: "01970e589d21-0004-a13f9c2e".to_owned(),
             retention_expires_at: "2026-06-29T00:00:00Z".to_owned(),
@@ -2099,7 +2099,7 @@ mod tests {
         let mut record = file_transfer_record();
         record.access.visibility = FileTransferAccessVisibility::DeviceBound;
         record.access.recipient_device_ids =
-            vec!["ck:device:01904100-0000-7000-8000-000000000003".to_owned()];
+            vec!["ak:device:01904100-0000-7000-8000-000000000003".to_owned()];
         let err = record.validate().unwrap_err();
         assert!(
             err.to_string()
@@ -2112,7 +2112,7 @@ mod tests {
         let mut record = file_transfer_record();
         record.access.visibility = FileTransferAccessVisibility::DeviceBound;
         record.access.recipient_device_ids =
-            vec!["ck:device:01904100-0000-7000-8000-000000000003".to_owned()];
+            vec!["ak:device:01904100-0000-7000-8000-000000000003".to_owned()];
         record.encryption.key_delivery = FileTransferKeyDelivery::ToDeviceWrappedKey {
             key_message_kind: FILE_TRANSFER_KEY_MESSAGE_KIND.to_owned(),
         };
@@ -2149,7 +2149,7 @@ mod tests {
     #[test]
     fn file_transfer_record_rejects_blob_digest_drift() {
         let mut record = file_transfer_record();
-        record.blob_ref = format!("ck:blob:sha256:{}", "cd".repeat(32));
+        record.blob_ref = format!("ak:blob:sha256:{}", "cd".repeat(32));
         let err = record.validate().unwrap_err();
         assert!(
             err.to_string()
@@ -2246,12 +2246,12 @@ mod tests {
     #[test]
     fn wire_field_names_match_current_spec() {
         let draft = DraftSyncValue {
-            target_ref: "ck:message:01904100-0000-7000-8000-000000000001".to_owned(),
+            target_ref: "ak:message:01904100-0000-7000-8000-000000000001".to_owned(),
             kind: DraftKind::Message,
             draft_slot: "main".to_owned(),
             content: json!({"body": "draft"}),
             updated_hlc: "01970e589d21-0000-a13f9c2e".to_owned(),
-            origin_device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000002")
+            origin_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002")
                 .unwrap(),
             retention_expires_at: "2026-06-07T00:00:00Z".to_owned(),
         };

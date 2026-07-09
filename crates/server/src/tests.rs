@@ -140,7 +140,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         service_did: cokret_core::Did::new("did:webvh:z6mkfixture:svc.example")
                             .unwrap(),
                         trust_domain: cokret_core::TypedTrustDomainId::new(
-                            "ck:trust_domain:example.net",
+                            "ak:trust_domain:example.net",
                         )
                         .unwrap(),
                         service_type: "principal_server".to_owned(),

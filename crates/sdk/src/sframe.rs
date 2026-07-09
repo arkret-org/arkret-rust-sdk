@@ -2,7 +2,7 @@
 //!
 //! Per `crypto-media/media-service-binding.md` §8.1 and `call-state.md` §5,
 //! realtime media frame keys and backend recording keys MUST be derived from
-//! the Cokret MLS exporter — never from a backend's own KMS or a self-generated
+//! the Arkret MLS exporter — never from a backend's own KMS or a self-generated
 //! random key. This module binds the two fixed wire labels to a real MLS
 //! exporter source and rejects any other key provenance with
 //! [`e2ee_key_source_unauthorised`](cokret_core::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED).
@@ -156,7 +156,7 @@ impl TranscriptKeyContext {
 
 /// Derive the 32-byte SFrame frame key for one sender at one epoch.
 ///
-/// `source` MUST be a live Cokret MLS group: any non-MLS key source is
+/// `source` MUST be a live Arkret MLS group: any non-MLS key source is
 /// unrepresentable, which satisfies the §8.1 mandate that frame keys never come
 /// from a backend KMS. The label is the byte-for-byte [`FRAME_KEY_LABEL`] and
 /// the Context is the canonical JSON of `context`.
@@ -185,7 +185,7 @@ pub fn derive_recording_key(
 
 /// Derive the 32-byte transcription artifact key (`call-state.md` §5.1).
 ///
-/// Mirrors [`derive_recording_key`]: `source` MUST be a live Cokret MLS group,
+/// Mirrors [`derive_recording_key`]: `source` MUST be a live Arkret MLS group,
 /// the label is the byte-for-byte [`TRANSCRIPT_KEY_LABEL`], and the Context is
 /// the canonical JSON of `context`.
 pub fn derive_transcript_key(
@@ -245,15 +245,15 @@ mod tests {
     }
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
     }
 
     fn call() -> CallId {
-        CallId::new("ck:call:0196441c-0000-7000-8000-000000000000").unwrap()
+        CallId::new("ak:call:0196441c-0000-7000-8000-000000000000").unwrap()
     }
 
     fn device() -> DeviceId {
-        DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap()
+        DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap()
     }
 
     fn frame_context() -> FrameKeyContext {
@@ -262,7 +262,7 @@ mod tests {
             call_id: call(),
             focus_id: "fra-1".to_owned(),
             epoch_id: 7,
-            participant_identity: "ck:rtc_participant:0198c2f4-0000-7000-8000-000000000000"
+            participant_identity: "ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000"
                 .to_owned(),
             device_id: device(),
         }
@@ -287,7 +287,7 @@ mod tests {
                 focus_id: "fra-1".to_owned(),
                 recording_id: "rtc-recording-1".to_owned(),
                 media_service_did: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
-                recording_start_event_id: "ck:event:01904100-0000-7000-8000-0000000000aa"
+                recording_start_event_id: "ak:event:01904100-0000-7000-8000-0000000000aa"
                     .to_owned(),
             },
         )
@@ -308,7 +308,7 @@ mod tests {
         assert_ne!(base, derive_frame_key(&exporter, &next_epoch).unwrap());
 
         let mut other_sender = frame_context();
-        other_sender.participant_identity = "ck:rtc_participant:other".to_owned();
+        other_sender.participant_identity = "ak:rtc_participant:other".to_owned();
         assert_ne!(base, derive_frame_key(&exporter, &other_sender).unwrap());
     }
 
@@ -334,7 +334,7 @@ mod tests {
             focus_id: "fra-1".to_owned(),
             recording_id: String::new(),
             media_service_did: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
-            recording_start_event_id: "ck:event:01904100-0000-7000-8000-0000000000aa".to_owned(),
+            recording_start_event_id: "ak:event:01904100-0000-7000-8000-0000000000aa".to_owned(),
         };
         assert!(derive_recording_key(&exporter, &context).is_err());
     }
@@ -346,7 +346,7 @@ mod tests {
             focus_id: "fra-1".to_owned(),
             recording_id: "rtc-transcript-1".to_owned(),
             media_service_did: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
-            transcript_start_event_id: "ck:event:01904100-0000-7000-8000-0000000000bb".to_owned(),
+            transcript_start_event_id: "ak:event:01904100-0000-7000-8000-0000000000bb".to_owned(),
         }
     }
 
@@ -369,7 +369,7 @@ mod tests {
                 focus_id: "fra-1".to_owned(),
                 recording_id: "rtc-transcript-1".to_owned(),
                 media_service_did: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
-                recording_start_event_id: "ck:event:01904100-0000-7000-8000-0000000000bb"
+                recording_start_event_id: "ak:event:01904100-0000-7000-8000-0000000000bb"
                     .to_owned(),
             },
         )
@@ -399,12 +399,12 @@ mod tests {
         let text = String::from_utf8(bytes).unwrap();
         assert_eq!(
             text,
-            "{\"call_id\":\"ck:call:0196441c-0000-7000-8000-000000000000\",\
+            "{\"call_id\":\"ak:call:0196441c-0000-7000-8000-000000000000\",\
              \"focus_id\":\"fra-1\",\
              \"media_service_did\":\"did:webvh:z6mkfixture:media.example\",\
-             \"realm_id\":\"ck:realm:01904100-0000-7000-8000-9b64700c6ee8\",\
+             \"realm_id\":\"ak:realm:01904100-0000-7000-8000-9b64700c6ee8\",\
              \"recording_id\":\"rtc-transcript-1\",\
-             \"transcript_start_event_id\":\"ck:event:01904100-0000-7000-8000-0000000000bb\"}"
+             \"transcript_start_event_id\":\"ak:event:01904100-0000-7000-8000-0000000000bb\"}"
         );
     }
 
@@ -416,12 +416,12 @@ mod tests {
         let text = String::from_utf8(bytes).unwrap();
         assert_eq!(
             text,
-            "{\"call_id\":\"ck:call:0196441c-0000-7000-8000-000000000000\",\
-             \"device_id\":\"ck:device:01904100-0000-7000-8000-000000000005\",\
+            "{\"call_id\":\"ak:call:0196441c-0000-7000-8000-000000000000\",\
+             \"device_id\":\"ak:device:01904100-0000-7000-8000-000000000005\",\
              \"epoch_id\":7,\
              \"focus_id\":\"fra-1\",\
-             \"participant_identity\":\"ck:rtc_participant:0198c2f4-0000-7000-8000-000000000000\",\
-             \"realm_id\":\"ck:realm:01904100-0000-7000-8000-9b64700c6ee8\"}"
+             \"participant_identity\":\"ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000\",\
+             \"realm_id\":\"ak:realm:01904100-0000-7000-8000-9b64700c6ee8\"}"
         );
     }
 }

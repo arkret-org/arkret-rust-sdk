@@ -251,7 +251,7 @@ pub struct DirectoryRealmResolutionOutcome {
     pub join_candidates: Vec<RealmJoinCandidate>,
 }
 
-/// R3.3 (CKP-0011, cokret-spec @ cced4b8) — the resolved object class of a
+/// R3.3 (CKP-0011, arkret-spec @ cced4b8) — the resolved object class of a
 /// shareable address. The address grammar (`crate::models::object_address`)
 /// fixes the hierarchy `realm` ⊃ `strand` ⊃ `m` (message).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -266,7 +266,7 @@ pub enum TargetKind {
 /// R3.3 (CKP-0011) — request body for `ck.find.directory.query.resolve_target`.
 ///
 /// `address` is a client-agnostic shareable object address in either the
-/// `web+cokret:` URI form or the HTTPS-landing fragment form (see
+/// `web+arkret:` URI form or the HTTPS-landing fragment form (see
 /// [`crate::models::object_address::parse_address`]). `token` is present iff
 /// the address carries `lt=invite` or `lt=preview`; the server MUST bind it to
 /// the resolved object via [`crate::models::object_address::verify_token_target`].
@@ -753,7 +753,7 @@ mod agent_selector_tests {
             issuer_service_did: Some(did("did:webvh:z6mkfixture:example.com")),
             binding_state: HandleBindingState::Verified,
             visibility: HandleVisibility::Restricted,
-            audience: Some("ck:realm:018f0000-0000-7000-8000-000000000001".to_owned()),
+            audience: Some("ak:realm:018f0000-0000-7000-8000-000000000001".to_owned()),
             claim_scope: BTreeMap::new(),
             expires_at: None,
             created_at: Utc::now(),
@@ -789,7 +789,7 @@ mod agent_selector_tests {
     }
 }
 
-/// R3.2 (cokret-spec @ b56cab1) — request body for
+/// R3.2 (arkret-spec @ b56cab1) — request body for
 /// `ck.find.directory.query.list_handles_for_subject`. Known holder/principal DID +
 /// context → current visible handle claims (inverse of `resolve_handle`).
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -446,7 +446,7 @@ fn verify_snapshot_chunk_ref_digest(
     if let Some(hex) = descriptor
         .chunk_ref
         .as_str()
-        .strip_prefix("ck:blob:sha256:")
+        .strip_prefix("ak:blob:sha256:")
     {
         let expected = format!("sha256:{hex}");
         if expected != descriptor.digest.as_str() {
@@ -483,7 +483,7 @@ fn build_chunk_descriptor(payload: SnapshotChunkPayload) -> Result<BuiltSnapshot
     let canonical_bytes = snapshot_chunk_payload_bytes(&payload)?;
     let digest = sha256_digest(&canonical_bytes);
     let descriptor = SnapshotChunkDescriptor {
-        chunk_ref: BlobRef::new(format!("ck:blob:{digest}")).map_err(Error::from)?,
+        chunk_ref: BlobRef::new(format!("ak:blob:{digest}")).map_err(Error::from)?,
         digest,
         size_bytes: canonical_bytes.len() as u64,
     };

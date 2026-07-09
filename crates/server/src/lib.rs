@@ -32,7 +32,7 @@ use cokret_core::{
     SnapshotManifest, SyncBackfillOutcome, SyncDescription, SyncOutcome, SyncRequestBody,
 };
 pub use cokret_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
-// Shared protocol/product wire contracts now live in `cokret-core`; re-export
+// Shared protocol/product wire contracts now live in `arkret-core`; re-export
 // them under stable `*_api` aliases for server-side consumers.
 pub use cokret_core::{
     federation as federation_api, identity as identity_api, integration as integration_api,

@@ -18,9 +18,9 @@ pub struct MimiProviderDirectoryParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -40,9 +40,9 @@ pub struct MimiKeyMaterialParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -65,9 +65,9 @@ pub struct MimiRoomUpdateParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -90,9 +90,9 @@ pub struct MimiNotifyParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -115,9 +115,9 @@ pub struct MimiSubmitMessageParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -146,9 +146,9 @@ pub struct MimiGroupInfoParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -168,9 +168,9 @@ pub struct MimiConsentParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -190,9 +190,9 @@ pub struct MimiConsentUpdateParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -212,9 +212,9 @@ pub struct MimiIdentifierQueryParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -234,9 +234,9 @@ pub struct MimiReportAbuseParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(
@@ -256,9 +256,9 @@ pub struct MimiProxyDownloadParams {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "X-Cokret-Request-Id"
+        rename = "X-Arkret-Request-Id"
     )]
-    #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Arkret-Request-Id", parameter(parameter_in = Header)))]
     pub x_cokret_request_id: Option<String>,
 
     #[serde(

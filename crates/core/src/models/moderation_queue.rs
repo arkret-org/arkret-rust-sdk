@@ -92,8 +92,8 @@ mod tests {
     #[test]
     fn queue_item_round_trips() {
         let item = ModerationQueueItem {
-            id: "ck:moderation_queue_item:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
-            report: json!({"realm_id": "ck:realm:...", "reason": "spam"}),
+            id: "ak:moderation_queue_item:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
+            report: json!({"realm_id": "ak:realm:...", "reason": "spam"}),
             status: ModerationQueueStatus::Submitted,
             priority: Some(ModerationQueuePriority::Normal),
             visibility: ModerationQueueVisibility::MetadataOnly,

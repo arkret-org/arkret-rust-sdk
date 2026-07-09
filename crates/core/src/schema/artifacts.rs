@@ -580,9 +580,9 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "ck.schema.identity_link.v1",
     "ck.schema.handle_claim.v1",
     "ck.schema.member_delivery_binding_candidate.v1",
-    // R3.1 spec-sync (cokret-spec @ 7157ee8, 2026-05-27).
+    // R3.1 spec-sync (arkret-spec @ 7157ee8, 2026-05-27).
     "ck.schema.member_identity.v1",
-    // R3.2 spec-sync (cokret-spec @ b56cab1, 2026-05-28).
+    // R3.2 spec-sync (arkret-spec @ b56cab1, 2026-05-28).
     "ck.schema.list_handles_for_subject_response.v1",
     "ck.schema.grant_constraint.v1",
     "ck.schema.resource_selector.v1",
@@ -757,7 +757,7 @@ pub const ARTIFACT_BACKED_SPECIAL_FORM_ID_KINDS: &[&str] = &[
 ];
 
 pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
-    if let Ok(artifacts_dir) = std::env::var("COKRET_SPEC_ARTIFACTS") {
+    if let Ok(artifacts_dir) = std::env::var("ARKRET_SPEC_ARTIFACTS") {
         return Some(PathBuf::from(artifacts_dir));
     }
     None
@@ -849,7 +849,7 @@ pub fn schema_registry_from_default_spec_artifacts() -> Result<Option<ProtocolSc
 /// Look up a capability action descriptor from the embedded spec artifact.
 ///
 /// This is the runtime-friendly path for services that need to fail closed on
-/// unknown or unsupported capability actions without reading `cokret-spec` from
+/// unknown or unsupported capability actions without reading `arkret-spec` from
 /// the local filesystem.
 pub fn embedded_capability_action(
     action: &str,

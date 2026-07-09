@@ -6,7 +6,7 @@
 # JSON parser and the detached-JWS proof verifier, the two hottest
 # untrusted-input paths in the SDK.
 [package]
-name = "cokret-sdk-fuzz"
+name = "arkret-sdk-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2024"
@@ -16,8 +16,8 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-cokret-core = { path = "../crates/core", default-features = false }
-cokret-signatures = { path = "../crates/signatures", default-features = false }
+arkret-core = { path = "../crates/core", default-features = false }
+arkret-signatures = { path = "../crates/signatures", default-features = false }
 serde_json = "1"
 
 # Keep this crate out of the parent workspace.

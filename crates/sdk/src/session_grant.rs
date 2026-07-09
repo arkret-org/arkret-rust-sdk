@@ -150,7 +150,7 @@ mod tests {
     }
 
     fn device_id() -> DeviceId {
-        DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap()
+        DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap()
     }
 
     fn digest() -> Hash {

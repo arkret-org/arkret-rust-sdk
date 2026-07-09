@@ -118,7 +118,7 @@ fn run_kat(kat: &Value) {
         "{label}: aead subkey drift"
     );
     assert_eq!(
-        hex(&derive_subkey(&kek.key, b"cokret-key-backup-aead-nonce-v1")),
+        hex(&derive_subkey(&kek.key, b"arkret-key-backup-aead-nonce-v1")),
         str_field(&subkeys["nonce"], "subkey_hex"),
         "{label}: nonce subkey drift"
     );

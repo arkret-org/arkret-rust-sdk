@@ -1,6 +1,6 @@
 //! Protocol-facing authorization DTO aliases.
 //!
-//! Grant constraints are owned by `cokret-core` because they are part of the
+//! Grant constraints are owned by `arkret-core` because they are part of the
 //! canonical capability grant wire artifact. This module intentionally re-exports
 //! those core types instead of maintaining an SDK-local parallel model.
 

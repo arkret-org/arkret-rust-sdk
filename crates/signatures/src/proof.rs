@@ -586,7 +586,7 @@ mod ed25519_jws {
             self.signing_key.verifying_key()
         }
 
-        /// Produce a full Cokret [`Proof`] over `value` using this
+        /// Produce a full Arkret [`Proof`] over `value` using this
         /// signer. Returns the canonical bytes alongside the proof so
         /// callers can persist them next to the envelope.
         pub fn sign_payload<T: serde::Serialize>(
@@ -601,7 +601,7 @@ mod ed25519_jws {
             Ok((bytes, proof))
         }
 
-        /// Assemble a Cokret [`Proof`] over pre-canonicalized `bytes`.
+        /// Assemble a Arkret [`Proof`] over pre-canonicalized `bytes`.
         pub fn build_proof(
             &self,
             bytes: &[u8],
@@ -658,7 +658,7 @@ mod ed25519_jws {
         alg: String,
         #[serde(default)]
         typ: Option<String>,
-        /// RFC 7515 §4.1.11 `crit`. Cokret v1 understands no critical
+        /// RFC 7515 §4.1.11 `crit`. Arkret v1 understands no critical
         /// extensions, so any present `crit` member MUST be rejected
         /// (`deny_unknown_fields` already rejects unrecognized members; this
         /// field makes the rejection explicit and self-documenting).
@@ -676,7 +676,7 @@ mod ed25519_jws {
         /// `b64u(header).b64u(canonical_bytes)`).
         ///
         /// This is a **generic** detached-JWS-over-payload primitive: the
-        /// caller decides what `canonical_bytes` are. For Cokret **Event
+        /// caller decides what `canonical_bytes` are. For Arkret **Event
         /// proofs**, the signed bytes are the canonical proof *binding
         /// object* (not the raw event bytes) — use the top-level
         /// [`super::verify_eddsa_detached_jws_proof`], which constructs that
@@ -804,7 +804,7 @@ mod ed25519_jws {
     /// RFC 7797 unencoded-payload signing input: `b64url(header) "." b64url(payload)`.
     ///
     /// We base64-encode the canonical bytes here (rather than passing
-    /// them in directly with `b64="false"`) because every Cokret SDK
+    /// them in directly with `b64="false"`) because every Arkret SDK
     /// that talks to this verifier today expects the standard JWS
     /// shape. The detached form lives in the wire JWS — the middle
     /// segment is stripped — but the signing-input stays

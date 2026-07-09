@@ -423,12 +423,12 @@ mod tests {
     };
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn seal_id(byte: u8) -> SealId {
         SealId::new(format!(
-            "ck:seal:sha256:{}",
+            "ak:seal:sha256:{}",
             format!("{byte:02x}").repeat(32)
         ))
         .unwrap()
@@ -444,7 +444,7 @@ mod tests {
 
     fn capability_cell() -> CellRef {
         CellRef::new(
-            "ck:cell:ck.component.capability.grant.v1:ck:grant:0196410c-0000-7000-8000-000000000000"
+            "ak:cell:ck.component.capability.grant.v1:ck:grant:0196410c-0000-7000-8000-000000000000"
                 .to_owned(),
         )
         .unwrap()

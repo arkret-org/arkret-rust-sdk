@@ -21,7 +21,7 @@
 //! to a `Grant` for fast in-memory check / delegation enforcement. The
 //! fields critical to delegation — `delegated_from` and `expires_at` — live
 //! on both shapes verbatim per
-//! `cokret-spec/spec/v1/zh/authz/capabilities.md` §3 + §10.
+//! `arkret-spec/spec/v1/zh/authz/capabilities.md` §3 + §10.
 //!
 //! All functions in this module are **pure**: they take a slice of grants
 //! and a `now` instant and return a decision. No interior mutability, no
@@ -535,7 +535,7 @@ mod tests {
     fn root_grant(id: &str, actions: &[&str], resource: &str) -> Grant {
         Grant {
             grant_id: id.to_owned(),
-            realm_id: "ck:realm:1".to_owned(),
+            realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:alice".to_owned(),
             subject: "did:webvh:z6mkfixture:bob".to_owned(),
             resource: resource.to_owned(),
@@ -559,7 +559,7 @@ mod tests {
     ) -> Grant {
         Grant {
             grant_id: id.to_owned(),
-            realm_id: "ck:realm:1".to_owned(),
+            realm_id: "ak:realm:1".to_owned(),
             issuer: issuer.to_owned(),
             subject: subject.to_owned(),
             resource: resource.to_owned(),
@@ -574,14 +574,14 @@ mod tests {
 
     #[test]
     fn happy_path_root_plus_one_delegation_chain_intact() {
-        let root = root_grant("g1", &["read"], "ck:realm:1");
+        let root = root_grant("g1", &["read"], "ak:realm:1");
         let child = child_grant(
             "g2",
             "g1",
             "did:webvh:z6mkfixture:bob",
             "did:webvh:z6mkfixture:carol",
             &["read"],
-            "ck:realm:1",
+            "ak:realm:1",
             None,
         );
         let grants = vec![root, child];
@@ -592,7 +592,7 @@ mod tests {
 
     #[test]
     fn parent_revoked_breaks_chain() {
-        let mut root = root_grant("g1", &["read"], "ck:realm:1");
+        let mut root = root_grant("g1", &["read"], "ak:realm:1");
         root.revoked = true;
         let child = child_grant(
             "g2",
@@ -600,7 +600,7 @@ mod tests {
             "did:webvh:z6mkfixture:bob",
             "did:webvh:z6mkfixture:carol",
             &["read"],
-            "ck:realm:1",
+            "ak:realm:1",
             None,
         );
         let grants = vec![root, child];
@@ -612,7 +612,7 @@ mod tests {
     #[test]
     fn parent_expired_breaks_chain() {
         let now = Utc::now();
-        let mut root = root_grant("g1", &["read"], "ck:realm:1");
+        let mut root = root_grant("g1", &["read"], "ak:realm:1");
         root.expires_at = Some(now - Duration::seconds(1));
         let child = child_grant(
             "g2",
@@ -620,7 +620,7 @@ mod tests {
             "did:webvh:z6mkfixture:bob",
             "did:webvh:z6mkfixture:carol",
             &["read"],
-            "ck:realm:1",
+            "ak:realm:1",
             None,
         );
         let grants = vec![root, child];
@@ -631,14 +631,14 @@ mod tests {
     #[test]
     fn create_delegated_grant_happy_path() {
         let now = Utc::now();
-        let mut root = root_grant("g1", &["read", "send"], "ck:realm:1");
+        let mut root = root_grant("g1", &["read", "send"], "ak:realm:1");
         root.expires_at = Some(now + Duration::hours(1));
         let parents = vec![root];
         let req = GrantRequestDraft {
-            realm_id: "ck:realm:1".to_owned(),
+            realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
-            resource: "ck:realm:1".to_owned(),
+            resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
             expires_at: Some(now + Duration::minutes(30)),
@@ -652,14 +652,14 @@ mod tests {
     #[test]
     fn create_delegated_grant_rejects_over_expire() {
         let now = Utc::now();
-        let mut root = root_grant("g1", &["read"], "ck:realm:1");
+        let mut root = root_grant("g1", &["read"], "ak:realm:1");
         root.expires_at = Some(now + Duration::hours(1));
         let parents = vec![root];
         let req = GrantRequestDraft {
-            realm_id: "ck:realm:1".to_owned(),
+            realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
-            resource: "ck:realm:1".to_owned(),
+            resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
             // Child outlives parent → reject.
@@ -684,13 +684,13 @@ mod tests {
     #[test]
     fn create_delegated_grant_rejects_actions_overreach() {
         let now = Utc::now();
-        let root = root_grant("g1", &["read"], "ck:realm:1");
+        let root = root_grant("g1", &["read"], "ak:realm:1");
         let parents = vec![root];
         let req = GrantRequestDraft {
-            realm_id: "ck:realm:1".to_owned(),
+            realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
-            resource: "ck:realm:1".to_owned(),
+            resource: "ak:realm:1".to_owned(),
             // Parent only has `read`; child asking for `send` and `delete`.
             actions: vec!["read".to_owned(), "send".to_owned(), "delete".to_owned()],
             constraints: Vec::new(),
@@ -708,14 +708,14 @@ mod tests {
     #[test]
     fn create_delegated_grant_rejects_resource_out_of_scope() {
         let now = Utc::now();
-        let root = root_grant("g1", &["read"], "ck:realm:1");
+        let root = root_grant("g1", &["read"], "ak:realm:1");
         let parents = vec![root];
         let req = GrantRequestDraft {
-            realm_id: "ck:realm:2".to_owned(),
+            realm_id: "ak:realm:2".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
-            // Parent's resource is "ck:realm:1"; child trying a sibling realm.
-            resource: "ck:realm:2".to_owned(),
+            // Parent's resource is "ak:realm:1"; child trying a sibling realm.
+            resource: "ak:realm:2".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
             expires_at: None,
@@ -729,16 +729,16 @@ mod tests {
     #[test]
     fn create_delegated_grant_decrements_max_delegation_depth() {
         let now = Utc::now();
-        let mut root = root_grant("g1", &["read"], "ck:realm:1");
+        let mut root = root_grant("g1", &["read"], "ak:realm:1");
         root.constraints.push(GrantConstraint::DelegationControl {
             max_delegation_depth: Some(1),
         });
         let parents = vec![root];
         let base_req = GrantRequestDraft {
-            realm_id: "ck:realm:1".to_owned(),
+            realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
-            resource: "ck:realm:1".to_owned(),
+            resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
             expires_at: None,
@@ -762,16 +762,16 @@ mod tests {
     #[test]
     fn create_delegated_grant_rejects_when_parent_depth_is_exhausted() {
         let now = Utc::now();
-        let mut root = root_grant("g1", &["read"], "ck:realm:1");
+        let mut root = root_grant("g1", &["read"], "ak:realm:1");
         root.constraints.push(GrantConstraint::DelegationControl {
             max_delegation_depth: Some(0),
         });
         let parents = vec![root];
         let req = GrantRequestDraft {
-            realm_id: "ck:realm:1".to_owned(),
+            realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
-            resource: "ck:realm:1".to_owned(),
+            resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: vec![GrantConstraint::DelegationControl {
                 max_delegation_depth: Some(0),
@@ -787,14 +787,14 @@ mod tests {
     #[test]
     fn create_delegated_grant_rejects_non_holder() {
         let now = Utc::now();
-        let root = root_grant("g1", &["read"], "ck:realm:1");
+        let root = root_grant("g1", &["read"], "ak:realm:1");
         let parents = vec![root];
         let req = GrantRequestDraft {
-            realm_id: "ck:realm:1".to_owned(),
+            realm_id: "ak:realm:1".to_owned(),
             // Bob is the parent's subject; Eve trying to delegate is not.
             issuer: "did:webvh:z6mkfixture:eve".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
-            resource: "ck:realm:1".to_owned(),
+            resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
             expires_at: None,
@@ -808,14 +808,14 @@ mod tests {
     #[test]
     fn three_level_chain_middle_revoke_breaks_both_descendants() {
         let now = Utc::now();
-        let root = root_grant("g1", &["read"], "ck:realm:1");
+        let root = root_grant("g1", &["read"], "ak:realm:1");
         let mut middle = child_grant(
             "g2",
             "g1",
             "did:webvh:z6mkfixture:bob",
             "did:webvh:z6mkfixture:carol",
             &["read"],
-            "ck:realm:1",
+            "ak:realm:1",
             None,
         );
         let leaf = child_grant(
@@ -824,7 +824,7 @@ mod tests {
             "did:webvh:z6mkfixture:carol",
             "did:webvh:z6mkfixture:dave",
             &["read"],
-            "ck:realm:1",
+            "ak:realm:1",
             None,
         );
         // Pre-condition: all three chain-intact.
@@ -843,14 +843,14 @@ mod tests {
 
     #[test]
     fn revoke_with_cascade_includes_all_descendants() {
-        let root = root_grant("g1", &["read"], "ck:realm:1");
+        let root = root_grant("g1", &["read"], "ak:realm:1");
         let middle_a = child_grant(
             "g2a",
             "g1",
             "did:webvh:z6mkfixture:bob",
             "did:webvh:z6mkfixture:carol",
             &["read"],
-            "ck:realm:1",
+            "ak:realm:1",
             None,
         );
         let middle_b = child_grant(
@@ -859,7 +859,7 @@ mod tests {
             "did:webvh:z6mkfixture:bob",
             "did:webvh:z6mkfixture:dave",
             &["read"],
-            "ck:realm:1",
+            "ak:realm:1",
             None,
         );
         let leaf_a = child_grant(
@@ -868,7 +868,7 @@ mod tests {
             "did:webvh:z6mkfixture:carol",
             "did:webvh:z6mkfixture:erin",
             &["read"],
-            "ck:realm:1",
+            "ak:realm:1",
             None,
         );
         let leaf_b = child_grant(
@@ -877,7 +877,7 @@ mod tests {
             "did:webvh:z6mkfixture:dave",
             "did:webvh:z6mkfixture:frank",
             &["read"],
-            "ck:realm:1",
+            "ak:realm:1",
             None,
         );
         let grants = vec![root, middle_a, middle_b, leaf_a, leaf_b];
@@ -901,10 +901,10 @@ mod tests {
         let now = Utc::now();
         let parents: Vec<Grant> = Vec::new();
         let req = GrantRequestDraft {
-            realm_id: "ck:realm:1".to_owned(),
+            realm_id: "ak:realm:1".to_owned(),
             issuer: "did:webvh:z6mkfixture:bob".to_owned(),
             subject: "did:webvh:z6mkfixture:carol".to_owned(),
-            resource: "ck:realm:1".to_owned(),
+            resource: "ak:realm:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
             expires_at: None,
@@ -918,7 +918,7 @@ mod tests {
     #[test]
     fn grant_effective_expiry_picks_stricter_of_top_level_and_constraint() {
         let now = Utc::now();
-        let mut grant = root_grant("g1", &["read"], "ck:realm:1");
+        let mut grant = root_grant("g1", &["read"], "ak:realm:1");
         grant.expires_at = Some(now + Duration::hours(2));
         grant.constraints.push(GrantConstraint::Temporal {
             expires_at: Some(now + Duration::hours(1)),
@@ -935,14 +935,14 @@ mod tests {
 
     #[test]
     fn allowed_circle_ids_constraint_round_trips_through_serde() {
-        let circle = CircleId::new("ck:circle:01904100-0000-7000-8000-000000000000".to_owned())
+        let circle = CircleId::new("ak:circle:01904100-0000-7000-8000-000000000000".to_owned())
             .expect("valid CircleId");
         let constraint = GrantConstraint::AllowedCircleIds {
             allowed_circle_ids: BTreeSet::from([circle]),
         };
         let json = serde_json::to_string(&constraint).expect("serde round trip");
         assert!(json.contains("allowed_circle_ids"));
-        assert!(json.contains("ck:circle:01904100-0000-7000-8000-000000000000"));
+        assert!(json.contains("ak:circle:01904100-0000-7000-8000-000000000000"));
         let round_tripped: GrantConstraint =
             serde_json::from_str(&json).expect("deserialize typed");
         assert_eq!(constraint, round_tripped);
@@ -951,7 +951,7 @@ mod tests {
     #[test]
     fn allowed_session_ids_constraint_round_trips_through_serde() {
         let session = AgentInteropSessionId::new(
-            "ck:agent_interop_session:01904100-0000-7000-8000-000000000000".to_owned(),
+            "ak:agent_interop_session:01904100-0000-7000-8000-000000000000".to_owned(),
         )
         .expect("valid AgentInteropSessionId");
         let constraint = GrantConstraint::AllowedSessionIds {
@@ -959,7 +959,7 @@ mod tests {
         };
         let json = serde_json::to_string(&constraint).expect("serde round trip");
         assert!(json.contains("allowed_session_ids"));
-        assert!(json.contains("ck:agent_interop_session:01904100-0000-7000-8000-000000000000"));
+        assert!(json.contains("ak:agent_interop_session:01904100-0000-7000-8000-000000000000"));
         let round_tripped: GrantConstraint =
             serde_json::from_str(&json).expect("deserialize typed");
         assert_eq!(constraint, round_tripped);
@@ -979,11 +979,11 @@ mod tests {
 
     #[test]
     fn applet_delegation_binding_must_match_epoch_subject_and_applet() {
-        let mut grant = root_grant("g1", &["ck.message.create"], "ck:realm:1");
+        let mut grant = root_grant("g1", &["ck.message.create"], "ak:realm:1");
         assert!(matches!(
             validate_applet_delegation_binding(
                 &grant,
-                "ck:applet:1",
+                "ak:applet:1",
                 "did:webvh:z6mkfixture:svc.example",
                 "sha256:abc"
             ),
@@ -992,14 +992,14 @@ mod tests {
         grant
             .constraints
             .push(GrantConstraint::AppletDelegationBinding {
-                applet_id: "ck:applet:1".to_owned(),
+                applet_id: "ak:applet:1".to_owned(),
                 executed_by: "did:webvh:z6mkfixture:svc.example".to_owned(),
                 registration_epoch: "sha256:abc".to_owned(),
             });
         assert!(
             validate_applet_delegation_binding(
                 &grant,
-                "ck:applet:1",
+                "ak:applet:1",
                 "did:webvh:z6mkfixture:svc.example",
                 "sha256:abc"
             )
@@ -1008,7 +1008,7 @@ mod tests {
         assert!(matches!(
             validate_applet_delegation_binding(
                 &grant,
-                "ck:applet:1",
+                "ak:applet:1",
                 "did:webvh:z6mkfixture:svc.example",
                 "sha256:def"
             ),

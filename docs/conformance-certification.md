@@ -15,9 +15,9 @@ The SDK currently carries conformance coverage in unit and integration tests:
 Certification procedure:
 
 ```sh
-cargo test -p cokret
-cargo test -p cokret --no-default-features
-cargo test -p cokret --all-features
+cargo test -p arkret
+cargo test -p arkret --no-default-features
+cargo test -p arkret --all-features
 ```
 
 A release candidate is conformant when all protocol vectors and integration

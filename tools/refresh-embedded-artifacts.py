@@ -2,10 +2,10 @@
 """Refresh crates/core/src/schema/embedded_artifacts.json from the live spec.
 
 The embedded snapshot is a single JSON object mapping the artifact path
-(relative to cokret-spec/spec/v1/artifacts, forward slashes) to the parsed
+(relative to arkret-spec/spec/v1/artifacts, forward slashes) to the parsed
 artifact JSON. The drift gate
 `schema::tests::embedded_spec_artifacts_match_live_spec_when_available`
-compares path sets and parsed values against a co-checkout of cokret-spec;
+compares path sets and parsed values against a co-checkout of arkret-spec;
 run this script after any spec artifacts change, then re-run that test.
 
 Usage: python tools/refresh-embedded-artifacts.py [path-to-spec-artifacts]
@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-DEFAULT_ARTIFACTS = REPO.parent / "cokret-spec" / "spec" / "v1" / "artifacts"
+DEFAULT_ARTIFACTS = REPO.parent / "arkret-spec" / "spec" / "v1" / "artifacts"
 TARGET = REPO / "crates" / "core" / "src" / "schema" / "embedded_artifacts.json"
 
 

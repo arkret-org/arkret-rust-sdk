@@ -13,7 +13,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
-    #[error("invalid Cokret identifier: {0}")]
+    #[error("invalid Arkret identifier: {0}")]
     InvalidId(String),
 
     #[error("conflicting bytes for idempotent object {0}")]
@@ -57,9 +57,9 @@ pub enum Error {
     #[error("insecure service URL is not allowed by default: {0}")]
     InsecureUrl(String),
 
-    // Transport-agnostic HTTP failure. cokret-core is the wire-model /
+    // Transport-agnostic HTTP failure. arkret-core is the wire-model /
     // canonical layer and deliberately has no dependency on a concrete HTTP
-    // stack; transport adapters (cokret-http-client and any alternative
+    // stack; transport adapters (arkret-http-client and any alternative
     // binding) wrap their stack-specific errors into this variant at the
     // boundary.
     #[cfg(feature = "client")]
@@ -70,7 +70,7 @@ pub enum Error {
     #[error("MLS operation failed: {0}")]
     Mls(String),
 
-    #[error("Cokret API returned {status}: {error}")]
+    #[error("Arkret API returned {status}: {error}")]
     Api {
         status: u16,
         error: Box<ErrorEnvelope>,

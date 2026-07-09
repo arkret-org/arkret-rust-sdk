@@ -191,7 +191,7 @@ pub fn verify_jws_ed25519(
     }
 
     // Resolve verification_method via the supplied resolver chain. All JWS
-    // shape/header/signature checks are delegated to cokret-signatures.
+    // shape/header/signature checks are delegated to arkret-signatures.
     let public_key = resolve_ed25519_pubkey(resolver, verification_method)?;
     let proof = cokret_core::Proof {
         kind: "detached_jws".to_owned(),
@@ -554,7 +554,7 @@ mod tests {
             id: MoveId::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             issuer: Did::new("did:webvh:z6mkfixture:test").unwrap(),
             realm_id: crate::RealmId::new(
-                "ck:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
+                "ak:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
             )
             .unwrap(),
             preconditions: vec![],
@@ -574,7 +574,7 @@ mod tests {
             }],
             seal_basis: SealBasis {
                 leaves: vec![
-                    crate::SealId::new(format!("ck:seal:sha256:{}", "00".repeat(32))).unwrap(),
+                    crate::SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32))).unwrap(),
                 ],
                 control_event_set_root: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
                 state_root: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),
@@ -593,14 +593,14 @@ mod tests {
 
     #[test]
     fn effective_window_picks_default_when_no_overrides_apply() {
-        let m = build_test_move_touching("ck:cell:ck.component.message.create.v1:ck.event.foo", 0);
+        let m = build_test_move_touching("ak:cell:ck.component.message.create.v1:ck.event.foo", 0);
         let overrides = BTreeMap::new();
         assert_eq!(effective_window_for_move(&m, 300, &overrides), 300);
     }
 
     #[test]
     fn effective_window_uses_notary_override_when_notary_cell_touched() {
-        let m = build_test_move_touching("ck:cell:ck.component.notary.v1:ck.realm.x", 0);
+        let m = build_test_move_touching("ak:cell:ck.component.notary.v1:ck.realm.x", 0);
         let mut overrides = BTreeMap::new();
         overrides.insert("ck.component.notary.v1", 60u64);
         // Default 300, notary override 60 -> effective 60.
@@ -609,7 +609,7 @@ mod tests {
 
     #[test]
     fn effective_window_takes_minimum_when_default_tighter_than_override() {
-        let m = build_test_move_touching("ck:cell:ck.component.notary.v1:ck.realm.x", 0);
+        let m = build_test_move_touching("ak:cell:ck.component.notary.v1:ck.realm.x", 0);
         let mut overrides = BTreeMap::new();
         overrides.insert("ck.component.notary.v1", 600u64); // looser than default
         // Default 300, notary override 600 -> min = 300 (default wins because tighter).
@@ -620,7 +620,7 @@ mod tests {
     fn effective_window_zero_default_with_override_uses_override() {
         // Test config has window=0 but spec-critical cells should still
         // be window-checked. The override "wins" in this case.
-        let m = build_test_move_touching("ck:cell:ck.component.notary.v1:ck.realm.x", 0);
+        let m = build_test_move_touching("ak:cell:ck.component.notary.v1:ck.realm.x", 0);
         let mut overrides = BTreeMap::new();
         overrides.insert("ck.component.notary.v1", 60u64);
         assert_eq!(effective_window_for_move(&m, 0, &overrides), 60);
@@ -631,7 +631,7 @@ mod tests {
         let now = Utc::now();
         let two_min_ago_ms = (now - Duration::minutes(2)).timestamp_millis() as u64;
         let m =
-            build_test_move_touching("ck:cell:ck.component.notary.v1:ck.realm.x", two_min_ago_ms);
+            build_test_move_touching("ak:cell:ck.component.notary.v1:ck.realm.x", two_min_ago_ms);
         let mut overrides = BTreeMap::new();
         overrides.insert("ck.component.notary.v1", 60u64);
         let err = verify_replay_window_for_move_at(&m, 300, &overrides, now).unwrap_err();
@@ -646,7 +646,7 @@ mod tests {
         let now = Utc::now();
         let two_min_ago_ms = (now - Duration::minutes(2)).timestamp_millis() as u64;
         let m = build_test_move_touching(
-            "ck:cell:ck.component.message.create.v1:ck.event.foo",
+            "ak:cell:ck.component.message.create.v1:ck.event.foo",
             two_min_ago_ms,
         );
         // Default 300s, no override for message family -> 2min = 120s < 300s -> accept.

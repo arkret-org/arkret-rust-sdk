@@ -23,7 +23,7 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
     registry
         .validate_value(
             ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
-            &json!({"kind": "delta", "cursor": "ck:cursor:s1", "realms": {}, "unknown_future_field": true}),
+            &json!({"kind": "delta", "cursor": "ak:cursor:s1", "realms": {}, "unknown_future_field": true}),
         )
         .unwrap();
     assert!(
@@ -36,8 +36,8 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
             STRAND_SCHEMA,
             &json!({
                 "schema": STRAND_SCHEMA,
-                "id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
-                "realm_id": "ck:realm:01904100-0000-7000-8000-fd3637e8361f",
+                "id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
+                "realm_id": "ak:realm:01904100-0000-7000-8000-fd3637e8361f",
                 "metadata": {"title": "Topic"},
                 "stage": "draft",
                 "tracks": {"synthesis": {}},
@@ -90,8 +90,8 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
     }));
 
     let event = json!({
-        "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
-        "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
+        "event_id": "ak:event:01904100-0000-7000-8000-d408d6a2241c",
+        "space_id": "ak:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ck.message.create",
         "actor_seq": 1,
@@ -106,8 +106,8 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
     validator.validate(&event).unwrap();
 
     let wrong_type = json!({
-        "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
-        "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
+        "event_id": "ak:event:01904100-0000-7000-8000-d408d6a2241c",
+        "space_id": "ak:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ck.message.create",
         "actor_seq": 1,
@@ -121,8 +121,8 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
     assert!(validator.validate(&wrong_type).is_err());
 
     let sensitive_extension = json!({
-        "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
-        "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
+        "event_id": "ak:event:01904100-0000-7000-8000-d408d6a2241c",
+        "space_id": "ak:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ck.message.create",
         "actor_seq": 1,
@@ -170,8 +170,8 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
 fn schema_registry_fails_closed_for_unknown_security_extensions() {
     let mut registry = ProtocolSchemaRegistry::default();
     let value = json!({
-        "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
-        "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
+        "event_id": "ak:event:01904100-0000-7000-8000-d408d6a2241c",
+        "space_id": "ak:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ck.message.create",
         "actor_seq": 1,
@@ -189,8 +189,8 @@ fn schema_registry_fails_closed_for_unknown_security_extensions() {
     registry.validate_value(EVENT_SCHEMA, &value).unwrap();
 
     let ordinary_extension = json!({
-        "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
-        "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
+        "event_id": "ak:event:01904100-0000-7000-8000-d408d6a2241c",
+        "space_id": "ak:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:webvh:z6mkfixture:alice.example",
         "kind": "ck.message.create",
         "actor_seq": 1,
@@ -342,7 +342,7 @@ fn signature_binding_payload_matches_spec_encoding_vector() {
 fn fact_chain_echo_validates_server_proof_binding() {
     let mut echo = FactChainEcho {
         echo_id: "echo1".to_owned(),
-        subject_ref: "ck:event:01904100-0000-7000-8000-834e21b98552".to_owned(),
+        subject_ref: "ak:event:01904100-0000-7000-8000-834e21b98552".to_owned(),
         server_did: Did::new("did:webvh:z6mkfixture:server.example").unwrap(),
         operation_hash: Hash::new(
             "sha256:1111111111111111111111111111111111111111111111111111111111111111",
@@ -465,7 +465,7 @@ fn mls_envelopes_build_protocol_operations() {
         group_id: "group1".to_owned(),
         epoch: 2,
         recipient_principal_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-        recipient_device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000007")
+        recipient_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000007")
             .unwrap(),
         welcome: "welcome-bytes".to_owned(),
         welcome_hash: hash,
@@ -474,19 +474,19 @@ fn mls_envelopes_build_protocol_operations() {
 
     let proposal_op = proposal
         .operation(
-            OperationId::new("ck:operation:01904100-0000-7000-8000-b88de80d815c").unwrap(),
+            OperationId::new("ak:operation:01904100-0000-7000-8000-b88de80d815c").unwrap(),
             realm_id.clone(),
         )
         .unwrap();
     let commit_op = commit
         .operation(
-            OperationId::new("ck:operation:01904100-0000-7000-8000-3bfead8e02bc").unwrap(),
+            OperationId::new("ak:operation:01904100-0000-7000-8000-3bfead8e02bc").unwrap(),
             realm_id.clone(),
         )
         .unwrap();
     let welcome_op = welcome
         .operation(
-            OperationId::new("ck:operation:01904100-0000-7000-8000-059e659fdcc8").unwrap(),
+            OperationId::new("ak:operation:01904100-0000-7000-8000-059e659fdcc8").unwrap(),
             realm_id,
         )
         .unwrap();
@@ -498,6 +498,6 @@ fn mls_envelopes_build_protocol_operations() {
     assert_eq!(commit_op.payload["epoch"], 2);
     assert_eq!(
         welcome_op.payload["recipient_device_id"],
-        "ck:device:01904100-0000-7000-8000-000000000007"
+        "ak:device:01904100-0000-7000-8000-000000000007"
     );
 }

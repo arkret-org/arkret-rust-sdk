@@ -28,12 +28,12 @@ candidate revision:
 ## External Gates
 
 - [x] Basic real-service interoperability smoke recorded:
-  - `E:\Works\cokret\soland`: `cargo test --test http_api push_profile_and_moderation_contracts_work -- --nocapture`.
-  - `E:\Works\cokret\soland`: `cargo test --test http_api account_contacts_and_space_lifecycle_workflow -- --nocapture`.
-  - `E:\Works\cokret\starid`: `cargo test --test http_api`, 12 passed.
-  - `E:\Works\cokret\floria`: `cargo test --lib --all-features service::tests -- --nocapture`, 32 passed.
-  - `E:\Works\cokret\chime`: `cargo test --all-features`, 40 unit tests + 4 doctests passed, 1 doctest ignored.
-- [x] Federation smoke recorded in `E:\Works\cokret\soland`:
+  - `E:\Works\arkret\soland`: `cargo test --test http_api push_profile_and_moderation_contracts_work -- --nocapture`.
+  - `E:\Works\arkret\soland`: `cargo test --test http_api account_contacts_and_space_lifecycle_workflow -- --nocapture`.
+  - `E:\Works\arkret\starid`: `cargo test --test http_api`, 12 passed.
+  - `E:\Works\arkret\floria`: `cargo test --lib --all-features service::tests -- --nocapture`, 32 passed.
+  - `E:\Works\arkret\chime`: `cargo test --all-features`, 40 unit tests + 4 doctests passed, 1 doctest ignored.
+- [x] Federation smoke recorded in `E:\Works\arkret\soland`:
   - `cargo test --test http_api federation_rejects_replayed_operations -- --nocapture`.
   - `cargo test --test http_api federation_transactions_are_idempotent_by_origin_and_body -- --nocapture`.
 - [ ] External security review recorded with issue dispositions.

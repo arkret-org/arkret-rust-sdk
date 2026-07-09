@@ -378,7 +378,7 @@ mod tests {
         Event {
             event_id: EventId::new(event_id).unwrap(),
             kind: crate::OP_MORPH_CREATE.into(),
-            realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             actor_id: Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap(),
             actor_seq: 1,
             created_at: Utc::now(),
@@ -395,9 +395,9 @@ mod tests {
             redacts: None,
             payload: json!({
                 "object": {
-                    "id": "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77",
+                    "id": "ak:morph:01904100-0000-7000-8000-b7a4e10c8c77",
                     "schema": crate::MORPH_SCHEMA,
-                    "realm_id": "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+                    "realm_id": "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
                     "schema_refs": [crate::MORPH_SCHEMA],
                     "morph_type": "task",
                     "metadata": {"title": title},
@@ -436,9 +436,9 @@ mod tests {
 
     #[test]
     fn projection_rebuild_helpers_replay_event_cache_and_use_valid_snapshot() {
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = morph_event(
-            "ck:event:01904100-0000-7000-8000-ec26a4d295c0",
+            "ak:event:01904100-0000-7000-8000-ec26a4d295c0",
             "Stored task",
         );
         let mut store = MemoryPersistenceStore::new();
@@ -448,9 +448,9 @@ mod tests {
         let mut conflicting = event;
         conflicting.payload = json!({
             "object": {
-                "id": "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77",
+                "id": "ak:morph:01904100-0000-7000-8000-b7a4e10c8c77",
                 "schema": crate::MORPH_SCHEMA,
-                "realm_id": "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+                "realm_id": "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
                 "schema_refs": [crate::MORPH_SCHEMA],
                 "morph_type": "task",
                 "metadata": {"title": "Changed"},
@@ -469,7 +469,7 @@ mod tests {
         assert_eq!(
             state
                 .morphs
-                .get("ck:morph:01904100-0000-7000-8000-b7a4e10c8c77")
+                .get("ak:morph:01904100-0000-7000-8000-b7a4e10c8c77")
                 .unwrap()
                 .state,
             Some(ObjectState::Active)
@@ -485,7 +485,7 @@ mod tests {
     fn memory_persistence_store_roundtrips_auxiliary_records() {
         let mut store = MemoryPersistenceStore::new();
         let principal_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
-        let device_id = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap();
+        let device_id = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap();
         let session = AuthSession {
             session_id: "sess-1".to_owned(),
             user_id: principal_id.clone(),

@@ -9,15 +9,15 @@ fn did() -> Did {
 }
 
 fn realm() -> RealmId {
-    RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
 }
 
 fn snapshot_v1_event_id(suffix: &str) -> EventId {
-    EventId::new(format!("ck:event:01904100-0000-7000-8000-{suffix}")).unwrap()
+    EventId::new(format!("ak:event:01904100-0000-7000-8000-{suffix}")).unwrap()
 }
 
 fn snapshot_v1_id() -> SnapshotId {
-    SnapshotId::new("ck:snapshot:01904100-0000-7000-8000-000000000001".to_owned()).unwrap()
+    SnapshotId::new("ak:snapshot:01904100-0000-7000-8000-000000000001".to_owned()).unwrap()
 }
 
 fn hash(seed: u8) -> Hash {
@@ -88,9 +88,9 @@ fn manifest_for_items(
 fn snapshot_v1_manifest_and_chunk_verify() {
     let item = SnapshotMaterializedItem {
         kind: "strand".to_owned(),
-        id: "ck:strand:01904100-0000-7000-8000-000000000001".to_owned(),
+        id: "ak:strand:01904100-0000-7000-8000-000000000001".to_owned(),
         object: serde_json::json!({
-            "id": "ck:strand:01904100-0000-7000-8000-000000000001",
+            "id": "ak:strand:01904100-0000-7000-8000-000000000001",
             "schema": "ck.schema.strand.v1"
         }),
         source_event_id: snapshot_v1_event_id("000000000001"),
@@ -432,11 +432,11 @@ fn snapshot_chunk_round_trips_base64() {
 }
 
 fn event_id(suffix: &str) -> EventId {
-    EventId::new(format!("ck:event:01904100-0000-7000-8000-{suffix}")).unwrap()
+    EventId::new(format!("ak:event:01904100-0000-7000-8000-{suffix}")).unwrap()
 }
 
 fn snapshot_id() -> SnapshotId {
-    SnapshotId::new("ck:snapshot:01904100-0000-7000-8000-000000000001").unwrap()
+    SnapshotId::new("ak:snapshot:01904100-0000-7000-8000-000000000001").unwrap()
 }
 
 fn state_item(kind: &str, id: &str, source_suffix: &str) -> SnapshotMaterializedItem {
@@ -490,12 +490,12 @@ fn spec_chunk_builder_uses_item_boundaries_and_digest_refs() {
     let items = vec![
         state_item(
             "message",
-            "ck:message:01904100-0000-7000-8000-000000000002",
+            "ak:message:01904100-0000-7000-8000-000000000002",
             "000000000002",
         ),
         state_item(
             "strand",
-            "ck:strand:01904100-0000-7000-8000-000000000001",
+            "ak:strand:01904100-0000-7000-8000-000000000001",
             "000000000001",
         ),
     ];
@@ -518,7 +518,7 @@ fn spec_chunk_builder_uses_item_boundaries_and_digest_refs() {
         );
         assert_eq!(
             chunk.descriptor.chunk_ref.as_str(),
-            format!("ck:blob:{}", chunk.descriptor.digest).as_str()
+            format!("ak:blob:{}", chunk.descriptor.digest).as_str()
         );
     }
 }
@@ -527,7 +527,7 @@ fn spec_chunk_builder_uses_item_boundaries_and_digest_refs() {
 fn state_digest_rejects_duplicate_kind_id() {
     let item = state_item(
         "strand",
-        "ck:strand:01904100-0000-7000-8000-000000000001",
+        "ak:strand:01904100-0000-7000-8000-000000000001",
         "000000000001",
     );
     let err = state_digest_from_items(&[item.clone(), item]).unwrap_err();

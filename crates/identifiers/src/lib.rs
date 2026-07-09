@@ -1,4 +1,4 @@
-//! Validated Cokret v1 identifiers.
+//! Validated Arkret v1 identifiers.
 //!
 //! The types in this crate are the protocol boundary for DIDs, object IDs,
 //! content hashes, cursors and HLC values. Constructors and Serde decoding both
@@ -16,7 +16,7 @@ pub type Result<T> = std::result::Result<T, IdentifierError>;
 
 #[derive(Debug, Error)]
 pub enum IdentifierError {
-    #[error("invalid Cokret identifier: {0}")]
+    #[error("invalid Arkret identifier: {0}")]
     InvalidId(String),
 
     #[error("identifier random generation failed: {0}")]
@@ -215,7 +215,7 @@ fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
 /// Zero-allocation public validator for the trust-domain wire form. This is
 /// the same predicate used by `id_type!(TypedTrustDomainId, is_trust_domain)`.
 pub fn is_trust_domain(value: &str) -> bool {
-    let Some(scope) = value.strip_prefix("ck:trust_domain:") else {
+    let Some(scope) = value.strip_prefix("ak:trust_domain:") else {
         return false;
     };
     if scope.is_empty() || scope.len() > 128 {
@@ -248,7 +248,7 @@ pub fn is_strict_typed_id(value: &str, prefix: &str) -> bool {
 /// Generate a fresh canonical `<prefix><uuidv7>` identifier string using a
 /// freshly generated RFC 9562 UUIDv7. The output is always lowercase hex per
 /// `conformance/encoding.md` §4 and is the canonical wire form for typed
-/// `ck:<kind>:` identifiers (Cokret v1, 2026-05-09 onward).
+/// `ck:<kind>:` identifiers (Arkret v1, 2026-05-09 onward).
 pub fn new_prefixed_uuid7(prefix: &str) -> String {
     format!("{prefix}{}", uuid::Uuid::now_v7())
 }
@@ -301,84 +301,84 @@ id_type!(Did, is_did);
 // Protocol object IDs use typed prefixes with canonical RFC 9562 UUIDv7
 // payloads. Pure-uuid kinds use `uuid_id_type!` so they persist as native
 // `uuid` columns (bare) while keeping the `ck:<kind>:<uuid>` wire form.
-uuid_id_type!(ActorProfileId, "ck:actor_profile:");
+uuid_id_type!(ActorProfileId, "ak:actor_profile:");
 // CKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
 // `agent_principal_id` is a DID scalar, represented by `Did`.
-uuid_id_type!(AgentInteropSessionId, "ck:agent_interop_session:");
+uuid_id_type!(AgentInteropSessionId, "ak:agent_interop_session:");
 // Audit release-session + attestation typed ids (id-kind-registry kinds
 // `attestation` / `audit_binding` / `audit_release` / `audit_session`).
-uuid_id_type!(AttestationId, "ck:attestation:");
-uuid_id_type!(AuditBindingId, "ck:audit_binding:");
-uuid_id_type!(AuditReleaseId, "ck:audit_release:");
-uuid_id_type!(AuditSessionId, "ck:audit_session:");
+uuid_id_type!(AttestationId, "ak:attestation:");
+uuid_id_type!(AuditBindingId, "ak:audit_binding:");
+uuid_id_type!(AuditReleaseId, "ak:audit_release:");
+uuid_id_type!(AuditSessionId, "ak:audit_session:");
 // RTC call participant id (id-kind-registry kind `rtc_participant`).
-uuid_id_type!(RtcParticipantId, "ck:rtc_participant:");
+uuid_id_type!(RtcParticipantId, "ak:rtc_participant:");
 // Key-backup hardening (B-C) typed ids.
-uuid_id_type!(BackupSeriesId, "ck:backup_series:");
-uuid_id_type!(RecoverySessionId, "ck:recovery_session:");
-uuid_id_type!(AnnounceId, "ck:announce:");
-uuid_id_type!(AppletId, "ck:applet:");
-uuid_id_type!(RealmId, "ck:realm:");
-uuid_id_type!(SpaceId, "ck:space:");
-uuid_id_type!(BackupId, "ck:backup:");
-uuid_id_type!(BatchId, "ck:batch:");
-uuid_id_type!(BlobId, "ck:blob:");
-uuid_id_type!(BlockId, "ck:block:");
-uuid_id_type!(CallId, "ck:call:");
-uuid_id_type!(CapabilityId, "ck:capability:");
-uuid_id_type!(ChunkId, "ck:chunk:");
+uuid_id_type!(BackupSeriesId, "ak:backup_series:");
+uuid_id_type!(RecoverySessionId, "ak:recovery_session:");
+uuid_id_type!(AnnounceId, "ak:announce:");
+uuid_id_type!(AppletId, "ak:applet:");
+uuid_id_type!(RealmId, "ak:realm:");
+uuid_id_type!(SpaceId, "ak:space:");
+uuid_id_type!(BackupId, "ak:backup:");
+uuid_id_type!(BatchId, "ak:batch:");
+uuid_id_type!(BlobId, "ak:blob:");
+uuid_id_type!(BlockId, "ak:block:");
+uuid_id_type!(CallId, "ak:call:");
+uuid_id_type!(CapabilityId, "ak:capability:");
+uuid_id_type!(ChunkId, "ak:chunk:");
 // CKP-0007 (2026-05-08) — Circle id-kind. Intra-Realm cryptographic
 // sub-boundary; see spec artifacts/registry/id-kind-registry.json and
 // zh/models/circle.md.
-uuid_id_type!(CircleId, "ck:circle:");
-uuid_id_type!(ClaimId, "ck:claim:");
-uuid_id_type!(DeviceMessageId, "ck:device_message:");
-uuid_id_type!(StrandId, "ck:strand:");
-uuid_id_type!(FilterId, "ck:filter:");
-uuid_id_type!(FrameId, "ck:frame:");
-uuid_id_type!(FrankingProofId, "ck:franking_proof:");
-uuid_id_type!(MorphId, "ck:morph:");
+uuid_id_type!(CircleId, "ak:circle:");
+uuid_id_type!(ClaimId, "ak:claim:");
+uuid_id_type!(DeviceMessageId, "ak:device_message:");
+uuid_id_type!(StrandId, "ak:strand:");
+uuid_id_type!(FilterId, "ak:filter:");
+uuid_id_type!(FrameId, "ak:frame:");
+uuid_id_type!(FrankingProofId, "ak:franking_proof:");
+uuid_id_type!(MorphId, "ak:morph:");
 // Round R2/R3 (2026-05-20) — moderation appeal cell key (`ck:appeal:<uuidv7>`).
 // id-kind-registry kind=appeal; see schemas/moderation-appeal.schema.json.
-uuid_id_type!(TypedAppealId, "ck:appeal:");
+uuid_id_type!(TypedAppealId, "ak:appeal:");
 // Round R2/R3 (2026-05-20) — deployment-scope trust domain identifier.
 // Wire form `ck:trust_domain:<scope>` where scope is lowercase
 // `[a-z0-9._:-]` max 128 chars. NOT a typed-UUIDv7 object id (stays text).
 id_type!(TypedTrustDomainId, is_trust_domain);
-uuid_id_type!(MessageId, "ck:message:");
-uuid_id_type!(RelationId, "ck:relation:");
-uuid_id_type!(EventId, "ck:event:");
+uuid_id_type!(MessageId, "ak:message:");
+uuid_id_type!(RelationId, "ak:relation:");
+uuid_id_type!(EventId, "ak:event:");
 // OperationId is hybrid: `ck:operation:<uuidv7>` OR a content hash. No bare
 // uuid form, so it stays a text `id_type!`.
 id_type!(OperationId, |value: &str| is_strict_typed_id(
     value,
-    "ck:operation:"
+    "ak:operation:"
 ) || is_hash(value));
-uuid_id_type!(GrantId, "ck:grant:");
-uuid_id_type!(InviteId, "ck:invite:");
-uuid_id_type!(KeyEventId, "ck:key_event:");
-uuid_id_type!(DeviceId, "ck:device:");
-uuid_id_type!(NotificationId, "ck:notification:");
-uuid_id_type!(PolicyId, "ck:policy:");
-uuid_id_type!(PresentationId, "ck:presentation:");
-uuid_id_type!(ReceiptId, "ck:receipt:");
-uuid_id_type!(ReportId, "ck:report:");
-uuid_id_type!(ReadCursorId, "ck:read_cursor:");
-uuid_id_type!(ModerationQueueItemId, "ck:moderation_queue_item:");
-uuid_id_type!(RequestId, "ck:request:");
-uuid_id_type!(SnapshotId, "ck:snapshot:");
-uuid_id_type!(TransactionId, "ck:transaction:");
+uuid_id_type!(GrantId, "ak:grant:");
+uuid_id_type!(InviteId, "ak:invite:");
+uuid_id_type!(KeyEventId, "ak:key_event:");
+uuid_id_type!(DeviceId, "ak:device:");
+uuid_id_type!(NotificationId, "ak:notification:");
+uuid_id_type!(PolicyId, "ak:policy:");
+uuid_id_type!(PresentationId, "ak:presentation:");
+uuid_id_type!(ReceiptId, "ak:receipt:");
+uuid_id_type!(ReportId, "ak:report:");
+uuid_id_type!(ReadCursorId, "ak:read_cursor:");
+uuid_id_type!(ModerationQueueItemId, "ak:moderation_queue_item:");
+uuid_id_type!(RequestId, "ak:request:");
+uuid_id_type!(SnapshotId, "ak:snapshot:");
+uuid_id_type!(TransactionId, "ak:transaction:");
 // BlobRef is hybrid (hash or `ck:blob:` typed) — stays text.
 id_type!(BlobRef, is_blob_ref);
-uuid_id_type!(ViewId, "ck:view:");
+uuid_id_type!(ViewId, "ak:view:");
 id_type!(Hash, is_hash);
-id_type!(Cursor, has_prefix("ck:cursor:"));
+id_type!(Cursor, has_prefix("ak:cursor:"));
 
 fn is_blob_ref(value: &str) -> bool {
-    if is_hash(value) || is_strict_typed_id(value, "ck:blob:") {
+    if is_hash(value) || is_strict_typed_id(value, "ak:blob:") {
         return true;
     }
-    value.strip_prefix("ck:blob:").is_some_and(is_hash)
+    value.strip_prefix("ak:blob:").is_some_and(is_hash)
 }
 
 fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
@@ -389,8 +389,8 @@ fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
 // reducer-input event's `proof.payload_digest` (spec field name
 // `event_digest`).
 id_type!(MoveId, is_hash);
-id_type!(SealId, is_content_addressed("ck:seal:"));
-id_type!(CellRef, has_prefix("ck:cell:"));
+id_type!(SealId, is_content_addressed("ak:seal:"));
+id_type!(CellRef, has_prefix("ak:cell:"));
 
 impl BlobRef {
     /// Create a content-addressed `sha256:...` blob reference from raw bytes.
@@ -563,11 +563,11 @@ mod tests {
     #[test]
     fn device_id_accepts_protocol_device_forms() {
         assert!(DeviceId::new("dev_alice_1").is_err());
-        assert!(DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").is_ok());
+        assert!(DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").is_ok());
         assert!(DeviceId::new("device-1").is_err());
         // Mixed-case ULID-form rejected by the strict UUIDv7 validator.
         // (Suffix intentionally non-UUIDv7 to exercise the rejection path.)
-        assert!(DeviceId::new("ck:device:01js0ke000000000000000000").is_err());
+        assert!(DeviceId::new("ak:device:01js0ke000000000000000000").is_err());
     }
 
     #[test]
@@ -579,51 +579,51 @@ mod tests {
             }};
         }
 
-        assert_id!(ActorProfileId, "ck:actor_profile:");
-        assert_id!(AgentInteropSessionId, "ck:agent_interop_session:");
-        assert_id!(AttestationId, "ck:attestation:");
-        assert_id!(AuditBindingId, "ck:audit_binding:");
-        assert_id!(AuditReleaseId, "ck:audit_release:");
-        assert_id!(AuditSessionId, "ck:audit_session:");
-        assert_id!(RtcParticipantId, "ck:rtc_participant:");
-        assert_id!(BackupSeriesId, "ck:backup_series:");
-        assert_id!(RecoverySessionId, "ck:recovery_session:");
-        assert_id!(AnnounceId, "ck:announce:");
-        assert_id!(AppletId, "ck:applet:");
-        assert_id!(BackupId, "ck:backup:");
-        assert_id!(BatchId, "ck:batch:");
-        assert_id!(BlobId, "ck:blob:");
-        assert_id!(BlockId, "ck:block:");
-        assert_id!(CallId, "ck:call:");
-        assert_id!(CapabilityId, "ck:capability:");
-        assert_id!(ChunkId, "ck:chunk:");
-        assert_id!(ClaimId, "ck:claim:");
-        assert_id!(DeviceId, "ck:device:");
-        assert_id!(DeviceMessageId, "ck:device_message:");
-        assert_id!(EventId, "ck:event:");
-        assert_id!(FilterId, "ck:filter:");
-        assert_id!(StrandId, "ck:strand:");
-        assert_id!(FrameId, "ck:frame:");
-        assert_id!(FrankingProofId, "ck:franking_proof:");
-        assert_id!(GrantId, "ck:grant:");
-        assert_id!(InviteId, "ck:invite:");
-        assert_id!(KeyEventId, "ck:key_event:");
-        assert_id!(MessageId, "ck:message:");
-        assert_id!(ModerationQueueItemId, "ck:moderation_queue_item:");
-        assert_id!(MorphId, "ck:morph:");
-        assert_id!(NotificationId, "ck:notification:");
-        assert_id!(RealmId, "ck:realm:");
-        assert_id!(SpaceId, "ck:space:");
-        assert_id!(PolicyId, "ck:policy:");
-        assert_id!(PresentationId, "ck:presentation:");
-        assert_id!(ReceiptId, "ck:receipt:");
-        assert_id!(RelationId, "ck:relation:");
-        assert_id!(ReportId, "ck:report:");
-        assert_id!(ReadCursorId, "ck:read_cursor:");
-        assert_id!(RequestId, "ck:request:");
-        assert_id!(SnapshotId, "ck:snapshot:");
-        assert_id!(TransactionId, "ck:transaction:");
-        assert_id!(ViewId, "ck:view:");
+        assert_id!(ActorProfileId, "ak:actor_profile:");
+        assert_id!(AgentInteropSessionId, "ak:agent_interop_session:");
+        assert_id!(AttestationId, "ak:attestation:");
+        assert_id!(AuditBindingId, "ak:audit_binding:");
+        assert_id!(AuditReleaseId, "ak:audit_release:");
+        assert_id!(AuditSessionId, "ak:audit_session:");
+        assert_id!(RtcParticipantId, "ak:rtc_participant:");
+        assert_id!(BackupSeriesId, "ak:backup_series:");
+        assert_id!(RecoverySessionId, "ak:recovery_session:");
+        assert_id!(AnnounceId, "ak:announce:");
+        assert_id!(AppletId, "ak:applet:");
+        assert_id!(BackupId, "ak:backup:");
+        assert_id!(BatchId, "ak:batch:");
+        assert_id!(BlobId, "ak:blob:");
+        assert_id!(BlockId, "ak:block:");
+        assert_id!(CallId, "ak:call:");
+        assert_id!(CapabilityId, "ak:capability:");
+        assert_id!(ChunkId, "ak:chunk:");
+        assert_id!(ClaimId, "ak:claim:");
+        assert_id!(DeviceId, "ak:device:");
+        assert_id!(DeviceMessageId, "ak:device_message:");
+        assert_id!(EventId, "ak:event:");
+        assert_id!(FilterId, "ak:filter:");
+        assert_id!(StrandId, "ak:strand:");
+        assert_id!(FrameId, "ak:frame:");
+        assert_id!(FrankingProofId, "ak:franking_proof:");
+        assert_id!(GrantId, "ak:grant:");
+        assert_id!(InviteId, "ak:invite:");
+        assert_id!(KeyEventId, "ak:key_event:");
+        assert_id!(MessageId, "ak:message:");
+        assert_id!(ModerationQueueItemId, "ak:moderation_queue_item:");
+        assert_id!(MorphId, "ak:morph:");
+        assert_id!(NotificationId, "ak:notification:");
+        assert_id!(RealmId, "ak:realm:");
+        assert_id!(SpaceId, "ak:space:");
+        assert_id!(PolicyId, "ak:policy:");
+        assert_id!(PresentationId, "ak:presentation:");
+        assert_id!(ReceiptId, "ak:receipt:");
+        assert_id!(RelationId, "ak:relation:");
+        assert_id!(ReportId, "ak:report:");
+        assert_id!(ReadCursorId, "ak:read_cursor:");
+        assert_id!(RequestId, "ak:request:");
+        assert_id!(SnapshotId, "ak:snapshot:");
+        assert_id!(TransactionId, "ak:transaction:");
+        assert_id!(ViewId, "ak:view:");
     }
 
     #[test]
@@ -635,31 +635,31 @@ mod tests {
         assert!(Hash::new(format!("blake3:{digest64}")).is_ok());
         assert!(Hash::new(format!("sha3_256:{digest64}")).is_err());
         assert!(Hash::new(format!("sha512:{digest128}")).is_err());
-        assert!(BlobRef::new(format!("ck:blob:sha3_256:{digest64}")).is_err());
+        assert!(BlobRef::new(format!("ak:blob:sha3_256:{digest64}")).is_err());
         // event_digest (C47 / spec e10b6ad): bare hash, no `ck:move:` prefix.
         assert!(MoveId::new(format!("blake3:{digest64}")).is_ok());
         assert!(MoveId::new(format!("sha256:{digest64}")).is_ok());
         assert!(MoveId::new(format!("sha512:{digest128}")).is_err());
-        assert!(SealId::new(format!("ck:seal:blake3:{digest64}")).is_ok());
-        assert!(SealId::new(format!("ck:seal:sha512:{digest128}")).is_err());
+        assert!(SealId::new(format!("ak:seal:blake3:{digest64}")).is_ok());
+        assert!(SealId::new(format!("ak:seal:sha512:{digest128}")).is_err());
     }
 
     #[test]
     fn strand_id_accepts_active_strand_prefix() {
-        assert!(StrandId::new("ck:strand:01904100-0000-7000-8000-000000000001").is_ok());
-        assert!(StrandId::new("ck:space:01904100-0000-7000-8000-000000000001").is_err());
+        assert!(StrandId::new("ak:strand:01904100-0000-7000-8000-000000000001").is_ok());
+        assert!(StrandId::new("ak:space:01904100-0000-7000-8000-000000000001").is_err());
         // Mixed-case ULID-form rejected by the strict UUIDv7 validator.
         // (Suffix intentionally non-UUIDv7 to exercise the rejection path.)
-        assert!(StrandId::new("ck:strand:01js0ke000000000000000000").is_err());
+        assert!(StrandId::new("ak:strand:01js0ke000000000000000000").is_err());
     }
 
     #[test]
     fn new_prefixed_uuid7_produces_strict_typed_id() {
-        // C19.B: helper for newly-issued Cokret wire ids.
-        let id = new_prefixed_uuid7("ck:space:");
-        assert!(is_strict_typed_id(&id, "ck:space:"));
+        // C19.B: helper for newly-issued Arkret wire ids.
+        let id = new_prefixed_uuid7("ak:space:");
+        assert!(is_strict_typed_id(&id, "ak:space:"));
         // Two consecutive calls produce different ids.
-        let id2 = new_prefixed_uuid7("ck:space:");
+        let id2 = new_prefixed_uuid7("ak:space:");
         assert_ne!(id, id2);
         assert!(SpaceId::new(id).is_ok());
     }
@@ -669,28 +669,28 @@ mod tests {
         // C19 wire-break: typed wire ids MUST be canonical lowercase UUIDv7.
         // Mixed-case ULID-form is rejected (intentionally non-UUIDv7).
         assert!(!is_strict_typed_id(
-            "ck:space:01js0ke000000000000000000",
-            "ck:space:"
+            "ak:space:01js0ke000000000000000000",
+            "ak:space:"
         ));
         // Uppercase hex forbidden.
         assert!(!is_strict_typed_id(
-            "ck:space:0196419B-0000-7000-8000-000000000000",
-            "ck:space:"
+            "ak:space:0196419B-0000-7000-8000-000000000000",
+            "ak:space:"
         ));
         // Wrong UUID version (4 instead of 7).
         assert!(!is_strict_typed_id(
-            "ck:space:0196419b-0000-4000-8000-000000000000",
-            "ck:space:"
+            "ak:space:0196419b-0000-4000-8000-000000000000",
+            "ak:space:"
         ));
         // Wrong variant nibble (c not in {8,9,a,b}).
         assert!(!is_strict_typed_id(
-            "ck:space:0196419b-0000-7000-c000-000000000000",
-            "ck:space:"
+            "ak:space:0196419b-0000-7000-c000-000000000000",
+            "ak:space:"
         ));
         // Canonical UUIDv7 accepted.
         assert!(is_strict_typed_id(
-            "ck:space:0196419b-0000-7000-8000-000000000000",
-            "ck:space:"
+            "ak:space:0196419b-0000-7000-8000-000000000000",
+            "ak:space:"
         ));
     }
 
@@ -703,13 +703,13 @@ mod tests {
         }
 
         let valid: Envelope = serde_json::from_value(serde_json::json!({
-            "space_id": "ck:space:01904100-0000-7000-8000-000000000001",
+            "space_id": "ak:space:01904100-0000-7000-8000-000000000001",
             "hlc": "01970e589d21-0004-a13f9c2e",
         }))
         .unwrap();
         assert_eq!(
             valid.space_id.as_str(),
-            "ck:space:01904100-0000-7000-8000-000000000001"
+            "ak:space:01904100-0000-7000-8000-000000000001"
         );
         assert_eq!(valid.hlc.as_str(), "01970e589d21-0004-a13f9c2e");
 
@@ -720,7 +720,7 @@ mod tests {
         assert!(invalid_id.is_err());
 
         let invalid_hlc = serde_json::from_value::<Envelope>(serde_json::json!({
-            "space_id": "ck:space:01904100-0000-7000-8000-000000000001",
+            "space_id": "ak:space:01904100-0000-7000-8000-000000000001",
             "hlc": "1970",
         }));
         assert!(invalid_hlc.is_err());

@@ -16,7 +16,7 @@ fn pairwise_did(name: &str) -> Did {
 }
 
 fn realm() -> crate::RealmId {
-    crate::RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+    crate::RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
 }
 
 fn hlc() -> crate::Hlc {
@@ -437,7 +437,7 @@ fn handle_external_proof_profiles_validate_dns_and_well_known_shapes() {
     );
     assert_eq!(
         handle_well_known_url(handle).unwrap(),
-        "https://example.com/.well-known/cokret/handle/alice.json"
+        "https://example.com/.well-known/arkret/handle/alice.json"
     );
     ExternalHandleProof {
         profile: HandleProofProfile::DnsTxt,
@@ -632,7 +632,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     )
     .unwrap();
     event.executed_by = Some(bridge);
-    event.authorization_ref = Some("ck:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
+    event.authorization_ref = Some("ak:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
     let builder = cokret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(&event).unwrap();
     let mut proof = crate::Proof {
@@ -830,7 +830,7 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
 
     let alice = did("alice");
     let receipt = DidRegistryReceipt::signed(
-        cokret_core::ReceiptId::new("ck:receipt:01904100-0000-7000-8000-000000000001").unwrap(),
+        cokret_core::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000001").unwrap(),
         alice,
         7,
         crate::Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
@@ -878,7 +878,7 @@ fn starid_registry_adapter_resolves_records_and_control_proofs() {
     let head = crate::Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
     let document = DidDocument::new(alice.clone(), "root", "alice-public-key");
     let receipt = DidRegistryReceipt::signed(
-        cokret_core::ReceiptId::new("ck:receipt:01904100-0000-7000-8000-000000000002").unwrap(),
+        cokret_core::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000002").unwrap(),
         alice.clone(),
         0,
         head.clone(),

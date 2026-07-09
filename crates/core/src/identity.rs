@@ -1,4 +1,4 @@
-//! Cokret identity surface models and helpers.
+//! Arkret identity surface models and helpers.
 
 use std::collections::BTreeMap;
 
@@ -18,7 +18,7 @@ pub const DID_WEB_MAX_DOCUMENT_BYTES: usize = 64 * 1024;
 /// Shared identity wire helper for DID resolution producers/consumers.
 ///
 /// This is intentionally a product/shared contract, not the normative DID
-/// data model for `cokret-core`. Core keeps the protocol response envelope
+/// data model for `arkret-core`. Core keeps the protocol response envelope
 /// (`DidDocumentRef`, `IdentityResolveOutcome`) while this type provides the
 /// serde shape and convenience helpers used by identity resolvers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

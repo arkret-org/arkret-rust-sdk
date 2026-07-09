@@ -1,6 +1,6 @@
-# cokret-ffi
+# arkret-ffi
 
-FFI and WASM embedding contracts for Cokret.
+FFI and WASM embedding contracts for Arkret.
 
 This crate provides layout-stable handles, error payloads, callback results,
 WASM HTTP/store/WebCrypto descriptors and API-freeze review artifacts that can
@@ -17,7 +17,7 @@ ABI surface.
 ### C header
 
 ```c
-// cokret.h — minimal C ABI sketch (layout-stable handles + error payload).
+// arkret.h — minimal C ABI sketch (layout-stable handles + error payload).
 #include <stdint.h>
 #include <stddef.h>
 
@@ -38,7 +38,7 @@ void           cokret_client_free(CokretHandle *h);
 ### WASM glue (TypeScript host)
 
 ```ts
-// cokret-wasm.ts — calling the Wasm export surface from a browser host.
+// arkret-wasm.ts — calling the Wasm export surface from a browser host.
 import init, { CokretClient } from "./cokret_ffi_wasm.js";
 
 await init();                                  // load .wasm

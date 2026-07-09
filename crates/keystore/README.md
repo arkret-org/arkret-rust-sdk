@@ -1,15 +1,15 @@
-# cokret-keystore
+# arkret-keystore
 
-Platform-native `KeyStore` backends for the Cokret v1 SDK.
+Platform-native `KeyStore` backends for the Arkret v1 SDK.
 
 The pure storage contract — the `KeyStore` trait, `KeyStoreError`, and the
-dependency-free `InMemoryKeyStore` — lives in `cokret-core`. This crate adds
+dependency-free `InMemoryKeyStore` — lives in `arkret-core`. This crate adds
 the OS-native backends that carry platform IO and native OS dependencies,
-kept out of `cokret-core` so the core wire/model crate stays light:
+kept out of `arkret-core` so the core wire/model crate stays light:
 
 | Backend | Feature | `target_os` |
 |---|---|---|
-| `InMemoryKeyStore` (re-exported from `cokret-core`) | always available | any |
+| `InMemoryKeyStore` (re-exported from `arkret-core`) | always available | any |
 | `MacOsKeychainKeyStore` | `keystore-macos` | `macos` |
 | `LinuxSecretServiceKeyStore` | `keystore-linux` | `linux` |
 | `WindowsCredentialKeyStore` | `keystore-windows` | `windows` |

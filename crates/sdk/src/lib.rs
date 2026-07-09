@@ -1,6 +1,6 @@
-//! Cokret v1 Rust SDK.
+//! Arkret v1 Rust SDK.
 //!
-//! This crate exposes Cokret protocol concepts directly. The source of truth
+//! This crate exposes Arkret protocol concepts directly. The source of truth
 //! is signed Event Envelopes; Operations are SDK-local builders or offline
 //! drafts that must be materialized as Events before network, sync, federation
 //! or reducer use.
@@ -10,23 +10,23 @@
 //! Build a local operation draft and materialize it as an Event Envelope:
 //!
 //! ```rust
-//! use cokret::{
+//! use arkret::{
 //!     Did, Hlc, OP_MESSAGE_CREATE, OperationEnvelopeBuilder, OperationEventConversion,
 //!     OperationId, OperationKindRegistry, RealmId,
 //! };
 //! use serde_json::json;
 //!
-//! # fn main() -> cokret::Result<()> {
+//! # fn main() -> arkret::Result<()> {
 //! let draft = OperationEnvelopeBuilder::new(
-//!     OperationId::new("ck:operation:01904100-0000-7000-8000-57d7d85564c5")?,
-//!     RealmId::new("ck:realm:01904100-0000-7000-8000-668e2181b41d")?,
+//!     OperationId::new("ak:operation:01904100-0000-7000-8000-57d7d85564c5")?,
+//!     RealmId::new("ak:realm:01904100-0000-7000-8000-668e2181b41d")?,
 //!     Did::new("did:webvh:z6mkfixture:alice.example")?,
 //!     OP_MESSAGE_CREATE,
 //!     1,
 //!     Hlc::new("01970e589d21-0001-a13f9c2e")?,
 //! )
 //! .with_payload(json!({
-//!     "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+//!     "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
 //!     "track_name": "main",
 //!     "content": {"kind": "ck.content.text", "body": "hello"}
 //! }))
@@ -42,7 +42,7 @@
 //! ```rust
 //! # #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 //! # fn main() {
-//! use cokret::{SyncLoop, SyncLoopStep, SyncOutcome, SyncRequestBody};
+//! use arkret::{SyncLoop, SyncLoopStep, SyncOutcome, SyncRequestBody};
 //!
 //! let mut sync_loop = SyncLoop::new();
 //! let mut transport = |_request: SyncRequestBody| {
@@ -75,7 +75,7 @@
 //! raw strings:
 //!
 //! ```compile_fail
-//! let did: cokret::Did = "did:webvh:z6mkfixture:alice.example";
+//! let did: arkret::Did = "did:webvh:z6mkfixture:alice.example";
 //! ```
 
 // ---------------------------------------------------------------------------
@@ -113,14 +113,14 @@ compile_error!(
 );
 
 // Product-local client API DTOs (auth/realm/media/call wire shapes that need
-// `cokret-crypto`/`cokret-html` types) are owned by the SDK. The canonical
-// protocol/federation/push/integration wire contracts live in `cokret-core`
+// `arkret-crypto`/`arkret-html` types) are owned by the SDK. The canonical
+// protocol/federation/push/integration wire contracts live in `arkret-core`
 // and are surfaced here under stable `*_api` aliases that do not clash with the
 // SDK's own manager modules (`federation`, `identity`, `push`).
 pub mod client_api;
 // The pure KeyStore contract (trait + in-memory backend + error type) lives
-// in `cokret-core`; the OS-native backends and the platform-default
-// constructor now live in the dedicated `cokret-keystore` crate.
+// in `arkret-core`; the OS-native backends and the platform-default
+// constructor now live in the dedicated `arkret-keystore` crate.
 pub use cokret_core::{
     InMemoryKeyStore, KeyRefObject, KeyStore, KeyStoreError, canonical, cursor, error, events,
     federation as federation_api, identifiers, identity as identity_api,
@@ -155,7 +155,7 @@ pub use cokret_signatures::{realm_organization, realm_organization_statement_sig
 // Platform-native KeyStore backends. The glob import above already
 // re-exports these symbols, but listing them explicitly keeps them
 // visible in `cargo doc` and signals the supported surface to
-// downstream crates that depend only on `cokret` (not `cokret-core`).
+// downstream crates that depend only on `arkret` (not `arkret-core`).
 #[cfg(feature = "full-surface")]
 pub use crate::store as store_contracts;
 #[cfg(feature = "full-surface")]
@@ -215,8 +215,8 @@ pub mod idempotency;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod history_recovery;
 // RFC 9421 HTTP Message Signatures (Ed25519) + RFC 9530 Content-Digest.
-// The single source of truth now lives in `cokret-signatures`; this re-export
-// keeps the existing `cokret::http_signature::*` / `cokret_sdk::http_signature::*`
+// The single source of truth now lives in `arkret-signatures`; this re-export
+// keeps the existing `arkret::http_signature::*` / `cokret_sdk::http_signature::*`
 // call paths stable.
 #[cfg(feature = "full-surface")]
 pub use cokret_signatures::http_signature;
@@ -342,7 +342,7 @@ pub use applet_server::{AppletHandler, AppletService, TransactionDispatch};
 pub use auth::{
     AccountAuthState, AccountRecoveryMethod, AccountRecoveryRequestBody, AuthClaimKind,
     AuthManager, AuthRateLimitAction, AuthRateLimitContext, AuthRateLimitHook, AuthSession,
-    AuthStateSnapshot, COKRET_DEVICE_SCOPE_PREFIX, ClaimDisclosurePolicy,
+    AuthStateSnapshot, ARKRET_DEVICE_SCOPE_PREFIX, ClaimDisclosurePolicy,
     ClaimDisclosureRequirement, DidProofVerification, DidProofVerificationRequestBody,
     DidProofVerifier, DisclosureProofAdapterBoundary, DisclosureProofFormat,
     MemorySessionGrantOutbox, MfaChallenge, OidcAuthRequestBody, OidcCredential,

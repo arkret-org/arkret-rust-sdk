@@ -91,7 +91,7 @@ pub fn relation_direct_write_reject_reason(
         return Some(crate::error::REASON_RELATION_KIND_WATCHES_DERIVED);
     }
     if relation_kind == RELATION_KIND_CONTAINS
-        && from_ref.is_some_and(|value| value.starts_with("ck:space:"))
+        && from_ref.is_some_and(|value| value.starts_with("ak:space:"))
     {
         return Some(crate::error::REASON_RELATION_KIND_CONTAINS_DERIVED);
     }
@@ -196,18 +196,18 @@ mod tests {
     #[test]
     fn relation_direct_write_helper_rejects_derived_edges() {
         assert_eq!(
-            validate_relation_direct_write(RELATION_KIND_WATCHES, Some("ck:strand:a")),
+            validate_relation_direct_write(RELATION_KIND_WATCHES, Some("ak:strand:a")),
             Err(crate::error::REASON_RELATION_KIND_WATCHES_DERIVED)
         );
         assert_eq!(
-            validate_relation_direct_write(RELATION_KIND_CONTAINS, Some("ck:space:a")),
+            validate_relation_direct_write(RELATION_KIND_CONTAINS, Some("ak:space:a")),
             Err(crate::error::REASON_RELATION_KIND_CONTAINS_DERIVED)
         );
         assert!(
-            validate_relation_direct_write(RELATION_KIND_CONTAINS, Some("ck:strand:a")).is_ok()
+            validate_relation_direct_write(RELATION_KIND_CONTAINS, Some("ak:strand:a")).is_ok()
         );
-        assert!(validate_relation_direct_write("references", Some("ck:space:a")).is_ok());
-        assert!(validate_relation_direct_write("vendor_custom", Some("ck:space:a")).is_ok());
+        assert!(validate_relation_direct_write("references", Some("ak:space:a")).is_ok());
+        assert!(validate_relation_direct_write("vendor_custom", Some("ak:space:a")).is_ok());
     }
 
     #[test]
@@ -215,33 +215,33 @@ mod tests {
         assert_eq!(
             validate_structural_relation_same_realm(
                 RELATION_KIND_CONTAINS,
-                "ck:realm:a",
-                ["ck:realm:a", "ck:realm:b"],
+                "ak:realm:a",
+                ["ak:realm:a", "ak:realm:b"],
             ),
             Err(crate::error::REASON_CROSS_REALM_STRUCTURAL_RELATION)
         );
         assert!(
             validate_structural_relation_same_realm(
                 RELATION_KIND_BELONGS_TO,
-                "ck:realm:a",
-                ["ck:realm:a", "ck:realm:a"],
+                "ak:realm:a",
+                ["ak:realm:a", "ak:realm:a"],
             )
             .is_ok()
         );
         assert!(
-            validate_structural_relation_same_realm("references", "ck:realm:a", ["ck:realm:b"],)
+            validate_structural_relation_same_realm("references", "ak:realm:a", ["ak:realm:b"],)
                 .is_ok()
         );
         assert_eq!(
             validate_structural_relation_same_realm(
                 RELATION_KIND_WATCHES,
-                "ck:realm:a",
-                ["ck:realm:a", "ck:realm:b"],
+                "ak:realm:a",
+                ["ak:realm:a", "ak:realm:b"],
             ),
             Err(crate::error::REASON_CROSS_REALM_STRUCTURAL_RELATION)
         );
         assert!(
-            validate_structural_relation_same_realm("vendor_custom", "ck:realm:a", ["ck:realm:b"],)
+            validate_structural_relation_same_realm("vendor_custom", "ak:realm:a", ["ak:realm:b"],)
                 .is_ok()
         );
     }

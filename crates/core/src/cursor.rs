@@ -1,6 +1,6 @@
 //! Cursor encoding, decoding, and validation.
 //!
-//! This module implements the Cokret v1 cursor specification. Cursors are
+//! This module implements the Arkret v1 cursor specification. Cursors are
 //! opaque `ck:cursor:<base64url(canonical_json)>` tokens used for stream
 //! continuation and read-your-writes barriers.
 
@@ -32,7 +32,7 @@ pub fn generate_cursor_handle() -> Result<String> {
     Ok(encoded)
 }
 
-/// Cokret v1 sync cursor.
+/// Arkret v1 sync cursor.
 ///
 /// Core v1 cursor bodies are stateful handles: `{v, purpose, t, x, h}`.
 /// Positions and barrier targets are bound server-side to `h` and never
@@ -52,7 +52,7 @@ pub fn generate_cursor_handle() -> Result<String> {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Cursor {
-    /// Cursor version. Must be "1" for Cokret v1.
+    /// Cursor version. Must be "1" for Arkret v1.
     ///
     /// Issuing-service internal field — clients MUST NOT read or depend on
     /// it (`conformance-vectors.md`: cursor opacity).
@@ -185,7 +185,7 @@ impl Cursor {
         // Encode to Base64URL without padding
         let encoded = crate::base64url::base64url_encode(&json);
 
-        Ok(format!("ck:cursor:{encoded}"))
+        Ok(format!("ak:cursor:{encoded}"))
     }
 
     /// Decode a cursor from its wire token.
@@ -212,7 +212,7 @@ impl Cursor {
     /// - Cursor has expired
     pub fn decode(encoded: &str) -> Result<Self> {
         let encoded = encoded
-            .strip_prefix("ck:cursor:")
+            .strip_prefix("ak:cursor:")
             .ok_or_else(|| Error::Protocol("cursor token must start with ck:cursor:".to_owned()))?;
 
         // Receivers MUST enforce the same 4KB body cap that `encode`
@@ -454,7 +454,7 @@ mod tests {
         assert_eq!(decoded.h, cursor.h);
         assert_eq!(decoded.v, cursor.v);
         assert_eq!(decoded.purpose, CursorPurpose::Stream);
-        assert!(encoded.starts_with("ck:cursor:"));
+        assert!(encoded.starts_with("ak:cursor:"));
     }
 
     #[test]
@@ -474,7 +474,7 @@ mod tests {
     #[test]
     fn cursor_decode_rejects_non_nfc_json_string() {
         let json = "{\"v\":\"1\",\"purpose\":\"stream\",\"t\":\"cafe\u{301}\",\"x\":4102444800000,\"h\":\"ABCDEFGHIJKLMNOPQRSTUV\"}";
-        let encoded = format!("ck:cursor:{}", crate::base64url_encode(json.as_bytes()));
+        let encoded = format!("ak:cursor:{}", crate::base64url_encode(json.as_bytes()));
         assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
     }
 
@@ -482,7 +482,7 @@ mod tests {
     fn cursor_decode_rejects_oversized_token() {
         // 6000 chars of valid base64url alphabet — over the encoded form
         // of MAX_ENCODED_SIZE, must be rejected before any decode work.
-        let oversized = format!("ck:cursor:{}", "A".repeat(6000));
+        let oversized = format!("ak:cursor:{}", "A".repeat(6000));
         assert!(matches!(
             Cursor::decode(&oversized),
             Err(Error::Protocol(_))
@@ -492,21 +492,21 @@ mod tests {
     #[test]
     fn cursor_decode_rejects_duplicate_json_key() {
         let json = br#"{"v":"1","v":"1","purpose":"stream","t":"2026-06-06T00:00:00Z","x":4102444800000,"h":"ABCDEFGHIJKLMNOPQRSTUV"}"#;
-        let encoded = format!("ck:cursor:{}", crate::base64url_encode(json));
+        let encoded = format!("ak:cursor:{}", crate::base64url_encode(json));
         assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
     }
 
     #[test]
     fn cursor_decode_rejects_additional_properties() {
         let json = br#"{"v":"1","purpose":"stream","t":"2099-12-30T23:59:59Z","x":4102444799000,"h":"abcdefghijklmnopqrstuv","_compression":"none"}"#;
-        let encoded = format!("ck:cursor:{}", crate::base64url_encode(json));
+        let encoded = format!("ak:cursor:{}", crate::base64url_encode(json));
         assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
     }
 
     #[test]
     fn core_cursor_rejects_inline_positions() {
         let json = br#"{"v":"1","purpose":"stream","t":"2026-06-06T00:00:00Z","x":4102444800000,"h":"ABCDEFGHIJKLMNOPQRSTUV","s":{}}"#;
-        let encoded = format!("ck:cursor:{}", crate::base64url_encode(json));
+        let encoded = format!("ak:cursor:{}", crate::base64url_encode(json));
         assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
     }
 
@@ -524,9 +524,9 @@ mod tests {
     fn sync_positions_are_server_side_for_core_cursor() {
         let positions = SyncPositions {
             realms: BTreeMap::from([(
-                "ck:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
+                "ak:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
                 RealmSyncPosition {
-                    frontier: vec!["ck:event:0196419b-0000-7000-8000-000000000001".to_owned()],
+                    frontier: vec!["ak:event:0196419b-0000-7000-8000-000000000001".to_owned()],
                     timeline_order: "01970e589d21-0004-a13f9c2e".to_owned(),
                     state_digest:
                         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -535,7 +535,7 @@ mod tests {
             )]),
             devices: Some(BTreeMap::from([(
                 "device-laptop".to_owned(),
-                "ck:device_message:019640da-0000-7000-8000-000000000000".to_owned(),
+                "ak:device_message:019640da-0000-7000-8000-000000000000".to_owned(),
             )])),
         };
 

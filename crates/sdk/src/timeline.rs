@@ -1,4 +1,4 @@
-//! Timeline and event management for Cokret v1.
+//! Timeline and event management for Arkret v1.
 //!
 //! This module provides timeline management for Realms, including:
 //! - Event pagination
@@ -1152,7 +1152,7 @@ mod tests {
 
     fn create_test_event(realm_id: &RealmId, index: u32) -> Event {
         Event {
-            event_id: EventId::new(format!("ck:event:01904100-0000-7000-8000-{:012x}", index))
+            event_id: EventId::new(format!("ak:event:01904100-0000-7000-8000-{:012x}", index))
                 .unwrap(),
             kind: crate::OP_MORPH_CREATE.into(),
             realm_id: realm_id.clone(),
@@ -1172,7 +1172,7 @@ mod tests {
             redacts: None,
             payload: json!({
                 "object": {
-                    "id": format!("ck:morph:01904100-0000-7000-8000-{:012x}", index),
+                    "id": format!("ak:morph:01904100-0000-7000-8000-{:012x}", index),
                     "schema": crate::MORPH_SCHEMA,
                     "realm_id": realm_id.as_str(),
                     "schema_refs": [crate::MORPH_SCHEMA],
@@ -1195,7 +1195,7 @@ mod tests {
     #[test]
     fn timeline_starts_empty() {
         let base_client = Arc::new(BaseClient::new());
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let timeline = Timeline::new(realm_id, base_client);
 
         assert!(timeline.is_empty());
@@ -1205,7 +1205,7 @@ mod tests {
     #[test]
     fn timeline_appends_events() {
         let base_client = Arc::new(BaseClient::new());
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(realm_id.clone(), base_client);
 
         let events = vec![
@@ -1223,7 +1223,7 @@ mod tests {
     #[test]
     fn timeline_prepends_events() {
         let base_client = Arc::new(BaseClient::new());
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(realm_id.clone(), base_client);
 
         // First append some events
@@ -1247,7 +1247,7 @@ mod tests {
     #[test]
     fn timeline_paginates_backward_from_latest() {
         let base_client = Arc::new(BaseClient::new());
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(realm_id.clone(), base_client);
 
         let events: Vec<Event> = (1..=10).map(|i| create_test_event(&realm_id, i)).collect();
@@ -1270,13 +1270,13 @@ mod tests {
     #[test]
     fn timeline_paginates_from_event_id() {
         let base_client = Arc::new(BaseClient::new());
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(realm_id.clone(), base_client);
 
         let events: Vec<Event> = (1..=10).map(|i| create_test_event(&realm_id, i)).collect();
         timeline.append_events(events).unwrap();
 
-        let from_event = EventId::new("ck:event:01904100-0000-7000-8000-000000000005").unwrap();
+        let from_event = EventId::new("ak:event:01904100-0000-7000-8000-000000000005").unwrap();
         let options = TimelineOptions {
             limit: 2,
             direction: TimelineDirection::Forward,
@@ -1293,11 +1293,11 @@ mod tests {
     #[test]
     fn timeline_tracks_gaps() {
         let base_client = Arc::new(BaseClient::new());
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(realm_id, base_client);
 
-        let prev_id = EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
-        let next_id = EventId::new("ck:event:01904100-0000-7000-8000-b76e5d2fe42a").unwrap();
+        let prev_id = EventId::new("ak:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
+        let next_id = EventId::new("ak:event:01904100-0000-7000-8000-b76e5d2fe42a").unwrap();
 
         timeline.record_gap(Some(prev_id.clone()), Some(next_id.clone()), Some(1));
 
@@ -1310,7 +1310,7 @@ mod tests {
     #[test]
     fn timeline_clears_gaps() {
         let base_client = Arc::new(BaseClient::new());
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(realm_id, base_client);
 
         timeline.record_gap(None, None, Some(10));
@@ -1323,7 +1323,7 @@ mod tests {
     #[test]
     fn timeline_builds_stable_items_and_aggregates_edits_redactions_and_reactions() {
         let base_client = Arc::new(BaseClient::new());
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(realm_id.clone(), base_client);
         let mut message = create_test_event(&realm_id, 1);
         message.kind = "ck.message.create".into();
@@ -1357,7 +1357,7 @@ mod tests {
     #[test]
     fn timeline_applies_read_receipts_typing_and_focused_loading() {
         let base_client = Arc::new(BaseClient::new());
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(realm_id.clone(), base_client);
         let mut message = create_test_event(&realm_id, 1);
         message.kind = "ck.message.create".into();
@@ -1379,7 +1379,7 @@ mod tests {
         timeline.apply_typing(TypingNotification {
             realm_id,
             user_id: actor.clone(),
-            device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
+            device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap(),
             is_typing: true,
             expires_at: Utc::now() + Duration::seconds(30),
             updated_at: Utc::now(),
@@ -1395,7 +1395,7 @@ mod tests {
 
     #[test]
     fn event_cache_deduplicates_records_limited_gaps_and_reconciles_backfill() {
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = create_test_event(&realm_id, 1);
         let raw = serde_json::to_value(&event).unwrap();
         let timeline_section = SyncTimeline {

@@ -4,7 +4,7 @@
 //!
 //! Spec source: `identity-handles.md` §3.7 +
 //! `artifacts/schemas/member-delivery-binding-candidate.schema.json`
-//! (cokret-spec @ 7157ee8, 2026-05-27 — `handle_uri` → `handle` wire rename).
+//! (arkret-spec @ 7157ee8, 2026-05-27 — `handle_uri` → `handle` wire rename).
 //!
 //! A candidate is the **input** to `member_add` / `invite` builders. It is
 //! *not* a grant and *not* a materialised `member_delivery_binding`; the
@@ -149,7 +149,7 @@ impl MemberDeliveryBindingCandidate {
         //      the canonical `<localpart>:<domain>` form on construction,
         //      so reaching this point with a non-canonical value implies
         //      the typed field was bypassed. Re-check defensively so the
-        //      SDK refuses `acct:` / bare host / cokret:// strings that
+        //      SDK refuses `acct:` / bare host / arkret:// strings that
         //      snuck in via raw JSON.
         let canonical = self.handle.canonical();
         let has_localpart_colon = canonical.contains(':');
@@ -249,9 +249,9 @@ mod tests {
             binding_source: HandleHintBindingSource::OrganizationPolicy,
             delivery_modes: modes,
             service_acceptance_ref: Some(
-                "ck:event:01890000-0000-7000-8000-000000000001".to_owned(),
+                "ak:event:01890000-0000-7000-8000-000000000001".to_owned(),
             ),
-            policy_event_ref: Some("ck:event:01890000-0000-7000-8000-000000000002".to_owned()),
+            policy_event_ref: Some("ak:event:01890000-0000-7000-8000-000000000002".to_owned()),
         }
     }
 
@@ -263,17 +263,17 @@ mod tests {
             handle_aliases: vec!["acct:alice@acme.example".to_owned()],
             member_delivery_binding: sample_hint(&rs),
             issuer_service_did: fake_did("principal"),
-            audience: "ck:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
+            audience: "ak:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
             expires_at: Utc::now() + chrono::Duration::hours(1),
             issued_at: Some(Utc::now()),
-            source_refs: vec!["ck:event:01890000-0000-7000-8000-0000000000ff".to_owned()],
+            source_refs: vec!["ak:event:01890000-0000-7000-8000-0000000000ff".to_owned()],
             proofs: vec![json!({
                 "kind": "detached_jws",
                 "alg": "EdDSA",
                 "verification_method": "did:webvh:z6mkfixture:principal.example#key-1",
                 "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "created_at": "2026-05-19T00:00:00Z",
-                "audience": "ck:realm:0196419b-0000-7000-8000-000000000000",
+                "audience": "ak:realm:0196419b-0000-7000-8000-000000000000",
                 "jws": "aaa.bbb.ccc"
             })],
             claim_digest: Some(
@@ -317,7 +317,7 @@ mod tests {
     #[test]
     fn negative_audience_mismatch() {
         let c = sample_candidate();
-        let ctx = CandidateValidationContext::new("ck:realm:other-target".to_owned());
+        let ctx = CandidateValidationContext::new("ak:realm:other-target".to_owned());
         match c.validate(&ctx).unwrap_err() {
             CandidateError::AudienceMismatch { .. } => {}
             other => panic!("expected AudienceMismatch, got {other:?}"),
@@ -347,7 +347,7 @@ mod tests {
     #[test]
     fn negative_non_canonical_handle_via_raw_json() {
         // Force a non-canonical handle by patching the serialized form.
-        // Handle::parse rejects acct: / bare-host / cokret:// strings, so
+        // Handle::parse rejects acct: / bare-host / arkret:// strings, so
         // this exercises the defensive re-check inside validate().
         let c = sample_candidate();
         let mut value = serde_json::to_value(&c).unwrap();

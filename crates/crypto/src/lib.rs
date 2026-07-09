@@ -45,7 +45,7 @@ mod tests {
     }
 
     fn device() -> DeviceId {
-        DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap()
+        DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap()
     }
 
     #[test]
@@ -80,7 +80,7 @@ mod tests {
         plan.push(
             "share",
             CryptoMachineRequestBody::ShareRoomKey {
-                realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
                 session_id: "sess1".to_owned(),
                 recipients: vec![device()],
             },
@@ -120,8 +120,8 @@ mod tests {
             key_ref: None,
         };
         binding.record_unable_to_decrypt(UnableToDecryptRecord {
-            event_id: EventId::new("ck:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap(),
-            realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+            event_id: EventId::new("ak:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
             sender: did("alice"),
             reason: UnableToDecryptReason::NoSession,
             encrypted_content: payload,
@@ -136,8 +136,8 @@ mod tests {
         let mut strand = DeviceVerificationStrand {
             transaction_id: "verif1".to_owned(),
             user_id: did("alice"),
-            from_device: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
-            to_device: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000004").unwrap(),
+            from_device: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
+            to_device: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000004").unwrap(),
             methods: vec!["sas".to_owned(), "qr".to_owned()],
             state: VerificationStrandState::Requested,
             created_at: Utc::now(),
@@ -148,17 +148,17 @@ mod tests {
         strand.advance(VerificationStrandState::Done).unwrap();
         binding.record_verification_strand(strand).unwrap();
         binding.set_device_trust(
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000004").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000004").unwrap(),
             DeviceTrustState::Verified,
         );
         assert_eq!(
             binding
                 .device_trust
-                .get(&DeviceId::new("ck:device:01904100-0000-7000-8000-000000000004").unwrap()),
+                .get(&DeviceId::new("ak:device:01904100-0000-7000-8000-000000000004").unwrap()),
             Some(&DeviceTrustState::Verified)
         );
 
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         binding
             .record_session(CryptoSessionRecord {
                 realm_id: realm_id.clone(),
@@ -220,8 +220,8 @@ mod tests {
         let mut strand = DeviceVerificationStrand {
             transaction_id: String::new(),
             user_id: did("alice"),
-            from_device: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
-            to_device: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000002").unwrap(),
+            from_device: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
+            to_device: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap(),
             methods: Vec::new(),
             state: VerificationStrandState::Requested,
             created_at: Utc::now(),
@@ -238,7 +238,7 @@ mod tests {
         assert!(message.contains("two distinct devices"), "{message}");
 
         // Too many methods → bounds error.
-        strand.to_device = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000002").unwrap();
+        strand.to_device = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002").unwrap();
         strand.methods = (0..(MAX_VERIFICATION_METHODS + 1))
             .map(|i| format!("m{i}"))
             .collect();
@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn validate_rejects_invalid_withheld_key_record() {
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         let mut record = WithheldKeyRecord {
             realm_id,
             session_id: String::new(),
@@ -323,7 +323,7 @@ mod tests {
 
     fn make_session() -> CryptoSessionRecord {
         CryptoSessionRecord {
-            realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
             session_id: "sess-prop".to_owned(),
             sender_key: "curve25519:def".to_owned(),
             algorithm: "ck.mls.v1".to_owned(),
@@ -412,9 +412,9 @@ mod tests {
     fn reset_signing_input_is_stable_and_binds_replay_fields() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net")
+            trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
                 .unwrap(),
-            reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
+            reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
             reset_reason: "lost phone".to_owned(),
@@ -437,11 +437,11 @@ mod tests {
         // trust_domain is bound (cross-deployment replay protection).
         let mut domain_changed = content.clone();
         domain_changed.trust_domain =
-            cokret_core::TypedTrustDomainId::new("ck:trust_domain:other.net").unwrap();
+            cokret_core::TypedTrustDomainId::new("ak:trust_domain:other.net").unwrap();
         assert_ne!(base, domain_changed.reset_signing_input().unwrap());
         // reset_event_id is bound (event-shell replay protection).
         let mut event_changed = content.clone();
-        event_changed.reset_event_id = "ck:event:01964137-0000-7000-8000-0000000000bb".to_owned();
+        event_changed.reset_event_id = "ak:event:01964137-0000-7000-8000-0000000000bb".to_owned();
         assert_ne!(base, event_changed.reset_signing_input().unwrap());
         // issued_at is bound (clock-skew and replay window protection).
         let mut issued_changed = content.clone();
@@ -450,7 +450,7 @@ mod tests {
         // proof kind/body are bound, excluding only signature material.
         let mut proof_changed = content.clone();
         proof_changed.proof = CrossSigningResetProof::RecoveryUnlock {
-            recovery_session_id: "ck:recovery_session:01964137-0000-7000-8000-0000000000cc"
+            recovery_session_id: "ak:recovery_session:01964137-0000-7000-8000-0000000000cc"
                 .to_owned(),
             recovery_secret_ref: "did:webvh:z6mkfixture:alice.example#recovery-1".to_owned(),
             unlock_commitment: "sha256:00".to_owned(),
@@ -471,14 +471,14 @@ mod tests {
     fn recovery_unlock_commitment_binds_reset_without_self_reference() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net")
+            trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
                 .unwrap(),
-            reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
+            reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
             reset_reason: "rotation".to_owned(),
             proof: CrossSigningResetProof::RecoveryUnlock {
-                recovery_session_id: "ck:recovery_session:01964137-0000-7000-8000-0000000000cc"
+                recovery_session_id: "ak:recovery_session:01964137-0000-7000-8000-0000000000cc"
                     .to_owned(),
                 recovery_secret_ref: "did:webvh:z6mkfixture:alice.example#recovery-1".to_owned(),
                 unlock_commitment: "sha256:placeholder".to_owned(),
@@ -519,9 +519,9 @@ mod tests {
     fn cross_signing_reset_proof_threshold_zero_rejected() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net")
+            trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
                 .unwrap(),
-            reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
+            reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
             reset_reason: "lost phone".to_owned(),
@@ -554,9 +554,9 @@ mod tests {
         // PrincipalSigning with whitespace-only `verification_method`.
         let blank_verification_method = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net")
+            trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
                 .unwrap(),
-            reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
+            reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
             reset_reason: "rot".to_owned(),
@@ -589,7 +589,7 @@ mod tests {
         // RecoveryUnlock with blank `unlock_commitment` is rejected.
         let blank_unlock = CrossSigningResetContent {
             proof: CrossSigningResetProof::RecoveryUnlock {
-                recovery_session_id: "ck:recovery_session:01964137-0000-7000-8000-0000000000cc"
+                recovery_session_id: "ak:recovery_session:01964137-0000-7000-8000-0000000000cc"
                     .to_owned(),
                 recovery_secret_ref: "ref".to_owned(),
                 unlock_commitment: "  ".to_owned(),
@@ -628,9 +628,9 @@ mod tests {
     fn cross_signing_reset_proof_oversized_alg_rejected() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net")
+            trust_domain: cokret_core::TypedTrustDomainId::new("ak:trust_domain:example.net")
                 .unwrap(),
-            reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
+            reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
             reset_reason: "rot".to_owned(),
@@ -656,8 +656,8 @@ mod tests {
     #[test]
     fn unable_to_decrypt_path_bad_ciphertext() {
         let mut binding = CryptoStoreBinding::default();
-        let event_id = EventId::new("ck:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap();
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let event_id = EventId::new("ak:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         let payload = EncryptedPayload {
             scheme: EncryptedPayloadScheme::MlsRfc9420,
             group_id: "group".to_owned(),

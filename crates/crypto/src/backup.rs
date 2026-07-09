@@ -20,7 +20,7 @@
 //!
 //! let kek = derive_vault_kek(b"correct horse battery staple")?;
 //! let envelope = build_key_backup_envelope(
-//!     "ck:backup:01964137-0000-7000-8000-000000000000".parse()?,
+//!     "ak:backup:01964137-0000-7000-8000-000000000000".parse()?,
 //!     "did:webvh:alice.example".parse()?,
 //!     None,
 //!     BackupClass::SecretStorage,
@@ -269,7 +269,7 @@ impl VaultBinding {
         root: &[u8; VAULT_KDF_OUTPUT_LEN],
         nonce_salt_b64: &str,
     ) -> Result<[u8; VAULT_NONCE_LEN]> {
-        let nonce_key = derive_subkey(root, b"cokret-key-backup-aead-nonce-v1");
+        let nonce_key = derive_subkey(root, b"arkret-key-backup-aead-nonce-v1");
         let transcript_bytes = self.nonce_transcript_canonical_bytes(nonce_salt_b64)?;
         let mut mac = <HmacSha256 as hmac::digest::KeyInit>::new_from_slice(&nonce_key)
             .map_err(|err| KeyBackupError::Kdf(format!("nonce hmac key: {err}")))?;
@@ -629,7 +629,7 @@ pub fn build_key_backup_envelope(
     // genesis envelope by minting a fresh series_id and seq=0; successors are
     // built with `build_key_backup_successor_envelope`.
     let series_id =
-        cokret_core::BackupSeriesId::new(cokret_core::new_prefixed_uuid7("ck:backup_series:"))
+        cokret_core::BackupSeriesId::new(cokret_core::new_prefixed_uuid7("ak:backup_series:"))
             .map_err(|err| {
                 KeyBackupError::InvalidInput(format!("failed to mint backup_series id: {err}"))
             })?;
@@ -773,7 +773,7 @@ mod tests {
 
     fn test_binding(class: BackupClass, item: &str) -> VaultBinding {
         VaultBinding {
-            backup_id: "ck:backup:01964137-0000-7000-8000-000000000000"
+            backup_id: "ak:backup:01964137-0000-7000-8000-000000000000"
                 .parse()
                 .unwrap(),
             actor_id: "did:webvh:alice.example".parse().unwrap(),
@@ -938,7 +938,7 @@ mod tests {
     fn envelope_carries_kdf_aead_and_commitment() {
         let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
         let envelope = build_key_backup_envelope(
-            "ck:backup:01964137-0000-7000-8000-000000000000"
+            "ak:backup:01964137-0000-7000-8000-000000000000"
                 .parse()
                 .unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
@@ -966,7 +966,7 @@ mod tests {
         assert_eq!(kdf.params["parallelism"], VAULT_ARGON2_P);
         assert_eq!(
             kdf.params["hkdf_info"],
-            "cokret-key-backup/secret_storage/aead/v1"
+            "arkret-key-backup/secret_storage/aead/v1"
         );
         assert!(envelope.encryption.key_commitment.is_some());
         assert_eq!(envelope.contents.len(), 1);
@@ -980,7 +980,7 @@ mod tests {
         let kek = derive_vault_kek_with_salt(b"sesame", &[6u8; VAULT_SALT_LEN]).unwrap();
         let plaintext = br#"{"self_signing_key":"opaque"}"#;
         let envelope = build_key_backup_envelope(
-            "ck:backup:01964137-0000-7000-8000-000000000003"
+            "ak:backup:01964137-0000-7000-8000-000000000003"
                 .parse()
                 .unwrap(),
             "did:webvh:bob.example".parse().unwrap(),
@@ -1022,7 +1022,7 @@ mod tests {
     fn successor_envelope_binds_predecessor_and_frontier() {
         let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
         let genesis = build_key_backup_envelope(
-            "ck:backup:01964137-0000-7000-8000-000000000001"
+            "ak:backup:01964137-0000-7000-8000-000000000001"
                 .parse()
                 .unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
@@ -1035,7 +1035,7 @@ mod tests {
         )
         .unwrap();
         let successor = build_key_backup_successor_envelope(
-            "ck:backup:01964137-0000-7000-8000-000000000002"
+            "ak:backup:01964137-0000-7000-8000-000000000002"
                 .parse()
                 .unwrap(),
             &genesis,
@@ -1071,7 +1071,7 @@ mod tests {
     fn envelope_rejects_bad_version_tag() {
         let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
         let err = build_key_backup_envelope(
-            "ck:backup:01964137-0000-7000-8000-000000000000"
+            "ak:backup:01964137-0000-7000-8000-000000000000"
                 .parse()
                 .unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
@@ -1090,7 +1090,7 @@ mod tests {
     fn passphrase_envelope_builder_rejects_mls_history() {
         let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
         let err = build_key_backup_envelope(
-            "ck:backup:01964137-0000-7000-8000-000000000000"
+            "ak:backup:01964137-0000-7000-8000-000000000000"
                 .parse()
                 .unwrap(),
             "did:webvh:alice.example".parse().unwrap(),

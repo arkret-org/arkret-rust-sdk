@@ -16,7 +16,7 @@ fuzz_target!(|data: &[u8]| {
     // the prefix rejection.
     if let Ok(text) = std::str::from_utf8(data) {
         let _ = Cursor::decode(text);
-        let prefixed = format!("ck:cursor:{text}");
+        let prefixed = format!("ak:cursor:{text}");
         let _ = Cursor::decode(&prefixed);
     }
 });

@@ -49,7 +49,7 @@ brought into line:
   matching. Exclusive-overlap detection moved onto
   `AppletWireNamespaces::conflicts_with`.
 - **`applet` convenience feature added** (`applet-runtime` + `client` +
-  `server` + `salvo`) so `cargo add cokret --features applet` is all an
+  `server` + `salvo`) so `cargo add arkret --features applet` is all an
   Applet service needs.
 - **Parallel models removed** (compatibility intentionally
   dropped): `SignedAppletRegistration`, the pre-wire `AppletSchema` /
@@ -66,9 +66,9 @@ brought into line:
 `spec/v1/zh/applet-integration.md` §8 shows `ck.applet.bridge_event`
 Envelopes carrying top-level `applet_id` and `external_ref`. Prior to
 this release the SDK had no slot for either field; downstream
-integrators (savfox `crates/channels/src/cokret/applet/outbound.rs`)
+integrators (savfox `crates/channels/src/arkret/applet/outbound.rs`)
 were stuffing them into `Event.unsigned` and tagging the line with
-`TODO(cokret-spec-drift)`.
+`TODO(arkret-spec-drift)`.
 
 As of this commit:
 
@@ -94,18 +94,18 @@ The SDK-internal `SignedAppletRegistration` (plus its
 test-only `AppletRegistry`) has been deleted. `ck.applet.registration`
 has exactly one representation:
 
-`cokret::WireAppletRegistration` — wire shape `kind / applet_id /
+`arkret::WireAppletRegistration` — wire shape `kind / applet_id /
 service_did / controller_did / base_url / bot_actor_id / protocols /
 namespaces { actors, realms, handles } / receive_events /
 receive_ephemeral / rate_limited / requested_scopes / registration_epoch
 / webhook_auth / manifest? / proof / created_at`. Sign it with
-`cokret::sign_registration(&mut reg, signer, vm_id)`, or derive it from
+`arkret::sign_registration(&mut reg, signer, vm_id)`, or derive it from
 an `AppletPackage` via `package.to_registration()`.
 
 ## 3. Other intentionally-deferred items
 
 - `ck.principal.provision` / managed-account auto-creation lives in
-  `cokret-spec` proposal review. Not in scope for the SDK until the
+  `arkret-spec` proposal review. Not in scope for the SDK until the
   spec lands.
 - MLS / E2EE Ghost actor encryption path: spec §12 defines it but
   savfox Phase 6 explicitly defers.

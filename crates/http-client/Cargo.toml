@@ -1,14 +1,14 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "network-programming"]
-description = "HTTP transport bindings for Cokret v1 service endpoints."
+description = "HTTP transport bindings for Arkret v1 service endpoints."
 edition = "2024"
-homepage = "https://github.com/cokret/cokret-rust-sdk"
-keywords = ["cokret", "client", "http", "sdk"]
+homepage = "https://github.com/arkret/arkret-rust-sdk"
+keywords = ["arkret", "client", "http", "sdk"]
 license = "Apache-2.0"
-name = "cokret-http-client"
+name = "arkret-http-client"
 readme = "README.md"
-repository = "https://github.com/cokret/cokret-rust-sdk"
+repository = "https://github.com/arkret/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 
@@ -22,7 +22,7 @@ tracing = ["dep:tracing"]
 # Convenience TLS backend passthrough: enables reqwest's rustls backend so a
 # fresh downstream gets a working https client out of the box. This crate
 # stays TLS-neutral by default (downstream services pick their own backend /
-# crypto provider). NOTE: cokret-spec transport-bindings section 5 makes
+# crypto provider). NOTE: arkret-spec transport-bindings section 5 makes
 # PQ-hybrid TLS (X25519MLKEM768) a MUST for ALL profiles, fail-closed — see
 # the crate docs for the recommended rustls provider configuration.
 tls-rustls = ["reqwest/rustls"]
@@ -30,8 +30,8 @@ tls-rustls = ["reqwest/rustls"]
 [dependencies]
 base64 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
-cokret-core = {workspace = true,features = ["client"]}
-cokret-signatures = {workspace = true}
+arkret-core = {workspace = true,features = ["client"]}
+arkret-signatures = {workspace = true}
 futures-util = {workspace = true,default-features = false,features = ["std"]}
 getrandom = {workspace = true}
 reqwest = {workspace = true,features = ["json", "gzip", "http2", "multipart", "stream"]}

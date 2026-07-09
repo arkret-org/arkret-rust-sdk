@@ -1,13 +1,13 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-description = "Cokret v1 protocol crypto machine contracts."
+description = "Arkret v1 protocol crypto machine contracts."
 edition = "2024"
-homepage = "https://github.com/cokret/cokret-rust-sdk"
-keywords = ["cokret", "crypto", "e2ee", "backup"]
+homepage = "https://github.com/arkret/arkret-rust-sdk"
+keywords = ["arkret", "crypto", "e2ee", "backup"]
 license = "Apache-2.0"
-name = "cokret-crypto"
+name = "arkret-crypto"
 readme = "README.md"
-repository = "https://github.com/cokret/cokret-rust-sdk"
+repository = "https://github.com/arkret/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 
@@ -17,7 +17,7 @@ default = []
 # typed `ck.schema.key_backup.v1` envelope builder + recovery-key codec.
 # Spec: crypto-media/key-management.md §7. Pulls in `argon2`,
 # `chacha20poly1305`, `getrandom`, and HKDF/HMAC only when enabled
-# so the bare `cokret-crypto` types crate stays light.
+# so the bare `arkret-crypto` types crate stays light.
 backup = [
     "dep:argon2",
     "dep:chacha20poly1305",
@@ -31,8 +31,8 @@ backup = [
 argon2 = {workspace = true,default-features = false,features = ["alloc"],optional = true}
 chacha20poly1305 = {workspace = true,optional = true}
 chrono = {workspace = true,features = ["serde"]}
-cokret-core = {workspace = true}
-cokret-signatures = {workspace = true}
+arkret-core = {workspace = true}
+arkret-signatures = {workspace = true}
 getrandom = {workspace = true,optional = true}
 hkdf = {workspace = true,optional = true}
 hmac = {workspace = true,optional = true}

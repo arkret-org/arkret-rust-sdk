@@ -1493,7 +1493,7 @@ pub fn moderation_report_for_policy_outcome(
         report_id: policy
             .moderation_report_id
             .clone()
-            .unwrap_or_else(|| format!("ck:moderation:{}", now.timestamp_millis())),
+            .unwrap_or_else(|| format!("ak:moderation:{}", now.timestamp_millis())),
         policy_id: policy.policy_id.clone(),
         actor_id: ctx.actor_id.clone(),
         resource: ctx.resource.clone(),
@@ -1537,7 +1537,7 @@ mod engine_wire_tests {
 
     fn wire_grant(constraints: Vec<cokret_core::GrantConstraint>) -> cokret_core::CapabilityGrant {
         cokret_core::CapabilityGrant {
-            id: GrantId::new("ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
+            id: GrantId::new("ak:grant:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
             schema: CAPABILITY_SCHEMA.to_owned(),
             realm_id: None,
             issuer: alice(),
@@ -1563,14 +1563,14 @@ mod engine_wire_tests {
             bob(),
             "ck.message.create".to_owned(),
             Resource::Realm {
-                realm_id: "ck:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
+                realm_id: "ak:realm:01904100-0000-7000-8000-65c7feb295d7".to_owned(),
             },
         )
         .with_cache_frontier(AuthzCacheFrontier {
             auth_state_digest:
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                     .to_owned(),
-            auth_frontier: vec!["ck:event:01964137-0000-7000-8000-000000000001".to_owned()],
+            auth_frontier: vec!["ak:event:01964137-0000-7000-8000-000000000001".to_owned()],
             policy_frontier_digest: None,
             membership_frontier_digest: None,
         })
@@ -1610,7 +1610,7 @@ mod engine_wire_tests {
         second.cache_frontier = Some(AuthzCacheFrontier {
             auth_state_digest:
                 "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
-            auth_frontier: vec!["ck:event:01964137-0000-7000-8000-000000000002".to_owned()],
+            auth_frontier: vec!["ak:event:01964137-0000-7000-8000-000000000002".to_owned()],
             policy_frontier_digest: None,
             membership_frontier_digest: None,
         });

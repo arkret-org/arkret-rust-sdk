@@ -1,6 +1,6 @@
-# cokret-html
+# arkret-html
 
-Rich text, mention and link normalization contracts for Cokret.
+Rich text, mention and link normalization contracts for Arkret.
 
 This crate is the protocol-facing boundary for safe rich text: Markdown subset
 rendering, HTML sanitization, plaintext fallback, structured mentions and link

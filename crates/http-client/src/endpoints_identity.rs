@@ -116,7 +116,7 @@ impl Client {
             .await
     }
 
-    /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — `ck.find.directory.query.resolve_target`.
+    /// R3.3 (CKP-0011, arkret-spec @ cced4b8) — `ck.find.directory.query.resolve_target`.
     /// Resolve a client-agnostic shareable object address (Realm / Strand /
     /// Message) to a preview. The `address` and any `token` should be derived
     /// from [`cokret_core::models::parse_address`]; invite and preview tokens
@@ -191,7 +191,7 @@ impl Client {
         Ok(body)
     }
 
-    /// R3.2 (cokret-spec @ b56cab1) — `ck.find.directory.query.list_handles_for_subject`.
+    /// R3.2 (arkret-spec @ b56cab1) — `ck.find.directory.query.list_handles_for_subject`.
     /// Known holder/principal DID → current visible handle claims. The
     /// response invariant `claims[].subject == subject` is enforced via
     /// [`DirectorySubjectHandleList::validate`] before returning.

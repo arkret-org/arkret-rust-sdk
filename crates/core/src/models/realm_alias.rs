@@ -29,7 +29,7 @@ use super::*;
 /// `error-code-registry.json`.
 pub const REALM_ALIAS_HOMOGRAPH_FORBIDDEN: &str = "realm_alias_homograph_forbidden";
 
-/// Canonical Cokret realm alias string `<localpart>:<domain>`.
+/// Canonical Arkret realm alias string `<localpart>:<domain>`.
 ///
 /// See the module docs for the namespace / sigil discipline. Construct via
 /// [`RealmAlias::parse`] (canonical input) or [`RealmAlias::parse_display`]

@@ -70,12 +70,12 @@ impl AdminKeyStore {
     }
 
     /// Canonical key id for a given admin DID. Format:
-    /// `cokret:signer:admin:<application_id>:<did>`. Stable across
+    /// `arkret:signer:admin:<application_id>:<did>`. Stable across
     /// processes so a key written by one server boot is readable by the
     /// next.
     pub fn key_id(application_id: &str, admin_did: &Did) -> String {
         format!(
-            "cokret:signer:admin:{application_id}:{}",
+            "arkret:signer:admin:{application_id}:{}",
             admin_did.as_str()
         )
     }
@@ -114,7 +114,7 @@ impl AdminKeyStore {
     /// Enumerate admin DIDs known to this store. Walks the backend's
     /// id list and filters by the per-admin id prefix.
     pub fn list_admin_dids(&self) -> Result<Vec<Did>> {
-        let prefix = format!("cokret:signer:admin:{}:", self.application_id);
+        let prefix = format!("arkret:signer:admin:{}:", self.application_id);
         let ids = self.inner.list()?;
         let mut out = Vec::new();
         for id in ids {
@@ -135,7 +135,7 @@ impl AdminKeyStore {
 /// Principal servers receive this from their upstream IdP (coauth, by
 /// convention) when introspecting a bearer token. The fields are a
 /// strict subset of the RFC 7662 introspection response plus the
-/// `org.cokret.*` extensions soland already uses.
+/// `org.arkret.*` extensions soland already uses.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantIntrospection {
@@ -143,7 +143,7 @@ pub struct SessionGrantIntrospection {
     /// reject any introspection where `active=false`.
     pub active: bool,
     /// The operator's principal ID. Populated from
-    /// `org.cokret.principal_id` (or `sub`) on the IdP side.
+    /// `org.arkret.principal_id` (or `sub`) on the IdP side.
     pub principal_id: Did,
     /// Granted admin scopes — e.g.
     /// [`admin_scopes::NOTARY_RECONFIGURE`]. Receivers gate
@@ -213,7 +213,7 @@ mod tests {
         let did = admin("did:webvh:z6mkfixture:alice.example");
         assert_eq!(
             AdminKeyStore::key_id("soland.demo", &did),
-            "cokret:signer:admin:soland.demo:did:webvh:z6mkfixture:alice.example"
+            "arkret:signer:admin:soland.demo:did:webvh:z6mkfixture:alice.example"
         );
     }
 

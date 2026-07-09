@@ -8,7 +8,7 @@ fn did(name: &str) -> Did {
 }
 
 fn device_id() -> DeviceId {
-    DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap()
+    DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap()
 }
 
 #[test]
@@ -52,7 +52,7 @@ fn mimi_submit_message_wire_uses_sender_actor_id_only() {
         sender_actor_id: actor.clone(),
         device_id: device_id(),
         ciphertext: json!({
-            "content_type": "application/cokret",
+            "content_type": "application/arkret",
             "ciphertext_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "payload": "AA"
         }),
@@ -66,9 +66,9 @@ fn mimi_submit_message_wire_uses_sender_actor_id_only() {
 
     let old_sender = json!({
         "sender": "did:webvh:z6mkfixture:alice.example",
-        "device_id": "ck:device:01904100-0000-7000-8000-000000000001",
+        "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
         "ciphertext": {
-            "content_type": "application/cokret",
+            "content_type": "application/arkret",
             "ciphertext_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "payload": "AA"
         }
@@ -80,11 +80,11 @@ fn mimi_submit_message_wire_uses_sender_actor_id_only() {
 fn keypackages_claim_outcome_uses_typed_records_and_failures() {
     let outcome = json!({
         "claims": [{
-            "claim_id": "ck:mls_keypackage:t-01:Y2xhaW0tbm9uY2U",
-            "keypackage_ref": "ck:mls:keypackage:test-01",
+            "claim_id": "ak:mls_keypackage:t-01:Y2xhaW0tbm9uY2U",
+            "keypackage_ref": "ak:mls:keypackage:test-01",
             "keypackage_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "principal_id": "did:webvh:z6mkfixture:alice.example",
-            "device_id": "ck:device:01904100-0000-7000-8000-000000000001",
+            "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "key_package": "AQID",
             "capabilities": ["ck.mls.profile.full"],
             "capabilities_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -98,7 +98,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
             "revocation_status": "active"
         }],
         "failures": [{
-            "keypackage_ref": "ck:mls:keypackage:missing",
+            "keypackage_ref": "ak:mls:keypackage:missing",
             "reason_code": "not_found"
         }],
         "available_count": 1
@@ -111,11 +111,11 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
 
     let malformed_claim = json!({
         "claims": [{
-            "claim_id": "ck:mls_keypackage:t-01:Y2xhaW0tbm9uY2U",
-            "keypackage_ref": "ck:mls:keypackage:test-01",
+            "claim_id": "ak:mls_keypackage:t-01:Y2xhaW0tbm9uY2U",
+            "keypackage_ref": "ak:mls:keypackage:test-01",
             "keypackage_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "principal_id": "did:webvh:z6mkfixture:alice.example",
-            "device_id": "ck:device:01904100-0000-7000-8000-000000000001",
+            "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "key_package": "AQID",
             "capabilities": ["ck.mls.profile.full"],
             "capabilities_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -139,7 +139,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
 
 #[test]
 fn events_subscribe_frame_parses_ndjson_line() {
-    let line = r#"{"cursor":"ck:cursor:resume","kind":"event","payload":{"event_id":"ck:event:01904100-0000-7000-8000-834e21b98552"},"realm_id":"ck:realm:01904100-0000-7000-8000-9b64700c6ee8"}"#;
+    let line = r#"{"cursor":"ak:cursor:resume","kind":"event","payload":{"event_id":"ak:event:01904100-0000-7000-8000-834e21b98552"},"realm_id":"ak:realm:01904100-0000-7000-8000-9b64700c6ee8"}"#;
     let frame = EventsSubscribeFrame::from_ndjson_line(line)
         .unwrap()
         .unwrap();
@@ -147,12 +147,12 @@ fn events_subscribe_frame_parses_ndjson_line() {
     assert_eq!(frame.kind, EventsSubscribeFrameKind::Event);
     assert_eq!(
         frame.realm_id.as_ref().unwrap().as_str(),
-        "ck:realm:01904100-0000-7000-8000-9b64700c6ee8"
+        "ak:realm:01904100-0000-7000-8000-9b64700c6ee8"
     );
-    assert_eq!(frame.cursor.as_ref().unwrap().as_str(), "ck:cursor:resume");
+    assert_eq!(frame.cursor.as_ref().unwrap().as_str(), "ak:cursor:resume");
     assert_eq!(
         frame.payload["event_id"],
-        "ck:event:01904100-0000-7000-8000-834e21b98552"
+        "ak:event:01904100-0000-7000-8000-834e21b98552"
     );
     assert!(frame.is_event());
     assert!(!frame.requires_resubscribe());
@@ -163,7 +163,7 @@ fn events_subscribe_frame_parses_ndjson_line() {
 fn events_subscribe_frame_control_helpers() {
     let dropped =
         EventsSubscribeFrame::from_ndjson_line(
-            r#"{"cursor":"ck:cursor:resume","kind":"dropped","realm_id":"ck:realm:01904100-0000-7000-8000-9b64700c6ee8","reconnect_after_ms":10000}"#,
+            r#"{"cursor":"ak:cursor:resume","kind":"dropped","realm_id":"ak:realm:01904100-0000-7000-8000-9b64700c6ee8","reconnect_after_ms":10000}"#,
         )
         .unwrap()
         .unwrap();
@@ -172,7 +172,7 @@ fn events_subscribe_frame_control_helpers() {
     assert!(dropped.requires_resubscribe());
 
     let catchup = EventsSubscribeFrame::from_ndjson_line(
-        r#"{"cursor":"ck:cursor:live","kind":"catchup_complete"}"#,
+        r#"{"cursor":"ak:cursor:live","kind":"catchup_complete"}"#,
     )
     .unwrap()
     .unwrap();
@@ -209,10 +209,10 @@ fn events_query_outcome_serializes_has_more_even_when_false() {
 #[test]
 fn events_query_params_helpers_use_core_wire_types() {
     let params = EventsQueryParams {
-        realms: vec![RealmId::new("ck:realm:01904100-0000-7000-8000-f949e0272316").unwrap()],
+        realms: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-f949e0272316").unwrap()],
         actors: vec![did("alice")],
-        before: Some(identifiers::Cursor::new("ck:cursor:older").unwrap()),
-        after: Some(identifiers::Cursor::new("ck:cursor:newer").unwrap()),
+        before: Some(identifiers::Cursor::new("ak:cursor:older").unwrap()),
+        after: Some(identifiers::Cursor::new("ak:cursor:newer").unwrap()),
         order: Some(EventsQueryOrder::Descending),
         limit: Some(50),
         x_cokret_request_id: None,
@@ -223,7 +223,7 @@ fn events_query_params_helpers_use_core_wire_types() {
     let pairs = params.to_query_pairs();
     assert!(
         pairs.iter().any(|(key, value)| *key == "realms"
-            && value == "ck:realm:01904100-0000-7000-8000-f949e0272316")
+            && value == "ak:realm:01904100-0000-7000-8000-f949e0272316")
     );
     assert!(
         pairs

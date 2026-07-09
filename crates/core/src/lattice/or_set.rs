@@ -97,7 +97,7 @@ mod tests {
 
     fn cell() -> CellRef {
         CellRef::new(
-            "ck:cell:ck.component.consent.v1:ck.consent.01js0c00000000000000000000".to_owned(),
+            "ak:cell:ck.component.consent.v1:ck.consent.01js0c00000000000000000000".to_owned(),
         )
         .unwrap()
     }

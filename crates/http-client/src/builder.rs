@@ -338,7 +338,7 @@ impl ClientBuilder {
     }
 
     /// Toggle gzip response decoding (the `gzip` feature is on by default
-    /// in `cokret-http-client`'s `reqwest` profile, so this method exists to
+    /// in `arkret-http-client`'s `reqwest` profile, so this method exists to
     /// let callers turn it *off* when stricter content negotiation matters).
     ///
     /// Native-only: gzip negotiation is owned by the browser on wasm32.
@@ -381,7 +381,7 @@ impl ClientBuilder {
             validate_header_value("user agent", user_agent)?;
         }
         // DeviceProof / ServiceSignature credentials ride in custom headers
-        // (`X-Cokret-Device-Proof`, `Signature` / `X-Cokret-Service-Signature`)
+        // (`X-Arkret-Device-Proof`, `Signature` / `X-Arkret-Service-Signature`)
         // that reqwest does NOT strip across a cross-host redirect (its
         // sensitive-header allowlist only covers `Authorization` / `Cookie` /
         // `Proxy-Authorization`). Following a 3xx to an attacker-controlled

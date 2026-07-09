@@ -5,7 +5,7 @@ mod session_and_identity {
 
     use super::super::*;
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()
     }
 
     fn did() -> Did {
@@ -65,7 +65,7 @@ mod session_and_identity {
     #[test]
     fn moderation_appeal_decision_modify_requires_ref() {
         let p = ModerationAppealPayload::Decision(AppealDecisionPayload {
-            appeal_id: TypedAppealId::new("ck:appeal:01904100-0000-7000-8000-000000000001")
+            appeal_id: TypedAppealId::new("ak:appeal:01904100-0000-7000-8000-000000000001")
                 .unwrap(),
             realm_id: realm(),
             reviewer: did(),
@@ -80,14 +80,14 @@ mod session_and_identity {
     #[test]
     fn moderation_appeal_decision_uphold_rejects_modify_ref() {
         let p = ModerationAppealPayload::Decision(AppealDecisionPayload {
-            appeal_id: TypedAppealId::new("ck:appeal:01904100-0000-7000-8000-000000000001")
+            appeal_id: TypedAppealId::new("ak:appeal:01904100-0000-7000-8000-000000000001")
                 .unwrap(),
             realm_id: realm(),
             reviewer: did(),
             verdict: AppealVerdict::Uphold,
             reason_text_ref: "blob:reason".to_owned(),
             modify_decision_ref: Some(
-                EventId::new("ck:event:01904100-0000-7000-8000-000000000002").unwrap(),
+                EventId::new("ak:event:01904100-0000-7000-8000-000000000002").unwrap(),
             ),
             decided_at: Utc::now(),
         });
@@ -123,10 +123,10 @@ mod session_and_identity {
 
     #[test]
     fn trust_domain_id_validates_scope() {
-        assert!(TypedTrustDomainId::new("ck:trust_domain:example.net").is_ok());
-        assert!(TypedTrustDomainId::new("ck:trust_domain:Example").is_err());
-        assert!(TypedTrustDomainId::new("ck:trust_domain:").is_err());
-        let too_long = format!("ck:trust_domain:{}", "a".repeat(129));
+        assert!(TypedTrustDomainId::new("ak:trust_domain:example.net").is_ok());
+        assert!(TypedTrustDomainId::new("ak:trust_domain:Example").is_err());
+        assert!(TypedTrustDomainId::new("ak:trust_domain:").is_err());
+        let too_long = format!("ak:trust_domain:{}", "a".repeat(129));
         assert!(TypedTrustDomainId::new(too_long).is_err());
     }
 }
@@ -136,13 +136,13 @@ mod protocol_wire {
 
     use super::super::*;
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()
     }
     fn td() -> TypedTrustDomainId {
-        TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap()
+        TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap()
     }
     fn td2() -> TypedTrustDomainId {
-        TypedTrustDomainId::new("ck:trust_domain:other.example").unwrap()
+        TypedTrustDomainId::new("ak:trust_domain:other.example").unwrap()
     }
 
     #[test]
@@ -207,9 +207,9 @@ mod protocol_wire {
         let mut state = CallSignalState::new();
         let key = CallSignalSeqKey::new(
             realm(),
-            CallId::new("ck:call:01904100-0000-7000-8000-000000000002").unwrap(),
+            CallId::new("ak:call:01904100-0000-7000-8000-000000000002").unwrap(),
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000003").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000003").unwrap(),
         );
         assert!(state.observe(&key, 1).is_ok());
         assert!(state.observe(&key, 2).is_ok());
@@ -267,7 +267,7 @@ mod protocol_wire {
             )
             .unwrap(),
             snapshot_frontier: vec![
-                EventId::new("ck:event:01904100-0000-7000-8000-000000000001").unwrap(),
+                EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap(),
             ],
             chunks: vec![SnapshotBootstrapChunk {
                 chunk_id: "0".to_owned(),
@@ -276,7 +276,7 @@ mod protocol_wire {
                 )
                 .unwrap(),
                 size_bytes: 1024,
-                fetch_ref: "ck:blob:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+                fetch_ref: "ak:blob:sha256:3333333333333333333333333333333333333333333333333333333333333333"
                     .to_owned(),
             }],
         };
@@ -291,7 +291,7 @@ mod protocol_wire {
 
     #[test]
     fn strand_cell_subject_helpers_return_strand_id() {
-        let strand = StrandId::new("ck:strand:01904100-0000-7000-8000-000000000004").unwrap();
+        let strand = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000004").unwrap();
         assert_eq!(strand_update_cell_subject(&strand), strand.as_str());
         assert_eq!(strand_tracks_patch_cell_subject(&strand), strand.as_str());
     }

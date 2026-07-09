@@ -443,8 +443,8 @@ impl TryFrom<EventWire> for Event {
 /// an [`Event`].
 ///
 /// The wire form is an internally-tagged JSON object on `kind`:
-/// - `{ "kind": "realm", "realm_id": "ck:realm:..." }`
-/// - `{ "kind": "circle", "realm_id": "ck:realm:...", "circle_id": "ck:circle:..." }`
+/// - `{ "kind": "realm", "realm_id": "ak:realm:..." }`
+/// - `{ "kind": "circle", "realm_id": "ak:realm:...", "circle_id": "ak:circle:..." }`
 ///
 /// `#[non_exhaustive]`: a future spec revision may register additional scope
 /// kinds. Downstream `match` expressions MUST carry a `_` arm with
@@ -749,7 +749,7 @@ impl Event {
         payload: Value,
     ) -> Result<Self> {
         Ok(Self {
-            event_id: EventId::new(new_prefixed_uuid7("ck:event:"))?,
+            event_id: EventId::new(new_prefixed_uuid7("ak:event:"))?,
             kind: EventKind::from_wire(&kind.into()),
             realm_id,
             actor_id,
@@ -790,7 +790,7 @@ mod event_wire_surface_tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
     }
 
     fn alice() -> Did {
@@ -799,7 +799,7 @@ mod event_wire_surface_tests {
 
     fn base_event() -> Event {
         Event {
-            event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
+            event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
             kind: "ck.message.create".into(),
             realm_id: realm(),
             actor_id: alice(),
@@ -817,7 +817,7 @@ mod event_wire_surface_tests {
             requirements: EventRequirements::default(),
             redacts: None,
             payload: json!({
-                "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+                "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
                 "track_name": "discussion",
                 "content": {"kind": "ck.content.text", "body": "hello"}
             }),
@@ -838,7 +838,7 @@ mod event_wire_surface_tests {
 
         assert_eq!(
             payload.strand_id.as_str(),
-            "ck:strand:01904100-0000-7000-8000-6c663fa0205f"
+            "ak:strand:01904100-0000-7000-8000-6c663fa0205f"
         );
         assert_eq!(payload.track_name, "discussion");
         assert_eq!(
@@ -864,7 +864,7 @@ mod event_wire_surface_tests {
         let mut reaction = base_event();
         reaction.kind = crate::events::kinds::REACTION_ADD.into();
         reaction.payload = json!({
-            "target_ref": "ck:event:01904100-0000-7000-8000-000000000099",
+            "target_ref": "ak:event:01904100-0000-7000-8000-000000000099",
             "key": "+1"
         });
 
@@ -879,7 +879,7 @@ mod event_wire_surface_tests {
     fn payload_accessor_parses_encrypted_message_payload() {
         let mut event = base_event();
         event.payload = json!({
-            "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+            "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
             "encrypted_content": {
                 "scheme": "ck.test.encrypted",
@@ -912,7 +912,7 @@ mod event_wire_surface_tests {
     fn payload_accessor_rejects_missing_required_field() {
         let mut event = base_event();
         event.payload = json!({
-            "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+            "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
             "content": {"kind": "ck.content.text", "body": "hello"}
         });
 
@@ -944,8 +944,8 @@ mod event_wire_surface_tests {
         // authorization_ref the schema invariant requires.
         let mut event = base_event();
         event.applet_id =
-            Some(AppletId::new("ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap());
-        event.authorization_ref = Some("ck:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
+            Some(AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap());
+        event.authorization_ref = Some("ak:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
         event.external_ref = Some(json!({
             "protocol": "slack",
             "external_id": "1234567890.0001"
@@ -955,7 +955,7 @@ mod event_wire_surface_tests {
         // Both fields serialize at the top level (so they enter canonical bytes).
         assert_eq!(
             value.get("applet_id").and_then(Value::as_str),
-            Some("ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb")
+            Some("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb")
         );
         assert!(value.get("external_ref").unwrap().is_object());
 
@@ -1018,7 +1018,7 @@ mod event_wire_surface_tests {
         let mut value = serde_json::to_value(&event).unwrap();
         value.as_object_mut().unwrap().insert(
             "applet_id".to_owned(),
-            json!("ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"),
+            json!("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"),
         );
         let err = serde_json::from_value::<Event>(value).unwrap_err();
         assert!(

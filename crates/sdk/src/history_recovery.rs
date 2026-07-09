@@ -517,7 +517,7 @@ mod tests {
         let document = did_document(&recipient, &rrk_pub);
         let resolved = resolve_realm_history_recovery_key(&recipient, &document).unwrap();
 
-        let realm_id = "ck:realm:01904100-0000-7000-8000-e2eeae0d0001";
+        let realm_id = "ak:realm:01904100-0000-7000-8000-e2eeae0d0001";
         let secrets: Vec<(u64, Vec<u8>)> = vec![(4, vec![0x11; 32]), (5, vec![0x22; 32])];
         let scope = rrk_key_scope(
             realm_id,
@@ -532,7 +532,7 @@ mod tests {
             &secrets,
             realm_id,
             scope,
-            "ck:device:01904100-0000-7000-8000-00000000ae01",
+            "ak:device:01904100-0000-7000-8000-00000000ae01",
             serde_json::json!("base64url-sender-sig"),
             Utc::now(),
             None,
@@ -565,14 +565,14 @@ mod tests {
         let resolved =
             resolve_realm_history_recovery_key(&recipient, &did_document(&recipient, &rrk_pub))
                 .unwrap();
-        let realm_id = "ck:realm:01904100-0000-7000-8000-e2eeae0d0001";
+        let realm_id = "ak:realm:01904100-0000-7000-8000-e2eeae0d0001";
         let scope = rrk_key_scope(realm_id, 4, 4, serde_json::json!("sha256:policy"), None);
         let err = seal_history_secrets_to_recovery_recipient(
             &resolved,
             &[],
             realm_id,
             scope,
-            "ck:device:01904100-0000-7000-8000-00000000ae01",
+            "ak:device:01904100-0000-7000-8000-00000000ae01",
             serde_json::json!("sig"),
             Utc::now(),
             None,

@@ -26,7 +26,7 @@ release, GitHub release, or release tag.
 
 ### Tooling
 
-- **Default `cokret` feature narrowed to the type surface.** The umbrella crate
+- **Default `arkret` feature narrowed to the type surface.** The umbrella crate
   no longer enables `client`, `mls`, `full-surface`, `applet-runtime`,
   `device-runtime`, `sync-runtime` or `timeline-runtime` by default. HTTP
   (`reqwest`/`tokio`), OpenMLS and high-level runtime surfaces are explicit
@@ -41,7 +41,7 @@ release, GitHub release, or release tag.
   now keeps one `typos` config and one `.rustfmt.toml`, with CI running
   `cargo +nightly fmt --all -- --check`.
 
-### R4.2 — Policy check `actor` → `actor_id` 2026-06-10 (cokret-spec @ fb4c970)
+### R4.2 — Policy check `actor` → `actor_id` 2026-06-10 (arkret-spec @ fb4c970)
 
 - **Wire-breaking rename**: `PolicyCheckRequestBody.actor` → `actor_id` and `PolicyCheckOutcome.bound_to.actor` → `actor_id` (spec `did_id_suffix` rule: responsibility subjects use the `_id` suffix even when the value is a DID). No compatibility shim — payloads carrying the bare `actor` field no longer deserialize.
 - **Wire-breaking rename follow-through**: the bare token `actor` stays a legitimate enum value / prose noun; wire DTOs use `actor_id` for DID-bearing responsibility subjects.
@@ -54,9 +54,9 @@ release, GitHub release, or release tag.
 - **Metadata floor collapsed from three tiers to binary**: `metadata_encryption_floor` is now `allow_plaintext` / `e2ee_required` (was `content_only` / `minimal_encrypted` / `full_encrypted`), fully symmetric with `content_encryption_floor`. The server-visibility axis that `minimal` vs `full` used to express now lives solely in `plaintext_visible_services`. Supersedes the three-tier form introduced in R4.0.
 - **`ContentEncryptionFloor` + `CircleMetadataEncryptionFloor` merged into `cokret_core::EncryptionFloor`**: identical value sets and semantics (`AllowPlaintext` / `E2eeRequired`); the content and metadata floors now share one type. The `CircleMetadataEncryptionFloor` name referenced under R4.0 no longer exists. The `ContentEncryptionFloorViolation` error variant name is retained (content-side semantics).
 
-### R3.5 — Applet protocol sync 2026-06-04 (cokret-spec @ 653ffb2)
+### R3.5 — Applet protocol sync 2026-06-04 (arkret-spec @ 653ffb2)
 
-- **New `applet` feature** (`applet-runtime` + `client` + `server` + `salvo`): one-flag umbrella so `cargo add cokret --features applet` pulls the full Applet developer surface.
+- **New `applet` feature** (`applet-runtime` + `client` + `server` + `salvo`): one-flag umbrella so `cargo add arkret --features applet` pulls the full Applet developer surface.
 - **`registration_epoch` now required** on `ck.applet.registration`: `WireAppletRegistration` gained `registration_epoch: Hash`; `WireAppletRegistration::new(..)` takes it as the final argument. Registrations minted before this release are non-conformant.
 - **Namespace entries wire-breaking**: `AppletWireNamespaces.{actors,realms,handles}` is now `Vec<AppletNamespaceEntry>` (`{ exclusive, pattern }`) per `applet-schema.md` §2 — a bare `["pattern"]` array no longer deserializes.
 - **New `AppletPackage` (`ck.schema.applet_package.v1`)**: controller-signed distribution object with `seal()` / `sign()` / `to_registration()` (spec §1a Package→registration derivation) + optional `manifest` on `WireAppletRegistration`.
@@ -67,22 +67,22 @@ release, GitHub release, or release tag.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-### R3.4 — Spec sync 2026-05-31 (cokret-spec @ c2848a4)
+### R3.4 — Spec sync 2026-05-31 (arkret-spec @ c2848a4)
 
 - Synced protocol-facing names and fixtures to `c2848a4`: event envelope schema naming, `_ids` grant constraints, accountability principal vocabulary, `ck:rtc_participant:` media participants, agent session start fields, and key-backup signature algorithm naming where applicable.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-### R3.3 — Spec sync 2026-05-28 (cokret-spec @ cced4b8, CKP-0011)
+### R3.3 — Spec sync 2026-05-28 (arkret-spec @ cced4b8, CKP-0011)
 
 - **New operation**: `ck.find.directory.query.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `ck.find.directory.query.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `ck.schema.*`, or wire/reducer changes.
 - **Wire types**: `DirectoryResolveTargetRequestBody { address, requester, proofs, token }` + `DirectoryTargetResolutionOutcome { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Strand, Message }`. http-client method `directory_resolve_target`.
-- **Object-addressing grammar** (`cokret_core::models::object_address`): client-agnostic shareable address pointing at a Realm / Strand / Message. `parse_address` accepts both the `web+cokret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `strand` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid strand/message segment, or a strand/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
+- **Object-addressing grammar** (`cokret_core::models::object_address`): client-agnostic shareable address pointing at a Realm / Strand / Message. `parse_address` accepts both the `web+arkret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `strand` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid strand/message segment, or a strand/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
 - **Invite-token target binding** (scope-confusion defence): `TargetDescriptor { realm_id, strand_id?, message_id?, link_type }` with absent hierarchy fields OMITTED (never `null`) and typed canonical id values (`ck:realm:` / `ck:strand:` / `ck:message:`). `target_digest` reuses the shared canonicalizer (`canonical::canonical_sha256`) and covers ONLY the identity tuple + `link_type` — never `via` / `action` / `tok` / `lt`. `verify_token_target` recomputes + compares the digest so a token minted for object A cannot be replayed onto a different object B (and fails closed when the realm is still an unresolved alias).
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-### R3.2 — Spec sync 2026-05-28 (cokret-spec @ b56cab1)
+### R3.2 — Spec sync 2026-05-28 (arkret-spec @ b56cab1)
 
 - **MemberIdentity wire-breaking**: `MemberIdentity` no longer carries `primary_handle` / `handles[]`; `VerifiedHandle` removed. Handle lifecycle is governed solely by `ck.schema.handle_claim.v1`. This object discloses `subject_id` + `display_profile` only.
 - **Digest renames**: payload `identity_state_digest` → `identity_payload_digest`; roster `identity_state_digest` → `member_display_state_digest` (now folds the visible handle-claim digest set). New `member_identity_effective_set_digest` helper backs `expected_state_digest`.
@@ -94,7 +94,7 @@ release, GitHub release, or release tag.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-### R3 — Spec sync 2026-05-27 (cokret-spec @ b47ff6ec)
+### R3 — Spec sync 2026-05-27 (arkret-spec @ b47ff6ec)
 
 - Call / media (CKP-0010): client helper `call_media_token_exchange`, `MediaTokenResponse` / `ParticipantBinding` / `MediaBackendType` types, TTL gate `<=600s`, five new capability actions, op registry mirror at `ck.self.call.media.exchange.issue_token`.
 - Agent (CKP-0008 / 0009): `ck.self.agent.command.deactivate` HTTP path canonicalised (no `/revoke`), draft / action_request / approve / reject event kinds wired, `pause/resume/deactivate` FSM lattice metadata, agent_runtime surface tier definition.
@@ -104,14 +104,14 @@ release, GitHub release, or release tag.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-### R3 — Spec sync 2026-05-27 (cokret-spec b47ff6ec, no release)
+### R3 — Spec sync 2026-05-27 (arkret-spec b47ff6ec, no release)
 
 Aggressive spec-sync round; no version bump, `git commit` only.
 
 #### CKP-0010 — Call / Media token exchange
 
 - New op `ck.self.call.media.exchange.issue_token` mounted at
-  `POST /cokret/v1/rtc/token` with surface tier `core_personal`
+  `POST /arkret/v1/rtc/token` with surface tier `core_personal`
   (`crates/core/src/models/constants.rs`,
   `crates/server/src/registry.rs`).
 - New SDK types in `crates/sdk/src/media.rs`:
@@ -231,7 +231,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
 
 ### CKP-0007 — Circle primitive rollout (wire-breaking, no release)
 
-Tracks `cokret-spec` range `9cb47c1..2b0d70d` (21 commits). Version
+Tracks `arkret-spec` range `9cb47c1..2b0d70d` (21 commits). Version
 numbers are intentionally **not** bumped this round; this changelog
 section will roll into the next published release.
 
@@ -279,8 +279,8 @@ section will roll into the next published release.
   (`delivery_binding_handed_over`) was already shipped in round 4.
 - `ck.schema.circle.v1` added to `ARTIFACT_BACKED_SCHEMA_IDS` so the
   spec-drift gate covers the new schema.
-- Public re-exports: `cokret::Circle`, `cokret::CircleId`,
-  `cokret::CIRCLE_SCHEMA_ID`, plus the kind / capability / reason
+- Public re-exports: `arkret::Circle`, `arkret::CircleId`,
+  `arkret::CIRCLE_SCHEMA_ID`, plus the kind / capability / reason
   constants above.
 - `docs/circle-integration.md` integration guide.
 - `MIGRATING-FROM-0.7.md` § "CKP-0007 follow-up" migration cookbook.
@@ -323,12 +323,12 @@ section will roll into the next published release.
 
 ### Round R4 — protocol review closures (wire-breaking) (2026-05-20)
 
-Tracks cokret-spec range `2a4d39b..a77b9958e3c6535a39bf468d661a23ae5d38cb10`
+Tracks arkret-spec range `2a4d39b..a77b9958e3c6535a39bf468d661a23ae5d38cb10`
 (8 commits). See [`../_todos.md`](../_todos.md) "协议变更摘要" for the canonical
 wire-breaking list.
 
 - **Added** new `round4` module aggregating Round R4 types, constants, and
-  validation helpers (re-exported from the umbrella `cokret` crate).
+  validation helpers (re-exported from the umbrella `arkret` crate).
 - **Added** types: `EventsSubscribeFrame` (8-kind enum: `event` / `frontier` /
   `heartbeat` / `catchup_complete` / `epoch_rotation` / `dropped{cursor}` /
   `resync_required` / `unauthorized`), `SnapshotBootstrap`, `EventsFrontierState`
@@ -379,9 +379,9 @@ wire-breaking list.
 
 ### Added — Round R2/R3 spec round 2+3 cleanup (wire-breaking) (2026-05-20)
 
-Tracks cokret-spec commits `f3c3bad..2a4d39b` (notably `8b7978d spec: round 2+3
+Tracks arkret-spec commits `f3c3bad..2a4d39b` (notably `8b7978d spec: round 2+3
 cleanup`). All 17 new normative requirements landed in the SDK as type
-signatures, schema-id constants, and validation helpers. See cokret-spec
+signatures, schema-id constants, and validation helpers. See arkret-spec
 `CHANGELOG.md` Round R2/R3 entries for the normative source.
 
 - **Event kinds**: 4 new active `durable_event` kinds — `ck.moderation.appeal.submit`
@@ -447,7 +447,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 
 ### Added — `authz::delegation` module (capability delegation chain check) (2026-05-18)
 
-- **`cokret::authz::delegation`** — new SDK-rooted home for capability
+- **`arkret::authz::delegation`** — new SDK-rooted home for capability
   delegation primitives that were previously inlined in soland's
   `AuthzEngine`. Hosts: `Grant` (runtime in-memory form), `GrantConstraint`,
   `GrantRequest`, `DelegationError` enum (variants `ParentNotFound`,
@@ -483,7 +483,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
   (`required_operations` / `required_event_kinds` / `required_schemas`
   / `required_constraint_kinds`) as a `LazyLock<BTreeMap<&'static
   str, ProfileRequirements>>` keyed by `profile_id`. Built from
-  `cokret-spec/spec/v1/artifacts/profiles/conformance-profiles.json`
+  `arkret-spec/spec/v1/artifacts/profiles/conformance-profiles.json`
   by a new `tools/generate-sdk-profile-requirements.ps1` that mirrors
   the existing profile-ID constants generator. The module ships
   `validate_profile_requirements` (returns
@@ -503,7 +503,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 
 ### Added — `identity::binding` module (DID key binding proof verify, Ed25519V1) (2026-05-18)
 
-- **`cokret::identity::binding`** — new SDK-rooted module hosting the
+- **`arkret::identity::binding`** — new SDK-rooted module hosting the
   pure-protocol DID key binding proof primitive that coauth (and any
   future consumer — inkson, cotest, starid) calls into for the
   cryptographic verify step. Exposes:
@@ -545,7 +545,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 
 ### Added — `jws::sign_jws_ed25519` symmetric signer (2026-05-18)
 
-- **`cokret::jws::sign_jws_ed25519`** — new SDK-rooted detached
+- **`arkret::jws::sign_jws_ed25519`** — new SDK-rooted detached
   Ed25519 JWS signer. Symmetric counterpart of the existing
   `verify_jws_ed25519`: a `verify` after a `sign` over the same
   `canonical_bytes` (with a resolver that returns the matching public
@@ -568,7 +568,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 
 ### Added — `canonical::canonical_digest` helper (2026-05-18)
 
-- **`cokret::canonical::canonical_digest`** — new one-liner that takes
+- **`arkret::canonical::canonical_digest`** — new one-liner that takes
   already-canonicalized JSON bytes (e.g. produced via
   `canonical_json_bytes`) and returns the wire-form
   `sha256:<lowercase-hex>` digest used in event envelopes
@@ -583,7 +583,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 
 ### Added — `agent_binding::verify_audit_binding_by_kind` dispatcher (2026-05-18)
 
-- **`cokret::agent_binding::verify_audit_binding_by_kind`** — single
+- **`arkret::agent_binding::verify_audit_binding_by_kind`** — single
   SDK entry point for verifying `ck.agent.protocol_session.result`
   `audit_binding` blocks, dispatched by `binding_kind` so consumers
   don't have to re-implement the scheme switch. Routes `ed25519_v1`
@@ -597,7 +597,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 
 ### Moved — `default_lattice_registry()` from soland to SDK (2026-05-18)
 
-- **`cokret::lattice_registry`** — new SDK-rooted module owning the
+- **`arkret::lattice_registry`** — new SDK-rooted module owning the
   cell-family `LatticeKind` trait + `LatticeRegistry` plus the
   spec-normative cell-family bindings and the `default_lattice_registry`
   / `build_sdk_cell_registry` / `lattice_bindings_for_sdk_registry`
@@ -615,7 +615,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 
 ### Added — `jws` module (RFC 7515 detached Ed25519) (2026-05-18)
 
-- **`cokret::jws`** — new SDK-rooted module consolidating the
+- **`arkret::jws`** — new SDK-rooted module consolidating the
   RFC 7515 detached Ed25519 JWS verifier that previously lived in
   `soland/src/jws_verify.rs`. Same wire bytes / same accept-reject
   decision, now shared across every consumer (inkson, floria, cotest,
@@ -641,7 +641,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 
 ### Added — `http_signature` module (RFC 9421) (2026-05-18)
 
-- **`cokret::http_signature`** — new HTTP-framework-agnostic
+- **`arkret::http_signature`** — new HTTP-framework-agnostic
   module that consolidates the RFC 9421 HTTP Message Signature
   logic previously duplicated in `floria/src/auth.rs` (verifier)
   and `chime/src/push/signing.rs` (signer). Surfaces:
@@ -662,7 +662,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 
 ### Internal — typed `ConstraintParseError` for recurrence helpers (2026-05-18)
 
-- **`cokret::authz::constraints`** — the recurrence parsing helpers
+- **`arkret::authz::constraints`** — the recurrence parsing helpers
   (`recurrence_allows`, `recurrence_next_transition_after`,
   `parse_recurrence_zone`, `parse_recurrence_day`, `parse_recurrence_time`,
   `recurrence_frequency_allows`) now return `Result<_, ConstraintParseError>`
@@ -689,7 +689,7 @@ in `crates/core/src/models/`. This round adds both so downstream consumers
 (soland, inkson, …) can validate submit payloads using the same registry
 abstraction as the rest of the reducer-input event family.
 
-- **`cokret-core`** — all changes in `crates/core/src/models/`:
+- **`arkret-core`** — all changes in `crates/core/src/models/`:
   - `constants.rs`: new `OP_APPLET_BRIDGE_ERROR` / `OP_APPLET_DISCOVERY` /
     `OP_APPLET_PROTOCOL_SESSION_START` / `OP_APPLET_PROTOCOL_SESSION_STATUS`
     / `OP_APPLET_REGISTRATION` / `OP_AGENT_ENDPOINT` /
@@ -715,7 +715,7 @@ abstraction as the rest of the reducer-input event family.
     `OP_AGENT_PROTOCOL_SESSION_RESULT` → `[session_id, result, audit_binding]`
     Mirrors soland round 14f `STRAND_TRACK_REQUIREMENTS` shape exactly.
 
-- **`cokret` (sdk)** — no changes. These events don't affect
+- **`arkret` (sdk)** — no changes. These events don't affect
   client-side projection state (applet bridge state machine lives in
   the client app; agent session signing audit binding is verified at
   the agent endpoint). The reducer's `process_event_content` already
@@ -747,7 +747,7 @@ dispatcher branches — events landed and dispatched as "Unknown event
 type" no-ops. This round wires the full reducer surface so client-side
 state machines correctly maintain `Strand.tracks` from the event log.
 
-- **`cokret-core`**:
+- **`arkret-core`**:
   - `crates/core/src/models/constants.rs`: new `OP_STRAND_TRACK_DISABLE` /
     `OP_STRAND_TRACK_ENABLE` / `OP_STRAND_TRACK_SET_PRIMARY` /
     `OP_STRAND_TRACK_UPDATE` constants (alphabetically grouped under the
@@ -757,7 +757,7 @@ state machines correctly maintain `Strand.tracks` from the event log.
     OP_STRAND_TRACK_SET_PRIMARY` → `[strand_id, track_id]`;
     `OP_STRAND_TRACK_UPDATE` → `[strand_id, track_id, patch]`.
 
-- **`cokret` (sdk)**:
+- **`arkret` (sdk)**:
   - `crates/sdk/src/resolver/mod.rs`: re-export the four new `OP_*` from
     the `models::*` use list.
   - `crates/sdk/src/resolver/state.rs`:
@@ -822,7 +822,7 @@ the corresponding Strand / Morph subject's `state` remained `Active` —
 soland round 14b had to add the same logic server-side to enforce the
 spec rule, and SDK was the divergent side. Now the two are symmetric.
 
-- **`cokret` (sdk)** — all changes in `crates/sdk/src/resolver/state.rs`:
+- **`arkret` (sdk)** — all changes in `crates/sdk/src/resolver/state.rs`:
   - New helper `redact_object_for_event(event)` extracts `object_ref`
     (fallback `target_object_ref`) from the redaction event's `content`.
     When that names a Strand / Morph subject (`ck:strand:` / `ck:morph:`),
@@ -877,7 +877,7 @@ paragraph rule that `*.update` MUST fail on a non-active object (otherwise
 edits would silently revive an archived/tombstoned object, conflicting
 with `*.restore` semantics).
 
-- **`cokret` (sdk)** — all changes in `crates/sdk/src/resolver/state.rs`:
+- **`arkret` (sdk)** — all changes in `crates/sdk/src/resolver/state.rs`:
   - `archive_strand` previously delegated unconditionally to
     `set_strand_state(Archived)`. It now validates
     `state == Some(ObjectState::Active)` first; non-Active source MUST
@@ -938,7 +938,7 @@ source. Spec is explicit: `*.restore` is the canonical `archived → active`
 path, and `tombstoned` / `deleted` / `redacted` MUST NOT be restored. This
 round pins that invariant in the reducer for Strand and Morph as well.
 
-- **`cokret` (sdk)**:
+- **`arkret` (sdk)**:
   - `restore_strand` in `crates/sdk/src/resolver/state.rs` now validates
     `state == Some(ObjectState::Archived)` before delegating to
     `set_strand_state(Active)`. Source state Active / Deleted / Redacted /
@@ -981,14 +981,14 @@ round pins that invariant in the reducer for Strand and Morph as well.
 
 ### Added — `ck.place.restore` (2026-05-15)
 
-Mirror the new `ck.place.restore` event kind landed in `../cokret-spec`
+Mirror the new `ck.place.restore` event kind landed in `../arkret-spec`
 (Unreleased changelog entry "新增 `ck.place.restore` 修正 Place 生命周期对称性").
 Previously the SDK had `ck.place.archive` / `ck.place.tombstone` but no way to
 reverse archive — clients had no wire-legal path to unarchive a board / list,
 and reducers had no spec-aligned state-machine entry. With this round the SDK
 implements the canonical `archived -> active` transition end-to-end.
 
-- **`cokret-core`**:
+- **`arkret-core`**:
   - `events::PLACE_RESTORE` constant (`"cx.place.restore"`) added in
     `crates/core/src/events/kinds.rs`, inserted into the sorted
     `STANDARD_EVENT_KINDS` array (binary-searched by
@@ -1002,14 +1002,14 @@ implements the canonical `archived -> active` transition end-to-end.
     `OP_PLACE_ARCHIVE | OP_PLACE_RESTORE | OP_PLACE_TOMBSTONE` — restore
     requires the same single `place_id` field as archive.
 
-- **`cokret` (sdk)**:
+- **`arkret` (sdk)**:
   - `Space::restore_place_operation(place_id)` constructs the spec-shaped
     `ck.place.restore` operation, mirroring `archive_place_operation`
     (same `OperationType::Update`, same `{ "place_id": ... }` payload).
   - Resolver `SpaceState::process_event_content` adds an `OP_PLACE_RESTORE`
     branch backed by a new `restore_place` reducer in
     `crates/sdk/src/resolver/state.rs`. The reducer validates current
-    `state == Archived` per `cokret-spec` `space-and-place.md §4.4`; any
+    `state == Archived` per `arkret-spec` `space-and-place.md §4.4`; any
     other state (`Active`, `Tombstoned`, unset) MUST `failed_precondition`
     with `place_not_archived` and the reducer makes no mutations. Unknown
     Place (causal / backfill not yet caught up) is tolerated, matching the
@@ -1023,7 +1023,7 @@ implements the canonical `archived -> active` transition end-to-end.
     event does not mutate the Place state.
 
 - **Spec references**:
-  - `cokret-spec` event_kind_registry / capability_action_registry now
+  - `arkret-spec` event_kind_registry / capability_action_registry now
     list `ck.place.restore`.
   - `space-and-place.md §4.4` "Restore Place" subsection is the normative
     source for the reducer guard above.
@@ -1046,7 +1046,7 @@ implements the canonical `archived -> active` transition end-to-end.
 
 Three new SDK surfaces requested by the soland principal server.
 
-- **MAL-11 seal compaction primitives** in `cokret-core`:
+- **MAL-11 seal compaction primitives** in `arkret-core`:
   - New `SealKind` enum (`Normal` / `Compaction`) added to the
     `Seal` struct as a `#[serde(default)]` field — `Normal` is
     omitted from the wire, so pre-MAL-11 envelopes deserialize as
@@ -1073,7 +1073,7 @@ Three new SDK surfaces requested by the soland principal server.
     `min_anchor_age_seconds` (default 7 days),
     `min_compaction_witnesses` (default 1), `preserve_genesis`
     (default true), `prune_only_singleton_successors` (default true).
-- **Snapshot chunk v2 primitives** in `cokret-core::snapshot`:
+- **Snapshot chunk v2 primitives** in `arkret-core::snapshot`:
   - `SnapshotChunker` — deterministic byte-range partitioning with
     configurable `target_chunk_bytes` (default 256 KiB).
   - `SnapshotChunk` — `{chunk_id, bytes, digest}` with base64-url
@@ -1088,10 +1088,10 @@ Three new SDK surfaces requested by the soland principal server.
     `verify_payload_digest()` then run their own JWS verifier on
     `signature.jws`.
 - **Per-admin signing key + session-grant introspection** in
-  `cokret-core::admin_signer`:
+  `arkret-core::admin_signer`:
   - `AdminKeyStore` wraps any `KeyStore` and addresses per-admin
     signing keys via canonical id
-    `cokret:signer:admin:<application_id>:<did>`. `load_admin_key` /
+    `arkret:signer:admin:<application_id>:<did>`. `load_admin_key` /
     `store_admin_key` / `delete_admin_key` / `has_admin_key` /
     `list_admin_dids` all key off `Did`.
   - `SessionGrantIntrospection` is the typed view of an OAuth-style
@@ -1105,7 +1105,7 @@ Three new SDK surfaces requested by the soland principal server.
 
 ### Test coverage
 
-`cokret-core` lib tests: **298 → 342 passed** (rounds 6/7 baseline →
+`arkret-core` lib tests: **298 → 342 passed** (rounds 6/7 baseline →
 round 8, +44 new). Highlights:
 - 6 new tests for `SealKind` (default, wire omission, canonical-id
   forgery defense, JSON round-trip, missing-field default).
@@ -1203,7 +1203,7 @@ the bump is for the SDK API surface adjustments described below.
   available pending an openmls upstream bump). `cargo deny check` is
   green: `advisories ok, bans ok, licenses ok, sources ok`.
 
-## [0.6.0] – 2026-05-10 — Spec sync (`cokret-spec` `f724863..48898bf`)
+## [0.6.0] – 2026-05-10 — Spec sync (`arkret-spec` `f724863..48898bf`)
 
 Wire-breaking spec alignment pass. v1 is unreleased so this is a hard
 break with no compat shims, no `#[deprecated]` adapters, and no
@@ -1278,19 +1278,19 @@ unchanged; this is an additive SDK API release.
   `keystore-macos` feature, wired to the `security-framework` crate's
   generic-password APIs (`set_generic_password` / `get_generic_password`
   / `delete_generic_password` plus `ItemSearchOptions` for `list()`).
-  Items live under service name `"cokret.<application_id>"`. 5 unit
+  Items live under service name `"arkret.<application_id>"`. 5 unit
   tests gated on `cfg(target_os = "macos")`.
 - **`LinuxSecretServiceKeyStore` (D-Bus Secret Service)** behind the new
   `keystore-linux` feature, wired to the `secret-service` crate's
   blocking client. Items are tagged with `service` + `account`
   attributes for namespaced enumeration. 5 unit tests gated on
-  `cfg(target_os = "linux")` plus `COKRET_TEST_LINUX_KEYSTORE=1` env
+  `cfg(target_os = "linux")` plus `ARKRET_TEST_LINUX_KEYSTORE=1` env
   guard for runtime D-Bus access.
 - **`WindowsCredentialKeyStore` (Windows Credential Manager)** behind
   the new `keystore-windows` feature, wired to the `windows` crate's
   `Cred*W` family (`CredReadW` / `CredWriteW` / `CredDeleteW` /
   `CredEnumerateW`). Target name pattern
-  `"cokret.<application_id>:<key_id>"`. 5 unit tests; on Windows CI
+  `"arkret.<application_id>:<key_id>"`. 5 unit tests; on Windows CI
   these run live against the user's Credential Manager.
 - **`KeyStoreError`** strongly-typed error enum (`Unsupported` /
   `NotFound` / `InvalidId` / `Backend`) convertible to
@@ -1326,7 +1326,7 @@ from 0.4.0; this is an additive SDK API release.
 
 ### Added
 
-- **`cokret-core::MoveSigner` trait + `UnsignedMove` builder** — public
+- **`arkret-core::MoveSigner` trait + `UnsignedMove` builder** — public
   signer abstraction for Move/Seal signing. `Move::sign(&unsigned, &signer)`
   produces a fully-signed Move whose `id` matches canonical bytes hash
   and `sig.payload_digest` matches the same canonical bytes. 8 unit tests.
@@ -1334,15 +1334,15 @@ from 0.4.0; this is an additive SDK API release.
   constructors that take a [`MoveSigner`] (or threshold proof bytes) +
   predecessor refs + frontier and produce a fully-signed [`Seal`]
   with `id` derived from canonical bytes.
-- **`cokret-signatures::Ed25519MoveSigner`** behind the new `signer`
+- **`arkret-signatures::Ed25519MoveSigner`** behind the new `signer`
   feature: wraps `ed25519_dalek::SigningKey`, exposes
   `new(signing_key, did, kid)` + `from_did_key_seed(seed)`, produces
   detached EdDSA JWS strings. Includes
   `verify_ed25519_move_signature` helper for round-trip vectors. 5
   unit tests.
-- Re-exported at the top-level `cokret` crate root behind the
-  `cokret/signer = ["cokret-signatures/signer"]` feature flag.
-- **`cokret::EventsQueryRequest` / `EventsQueryOutcome`** typed
+- Re-exported at the top-level `arkret` crate root behind the
+  `arkret/signer = ["arkret-signatures/signer"]` feature flag.
+- **`arkret::EventsQueryRequest` / `EventsQueryOutcome`** typed
   wrappers in `sync_client.rs` for `ck.self.events.query.scan`. Multi-selector
   (`spaces[] ∪ actors[]`), `from` / `until` HLC bounds, `direction`
   (forward/backward), `limit`. `EventsQueryOutcome` carries `events`,
@@ -1375,48 +1375,48 @@ from 0.4.0; this is an additive SDK API release.
 ## [0.2.0] – 2026-05-08 — Move / Seal / Lattice rebase ⚠ wire-breaking
 
 This release rebases the SDK onto the Move/Seal/Lattice three-primitive
-state-convergence model introduced by `cokret-spec` 2026-05-08. The
+state-convergence model introduced by `arkret-spec` 2026-05-08. The
 v1 wire surface is **incompatible** with 0.1.0: `ck.consent.*` events,
 the old `StateReducer` API, and the host-endorsement / writer-model
 typed model are all gone. v1 was unreleased; no compat shim is provided.
 
 ### Added
 
-- **`cokret-lattice` crate** — new independent crate providing the
+- **`arkret-lattice` crate** — new independent crate providing the
   closed `Lattice` trait and six normative implementations
   (`or-set` / `mv-register` / `cas-register` / `fsm` / `counter` /
   `ordered-log`) plus `SealedOp` / `CellState` types. 55 unit tests.
-- **`cokret-core::Move`** typed model with canonical-bytes id derivation
+- **`arkret-core::Move`** typed model with canonical-bytes id derivation
   (spec §3); 13 unit tests covering id round-trip / signature payload
   hash / SemanticRef default-skip / snake-case op enums.
-- **`cokret-core::Seal`** typed model with three signature shapes
+- **`arkret-core::Seal`** typed model with three signature shapes
   (`Single` / `Multi` / `Threshold`); 13 unit tests covering id
   round-trip + threshold below-quorum reject + wire `kind`
   discriminator.
-- **`cokret-core::Bottom`** structured diagnostic typed model with six
+- **`arkret-core::Bottom`** structured diagnostic typed model with six
   `BottomKind` variants matching `bottom.schema.json`.
-- **`cokret-core::NotaryValue`** four-variant typed enum
+- **`arkret-core::NotaryValue`** four-variant typed enum
   (`SingleDid` / `Threshold` / `OpenSet` / `Mixed`); validates the
   notary cell's cas-register value shape per spec §4.4.
-- **`cokret-core::CellId`** parser + `composite_subject` (base64url +
+- **`arkret-core::CellId`** parser + `composite_subject` (base64url +
   sha256 hash form per encoding.md §9.5) + `composite_subject_pipe`
   diagnostic form.
 - New typed identifiers: `MoveId` (`ck:move:sha256:<hex>`), `SealId`
   (`ck:seal:sha256:<hex>`), `CellRef` (`ck:cell:<component>:<subject>`)
   with OpenAPI schemas.
-- **`cokret-state-res` rewrite** — `MoveStore` / `SealStore` /
+- **`arkret-state-res` rewrite** — `MoveStore` / `SealStore` /
   `CellStore` / `CellRegistry` trait contracts + Memory backends +
   `verify_move` five-step pipeline + `apply_seal` eight-step
   algorithm + `effective_seal_view` pure function +
   `compute_state_root` (RFC 6962 Merkle, empty-list root locked to
   spec §4.2). 32 unit tests.
-- **`cokret::consent`** rewritten as or-set Move builder per spec
+- **`arkret::consent`** rewritten as or-set Move builder per spec
   consent-model §3:
   `grant_effect` / `revoke_effect_with_precondition` /
   `evaluate_consent` / `require_consent_precondition`. Cell family
   `ck.component.consent.grant.v1`. Tag form
   `grant:<consent_id>:<peer>:<scope>` for deterministic dedupe.
-- **`cokret::mls_move`** new module — MLS commit Move helpers per
+- **`arkret::mls_move`** new module — MLS commit Move helpers per
   spec §10: `mls_commit_preconditions` / `mls_commit_effects` /
   `e2ee_message_precondition` / `covered_seals_contains` plus
   cell families `ck.component.mls_epoch.v1` (cas-register, reject) /
@@ -1430,7 +1430,7 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
 
 ### Removed (wire-breaking)
 
-- **Old `cokret-state-res` API**: `StateReducer`, `state_digest`,
+- **Old `arkret-state-res` API**: `StateReducer`, `state_digest`,
   `is_state_event`, `subject_for_event`, `candidate_wins`,
   `ResolvedStateEvent`, `ConflictRecord`, `StateResolutionSnapshot`,
   `StateAuthority`, `evaluate_state_auth`, `BoardReducer` —
@@ -1455,9 +1455,9 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
 
 ### Changed
 
-- `cokret-state-res` Cargo.toml gains `cokret-lattice`, `sha2`,
+- `arkret-state-res` Cargo.toml gains `arkret-lattice`, `sha2`,
   `thiserror` deps to support the new runtime.
-- `cokret-testing::state_resolution_vectors` rewritten to drive
+- `arkret-testing::state_resolution_vectors` rewritten to drive
   `apply_seal` end-to-end. `StateResolutionVector` struct fields
   changed from `{name, winner_event_id, conflict_count}` to
   `{name, seal, accepted_count, rejected_count, post_state_root}`
@@ -1525,21 +1525,21 @@ See `docs/move-seal-runtime.md` for the full architecture.
   `http_client(...)` with any transport-shaping option, instead of silently
   ignoring the option.
 - Local package verification covers every workspace crate in dependency order,
-  not just the umbrella `cokret` crate.
+  not just the umbrella `arkret` crate.
 - `.github/workflows/ci.yml` corrects the publish dry-run package spec from
-  `-p cokret-sdk` (which never matched any crate) to `-p cokret`.
+  `-p arkret-sdk` (which never matched any crate) to `-p arkret`.
 
 ## [0.1.0] – TBD
 
-Initial release candidate for Cokret v1 SDK.
+Initial release candidate for Arkret v1 SDK.
 
 ### Added
 
-- Workspace of 22 focused crates plus an umbrella `cokret` crate
+- Workspace of 22 focused crates plus an umbrella `arkret` crate
   re-exporting the public SDK surface (high-level state managers, sync
   client, MLS encryption, identity, federation, push, presence, …).
 - Wire models for Space / Strand / Message / Morph / Relation / Event / View
-  matching the Cokret v1 `data-structures.md` shape, including `StrandBranch`
+  matching the Arkret v1 `data-structures.md` shape, including `StrandBranch`
   end-to-end migration and `Morph` as a canonical object.
 - Canonical JSON encoder + SHA-256 digest helpers; signed payloads use this
   module so different clients compute identical hashes.
@@ -1578,5 +1578,5 @@ Initial release candidate for Cokret v1 SDK.
   review. See `SECURITY.md` for the disclosure process and
   `docs/security-audit.md` for current evidence.
 
-[Unreleased]: https://github.com/cokret/cokret-rust-sdk/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/cokret/cokret-rust-sdk/releases/tag/v0.1.0
+[Unreleased]: https://github.com/arkret/arkret-rust-sdk/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/arkret/arkret-rust-sdk/releases/tag/v0.1.0

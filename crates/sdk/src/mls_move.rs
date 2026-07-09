@@ -1,6 +1,6 @@
 //! MLS commit Move + `covered_seals` cell helpers.
 //!
-//! Per spec [`event-auth-state-resolution.md`](https://cokret.org/spec/v1/zh/authz/event-auth-state-resolution.md)
+//! Per spec [`event-auth-state-resolution.md`](https://arkret.org/spec/v1/zh/authz/event-auth-state-resolution.md)
 //! §10, an MLS commit is **a Move**, not an Seal. It writes three
 //! well-known cells:
 //!
@@ -46,7 +46,7 @@ pub fn mls_epoch_cell_id(group_id: &str) -> Result<CellRef, cokret_core::Error> 
             "MLS group_id must not be empty".to_owned(),
         ));
     }
-    CellRef::new(format!("ck:cell:{MLS_EPOCH_CELL_FAMILY}:{group_id}"))
+    CellRef::new(format!("ak:cell:{MLS_EPOCH_CELL_FAMILY}:{group_id}"))
         .map_err(|e| cokret_core::Error::Protocol(format!("invalid mls_epoch cell id: {e}")))
 }
 
@@ -58,7 +58,7 @@ pub fn key_schedule_cell_id(group_id: &str) -> Result<CellRef, cokret_core::Erro
             "MLS group_id must not be empty".to_owned(),
         ));
     }
-    CellRef::new(format!("ck:cell:{KEY_SCHEDULE_CELL_FAMILY}:{group_id}"))
+    CellRef::new(format!("ak:cell:{KEY_SCHEDULE_CELL_FAMILY}:{group_id}"))
         .map_err(|e| cokret_core::Error::Protocol(format!("invalid key_schedule cell id: {e}")))
 }
 
@@ -66,7 +66,7 @@ pub fn key_schedule_cell_id(group_id: &str) -> Result<CellRef, cokret_core::Erro
 /// the governance Seal frontiers this MLS group is currently bound to.
 pub fn covered_seals_cell_id(realm_id: &RealmId) -> Result<CellRef, cokret_core::Error> {
     CellRef::new(format!(
-        "ck:cell:{COVERED_SEALS_CELL_FAMILY}:{}",
+        "ak:cell:{COVERED_SEALS_CELL_FAMILY}:{}",
         realm_id.as_str()
     ))
     .map_err(|e| cokret_core::Error::Protocol(format!("invalid covered_seals cell id: {e}")))
@@ -266,12 +266,12 @@ mod tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn seal(byte: u8) -> SealId {
         SealId::new(format!(
-            "ck:seal:sha256:{}",
+            "ak:seal:sha256:{}",
             format!("{byte:02x}").repeat(32)
         ))
         .unwrap()
@@ -290,15 +290,15 @@ mod tests {
         let group = "group.01js0mls0000000000000000";
         assert_eq!(
             mls_epoch_cell_id(group).unwrap().as_str(),
-            format!("ck:cell:ck.component.mls_epoch.v1:{group}")
+            format!("ak:cell:ck.component.mls_epoch.v1:{group}")
         );
         assert_eq!(
             key_schedule_cell_id(group).unwrap().as_str(),
-            format!("ck:cell:ck.component.key_schedule.v1:{group}")
+            format!("ak:cell:ck.component.key_schedule.v1:{group}")
         );
         assert_eq!(
             covered_seals_cell_id(&realm()).unwrap().as_str(),
-            format!("ck:cell:ck.component.covered_seals.v1:{}", realm().as_str())
+            format!("ak:cell:ck.component.covered_seals.v1:{}", realm().as_str())
         );
     }
 
@@ -324,7 +324,7 @@ mod tests {
         assert_eq!(
             pres[0].cell.as_str(),
             format!(
-                "ck:cell:ck.component.mls_epoch.v1:{}",
+                "ak:cell:ck.component.mls_epoch.v1:{}",
                 "group.01js0mls0000000000000000"
             )
         );
@@ -336,7 +336,7 @@ mod tests {
         // Second: contains on covered_seals_cell.
         assert_eq!(
             pres[1].cell.as_str(),
-            format!("ck:cell:ck.component.covered_seals.v1:{}", realm().as_str())
+            format!("ak:cell:ck.component.covered_seals.v1:{}", realm().as_str())
         );
         assert_eq!(pres[1].predicate.op, PredicateOp::Contains);
         assert_eq!(
@@ -394,7 +394,7 @@ mod tests {
         let pre = e2ee_message_precondition(&realm(), &seal(0xaa)).unwrap();
         assert_eq!(
             pre.cell.as_str(),
-            format!("ck:cell:ck.component.covered_seals.v1:{}", realm().as_str())
+            format!("ak:cell:ck.component.covered_seals.v1:{}", realm().as_str())
         );
         assert_eq!(pre.predicate.op, PredicateOp::Contains);
         assert_eq!(

@@ -148,7 +148,7 @@ fn sync_loop_control_applies_backpressure() {
 
 #[test]
 fn sync_loop_can_reset_token_on_limited_timeline_gap() {
-    let realm_id = "ck:realm:01904100-0000-7000-8000-9b64700c6ee8";
+    let realm_id = "ak:realm:01904100-0000-7000-8000-9b64700c6ee8";
     let mut response = sync_response("gap-token");
     let sync_realm = SyncRealm {
         timeline: Some(SyncTimeline {
@@ -179,7 +179,7 @@ fn sync_loop_can_reset_token_on_limited_timeline_gap() {
 
 #[test]
 fn sync_loop_includes_wait_for_frontier() {
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let wait_for = WaitForFrontier {
         positions: vec![crate::sync::SyncStreamPosition {
             realm_id,
@@ -200,7 +200,7 @@ fn sync_loop_includes_wait_for_frontier() {
 
 #[test]
 fn processor_dispatches_all_update_categories() {
-    let realm_id = "ck:realm:01904100-0000-7000-8000-9b64700c6ee8";
+    let realm_id = "ak:realm:01904100-0000-7000-8000-9b64700c6ee8";
     let mut response = sync_response("s2");
     let sync_realm = SyncRealm {
         timeline: None,
@@ -305,7 +305,7 @@ fn processor_dispatches_all_update_categories() {
 
 #[test]
 fn processor_tracks_limited_timelines_and_to_device_ack() {
-    let realm_id = "ck:realm:01904100-0000-7000-8000-9b64700c6ee8";
+    let realm_id = "ak:realm:01904100-0000-7000-8000-9b64700c6ee8";
     let parsed_realm_id = RealmId::new(realm_id).unwrap();
     let event = Event::new(
         "ck.message.create",
@@ -338,7 +338,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
     processor.process(response).unwrap();
     let ack = processor.acknowledge_to_device(
         "devmsg1",
-        DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
+        DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap(),
         ToDeviceAckStatus::Processed,
     );
 
@@ -355,7 +355,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
 
 #[test]
 fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let mut queue = SendQueue::new();
     let message = queue
         .enqueue_message(
@@ -375,7 +375,7 @@ fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
         .enqueue_edit(
             Some("txn2".to_owned()),
             realm_id,
-            EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap(),
+            EventId::new("ak:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap(),
             json!({"content":{"body":"hi"}}),
             vec!["txn1".to_owned()],
         )
@@ -388,7 +388,7 @@ fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
     queue
         .mark_sent(
             "txn1",
-            EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap(),
+            EventId::new("ak:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap(),
         )
         .unwrap();
     assert_eq!(queue.ready_batch(Utc::now(), 10), vec![edit]);
@@ -400,8 +400,8 @@ fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
 
 #[test]
 fn send_queue_cancels_dependent_edit_redaction_and_reaction() {
-    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let event_id = EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
+    let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let event_id = EventId::new("ak:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
     let mut queue = SendQueue::new();
     queue
         .enqueue_message(
@@ -448,10 +448,10 @@ fn send_queue_cancels_dependent_edit_redaction_and_reaction() {
 
 #[test]
 fn sliding_sync_builds_windowed_subscriptions_and_applies_deltas() {
-    let s1 = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
-    let s2 = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000002").unwrap();
-    let s3 = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000003").unwrap();
-    let s4 = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000004").unwrap();
+    let s1 = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
+    let s2 = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000002").unwrap();
+    let s3 = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000003").unwrap();
+    let s4 = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000004").unwrap();
 
     let mut sliding = SlidingSync::new();
     sliding.set_realm_list(vec![s1.clone(), s2.clone(), s3]);
@@ -468,8 +468,8 @@ fn sliding_sync_builds_windowed_subscriptions_and_applies_deltas() {
 
 #[test]
 fn realm_list_sorts_filters_and_reports_incremental_changes() {
-    let s1 = RealmId::new("ck:realm:01904100-0000-7000-8000-f949e0272316").unwrap();
-    let s2 = RealmId::new("ck:realm:01904100-0000-7000-8000-46f8537dc94e").unwrap();
+    let s1 = RealmId::new("ak:realm:01904100-0000-7000-8000-f949e0272316").unwrap();
+    let s2 = RealmId::new("ak:realm:01904100-0000-7000-8000-46f8537dc94e").unwrap();
     let mut list = RealmListService::new();
     let mut alpha = RealmListEntry::joined(s1);
     alpha.name = Some("Alpha".to_owned());

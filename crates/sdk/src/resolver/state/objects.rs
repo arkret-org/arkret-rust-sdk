@@ -117,7 +117,7 @@ impl RealmState {
     }
 
     // Reducer for `ck.morph.archive`: validate current state == active per
-    // cokret-spec common-fields.md §5.1 canonical state-transition table.
+    // arkret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Deleted / Redacted / unset MUST be rejected with
     // `morph_not_active`; unknown Morph is tolerated (causal / backfill).
     pub(super) fn archive_morph(&mut self, event: &Event) -> Result<()> {
@@ -337,7 +337,7 @@ impl RealmState {
     }
 
     // Reducer for `ck.space.archive`: validate current state == active per
-    // cokret-spec common-fields.md §5.1 canonical state-transition table.
+    // arkret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Tombstoned / unset MUST be rejected with `space_not_active`;
     // unknown Space is tolerated (causal / backfill).
     pub(super) fn archive_space(&mut self, event: &Event) -> Result<()> {
@@ -352,7 +352,7 @@ impl RealmState {
     }
 
     // Reducer for `ck.space.tombstone`: validate current state ∈
-    // {Active, Archived} per cokret-spec common-fields.md §5.1. Tombstoned /
+    // {Active, Archived} per arkret-spec common-fields.md §5.1. Tombstoned /
     // unset MUST be rejected with `space_already_terminal`; unknown Space is
     // tolerated (causal / backfill).
     pub(super) fn tombstone_space(&mut self, event: &Event) -> Result<()> {
@@ -369,7 +369,7 @@ impl RealmState {
     }
 
     // Reducer for `ck.space.restore`: validate current state == archived per
-    // cokret-spec space-and-space.md §4.4. Active / Tombstoned / unset MUST
+    // arkret-spec space-and-space.md §4.4. Active / Tombstoned / unset MUST
     // be rejected with `space_not_archived`; unknown Space is tolerated
     // (causal / backfill not yet caught up — mirrors set_space_state).
     pub(super) fn restore_space(&mut self, event: &Event) -> Result<()> {
@@ -558,7 +558,7 @@ impl RealmState {
     }
 
     // Reducer for `ck.strand.archive`: validate current state == active per
-    // cokret-spec common-fields.md §5.1 canonical state-transition table.
+    // arkret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Deleted / Redacted / unset MUST be rejected with
     // `strand_not_active`; unknown Strand is tolerated (causal / backfill not
     // yet caught up — mirrors archive_morph / archive_space).
@@ -574,7 +574,7 @@ impl RealmState {
     }
 
     // Reducer for `ck.strand.restore`: validate current state == archived per
-    // cokret-spec common-fields.md §5 (`*.restore` is the canonical
+    // arkret-spec common-fields.md §5 (`*.restore` is the canonical
     // archived -> active path; tombstoned / deleted / redacted MUST NOT be
     // restored). Active / Deleted / Redacted / unset MUST be rejected with
     // `strand_not_archived`; unknown Strand is tolerated (causal / backfill
@@ -659,9 +659,9 @@ fn patch_to_value_map(patch: &crate::Patch) -> Result<BTreeMap<String, Value>> {
 }
 
 fn relation_id_from_event_id(event_id: &str) -> String {
-    match event_id.strip_prefix("ck:event:") {
-        Some(suffix) => format!("ck:relation:{suffix}"),
-        None => format!("ck:relation:{event_id}"),
+    match event_id.strip_prefix("ak:event:") {
+        Some(suffix) => format!("ak:relation:{suffix}"),
+        None => format!("ak:relation:{event_id}"),
     }
 }
 

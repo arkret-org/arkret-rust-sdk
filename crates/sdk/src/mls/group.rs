@@ -19,7 +19,7 @@ use sha2::Sha256;
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 use zeroize::Zeroizing;
 
-use super::identity::{COKRET_MLS_CIPHERSUITE, CokretMlsIdentity, decode_key_package};
+use super::identity::{ARKRET_MLS_CIPHERSUITE, CokretMlsIdentity, decode_key_package};
 use crate::{
     CryptoStore, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, Hash,
     MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsCommitEnvelope, MlsGovernanceBindingExtension,
@@ -28,7 +28,7 @@ use crate::{
     Result, ToDeviceMessage, canonical, verify_mls_governance_binding_extension,
 };
 
-const COKRET_OPENMLS_STATE_SNAPSHOT: &str = "cokret-openmls-provider-state-v1";
+const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
 
 /// `mls-exporter-aead-v1` content scheme id (spec encryption-and-audit §10.1).
 pub const MLS_EXPORTER_AEAD_CONTENT_SCHEME: &str = "mls-exporter-aead-v1";
@@ -320,7 +320,7 @@ impl CokretMlsGroup {
     ///
     /// Used for spec-defined key derivations layered on the group secret —
     /// e.g. the reaction routing tag (`encryption-and-audit.md` §2.9, label
-    /// `cokret-reaction-routing-v1`, context = `realm_id`) and SFrame media
+    /// `arkret-reaction-routing-v1`, context = `realm_id`) and SFrame media
     /// keys (`media-service-binding.md` §8.1). Callers MUST treat the returned
     /// bytes as secret key material (never log or persist them in the clear).
     /// The returned buffer is [`Zeroizing`] — it is wiped on drop.
@@ -504,7 +504,7 @@ impl CokretMlsGroup {
 
     pub fn export_state_record(&self) -> Result<MlsGroupStateRecord> {
         let snapshot = OpenMlsStateSnapshot {
-            context: COKRET_OPENMLS_STATE_SNAPSHOT.to_owned(),
+            context: ARKRET_OPENMLS_STATE_SNAPSHOT.to_owned(),
             group_id: self.group_id(),
             epoch: self.epoch(),
             principal_id: self.identity.principal_id.clone(),
@@ -536,7 +536,7 @@ impl CokretMlsGroup {
 
     pub fn restore_from_state_record(record: &MlsGroupStateRecord) -> Result<Self> {
         let snapshot: OpenMlsStateSnapshot = serde_json::from_slice(&record.serialized_state)?;
-        if snapshot.context != COKRET_OPENMLS_STATE_SNAPSHOT {
+        if snapshot.context != ARKRET_OPENMLS_STATE_SNAPSHOT {
             return Err(Error::Protocol(
                 "unsupported OpenMLS state snapshot".to_owned(),
             ));
@@ -557,7 +557,7 @@ impl CokretMlsGroup {
         let signer = SignatureKeyPair::read(
             provider.storage(),
             &signer_public_key,
-            COKRET_MLS_CIPHERSUITE.signature_algorithm(),
+            ARKRET_MLS_CIPHERSUITE.signature_algorithm(),
         )
         .ok_or_else(|| Error::Protocol("OpenMLS signer is missing from snapshot".to_owned()))?;
         let credential = CredentialWithKey {
@@ -835,7 +835,7 @@ impl CokretMlsGroup {
                 .ok()
                 .and_then(|s| Did::new(s.to_owned()).ok())
                 .unwrap_or_else(|| {
-                    Did::new(format!("did:cokret:unknown-leaf-{}", idx.u32()))
+                    Did::new(format!("did:arkret:unknown-leaf-{}", idx.u32()))
                         .expect("placeholder DID is well-formed")
                 });
             removed_principals.push(principal);
@@ -1314,12 +1314,12 @@ mod content_scheme_anchor_tests {
         bytes.iter().map(|b| format!("{b:02x}")).collect()
     }
 
-    const REALM: &str = "ck:realm:01904100-0000-7000-8000-000000000042";
+    const REALM: &str = "ak:realm:01904100-0000-7000-8000-000000000042";
 
     /// Self-generated regression anchor (NOT a spec vector): pins the
     /// byte-exact `mls-exporter-aead-v1` content-scheme chain from a fixed
     /// history_secret — HKDF content key (`ck-content-v1` label), exporter
-    /// nonce-prefix derivation (`cokret-aead-sender-nonce-prefix-v1` label +
+    /// nonce-prefix derivation (`arkret-aead-sender-nonce-prefix-v1` label +
     /// canonical context bytes), canonical AAD construction, and the AEAD
     /// ciphertext itself. Any silent change to a label, context field, AAD
     /// shape or nonce composition breaks these bytes. Replace with spec
@@ -1342,7 +1342,7 @@ mod content_scheme_anchor_tests {
                 "realm_id": REALM,
             }),
             epoch: 3,
-            device_id: "ck:device:01904100-0000-7000-8000-000000000007".to_owned(),
+            device_id: "ak:device:01904100-0000-7000-8000-000000000007".to_owned(),
             purpose: MLS_EXPORTER_AEAD_CONTENT_PURPOSE.to_owned(),
             aead_profile: AEAD_PROFILE_XCHACHA20_POLY1305.to_owned(),
         };
@@ -1361,7 +1361,7 @@ mod content_scheme_anchor_tests {
         let aad = content_aead_aad(REALM, &nonce, aad_bytes).unwrap();
         assert_eq!(
             std::str::from_utf8(&aad).unwrap(),
-            "{\"aad\":\"YW5jaG9yLWFhZA\",\"key_ref\":{\"algorithm\":\"mls-exporter-aead-v1\",\"realm_id\":\"ck:realm:01904100-0000-7000-8000-000000000042\"},\"nonce\":\"RI9YpLahSv4Er43ADIaNqQAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\"}",
+            "{\"aad\":\"YW5jaG9yLWFhZA\",\"key_ref\":{\"algorithm\":\"mls-exporter-aead-v1\",\"realm_id\":\"ak:realm:01904100-0000-7000-8000-000000000042\"},\"nonce\":\"RI9YpLahSv4Er43ADIaNqQAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\"}",
             "canonical content AAD drifted"
         );
 

@@ -10,7 +10,7 @@ pub use message::*;
 pub use recovery::*;
 pub use security::*;
 
-pub const COKRET_MLS_ALGORITHM: &str = "ck.mls.v1";
+pub const ARKRET_MLS_ALGORITHM: &str = "ck.mls.v1";
 
 #[cfg(test)]
 mod tests {
@@ -28,11 +28,11 @@ mod tests {
     const GOVERNANCE_REDUCER_PROFILE: &str = "ck.reducer.v1";
 
     fn governance_realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-00000000f1c0").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-00000000f1c0").unwrap()
     }
 
     fn governance_event(n: u8) -> EventId {
-        EventId::new(format!("ck:event:01904100-0000-7000-8000-00000000f1c{n}")).unwrap()
+        EventId::new(format!("ak:event:01904100-0000-7000-8000-00000000f1c{n}")).unwrap()
     }
 
     fn governance_hash(byte: char) -> Hash {
@@ -106,12 +106,12 @@ mod tests {
 
     #[test]
     fn create_group_with_governance_binding_stores_group_context_extension() {
-        let group_id_bytes = b"ck:realm:01904100-0000-7000-8000-f1c000000001";
+        let group_id_bytes = b"ak:realm:01904100-0000-7000-8000-f1c000000001";
         let group_id = base64url_encode(group_id_bytes);
         let binding = governance_binding(&group_id, 0, 0, governance_hash('1'));
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c1").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c1").unwrap(),
         )
         .unwrap();
 
@@ -137,11 +137,11 @@ mod tests {
     fn update_governance_binding_enters_group_context_extension() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c2").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c2").unwrap(),
         )
         .unwrap();
         let mut group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-f1c000000002")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-f1c000000002")
             .unwrap();
         let group_id = group.group_id();
         let binding = governance_binding(
@@ -174,11 +174,11 @@ mod tests {
     fn governance_binding_verification_fails_closed_when_extension_missing() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c3").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c3").unwrap(),
         )
         .unwrap();
         let group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-f1c000000003")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-f1c000000003")
             .unwrap();
         let group_id = group.group_id();
         let expected = MlsGovernanceBindingValidationContext::for_commit(
@@ -200,11 +200,11 @@ mod tests {
     fn governance_binding_verification_rejects_profile_downgrade() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c4").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c4").unwrap(),
         )
         .unwrap();
         let mut group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-f1c000000004")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-f1c000000004")
             .unwrap();
         let group_id = group.group_id();
         let binding = governance_binding(&group_id, 0, 1, governance_hash('3'))
@@ -230,11 +230,11 @@ mod tests {
     fn governance_binding_verification_rejects_stale_policy_root() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000f1c5").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c5").unwrap(),
         )
         .unwrap();
         let mut group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-f1c000000005")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-f1c000000005")
             .unwrap();
         let group_id = group.group_id();
         let binding = governance_binding(&group_id, 0, 1, governance_hash('4'));
@@ -268,18 +268,18 @@ mod tests {
         // payloads to the local group's schedule.
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a40")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-1ad6479d4a40")
             .unwrap();
         let hash_pre = alice_group.schedule_hash();
         assert!(
@@ -303,11 +303,11 @@ mod tests {
     fn key_package_private_state_restores_welcome_join() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob_principal = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
-        let bob_device = DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap();
+        let bob_device = DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap();
         let bob = CokretMlsIdentity::new_basic(bob_principal.clone(), bob_device.clone()).unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
         assert!(
@@ -326,7 +326,7 @@ mod tests {
         let fresh_bob = CokretMlsIdentity::new_basic(bob_principal, bob_device).unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a43")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-1ad6479d4a43")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let Err(fresh_error) = CokretMlsGroup::join_from_welcome(fresh_bob, &add_result.welcome)
@@ -351,28 +351,28 @@ mod tests {
         // §2.9) and SFrame keys are built on.
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000016").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000016").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000001e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000001e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a41")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-1ad6479d4a41")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
-        let realm = b"ck:realm:01904100-0000-7000-8000-1ad6479d4a41";
+        let realm = b"ak:realm:01904100-0000-7000-8000-1ad6479d4a41";
         let a = alice_group
-            .export_secret("cokret-reaction-routing-v1", realm, 32)
+            .export_secret("arkret-reaction-routing-v1", realm, 32)
             .unwrap();
         let b = bob_group
-            .export_secret("cokret-reaction-routing-v1", realm, 32)
+            .export_secret("arkret-reaction-routing-v1", realm, 32)
             .unwrap();
         assert_eq!(a.len(), 32);
         assert_eq!(
@@ -381,11 +381,11 @@ mod tests {
         );
 
         // Different context (realm) MUST diverge.
-        let other_realm = b"ck:realm:01904100-0000-7000-8000-1ad6479d4a42";
+        let other_realm = b"ak:realm:01904100-0000-7000-8000-1ad6479d4a42";
         assert_ne!(
             a,
             alice_group
-                .export_secret("cokret-reaction-routing-v1", other_realm, 32)
+                .export_secret("arkret-reaction-routing-v1", other_realm, 32)
                 .unwrap()
         );
         // Different label MUST diverge.
@@ -403,18 +403,18 @@ mod tests {
         // in the snapshot. After Remove, only the surviving DID remains.
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a41")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-1ad6479d4a41")
             .unwrap();
         assert_eq!(
             alice_group.member_principal_ids(),
@@ -444,11 +444,11 @@ mod tests {
     fn self_update_commit_advances_epoch_and_returns_typed_envelope() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let mut group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-555555555555")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-555555555555")
             .unwrap();
         let pre_epoch = group.epoch();
         let pre_group_id = group.group_id();
@@ -474,18 +474,18 @@ mod tests {
     fn openmls_group_can_add_member_encrypt_and_decrypt() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-d652c78259d9")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-d652c78259d9")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
@@ -505,24 +505,24 @@ mod tests {
     fn openmls_group_can_add_multiple_members_in_one_commit() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let charlie = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000f").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
         let charlie_key_package = charlie.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-1eb2ca9cbcfe")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-1eb2ca9cbcfe")
             .unwrap();
         let add_result = alice_group
             .add_members(&[bob_key_package, charlie_key_package])
@@ -554,26 +554,26 @@ mod tests {
     fn message_crypto_encrypts_decrypts_and_verifies_opaque_digest() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-f2f103987ef3")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-f2f103987ef3")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
-            "ck:message:01",
-            "application/vnd.cokret.message+json",
+            "ak:message:01",
+            "application/vnd.arkret.message+json",
             br#"{"body":"hello secure workflow"}"#,
         )
         .unwrap();
@@ -587,32 +587,32 @@ mod tests {
     fn message_crypto_encrypts_with_aad_and_verifies_digest() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-65bef476aed3")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-65bef476aed3")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let aad = serde_json::json!({
-            "realm_id": "ck:realm:01904100-0000-7000-8000-65bef476aed3",
+            "realm_id": "ak:realm:01904100-0000-7000-8000-65bef476aed3",
             "event_kind": "ck.message.create",
-            "event_id": "ck:event:01904100-0000-7000-8000-d5afe7e3de96",
+            "event_id": "ak:event:01904100-0000-7000-8000-d5afe7e3de96",
             "causal_refs": []
         });
         let aad_digest = crate::crypto::json_aad_digest(&aad).unwrap();
 
         let encrypted = MessageCrypto::encrypt_with_aad(
             &mut alice_group,
-            "ck:message:aad",
+            "ak:message:aad",
             "application/json",
             aad,
             br#"{"body":"aad bound"}"#,
@@ -629,18 +629,18 @@ mod tests {
     fn openmls_state_persists_through_crypto_store_record() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a3f")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-1ad6479d4a3f")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
@@ -667,17 +667,17 @@ mod tests {
     fn multi_device_workflow_applies_missed_commits_and_models_recovery() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let charlie = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000f").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
@@ -694,7 +694,7 @@ mod tests {
         );
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-877788250807")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-877788250807")
             .unwrap();
         let bob_add = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
@@ -708,7 +708,7 @@ mod tests {
         assert_eq!(bob_group.epoch(), alice_group.epoch());
         let recovery = epoch_recovery_step(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
             bob_group.group_id(),
             bob_group.epoch() + 1,
             bob_group.epoch() + 3,
@@ -723,24 +723,24 @@ mod tests {
     fn add_member_result_projects_to_repo_operation_and_to_device_message() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-4ecefcf31ad2")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-4ecefcf31ad2")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let operation = add_result
             .commit_operation(
-                OperationId::new("ck:operation:01904100-0000-7000-8000-02369de2e9c6").unwrap(),
-                RealmId::new("ck:realm:01904100-0000-7000-8000-4ecefcf31ad2").unwrap(),
+                OperationId::new("ak:operation:01904100-0000-7000-8000-02369de2e9c6").unwrap(),
+                RealmId::new("ak:realm:01904100-0000-7000-8000-4ecefcf31ad2").unwrap(),
             )
             .unwrap();
         let to_device = add_result.welcome_to_device_message().unwrap();
@@ -749,7 +749,7 @@ mod tests {
         assert_eq!(to_device.message_type, "ck.mls.welcome.v1");
         assert_eq!(
             to_device.content["recipient_device_id"],
-            "ck:device:01904100-0000-7000-8000-00000000000e"
+            "ak:device:01904100-0000-7000-8000-00000000000e"
         );
     }
 
@@ -757,15 +757,15 @@ mod tests {
     fn message_crypto_preserves_encrypted_content_without_available_key() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-f2f103987ef3")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-f2f103987ef3")
             .unwrap();
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
-            "ck:message:02",
+            "ak:message:02",
             "application/json",
             br#"{"body":"keep ciphertext"}"#,
         )
@@ -783,7 +783,7 @@ mod tests {
         else {
             panic!("message should stay encrypted without a local MLS session");
         };
-        assert_eq!(message_id, "ck:message:02");
+        assert_eq!(message_id, "ak:message:02");
         assert!(matches!(reason, MessageCryptoUnavailable::NoSession));
         assert_eq!(payload.payload_digest, expected_digest);
         assert_eq!(payload.ciphertext, expected_ciphertext);
@@ -793,24 +793,24 @@ mod tests {
     fn encrypted_timeline_preserves_then_decrypts_after_welcome_arrives() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-469a459e1b8f")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-469a459e1b8f")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
-            "ck:event:01904100-0000-7000-8000-f2fbe0d55fb4",
-            "application/vnd.cokret.message+json",
+            "ak:event:01904100-0000-7000-8000-f2fbe0d55fb4",
+            "application/vnd.arkret.message+json",
             br#"{"body":"arrives before local key"}"#,
         )
         .unwrap();
@@ -827,17 +827,17 @@ mod tests {
     fn epoch_recovery_request_and_response_catch_up_offline_device() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let charlie = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000f").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
 
@@ -846,7 +846,7 @@ mod tests {
 
         // Alice creates group and adds Bob and Charlie.
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-4cc289f6471e")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-4cc289f6471e")
             .unwrap();
         let bob_add = alice_group.add_member(&bob_kp).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
@@ -860,7 +860,7 @@ mod tests {
         let request = EpochRecoveryRequestBody::new(
             bob_group.group_id(),
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
             bob_epoch_before,
             alice_group.epoch(),
         );
@@ -892,7 +892,7 @@ mod tests {
         let request = EpochRecoveryRequestBody::new(
             "",
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
             5,
             3,
         );
@@ -901,7 +901,7 @@ mod tests {
         let request = EpochRecoveryRequestBody::new(
             "group1",
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
             5,
             5,
         );
@@ -912,23 +912,23 @@ mod tests {
     fn welcome_recipient_must_match_identity() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let mallory = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:mallory.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000010").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000010").unwrap(),
         )
         .unwrap();
 
         let bob_key_package = bob.key_package_record().unwrap();
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-d652c78259d9")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-d652c78259d9")
             .unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let Err(error) = CokretMlsGroup::join_from_welcome(mallory, &add_result.welcome) else {
@@ -945,24 +945,24 @@ mod tests {
     fn remove_member_by_principal_advances_epoch_and_emits_commit() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let charlie = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:charlie.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000f").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
         let bob_kp = bob.key_package_record().unwrap();
         let charlie_kp = charlie.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-a78a8b504d40")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-a78a8b504d40")
             .unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = CokretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
@@ -995,11 +995,11 @@ mod tests {
     fn remove_member_by_principal_errors_when_target_absent() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-3cf34eced3c3")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-3cf34eced3c3")
             .unwrap();
 
         let absent = Did::new("did:webvh:z6mkfixture:nobody.example").unwrap();
@@ -1011,26 +1011,26 @@ mod tests {
     fn encrypted_envelope_v1_conforms_and_round_trips_losslessly() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000abcd").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000abcd").unwrap(),
         )
         .unwrap();
         let mut group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-0abc0abc0abc")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-0abc0abc0abc")
             .unwrap();
 
-        let realm_id = "ck:realm:01904100-0000-7000-8000-0abc0abc0abc";
+        let realm_id = "ak:realm:01904100-0000-7000-8000-0abc0abc0abc";
         let aad = EncryptedEnvelopeAadV1::hidden(realm_id, "ck.message.create");
         let aad_value = serde_json::to_value(&aad).unwrap();
         let plaintext = br#"{"body":"hello encrypted discussion"}"#;
         let payload = group
             .encrypt_payload_with_aad(
-                "application/vnd.cokret.message+json",
+                "application/vnd.arkret.message+json",
                 Some(aad_value),
                 plaintext,
             )
             .unwrap();
 
-        let commit_ref = "ck:event:01904100-0000-7000-8000-00000000c0a1";
+        let commit_ref = "ak:event:01904100-0000-7000-8000-00000000c0a1";
         let envelope =
             EncryptedEnvelopeV1::from_payload(&payload, aad, AadVisibility::Hidden, commit_ref)
                 .unwrap();
@@ -1101,18 +1101,18 @@ mod tests {
     fn remove_member_by_leaf_accepts_raw_index() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_kp = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-89444e193497")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-89444e193497")
             .unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = CokretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
@@ -1133,18 +1133,18 @@ mod tests {
     fn remove_result_commit_operation_uses_mls_commit_op_type() {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let bob = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_kp = bob.key_package_record().unwrap();
 
         let mut alice_group = alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-bd49dfdbc804")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-bd49dfdbc804")
             .unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = CokretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
@@ -1152,8 +1152,8 @@ mod tests {
             .remove_member_by_principal(&Did::new("did:webvh:z6mkfixture:bob.example").unwrap())
             .unwrap();
 
-        let op_id = OperationId::new("ck:operation:01904100-0000-7000-8000-00a9123c0f9c").unwrap();
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
+        let op_id = OperationId::new("ak:operation:01904100-0000-7000-8000-00a9123c0f9c").unwrap();
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
         let op = result.commit_operation(op_id, realm_id).unwrap();
         assert_eq!(op.object_type, "mls_commit");
         assert!(op.object_id.unwrap().contains(&result.commit.group_id));
@@ -1161,16 +1161,16 @@ mod tests {
 
     // ── mls-exporter-aead-v1 content scheme ──────────────────────────────────
 
-    const HISTORY_REALM: &str = "ck:realm:01904100-0000-7000-8000-e2eeae0d0001";
+    const HISTORY_REALM: &str = "ak:realm:01904100-0000-7000-8000-e2eeae0d0001";
 
     fn exporter_aead_founder() -> CokretMlsGroup {
         let alice = CokretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000ae01").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000ae01").unwrap(),
         )
         .unwrap();
         alice
-            .create_group(b"ck:realm:01904100-0000-7000-8000-e2eeae0d0001")
+            .create_group(b"ak:realm:01904100-0000-7000-8000-e2eeae0d0001")
             .unwrap()
     }
 
@@ -1207,7 +1207,7 @@ mod tests {
         let payload_aad = serde_json::to_value(&envelope_aad).unwrap();
         let payload = group
             .encrypt_payload_exporter_aead(
-                "application/vnd.cokret.message+json",
+                "application/vnd.arkret.message+json",
                 HISTORY_REALM,
                 b"history-content-aad",
                 Some(payload_aad),
@@ -1216,7 +1216,7 @@ mod tests {
             .unwrap();
         assert_eq!(payload.scheme, EncryptedPayloadScheme::MlsExporterAeadV1);
 
-        let group_state_ref = "ck:event:01904100-0000-7000-8000-00000000ae01";
+        let group_state_ref = "ak:event:01904100-0000-7000-8000-00000000ae01";
         let envelope = EncryptedEnvelopeV1::from_payload(
             &payload,
             envelope_aad,

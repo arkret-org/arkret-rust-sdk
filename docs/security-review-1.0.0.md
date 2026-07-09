@@ -8,10 +8,10 @@ attestation; it is the evidence bundle a reviewer needs before the local
 
 ## Scope
 
-- Workspace crates: `cokret-identifiers`, `cokret-core`, `cokret-ffi`,
-  `cokret-html`, `cokret-http-client`, `cokret-signatures`,
-  `cokret-crypto`, `cokret-contracts`, `cokret-server`, and
-  `cokret`.
+- Workspace crates: `arkret-identifiers`, `arkret-core`, `arkret-ffi`,
+  `arkret-html`, `arkret-http-client`, `arkret-signatures`,
+  `arkret-crypto`, `arkret-contracts`, `arkret-server`, and
+  `arkret`.
 - Wire-critical surfaces: canonical JSON, Event Envelope signatures,
   capability grants, profile claims, federation signatures, MLS helpers,
   blind-payload sanitizer, and session-grant outbox.
@@ -21,7 +21,7 @@ attestation; it is the evidence bundle a reviewer needs before the local
 ## Local Evidence
 
 - Internal checklist: `docs/security-audit.md`.
-- Feature safety gate: `cokret::current_feature_safety_report().validate()`.
+- Feature safety gate: `arkret::current_feature_safety_report().validate()`.
 - Dependency gates:
   - `cargo deny check --config .deny.toml`
   - `cargo audit --deny warnings --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2026-0124`

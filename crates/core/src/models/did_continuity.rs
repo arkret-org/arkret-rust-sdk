@@ -272,7 +272,7 @@ mod tests {
             old_did: Did::new("did:web:old.example").unwrap(),
             new_did: Did::new("did:webvh:new.example").unwrap(),
             purpose: DidContinuityPurpose::PrincipalMethodUpgrade,
-            audience: vec!["ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()],
+            audience: vec!["ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()],
             issued_at: "2026-04-29T00:00:00Z".parse().unwrap(),
             expires_at: Some("2026-04-30T00:00:00Z".parse().unwrap()),
             old_did_document_digest: Some(hash("a")),

@@ -1,6 +1,6 @@
-use cokret::{Did, MemoryBlobStore, safe_content_disposition, safe_content_type};
+use arkret::{Did, MemoryBlobStore, safe_content_disposition, safe_content_type};
 
-fn main() -> cokret::Result<()> {
+fn main() -> arkret::Result<()> {
     let mut blobs = MemoryBlobStore::new();
     let media_type =
         safe_content_type("IMAGE/PNG").unwrap_or_else(|| "application/octet-stream".to_owned());

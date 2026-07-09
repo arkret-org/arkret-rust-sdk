@@ -227,13 +227,13 @@ pub const AGENT_ACTOR_PRIVATE_KINDS: &[&str] = &[
 ];
 
 pub const PHASE_P2_AGENT_TYPED_ID_PREFIXES: &[&str] = &[
-    "ck:agent_session:",
-    "ck:agent_key:",
-    "ck:agent_draft:",
-    "ck:accountability_grant:",
-    "ck:sidecar_circle:",
-    "ck:backup_series:",
-    "ck:recovery_session:",
+    "ak:agent_session:",
+    "ak:agent_key:",
+    "ak:agent_draft:",
+    "ak:accountability_grant:",
+    "ak:sidecar_circle:",
+    "ak:backup_series:",
+    "ak:recovery_session:",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -337,7 +337,7 @@ fn reject_forbidden_plaintext_fields(path: &str, value: &Value) -> std::result::
 }
 
 fn validate_push_target_id(value: Option<&str>) -> std::result::Result<(), String> {
-    const PREFIX: &str = "ck:pseudonym:push:";
+    const PREFIX: &str = "ak:pseudonym:push:";
     let Some(value) = value else {
         return Err("notification.push_target_id is required".to_owned());
     };
@@ -409,7 +409,7 @@ mod tests {
     fn valid_request() -> PushNotifyRequestBody {
         PushNotifyRequestBody {
             notification: PushNotificationEnvelope {
-                push_target_id: Some("ck:pseudonym:push:01HYZ8Z000000000000000".to_owned()),
+                push_target_id: Some("ak:pseudonym:push:01HYZ8Z000000000000000".to_owned()),
                 wakeup_kind: Some("message".to_owned()),
                 timing_profile_hint: Some(PushTimingProfileHint::Default),
                 ..PushNotificationEnvelope::default()

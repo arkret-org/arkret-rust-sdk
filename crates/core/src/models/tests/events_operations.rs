@@ -17,13 +17,13 @@ fn event_new_sets_required_event_id() {
     )
     .unwrap();
 
-    assert!(event.event_id.as_str().starts_with("ck:event:"));
+    assert!(event.event_id.as_str().starts_with("ak:event:"));
 }
 
 #[test]
 fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
     let event = Event {
-        event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
+        event_id: EventId::new("ak:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
         kind: "ck.message.create".into(),
         realm_id: test_realm_id(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
@@ -63,15 +63,15 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
 #[test]
 fn prev_frontier_digest_sorts_and_deduplicates_refs() {
     let refs_a = [
-        "ck:event:01904100-0000-7000-8000-000000000003",
-        "ck:event:01904100-0000-7000-8000-000000000001",
-        "ck:event:01904100-0000-7000-8000-000000000003",
-        "ck:event:01904100-0000-7000-8000-000000000002",
+        "ak:event:01904100-0000-7000-8000-000000000003",
+        "ak:event:01904100-0000-7000-8000-000000000001",
+        "ak:event:01904100-0000-7000-8000-000000000003",
+        "ak:event:01904100-0000-7000-8000-000000000002",
     ];
     let refs_b = [
-        "ck:event:01904100-0000-7000-8000-000000000001",
-        "ck:event:01904100-0000-7000-8000-000000000002",
-        "ck:event:01904100-0000-7000-8000-000000000003",
+        "ak:event:01904100-0000-7000-8000-000000000001",
+        "ak:event:01904100-0000-7000-8000-000000000002",
+        "ak:event:01904100-0000-7000-8000-000000000003",
     ];
 
     assert_eq!(
@@ -121,7 +121,7 @@ fn event_scalability_helpers_reject_over_limits() {
     assert!(validate_delegation_control_depth(MAX_DELEGATION_CONTROL_DEPTH + 1).is_err());
 
     let prev_refs = (0..MAX_EVENT_PREV_REFS)
-        .map(|index| format!("ck:event:01904100-0000-7000-8000-{index:012x}"))
+        .map(|index| format!("ak:event:01904100-0000-7000-8000-{index:012x}"))
         .collect::<Vec<_>>();
     validate_event_prev_refs(prev_refs.iter().map(String::as_str)).unwrap();
     let mut duplicate = prev_refs;
@@ -145,15 +145,15 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
         jws: "sig-a".to_owned(),
     };
     let envelope = OperationEnvelope {
-        operation_id: OperationId::new("ck:operation:01904100-0000-7000-8000-0198d483044c")
+        operation_id: OperationId::new("ak:operation:01904100-0000-7000-8000-0198d483044c")
             .unwrap(),
         realm_id: test_realm_id(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         kind: "ck.message.create".to_owned(),
-        target_ref: Some("ck:thread:general".to_owned()),
+        target_ref: Some("ak:thread:general".to_owned()),
         causal: CausalRef {
             deps: vec![
-                OperationId::new("ck:operation:01904100-0000-7000-8000-5f8278b99124").unwrap(),
+                OperationId::new("ak:operation:01904100-0000-7000-8000-5f8278b99124").unwrap(),
             ],
             hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             actor_seq: 7,
@@ -221,7 +221,7 @@ fn operation_kind_registry_rejects_removed_strand_alias_kinds() {
 fn operation_kind_registry_drives_envelope_semantics() {
     let registry = OperationKindRegistry::default();
     let envelope = OperationEnvelope {
-        operation_id: OperationId::new("ck:operation:01904100-0000-7000-8000-0198d483044c")
+        operation_id: OperationId::new("ak:operation:01904100-0000-7000-8000-0198d483044c")
             .unwrap(),
         realm_id: test_realm_id(),
         actor_id: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
@@ -233,7 +233,7 @@ fn operation_kind_registry_drives_envelope_semantics() {
             actor_seq: 1,
         },
         payload: json!({
-            "strand_id": "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+            "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
             "content": {"kind": "ck.content.text", "body": "hello"}
         }),
@@ -258,7 +258,7 @@ fn operation_envelope_builder_covers_every_builtin_kind() {
 
     for (index, kind) in BUILT_IN_OPERATION_KINDS.iter().enumerate() {
         let mut builder = OperationEnvelopeBuilder::new(
-            OperationId::new(format!("ck:operation:01904100-0000-7000-8000-{index:012x}")).unwrap(),
+            OperationId::new(format!("ak:operation:01904100-0000-7000-8000-{index:012x}")).unwrap(),
             realm_id.clone(),
             actor_id.clone(),
             *kind,
@@ -278,7 +278,7 @@ fn operation_envelope_builder_covers_every_builtin_kind() {
 fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
     let registry = OperationKindRegistry::default();
     let builder = OperationEnvelopeBuilder::new(
-        OperationId::new("ck:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
+        OperationId::new("ak:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
         test_realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         OP_MESSAGE_CREATE,
@@ -290,7 +290,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
     let envelope = builder
         .with_payload_field(
             "strand_id",
-            json!("ck:strand:01904100-0000-7000-8000-6c663fa0205f"),
+            json!("ak:strand:01904100-0000-7000-8000-6c663fa0205f"),
         )
         .with_payload_field("track_name", json!("discussion"))
         .build(&registry)
@@ -298,7 +298,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
     assert_eq!(envelope.kind, OP_MESSAGE_CREATE);
 
     let unknown = OperationEnvelopeBuilder::new(
-        OperationId::new("ck:operation:01904100-0000-7000-8000-e9d434a97fb1").unwrap(),
+        OperationId::new("ak:operation:01904100-0000-7000-8000-e9d434a97fb1").unwrap(),
         test_realm_id(),
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
         "unknown",

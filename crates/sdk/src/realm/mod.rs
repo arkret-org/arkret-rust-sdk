@@ -1,4 +1,4 @@
-//! High-level Realm API for Cokret v1.
+//! High-level Realm API for Arkret v1.
 //!
 //! This module hosts the security-boundary client handle (`Realm`). It
 //! provides a high-level interface for working with Realms and their contained
@@ -38,7 +38,7 @@ mod payload;
 mod query;
 mod relation;
 mod space;
-/// Generate a new UUIDv7-based wire ID with the given Cokret typed prefix.
+/// Generate a new UUIDv7-based wire ID with the given Arkret typed prefix.
 mod strand;
 #[cfg(test)]
 mod tests;
@@ -404,10 +404,10 @@ impl Realm {
     /// Create a local message send operation using a structured message content object.
     pub fn send_message(&self, content: Value) -> Result<Operation> {
         self.base_client.whoami()?;
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let strand_id = StrandId::new(generate_id("ck:strand:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
+        let strand_id = StrandId::new(generate_id("ak:strand:"))?;
         let payload = MessageCreatePayload::with_content(strand_id, "discussion", content)
-            .with_message_id(generate_id("ck:message:"))
+            .with_message_id(generate_id("ak:message:"))
             .to_value()?;
         Ok(Operation::create(
             operation_id,
@@ -425,7 +425,7 @@ impl Realm {
     /// Create a local message edit operation.
     pub fn edit_message(&self, message_id: MessageId, content: Value) -> Result<Operation> {
         self.base_client.whoami()?;
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let payload = MessageRevisePayload {
             message_id: Some(message_id.clone()),
             target_ref: None,
@@ -454,7 +454,7 @@ impl Realm {
         reason: Option<String>,
     ) -> Result<Operation> {
         self.base_client.whoami()?;
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let payload = MessageRedactPayload {
             message_id: Some(message_id.clone()),
             target_ref: None,

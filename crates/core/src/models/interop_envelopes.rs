@@ -177,7 +177,7 @@ mod tests {
     #[test]
     fn applet_envelope_round_trips() {
         let env = AppletInteropEnvelope {
-            applet_id: "ck:applet:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
+            applet_id: "ak:applet:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
             service_did: Some(
                 Did::new("did:webvh:z6mkfixture:bridge.example.com".to_owned()).unwrap(),
             ),

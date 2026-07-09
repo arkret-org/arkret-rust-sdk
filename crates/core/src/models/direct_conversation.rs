@@ -3,7 +3,7 @@
 use super::*;
 
 pub const DIRECT_CONVERSATION_PAIR_KEY_VERSION: &str = "ck.direct_conversation.pair_key.v1";
-pub const DIRECT_CONVERSATION_PAIR_KEY_PREFIX: &str = "ck:direct_pair:";
+pub const DIRECT_CONVERSATION_PAIR_KEY_PREFIX: &str = "ak:direct_pair:";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -58,7 +58,7 @@ mod tests {
     }
 
     fn trust_domain() -> TypedTrustDomainId {
-        TypedTrustDomainId::new("ck:trust_domain:example.test".to_owned()).unwrap()
+        TypedTrustDomainId::new("ak:trust_domain:example.test".to_owned()).unwrap()
     }
 
     #[test]

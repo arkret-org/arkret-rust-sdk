@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{Error, Result};
 
-/// Serialize a value with Cokret canonical JSON.
+/// Serialize a value with Arkret canonical JSON.
 ///
 /// The v1 SDK uses an integer-only number profile for signing and hashing. This
 /// rejects JSON floats even if serde_json can represent them.
@@ -150,7 +150,7 @@ fn validate_canonical_string(s: &str) -> Result<()> {
 ///
 /// This rejects duplicate keys at **any** nesting depth, then re-canonicalizes
 /// the parsed value and compares the result to the original bytes. Any mismatch
-/// means the ingress bytes were not the unique Cokret canonical JSON form.
+/// means the ingress bytes were not the unique Arkret canonical JSON form.
 pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
     // scalability-constraints.md §2: a single envelope over 1 MiB MUST be
     // rejected. Enforce the cap before any BOM scan / parse work so an
@@ -208,8 +208,8 @@ fn canonical_parse_error(err: serde_json::Error) -> Error {
     Error::CanonicalJson(err)
 }
 
-const DUPLICATE_KEY_MARKER: &str = "cokret-duplicate-object-key:";
-const DEPTH_EXCEEDED_MARKER: &str = "cokret-structure-depth-exceeded:";
+const DUPLICATE_KEY_MARKER: &str = "arkret-duplicate-object-key:";
+const DEPTH_EXCEEDED_MARKER: &str = "arkret-structure-depth-exceeded:";
 
 /// `DeserializeSeed` that builds a [`Value`] while rejecting duplicate object
 /// keys at every depth and enforcing the v1 nesting-depth cap
@@ -1054,7 +1054,7 @@ mod tests {
         let parts = [
             "did:webvh:z6mkfixture:alice.example",
             "discussion",
-            "ck:strand:01904100-0000-7000-8000-6c663fa0205f",
+            "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
         ];
         let encoded = encode_state_subject(&parts);
         assert_eq!(

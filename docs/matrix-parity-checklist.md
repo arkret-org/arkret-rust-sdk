@@ -1,20 +1,20 @@
 # Matrix / Ruma Maturity Benchmark
 
 This repository is not expected to clone Matrix semantics or carry Matrix
-compatibility fields. The benchmark is client-grade maturity: Cokret should
-cover comparable capability classes while keeping Cokret wire shapes native.
+compatibility fields. The benchmark is client-grade maturity: Arkret should
+cover comparable capability classes while keeping Arkret wire shapes native.
 
 ## Ruma-Level Protocol Primitives
 
-- Identifier validation: Cokret now enforces fixed-width HLC and strict cursor IDs where the spec requires it.
+- Identifier validation: Arkret now enforces fixed-width HLC and strict cursor IDs where the spec requires it.
 - Canonical serialization: event, commit, encrypted payload, and cursor paths use canonical JSON hashing / encoding.
 - Client sync wire shape: native `spaces` only.
 - State resolution: reducer ordering includes causal depth, HLC, actor, actor sequence, and event ID.
 
 ## matrix-rust-sdk-Level Client Behaviors
 
-- Timeline: Cokret has local timeline pagination plus reducer-backed message create / revise / redact.
-- Space list: Cokret account subscribe tracks visible spaces and subscription windows.
+- Timeline: Arkret has local timeline pagination plus reducer-backed message create / revise / redact.
+- Space list: Arkret account subscribe tracks visible spaces and subscription windows.
 - Event cache: reducer now maintains processed events, causal frontier, redactions, messages, reactions, and generic resolved state.
 - Encryption: MLS and envelope helpers exist; cross-device crypto store has typed three-tier cross-signing (see [Device Key Material & Cross-Signing](#device-key-material--cross-signing) below).
 - Device verification: device metadata, SAS/QR verification, typed cross-signing publish/reset/trust-chain, and to-device queues all exist; SAS/QR parity covers the Matrix state machine and adds a `cross_signing_reset` cancel code that has no Matrix analogue.
@@ -23,11 +23,11 @@ cover comparable capability classes while keeping Cokret wire shapes native.
 
 ## Device Key Material & Cross-Signing
 
-The spec-side comparison is in [`cokret-spec/spec/v1/zh/overview/matrix-core-differences.md` §4.5](../../cokret-spec/spec/v1/zh/overview/matrix-core-differences.md); this section tracks what the **SDK in this repo** ships against that spec.
+The spec-side comparison is in [`arkret-spec/spec/v1/zh/overview/matrix-core-differences.md` §4.5](../../arkret-spec/spec/v1/zh/overview/matrix-core-differences.md); this section tracks what the **SDK in this repo** ships against that spec.
 
 ### Identity keys per device
 
-| Matrix | Cokret SDK | Status |
+| Matrix | Arkret SDK | Status |
 | --- | --- | --- |
 | Ed25519 fingerprint key | [`DeviceKeyBundle.signing_key`](../crates/crypto/src/lib.rs) | Implemented |
 | Curve25519 identity key | [`DeviceKeyBundle.identity_key`](../crates/crypto/src/lib.rs) | Implemented |
@@ -37,7 +37,7 @@ The spec-side comparison is in [`cokret-spec/spec/v1/zh/overview/matrix-core-dif
 
 ### Three-tier cross-signing (spec §5)
 
-The Cokret SDK ships the full three-key hierarchy as typed records, not as a single string:
+The Arkret SDK ships the full three-key hierarchy as typed records, not as a single string:
 
 | Tier | SDK type | Notes |
 | --- | --- | --- |
@@ -70,7 +70,7 @@ Both `crypto::DeviceTrustState` and `core::models::api::DeviceVerificationState`
 
 ### What's still spec-only, not yet in SDK
 
-- **PSK-signature verification glue**: `evaluate_trust_chain` takes a `verify_signature` closure so the SDK doesn't pull a DID-method resolver into `cokret-crypto`. Production adapters need to wire that closure to the same Ed25519 / EdDSA verifier used by [`cokret-signatures::verify_ed25519_move_signature`](../crates/signatures/src/signer.rs) plus the DID key-log resolver. The SDK ships the state machine; it does not ship a one-call "set up cross-signing end-to-end with my DID document" helper.
+- **PSK-signature verification glue**: `evaluate_trust_chain` takes a `verify_signature` closure so the SDK doesn't pull a DID-method resolver into `arkret-crypto`. Production adapters need to wire that closure to the same Ed25519 / EdDSA verifier used by [`arkret-signatures::verify_ed25519_move_signature`](../crates/signatures/src/signer.rs) plus the DID key-log resolver. The SDK ships the state machine; it does not ship a one-call "set up cross-signing end-to-end with my DID document" helper.
 - **`ck.device.authorize` payload schema**: the SDK's `ck.device.authorize` event still uses the JSON `Value` payload shape; a typed `ck.schema.device_authorize.v1` envelope mirroring `CrossSigningPublishContent` is the next layer.
 - **MLS leaf re-key after reset**: spec §14.2 step 3 says senders SHOULD issue an Empty Commit after a reset so the new SSK generation is covered by transcript hashes. The SDK exposes the MLS commit primitives but doesn't auto-trigger this; downstream apps (inkson / soland) wire it.
 
@@ -85,7 +85,7 @@ These come straight from `matrix-core-differences.md` §4.5.7–§4.5.9; the SDK
 
 ## Remaining Non-Goals / Future Work
 
-- Matrix room-version auth rules are not copied; Cokret uses capability and policy reducer state.
-- Matrix event types are not first-class Cokret types.
+- Matrix room-version auth rules are not copied; Arkret uses capability and policy reducer state.
+- Matrix event types are not first-class Arkret types.
 - Durable production adapters should implement the event-cache, snapshot and crypto-store boundaries without weakening the current verification behavior.
-- A production wire test that round-trips a real Ed25519 PSK → SSK → device-binding chain (the SDK has the canonical-bytes helpers but no end-to-end test against `cokret-signatures` yet).
+- A production wire test that round-trips a real Ed25519 PSK → SSK → device-binding chain (the SDK has the canonical-bytes helpers but no end-to-end test against `arkret-signatures` yet).

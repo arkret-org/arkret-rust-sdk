@@ -217,7 +217,7 @@ fn contains_sensitive_literal(path: &str, value: &Value) -> bool {
                 return false;
             }
             let lower = s.to_ascii_lowercase();
-            lower.contains("did:") || lower.contains("ck:")
+            lower.contains("did:") || lower.contains("ak:")
         }
         _ => false,
     }
@@ -226,7 +226,7 @@ fn contains_sensitive_literal(path: &str, value: &Value) -> bool {
 /// Build a baseline notification object that passes the sanitizer.
 fn ok_notification() -> Value {
     json!({
-        "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+        "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
         "wakeup_kind": "message",
         "timing_profile_hint": "default",
     })
@@ -303,7 +303,7 @@ proptest! {
         if !drop_target {
             notif.insert(
                 "push_target_id".into(),
-                json!("ck:pseudonym:push:01HYZ8Z000000000000000"),
+                json!("ak:pseudonym:push:01HYZ8Z000000000000000"),
             );
         }
         if !drop_kind {
@@ -341,7 +341,7 @@ proptest! {
     /// trigger SensitiveLiteral.
     #[test]
     fn sensitive_literals_caught_everywhere(
-        prefix in prop_oneof![Just("did:web:"), Just("ck:event:"), Just("ck:device:")],
+        prefix in prop_oneof![Just("did:web:"), Just("ak:event:"), Just("ak:device:")],
         suffix in "[a-z0-9.]{1,32}",
         path_choice in 0u8..2u8,
     ) {
@@ -430,7 +430,7 @@ proptest! {
     fn count_boundary_is_enforced(n in 0u64..(MAX_COUNT_VALUE * 3)) {
         let payload = json!({
             "notification": {
-                "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ak:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
                 "counts": { "unread": n },
             }

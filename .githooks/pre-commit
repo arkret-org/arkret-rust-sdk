@@ -26,34 +26,34 @@ for path in $rust_touched; do
             workspace_touched=true
             ;;
         crates/api/*)
-            add_package cokret-api
+            add_package arkret-api
             ;;
         crates/core/*)
-            add_package cokret-core
+            add_package arkret-core
             ;;
         crates/crypto/*)
-            add_package cokret-crypto
+            add_package arkret-crypto
             ;;
         crates/ffi/*)
-            add_package cokret-ffi
+            add_package arkret-ffi
             ;;
         crates/html/*)
-            add_package cokret-html
+            add_package arkret-html
             ;;
         crates/http-client/*)
-            add_package cokret-http-client
+            add_package arkret-http-client
             ;;
         crates/identifiers/*)
-            add_package cokret-identifiers
+            add_package arkret-identifiers
             ;;
         crates/sdk/*)
-            add_package cokret
+            add_package arkret
             ;;
         crates/server/*)
-            add_package cokret-server
+            add_package arkret-server
             ;;
         crates/signatures/*)
-            add_package cokret-signatures
+            add_package arkret-signatures
             ;;
         *)
             workspace_touched=true

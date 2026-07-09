@@ -282,7 +282,7 @@ mod tests {
             acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
         }
         DeviceId::new(format!(
-            "ck:device:01904100-0000-7000-8000-{:012x}",
+            "ak:device:01904100-0000-7000-8000-{:012x}",
             acc & 0x0000_ffff_ffff_ffff
         ))
         .unwrap()

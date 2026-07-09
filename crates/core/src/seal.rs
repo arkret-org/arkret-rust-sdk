@@ -1,4 +1,4 @@
-//! Cokret Seal typed model.
+//! Arkret Seal typed model.
 //!
 //! A Seal is the notary-signed commitment for control-plane finality.
 //! `delta[]` contains only the control Move digests newly accepted by this
@@ -166,7 +166,7 @@ impl Seal {
     }
 
     pub fn id_from_canonical_bytes(bytes: &[u8]) -> Result<SealId> {
-        let id = format!("ck:seal:{}", canonical::sha256_digest(bytes));
+        let id = format!("ak:seal:{}", canonical::sha256_digest(bytes));
         SealId::new(id).map_err(|err| Error::Protocol(format!("invalid Seal id: {err}")))
     }
 
@@ -275,12 +275,12 @@ mod tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn seal_id(byte: u8) -> SealId {
         SealId::new(format!(
-            "ck:seal:sha256:{}",
+            "ak:seal:sha256:{}",
             format!("{byte:02x}").repeat(32)
         ))
         .unwrap()

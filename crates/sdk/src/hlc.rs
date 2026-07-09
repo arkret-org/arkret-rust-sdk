@@ -1,6 +1,6 @@
 //! Hybrid Logical Clock (HLC) implementation.
 //!
-//! This module implements the Cokret v1 HLC specification with:
+//! This module implements the Arkret v1 HLC specification with:
 //! - Strict format validation: `^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$`
 //! - Fixed-width hex encoding for correct lexicographic ordering
 //! - Future-clock drift handling with a 30s soft-fail tier and 5m hard cap
@@ -11,7 +11,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::{Error, Hlc as HlcType, Result};
 
-/// Validate HLC format according to Cokret v1 spec.
+/// Validate HLC format according to Arkret v1 spec.
 ///
 /// Format: `^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$`
 pub fn validate_hlc_format(hlc: &str) -> Result<()> {
@@ -61,7 +61,7 @@ pub enum HlcFutureDrift {
 }
 
 /// Domain separator for the §7 `node_id_hash` derivation.
-const NODE_ID_DOMAIN_SEPARATOR: &str = "cokret-hlc-v1";
+const NODE_ID_DOMAIN_SEPARATOR: &str = "arkret-hlc-v1";
 
 /// Hybrid Logical Clock generator.
 ///
@@ -82,7 +82,7 @@ impl HlcGenerator {
     ///
     /// Per `encoding.md` §7 the `node_id_hash` MUST be derived from a
     /// Realm-scoped (or deployment-scoped) local node secret:
-    /// `SHA256("cokret-hlc-v1" || realm_id || device_id ||
+    /// `SHA256("arkret-hlc-v1" || realm_id || device_id ||
     /// local_node_secret)[0:8]`. Principal DIDs, public handles, long-term
     /// device ids, or any cross-Realm stable identifier MUST NOT be used
     /// directly as the hash input — doing so would make the node id
@@ -200,7 +200,7 @@ impl HlcGenerator {
     }
 
     /// Derive the 8-hex-char `node_id_hash` per `encoding.md` §7:
-    /// `SHA256("cokret-hlc-v1" || realm_id || device_id ||
+    /// `SHA256("arkret-hlc-v1" || realm_id || device_id ||
     /// local_node_secret)[0:8]`.
     fn compute_node_id(realm_id: &str, device_id: &str, local_node_secret: &[u8]) -> String {
         let hash = crate::canonical::sha256_bytes_from_slices(&[
@@ -473,7 +473,7 @@ mod tests {
     #[test]
     fn hlc_generator_creates_monotonic_sequence() {
         let mut hlc_gen = HlcGenerator::with_initial_time(
-            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
             0x01970e589d21,
@@ -490,7 +490,7 @@ mod tests {
     #[test]
     fn hlc_generator_handles_clock_rollback() {
         let mut hlc_gen = HlcGenerator::with_initial_time(
-            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
             0x01970e589d21,
@@ -508,7 +508,7 @@ mod tests {
     #[test]
     fn hlc_generator_try_generate_reports_logical_overflow_without_waiting() {
         let mut hlc_gen = HlcGenerator::with_initial_time(
-            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
             HlcGenerator::current_time_ms() + 60_000,
@@ -522,7 +522,7 @@ mod tests {
     #[test]
     fn hlc_generator_try_generate_advances_logical_when_not_saturated() {
         let mut hlc_gen = HlcGenerator::with_initial_time(
-            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
             HlcGenerator::current_time_ms() + 60_000,
@@ -537,7 +537,7 @@ mod tests {
     #[test]
     fn hlc_generator_advances_with_remote() {
         let mut hlc_gen = HlcGenerator::with_initial_time(
-            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
             0x01970e589d21,
@@ -553,7 +553,7 @@ mod tests {
     #[test]
     fn hlc_generator_rejects_future_hlc_beyond_skew() {
         let hlc_gen = HlcGenerator::new(
-            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
         );
@@ -568,8 +568,8 @@ mod tests {
 
     #[test]
     fn node_id_computation_is_deterministic_and_realm_scoped() {
-        let realm_a = "ck:realm:01904100-0000-7000-8000-9b64700c6ee8";
-        let realm_b = "ck:realm:01904100-0000-7000-8000-65c7feb295d7";
+        let realm_a = "ak:realm:01904100-0000-7000-8000-9b64700c6ee8";
+        let realm_b = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
         let id1 = HlcGenerator::compute_node_id(realm_a, "device-1", b"secret");
         let id2 = HlcGenerator::compute_node_id(realm_a, "device-1", b"secret");
         // Same device + secret in another Realm must yield an unlinkable id.
@@ -636,7 +636,7 @@ mod tests {
     #[test]
     fn hlc_formats_with_fixed_width() {
         let mut hlc_gen = HlcGenerator::with_initial_time(
-            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ak:realm:01904100-0000-7000-8000-9b64700c6ee8",
             "device-1",
             b"test-secret",
             1,

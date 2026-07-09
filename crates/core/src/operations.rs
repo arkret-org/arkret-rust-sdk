@@ -667,7 +667,7 @@ mod tests {
     ) -> OperationEnvelope {
         let mut builder = OperationEnvelopeBuilder::new(
             OperationId::new(id).unwrap(),
-            RealmId::new("ck:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
+            RealmId::new("ak:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             kind,
             1,
@@ -679,7 +679,7 @@ mod tests {
         }
         if authz {
             builder = builder.with_authz_ref(
-                GrantId::new("ck:grant:01904100-0000-7000-8000-e78463d5d984").unwrap(),
+                GrantId::new("ak:grant:01904100-0000-7000-8000-e78463d5d984").unwrap(),
             );
         }
         builder.build(&OperationKindRegistry::default()).unwrap()
@@ -702,13 +702,13 @@ mod tests {
     fn dag_accepts_complete_acyclic_dependencies() {
         let mut dag = OperationDag::new();
         dag.insert(envelope(
-            "ck:operation:01904100-0000-7000-8000-b24c1b0f1a32",
+            "ak:operation:01904100-0000-7000-8000-b24c1b0f1a32",
             Vec::new(),
         ))
         .unwrap();
         dag.insert(envelope(
-            "ck:operation:01904100-0000-7000-8000-bc16402a117e",
-            vec!["ck:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
+            "ak:operation:01904100-0000-7000-8000-bc16402a117e",
+            vec!["ak:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
         ))
         .unwrap();
         dag.validate().unwrap().validate_acyclic_complete().unwrap();
@@ -718,8 +718,8 @@ mod tests {
     fn dag_reports_missing_dependencies() {
         let mut dag = OperationDag::new();
         dag.insert(envelope(
-            "ck:operation:01904100-0000-7000-8000-bc16402a117e",
-            vec!["ck:operation:01904100-0000-7000-8000-74849cf4e138"],
+            "ak:operation:01904100-0000-7000-8000-bc16402a117e",
+            vec!["ak:operation:01904100-0000-7000-8000-74849cf4e138"],
         ))
         .unwrap();
         let report = dag.validate().unwrap();
@@ -731,13 +731,13 @@ mod tests {
     fn dag_reports_cycles_and_negative_vectors_cover_failure_modes() {
         let mut dag = OperationDag::new();
         dag.insert(envelope(
-            "ck:operation:01904100-0000-7000-8000-b24c1b0f1a32",
-            vec!["ck:operation:01904100-0000-7000-8000-bc16402a117e"],
+            "ak:operation:01904100-0000-7000-8000-b24c1b0f1a32",
+            vec!["ak:operation:01904100-0000-7000-8000-bc16402a117e"],
         ))
         .unwrap();
         dag.insert(envelope(
-            "ck:operation:01904100-0000-7000-8000-bc16402a117e",
-            vec!["ck:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
+            "ak:operation:01904100-0000-7000-8000-bc16402a117e",
+            vec!["ak:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
         ))
         .unwrap();
         let report = dag.validate().unwrap();
@@ -756,30 +756,30 @@ mod tests {
     #[test]
     fn semantic_reducer_rejects_tombstone_mutations_and_missing_authz() {
         let create = envelope_for(
-            "ck:operation:01904100-0000-7000-8000-b24c1b0f1a32",
+            "ak:operation:01904100-0000-7000-8000-b24c1b0f1a32",
             OP_PUSH_REGISTER_DEVICE,
             json!({
-                "device_id": "ck:device:01904100-0000-7000-8000-c89a39a907e5",
+                "device_id": "ak:device:01904100-0000-7000-8000-c89a39a907e5",
                 "endpoint": "https://push.example/device"
             }),
             Vec::new(),
             true,
         );
         let delete = envelope_for(
-            "ck:operation:01904100-0000-7000-8000-bc16402a117e",
+            "ak:operation:01904100-0000-7000-8000-bc16402a117e",
             OP_PUSH_UNREGISTER_DEVICE,
-            json!({"device_id": "ck:device:01904100-0000-7000-8000-c89a39a907e5"}),
-            vec!["ck:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
+            json!({"device_id": "ak:device:01904100-0000-7000-8000-c89a39a907e5"}),
+            vec!["ak:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
             true,
         );
         let update_after_delete = envelope_for(
-            "ck:operation:01904100-0000-7000-8000-57ea8fc8ec0b",
+            "ak:operation:01904100-0000-7000-8000-57ea8fc8ec0b",
             OP_PUSH_REGISTER_DEVICE,
             json!({
-                "device_id": "ck:device:01904100-0000-7000-8000-c89a39a907e5",
+                "device_id": "ak:device:01904100-0000-7000-8000-c89a39a907e5",
                 "endpoint": "https://push.example/device"
             }),
-            vec!["ck:operation:01904100-0000-7000-8000-bc16402a117e"],
+            vec!["ak:operation:01904100-0000-7000-8000-bc16402a117e"],
             true,
         );
         let report = reduce_operation_semantics(&[create, delete, update_after_delete]);
@@ -787,10 +787,10 @@ mod tests {
         assert_eq!(report.rejected[0].kind, "create_after_tombstone");
 
         let missing_authz = envelope_for(
-            "ck:operation:01904100-0000-7000-8000-a8e5d315a094",
+            "ak:operation:01904100-0000-7000-8000-a8e5d315a094",
             OP_PUSH_REGISTER_DEVICE,
             json!({
-                "device_id": "ck:device:01904100-0000-7000-8000-9160607cbd81",
+                "device_id": "ak:device:01904100-0000-7000-8000-9160607cbd81",
                 "endpoint": "https://push.example/other"
             }),
             Vec::new(),
@@ -803,8 +803,8 @@ mod tests {
     #[test]
     fn registry_requires_semantic_content_fields() {
         let result = OperationEnvelopeBuilder::new(
-            OperationId::new("ck:operation:01904100-0000-7000-8000-e0d2820b21e0").unwrap(),
-            RealmId::new("ck:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
+            OperationId::new("ak:operation:01904100-0000-7000-8000-e0d2820b21e0").unwrap(),
+            RealmId::new("ak:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             OP_PUSH_REGISTER_DEVICE,
             1,

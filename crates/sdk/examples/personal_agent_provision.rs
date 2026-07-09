@@ -15,7 +15,7 @@
 //! 11. `ck.self.agent.command.deactivate`             — terminate the principal
 //!
 //! The example does NOT require a live soland deployment. Each step is built
-//! from `cokret::agent::*` request-plan helpers so a reader can audit the exact
+//! from `arkret::agent::*` request-plan helpers so a reader can audit the exact
 //! standard `/_cokret/...` path and typed request body a real transport would
 //! send.
 //!
@@ -25,13 +25,13 @@
 //! cargo run --example personal_agent_provision --features full-surface
 //! ```
 
-use cokret::agent::{
+use arkret::agent::{
     AgentProvisionRequestBuilder, AgentRequestPlan, plan_agent_deactivate, plan_agent_get,
     plan_agent_grant_attach, plan_agent_grant_detach, plan_agent_key_pair, plan_agent_list,
     plan_agent_pause, plan_agent_provision, plan_agent_resume, plan_agent_rotate_key,
     plan_agent_sidecar_thread_ensure,
 };
-use cokret::{
+use arkret::{
     AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyPairRequestBody,
     AgentKeyScope, AgentKeyScopeResource, AgentKeyScopeResourceKind, AgentPauseRequestBody,
     AgentResumeRequestBody, AgentRotateKeyRequestBody, AgentSidecarContextRef,
@@ -54,7 +54,7 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
         }),
         "ck.gate.account.command.pair_agent_key" => json!({
             "ok": true,
-            "authorized_event_ref": "ck:event:01964137-0000-7000-8000-000000000101",
+            "authorized_event_ref": "ak:event:01964137-0000-7000-8000-000000000101",
         }),
         "ck.self.agent.query.list" => {
             json!({ "agents": [], "next_cursor": null, "has_more": false })
@@ -66,11 +66,11 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
         "ck.self.agent.command.resume" => json!({ "ok": true, "status": "active" }),
         "ck.self.agent.command.rotate_key" => json!({
             "ok": true,
-            "authorized_event_ref": "ck:event:01964137-0000-7000-8000-000000000102",
+            "authorized_event_ref": "ak:event:01964137-0000-7000-8000-000000000102",
         }),
         "ck.self.agent.grant.command.attach" => json!({
             "ok": true,
-            "grant_id": "ck:grant:01964137-0000-7000-8000-000000000010",
+            "grant_id": "ak:grant:01964137-0000-7000-8000-000000000010",
         }),
         "ck.self.agent.grant.resource.delete" => json!({
             "ok": true,
@@ -78,9 +78,9 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
         }),
         "ck.self.agent.sidecar_thread.command.ensure" => json!({
             "ok": true,
-            "private_circle_id": "ck:circle:01964137-0000-7000-8000-000000000020",
-            "private_strand_id": "ck:strand:01964137-0000-7000-8000-000000000021",
-            "private_relation_id": "ck:relation:01964137-0000-7000-8000-000000000022",
+            "private_circle_id": "ak:circle:01964137-0000-7000-8000-000000000020",
+            "private_strand_id": "ak:strand:01964137-0000-7000-8000-000000000021",
+            "private_relation_id": "ak:relation:01964137-0000-7000-8000-000000000022",
             "pending_member_reconciliations": [],
         }),
         "ck.self.agent.command.deactivate" => json!({ "ok": true, "status": "deactivated" }),
@@ -88,7 +88,7 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
     }
 }
 
-fn send_plan<B: Serialize>(plan: AgentRequestPlan<B>) -> cokret::Result<Value> {
+fn send_plan<B: Serialize>(plan: AgentRequestPlan<B>) -> arkret::Result<Value> {
     let body = plan.body_value()?.unwrap_or(Value::Null);
     Ok(mock_send(
         plan.operation_id,
@@ -98,7 +98,7 @@ fn send_plan<B: Serialize>(plan: AgentRequestPlan<B>) -> cokret::Result<Value> {
     ))
 }
 
-fn main() -> cokret::Result<()> {
+fn main() -> arkret::Result<()> {
     let controller: Did = Did::new("did:webvh:z6mkfixture:alice.example")?;
 
     let provision_body = AgentProvisionRequestBuilder::new()
@@ -109,7 +109,7 @@ fn main() -> cokret::Result<()> {
             resources: vec![AgentKeyScopeResource {
                 kind: AgentKeyScopeResourceKind::Realm,
                 realm_id: Some(RealmId::new(
-                    "ck:realm:01904100-0000-7000-8000-000000000001",
+                    "ak:realm:01904100-0000-7000-8000-000000000001",
                 )?),
                 r#ref: None,
                 operation: None,
@@ -195,7 +195,7 @@ fn main() -> cokret::Result<()> {
         AgentGrantAttachRequestBody {
             grant: json!({
                 "actions": ["ck.message.create"],
-                "resources": [{ "kind": "realm", "realm_id": "ck:realm:01964137-0000-7000-8000-000000000030" }],
+                "resources": [{ "kind": "realm", "realm_id": "ak:realm:01964137-0000-7000-8000-000000000030" }],
             }),
         },
     ))?;
@@ -205,8 +205,8 @@ fn main() -> cokret::Result<()> {
     let _detached = send_plan(plan_agent_grant_detach(&agent_principal_id, &grant_id))?;
 
     // 10. sidecar_thread.ensure
-    let realm_id = RealmId::new("ck:realm:01964137-0000-7000-8000-000000000030")?;
-    let context_strand_id = StrandId::new("ck:strand:01964137-0000-7000-8000-000000000031")?;
+    let realm_id = RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030")?;
+    let context_strand_id = StrandId::new("ak:strand:01964137-0000-7000-8000-000000000031")?;
     let _sidecar = send_plan(plan_agent_sidecar_thread_ensure(
         AgentSidecarThreadEnsureRequestBody {
             controller_principal_id: controller,

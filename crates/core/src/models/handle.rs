@@ -2,11 +2,11 @@ use std::fmt;
 
 use super::*;
 
-/// Canonical Cokret handle string.
+/// Canonical Arkret handle string.
 ///
 /// R3.1 wire form: `<localpart>:<domain>(:<port>)?` with lowercase
-/// `localpart`. The previous `cokret://<domain>/users/<localpart>` URI
-/// form has been retired (cokret-spec @ 7157ee8 — 2026-05-27).
+/// `localpart`. The previous `arkret://<domain>/users/<localpart>` URI
+/// form has been retired (arkret-spec @ 7157ee8 — 2026-05-27).
 ///
 /// `acct:<localpart>@<domain>` remains an interop alias only and lives in
 /// [`HandleClaim::handle_aliases`]; the `@` mention sigil is not part of
@@ -336,7 +336,7 @@ pub(crate) fn is_valid_domain(s: &str) -> bool {
 /// `handle_claim_subject_not_principal_did` wire code prefix.
 pub fn validate_handle_claim_subject(subject: &Did) -> Result<()> {
     let s = subject.as_str();
-    if s.starts_with("ck:actor:") || s.starts_with("ck:account:") {
+    if s.starts_with("ak:actor:") || s.starts_with("ak:account:") {
         return Err(Error::Protocol(format!(
             "handle_claim_subject_not_principal_did: subject must be a holder/principal DID, \
              not a typed id ({s})"
@@ -434,7 +434,7 @@ pub struct HandleClaim {
     #[serde(default = "default_handle_claim_schema")]
     pub schema: String,
     /// Canonical handle `<localpart>:<domain>`. R3.1 wire rename from
-    /// the prior `handle_uri` field name (cokret-spec @ 7157ee8).
+    /// the prior `handle_uri` field name (arkret-spec @ 7157ee8).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<Handle>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -637,8 +637,8 @@ mod tests {
         // multi-label domain (`example.com`, not `example`).
         assert!(Handle::parse("example.com").is_err());
         assert!(Handle::parse("alice:example").is_err());
-        // cokret:// URI form is no longer accepted (R3.1 wire rename).
-        assert!(Handle::parse("cokret://example.com/users/alice").is_err());
+        // arkret:// URI form is no longer accepted (R3.1 wire rename).
+        assert!(Handle::parse("arkret://example.com/users/alice").is_err());
         // acct: alias must be routed through `from_acct`.
         assert!(Handle::parse("acct:alice@example.com").is_err());
     }
@@ -703,9 +703,9 @@ mod tests {
                 binding_source: HandleHintBindingSource::OrganizationPolicy,
                 delivery_modes: BTreeSet::from([DeliveryMode::Events]),
                 service_acceptance_ref: Some(
-                    "ck:event:01890000-0000-7000-8000-000000000001".to_owned(),
+                    "ak:event:01890000-0000-7000-8000-000000000001".to_owned(),
                 ),
-                policy_event_ref: Some("ck:event:01890000-0000-7000-8000-000000000002".to_owned()),
+                policy_event_ref: Some("ak:event:01890000-0000-7000-8000-000000000002".to_owned()),
             }),
             ..Default::default()
         };
@@ -718,14 +718,14 @@ mod tests {
         assert!(value["created_at"].is_string());
         assert_eq!(
             value["member_delivery_binding"]["policy_event_ref"],
-            "ck:event:01890000-0000-7000-8000-000000000002"
+            "ak:event:01890000-0000-7000-8000-000000000002"
         );
         assert!(value["member_delivery_binding"].get("policy_ref").is_none());
     }
 
     #[test]
     fn remote_resolution_requires_proof_audience_and_delivery_binding() {
-        let audience = "ck:realm:01904100-0000-7000-8000-000000000001";
+        let audience = "ak:realm:01904100-0000-7000-8000-000000000001";
         let recipient = Did::new("did:webvh:z6mkfixture:rs.example".to_owned()).unwrap();
         let claim = HandleClaim {
             handle: Some(Handle::parse("alice:example.com").unwrap()),

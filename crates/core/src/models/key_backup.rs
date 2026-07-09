@@ -1052,7 +1052,7 @@ pub struct RecoveryReceiptAuthData {
 // `SessionGrantRequestBody` / `SessionGrantOutcome`, mirroring
 // `service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody`.
 // The spec HTTP binding registers exactly one operation (proof in body,
-// `x-cokret-auth.proof_in_body: true`); challenge acquisition is a
+// `x-arkret-auth.proof_in_body: true`); challenge acquisition is a
 // deployment-local concern per `identity-did.md` §5.1 and has no
 // dedicated `/_cokret/` sub-path.
 

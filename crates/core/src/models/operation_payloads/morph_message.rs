@@ -504,7 +504,7 @@ fn validate_media_content_block(block: &Value) -> ContentBlockValidationResult<(
     let has_blob_ref = block
         .get("blob_ref")
         .and_then(Value::as_str)
-        .is_some_and(|value| value.starts_with("ck:blob:sha256:"));
+        .is_some_and(|value| value.starts_with("ak:blob:sha256:"));
     let has_url = block
         .get("url")
         .and_then(Value::as_str)

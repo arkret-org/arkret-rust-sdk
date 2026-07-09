@@ -39,7 +39,7 @@ impl Realm {
             ));
         }
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let payload =
             RelationCreatePayload::new(input.relation_kind.as_str(), input.from_ref, input.to_ref);
 
@@ -58,7 +58,7 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let payload = json!({ "relation_id": relation_id.as_str() });
 
         Ok(Operation::create(

@@ -1,11 +1,11 @@
 //! Print the SDK ↔ spec artifact drift report.
 //!
-//! Run with the sibling `cokret-spec` repo checked out alongside this one,
-//! or with `COKRET_SPEC_ARTIFACTS` pointing at any `artifacts/` directory:
+//! Run with the sibling `arkret-spec` repo checked out alongside this one,
+//! or with `ARKRET_SPEC_ARTIFACTS` pointing at any `artifacts/` directory:
 //!
 //! ```sh
 //! cargo run --example spec_drift_report
-//! COKRET_SPEC_ARTIFACTS=/path/to/cokret-spec/spec/v1/artifacts \
+//! ARKRET_SPEC_ARTIFACTS=/path/to/arkret-spec/spec/v1/artifacts \
 //!     cargo run --example spec_drift_report
 //! ```
 //!
@@ -20,22 +20,22 @@
 //!
 //! ```yaml
 //! - uses: actions/checkout@v4
-//!   with: { repository: cokret/cokret-spec, path: cokret-spec }
+//!   with: { repository: arkret/arkret-spec, path: arkret-spec }
 //! - run: cargo run --example spec_drift_report
-//!   env: { COKRET_SPEC_ARTIFACTS: cokret-spec/spec/v1/artifacts }
+//!   env: { ARKRET_SPEC_ARTIFACTS: arkret-spec/spec/v1/artifacts }
 //! ```
 
 use std::process::ExitCode;
 
-use cokret::schema_contracts::artifact_drift_report_from_default_location;
+use arkret::schema_contracts::artifact_drift_report_from_default_location;
 
 fn main() -> ExitCode {
     let report = match artifact_drift_report_from_default_location() {
         Ok(Some(report)) => report,
         Ok(None) => {
             eprintln!(
-                "no spec artifact bundle found; set COKRET_SPEC_ARTIFACTS or check out \
-                 ../cokret-spec/spec/v1/artifacts/ alongside this repo"
+                "no spec artifact bundle found; set ARKRET_SPEC_ARTIFACTS or check out \
+                 ../arkret-spec/spec/v1/artifacts/ alongside this repo"
             );
             return ExitCode::from(2);
         }

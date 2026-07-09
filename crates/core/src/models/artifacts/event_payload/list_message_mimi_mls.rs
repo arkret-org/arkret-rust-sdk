@@ -483,13 +483,13 @@ mod tests {
             )
             .unwrap(),
             intended_realm_id: RealmId::new(
-                "ck:realm:01904100-0000-7000-8000-000000000001".to_owned(),
+                "ak:realm:01904100-0000-7000-8000-000000000001".to_owned(),
             )
             .unwrap(),
-            claim_id: "ck:mls:kp:claim".to_owned(),
+            claim_id: "ak:mls:kp:claim".to_owned(),
             requester_did: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             ssk_generation: None,
-            requester_device_id: Some("ck:device:01904100-0000-7000-8000-000000000001".to_owned()),
+            requester_device_id: Some("ak:device:01904100-0000-7000-8000-000000000001".to_owned()),
             nonce: "nonce".to_owned(),
             welcome_digest: Hash::new(
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -536,7 +536,7 @@ mod tests {
             target_ref: None,
             event_id: None,
             target_event_id: Some(
-                EventId::new("ck:event:01904100-0000-7000-8000-000000000001").unwrap(),
+                EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap(),
             ),
             track_name: None,
             reason: Some("author_redaction".to_owned()),
@@ -547,7 +547,7 @@ mod tests {
 
         assert_eq!(
             value["target_event_id"],
-            "ck:event:01904100-0000-7000-8000-000000000001"
+            "ak:event:01904100-0000-7000-8000-000000000001"
         );
         assert!(value.get("event_id").is_none());
     }

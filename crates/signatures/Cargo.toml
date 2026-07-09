@@ -1,13 +1,13 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-description = "Cokret v1 canonical signatures, proof binding, and HTTP message signature models."
+description = "Arkret v1 canonical signatures, proof binding, and HTTP message signature models."
 edition = "2024"
-homepage = "https://github.com/cokret/cokret-rust-sdk"
-keywords = ["cokret", "signature", "federation", "protocol"]
+homepage = "https://github.com/arkret/arkret-rust-sdk"
+keywords = ["arkret", "signature", "federation", "protocol"]
 license = "Apache-2.0"
-name = "cokret-signatures"
+name = "arkret-signatures"
 readme = "README.md"
-repository = "https://github.com/cokret/cokret-rust-sdk"
+repository = "https://github.com/arkret/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 
@@ -22,7 +22,7 @@ signer = []
 # no longer gates these crypto deps.
 base64 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
-cokret-core = {workspace = true}
+arkret-core = {workspace = true}
 ed25519-dalek = {workspace = true}
 rand_core = {workspace = true}
 serde = {workspace = true}
@@ -34,7 +34,7 @@ url = {workspace = true}
 zeroize = {workspace = true,default-features = true}
 
 [dev-dependencies]
-cokret-core = {workspace = true}
+arkret-core = {workspace = true}
 rand_chacha = {workspace = true}
 serde_json = {workspace = true}
 # SDK-SOTA-03 microbenchmarks (run on demand with `cargo bench`, never in CI).

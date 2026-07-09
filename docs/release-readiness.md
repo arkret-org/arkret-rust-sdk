@@ -1,15 +1,15 @@
 # Release Readiness
 
-Current target: active Cokret v1 SDK `0.3.x` development line. Workspace crate
+Current target: active Arkret v1 SDK `0.3.x` development line. Workspace crate
 versions remain `0.3.0` until an explicit release cut.
 
 This repository is ready for a local `0.3.x` release-candidate cut only when
 these gates pass:
 
 - `cargo +nightly fmt --all -- --check`
-- `cargo check -p cokret`
+- `cargo check -p arkret`
 - `cargo check --no-default-features`
-- `cargo check -p cokret --no-default-features --features full-surface`
+- `cargo check -p arkret --no-default-features --features full-surface`
 - `cargo check --no-default-features --features client`
 - `cargo check --no-default-features --features server`
 - `cargo check --no-default-features --features mls`

@@ -34,15 +34,15 @@ mod tests {
     }
 
     fn ghost_test_realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
     }
 
     fn profile_id() -> ActorProfileId {
-        ActorProfileId::new("ck:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap()
+        ActorProfileId::new("ak:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap()
     }
 
     fn applet_id() -> AppletId {
-        AppletId::new("ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap()
+        AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap()
     }
 
     fn ghost_test_hlc() -> Hlc {
@@ -83,7 +83,7 @@ mod tests {
         assert_eq!(profile.accountable_principal_ids, vec![owner]);
         assert_eq!(
             profile.profile_fields["managed_by_applet"],
-            "ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
+            "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
         );
         assert_eq!(profile.profile_fields["external_ref"]["user_id"], "U123");
 
@@ -107,7 +107,7 @@ mod tests {
         .with_accountable_principal_ids(vec![did("owner")]);
         let authorization = AppletDelegatedEventAuthorization::new(
             did("bridge"),
-            "ck:grant:01904100-0000-7000-8000-cccccccccccc",
+            "ak:grant:01904100-0000-7000-8000-cccccccccccc",
             applet_id(),
         );
 
@@ -123,11 +123,11 @@ mod tests {
         assert_eq!(event.executed_by.as_ref().unwrap(), &did("bridge"));
         assert_eq!(
             event.authorization_ref.as_deref(),
-            Some("ck:grant:01904100-0000-7000-8000-cccccccccccc")
+            Some("ak:grant:01904100-0000-7000-8000-cccccccccccc")
         );
         assert_eq!(
             event.payload["object"]["profile_fields"]["managed_by_applet"],
-            "ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
+            "ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
         );
     }
 
@@ -289,7 +289,7 @@ mod tests {
         mappings.upsert_realm(RemoteRealmMapping {
             protocol: "slack".to_owned(),
             remote_realm_id: "C1".to_owned(),
-            realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-f949e0272316").unwrap(),
+            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-f949e0272316").unwrap(),
             portal_id: Some("portal".to_owned()),
             title: Some("general".to_owned()),
             external_ref: Value::Null,
@@ -425,7 +425,7 @@ mod tests {
 
     fn sample_wire_registration() -> WireAppletRegistration {
         WireAppletRegistration::new(
-            "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
             did("slackbridge"),
             did("alice"),
             "https://applet.example/cx",
@@ -483,7 +483,7 @@ mod tests {
     // ─── S-11 (savfox SDK gap) tests ─────────────────────────────────
 
     fn realm() -> RealmId {
-        RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
     }
 
     fn hlc() -> Hlc {
@@ -494,9 +494,9 @@ mod tests {
     fn applet_bridge_error_builder_emits_canonical_kind_and_payload() {
         let event = AppletBridgeErrorBuilder::new(
             realm(),
-            "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
             did("bot"),
-            "ck:event:01904100-0000-7000-8000-deadbeefdead",
+            "ak:event:01904100-0000-7000-8000-deadbeefdead",
             AppletBridgeErrorClass::ExternalNetwork,
             "external_rate_limited",
             true,
@@ -511,7 +511,7 @@ mod tests {
         assert_eq!(event.payload["realm_id"], realm().as_str());
         assert_eq!(
             event.payload["failed_transaction_ref"],
-            "ck:event:01904100-0000-7000-8000-deadbeefdead"
+            "ak:event:01904100-0000-7000-8000-deadbeefdead"
         );
         assert_eq!(event.payload["error_class"], "external_network");
         assert_eq!(event.payload["error_code"], "external_rate_limited");
@@ -524,7 +524,7 @@ mod tests {
         assert_eq!(event.payload["retry_after_ms"], 1000);
         assert_eq!(
             event.payload["applet_id"],
-            "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"
+            "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
         assert_eq!(event.payload["external_ref"]["slack_response_code"], 429);
     }
@@ -546,7 +546,7 @@ mod tests {
     fn applet_package_derives_registration_and_round_trips() {
         let mut package = AppletPackage::new(
             "applet_pkg_todo",
-            "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
             did("slackbridge"),
             did("alice"),
             "https://applet.example/cx",
@@ -563,7 +563,7 @@ mod tests {
         );
         package.requested_scopes = vec!["ck.message.create".to_owned()];
         package.webhook_auth = WebhookAuth::http_message_signature(
-            "ck:keyref:webhook",
+            "ak:keyref:webhook",
             vec![WebhookSignatureAlg::EdDsa],
         );
         package.registration_epoch_evidence = Some(sample_epoch_evidence(&package.service_did));
@@ -610,7 +610,7 @@ mod tests {
     fn applet_package_missing_base_profile_is_rejected() {
         let mut package = AppletPackage::new(
             "applet_pkg_todo",
-            "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
             did("slackbridge"),
             did("alice"),
             "https://applet.example/cx",
@@ -630,7 +630,7 @@ mod tests {
         let mut plan = InstallPlan {
             schema: "ck.schema.applet_install_plan.v1".to_owned(),
             plan_id: "plan_1".to_owned(),
-            applet_id: "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
+            applet_id: "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
             package_digest: sample_epoch(),
             registration_epoch: sample_epoch(),
             effective_scope: EffectiveScope::Realm { realm_id: realm() },
