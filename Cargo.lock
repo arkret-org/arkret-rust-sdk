@@ -19,13 +19,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "aead"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1973cfbc1a2daf9cf550e74e1f088c28e7f7d8c1e1418fb6c9dc5184b7e84c99"
+dependencies = [
+ "crypto-common 0.2.2",
+ "inout 0.2.2",
+]
+
+[[package]]
 name = "aes"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b169f7a6d4742236a0a00c541b845991d0ac43e546831af1249753ab4c3aa3a0"
 dependencies = [
  "cfg-if",
- "cipher",
+ "cipher 0.4.4",
  "cpufeatures 0.2.17",
 ]
 
@@ -35,9 +45,9 @@ version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "831010a0f742e1209b3bcea8fab6a8e149051ba6099432c8cb2cc117dec3ead1"
 dependencies = [
- "aead",
+ "aead 0.5.2",
  "aes",
- "cipher",
+ "cipher 0.4.4",
  "ctr",
  "ghash",
  "subtle",
@@ -100,6 +110,192 @@ dependencies = [
  "blake2",
  "cpufeatures 0.2.17",
  "password-hash",
+]
+
+[[package]]
+name = "arkret"
+version = "0.3.0"
+dependencies = [
+ "argon2",
+ "arkret-core",
+ "arkret-crypto",
+ "arkret-ffi",
+ "arkret-html",
+ "arkret-http-client",
+ "arkret-keystore",
+ "arkret-server",
+ "arkret-signatures",
+ "base64",
+ "chacha20poly1305 0.11.0",
+ "chrono",
+ "chrono-tz",
+ "ed25519-dalek",
+ "getrandom 0.4.2",
+ "hex",
+ "hkdf 0.13.0",
+ "hpke",
+ "openmls",
+ "openmls_basic_credential",
+ "openmls_rust_crypto",
+ "parking_lot",
+ "rand_core 0.9.5",
+ "regex",
+ "reqwest",
+ "salvo",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "subtle",
+ "thiserror",
+ "tls_codec",
+ "tokio",
+ "tracing",
+ "url",
+ "uuid",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
+name = "arkret-core"
+version = "0.3.0"
+dependencies = [
+ "arkret-identifiers",
+ "base64",
+ "blake3",
+ "bs58",
+ "chrono",
+ "chrono-tz",
+ "criterion",
+ "getrandom 0.4.2",
+ "hex",
+ "hmac 0.13.0",
+ "proptest",
+ "regex",
+ "salvo",
+ "salvo-oapi",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "thiserror",
+ "tracing",
+ "unicode-normalization",
+ "url",
+ "zeroize",
+]
+
+[[package]]
+name = "arkret-crypto"
+version = "0.3.0"
+dependencies = [
+ "argon2",
+ "arkret-core",
+ "arkret-signatures",
+ "chacha20poly1305 0.11.0",
+ "chrono",
+ "getrandom 0.4.2",
+ "hkdf 0.13.0",
+ "hmac 0.13.0",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "thiserror",
+ "zeroize",
+]
+
+[[package]]
+name = "arkret-ffi"
+version = "0.3.0"
+dependencies = [
+ "arkret-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "arkret-html"
+version = "0.3.0"
+dependencies = [
+ "arkret-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "arkret-http-client"
+version = "0.3.0"
+dependencies = [
+ "arkret-core",
+ "arkret-signatures",
+ "base64",
+ "chrono",
+ "futures-util",
+ "getrandom 0.4.2",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "arkret-identifiers"
+version = "0.3.0"
+dependencies = [
+ "diesel",
+ "getrandom 0.2.17",
+ "getrandom 0.4.2",
+ "hex",
+ "salvo",
+ "salvo-oapi",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "arkret-keystore"
+version = "0.3.0"
+dependencies = [
+ "arkret-core",
+ "secret-service",
+ "security-framework",
+ "tracing",
+ "windows",
+]
+
+[[package]]
+name = "arkret-server"
+version = "0.3.0"
+dependencies = [
+ "arkret-core",
+ "arkret-signatures",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "arkret-signatures"
+version = "0.3.0"
+dependencies = [
+ "arkret-core",
+ "base64",
+ "chrono",
+ "criterion",
+ "ed25519-dalek",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "subtle",
+ "thiserror",
+ "url",
+ "zeroize",
 ]
 
 [[package]]
@@ -375,7 +571,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26b52a9543ae338f279b96b0b9fed9c8093744685043739079ce85cd58f289a6"
 dependencies = [
- "cipher",
+ "cipher 0.4.4",
 ]
 
 [[package]]
@@ -409,7 +605,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3613f74bd2eac03dad61bd53dbe620703d4371614fe0bc3b9f04dd36fe4e818"
 dependencies = [
  "cfg-if",
- "cipher",
+ "cipher 0.4.4",
  "cpufeatures 0.2.17",
 ]
 
@@ -420,6 +616,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f8d983286843e49675a4b7a2d174efe136dc93a18d69130dd18198a6c167601"
 dependencies = [
  "cfg-if",
+ "cipher 0.5.2",
  "cpufeatures 0.3.0",
  "rand_core 0.10.1",
 ]
@@ -430,11 +627,23 @@ version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10cd79432192d1c0f4e1a0fef9527696cc039165d729fb41b3f4f4f354c2dc35"
 dependencies = [
- "aead",
+ "aead 0.5.2",
  "chacha20 0.9.1",
- "cipher",
- "poly1305",
+ "cipher 0.4.4",
+ "poly1305 0.8.0",
  "zeroize",
+]
+
+[[package]]
+name = "chacha20poly1305"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b89e1c441e926b9c82a8d023f6e1b7ae0adcfaa7d621814e4d60789bac751cb"
+dependencies = [
+ "aead 0.6.1",
+ "chacha20 0.10.0",
+ "cipher 0.5.2",
+ "poly1305 0.9.1",
 ]
 
 [[package]]
@@ -506,8 +715,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
 dependencies = [
  "crypto-common 0.1.6",
- "inout",
+ "inout 0.1.4",
  "zeroize",
+]
+
+[[package]]
+name = "cipher"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8cf2a2c93cd704877c0858356ed03480ff301ee950b43f1cbe4573b088bfa6c"
+dependencies = [
+ "block-buffer 0.12.0",
+ "crypto-common 0.2.2",
+ "inout 0.2.2",
 ]
 
 [[package]]
@@ -549,192 +769,6 @@ name = "cmov"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
-
-[[package]]
-name = "cokret"
-version = "0.3.0"
-dependencies = [
- "argon2",
- "base64",
- "chacha20poly1305",
- "chrono",
- "chrono-tz",
- "cokret-core",
- "cokret-crypto",
- "cokret-ffi",
- "cokret-html",
- "cokret-http-client",
- "cokret-keystore",
- "cokret-server",
- "cokret-signatures",
- "ed25519-dalek",
- "getrandom 0.4.2",
- "hex",
- "hkdf 0.13.0",
- "hpke",
- "openmls",
- "openmls_basic_credential",
- "openmls_rust_crypto",
- "parking_lot",
- "rand_core 0.9.5",
- "regex",
- "reqwest",
- "salvo",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "subtle",
- "thiserror",
- "tls_codec",
- "tokio",
- "tracing",
- "url",
- "uuid",
- "x25519-dalek",
- "zeroize",
-]
-
-[[package]]
-name = "cokret-core"
-version = "0.3.0"
-dependencies = [
- "base64",
- "blake3",
- "bs58",
- "chrono",
- "chrono-tz",
- "cokret-identifiers",
- "criterion",
- "getrandom 0.4.2",
- "hex",
- "hmac 0.13.0",
- "proptest",
- "regex",
- "salvo",
- "salvo-oapi",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "thiserror",
- "tracing",
- "unicode-normalization",
- "url",
- "zeroize",
-]
-
-[[package]]
-name = "cokret-crypto"
-version = "0.3.0"
-dependencies = [
- "argon2",
- "chacha20poly1305",
- "chrono",
- "cokret-core",
- "cokret-signatures",
- "getrandom 0.4.2",
- "hkdf 0.13.0",
- "hmac 0.13.0",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "thiserror",
- "zeroize",
-]
-
-[[package]]
-name = "cokret-ffi"
-version = "0.3.0"
-dependencies = [
- "cokret-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "cokret-html"
-version = "0.3.0"
-dependencies = [
- "cokret-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "cokret-http-client"
-version = "0.3.0"
-dependencies = [
- "base64",
- "chrono",
- "cokret-core",
- "cokret-signatures",
- "futures-util",
- "getrandom 0.4.2",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tokio-util",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "cokret-identifiers"
-version = "0.3.0"
-dependencies = [
- "diesel",
- "getrandom 0.2.17",
- "getrandom 0.4.2",
- "hex",
- "salvo",
- "salvo-oapi",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "thiserror",
- "uuid",
-]
-
-[[package]]
-name = "cokret-keystore"
-version = "0.3.0"
-dependencies = [
- "cokret-core",
- "secret-service",
- "security-framework",
- "tracing",
- "windows",
-]
-
-[[package]]
-name = "cokret-server"
-version = "0.3.0"
-dependencies = [
- "cokret-core",
- "cokret-signatures",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "cokret-signatures"
-version = "0.3.0"
-dependencies = [
- "base64",
- "chrono",
- "cokret-core",
- "criterion",
- "ed25519-dalek",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "subtle",
- "thiserror",
- "url",
- "zeroize",
-]
 
 [[package]]
 name = "combine"
@@ -985,7 +1019,7 @@ version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0369ee1ad671834580515889b80f2ea915f23b8be8d0daa4bbaf2ac5c7590835"
 dependencies = [
- "cipher",
+ "cipher 0.4.4",
 ]
 
 [[package]]
@@ -1703,9 +1737,9 @@ version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f65d16b699dd1a1fa2d851c970b0c971b388eeeb40f744252b8de48860980c8f"
 dependencies = [
- "aead",
+ "aead 0.5.2",
  "aes-gcm",
- "chacha20poly1305",
+ "chacha20poly1305 0.10.1",
  "digest 0.10.7",
  "generic-array",
  "hkdf 0.12.4",
@@ -1770,7 +1804,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14b28be6cba9081c7feda2651d51c2a900029798e78b4c1e093e792f4571a870"
 dependencies = [
  "aes-gcm",
- "chacha20poly1305",
+ "chacha20poly1305 0.10.1",
  "hkdf 0.12.4",
  "hpke-rs-crypto",
  "k256",
@@ -2059,6 +2093,15 @@ checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
 dependencies = [
  "block-padding",
  "generic-array",
+]
+
+[[package]]
+name = "inout"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4250ce6452e92010fdf7268ccc5d14faa80bb12fc741938534c58f16804e03c7"
+dependencies = [
+ "hybrid-array",
 ]
 
 [[package]]
@@ -2665,7 +2708,7 @@ version = "0.5.1"
 source = "git+https://github.com/openmls/openmls.git?rev=d5a3aa7b595cb445614aa04b38f3d3aa42cf4911#d5a3aa7b595cb445614aa04b38f3d3aa42cf4911"
 dependencies = [
  "aes-gcm",
- "chacha20poly1305",
+ "chacha20poly1305 0.10.1",
  "ed25519-dalek",
  "hkdf 0.13.0",
  "hmac 0.13.0",
@@ -2859,7 +2902,17 @@ checksum = "8159bd90725d2df49889a078b54f4f79e87f1f8a8444194cdca81d38f5393abf"
 dependencies = [
  "cpufeatures 0.2.17",
  "opaque-debug",
- "universal-hash",
+ "universal-hash 0.5.1",
+]
+
+[[package]]
+name = "poly1305"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e2d0073b297041425c7c3df6eb4792d598a15323fe63346852b092eca02904c"
+dependencies = [
+ "cpufeatures 0.3.0",
+ "universal-hash 0.6.1",
 ]
 
 [[package]]
@@ -2871,7 +2924,7 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.2.17",
  "opaque-debug",
- "universal-hash",
+ "universal-hash 0.5.1",
 ]
 
 [[package]]
@@ -4379,6 +4432,16 @@ checksum = "fc1de2c688dc15305988b563c3854064043356019f97a4b46276fe734c4f07ea"
 dependencies = [
  "crypto-common 0.1.6",
  "subtle",
+]
+
+[[package]]
+name = "universal-hash"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4987bdc12753382e0bec4a65c50738ffaabc998b9cdd1f952fb5f39b0048a96"
+dependencies = [
+ "crypto-common 0.2.2",
+ "ctutils",
 ]
 
 [[package]]
