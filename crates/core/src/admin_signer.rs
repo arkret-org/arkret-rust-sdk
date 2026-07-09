@@ -81,7 +81,7 @@ impl AdminKeyStore {
     }
 
     /// Load the raw signing seed for `admin_did`. Returns
-    /// `KeyStoreError::NotFound` (wrapped in [`crate::Error::Protocol`])
+    /// `KeyStoreError::NotFound` (wrapped in [`crate::Error::KeyStore`])
     /// when no key has been provisioned.
     pub fn load_admin_key(&self, admin_did: &Did) -> Result<KeyBytes> {
         let id = Self::key_id(&self.application_id, admin_did);
@@ -106,7 +106,7 @@ impl AdminKeyStore {
         let id = Self::key_id(&self.application_id, admin_did);
         match self.inner.load(&id) {
             Ok(_) => Ok(true),
-            Err(crate::Error::Protocol(msg)) if msg.contains("key not found") => Ok(false),
+            Err(err) if err.is_key_store_not_found() => Ok(false),
             Err(other) => Err(other),
         }
     }
@@ -270,7 +270,7 @@ mod tests {
         let err = store
             .load_admin_key(&admin("did:webvh:z6mkfixture:nobody.example"))
             .unwrap_err();
-        assert!(format!("{err}").contains("key not found"));
+        assert!(err.is_key_store_not_found());
     }
 
     // ── SessionGrantIntrospection ─────────────────────────────────────

@@ -19,10 +19,10 @@
 //! standard `/_cokret/...` path and typed request body a real transport would
 //! send.
 //!
-//! Build with the default feature set:
+//! Build with the high-level SDK surface:
 //!
 //! ```sh
-//! cargo run --example personal_agent_provision
+//! cargo run --example personal_agent_provision --features full-surface
 //! ```
 
 use cokret::agent::{

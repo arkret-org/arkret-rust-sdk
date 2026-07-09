@@ -22,8 +22,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::{DateTime, Utc};
 use cokret_core::push::{PushPriority, PushRule, PushRuleSet, Pusher};
 use cokret_core::{
-    BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId, Notification,
-    RealmId, Result, ThirdPartyInviteOobKind,
+    BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId,
+    InviteSubjectProof, Notification, RealmId, Result, ThirdPartyInviteOobKind,
 };
 use cokret_crypto::MediaEncryptionInfo;
 use cokret_html::RichTextDocument;
@@ -1204,7 +1204,7 @@ pub struct ThirdPartyInviteClaimRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subject_id: Option<Did>,
     pub binding_proof: Value,
-    pub subject_proof: Value,
+    pub subject_proof: InviteSubjectProof,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

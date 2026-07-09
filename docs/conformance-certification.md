@@ -15,10 +15,11 @@ The SDK currently carries conformance coverage in unit and integration tests:
 Certification procedure:
 
 ```sh
-cargo test
+cargo test -p cokret
+cargo test -p cokret --no-default-features
+cargo test -p cokret --all-features
 ```
 
 A release candidate is conformant when all protocol vectors and integration
-roundtrips pass for the default feature set. Feature-specific certification
-should additionally run with `--no-default-features` and each supported feature
+roundtrips pass for the default type surface and each supported opt-in feature
 combination before publishing.

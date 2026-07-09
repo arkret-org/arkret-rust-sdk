@@ -19,6 +19,7 @@
 //! - `push_target_id` — opaque pseudonym token (see [`is_valid_push_target_id`]).
 //! - `wakeup_kind` — closed enum (`message`, `mention`, `assignment`, `schedule`, `reaction`,
 //!   `call_invite`, `reminder`, `scheduled_send`, `expiry_invalidation`).
+//! - `timing_profile_hint` — closed enum (`default`, `traffic_metadata_hardened`).
 //! - `badge`, `unread_count`, `count` — small non-negative integers (≤ `MAX_COUNT_VALUE`). May be
 //!   carried inside a `counts` object.
 //! - `push_hint` — closed enum (`new_message`, `incoming_call`, `mention_self`) **or** the form
@@ -83,6 +84,9 @@ pub const ALLOWED_WAKEUP_KINDS: &[&str] = &[
 /// The `l10n_key:<token>` form is accepted in addition to these literals.
 pub const ALLOWED_PUSH_HINTS: &[&str] = &["new_message", "incoming_call", "mention_self"];
 
+/// Closed enum of `timing_profile_hint` values accepted in blind wakeups.
+pub const ALLOWED_TIMING_PROFILE_HINTS: &[&str] = &["default", "traffic_metadata_hardened"];
+
 /// Fields allowed by the blind wakeup contract.
 ///
 /// Keys not in this list are treated as forbidden when they appear in
@@ -90,6 +94,7 @@ pub const ALLOWED_PUSH_HINTS: &[&str] = &["new_message", "incoming_call", "menti
 pub const ALLOWED_BLIND_FIELDS: &[&str] = &[
     "push_target_id",
     "wakeup_kind",
+    "timing_profile_hint",
     "push_hint",
     "badge",
     "unread_count",
@@ -111,8 +116,8 @@ pub enum BlindPayloadReasonCode {
     /// A string value contained `did:` or `ck:` substring outside the
     /// `push_target_id` opaque-pseudonym slot.
     SensitiveLiteral,
-    /// A required field (e.g. `push_target_id` or `wakeup_kind` in strict
-    /// mode) is missing.
+    /// A required field (e.g. `push_target_id`, `wakeup_kind`, or
+    /// `timing_profile_hint` in strict mode) is missing.
     MissingRequiredField,
 }
 
@@ -192,9 +197,9 @@ pub enum SanitizerMode {
     /// extensions.
     Default,
     /// Strict sanitizer — same checks as `Default` plus the requirement
-    /// that `push_target_id` and `wakeup_kind` are present at the top
-    /// level. Used by gateway entry points that have already extracted
-    /// the wire-model `notification` object.
+    /// that `push_target_id`, `wakeup_kind`, and `timing_profile_hint`
+    /// are present at the top level. Used by gateway entry points that
+    /// have already extracted the wire-model `notification` object.
     Strict,
 }
 
@@ -208,13 +213,15 @@ pub enum SanitizerMode {
 ///   literals and forbidden keys, not against the allow-list.
 ///
 /// Use [`sanitize_blind_payload_strict`] for the gateway ingress / push
-/// provider variant that also requires `push_target_id` + `wakeup_kind`.
+/// provider variant that also requires `push_target_id` + `wakeup_kind` +
+/// `timing_profile_hint`.
 pub fn sanitize_blind_payload(payload: &Value) -> Result<(), BlindPayloadError> {
     sanitize_blind_payload_with(payload, SanitizerMode::Default)
 }
 
 /// Like [`sanitize_blind_payload`] but also requires `push_target_id` and
-/// `wakeup_kind` to be present in the (extracted) notification object.
+/// `wakeup_kind` and `timing_profile_hint` to be present in the
+/// (extracted) notification object.
 pub fn sanitize_blind_payload_strict(payload: &Value) -> Result<(), BlindPayloadError> {
     sanitize_blind_payload_with(payload, SanitizerMode::Strict)
 }
@@ -266,6 +273,9 @@ pub fn sanitize_blind_payload_with(
         if !notification.contains_key("wakeup_kind") {
             return Err(BlindPayloadError::missing("wakeup_kind"));
         }
+        if !notification.contains_key("timing_profile_hint") {
+            return Err(BlindPayloadError::missing("timing_profile_hint"));
+        }
     }
 
     for (key, value) in notification {
@@ -304,6 +314,17 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
             None => Err(BlindPayloadError::invalid(
                 key,
                 "wakeup_kind must be a string",
+            )),
+        },
+        "timing_profile_hint" => match value.as_str() {
+            Some(raw) if is_valid_timing_profile_hint(raw) => Ok(()),
+            Some(_) => Err(BlindPayloadError::invalid(
+                key,
+                "timing_profile_hint must be one of default/traffic_metadata_hardened",
+            )),
+            None => Err(BlindPayloadError::invalid(
+                key,
+                "timing_profile_hint must be a string",
             )),
         },
         "push_hint" => match value.as_str() {
@@ -572,6 +593,11 @@ pub fn is_valid_wakeup_kind(value: &str) -> bool {
     ALLOWED_WAKEUP_KINDS.contains(&value)
 }
 
+/// Return true if `value` is a valid `timing_profile_hint` for blind wakeups.
+pub fn is_valid_timing_profile_hint(value: &str) -> bool {
+    ALLOWED_TIMING_PROFILE_HINTS.contains(&value)
+}
+
 /// Helper for callers that need to validate private extension tokens before
 /// mapping them onto the closed v1 wakeup_kind enum.
 pub fn is_valid_custom_wakeup_kind(value: &str) -> bool {
@@ -618,6 +644,7 @@ mod tests {
             "notification": {
                 "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
+                "timing_profile_hint": "default",
                 "push_hint": "new_message",
                 "counts": { "unread_count": 1 },
             }
@@ -635,6 +662,7 @@ mod tests {
         sanitize_blind_payload(&json!({
             "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "call_invite",
+            "timing_profile_hint": "traffic_metadata_hardened",
         }))
         .unwrap();
     }
@@ -651,6 +679,7 @@ mod tests {
             sanitize_blind_payload(&json!({
                 "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": kind,
+                "timing_profile_hint": "default",
             }))
             .unwrap();
             assert!(
@@ -776,7 +805,8 @@ mod tests {
     fn strict_requires_push_target_id() {
         let payload = json!({
             "notification": {
-                "wakeup_kind": "message"
+                "wakeup_kind": "message",
+                "timing_profile_hint": "default"
             }
         });
         let err = sanitize_blind_payload_strict(&payload).unwrap_err();

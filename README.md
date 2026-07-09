@@ -5,11 +5,12 @@
 [![codecov](https://codecov.io/gh/cokret/cokret-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/cokret/cokret-rust-sdk)
 
 Release status: active Cokret v1 SDK `0.3.x` development line, with workspace
-crates still at `0.3.0` until an explicit release cut. The SDK includes
-authenticated local encryption helpers based on XChaCha20-Poly1305, OpenMLS MLS
-group encryption, framework-independent server contracts, HTTP client bindings
-and conformance-oriented tests. The local security-review packet and cotest
-release-gate interoperability suite are recorded under `docs/`.
+crates still at `0.3.0` until an explicit release cut. The default `cokret`
+feature set is the protocol/type surface only. Authenticated local encryption
+helpers, OpenMLS MLS group encryption, framework-independent server contracts,
+HTTP client bindings and runtime helpers are explicit opt-in features. The
+local security-review packet and cotest release-gate interoperability suite are
+recorded under `docs/`.
 
 This repository contains the Rust SDK for Cokret v1. The public SDK surface is
 centered on:
@@ -19,7 +20,7 @@ centered on:
 - signed Event Envelopes as the canonical wire facts for durable history
 - Operations as SDK builders and offline draft objects before Event Envelope wrapping
 - capability grants and policy checks
-- MLS RFC 9420 group E2EE based on OpenMLS
+- MLS RFC 9420 group E2EE based on OpenMLS behind the `mls` feature
 - Principal Server, Events, Index, Blob, Directory and Authz service surfaces
 
 The active v1 wire contract follows `cokret-spec/spec/v1/zh` plus `cokret-spec/spec/v1/artifacts`.
@@ -42,6 +43,16 @@ Use the top-level crate:
 
 ```toml
 cokret = { path = "crates/sdk" }
+```
+
+The default feature set exposes protocol IDs, wire models, canonical helpers
+and shared DTO contracts without enabling `openmls`, `reqwest`, `tokio`,
+`full-surface` or runtime modules. Enable only the surface a consumer needs:
+
+```toml
+cokret = { path = "crates/sdk", features = ["client"] }
+cokret = { path = "crates/sdk", features = ["mls"] }
+cokret = { path = "crates/sdk", features = ["full-surface"] }
 ```
 
 The workspace is split into focused crates and the top-level `cokret` crate
@@ -140,13 +151,13 @@ The first Cokret crate currently includes:
 - Policy, Invite, Read Cursor, Notification, Blob Metadata and Encrypted Envelope models
 - encrypted content digest calculation over plaintext routing metadata plus ciphertext bytes
 - MLS KeyPackage, Commit and Welcome envelopes
-- OpenMLS-backed group creation, member add, Welcome join, payload encryption and decryption
+- OpenMLS-backed group creation, member add, Welcome join, payload encryption and decryption behind the `mls` feature
 - in-memory persistence helpers for event cache, verified state snapshots and account-local records
 - Server description and profile version checks
-- HTTP client methods for the Cokret v1 service HTTP binding, including request metadata, retry/backoff and `Retry-After` handling
+- HTTP client methods for the Cokret v1 service HTTP binding behind the `client` feature, including request metadata, retry/backoff and `Retry-After` handling
 - shared contract DTOs that live in `cokret-core` and are re-exported from the umbrella SDK as `cokret::api`, `cokret::identity_api`, `cokret::federation_api` and `cokret::push_gateway_api` (product-local client DTOs live in the SDK's own `cokret::client_api`)
 - framework-independent server handler contracts, endpoint fixture coverage and Salvo OAPI DTO support through `cokret-core`
-- high-level sync loop, membership, devices, receipts, notifications, content,
+- high-level `full-surface` sync loop, membership, devices, receipts, notifications, content,
   media, profile/settings, discovery, E2EE, auth/identity, federation, push,
   typing, WebRTC, store and event-handler helpers
 

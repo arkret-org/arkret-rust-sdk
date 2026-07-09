@@ -55,7 +55,8 @@ In scope:
 - The default behaviour of `cokret-http-client` against an arbitrary Cokret
   service (URL handling, header construction, retry/backoff, error envelope
   parsing).
-- Cryptographic primitives and AEAD/MLS bindings under the default features.
+- Cryptographic primitives and AEAD/MLS bindings when their explicit SDK
+  features are enabled.
 
 Out of scope:
 

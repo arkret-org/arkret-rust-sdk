@@ -1,10 +1,10 @@
 # Cokret Rust SDK
 
 Release status: active Cokret v1 development SDK, with workspace crates still at
-`0.3.0` until an explicit release cut. The crate exposes protocol types,
-client/server bindings and authenticated local encryption helpers. Production
-deployments should still use platform key storage and run service-level
-conformance tests.
+`0.3.0` until an explicit release cut. The crate exposes protocol types by
+default. Client/server bindings, MLS support and high-level runtime helpers are
+explicit opt-in features. Production deployments should still use platform key
+storage and run service-level conformance tests.
 
 This crate is the Cokret v1 SDK entry point. It exposes the protocol model
 directly and re-exports the shared contracts crate as `cokret::api`:
@@ -23,5 +23,14 @@ The narrower contract facades are `cokret::client_api`,
 services such as floria, chime and inkson without taking on server runtime
 dependencies.
 
-The default feature set enables the HTTP client and MLS support. Use
-`default-features = false` for model-only consumers.
+The default feature set is the protocol/type surface only. It does not enable
+`openmls`, `reqwest`, `tokio`, `full-surface`, `applet-runtime`,
+`device-runtime`, `sync-runtime` or `timeline-runtime`.
+
+Common opt-ins:
+
+- `client`: reqwest/tokio HTTP client bindings.
+- `full-surface`: high-level SDK managers and local runtime facades.
+- `mls`: OpenMLS-backed MLS helpers.
+- `applet`: Applet convenience surface (`applet-runtime`, `client`, `server`,
+  `salvo`).

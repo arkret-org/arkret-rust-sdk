@@ -48,11 +48,12 @@ pub use base64url::{
     base64_standard_decode, base64_standard_encode, base64url_decode, base64url_encode,
 };
 pub use blind_payload_sanitizer::{
-    ALLOWED_BLIND_FIELDS, ALLOWED_PUSH_HINTS, ALLOWED_WAKEUP_KINDS, BlindPayloadError,
-    BlindPayloadReasonCode, MAX_COUNT_VALUE, SanitizerMode, is_allowed_blind_field,
-    is_forbidden_payload_key, is_valid_custom_wakeup_kind, is_valid_push_hint,
-    is_valid_push_target_id, is_valid_wakeup_kind, sanitize_blind_payload,
-    sanitize_blind_payload_strict, sanitize_blind_payload_with,
+    ALLOWED_BLIND_FIELDS, ALLOWED_PUSH_HINTS, ALLOWED_TIMING_PROFILE_HINTS, ALLOWED_WAKEUP_KINDS,
+    BlindPayloadError, BlindPayloadReasonCode, MAX_COUNT_VALUE, SanitizerMode,
+    is_allowed_blind_field, is_forbidden_payload_key, is_valid_custom_wakeup_kind,
+    is_valid_push_hint, is_valid_push_target_id, is_valid_timing_profile_hint,
+    is_valid_wakeup_kind, sanitize_blind_payload, sanitize_blind_payload_strict,
+    sanitize_blind_payload_with,
 };
 pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};

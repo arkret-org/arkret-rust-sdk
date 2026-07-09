@@ -6,6 +6,16 @@ Add the SDK crate:
 cokret = { path = "crates/sdk" }
 ```
 
+This default dependency exposes protocol IDs, wire models, canonical helpers
+and shared DTO contracts only. It does not enable the HTTP client, OpenMLS or
+high-level runtime modules.
+
+For the local client-state examples below, enable the high-level SDK surface:
+
+```toml
+cokret = { path = "crates/sdk", features = ["full-surface"] }
+```
+
 Create local client state and a session:
 
 ```rust
@@ -37,7 +47,7 @@ let maybe_space = realm.get_space(&space_id);
 Run verification:
 
 ```sh
-cargo test
+cargo test -p cokret --features full-surface
 ```
 
 ## Task Guides

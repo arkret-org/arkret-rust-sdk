@@ -26,6 +26,11 @@ release, GitHub release, or release tag.
 
 ### Tooling
 
+- **Default `cokret` feature narrowed to the type surface.** The umbrella crate
+  no longer enables `client`, `mls`, `full-surface`, `applet-runtime`,
+  `device-runtime`, `sync-runtime` or `timeline-runtime` by default. HTTP
+  (`reqwest`/`tokio`), OpenMLS and high-level runtime surfaces are explicit
+  opt-ins.
 - **MSRV bump 1.92 → 1.96.** The workspace `Cargo.toml` already declared
   `rust-version = "1.96"`, but every CI job pinned `dtolnay/rust-toolchain`
   to `1.92`, which made `cargo check/test/clippy` fail the built-in

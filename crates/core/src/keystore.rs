@@ -49,9 +49,9 @@ pub type KeyBytes = Zeroizing<Vec<u8>>;
 ///
 /// # Errors
 ///
-/// Implementations return [`Error::Protocol`] on backend failure. Missing
-/// keys SHOULD surface as [`Error::Protocol`] with a "key not found"
-/// message; callers MAY downcast via [`KeyStoreError`] for stronger typing.
+/// Implementations return [`Error::KeyStore`] on backend failure. Missing
+/// keys SHOULD surface as [`KeyStoreError::NotFound`] so callers can
+/// distinguish cache misses without parsing display text.
 pub trait KeyStore: Send + Sync {
     /// Load the raw key bytes for `id`.
     ///
@@ -72,7 +72,7 @@ pub trait KeyStore: Send + Sync {
 }
 
 /// Strongly-typed key-store error. Convertible to the workspace
-/// [`Error::Protocol`] for trait conformance.
+/// [`Error::KeyStore`] for trait conformance.
 #[derive(Debug, Error)]
 pub enum KeyStoreError {
     /// The active target / feature combination does not provide this
@@ -120,7 +120,7 @@ impl KeyStoreError {
 
 impl From<KeyStoreError> for Error {
     fn from(err: KeyStoreError) -> Self {
-        Error::Protocol(err.to_string())
+        Error::KeyStore(err)
     }
 }
 
@@ -216,7 +216,7 @@ mod tests {
 
         store.delete("cokret:signer:alice:key-1").unwrap();
         let err = store.load("cokret:signer:alice:key-1").unwrap_err();
-        assert!(format!("{err}").contains("key not found"));
+        assert!(err.is_key_store_not_found());
     }
 
     #[test]
@@ -252,9 +252,11 @@ mod tests {
     #[test]
     fn key_store_error_round_trips_into_workspace_error() {
         let proto: Error = KeyStoreError::not_found("missing-id").into();
-        let rendered = format!("{proto}");
-        assert!(rendered.contains("key not found"));
-        assert!(rendered.contains("missing-id"));
+        assert!(proto.is_key_store_not_found());
+        assert!(matches!(
+            proto.as_key_store_error(),
+            Some(KeyStoreError::NotFound { id }) if id == "missing-id"
+        ));
     }
 
     #[test]

@@ -96,6 +96,28 @@ pub struct PushRouteTokens {
     pub delivery_binding_frontier_token: Option<PushRouteToken>,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum PushTimingProfileHint {
+    #[default]
+    Default,
+    TrafficMetadataHardened,
+}
+
+impl PushTimingProfileHint {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Default => "default",
+            Self::TrafficMetadataHardened => "traffic_metadata_hardened",
+        }
+    }
+
+    pub fn is_traffic_metadata_hardened(self) -> bool {
+        matches!(self, Self::TrafficMetadataHardened)
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -104,6 +126,8 @@ pub struct PushNotificationEnvelope {
     pub push_target_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wakeup_kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timing_profile_hint: Option<PushTimingProfileHint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push_hint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -244,6 +268,7 @@ pub fn validate_push_notify_contract_shape(
     let notification = &request.notification;
     validate_push_target_id(notification.push_target_id.as_deref())?;
     validate_wakeup_kind(notification.wakeup_kind.as_deref())?;
+    validate_timing_profile_hint(notification.timing_profile_hint)?;
 
     if let Some(route_tokens) = &notification.route_tokens {
         validate_push_route_token(
@@ -368,6 +393,15 @@ fn validate_wakeup_kind(value: Option<&str>) -> std::result::Result<(), String> 
     Ok(())
 }
 
+fn validate_timing_profile_hint(
+    value: Option<PushTimingProfileHint>,
+) -> std::result::Result<(), String> {
+    let Some(_) = value else {
+        return Err("notification.timing_profile_hint is required".to_owned());
+    };
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -377,6 +411,7 @@ mod tests {
             notification: PushNotificationEnvelope {
                 push_target_id: Some("ck:pseudonym:push:01HYZ8Z000000000000000".to_owned()),
                 wakeup_kind: Some("message".to_owned()),
+                timing_profile_hint: Some(PushTimingProfileHint::Default),
                 ..PushNotificationEnvelope::default()
             },
             event_kind: None,

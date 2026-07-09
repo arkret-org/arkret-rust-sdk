@@ -194,11 +194,61 @@ fn payload_def_name_for_event_kind(
             return Some(candidate);
         }
     }
-    if defs.contains_key("generic_standard_payload") {
+    if generic_standard_payload_fallback_allowed(event_kind)
+        && defs.contains_key("generic_standard_payload")
+    {
         Some("generic_standard_payload".to_owned())
     } else {
         None
     }
+}
+
+fn generic_standard_payload_fallback_allowed(event_kind: &str) -> bool {
+    matches!(
+        event_kind,
+        "ck.attestation.range_completeness"
+            | "ck.audit.erasure_receipt"
+            | "ck.circle.archive"
+            | "ck.circle.restore"
+            | "ck.circle.tombstone"
+            | "ck.circle.update"
+            | "ck.did.proof"
+            | "ck.key.verification.accept"
+            | "ck.key.verification.cancel"
+            | "ck.key.verification.done"
+            | "ck.key.verification.key"
+            | "ck.key.verification.mac"
+            | "ck.key.verification.ready"
+            | "ck.key.verification.request"
+            | "ck.key.verification.start"
+            | "ck.moderation.appeal.close"
+            | "ck.moderation.appeal.decision"
+            | "ck.moderation.appeal.review"
+            | "ck.moderation.appeal.submit"
+            | "ck.presence"
+            | "ck.realm.asset_privacy_policy"
+            | "ck.realm.delivery_binding_policy"
+            | "ck.realm.discovery"
+            | "ck.realm.join_rule"
+            | "ck.realm.media_service"
+            | "ck.realm.moderation_policy"
+            | "ck.realm.plaintext_visible_services"
+            | "ck.realm.policy"
+            | "ck.realm.policy_components"
+            | "ck.realm.policy_server"
+            | "ck.realm.preview_policy"
+            | "ck.realm.schema"
+            | "ck.realm.upgrade"
+            | "ck.realm_key.request"
+            | "ck.receipt.read"
+            | "ck.secret.request"
+            | "ck.secret.send"
+            | "ck.self.agent.deactivate"
+            | "ck.self.agent.pause"
+            | "ck.self.agent.resume"
+            | "ck.self.moderation.report"
+            | "ck.typing"
+    )
 }
 
 fn payload_def_candidates(event_kind: &str) -> Vec<String> {
@@ -438,6 +488,29 @@ mod tests {
 
         assert!(catalog.has_payload_validator(crate::events::kinds::REALM_KEY_SHARE));
         assert!(!catalog.has_payload_validator("ck.unknown.test"));
+    }
+
+    #[test]
+    fn new_unmatched_event_kind_does_not_fall_back_to_generic_payload() {
+        let event_payload_schema = json!({
+            "$defs": {
+                "generic_standard_payload": {},
+                "state_payload": {}
+            }
+        });
+
+        assert_eq!(
+            payload_def_name_for_event_kind("ck.realm.new_policy", &event_payload_schema),
+            None
+        );
+        assert_eq!(
+            payload_def_name_for_event_kind("ck.realm.policy", &event_payload_schema),
+            Some("generic_standard_payload".to_owned())
+        );
+        assert_eq!(
+            payload_def_name_for_event_kind("ck.account.status", &event_payload_schema),
+            Some("state_payload".to_owned())
+        );
     }
 
     #[test]

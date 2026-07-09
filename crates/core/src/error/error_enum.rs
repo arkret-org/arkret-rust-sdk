@@ -85,8 +85,30 @@ pub enum Error {
     #[error("account stream interrupted: {0:?}")]
     AccountStreamInterrupt(crate::models::AccountStreamInterrupt),
 
+    #[error("key-store error: {0}")]
+    KeyStore(#[source] crate::keystore::KeyStoreError),
+
     #[error("protocol error: {0}")]
     Protocol(String),
+}
+
+impl Error {
+    /// Return the structured key-store error when this error originated at a
+    /// [`crate::keystore::KeyStore`] boundary.
+    pub fn as_key_store_error(&self) -> Option<&crate::keystore::KeyStoreError> {
+        match self {
+            Self::KeyStore(err) => Some(err),
+            _ => None,
+        }
+    }
+
+    /// True when this error is a typed key-store miss.
+    pub fn is_key_store_not_found(&self) -> bool {
+        matches!(
+            self.as_key_store_error(),
+            Some(crate::keystore::KeyStoreError::NotFound { .. })
+        )
+    }
 }
 
 impl From<cokret_identifiers::IdentifierError> for Error {

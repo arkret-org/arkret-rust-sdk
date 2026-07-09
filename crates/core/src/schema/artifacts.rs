@@ -635,6 +635,7 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     // declared coverage for.
     "ck.schema.account_operations.v1",
     "ck.schema.account_data_operations.v1",
+    "ck.schema.agent_pairing_bootstrap.v1",
     "ck.schema.agent_operations.v1",
     "ck.schema.applet_edge_operations.v1",
     "ck.schema.applet_ghost_operations.v1",

@@ -23,7 +23,18 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo +nightly fmt --all -- --check
+      - run: cargo check -p cokret
+      - name: Guard default cokret dependency surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo tree -p cokret --edges normal > /tmp/cokret-default-tree.txt
+          if grep -E '(^|[[:space:]])(openmls|reqwest|tokio|cokret-http-client|cokret-server) v' /tmp/cokret-default-tree.txt; then
+            echo "default cokret feature pulled a heavy runtime dependency"
+            exit 1
+          fi
       - run: cargo check --no-default-features
+      - run: cargo check -p cokret --no-default-features --features full-surface
       - run: cargo check --no-default-features --features client
       - run: cargo check --no-default-features --features server
       - run: cargo check --no-default-features --features mls
@@ -186,15 +197,13 @@ jobs:
   spec-drift:
     name: spec artifact drift report
     runs-on: ubuntu-latest
-    # Best-effort informational job: prints any active spec event kinds the
-    # SDK has not yet declared coverage for. Fails only on *hard* drift —
-    # entries the SDK declares but the spec no longer ships.
+    # Hard gate: fails when the SDK-declared spec coverage drifts in either
+    # direction, including active spec entries missing from ARTIFACT_BACKED_*.
     # R3 sync (spec @ b47ff6ec): coverage extended to the new agent event
     # kinds (ck.agent.draft.propose, ck.agent.action_request,
     # ck.agent.action_{approve,reject}), the ck.self.call.media.exchange.issue_token
     # operation, and the new media-service-binding / accountable_to.strict_reject
     # profiles. See docs/architecture.md#spec-drift-coverage-ci for the runbook.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -205,7 +214,6 @@ jobs:
           path: cokret-spec
           # Public spec repo; if private, set a PAT under
           # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.
-        continue-on-error: true
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.96"
@@ -213,7 +221,6 @@ jobs:
         with:
           workspaces: cokret-rust-sdk
       - name: Run spec_drift_report
-        if: hashFiles('cokret-spec/spec/v1/artifacts/registry/schema-registry.json') != ''
         working-directory: cokret-rust-sdk
         env:
           COKRET_SPEC_ARTIFACTS: ${{ github.workspace }}/cokret-spec/spec/v1/artifacts

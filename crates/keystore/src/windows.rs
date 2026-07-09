@@ -249,7 +249,7 @@ mod tests {
         assert_eq!(store.load(id).unwrap().as_slice(), b"win-secret-1");
         store.delete(id).unwrap();
         let err = store.load(id).unwrap_err();
-        assert!(format!("{err}").contains("key not found"));
+        assert!(err.is_key_store_not_found());
     }
 
     #[test]

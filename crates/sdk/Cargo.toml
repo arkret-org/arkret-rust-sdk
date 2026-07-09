@@ -17,15 +17,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = [
-    "client",
-    "mls",
-    "full-surface",
-    "applet-runtime",
-    "device-runtime",
-    "sync-runtime",
-    "timeline-runtime",
-]
+default = []
 client = ["dep:cokret-http-client", "dep:reqwest", "dep:tokio", "cokret-core/client", "cokret-ffi/client"]
 signer = ["cokret-signatures/signer"]
 server = ["dep:cokret-server", "full-surface"]
@@ -128,6 +120,34 @@ openmls = {workspace = true,features = ["js"],optional = true}
 
 [dev-dependencies]
 tokio = {workspace = true,features = ["macros", "rt", "rt-multi-thread"]}
+
+[[example]]
+name = "basic_authenticated_client"
+required-features = ["full-surface"]
+
+[[example]]
+name = "durable_sync_client"
+required-features = ["full-surface"]
+
+[[example]]
+name = "encrypted_messaging_workflow"
+required-features = ["full-surface"]
+
+[[example]]
+name = "media_roundtrip"
+required-features = ["full-surface"]
+
+[[example]]
+name = "personal_agent_provision"
+required-features = ["full-surface"]
+
+[[test]]
+name = "sdk_workflows"
+required-features = ["full-surface"]
+
+[[test]]
+name = "umbrella_smoke"
+required-features = ["full-surface"]
 
 [lints]
 workspace = true

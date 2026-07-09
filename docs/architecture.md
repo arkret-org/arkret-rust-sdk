@@ -223,9 +223,9 @@ The `spec-drift` job in
 `spec artifact drift report` — also referred to as **`spec-drift-report`** in
 plans) runs `cargo run --example spec_drift_report` against the latest
 `cokret-spec` checkout and prints any event kinds, operations, or profiles
-the SDK has not declared coverage for. It is informational
-(`continue-on-error: true`), failing only on *hard* drift (entries the SDK
-declares but the spec no longer ships).
+the SDK has not declared coverage for. It is a hard gate: drift in either
+direction fails CI, including active spec entries the SDK has not added to the
+declared-coverage set.
 
 R3's new event kinds (`ck.agent.draft.propose`, `ck.agent.action_request`,
 `ck.agent.action_approve`, `ck.agent.action_reject`), new operation
@@ -237,7 +237,7 @@ If the spec-drift job is ever removed or its coverage list narrowed, the
 runbook for adding it back is:
 
 1. Add a `spec-drift` job to `.github/workflows/ci.yml` with
-   `continue-on-error: true` initially.
+   normal fail-fast behavior.
 2. Check out `cokret/cokret-spec` at the SDK's pinned spec SHA into a
    sibling path; set `COKRET_SPEC_ARTIFACTS` to its `spec/v1/artifacts`
    directory.
@@ -245,6 +245,5 @@ runbook for adding it back is:
    `event-kinds.json`, `operations.json`, `profiles.json` and compares
    against `crates/core/src/events/kinds.rs`, the operation registry, and
    `crates/core/src/generated/profiles.rs::PROFILE_IDS`.
-4. After a stable cycle, flip to `continue-on-error: false` so that *soft*
-   drift (spec adds, SDK hasn't) is also a hard CI fail. Until then the job
-   is intentionally advisory.
+4. Keep the job hard-failing; if a spec entry is intentionally unsupported,
+   document that explicitly instead of relying on `continue-on-error`.

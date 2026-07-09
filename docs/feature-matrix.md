@@ -13,13 +13,16 @@ Cokret SDK uses additive Cargo features.
 
 | Build | Feature flags | Intended use |
 | --- | --- | --- |
-| Model-only | `default-features = false` | Protocol IDs, wire models, canonical digests, stores and local state helpers without HTTP or OpenMLS dependencies. |
-| Client | `--features client` | Reqwest-based HTTP client for the Cokret v1 service binding. |
-| Server | `--features server` | Framework-independent server handler contracts, shared contract re-exports and endpoint fixture coverage. |
+| Default / type surface | none, or `default-features = false` | Protocol IDs, wire models, canonical digests and shared DTO contracts without `openmls`, `reqwest`, `tokio`, `full-surface`, `applet-runtime`, `device-runtime`, `sync-runtime` or `timeline-runtime`. |
+| Full surface | `--features full-surface` | High-level SDK managers, local state helpers, stores and runtime-neutral facades. This does not by itself enable HTTP, OpenMLS or Tokio-backed runtime integrations. |
+| Client | `--features client` | Reqwest/tokio-based HTTP client for the Cokret v1 service binding. |
+| Server | `--features server` | Framework-independent server handler contracts, shared contract re-exports and endpoint fixture coverage. Implies `full-surface`. |
 | Salvo OAPI | `--features salvo` | Server feature plus Salvo OAPI derives on Cokret DTO and identifier types. |
 | Applet | `--features applet` | Convenience umbrella for Applet developers: `applet-runtime` + `client` + `server` + `salvo`. One flag turns on the applet wire surface (`AppletPackage`, `WireAppletRegistration`, install objects, bridge-error builder), the HTTP client, the `AppletHandler` contracts and the ready-made `applet_router` Salvo factory. |
 | MLS | `--features mls` | OpenMLS-backed group creation, Welcome/Commit envelopes and payload encryption/decryption. |
-| Default | `client, mls, full-surface, applet-runtime, device-runtime, sync-runtime, timeline-runtime` | Umbrella `cokret` crate application default for the active `0.3.x` development line: HTTP client, MLS crypto primitives and the high-level runtime/module surface. Leaf crates keep `default = []` unless their own `Cargo.toml` says otherwise. |
+| Device runtime | `--features device-runtime` | Device, key-verification and secret-share helpers. Implies `full-surface`. |
+| Sync runtime | `--features sync-runtime` | Sync loop, send queue and sliding sync helpers. Implies `full-surface`. |
+| Timeline runtime | `--features timeline-runtime` | Timeline cache and focused timeline helpers. Implies `full-surface`. |
 | All features | `--all-features` | Release and conformance validation build. |
 
 ## Support Levels

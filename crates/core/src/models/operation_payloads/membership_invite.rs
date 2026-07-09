@@ -337,6 +337,198 @@ impl InviteRefPayload {
     }
 }
 
+pub const INVITE_CLAIM_AUDIENCE: &str = "cokret.invite.claim";
+pub const INVITE_SUBJECT_PROOF_ALG: &str = "EdDSA";
+pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ck.invite.claim.subject_proof.v1\n";
+
+/// Subject DID proof carried by `ck.invite.claim`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct InviteSubjectProof {
+    pub verification_method: String,
+    pub alg: String,
+    pub transcript_digest: Hash,
+    pub signature: String,
+}
+
+impl InviteSubjectProof {
+    pub fn new(
+        verification_method: impl Into<String>,
+        transcript_digest: Hash,
+        signature: impl Into<String>,
+    ) -> Self {
+        Self {
+            verification_method: verification_method.into(),
+            alg: INVITE_SUBJECT_PROOF_ALG.to_owned(),
+            transcript_digest,
+            signature: signature.into(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.verification_method.trim().is_empty() {
+            return Err(Error::Protocol(
+                "invite subject proof verification_method must not be empty".to_owned(),
+            ));
+        }
+        if self.alg != INVITE_SUBJECT_PROOF_ALG {
+            return Err(Error::Protocol(
+                "invite subject proof alg must be EdDSA".to_owned(),
+            ));
+        }
+        if !self.transcript_digest.as_str().starts_with("sha256:") {
+            return Err(Error::Protocol(
+                "invite subject proof transcript_digest must be sha256".to_owned(),
+            ));
+        }
+        if self.signature.trim().is_empty() {
+            return Err(Error::Protocol(
+                "invite subject proof signature must not be empty".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Canonical `ck.invite.claim.subject_proof.v1` transcript body.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct InviteSubjectProofBody {
+    pub subject_id: Did,
+    pub invite_id: InviteId,
+    pub realm_id: RealmId,
+    pub token_commitment: Hash,
+    pub claim_nonce: String,
+    pub audience: String,
+    pub verification_service_did: Did,
+    pub binding_proof_digest: Hash,
+}
+
+impl InviteSubjectProofBody {
+    pub fn new(
+        subject_id: Did,
+        invite_id: InviteId,
+        realm_id: RealmId,
+        token_commitment: Hash,
+        claim_nonce: impl Into<String>,
+        verification_service_did: Did,
+        binding_proof_digest: Hash,
+    ) -> Self {
+        Self {
+            subject_id,
+            invite_id,
+            realm_id,
+            token_commitment,
+            claim_nonce: claim_nonce.into(),
+            audience: INVITE_CLAIM_AUDIENCE.to_owned(),
+            verification_service_did,
+            binding_proof_digest,
+        }
+    }
+
+    pub fn from_wire_parts(
+        subject_id: impl Into<String>,
+        invite_id: impl Into<String>,
+        realm_id: impl Into<String>,
+        token_commitment: impl Into<String>,
+        claim_nonce: impl Into<String>,
+        verification_service_did: impl Into<String>,
+        binding_proof_digest: impl Into<String>,
+    ) -> Result<Self> {
+        Ok(Self::new(
+            Did::new(subject_id.into())?,
+            InviteId::new(invite_id.into())?,
+            RealmId::new(realm_id.into())?,
+            Hash::new(token_commitment.into())?,
+            claim_nonce,
+            Did::new(verification_service_did.into())?,
+            Hash::new(binding_proof_digest.into())?,
+        ))
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if !self.token_commitment.as_str().starts_with("sha256:") {
+            return Err(Error::Protocol(
+                "invite subject proof token_commitment must be sha256".to_owned(),
+            ));
+        }
+        if self.claim_nonce.len() < 16 || self.claim_nonce.len() > 128 {
+            return Err(Error::Protocol(
+                "invite subject proof claim_nonce length must be 16..=128".to_owned(),
+            ));
+        }
+        if self.audience != INVITE_CLAIM_AUDIENCE {
+            return Err(Error::Protocol(
+                "invite subject proof audience must be cokret.invite.claim".to_owned(),
+            ));
+        }
+        if !self.binding_proof_digest.as_str().starts_with("sha256:") {
+            return Err(Error::Protocol(
+                "invite subject proof binding_proof_digest must be sha256".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
+        self.validate()?;
+        let mut bytes = INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN.as_bytes().to_vec();
+        bytes.extend(canonical::canonical_json_bytes(self)?);
+        Ok(bytes)
+    }
+
+    pub fn transcript_digest(&self) -> Result<Hash> {
+        Ok(Hash::new(canonical::sha256_digest(
+            self.canonical_bytes()?,
+        ))?)
+    }
+}
+
+pub fn invite_subject_proof_transcript_bytes(
+    subject_id: &str,
+    invite_id: &str,
+    realm_id: &str,
+    token_commitment: &str,
+    claim_nonce: &str,
+    verification_service_did: &str,
+    binding_proof_digest: &str,
+) -> Result<Vec<u8>> {
+    InviteSubjectProofBody::from_wire_parts(
+        subject_id,
+        invite_id,
+        realm_id,
+        token_commitment,
+        claim_nonce,
+        verification_service_did,
+        binding_proof_digest,
+    )?
+    .canonical_bytes()
+}
+
+pub fn invite_subject_proof_transcript_digest(
+    subject_id: &str,
+    invite_id: &str,
+    realm_id: &str,
+    token_commitment: &str,
+    claim_nonce: &str,
+    verification_service_did: &str,
+    binding_proof_digest: &str,
+) -> Result<Hash> {
+    Ok(Hash::new(canonical::sha256_digest(
+        invite_subject_proof_transcript_bytes(
+            subject_id,
+            invite_id,
+            realm_id,
+            token_commitment,
+            claim_nonce,
+            verification_service_did,
+            binding_proof_digest,
+        )?,
+    ))?)
+}
+
 /// Flat-form payload for `ck.relation.create`
 /// (`#/$defs/relation_create_payload`).
 ///
@@ -380,5 +572,99 @@ impl RelationCreatePayload {
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
             .map_err(|err| Error::Protocol(format!("relation create payload serialize: {err}")))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SUBJECT: &str = "did:web:bob.example";
+    const INVITE: &str = "ck:invite:0196419b-0000-7000-8000-000000000101";
+    const REALM: &str = "ck:realm:0196419b-0000-7000-8000-000000000001";
+    const TOKEN: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const SERVICE: &str = "did:web:verify.example";
+    const BINDING: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+    #[test]
+    fn invite_subject_proof_transcript_bytes_are_domain_separated() {
+        let bytes = invite_subject_proof_transcript_bytes(
+            SUBJECT,
+            INVITE,
+            REALM,
+            TOKEN,
+            "nonce-claim-proof-1",
+            SERVICE,
+            BINDING,
+        )
+        .unwrap();
+        let actual = String::from_utf8(bytes).unwrap();
+
+        assert_eq!(
+            actual,
+            concat!(
+                "ck.invite.claim.subject_proof.v1\n",
+                "{\"audience\":\"cokret.invite.claim\",",
+                "\"binding_proof_digest\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",",
+                "\"claim_nonce\":\"nonce-claim-proof-1\",",
+                "\"invite_id\":\"ck:invite:0196419b-0000-7000-8000-000000000101\",",
+                "\"realm_id\":\"ck:realm:0196419b-0000-7000-8000-000000000001\",",
+                "\"subject_id\":\"did:web:bob.example\",",
+                "\"token_commitment\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
+                "\"verification_service_did\":\"did:web:verify.example\"}"
+            )
+        );
+    }
+
+    #[test]
+    fn invite_subject_proof_digest_matches_transcript_bytes() {
+        let bytes = invite_subject_proof_transcript_bytes(
+            SUBJECT,
+            INVITE,
+            REALM,
+            TOKEN,
+            "nonce-claim-proof-1",
+            SERVICE,
+            BINDING,
+        )
+        .unwrap();
+        let digest = invite_subject_proof_transcript_digest(
+            SUBJECT,
+            INVITE,
+            REALM,
+            TOKEN,
+            "nonce-claim-proof-1",
+            SERVICE,
+            BINDING,
+        )
+        .unwrap();
+
+        assert_eq!(digest.as_str(), canonical::sha256_digest(&bytes));
+    }
+
+    #[test]
+    fn invite_subject_proof_rejects_non_sha256_digest() {
+        let body = InviteSubjectProofBody::from_wire_parts(
+            SUBJECT,
+            INVITE,
+            REALM,
+            TOKEN,
+            "nonce-claim-proof-1",
+            SERVICE,
+            "blake3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        )
+        .unwrap();
+
+        assert!(body.canonical_bytes().is_err());
+    }
+
+    #[test]
+    fn invite_subject_proof_rejects_short_nonce() {
+        let body = InviteSubjectProofBody::from_wire_parts(
+            SUBJECT, INVITE, REALM, TOKEN, "short", SERVICE, BINDING,
+        )
+        .unwrap();
+
+        assert!(body.canonical_bytes().is_err());
     }
 }

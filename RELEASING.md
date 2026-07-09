@@ -36,8 +36,10 @@ python tools/check-publish-order.py --print
 Run verification locally:
 
 ```sh
-cargo fmt --all -- --check
+cargo +nightly fmt --all -- --check
+cargo check -p cokret
 cargo check --no-default-features
+cargo check -p cokret --no-default-features --features full-surface
 cargo check --no-default-features --features client
 cargo check --no-default-features --features server
 cargo check --no-default-features --features mls

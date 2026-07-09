@@ -35,6 +35,7 @@ pub struct RouteTokens {
 pub struct BlindNotification {
     pub push_target_id: PushTargetId,
     pub wakeup_kind: String,
+    pub timing_profile_hint: PushTimingProfileHint,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push_hint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -106,6 +107,7 @@ pub type Url = String;
 pub struct VisibleNotification {
     pub push_target_id: PushTargetId,
     pub wakeup_kind: String,
+    pub timing_profile_hint: PushTimingProfileHint,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push_hint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

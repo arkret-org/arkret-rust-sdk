@@ -37,12 +37,13 @@
 //! # }
 //! ```
 //!
-//! Run one in-memory sync-loop step:
+//! Run one in-memory sync-loop step with `sync-runtime` enabled:
 //!
 //! ```rust
+//! # #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
+//! # fn main() {
 //! use cokret::{SyncLoop, SyncLoopStep, SyncOutcome, SyncRequestBody};
 //!
-//! # fn main() {
 //! let mut sync_loop = SyncLoop::new();
 //! let mut transport = |_request: SyncRequestBody| {
 //!     Ok(SyncOutcome {
@@ -66,6 +67,8 @@
 //!     SyncLoopStep::Updates(_)
 //! ));
 //! # }
+//! # #[cfg(not(all(feature = "full-surface", feature = "sync-runtime")))]
+//! # fn main() {}
 //! ```
 //!
 //! Invalid typed IDs should be constructed with validators, not assigned from

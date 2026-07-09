@@ -7,7 +7,9 @@ This repository is ready for a local `0.3.x` release-candidate cut only when
 these gates pass:
 
 - `cargo +nightly fmt --all -- --check`
+- `cargo check -p cokret`
 - `cargo check --no-default-features`
+- `cargo check -p cokret --no-default-features --features full-surface`
 - `cargo check --no-default-features --features client`
 - `cargo check --no-default-features --features server`
 - `cargo check --no-default-features --features mls`

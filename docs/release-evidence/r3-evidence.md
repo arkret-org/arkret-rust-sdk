@@ -117,7 +117,7 @@ relaxed validators would have let through.
 
 ## CI / drift
 
-The `spec-drift` job in `.github/workflows/ci.yml` (informational; named
+The `spec-drift` job in `.github/workflows/ci.yml` (hard gate; named
 `spec artifact drift report` and referred to as **`spec-drift-report`** in
 the plan docs) was extended to cover the new event kinds, the new
 `ck.self.call.media.exchange.issue_token` operation, and the new profiles. See
