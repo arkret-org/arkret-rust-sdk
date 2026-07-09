@@ -86,7 +86,7 @@ uuid = {version = "1.23",default-features = false,features = ["std", "v7", "serd
 wasm-bindgen-futures = "0.4"
 # Windows KeyStore backend, enabled only by the keystore crate target cfg.
 windows = {version = "0.62.2",default-features = false}
-x25519-dalek = {version = "2.0.1",default-features = false,features = ["static_secrets", "getrandom"]}
+x25519-dalek = {version = "3.0.0",default-features = false,features = ["static_secrets", "getrandom"]}
 zeroize = {version = "1.8.2",default-features = false,features = ["derive"]}
 
 [workspace.lints.rust]
