@@ -637,16 +637,26 @@ impl ErrorCode {
             Self::MorphTypeImmutable => ERROR_CODE_MORPH_TYPE_IMMUTABLE,
             Self::AppletAlreadyRegistered => ERROR_CODE_APPLET_ALREADY_REGISTERED,
             Self::AppletEffectiveScopeMismatch => ERROR_CODE_APPLET_EFFECTIVE_SCOPE_MISMATCH,
-            Self::AppletInstallProjectionIncomplete => ERROR_CODE_APPLET_INSTALL_PROJECTION_INCOMPLETE,
+            Self::AppletInstallProjectionIncomplete => {
+                ERROR_CODE_APPLET_INSTALL_PROJECTION_INCOMPLETE
+            }
             Self::AppletInstallRequired => ERROR_CODE_APPLET_INSTALL_REQUIRED,
             Self::AppletNamespaceConflict => ERROR_CODE_APPLET_NAMESPACE_CONFLICT,
             Self::AppletPackageExpired => ERROR_CODE_APPLET_PACKAGE_EXPIRED,
-            Self::AppletRegistrationEpochEvidenceMismatch => ERROR_CODE_APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH,
-            Self::AppletRegistrationEpochEvidenceMissing => ERROR_CODE_APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING,
-            Self::AppletRegistrationEpochSigningKeyMismatch => ERROR_CODE_APPLET_REGISTRATION_EPOCH_SIGNING_KEY_MISMATCH,
+            Self::AppletRegistrationEpochEvidenceMismatch => {
+                ERROR_CODE_APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH
+            }
+            Self::AppletRegistrationEpochEvidenceMissing => {
+                ERROR_CODE_APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING
+            }
+            Self::AppletRegistrationEpochSigningKeyMismatch => {
+                ERROR_CODE_APPLET_REGISTRATION_EPOCH_SIGNING_KEY_MISMATCH
+            }
             Self::AppletTransactionInProgress => ERROR_CODE_APPLET_TRANSACTION_IN_PROGRESS,
             Self::BotActorRevoked => ERROR_CODE_BOT_ACTOR_REVOKED,
-            Self::EnclaveNoUpstreamProxyForExternal => ERROR_CODE_ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL,
+            Self::EnclaveNoUpstreamProxyForExternal => {
+                ERROR_CODE_ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL
+            }
             Self::EnclaveNotTrusted => ERROR_CODE_ENCLAVE_NOT_TRUSTED,
             Self::ExternalInviteActorMismatch => ERROR_CODE_EXTERNAL_INVITE_ACTOR_MISMATCH,
             Self::ExternalUserNoMainAccess => ERROR_CODE_EXTERNAL_USER_NO_MAIN_ACCESS,
@@ -661,19 +671,35 @@ impl ErrorCode {
             Self::FirstBackupGateUnsatisfied => ERROR_CODE_FIRST_BACKUP_GATE_UNSATISFIED,
             Self::FreshDeviceScopeViolation => ERROR_CODE_FRESH_DEVICE_SCOPE_VIOLATION,
             Self::InvalidAvatarUrl => ERROR_CODE_INVALID_AVATAR_URL,
-            Self::RecoveryAuthorizationDeviceMismatch => ERROR_CODE_RECOVERY_AUTHORIZATION_DEVICE_MISMATCH,
-            Self::RecoveryAuthorizationPrincipalMismatch => ERROR_CODE_RECOVERY_AUTHORIZATION_PRINCIPAL_MISMATCH,
-            Self::RecoveryAuthorizationSessionMismatch => ERROR_CODE_RECOVERY_AUTHORIZATION_SESSION_MISMATCH,
-            Self::RecoveryControlEventKindMismatch => ERROR_CODE_RECOVERY_CONTROL_EVENT_KIND_MISMATCH,
+            Self::RecoveryAuthorizationDeviceMismatch => {
+                ERROR_CODE_RECOVERY_AUTHORIZATION_DEVICE_MISMATCH
+            }
+            Self::RecoveryAuthorizationPrincipalMismatch => {
+                ERROR_CODE_RECOVERY_AUTHORIZATION_PRINCIPAL_MISMATCH
+            }
+            Self::RecoveryAuthorizationSessionMismatch => {
+                ERROR_CODE_RECOVERY_AUTHORIZATION_SESSION_MISMATCH
+            }
+            Self::RecoveryControlEventKindMismatch => {
+                ERROR_CODE_RECOVERY_CONTROL_EVENT_KIND_MISMATCH
+            }
             Self::RecoveryControlEventNotFound => ERROR_CODE_RECOVERY_CONTROL_EVENT_NOT_FOUND,
-            Self::RecoveryListUpdateDeviceMismatch => ERROR_CODE_RECOVERY_LIST_UPDATE_DEVICE_MISMATCH,
-            Self::RecoveryListUpdatePrincipalMismatch => ERROR_CODE_RECOVERY_LIST_UPDATE_PRINCIPAL_MISMATCH,
+            Self::RecoveryListUpdateDeviceMismatch => {
+                ERROR_CODE_RECOVERY_LIST_UPDATE_DEVICE_MISMATCH
+            }
+            Self::RecoveryListUpdatePrincipalMismatch => {
+                ERROR_CODE_RECOVERY_LIST_UPDATE_PRINCIPAL_MISMATCH
+            }
             Self::RecoveryPolicyConflict => ERROR_CODE_RECOVERY_POLICY_CONFLICT,
-            Self::RecoveryPolicyDeviceNotAuthorized => ERROR_CODE_RECOVERY_POLICY_DEVICE_NOT_AUTHORIZED,
+            Self::RecoveryPolicyDeviceNotAuthorized => {
+                ERROR_CODE_RECOVERY_POLICY_DEVICE_NOT_AUTHORIZED
+            }
             Self::RecoveryPolicyIdMismatch => ERROR_CODE_RECOVERY_POLICY_ID_MISMATCH,
             Self::RecoveryPolicyMissing => ERROR_CODE_RECOVERY_POLICY_MISSING,
             Self::RecoveryPolicyRevoked => ERROR_CODE_RECOVERY_POLICY_REVOKED,
-            Self::RecoveryPolicyTrustDomainMismatch => ERROR_CODE_RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH,
+            Self::RecoveryPolicyTrustDomainMismatch => {
+                ERROR_CODE_RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH
+            }
             Self::RecoveryPolicyVersionMismatch => ERROR_CODE_RECOVERY_POLICY_VERSION_MISMATCH,
             Self::RecoveryProofAuthorityInvalid => ERROR_CODE_RECOVERY_PROOF_AUTHORITY_INVALID,
             Self::RecoveryProofKindNotAllowed => ERROR_CODE_RECOVERY_PROOF_KIND_NOT_ALLOWED,
@@ -685,7 +711,9 @@ impl ErrorCode {
             Self::FederationActorOriginRejected => ERROR_CODE_FEDERATION_ACTOR_ORIGIN_REJECTED,
             Self::FederationInteropTrackOnly => ERROR_CODE_FEDERATION_INTEROP_TRACK_ONLY,
             Self::FederationOriginDenied => ERROR_CODE_FEDERATION_ORIGIN_DENIED,
-            Self::FederationPrivateReadRailLocalOnly => ERROR_CODE_FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY,
+            Self::FederationPrivateReadRailLocalOnly => {
+                ERROR_CODE_FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY
+            }
             Self::RealmFederationPolicyClosed => ERROR_CODE_REALM_FEDERATION_POLICY_CLOSED,
             Self::RealmFederationPolicyInvalid => ERROR_CODE_REALM_FEDERATION_POLICY_INVALID,
             Self::RealmFederationPolicyQuarantine => ERROR_CODE_REALM_FEDERATION_POLICY_QUARANTINE,
@@ -697,7 +725,9 @@ impl ErrorCode {
             Self::MimiReporterResolutionRequired => ERROR_CODE_MIMI_REPORTER_RESOLUTION_REQUIRED,
             Self::StalePeerStateUnavailable => ERROR_CODE_STALE_PEER_STATE_UNAVAILABLE,
             Self::FrankingTampered => ERROR_CODE_FRANKING_TAMPERED,
-            Self::MlsKeypackageClaimRequestExpired => ERROR_CODE_MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED,
+            Self::MlsKeypackageClaimRequestExpired => {
+                ERROR_CODE_MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED
+            }
             Self::SnapshotChunkDigestMismatch => ERROR_CODE_SNAPSHOT_CHUNK_DIGEST_MISMATCH,
         }
     }
@@ -873,16 +903,26 @@ impl ErrorCode {
             ERROR_CODE_MORPH_TYPE_IMMUTABLE => Self::MorphTypeImmutable,
             ERROR_CODE_APPLET_ALREADY_REGISTERED => Self::AppletAlreadyRegistered,
             ERROR_CODE_APPLET_EFFECTIVE_SCOPE_MISMATCH => Self::AppletEffectiveScopeMismatch,
-            ERROR_CODE_APPLET_INSTALL_PROJECTION_INCOMPLETE => Self::AppletInstallProjectionIncomplete,
+            ERROR_CODE_APPLET_INSTALL_PROJECTION_INCOMPLETE => {
+                Self::AppletInstallProjectionIncomplete
+            }
             ERROR_CODE_APPLET_INSTALL_REQUIRED => Self::AppletInstallRequired,
             ERROR_CODE_APPLET_NAMESPACE_CONFLICT => Self::AppletNamespaceConflict,
             ERROR_CODE_APPLET_PACKAGE_EXPIRED => Self::AppletPackageExpired,
-            ERROR_CODE_APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH => Self::AppletRegistrationEpochEvidenceMismatch,
-            ERROR_CODE_APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING => Self::AppletRegistrationEpochEvidenceMissing,
-            ERROR_CODE_APPLET_REGISTRATION_EPOCH_SIGNING_KEY_MISMATCH => Self::AppletRegistrationEpochSigningKeyMismatch,
+            ERROR_CODE_APPLET_REGISTRATION_EPOCH_EVIDENCE_MISMATCH => {
+                Self::AppletRegistrationEpochEvidenceMismatch
+            }
+            ERROR_CODE_APPLET_REGISTRATION_EPOCH_EVIDENCE_MISSING => {
+                Self::AppletRegistrationEpochEvidenceMissing
+            }
+            ERROR_CODE_APPLET_REGISTRATION_EPOCH_SIGNING_KEY_MISMATCH => {
+                Self::AppletRegistrationEpochSigningKeyMismatch
+            }
             ERROR_CODE_APPLET_TRANSACTION_IN_PROGRESS => Self::AppletTransactionInProgress,
             ERROR_CODE_BOT_ACTOR_REVOKED => Self::BotActorRevoked,
-            ERROR_CODE_ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL => Self::EnclaveNoUpstreamProxyForExternal,
+            ERROR_CODE_ENCLAVE_NO_UPSTREAM_PROXY_FOR_EXTERNAL => {
+                Self::EnclaveNoUpstreamProxyForExternal
+            }
             ERROR_CODE_ENCLAVE_NOT_TRUSTED => Self::EnclaveNotTrusted,
             ERROR_CODE_EXTERNAL_INVITE_ACTOR_MISMATCH => Self::ExternalInviteActorMismatch,
             ERROR_CODE_EXTERNAL_USER_NO_MAIN_ACCESS => Self::ExternalUserNoMainAccess,
@@ -897,19 +937,35 @@ impl ErrorCode {
             ERROR_CODE_FIRST_BACKUP_GATE_UNSATISFIED => Self::FirstBackupGateUnsatisfied,
             ERROR_CODE_FRESH_DEVICE_SCOPE_VIOLATION => Self::FreshDeviceScopeViolation,
             ERROR_CODE_INVALID_AVATAR_URL => Self::InvalidAvatarUrl,
-            ERROR_CODE_RECOVERY_AUTHORIZATION_DEVICE_MISMATCH => Self::RecoveryAuthorizationDeviceMismatch,
-            ERROR_CODE_RECOVERY_AUTHORIZATION_PRINCIPAL_MISMATCH => Self::RecoveryAuthorizationPrincipalMismatch,
-            ERROR_CODE_RECOVERY_AUTHORIZATION_SESSION_MISMATCH => Self::RecoveryAuthorizationSessionMismatch,
-            ERROR_CODE_RECOVERY_CONTROL_EVENT_KIND_MISMATCH => Self::RecoveryControlEventKindMismatch,
+            ERROR_CODE_RECOVERY_AUTHORIZATION_DEVICE_MISMATCH => {
+                Self::RecoveryAuthorizationDeviceMismatch
+            }
+            ERROR_CODE_RECOVERY_AUTHORIZATION_PRINCIPAL_MISMATCH => {
+                Self::RecoveryAuthorizationPrincipalMismatch
+            }
+            ERROR_CODE_RECOVERY_AUTHORIZATION_SESSION_MISMATCH => {
+                Self::RecoveryAuthorizationSessionMismatch
+            }
+            ERROR_CODE_RECOVERY_CONTROL_EVENT_KIND_MISMATCH => {
+                Self::RecoveryControlEventKindMismatch
+            }
             ERROR_CODE_RECOVERY_CONTROL_EVENT_NOT_FOUND => Self::RecoveryControlEventNotFound,
-            ERROR_CODE_RECOVERY_LIST_UPDATE_DEVICE_MISMATCH => Self::RecoveryListUpdateDeviceMismatch,
-            ERROR_CODE_RECOVERY_LIST_UPDATE_PRINCIPAL_MISMATCH => Self::RecoveryListUpdatePrincipalMismatch,
+            ERROR_CODE_RECOVERY_LIST_UPDATE_DEVICE_MISMATCH => {
+                Self::RecoveryListUpdateDeviceMismatch
+            }
+            ERROR_CODE_RECOVERY_LIST_UPDATE_PRINCIPAL_MISMATCH => {
+                Self::RecoveryListUpdatePrincipalMismatch
+            }
             ERROR_CODE_RECOVERY_POLICY_CONFLICT => Self::RecoveryPolicyConflict,
-            ERROR_CODE_RECOVERY_POLICY_DEVICE_NOT_AUTHORIZED => Self::RecoveryPolicyDeviceNotAuthorized,
+            ERROR_CODE_RECOVERY_POLICY_DEVICE_NOT_AUTHORIZED => {
+                Self::RecoveryPolicyDeviceNotAuthorized
+            }
             ERROR_CODE_RECOVERY_POLICY_ID_MISMATCH => Self::RecoveryPolicyIdMismatch,
             ERROR_CODE_RECOVERY_POLICY_MISSING => Self::RecoveryPolicyMissing,
             ERROR_CODE_RECOVERY_POLICY_REVOKED => Self::RecoveryPolicyRevoked,
-            ERROR_CODE_RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH => Self::RecoveryPolicyTrustDomainMismatch,
+            ERROR_CODE_RECOVERY_POLICY_TRUST_DOMAIN_MISMATCH => {
+                Self::RecoveryPolicyTrustDomainMismatch
+            }
             ERROR_CODE_RECOVERY_POLICY_VERSION_MISMATCH => Self::RecoveryPolicyVersionMismatch,
             ERROR_CODE_RECOVERY_PROOF_AUTHORITY_INVALID => Self::RecoveryProofAuthorityInvalid,
             ERROR_CODE_RECOVERY_PROOF_KIND_NOT_ALLOWED => Self::RecoveryProofKindNotAllowed,
@@ -921,7 +977,9 @@ impl ErrorCode {
             ERROR_CODE_FEDERATION_ACTOR_ORIGIN_REJECTED => Self::FederationActorOriginRejected,
             ERROR_CODE_FEDERATION_INTEROP_TRACK_ONLY => Self::FederationInteropTrackOnly,
             ERROR_CODE_FEDERATION_ORIGIN_DENIED => Self::FederationOriginDenied,
-            ERROR_CODE_FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY => Self::FederationPrivateReadRailLocalOnly,
+            ERROR_CODE_FEDERATION_PRIVATE_READ_RAIL_LOCAL_ONLY => {
+                Self::FederationPrivateReadRailLocalOnly
+            }
             ERROR_CODE_REALM_FEDERATION_POLICY_CLOSED => Self::RealmFederationPolicyClosed,
             ERROR_CODE_REALM_FEDERATION_POLICY_INVALID => Self::RealmFederationPolicyInvalid,
             ERROR_CODE_REALM_FEDERATION_POLICY_QUARANTINE => Self::RealmFederationPolicyQuarantine,
@@ -933,7 +991,9 @@ impl ErrorCode {
             ERROR_CODE_MIMI_REPORTER_RESOLUTION_REQUIRED => Self::MimiReporterResolutionRequired,
             ERROR_CODE_STALE_PEER_STATE_UNAVAILABLE => Self::StalePeerStateUnavailable,
             ERROR_CODE_FRANKING_TAMPERED => Self::FrankingTampered,
-            ERROR_CODE_MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED => Self::MlsKeypackageClaimRequestExpired,
+            ERROR_CODE_MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED => {
+                Self::MlsKeypackageClaimRequestExpired
+            }
             ERROR_CODE_SNAPSHOT_CHUNK_DIGEST_MISMATCH => Self::SnapshotChunkDigestMismatch,
             _ => return None,
         })

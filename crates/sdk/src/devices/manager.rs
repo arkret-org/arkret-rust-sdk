@@ -768,12 +768,8 @@ impl DeviceManager {
         // resolves the published SSK — mirroring `verify_device_cross_signing_chain`,
         // which verifies against `publish.self_signing_key.key.public_key`.
         let ssk_locator = &publish.self_signing_key.key.kid;
-        let device_ok = verify_signature(
-            ssk_locator,
-            &binding.alg,
-            &device_input,
-            &binding.signature,
-        )?;
+        let device_ok =
+            verify_signature(ssk_locator, &binding.alg, &device_input, &binding.signature)?;
         if !device_ok {
             return Ok(DeviceTrustChainOutcome::Invalid);
         }

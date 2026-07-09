@@ -737,8 +737,8 @@ mod tests {
         };
         // A reference with a mismatched fragment still resolves via the
         // single-key fallback for did:key.
-        let resolved =
-            resolve_ed25519_pubkey(&resolver, &format!("{did}#anything")).expect("did:key fallback");
+        let resolved = resolve_ed25519_pubkey(&resolver, &format!("{did}#anything"))
+            .expect("did:key fallback");
         assert_eq!(resolved.as_bytes(), signing.verifying_key().as_bytes());
     }
 
