@@ -93,7 +93,11 @@ pub struct Seal {
     pub data_event_set_root: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub availability_root: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_helpers::deserialize_optional_value_preserving_null"
+    )]
     pub coverage_scope: Option<Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub covered_event_digests: Vec<MoveId>,
@@ -365,5 +369,24 @@ mod tests {
         });
         let decoded: NotarySig = serde_json::from_value(value).unwrap();
         assert!(matches!(decoded, NotarySig::Single(_)));
+    }
+
+    #[test]
+    fn coverage_scope_preserves_explicit_null_round_trip() {
+        let mut value = serde_json::to_value(sample()).unwrap();
+        value["coverage_scope"] = Value::Null;
+
+        let decoded: Seal = serde_json::from_value(value).unwrap();
+
+        assert_eq!(decoded.coverage_scope, Some(Value::Null));
+        assert_eq!(
+            serde_json::to_value(&decoded).unwrap()["coverage_scope"],
+            Value::Null
+        );
+        assert!(
+            String::from_utf8(decoded.canonical_bytes_for_id().unwrap())
+                .unwrap()
+                .contains("\"coverage_scope\":null")
+        );
     }
 }

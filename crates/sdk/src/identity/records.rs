@@ -1,4 +1,5 @@
 use cokret_core::DetachedPayloadProof;
+use cokret_core::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
 
 use super::*;
 
@@ -15,29 +16,6 @@ pub enum DidKeyLogOperation {
     Recover,
     Deactivate,
     ServiceUpdate,
-}
-
-fn serialize_canonical_timestamp<S>(
-    value: &DateTime<Utc>,
-    serializer: S,
-) -> std::result::Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serializer.serialize_str(&cokret_core::canonical::format_timestamp_canonical(*value))
-}
-
-fn deserialize_canonical_timestamp<'de, D>(
-    deserializer: D,
-) -> std::result::Result<DateTime<Utc>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let raw = String::deserialize(deserializer)?;
-    cokret_core::canonical::validate_timestamp_canonical(&raw).map_err(serde::de::Error::custom)?;
-    DateTime::parse_from_rfc3339(&raw)
-        .map(|value| value.with_timezone(&Utc))
-        .map_err(serde::de::Error::custom)
 }
 
 /// Constant-time digest string comparison (service-surface.md §3.1.3 requires

@@ -1,7 +1,7 @@
-use super::invite_addressing::{
+use super::*;
+use crate::serde_helpers::{
     deserialize_optional_canonical_timestamp, serialize_optional_canonical_timestamp,
 };
-use super::*;
 
 pub const PEER_CONTACT_DELIVERY_REQUEST_SCHEMA: &str = "ck.schema.peer_contact_delivery_request.v1";
 
