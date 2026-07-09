@@ -6,30 +6,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
 use crate::*;
-
-fn serialize_canonical_timestamp<S>(
-    value: &DateTime<Utc>,
-    serializer: S,
-) -> std::result::Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serializer.serialize_str(&canonical::format_timestamp_canonical(*value))
-}
-
-fn deserialize_canonical_timestamp<'de, D>(
-    deserializer: D,
-) -> std::result::Result<DateTime<Utc>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let value = String::deserialize(deserializer)?;
-    canonical::validate_timestamp_canonical(&value).map_err(serde::de::Error::custom)?;
-    DateTime::parse_from_rfc3339(&value)
-        .map(|parsed| parsed.with_timezone(&Utc))
-        .map_err(serde::de::Error::custom)
-}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/list_reorder_payload`.

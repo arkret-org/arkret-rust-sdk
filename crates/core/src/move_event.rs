@@ -30,32 +30,6 @@ use crate::{CellRef, Did, Error, Hash, Hlc, MoveId, RealmId, Result, SealId, can
 /// Allowed Move signature algorithms (must match `move.schema.json` `signature.alg`).
 pub const MOVE_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
 
-/// Deserialize an `Option<Value>` field while preserving an **explicit** wire
-/// `null` as `Some(Value::Null)` rather than collapsing it to `None`.
-///
-/// A bare `#[serde(default)] Option<Value>` cannot distinguish three wire
-/// states the protocol genuinely needs to tell apart:
-/// - field **absent**            → `None`            (e.g. `head_in` carries no `value`)
-/// - field present as **`null`** → `Some(Value::Null)` (e.g. genesis `head_eq` asserting an empty
-///   cell)
-/// - field present as a value    → `Some(value)`
-///
-/// serde's default `Option` deserializer maps a present `null` to `None`, which
-/// silently drops the genesis assertion: the field round-trips away, the
-/// canonical bytes change (so the signed `event_digest` no longer matches), and
-/// the reducer's `head_eq` evaluation — which *requires* `value` — would reject.
-/// Pairing this with `#[serde(default, skip_serializing_if = "Option::is_none")]`
-/// keeps absent ⇒ `None` (skipped) while present-`null` ⇒ `Some(Null)` (re-emitted
-/// as `null`), so the wire bytes are byte-stable across a parse/re-serialize.
-fn deserialize_optional_value_preserving_null<'de, D>(
-    deserializer: D,
-) -> std::result::Result<Option<Value>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    Value::deserialize(deserializer).map(Some)
-}
-
 /// Top-level Move object as defined by `move.schema.json`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -100,7 +74,7 @@ pub struct Predicate {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_value_preserving_null"
+        deserialize_with = "crate::serde_helpers::deserialize_optional_value_preserving_null"
     )]
     pub value: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -146,19 +120,19 @@ pub struct LatticeOp {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_value_preserving_null"
+        deserialize_with = "crate::serde_helpers::deserialize_optional_value_preserving_null"
     )]
     pub value: Option<Value>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_value_preserving_null"
+        deserialize_with = "crate::serde_helpers::deserialize_optional_value_preserving_null"
     )]
     pub from: Option<Value>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_value_preserving_null"
+        deserialize_with = "crate::serde_helpers::deserialize_optional_value_preserving_null"
     )]
     pub to: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

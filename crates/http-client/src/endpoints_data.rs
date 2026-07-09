@@ -1,6 +1,5 @@
 //! Blob, key, key-backup, and device-message endpoint methods on [`Client`].
 
-use base64::Engine;
 use cokret_core::{
     BackupId, BlobMetadata, BlobPresignOutcome, BlobPresignRequestBody, BlobRef,
     BlobUploadMetadata, BlobUploadOutcome, DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody,
@@ -11,7 +10,7 @@ use cokret_core::{
     KeyPackagesUploadRequestBody, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
     KeysBackupsList, KeysBackupsPutOutcome, KeysBackupsUnlockRequestBody, KeysClaimOutcome,
     KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome,
-    KeysUploadRequestBody, Result, ServerDescription,
+    KeysUploadRequestBody, Result, ServerDescription, base64_standard_encode,
 };
 use reqwest::Method;
 use reqwest::header::{HeaderMap, RANGE};
@@ -102,7 +101,7 @@ pub fn blob_resumable_upload_base_url(description: &ServerDescription) -> Option
 }
 
 fn b64_metadata_value(value: &str) -> String {
-    base64::engine::general_purpose::STANDARD.encode(value.as_bytes())
+    base64_standard_encode(value)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

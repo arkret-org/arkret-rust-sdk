@@ -35,6 +35,7 @@ pub mod push;
 pub mod push_rule_core;
 pub mod schema;
 pub mod seal;
+pub mod serde_helpers;
 pub mod service;
 pub mod signer;
 pub mod snapshot;
