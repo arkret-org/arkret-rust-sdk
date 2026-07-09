@@ -283,6 +283,8 @@ pub mod resolver;
 #[cfg(feature = "full-surface")]
 pub mod search;
 #[cfg(feature = "full-surface")]
+pub mod session_grant;
+#[cfg(feature = "full-surface")]
 pub mod settings;
 #[cfg(feature = "full-surface")]
 pub mod sframe;

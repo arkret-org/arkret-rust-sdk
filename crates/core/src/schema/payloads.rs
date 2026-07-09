@@ -331,7 +331,11 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         // candidate above (agent_interop_session_*_payload /
         // applet_interop_session_*_payload), which the spec event-payload
         // schema defines directly. No family override needed.
-        ["applet", "registration" | "discovery"] => {
+        // `ck.applet.registration` resolves through the `exact` candidate above
+        // (`applet_registration_payload`, defined directly in the spec
+        // event-payload schema) — it MUST NOT fall back to the generic shape.
+        // Only `ck.applet.discovery` (no dedicated def) uses the generic body.
+        ["applet", "discovery"] => {
             candidates.push("generic_standard_payload".to_owned());
         }
         ["capability", "grant" | "delegate" | "derived"] => {
@@ -481,6 +485,99 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    /// Active standard event kinds whose content shape is validated by a
+    /// dedicated sibling operation / content schema rather than an
+    /// `event-payload.schema.json#/$defs/*` entry, so the SDK event-payload
+    /// catalog legitimately carries no validator rule for them:
+    ///
+    /// - `ck.relation.tombstone` — `relation.schema.json`
+    /// - `ck.moderation.franking_proof` — `moderation-report.schema.json`
+    /// - `ck.read_cursor.advance` — `read-cursor-operations.schema.json` (actor-private,
+    ///   `reducer_input:false`)
+    ///
+    /// Any *new* active standard kind that neither resolves to an event-payload
+    /// def nor is added here MUST make [`catalog_covers_every_active_standard_kind`]
+    /// fail closed, forcing an explicit wiring decision.
+    const KINDS_WITHOUT_EVENT_PAYLOAD_VALIDATOR: &[&str] = &[
+        "ck.moderation.franking_proof",
+        "ck.read_cursor.advance",
+        "ck.relation.tombstone",
+    ];
+
+    /// D6 fail-closed guard: every active standard event kind in the spec
+    /// registry either resolves to an explicit payload validator (via
+    /// [`payload_def_candidates`] or an explicit `payload_schema`) or appears in
+    /// the documented [`KINDS_WITHOUT_EVENT_PAYLOAD_VALIDATOR`] exception list.
+    /// A newly registered kind that is silently missed by the manual candidate
+    /// table trips this assertion instead of drifting into an unvalidated
+    /// payload surface.
+    #[test]
+    fn catalog_covers_every_active_standard_kind() {
+        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        let bundle = SpecArtifactBundle::load_embedded().unwrap();
+        let entries = bundle
+            .event_kind_registry
+            .get("event_kinds")
+            .and_then(Value::as_array)
+            .unwrap();
+
+        let mut missing = BTreeSet::new();
+        for entry in entries {
+            if entry.get("status").and_then(Value::as_str) != Some("active") {
+                continue;
+            }
+            let Some(event_kind) = entry.get("event_kind").and_then(Value::as_str) else {
+                continue;
+            };
+            if !crate::events::is_standard_event_kind(event_kind) {
+                continue;
+            }
+            if !catalog.has_payload_validator(event_kind) {
+                missing.insert(event_kind.to_owned());
+            }
+        }
+
+        let expected: BTreeSet<String> = KINDS_WITHOUT_EVENT_PAYLOAD_VALIDATOR
+            .iter()
+            .map(|k| (*k).to_owned())
+            .collect();
+
+        assert_eq!(
+            missing, expected,
+            "active standard kinds without a payload validator drifted from the documented \
+             exception set; wire the new kind into payload_def_candidates or add it to \
+             KINDS_WITHOUT_EVENT_PAYLOAD_VALIDATOR with a rationale"
+        );
+    }
+
+    #[test]
+    fn applet_registration_resolves_to_strong_payload_not_generic() {
+        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        // The strong def wins over the generic fallback.
+        assert_eq!(
+            catalog.rules["ck.applet.registration"].payload_schema_id,
+            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/applet_registration_payload")
+        );
+        // The legacy `{service_did, namespace, capabilities}` short form is
+        // rejected by the strong validator (missing required fields).
+        let legacy = json!({
+            "service_did": "did:webvh:z6mkfixture:applet.example",
+            "namespace": "ns",
+            "capabilities": ["ck.message.create"]
+        });
+        assert!(
+            catalog
+                .validate_payload("ck.applet.registration", &legacy)
+                .is_err(),
+            "legacy short-form applet registration payload must be rejected"
+        );
+        // `ck.applet.discovery` retains the generic body (no dedicated def).
+        assert_eq!(
+            catalog.rules["ck.applet.discovery"].payload_schema_id,
+            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/generic_standard_payload")
+        );
+    }
 
     #[test]
     fn catalog_reports_registered_payload_validators() {
