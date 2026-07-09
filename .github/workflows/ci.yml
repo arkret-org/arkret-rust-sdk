@@ -177,7 +177,7 @@ jobs:
       - name: Generate coverage report
         run: cargo tarpaulin --config tarpaulin.toml --out Xml
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           files: cobertura.xml
           fail_ci_if_error: false
