@@ -3,10 +3,10 @@
 //!
 //! Coverage split (mirrors the fixture's own `lattice_round_trip` metadata):
 //!
-//! * The `lattice_round_trip.cases` block names five pure-lattice vectors (`mv_register` /
-//!   `counter` / `ordered_log` x2 / `fsm`) whose join semantics are implemented directly by
-//!   [`arkret_core::lattice`]. This test executes every declared assertion of those cases against
-//!   the SDK lattice types, so a join-semantics drift fails in the SDK's own CI.
+//! * The `lattice_round_trip.cases` block names the pure-lattice and Realm Link FSM vectors whose
+//!   join semantics are implemented directly by [`arkret_core::lattice`]. This test executes every
+//!   declared assertion of those cases against the SDK lattice types, so a join-semantics drift
+//!   fails in the SDK's own CI.
 //! * The sixteen `vectors` entries are dual-plane CBA scenarios (DataEvent vs control Move, seal
 //!   coverage, quarantine, notary faults). They need the full CBA reducer + seal pipeline, which
 //!   the SDK does not host; the cotest state-resolution harness remains their executable owner.
@@ -18,7 +18,12 @@ use arkret_core::lattice::{
     CasRegister, CellState, Counter, Fsm, Lattice, MvRegister, OrderedLog, SealedOp,
 };
 use arkret_core::schema::embedded_json_artifact;
-use arkret_core::{CellRef, Did, LatticeOp, LatticeOpType, MoveId};
+use arkret_core::{
+    CellRef, Did, LatticeOp, LatticeOpType, MoveId, REALM_LINK_ALLOWED_TRANSITIONS,
+    REALM_LINK_INITIAL_STATES, REALM_LINK_TERMINAL_STATES, REASON_REALM_LINK_INVALID_TRANSITION,
+    REASON_REALM_LINK_SELF_REFERENCE, RealmId, RealmLinkKind, RealmLinkPayload, RealmLinkStatus,
+    RealmLinkTransitionCandidate, RealmLinkTransitionOutcome, evaluate_realm_link_transition,
+};
 use serde_json::{Value, json};
 
 const FIXTURE_PATH: &str = "fixtures/cba-lattice-fixture.json";
@@ -106,11 +111,29 @@ fn value_of(state: CellState) -> Value {
     }
 }
 
+fn realm_link_payload(status: RealmLinkStatus, target_realm_id: RealmId) -> RealmLinkPayload {
+    RealmLinkPayload {
+        target_realm_id,
+        link_kind: RealmLinkKind::GovernedBy,
+        status,
+        label: None,
+        commitment: None,
+    }
+}
+
+fn realm_id(suffix: &str) -> RealmId {
+    RealmId::new(format!(
+        "ak:realm:01904100-0000-7000-8000-{}",
+        format!("{suffix:0>12}")
+    ))
+    .unwrap()
+}
+
 /// Dispatch table: executes every assertion string the fixture's
 /// `lattice_round_trip.cases` declare, against the SDK lattice types.
 /// Unknown assertions fail the test so newly added fixture assertions
 /// cannot be silently skipped.
-fn run_assertion(lattice_kind: &str, assertion: &str) {
+fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
     let cref = cell();
     match (lattice_kind, assertion) {
         ("mv_register", "concurrent_set_surfaces_all_heads") => {
@@ -368,6 +391,151 @@ fn run_assertion(lattice_kind: &str, assertion: &str) {
                 "conflicting transitions from one state must produce Bottom"
             );
         }
+        ("fsm", "all_declared_initial_states_are_accepted") => {
+            let declared: Vec<&str> = case["parameters"]["initial_states"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|value| value.as_str().unwrap())
+                .collect();
+            let canonical: Vec<&str> = REALM_LINK_INITIAL_STATES
+                .iter()
+                .map(|status| status.as_str())
+                .collect();
+            assert_eq!(declared, canonical);
+            assert!(
+                REALM_LINK_INITIAL_STATES
+                    .iter()
+                    .all(|status| status.is_initial())
+            );
+        }
+        ("fsm", "every_declared_transition_is_accepted") => {
+            let declared = case["parameters"]["allowed_transitions"]
+                .as_array()
+                .unwrap();
+            assert_eq!(declared.len(), REALM_LINK_ALLOWED_TRANSITIONS.len());
+            for pair in declared {
+                let pair = pair.as_array().unwrap();
+                let from = RealmLinkStatus::parse(pair[0].as_str().unwrap()).unwrap();
+                let to = RealmLinkStatus::parse(pair[1].as_str().unwrap()).unwrap();
+                assert!(from.can_transition_to(to));
+            }
+        }
+        ("fsm", "undeclared_transition_rejects_with_realm_link_invalid_transition") => {
+            let source = realm_id("1");
+            let current_payload = realm_link_payload(RealmLinkStatus::Tombstoned, realm_id("2"));
+            for to in [RealmLinkStatus::Active, RealmLinkStatus::Rejected] {
+                let next_payload = realm_link_payload(to, realm_id("2"));
+                let error = evaluate_realm_link_transition(
+                    &source,
+                    Some(RealmLinkTransitionCandidate {
+                        payload: &current_payload,
+                        canonical_move_bytes: b"tombstone",
+                        canonical_basis_bytes: b"basis-1",
+                    }),
+                    RealmLinkTransitionCandidate {
+                        payload: &next_payload,
+                        canonical_move_bytes: b"candidate",
+                        canonical_basis_bytes: b"basis-2",
+                    },
+                )
+                .unwrap_err();
+                assert_eq!(error.reason_code(), REASON_REALM_LINK_INVALID_TRANSITION);
+            }
+        }
+        ("fsm", "tombstoned_is_terminal_except_byte_equivalent_replay") => {
+            assert_eq!(REALM_LINK_TERMINAL_STATES, &[RealmLinkStatus::Tombstoned]);
+            let source = realm_id("1");
+            let current_payload = realm_link_payload(RealmLinkStatus::Tombstoned, realm_id("2"));
+            let replay_payload = current_payload.clone();
+            let outcome = evaluate_realm_link_transition(
+                &source,
+                Some(RealmLinkTransitionCandidate {
+                    payload: &current_payload,
+                    canonical_move_bytes: b"tombstone",
+                    canonical_basis_bytes: b"basis",
+                }),
+                RealmLinkTransitionCandidate {
+                    payload: &replay_payload,
+                    canonical_move_bytes: b"tombstone",
+                    canonical_basis_bytes: b"basis",
+                },
+            )
+            .unwrap();
+            assert_eq!(outcome, RealmLinkTransitionOutcome::IdempotentReplay);
+        }
+        ("fsm", "same_status_same_basis_replay_is_idempotent") => {
+            let source = realm_id("1");
+            let current_payload = realm_link_payload(RealmLinkStatus::Active, realm_id("2"));
+            let replay_payload = current_payload.clone();
+            let outcome = evaluate_realm_link_transition(
+                &source,
+                Some(RealmLinkTransitionCandidate {
+                    payload: &current_payload,
+                    canonical_move_bytes: b"same",
+                    canonical_basis_bytes: b"same-basis",
+                }),
+                RealmLinkTransitionCandidate {
+                    payload: &replay_payload,
+                    canonical_move_bytes: b"same",
+                    canonical_basis_bytes: b"same-basis",
+                },
+            )
+            .unwrap();
+            assert_eq!(outcome, RealmLinkTransitionOutcome::IdempotentReplay);
+        }
+        ("fsm", "same_basis_different_status_siblings_return_bottom") => {
+            let source = realm_id("1");
+            let current_payload = realm_link_payload(RealmLinkStatus::Active, realm_id("2"));
+            let sibling_payload = realm_link_payload(RealmLinkStatus::Rejected, realm_id("2"));
+            let outcome = evaluate_realm_link_transition(
+                &source,
+                Some(RealmLinkTransitionCandidate {
+                    payload: &current_payload,
+                    canonical_move_bytes: b"active",
+                    canonical_basis_bytes: b"same-basis",
+                }),
+                RealmLinkTransitionCandidate {
+                    payload: &sibling_payload,
+                    canonical_move_bytes: b"rejected",
+                    canonical_basis_bytes: b"same-basis",
+                },
+            )
+            .unwrap();
+            assert_eq!(outcome, RealmLinkTransitionOutcome::Bottom);
+        }
+        ("fsm", "general_graph_cycles_are_not_an_admission_error") => {
+            let source = realm_id("1");
+            let payload = realm_link_payload(RealmLinkStatus::Active, realm_id("2"));
+            assert_eq!(
+                evaluate_realm_link_transition(
+                    &source,
+                    None,
+                    RealmLinkTransitionCandidate {
+                        payload: &payload,
+                        canonical_move_bytes: b"cycle-edge",
+                        canonical_basis_bytes: b"basis",
+                    },
+                )
+                .unwrap(),
+                RealmLinkTransitionOutcome::Apply
+            );
+        }
+        ("fsm", "self_reference_rejects_with_realm_link_self_reference") => {
+            let source = realm_id("1");
+            let payload = realm_link_payload(RealmLinkStatus::Active, source.clone());
+            let error = evaluate_realm_link_transition(
+                &source,
+                None,
+                RealmLinkTransitionCandidate {
+                    payload: &payload,
+                    canonical_move_bytes: b"self-link",
+                    canonical_basis_bytes: b"basis",
+                },
+            )
+            .unwrap_err();
+            assert_eq!(error.reason_code(), REASON_REALM_LINK_SELF_REFERENCE);
+        }
         other => panic!("unknown lattice_round_trip assertion {other:?}; extend this driver"),
     }
 }
@@ -403,7 +571,7 @@ fn lattice_round_trip_cases_execute_against_sdk_lattices() {
             .expect("lattice_round_trip case missing assertions");
         assert!(!assertions.is_empty(), "{vector_id} declares no assertions");
         for assertion in assertions {
-            run_assertion(lattice_kind, assertion.as_str().unwrap());
+            run_assertion(lattice_kind, assertion.as_str().unwrap(), case);
             executed_assertions += 1;
         }
     }

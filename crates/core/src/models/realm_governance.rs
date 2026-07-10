@@ -122,10 +122,7 @@ impl RealmLinkKind {
     }
 }
 
-/// Lifecycle status of a `ak.realm.link`. The link cell is `or_set`-keyed
-/// by `(source_realm_id, target_realm_id, link_kind)`; status flips this
-/// triple from `active` to `rejected` or `tombstoned` without producing
-/// a new key.
+/// Lifecycle status of an `ak.realm.link` FSM cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -152,21 +149,56 @@ impl RealmLinkStatus {
             _ => return None,
         })
     }
+
+    /// Whether this status can be the first value written to an absent cell.
+    pub fn is_initial(self) -> bool {
+        REALM_LINK_INITIAL_STATES.contains(&self)
+    }
+
+    /// Whether this status is terminal under the canonical Realm Link FSM.
+    pub fn is_terminal(self) -> bool {
+        REALM_LINK_TERMINAL_STATES.contains(&self)
+    }
+
+    /// Whether the canonical transition matrix contains `self -> next`.
+    pub fn can_transition_to(self, next: Self) -> bool {
+        REALM_LINK_ALLOWED_TRANSITIONS.contains(&(self, next))
+    }
 }
+
+/// States that may initialize an absent Realm Link cell.
+pub const REALM_LINK_INITIAL_STATES: &[RealmLinkStatus] = &[
+    RealmLinkStatus::Active,
+    RealmLinkStatus::Rejected,
+    RealmLinkStatus::Tombstoned,
+];
+
+/// Terminal states in the canonical Realm Link FSM.
+pub const REALM_LINK_TERMINAL_STATES: &[RealmLinkStatus] = &[RealmLinkStatus::Tombstoned];
+
+/// The complete canonical Realm Link transition matrix.
+pub const REALM_LINK_ALLOWED_TRANSITIONS: &[(RealmLinkStatus, RealmLinkStatus)] = &[
+    (RealmLinkStatus::Active, RealmLinkStatus::Active),
+    (RealmLinkStatus::Active, RealmLinkStatus::Rejected),
+    (RealmLinkStatus::Active, RealmLinkStatus::Tombstoned),
+    (RealmLinkStatus::Rejected, RealmLinkStatus::Rejected),
+    (RealmLinkStatus::Rejected, RealmLinkStatus::Active),
+    (RealmLinkStatus::Rejected, RealmLinkStatus::Tombstoned),
+    (RealmLinkStatus::Tombstoned, RealmLinkStatus::Tombstoned),
+];
 
 /// Typed payload for the `ak.realm.link` event.
 ///
-/// Cell family: `ak.component.realm.link.v1` (or_set lattice). Cell
-/// subject key: `(realm_id, target_realm_id, link_kind)`. The reducer
-/// resolves status flips by retaining the latest status per triple.
+/// Cell family: `ak.component.realm.link.v1` (`fsm` / `reject`). Cell
+/// subject key: `(target_realm_id, link_kind)` inside the envelope Realm.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct RealmLinkPayload {
     /// Target Realm id (the link's "to" side). `source_realm_id` is the
     /// envelope `realm_id` and is therefore implicit.
     pub target_realm_id: RealmId,
     pub link_kind: RealmLinkKind,
-    #[serde(default = "default_link_status")]
     pub status: RealmLinkStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
@@ -179,6 +211,117 @@ pub struct RealmLinkPayload {
 
 fn default_link_status() -> RealmLinkStatus {
     RealmLinkStatus::Active
+}
+
+/// Operation DTO for creating a Realm Link. The HTTP default is materialized
+/// when this value is converted into the strict durable payload.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmLinkCreateRequestBody {
+    pub target_realm_id: RealmId,
+    pub link_kind: RealmLinkKind,
+    #[serde(default = "default_link_status")]
+    pub status: RealmLinkStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commitment: Option<String>,
+}
+
+impl From<RealmLinkCreateRequestBody> for RealmLinkPayload {
+    fn from(request: RealmLinkCreateRequestBody) -> Self {
+        Self {
+            target_realm_id: request.target_realm_id,
+            link_kind: request.link_kind,
+            status: request.status,
+            label: request.label,
+            commitment: request.commitment,
+        }
+    }
+}
+
+/// A sealed Realm Link write and the canonical bytes needed to distinguish an
+/// exact replay from a conflicting sibling at the same basis.
+#[derive(Clone, Copy, Debug)]
+pub struct RealmLinkTransitionCandidate<'a> {
+    pub payload: &'a RealmLinkPayload,
+    pub canonical_move_bytes: &'a [u8],
+    pub canonical_basis_bytes: &'a [u8],
+}
+
+/// Canonical outcome of evaluating a Realm Link write.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RealmLinkTransitionOutcome {
+    Apply,
+    IdempotentReplay,
+    Bottom,
+}
+
+/// Canonical admission errors for Realm Link writes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum RealmLinkTransitionError {
+    #[error("Realm Link target must differ from its enclosing Realm")]
+    SelfReference,
+    #[error("Realm Link transition from {from:?} to {to:?} is not allowed")]
+    InvalidTransition {
+        from: RealmLinkStatus,
+        to: RealmLinkStatus,
+    },
+}
+
+impl RealmLinkTransitionError {
+    /// Top-level error code required by the protocol error mapping.
+    pub const fn error_code(self) -> crate::ErrorCode {
+        match self {
+            Self::SelfReference => crate::ErrorCode::SchemaViolation,
+            Self::InvalidTransition { .. } => crate::ErrorCode::FailedPrecondition,
+        }
+    }
+
+    /// Stable reason code required by the protocol error mapping.
+    pub const fn reason_code(self) -> &'static str {
+        match self {
+            Self::SelfReference => crate::REASON_REALM_LINK_SELF_REFERENCE,
+            Self::InvalidTransition { .. } => crate::REASON_REALM_LINK_INVALID_TRANSITION,
+        }
+    }
+}
+
+/// Evaluate a Realm Link write against its currently accepted head.
+///
+/// Exact move-byte replay at the same canonical basis is idempotent. Any other
+/// same-basis sibling is Bottom. A write on a later basis must follow the
+/// canonical FSM; terminal tombstones cannot be rewritten.
+pub fn evaluate_realm_link_transition(
+    source_realm_id: &RealmId,
+    current: Option<RealmLinkTransitionCandidate<'_>>,
+    candidate: RealmLinkTransitionCandidate<'_>,
+) -> std::result::Result<RealmLinkTransitionOutcome, RealmLinkTransitionError> {
+    if source_realm_id == &candidate.payload.target_realm_id {
+        return Err(RealmLinkTransitionError::SelfReference);
+    }
+
+    let Some(current) = current else {
+        debug_assert!(candidate.payload.status.is_initial());
+        return Ok(RealmLinkTransitionOutcome::Apply);
+    };
+
+    if current.canonical_basis_bytes == candidate.canonical_basis_bytes {
+        return if current.canonical_move_bytes == candidate.canonical_move_bytes {
+            Ok(RealmLinkTransitionOutcome::IdempotentReplay)
+        } else {
+            Ok(RealmLinkTransitionOutcome::Bottom)
+        };
+    }
+
+    let from = current.payload.status;
+    let to = candidate.payload.status;
+    if from.is_terminal() || !from.can_transition_to(to) {
+        return Err(RealmLinkTransitionError::InvalidTransition { from, to });
+    }
+
+    Ok(RealmLinkTransitionOutcome::Apply)
 }
 
 /// Direction filter used by the realm-link query API to scope the
@@ -222,8 +365,6 @@ pub struct RealmLinkEntry {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-
-pub type RealmLinkCreateRequestBody = RealmLinkPayload;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -537,6 +678,23 @@ pub struct CapabilityDerived {
 mod tests {
     use super::*;
 
+    fn realm(byte: char) -> RealmId {
+        RealmId::new(format!(
+            "ak:realm:01904100-0000-7000-8000-0000000000{byte}{byte}"
+        ))
+        .unwrap()
+    }
+
+    fn link_payload(target_realm_id: RealmId, status: RealmLinkStatus) -> RealmLinkPayload {
+        RealmLinkPayload {
+            target_realm_id,
+            link_kind: RealmLinkKind::GovernedBy,
+            status,
+            label: None,
+            commitment: None,
+        }
+    }
+
     #[test]
     fn realm_link_kind_roundtrip_covers_all_eight() {
         for kind in RealmLinkKind::all() {
@@ -549,13 +707,213 @@ mod tests {
     }
 
     #[test]
-    fn realm_link_status_default_is_active() {
-        let payload: RealmLinkPayload = serde_json::from_value(serde_json::json!({
+    fn realm_link_request_default_materializes_but_durable_payload_is_strict() {
+        let request: RealmLinkCreateRequestBody = serde_json::from_value(serde_json::json!({
             "target_realm_id": "ak:realm:01904100-0000-7000-8000-cfc039892036",
             "link_kind": "governed_by",
         }))
         .unwrap();
+        assert_eq!(request.status, RealmLinkStatus::Active);
+
+        let payload: RealmLinkPayload = request.into();
         assert_eq!(payload.status, RealmLinkStatus::Active);
+        assert_eq!(
+            serde_json::to_value(payload).unwrap()["status"],
+            serde_json::json!("active")
+        );
+        assert!(
+            serde_json::from_value::<RealmLinkPayload>(serde_json::json!({
+                "target_realm_id": "ak:realm:01904100-0000-7000-8000-cfc039892036",
+                "link_kind": "governed_by",
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn realm_link_fsm_matrix_matches_the_normative_vector() {
+        assert_eq!(
+            REALM_LINK_INITIAL_STATES,
+            &[
+                RealmLinkStatus::Active,
+                RealmLinkStatus::Rejected,
+                RealmLinkStatus::Tombstoned,
+            ]
+        );
+        assert_eq!(REALM_LINK_ALLOWED_TRANSITIONS.len(), 7);
+        assert_eq!(REALM_LINK_TERMINAL_STATES, &[RealmLinkStatus::Tombstoned]);
+        assert!(
+            REALM_LINK_INITIAL_STATES
+                .iter()
+                .all(|state| state.is_initial())
+        );
+        assert!(
+            REALM_LINK_ALLOWED_TRANSITIONS
+                .iter()
+                .all(|(from, to)| from.can_transition_to(*to))
+        );
+    }
+
+    #[test]
+    fn realm_link_fsm_accepts_all_initial_states_and_non_terminal_transitions() {
+        let source = realm('1');
+        let target = realm('2');
+
+        for status in REALM_LINK_INITIAL_STATES {
+            let payload = link_payload(target.clone(), *status);
+            let outcome = evaluate_realm_link_transition(
+                &source,
+                None,
+                RealmLinkTransitionCandidate {
+                    payload: &payload,
+                    canonical_move_bytes: b"initial",
+                    canonical_basis_bytes: b"basis-0",
+                },
+            )
+            .unwrap();
+            assert_eq!(outcome, RealmLinkTransitionOutcome::Apply);
+        }
+
+        for (from, to) in REALM_LINK_ALLOWED_TRANSITIONS {
+            if from.is_terminal() {
+                continue;
+            }
+            let current_payload = link_payload(target.clone(), *from);
+            let candidate_payload = link_payload(target.clone(), *to);
+            let outcome = evaluate_realm_link_transition(
+                &source,
+                Some(RealmLinkTransitionCandidate {
+                    payload: &current_payload,
+                    canonical_move_bytes: b"current",
+                    canonical_basis_bytes: b"basis-1",
+                }),
+                RealmLinkTransitionCandidate {
+                    payload: &candidate_payload,
+                    canonical_move_bytes: b"candidate",
+                    canonical_basis_bytes: b"basis-2",
+                },
+            )
+            .unwrap();
+            assert_eq!(outcome, RealmLinkTransitionOutcome::Apply);
+        }
+    }
+
+    #[test]
+    fn realm_link_replay_and_same_basis_siblings_are_deterministic() {
+        let source = realm('1');
+        let target = realm('2');
+        let current_payload = link_payload(target.clone(), RealmLinkStatus::Active);
+        let replay_payload = current_payload.clone();
+        let sibling_payload = link_payload(target, RealmLinkStatus::Rejected);
+        let current = RealmLinkTransitionCandidate {
+            payload: &current_payload,
+            canonical_move_bytes: b"same-move",
+            canonical_basis_bytes: b"same-basis",
+        };
+
+        assert_eq!(
+            evaluate_realm_link_transition(
+                &source,
+                Some(current),
+                RealmLinkTransitionCandidate {
+                    payload: &replay_payload,
+                    canonical_move_bytes: b"same-move",
+                    canonical_basis_bytes: b"same-basis",
+                },
+            )
+            .unwrap(),
+            RealmLinkTransitionOutcome::IdempotentReplay
+        );
+        assert_eq!(
+            evaluate_realm_link_transition(
+                &source,
+                Some(current),
+                RealmLinkTransitionCandidate {
+                    payload: &sibling_payload,
+                    canonical_move_bytes: b"different-move",
+                    canonical_basis_bytes: b"same-basis",
+                },
+            )
+            .unwrap(),
+            RealmLinkTransitionOutcome::Bottom
+        );
+    }
+
+    #[test]
+    fn realm_link_tombstone_is_terminal_except_exact_replay() {
+        let source = realm('1');
+        let target = realm('2');
+        let current_payload = link_payload(target.clone(), RealmLinkStatus::Tombstoned);
+        let next_payload = current_payload.clone();
+        let current = RealmLinkTransitionCandidate {
+            payload: &current_payload,
+            canonical_move_bytes: b"tombstone",
+            canonical_basis_bytes: b"basis-1",
+        };
+
+        assert_eq!(
+            evaluate_realm_link_transition(
+                &source,
+                Some(current),
+                RealmLinkTransitionCandidate {
+                    payload: &next_payload,
+                    canonical_move_bytes: b"tombstone",
+                    canonical_basis_bytes: b"basis-1",
+                },
+            )
+            .unwrap(),
+            RealmLinkTransitionOutcome::IdempotentReplay
+        );
+
+        let error = evaluate_realm_link_transition(
+            &source,
+            Some(current),
+            RealmLinkTransitionCandidate {
+                payload: &next_payload,
+                canonical_move_bytes: b"new-tombstone",
+                canonical_basis_bytes: b"basis-2",
+            },
+        )
+        .unwrap_err();
+        assert_eq!(error.error_code(), crate::ErrorCode::FailedPrecondition);
+        assert_eq!(
+            error.reason_code(),
+            crate::REASON_REALM_LINK_INVALID_TRANSITION
+        );
+    }
+
+    #[test]
+    fn realm_link_rejects_only_self_reference_not_general_graph_cycles() {
+        let source = realm('1');
+        let target = realm('2');
+        let valid_payload = link_payload(target, RealmLinkStatus::Active);
+        assert_eq!(
+            evaluate_realm_link_transition(
+                &source,
+                None,
+                RealmLinkTransitionCandidate {
+                    payload: &valid_payload,
+                    canonical_move_bytes: b"cycle-edge-is-allowed",
+                    canonical_basis_bytes: b"basis",
+                },
+            )
+            .unwrap(),
+            RealmLinkTransitionOutcome::Apply
+        );
+
+        let self_link = link_payload(source.clone(), RealmLinkStatus::Active);
+        let error = evaluate_realm_link_transition(
+            &source,
+            None,
+            RealmLinkTransitionCandidate {
+                payload: &self_link,
+                canonical_move_bytes: b"self-link",
+                canonical_basis_bytes: b"basis",
+            },
+        )
+        .unwrap_err();
+        assert_eq!(error.error_code(), crate::ErrorCode::SchemaViolation);
+        assert_eq!(error.reason_code(), crate::REASON_REALM_LINK_SELF_REFERENCE);
     }
 
     #[test]

@@ -61,6 +61,8 @@ pub const REASON_RELATION_CONFLICT_FANOUT_EXCEEDED: &str = "relation_conflict_fa
 pub const REASON_RELATION_KIND_WATCHES_DERIVED: &str = "relation_kind_watches_derived";
 pub const REASON_RELATION_KIND_CONTAINS_DERIVED: &str = "relation_kind_contains_derived";
 pub const REASON_CROSS_REALM_STRUCTURAL_RELATION: &str = "cross_realm_structural_relation";
+pub const REASON_REALM_LINK_SELF_REFERENCE: &str = "realm_link_self_reference";
+pub const REASON_REALM_LINK_INVALID_TRANSITION: &str = "realm_link_invalid_transition";
 
 // Moderation report standard categories (alongside C44's spam/harassment).
 pub const REASON_HATE_SPEECH: &str = "hate_speech";

@@ -88,6 +88,11 @@ pub enum LatticeKindError {
         cell_family: &'static str,
         field: &'static str,
     },
+    /// A tuple subject could not be encoded into its canonical hash form.
+    InvalidCompositeSubject {
+        cell_family: &'static str,
+        reason: String,
+    },
     /// The cell_family declared by a Move effect doesn't match this
     /// `LatticeKind`. The dispatcher MUST route to a different impl.
     UnknownCellFamily {
@@ -105,6 +110,13 @@ impl std::fmt::Display for LatticeKindError {
                     "{cell_family} requires effect field `{field}` for cell subject"
                 )
             }
+            Self::InvalidCompositeSubject {
+                cell_family,
+                reason,
+            } => write!(
+                f,
+                "{cell_family} composite cell subject could not be encoded: {reason}"
+            ),
             Self::UnknownCellFamily { observed, declared } => {
                 write!(
                     f,

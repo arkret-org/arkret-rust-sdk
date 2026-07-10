@@ -511,6 +511,59 @@ per_subject_lattice!(
     &["ak.call.state"]
 );
 
+pub struct RealmLink;
+impl LatticeKind for RealmLink {
+    fn cell_family(&self) -> &'static str {
+        "ak.component.realm.link.v1"
+    }
+
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::Fsm
+    }
+
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: "ak.component.realm.link.v1",
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        let target_realm_id = effect_payload
+            .get("target_realm_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: "ak.component.realm.link.v1",
+                field: "target_realm_id",
+            })?;
+        let link_kind = effect_payload
+            .get("link_kind")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: "ak.component.realm.link.v1",
+                field: "link_kind",
+            })?;
+        crate::composite_subject(&[target_realm_id, link_kind])
+            .map(Some)
+            .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+                cell_family: "ak.component.realm.link.v1",
+                reason: error.to_string(),
+            })
+    }
+
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["ak.realm.link"]
+    }
+}
+
 pub struct CircleMember;
 impl LatticeKind for CircleMember {
     fn cell_family(&self) -> &'static str {
@@ -1035,15 +1088,6 @@ singleton_lattice!(
     BottomPolicy::Expose,
     Criticality::Required,
     &["ak.realm.create"]
-);
-
-singleton_lattice!(
-    RealmLink,
-    "ak.component.realm.link.v1",
-    SdkLatticeKind::OrderedLog,
-    BottomPolicy::Expose,
-    Criticality::Required,
-    &["ak.realm.link"]
 );
 
 // ── New Strand facet families (per-subject by Strand id) ──

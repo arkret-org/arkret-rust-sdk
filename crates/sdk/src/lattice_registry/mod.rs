@@ -19,7 +19,7 @@
 //!   realm.history_visibility, realm.join_rule, realm.discovery, realm.organization, realm.upgrade,
 //!   strand.position, strand.stage, morph.stage, space.parent, device.push_route, notary (Move/Seal
 //!   authority cell), mls_epoch.
-//! - **Fsm** (legal transitions only): member.state, agent.status.
+//! - **Fsm** (legal transitions only): member.state, agent.status, call.state, realm.link.
 //! - **OrderedLog** (per-issuer monotonic append): account.status, policy.rule,
 //!   cross_signing.reset, contact.fact_log, direct_conversation.binding.
 //! - **MvRegister** (concurrent multi-value): profile.create, view.create / update / reconcile,
@@ -41,6 +41,7 @@ mod tests {
 
     use super::*;
     use crate::lattice::LatticeKind as SdkLatticeKind;
+    use crate::state_res::{BottomMode, CellRegistry};
 
     #[test]
     fn default_registry_covers_at_least_all_spec_normative_cell_families() {
@@ -82,6 +83,42 @@ mod tests {
         let payload = json!({"actor_id": "did:example:alice"});
         let subject = kind.subject_for_effect(&payload).unwrap();
         assert_eq!(subject.as_deref(), Some("did:example:alice"));
+    }
+
+    #[test]
+    fn realm_link_uses_tuple_subject_fsm_and_rejects_bottom() {
+        let registry = default_lattice_registry();
+        let kind = registry
+            .lookup("ak.component.realm.link.v1")
+            .expect("Realm Link cell must be registered");
+        assert_eq!(kind.lattice(), SdkLatticeKind::Fsm);
+        assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
+        let subject = kind
+            .subject_for_effect(&json!({
+                "target_realm_id": "ak:realm:01904100-0000-7000-8000-000000000022",
+                "link_kind": "governed_by",
+            }))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            subject,
+            crate::composite_subject(&[
+                "ak:realm:01904100-0000-7000-8000-000000000022",
+                "governed_by",
+            ])
+            .unwrap()
+        );
+        assert_eq!(kind.event_kinds(), &["ak.realm.link"]);
+
+        let sdk_registry = build_sdk_cell_registry();
+        let realm_id =
+            crate::RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011".to_owned())
+                .unwrap();
+        let cell =
+            crate::CellRef::new(format!("ak:cell:ak.component.realm.link.v1:{subject}")).unwrap();
+        let binding = sdk_registry.resolve(&realm_id, &cell).unwrap();
+        assert_eq!(binding.lattice.kind(), SdkLatticeKind::Fsm);
+        assert_eq!(binding.bottom_mode, BottomMode::Reject);
     }
 
     #[test]

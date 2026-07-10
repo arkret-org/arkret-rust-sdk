@@ -43,6 +43,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(MemberState);
     registry.register(AgentStatus);
     registry.register(CallState);
+    registry.register(RealmLink);
 
     // OrderedLog
     registry.register(CircleCreate);
@@ -86,7 +87,6 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(RealmInheritancePolicy);
     registry.register(RealmUpgrade);
     registry.register(RealmCreate);
-    registry.register(RealmLink);
     registry.register(StrandMetadata);
     registry.register(StrandTracks);
 
@@ -128,6 +128,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ak.component.member.state.v1",
         "ak.component.agent.status.v1",
         "ak.component.call.state.v1",
+        "ak.component.realm.link.v1",
         // OrderedLog
         "ak.component.circle.create.v1",
         "ak.component.space.parent.v1",
@@ -169,7 +170,6 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ak.component.realm.inheritance_policy.v1",
         "ak.component.realm.upgrade.v1",
         "ak.component.realm.create.v1",
-        "ak.component.realm.link.v1",
         "ak.component.strand.metadata.v1",
         "ak.component.strand.tracks.v1",
     ];
@@ -255,6 +255,15 @@ pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
             (json!("active"), json!("ended")),
             (json!("active"), json!("failed")),
         ],
+        BottomMode::Reject,
+    );
+    sdk_registry.register_fsm(
+        "ak.component.realm.link.v1",
+        None,
+        crate::REALM_LINK_ALLOWED_TRANSITIONS
+            .iter()
+            .map(|(from, to)| (json!(from.as_str()), json!(to.as_str())))
+            .collect(),
         BottomMode::Reject,
     );
     sdk_registry
