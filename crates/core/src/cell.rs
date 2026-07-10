@@ -61,6 +61,11 @@ impl CellId {
                 "cell id has empty component: {value}"
             )));
         }
+        if !arkret_identifiers::is_cell_family(component) {
+            return Err(Error::Protocol(format!(
+                "cell id component is not a canonical ak.component.*.v<n> family: {value}"
+            )));
+        }
         Ok(Self {
             component: component.to_owned(),
             subject: subject.to_owned(),

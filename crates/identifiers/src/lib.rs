@@ -206,6 +206,58 @@ fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
     move |value| value.starts_with(prefix) && value.len() > prefix.len()
 }
 
+/// Validate a canonical Arkret cell-family identifier.
+///
+/// Cell families are first-class registry identifiers with the wire form
+/// `ak.component.<facet-path>.v<n>`. The complete family identifier is
+/// embedded unchanged in a [`CellRef`].
+pub fn is_cell_family(value: &str) -> bool {
+    let Some(rest) = value.strip_prefix("ak.component.") else {
+        return false;
+    };
+    let Some((facet_path, version)) = rest.rsplit_once(".v") else {
+        return false;
+    };
+
+    !facet_path.is_empty()
+        && facet_path.split('.').all(|segment| {
+            !segment.is_empty()
+                && segment
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        })
+        && !version.is_empty()
+        && version.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+/// Validate the canonical `ak:cell:<cell-family>:<subject>` wire form.
+///
+/// The family MUST be a complete `ak.component.*.v<n>` identifier. Subjects
+/// may contain colon-separated typed identifiers; an empty subject is allowed
+/// for a family-scoped singleton and is represented by the trailing colon.
+pub fn is_cell_ref(value: &str) -> bool {
+    let Some(rest) = value.strip_prefix("ak:cell:") else {
+        return false;
+    };
+    let Some((family, subject)) = rest.split_once(':') else {
+        return false;
+    };
+    if !is_cell_family(family) {
+        return false;
+    }
+    if subject.is_empty() {
+        return true;
+    }
+
+    subject.split(':').all(|segment| {
+        !segment.is_empty()
+            && segment.bytes().all(|byte| {
+                byte.is_ascii_alphanumeric()
+                    || matches!(byte, b'.' | b'_' | b'~' | b'=' | b'-')
+            })
+    })
+}
+
 /// Validate the `ak:trust_domain:<scope>` wire form. Scope MUST be lowercase
 /// `[a-z0-9._:-]` (alphanumerics + dot/dash/underscore/colon), max 128 chars,
 /// non-empty. Round R2/R3 (2026-05-20). Spec: id-kind-registry.json
@@ -390,7 +442,7 @@ fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
 // `event_digest`).
 id_type!(MoveId, is_hash);
 id_type!(SealId, is_content_addressed("ak:seal:"));
-id_type!(CellRef, has_prefix("ak:cell:"));
+id_type!(CellRef, is_cell_ref);
 
 impl BlobRef {
     /// Create a content-addressed `sha256:...` blob reference from raw bytes.
@@ -642,6 +694,17 @@ mod tests {
         assert!(MoveId::new(format!("sha512:{digest128}")).is_err());
         assert!(SealId::new(format!("ak:seal:blake3:{digest64}")).is_ok());
         assert!(SealId::new(format!("ak:seal:sha512:{digest128}")).is_err());
+    }
+
+    #[test]
+    fn cell_ref_requires_complete_cell_family_identifier() {
+        assert!(CellRef::new("ak:cell:ak.component.strand.position.v1:board:strand").is_ok());
+        assert!(CellRef::new("ak:cell:ak.component.realm.join_rule.v1:").is_ok());
+        assert!(CellRef::new("ak:cell:component.strand.position.v1:board:strand").is_err());
+        assert!(CellRef::new("ak:cell:message:019640ed-8000-7000-8000-000000000000").is_err());
+        assert!(CellRef::new("ak:cell:ck.component.strand.position.v1:board:strand").is_err());
+        assert!(CellRef::new("ak:cell:ak.component.Strand.position.v1:board:strand").is_err());
+        assert!(CellRef::new("ak:cell:ak.component.strand.position:board:strand").is_err());
     }
 
     #[test]
