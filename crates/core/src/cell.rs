@@ -32,8 +32,9 @@ const CELL_PREFIX: &str = "ak:cell:";
 ///
 /// The wire string is held in [`CellRef`]; [`CellId`] is a borrow-style
 /// view over it so we don't allocate copies for hot paths (validate / log /
-/// project). The component must be non-empty; the subject may be empty
-/// when a cell family has only one global instance per Space.
+/// project). The component must be a complete `ak.component.*.v<n>` family;
+/// the subject may be empty when a cell family has only one global instance
+/// per Space.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CellId {
     component: String,
@@ -171,6 +172,12 @@ mod tests {
     fn parse_rejects_empty_component() {
         let err = CellId::parse("ak:cell::sub").unwrap_err();
         assert!(format!("{err}").contains("empty component"));
+    }
+
+    #[test]
+    fn parse_rejects_noncanonical_component_family() {
+        let err = CellId::parse("ak:cell:component.consent.v1:subject").unwrap_err();
+        assert!(format!("{err}").contains("canonical ak.component.*.v<n> family"));
     }
 
     #[test]

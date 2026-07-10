@@ -252,8 +252,7 @@ pub fn is_cell_ref(value: &str) -> bool {
     subject.split(':').all(|segment| {
         !segment.is_empty()
             && segment.bytes().all(|byte| {
-                byte.is_ascii_alphanumeric()
-                    || matches!(byte, b'.' | b'_' | b'~' | b'=' | b'-')
+                byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'~' | b'=' | b'-')
             })
     })
 }

@@ -150,11 +150,23 @@ mod tests {
     fn deterministic_across_insertion_order() {
         // Map order doesn't affect output because we sort by cell wire.
         let mut a = BTreeMap::new();
-        a.insert(cell("ak:cell:ak.x:1"), CellState::Value(json!(1)));
-        a.insert(cell("ak:cell:ak.y:2"), CellState::Value(json!(2)));
+        a.insert(
+            cell("ak:cell:ak.component.test.state_x.v1:1"),
+            CellState::Value(json!(1)),
+        );
+        a.insert(
+            cell("ak:cell:ak.component.test.state_y.v1:2"),
+            CellState::Value(json!(2)),
+        );
         let mut b = BTreeMap::new();
-        b.insert(cell("ak:cell:ak.y:2"), CellState::Value(json!(2)));
-        b.insert(cell("ak:cell:ak.x:1"), CellState::Value(json!(1)));
+        b.insert(
+            cell("ak:cell:ak.component.test.state_y.v1:2"),
+            CellState::Value(json!(2)),
+        );
+        b.insert(
+            cell("ak:cell:ak.component.test.state_x.v1:1"),
+            CellState::Value(json!(1)),
+        );
         assert_eq!(
             compute_state_root(&a).unwrap(),
             compute_state_root(&b).unwrap()
@@ -164,9 +176,15 @@ mod tests {
     #[test]
     fn different_values_yield_different_roots() {
         let mut a = BTreeMap::new();
-        a.insert(cell("ak:cell:ak.x:1"), CellState::Value(json!("a")));
+        a.insert(
+            cell("ak:cell:ak.component.test.state_x.v1:1"),
+            CellState::Value(json!("a")),
+        );
         let mut b = BTreeMap::new();
-        b.insert(cell("ak:cell:ak.x:1"), CellState::Value(json!("b")));
+        b.insert(
+            cell("ak:cell:ak.component.test.state_x.v1:1"),
+            CellState::Value(json!("b")),
+        );
         assert_ne!(
             compute_state_root(&a).unwrap(),
             compute_state_root(&b).unwrap()
@@ -176,7 +194,10 @@ mod tests {
     #[test]
     fn bottom_state_serializes_without_seal_view() {
         // Two Bottoms differing only in seal_view MUST yield the same leaf.
-        let mut bottom_a = Bottom::new(BottomKind::Conflict, vec![cell("ak:cell:ak.x:1")]);
+        let mut bottom_a = Bottom::new(
+            BottomKind::Conflict,
+            vec![cell("ak:cell:ak.component.test.state_x.v1:1")],
+        );
         bottom_a.seal_view = Some(SealView {
             leaves: vec![],
             state_root: None,
@@ -184,8 +205,16 @@ mod tests {
         let mut bottom_b = bottom_a.clone();
         bottom_b.seal_view = None;
 
-        let h_a = leaf_hash(&cell("ak:cell:ak.x:1"), &CellState::Bottom(bottom_a)).unwrap();
-        let h_b = leaf_hash(&cell("ak:cell:ak.x:1"), &CellState::Bottom(bottom_b)).unwrap();
+        let h_a = leaf_hash(
+            &cell("ak:cell:ak.component.test.state_x.v1:1"),
+            &CellState::Bottom(bottom_a),
+        )
+        .unwrap();
+        let h_b = leaf_hash(
+            &cell("ak:cell:ak.component.test.state_x.v1:1"),
+            &CellState::Bottom(bottom_b),
+        )
+        .unwrap();
         assert_eq!(h_a, h_b, "seal_view must be stripped before hashing");
     }
 
@@ -195,12 +224,25 @@ mod tests {
         // sha256(layer1[0]||C). Verify the root is computable and not equal to any single
         // leaf.
         let mut m = BTreeMap::new();
-        m.insert(cell("ak:cell:a:1"), CellState::Value(json!("a")));
-        m.insert(cell("ak:cell:b:2"), CellState::Value(json!("b")));
-        m.insert(cell("ak:cell:c:3"), CellState::Value(json!("c")));
+        m.insert(
+            cell("ak:cell:ak.component.test.state_a.v1:1"),
+            CellState::Value(json!("a")),
+        );
+        m.insert(
+            cell("ak:cell:ak.component.test.state_b.v1:2"),
+            CellState::Value(json!("b")),
+        );
+        m.insert(
+            cell("ak:cell:ak.component.test.state_c.v1:3"),
+            CellState::Value(json!("c")),
+        );
         let root = compute_state_root(&m).unwrap();
         // Must not match any leaf hash.
-        let leaf_a = leaf_hash(&cell("ak:cell:a:1"), &CellState::Value(json!("a"))).unwrap();
+        let leaf_a = leaf_hash(
+            &cell("ak:cell:ak.component.test.state_a.v1:1"),
+            &CellState::Value(json!("a")),
+        )
+        .unwrap();
         let leaf_a_hex: String = leaf_a.iter().map(|b| format!("{b:02x}")).collect();
         assert_ne!(root.as_str(), format!("sha256:{leaf_a_hex}"));
     }
@@ -208,10 +250,24 @@ mod tests {
     #[test]
     fn bottom_kind_affects_root() {
         // Different BottomKind on the same cell MUST yield different leaf hashes.
-        let bottom_conflict = Bottom::new(BottomKind::Conflict, vec![cell("ak:cell:x:1")]);
-        let bottom_schema = Bottom::new(BottomKind::SchemaError, vec![cell("ak:cell:x:1")]);
-        let h_a = leaf_hash(&cell("ak:cell:x:1"), &CellState::Bottom(bottom_conflict)).unwrap();
-        let h_b = leaf_hash(&cell("ak:cell:x:1"), &CellState::Bottom(bottom_schema)).unwrap();
+        let bottom_conflict = Bottom::new(
+            BottomKind::Conflict,
+            vec![cell("ak:cell:ak.component.test.state_x.v1:1")],
+        );
+        let bottom_schema = Bottom::new(
+            BottomKind::SchemaError,
+            vec![cell("ak:cell:ak.component.test.state_x.v1:1")],
+        );
+        let h_a = leaf_hash(
+            &cell("ak:cell:ak.component.test.state_x.v1:1"),
+            &CellState::Bottom(bottom_conflict),
+        )
+        .unwrap();
+        let h_b = leaf_hash(
+            &cell("ak:cell:ak.component.test.state_x.v1:1"),
+            &CellState::Bottom(bottom_schema),
+        )
+        .unwrap();
         assert_ne!(h_a, h_b);
     }
 }
