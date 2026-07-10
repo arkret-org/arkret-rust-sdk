@@ -8,20 +8,18 @@
 //!
 //! Contract rules (D14-001):
 //!
-//! - Every list envelope carries `{ <rows>, total, next_cursor, has_more,
-//!   filters }`. `filters` echoes exactly the server-applied filter set so a
-//!   client can detect ignored parameters. `next_cursor` is the last row id
-//!   of the page — opaque to clients, resumable server-side by id lookup. A
-//!   cursor that no longer resolves is rejected with `cursor-expired` (410);
-//!   a malformed cursor with `invalid-param` (400).
-//! - All types are `deny_unknown_fields`: unknown wire fields fail closed
-//!   instead of being silently dropped, so producer/consumer drift is caught
-//!   at the boundary.
-//! - Security-relevant fields (`status`, `is_admin`,
-//!   `deactivation_federation_incomplete`) are `Option`: `None` means the
-//!   server could not answer authoritatively — never a defaulted `false`.
-//! - Closed-set enums reuse the canonical registries (e.g.
-//!   [`AccountStatus`]); unknown wire values fail deserialization.
+//! - Every list envelope carries `{ <rows>, total, next_cursor, has_more, filters }`. `filters`
+//!   echoes exactly the server-applied filter set so a client can detect ignored parameters.
+//!   `next_cursor` is the last row id of the page — opaque to clients, resumable server-side by id
+//!   lookup. A cursor that no longer resolves is rejected with `cursor-expired` (410); a malformed
+//!   cursor with `invalid-param` (400).
+//! - All types are `deny_unknown_fields`: unknown wire fields fail closed instead of being silently
+//!   dropped, so producer/consumer drift is caught at the boundary.
+//! - Security-relevant fields (`status`, `is_admin`, `deactivation_federation_incomplete`) are
+//!   `Option`: `None` means the server could not answer authoritatively — never a defaulted
+//!   `false`.
+//! - Closed-set enums reuse the canonical registries (e.g. [`AccountStatus`]); unknown wire values
+//!   fail deserialization.
 
 use std::collections::BTreeMap;
 
@@ -326,8 +324,13 @@ mod tests {
 
     #[test]
     fn capability_grant_state_rejects_unknown_wire_value() {
-        assert!(serde_json::from_value::<CapabilityGrantState>(serde_json::json!("paused")).is_err());
-        assert_eq!(CapabilityGrantState::from_wire("all"), Some(CapabilityGrantState::All));
+        assert!(
+            serde_json::from_value::<CapabilityGrantState>(serde_json::json!("paused")).is_err()
+        );
+        assert_eq!(
+            CapabilityGrantState::from_wire("all"),
+            Some(CapabilityGrantState::All)
+        );
     }
 
     #[test]

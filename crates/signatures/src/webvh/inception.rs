@@ -5,13 +5,12 @@
 //! profile requires the client to:
 //!
 //! 1. generate the DID's verification keypair and a separate update keypair,
-//! 2. construct the inception webvh log entry with `{SCID}` placeholders
-//!    (`versionId` is the bare `{SCID}` placeholder, per DIF did:webvh v1.0),
-//! 3. derive the SCID (base58btc sha256-multihash — no multibase prefix — of
-//!    the canonical-JCS skeleton),
-//! 4. substitute the SCID and compute `versionId = 1-<entryHash>`, where the
-//!    entryHash preimage carries `versionId = <SCID>` (the predecessor anchor)
-//!    and no `proof`,
+//! 2. construct the inception webvh log entry with `{SCID}` placeholders (`versionId` is the bare
+//!    `{SCID}` placeholder, per DIF did:webvh v1.0),
+//! 3. derive the SCID (base58btc sha256-multihash — no multibase prefix — of the canonical-JCS
+//!    skeleton),
+//! 4. substitute the SCID and compute `versionId = 1-<entryHash>`, where the entryHash preimage
+//!    carries `versionId = <SCID>` (the predecessor anchor) and no `proof`,
 //! 5. sign the entry (sans `proof`) under `cryptosuite: eddsa-jcs-2022` with the update key —
 //!    soland verifies that signature in `verify_webvh_log_proof`.
 //!
