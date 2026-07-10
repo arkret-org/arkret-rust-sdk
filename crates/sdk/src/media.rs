@@ -40,7 +40,7 @@ pub enum MediaBackendType {
     Livekit,
     Mediasoup,
     Janus,
-    CokretNative,
+    ArkretNative,
     MoqRelay,
     /// Unknown / forward-compat backend label. Helpers MUST reject this
     /// with `unknown_focus_type` before forwarding to the wire layer.

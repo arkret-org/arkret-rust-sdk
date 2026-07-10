@@ -6,8 +6,9 @@ use arkret_core::{
     DocumentMorphProjectionOutcome, Error, Event, EventsQueryOutcome, EventsSubmitBatchRequestBody,
     EventsSubmitOutcome, EventsSubscribeFrame, GrantList, ProjectionSpaceList,
     ProjectionStrandList, RealmOrganizationRelationshipList, Result, ServiceDescribe,
-    SnapshotManifest, SyncBackfillOutcome, ViewProjectionRequestBody,
+    SyncBackfillOutcome, ViewProjectionRequestBody,
 };
+use arkret_state::SnapshotManifest;
 use reqwest::{Method, Response};
 
 use crate::{Client, ClientRequestOptions, reject_path_segment};
@@ -67,8 +68,16 @@ impl EventsSubscribeOptions {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+type BoxEventsSubscribeFrameStream =
+    std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<EventsSubscribeFrame>> + Send>>;
+
+#[cfg(target_arch = "wasm32")]
+type BoxEventsSubscribeFrameStream =
+    std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<EventsSubscribeFrame>>>>;
+
 pub struct EventsSubscribeFrameStream {
-    inner: std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<EventsSubscribeFrame>> + Send>>,
+    inner: BoxEventsSubscribeFrameStream,
 }
 
 impl EventsSubscribeFrameStream {
@@ -147,6 +156,40 @@ impl Client {
         });
         Ok(EventsSubscribeFrameStream {
             inner: Box::pin(stream),
+        })
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub async fn events_subscribe_frames(
+        &self,
+        options: &EventsSubscribeOptions,
+    ) -> Result<EventsSubscribeFrameStream> {
+        let response = self.events_subscribe_stream_with_options(options).await?;
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(crate::client_internals::transport_error)?;
+        if bytes.len() > crate::client_internals::MAX_RESPONSE_BODY_BYTES {
+            return Err(Error::Protocol(
+                "events subscribe buffered response exceeds limit".to_owned(),
+            ));
+        }
+        let text = std::str::from_utf8(&bytes).map_err(|error| {
+            Error::Protocol(format!("events subscribe response is not UTF-8: {error}"))
+        })?;
+        let mut frames = Vec::new();
+        for line in text.lines() {
+            if line.len() > crate::MAX_SUBSCRIBE_FRAME_BYTES {
+                return Err(Error::Protocol(
+                    "events subscribe frame exceeds limit".to_owned(),
+                ));
+            }
+            if let Some(frame) = EventsSubscribeFrame::from_ndjson_line(line)? {
+                frames.push(Ok(frame));
+            }
+        }
+        Ok(EventsSubscribeFrameStream {
+            inner: Box::pin(futures_util::stream::iter(frames)),
         })
     }
 

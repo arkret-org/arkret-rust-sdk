@@ -125,8 +125,7 @@ pub use arkret_core::{
     InMemoryKeyStore, KeyRefObject, KeyStore, KeyStoreError, canonical, cursor, error, events,
     federation as federation_api, identifiers, identity as identity_api,
     integration as integration_api, keystore, lattice, models, operations, ops as ops_api,
-    push as push_gateway_api, push_rule_core, schema, schema as schema_contracts, service, state,
-    state as state_res, sync, *,
+    push as push_gateway_api, push_rule_core, schema, schema as schema_contracts, service, sync, *,
 };
 pub use arkret_crypto as crypto_protocol;
 pub use arkret_ffi as ffi;
@@ -146,6 +145,7 @@ pub use arkret_server as server;
 pub use arkret_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use arkret_signatures::Ed25519MoveSigner;
+pub use arkret_state::{self as state_runtime, snapshot, state, state as state_res, *};
 // Shared `did:webvh` inception builder + organization statement signer, surfaced
 // at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
 // reach one implementation: `arkret_sdk::webvh::prepare_inception`,
@@ -167,12 +167,6 @@ pub mod agent_binding;
 #[cfg(feature = "full-surface")]
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub mod applet;
-// S-8 (savfox SDK gap): salvo Router factory for the 6 Applet
-// endpoints. Trait surface is always compiled (under `applet-runtime`)
-// so callers can implement it without pulling salvo; the actual
-// Router factory only links when the `salvo` feature is on.
-#[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
-pub mod applet_server;
 #[cfg(feature = "full-surface")]
 pub mod auth;
 #[cfg(feature = "full-surface")]
@@ -202,11 +196,7 @@ pub mod federation;
 pub mod fixtures;
 #[cfg(feature = "full-surface")]
 pub mod hlc;
-// S-5 (savfox SDK gap): `(source_service_did, Idempotency-Key)`
-// deduplication window. Open to all profiles — Applets, gateways,
-// any inbound handler can use it without dragging in `full-surface`.
-pub mod dpop;
-pub mod idempotency;
+pub use arkret_signatures::dpop;
 // Realm Recovery Key (RRK) durable history sealing — provider-initiated
 // `ak.realm_key.share` to offline recovery recipients (encryption-and-audit.md
 // §2.10.8). Resolves the RRK HPKE public key from a recipient's DID Document
@@ -335,9 +325,16 @@ pub use applet::{
     feature = "applet-runtime",
     feature = "salvo"
 ))]
-pub use applet_server::router as applet_router;
+pub use arkret_server::applet_router;
+#[cfg(feature = "server")]
+pub use arkret_server::{
+    APPLET_TRANSACTION_OPERATION_ID, IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity,
+    IdempotencyWindow,
+};
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
-pub use applet_server::{AppletHandler, AppletService, TransactionDispatch};
+pub use arkret_server::{
+    AppletHandler, AppletService, ServiceRoute, TransactionDispatch, service_routes,
+};
 #[cfg(feature = "full-surface")]
 pub use auth::{
     ARKRET_DEVICE_SCOPE_PREFIX, AccountAuthState, AccountRecoveryMethod,
@@ -431,7 +428,7 @@ pub use federation::{
     FederationQuarantineRecord, FederationReplayDecision, FederationReplayRecord,
     FederationReplayStore, FederationTransactionEnvelope, HttpMessageSignature, ServerInfo,
     ServiceEndpointDescriptor, SovereignDeployment, VerifyActorChallenge,
-    VerifyActorChallengeSignature, WellKnownCokretServer, content_digest_sha256,
+    VerifyActorChallengeSignature, WellKnownArkretServer, content_digest_sha256,
     did_document_service_endpoint_matches, duplicate_transaction_quarantine,
     fork_quarantine_record, rfc9530_content_digest_sha256, verify_rfc9530_content_digest,
 };
@@ -461,10 +458,6 @@ pub use http_client::{Auth, Client, ClientBuilder, ClientRequestOptions, RetryCo
 pub use http_did_resolver::{
     DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS, DEFAULT_HTTP_DID_RESOLVER_TTL_SECS, HttpDidResolver,
 };
-pub use idempotency::{
-    APPLET_TRANSACTION_OPERATION_ID, IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity,
-    IdempotencyWindow,
-};
 #[cfg(feature = "full-surface")]
 pub use identity::{
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument,
@@ -475,11 +468,12 @@ pub use identity::{
     InMemoryStaridRegistryAdapter, PairwiseDidBinding, PairwiseDidResolutionProof,
     PairwiseDidStore, ResolvedVerificationMethodKey, StaridControlProofRequestBody,
     StaridControlProofVerification, StaridRegistryAdapter, StaridRegistryRecord, VerifiedDidKeyLog,
-    event_proof_verification_context, handle_claim_proof, handle_dns_txt_name,
-    handle_well_known_url, pairwise_resolution_proof, resolve_verification_method_key,
-    resolve_verification_method_key_from_document, starid_control_proof, verification_method_did,
-    verify_canonical_proof_with_did_resolver, verify_did_key_log,
-    verify_event_proof_with_did_resolver, verify_event_proof_with_did_resolver_context,
+    attach_did_key_log_controller_proof, event_proof_verification_context, handle_claim_proof,
+    handle_dns_txt_name, handle_well_known_url, pairwise_resolution_proof,
+    resolve_verification_method_key, resolve_verification_method_key_from_document,
+    starid_control_proof, verification_method_did, verify_canonical_proof_with_did_resolver,
+    verify_did_key_log, verify_event_proof_with_did_resolver,
+    verify_event_proof_with_did_resolver_context,
 };
 #[cfg(feature = "full-surface")]
 pub use identity_link::{IdentityLinkCache, VerifiedLinkCacheEntry};

@@ -41,7 +41,7 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
   (proof verification deferred — see TODO list below).
 - `model/profile.rs` / `generated/profiles.rs` — added profile IDs
   `MediaServiceBinding`, `MediaServiceBindingLivekit`,
-  `MediaServiceBindingCokretNative`, `AccountableToStrictReject`.
+  `MediaServiceBindingArkretNative`, `AccountableToStrictReject`.
 - `cursor/` — default parser is now stateful `{v, purpose, t, x, h}`;
   stateless cursor (`{v, purpose, t, s, d?, target?, x, _mac/_sig,
   issuer_kid}`) is feature-gated under `stateless_cursor` and advertised via

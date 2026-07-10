@@ -2,7 +2,7 @@ use arkret_core::{base64url_token, content_type_token, major_minor_version};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::group::{CokretMlsGroup, decode};
+use super::group::{ArkretMlsGroup, decode};
 use super::security::AadVisibility;
 use crate::{EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash, RealmId, Result};
 
@@ -147,7 +147,7 @@ impl EncryptedEnvelopeV1 {
     /// Assemble a conforming envelope from an MLS [`EncryptedPayload`].
     ///
     /// The `payload` MUST have been produced by
-    /// [`CokretMlsGroup::encrypt_payload_with_aad`] with AAD equal to
+    /// [`ArkretMlsGroup::encrypt_payload_with_aad`] with AAD equal to
     /// `serde_json::to_value(&aad)` — the AAD is bound into `payload_digest`,
     /// so a mismatch would make the receiver's digest verification fail. We
     /// fail closed if they disagree. `group_state_ref` is the `ak.mls.commit`
@@ -334,7 +334,7 @@ pub struct MessageCrypto;
 
 impl MessageCrypto {
     pub fn encrypt(
-        group: &mut CokretMlsGroup,
+        group: &mut ArkretMlsGroup,
         message_id: impl Into<String>,
         content_type: impl Into<String>,
         plaintext: &[u8],
@@ -346,7 +346,7 @@ impl MessageCrypto {
     }
 
     pub fn encrypt_with_aad(
-        group: &mut CokretMlsGroup,
+        group: &mut ArkretMlsGroup,
         message_id: impl Into<String>,
         content_type: impl Into<String>,
         aad: Value,
@@ -383,13 +383,13 @@ impl MessageCrypto {
         Ok(())
     }
 
-    pub fn decrypt(group: &mut CokretMlsGroup, message: &EncryptedMessage) -> Result<Vec<u8>> {
+    pub fn decrypt(group: &mut ArkretMlsGroup, message: &EncryptedMessage) -> Result<Vec<u8>> {
         Self::verify_opaque_payload_digest(message)?;
         group.decrypt_payload(&message.payload)
     }
 
     pub fn decrypt_or_preserve(
-        group: Option<&mut CokretMlsGroup>,
+        group: Option<&mut ArkretMlsGroup>,
         message: EncryptedMessage,
     ) -> Result<MessageCryptoDecrypt> {
         Self::verify_opaque_payload_digest(&message)?;

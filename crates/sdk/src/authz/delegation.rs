@@ -34,7 +34,7 @@ use arkret_core::{AgentInteropSessionId, CircleId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::authz::constraints::ConstraintDuration;
+use crate::authz::ConstraintDuration;
 
 /// A capability grant in its runtime / in-memory form.
 ///

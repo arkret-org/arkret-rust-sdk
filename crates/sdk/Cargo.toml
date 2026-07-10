@@ -44,13 +44,14 @@ salvo = [
     "salvo/oapi",
     "arkret-server/salvo",
     "arkret-core/salvo",
+    "arkret-state/salvo",
     # The applet transactions handler verifies signatures / resolves DIDs on
     # the blocking pool (tokio::task::spawn_blocking).
     "dep:tokio",
 ]
-applet-runtime = ["full-surface"]
+applet-runtime = ["full-surface", "server"]
 # Convenience umbrella for Applet developers: turns on the applet wire
-# surface (`applet` / `applet_server` modules), the reqwest HTTP client
+# surface (`applet` module), the reqwest HTTP client
 # (push transactions / query actors-realms), the framework-neutral
 # server handler contracts and the ready-made Salvo `Router` factory.
 # `cargo add arkret --features applet` is all an Applet service needs.
@@ -83,6 +84,7 @@ arkret-http-client = {workspace = true,optional = true}
 arkret-keystore = {workspace = true}
 arkret-server = {workspace = true,optional = true}
 arkret-signatures = {workspace = true}
+arkret-state = {workspace = true}
 ed25519-dalek = {workspace = true}
 getrandom = {workspace = true}
 hex = {workspace = true}

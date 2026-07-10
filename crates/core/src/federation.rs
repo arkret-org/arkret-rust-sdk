@@ -13,7 +13,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WellKnownCokretServer {
+pub struct WellKnownArkretServer {
     pub service_did: Did,
     pub base_url: String,
     pub protocol_versions: Vec<String>,

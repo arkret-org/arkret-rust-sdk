@@ -80,7 +80,7 @@ pub struct CrossSigningBinding {
 pub struct CrossSigningPublishContent {
     pub principal_id: Did,
     /// Round 4 (spec a77b995) — REQUIRED deployment-scope trust domain.
-    /// Mixed into the canonical `ck-cross-signing-bind-v1` signing input
+    /// Mixed into the canonical `ak-cross-signing-bind-v1` signing input
     /// so a publish from deployment A cannot be replayed into deployment
     /// B. MUST match the receiver's accepted trust domain.
     pub trust_domain: arkret_core::TypedTrustDomainId,
@@ -481,7 +481,7 @@ impl CrossSigningResetContent {
     }
 
     /// Canonical signing input for a `ak.cross_signing.reset` proof
-    /// (`ck-cross-signing-reset-v1`, spec crypto-media/device-lifecycle.md §14.1).
+    /// (`ak-cross-signing-reset-v1`, spec crypto-media/device-lifecycle.md §14.1).
     ///
     /// Binds the reset's principal + generation transition + reason + issued
     /// time + proof family/body so the proof cannot be replayed onto a different
@@ -504,7 +504,7 @@ impl CrossSigningResetContent {
     /// Expected `recovery_unlock.unlock_commitment` for this reset payload.
     ///
     /// Wire form is `sha256:<lowercase_hex>` over:
-    /// `ck-cross-signing-reset-unlock-binding-v1\n || recovery_secret_ref ||
+    /// `ak-cross-signing-reset-unlock-binding-v1\n || recovery_secret_ref ||
     /// recovery_unlock_binding_input`.
     pub fn recovery_unlock_commitment(&self) -> Result<String> {
         let CrossSigningResetProof::RecoveryUnlock {
@@ -536,7 +536,7 @@ pub struct DeviceTrustBinding {
 }
 
 impl DeviceTrustBinding {
-    /// Canonical signing input for `ck-device-trust-bind-v1`.
+    /// Canonical signing input for `ak-device-trust-bind-v1`.
     ///
     /// Covers the full device trust record per `device-lifecycle.md` §5.2:
     /// verify key, HPKE sealing key and the canonical algorithm set. The
@@ -663,7 +663,7 @@ fn canonical_device_trust_binding_input(
 ///   * (b) compares `binding.ssk_generation` to `publish.generation`: equal ⇒ continue, less ⇒
 ///     [`DeviceTrustState::NeedsReverification`], greater ⇒ [`DeviceTrustState::Unverified`];
 ///   * (c) when generations match, verifies `binding.signature` with the published SSK public key
-///     over the §5.2 `ck-device-trust-bind-v1` canonical input (SSK→device).
+///     over the §5.2 `ak-device-trust-bind-v1` canonical input (SSK→device).
 ///
 /// `device_public_key` is the bare multibase Ed25519 key the directory exposes
 /// (the inner key of the directory `device_signing_key` did:key); it enters
@@ -735,7 +735,7 @@ pub fn verify_device_cross_signing_chain(
     }
 
     // (c) SSK→device: the published SSK public key MUST sign the device
-    // binding over the §5.2 ck-device-trust-bind-v1 canonical input.
+    // binding over the §5.2 ak-device-trust-bind-v1 canonical input.
     let ssk_key = arkret_signatures::PublicKeyMaterial::Ed25519Multibase {
         value: publish.self_signing_key.key.public_key.clone(),
     };

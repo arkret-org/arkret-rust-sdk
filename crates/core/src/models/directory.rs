@@ -967,7 +967,7 @@ pub struct DirectoryTakedownAppealRequestBody {
     /// The operator `takedown_id` from the takedown notice
     /// (`takedown:<token>`).
     pub takedown_id: String,
-    /// Realm/applet ck-id, actor DID, or handle the takedown targets.
+    /// Realm/applet ak-id, actor DID, or handle the takedown targets.
     pub resource_id: String,
     pub appellant_did: Did,
     /// `sha256:<hex>` digest of the appeal argument / evidence bundle.

@@ -158,7 +158,7 @@ pub struct DurabilityThreshold {
 }
 
 /// One Realm Recovery Key holder. `verification_method` MUST point to a
-/// verification method designated by an active `CokretRealmHistoryRecoveryKey`
+/// verification method designated by an active `ArkretRealmHistoryRecoveryKey`
 /// service entry published by `principal_id` (identity-did.md §8.3),
 /// domain-separated from the principal's `did_recovery` key.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

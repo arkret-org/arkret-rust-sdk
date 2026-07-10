@@ -140,7 +140,7 @@ pub enum MediaBackendType {
     LiveKit,
     Mediasoup,
     Janus,
-    CokretNative,
+    ArkretNative,
     MoqRelay,
     Unknown(String),
 }

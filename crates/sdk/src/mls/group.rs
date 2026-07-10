@@ -19,7 +19,7 @@ use sha2::Sha256;
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 use zeroize::Zeroizing;
 
-use super::identity::{ARKRET_MLS_CIPHERSUITE, CokretMlsIdentity, decode_key_package};
+use super::identity::{ARKRET_MLS_CIPHERSUITE, ArkretMlsIdentity, decode_key_package};
 use crate::{
     CryptoStore, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, Hash,
     MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsCommitEnvelope, MlsGovernanceBindingExtension,
@@ -43,8 +43,8 @@ const CONTENT_AEAD_KEY_LEN: usize = 32;
 /// XChaCha20-Poly1305 nonce length (24 bytes; §10.1 prefix || counter_be64).
 const CONTENT_AEAD_NONCE_LEN: usize = 24;
 
-pub struct CokretMlsGroup {
-    pub(super) identity: CokretMlsIdentity,
+pub struct ArkretMlsGroup {
+    pub(super) identity: ArkretMlsIdentity,
     pub(super) group: MlsGroup,
     /// Per-epoch MLS exporter `history_secret[N]` retained for the
     /// `mls-exporter-aead-v1` content scheme. OpenMLS only evaluates
@@ -197,8 +197,8 @@ impl MlsAddMembersResult {
     }
 }
 
-impl CokretMlsGroup {
-    pub fn identity(&self) -> &CokretMlsIdentity {
+impl ArkretMlsGroup {
+    pub fn identity(&self) -> &ArkretMlsIdentity {
         &self.identity
     }
 
@@ -584,7 +584,7 @@ impl CokretMlsGroup {
         }
 
         Ok(Self {
-            identity: CokretMlsIdentity {
+            identity: ArkretMlsIdentity {
                 principal_id: record.principal_id.clone(),
                 device_id: record.device_id.clone(),
                 provider,
@@ -722,7 +722,7 @@ impl CokretMlsGroup {
 
     /// Remove every leaf whose BasicCredential identity matches `target`.
     ///
-    /// In the current credential encoding (`mls.rs::CokretMlsIdentity::new_basic`)
+    /// In the current credential encoding (`mls.rs::ArkretMlsIdentity::new_basic`)
     /// the leaf identity bytes are `principal_id.as_str().as_bytes()` — they
     /// do NOT include the device id. Therefore matching by principal removes
     /// **all leaves** owned by that principal in this group. To remove a
@@ -830,7 +830,7 @@ impl CokretMlsGroup {
             // bytes are not valid UTF-8 / not a parseable Did we fall back
             // to a placeholder so the audit trail still records the leaf
             // index; this should never happen in practice because all
-            // CokretMlsIdentity leaves carry UTF-8 DID strings.
+            // ArkretMlsIdentity leaves carry UTF-8 DID strings.
             let principal = std::str::from_utf8(&identity_bytes)
                 .ok()
                 .and_then(|s| Did::new(s.to_owned()).ok())
@@ -857,7 +857,7 @@ impl CokretMlsGroup {
     }
 
     pub fn join_from_welcome(
-        identity: CokretMlsIdentity,
+        identity: ArkretMlsIdentity,
         envelope: &MlsWelcomeEnvelope,
     ) -> Result<Self> {
         if envelope.recipient_principal_id != identity.principal_id
@@ -1124,7 +1124,7 @@ impl CokretMlsGroup {
 /// output), so the history_secret is used directly as the HKDF PRK (Expand-only,
 /// no Extract step) — matching `ExpandWithLabel(history_secret, …)`.
 /// Standalone (group-free) variant of
-/// [`CokretMlsGroup::decrypt_content_exporter_aead`]. A device that holds a
+/// [`ArkretMlsGroup::decrypt_content_exporter_aead`]. A device that holds a
 /// granted `history_secret` but has **no** local MLS group snapshot for the
 /// Realm (e.g. a member granted history before processing its own Welcome) can
 /// decrypt `mls-exporter-aead-v1` content with this. `nonce_and_ct` is
@@ -1318,7 +1318,7 @@ mod content_scheme_anchor_tests {
 
     /// Self-generated regression anchor (NOT a spec vector): pins the
     /// byte-exact `mls-exporter-aead-v1` content-scheme chain from a fixed
-    /// history_secret — HKDF content key (`ck-content-v1` label), exporter
+    /// history_secret — HKDF content key (`ak-content-v1` label), exporter
     /// nonce-prefix derivation (`arkret-aead-sender-nonce-prefix-v1` label +
     /// canonical context bytes), canonical AAD construction, and the AEAD
     /// ciphertext itself. Any silent change to a label, context field, AAD

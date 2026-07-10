@@ -37,7 +37,7 @@ pub enum IdempotencyDirection {
     NodeToApplet,
     /// Installed Applet service / bridge pushing an external-network
     /// transaction to the arkret edge inbound endpoint.
-    AppletToCokretInbound,
+    AppletToArkretInbound,
 }
 
 impl IdempotencyDirection {
@@ -45,7 +45,7 @@ impl IdempotencyDirection {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::NodeToApplet => "node_to_applet",
-            Self::AppletToCokretInbound => "applet_to_arkret_inbound",
+            Self::AppletToArkretInbound => "applet_to_arkret_inbound",
         }
     }
 }
@@ -363,7 +363,7 @@ mod tests {
         );
         // Same key but the opposite direction is also distinct.
         let other_direction = IdempotencyIdentity::applet_transaction(
-            IdempotencyDirection::AppletToCokretInbound,
+            IdempotencyDirection::AppletToArkretInbound,
             "did:webvh:QmSrc:source.example",
             "did:webvh:QmDst:applet.example",
             "key-1",

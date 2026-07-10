@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 
 use super::group::{
-    CokretMlsGroup, decode, encode, governance_binding_group_context_extensions,
+    ArkretMlsGroup, decode, encode, governance_binding_group_context_extensions,
     governance_binding_last_resort_openmls_capabilities, governance_binding_openmls_capabilities,
     mls_error, restore_provider_storage, snapshot_provider_storage,
 };
@@ -38,7 +38,7 @@ pub const ARKRET_MLS_KEY_PACKAGE_CAPABILITIES: &[&str] = &["mimi.content.v1", "a
 
 const ARKRET_OPENMLS_IDENTITY_STATE_SNAPSHOT: &str = "arkret-openmls-identity-state-v1";
 
-pub struct CokretMlsIdentity {
+pub struct ArkretMlsIdentity {
     pub principal_id: Did,
     pub device_id: DeviceId,
     pub(super) provider: OpenMlsRustCrypto,
@@ -55,7 +55,7 @@ struct OpenMlsIdentityStateSnapshot {
     storage_entries: BTreeMap<String, String>,
 }
 
-impl CokretMlsIdentity {
+impl ArkretMlsIdentity {
     pub fn new_basic(principal_id: Did, device_id: DeviceId) -> Result<Self> {
         let provider = OpenMlsRustCrypto::default();
         let signer = SignatureKeyPair::new(ARKRET_MLS_CIPHERSUITE.signature_algorithm())
@@ -202,7 +202,7 @@ impl CokretMlsIdentity {
         }
     }
 
-    pub fn create_group(self, group_id: impl AsRef<[u8]>) -> Result<CokretMlsGroup> {
+    pub fn create_group(self, group_id: impl AsRef<[u8]>) -> Result<ArkretMlsGroup> {
         let config = MlsGroupCreateConfig::builder()
             .ciphersuite(ARKRET_MLS_CIPHERSUITE)
             .capabilities(governance_binding_openmls_capabilities())
@@ -218,7 +218,7 @@ impl CokretMlsIdentity {
         )
         .map_err(mls_error)?;
 
-        Ok(CokretMlsGroup {
+        Ok(ArkretMlsGroup {
             identity: self,
             group,
             history_secrets: BTreeMap::new(),
@@ -230,7 +230,7 @@ impl CokretMlsIdentity {
         self,
         group_id: impl AsRef<[u8]>,
         binding: &MlsGovernanceBindingPayload,
-    ) -> Result<CokretMlsGroup> {
+    ) -> Result<ArkretMlsGroup> {
         let group_id_bytes = group_id.as_ref();
         binding.validate()?;
         if binding.mls_group_id() != base64url_encode(group_id_bytes) {
@@ -261,7 +261,7 @@ impl CokretMlsIdentity {
         )
         .map_err(mls_error)?;
 
-        Ok(CokretMlsGroup {
+        Ok(ArkretMlsGroup {
             identity: self,
             group,
             history_secrets: BTreeMap::new(),
@@ -320,7 +320,7 @@ mod tests {
 
     #[test]
     fn key_package_record_carries_required_capabilities() {
-        let identity = CokretMlsIdentity::new_basic(
+        let identity = ArkretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
             DeviceId::new("ak:device:01964137-0000-7000-8000-000000000001".to_owned()).unwrap(),
         )
@@ -345,7 +345,7 @@ mod tests {
     // the end-to-end check that the KeyPackage is self-consistent.
     #[test]
     fn last_resort_key_package_is_addable_to_a_group() {
-        let alice = CokretMlsIdentity::new_basic(
+        let alice = ArkretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap(),
             DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000a".to_owned()).unwrap(),
         )
@@ -354,7 +354,7 @@ mod tests {
             .create_group(b"ak:mls_group:last-resort-add-test")
             .unwrap();
 
-        let bob = CokretMlsIdentity::new_basic(
+        let bob = ArkretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
             DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000b".to_owned()).unwrap(),
         )
@@ -370,7 +370,7 @@ mod tests {
         );
 
         // Sanity: the single-use KeyPackage path still adds cleanly.
-        let carol = CokretMlsIdentity::new_basic(
+        let carol = ArkretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:carol.example".to_owned()).unwrap(),
             DeviceId::new("ak:device:01964137-0000-7000-8000-00000000000c".to_owned()).unwrap(),
         )

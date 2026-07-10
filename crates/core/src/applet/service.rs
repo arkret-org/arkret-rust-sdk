@@ -76,8 +76,8 @@ impl AppletEndpointRouteSet {
 /// Applet service transaction with an explicit idempotency key.
 ///
 /// Deduplication of these deliveries lives in one place:
-/// [`crate::idempotency::IdempotencyWindow`], keyed by the spec 5-tuple
-/// [`crate::idempotency::IdempotencyIdentity`] (`applet-integration.md`
+/// [`arkret_server::IdempotencyWindow`], keyed by the spec 5-tuple
+/// [`arkret_server::IdempotencyIdentity`] (`applet-integration.md`
 /// §7.3).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletServiceTransaction {

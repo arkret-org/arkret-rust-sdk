@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::group::CokretMlsGroup;
+use super::group::ArkretMlsGroup;
 use crate::{CryptoStore, DeviceId, Did, Error, MlsCommitEnvelope, MlsWelcomeEnvelope, Result};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -115,7 +115,7 @@ impl EpochRecoveryRequestBody {
 
 impl EpochRecoveryOutcome {
     /// Apply all commits in this recovery response to a group.
-    pub fn apply_to_group(&self, group: &mut CokretMlsGroup) -> Result<u64> {
+    pub fn apply_to_group(&self, group: &mut ArkretMlsGroup) -> Result<u64> {
         group.apply_commits(&self.commits)
     }
 
@@ -140,7 +140,7 @@ impl EpochRecoveryOutcome {
 
 /// Build an epoch recovery response from a group that has the needed commits.
 pub fn build_epoch_recovery_response(
-    group: &CokretMlsGroup,
+    group: &ArkretMlsGroup,
     store: &impl CryptoStore,
     request: &EpochRecoveryRequestBody,
 ) -> Result<EpochRecoveryOutcome> {

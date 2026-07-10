@@ -170,7 +170,7 @@ fn reducer_residual_cases_pin_their_expected_outcomes() {
         ),
         (
             "space_target_ref_schema",
-            "schema_accepts_ck_space_target_ref_rejects_malformed",
+            "schema_accepts_ak_space_target_ref_rejects_malformed",
         ),
         (
             "policy_scope",

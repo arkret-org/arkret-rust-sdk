@@ -17,6 +17,12 @@ pub mod proof;
 pub mod event_signer;
 pub use event_signer::{SignEventOptions, sign_event};
 
+pub mod dpop;
+pub use dpop::{
+    DPOP_JWK_CRV_ED25519, DPOP_JWK_KTY_OKP, DPOP_PROOF_ALG, DPOP_PROOF_TYP, DpopJwk, DpopProof,
+    DpopProofRequest, build_dpop_proof, dpop_access_token_hash, dpop_jwk_thumbprint,
+};
+
 // Single source of truth for RFC 9421 HTTP Message Signatures + RFC 9530
 // Content-Digest. floria, teabay, soland, and chime all consume this module;
 // the SDK crate re-exports it for compatibility.

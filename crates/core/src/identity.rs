@@ -15,6 +15,36 @@ pub mod primary_handle;
 
 pub const DID_WEB_MAX_DOCUMENT_BYTES: usize = 64 * 1024;
 
+/// Derive the deterministic principal-control Realm ID for a principal DID.
+pub fn principal_control_realm_id(principal_id: &Did) -> String {
+    let digest = crate::canonical::sha256_bytes_from_slices(&[
+        b"ak:realm:principal-control:v1:",
+        principal_id.as_str().as_bytes(),
+    ]);
+    let mut bytes = [0_u8; 16];
+    bytes.copy_from_slice(&digest[..16]);
+    bytes[6] = (bytes[6] & 0x0f) | 0x70;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    let group =
+        |slice: &[u8]| -> String { slice.iter().map(|byte| format!("{byte:02x}")).collect() };
+    format!(
+        "ak:realm:{}-{}-{}-{}-{}",
+        group(&bytes[0..4]),
+        group(&bytes[4..6]),
+        group(&bytes[6..8]),
+        group(&bytes[8..10]),
+        group(&bytes[10..16])
+    )
+}
+
+/// Issuer proof attached to a handle-claim challenge.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HandleAttestation {
+    pub issuer: Did,
+    pub proof: String,
+    pub created_at: DateTime<Utc>,
+}
+
 /// Shared identity wire helper for DID resolution producers/consumers.
 ///
 /// This is intentionally a product/shared contract, not the normative DID

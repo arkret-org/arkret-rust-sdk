@@ -42,7 +42,7 @@ The Arkret SDK ships the full three-key hierarchy as typed records, not as a sin
 | Tier | SDK type | Notes |
 | --- | --- | --- |
 | `principal_signing_key` (PSK) | [`CrossSigningKeyRecord` + `CrossSigningPublishContent.principal_signing_key`](../crates/crypto/src/lib.rs) | DID-method-rooted; rotation MUST enter the DID key log. |
-| `self_signing_key` (SSK) | [`SignedCrossSigningKey`](../crates/crypto/src/lib.rs) under `self_signing_key`, bound to PSK via [`CrossSigningBinding`](../crates/crypto/src/lib.rs) | SSK is the only signer on per-device trust bindings; canonical bytes are `ck-cross-signing-bind-v1\n` + canonical JSON. |
+| `self_signing_key` (SSK) | [`SignedCrossSigningKey`](../crates/crypto/src/lib.rs) under `self_signing_key`, bound to PSK via [`CrossSigningBinding`](../crates/crypto/src/lib.rs) | SSK is the only signer on per-device trust bindings; canonical bytes are `ak-cross-signing-bind-v1\n` + canonical JSON. |
 | `user_signing_key` (USK) | Same envelope as SSK, distinct `public_key` | Signs other principals' identity keys; manual trust only — does NOT promote the other principal's device set. |
 | Wire envelope: `ak.cross_signing.publish.v1` | [`CrossSigningPublishContent`](../crates/crypto/src/lib.rs) + [`DeviceManager::record_cross_signing_publish`](../crates/sdk/src/devices/manager.rs) | `generation` is monotonic; stale publishes are rejected; advancing the generation drops every accepted device binding to `NeedsReverification`. |
 | Wire envelope: `ak.cross_signing.reset.v1` | [`CrossSigningResetContent` + `CrossSigningResetProof`](../crates/crypto/src/lib.rs) + [`DeviceManager::record_cross_signing_reset`](../crates/sdk/src/devices/manager.rs) | Requires `principal_signing` / `recovery_unlock` / `device_quorum` / `trusted_recovery_service` proof; cancels in-flight SAS / QR transactions for the principal. |
@@ -52,7 +52,7 @@ The Arkret SDK ships the full three-key hierarchy as typed records, not as a sin
 `ak.device.authorize.content.cross_signing_binding` is a typed
 [`DeviceTrustBinding`](../crates/crypto/src/lib.rs) on the SDK side, with `ssk_generation` so the verifier can detect stale bindings without re-fetching the publish stream:
 
-- [`DeviceTrustBinding::canonical_input`](../crates/crypto/src/lib.rs) returns the spec-canonical `ck-device-trust-bind-v1\n + canonical_json({principal_id, device_id, device_public_key, ssk_generation})` bytes.
+- [`DeviceTrustBinding::canonical_input`](../crates/crypto/src/lib.rs) returns the spec-canonical `ak-device-trust-bind-v1\n + canonical_json({principal_id, device_id, device_public_key, ssk_generation})` bytes.
 - [`DeviceManager::evaluate_trust_chain`](../crates/sdk/src/devices/manager.rs) implements spec §5.2.1 step-by-step and returns one of `CrossSigned` / `NeedsReverification` / `AwaitingPublish` / `Bootstrap` / `Unverified` / `Invalid` so callers can render the right UI without re-implementing the algorithm.
 - [`DeviceManager::propagate_trust`](../crates/sdk/src/devices/manager.rs) now requires the TARGET device to already carry a binding under the current generation — sibling trust isn't transitive in the protocol, unlike Matrix's "if any of my devices verified you, all do" shortcut.
 

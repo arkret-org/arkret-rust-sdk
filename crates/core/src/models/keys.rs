@@ -58,7 +58,7 @@ pub enum DeviceStatus {
 #[serde(deny_unknown_fields)]
 pub struct QueryDeviceCrossSigningBinding {
     /// DID URL of the self-signing key (SSK) that produced the binding
-    /// signature, e.g. `did:webvh:...#ck_self_signing_v1`.
+    /// signature, e.g. `did:webvh:...#ak_self_signing_v1`.
     pub verification_method: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alg: Option<String>,
@@ -99,7 +99,7 @@ pub struct QueryDeviceRecord {
     /// Canonical (UTF-8 bytewise sorted, deduplicated) algorithm ids echoed
     /// verbatim from `ak.device.authorize.payload.algorithms`; together with
     /// `device_signing_key` and `hpke_key` this is the material the §5.2
-    /// `ck-device-trust-bind-v1` transcript covers. Distinct from the sibling
+    /// `ak-device-trust-bind-v1` transcript covers. Distinct from the sibling
     /// `algorithms` prekey-bundle map.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trust_algorithms: Option<Vec<String>>,

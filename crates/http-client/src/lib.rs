@@ -101,12 +101,7 @@ pub enum Auth {
     Dpop(DpopAuth),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct DpopProofRequest {
-    pub method: String,
-    pub htu: String,
-    pub access_token: Option<String>,
-}
+pub use arkret_signatures::DpopProofRequest;
 
 type DpopProofCallback = dyn Fn(DpopProofRequest) -> Result<String> + Send + Sync + 'static;
 
@@ -153,11 +148,12 @@ impl DpopAuth {
     }
 
     pub(crate) fn proof_for(&self, method: &Method, url: &Url) -> Result<String> {
-        (self.proof)(DpopProofRequest {
-            method: method.as_str().to_ascii_uppercase(),
-            htu: dpop_htu(url),
-            access_token: self.access_token.clone(),
-        })
+        let mut request =
+            DpopProofRequest::new(method.as_str().to_ascii_uppercase(), dpop_htu(url));
+        if let Some(access_token) = &self.access_token {
+            request = request.access_token(access_token.clone());
+        }
+        (self.proof)(request)
     }
 }
 

@@ -24,28 +24,28 @@ these are useful when wiring a new host or auditing the intended ABI surface.
 #include <stdint.h>
 #include <stddef.h>
 
-typedef struct CokretHandle CokretHandle;
+typedef struct ArkretHandle ArkretHandle;
 
 typedef struct {
     int32_t  code;          // 0 == ok; non-zero matches ErrorPayload.code
     const char *message;    // UTF-8, owned by SDK; valid until next call
-} CokretError;
+} ArkretError;
 
-CokretHandle *arkret_client_new(const char *base_url, CokretError *err);
-int32_t        arkret_client_whoami(CokretHandle *h, char **out_json,
-                                     CokretError *err);
+ArkretHandle *arkret_client_new(const char *base_url, ArkretError *err);
+int32_t        arkret_client_whoami(ArkretHandle *h, char **out_json,
+                                     ArkretError *err);
 void           arkret_string_free(char *s);
-void           arkret_client_free(CokretHandle *h);
+void           arkret_client_free(ArkretHandle *h);
 ```
 
 ### WASM glue (TypeScript host)
 
 ```ts
 // arkret-wasm.ts — calling the Wasm export surface from a browser host.
-import init, { CokretClient } from "./arkret_ffi_wasm.js";
+import init, { ArkretClient } from "./arkret_ffi_wasm.js";
 
 await init();                                  // load .wasm
-const client = new CokretClient("https://home.example");
+const client = new ArkretClient("https://home.example");
 client.setDidResolver(async (did: string) => {
     const res = await fetch(`/.well-known/did.json?did=${did}`);
     return new Uint8Array(await res.arrayBuffer());
@@ -58,8 +58,8 @@ client.free();                                 // explicit drop — wasm has no 
 ### JNI (Android / Kotlin host)
 
 ```kotlin
-// CokretClient.kt — UniFFI-style JNI bridge for Android.
-class CokretClient(baseUrl: String) : AutoCloseable {
+// ArkretClient.kt — UniFFI-style JNI bridge for Android.
+class ArkretClient(baseUrl: String) : AutoCloseable {
     private val handle: Long = nativeNew(baseUrl)
     fun whoami(): String = nativeWhoami(handle)
     override fun close() { nativeFree(handle) }

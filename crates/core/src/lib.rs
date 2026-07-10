@@ -2,9 +2,13 @@
 //!
 //! This crate is the stable foundation shared by clients, servers and higher
 //! level SDK state machines. It intentionally contains no HTTP transport,
-//! framework adapter or runtime state manager.
+//! framework adapter, mutable reducer, store, or snapshot runtime.
 
+pub mod account_subscribe;
 pub mod admin_signer;
+pub mod agent;
+pub mod applet;
+pub mod authz;
 pub mod base64url;
 pub mod binding_contexts;
 pub mod blind_payload_sanitizer;
@@ -18,6 +22,8 @@ pub mod federation;
 pub mod generated;
 pub mod http;
 pub mod identity;
+pub mod identity_key_log;
+mod inbound;
 pub mod integration;
 pub mod keystore;
 pub mod lattice;
@@ -39,12 +45,20 @@ pub mod seal;
 pub mod serde_helpers;
 pub mod service;
 pub mod signer;
-pub mod snapshot;
-pub mod state;
 pub mod sync;
 
+pub use account_subscribe::{
+    AccountSubscribeFolder, AccountSubscribeReconnectAfter, AccountSubscribeSnapshotResult,
+    DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS, MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
+};
 pub use admin_signer::{AdminKeyStore, SessionGrantIntrospection, admin_scopes};
+pub use agent::{
+    agent_key_pair_proof_request_binding_digest, agent_key_pairing_request_binding_digest,
+    agent_runtime_public_key_digest,
+};
+pub use applet::*;
 pub use arkret_identifiers as identifiers;
+pub use authz::*;
 pub use base64url::{
     base64_standard_decode, base64_standard_encode, base64url_decode, base64url_encode,
 };
@@ -72,6 +86,9 @@ pub use identifiers::{
     RequestId, RtcParticipantId, SealId, SnapshotId, SpaceId, StrandId, TransactionId,
     TypedAppealId, TypedTrustDomainId, ViewId,
 };
+pub use identity::principal_control_realm_id;
+pub use identity_key_log::{DidKeyLogEntry, DidKeyLogOperation};
+pub use inbound::{DecodedInbound, DecodedMessage, InboundDecoder};
 pub use keystore::{InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError};
 pub use models::*;
 pub use move_event::{
@@ -113,33 +130,6 @@ pub use service::{
     rate_limited_error,
 };
 pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
-pub use snapshot::{
-    ActorSeqRangeCommitment, AuthorityBinding, BuiltSnapshotChunk, DEFAULT_SNAPSHOT_CHUNK_BYTES,
-    DETACHED_JWS_ALG_EDDSA, DETACHED_JWS_PROOF_KIND, DetachedJwsProof, EMPTY_SHA256_DIGEST,
-    EVENT_SET_ALGORITHM_MERKLE_V1, EVENT_SET_ALGORITHM_ORDERED_SHA256_V1, EventSetCommitment,
-    EventSetCommitmentAlgorithm, EventSetLeaf, GeneratorProof, SNAPSHOT_CHUNK_TYPE,
-    SNAPSHOT_MANIFEST_SCHEMA_V1, SNAPSHOT_REDUCER_PROFILE_V1, SNAPSHOT_SECURITY_HIGH_ASSURANCE,
-    SNAPSHOT_SECURITY_STANDARD, SNAPSHOT_V1_HIGH_ASSURANCE_MAX_ACCEPTANCE_AGE_MS,
-    SNAPSHOT_V1_STANDARD_MAX_ACCEPTANCE_AGE_MS, SnapshotAuthorityKind, SnapshotChunk,
-    SnapshotChunkDescriptor, SnapshotChunkPayload, SnapshotChunker, SnapshotFrontier,
-    SnapshotManifest, SnapshotMaterializedItem, SnapshotMerkleTree, SnapshotSecurityClass,
-    SnapshotValidationCode, SnapshotValidationError, SnapshotVerificationHints,
-    SnapshotVerifyOptions, SnapshotVerifyReport, UnsignedSnapshotManifest, build_snapshot_chunks,
-    build_snapshot_chunks_with_nonaccepted, event_id_sets_equal, event_set_commitment,
-    event_set_root, manifest_frontiers_match, merkle_root_from_hashes,
-    parse_verified_snapshot_chunk_bytes, snapshot_chunk_payload_bytes, snapshot_state_leaf_hash,
-    state_digest_from_items, verify_snapshot_chunk_bytes, verify_snapshot_chunk_descriptors,
-    verify_snapshot_manifest,
-};
-pub use state::{
-    BottomMode, CellLatticeBinding, CellRegistry, CellStore, CompactionPolicy, EMPTY_STATE_ROOT,
-    EffectiveSealView, MemoryCellRegistry, MemoryCellStore, MemoryMoveStore, MemorySealStore,
-    MoveReject, MoveRejectMap, MoveStore, PruneCandidate, PruneEligibility, SealEffect,
-    SealLeafUnionProof, SealReject, SealStore, SealedMoveRecord, StoreError, StoreResult,
-    apply_seal, compute_state_root, deterministic_order, effective_seal_view, leaf_hash,
-    leaf_union_proof, reject_to_error_code, union_predecessor_covered_events, verify_move,
-    view_hash,
-};
 pub use sync::{
     AccountData, BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody,
     BucketedRealmUpdate, DeviceListChanges, LimitedTimelineState, MembershipBucket,

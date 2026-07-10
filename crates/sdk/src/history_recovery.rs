@@ -7,7 +7,7 @@
 //!
 //! 1. [`resolve_realm_history_recovery_key`] — given a [`RealmRecoveryRecipient`] and the recipient
 //!    principal's raw DID Document JSON, verify the recipient's `verification_method` is designated
-//!    by an active `CokretRealmHistoryRecoveryKey` service entry (`serviceEndpoint`
+//!    by an active `ArkretRealmHistoryRecoveryKey` service entry (`serviceEndpoint`
 //!    `verificationMethod` points at it, `domain == "mls_history"`), that the VM is referenced by
 //!    `keyAgreement`, and return the decoded raw X25519 RRK public key. Any resolution /
 //!    designation failure is fail-closed with
@@ -36,7 +36,7 @@ use crate::{
 };
 
 /// DID service entry `type` designating an offline RRK (`identity-did.md` §8.3).
-pub const RRK_SERVICE_TYPE: &str = "CokretRealmHistoryRecoveryKey";
+pub const RRK_SERVICE_TYPE: &str = "ArkretRealmHistoryRecoveryKey";
 /// `serviceEndpoint.domain` an RRK service entry MUST carry (history-recovery
 /// domain, separate from `did_recovery`).
 pub const RRK_SERVICE_DOMAIN: &str = "mls_history";
@@ -56,7 +56,7 @@ const MULTICODEC_X25519_PUB: u64 = 0xec;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RealmHistoryRecoveryKeyError {
     /// The recipient's `verification_method` is not designated by an active
-    /// `CokretRealmHistoryRecoveryKey` service entry, or the DID Document /
+    /// `ArkretRealmHistoryRecoveryKey` service entry, or the DID Document /
     /// key material is unparseable, revoked, or malformed.
     Unverified(String),
 }
@@ -114,7 +114,7 @@ pub struct ResolvedRealmHistoryRecoveryKey {
 /// all fail-closed:
 ///
 /// 1. `did_document.id` MUST equal `recipient.principal_id`.
-/// 2. Some entry in `service[]` MUST have `type == "CokretRealmHistoryRecoveryKey"`,
+/// 2. Some entry in `service[]` MUST have `type == "ArkretRealmHistoryRecoveryKey"`,
 ///    `serviceEndpoint.verificationMethod == recipient.verification_method`, and
 ///    `serviceEndpoint.domain == "mls_history"`.
 /// 3. The designated VM MUST appear in `keyAgreement[]` (it is an encryption / key-agreement key)
@@ -148,7 +148,7 @@ pub fn resolve_realm_history_recovery_key(
         )));
     }
 
-    // (2) An active CokretRealmHistoryRecoveryKey service entry MUST designate
+    // (2) An active ArkretRealmHistoryRecoveryKey service entry MUST designate
     // exactly recipient.verification_method with domain == mls_history.
     let services = document
         .get("service")
@@ -170,7 +170,7 @@ pub fn resolve_realm_history_recovery_key(
     });
     if !designates {
         return Err(unverified(format!(
-            "no active CokretRealmHistoryRecoveryKey service entry designates {} with domain {RRK_SERVICE_DOMAIN}",
+            "no active ArkretRealmHistoryRecoveryKey service entry designates {} with domain {RRK_SERVICE_DOMAIN}",
             recipient.verification_method
         )));
     }
@@ -263,7 +263,7 @@ fn decode_x25519_multibase(
 ///
 /// `history_secrets` is the `{(epoch, history_secret[epoch])}` set covering the
 /// `key_scope.from_epoch..=to_epoch` range (e.g.
-/// [`crate::mls::CokretMlsGroup::export_history_secret_range`]). The recovery
+/// [`crate::mls::ArkretMlsGroup::export_history_secret_range`]). The recovery
 /// recipient is offline, so unlike the member key-share path there is no
 /// `recipient_device_id` device queue: the recipient principal is the RRK
 /// holder and `recipient_device_id` carries the recipient's stable

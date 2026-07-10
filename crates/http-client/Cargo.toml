@@ -32,6 +32,7 @@ base64 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 arkret-core = {workspace = true,features = ["client"]}
 arkret-signatures = {workspace = true}
+arkret-state = {workspace = true}
 futures-util = {workspace = true,default-features = false,features = ["std"]}
 getrandom = {workspace = true}
 reqwest = {workspace = true,features = ["json", "gzip", "http2", "multipart", "stream"]}

@@ -563,8 +563,8 @@ impl WireAppletRegistration {
 
 /// Sign a [`WireAppletRegistration`] in-place: compute the canonical
 /// digest (with `proof` removed), sign it with the supplied
-/// [`arkret_core::MoveSigner`], and stamp `reg.proof`.
-pub fn sign_registration<S: arkret_core::MoveSigner + ?Sized>(
+/// [`crate::MoveSigner`], and stamp `reg.proof`.
+pub fn sign_registration<S: crate::MoveSigner + ?Sized>(
     reg: &mut WireAppletRegistration,
     signer: &S,
     verification_method: &str,
@@ -575,7 +575,7 @@ pub fn sign_registration<S: arkret_core::MoveSigner + ?Sized>(
     let payload_digest = crate::Hash::new(canonical::sha256_digest(&canonical_bytes))?;
     let sig = signer.sign_payload(&canonical_bytes)?;
     reg.proof = Some(Proof {
-        kind: arkret_core::proof_kind::DETACHED_JWS.to_owned(),
+        kind: crate::proof_kind::DETACHED_JWS.to_owned(),
         alg: sig.alg,
         verification_method: verification_method.to_owned(),
         event_digest: payload_digest,
@@ -736,7 +736,7 @@ impl AppletPackage {
     /// Sign the canonical package (with `proof` removed) using the
     /// controller signer and stamp `proof`. Call [`seal`](Self::seal)
     /// first so the digest is part of the signed bytes.
-    pub fn sign<S: arkret_core::MoveSigner + ?Sized>(
+    pub fn sign<S: crate::MoveSigner + ?Sized>(
         &mut self,
         signer: &S,
         verification_method: &str,
@@ -747,7 +747,7 @@ impl AppletPackage {
         let payload_digest = crate::Hash::new(canonical::sha256_digest(&canonical_bytes))?;
         let sig = signer.sign_payload(&canonical_bytes)?;
         self.proof = Some(Proof {
-            kind: arkret_core::proof_kind::DETACHED_JWS.to_owned(),
+            kind: crate::proof_kind::DETACHED_JWS.to_owned(),
             alg: sig.alg,
             verification_method: verification_method.to_owned(),
             event_digest: payload_digest,

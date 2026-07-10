@@ -684,8 +684,7 @@ fn did_key_log_verifies_schema_shaped_chain() {
         Utc::now(),
     )
     .unwrap();
-    inception
-        .attach_controller_proof(&signing_key, &verification_method)
+    attach_did_key_log_controller_proof(&mut inception, &signing_key, &verification_method)
         .unwrap();
 
     let mut rotate = DidKeyLogEntry::build(
@@ -697,9 +696,7 @@ fn did_key_log_verifies_schema_shaped_chain() {
         Utc::now(),
     )
     .unwrap();
-    rotate
-        .attach_controller_proof(&signing_key, &verification_method)
-        .unwrap();
+    attach_did_key_log_controller_proof(&mut rotate, &signing_key, &verification_method).unwrap();
 
     let mut deactivate = DidKeyLogEntry::build(
         alice.clone(),
@@ -710,8 +707,7 @@ fn did_key_log_verifies_schema_shaped_chain() {
         Utc::now(),
     )
     .unwrap();
-    deactivate
-        .attach_controller_proof(&signing_key, &verification_method)
+    attach_did_key_log_controller_proof(&mut deactivate, &signing_key, &verification_method)
         .unwrap();
 
     let active = verify_did_key_log(&[inception.clone(), rotate.clone()], &resolver).unwrap();
@@ -755,8 +751,7 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
         Utc::now(),
     )
     .unwrap();
-    inception
-        .attach_controller_proof(&signing_key, &verification_method)
+    attach_did_key_log_controller_proof(&mut inception, &signing_key, &verification_method)
         .unwrap();
 
     // DID change mid-chain is rejected.
@@ -769,8 +764,7 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
         Utc::now(),
     )
     .unwrap();
-    rotate_other_did
-        .attach_controller_proof(&signing_key, &verification_method)
+    attach_did_key_log_controller_proof(&mut rotate_other_did, &signing_key, &verification_method)
         .unwrap();
     assert!(verify_did_key_log(&[inception.clone(), rotate_other_did], &resolver).is_err());
 
@@ -808,9 +802,7 @@ fn did_key_log_rejects_drift_tampering_and_schema_violations() {
         Utc::now(),
     )
     .unwrap();
-    rotate
-        .attach_controller_proof(&signing_key, &verification_method)
-        .unwrap();
+    attach_did_key_log_controller_proof(&mut rotate, &signing_key, &verification_method).unwrap();
     assert!(verify_did_key_log(&[inception, rotate], &resolver).is_err());
 }
 

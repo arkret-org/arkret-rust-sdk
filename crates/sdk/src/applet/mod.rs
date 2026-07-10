@@ -4,20 +4,13 @@
 //! `applet-integration.md`).
 
 mod bridge_error;
-mod ghost;
 mod install;
-mod namespace_match;
 mod portal;
-mod registration;
-mod service;
 
+pub use arkret_core::applet::*;
 pub use bridge_error::*;
-pub use ghost::*;
 pub use install::*;
-pub use namespace_match::*;
 pub use portal::*;
-pub use registration::*;
-pub use service::*;
 
 #[cfg(test)]
 mod tests {
@@ -225,11 +218,11 @@ mod tests {
     #[test]
     fn applet_service_transactions_are_idempotent() {
         // Deduplication is owned by the shared `IdempotencyWindow` (the same
-        // implementation `applet_server` wires into the router) keyed by the
+        // implementation `arkret-server` wires into the router) keyed by the
         // spec 5-tuple identity — no test-local reimplementation.
         use std::time::Duration as StdDuration;
 
-        use crate::idempotency::{
+        use crate::{
             IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity, IdempotencyWindow,
         };
 

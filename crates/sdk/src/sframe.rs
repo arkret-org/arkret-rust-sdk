@@ -7,11 +7,11 @@
 //! exporter source and rejects any other key provenance with
 //! [`e2ee_key_source_unauthorised`](arkret_core::error::REASON_E2EE_KEY_SOURCE_UNAUTHORISED).
 //!
-//! - Frame key: label `ck-rtc-frame-key/v1`, Context = canonical JSON of `{realm_id, call_id,
+//! - Frame key: label `ak-rtc-frame-key/v1`, Context = canonical JSON of `{realm_id, call_id,
 //!   focus_id, epoch_id, participant_identity, device_id}`.
-//! - Recording key: label `ck-rtc-recording-key/v1`, Context = canonical JSON of `{realm_id,
+//! - Recording key: label `ak-rtc-recording-key/v1`, Context = canonical JSON of `{realm_id,
 //!   call_id, focus_id, recording_id, media_service_did, recording_start_event_id}`.
-//! - Transcript key: label `ck-rtc-transcript-key/v1`, Context = canonical JSON of `{realm_id,
+//! - Transcript key: label `ak-rtc-transcript-key/v1`, Context = canonical JSON of `{realm_id,
 //!   call_id, focus_id, recording_id, media_service_did, transcript_start_event_id}`.
 //!
 //! All derivations output `KDF.Nh = 32` bytes (RFC 9420 §8 `MLS-Exporter`).
@@ -43,7 +43,7 @@ pub const MEDIA_KEY_LEN: usize = 32;
 
 /// An MLS exporter that can derive epoch-bound secrets via RFC 9420 §8.5.
 ///
-/// Implemented by [`crate::mls::CokretMlsGroup`]. Requiring this trait as the
+/// Implemented by [`crate::mls::ArkretMlsGroup`]. Requiring this trait as the
 /// only key source is what makes a non-MLS provenance impossible to express:
 /// callers cannot hand in raw random bytes, only a live MLS group can satisfy
 /// the bound.
@@ -60,14 +60,14 @@ pub trait MlsExporterSource {
 }
 
 #[cfg(feature = "mls")]
-impl MlsExporterSource for crate::mls::CokretMlsGroup {
+impl MlsExporterSource for crate::mls::ArkretMlsGroup {
     fn export_secret(
         &self,
         label: &str,
         context: &[u8],
         length: usize,
     ) -> Result<Zeroizing<Vec<u8>>> {
-        crate::mls::CokretMlsGroup::export_secret(self, label, context, length)
+        crate::mls::ArkretMlsGroup::export_secret(self, label, context, length)
     }
 }
 

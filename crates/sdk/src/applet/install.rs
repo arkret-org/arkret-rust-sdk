@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::registration::AppletPackage;
+use super::AppletPackage;
 use crate::{Did, RealmId, Result, canonical};
 
 /// Single install target. `kind="realm"` is a Realm-wide grant;

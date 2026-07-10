@@ -210,32 +210,6 @@ pub const CX_DEVICE_AUTHORIZED: &str = "ak.device.authorize";
 pub const CX_DEVICE_REVOKED: &str = "ak.device.revoke";
 pub const CX_SESSION_GRANT: &str = "ak.session.grant";
 
-/// Derive the canonical principal control Realm ID from a principal DID.
-///
-/// The format is deterministic under the `ak:realm:` namespace; downstream code MUST treat
-/// this as opaque. This Realm holds the principal's device ledger, key
-/// log, and session grants.
-pub fn principal_control_realm_id(principal_id: &Did) -> String {
-    let digest = arkret_core::canonical::sha256_bytes_from_slices(&[
-        b"ak:realm:principal-control:v1:",
-        principal_id.as_str().as_bytes(),
-    ]);
-    let mut bytes = [0u8; 16];
-    bytes.copy_from_slice(&digest[..16]);
-    bytes[6] = (bytes[6] & 0x0F) | 0x70;
-    bytes[8] = (bytes[8] & 0x3F) | 0x80;
-    let group =
-        |slice: &[u8]| -> String { slice.iter().map(|b| format!("{b:02x}")).collect::<String>() };
-    format!(
-        "ak:realm:{}-{}-{}-{}-{}",
-        group(&bytes[0..4]),
-        group(&bytes[4..6]),
-        group(&bytes[6..8]),
-        group(&bytes[8..10]),
-        group(&bytes[10..16])
-    )
-}
-
 /// Returns `true` when `event_kind` MUST be pinned to a principal
 /// control Realm per `key-management.md` §4.1.
 pub fn is_principal_control_event(event_kind: &str) -> bool {
@@ -257,7 +231,7 @@ pub fn assert_control_realm_pinning(
     if !is_principal_control_event(event_kind) {
         return Ok(());
     }
-    let expected = principal_control_realm_id(principal_id);
+    let expected = arkret_core::principal_control_realm_id(principal_id);
     if realm_id == expected {
         Ok(())
     } else {

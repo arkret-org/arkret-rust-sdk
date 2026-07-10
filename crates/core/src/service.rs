@@ -12,10 +12,10 @@ use crate::{
 /// DID-document `service[].type` value designating a device enrollment
 /// authority (the entity allowed to sign `service_attested` `ak.device.authorize`
 /// for this principal). PascalCase per DID-core service-type convention,
-/// mirroring `CokretPrincipalServer`. See `zh/identity/identity-did.md` and
+/// mirroring `ArkretPrincipalServer`. See `zh/identity/identity-did.md` and
 /// `zh/crypto-media/device-lifecycle.md` §5.4. This is distinct from the
 /// snake_case [`ServiceType`] used by `ServiceEndpointBinding`.
-pub const DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY: &str = "CokretDeviceEnrollmentAuthority";
+pub const DID_SERVICE_DEVICE_ENROLLMENT_AUTHORITY: &str = "ArkretDeviceEnrollmentAuthority";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

@@ -420,8 +420,34 @@ impl Seal {
 
 fn delta_control_root(delta: &[MoveId]) -> Result<Hash> {
     let covered: BTreeSet<MoveId> = delta.iter().cloned().collect();
-    crate::state::control_event_set_root(&covered)
-        .map_err(|e| Error::Protocol(format!("control_event_set_root: {e}")))
+    let mut leaves: Vec<[u8; 32]> = covered
+        .iter()
+        .map(|move_id| {
+            let digest = move_id
+                .as_str()
+                .strip_prefix("sha256:")
+                .ok_or_else(|| Error::Protocol("Move ID must use sha256".to_owned()))?;
+            let mut bytes = [0_u8; 32];
+            hex::decode_to_slice(digest, &mut bytes)
+                .map_err(|error| Error::Protocol(format!("invalid Move ID digest: {error}")))?;
+            Ok(bytes)
+        })
+        .collect::<Result<_>>()?;
+    if leaves.is_empty() {
+        return Hash::new(canonical::sha256_digest([])).map_err(Error::from);
+    }
+    while leaves.len() > 1 {
+        let mut next = Vec::with_capacity(leaves.len().div_ceil(2));
+        for pair in leaves.chunks(2) {
+            if let Some(right) = pair.get(1) {
+                next.push(canonical::sha256_bytes_from_slices(&[&pair[0], right]));
+            } else {
+                next.push(pair[0]);
+            }
+        }
+        leaves = next;
+    }
+    Hash::new(format!("sha256:{}", hex::encode(leaves[0]))).map_err(Error::from)
 }
 
 // ---------------------------------------------------------------------------

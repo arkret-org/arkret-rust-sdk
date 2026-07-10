@@ -28,6 +28,7 @@ arkret-identifiers = {version = "0.3.0",path = "crates/identifiers",default-feat
 arkret-keystore = {version = "0.3.0",path = "crates/keystore",default-features = false}
 arkret-server = {version = "0.3.0",path = "crates/server",default-features = false}
 arkret-signatures = {version = "0.3.0",path = "crates/signatures",default-features = false}
+arkret-state = {version = "0.3.0",path = "crates/state",default-features = false}
 diesel = {version = "2.3",default-features = false}
 ed25519-dalek = {version = "2.2.0",default-features = false,features = ["std", "rand_core"]}
 futures-util = {version = "0.3",default-features = false}

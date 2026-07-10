@@ -15,7 +15,7 @@ pub use arkret_core::federation::{
     FederationBackfillAuthorization, FederationQuarantineKind, FederationQuarantineRecord,
     FederationReplayDecision, FederationReplayRecord, FederationTransactionEnvelope,
     HttpMessageSignature, ServiceEndpointDescriptor, VerifyActorChallenge,
-    VerifyActorChallengeSignature, WellKnownCokretServer,
+    VerifyActorChallengeSignature, WellKnownArkretServer,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -434,7 +434,7 @@ mod tests {
             "id": did.as_str(),
             "service": [{
                 "id": "did:webvh:z6mkfixture:a.example#arkret-federation",
-                "type": "CokretFederation",
+                "type": "ArkretFederation",
                 "serviceEndpoint": "https://a.example/_arkret/peer/events"
             }]
         });
@@ -442,13 +442,13 @@ mod tests {
         assert!(did_document_service_endpoint_matches(
             &document,
             &did,
-            "CokretFederation",
+            "ArkretFederation",
             "https://a.example/_arkret/peer/events"
         ));
         assert!(!did_document_service_endpoint_matches(
             &document,
             &Did::new("did:webvh:z6mkfixture:b.example").unwrap(),
-            "CokretFederation",
+            "ArkretFederation",
             "https://a.example/_arkret/peer/events"
         ));
     }

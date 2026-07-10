@@ -131,7 +131,7 @@ pub enum ResourceSelector {
     /// specific Circle by its `ak:circle:<uuid>` identifier. The Circle
     /// is scoped to its parent Realm; cross-Realm selectors MUST be
     /// rejected by the resolver (`circle_realm_mismatch`).
-    Circle { circle_id: arkret_core::CircleId },
+    Circle { circle_id: crate::CircleId },
     /// Wildcard selector (all resources)
     Wildcard,
 }
@@ -441,7 +441,7 @@ impl ResourceSelector {
                 let raw = field("circle_id").ok_or_else(|| {
                     Error::Protocol("circle selector requires circle_id".to_owned())
                 })?;
-                let circle_id = arkret_core::CircleId::new(raw)
+                let circle_id = crate::CircleId::new(raw)
                     .map_err(|err| Error::Protocol(format!("invalid circle selector: {err}")))?;
                 Ok(Self::Circle { circle_id })
             }
@@ -794,7 +794,7 @@ impl ResourceSelector {
                 } else {
                     format!("ak:circle:{remainder}")
                 };
-                let circle_id = arkret_core::CircleId::new(raw)
+                let circle_id = crate::CircleId::new(raw)
                     .map_err(|err| Error::Protocol(format!("invalid circle selector: {err}")))?;
                 Ok(Self::Circle { circle_id })
             }

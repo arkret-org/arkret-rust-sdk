@@ -246,17 +246,6 @@ pub struct DidMigration {
     pub migrated_at: DateTime<Utc>,
 }
 
-/// Handle attestation.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HandleAttestation {
-    /// Issuer DID.
-    pub issuer: Did,
-    /// Attestation proof.
-    pub proof: String,
-    /// Creation time.
-    pub created_at: DateTime<Utc>,
-}
-
 /// Client-local handle claim challenge state tracked by [`IdentityManager`].
 ///
 /// This is NOT the wire handle-claim resource — that is

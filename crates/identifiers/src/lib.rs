@@ -701,7 +701,7 @@ mod tests {
         assert!(CellRef::new("ak:cell:ak.component.realm.join_rule.v1:").is_ok());
         assert!(CellRef::new("ak:cell:component.strand.position.v1:board:strand").is_err());
         assert!(CellRef::new("ak:cell:message:019640ed-8000-7000-8000-000000000000").is_err());
-        assert!(CellRef::new("ak:cell:ck.component.strand.position.v1:board:strand").is_err());
+        assert!(CellRef::new("ak:cell:ak.component.strand.position.v1:board:strand").is_err());
         assert!(CellRef::new("ak:cell:ak.component.Strand.position.v1:board:strand").is_err());
         assert!(CellRef::new("ak:cell:ak.component.strand.position:board:strand").is_err());
     }

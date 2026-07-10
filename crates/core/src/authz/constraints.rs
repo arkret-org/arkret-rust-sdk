@@ -52,7 +52,7 @@ pub enum Resource {
     /// Actor resource (account-lifecycle, profile updates).
     Actor { actor_id: String },
     /// Circle resource.
-    Circle { circle_id: arkret_core::CircleId },
+    Circle { circle_id: crate::CircleId },
 }
 
 impl Resource {
@@ -250,11 +250,11 @@ pub enum Constraint {
     /// `required_constraints=["allowed_circle_ids"]` on each gated action;
     /// unconstrained Realm-wide grants for these actions MUST be rejected.
     AllowedCircleIds {
-        allowed_circle_ids: std::collections::BTreeSet<arkret_core::CircleId>,
+        allowed_circle_ids: std::collections::BTreeSet<crate::CircleId>,
     },
     /// Limits agent interop-session status/result writes to explicit session ids.
     AllowedSessionIds {
-        allowed_session_ids: std::collections::BTreeSet<arkret_core::AgentInteropSessionId>,
+        allowed_session_ids: std::collections::BTreeSet<crate::AgentInteropSessionId>,
     },
 }
 
@@ -345,7 +345,7 @@ fn default_false() -> bool {
     false
 }
 
-pub(super) fn max_age_contains(age: chrono::Duration, max_age: &ConstraintDuration) -> bool {
+pub fn max_age_contains(age: chrono::Duration, max_age: &ConstraintDuration) -> bool {
     let allowed = match max_age.unit.as_str() {
         "s" => chrono::Duration::seconds(max_age.value as i64),
         "m" => chrono::Duration::minutes(max_age.value as i64),
@@ -407,7 +407,7 @@ impl RecurrenceZone {
 /// returned, so observable behavior (deny reasons, error messages) is
 /// byte-equivalent.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) enum ConstraintParseError {
+pub enum ConstraintParseError {
     /// Timezone string could not be parsed as IANA or fixed offset.
     InvalidTimezone(String),
     /// Day-of-week string could not be parsed.
@@ -453,7 +453,7 @@ impl std::fmt::Display for ConstraintParseError {
 
 impl std::error::Error for ConstraintParseError {}
 
-pub(super) fn recurrence_allows(
+pub fn recurrence_allows(
     now: DateTime<Utc>,
     recurrence: &Recurrence,
 ) -> std::result::Result<(), ConstraintParseError> {
@@ -492,7 +492,7 @@ pub(super) fn recurrence_allows(
     Ok(())
 }
 
-pub(super) fn recurrence_next_transition_after(
+pub fn recurrence_next_transition_after(
     now: DateTime<Utc>,
     recurrence: &Recurrence,
 ) -> std::result::Result<Option<DateTime<Utc>>, ConstraintParseError> {
@@ -671,7 +671,7 @@ fn recurrence_window_contains(
     }
 }
 
-pub(super) fn update_earliest_future(
+pub fn update_earliest_future(
     earliest: &mut Option<DateTime<Utc>>,
     now: DateTime<Utc>,
     candidate: Option<DateTime<Utc>>,

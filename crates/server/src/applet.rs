@@ -18,15 +18,59 @@
 
 use std::sync::Arc;
 
-use arkret_core::Hash;
+use arkret_core::{
+    AppletActorView, AppletDescription, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
+    AppletTransactionOutcome, AppletTransactionRequestBody, Error, Hash, Result,
+};
+use arkret_signatures::VerificationMethodDocument;
 
 use crate::idempotency::{IdempotencyClaim, IdempotencyIdentity, IdempotencyWindow};
-use crate::identity::DidResolver;
-use crate::models::{
-    AppletActorView, AppletDescription, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
-    AppletTransactionOutcome, AppletTransactionRequestBody,
-};
-use crate::{Error, Result};
+
+/// One standard Applet service route exposed by [`service_routes`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ServiceRoute {
+    pub method: &'static str,
+    pub path: &'static str,
+    pub operation_id: &'static str,
+}
+
+const SERVICE_ROUTES: [ServiceRoute; 6] = [
+    ServiceRoute {
+        method: "GET",
+        path: "/_arkret/edge/applet/ping",
+        operation_id: "ak.edge.applet.query.ping",
+    },
+    ServiceRoute {
+        method: "GET",
+        path: "/_arkret/edge/applet/describe",
+        operation_id: "ak.edge.applet.query.describe",
+    },
+    ServiceRoute {
+        method: "POST",
+        path: "/_arkret/edge/applet/transactions",
+        operation_id: "ak.edge.applet.command.transaction",
+    },
+    ServiceRoute {
+        method: "GET",
+        path: "/_arkret/edge/applet/actors/{actor_id}",
+        operation_id: "ak.edge.applet.actor.query.resolve",
+    },
+    ServiceRoute {
+        method: "GET",
+        path: "/_arkret/edge/applet/realms/{realm_id_or_alias}",
+        operation_id: "ak.edge.applet.realm.query.resolve",
+    },
+    ServiceRoute {
+        method: "GET",
+        path: "/_arkret/edge/applet/protocols/{protocol}",
+        operation_id: "ak.edge.applet.query.protocol_metadata",
+    },
+];
+
+/// Return the complete standard Applet service route surface.
+pub const fn service_routes() -> &'static [ServiceRoute] {
+    &SERVICE_ROUTES
+}
 
 /// Application-owned trait the [`router`] factory dispatches to.
 ///
@@ -36,18 +80,20 @@ use crate::{Error, Result};
 /// trait is object-safe for the `Arc<dyn AppletHandler>` wiring the
 /// router uses.
 pub trait AppletHandler: Send + Sync + 'static {
-    /// DID resolver used by the [`router`] factory to authenticate inbound
+    /// Resolve one DID verification method used by the [`router`] factory to authenticate inbound
     /// `POST /_arkret/edge/applet/transactions` pushes.
     ///
     /// The router resolves both the source service DID's HTTP message
     /// signature key and every pushed Event's `proof.verification_method`
-    /// through this resolver before any business dispatch. Implementers
-    /// MUST return a resolver scoped to the trust roots they accept for
-    /// inbound pushes (e.g. a [`DidWebResolver`](crate::identity::DidWebResolver)
-    /// seeded with the trusted source service documents). Source-DID trust
+    /// through this hook before any business dispatch. Implementers
+    /// MUST resolve only keys scoped to the trust roots they accept for
+    /// inbound pushes. Source-DID trust
     /// is enforced here so [`handle_transaction`](Self::handle_transaction)
     /// never observes an unauthenticated or forged push.
-    fn source_did_resolver(&self) -> &dyn DidResolver;
+    fn resolve_verification_method(
+        &self,
+        verification_method: &str,
+    ) -> Result<VerificationMethodDocument>;
 
     /// `GET /_arkret/edge/applet/ping`
     fn ping(&self) -> Result<AppletPingOutcome>;
@@ -80,6 +126,7 @@ pub trait AppletHandler: Send + Sync + 'static {
 /// Wrap an [`AppletHandler`] together with an idempotency window the
 /// router uses to dedupe transaction submissions per
 /// `applet-integration.md` §7.3.
+#[derive(Clone)]
 pub struct AppletService {
     pub handler: Arc<dyn AppletHandler>,
     pub idempotency: Arc<IdempotencyWindow<AppletTransactionOutcome>>,
@@ -176,35 +223,26 @@ impl AppletService {
 
 #[cfg(feature = "salvo")]
 mod salvo_router {
-    use std::sync::OnceLock;
-
     use arkret_signatures::http_signature::{
         SignatureVerificationPolicy, parse_signature_input, public_key_from_bytes,
         verify_signed_http_message,
     };
+    use arkret_signatures::{
+        DidVerificationMethodResolver, EventProofBuilder, ProofVerificationContext,
+        PublicKeyMaterial, VerificationMethodDocument, verify_eddsa_detached_jws_proof,
+        verify_proof_with_resolver,
+    };
+    use salvo::affix_state;
     use salvo::prelude::*;
 
     use super::*;
-    use crate::error::{ERROR_CODE_DUPLICATE_CONFLICT, ERROR_CODE_INVALID_SIGNATURE};
     use crate::idempotency::IdempotencyDirection;
-    use crate::identity::{resolve_verification_method_key, verify_event_proof_with_did_resolver};
-    use crate::{Error, canonical};
+    use arkret_core::{ERROR_CODE_DUPLICATE_CONFLICT, ERROR_CODE_INVALID_SIGNATURE, canonical};
 
-    /// Process-wide handle to the wired-up [`AppletService`]. Salvo's
-    /// `#[handler]` macro can't see generics, so we stash the handler
-    /// behind a `OnceLock` and read it back from each endpoint. Only
-    /// one [`AppletService`] is supported per process; tests should
-    /// run sequentially or use separate processes.
-    static SERVICE: OnceLock<AppletService> = OnceLock::new();
-
-    /// Install the [`AppletService`] for the process and build the
-    /// salvo [`Router`] for the 6 standard Applet endpoints. Returns
-    /// `Err` if called more than once.
+    /// Build the Salvo [`Router`] for the six standard Applet endpoints.
     pub fn router(service: AppletService) -> Result<Router> {
-        SERVICE
-            .set(service)
-            .map_err(|_| Error::Protocol("applet_server::router already installed".to_owned()))?;
         Ok(Router::with_path("_arkret/edge/applet")
+            .hoop(affix_state::inject(service))
             .push(Router::with_path("ping").get(ping_handler))
             .push(Router::with_path("describe").get(describe_handler))
             .push(Router::with_path("transactions").post(transactions_handler))
@@ -213,16 +251,12 @@ mod salvo_router {
             .push(Router::with_path("protocols/{protocol}").get(protocol_handler)))
     }
 
-    /// Read the installed service. Returns `None` (rendered as 503 by
-    /// the handlers) instead of panicking when a request is dispatched
-    /// before [`router`] ran — a library must not turn a wiring race
-    /// into a process abort.
-    fn service(res: &mut Response) -> Option<&'static AppletService> {
-        let service = SERVICE.get();
+    fn service(depot: &Depot, res: &mut Response) -> Option<AppletService> {
+        let service = depot.get_typed::<AppletService>().ok().cloned();
         if service.is_none() {
             res.render(
                 StatusError::service_unavailable()
-                    .brief("applet_server::router not installed before request dispatch"),
+                    .brief("AppletService is not installed in the request depot"),
             );
         }
         service
@@ -233,8 +267,10 @@ mod salvo_router {
     }
 
     #[handler]
-    async fn ping_handler(res: &mut Response) {
-        let Some(service) = service(res) else { return };
+    async fn ping_handler(depot: &mut Depot, res: &mut Response) {
+        let Some(service) = service(depot, res) else {
+            return;
+        };
         match service.handler.ping() {
             Ok(body) => res.render(Json(body)),
             Err(err) => res.render(into_status_error(err)),
@@ -242,8 +278,10 @@ mod salvo_router {
     }
 
     #[handler]
-    async fn describe_handler(res: &mut Response) {
-        let Some(service) = service(res) else { return };
+    async fn describe_handler(depot: &mut Depot, res: &mut Response) {
+        let Some(service) = service(depot, res) else {
+            return;
+        };
         match service.handler.describe() {
             Ok(body) => res.render(Json(body)),
             Err(err) => res.render(into_status_error(err)),
@@ -282,6 +320,32 @@ mod salvo_router {
         source_signature_anchor: String,
     }
 
+    struct HandlerResolver<'a>(&'a dyn AppletHandler);
+
+    impl DidVerificationMethodResolver for HandlerResolver<'_> {
+        fn resolve_verification_method(
+            &self,
+            verification_method: &str,
+        ) -> Result<VerificationMethodDocument> {
+            self.0.resolve_verification_method(verification_method)
+        }
+    }
+
+    fn public_key_material(value: &str) -> Result<PublicKeyMaterial> {
+        if value.trim_start().starts_with('{') {
+            return Ok(PublicKeyMaterial::Jwk {
+                value: serde_json::from_str(value)?,
+            });
+        }
+        Ok(PublicKeyMaterial::Ed25519Multibase {
+            value: value
+                .trim()
+                .strip_prefix("did:key:")
+                .unwrap_or(value.trim())
+                .to_owned(),
+        })
+    }
+
     fn header_value<'a>(headers: &'a [(String, String)], name: &str) -> Option<&'a str> {
         headers
             .iter()
@@ -297,8 +361,7 @@ mod salvo_router {
     /// MUST answer `401 invalid_signature` without dispatching.
     ///
     /// Synchronous by design: the DID resolver behind
-    /// [`AppletHandler::source_did_resolver`] may block on network fetches
-    /// (e.g. [`HttpDidResolver`](crate::http_did_resolver::HttpDidResolver)),
+    /// [`AppletHandler::resolve_verification_method`] may block on network fetches,
     /// so the async handler runs this on the blocking pool.
     fn verify_inbound_transaction(
         service: &AppletService,
@@ -318,9 +381,9 @@ mod salvo_router {
             })?;
         let signature_input = parse_signature_input(signature_input_header)
             .map_err(|err| Error::Protocol(format!("parse Signature-Input: {err}")))?;
-        let resolver = service.handler.source_did_resolver();
-        let resolved = resolve_verification_method_key(resolver, &signature_input.key_id)?;
-        let key_bytes = resolved.public_key.ed25519_bytes()?;
+        let resolver = HandlerResolver(service.handler.as_ref());
+        let resolved = resolver.resolve_verification_method(&signature_input.key_id)?;
+        let key_bytes = public_key_material(&resolved.public_key_multibase)?.ed25519_bytes()?;
         let public_key = public_key_from_bytes(&key_bytes)
             .map_err(|err| Error::Protocol(format!("source service verifying key: {err}")))?;
 
@@ -346,8 +409,8 @@ mod salvo_router {
 
         // Bind the signing key's controller DID to the declared source service
         // DID so a peer can't sign as itself but claim another service.
-        let signer_did = crate::identity::verification_method_did(&signature_input.key_id)?;
-        if signer_did != body.source_service_did {
+        let signer_did = resolved.controller.as_ref().unwrap_or(&resolved.did);
+        if signer_did != &body.source_service_did {
             return Err(Error::Protocol(
                 "source_service_did does not match signature keyid controller".to_owned(),
             ));
@@ -362,7 +425,26 @@ mod salvo_router {
                 ));
             }
             for proof in &event.proofs {
-                let verification = verify_event_proof_with_did_resolver(event, proof, resolver)?;
+                let builder = EventProofBuilder::new();
+                let canonical_bytes = builder.envelope_bytes(event)?;
+                let expected_digest = Hash::new(canonical::sha256_digest(&canonical_bytes))?;
+                let signing_actor = event
+                    .executed_by
+                    .clone()
+                    .unwrap_or_else(|| event.actor_id.clone());
+                let context = ProofVerificationContext::new(signing_actor, expected_digest);
+                let verification =
+                    verify_proof_with_resolver(proof, &context, &resolver, |method, proof| {
+                        let public_key = public_key_material(&method.public_key_multibase)?;
+                        verify_eddsa_detached_jws_proof(
+                            proof,
+                            &canonical_bytes,
+                            &event.actor_id,
+                            &public_key,
+                        )
+                        .map_err(Error::from)?;
+                        Ok(true)
+                    })?;
                 if !verification.valid {
                     return Err(Error::Protocol("event proof signature invalid".to_owned()));
                 }
@@ -404,8 +486,10 @@ mod salvo_router {
     }
 
     #[handler]
-    async fn transactions_handler(req: &mut Request, res: &mut Response) {
-        let Some(service) = service(res) else { return };
+    async fn transactions_handler(req: &mut Request, depot: &mut Depot, res: &mut Response) {
+        let Some(service) = service(depot, res) else {
+            return;
+        };
 
         // Idempotency-Key is mandatory for transaction pushes and MUST be a
         // covered signature component (`applet-integration.md` §7.3 /
@@ -478,8 +562,11 @@ mod salvo_router {
         // handler's resolver, which may block on network I/O — run it on the
         // blocking pool so runtime workers stay free to drive I/O (`SERVICE`
         // hands out `&'static AppletService`, so the move is borrow-free).
-        let verified =
-            tokio::task::spawn_blocking(move || verify_inbound_transaction(service, &parts)).await;
+        let verification_service = service.clone();
+        let verified = tokio::task::spawn_blocking(move || {
+            verify_inbound_transaction(&verification_service, &parts)
+        })
+        .await;
         let verified = match verified {
             Ok(Ok(verified)) => verified,
             Ok(Err(_)) | Err(_) => {
@@ -527,9 +614,11 @@ mod salvo_router {
     }
 
     #[handler]
-    async fn actor_handler(req: &mut Request, res: &mut Response) {
+    async fn actor_handler(req: &mut Request, depot: &mut Depot, res: &mut Response) {
         let actor_id = req.param::<String>("actor_id").unwrap_or_default();
-        let Some(service) = service(res) else { return };
+        let Some(service) = service(depot, res) else {
+            return;
+        };
         match service.handler.resolve_actor(&actor_id) {
             Ok(body) => res.render(Json(body)),
             Err(err) => res.render(into_status_error(err)),
@@ -537,9 +626,11 @@ mod salvo_router {
     }
 
     #[handler]
-    async fn realm_handler(req: &mut Request, res: &mut Response) {
+    async fn realm_handler(req: &mut Request, depot: &mut Depot, res: &mut Response) {
         let realm = req.param::<String>("realm_id_or_alias").unwrap_or_default();
-        let Some(service) = service(res) else { return };
+        let Some(service) = service(depot, res) else {
+            return;
+        };
         match service.handler.resolve_realm(&realm) {
             Ok(body) => res.render(Json(body)),
             Err(err) => res.render(into_status_error(err)),
@@ -547,9 +638,11 @@ mod salvo_router {
     }
 
     #[handler]
-    async fn protocol_handler(req: &mut Request, res: &mut Response) {
+    async fn protocol_handler(req: &mut Request, depot: &mut Depot, res: &mut Response) {
         let protocol = req.param::<String>("protocol").unwrap_or_default();
-        let Some(service) = service(res) else { return };
+        let Some(service) = service(depot, res) else {
+            return;
+        };
         match service.handler.resolve_protocol(&protocol) {
             Ok(body) => res.render(Json(body)),
             Err(err) => res.render(into_status_error(err)),
@@ -567,10 +660,14 @@ mod tests {
 
     use super::*;
     use crate::idempotency::IdempotencyDirection;
-    use crate::models::AppletPingOutcome;
+    use arkret_core::{AppletPingOutcome, Did};
+    use arkret_signatures::{
+        DidVerificationMethodResolver, StaticDidVerificationMethodResolver,
+        VerificationMethodDocument,
+    };
 
     struct StubHandler {
-        resolver: crate::identity::DidWebResolver,
+        resolver: StaticDidVerificationMethodResolver,
         transaction_calls: AtomicUsize,
         fail_next_transaction: AtomicBool,
     }
@@ -578,7 +675,7 @@ mod tests {
     impl Default for StubHandler {
         fn default() -> Self {
             Self {
-                resolver: crate::identity::DidWebResolver::new(),
+                resolver: StaticDidVerificationMethodResolver::default(),
                 transaction_calls: AtomicUsize::new(0),
                 fail_next_transaction: AtomicBool::new(false),
             }
@@ -586,21 +683,25 @@ mod tests {
     }
 
     impl AppletHandler for StubHandler {
-        fn source_did_resolver(&self) -> &dyn DidResolver {
-            &self.resolver
+        fn resolve_verification_method(
+            &self,
+            verification_method: &str,
+        ) -> Result<VerificationMethodDocument> {
+            self.resolver
+                .resolve_verification_method(verification_method)
         }
         fn ping(&self) -> Result<AppletPingOutcome> {
             Ok(AppletPingOutcome {
                 ok: true,
                 applet_id: "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
-                service_did: crate::Did::new("did:webvh:QmSvc:svc.example").unwrap(),
+                service_did: Did::new("did:webvh:QmSvc:svc.example").unwrap(),
                 protocol_version: "1.0".to_owned(),
             })
         }
         fn describe(&self) -> Result<AppletDescription> {
             Ok(AppletDescription {
                 applet_id: "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
-                service_did: crate::Did::new("did:webvh:QmSvc:svc.example").unwrap(),
+                service_did: Did::new("did:webvh:QmSvc:svc.example").unwrap(),
                 protocols: vec!["ak.applet.v1".to_owned()],
                 namespaces: serde_json::Value::Null,
                 limits: serde_json::Value::Null,
@@ -660,7 +761,7 @@ mod tests {
 
     fn body() -> AppletTransactionRequestBody {
         AppletTransactionRequestBody {
-            source_service_did: crate::Did::new("did:webvh:QmSrc:source.example").unwrap(),
+            source_service_did: Did::new("did:webvh:QmSrc:source.example").unwrap(),
             events: Vec::new(),
             ephemeral: serde_json::Value::Null,
         }

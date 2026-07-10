@@ -328,9 +328,9 @@ impl Morph {
 
     /// Validate that `morph_type` does not use the reserved `ak.` prefix
     /// for unregistered types (morph.md §3 / data-structures.md §7).
-    pub fn validate_morph_type(&self, registered_ck_types: &[&str]) -> Result<()> {
+    pub fn validate_morph_type(&self, registered_ak_types: &[&str]) -> Result<()> {
         if self.morph_type.starts_with("ak.")
-            && !registered_ck_types.contains(&self.morph_type.as_str())
+            && !registered_ak_types.contains(&self.morph_type.as_str())
         {
             return Err(Error::Protocol(format!(
                 "morph_type '{}' uses reserved ak. prefix without registration",

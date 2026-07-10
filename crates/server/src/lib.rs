@@ -29,9 +29,10 @@ use arkret_core::{
     ModerationReportRequestBody, OkOutcome, PolicyCheckOutcome, PolicyCheckRequestBody,
     PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
     PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, Result, ServerDescription,
-    SnapshotManifest, SyncBackfillOutcome, SyncDescription, SyncOutcome, SyncRequestBody,
+    SyncBackfillOutcome, SyncDescription, SyncOutcome, SyncRequestBody,
 };
 pub use arkret_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
+use arkret_state::SnapshotManifest;
 // Shared protocol/product wire contracts now live in `arkret-core`; re-export
 // them under stable `*_api` aliases for server-side consumers.
 pub use arkret_core::{
@@ -42,12 +43,21 @@ pub use arkret_signatures as signatures;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+pub mod applet;
 mod fixtures;
+pub mod idempotency;
 mod protocol;
 mod registry;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "salvo")]
+pub use applet::router as applet_router;
+pub use applet::{AppletHandler, AppletService, ServiceRoute, TransactionDispatch, service_routes};
 pub use fixtures::*;
+pub use idempotency::{
+    APPLET_TRANSACTION_OPERATION_ID, IdempotencyClaim, IdempotencyDirection, IdempotencyIdentity,
+    IdempotencyWindow,
+};
 pub use protocol::*;
 pub use registry::*;

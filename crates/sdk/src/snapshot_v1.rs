@@ -1,7 +1,8 @@
 //! Snapshot v1 signing and consumer verification helpers.
 
-use arkret_core::{
-    DETACHED_JWS_ALG_EDDSA, DETACHED_JWS_PROOF_KIND, DetachedJwsProof, Hash, SnapshotChunkPayload,
+use arkret_core::Hash;
+use arkret_state::{
+    DETACHED_JWS_ALG_EDDSA, DETACHED_JWS_PROOF_KIND, DetachedJwsProof, SnapshotChunkPayload,
     SnapshotManifest, SnapshotValidationCode, SnapshotValidationError, SnapshotVerifyOptions,
     SnapshotVerifyReport,
 };
@@ -94,7 +95,7 @@ pub fn verify_snapshot_manifest(
     resolver: &dyn DidResolver,
 ) -> std::result::Result<SnapshotVerifyReport, SnapshotValidationError> {
     verify_snapshot_manifest_signature(manifest, resolver)?;
-    arkret_core::verify_snapshot_manifest(manifest, chunks, options)
+    arkret_state::verify_snapshot_manifest(manifest, chunks, options)
 }
 
 #[cfg(test)]

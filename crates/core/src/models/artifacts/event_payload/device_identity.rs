@@ -74,7 +74,7 @@ impl DeviceAuthorizePayload {
     /// Enforce the `device-lifecycle.md` §5.2 canonical-form MUST on
     /// `algorithms`: non-empty, UTF-8 bytewise ascending, no duplicates. The
     /// producer MUST write the same canonical array that enters the
-    /// `ck-device-trust-bind-v1` signing input.
+    /// `ak-device-trust-bind-v1` signing input.
     pub fn validate_canonical_algorithms(&self) -> std::result::Result<(), &'static str> {
         if self.algorithms.is_empty() {
             return Err("device_authorize_algorithms_empty");

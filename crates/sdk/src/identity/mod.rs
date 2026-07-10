@@ -2,7 +2,8 @@
 
 use std::collections::BTreeMap;
 
-pub use arkret_core::identity::{DID_WEB_MAX_DOCUMENT_BYTES, DidDocument};
+pub use arkret_core::identity::{DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, HandleAttestation};
+pub use arkret_core::{DidKeyLogEntry, DidKeyLogOperation};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

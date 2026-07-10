@@ -171,7 +171,7 @@ pub struct InceptionInput<'a> {
     /// `did-key-1` to match soland's documented default.
     pub did_key_fragment: Option<&'a str>,
     /// Device-enrollment-authority DID (`did:key:z…`) written into the minted
-    /// DID document as the `CokretDeviceEnrollmentAuthority` service
+    /// DID document as the `ArkretDeviceEnrollmentAuthority` service
     /// `serviceEndpoint`. This designates the authority allowed to attest
     /// `service_attested` `ak.device.authorize` events for this principal
     /// (decision 0002 / device-lifecycle §5.4).
@@ -506,7 +506,7 @@ fn embedded_webvh_document_value_without_enrollment(
         "service": [
             {
                 "id": format!("{did}#soland"),
-                "type": "CokretPrincipalServer",
+                "type": "ArkretPrincipalServer",
                 "serviceEndpoint": service_endpoint,
             }
         ],
@@ -1088,9 +1088,9 @@ mod tests {
         );
         assert!(
             services.iter().any(|svc| {
-                svc.get("type").and_then(Value::as_str) == Some("CokretPrincipalServer")
+                svc.get("type").and_then(Value::as_str) == Some("ArkretPrincipalServer")
             }),
-            "service DID document should keep the CokretPrincipalServer entry",
+            "service DID document should keep the ArkretPrincipalServer entry",
         );
     }
 

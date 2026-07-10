@@ -722,33 +722,33 @@ fn signed_chain_fixture(
         principal_id: principal.clone(),
         trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         principal_signing_key: CrossSigningKeyRecord {
-            kid: format!("{principal}#ck_principal_signing_v1"),
+            kid: format!("{principal}#ak_principal_signing_v1"),
             alg: "EdDSA".to_owned(),
             public_key: psk_multibase,
             key_format: "multibase".to_owned(),
         },
         self_signing_key: SignedCrossSigningKey {
             key: CrossSigningKeyRecord {
-                kid: format!("{principal}#ck_self_signing_v1"),
+                kid: format!("{principal}#ak_self_signing_v1"),
                 alg: "EdDSA".to_owned(),
                 public_key: ssk_multibase,
                 key_format: "multibase".to_owned(),
             },
             binding: CrossSigningBinding {
-                verification_method: format!("{principal}#ck_principal_signing_v1"),
+                verification_method: format!("{principal}#ak_principal_signing_v1"),
                 alg: "EdDSA".to_owned(),
                 signature: String::new(),
             },
         },
         user_signing_key: SignedCrossSigningKey {
             key: CrossSigningKeyRecord {
-                kid: format!("{principal}#ck_user_signing_v1"),
+                kid: format!("{principal}#ak_user_signing_v1"),
                 alg: "EdDSA".to_owned(),
                 public_key: "z6MkUserDistinct".to_owned(),
                 key_format: "multibase".to_owned(),
             },
             binding: CrossSigningBinding {
-                verification_method: format!("{principal}#ck_principal_signing_v1"),
+                verification_method: format!("{principal}#ak_principal_signing_v1"),
                 alg: "EdDSA".to_owned(),
                 signature: "unused".to_owned(),
             },
@@ -773,7 +773,7 @@ fn signed_chain_fixture(
     )
     .unwrap();
     let binding = DeviceTrustBinding {
-        verification_method: format!("{principal}#ck_self_signing_v1"),
+        verification_method: format!("{principal}#ak_self_signing_v1"),
         alg: "EdDSA".to_owned(),
         ssk_generation: binding_generation,
         signature: arkret_core::base64url_encode(ssk.sign(&device_input).to_bytes()),
