@@ -21,6 +21,8 @@ pub struct EventsSubscribeOptions {
     pub actors: Vec<String>,
     pub after: Option<String>,
     pub catchup: Option<bool>,
+    pub max_duration_ms: Option<u64>,
+    pub heartbeat_ms: Option<u64>,
 }
 
 impl EventsSubscribeOptions {
@@ -50,6 +52,18 @@ impl EventsSubscribeOptions {
     #[must_use]
     pub fn catchup(mut self, catchup: bool) -> Self {
         self.catchup = Some(catchup);
+        self
+    }
+
+    #[must_use]
+    pub fn max_duration_ms(mut self, max_duration_ms: u64) -> Self {
+        self.max_duration_ms = Some(max_duration_ms);
+        self
+    }
+
+    #[must_use]
+    pub fn heartbeat_ms(mut self, heartbeat_ms: u64) -> Self {
+        self.heartbeat_ms = Some(heartbeat_ms);
         self
     }
 }
@@ -230,6 +244,12 @@ impl Client {
         }
         if let Some(catchup) = options.catchup {
             builder = builder.query(&[("catchup", catchup)]);
+        }
+        if let Some(max_duration_ms) = options.max_duration_ms {
+            builder = builder.query(&[("max_duration_ms", max_duration_ms)]);
+        }
+        if let Some(heartbeat_ms) = options.heartbeat_ms {
+            builder = builder.query(&[("heartbeat_ms", heartbeat_ms)]);
         }
         crate::client_internals::validate_request_builder(&builder)?;
         Ok(builder)
@@ -504,7 +524,9 @@ mod tests {
             .realm("ak:realm:01904100-0000-7000-8000-000000000001")
             .actor("did:webvh:z6mkfixture:alice.example")
             .after("ak:cursor:stored")
-            .catchup(true);
+            .catchup(true)
+            .max_duration_ms(30_000)
+            .heartbeat_ms(5_000);
 
         let built = client()
             .events_subscribe_request(&options)
@@ -526,6 +548,8 @@ mod tests {
             "query: {query}"
         );
         assert!(query.contains("catchup=true"), "query: {query}");
+        assert!(query.contains("max_duration_ms=30000"), "query: {query}");
+        assert!(query.contains("heartbeat_ms=5000"), "query: {query}");
         assert!(!query.contains("include_history"), "query: {query}");
     }
 

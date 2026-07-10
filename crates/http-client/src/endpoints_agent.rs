@@ -211,10 +211,10 @@ impl Client {
 
 fn decode_agent_list_response(mut value: Value) -> Result<AgentList> {
     if let Some(object) = value.as_object_mut() {
-        if !object.contains_key("agents")
-            && let Some(items) = object.get("items").cloned()
-        {
-            object.insert("agents".to_owned(), items);
+        if !object.contains_key("agents") {
+            return Err(Error::Protocol(
+                "agent list response is missing required `agents` field".to_owned(),
+            ));
         }
         object
             .entry("has_more".to_owned())
@@ -265,8 +265,8 @@ mod tests {
     }
 
     #[test]
-    fn agent_list_accepts_legacy_items_field() {
-        let list = decode_agent_list_response(serde_json::json!({
+    fn agent_list_rejects_legacy_items_field() {
+        let error = decode_agent_list_response(serde_json::json!({
             "items": [{
                 "agent_principal_id": "did:web:agents.example:summary",
                 "display_name": "Summary",
@@ -274,10 +274,8 @@ mod tests {
                 "status": "active"
             }]
         }))
-        .unwrap();
+        .unwrap_err();
 
-        assert_eq!(list.agents.len(), 1);
-        assert_eq!(list.agents[0].agent_slug.as_deref(), Some("summary"));
-        assert!(!list.has_more);
+        assert!(error.to_string().contains("agents"));
     }
 }

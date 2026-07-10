@@ -4,7 +4,12 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
+pub use arkret_core::agent::{
+    agent_key_pair_proof_request_binding_digest, agent_key_pairing_request_binding_digest,
+    agent_runtime_public_key_digest,
+};
 use chrono::{DateTime, Utc};
+use ed25519_dalek::{Signer, SigningKey};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -24,6 +29,160 @@ use crate::{
 };
 
 pub const AGENT_KEY_PROOF_KIND: &str = "agent_key_proof";
+
+/// A runtime-key request body together with the digest of the generated
+/// public key. The digest is reused by the controller-side authorize event.
+#[derive(Clone, Debug)]
+pub struct RuntimeKeyRequest<T> {
+    pub body: T,
+    pub public_key_digest: Hash,
+}
+
+/// Builds the two runtime-key pairing request shapes from one bootstrap and
+/// Ed25519 signing key, keeping JWK and proof-of-possession assembly in the SDK.
+pub struct RuntimeKeyRequestBuilder<'a> {
+    signing_key: &'a SigningKey,
+    bootstrap: AgentPairingBootstrap,
+    verification_method: String,
+    proof_expires_at: DateTime<Utc>,
+    runtime_attestation: Option<Value>,
+}
+
+impl<'a> RuntimeKeyRequestBuilder<'a> {
+    pub fn new(signing_key: &'a SigningKey, bootstrap: AgentPairingBootstrap) -> Self {
+        let verification_method = format!("{}#runtime-key-1", bootstrap.agent_principal_id);
+        let proof_expires_at = bootstrap.pairing_expires_at;
+        Self {
+            signing_key,
+            bootstrap,
+            verification_method,
+            proof_expires_at,
+            runtime_attestation: None,
+        }
+    }
+
+    #[must_use]
+    pub fn verification_method(mut self, verification_method: impl Into<String>) -> Self {
+        self.verification_method = verification_method.into();
+        self
+    }
+
+    #[must_use]
+    pub fn proof_expires_at(mut self, proof_expires_at: DateTime<Utc>) -> Self {
+        self.proof_expires_at = proof_expires_at;
+        self
+    }
+
+    #[must_use]
+    pub fn runtime_attestation(mut self, runtime_attestation: Value) -> Self {
+        self.runtime_attestation = Some(runtime_attestation);
+        self
+    }
+
+    pub fn public_key(&self) -> Result<Value> {
+        self.validate()?;
+        Ok(serde_json::json!({
+            "kty": "OKP",
+            "kid": self.verification_method,
+            "alg": "Ed25519",
+            "key": arkret_core::base64url_encode(self.signing_key.verifying_key().to_bytes()),
+        }))
+    }
+
+    pub fn public_key_digest(&self) -> Result<Hash> {
+        agent_runtime_public_key_digest(&self.public_key()?)
+    }
+
+    pub fn build_approval_request(
+        &self,
+    ) -> Result<RuntimeKeyRequest<AgentRuntimeApprovalRequestBody>> {
+        let (public_key, public_key_digest, proof_of_possession) = self.request_material()?;
+        Ok(RuntimeKeyRequest {
+            body: AgentRuntimeApprovalRequestBody {
+                pairing_code: self.bootstrap.pairing_code.clone(),
+                pairing_request_id: self.bootstrap.pairing_request_id.clone(),
+                agent_principal_id: self.bootstrap.agent_principal_id.clone(),
+                verification_method: self.verification_method.clone(),
+                public_key,
+                proof_of_possession,
+                runtime_attestation: self.runtime_attestation.clone(),
+            },
+            public_key_digest,
+        })
+    }
+
+    pub fn build_key_pair_request(
+        &self,
+        authorize_event: Value,
+    ) -> Result<RuntimeKeyRequest<AgentKeyPairRequestBody>> {
+        if !authorize_event.is_object() {
+            return Err(Error::Protocol(
+                "agent key authorize_event must be a signed event object".to_owned(),
+            ));
+        }
+        let (public_key, public_key_digest, proof_of_possession) = self.request_material()?;
+        Ok(RuntimeKeyRequest {
+            body: AgentKeyPairRequestBody {
+                pairing_request_id: self.bootstrap.pairing_request_id.clone(),
+                agent_principal_id: self.bootstrap.agent_principal_id.clone(),
+                verification_method: self.verification_method.clone(),
+                public_key,
+                proof_of_possession,
+                runtime_attestation: self.runtime_attestation.clone(),
+                authorize_event,
+            },
+            public_key_digest,
+        })
+    }
+
+    fn request_material(&self) -> Result<(Value, Hash, Value)> {
+        let public_key = self.public_key()?;
+        let public_key_digest = agent_runtime_public_key_digest(&public_key)?;
+        let request_digest = agent_key_pair_proof_request_binding_digest(
+            &self.bootstrap.pairing_request_id,
+            &self.bootstrap.agent_principal_id,
+            &self.verification_method,
+            &public_key,
+            self.runtime_attestation.as_ref(),
+        )?;
+        let signing_input = agent_key_pair_proof_signing_input(
+            self.verification_method.clone(),
+            self.bootstrap.pairing_request_id.clone(),
+            self.bootstrap.service_did.to_string(),
+            self.proof_expires_at,
+            request_digest.clone(),
+        );
+        let signature = self.signing_key.sign(&signing_input.canonical_bytes()?);
+        let proof_of_possession = serde_json::json!({
+            "challenge": self.bootstrap.pairing_request_id,
+            "audience": self.bootstrap.service_did,
+            "request_canonical_digest": request_digest,
+            "expires_at": self.proof_expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            "signature": arkret_core::base64url_encode(signature.to_bytes()),
+        });
+        Ok((public_key, public_key_digest, proof_of_possession))
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self.bootstrap.pairing_request_id.trim().is_empty()
+            || self.bootstrap.pairing_code.trim().is_empty()
+        {
+            return Err(Error::Protocol(
+                "agent pairing bootstrap request id and code must not be empty".to_owned(),
+            ));
+        }
+        if self.verification_method.trim().is_empty()
+            || !self
+                .verification_method
+                .starts_with(&format!("{}#", self.bootstrap.agent_principal_id))
+        {
+            return Err(Error::Protocol(
+                "agent runtime verification_method must belong to agent_principal_id".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
 
 /// Agent principal profile.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1173,6 +1332,41 @@ mod tests {
         .build()
         .unwrap_err();
         assert!(matches!(err, Error::Protocol(_)));
+    }
+
+    #[test]
+    fn runtime_key_request_builder_assembles_both_wire_shapes() {
+        let signing_key = SigningKey::from_bytes(&[7_u8; 32]);
+        let agent_id = did("runtime-builder");
+        let expires_at = "2026-05-26T10:05:00Z".parse::<DateTime<Utc>>().unwrap();
+        let bootstrap = AgentPairingBootstrap {
+            arkret_base_url: "https://arkret.example".to_owned(),
+            service_did: Did::new("did:webvh:z6mkfixture:service.example".to_owned()).unwrap(),
+            agent_principal_id: agent_id.clone(),
+            pairing_request_id: "01970000-0000-7000-8000-000000000021".to_owned(),
+            pairing_code: "12345678".to_owned(),
+            pairing_expires_at: expires_at,
+        };
+        let builder = RuntimeKeyRequestBuilder::new(&signing_key, bootstrap);
+        let approval = builder.build_approval_request().unwrap();
+        let pairing = builder
+            .build_key_pair_request(json!({"kind": OP_AGENT_KEY_AUTHORIZE}))
+            .unwrap();
+
+        assert_eq!(approval.public_key_digest, pairing.public_key_digest);
+        assert_eq!(approval.body.public_key, pairing.body.public_key);
+        assert_eq!(
+            approval.body.proof_of_possession["request_canonical_digest"],
+            pairing.body.proof_of_possession["request_canonical_digest"]
+        );
+        assert_eq!(approval.body.pairing_code, "12345678");
+        assert_eq!(pairing.body.agent_principal_id, agent_id);
+        assert!(
+            !approval.body.proof_of_possession["signature"]
+                .as_str()
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]

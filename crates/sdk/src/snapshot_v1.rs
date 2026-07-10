@@ -100,11 +100,12 @@ pub fn verify_snapshot_manifest(
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::{
-        AuthorityBinding, Did, EventId, EventSetCommitmentAlgorithm, EventSetLeaf, Hlc, RealmId,
-        SNAPSHOT_REDUCER_PROFILE_V1, SnapshotAuthorityKind, SnapshotFrontier,
-        SnapshotMaterializedItem, SnapshotSecurityClass, SnapshotVerificationHints,
-        build_snapshot_chunks, event_set_commitment, state_digest_from_items,
+    use arkret_core::{Did, EventId, Hlc, RealmId};
+    use arkret_state::{
+        AuthorityBinding, EventSetCommitmentAlgorithm, EventSetLeaf, SNAPSHOT_REDUCER_PROFILE_V1,
+        SnapshotAuthorityKind, SnapshotFrontier, SnapshotMaterializedItem, SnapshotSecurityClass,
+        SnapshotVerificationHints, build_snapshot_chunks, event_set_commitment,
+        state_digest_from_items,
     };
     use chrono::Duration;
     use serde_json::json;
