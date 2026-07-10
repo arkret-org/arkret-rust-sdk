@@ -502,6 +502,48 @@ impl ArkretMlsGroup {
         seen.into_iter().collect()
     }
 
+    /// Snapshot the group's active leaves for minimal-metadata author
+    /// verification (encryption-and-audit.md §2.10.3). Unlike
+    /// [`Self::member_principal_ids`] this does NOT dedupe — duplicate
+    /// credential identities must stay visible so
+    /// [`super::verify_minimal_metadata_author`] can reject them.
+    pub fn active_author_leaves(&self) -> Vec<super::AuthorLeaf> {
+        self.group
+            .members()
+            .map(|member| {
+                let credential = if member.credential.credential_type()
+                    == openmls::prelude::CredentialType::Basic
+                {
+                    super::AuthorLeafCredential::Basic {
+                        identity: member.credential.serialized_content().to_vec(),
+                    }
+                } else {
+                    super::AuthorLeafCredential::Other {
+                        credential_type: format!("{:?}", member.credential.credential_type()),
+                    }
+                };
+                super::AuthorLeaf {
+                    leaf_index: member.index.u32(),
+                    credential,
+                    signature_key: member.signature_key.clone(),
+                }
+            })
+            .collect()
+    }
+
+    /// Build the [`super::AuthorGroupStateView`] for this group's current
+    /// state. The caller supplies the `group_state_ref` it has verified as
+    /// the winning group state for this epoch (accepted genesis / winning
+    /// commit event id).
+    pub fn author_group_state_view(&self, group_state_ref: &str) -> super::AuthorGroupStateView {
+        super::AuthorGroupStateView {
+            group_id: self.group_id(),
+            epoch: self.epoch(),
+            group_state_ref: group_state_ref.to_owned(),
+            active_leaves: self.active_author_leaves(),
+        }
+    }
+
     pub fn export_state_record(&self) -> Result<MlsGroupStateRecord> {
         let snapshot = OpenMlsStateSnapshot {
             context: ARKRET_OPENMLS_STATE_SNAPSHOT.to_owned(),

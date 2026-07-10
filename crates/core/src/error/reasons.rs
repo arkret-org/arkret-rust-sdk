@@ -559,6 +559,17 @@ pub const KNOWN_REASON_CODES_ROUND_R30: &[&str] = &[
     REASON_VERIFICATION_METHOD_PRINCIPAL_MISMATCH,
 ];
 
+// ── Spec 2026-07-10 revision — minimal-metadata content authorship.
+//
+// A minimal-metadata content Event proof MUST bind to exactly one active MLS
+// LeafNode whose BasicCredential identity equals `utf8(Event.actor_id)` and
+// whose `signature_key` equals the proof verification key, at the encrypted
+// envelope's `(group_id, epoch, group_state_ref)`. The receiver MUST fail
+// closed without querying a principal-scoped device directory. See
+// zh/crypto-media/encryption-and-audit.md §2.10.3.
+pub const REASON_MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID: &str =
+    "minimal_metadata_author_credential_invalid";
+
 // ── Member identity rejection reasons (zh/models/member-identity.md).
 //
 // soland emits these wire reason values when rejecting append-only
