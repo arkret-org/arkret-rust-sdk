@@ -287,6 +287,40 @@ pub(super) fn decode_key_package(
         .map_err(mls_error)
 }
 
+/// Decode a TLS-serialized wire KeyPackage into minimal-metadata author-leaf
+/// material (encryption-and-audit.md §2.10.3). The KeyPackage is
+/// cryptographically validated (RFC 9420 §10) before its leaf fields are
+/// trusted. `leaf_index` is caller-assigned — a wire KeyPackage carries no
+/// tree position; servers folding claimed KeyPackages into an
+/// [`super::AuthorGroupStateView`] number them by iteration order.
+pub fn author_leaf_from_key_package_bytes(
+    bytes: &[u8],
+    leaf_index: u32,
+) -> Result<super::AuthorLeaf> {
+    let provider = OpenMlsRustCrypto::default();
+    let key_package_in = KeyPackageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
+    let key_package = key_package_in
+        .validate(provider.crypto(), ProtocolVersion::Mls10)
+        .map_err(mls_error)?;
+    let leaf = key_package.leaf_node();
+    let leaf_credential = leaf.credential();
+    let credential =
+        if leaf_credential.credential_type() == openmls::prelude::CredentialType::Basic {
+            super::AuthorLeafCredential::Basic {
+                identity: leaf_credential.serialized_content().to_vec(),
+            }
+        } else {
+            super::AuthorLeafCredential::Other {
+                credential_type: format!("{:?}", leaf_credential.credential_type()),
+            }
+        };
+    Ok(super::AuthorLeaf {
+        leaf_index,
+        credential,
+        signature_key: leaf.signature_key().as_slice().to_vec(),
+    })
+}
+
 pub fn revoke_key_package(record: &mut MlsKeyPackageRecord) -> MlsDeviceWorkflowStep {
     record.state = arkret_core::MlsKeyPackageState::Revoked;
     MlsDeviceWorkflowStep {

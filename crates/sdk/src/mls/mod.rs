@@ -1,9 +1,11 @@
+mod author_credential;
 mod group;
 mod identity;
 mod message;
 mod recovery;
 mod security;
 
+pub use author_credential::*;
 pub use group::*;
 pub use identity::*;
 pub use message::*;
