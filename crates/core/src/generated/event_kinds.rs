@@ -9,11 +9,11 @@ use crate::events::kinds::{
     EventClass, EventWireScope, classify_event_kind, event_wire_scope, is_reducer_input_event_kind,
 };
 
-/// Count of standard ak.* event kinds the registry declares active.
+/// Count of standard `ak.*` event kinds the registry declares active.
 /// Excludes the [EventKind::Unknown] catch-all.
 pub const EVENT_KIND_COUNT: usize = 191;
 
-/// Strongly-typed Arkret event kind. One variant per active ak.* kind in
+/// Strongly-typed Arkret event kind. One variant per active `ak.*` kind in
 /// `event-kind-registry.json`, plus [EventKind::Unknown] which preserves
 /// any other wire string verbatim for forward compatibility.
 ///

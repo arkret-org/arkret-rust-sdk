@@ -380,16 +380,10 @@ pub const KNOWN_REASON_CODES_REACTION: &[&str] = &[
     REASON_REACTION_SCOPE_MISMATCH,
 ];
 
-pub const REASON_CONTACT_NOT_ACCEPTED: &str = "contact_not_accepted";
-pub const REASON_CONTACT_CONSENT_MISSING: &str = "contact_consent_missing";
 pub const REASON_PEER_UNRESOLVABLE: &str = "peer_unresolvable";
 pub const REASON_KEYPACKAGE_UNKNOWN: &str = "keypackage_unknown";
-pub const KNOWN_REASON_CODES_CONTACT_DIRECT_CONVERSATION: &[&str] = &[
-    REASON_CONTACT_NOT_ACCEPTED,
-    REASON_CONTACT_CONSENT_MISSING,
-    REASON_PEER_UNRESOLVABLE,
-    REASON_KEYPACKAGE_UNKNOWN,
-];
+pub const KNOWN_REASON_CODES_CONTACT_DIRECT_CONVERSATION: &[&str] =
+    &[REASON_PEER_UNRESOLVABLE, REASON_KEYPACKAGE_UNKNOWN];
 
 // MLS / media reason codes from error-code-registry.json#reason_codes.
 pub const REASON_REDUCER_PROFILE_MISMATCH: &str = "reducer_profile_mismatch";

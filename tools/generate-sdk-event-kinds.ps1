@@ -25,7 +25,7 @@ if ($null -eq $artifact.event_kinds) {
 
 function ConvertTo-Variant {
     param([string]$Kind)
-    $body = $Kind -replace '^ck\.', ''
+    $body = $Kind -replace '^ak\.', ''
     $segs = $body -split '[._]'
     ($segs | ForEach-Object {
         if ($_.Length -eq 0) { '' } else { $_.Substring(0, 1).ToUpper() + $_.Substring(1) }
@@ -64,11 +64,11 @@ $add = { param($s) $lines.Add($s) | Out-Null }
 & $add "    is_reducer_input_event_kind,"
 & $add "};"
 & $add ""
-& $add "/// Count of standard `ak.*` event kinds the registry declares active."
+& $add '/// Count of standard `ak.*` event kinds the registry declares active.'
 & $add "/// Excludes the [`EventKind::Unknown`] catch-all."
 & $add "pub const EVENT_KIND_COUNT: usize = $($entries.Count);"
 & $add ""
-& $add "/// Strongly-typed Arkret event kind. One variant per active `ak.*` kind in"
+& $add '/// Strongly-typed Arkret event kind. One variant per active `ak.*` kind in'
 & $add "/// ``event-kind-registry.json``, plus [`EventKind::Unknown`] which preserves"
 & $add "/// any other wire string verbatim for forward compatibility."
 & $add "///"
@@ -225,4 +225,6 @@ foreach ($e in $entries) {
 & $add "}"
 
 Set-Content -LiteralPath $OutputPath -Value ($lines -join [Environment]::NewLine) -NoNewline
+& rustfmt +nightly --edition 2024 $OutputPath
+if ($LASTEXITCODE -ne 0) { throw "rustfmt failed for $OutputPath" }
 Write-Host "Wrote $OutputPath ($($entries.Count) variants)"

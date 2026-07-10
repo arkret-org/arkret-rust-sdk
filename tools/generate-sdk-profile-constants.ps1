@@ -49,7 +49,7 @@ function Sort-Ordinal {
 
 # Collect ids from a regex pass first, so we still notice ids that are
 # referenced without a profile_roles entry (e.g. transitional candidates).
-$idsFromRegex = Sort-Ordinal -Values @([regex]::Matches($raw, 'ak..profile\.[A-Za-z0-9_.-]+\.v[0-9]+') |
+$idsFromRegex = Sort-Ordinal -Values @([regex]::Matches($raw, 'ak\.profile\.[A-Za-z0-9_.-]+\.v[0-9]+') |
     ForEach-Object { $_.Value })
 
 if ($null -eq $artifact.profile_roles) {
@@ -183,4 +183,6 @@ $lines.Add("        .collect()") | Out-Null
 $lines.Add("}") | Out-Null
 
 Set-Content -LiteralPath $OutputPath -Value ($lines -join [Environment]::NewLine) -NoNewline
+& rustfmt +nightly --edition 2024 $OutputPath
+if ($LASTEXITCODE -ne 0) { throw "rustfmt failed for $OutputPath" }
 Write-Host "Wrote $OutputPath ($($idsFromRegex.Count) ids, $($rolesEntries.Count) roles)"

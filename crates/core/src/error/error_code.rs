@@ -136,8 +136,7 @@ pub enum ErrorCode {
     ProfileUnsupported,
     UnsupportedJoinRule,
     FailedPrecondition,
-    ContactNotAccepted,
-    ContactConsentMissing,
+    DirectConversationUnavailable,
     PeerUnresolvable,
     ContactRequestNotPending,
     ContactRequestExpired,
@@ -238,7 +237,7 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 225] = [
+    pub const ALL: [Self; 224] = [
         Self::BadJson,
         Self::BadQuery,
         Self::SchemaViolation,
@@ -365,8 +364,7 @@ impl ErrorCode {
         Self::ProfileUnsupported,
         Self::UnsupportedJoinRule,
         Self::FailedPrecondition,
-        Self::ContactNotAccepted,
-        Self::ContactConsentMissing,
+        Self::DirectConversationUnavailable,
         Self::PeerUnresolvable,
         Self::ContactRequestNotPending,
         Self::ContactRequestExpired,
@@ -600,8 +598,7 @@ impl ErrorCode {
             Self::ProfileUnsupported => ERROR_CODE_PROFILE_UNSUPPORTED,
             Self::UnsupportedJoinRule => ERROR_CODE_UNSUPPORTED_JOIN_RULE,
             Self::FailedPrecondition => ERROR_CODE_FAILED_PRECONDITION,
-            Self::ContactNotAccepted => ERROR_CODE_CONTACT_NOT_ACCEPTED,
-            Self::ContactConsentMissing => ERROR_CODE_CONTACT_CONSENT_MISSING,
+            Self::DirectConversationUnavailable => ERROR_CODE_DIRECT_CONVERSATION_UNAVAILABLE,
             Self::PeerUnresolvable => ERROR_CODE_PEER_UNRESOLVABLE,
             Self::ContactRequestNotPending => ERROR_CODE_CONTACT_REQUEST_NOT_PENDING,
             Self::ContactRequestExpired => ERROR_CODE_CONTACT_REQUEST_EXPIRED,
@@ -866,8 +863,7 @@ impl ErrorCode {
             ERROR_CODE_PROFILE_UNSUPPORTED => Self::ProfileUnsupported,
             ERROR_CODE_UNSUPPORTED_JOIN_RULE => Self::UnsupportedJoinRule,
             ERROR_CODE_FAILED_PRECONDITION => Self::FailedPrecondition,
-            ERROR_CODE_CONTACT_NOT_ACCEPTED => Self::ContactNotAccepted,
-            ERROR_CODE_CONTACT_CONSENT_MISSING => Self::ContactConsentMissing,
+            ERROR_CODE_DIRECT_CONVERSATION_UNAVAILABLE => Self::DirectConversationUnavailable,
             ERROR_CODE_PEER_UNRESOLVABLE => Self::PeerUnresolvable,
             ERROR_CODE_CONTACT_REQUEST_NOT_PENDING => Self::ContactRequestNotPending,
             ERROR_CODE_CONTACT_REQUEST_EXPIRED => Self::ContactRequestExpired,

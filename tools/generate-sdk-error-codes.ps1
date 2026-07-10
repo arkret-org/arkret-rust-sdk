@@ -74,4 +74,6 @@ foreach ($e in $entries) {
 Add-Line '];'
 
 Set-Content -LiteralPath $OutputPath -Value ($lines -join [Environment]::NewLine) -NoNewline
+& rustfmt +nightly --edition 2024 $OutputPath
+if ($LASTEXITCODE -ne 0) { throw "rustfmt failed for $OutputPath" }
 Write-Host "Wrote $OutputPath ($($entries.Count) error codes)"
