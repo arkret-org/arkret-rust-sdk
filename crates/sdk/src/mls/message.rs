@@ -319,6 +319,7 @@ pub enum MessageCryptoDecrypt {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MessageCryptoUnavailable {
     NoSession,
+    Removed,
     WrongGroup {
         expected: String,
         actual: String,
@@ -412,6 +413,13 @@ impl MessageCrypto {
                     expected: group.group_id(),
                     actual: message.payload.group_id,
                 },
+            });
+        }
+        if !group.is_active() {
+            return Ok(MessageCryptoDecrypt::Encrypted {
+                message_id,
+                payload: message.payload,
+                reason: MessageCryptoUnavailable::Removed,
             });
         }
         if message.payload.epoch > group.epoch() {

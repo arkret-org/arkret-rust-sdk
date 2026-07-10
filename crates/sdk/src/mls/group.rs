@@ -198,6 +198,13 @@ impl MlsAddMembersResult {
 }
 
 impl ArkretMlsGroup {
+    /// Whether this member still has an active leaf in the group. A client that
+    /// processes a Remove commit targeting itself becomes inactive and must not
+    /// treat subsequent epoch failures as an ordinary sync lag.
+    pub fn is_active(&self) -> bool {
+        self.group.is_active()
+    }
+
     pub fn identity(&self) -> &ArkretMlsIdentity {
         &self.identity
     }
