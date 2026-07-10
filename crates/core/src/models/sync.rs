@@ -60,7 +60,7 @@ impl SyncOutcome {
 
     /// Fold a single `ak.self.account.stream.subscribe` data frame into the SDK aggregate
     /// snapshot shape. Control frames without data return `None`.
-    pub fn from_account_subscribe_frame(frame: AccountSubscribeFrame) -> Option<Self> {
+    pub(crate) fn from_account_subscribe_frame(frame: AccountSubscribeFrame) -> Option<Self> {
         if frame.kind != AccountSubscribeFrameKind::Delta {
             return None;
         }
@@ -184,9 +184,8 @@ pub enum AccountStreamInterrupt {
     /// `dropped`: the server cannot continue from the current position.
     /// Reconnect with `after=<cursor>&catchup=true` (client-sync.md §2.2.3).
     Dropped {
-        /// Suggested catch-up cursor (REQUIRED on the wire per §2; a
-        /// missing cursor is treated as `resync_required` by consumers).
-        cursor: Option<String>,
+        /// Suggested catch-up cursor, required by the v1 wire contract.
+        cursor: String,
         /// Server-mandated hold before reconnecting the same scope.
         reconnect_after_ms: Option<u64>,
     },
@@ -238,10 +237,12 @@ impl AccountSubscribeFrame {
     /// `dropped` / `resync_required` / `unauthorized` are terminal for the
     /// current subscription and MUST be surfaced to the sync loop instead of
     /// being skipped like benign keepalive frames.
-    pub fn interrupt(&self) -> Option<AccountStreamInterrupt> {
-        match self.kind {
+    pub fn interrupt(&self) -> Result<Option<AccountStreamInterrupt>> {
+        Ok(match self.kind {
             AccountSubscribeFrameKind::Dropped => Some(AccountStreamInterrupt::Dropped {
-                cursor: self.cursor.clone(),
+                cursor: self.cursor.clone().ok_or_else(|| {
+                    Error::Protocol("stream trace dropped_missing_cursor".to_owned())
+                })?,
                 reconnect_after_ms: self.reconnect_after_ms,
             }),
             AccountSubscribeFrameKind::ResyncRequired => {
@@ -256,7 +257,7 @@ impl AccountSubscribeFrame {
             | AccountSubscribeFrameKind::CatchupComplete
             | AccountSubscribeFrameKind::Frontier
             | AccountSubscribeFrameKind::Heartbeat => None,
-        }
+        })
     }
 
     /// True iff `kind == catchup_complete`.

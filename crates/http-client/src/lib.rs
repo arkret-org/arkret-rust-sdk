@@ -47,6 +47,8 @@ pub use builder::RedirectPolicy;
 pub(crate) use client_internals::reject_path_segment;
 #[cfg(test)]
 pub(crate) use client_internals::validate_request_builder;
+#[cfg(not(target_arch = "wasm32"))]
+pub use endpoints_account::AccountSubscribeFrameStream;
 pub use endpoints_data::{
     BlobDownloadOptions, BlobResumableUploadOptions, RESUMABLE_UPLOAD_FEATURE,
     RESUMABLE_UPLOAD_THRESHOLD_BYTES, blob_resumable_upload_base_url,
@@ -64,7 +66,7 @@ pub const HEADER_IDEMPOTENCY_KEY: &str = "Idempotency-Key";
 /// never-ending body) suspend the caller forever; this crate is the
 /// shared transport for all Arkret services, so the default must be
 /// bounded. The long-lived NDJSON subscribe streams
-/// (`account_subscribe`, `events_subscribe_stream`) are exempt — they
+/// (`account_subscribe_frames`, `events_subscribe_frames`) are exempt — they
 /// stay open by design. Override with [`ClientBuilder::timeout`] (an
 /// explicit value applies client-wide, including streams).
 /// Native-only — the browser owns timeouts on wasm32.
@@ -1422,22 +1424,22 @@ mod tests {
         #[tokio::test]
         async fn account_subscribe_frames_yields_one_frame_per_line() {
             use arkret_core::AccountSubscribeFrame;
-            use futures_util::StreamExt;
 
-            // Three frames split across 4 chunks; the second frame
+            // Four frames split across chunks; the frontier frame
             // straddles a chunk boundary mid-line so the codec must
             // buffer to assemble it.
             let parts = vec![
                 r#"{"kind":"heartbeat"}"#,
                 "\n{\"cursor\":\"sx:adv:1\"",
                 ",\"kind\":\"frontier\"}\n",
+                "{\"cursor\":\"sx:delta:1\",\"kind\":\"delta\",\"partial\":false}\n",
                 "{\"cursor\":\"sx:live:0\",\"kind\":\"catchup_complete\"}\n",
             ];
             let client = spawn_chunked_ndjson_server(parts).await;
             let mut stream = client
                 .account_subscribe_frames(&SyncRequestBody {
                     after: None,
-                    catchup: None,
+                    catchup: Some(true),
                     filter: None,
                     subscriptions: None,
                     wait_for: None,
@@ -1446,10 +1448,10 @@ mod tests {
                 .expect("stream init");
 
             let mut got = Vec::new();
-            while let Some(item) = stream.next().await {
-                got.push(item.expect("frame decode"));
+            while let Some(frame) = stream.next_frame().await.expect("frame decode") {
+                got.push(frame);
             }
-            assert_eq!(got.len(), 3, "expected 3 frames, got {got:?}");
+            assert_eq!(got.len(), 4, "expected 4 frames, got {got:?}");
             assert_eq!(
                 got[0].kind,
                 AccountSubscribeFrame::from_ndjson_line(r#"{"kind":"heartbeat"}"#)
@@ -1458,7 +1460,32 @@ mod tests {
                     .kind
             );
             assert!(got[1].cursor.is_some());
-            assert!(got[2].is_catchup_complete());
+            assert_eq!(got[2].kind, arkret_core::AccountSubscribeFrameKind::Delta);
+            assert!(got[3].is_catchup_complete());
+            assert_eq!(stream.reconnect_cursor(), Some("sx:live:0"));
+        }
+
+        #[tokio::test]
+        async fn account_subscribe_once_waits_for_valid_catchup_completion() {
+            let parts = vec![
+                "{\"cursor\":\"sx:delta:1\",\"kind\":\"delta\",\"partial\":true}\n",
+                "{\"cursor\":\"sx:delta:2\",\"kind\":\"delta\",\"partial\":false}\n",
+                "{\"cursor\":\"sx:complete:2\",\"kind\":\"catchup_complete\"}\n",
+            ];
+            let client = spawn_chunked_ndjson_server(parts).await;
+            let outcome = client
+                .account_subscribe_once(&SyncRequestBody {
+                    after: None,
+                    catchup: Some(true),
+                    filter: None,
+                    subscriptions: None,
+                    wait_for: None,
+                })
+                .await
+                .unwrap();
+
+            assert_eq!(outcome.cursor, "sx:complete:2");
+            assert!(!outcome.partial);
         }
 
         #[tokio::test]
@@ -1489,7 +1516,7 @@ mod tests {
                     cursor,
                     reconnect_after_ms,
                 }) => {
-                    assert_eq!(cursor.as_deref(), Some("sx:drop:9"));
+                    assert_eq!(cursor, "sx:drop:9");
                     assert_eq!(reconnect_after_ms, Some(10_000));
                 }
                 other => panic!("expected dropped interrupt, got {other:?}"),

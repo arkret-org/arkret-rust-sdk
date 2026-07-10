@@ -187,14 +187,20 @@ impl AsyncSyncTransport for crate::Client {
 
 #[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 impl EventsSubscribeTransport for crate::Client {
-    type EventStream = reqwest::Response;
+    type EventStream = crate::http_client::EventsSubscribeFrameStream;
 
     fn events_subscribe<'a>(
         &'a self,
         realm_id: &'a str,
         from: Option<&'a str>,
     ) -> BoxSyncFuture<'a, Self::EventStream> {
-        Box::pin(async move { self.events_subscribe_stream(realm_id, from).await })
+        Box::pin(async move {
+            let mut options = crate::http_client::EventsSubscribeOptions::new().realm(realm_id);
+            if let Some(from) = from {
+                options = options.after(from).catchup(true);
+            }
+            self.events_subscribe_frames(&options).await
+        })
     }
 }
 
@@ -451,6 +457,13 @@ impl SyncLoop {
         // operations-sync.md): the token and backoff state only advance
         // after `process` succeeds.
         let cursor = response.cursor.clone();
+        if cursor.trim().is_empty() {
+            let retry_after = self.backoff.record_failure();
+            return SyncLoopStep::Retry {
+                retry_after,
+                error: "account subscribe outcome requires a non-empty cursor".to_owned(),
+            };
+        }
         match self.processor.process(response) {
             Ok(updates) => {
                 self.backoff.reset();
@@ -503,15 +516,9 @@ impl SyncLoop {
                 cursor,
                 reconnect_after_ms,
             } => {
-                match cursor {
-                    // §2.2.3: reconnect from the frame cursor with catchup
-                    // so the server replays the lost account delta.
-                    Some(cursor) => self.token = Some(cursor),
-                    // The spec requires `dropped` to carry a cursor; a
-                    // frame without one degrades to resync semantics so a
-                    // known gap is never silently skipped.
-                    None => self.token = None,
-                }
+                // §2.2.3: reconnect from the required frame cursor with
+                // catchup so the server replays the lost account delta.
+                self.token = Some(cursor);
                 SyncLoopStep::Retry {
                     retry_after: Duration::from_millis(reconnect_after_ms.unwrap_or(0)),
                     error: "account stream dropped; reconnecting with catch-up cursor".to_owned(),

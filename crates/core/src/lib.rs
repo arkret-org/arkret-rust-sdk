@@ -45,6 +45,7 @@ pub mod seal;
 pub mod serde_helpers;
 pub mod service;
 pub mod signer;
+pub mod stream_trace;
 pub mod sync;
 
 pub use account_subscribe::{
@@ -130,6 +131,10 @@ pub use service::{
     rate_limited_error,
 };
 pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
+pub use stream_trace::{
+    StreamTraceError, StreamTraceFrame, StreamTraceFrameKind, StreamTraceUpdate,
+    StreamTraceValidator,
+};
 pub use sync::{
     AccountData, BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody,
     BucketedRealmUpdate, DeviceListChanges, LimitedTimelineState, MembershipBucket,

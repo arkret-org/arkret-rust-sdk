@@ -5,7 +5,8 @@ use arkret_core::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountDeviceEnrollOutcome,
     AccountDeviceEnrollRequestBody, AccountDevicePairOutcome, AccountDevicePairRequestBody,
     AccountLogoutOutcome, AccountLogoutRequestBody, AccountRegisterOutcome,
-    AccountRegisterRequestBody, AccountSubscribeFrame, AccountUpdateProfileOutcome,
+    AccountRegisterRequestBody, AccountSubscribeFolder, AccountSubscribeFrame,
+    AccountSubscribeFrameKind, AccountSubscribeSnapshotResult, AccountUpdateProfileOutcome,
     AccountUpdateProfileRequestBody, AccountView, ContactList, ContactRequestOutcome,
     ContactRequestRequestBody, ContactRespondOutcome, ContactRespondRequestBody, ContactTombstone,
     ContactTombstoneRequestBody, DirectConversationResolveOutcome,
@@ -13,13 +14,59 @@ use arkret_core::{
     PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
     PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, Result, SessionGrantOutcome,
     SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
-    SyncDescription, SyncOutcome, SyncRequestBody,
+    StreamTraceValidator, SyncDescription, SyncOutcome, SyncRequestBody,
 };
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, RequestBuilder, Response};
 
 use crate::client_internals::{read_body_limited, transport_error, trim_ascii};
-use crate::{Client, ClientRequestOptions, MAX_SUBSCRIBE_FRAME_BYTES};
+use crate::{Client, MAX_SUBSCRIBE_FRAME_BYTES};
+
+#[cfg(not(target_arch = "wasm32"))]
+type BoxAccountSubscribeFrameStream =
+    std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<AccountSubscribeFrame>> + Send>>;
+
+/// Validated account-subscribe frame stream bound to its request context.
+#[cfg(not(target_arch = "wasm32"))]
+pub struct AccountSubscribeFrameStream {
+    inner: BoxAccountSubscribeFrameStream,
+    trace: StreamTraceValidator,
+    failed: bool,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl AccountSubscribeFrameStream {
+    pub async fn next_frame(&mut self) -> Result<Option<AccountSubscribeFrame>> {
+        use futures_util::StreamExt;
+
+        if self.failed {
+            return Err(Error::Protocol(
+                "account subscribe stream was already rejected".to_owned(),
+            ));
+        }
+        let frame = match self.inner.next().await {
+            Some(Ok(frame)) => frame,
+            Some(Err(error)) => {
+                self.failed = true;
+                return Err(error);
+            }
+            None => {
+                self.trace.finish()?;
+                return Ok(None);
+            }
+        };
+        self.trace.push(&frame)?;
+        Ok(Some(frame))
+    }
+
+    pub fn reconnect_cursor(&self) -> Option<&str> {
+        self.trace.reconnect_cursor()
+    }
+
+    pub const fn is_terminal(&self) -> bool {
+        self.trace.is_terminal()
+    }
+}
 
 impl Client {
     /// `POST /_arkret/gate/account/session-grants`
@@ -160,37 +207,24 @@ impl Client {
         Ok(builder)
     }
 
-    pub async fn account_subscribe(&self, request: &SyncRequestBody) -> Result<Response> {
+    async fn account_subscribe(&self, request: &SyncRequestBody) -> Result<Response> {
         // Long-lived NDJSON stream — exempt from the per-request default
         // total timeout (see `DEFAULT_REQUEST_TIMEOUT`).
         let builder = self.account_subscribe_request(request, "application/x-ndjson")?;
         self.send_response(builder).await
     }
 
-    pub async fn account_subscribe_with_options(
-        &self,
-        request: &SyncRequestBody,
-        options: &ClientRequestOptions,
-    ) -> Result<Response> {
-        // Long-lived NDJSON stream — exempt from the per-request default
-        // total timeout (see `DEFAULT_REQUEST_TIMEOUT`).
-        let builder = self.account_subscribe_request(request, "application/x-ndjson")?;
-        let builder = self.apply_request_options(builder, options)?;
-        self.send_response(builder).await
-    }
-
-    /// Subscribe and return the first delta frame, then drop the
-    /// connection.
+    /// Subscribe and return one validated account delta snapshot.
     ///
     /// `/_arkret/self/account/subscribe` is a long-lived NDJSON stream:
     /// the server keeps pushing frames and does not close the response
     /// on its own, so reading the whole body up front would never
     /// return (and would buffer the stream without bound). The body is
-    /// therefore read incrementally, one chunk at a time, and the
-    /// connection is dropped as soon as the first delta frame decodes.
+    /// therefore read incrementally. With `catchup=true`, all baseline
+    /// deltas are folded until a valid `catchup_complete`; without catch-up,
+    /// the first validated delta completes this one-shot call.
     ///
-    /// Benign keepalive frames (`heartbeat` / `frontier` /
-    /// `catchup_complete`) are skipped while waiting for the delta.
+    /// Benign keepalive and frontier frames are validated while waiting.
     /// Control interrupts (`dropped` / `resync_required` /
     /// `unauthorized`) surface as [`Error::AccountStreamInterrupt`] so
     /// the caller can reconcile per client-sync.md §2.2 — they are never
@@ -198,47 +232,37 @@ impl Client {
     pub async fn account_subscribe_once(&self, request: &SyncRequestBody) -> Result<SyncOutcome> {
         use futures_util::StreamExt;
 
-        fn first_delta_in(buffer: &mut Vec<u8>) -> Result<Option<SyncOutcome>> {
-            while let Some(newline) = buffer.iter().position(|byte| *byte == b'\n') {
-                let line: Vec<u8> = buffer.drain(..=newline).collect();
-                if let Some(sync) = decode_subscribe_line(&line)? {
-                    return Ok(Some(sync));
-                }
-            }
-            Ok(None)
-        }
-
-        fn decode_subscribe_line(line: &[u8]) -> Result<Option<SyncOutcome>> {
+        fn decode_subscribe_line(line: &[u8]) -> Result<Option<AccountSubscribeFrame>> {
             let trimmed = trim_ascii(line);
             if trimmed.is_empty() {
                 return Ok(None);
             }
             let frame: AccountSubscribeFrame = serde_json::from_slice(trimmed)
                 .map_err(|error| Error::Protocol(error.to_string()))?;
-            if let Some(interrupt) = frame.interrupt() {
-                return Err(Error::AccountStreamInterrupt(interrupt));
-            }
-            Ok(SyncOutcome::from_account_subscribe_frame(frame))
+            Ok(Some(frame))
         }
 
-        fn decode_json_or_frame(bytes: &[u8]) -> Result<Option<SyncOutcome>> {
-            let trimmed = trim_ascii(bytes);
-            if trimmed.is_empty() {
-                return Ok(None);
-            }
-            let is_frame = serde_json::from_slice::<serde_json::Value>(trimmed)
-                .ok()
-                .and_then(|value| value.get("kind").cloned())
-                .is_some();
-            if !is_frame && let Ok(sync) = serde_json::from_slice::<SyncOutcome>(trimmed) {
-                return Ok(Some(sync));
-            }
-            let frame: AccountSubscribeFrame = serde_json::from_slice(trimmed)
-                .map_err(|error| Error::Protocol(error.to_string()))?;
-            if let Some(interrupt) = frame.interrupt() {
+        fn push_frame(
+            folder: &mut AccountSubscribeFolder,
+            frame: AccountSubscribeFrame,
+            catchup: bool,
+        ) -> Result<bool> {
+            let is_delta = frame.kind == AccountSubscribeFrameKind::Delta;
+            let interrupt = frame.interrupt()?;
+            let stopped = folder.push(frame)?;
+            if let Some(interrupt) = interrupt {
                 return Err(Error::AccountStreamInterrupt(interrupt));
             }
-            Ok(SyncOutcome::from_account_subscribe_frame(frame))
+            Ok(stopped || (!catchup && is_delta))
+        }
+
+        fn finish_folder(folder: AccountSubscribeFolder) -> Result<SyncOutcome> {
+            match folder.finish()? {
+                AccountSubscribeSnapshotResult::Delta(response) => Ok(*response),
+                AccountSubscribeSnapshotResult::ReconnectAfter { .. } => Err(Error::Protocol(
+                    "account subscribe terminated before a delta snapshot".to_owned(),
+                )),
+            }
         }
 
         let response = self
@@ -254,20 +278,30 @@ impl Client {
             .to_ascii_lowercase();
         if !content_type.contains("application/x-ndjson") {
             let bytes = read_body_limited(response, MAX_SUBSCRIBE_FRAME_BYTES).await?;
-            return decode_json_or_frame(&bytes)?.ok_or_else(|| {
-                Error::Protocol(
-                    "account subscribe JSON response did not include a delta".to_owned(),
-                )
-            });
+            let outcome: SyncOutcome = serde_json::from_slice(trim_ascii(&bytes))
+                .map_err(|error| Error::Protocol(error.to_string()))?;
+            if outcome.cursor.trim().is_empty() {
+                return Err(Error::Protocol(
+                    "account subscribe JSON outcome requires a non-empty cursor".to_owned(),
+                ));
+            }
+            return Ok(outcome);
         }
 
+        let catchup = request.catchup.unwrap_or(false);
+        let mut folder = AccountSubscribeFolder::for_request(request);
         let mut stream = response.bytes_stream();
         let mut buffer: Vec<u8> = Vec::new();
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(transport_error)?;
             buffer.extend_from_slice(&chunk);
-            if let Some(sync) = first_delta_in(&mut buffer)? {
-                return Ok(sync);
+            while let Some(newline) = buffer.iter().position(|byte| *byte == b'\n') {
+                let line: Vec<u8> = buffer.drain(..=newline).collect();
+                if let Some(frame) = decode_subscribe_line(&line)?
+                    && push_frame(&mut folder, frame, catchup)?
+                {
+                    return finish_folder(folder);
+                }
             }
             if buffer.len() > MAX_SUBSCRIBE_FRAME_BYTES {
                 return Err(Error::Protocol(
@@ -277,12 +311,10 @@ impl Client {
         }
         // Stream ended; the trailing bytes may hold one last unterminated
         // frame.
-        if let Some(sync) = decode_subscribe_line(&buffer)? {
-            return Ok(sync);
+        if let Some(frame) = decode_subscribe_line(&buffer)? {
+            push_frame(&mut folder, frame, catchup)?;
         }
-        Err(Error::Protocol(
-            "account subscribe stream ended before a delta frame".to_owned(),
-        ))
+        finish_folder(folder)
     }
 
     /// S-6 (savfox SDK gap): NDJSON-streamed account subscribe. Yields
@@ -297,9 +329,7 @@ impl Client {
     pub async fn account_subscribe_frames(
         &self,
         request: &SyncRequestBody,
-    ) -> Result<
-        std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<AccountSubscribeFrame>> + Send>>,
-    > {
+    ) -> Result<AccountSubscribeFrameStream> {
         use futures_util::StreamExt;
         use tokio_util::codec::{FramedRead, LinesCodec};
         use tokio_util::io::StreamReader;
@@ -330,7 +360,14 @@ impl Client {
                 )))),
             }
         });
-        Ok(Box::pin(stream))
+        Ok(AccountSubscribeFrameStream {
+            inner: Box::pin(stream),
+            trace: StreamTraceValidator::new(
+                request.catchup.unwrap_or(false),
+                request.after.clone(),
+            ),
+            failed: false,
+        })
     }
 
     pub async fn account_describe(&self) -> Result<SyncDescription> {
@@ -385,6 +422,7 @@ mod tests {
     use url::Url;
 
     use super::*;
+    use crate::ClientRequestOptions;
 
     fn client() -> Client {
         Client::new(Url::parse("https://alice.example/").unwrap()).unwrap()

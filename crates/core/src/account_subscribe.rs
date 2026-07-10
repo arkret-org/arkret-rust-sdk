@@ -2,7 +2,10 @@
 
 use serde_json::Value;
 
-use crate::{AccountSubscribeFrame, AccountSubscribeFrameKind, Error, Result, SyncOutcome};
+use crate::{
+    AccountSubscribeFrame, AccountSubscribeFrameKind, Error, Result, StreamTraceValidator,
+    SyncOutcome, SyncRequestBody,
+};
 
 pub const DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS: u64 = 5_000;
 pub const MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS: u64 = 60_000;
@@ -12,6 +15,7 @@ pub enum AccountSubscribeSnapshotResult {
     Delta(Box<SyncOutcome>),
     ReconnectAfter {
         reconnect_after_ms: u64,
+        reconnect_cursor: Option<String>,
         reason: Option<String>,
         reset_cursor: bool,
     },
@@ -20,6 +24,7 @@ pub enum AccountSubscribeSnapshotResult {
 #[derive(Clone, Debug)]
 pub struct AccountSubscribeReconnectAfter {
     pub reconnect_after_ms: u64,
+    pub reconnect_cursor: Option<String>,
     pub reason: Option<String>,
     pub reset_cursor: bool,
 }
@@ -48,45 +53,52 @@ fn clamp_reconnect_after_ms(raw: Option<u64>) -> u64 {
         .min(MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS)
 }
 
-#[derive(Default)]
 pub struct AccountSubscribeFolder {
     merged: Option<SyncOutcome>,
-    latest_cursor: Option<String>,
     done: Option<AccountSubscribeSnapshotResult>,
+    trace: StreamTraceValidator,
 }
 
 impl AccountSubscribeFolder {
-    pub fn push(&mut self, frame: AccountSubscribeFrame) -> bool {
+    /// Create a folder bound to the exact account-subscribe request context.
+    pub fn for_request(request: &SyncRequestBody) -> Self {
+        Self {
+            merged: None,
+            done: None,
+            trace: StreamTraceValidator::new(
+                request.catchup.unwrap_or(false),
+                request.after.clone(),
+            ),
+        }
+    }
+
+    pub fn push(&mut self, frame: AccountSubscribeFrame) -> Result<bool> {
         if self.done.is_some() {
-            return true;
+            return Err(Error::Protocol(
+                "account subscribe frame arrived after a terminal frame".to_owned(),
+            ));
         }
-        if let Some(cursor) = frame
-            .cursor
-            .as_deref()
-            .filter(|cursor| !cursor.trim().is_empty())
-        {
-            self.latest_cursor = Some(cursor.to_owned());
-        }
+        self.trace.push(&frame)?;
         match frame.kind {
             AccountSubscribeFrameKind::ResyncRequired | AccountSubscribeFrameKind::Unauthorized => {
                 self.done = Some(AccountSubscribeSnapshotResult::ReconnectAfter {
                     reconnect_after_ms: clamp_reconnect_after_ms(frame.reconnect_after_ms()),
+                    reconnect_cursor: self.trace.reconnect_cursor().map(ToOwned::to_owned),
                     reason: frame.reason,
                     reset_cursor: frame.kind == AccountSubscribeFrameKind::ResyncRequired,
                 });
-                return true;
+                return Ok(true);
             }
             AccountSubscribeFrameKind::Dropped => {
-                if self.merged.is_none() {
-                    self.done = Some(AccountSubscribeSnapshotResult::ReconnectAfter {
-                        reconnect_after_ms: clamp_reconnect_after_ms(frame.reconnect_after_ms()),
-                        reason: frame.reason,
-                        reset_cursor: false,
-                    });
-                }
-                return true;
+                self.done = Some(AccountSubscribeSnapshotResult::ReconnectAfter {
+                    reconnect_after_ms: clamp_reconnect_after_ms(frame.reconnect_after_ms()),
+                    reconnect_cursor: self.trace.reconnect_cursor().map(ToOwned::to_owned),
+                    reason: frame.reason,
+                    reset_cursor: false,
+                });
+                return Ok(true);
             }
-            AccountSubscribeFrameKind::CatchupComplete => return true,
+            AccountSubscribeFrameKind::CatchupComplete => return Ok(true),
             _ => {}
         }
         if let Some(delta) = SyncOutcome::from_account_subscribe_frame(frame) {
@@ -98,17 +110,18 @@ impl AccountSubscribeFolder {
                 }
             });
         }
-        false
+        Ok(false)
     }
 
-    pub fn finish(self) -> Result<AccountSubscribeSnapshotResult> {
+    pub fn finish(mut self) -> Result<AccountSubscribeSnapshotResult> {
+        self.trace.finish()?;
         if let Some(done) = self.done {
             return Ok(done);
         }
         match self.merged {
             Some(mut response) => {
-                if let Some(cursor) = self.latest_cursor {
-                    response.cursor = cursor;
+                if let Some(cursor) = self.trace.reconnect_cursor() {
+                    response.cursor = cursor.to_owned();
                 }
                 Ok(AccountSubscribeSnapshotResult::Delta(Box::new(response)))
             }
@@ -116,6 +129,10 @@ impl AccountSubscribeFolder {
                 "account subscribe stream ended before a delta frame".to_owned(),
             )),
         }
+    }
+
+    pub fn reconnect_cursor(&self) -> Option<&str> {
+        self.trace.reconnect_cursor()
     }
 }
 
@@ -187,6 +204,20 @@ fn merge_realm_delta_value(current: &mut Value, incoming: Value) {
 mod tests {
     use super::*;
 
+    fn request(catchup: bool, after: Option<&str>) -> SyncRequestBody {
+        SyncRequestBody {
+            after: after.map(ToOwned::to_owned),
+            catchup: Some(catchup),
+            filter: None,
+            subscriptions: None,
+            wait_for: None,
+        }
+    }
+
+    fn frame(json: Value) -> AccountSubscribeFrame {
+        serde_json::from_value(json).unwrap()
+    }
+
     #[test]
     fn reconnect_delay_is_bounded() {
         assert_eq!(
@@ -198,5 +229,91 @@ mod tests {
             clamp_reconnect_after_ms(None),
             DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS
         );
+    }
+
+    #[test]
+    fn folder_requires_request_context_and_valid_completion_order() {
+        let mut folder = AccountSubscribeFolder::for_request(&request(true, None));
+        let error = folder
+            .push(frame(serde_json::json!({
+                "kind": "catchup_complete",
+                "cursor": "ak:cursor:complete",
+            })))
+            .unwrap_err();
+        assert!(
+            matches!(error, Error::Protocol(message) if message.contains("catchup_complete_before_delta"))
+        );
+    }
+
+    #[test]
+    fn folder_advances_only_through_validated_cursor_frames() {
+        let mut folder =
+            AccountSubscribeFolder::for_request(&request(true, Some("ak:cursor:saved")));
+        assert!(
+            !folder
+                .push(frame(serde_json::json!({
+                    "kind": "heartbeat",
+                    "cursor": "ak:cursor:ignored",
+                })))
+                .unwrap()
+        );
+        assert_eq!(folder.reconnect_cursor(), Some("ak:cursor:saved"));
+        assert!(
+            !folder
+                .push(frame(serde_json::json!({
+                    "kind": "delta",
+                    "cursor": "ak:cursor:delta",
+                    "partial": false,
+                })))
+                .unwrap()
+        );
+        assert!(
+            folder
+                .push(frame(serde_json::json!({
+                    "kind": "catchup_complete",
+                    "cursor": "ak:cursor:complete",
+                })))
+                .unwrap()
+        );
+
+        let AccountSubscribeSnapshotResult::Delta(outcome) = folder.finish().unwrap() else {
+            panic!("expected folded delta");
+        };
+        assert_eq!(outcome.cursor, "ak:cursor:complete");
+    }
+
+    #[test]
+    fn folder_rejects_cursorless_dropped() {
+        let mut folder = AccountSubscribeFolder::for_request(&request(false, None));
+        let error = folder
+            .push(frame(serde_json::json!({"kind": "dropped"})))
+            .unwrap_err();
+        assert!(
+            matches!(error, Error::Protocol(message) if message.contains("dropped_missing_cursor"))
+        );
+    }
+
+    #[test]
+    fn folder_surfaces_dropped_reconnect_cursor() {
+        let mut folder = AccountSubscribeFolder::for_request(&request(false, None));
+        assert!(
+            folder
+                .push(frame(serde_json::json!({
+                    "kind": "dropped",
+                    "cursor": "ak:cursor:drop",
+                    "reconnect_after_ms": 1000,
+                })))
+                .unwrap()
+        );
+        let AccountSubscribeSnapshotResult::ReconnectAfter {
+            reconnect_cursor,
+            reset_cursor,
+            ..
+        } = folder.finish().unwrap()
+        else {
+            panic!("expected reconnect result");
+        };
+        assert_eq!(reconnect_cursor.as_deref(), Some("ak:cursor:drop"));
+        assert!(!reset_cursor);
     }
 }

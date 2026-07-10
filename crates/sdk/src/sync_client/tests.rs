@@ -69,6 +69,19 @@ fn sync_loop_recovers_after_failure() {
 }
 
 #[test]
+fn sync_loop_rejects_empty_cursor_without_advancing_position() {
+    let mut transport = |_request: SyncRequestBody| Ok(sync_response(""));
+    let mut sync_loop = SyncLoop::new();
+
+    assert!(matches!(
+        sync_loop.step(&mut transport),
+        SyncLoopStep::Retry { error, .. }
+            if error.contains("requires a non-empty cursor")
+    ));
+    assert!(sync_loop.token().is_none());
+}
+
+#[test]
 fn sync_loop_exposes_to_device_loss_recovery_actions() {
     let mut transport = |_request: SyncRequestBody| {
         let mut response = sync_response("loss1");

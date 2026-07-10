@@ -6,7 +6,7 @@ use arkret_core::{
     DocumentMorphProjectionOutcome, Error, Event, EventsQueryOutcome, EventsSubmitBatchRequestBody,
     EventsSubmitOutcome, EventsSubscribeFrame, GrantList, ProjectionSpaceList,
     ProjectionStrandList, RealmOrganizationRelationshipList, Result, ServiceDescribe,
-    SyncBackfillOutcome, ViewProjectionRequestBody,
+    StreamTraceValidator, SyncBackfillOutcome, ViewProjectionRequestBody,
 };
 use arkret_state::SnapshotManifest;
 use reqwest::{Method, Response};
@@ -20,9 +20,7 @@ pub struct EventsSubscribeOptions {
     pub realms: Vec<String>,
     pub actors: Vec<String>,
     pub after: Option<String>,
-    pub include_history: Option<bool>,
-    pub max_duration_ms: Option<u64>,
-    pub heartbeat_ms: Option<u64>,
+    pub catchup: Option<bool>,
 }
 
 impl EventsSubscribeOptions {
@@ -50,20 +48,8 @@ impl EventsSubscribeOptions {
     }
 
     #[must_use]
-    pub fn include_history(mut self, include_history: bool) -> Self {
-        self.include_history = Some(include_history);
-        self
-    }
-
-    #[must_use]
-    pub fn max_duration_ms(mut self, max_duration_ms: u64) -> Self {
-        self.max_duration_ms = Some(max_duration_ms);
-        self
-    }
-
-    #[must_use]
-    pub fn heartbeat_ms(mut self, heartbeat_ms: u64) -> Self {
-        self.heartbeat_ms = Some(heartbeat_ms);
+    pub fn catchup(mut self, catchup: bool) -> Self {
+        self.catchup = Some(catchup);
         self
     }
 }
@@ -78,13 +64,40 @@ type BoxEventsSubscribeFrameStream =
 
 pub struct EventsSubscribeFrameStream {
     inner: BoxEventsSubscribeFrameStream,
+    trace: StreamTraceValidator,
+    failed: bool,
 }
 
 impl EventsSubscribeFrameStream {
     pub async fn next_frame(&mut self) -> Result<Option<EventsSubscribeFrame>> {
         use futures_util::StreamExt;
 
-        self.inner.next().await.transpose()
+        if self.failed {
+            return Err(Error::Protocol(
+                "events subscribe stream was already rejected".to_owned(),
+            ));
+        }
+        let frame = match self.inner.next().await {
+            Some(Ok(frame)) => frame,
+            Some(Err(error)) => {
+                self.failed = true;
+                return Err(error);
+            }
+            None => {
+                self.trace.finish()?;
+                return Ok(None);
+            }
+        };
+        self.trace.push(&frame)?;
+        Ok(Some(frame))
+    }
+
+    pub fn reconnect_cursor(&self) -> Option<&str> {
+        self.trace.reconnect_cursor()
+    }
+
+    pub const fn is_terminal(&self) -> bool {
+        self.trace.is_terminal()
     }
 }
 
@@ -104,19 +117,7 @@ impl Client {
     /// `application/x-ndjson` (was `text/event-stream`). The client sends an
     /// `Accept: application/x-ndjson` header so old SSE-only servers reject
     /// up front instead of streaming a shape we cannot parse.
-    pub async fn events_subscribe_stream(
-        &self,
-        realm_id: &str,
-        after: Option<&str>,
-    ) -> Result<Response> {
-        let mut options = EventsSubscribeOptions::new().realm(realm_id);
-        if let Some(after) = after {
-            options = options.after(after);
-        }
-        self.events_subscribe_stream_with_options(&options).await
-    }
-
-    pub async fn events_subscribe_stream_with_options(
+    async fn events_subscribe_stream_with_options(
         &self,
         options: &EventsSubscribeOptions,
     ) -> Result<Response> {
@@ -156,6 +157,11 @@ impl Client {
         });
         Ok(EventsSubscribeFrameStream {
             inner: Box::pin(stream),
+            trace: StreamTraceValidator::new(
+                options.catchup.unwrap_or(false),
+                options.after.clone(),
+            ),
+            failed: false,
         })
     }
 
@@ -190,6 +196,11 @@ impl Client {
         }
         Ok(EventsSubscribeFrameStream {
             inner: Box::pin(futures_util::stream::iter(frames)),
+            trace: StreamTraceValidator::new(
+                options.catchup.unwrap_or(false),
+                options.after.clone(),
+            ),
+            failed: false,
         })
     }
 
@@ -217,14 +228,8 @@ impl Client {
         if let Some(after) = options.after.as_deref() {
             builder = builder.query(&[("after", after)]);
         }
-        if let Some(include_history) = options.include_history {
-            builder = builder.query(&[("include_history", include_history)]);
-        }
-        if let Some(max_duration_ms) = options.max_duration_ms {
-            builder = builder.query(&[("max_duration_ms", max_duration_ms)]);
-        }
-        if let Some(heartbeat_ms) = options.heartbeat_ms {
-            builder = builder.query(&[("heartbeat_ms", heartbeat_ms)]);
+        if let Some(catchup) = options.catchup {
+            builder = builder.query(&[("catchup", catchup)]);
         }
         crate::client_internals::validate_request_builder(&builder)?;
         Ok(builder)
@@ -499,9 +504,7 @@ mod tests {
             .realm("ak:realm:01904100-0000-7000-8000-000000000001")
             .actor("did:webvh:z6mkfixture:alice.example")
             .after("ak:cursor:stored")
-            .include_history(true)
-            .max_duration_ms(150)
-            .heartbeat_ms(100);
+            .catchup(true);
 
         let built = client()
             .events_subscribe_request(&options)
@@ -522,9 +525,8 @@ mod tests {
             query.contains("after=ak%3Acursor%3Astored"),
             "query: {query}"
         );
-        assert!(query.contains("include_history=true"), "query: {query}");
-        assert!(query.contains("max_duration_ms=150"), "query: {query}");
-        assert!(query.contains("heartbeat_ms=100"), "query: {query}");
+        assert!(query.contains("catchup=true"), "query: {query}");
+        assert!(!query.contains("include_history"), "query: {query}");
     }
 
     #[test]
@@ -580,8 +582,8 @@ mod tests {
     #[tokio::test]
     async fn events_subscribe_frames_yields_one_frame_per_line() {
         let parts = vec![
-            "{\"kind\":\"heartbeat\"}\n",
-            "{\"kind\":\"catchup_",
+            "{\"cursor\":\"ak:cursor:event-1\",\"kind\":\"event\",\"payload\":{}}\n",
+            "{\"cursor\":\"ak:cursor:event-1\",\"kind\":\"catchup_",
             "complete\"}\n",
         ];
         let mut stream = spawn_chunked_ndjson_server(parts)
@@ -589,9 +591,7 @@ mod tests {
             .events_subscribe_frames(
                 &EventsSubscribeOptions::new()
                     .realm("ak:realm:01904100-0000-7000-8000-000000000001")
-                    .include_history(true)
-                    .max_duration_ms(150)
-                    .heartbeat_ms(100),
+                    .catchup(true),
             )
             .await
             .expect("stream init");
@@ -602,10 +602,8 @@ mod tests {
         }
 
         assert_eq!(got.len(), 2, "expected 2 frames, got {got:?}");
-        assert_eq!(
-            got[0].kind,
-            arkret_core::EventsSubscribeFrameKind::Heartbeat
-        );
+        assert_eq!(got[0].kind, arkret_core::EventsSubscribeFrameKind::Event);
         assert!(got[1].is_catchup_complete());
+        assert_eq!(stream.reconnect_cursor(), Some("ak:cursor:event-1"));
     }
 }
