@@ -145,12 +145,12 @@ pub use arkret_server as server;
 pub use arkret_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use arkret_signatures::Ed25519MoveSigner;
-pub use arkret_state::{self as state_runtime, snapshot, state, state as state_res, *};
 // Shared `did:webvh` inception builder + organization statement signer, surfaced
 // at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
 // reach one implementation: `arkret_sdk::webvh::prepare_inception`,
 // `arkret_sdk::realm_organization_statement_sign`.
 pub use arkret_signatures::{realm_organization, realm_organization_statement_sign, webvh};
+pub use arkret_state::{self as state_runtime, snapshot, state, state as state_res, *};
 
 // Platform-native KeyStore backends. The glob import above already
 // re-exports these symbols, but listing them explicitly keeps them

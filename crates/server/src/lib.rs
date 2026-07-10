@@ -32,7 +32,6 @@ use arkret_core::{
     SyncBackfillOutcome, SyncDescription, SyncOutcome, SyncRequestBody,
 };
 pub use arkret_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
-use arkret_state::SnapshotManifest;
 // Shared protocol/product wire contracts now live in `arkret-core`; re-export
 // them under stable `*_api` aliases for server-side consumers.
 pub use arkret_core::{
@@ -40,6 +39,7 @@ pub use arkret_core::{
     ops as ops_api, push as push_gateway_api,
 };
 pub use arkret_signatures as signatures;
+use arkret_state::SnapshotManifest;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 

@@ -223,6 +223,7 @@ impl AppletService {
 
 #[cfg(feature = "salvo")]
 mod salvo_router {
+    use arkret_core::{ERROR_CODE_DUPLICATE_CONFLICT, ERROR_CODE_INVALID_SIGNATURE, canonical};
     use arkret_signatures::http_signature::{
         SignatureVerificationPolicy, parse_signature_input, public_key_from_bytes,
         verify_signed_http_message,
@@ -237,7 +238,6 @@ mod salvo_router {
 
     use super::*;
     use crate::idempotency::IdempotencyDirection;
-    use arkret_core::{ERROR_CODE_DUPLICATE_CONFLICT, ERROR_CODE_INVALID_SIGNATURE, canonical};
 
     /// Build the Salvo [`Router`] for the six standard Applet endpoints.
     pub fn router(service: AppletService) -> Result<Router> {
@@ -658,13 +658,14 @@ mod tests {
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::time::Duration;
 
-    use super::*;
-    use crate::idempotency::IdempotencyDirection;
     use arkret_core::{AppletPingOutcome, Did};
     use arkret_signatures::{
         DidVerificationMethodResolver, StaticDidVerificationMethodResolver,
         VerificationMethodDocument,
     };
+
+    use super::*;
+    use crate::idempotency::IdempotencyDirection;
 
     struct StubHandler {
         resolver: StaticDidVerificationMethodResolver,
