@@ -193,8 +193,8 @@ fn operation_kind_registry_accepts_only_canonical_kinds() {
     assert_eq!(canonical.canonical_kind, OP_MESSAGE_CREATE);
 
     assert!(registry.canonicalize("message_create").is_err());
-    assert!(registry.canonicalize("cx.task.move").is_err());
-    assert!(registry.canonicalize("cx.relation.move").is_err());
+    assert!(registry.canonicalize("ak.task.move").is_err());
+    assert!(registry.canonicalize("ak.relation.move").is_err());
     assert!(registry.kinds().count() >= BUILT_IN_OPERATION_KINDS.len());
 }
 
@@ -202,13 +202,13 @@ fn operation_kind_registry_accepts_only_canonical_kinds() {
 fn operation_kind_registry_rejects_removed_strand_alias_kinds() {
     let registry = OperationKindRegistry::default();
     for kind in [
-        "cx.subject.create",
-        "cx.subject.update",
-        "cx.subject.archive",
-        "cx.subject.restore",
-        "cx.subject.link_surface",
-        "cx.subject.unlink_surface",
-        "cx.subject.set_primary_surface",
+        "ak.subject.create",
+        "ak.subject.update",
+        "ak.subject.archive",
+        "ak.subject.restore",
+        "ak.subject.link_surface",
+        "ak.subject.unlink_surface",
+        "ak.subject.set_primary_surface",
     ] {
         assert!(
             registry.canonicalize(kind).is_err(),
