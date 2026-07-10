@@ -515,6 +515,10 @@ pub struct RealmKeySharePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_recipient_id: Option<String>,
     pub sender_device_id: String,
+    /// Accepted policy/grant/source authorization event reference covering this
+    /// delivery at the Event CBA basis. The receiver verifies it before
+    /// installing any history secret material.
+    pub source_authorization_ref: String,
     pub sender_device_signature: Value,
     pub key_scope: RealmKeyScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -531,7 +535,8 @@ pub struct RealmKeySharePayload {
 impl RealmKeySharePayload {
     /// Canonical bytes the sender device MUST sign and place in
     /// `sender_device_signature` (device-lifecycle.md §13). Covers
-    /// `sender_device_id`, recipient principal/device, `key_scope`,
+    /// `sender_device_id`, source authorization ref, recipient principal/device,
+    /// `key_scope`,
     /// `ciphertext` / `encrypted_key_ref`, `aad_digest` and `created_at` —
     /// everything except the signature field itself. Signer and verifier MUST
     /// reconstruct it byte-identically; the to-device receiver verifies this
@@ -541,6 +546,7 @@ impl RealmKeySharePayload {
             "purpose": "ak.realm_key.share.sender_device_signature.v1",
             "share_class": self.share_class,
             "sender_device_id": self.sender_device_id,
+            "source_authorization_ref": self.source_authorization_ref,
             "recipient_principal_id": self.recipient_principal_id,
             "recipient_device_id": self.recipient_device_id,
             "recipient_verification_method": self.recipient_verification_method,

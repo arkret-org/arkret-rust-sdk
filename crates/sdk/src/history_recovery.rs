@@ -31,7 +31,7 @@ use serde_json::Value;
 
 use crate::secret_share::seal_history_secret_to_device_pubkey;
 use crate::{
-    Did, HistoryVisibilityValue, RealmKeyScope, RealmKeyShareClass, RealmKeySharePayload,
+    Did, EventId, HistoryVisibilityValue, RealmKeyScope, RealmKeyShareClass, RealmKeySharePayload,
     RealmRecoveryRecipient, Result,
 };
 
@@ -284,6 +284,7 @@ pub fn seal_history_secrets_to_recovery_recipient(
     realm_id: &str,
     key_scope: RealmKeyScope,
     sender_device_id: impl Into<String>,
+    source_authorization_ref: impl Into<String>,
     sender_device_signature: Value,
     created_at: DateTime<Utc>,
     expires_at: Option<DateTime<Utc>>,
@@ -310,6 +311,11 @@ pub fn seal_history_secrets_to_recovery_recipient(
     let ciphertext =
         seal_history_secret_to_device_pubkey(&recovery_key.hpke_public_key, history_secrets)?;
 
+    let source_authorization_ref = source_authorization_ref.into();
+    EventId::new(source_authorization_ref.clone()).map_err(|err| {
+        crate::Error::Protocol(format!("invalid source_authorization_ref: {err}"))
+    })?;
+
     Ok(RealmKeySharePayload {
         // The RRK is offline and not a member device; the durable share is
         // addressed by verification_method + recovery_recipient_id, never a
@@ -320,6 +326,7 @@ pub fn seal_history_secrets_to_recovery_recipient(
         recipient_verification_method: Some(recovery_key.verification_method.clone()),
         recovery_recipient_id: Some(recovery_key.recipient_id.clone()),
         sender_device_id: sender_device_id.into(),
+        source_authorization_ref,
         sender_device_signature,
         key_scope,
         ciphertext: Some(ciphertext),
@@ -533,6 +540,7 @@ mod tests {
             realm_id,
             scope,
             "ak:device:01904100-0000-7000-8000-00000000ae01",
+            "ak:event:01904100-0000-7000-8000-00000000ae02",
             serde_json::json!("base64url-sender-sig"),
             Utc::now(),
             None,
@@ -573,6 +581,7 @@ mod tests {
             realm_id,
             scope,
             "ak:device:01904100-0000-7000-8000-00000000ae01",
+            "ak:event:01904100-0000-7000-8000-00000000ae02",
             serde_json::json!("sig"),
             Utc::now(),
             None,

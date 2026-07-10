@@ -304,16 +304,16 @@ pub fn author_leaf_from_key_package_bytes(
         .map_err(mls_error)?;
     let leaf = key_package.leaf_node();
     let leaf_credential = leaf.credential();
-    let credential =
-        if leaf_credential.credential_type() == openmls::prelude::CredentialType::Basic {
-            super::AuthorLeafCredential::Basic {
-                identity: leaf_credential.serialized_content().to_vec(),
-            }
-        } else {
-            super::AuthorLeafCredential::Other {
-                credential_type: format!("{:?}", leaf_credential.credential_type()),
-            }
-        };
+    let credential = if leaf_credential.credential_type() == openmls::prelude::CredentialType::Basic
+    {
+        super::AuthorLeafCredential::Basic {
+            identity: leaf_credential.serialized_content().to_vec(),
+        }
+    } else {
+        super::AuthorLeafCredential::Other {
+            credential_type: format!("{:?}", leaf_credential.credential_type()),
+        }
+    };
     Ok(super::AuthorLeaf {
         leaf_index,
         credential,
