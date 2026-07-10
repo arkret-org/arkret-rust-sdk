@@ -1156,6 +1156,11 @@ fn validate_spec_selector_object(object: &serde_json::Map<String, Value>) -> Res
     if encoded.len() > SELECTOR_JSON_MAX_BYTES {
         return Err(Error::Protocol("selector_too_complex".to_owned()));
     }
+    if object.contains_key("schema_id") {
+        return Err(Error::Protocol(
+            "resource selector forbids legacy 'schema_id'; use 'schema_ref'".to_owned(),
+        ));
+    }
     let unknown_fields = object
         .keys()
         .filter(|key| !RESOURCE_SELECTOR_KNOWN_FIELDS.contains(&key.as_str()))
@@ -1341,6 +1346,46 @@ mod spec_selector_tests {
         }))
         .unwrap_err();
         assert!(format!("{err}").contains("selector_governance_wildcard_forbidden"));
+    }
+
+    #[test]
+    fn schema_selector_rejects_legacy_schema_id_field() {
+        let realm_id = "ak:realm:01904100-0000-7000-8000-65c7feb295d7";
+        for spec in [
+            json!({
+                "kind": "schema",
+                "realm_id": realm_id,
+                "schema_id": "ak.schema.strand.v1"
+            }),
+            json!({
+                "kind": "schema",
+                "realm_id": realm_id,
+                "schema_ref": "ak.schema.strand.v1",
+                "schema_id": "ak.schema.strand.v1"
+            }),
+        ] {
+            let err = ResourceSelector::from_spec_value(&spec).unwrap_err();
+            assert!(format!("{err}").contains("forbids legacy 'schema_id'"));
+        }
+    }
+
+    #[test]
+    fn schema_selector_serializes_only_canonical_schema_ref() {
+        let spec = json!({
+            "kind": "schema",
+            "realm_id": "ak:realm:01904100-0000-7000-8000-65c7feb295d7",
+            "schema_ref": "ak.schema.strand.v1"
+        });
+        let selector = ResourceSelector::from_spec_value(&spec).unwrap();
+        let serialized = selector.to_spec_value();
+        assert_eq!(serialized, spec);
+        assert!(serialized.get("schema_id").is_none());
+    }
+
+    #[test]
+    fn shorthand_rejects_schema_id_token() {
+        let err = ResourceSelector::parse("schema_id:ak.schema.strand.v1").unwrap_err();
+        assert!(format!("{err}").contains("unknown selector type"));
     }
 
     #[test]
