@@ -20,6 +20,7 @@ use crate::{BottomKind, CellRef, Error, Result, SealId, canonical};
 
 mod account;
 mod actor_profile;
+mod admin;
 mod agent;
 mod agent_participation;
 mod applet;
@@ -93,6 +94,7 @@ mod wire_model_tests;
 
 pub use account::*;
 pub use actor_profile::*;
+pub use admin::*;
 pub use agent::*;
 pub use agent_participation::*;
 pub use applet::*;
