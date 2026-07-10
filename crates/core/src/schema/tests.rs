@@ -488,6 +488,68 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     assert_eq!(decoded, key, "{vector_id}/{label}: decode round-trip drift");
                 }
             }
+            "blake3_digest" => {
+                // ak.vector.encoding.digest.blake3.v1: typed `blake3:<hex>`
+                // digest over the UTF-8 input, plus suite-mismatch rejections.
+                let input = vector
+                    .get("input_utf8")
+                    .and_then(Value::as_str)
+                    .unwrap_or_else(|| panic!("{vector_id}: missing input_utf8"));
+                if let Some(expected_hex) =
+                    vector.get("expected_input_hex").and_then(Value::as_str)
+                {
+                    assert_eq!(
+                        hex::encode(input.as_bytes()),
+                        expected_hex,
+                        "{vector_id}: input bytes drifted"
+                    );
+                }
+                let expected_digest = vector
+                    .get("expected_digest")
+                    .and_then(Value::as_str)
+                    .unwrap_or_else(|| panic!("{vector_id}: missing expected_digest"));
+                assert_eq!(
+                    crate::canonical::blake3_digest(input.as_bytes()),
+                    expected_digest,
+                    "{vector_id}: blake3 digest drifted"
+                );
+                crate::canonical::verify_digest(input.as_bytes(), expected_digest)
+                    .unwrap_or_else(|error| {
+                        panic!("{vector_id}: verify_digest must accept the golden value: {error}")
+                    });
+                for case in vector
+                    .get("negative_cases")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                {
+                    let name = case["name"].as_str().unwrap_or("<unnamed>");
+                    let value = case["value"]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("{vector_id}/{name}: missing value"));
+                    if let Some(realm_suite) =
+                        case.get("realm_digest_algorithm").and_then(Value::as_str)
+                    {
+                        // Suite-policy case: the realm pins a digest suite, so
+                        // any other (or unknown) suite prefix must be treated
+                        // as a mismatch even when the digest bytes themselves
+                        // verify. The driver checks the prefix discipline the
+                        // validators enforce.
+                        assert!(
+                            !value.starts_with(&format!("{realm_suite}:")),
+                            "{vector_id}/{name}: value unexpectedly matches the realm suite"
+                        );
+                    } else {
+                        // Content case: the typed digest itself must fail
+                        // verification (wrong suite for these bytes, or a
+                        // malformed / truncated hex payload).
+                        assert!(
+                            crate::canonical::verify_digest(input.as_bytes(), value).is_err(),
+                            "{vector_id}/{name}: verify_digest must reject {value}"
+                        );
+                    }
+                }
+            }
             other => {
                 panic!("encoding vector {vector_id} has unknown kind {other}; extend this driver")
             }
