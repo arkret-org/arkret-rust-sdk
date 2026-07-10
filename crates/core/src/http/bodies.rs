@@ -437,6 +437,19 @@ pub struct DirectConversationSummary {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ContactAgentProjection {
+    pub agent_principal_id: Did,
+    pub controller_principal_id: Did,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_slug: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct_conversation: Option<DirectConversationSummary>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ContactListRow {
     pub peer: Did,
     pub state: ContactState,
@@ -464,6 +477,12 @@ pub struct ContactListRow {
     pub peer_service_did: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub direct_conversation: Option<DirectConversationSummary>,
+    /// Active agents controlled by this contact that currently accept direct
+    /// messages from the authenticated actor. This is a viewer-specific,
+    /// fail-closed projection; clients must not infer it from public selector
+    /// claims.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agents: Vec<ContactAgentProjection>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
