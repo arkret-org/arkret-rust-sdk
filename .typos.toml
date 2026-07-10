@@ -12,6 +12,8 @@ extend-ignore-re = [
     "\\$[A-Z0-9+][A-Za-z0-9+]{6,}[a-z0-9+]",
     "\\b[a-z0-9+/=][A-Za-z0-9+/=]{7,}[a-z0-9+/=][A-Z]\\b",
     "^[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{8}$",
+    # deliberately fake SCID in identity tests
+    "zNOTtheRealScid",
 ]
 
 [default.extend-identifiers]
@@ -38,6 +40,15 @@ arkret = "arkret"
 openid = "openid"
 ratelimit = "ratelimit"
 webp = "webp"
+# accepted variant spelling
+unparseable = "unparseable"
+# hyphenated prefix: mis-labelled, mis-read, mis-authorize
+mis = "mis"
+# Unicode-normalization tests around "café"
+caf = "caf"
+Caf = "Caf"
+# constant-time / digest test literal b"abd"
+abd = "abd"
 
 [files]
 extend-exclude = [
