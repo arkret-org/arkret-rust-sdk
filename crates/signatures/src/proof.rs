@@ -230,7 +230,7 @@ pub fn verify_eddsa_detached_jws_proof(
 /// signature is computed directly over `message` bytes. It is the verification
 /// half used by the cross-signing chain check
 /// (`arkret_crypto::verify_device_cross_signing_chain`), where the message is a
-/// `ak-cross-signing-bind-v1` / `ak-device-trust-bind-v1` canonical input and
+/// `ak.cross-signing-bind-v1` / `ak.device-trust-bind-v1` canonical input and
 /// the signature is base64url(-no-pad).
 ///
 /// Uses `ed25519-dalek` `verify_strict` (rejects malleable / non-canonical

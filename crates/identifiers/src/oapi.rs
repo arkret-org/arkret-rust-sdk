@@ -247,7 +247,7 @@ impl_string_schema!(MoveId, r"^sha256:[0-9a-f]{64}$");
 impl_string_schema!(SealId, r"^ak:seal:sha256:[0-9a-f]{64}$");
 impl_string_schema!(
     CellRef,
-    r"^ak:cell:ak\.component\.[a-z0-9_]+(?:\.[a-z0-9_]+)*\.v[0-9]+:[A-Za-z0-9._~=-]*(?::[A-Za-z0-9._~=-]+)*$"
+    r"^ak:cell:ak\.component\.[a-z0-9_]+(?:\.[a-z0-9_]+)*\.v[0-9]+:(?:[A-Za-z0-9._~=-]|%[0-9A-Fa-f]{2})*(?::(?:[A-Za-z0-9._~=-]|%[0-9A-Fa-f]{2})+)*$"
 );
 impl_string_schema!(
     TypedAppealId,

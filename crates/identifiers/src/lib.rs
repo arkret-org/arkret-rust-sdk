@@ -249,12 +249,34 @@ pub fn is_cell_ref(value: &str) -> bool {
         return true;
     }
 
-    subject.split(':').all(|segment| {
-        !segment.is_empty()
-            && segment.bytes().all(|byte| {
-                byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'~' | b'=' | b'-')
-            })
-    })
+    subject.split(':').all(is_cell_subject_segment)
+}
+
+fn is_cell_subject_segment(segment: &str) -> bool {
+    if segment.is_empty() {
+        return false;
+    }
+
+    let bytes = segment.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if byte == b'%' {
+            if index + 2 >= bytes.len()
+                || !bytes[index + 1].is_ascii_hexdigit()
+                || !bytes[index + 2].is_ascii_hexdigit()
+            {
+                return false;
+            }
+            index += 3;
+            continue;
+        }
+        if !byte.is_ascii_alphanumeric() && !matches!(byte, b'.' | b'_' | b'~' | b'=' | b'-') {
+            return false;
+        }
+        index += 1;
+    }
+    true
 }
 
 /// Validate the `ak:trust_domain:<scope>` wire form. Scope MUST be lowercase
@@ -699,9 +721,15 @@ mod tests {
     fn cell_ref_requires_complete_cell_family_identifier() {
         assert!(CellRef::new("ak:cell:ak.component.strand.position.v1:board:strand").is_ok());
         assert!(CellRef::new("ak:cell:ak.component.realm.join_rule.v1:").is_ok());
+        assert!(CellRef::new(
+            "ak:cell:ak.component.member.state.v1:did:webvh:z6mkfixture:127.0.0.1%3A22816:webvh:alice"
+        )
+        .is_ok());
+        assert!(CellRef::new("ak:cell:ak.component.member.state.v1:did:web:host%3").is_err());
+        assert!(CellRef::new("ak:cell:ak.component.member.state.v1:did:web:host%XZ").is_err());
         assert!(CellRef::new("ak:cell:component.strand.position.v1:board:strand").is_err());
         assert!(CellRef::new("ak:cell:message:019640ed-8000-7000-8000-000000000000").is_err());
-        assert!(CellRef::new("ak:cell:ak.component.strand.position.v1:board:strand").is_err());
+        assert!(CellRef::new("ak:cell:ak.component.strand.position.v1:board:").is_err());
         assert!(CellRef::new("ak:cell:ak.component.Strand.position.v1:board:strand").is_err());
         assert!(CellRef::new("ak:cell:ak.component.strand.position:board:strand").is_err());
     }
