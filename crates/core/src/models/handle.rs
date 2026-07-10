@@ -151,7 +151,7 @@ pub(crate) fn is_valid_localpart(s: &str) -> bool {
     })
 }
 
-/// CKP R3 spec-sync (2026-05-27) — wire-level handle normalize check.
+/// AKP R3 spec-sync (2026-05-27) — wire-level handle normalize check.
 ///
 /// Performs the operations that a registrar / claim reducer MUST run
 /// before accepting a candidate localpart:

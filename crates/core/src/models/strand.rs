@@ -51,7 +51,7 @@ pub struct Strand {
     pub id: StrandId,
     pub schema: String,
     pub realm_id: RealmId,
-    /// CKP-0007 (spec b7d35be) — optional Circle scope binding. When set, all
+    /// AKP-0007 (spec b7d35be) — optional Circle scope binding. When set, all
     /// Strand tracks share the referenced Circle's MLS group, membership and
     /// history visibility; when unset the Strand lives in the Realm-default
     /// scope. Rebinding `scope_circle_id` is forbidden by default (reducer

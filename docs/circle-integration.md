@@ -1,4 +1,4 @@
-# Circle integration guide (CKP-0007)
+# Circle integration guide (AKP-0007)
 
 > Spec baseline: `arkret-spec` 2b0d70d (`zh/models/circle.md`,
 > `artifacts/schemas/circle.schema.json`).
@@ -108,7 +108,7 @@ See `zh/models/circle.md` §7.2 for the canonical semantics.
 
 ## Capability surface
 
-CKP-0007 adds 6 capability action constants:
+AKP-0007 adds 6 capability action constants:
 
 | Constant                                | Action wire string             | Notes                                                    |
 |-----------------------------------------|--------------------------------|----------------------------------------------------------|

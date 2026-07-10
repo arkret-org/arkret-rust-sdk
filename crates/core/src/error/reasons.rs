@@ -257,7 +257,7 @@ pub const KNOWN_REASON_CODES_AUTHZ_GOVERNANCE: &[&str] = &[
     REASON_DELIVERY_BINDING_INVALID,
 ];
 
-// ── CKP-0007 (spec b7d35be) — Circle primitive reason codes.
+// ── AKP-0007 (spec b7d35be) — Circle primitive reason codes.
 //
 // `failed_precondition` / `schema_violation` sub-codes for the Circle
 // invariants in zh/models/circle.md. Spec `error-code-registry.json`
@@ -319,11 +319,11 @@ pub const REASON_METADATA_ENCRYPTION_FLOOR_DOWNGRADE: &str = "metadata_encryptio
 pub const REASON_HISTORY_VISIBILITY_REQUIRES_HISTORY_CAPABLE_SCHEME: &str =
     "history_visibility_requires_history_capable_scheme";
 
-/// CKP-0007 (spec b7d35be) — Circle reason codes registered under the
+/// AKP-0007 (spec b7d35be) — Circle reason codes registered under the
 /// `failed_precondition` / `schema_violation` wire-code families. The
-/// 6th CKP-0007 code is the top-level
+/// 6th AKP-0007 code is the top-level
 /// [`ERROR_CODE_DELIVERY_BINDING_HANDED_OVER`] already registered in
-/// round 4 (CKP-0006).
+/// round 4 (AKP-0006).
 pub const KNOWN_REASON_CODES_CKP_0007: &[&str] = &[
     REASON_CIRCLE_REALM_MISMATCH,
     REASON_CIRCLE_NOT_ACTIVE,

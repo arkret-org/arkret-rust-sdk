@@ -1,4 +1,4 @@
-//! Circle primitive (CKP-0007, spec b7d35be..2b0d70d).
+//! Circle primitive (AKP-0007, spec b7d35be..2b0d70d).
 //!
 //! A `Circle` is an intra-Realm scoped event/message boundary. It hosts
 //! its own membership (which MUST be a strict subset of the parent
@@ -143,7 +143,7 @@ pub struct CircleDisplay {
     pub symbol: CircleSymbol,
 }
 
-/// Canonical Circle object — `ak.schema.circle.v1` (CKP-0007).
+/// Canonical Circle object — `ak.schema.circle.v1` (AKP-0007).
 ///
 /// Field order/shape mirrors `spec/v1/artifacts/schemas/circle.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -373,7 +373,7 @@ pub struct CircleLifecycleRequestBody {
 /// | [`CircleState`] | `active`, `archived`, `tombstoned`    | `tombstoned`   |
 /// | [`ObjectState`] | `active`, `archived`, `redacted`      | `redacted`     |
 ///
-/// * `CircleState::Tombstoned` is the Circle-container terminal state (CKP-0007 §3.5): the Circle
+/// * `CircleState::Tombstoned` is the Circle-container terminal state (AKP-0007 §3.5): the Circle
 ///   directory entry remains, but its MLS group is sealed and no further writes (or member changes)
 ///   are accepted.
 /// * `ObjectState::Redacted` is the object-payload terminal state (round C47, spec e10b6ad): the
@@ -393,7 +393,7 @@ pub enum CircleState {
     Tombstoned,
 }
 
-/// Per-actor Circle membership state. Mirrors CKP-0007 §3.6
+/// Per-actor Circle membership state. Mirrors AKP-0007 §3.6
 /// `ak.circle.member.state` `membership` enum.
 ///
 /// The transition table is encoded in [`validate_member_transition`];
@@ -425,7 +425,7 @@ impl CircleMemberState {
 
 /// Reducer-pure validator: returns `Ok(())` iff `prev → next` is a legal
 /// `ak.circle.member.state` transition under the parent Circle's
-/// [`CircleJoinRule`] (CKP-0007 §3.6).
+/// [`CircleJoinRule`] (AKP-0007 §3.6).
 ///
 /// `prev = None` denotes the `none` pseudo-state — an actor who has never
 /// had a Circle membership row. The full transition table:
@@ -474,7 +474,7 @@ pub fn validate_member_transition(
         return Err(CircleScopeError::IllegalMemberTransition {
             from: Some(Join),
             to: next,
-            reason: "join -> invite regression not in CKP-0007 §9.1 transition table",
+            reason: "join -> invite regression not in AKP-0007 §9.1 transition table",
         });
     }
     // Self-loops are not transitions.
@@ -512,13 +512,13 @@ pub fn validate_member_transition(
     Err(CircleScopeError::IllegalMemberTransition {
         from: prev,
         to: next,
-        reason: "transition not present in CKP-0007 §3.6 table",
+        reason: "transition not present in AKP-0007 §3.6 table",
     })
 }
 
 /// Reducer-pure validator: a Strand / Space / Morph object's
 /// `scope_circle_id` MUST NOT change between two sequential states
-/// (`prev`, `next`). CKP-0007 §3.4 — default profile rejects all scope
+/// (`prev`, `next`). AKP-0007 §3.4 — default profile rejects all scope
 /// rebinds with `failed_precondition` reason
 /// [`crate::error::REASON_SCOPE_REBIND_FORBIDDEN`].
 ///
@@ -566,7 +566,7 @@ fn history_visibility_rank(v: &HistoryVisibility) -> Option<u8> {
 }
 
 /// Reducer-pure helper: a Circle's effective history visibility is the
-/// stricter of `(realm_floor, circle_setting)` (CKP-0007 §3.4). Returns
+/// stricter of `(realm_floor, circle_setting)` (AKP-0007 §3.4). Returns
 /// `Err` when either input is `Restricted` (which lives off the linear
 /// floor lattice).
 ///
@@ -600,7 +600,7 @@ fn metadata_floor_rank(floor: EncryptionFloor) -> u8 {
 
 /// Reducer-pure validator: a Circle MAY only tighten its parent Realm's
 /// `metadata_encryption_floor` floor, never loosen it
-/// (CKP-0007 §3.4.1). Returns `Ok(())` when
+/// (AKP-0007 §3.4.1). Returns `Ok(())` when
 /// `rank(circle_floor) >= rank(realm_floor)`; otherwise
 /// [`CircleScopeError::MetadataEncryptionFloorViolation`] (wire reason
 /// [`crate::error::REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION`]).
@@ -688,7 +688,7 @@ pub fn validate_content_encryption_floor(
 }
 
 /// Reducer-pure predicate for `Space.child_scope_policy` enforcement
-/// (CKP-0007 §3.4.2).
+/// (AKP-0007 §3.4.2).
 ///
 /// * `AllowAny` — accepts any scope.
 /// * `RequireE2ee` — child MUST live in an MLS-backed scope: a Circle scope, or the Realm-default
@@ -769,24 +769,24 @@ pub fn enforce_child_scope_policy_with_circle_profile(
 }
 
 /// Error returned by [`Circle::assert_members_strict_subset`] and the
-/// CKP-0007 reducer-pure validators in this module.
+/// AKP-0007 reducer-pure validators in this module.
 #[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum CircleScopeError {
     #[error(
         "circle member {circle_member} is not an active parent-Realm member \
-         (reducer reason=circle_member_must_be_realm_member, CKP-0007)"
+         (reducer reason=circle_member_must_be_realm_member, AKP-0007)"
     )]
     MemberNotInRealm { circle_member: Did },
     #[error(
         "circle membership is not a strict subset of realm membership \
-         (reducer reason=circle_member_must_be_realm_member, CKP-0007)"
+         (reducer reason=circle_member_must_be_realm_member, AKP-0007)"
     )]
     NotStrictSubset,
     /// `ak.circle.member.state` transition rejected by the
-    /// [CKP-0007 §3.6 table][validate_member_transition].
+    /// [AKP-0007 §3.6 table][validate_member_transition].
     #[error(
         "illegal ak.circle.member.state transition {from:?} → {to:?}: {reason} \
-         (CKP-0007 §3.6)"
+         (AKP-0007 §3.6)"
     )]
     IllegalMemberTransition {
         from: Option<CircleMemberState>,
@@ -797,17 +797,17 @@ pub enum CircleScopeError {
     /// Wire reason: [`crate::error::REASON_SCOPE_REBIND_FORBIDDEN`].
     #[error(
         "reason=scope_rebind_forbidden: scope_circle_id rebind from {from:?} to \
-         {to:?} forbidden (CKP-0007 §3.4)"
+         {to:?} forbidden (AKP-0007 §3.4)"
     )]
     ScopeRebindForbidden {
         from: Option<CircleId>,
         to: Option<CircleId>,
     },
     /// `Restricted` history visibility cannot participate in the linear
-    /// floor lattice (CKP-0007 §3.4).
+    /// floor lattice (AKP-0007 §3.4).
     #[error(
         "history_visibility=restricted is not on the linear floor lattice \
-         (side={side}, CKP-0007 §3.4)"
+         (side={side}, AKP-0007 §3.4)"
     )]
     RestrictedNotInLinearFloor { side: &'static str },
     /// Circle's `metadata_encryption_floor` is laxer than the parent
@@ -815,7 +815,7 @@ pub enum CircleScopeError {
     /// [`crate::error::REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION`].
     #[error(
         "reason=metadata_encryption_floor_violation: circle_floor={circle_floor:?} is \
-         laxer than realm_floor={realm_floor:?} (CKP-0007 §3.4.1)"
+         laxer than realm_floor={realm_floor:?} (AKP-0007 §3.4.1)"
     )]
     MetadataEncryptionFloorViolation {
         realm_floor: EncryptionFloor,
@@ -852,7 +852,7 @@ pub enum CircleScopeError {
     #[error("reason=content_encryption_floor_violation: content write is not MLS-backed")]
     ContentEncryptionFloorViolation,
     /// `Space.child_scope_policy` rejected the child's scope.
-    #[error("child_scope_policy={policy_kind} violated: {detail} (CKP-0007 §3.4.2)")]
+    #[error("child_scope_policy={policy_kind} violated: {detail} (AKP-0007 §3.4.2)")]
     ChildScopePolicyViolated {
         policy_kind: &'static str,
         detail: &'static str,
@@ -911,7 +911,7 @@ impl Circle {
     }
 
     /// Validate that `circle_members` is a strict subset of
-    /// `realm_members` (CKP-0007 invariant: every Circle member MUST be
+    /// `realm_members` (AKP-0007 invariant: every Circle member MUST be
     /// an active parent-Realm member; reducer reason
     /// `circle_member_must_be_realm_member`).
     ///

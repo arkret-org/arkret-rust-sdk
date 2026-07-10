@@ -11,12 +11,12 @@ pub const AGENT_KEY_ROTATE: &str = "ak.agent.key.rotate";
 pub const AGENT_KEY_AUTHORIZED: &str = AGENT_KEY_AUTHORIZE;
 pub const AGENT_KEY_REVOKED: &str = AGENT_KEY_REVOKE;
 pub const AGENT_KEY_ROTATED: &str = AGENT_KEY_ROTATE;
-// CKP-0008 / CKP-0009 (spec head 37ce729) — personal-agent lifecycle event
+// AKP-0008 / AKP-0009 (spec head 37ce729) — personal-agent lifecycle event
 // kinds (durable, reducer-input).
 pub const AGENT_PAUSE: &str = "ak.self.agent.pause";
 pub const AGENT_RESUME: &str = "ak.self.agent.resume";
 pub const AGENT_DEACTIVATE: &str = "ak.self.agent.deactivate";
-// CKP-0008 / CKP-0009 — agent action / draft event kinds (actor_private).
+// AKP-0008 / AKP-0009 — agent action / draft event kinds (actor_private).
 pub const AGENT_DRAFT_PROPOSE: &str = "ak.agent.draft.propose";
 pub const AGENT_ACTION_REQUEST: &str = "ak.agent.action_request";
 pub const AGENT_ACTION_APPROVE: &str = "ak.agent.action_approve";
@@ -52,7 +52,7 @@ pub const CAPABILITY_DELEGATE: &str = "ak.capability.delegate";
 pub const CAPABILITY_DERIVED: &str = "ak.capability.derived";
 pub const CAPABILITY_GRANT: &str = "ak.capability.grant";
 pub const CAPABILITY_REVOKE: &str = "ak.capability.revoke";
-// CKP-0007 (spec b7d35be) — Circle primitive event kinds. 7 active kinds
+// AKP-0007 (spec b7d35be) — Circle primitive event kinds. 7 active kinds
 // registered in `event-kind-registry.json` v2026-05-08.
 pub const CIRCLE_CREATE: &str = "ak.circle.create";
 pub const CIRCLE_UPDATE: &str = "ak.circle.update";
@@ -63,7 +63,7 @@ pub const CIRCLE_MEMBER_STATE: &str = "ak.circle.member.state";
 pub const CIRCLE_SEAL_COMMIT: &str = "ak.circle.seal_commit";
 pub const CONSENT_GRANT: &str = "ak.consent.grant";
 pub const CONSENT_REVOKE: &str = "ak.consent.revoke";
-// CKP-0015 contact enhancement — durable, reducer-input contact-request
+// AKP-0015 contact enhancement — durable, reducer-input contact-request
 // lifecycle and the direct-conversation Realm binding it produces.
 pub const CONTACT_ACCEPTED: &str = "ak.contact.accepted";
 pub const CONTACT_REJECTED: &str = "ak.contact.rejected";
@@ -80,7 +80,7 @@ pub const DEVICE_PUSH_ROUTE: &str = "ak.device.push_route";
 pub const DEVICE_REVOKE: &str = "ak.device.revoke";
 pub const DEVICE_REVOKED: &str = DEVICE_REVOKE;
 pub const DID_PROOF: &str = "ak.did.proof";
-// CKP-0015 contact enhancement — direct-conversation Realm binding emitted
+// AKP-0015 contact enhancement — direct-conversation Realm binding emitted
 // when a contact request is accepted (category `contact`).
 pub const DIRECT_CONVERSATION_BOUND: &str = "ak.direct_conversation.bound";
 pub const STRAND_ARCHIVE: &str = "ak.strand.archive";
@@ -525,7 +525,7 @@ pub const NON_REDUCER_EVENT_KINDS: &[&str] = &[
     AUDIT_ERASURE_RECEIPT,
     AUDIT_RYW_RECEIPT,
     CALL_SIGNAL,
-    // CKP-0007: ak.circle.seal_commit is reducer-derived (sub-seal
+    // AKP-0007: ak.circle.seal_commit is reducer-derived (sub-seal
     // commit emitted by the reducer on the Circle's profile cadence);
     // it is NOT a reducer-input event.
     CIRCLE_SEAL_COMMIT,
@@ -592,10 +592,10 @@ pub enum EventClass {
     Audit,
     Authz,
     Call,
-    /// CKP-0007 (spec b7d35be) — Circle lifecycle / membership events.
+    /// AKP-0007 (spec b7d35be) — Circle lifecycle / membership events.
     Circle,
     Consent,
-    /// CKP-0015 contact enhancement — contact-request lifecycle and the
+    /// AKP-0015 contact enhancement — contact-request lifecycle and the
     /// direct-conversation Realm binding it produces.
     Contact,
     Device,

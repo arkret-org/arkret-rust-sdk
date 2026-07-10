@@ -1,11 +1,11 @@
-//! CKP-0010 — Agent participation policy.
+//! AKP-0010 — Agent participation policy.
 //!
 //! Three orthogonal autonomous-behavior bits a native personal agent's
 //! controller may enable in a scope, each capped by a monotone
 //! `deployment ⊇ Realm ⊇ Circle ⊇ Strand` ceiling. The effective
 //! participation in a scope is `effective_ceiling ∩ controller_selection`,
 //! where `effective_ceiling` is the bitwise AND of every enclosing
-//! level's ceiling (CKP-0010 §3–§5).
+//! level's ceiling (AKP-0010 §3–§5).
 //!
 //! Enforcement is not in this module: `reply` / `act_on_behalf`
 //! materialize into ordinary `ak.capability.grant` records, and
@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use crate::{CircleId, RealmId, StrandId};
 
 /// Controller-owned account-data type carrying a per-scope participation
-/// selection (CKP-0010 §5.1).
+/// selection (AKP-0010 §5.1).
 pub const AGENT_PARTICIPATION_ACCOUNT_DATA_TYPE: &str = "ak.agent.participation.v1";
 
 /// The three participation bits. Constructs a partial order under
@@ -38,7 +38,7 @@ pub struct AgentParticipation {
     #[serde(default)]
     pub accept_third_party_mention: bool,
     /// Agent may author `actor_id=controller, executed_by=agent`
-    /// (act-on-behalf), subject to CKP-0008 §4.10 approval constraints.
+    /// (act-on-behalf), subject to AKP-0008 §4.10 approval constraints.
     #[serde(default)]
     pub act_on_behalf: bool,
 }
@@ -140,7 +140,7 @@ pub enum AgentParticipationScope {
 }
 
 impl AgentParticipationScope {
-    /// Canonical account-data scope_key suffix (CKP-0010 §5.1):
+    /// Canonical account-data scope_key suffix (AKP-0010 §5.1):
     /// `realm:<realm_uuid>` / `circle:<realm_uuid>:<circle_uuid>` /
     /// `strand:<realm_uuid>:<strand_uuid>`. The uuid part is the segment
     /// after the last `:` of each typed id.
@@ -208,7 +208,7 @@ pub enum AgentParticipationError {
     },
 }
 
-/// Reducer-pure validator (CKP-0010 §3 invariant 1): an inner scope's
+/// Reducer-pure validator (AKP-0010 §3 invariant 1): an inner scope's
 /// participation ceiling MAY only tighten (drop bits from) its parent
 /// ceiling, never widen it. Returns `Ok(())` iff `child ⊆ parent`.
 pub fn validate_agent_participation_tightens(
@@ -236,7 +236,7 @@ pub fn validate_agent_participation_ceiling_tightens(
 /// Fold a ceiling chain by intersection, seeded with [`AgentParticipation::ALL`].
 /// Because invariant 1 already guarantees monotone tightening, this is
 /// equivalent to taking the innermost explicit value, but folding by AND
-/// is fail-closed against historically non-conforming data (CKP-0010 §4.4).
+/// is fail-closed against historically non-conforming data (AKP-0010 §4.4).
 pub fn fold_ceiling_chain<I>(chain: I) -> AgentParticipation
 where
     I: IntoIterator<Item = AgentParticipation>,
@@ -247,7 +247,7 @@ where
 }
 
 /// Effective participation = effective ceiling ∩ controller selection
-/// (CKP-0010 §2).
+/// (AKP-0010 §2).
 #[must_use]
 pub fn effective_participation(
     ceiling: AgentParticipation,
@@ -257,7 +257,7 @@ pub fn effective_participation(
 }
 
 /// Validate a controller selection against the effective ceiling: every
-/// enabled bit MUST be permitted by the ceiling (CKP-0010 §8.1). Returns
+/// enabled bit MUST be permitted by the ceiling (AKP-0010 §8.1). Returns
 /// `Ok(())` iff `selection ⊆ ceiling`.
 pub fn validate_selection_within_ceiling(
     ceiling: AgentParticipation,

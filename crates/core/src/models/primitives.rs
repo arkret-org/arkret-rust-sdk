@@ -184,13 +184,13 @@ pub enum RelationKind {
     AttachedTo,
     HasDefaultView,
     Watches,
-    /// CKP-0007 (spec b7d35be) — couples a "wide synthesis" Strand (often
+    /// AKP-0007 (spec b7d35be) — couples a "wide synthesis" Strand (often
     /// Realm-default scope) to a "narrow discussion" Strand bound to a
     /// `scope_circle_id` Circle. The discussion side carries the confidential
     /// conversation; the synthesis side stays in the Realm scope. See
     /// zh/models/circle.md §7.2.
     ConfidentialDiscussionOf,
-    /// CKP-0008 / CKP-0009 (spec head 37ce729) — links a sidecar Circle to
+    /// AKP-0008 / AKP-0009 (spec head 37ce729) — links a sidecar Circle to
     /// its (controller, native agent) actor pair. Weak-semantic,
     /// non-structural, non-cascading: reducers and federation invariants
     /// MUST NOT drive lifecycle cascade through this relation.

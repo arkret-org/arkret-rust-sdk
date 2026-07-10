@@ -302,7 +302,7 @@ id_type!(Did, is_did);
 // payloads. Pure-uuid kinds use `uuid_id_type!` so they persist as native
 // `uuid` columns (bare) while keeping the `ak:<kind>:<uuid>` wire form.
 uuid_id_type!(ActorProfileId, "ak:actor_profile:");
-// CKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
+// AKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
 // `agent_principal_id` is a DID scalar, represented by `Did`.
 uuid_id_type!(AgentInteropSessionId, "ak:agent_interop_session:");
 // Audit release-session + attestation typed ids (id-kind-registry kinds
@@ -327,7 +327,7 @@ uuid_id_type!(BlockId, "ak:block:");
 uuid_id_type!(CallId, "ak:call:");
 uuid_id_type!(CapabilityId, "ak:capability:");
 uuid_id_type!(ChunkId, "ak:chunk:");
-// CKP-0007 (2026-05-08) — Circle id-kind. Intra-Realm cryptographic
+// AKP-0007 (2026-05-08) — Circle id-kind. Intra-Realm cryptographic
 // sub-boundary; see spec artifacts/registry/id-kind-registry.json and
 // zh/models/circle.md.
 uuid_id_type!(CircleId, "ak:circle:");

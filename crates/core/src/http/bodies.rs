@@ -1043,7 +1043,7 @@ pub struct SessionGrantRequestProof {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     pub signature: String,
-    // `ak.profile.agent_auth.v1` overlay (CKP-0008 §4.6): the agent runtime
+    // `ak.profile.agent_auth.v1` overlay (AKP-0008 §4.6): the agent runtime
     // key the proof is signed with. Required at runtime when
     // `proof_kind == agent_key_proof`; the server enforces presence and binds
     // it to the active `ak.agent.key.authorize`. Absent for human proof kinds.
@@ -1092,7 +1092,7 @@ pub struct SessionGrantOutcome {
     pub audience: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub granted_scope: Vec<String>,
-    /// `ak.profile.agent_auth.v1` overlay (CKP-0008 §4.6). Materialized narrow
+    /// `ak.profile.agent_auth.v1` overlay (AKP-0008 §4.6). Materialized narrow
     /// scope granted to the agent runtime session. Service-surface scope is
     /// intersected separately from content capability grants. Present iff the
     /// request was the `agent_key_proof` branch; `None` (absent) for human
@@ -1116,7 +1116,7 @@ pub struct SessionGrantScopeDetails {
     pub strand_ids: Vec<StrandId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub track_names: Vec<String>,
-    /// `ak.profile.agent_participation_policy.v1` overlay (CKP-0016). Each entry
+    /// `ak.profile.agent_participation_policy.v1` overlay (AKP-0016). Each entry
     /// is isomorphic to `agent_participation_entry`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub participation: Vec<AgentParticipationEntry>,

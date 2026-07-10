@@ -610,7 +610,7 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "ak.schema.ephemeral_envelope.v1",
     "ak.schema.moderation_appeal.v1",
     "ak.schema.attestation_evidence.v1",
-    // CKP-0007 (spec b7d35be) — Circle primitive schema.
+    // AKP-0007 (spec b7d35be) — Circle primitive schema.
     "ak.schema.circle.v1",
     // Key-backup hardening (B-C, spec head 37ce729) — recovery policy and
     // recovery receipt schemas.
@@ -731,7 +731,7 @@ pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
     // Spec-sync (id-kind-registry.json) — typed id kinds the registry ships
     // that the SDK had not yet declared. audit_* back the audit release session
     // model; recovery_session/backup_series back key-backup recovery;
-    // rtc_participant backs realtime call participants; circle backs CKP-0007.
+    // rtc_participant backs realtime call participants; circle backs AKP-0007.
     "audit_binding",
     "audit_release",
     "audit_session",

@@ -19,7 +19,7 @@ use crate::{Did, Result};
 /// (`moderation.md` §4.1).
 pub const ACCOUNT_DATA_BLOCKLIST: &str = "ak.account.blocklist";
 
-/// CKP R3 spec-sync (2026-05-27) — wire payload for `ak.account_data.set`.
+/// AKP R3 spec-sync (2026-05-27) — wire payload for `ak.account_data.set`.
 /// Mirrors the spec event payload `account-data-set.schema.json` shape:
 /// owner/key/body/encrypted_content/body_digest/tombstone/updated_at/
 /// expected_state_digest.
@@ -48,7 +48,7 @@ pub struct AccountDataSetPayload {
     pub expected_state_digest: Option<String>,
 }
 
-/// CKP R3 spec-sync (2026-05-27) — `ak.account.blocklist` payload shape.
+/// AKP R3 spec-sync (2026-05-27) — `ak.account.blocklist` payload shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountBlocklistPayload {
     pub owner: Did,

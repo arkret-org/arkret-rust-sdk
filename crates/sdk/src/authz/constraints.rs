@@ -243,7 +243,7 @@ pub enum Constraint {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         denied_view_renderers: Vec<String>,
     },
-    /// CKP-0007 (spec b7d35be) — narrow a Circle-management capability
+    /// AKP-0007 (spec b7d35be) — narrow a Circle-management capability
     /// (`ak.circle.manage`, `ak.circle.member.manage`,
     /// `ak.circle.member.add.others`, `ak.circle.audit`) to a specific set
     /// of Circle ids. Spec `capability-action-registry.json` declares

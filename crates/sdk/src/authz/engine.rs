@@ -84,7 +84,7 @@ pub struct AuthzContext {
     /// Whether the destination container would exceed its WIP limit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wip_over_limit: Option<bool>,
-    /// CKP-0007 — Circle id when the operation targets a Circle-management
+    /// AKP-0007 — Circle id when the operation targets a Circle-management
     /// capability (`ak.circle.manage`, `ak.circle.member.manage`,
     /// `ak.circle.member.add.others`, `ak.circle.audit`). Used by
     /// [`Constraint::AllowedCircleIds`] to membership-test against the
@@ -1189,7 +1189,7 @@ impl AuthzEngine {
                 }
                 EngineDecision::Allow
             }
-            // CKP-0007: gate Circle-management actions on a static
+            // AKP-0007: gate Circle-management actions on a static
             // allow-list of Circle ids baked into the grant body. The
             // caller MUST set `ctx.circle_id` to the operation's target
             // Circle for Circle-scoped actions (`ak.circle.manage`,

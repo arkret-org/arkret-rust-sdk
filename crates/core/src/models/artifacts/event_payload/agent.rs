@@ -614,7 +614,7 @@ pub struct AgentKeyScope {
 /// Counterpart for the `runtime_attestation.kind` enum in
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_authorize_payload`.
 /// v1 registers only `self_asserted`; unknown kinds fail closed at decode
-/// (CKP-0008 §4.5).
+/// (AKP-0008 §4.5).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentKeyRuntimeAttestationKind {

@@ -1,4 +1,4 @@
-//! R3.3 (CKP-0011, arkret-spec @ cced4b8) — client-agnostic shareable object
+//! R3.3 (AKP-0011, arkret-spec @ cced4b8) — client-agnostic shareable object
 //! addressing grammar + invite-token target binding.
 //!
 //! A shareable address points at a Realm, a Strand inside a Realm, or a Message

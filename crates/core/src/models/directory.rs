@@ -251,7 +251,7 @@ pub struct DirectoryRealmResolutionOutcome {
     pub join_candidates: Vec<RealmJoinCandidate>,
 }
 
-/// R3.3 (CKP-0011, arkret-spec @ cced4b8) — the resolved object class of a
+/// R3.3 (AKP-0011, arkret-spec @ cced4b8) — the resolved object class of a
 /// shareable address. The address grammar (`crate::models::object_address`)
 /// fixes the hierarchy `realm` ⊃ `strand` ⊃ `m` (message).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -263,7 +263,7 @@ pub enum TargetKind {
     Message,
 }
 
-/// R3.3 (CKP-0011) — request body for `ak.find.directory.query.resolve_target`.
+/// R3.3 (AKP-0011) — request body for `ak.find.directory.query.resolve_target`.
 ///
 /// `address` is a client-agnostic shareable object address in either the
 /// `web+arkret:` URI form or the HTTPS-landing fragment form (see
@@ -286,7 +286,7 @@ pub struct DirectoryResolveTargetRequestBody {
     pub token: Option<String>,
 }
 
-/// R3.3 (CKP-0011) — response body for `ak.find.directory.query.resolve_target`.
+/// R3.3 (AKP-0011) — response body for `ak.find.directory.query.resolve_target`.
 ///
 /// Common §9.1 directory fields (`as_of`, `source_refs`, `join_candidates`,
 /// `policy_revision`, `stale`, `divergent`) mirror the other directory

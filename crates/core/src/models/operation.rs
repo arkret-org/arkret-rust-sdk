@@ -1179,7 +1179,7 @@ pub struct CapabilityGrant {
     pub not_before: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
-    // ak.profile.personal_agent_provisioning.v1 flag (CKP-0008 §4.3.2). When true, the
+    // ak.profile.personal_agent_provisioning.v1 flag (AKP-0008 §4.3.2). When true, the
     // grant is durable but inactive: the capability evaluator MUST fail closed until the
     // agent principal has an accepted ak.agent.key.authorize, after which the reducer
     // clears the flag. See capability-grant.schema.json and key-management.md §3.6.1.

@@ -42,7 +42,7 @@ pub const GRANT_CONSTRAINT_SCHEMA: &str = "ak.schema.grant_constraint.v1";
 pub const DEVICE_MESSAGE_SCHEMA: &str = "ak.schema.device_message.v1";
 pub const KEY_BACKUP_SCHEMA: &str = "ak.schema.key_backup.v1";
 pub const MORPH_SCHEMA: &str = "ak.schema.morph.v1";
-/// CKP-0007 (2026-05-08) — Circle object schema id. See spec
+/// AKP-0007 (2026-05-08) — Circle object schema id. See spec
 /// `artifacts/schemas/circle.schema.json`.
 pub const CIRCLE_SCHEMA_ID: &str = "ak.schema.circle.v1";
 pub const MORPH_CUSTOMER_RISK_SCHEMA: &str = "ak.schema.morph.customer_risk.v1";
@@ -77,7 +77,7 @@ pub const OP_STRAND_MOVE: &str = "ak.strand.move";
 pub const OP_STRAND_REORDER: &str = "ak.strand.reorder";
 pub const OP_STRAND_STAGE_SET: &str = "ak.strand.stage.set";
 
-/// CKP-0007 (spec b7d35be) — Circle event kinds. The 7th kind
+/// AKP-0007 (spec b7d35be) — Circle event kinds. The 7th kind
 /// (`ak.circle.seal_commit`) is reducer-derived and MUST NOT be
 /// submitted by clients; it is exported for receiver-side dispatch only.
 pub const OP_CIRCLE_CREATE: &str = "ak.circle.create";
@@ -88,7 +88,7 @@ pub const OP_CIRCLE_TOMBSTONE: &str = "ak.circle.tombstone";
 pub const OP_CIRCLE_MEMBER_STATE: &str = "ak.circle.member.state";
 pub const OP_CIRCLE_SEAL_COMMIT: &str = "ak.circle.seal_commit";
 
-/// CKP-0007 (spec b7d35be) — Circle capability action ids. Spec
+/// AKP-0007 (spec b7d35be) — Circle capability action ids. Spec
 /// `capability-action-registry.json`. `ak.circle.manage`,
 /// `ak.circle.member.manage`, `ak.circle.member.add.others`, and
 /// `ak.circle.audit` declare `required_constraints=["allowed_circle_ids"]`;
@@ -100,7 +100,7 @@ pub const CAP_ACTION_CIRCLE_MEMBER_MANAGE: &str = "ak.circle.member.manage";
 pub const CAP_ACTION_CIRCLE_MEMBER_ADD_OTHERS: &str = "ak.circle.member.add.others";
 pub const CAP_ACTION_CIRCLE_AUDIT: &str = "ak.circle.audit";
 
-/// CKP-0007 capability action list (6 actions). Useful for downstream
+/// AKP-0007 capability action list (6 actions). Useful for downstream
 /// services that want to iterate the Circle-management surface.
 pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_CIRCLE_CREATE,
@@ -111,7 +111,7 @@ pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_CIRCLE_AUDIT,
 ];
 
-/// CKP-0008 / CKP-0009 (spec head 37ce729) — personal-agent capability actions
+/// AKP-0008 / AKP-0009 (spec head 37ce729) — personal-agent capability actions
 /// registered in `capability-action-registry.json`. 14 actions: 8 lifecycle /
 /// runtime actions on the agent itself, plus 3 sidecar-thread actions, plus
 /// 3 aggregate actions that fan out to `target_event_kinds` (publish / write /
@@ -130,7 +130,7 @@ pub const CAP_ACTION_AGENT_SIDECAR_THREAD_ENSURE: &str =
 pub const CAP_ACTION_AGENT_SIDECAR_THREAD_WRITE: &str = "ak.agent.sidecar_thread.write";
 pub const CAP_ACTION_AGENT_SIDECAR_THREAD_PUBLISH: &str = "ak.agent.sidecar_thread.publish";
 
-/// CKP-0008 / CKP-0009 — full capability-action list (11 base + 3 aggregate
+/// AKP-0008 / AKP-0009 — full capability-action list (11 base + 3 aggregate
 /// = 14 entries per `capability-action-registry.json`).
 pub const AGENT_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_AGENT_PROVISION,
@@ -177,7 +177,7 @@ pub fn agent_capability_target_event_kinds(action: &str) -> &'static [&'static s
     }
 }
 
-/// CKP-0008 / CKP-0009 — personal-agent operation IDs (registered in
+/// AKP-0008 / AKP-0009 — personal-agent operation IDs (registered in
 /// `operation-registry.json`). Used by the RPC dispatch layer; reducer-input
 /// agent lifecycle events are registered separately under `AGENT_*`
 /// event-kind constants above.
@@ -195,7 +195,7 @@ pub const OP_AGENT_GRANT_ATTACH: &str = "ak.self.agent.grant.command.attach";
 pub const OP_AGENT_GRANT_DETACH: &str = "ak.self.agent.grant.resource.delete";
 pub const OP_AGENT_SIDECAR_THREAD_ENSURE: &str = "ak.self.agent.sidecar_thread.command.ensure";
 
-/// CKP-0008 / CKP-0009 — controller-private account-data types. Reducer
+/// AKP-0008 / AKP-0009 — controller-private account-data types. Reducer
 /// MUST reject writes from non-controller actors.
 pub const ACCOUNT_DATA_TYPE_AGENT_DRAFT: &str = "ak.agent.draft.v1";
 pub const ACCOUNT_DATA_TYPE_AGENT_SIDECAR_PROJECTION: &str = "ak.agent.sidecar_projection.v1";
@@ -214,9 +214,9 @@ pub const ACCOUNT_DATA_TYPE_CONTACTS_REALM: &str = "ak.contacts.realm";
 pub const RECOVERY_POLICY_SCHEMA: &str = "ak.schema.recovery_policy.v1";
 pub const RECOVERY_RECEIPT_SCHEMA: &str = "ak.schema.recovery_receipt.v1";
 
-/// CKP-0008 / CKP-0009 — agent sidecar thread profile id.
+/// AKP-0008 / AKP-0009 — agent sidecar thread profile id.
 ///
-/// Per CKP-0009, the sidecar home is derived from `context_ref.realm_id`.
+/// Per AKP-0009, the sidecar home is derived from `context_ref.realm_id`.
 /// The profile label remains `context_realm_preferred` for registry
 /// compatibility, but v1 ensure requests carry a required context Realm and
 /// do not fall back to the controller's home Realm.
@@ -566,7 +566,7 @@ pub const OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT: &str =
     "ak.find.directory.query.list_handles_for_subject";
 pub const OP_DIRECTORY_RESOLVE_ORGANIZATION: &str = "ak.find.directory.query.resolve_organization";
 pub const OP_DIRECTORY_RESOLVE_REALM: &str = "ak.find.directory.query.resolve_realm";
-/// R3.3 (CKP-0011, arkret-spec @ cced4b8) — resolve a client-agnostic
+/// R3.3 (AKP-0011, arkret-spec @ cced4b8) — resolve a client-agnostic
 /// shareable object address (Realm / Strand / Message) to a preview. Pure ADD;
 /// `resolve_realm` is retained and NOT deprecated.
 pub const OP_DIRECTORY_RESOLVE_TARGET: &str = "ak.find.directory.query.resolve_target";
@@ -722,7 +722,7 @@ pub const CAP_ACTION_MODERATION_APPEAL_REVIEW: &str = "ak.moderation.appeal.revi
 /// `capability-action-registry.json` declares `required_constraints=[allowed_morph_types]`.
 pub const CAP_ACTION_MORPH_CREATE: &str = "ak.morph.create";
 
-/// CKP-0010 (R3 spec-sync 2026-05-27, arkret-spec b47ff6ec) — call /
+/// AKP-0010 (R3 spec-sync 2026-05-27, arkret-spec b47ff6ec) — call /
 /// media capability actions registered in
 /// `capability-action-registry.json`. These actions gate the join,
 /// screen-share, recording, transcription, moderation, and signal-send
@@ -738,7 +738,7 @@ pub const CAP_ACTION_CALL_MODERATE: &str = "ak.call.moderate";
 /// `capability-action-registry.json`.
 pub const CAP_CALL_SIGNAL_SEND: &str = "ak.call.signal.send";
 
-/// CKP-0010 — full call/media capability-action list.
+/// AKP-0010 — full call/media capability-action list.
 pub const CALL_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_CALL_JOIN,
     CAP_ACTION_CALL_SCREEN_SHARE,
@@ -748,18 +748,18 @@ pub const CALL_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_CALL_SIGNAL_SEND,
 ];
 
-/// CKP-0010 — `ak.self.call.media.exchange.issue_token` operation id. HTTP route:
+/// AKP-0010 — `ak.self.call.media.exchange.issue_token` operation id. HTTP route:
 /// `POST /rtc/token`. Surface tier `core_personal`. Registered in
 /// `operation-registry.json` v2026-05-27.
 pub const OP_CALL_MEDIA_TOKEN_EXCHANGE: &str = "ak.self.call.media.exchange.issue_token";
 
-/// CKP-0010 — schema id for the participant_binding signing envelope.
+/// AKP-0010 — schema id for the participant_binding signing envelope.
 pub const PARTICIPANT_BINDING_SCHEMA: &str = "ak.media.participant_binding.v1";
 
-/// CKP-0010 — maximum TTL bound for media tokens (600 seconds). Tokens
+/// AKP-0010 — maximum TTL bound for media tokens (600 seconds). Tokens
 /// MUST be rejected when `expires_at - now > 600s`. SHOULD floor: 300s.
 pub const MEDIA_TOKEN_TTL_MAX_SECS: u64 = 600;
-/// CKP-0010 — SHOULD-bound (recommended) TTL for media tokens.
+/// AKP-0010 — SHOULD-bound (recommended) TTL for media tokens.
 pub const MEDIA_TOKEN_TTL_SHOULD_SECS: u64 = 300;
 
 /// MLS exporter label for the per-call recording artifact key
@@ -771,7 +771,7 @@ pub const EXPORTER_LABEL_RTC_RECORDING_KEY: &str = "ak.rtc-recording-key/v1";
 /// transcription pipeline.
 pub const EXPORTER_LABEL_RTC_TRANSCRIPT_KEY: &str = "ak.rtc-transcript-key/v1";
 
-/// CKP-0008 / CKP-0009 (R3 spec-sync 2026-05-27) — agent_runtime
+/// AKP-0008 / AKP-0009 (R3 spec-sync 2026-05-27) — agent_runtime
 /// surface tier: list of operations that live under the
 /// `ak.profile.agent_runtime.v1` server-profile surface.
 pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[

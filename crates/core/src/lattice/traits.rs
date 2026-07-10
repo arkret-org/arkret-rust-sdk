@@ -88,7 +88,7 @@ impl LatticeKind {
             ],
             Self::Fsm => &[
                 "ak.member.state",
-                // CKP-0008 / CKP-0009 (R3 spec-sync 2026-05-27) — personal-agent
+                // AKP-0008 / AKP-0009 (R3 spec-sync 2026-05-27) — personal-agent
                 // lifecycle is an FSM with bottom=reject; deactivate is terminal.
                 "ak.self.agent.pause",
                 "ak.self.agent.resume",

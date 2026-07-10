@@ -116,7 +116,7 @@ impl Client {
             .await
     }
 
-    /// R3.3 (CKP-0011, arkret-spec @ cced4b8) — `ak.find.directory.query.resolve_target`.
+    /// R3.3 (AKP-0011, arkret-spec @ cced4b8) — `ak.find.directory.query.resolve_target`.
     /// Resolve a client-agnostic shareable object address (Realm / Strand /
     /// Message) to a preview. The `address` and any `token` should be derived
     /// from [`arkret_core::models::parse_address`]; invite and preview tokens

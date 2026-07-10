@@ -127,7 +127,7 @@ pub enum ResourceSelector {
     },
     /// Actor selector (e.g. account-lifecycle, profile updates).
     Actor { actor_id: String },
-    /// CKP-0007 (R3 spec-sync 2026-05-27) — Circle selector. Matches a
+    /// AKP-0007 (R3 spec-sync 2026-05-27) — Circle selector. Matches a
     /// specific Circle by its `ak:circle:<uuid>` identifier. The Circle
     /// is scoped to its parent Realm; cross-Realm selectors MUST be
     /// rejected by the resolver (`circle_realm_mismatch`).
@@ -827,7 +827,7 @@ pub enum ProtocolResourceSelectorKind {
     Notification,
     ReadCursor,
     Blob,
-    /// CKP-0007 (R3 spec-sync 2026-05-27).
+    /// AKP-0007 (R3 spec-sync 2026-05-27).
     Circle,
     /// Spec `resource-selector.schema.json` spells the wildcard kind as
     /// `"*"`, not `"wildcard"`.

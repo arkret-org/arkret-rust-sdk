@@ -77,7 +77,7 @@ pub struct AgentProvisionOutcome {
 
 /// One-time bootstrap material handed to a personal agent runtime after
 /// provisioning. Mirrors `agent-operations.schema.json#/$defs/agent_pairing_bootstrap`
-/// and CKP-0008 §4.4: a short-lived, revocable pairing input only. It is not a
+/// and AKP-0008 §4.4: a short-lived, revocable pairing input only. It is not a
 /// session grant, capability grant or long-term secret, and it deliberately
 /// carries no scope payload (the authoritative ceiling lives in
 /// `ak.agent.key.authorize` and the effective-permission intersection).

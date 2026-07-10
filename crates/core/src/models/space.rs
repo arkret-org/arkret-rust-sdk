@@ -33,18 +33,18 @@ pub struct Space {
     pub state: Option<SpaceState>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_changed_at: Option<DateTime<Utc>>,
-    /// CKP-0007 (spec b7d35be) — optional Circle scope binding on the Space
+    /// AKP-0007 (spec b7d35be) — optional Circle scope binding on the Space
     /// (container). Authorization-transparent: never carries its own
     /// membership/policy/E2EE group; this field places the Space's metadata
     /// inside an existing Circle encryption scope.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_circle_id: Option<CircleId>,
-    /// CKP-0007 — optional default Circle scope for newly created child
+    /// AKP-0007 — optional default Circle scope for newly created child
     /// resources. Creation hint only; reducer enforcement uses
     /// [`ChildScopePolicy`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_scope_circle_id: Option<CircleId>,
-    /// CKP-0007 — reducer-enforced constraint on how child resources may
+    /// AKP-0007 — reducer-enforced constraint on how child resources may
     /// pick their scope.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub child_scope_policy: Option<ChildScopePolicy>,
@@ -59,7 +59,7 @@ pub struct Space {
     pub extra: BTreeMap<String, Value>,
 }
 
-/// CKP-0007 (spec b7d35be) — Space `child_scope_policy` discriminator.
+/// AKP-0007 (spec b7d35be) — Space `child_scope_policy` discriminator.
 ///
 /// Mirrors `spec/v1/artifacts/schemas/space.schema.json` `$defs.child_scope_policy`.
 /// The `require_scope_circle_id` variant carries the required Circle id.

@@ -215,7 +215,7 @@ pub struct Morph {
     pub id: MorphId,
     pub schema: String,
     pub realm_id: RealmId,
-    /// CKP-0007 (spec b7d35be) — optional Circle scope binding. Morphs that
+    /// AKP-0007 (spec b7d35be) — optional Circle scope binding. Morphs that
     /// carry confidential synthesis fields can be bound to a Circle so their
     /// payload is encrypted inside that Circle's MLS group.
     ///

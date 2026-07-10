@@ -894,7 +894,7 @@ pub struct RecoveryPolicyAuthData {
     pub signed_fields: Vec<String>,
 }
 
-/// CKP recovery proof-family enum, aligned to `recovery-policy.schema.json`
+/// AKP recovery proof-family enum, aligned to `recovery-policy.schema.json`
 /// `allowed_proof_kinds[]` and `recovery-receipt.schema.json`
 /// `proof_summary.kind`. Cryptographic proof validation is specified by
 /// device-lifecycle verifier rules and handled outside this discriminator.

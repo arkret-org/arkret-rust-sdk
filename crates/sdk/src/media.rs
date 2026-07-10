@@ -28,7 +28,7 @@ pub const PARTICIPANT_BINDING_LABEL: &str = "ak.media.participant_binding.v1";
 /// Derivation profile for the SDK's deterministic local thumbnail preview.
 pub const THUMBNAIL_DERIVATION_PROFILE: &str = "ak.profile.media.thumbnail_preview.v1";
 
-// ─── CKP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
+// ─── AKP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
 
 /// Backend type for a call's media focus. Wire enum mirrors
 /// `ak.realm.media_service.foci[].type`. Receivers MUST fail closed with

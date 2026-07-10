@@ -1277,7 +1277,7 @@ mod tests {
         );
         let value = serde_json::to_value(bootstrap).unwrap();
 
-        // CKP-0008 §4.4: exactly six fields, no scope payload.
+        // AKP-0008 §4.4: exactly six fields, no scope payload.
         assert_eq!(value["arkret_base_url"], "https://arkret.example");
         assert_eq!(value["pairing_code"], "R7K9-2M4P");
         assert_eq!(
