@@ -184,6 +184,8 @@ pub fn agent_capability_target_event_kinds(action: &str) -> &'static [&'static s
 pub const OP_ACCOUNT_AGENT_KEY_PAIR: &str = "ak.gate.account.command.pair_agent_key";
 pub const OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST: &str =
     "ak.open.agent_pairing.command.submit_runtime_key_request";
+pub const OP_OPEN_AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS: &str =
+    "ak.open.agent_pairing.query.runtime_key_request_status";
 pub const OP_AGENT_PROVISION: &str = "ak.self.agent.command.provision";
 pub const OP_AGENT_LIST: &str = "ak.self.agent.query.list";
 pub const OP_AGENT_GET: &str = "ak.self.agent.resource.get";
@@ -902,6 +904,7 @@ pub const OP_DIRECTORY_TAKEDOWN_APPEAL: &str = "ak.find.directory.command.takedo
 pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_ACCOUNT_AGENT_KEY_PAIR,
     OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST,
+    OP_OPEN_AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS,
     OP_ACCOUNT_DESCRIBE,
     OP_ACCOUNT_DEVICE_PAIR,
     OP_ACCOUNT_DEVICE_ENROLL,

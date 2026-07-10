@@ -627,6 +627,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_arkret/open/agent-pairing/runtime-key-requests"
     ),
     endpoint!(
+        "ak.open.agent_pairing.query.runtime_key_request_status",
+        Post,
+        "/_arkret/open/agent-pairing/runtime-key-requests/status"
+    ),
+    endpoint!(
         "ak.open.invite_locator.query.resolve",
         Post,
         "/_arkret/open/invite-locators/resolve"

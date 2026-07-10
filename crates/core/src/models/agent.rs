@@ -43,6 +43,42 @@ pub struct AgentRuntimeApprovalOutcome {
     pub status: AgentStatus,
 }
 
+/// Runtime-side poll for the controller decision on a previously submitted
+/// runtime key request. The `pairing_request_id` + `pairing_code` +
+/// `agent_principal_id` triple is the query credential; a record miss and a
+/// mismatch are indistinguishable (both not_found). Mirrors
+/// `agent-operations.schema.json#/$defs/agent_runtime_approval_status_request_body`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeApprovalStatusRequestBody {
+    pub pairing_request_id: String,
+    pub pairing_code: String,
+    pub agent_principal_id: Did,
+}
+
+/// Controller-decision status for an agent runtime key pairing request.
+/// Once approved, `authorized_event_ref` plus the authorized key binding
+/// fields are present; the runtime MUST compare
+/// `authorized_public_key_digest` against its own key and treat a mismatch
+/// as paired-by-another-runtime. Mirrors
+/// `agent-operations.schema.json#/$defs/agent_runtime_approval_status_outcome`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeApprovalStatusOutcome {
+    pub ok: bool,
+    pub status: AgentStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_request_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_verification_method: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_public_key_digest: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentProvisionRequestBody {

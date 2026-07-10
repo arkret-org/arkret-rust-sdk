@@ -6,8 +6,10 @@ use arkret_core::{
     AgentList, AgentParticipationOutcome, AgentParticipationReplaceRequestBody,
     AgentPauseRequestBody, AgentProvisionOutcome, AgentProvisionRequestBody,
     AgentResumeRequestBody, AgentRotateKeyOutcome, AgentRotateKeyRequestBody,
-    AgentRuntimeApprovalOutcome, AgentRuntimeApprovalRequestBody, AgentSidecarThreadEnsureOutcome,
-    AgentSidecarThreadEnsureRequestBody, AgentView, Error, GrantId, Result,
+    AgentRuntimeApprovalOutcome, AgentRuntimeApprovalRequestBody,
+    AgentRuntimeApprovalStatusOutcome, AgentRuntimeApprovalStatusRequestBody,
+    AgentSidecarThreadEnsureOutcome, AgentSidecarThreadEnsureRequestBody, AgentView, Error,
+    GrantId, Result,
 };
 use serde_json::Value;
 
@@ -16,6 +18,8 @@ use crate::Client;
 const AGENT_KEY_PAIR_PATH: &str = "/_arkret/gate/account/agent-key-pair";
 const AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH: &str =
     "/_arkret/open/agent-pairing/runtime-key-requests";
+const AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH: &str =
+    "/_arkret/open/agent-pairing/runtime-key-requests/status";
 const AGENTS_PATH: &str = "/_arkret/self/agents";
 const AGENT_SIDECAR_THREAD_ENSURE_PATH: &str = "/_arkret/self/agent-sidecar-threads:ensure";
 
@@ -36,6 +40,16 @@ impl Client {
         request: &AgentRuntimeApprovalRequestBody,
     ) -> Result<AgentRuntimeApprovalOutcome> {
         self.post(AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH, request)
+            .await
+    }
+
+    /// `POST /_arkret/open/agent-pairing/runtime-key-requests/status`
+    /// (`ak.open.agent_pairing.query.runtime_key_request_status`).
+    pub async fn agent_runtime_approval_status(
+        &self,
+        request: &AgentRuntimeApprovalStatusRequestBody,
+    ) -> Result<AgentRuntimeApprovalStatusOutcome> {
+        self.post(AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH, request)
             .await
     }
 

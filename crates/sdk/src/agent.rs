@@ -12,12 +12,14 @@ use crate::{
     AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyAuthorizePayload,
     AgentKeyPairRequestBody, AgentPairingBootstrap, AgentPauseRequestBody,
     AgentProvisionRequestBody, AgentResumeRequestBody, AgentRotateKeyRequestBody,
-    AgentRuntimeApprovalRequestBody, AgentSidecarThreadEnsureRequestBody, CapabilityGrant, Did,
-    Error, Event, GrantId, Hash, Hlc, OP_ACCOUNT_AGENT_KEY_PAIR, OP_AGENT_DEACTIVATE, OP_AGENT_GET,
-    OP_AGENT_GRANT_ATTACH, OP_AGENT_GRANT_DETACH, OP_AGENT_KEY_AUTHORIZE, OP_AGENT_LIST,
-    OP_AGENT_PAUSE, OP_AGENT_PROVISION, OP_AGENT_RESUME, OP_AGENT_ROTATE_KEY,
-    OP_AGENT_SIDECAR_THREAD_ENSURE, OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST, RealmId,
-    Result, SessionGrantDpopBindingProof, SessionGrantProofKind, SessionGrantRequestBody,
+    AgentRuntimeApprovalRequestBody, AgentRuntimeApprovalStatusRequestBody,
+    AgentSidecarThreadEnsureRequestBody, CapabilityGrant, Did, Error, Event, GrantId, Hash, Hlc,
+    OP_ACCOUNT_AGENT_KEY_PAIR, OP_AGENT_DEACTIVATE, OP_AGENT_GET, OP_AGENT_GRANT_ATTACH,
+    OP_AGENT_GRANT_DETACH, OP_AGENT_KEY_AUTHORIZE, OP_AGENT_LIST, OP_AGENT_PAUSE,
+    OP_AGENT_PROVISION, OP_AGENT_RESUME, OP_AGENT_ROTATE_KEY, OP_AGENT_SIDECAR_THREAD_ENSURE,
+    OP_OPEN_AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS,
+    OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST, RealmId, Result,
+    SessionGrantDpopBindingProof, SessionGrantProofKind, SessionGrantRequestBody,
     SessionGrantRequestProof,
 };
 
@@ -235,6 +237,8 @@ impl<B: Serialize> AgentRequestPlan<B> {
 pub const AGENT_KEY_PAIR_PATH: &str = "/_arkret/gate/account/agent-key-pair";
 pub const AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH: &str =
     "/_arkret/open/agent-pairing/runtime-key-requests";
+pub const AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH: &str =
+    "/_arkret/open/agent-pairing/runtime-key-requests/status";
 pub const AGENTS_PATH: &str = "/_arkret/self/agents";
 pub const AGENT_SIDECAR_THREAD_ENSURE_PATH: &str = "/_arkret/self/agent-sidecar-threads:ensure";
 
@@ -575,6 +579,17 @@ pub fn plan_agent_runtime_approval_request(
         OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST,
         AgentHttpMethod::Post,
         AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH,
+        body,
+    )
+}
+
+pub fn plan_agent_runtime_approval_status(
+    body: AgentRuntimeApprovalStatusRequestBody,
+) -> AgentRequestPlan<AgentRuntimeApprovalStatusRequestBody> {
+    AgentRequestPlan::with_body(
+        OP_OPEN_AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS,
+        AgentHttpMethod::Post,
+        AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH,
         body,
     )
 }

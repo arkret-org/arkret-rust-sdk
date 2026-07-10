@@ -243,16 +243,17 @@ pub(crate) fn encode_base58btc(bytes: &[u8]) -> String {
 }
 
 /// Wrap a SHA-256 digest of `canonical_bytes` in a multihash envelope
-/// (`0x12 0x20` = sha2-256 + 32-byte length) and return the
-/// **multibase** `z`-prefixed base58btc string. This is the form
-/// `did:webvh` v1.0 uses for both the SCID and per-entry hashes.
+/// (`0x12 0x20` = sha2-256 + 32-byte length) and return the **bare**
+/// base58btc string — no multibase `z` prefix. This is the form
+/// `did:webvh` v1.0 uses for both the SCID and per-entry hashes
+/// (46-char `Qm…` strings; multibase `z` applies to keys/signatures only).
 pub(crate) fn webvh_multihash_base58(canonical_bytes: &[u8]) -> String {
     let digest = crate::canonical::sha256_bytes(canonical_bytes);
     let mut envelope = Vec::with_capacity(2 + digest.len());
     envelope.push(0x12); // sha2-256 multihash code
     envelope.push(0x20); // 32-byte digest length
     envelope.extend_from_slice(&digest);
-    format!("z{}", encode_base58btc(&envelope))
+    encode_base58btc(&envelope)
 }
 
 pub(super) fn is_supported_did_key_multicodec(bytes: &[u8]) -> bool {

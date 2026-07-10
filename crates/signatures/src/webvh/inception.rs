@@ -5,9 +5,13 @@
 //! profile requires the client to:
 //!
 //! 1. generate the DID's verification keypair and a separate update keypair,
-//! 2. construct the inception webvh log entry with `{SCID}` placeholders,
-//! 3. derive the SCID (sha256-multihash-multibase of the canonical-JCS skeleton),
-//! 4. substitute the SCID and compute `versionId = 1-<entryHash>`,
+//! 2. construct the inception webvh log entry with `{SCID}` placeholders
+//!    (`versionId` is the bare `{SCID}` placeholder, per DIF did:webvh v1.0),
+//! 3. derive the SCID (base58btc sha256-multihash — no multibase prefix — of
+//!    the canonical-JCS skeleton),
+//! 4. substitute the SCID and compute `versionId = 1-<entryHash>`, where the
+//!    entryHash preimage carries `versionId = <SCID>` (the predecessor anchor)
+//!    and no `proof`,
 //! 5. sign the entry (sans `proof`) under `cryptosuite: eddsa-jcs-2022` with the update key —
 //!    soland verifies that signature in `verify_webvh_log_proof`.
 //!
@@ -16,7 +20,7 @@
 //! key so the caller can persist them.
 //!
 //! The algorithm intentionally mirrors soland's helpers byte-for-byte:
-//! `sha256_multihash_multibase`, `strip_webvh_entry_for_hash`,
+//! `sha256_multihash_base58btc`, `strip_webvh_entry_for_hash`,
 //! `substitute_webvh_scid`, and the eddsa-jcs-2022 proof shape are all
 //! re-implemented here, and the test module includes an in-crate copy of
 //! soland's `verify_webvh_log_proof` so any divergence trips CI.
@@ -74,7 +78,7 @@ pub enum WebvhInceptionError {
 #[derive(Clone, zeroize::ZeroizeOnDrop)]
 pub struct PreparedInception {
     /// The minted DID, e.g.
-    /// `did:webvh:zQm...:local.host%3A8080:webvh:01krmccd...`.
+    /// `did:webvh:Qm...:local.host%3A8080:webvh:01krmccd...`.
     #[zeroize(skip)]
     pub did: String,
     /// The DID-method authority (host or `host%3Aport`). Stored so callers
@@ -272,7 +276,7 @@ pub fn prepare_inception<R: RngCore + ?Sized>(
         )
     };
     let entry_skeleton = json!({
-        "versionId": format!("0-{WEBVH_SCID_PLACEHOLDER}"),
+        "versionId": WEBVH_SCID_PLACEHOLDER,
         "versionTime": version_time,
         "parameters": {
             "scid": WEBVH_SCID_PLACEHOLDER,
@@ -282,9 +286,10 @@ pub fn prepare_inception<R: RngCore + ?Sized>(
         "state": document_skeleton,
     });
 
-    let scid = sha256_multihash_multibase(&canonical_bytes(&entry_skeleton)?);
+    let scid = sha256_multihash_base58btc(&canonical_bytes(&entry_skeleton)?);
     let mut log_entry = substitute_scid(&entry_skeleton, &scid);
-    let version_hash = sha256_multihash_multibase(&canonical_bytes(&strip_for_hash(&log_entry))?);
+    let version_hash =
+        sha256_multihash_base58btc(&canonical_bytes(&strip_for_hash(&log_entry, &scid))?);
     let version_id = format!("1-{version_hash}");
     if let Value::Object(map) = &mut log_entry {
         map.insert("versionId".to_owned(), Value::String(version_id.clone()));
@@ -425,7 +430,7 @@ pub fn prepare_supplied_inception(
         )
     };
     let entry_skeleton = json!({
-        "versionId": format!("0-{WEBVH_SCID_PLACEHOLDER}"),
+        "versionId": WEBVH_SCID_PLACEHOLDER,
         "versionTime": input.version_time,
         "parameters": {
             "scid": WEBVH_SCID_PLACEHOLDER,
@@ -434,9 +439,10 @@ pub fn prepare_supplied_inception(
         },
         "state": document_skeleton,
     });
-    let scid = sha256_multihash_multibase(&canonical_bytes(&entry_skeleton)?);
+    let scid = sha256_multihash_base58btc(&canonical_bytes(&entry_skeleton)?);
     let mut log_entry = substitute_scid(&entry_skeleton, &scid);
-    let version_hash = sha256_multihash_multibase(&canonical_bytes(&strip_for_hash(&log_entry))?);
+    let version_hash =
+        sha256_multihash_base58btc(&canonical_bytes(&strip_for_hash(&log_entry, &scid))?);
     let version_id = format!("1-{version_hash}");
     if let Value::Object(map) = &mut log_entry {
         map.insert("versionId".to_owned(), Value::String(version_id.clone()));
@@ -667,11 +673,17 @@ fn decode_webvh_signature(value: &str) -> Result<Signature, String> {
     Ok(Signature::from_bytes(&signature_bytes))
 }
 
-fn strip_for_hash(value: &Value) -> Value {
+/// Build the DIF did:webvh v1.0 entry-hash preimage: drop `proof[]` and set
+/// `versionId` to the predecessor anchor — the SCID for the inception entry,
+/// or the previous entry's `versionId` for subsequent entries.
+fn strip_for_hash(value: &Value, prev_anchor: &str) -> Value {
     let mut clone = value.clone();
     if let Value::Object(map) = &mut clone {
         map.remove("proof");
-        map.remove("versionId");
+        map.insert(
+            "versionId".to_owned(),
+            Value::String(prev_anchor.to_owned()),
+        );
     }
     clone
 }
@@ -684,13 +696,17 @@ fn substitute_scid(value: &Value, scid: &str) -> Value {
         .unwrap_or_else(|_| value.clone())
 }
 
-fn sha256_multihash_multibase(bytes: &[u8]) -> String {
+/// `base58btc(0x12 0x20 || sha256(bytes))` — the sha2-256 multihash, base58btc
+/// encoded WITHOUT a multibase prefix, per DIF did:webvh v1.0 (SCIDs and entry
+/// hashes are 46-char `Qm…` strings; multibase `z` applies to keys/signatures
+/// only).
+fn sha256_multihash_base58btc(bytes: &[u8]) -> String {
     let digest = arkret_core::canonical::sha256_bytes(bytes);
     let mut multihash = Vec::with_capacity(34);
     multihash.push(0x12);
     multihash.push(0x20);
     multihash.extend_from_slice(&digest);
-    format!("z{}", encode_base58btc(&multihash))
+    encode_base58btc(&multihash)
 }
 
 fn encode_ed25519_pubkey_multibase(public_key: &[u8; 32]) -> String {
@@ -865,7 +881,18 @@ mod tests {
         assert_eq!(prepared.method_authority, "local.host%3A8080");
         assert_eq!(prepared.https_authority, "local.host:8080");
         assert_eq!(prepared.local_id, "01krmccd3cehqbtvzg383m3maf");
-        assert!(prepared.version_id.starts_with("1-z"));
+        // DIF did:webvh v1.0: entry hashes are bare base58btc sha256
+        // multihashes — 46 chars, `Qm…`, no multibase `z` prefix.
+        assert!(
+            prepared.version_id.starts_with("1-Qm"),
+            "unexpected versionId: {}",
+            prepared.version_id
+        );
+        let scid = prepared.did.split(':').nth(2).unwrap_or_default();
+        assert!(
+            scid.starts_with("Qm") && scid.len() == 46,
+            "SCID must be a bare 46-char base58btc multihash, got: {scid}"
+        );
     }
 
     #[test]

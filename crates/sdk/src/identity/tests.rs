@@ -42,14 +42,14 @@ fn vector_update_key(signing_key: &SigningKey) -> String {
     binding::multicodec_ed25519_public_key(&signing_key.verifying_key())
 }
 
-/// Multihash/multibase digest of canonical JSON, matching the verifier's
-/// `webvh_multihash_base58`.
+/// Bare base58btc multihash digest of canonical JSON, matching the verifier's
+/// `webvh_multihash_base58` (did:webvh v1.0 — no multibase `z` prefix).
 fn vector_multihash(value: &Value) -> String {
     let bytes = arkret_core::canonical::canonical_json_bytes(value).unwrap();
     let digest = crate::canonical::sha256_bytes(&bytes);
     let mut envelope = vec![0x12u8, 0x20];
     envelope.extend_from_slice(&digest);
-    format!("z{}", encode_base58btc(&envelope))
+    encode_base58btc(&envelope)
 }
 
 /// Derive the SCID from a preliminary first entry (with SCID already blanked
