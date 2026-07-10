@@ -82,6 +82,101 @@ pub struct PushDeviceRoute {
 
 pub type PushRouteToken = String;
 
+/// Canonical v1 wire values for the Realm `mention_routing_hint` policy.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum MentionRoutingHint {
+    /// Do not register, compare, or persist mention-routing sidecars.
+    #[default]
+    Disabled,
+    /// Allow recipient opt-in opaque token matching in an ordinary E2EE Realm.
+    RecipientRegisteredToken,
+}
+
+impl MentionRoutingHint {
+    /// Parse only the closed v1 wire set.
+    pub fn parse_wire(value: &str) -> Option<Self> {
+        match value {
+            "disabled" => Some(Self::Disabled),
+            "recipient_registered_token" => Some(Self::RecipientRegisteredToken),
+            _ => None,
+        }
+    }
+
+    /// Parse a possibly newer policy value without treating it as enabled.
+    pub fn parse_open(value: &str) -> OpenMentionRoutingHint {
+        Self::parse_wire(value).map_or_else(
+            || OpenMentionRoutingHint::Unknown(value.to_owned()),
+            OpenMentionRoutingHint::Known,
+        )
+    }
+
+    /// Return the canonical wire spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Disabled => "disabled",
+            Self::RecipientRegisteredToken => "recipient_registered_token",
+        }
+    }
+}
+
+/// Open parse result used at policy boundaries where unknown values must be
+/// observed and then evaluated fail-closed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OpenMentionRoutingHint {
+    /// A canonical v1 wire value.
+    Known(MentionRoutingHint),
+    /// An unrecognized value that must never enable sidecar processing.
+    Unknown(String),
+}
+
+impl OpenMentionRoutingHint {
+    /// Resolve the parsed value to its safe effective behavior.
+    pub fn fail_closed(self) -> MentionRoutingHint {
+        match self {
+            Self::Known(hint) => hint,
+            Self::Unknown(_) => MentionRoutingHint::Disabled,
+        }
+    }
+}
+
+/// Realm profiles that always disable mention-routing sidecars.
+pub const HARDENED_MENTION_ROUTING_PROFILES: &[&str] = &[
+    PROFILE_MLS_MINIMAL_METADATA_REALM,
+    PROFILE_ATTESTED_AUDIT_E2EE,
+    PROFILE_DISCLOSED_AUDIT_E2EE,
+];
+
+/// Compute the canonical effective mention-routing policy.
+///
+/// Hardened profiles win over every declared value. Other Realms may enable
+/// recipient-registered tokens only when they declare the ordinary E2EE
+/// baseline and explicitly opt in. Missing and unknown values are disabled.
+pub fn effective_mention_routing_hint<S: AsRef<str>>(
+    realm_profiles: &[S],
+    declared_hint: Option<&str>,
+) -> MentionRoutingHint {
+    let has_profile = |profile: &str| {
+        realm_profiles
+            .iter()
+            .any(|candidate| candidate.as_ref() == profile)
+    };
+
+    if HARDENED_MENTION_ROUTING_PROFILES
+        .iter()
+        .any(|profile| has_profile(profile))
+        || !has_profile(PROFILE_E2EE_CLIENT)
+    {
+        return MentionRoutingHint::Disabled;
+    }
+
+    declared_hint
+        .map(MentionRoutingHint::parse_open)
+        .map(OpenMentionRoutingHint::fail_closed)
+        .unwrap_or_default()
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -418,6 +513,96 @@ mod tests {
             reason_code: None,
             audit_envelope: None,
         }
+    }
+
+    #[test]
+    fn mention_routing_hint_uses_only_canonical_wire_values() {
+        for (wire, expected) in [
+            ("disabled", MentionRoutingHint::Disabled),
+            (
+                "recipient_registered_token",
+                MentionRoutingHint::RecipientRegisteredToken,
+            ),
+        ] {
+            assert_eq!(MentionRoutingHint::parse_wire(wire), Some(expected));
+            assert_eq!(expected.as_str(), wire);
+            assert_eq!(serde_json::to_value(expected).unwrap(), json!(wire));
+            assert_eq!(
+                serde_json::from_value::<MentionRoutingHint>(json!(wire)).unwrap(),
+                expected
+            );
+        }
+
+        assert!(MentionRoutingHint::parse_wire("unknown_hint").is_none());
+        assert!(serde_json::from_value::<MentionRoutingHint>(json!("unknown_hint")).is_err());
+    }
+
+    #[test]
+    fn open_mention_routing_hint_parse_preserves_unknown_but_fails_closed() {
+        assert_eq!(
+            MentionRoutingHint::parse_open("recipient_registered_token"),
+            OpenMentionRoutingHint::Known(MentionRoutingHint::RecipientRegisteredToken)
+        );
+        assert_eq!(
+            MentionRoutingHint::parse_open("unknown_hint"),
+            OpenMentionRoutingHint::Unknown("unknown_hint".to_owned())
+        );
+        assert_eq!(
+            MentionRoutingHint::parse_open("unknown_hint").fail_closed(),
+            MentionRoutingHint::Disabled
+        );
+    }
+
+    #[test]
+    fn hardened_profiles_force_mention_routing_disabled() {
+        for hardened_profile in HARDENED_MENTION_ROUTING_PROFILES {
+            assert_eq!(
+                effective_mention_routing_hint(
+                    &[*hardened_profile],
+                    Some("recipient_registered_token")
+                ),
+                MentionRoutingHint::Disabled
+            );
+        }
+
+        assert_eq!(
+            effective_mention_routing_hint(
+                &[
+                    PROFILE_E2EE_CLIENT,
+                    "ak.profile.kanban_mvp.v1",
+                    PROFILE_ATTESTED_AUDIT_E2EE,
+                    PROFILE_MLS_MINIMAL_METADATA_REALM,
+                ],
+                Some("recipient_registered_token")
+            ),
+            MentionRoutingHint::Disabled
+        );
+    }
+
+    #[test]
+    fn ordinary_e2ee_requires_explicit_known_mention_routing_opt_in() {
+        assert_eq!(
+            effective_mention_routing_hint(
+                &[PROFILE_E2EE_CLIENT, "ak.profile.kanban_mvp.v1"],
+                Some("recipient_registered_token")
+            ),
+            MentionRoutingHint::RecipientRegisteredToken
+        );
+        assert_eq!(
+            effective_mention_routing_hint(&[PROFILE_E2EE_CLIENT], None),
+            MentionRoutingHint::Disabled
+        );
+        assert_eq!(
+            effective_mention_routing_hint(&[PROFILE_E2EE_CLIENT], Some("unknown_hint")),
+            MentionRoutingHint::Disabled
+        );
+        assert_eq!(
+            effective_mention_routing_hint(
+                &["ak.profile.kanban_mvp.v1"],
+                Some("recipient_registered_token")
+            ),
+            MentionRoutingHint::Disabled
+        );
     }
 
     #[test]
