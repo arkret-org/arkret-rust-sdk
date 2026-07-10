@@ -495,8 +495,7 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     .get("input_utf8")
                     .and_then(Value::as_str)
                     .unwrap_or_else(|| panic!("{vector_id}: missing input_utf8"));
-                if let Some(expected_hex) =
-                    vector.get("expected_input_hex").and_then(Value::as_str)
+                if let Some(expected_hex) = vector.get("expected_input_hex").and_then(Value::as_str)
                 {
                     assert_eq!(
                         hex::encode(input.as_bytes()),
@@ -513,10 +512,11 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     expected_digest,
                     "{vector_id}: blake3 digest drifted"
                 );
-                crate::canonical::verify_digest(input.as_bytes(), expected_digest)
-                    .unwrap_or_else(|error| {
+                crate::canonical::verify_digest(input.as_bytes(), expected_digest).unwrap_or_else(
+                    |error| {
                         panic!("{vector_id}: verify_digest must accept the golden value: {error}")
-                    });
+                    },
+                );
                 for case in vector
                     .get("negative_cases")
                     .and_then(Value::as_array)
