@@ -6,6 +6,9 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+#[cfg(test)]
+use crate::integration::IntegrationDependencyDescriptor;
+use crate::integration::IntegrationDescribeOutcome;
 use crate::{
     DeviceId, Did, EventId, PushNotifyOutcome, PushNotifyRejection, PushRegisterDeviceRequestBody,
     RealmId,
@@ -479,14 +482,6 @@ pub struct PushBridgeDescribeExamples {
     pub plaintext_visible_service_request: Value,
 }
 
-/// Response body for `GET /_floria/integration/describe` on a push gateway.
-///
-/// Compatibility alias for the generic integration manifest contract.
-pub type PushGatewayIntegrationDescribeOutcome = crate::integration::IntegrationDescribeOutcome;
-
-/// Compatibility alias for a generic integration dependency descriptor.
-pub type PushGatewayIntegrationDependency = crate::integration::IntegrationDependencyDescriptor;
-
 /// Combined view of a push gateway's high-level integration manifest plus its
 /// active bridge contract.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -494,17 +489,14 @@ pub type PushGatewayIntegrationDependency = crate::integration::IntegrationDepen
 #[non_exhaustive]
 pub struct IntegrationView {
     /// Service-level integration manifest (`/_floria/integration/describe`).
-    pub manifest: PushGatewayIntegrationDescribeOutcome,
+    pub manifest: IntegrationDescribeOutcome,
     /// Active bridge contract (`/_floria/push/bridge/describe`).
     pub bridge: PushBridgeDescribeOutcome,
 }
 
 impl IntegrationView {
     /// Construct an integration view from the two describe responses.
-    pub fn new(
-        manifest: PushGatewayIntegrationDescribeOutcome,
-        bridge: PushBridgeDescribeOutcome,
-    ) -> Self {
+    pub fn new(manifest: IntegrationDescribeOutcome, bridge: PushBridgeDescribeOutcome) -> Self {
         Self { manifest, bridge }
     }
 
@@ -715,14 +707,14 @@ mod tests {
 
     #[test]
     fn integration_view_exposes_manifest_dependency_lookup() {
-        let manifest = PushGatewayIntegrationDescribeOutcome {
+        let manifest = IntegrationDescribeOutcome {
             contract: "ak.integration.push_gateway.v1".to_owned(),
             version: "1.0.0".to_owned(),
             service: "push-gateway".to_owned(),
             service_kind: "push-gateway".to_owned(),
             api_base_path: "/_floria".to_owned(),
             describe_path: "/_floria/integration/describe".to_owned(),
-            dependencies: vec![PushGatewayIntegrationDependency {
+            dependencies: vec![IntegrationDependencyDescriptor {
                 service: "soland".to_owned(),
                 purpose: "register-device".to_owned(),
                 required_contract: "ak.auth.bridge.v1".to_owned(),

@@ -132,13 +132,9 @@ pub use arkret_ffi as ffi;
 pub use arkret_html as html;
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;
-// Deprecated convenience constructor kept re-exported so downstream callers
-// see the deprecation note instead of a hard break; the warning propagates.
-#[allow(deprecated)]
-pub use arkret_keystore::platform_default_keystore;
 pub use arkret_keystore::{
     BackendKind, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
-    platform_default_keystore_with_kind,
+    durable_platform_keystore, platform_default_keystore_with_kind,
 };
 #[cfg(feature = "server")]
 pub use arkret_server as server;

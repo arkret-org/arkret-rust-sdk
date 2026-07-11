@@ -15,12 +15,11 @@ kept out of `arkret-core` so the core wire/model crate stays light:
 | `WindowsCredentialKeyStore` | `keystore-windows` | `windows` |
 
 Each platform type still compiles on every target; off-target constructors
-return `KeyStoreError::Unsupported`. Use `platform_default_keystore_with_kind`
-to get the best available backend for the current target together with the
-resolved `BackendKind` — reject `BackendKind::InMemory` whenever durable
-storage is required. The plain `platform_default_keystore` convenience
-variant is deprecated because it silently falls back to the non-durable
-in-memory store.
+return `KeyStoreError::Unsupported`. Use `durable_platform_keystore` whenever
+persistence is required; it fails closed if the target's durable backend was
+not compiled. `platform_default_keystore_with_kind` is reserved for callers
+that explicitly support an in-memory mode and inspect the returned
+`BackendKind`.
 
 ## Persistence and concurrency semantics
 

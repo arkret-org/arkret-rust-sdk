@@ -523,8 +523,7 @@ soland 接线。
 ## 11. 与现有 state-res / reducer 的关系
 
 - 旧 `StateReducer` / `state_digest` / `is_state_event`
-  / `subject_for_event` / `candidate_wins` **整体废弃**，但代码先标
-  `#[deprecated]` 让 soland 在新代码就位前可以共存编译。
+  / `subject_for_event` / `candidate_wins` **整体删除**，不保留并行入口。
 - 旧 `soland::reducer::ReducerKind` (per event_kind) 改为 spec
   registry 的 `cell_family` 表现，soland 不再为每个 kind 写一个 ZST。
 - 旧 `soland::reducer::ProjectionState` **保留**，作为 §8 用户面 projection

@@ -98,49 +98,6 @@ mod windows_stub;
 #[cfg(not(all(target_os = "windows", feature = "keystore-windows")))]
 pub use windows_stub::WindowsCredentialKeyStore;
 
-/// Construct the platform-default [`KeyStore`] for the given application
-/// id, falling back to [`InMemoryKeyStore`] when no native backend is
-/// available (target/feature mismatch, or D-Bus session not reachable on
-/// Linux).
-///
-/// Resolution order on each target:
-/// - macOS + `keystore-macos` → [`MacOsKeychainKeyStore`]
-/// - Linux + `keystore-linux` → [`LinuxSecretServiceKeyStore`]
-/// - Windows + `keystore-windows` → [`WindowsCredentialKeyStore`]
-/// - otherwise → [`InMemoryKeyStore`]
-///
-/// The fallback is intentional: ephemeral / test environments and
-/// platforms without a native key store still get a working trait
-/// object. Callers that REQUIRE durable storage should either use
-/// [`platform_default_keystore_with_kind`] and reject
-/// [`BackendKind::InMemory`], or construct the platform type directly and
-/// surface the [`KeyStoreError::Unsupported`] to the user.
-///
-/// SDK-SEC-04: when this convenience function falls back to the in-memory
-/// backend it emits a `tracing::warn!` so a silent downgrade to non-durable,
-/// OS-unprotected key storage is at least observable in logs. A log line is
-/// not a contract, though — which is why this entry point is deprecated in
-/// favour of the variant whose downgrade is visible in the type system.
-#[deprecated(
-    note = "use platform_default_keystore_with_kind and reject BackendKind::InMemory when \
-            persistence is required — this variant silently downgrades to a non-durable, \
-            OS-unprotected in-memory store"
-)]
-pub fn platform_default_keystore(application_id: &str) -> Box<dyn KeyStore> {
-    let (store, kind) = platform_default_keystore_with_kind(application_id);
-    if kind == BackendKind::InMemory {
-        tracing::warn!(
-            target: "arkret_keystore",
-            application_id,
-            "platform_default_keystore fell back to the in-memory KeyStore: keys are \
-             NOT persisted and have NO OS-level access protection. Use \
-             platform_default_keystore_with_kind to detect and reject this downgrade, \
-             or construct the platform backend directly."
-        );
-    }
-    store
-}
-
 /// Identifies which concrete [`KeyStore`] backend
 /// [`platform_default_keystore_with_kind`] resolved to, so callers can detect
 /// (and refuse) a downgrade to the non-durable in-memory backend.
@@ -156,9 +113,7 @@ pub enum BackendKind {
     InMemory,
 }
 
-/// Like [`platform_default_keystore`] but also returns the [`BackendKind`] that
-/// was resolved, so durable-storage-requiring callers can reject a fallback to
-/// [`BackendKind::InMemory`] instead of silently downgrading (SDK-SEC-04).
+/// Resolve the target's native backend together with its concrete kind.
 pub fn platform_default_keystore_with_kind(
     application_id: &str,
 ) -> (Box<dyn KeyStore>, BackendKind) {
@@ -182,6 +137,20 @@ pub fn platform_default_keystore_with_kind(
     }
     let _ = application_id;
     (Box::new(InMemoryKeyStore::new()), BackendKind::InMemory)
+}
+
+/// Resolve a durable platform-native key store or fail closed when the target,
+/// feature set, or host service cannot provide one.
+pub fn durable_platform_keystore(
+    application_id: &str,
+) -> Result<Box<dyn KeyStore>, KeyStoreError> {
+    let (store, kind) = platform_default_keystore_with_kind(application_id);
+    if kind == BackendKind::InMemory {
+        return Err(KeyStoreError::unsupported(
+            "no durable platform key-store backend is available",
+        ));
+    }
+    Ok(store)
 }
 
 #[cfg(test)]
