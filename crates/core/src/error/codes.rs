@@ -8,6 +8,8 @@
 pub const ERROR_CODE_BAD_JSON: &str = "bad_json";
 pub const ERROR_CODE_BAD_QUERY: &str = "bad_query";
 pub const ERROR_CODE_SCHEMA_VIOLATION: &str = "schema_violation";
+pub const ERROR_CODE_DUPLICATE_CLAUSE_CLAIM: &str = "duplicate_clause_claim";
+pub const ERROR_CODE_KEY_TRANSPARENCY_PROOF_MISSING: &str = "key_transparency_proof_missing";
 pub const ERROR_CODE_MISSING_PARAM: &str = "missing_param";
 pub const ERROR_CODE_INVALID_PARAM: &str = "invalid_param";
 pub const ERROR_CODE_INVALID_RESPONSE: &str = "invalid_response";
@@ -256,6 +258,8 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_BAD_JSON,
     ERROR_CODE_BAD_QUERY,
     ERROR_CODE_SCHEMA_VIOLATION,
+    ERROR_CODE_DUPLICATE_CLAUSE_CLAIM,
+    ERROR_CODE_KEY_TRANSPARENCY_PROOF_MISSING,
     ERROR_CODE_MISSING_PARAM,
     ERROR_CODE_INVALID_PARAM,
     ERROR_CODE_INVALID_RESPONSE,

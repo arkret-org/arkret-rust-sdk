@@ -22,6 +22,8 @@ pub struct SpecArtifactBundle {
     pub schema_registry: Value,
     pub event_kind_registry: Value,
     pub operation_registry: Value,
+    #[serde(default)]
+    pub operation_clause_registry: Value,
     pub id_kind_registry: Value,
     #[serde(default)]
     pub capability_action_registry: Value,
@@ -151,6 +153,9 @@ impl SpecArtifactBundle {
                 &registry_dir.join("event-kind-registry.json"),
             )?,
             operation_registry: read_json_artifact(&registry_dir.join("operation-registry.json"))?,
+            operation_clause_registry: read_json_artifact(
+                &registry_dir.join("operation-clause-registry.json"),
+            )?,
             id_kind_registry: read_json_artifact(&registry_dir.join("id-kind-registry.json"))?,
             capability_action_registry: read_json_artifact(
                 &registry_dir.join("capability-action-registry.json"),
@@ -169,6 +174,9 @@ impl SpecArtifactBundle {
             schema_registry: read_embedded_json_artifact("registry/schema-registry.json")?,
             event_kind_registry: read_embedded_json_artifact("registry/event-kind-registry.json")?,
             operation_registry: read_embedded_json_artifact("registry/operation-registry.json")?,
+            operation_clause_registry: read_embedded_json_artifact(
+                "registry/operation-clause-registry.json",
+            )?,
             id_kind_registry: read_embedded_json_artifact("registry/id-kind-registry.json")?,
             capability_action_registry: read_embedded_json_artifact(
                 "registry/capability-action-registry.json",
@@ -186,6 +194,7 @@ impl SpecArtifactBundle {
                 "registry/schema-registry.json".to_owned(),
                 "registry/event-kind-registry.json".to_owned(),
                 "registry/operation-registry.json".to_owned(),
+                "registry/operation-clause-registry.json".to_owned(),
                 "registry/id-kind-registry.json".to_owned(),
                 "registry/capability-action-registry.json".to_owned(),
                 "profiles/conformance-profiles.json".to_owned(),

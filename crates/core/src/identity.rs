@@ -14,6 +14,16 @@ use crate::{Did, DidDocumentRef, Hash, IdentityResolveOutcome, Proof, Result};
 pub mod primary_handle;
 
 pub const DID_WEB_MAX_DOCUMENT_BYTES: usize = 64 * 1024;
+pub const DID_WEBVH_V1_METHOD: &str = "did:webvh:1.0";
+
+pub fn validate_did_webvh_v1_method(parameters: &Value) -> Result<()> {
+    if parameters.get("method").and_then(Value::as_str) != Some(DID_WEBVH_V1_METHOD) {
+        return Err(crate::Error::Protocol(
+            "unsupported_did_method: expected did:webvh:1.0".to_owned(),
+        ));
+    }
+    Ok(())
+}
 
 /// Derive the deterministic principal-control Realm ID for a principal DID.
 pub fn principal_control_realm_id(principal_id: &Did) -> String {

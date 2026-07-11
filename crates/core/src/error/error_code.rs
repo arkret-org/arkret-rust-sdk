@@ -13,6 +13,8 @@ pub enum ErrorCode {
     BadJson,
     BadQuery,
     SchemaViolation,
+    DuplicateClauseClaim,
+    KeyTransparencyProofMissing,
     MissingParam,
     InvalidParam,
     InvalidResponse,
@@ -237,10 +239,12 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 224] = [
+    pub const ALL: [Self; 226] = [
         Self::BadJson,
         Self::BadQuery,
         Self::SchemaViolation,
+        Self::DuplicateClauseClaim,
+        Self::KeyTransparencyProofMissing,
         Self::MissingParam,
         Self::InvalidParam,
         Self::InvalidResponse,
@@ -469,6 +473,8 @@ impl ErrorCode {
             Self::BadJson => ERROR_CODE_BAD_JSON,
             Self::BadQuery => ERROR_CODE_BAD_QUERY,
             Self::SchemaViolation => ERROR_CODE_SCHEMA_VIOLATION,
+            Self::DuplicateClauseClaim => ERROR_CODE_DUPLICATE_CLAUSE_CLAIM,
+            Self::KeyTransparencyProofMissing => ERROR_CODE_KEY_TRANSPARENCY_PROOF_MISSING,
             Self::MissingParam => ERROR_CODE_MISSING_PARAM,
             Self::InvalidParam => ERROR_CODE_INVALID_PARAM,
             Self::InvalidResponse => ERROR_CODE_INVALID_RESPONSE,
@@ -734,6 +740,8 @@ impl ErrorCode {
             ERROR_CODE_BAD_JSON => Self::BadJson,
             ERROR_CODE_BAD_QUERY => Self::BadQuery,
             ERROR_CODE_SCHEMA_VIOLATION => Self::SchemaViolation,
+            ERROR_CODE_DUPLICATE_CLAUSE_CLAIM => Self::DuplicateClauseClaim,
+            ERROR_CODE_KEY_TRANSPARENCY_PROOF_MISSING => Self::KeyTransparencyProofMissing,
             ERROR_CODE_MISSING_PARAM => Self::MissingParam,
             ERROR_CODE_INVALID_PARAM => Self::InvalidParam,
             ERROR_CODE_INVALID_RESPONSE => Self::InvalidResponse,

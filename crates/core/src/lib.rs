@@ -25,6 +25,7 @@ pub mod identity;
 pub mod identity_key_log;
 mod inbound;
 pub mod integration;
+pub mod key_transparency;
 pub mod keystore;
 pub mod lattice;
 pub mod models;
@@ -41,6 +42,7 @@ pub mod profile_semantics;
 pub mod push;
 pub mod push_rule_core;
 pub mod schema;
+pub mod sdk_conformance;
 pub mod seal;
 pub mod serde_helpers;
 pub mod service;
@@ -87,9 +89,14 @@ pub use identifiers::{
     RequestId, RtcParticipantId, SealId, SnapshotId, SpaceId, StrandId, TransactionId,
     TypedAppealId, TypedTrustDomainId, ViewId,
 };
-pub use identity::principal_control_realm_id;
+pub use identity::{DID_WEBVH_V1_METHOD, principal_control_realm_id, validate_did_webvh_v1_method};
 pub use identity_key_log::{DidKeyLogEntry, DidKeyLogOperation};
 pub use inbound::{DecodedInbound, DecodedMessage, InboundDecoder};
+pub use key_transparency::{
+    KEY_TRANSPARENCY_SCHEMA, KeyTransparencyError, KeyTransparencyEvidence,
+    TransparencyConsistencyProof, TransparencyInclusionProof, TransparencyLogHead,
+    TransparencyWitnessSignature,
+};
 pub use keystore::{InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError};
 pub use models::*;
 pub use move_event::{
@@ -119,6 +126,10 @@ pub use profile_semantics::{
     ProfileSemanticSurface, collect_profile_semantic_requirements,
     profile_capability_action_coverage_report, profile_semantic_coverage_report,
     validate_profile_semantic_coverage,
+};
+pub use sdk_conformance::{
+    SdkClauseClaim, SdkClauseResult, SdkConformanceClaim, SdkConformanceClaimError,
+    SdkConformanceEvidence, SdkEvidenceKind,
 };
 pub use seal::{
     MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,
