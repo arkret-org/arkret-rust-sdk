@@ -94,6 +94,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         Post,
         "/_arkret/self/agents"
     ),
+    endpoint!(
+        "ak.self.agent.command.renew_pairing",
+        Post,
+        "/_arkret/self/agents/{agent_id}/renew-pairing"
+    ),
     endpoint!("ak.self.agent.query.list", Get, "/_arkret/self/agents"),
     endpoint!(
         "ak.self.agent.resource.get",

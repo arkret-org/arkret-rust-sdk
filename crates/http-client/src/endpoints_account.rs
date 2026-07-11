@@ -1,6 +1,8 @@
 //! Session-grant, account-subscribe, contacts, and direct-conversation
 //! endpoint methods on [`Client`].
 
+#[cfg(not(target_arch = "wasm32"))]
+use arkret_core::StreamTraceValidator;
 use arkret_core::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountDeviceEnrollOutcome,
     AccountDeviceEnrollRequestBody, AccountDevicePairOutcome, AccountDevicePairRequestBody,
@@ -14,10 +16,12 @@ use arkret_core::{
     PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
     PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, Result, SessionGrantOutcome,
     SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
-    StreamTraceValidator, SyncDescription, SyncOutcome, SyncRequestBody,
+    SyncDescription, SyncOutcome, SyncRequestBody,
 };
+#[cfg(not(target_arch = "wasm32"))]
+use reqwest::Response;
 use reqwest::header::CONTENT_TYPE;
-use reqwest::{Method, RequestBuilder, Response};
+use reqwest::{Method, RequestBuilder};
 
 use crate::client_internals::{read_body_limited, transport_error, trim_ascii};
 use crate::{Client, MAX_SUBSCRIBE_FRAME_BYTES};
@@ -207,6 +211,7 @@ impl Client {
         Ok(builder)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     async fn account_subscribe(&self, request: &SyncRequestBody) -> Result<Response> {
         // Long-lived NDJSON stream — exempt from the per-request default
         // total timeout (see `DEFAULT_REQUEST_TIMEOUT`).

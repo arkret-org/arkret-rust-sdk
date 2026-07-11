@@ -482,7 +482,7 @@ impl EffectiveScope {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MessageEventPayload {
     Create(MessageCreatePayload),
     Revise(MessageRevisePayload),

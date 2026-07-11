@@ -976,7 +976,7 @@ impl Default for SyncClient {
 }
 
 /// Updates extracted from a sync response.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SyncUpdates {
     /// Realm updates.
     pub realm_updates: Vec<RealmUpdate>,
@@ -1013,7 +1013,7 @@ pub struct SyncUpdates {
 }
 
 /// Update for a single Realm.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RealmUpdate {
     pub realm_id: RealmId,
     pub timeline: Option<SyncTimeline>,

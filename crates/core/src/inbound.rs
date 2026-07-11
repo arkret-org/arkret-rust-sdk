@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use crate::events::kinds;
 use crate::{Event, MessageEventPayload, Result};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DecodedMessage {
     pub event: Event,
     pub payload: MessageEventPayload,
