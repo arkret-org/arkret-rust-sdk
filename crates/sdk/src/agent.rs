@@ -416,20 +416,20 @@ pub fn agent_path_component(value: &str) -> String {
 }
 
 /// Builder for `ak.self.agent.command.provision` request bodies.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct AgentProvisionRequestBuilder {
     display_name: Option<String>,
-    agent_slug: Option<String>,
+    slug: String,
     requested_scope: Option<crate::AgentKeyScope>,
     accountability: Value,
     pairing_ttl_ms: Option<u64>,
 }
 
 impl AgentProvisionRequestBuilder {
-    pub fn new() -> Self {
+    pub fn new(slug: impl Into<String>) -> Self {
         Self {
             display_name: None,
-            agent_slug: None,
+            slug: slug.into(),
             requested_scope: None,
             accountability: Value::Null,
             pairing_ttl_ms: None,
@@ -438,11 +438,6 @@ impl AgentProvisionRequestBuilder {
 
     pub fn display_name(mut self, display_name: impl Into<String>) -> Self {
         self.display_name = Some(display_name.into());
-        self
-    }
-
-    pub fn agent_slug(mut self, agent_slug: impl Into<String>) -> Self {
-        self.agent_slug = Some(agent_slug.into());
         self
     }
 
@@ -464,7 +459,7 @@ impl AgentProvisionRequestBuilder {
     pub fn build(self) -> AgentProvisionRequestBody {
         AgentProvisionRequestBody {
             display_name: self.display_name,
-            agent_slug: self.agent_slug,
+            slug: self.slug,
             requested_scope: self.requested_scope,
             accountability: self.accountability,
             pairing_ttl_ms: self.pairing_ttl_ms,
@@ -1245,9 +1240,8 @@ mod tests {
 
     #[test]
     fn personal_agent_request_plans_use_standard_paths() {
-        let provision = AgentProvisionRequestBuilder::new()
+        let provision = AgentProvisionRequestBuilder::new("summary")
             .display_name("summary agent")
-            .agent_slug("summary")
             .requested_scope(AgentKeyScope {
                 actions: vec!["ak.message.create".to_owned()],
                 resources: vec![AgentKeyScopeResource {
@@ -1268,7 +1262,7 @@ mod tests {
         assert_eq!(plan.path, "/_arkret/self/agents");
         let body = plan.body_value().unwrap().unwrap();
         assert_eq!(body["display_name"], "summary agent");
-        assert_eq!(body["agent_slug"], "summary");
+        assert_eq!(body["slug"], "summary");
         assert_eq!(body["requested_scope"]["actions"][0], "ak.message.create");
         assert_eq!(body["requested_scope"]["resources"][0]["kind"], "realm");
 

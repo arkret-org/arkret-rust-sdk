@@ -270,7 +270,7 @@ mod tests {
             "items": [{
                 "agent_principal_id": "did:web:agents.example:summary",
                 "display_name": "Summary",
-                "agent_slug": "summary",
+                "slug": "summary",
                 "status": "active"
             }]
         }))

@@ -84,8 +84,7 @@ pub struct AgentRuntimeApprovalStatusOutcome {
 pub struct AgentProvisionRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent_slug: Option<String>,
+    pub slug: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requested_scope: Option<AgentKeyScope>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -154,8 +153,7 @@ pub struct AgentProjection {
     pub agent_principal_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent_slug: Option<String>,
+    pub slug: String,
     pub status: AgentStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at: Option<DateTime<Utc>>,

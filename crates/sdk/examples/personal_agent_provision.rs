@@ -101,9 +101,8 @@ fn send_plan<B: Serialize>(plan: AgentRequestPlan<B>) -> arkret::Result<Value> {
 fn main() -> arkret::Result<()> {
     let controller: Did = Did::new("did:webvh:z6mkfixture:alice.example")?;
 
-    let provision_body = AgentProvisionRequestBuilder::new()
+    let provision_body = AgentProvisionRequestBuilder::new("summary")
         .display_name("alice-personal-agent")
-        .agent_slug("summary")
         .requested_scope(AgentKeyScope {
             actions: vec!["ak.message.create".to_owned()],
             resources: vec![AgentKeyScopeResource {
