@@ -651,6 +651,7 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "ak.schema.applet_install_operations.v1",
     "ak.schema.applet_install_plan.v1",
     "ak.schema.applet_package.v1",
+    "ak.schema.applet_registration_epoch_transcript.v1",
     "ak.schema.applet_widget_declaration.v1",
     "ak.schema.authz_operations.v1",
     "ak.schema.blob_operations.v1",

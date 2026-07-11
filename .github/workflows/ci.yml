@@ -214,12 +214,44 @@ jobs:
           path: arkret-spec
           # Public spec repo; if private, set a PAT under
           # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.96"
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: arkret-rust-sdk
+      - name: Verify embedded artifact generator
+        working-directory: arkret-rust-sdk
+        run: python tools/test_refresh_embedded_artifacts.py
+      - name: Verify embedded artifact snapshot
+        working-directory: arkret-rust-sdk
+        run: >-
+          python tools/refresh-embedded-artifacts.py --check
+          ${{ github.workspace }}/arkret-spec/spec/v1/artifacts
+      - name: Regenerate reason, error, and profile surfaces
+        working-directory: arkret-rust-sdk
+        shell: pwsh
+        run: |
+          $artifacts = "${{ github.workspace }}/arkret-spec/spec/v1/artifacts"
+          ./tools/generate-sdk-error-codes.ps1 -ArtifactsDir $artifacts
+          ./tools/generate-sdk-profile-constants.ps1 -ArtifactsDir $artifacts
+          ./tools/generate-sdk-profile-requirements.ps1 -ArtifactsDir $artifacts
+      - name: Reject generated surface drift
+        working-directory: arkret-rust-sdk
+        run: >-
+          git diff --exit-code --
+          crates/core/src/error/codes.rs
+          crates/core/src/error/reasons.rs
+          crates/core/src/generated/profiles.rs
+          crates/core/src/generated/profile_requirements.rs
+      - name: Verify claimable-profile operation coverage matrix
+        working-directory: arkret-rust-sdk
+        run: >-
+          python tools/generate-operation-coverage-matrix.py --check
+          --artifacts ${{ github.workspace }}/arkret-spec/spec/v1/artifacts
       - name: Run spec_drift_report
         working-directory: arkret-rust-sdk
         env:

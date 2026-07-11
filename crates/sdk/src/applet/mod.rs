@@ -413,7 +413,16 @@ mod tests {
             format!("{service_id}#key-1"),
             "z6MkrJVnaZkeF7EsnJQ9xQY4bqG9tbeFqTzL7uTVs11FwUjT",
         );
-        AppletRegistrationEpochEvidence::from_did_document(&document, None).unwrap()
+        AppletRegistrationEpochEvidence::from_did_document(
+            &document,
+            AppletDidMethodVersionEvidence::versioned(
+                "did:webvh",
+                Some("QmSdkAppletTestVersion1".to_owned()),
+                None,
+            )
+            .unwrap(),
+        )
+        .unwrap()
     }
 
     fn sample_wire_registration() -> WireAppletRegistration {
@@ -552,14 +561,22 @@ mod tests {
                 realms: vec![],
                 handles: vec![],
             },
-            sample_epoch(),
         );
         package.requested_scopes = vec!["ak.message.create".to_owned()];
+        package.endpoint_policy.endpoints.push(AppletEndpointEntry {
+            method: AppletEndpointMethod::Post,
+            path: "/_arkret/edge/applet/transactions".to_owned(),
+            auth: Some(AppletEndpointAuth::WebhookSignature),
+            description: None,
+            extra: Default::default(),
+        });
         package.webhook_auth = WebhookAuth::http_message_signature(
-            "ak:keyref:webhook",
+            format!("{}#key-1", package.service_id),
             vec![WebhookSignatureAlg::EdDsa],
         );
-        package.registration_epoch_evidence = Some(sample_epoch_evidence(&package.service_id));
+        package
+            .seal_registration_epoch(sample_epoch_evidence(&package.service_id))
+            .unwrap();
 
         // Unsealed / unsigned package fails validation and derivation.
         assert!(package.validate().is_err());
@@ -575,6 +592,10 @@ mod tests {
             jws: "header..sig".to_owned(),
         });
         package.validate().unwrap();
+
+        let mut stale_epoch = package.clone();
+        stale_epoch.base_url = "https://other.example/cx".to_owned();
+        assert!(stale_epoch.validate().is_err());
 
         let reg = package.to_registration().unwrap();
         assert_eq!(reg.applet_id, package.applet_id);
@@ -612,14 +633,26 @@ mod tests {
             did("bot"),
             vec!["slack".to_owned()],
             AppletWireNamespaces::default(),
-            sample_epoch(),
         );
         package.requested_scopes = vec!["ak.message.create".to_owned()];
-        package.registration_epoch_evidence = Some(sample_epoch_evidence(&package.service_id));
+        package.endpoint_policy.endpoints.push(AppletEndpointEntry {
+            method: AppletEndpointMethod::Post,
+            path: "/_arkret/edge/applet/transactions".to_owned(),
+            auth: Some(AppletEndpointAuth::WebhookSignature),
+            description: None,
+            extra: Default::default(),
+        });
+        package.webhook_auth = WebhookAuth::http_message_signature(
+            format!("{}#key-1", package.service_id),
+            vec![WebhookSignatureAlg::EdDsa],
+        );
         package
             .endpoint_policy
             .extra
             .insert("unexpected".to_owned(), Value::Bool(true));
+        package
+            .seal_registration_epoch(sample_epoch_evidence(&package.service_id))
+            .unwrap();
         package.seal().unwrap();
         package.proof = Some(Proof {
             kind: "detached_jws".to_owned(),
@@ -645,10 +678,23 @@ mod tests {
             did("bot"),
             vec!["slack".to_owned()],
             AppletWireNamespaces::default(),
-            sample_epoch(),
         );
         package.claimed_profiles = vec!["ak.profile.applet_bridge.v1".to_owned()];
         package.requested_scopes = vec!["ak.message.create".to_owned()];
+        package.endpoint_policy.endpoints.push(AppletEndpointEntry {
+            method: AppletEndpointMethod::Post,
+            path: "/_arkret/edge/applet/transactions".to_owned(),
+            auth: Some(AppletEndpointAuth::WebhookSignature),
+            description: None,
+            extra: Default::default(),
+        });
+        package.webhook_auth = WebhookAuth::http_message_signature(
+            format!("{}#key-1", package.service_id),
+            vec![WebhookSignatureAlg::EdDsa],
+        );
+        package
+            .seal_registration_epoch(sample_epoch_evidence(&package.service_id))
+            .unwrap();
         package.seal().unwrap();
         assert!(package.validate().is_err());
     }

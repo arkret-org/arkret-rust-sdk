@@ -15,11 +15,13 @@ brought into line:
 
 - **`ak.applet.registration.registration_epoch` is now required.**
   `WireAppletRegistration` gained a non-optional
-  `registration_epoch: Hash` (canonical security epoch hash). The SDK
-  cannot synthesize the full evidence digest, so
-  `WireAppletRegistration::new(..)` and `AppletPackage::new(..)` take it
-  as the final argument. Registrations emitted before this release are
-  non-conformant (missing the field) and MUST be re-issued.
+  `registration_epoch: Hash` (canonical security epoch hash).
+  `AppletPackage` now builds the closed v1 transcript from package and
+  DID/key evidence, and `seal_registration_epoch(..)` stamps the
+  domain-separated JCS/SHA-256 result before `seal()` computes the package
+  digest. Direct `WireAppletRegistration::new(..)` callers still supply the
+  already computed epoch. Registrations emitted without the field are
+  non-conformant and MUST be re-issued.
 - **Namespace entries are object-form.** `AppletWireNamespaces`
   `actors` / `realms` / `handles` changed from `Vec<String>` to
   `Vec<AppletNamespaceEntry>` (`{ exclusive, pattern }`) per

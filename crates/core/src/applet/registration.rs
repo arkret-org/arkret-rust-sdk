@@ -148,6 +148,16 @@ pub enum WebhookSignatureAlg {
     MlDsa65,
 }
 
+impl WebhookSignatureAlg {
+    fn as_wire_name(self) -> &'static str {
+        match self {
+            Self::EdDsa => "EdDSA",
+            Self::Es256 => "ES256",
+            Self::MlDsa65 => "ML-DSA-65",
+        }
+    }
+}
+
 /// Optional inbound-webhook auth metadata. Wire shape mirrors
 /// `applet-package.schema.json#/$defs/webhook_auth`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -201,7 +211,7 @@ impl WebhookAuth {
 
 /// HTTP method of a single supported Applet API endpoint
 /// (`applet-package.schema.json#/$defs/endpoint_entry.method`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub enum AppletEndpointMethod {
     #[serde(rename = "GET")]
@@ -218,7 +228,7 @@ pub enum AppletEndpointMethod {
 
 /// Auth requirement of a single supported Applet API endpoint
 /// (`applet-package.schema.json#/$defs/endpoint_entry.auth`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AppletEndpointAuth {
@@ -300,6 +310,76 @@ pub struct AppletAcceptedSigningKeyEvidence {
     pub public_key_digest: crate::Hash,
 }
 
+/// Method-specific resolution evidence captured with an Applet registration
+/// epoch. Versioned methods carry at least one stable version selector;
+/// unversioned methods carry neither selector and require a fresh canonical
+/// resolution whenever the epoch is verified.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AppletDidMethodVersionEvidence {
+    pub method: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version_time: Option<DateTime<Utc>>,
+    pub unversioned_refetch: bool,
+}
+
+impl AppletDidMethodVersionEvidence {
+    pub fn versioned(
+        method: impl Into<String>,
+        version_id: Option<String>,
+        version_time: Option<DateTime<Utc>>,
+    ) -> Result<Self> {
+        let evidence = Self {
+            method: method.into(),
+            version_id,
+            version_time,
+            unversioned_refetch: false,
+        };
+        evidence.validate()?;
+        Ok(evidence)
+    }
+
+    pub fn unversioned(method: impl Into<String>) -> Result<Self> {
+        let evidence = Self {
+            method: method.into(),
+            version_id: None,
+            version_time: None,
+            unversioned_refetch: true,
+        };
+        evidence.validate()?;
+        Ok(evidence)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if !self.method.starts_with("did:")
+            || self.method.len() <= 4
+            || !self.method[4..]
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        {
+            return Err(Error::Protocol(
+                "applet registration epoch DID method is invalid".to_owned(),
+            ));
+        }
+        if self.unversioned_refetch {
+            if self.version_id.is_some() || self.version_time.is_some() {
+                return Err(Error::Protocol(
+                    "unversioned DID evidence cannot carry version selectors".to_owned(),
+                ));
+            }
+        } else if self.version_id.as_deref().is_none_or(str::is_empty)
+            && self.version_time.is_none()
+        {
+            return Err(Error::Protocol(
+                "versioned DID evidence requires version_id or version_time".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Captured DID-document and signing-key evidence for an Applet registration
 /// epoch. Reducers expand this snapshot when checking delegated Applet grants
 /// and fail closed if the service DID document or accepted signing key set no
@@ -309,8 +389,7 @@ pub struct AppletAcceptedSigningKeyEvidence {
 pub struct AppletRegistrationEpochEvidence {
     pub service_id: Did,
     pub did_document_digest: crate::Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub method_version_evidence: Option<Value>,
+    pub method_version_evidence: AppletDidMethodVersionEvidence,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
 }
@@ -355,20 +434,22 @@ impl AppletRegistrationEpochEvidence {
     pub fn new(
         service_id: Did,
         did_document_digest: crate::Hash,
+        method_version_evidence: AppletDidMethodVersionEvidence,
         accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
     ) -> Self {
         Self {
             service_id,
             did_document_digest,
-            method_version_evidence: None,
+            method_version_evidence,
             accepted_signing_keys,
         }
     }
 
     pub fn from_did_document(
         document: &DidDocument,
-        method_version_evidence: Option<Value>,
+        method_version_evidence: AppletDidMethodVersionEvidence,
     ) -> Result<Self> {
+        method_version_evidence.validate()?;
         let did_document_digest = applet_did_document_digest(document)?;
         let mut accepted_signing_keys = Vec::with_capacity(document.verification_methods.len());
         for (key_ref, public_key_material) in &document.verification_methods {
@@ -406,6 +487,11 @@ impl AppletRegistrationEpochEvidence {
         if self.accepted_signing_keys.is_empty() {
             return Err(AppletEpochEvidenceError::SigningKeySetEmpty);
         }
+        if self.method_version_evidence.validate().is_err() {
+            return Err(AppletEpochEvidenceError::DidDocumentDigestFailed(
+                "invalid DID method version evidence".to_owned(),
+            ));
+        }
 
         let mut captured = BTreeMap::new();
         for key in &self.accepted_signing_keys {
@@ -442,6 +528,346 @@ impl AppletRegistrationEpochEvidence {
             .iter()
             .any(|key| key.key_ref == key_ref)
     }
+}
+
+/// Security-relevant registration fields included in the epoch transcript.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AppletRegistrationEpochDerivedRegistration {
+    pub kind: String,
+    pub applet_id: String,
+    pub service_id: Did,
+    pub controller_id: Did,
+    pub base_url: String,
+    pub bot_actor_id: Did,
+    pub protocols: Vec<String>,
+    pub namespaces: AppletWireNamespaces,
+    pub receive_events: bool,
+    pub receive_ephemeral: bool,
+    pub rate_limited: bool,
+    pub requested_scopes: Vec<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AppletRegistrationEpochDidDocument {
+    pub service_id: Did,
+    pub document_digest: crate::Hash,
+    pub method_version: AppletDidMethodVersionEvidence,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AppletRegistrationEpochSecurityPolicy {
+    pub claimed_profiles: Vec<String>,
+    pub limits: AppletLimits,
+    pub ghost_policy: AppletGhostPolicy,
+    pub delegation_policy: Value,
+    pub e2ee_policy: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub widget: Option<Value>,
+}
+
+/// Closed normalized transcript hashed to derive `registration_epoch`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AppletRegistrationEpochTranscript {
+    pub schema: String,
+    pub derived_registration: AppletRegistrationEpochDerivedRegistration,
+    pub service_did_document: AppletRegistrationEpochDidDocument,
+    pub accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
+    pub endpoint_policy: AppletEndpointPolicy,
+    pub webhook_auth: WebhookAuth,
+    pub security_policy: AppletRegistrationEpochSecurityPolicy,
+}
+
+impl AppletRegistrationEpochTranscript {
+    pub const SCHEMA: &'static str = "ak.schema.applet_registration_epoch_transcript.v1";
+    pub const DOMAIN_SEPARATOR: &'static [u8] = b"arkret-applet-registration-epoch-v1\n";
+
+    pub fn from_package(
+        package: &AppletPackage,
+        evidence: &AppletRegistrationEpochEvidence,
+    ) -> Result<Self> {
+        if package.service_id != evidence.service_id {
+            return Err(Error::Protocol(
+                "applet registration epoch evidence service_id mismatch".to_owned(),
+            ));
+        }
+        let mut transcript = Self {
+            schema: Self::SCHEMA.to_owned(),
+            derived_registration: AppletRegistrationEpochDerivedRegistration {
+                kind: WireAppletRegistration::KIND.to_owned(),
+                applet_id: package.applet_id.clone(),
+                service_id: package.service_id.clone(),
+                controller_id: package.controller_id.clone(),
+                base_url: package.base_url.clone(),
+                bot_actor_id: package.bot_actor_id.clone(),
+                protocols: package.protocols.clone(),
+                namespaces: package.namespaces.clone(),
+                receive_events: package.receive_events,
+                receive_ephemeral: package.receive_ephemeral,
+                rate_limited: package.rate_limited,
+                requested_scopes: package.requested_scopes.clone(),
+                created_at: package.created_at,
+            },
+            service_did_document: AppletRegistrationEpochDidDocument {
+                service_id: evidence.service_id.clone(),
+                document_digest: evidence.did_document_digest.clone(),
+                method_version: evidence.method_version_evidence.clone(),
+            },
+            accepted_signing_keys: evidence.accepted_signing_keys.clone(),
+            endpoint_policy: package.endpoint_policy.clone(),
+            webhook_auth: package.webhook_auth.clone(),
+            security_policy: AppletRegistrationEpochSecurityPolicy {
+                claimed_profiles: package.claimed_profiles.clone(),
+                limits: package.limits.clone(),
+                ghost_policy: package.ghost_policy.clone(),
+                delegation_policy: package.delegation_policy.clone(),
+                e2ee_policy: package.e2ee_policy.clone(),
+                widget: package.widget.clone(),
+            },
+        };
+        transcript.normalize()?;
+        transcript.validate_normalized()?;
+        Ok(transcript)
+    }
+
+    pub fn normalize(&mut self) -> Result<()> {
+        sort_unique_strings("protocols", &mut self.derived_registration.protocols)?;
+        sort_namespace_entries(
+            "namespaces.actors",
+            &mut self.derived_registration.namespaces.actors,
+        )?;
+        sort_namespace_entries(
+            "namespaces.realms",
+            &mut self.derived_registration.namespaces.realms,
+        )?;
+        sort_namespace_entries(
+            "namespaces.handles",
+            &mut self.derived_registration.namespaces.handles,
+        )?;
+        sort_unique_strings(
+            "requested_scopes",
+            &mut self.derived_registration.requested_scopes,
+        )?;
+        sort_unique_strings(
+            "claimed_profiles",
+            &mut self.security_policy.claimed_profiles,
+        )?;
+        self.accepted_signing_keys
+            .sort_by(|left, right| left.key_ref.as_bytes().cmp(right.key_ref.as_bytes()));
+        reject_duplicate_adjacent_by(
+            "accepted_signing_keys",
+            &self.accepted_signing_keys,
+            |left, right| left.key_ref == right.key_ref,
+        )?;
+        self.webhook_auth.accepted_algs.sort_by(|left, right| {
+            left.as_wire_name()
+                .as_bytes()
+                .cmp(right.as_wire_name().as_bytes())
+        });
+        reject_duplicate_adjacent_by(
+            "webhook_auth.accepted_algs",
+            &self.webhook_auth.accepted_algs,
+            |left, right| left == right,
+        )?;
+        self.endpoint_policy.endpoints.sort_by(|left, right| {
+            (left.method, left.path.as_bytes(), left.auth).cmp(&(
+                right.method,
+                right.path.as_bytes(),
+                right.auth,
+            ))
+        });
+        reject_duplicate_adjacent_by(
+            "endpoint_policy.endpoints",
+            &self.endpoint_policy.endpoints,
+            |left, right| {
+                left.method == right.method && left.path == right.path && left.auth == right.auth
+            },
+        )
+    }
+
+    pub fn validate_normalized(&self) -> Result<()> {
+        if self.schema != Self::SCHEMA {
+            return Err(Error::Protocol(
+                "applet registration epoch transcript schema mismatch".to_owned(),
+            ));
+        }
+        if self.derived_registration.kind != WireAppletRegistration::KIND {
+            return Err(Error::Protocol(
+                "applet registration epoch transcript kind mismatch".to_owned(),
+            ));
+        }
+        if self.derived_registration.service_id != self.service_did_document.service_id {
+            return Err(Error::Protocol(
+                "applet registration epoch transcript service_id mismatch".to_owned(),
+            ));
+        }
+        self.service_did_document.method_version.validate()?;
+        let expected_method = did_method_name(&self.service_did_document.service_id)?;
+        if self.service_did_document.method_version.method != expected_method {
+            return Err(Error::Protocol(
+                "applet registration epoch DID method evidence mismatch".to_owned(),
+            ));
+        }
+        let service_key_prefix = format!("{}#", self.service_did_document.service_id);
+        if !self.webhook_auth.key_ref.starts_with(&service_key_prefix)
+            || self
+                .accepted_signing_keys
+                .iter()
+                .any(|key| !key.key_ref.starts_with(&service_key_prefix))
+        {
+            return Err(Error::Protocol(
+                "applet registration epoch signing key is outside service DID".to_owned(),
+            ));
+        }
+        if !self
+            .accepted_signing_keys
+            .iter()
+            .any(|key| key.key_ref == self.webhook_auth.key_ref)
+        {
+            return Err(Error::Protocol(
+                "applet registration epoch webhook key is not accepted".to_owned(),
+            ));
+        }
+        validate_strictly_sorted_strings("protocols", &self.derived_registration.protocols)?;
+        validate_namespace_entries(
+            "namespaces.actors",
+            &self.derived_registration.namespaces.actors,
+        )?;
+        validate_namespace_entries(
+            "namespaces.realms",
+            &self.derived_registration.namespaces.realms,
+        )?;
+        validate_namespace_entries(
+            "namespaces.handles",
+            &self.derived_registration.namespaces.handles,
+        )?;
+        validate_strictly_sorted_strings(
+            "requested_scopes",
+            &self.derived_registration.requested_scopes,
+        )?;
+        validate_strictly_sorted_strings(
+            "claimed_profiles",
+            &self.security_policy.claimed_profiles,
+        )?;
+        validate_strictly_sorted_by(
+            "accepted_signing_keys",
+            &self.accepted_signing_keys,
+            |left, right| left.key_ref.as_bytes().cmp(right.key_ref.as_bytes()),
+        )?;
+        validate_strictly_sorted_by(
+            "webhook_auth.accepted_algs",
+            &self.webhook_auth.accepted_algs,
+            |left, right| {
+                left.as_wire_name()
+                    .as_bytes()
+                    .cmp(right.as_wire_name().as_bytes())
+            },
+        )?;
+        validate_strictly_sorted_by(
+            "endpoint_policy.endpoints",
+            &self.endpoint_policy.endpoints,
+            |left, right| {
+                (left.method, left.path.as_bytes(), left.auth).cmp(&(
+                    right.method,
+                    right.path.as_bytes(),
+                    right.auth,
+                ))
+            },
+        )?;
+        if self.accepted_signing_keys.is_empty()
+            || self.endpoint_policy.endpoints.is_empty()
+            || self.webhook_auth.accepted_algs.is_empty()
+            || self.security_policy.claimed_profiles.is_empty()
+        {
+            return Err(Error::Protocol(
+                "applet registration epoch transcript contains an empty required set".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_json_bytes(&self) -> Result<Vec<u8>> {
+        self.validate_normalized()?;
+        canonical::canonical_json_bytes(self)
+    }
+
+    pub fn signing_bytes(&self) -> Result<Vec<u8>> {
+        let canonical_bytes = self.canonical_json_bytes()?;
+        let mut bytes = Vec::with_capacity(Self::DOMAIN_SEPARATOR.len() + canonical_bytes.len());
+        bytes.extend_from_slice(Self::DOMAIN_SEPARATOR);
+        bytes.extend_from_slice(&canonical_bytes);
+        Ok(bytes)
+    }
+
+    pub fn registration_epoch(&self) -> Result<crate::Hash> {
+        crate::Hash::new(canonical::sha256_digest(&self.signing_bytes()?)).map_err(Into::into)
+    }
+}
+
+fn sort_unique_strings(context: &str, values: &mut Vec<String>) -> Result<()> {
+    values.sort_by(|left, right| left.as_bytes().cmp(right.as_bytes()));
+    reject_duplicate_adjacent_by(context, values, |left, right| left == right)
+}
+
+fn sort_namespace_entries(context: &str, values: &mut Vec<AppletNamespaceEntry>) -> Result<()> {
+    values.sort_by(|left, right| {
+        (left.pattern.as_bytes(), left.exclusive).cmp(&(right.pattern.as_bytes(), right.exclusive))
+    });
+    reject_duplicate_adjacent_by(context, values, |left, right| left.pattern == right.pattern)
+}
+
+fn validate_namespace_entries(context: &str, values: &[AppletNamespaceEntry]) -> Result<()> {
+    validate_strictly_sorted_by(context, values, |left, right| {
+        (left.pattern.as_bytes(), left.exclusive).cmp(&(right.pattern.as_bytes(), right.exclusive))
+    })
+}
+
+fn validate_strictly_sorted_strings(context: &str, values: &[String]) -> Result<()> {
+    validate_strictly_sorted_by(context, values, |left, right| {
+        left.as_bytes().cmp(right.as_bytes())
+    })
+}
+
+fn validate_strictly_sorted_by<T>(
+    context: &str,
+    values: &[T],
+    compare: impl Fn(&T, &T) -> std::cmp::Ordering,
+) -> Result<()> {
+    if values
+        .windows(2)
+        .any(|pair| compare(&pair[0], &pair[1]) != std::cmp::Ordering::Less)
+    {
+        return Err(Error::Protocol(format!(
+            "applet registration epoch {context} is unsorted or contains duplicates"
+        )));
+    }
+    Ok(())
+}
+
+fn reject_duplicate_adjacent_by<T>(
+    context: &str,
+    values: &[T],
+    equal: impl Fn(&T, &T) -> bool,
+) -> Result<()> {
+    if values.windows(2).any(|pair| equal(&pair[0], &pair[1])) {
+        return Err(Error::Protocol(format!(
+            "applet registration epoch {context} contains duplicate entries"
+        )));
+    }
+    Ok(())
+}
+
+fn did_method_name(did: &Did) -> Result<&str> {
+    let value = did.as_str();
+    let method_end = value[4..]
+        .find(':')
+        .map(|offset| offset + 4)
+        .ok_or_else(|| Error::Protocol("DID method delimiter is missing".to_owned()))?;
+    Ok(&value[..method_end])
 }
 
 pub fn applet_did_document_digest(document: &DidDocument) -> Result<crate::Hash> {
@@ -497,9 +923,10 @@ pub struct WireAppletRegistration {
     /// registration plus DID Document / signing-key / endpoint / auth
     /// evidence. **Required** per `applet-schema.md` §1 and the
     /// authoritative `applet_registration_payload`; delegated-agent
-    /// grants bind this epoch (`applet-integration.md` §11). The SDK
-    /// cannot synthesize the full evidence digest, so the caller MUST
-    /// supply it.
+    /// grants bind this epoch (`applet-integration.md` §11). Direct wire
+    /// builders supply the value; package producers compute it with
+    /// [`AppletRegistrationEpochTranscript`] or
+    /// [`AppletPackage::seal_registration_epoch`].
     pub registration_epoch: crate::Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub webhook_auth: Option<WebhookAuth>,
@@ -652,8 +1079,9 @@ pub struct AppletPackage {
     /// `None` until [`seal`](Self::seal).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub package_digest: Option<crate::Hash>,
-    /// Canonical security epoch hash; copied verbatim to the derived
-    /// registration.
+    /// Canonical security epoch hash. New packages start with the all-zero
+    /// sentinel and MUST call [`seal_registration_epoch`](Self::seal_registration_epoch)
+    /// after all security-relevant fields and evidence are finalized.
     pub registration_epoch: crate::Hash,
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -680,9 +1108,8 @@ impl AppletPackage {
         bot_actor_id: Did,
         protocols: Vec<String>,
         namespaces: AppletWireNamespaces,
-        registration_epoch: crate::Hash,
     ) -> Self {
-        let webhook_key_ref = format!("{}#applet-webhook", controller_id.as_str());
+        let webhook_key_ref = format!("{}#applet-webhook", service_id.as_str());
         Self {
             schema: Self::SCHEMA.to_owned(),
             package_id: package_id.into(),
@@ -705,16 +1132,50 @@ impl AppletPackage {
             rate_limited: true,
             limits: AppletLimits::default(),
             ghost_policy: AppletGhostPolicy::default(),
-            delegation_policy: Value::Object(Default::default()),
-            e2ee_policy: Value::Object(Default::default()),
+            delegation_policy: serde_json::json!({"enabled": false}),
+            e2ee_policy: serde_json::json!({"enabled": false, "mls_join_requested": false}),
             widget: None,
             registration_epoch_evidence: None,
             package_digest: None,
-            registration_epoch,
+            registration_epoch: crate::Hash::new(format!("sha256:{}", "0".repeat(64)))
+                .expect("the registration epoch sentinel is a valid SHA-256 hash"),
             created_at: Utc::now(),
             expires_at: None,
             proof: None,
         }
+    }
+
+    /// Build the normalized closed transcript for the package's current
+    /// security-relevant fields.
+    pub fn registration_epoch_transcript(
+        &self,
+        evidence: &AppletRegistrationEpochEvidence,
+    ) -> Result<AppletRegistrationEpochTranscript> {
+        AppletRegistrationEpochTranscript::from_package(self, evidence)
+    }
+
+    /// Recompute the registration epoch using the v1 domain-separated
+    /// transcript algorithm.
+    pub fn compute_registration_epoch(
+        &self,
+        evidence: &AppletRegistrationEpochEvidence,
+    ) -> Result<crate::Hash> {
+        self.registration_epoch_transcript(evidence)?
+            .registration_epoch()
+    }
+
+    /// Capture local evidence and stamp the recomputed registration epoch.
+    /// Call this after changing any package field covered by the transcript
+    /// and before [`seal`](Self::seal).
+    pub fn seal_registration_epoch(
+        &mut self,
+        evidence: AppletRegistrationEpochEvidence,
+    ) -> Result<()> {
+        self.registration_epoch = self.compute_registration_epoch(&evidence)?;
+        self.registration_epoch_evidence = Some(evidence);
+        self.package_digest = None;
+        self.proof = None;
+        Ok(())
     }
 
     /// Canonical SHA256 over the package with `package_digest` **and**
@@ -729,6 +1190,14 @@ impl AppletPackage {
 
     /// Compute and stamp `package_digest`.
     pub fn seal(&mut self) -> Result<()> {
+        let evidence = self.registration_epoch_evidence.as_ref().ok_or_else(|| {
+            Error::Protocol("applet package registration_epoch_evidence is missing".to_owned())
+        })?;
+        if self.compute_registration_epoch(evidence)? != self.registration_epoch {
+            return Err(Error::Protocol(
+                "applet package registration_epoch does not match its transcript".to_owned(),
+            ));
+        }
         self.package_digest = Some(self.compute_package_digest()?);
         Ok(())
     }
@@ -804,8 +1273,13 @@ impl AppletPackage {
         }
         validate_applet_extension_fields("limits", &self.limits.extra)?;
         validate_applet_extension_fields("ghost_policy", &self.ghost_policy.extra)?;
-        if self.package_digest.is_none() {
+        let Some(package_digest) = &self.package_digest else {
             return Err(Error::Protocol("applet package is not sealed".to_owned()));
+        };
+        if package_digest != &self.compute_package_digest()? {
+            return Err(Error::Protocol(
+                "applet package digest does not match its canonical content".to_owned(),
+            ));
         }
         if self.proof.is_none() {
             return Err(Error::Protocol("applet package is not signed".to_owned()));
@@ -826,6 +1300,12 @@ impl AppletPackage {
         if evidence.accepted_signing_keys.is_empty() {
             return Err(Error::Protocol(
                 "applet package registration_epoch_evidence signing keys are empty".to_owned(),
+            ));
+        }
+        let recomputed = self.compute_registration_epoch(evidence)?;
+        if recomputed != self.registration_epoch {
+            return Err(Error::Protocol(
+                "applet package registration_epoch does not match its transcript".to_owned(),
             ));
         }
         Ok(())

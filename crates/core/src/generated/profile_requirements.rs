@@ -265,12 +265,17 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_event_kinds: &["ak.applet.registration"],
                 required_schemas: &[
                     "ak.schema.applet_package.v1",
+                    "ak.schema.applet_registration_epoch_transcript.v1",
                     "ak.schema.event.v1",
                     "ak.schema.event_payload.v1",
                     "ak.schema.seal.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &["capability-fixture.json", "federation-fixture.json"],
+                required_fixtures: &[
+                    "applet-registration-epoch-fixture.json",
+                    "capability-fixture.json",
+                    "federation-fixture.json",
+                ],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],

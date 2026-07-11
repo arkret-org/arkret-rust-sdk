@@ -1,0 +1,63 @@
+{
+  "schema": "arkret.sdk-operation-coverage-evidence.v1",
+  "operations": {
+    "ak.edge.applet.query.ping": {
+      "api": [
+        "crates/server/src/applet.rs::AppletHandler::ping"
+      ],
+      "handler": [
+        "crates/server/src/applet.rs::ping_handler"
+      ],
+      "test": [
+        "crates/server/src/applet.rs::applet_service_constructs_with_handler_and_idempotency_window"
+      ]
+    },
+    "ak.edge.applet.query.describe": {
+      "api": [
+        "crates/server/src/applet.rs::AppletHandler::describe"
+      ],
+      "handler": [
+        "crates/server/src/applet.rs::describe_handler"
+      ],
+      "test": []
+    },
+    "ak.edge.applet.command.transaction": {
+      "api": [
+        "crates/server/src/applet.rs::AppletHandler::handle_transaction"
+      ],
+      "handler": [
+        "crates/server/src/applet.rs::transactions_handler"
+      ],
+      "test": [
+        "crates/server/src/applet.rs::dispatch_replays_duplicates_and_fails_closed_on_conflicts"
+      ]
+    },
+    "ak.edge.applet.actor.query.resolve": {
+      "api": [
+        "crates/server/src/applet.rs::AppletHandler::resolve_actor"
+      ],
+      "handler": [
+        "crates/server/src/applet.rs::actor_handler"
+      ],
+      "test": []
+    },
+    "ak.edge.applet.realm.query.resolve": {
+      "api": [
+        "crates/server/src/applet.rs::AppletHandler::resolve_realm"
+      ],
+      "handler": [
+        "crates/server/src/applet.rs::realm_handler"
+      ],
+      "test": []
+    },
+    "ak.edge.applet.query.protocol_metadata": {
+      "api": [
+        "crates/server/src/applet.rs::AppletHandler::resolve_protocol"
+      ],
+      "handler": [
+        "crates/server/src/applet.rs::protocol_handler"
+      ],
+      "test": []
+    }
+  }
+}
