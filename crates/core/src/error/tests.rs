@@ -168,12 +168,9 @@ fn every_variant_has_http_status() {
     }
 }
 
-/// Resolve the registry identifier union (`codes` ∪ `reason_codes`) from the
-/// live spec checkout when available (`ARKRET_SPEC_ARTIFACTS` or the
-/// co-checkout path), falling back to the embedded snapshot. The live file
-/// wins so the gate tracks in-flight registry edits before the embedded
-/// artifacts are refreshed.
-fn registry_identifier_union() -> std::collections::BTreeSet<String> {
+/// Resolve subordinate reason codes from the live spec checkout when
+/// available, falling back to the embedded snapshot.
+fn registry_reason_codes() -> Vec<String> {
     if let Some(artifacts_dir) = local_spec_artifacts_dir() {
         let registry_path = artifacts_dir
             .join("registry")
@@ -182,100 +179,32 @@ fn registry_identifier_union() -> std::collections::BTreeSet<String> {
             let registry: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|error| {
                 panic!("failed to parse {}: {error}", registry_path.display())
             });
-            let mut identifiers = std::collections::BTreeSet::new();
-            for array_field in ["codes", "reason_codes"] {
-                if let Some(entries) = registry
-                    .get(array_field)
-                    .and_then(serde_json::Value::as_array)
-                {
-                    identifiers.extend(
-                        entries
-                            .iter()
-                            .filter_map(|entry| {
-                                entry.get("code").and_then(serde_json::Value::as_str)
-                            })
-                            .map(str::to_owned),
-                    );
-                }
-            }
+            let identifiers: Vec<String> = registry
+                .get("reason_codes")
+                .and_then(serde_json::Value::as_array)
+                .expect("live error-code-registry missing reason_codes")
+                .iter()
+                .map(|entry| {
+                    entry
+                        .get("code")
+                        .and_then(serde_json::Value::as_str)
+                        .expect("live reason-code entry missing code")
+                        .to_owned()
+                })
+                .collect();
             assert!(
                 !identifiers.is_empty(),
-                "live error-code-registry.json declared no codes or reason_codes",
+                "live error-code-registry.json declared no reason_codes",
             );
             return identifiers;
         }
     }
-    crate::schema::embedded_error_code_identifiers()
-        .expect("embedded error-code-registry identifiers must load")
+    crate::schema::embedded_error_code_reason_codes()
+        .expect("embedded error-code-registry reason codes must load")
 }
 
-/// Guard against manual-mirror drift (SDK-01-001 / SDK-SPEC-02): EVERY
-/// `REASON_*` constant declared in `reasons.rs` MUST exist as a declared
-/// identifier in `error-code-registry.json`. Unlike the previous curated
-/// subset check, this reflectively parses the module source, so a constant
-/// added without a registry entry can no longer drift silently.
-///
-/// The spec registry files identifiers across two arrays: canonical error
-/// codes under `codes` and finer sub-reasons under `reason_codes`. Several
-/// constants (the Reaction and direct-conversation sub-reasons) are
-/// registered by the spec under `codes`, so the cross-check resolves
-/// against the union of both arrays rather than `reason_codes` alone.
+/// The generated reason-code module is an exact, ordered registry mirror.
 #[test]
-fn reason_constants_are_declared_in_embedded_registry() {
-    let registry = registry_identifier_union();
-
-    // Reflectively extract every `pub const REASON_*: &str = "..."` wire
-    // value from the module source. Declarations may wrap the literal onto
-    // the following line, so scan a joined view of the source.
-    let source = include_str!("reasons.rs");
-    let joined = source
-        .lines()
-        .map(str::trim_start)
-        .collect::<Vec<_>>()
-        .join(" ");
-    let mut declared: Vec<String> = Vec::new();
-    let mut rest = joined.as_str();
-    while let Some(position) = rest.find("pub const REASON_") {
-        rest = &rest[position + "pub const REASON_".len()..];
-        // Only string constants participate (skip the &[&str] KNOWN_* arrays,
-        // which never match this prefix anyway).
-        let Some((declaration, after)) = rest.split_once(';') else {
-            break;
-        };
-        if let Some(value) = declaration
-            .split_once(": &str = \"")
-            .and_then(|(_, tail)| tail.split_once('"').map(|(value, _)| value.to_owned()))
-        {
-            declared.push(value);
-        }
-        rest = after;
-    }
-
-    // Count consistency: every `pub const REASON_` declaration in the source
-    // must have yielded exactly one parsed wire value.
-    let declaration_count = source
-        .lines()
-        .filter(|line| line.trim_start().starts_with("pub const REASON_"))
-        .count();
-    assert_eq!(
-        declared.len(),
-        declaration_count,
-        "parsed REASON_* wire values ({}) do not match `pub const REASON_` \
-         declarations in reasons.rs ({declaration_count}); the reflective \
-         parser missed a declaration form",
-        declared.len(),
-    );
-    assert!(
-        declared.len() > 100,
-        "suspiciously few REASON_* constants parsed ({}); parser broken?",
-        declared.len(),
-    );
-
-    for reason in &declared {
-        assert!(
-            registry.contains(reason),
-            "REASON constant {reason:?} not present in \
-             error-code-registry.json (codes or reason_codes)",
-        );
-    }
+fn known_reason_codes_exactly_match_registry() {
+    assert_eq!(KNOWN_REASON_CODES, registry_reason_codes().as_slice());
 }

@@ -1378,7 +1378,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_event_kinds: &["ak.morph.schema_migrate"],
                 required_schemas: &["ak.schema.event_payload.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[],
+                required_fixtures: &["morph-schema-migration-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],

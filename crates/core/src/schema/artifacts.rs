@@ -560,6 +560,7 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "ak.schema.realm.v1",
     REALM_JOIN_CANDIDATE_SCHEMA,
     "ak.schema.actor_profile.v1",
+    "ak.schema.accountability_grant.v1",
     "ak.schema.message.v1",
     "ak.schema.content_block_poll.v1",
     "ak.schema.morph.v1",
@@ -679,6 +680,8 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "ak.schema.realm_read_operations.v1",
     "ak.schema.rsvp.v1",
     "ak.schema.service_operation_dtos.v1",
+    "ak.schema.sdk_conformance_claim.v1",
+    "ak.schema.key_transparency.v1",
 ];
 
 /// Active event kinds the SDK recognises from the spec registry.
@@ -1114,14 +1117,9 @@ pub fn embedded_error_code_codes() -> Result<Vec<String>> {
         .collect()
 }
 
-/// The set of `reason_code` strings declared in the embedded
-/// `error-code-registry.json` snapshot.
-///
-/// Exposed so [`crate::error`]'s regression tests can cross-assert that the
-/// hand-maintained `REASON_*` constants stay in sync with the embedded
-/// registry snapshot (guards against the manual-mirror drift fixed alongside
-/// `federation_trust_domain_mismatch` / `invalid_ack_token`).
-pub fn embedded_error_code_reason_codes() -> Result<BTreeSet<String>> {
+/// Canonical subordinate reason-code strings declared in the embedded
+/// `error-code-registry.json` snapshot, in registry order.
+pub fn embedded_error_code_reason_codes() -> Result<Vec<String>> {
     let registry = read_embedded_json_artifact("registry/error-code-registry.json")?;
     let codes = registry
         .get("reason_codes")
@@ -1131,11 +1129,20 @@ pub fn embedded_error_code_reason_codes() -> Result<BTreeSet<String>> {
                 "embedded error-code-registry.json missing reason_codes array".to_owned(),
             )
         })?;
-    Ok(codes
+    codes
         .iter()
-        .filter_map(|entry| entry.get("code").and_then(Value::as_str))
-        .map(str::to_owned)
-        .collect())
+        .map(|entry| {
+            entry
+                .get("code")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .ok_or_else(|| {
+                    Error::Protocol(
+                        "embedded error-code-registry.json reason entry missing code".to_owned(),
+                    )
+                })
+        })
+        .collect()
 }
 
 /// The union of every error identifier declared in the embedded

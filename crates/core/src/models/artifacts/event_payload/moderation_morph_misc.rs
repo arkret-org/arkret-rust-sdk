@@ -108,6 +108,158 @@ impl MorphSchemaMigratePayload {
             to_fields,
         )
     }
+
+    pub fn apply_transformation(
+        &self,
+        fields: &BTreeMap<String, Value>,
+    ) -> std::result::Result<BTreeMap<String, Value>, MorphSchemaTransformationError> {
+        if self.compatibility_class != "transformation" {
+            return Err(MorphSchemaTransformationError::CompatibilityClass(
+                self.compatibility_class.clone(),
+            ));
+        }
+        let rules = self
+            .transformation_rules
+            .as_deref()
+            .ok_or(MorphSchemaTransformationError::MissingRules)?;
+        let mut output = fields.clone();
+        for rule in rules {
+            apply_transformation_rule(&mut output, rule)?;
+        }
+        Ok(output)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MorphSchemaTransformationError {
+    CompatibilityClass(String),
+    MissingRules,
+    UnknownRule(String),
+    InvalidRuleFields(String),
+    MissingSourceField(String),
+    TargetFieldExists(String),
+    TypeMismatch(String),
+}
+
+impl fmt::Display for MorphSchemaTransformationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CompatibilityClass(value) => {
+                write!(
+                    formatter,
+                    "compatibility_class must be transformation, got {value}"
+                )
+            }
+            Self::MissingRules => formatter.write_str("transformation_rules must be present"),
+            Self::UnknownRule(value) => write!(formatter, "unknown transformation rule {value}"),
+            Self::InvalidRuleFields(value) => {
+                write!(formatter, "invalid fields for transformation rule {value}")
+            }
+            Self::MissingSourceField(value) => {
+                write!(formatter, "transformation source field {value} is absent")
+            }
+            Self::TargetFieldExists(value) => {
+                write!(
+                    formatter,
+                    "transformation target field {value} already exists"
+                )
+            }
+            Self::TypeMismatch(value) => {
+                write!(formatter, "transformation field {value} has the wrong type")
+            }
+        }
+    }
+}
+
+impl std::error::Error for MorphSchemaTransformationError {}
+
+fn apply_transformation_rule(
+    fields: &mut BTreeMap<String, Value>,
+    rule: &BTreeMap<String, Value>,
+) -> std::result::Result<(), MorphSchemaTransformationError> {
+    let rule_id = required_rule_string(rule, "rule", "unknown")?;
+    match rule_id {
+        "ak.transform.identity.v1" => {
+            require_exact_rule_fields(rule, rule_id, &["rule"])?;
+        }
+        "ak.transform.rename.v1" => {
+            require_exact_rule_fields(rule, rule_id, &["rule", "from", "to"])?;
+            let from = required_rule_string(rule, "from", rule_id)?;
+            let to = required_rule_string(rule, "to", rule_id)?;
+            if fields.contains_key(to) {
+                return Err(MorphSchemaTransformationError::TargetFieldExists(
+                    to.to_owned(),
+                ));
+            }
+            let value = fields.remove(from).ok_or_else(|| {
+                MorphSchemaTransformationError::MissingSourceField(from.to_owned())
+            })?;
+            fields.insert(to.to_owned(), value);
+        }
+        "ak.transform.type_widen.v1" => {
+            require_exact_rule_fields(rule, rule_id, &["rule", "field", "from_type", "to_type"])?;
+            let field = required_rule_string(rule, "field", rule_id)?;
+            let from_type = required_rule_string(rule, "from_type", rule_id)?;
+            let to_type = required_rule_string(rule, "to_type", rule_id)?;
+            if from_type != "integer" || to_type != "number" {
+                return Err(MorphSchemaTransformationError::InvalidRuleFields(
+                    rule_id.to_owned(),
+                ));
+            }
+            let value = fields.get(field).ok_or_else(|| {
+                MorphSchemaTransformationError::MissingSourceField(field.to_owned())
+            })?;
+            if !value
+                .as_i64()
+                .is_some_and(|integer| Value::from(integer) == *value)
+                && !value
+                    .as_u64()
+                    .is_some_and(|integer| Value::from(integer) == *value)
+            {
+                return Err(MorphSchemaTransformationError::TypeMismatch(
+                    field.to_owned(),
+                ));
+            }
+        }
+        "ak.transform.default_backfill.v1" => {
+            require_exact_rule_fields(rule, rule_id, &["rule", "to", "value"])?;
+            let to = required_rule_string(rule, "to", rule_id)?;
+            if !fields.contains_key(to) {
+                fields.insert(to.to_owned(), rule["value"].clone());
+            }
+        }
+        other => {
+            return Err(MorphSchemaTransformationError::UnknownRule(
+                other.to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn required_rule_string<'a>(
+    rule: &'a BTreeMap<String, Value>,
+    field: &str,
+    rule_id: &str,
+) -> std::result::Result<&'a str, MorphSchemaTransformationError> {
+    rule.get(field)
+        .and_then(Value::as_str)
+        .ok_or_else(|| MorphSchemaTransformationError::InvalidRuleFields(rule_id.to_owned()))
+}
+
+fn require_exact_rule_fields(
+    rule: &BTreeMap<String, Value>,
+    rule_id: &str,
+    expected: &[&str],
+) -> std::result::Result<(), MorphSchemaTransformationError> {
+    let actual = rule.keys().map(String::as_str).collect::<BTreeSet<_>>();
+    let expected = expected.iter().copied().collect::<BTreeSet<_>>();
+    if actual != expected {
+        return Err(MorphSchemaTransformationError::InvalidRuleFields(
+            rule_id.to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 pub type MorphSchemaFieldSet = BTreeMap<String, MorphSchemaFieldDescriptor>;
@@ -499,6 +651,44 @@ mod tests {
                 "fields.status".to_owned()
             ))
         );
+    }
+
+    #[test]
+    fn morph_transformation_fixture_executes_all_registered_rules() {
+        let fixture =
+            schema::embedded_json_artifact("fixtures/morph-schema-migration-fixture.json").unwrap();
+        for vector in fixture["vectors"].as_array().unwrap() {
+            let input = &vector["input"];
+            let payload = &input["payload"];
+            let migrate = MorphSchemaMigratePayload {
+                morph_id: MorphId::new("ak:morph:0196419b-0000-7000-8000-000000000001").unwrap(),
+                from_schema_refs: serde_json::from_value(payload["from_schema_refs"].clone())
+                    .unwrap(),
+                to_schema_refs: serde_json::from_value(payload["to_schema_refs"].clone()).unwrap(),
+                compatibility_class: payload["compatibility_class"].as_str().unwrap().to_owned(),
+                transformation_rules: Some(
+                    serde_json::from_value(payload["transformation_rules"].clone()).unwrap(),
+                ),
+                migration_evidence: None,
+            };
+            let fields: BTreeMap<String, Value> =
+                serde_json::from_value(input["fields"].clone()).unwrap();
+            let output = migrate
+                .apply_transformation(&fields)
+                .unwrap_or_else(|error| panic!("{} failed: {error}", vector["vector_id"]));
+            assert_eq!(
+                serde_json::to_value(&output).unwrap(),
+                vector["expected_output"],
+                "{} output drifted",
+                vector["vector_id"]
+            );
+            assert_eq!(
+                canonical::canonical_sha256(&output).unwrap(),
+                vector["expected_output_digest"].as_str().unwrap(),
+                "{} digest drifted",
+                vector["vector_id"]
+            );
+        }
     }
 }
 

@@ -1122,6 +1122,25 @@ pub struct SessionGrantOutcome {
     pub scope_details: Option<SessionGrantScopeDetails>,
 }
 
+/// Enforce the v1 separation between an ephemeral session holder/PoP key and
+/// the long-term device identity key.
+pub fn validate_session_device_key_separation(
+    session_public_key_fingerprint: &str,
+    device_public_key_fingerprint: &str,
+) -> Result<()> {
+    if session_public_key_fingerprint.is_empty() || device_public_key_fingerprint.is_empty() {
+        return Err(Error::Protocol(
+            "session and device key fingerprints must not be empty".to_owned(),
+        ));
+    }
+    if session_public_key_fingerprint == device_public_key_fingerprint {
+        return Err(Error::Protocol(
+            "session and device identity key material must be distinct".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 /// `ak.profile.agent_auth.v1` overlay describing the narrow scope actually
 /// granted to an agent runtime session. Agent-only; absent for human grants.
 ///

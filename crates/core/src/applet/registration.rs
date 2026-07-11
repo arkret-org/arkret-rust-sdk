@@ -646,7 +646,7 @@ pub struct AppletPackage {
     pub widget: Option<Value>,
     /// Captured DID document + signing-key evidence covered by
     /// `registration_epoch`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip)]
     pub registration_epoch_evidence: Option<AppletRegistrationEpochEvidence>,
     /// Canonical package hash (excludes `package_digest` + `proof`).
     /// `None` until [`seal`](Self::seal).
@@ -763,6 +763,14 @@ impl AppletPackage {
     /// fields. Rejects a missing base profile, empty protocol /
     /// requested-scope lists, and an unsealed or unsigned package.
     pub fn validate(&self) -> Result<()> {
+        self.validate_wire()?;
+        let evidence = self.registration_epoch_evidence.as_ref().ok_or_else(|| {
+            Error::Protocol("applet package registration_epoch_evidence is missing".to_owned())
+        })?;
+        self.validate_with_epoch_evidence(evidence)
+    }
+
+    pub fn validate_wire(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {
             return Err(Error::Protocol("applet package schema mismatch".to_owned()));
         }
@@ -790,9 +798,26 @@ impl AppletPackage {
                 "applet package requested_scopes are empty".to_owned(),
             ));
         }
-        let evidence = self.registration_epoch_evidence.as_ref().ok_or_else(|| {
-            Error::Protocol("applet package registration_epoch_evidence is missing".to_owned())
-        })?;
+        validate_applet_extension_fields("endpoint_policy", &self.endpoint_policy.extra)?;
+        for endpoint in &self.endpoint_policy.endpoints {
+            validate_applet_extension_fields("endpoint_policy.endpoints", &endpoint.extra)?;
+        }
+        validate_applet_extension_fields("limits", &self.limits.extra)?;
+        validate_applet_extension_fields("ghost_policy", &self.ghost_policy.extra)?;
+        if self.package_digest.is_none() {
+            return Err(Error::Protocol("applet package is not sealed".to_owned()));
+        }
+        if self.proof.is_none() {
+            return Err(Error::Protocol("applet package is not signed".to_owned()));
+        }
+        Ok(())
+    }
+
+    pub fn validate_with_epoch_evidence(
+        &self,
+        evidence: &AppletRegistrationEpochEvidence,
+    ) -> Result<()> {
+        self.validate_wire()?;
         if evidence.service_id != self.service_id {
             return Err(Error::Protocol(
                 "applet package registration_epoch_evidence service_id mismatch".to_owned(),
@@ -802,12 +827,6 @@ impl AppletPackage {
             return Err(Error::Protocol(
                 "applet package registration_epoch_evidence signing keys are empty".to_owned(),
             ));
-        }
-        if self.package_digest.is_none() {
-            return Err(Error::Protocol("applet package is not sealed".to_owned()));
-        }
-        if self.proof.is_none() {
-            return Err(Error::Protocol("applet package is not signed".to_owned()));
         }
         Ok(())
     }
@@ -876,4 +895,29 @@ impl AppletPackage {
         reg.proof = self.proof.clone();
         Ok(reg)
     }
+}
+
+fn validate_applet_extension_fields(context: &str, fields: &BTreeMap<String, Value>) -> Result<()> {
+    for name in fields.keys() {
+        let Some(suffix) = name.strip_prefix("x_") else {
+            return Err(Error::Protocol(format!(
+                "{context} contains non-extension field {name}"
+            )));
+        };
+        if suffix.is_empty()
+            || suffix.len() > 64
+            || !suffix.bytes().enumerate().all(|(index, byte)| {
+                if index == 0 {
+                    byte.is_ascii_lowercase()
+                } else {
+                    byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_'
+                }
+            })
+        {
+            return Err(Error::Protocol(format!(
+                "{context} contains invalid extension field {name}"
+            )));
+        }
+    }
+    Ok(())
 }

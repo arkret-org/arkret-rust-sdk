@@ -84,7 +84,7 @@ impl AccountSubscribeFolder {
                 self.done = Some(AccountSubscribeSnapshotResult::ReconnectAfter {
                     reconnect_after_ms: clamp_reconnect_after_ms(frame.reconnect_after_ms()),
                     reconnect_cursor: self.trace.reconnect_cursor().map(ToOwned::to_owned),
-                    reason: frame.reason,
+                    reason: None,
                     reset_cursor: frame.kind == AccountSubscribeFrameKind::ResyncRequired,
                 });
                 return Ok(true);
@@ -93,7 +93,7 @@ impl AccountSubscribeFolder {
                 self.done = Some(AccountSubscribeSnapshotResult::ReconnectAfter {
                     reconnect_after_ms: clamp_reconnect_after_ms(frame.reconnect_after_ms()),
                     reconnect_cursor: self.trace.reconnect_cursor().map(ToOwned::to_owned),
-                    reason: frame.reason,
+                    reason: None,
                     reset_cursor: false,
                 });
                 return Ok(true);

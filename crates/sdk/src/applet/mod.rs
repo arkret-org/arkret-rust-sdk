@@ -594,9 +594,44 @@ mod tests {
         let recomputed = package.compute_package_digest().unwrap();
         assert_eq!(recomputed, package.package_digest.clone().unwrap());
 
-        let back: AppletPackage =
-            serde_json::from_value(serde_json::to_value(&package).unwrap()).unwrap();
-        assert_eq!(back, package);
+        let wire = serde_json::to_value(&package).unwrap();
+        assert!(wire.get("registration_epoch_evidence").is_none());
+        let back: AppletPackage = serde_json::from_value(wire.clone()).unwrap();
+        assert!(back.registration_epoch_evidence.is_none());
+        assert_eq!(serde_json::to_value(back).unwrap(), wire);
+    }
+
+    #[test]
+    fn applet_package_rejects_non_extension_flattened_fields() {
+        let mut package = AppletPackage::new(
+            "applet_pkg_todo",
+            "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            did("slackbridge"),
+            did("alice"),
+            "https://applet.example/cx",
+            did("bot"),
+            vec!["slack".to_owned()],
+            AppletWireNamespaces::default(),
+            sample_epoch(),
+        );
+        package.requested_scopes = vec!["ak.message.create".to_owned()];
+        package.registration_epoch_evidence = Some(sample_epoch_evidence(&package.service_id));
+        package
+            .endpoint_policy
+            .extra
+            .insert("unexpected".to_owned(), Value::Bool(true));
+        package.seal().unwrap();
+        package.proof = Some(Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#key-1".to_owned(),
+            event_digest: package.package_digest.clone().unwrap(),
+            created_at: Utc::now(),
+            domain: None,
+            audience: None,
+            jws: "header..sig".to_owned(),
+        });
+        assert!(package.validate().is_err());
     }
 
     #[test]

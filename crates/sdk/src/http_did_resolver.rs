@@ -594,11 +594,11 @@ mod tests {
     // the unreachable host).
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn sync_resolve_on_single_worker_multi_thread_runtime_does_not_deadlock() {
-        let resolver = std::sync::Arc::new(HttpDidResolver::new().unwrap());
+        let resolver = Arc::new(HttpDidResolver::new().unwrap());
 
         // Exercise the true worker-thread path via a spawned task.
         let on_worker = {
-            let resolver = std::sync::Arc::clone(&resolver);
+            let resolver = Arc::clone(&resolver);
             tokio::spawn(async move {
                 let did = Did::new("did:web:nonexistent.invalid").unwrap();
                 resolver.resolve_did(&did)

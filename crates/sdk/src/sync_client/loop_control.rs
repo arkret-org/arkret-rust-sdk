@@ -532,9 +532,7 @@ impl SyncLoop {
                     error: "account stream requires resync; restarting initial sync".to_owned(),
                 }
             }
-            AccountStreamInterrupt::Unauthorized { reason } => {
-                SyncLoopStep::Unauthorized { reason }
-            }
+            AccountStreamInterrupt::Unauthorized => SyncLoopStep::Unauthorized { reason: None },
         }
     }
 

@@ -222,6 +222,7 @@ pub enum DataOrControlPayloadPresent {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/account-subscribe-frame.schema.json#/$defs/device_message_container`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeviceMessage {
     pub kind: String,
@@ -248,9 +249,34 @@ pub struct DeviceMessageContainer {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limited: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<Value>,
+    pub next_cursor: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
+}
+
+impl DeviceMessageContainer {
+    pub fn validate(&self) -> Result<()> {
+        if !self.messages.is_empty() && self.ack_token.is_none() {
+            return Err(Error::Protocol(
+                "non-empty to_device messages require ack_token".to_owned(),
+            ));
+        }
+        if self
+            .ack_token
+            .as_ref()
+            .is_some_and(|token| token.is_empty() || token.len() > 1024)
+        {
+            return Err(Error::Protocol(
+                "to_device ack_token must contain 1..=1024 bytes".to_owned(),
+            ));
+        }
+        if self.limited == Some(true) && self.next_cursor.is_none() {
+            return Err(Error::Protocol(
+                "limited to_device batches require next_cursor".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Counterpart for
@@ -262,6 +288,14 @@ pub struct EventContainer {
     pub extra: BTreeMap<String, Value>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AccountSubscribeDeviceListChanges {
+    pub changed: Vec<Did>,
+    pub left: Vec<Did>,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/account-subscribe-frame.schema.json#/$defs/realm_sync_entry`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -269,9 +303,73 @@ pub struct Timeline {
     pub events: Vec<EventEnvelope>,
     pub limited: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub prev_cursor: Option<Value>,
+    pub prev_cursor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview_only: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WindowStartActorProfile {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WindowStartRealmMetadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub join_rule: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WindowStartE2eeEpoch {
+    pub epoch: u64,
+    pub key_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum WindowStartNullableE2eeEpoch {
+    Epoch(WindowStartE2eeEpoch),
+    Null(()),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StateAtWindowStart {
+    pub actor_profiles: BTreeMap<Did, WindowStartActorProfile>,
+    pub realm_metadata: WindowStartRealmMetadata,
+    pub e2ee_epoch: WindowStartNullableE2eeEpoch,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountSubscribeRealmSummary {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub joined_member_count: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invited_member_count: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub heroes: Option<Vec<Did>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountSubscribeUnreadCounts {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notification_count: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub highlight_count: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -292,9 +390,12 @@ pub struct RealmSyncEntryBottomsItem {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RealmSyncEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeline: Option<Timeline>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_at_window_start: Option<StateAtWindowStart>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<EventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -304,21 +405,19 @@ pub struct RealmSyncEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_data: Option<EventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub summary: Option<BTreeMap<String, Value>>,
+    pub summary: Option<AccountSubscribeRealmSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub members: Option<Vec<MemberRosterEntry>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub members_limited: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub members_next_cursor: Option<Value>,
+    pub members_next_cursor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub unread_notifications: Option<BTreeMap<String, Value>>,
+    pub unread_notifications: Option<AccountSubscribeUnreadCounts>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_states: Option<Vec<RealmSyncEntryEventStatesItem>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bottoms: Option<Vec<RealmSyncEntryBottomsItem>>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
 }
 
 /// Counterpart for

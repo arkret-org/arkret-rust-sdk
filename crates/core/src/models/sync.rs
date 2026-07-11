@@ -67,33 +67,51 @@ impl SyncOutcome {
         let cursor = frame.cursor?;
         let mut realms = BTreeMap::new();
         if let Some(frame_realms) = frame.realms {
-            realms.extend(frame_realms.entries);
+            realms.extend(frame_realms.entries.into_iter().map(|(realm_id, entry)| {
+                (
+                    realm_id,
+                    serde_json::to_value(entry)
+                        .expect("typed Realm sync entries must serialize to JSON"),
+                )
+            }));
         }
-        let to_device_value = frame.to_device;
-        let to_device = to_device_value
-            .as_ref()
-            .and_then(|value| value.get("messages").cloned())
-            .and_then(|value| value.as_array().cloned())
-            .unwrap_or_default();
-        let to_device_ack_token = to_device_value
-            .as_ref()
-            .and_then(|value| value.get("ack_token"))
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned);
-        let to_device_limited = to_device_value
-            .as_ref()
-            .and_then(|value| value.get("limited"))
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let to_device_next_cursor = to_device_value
-            .as_ref()
-            .and_then(|value| value.get("next_cursor"))
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned);
-        let to_device_lost = to_device_value
-            .as_ref()
-            .and_then(|value| value.get("lost"))
-            .and_then(Value::as_bool);
+        let (
+            to_device,
+            to_device_ack_token,
+            to_device_limited,
+            to_device_next_cursor,
+            to_device_lost,
+        ) = match frame.to_device {
+            Some(container) => (
+                container
+                    .messages
+                    .into_iter()
+                    .map(|message| {
+                        serde_json::to_value(message)
+                            .expect("typed device messages must serialize to JSON")
+                    })
+                    .collect(),
+                container.ack_token,
+                container.limited.unwrap_or(false),
+                container.next_cursor,
+                container.lost,
+            ),
+            None => (Vec::new(), None, false, None, None),
+        };
+        let event_values = |container: Option<EventContainer>| {
+            container
+                .map(|container| {
+                    container
+                        .events
+                        .into_iter()
+                        .map(|event| {
+                            serde_json::to_value(event)
+                                .expect("typed event envelopes must serialize to JSON")
+                        })
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
 
         Some(Self {
             cursor,
@@ -104,18 +122,16 @@ impl SyncOutcome {
             to_device_limited,
             to_device_next_cursor,
             to_device_lost,
-            device_lists: frame.device_lists.unwrap_or(Value::Null),
-            account_data: frame
-                .account_data
-                .and_then(|value| value.get("events").cloned())
-                .and_then(|value| value.as_array().cloned())
-                .unwrap_or_default(),
-            presence: frame
-                .presence
-                .and_then(|value| value.get("events").cloned())
-                .and_then(|value| value.as_array().cloned())
-                .unwrap_or_default(),
-            notifications: frame.notifications.unwrap_or(Value::Null),
+            device_lists: frame
+                .device_lists
+                .map(|changes| {
+                    serde_json::to_value(changes)
+                        .expect("typed device-list changes must serialize to JSON")
+                })
+                .unwrap_or(Value::Null),
+            account_data: event_values(frame.account_data),
+            presence: event_values(frame.presence),
+            notifications: Value::Array(event_values(frame.notifications)),
             partial: frame.partial.unwrap_or(false),
         })
     }
@@ -124,6 +140,7 @@ impl SyncOutcome {
 /// One NDJSON frame on `ak.self.account.stream.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AccountSubscribeFrame {
     pub kind: AccountSubscribeFrameKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -131,24 +148,25 @@ pub struct AccountSubscribeFrame {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realms: Option<AccountSubscribeRealms>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub to_device: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub to_device: Option<DeviceMessageContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_lists: Option<Value>,
+    pub device_lists: Option<AccountSubscribeDeviceListChanges>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub account_data: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub account_data: Option<EventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub presence: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub presence: Option<EventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub notifications: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub notifications: Option<EventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub partial: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub priority: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reconnect_after_ms: Option<u64>,
-    #[serde(default, flatten)]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub extra: BTreeMap<String, Value>,
 }
 
 /// Account-subscribe NDJSON frame discriminator.
@@ -197,10 +215,7 @@ pub enum AccountStreamInterrupt {
     },
     /// `unauthorized`: the session may no longer consume this stream;
     /// re-authenticate or sign out (client-sync.md §2.2.5).
-    Unauthorized {
-        /// Optional server-provided reason.
-        reason: Option<String>,
-    },
+    Unauthorized,
 }
 
 impl AccountSubscribeFrame {
@@ -214,7 +229,47 @@ impl AccountSubscribeFrame {
             return Ok(None);
         }
         let frame: Self = canonical::from_canonical_json_str(trimmed)?;
+        frame.validate()?;
         Ok(Some(frame))
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        let has_data = self.realms.is_some()
+            || self.to_device.is_some()
+            || self.device_lists.is_some()
+            || self.account_data.is_some()
+            || self.presence.is_some()
+            || self.notifications.is_some()
+            || self.partial.is_some()
+            || self.priority.is_some();
+        if self.reconnect_after_ms == Some(0) {
+            return Err(Error::Protocol(
+                "reconnect_after_ms must be greater than zero".to_owned(),
+            ));
+        }
+        if let Some(to_device) = &self.to_device {
+            to_device.validate()?;
+        }
+        let valid = match self.kind {
+            AccountSubscribeFrameKind::Delta => {
+                self.cursor.is_some() && self.reconnect_after_ms.is_none()
+            }
+            AccountSubscribeFrameKind::CatchupComplete | AccountSubscribeFrameKind::Frontier => {
+                self.cursor.is_some() && !has_data && self.reconnect_after_ms.is_none()
+            }
+            AccountSubscribeFrameKind::Dropped => self.cursor.is_some() && !has_data,
+            AccountSubscribeFrameKind::Heartbeat | AccountSubscribeFrameKind::Unauthorized => {
+                self.cursor.is_none() && !has_data && self.reconnect_after_ms.is_none()
+            }
+            AccountSubscribeFrameKind::ResyncRequired => self.cursor.is_none() && !has_data,
+        };
+        if !valid {
+            return Err(Error::Protocol(format!(
+                "account subscribe fields are invalid for {:?}",
+                self.kind
+            )));
+        }
+        Ok(())
     }
 
     /// True iff this frame requires the client to reset its cursor and
@@ -250,9 +305,7 @@ impl AccountSubscribeFrame {
                     reconnect_after_ms: self.reconnect_after_ms,
                 })
             }
-            AccountSubscribeFrameKind::Unauthorized => Some(AccountStreamInterrupt::Unauthorized {
-                reason: self.reason.clone(),
-            }),
+            AccountSubscribeFrameKind::Unauthorized => Some(AccountStreamInterrupt::Unauthorized),
             AccountSubscribeFrameKind::Delta
             | AccountSubscribeFrameKind::CatchupComplete
             | AccountSubscribeFrameKind::Frontier
@@ -272,19 +325,19 @@ mod account_subscribe_frame_tests {
 
     #[test]
     fn account_subscribe_frame_from_ndjson_line_delta() {
-        let line = r#"{"cursor":"sx:acc:1","kind":"delta"}"#;
+        let line = r#"{"cursor":"ak:cursor:acc-1","kind":"delta"}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line)
             .unwrap()
             .unwrap();
         assert_eq!(frame.kind, AccountSubscribeFrameKind::Delta);
-        assert_eq!(frame.cursor.as_deref(), Some("sx:acc:1"));
+        assert_eq!(frame.cursor.as_deref(), Some("ak:cursor:acc-1"));
         assert!(!frame.requires_resubscribe());
         assert!(!frame.is_catchup_complete());
     }
 
     #[test]
     fn account_subscribe_frame_from_ndjson_line_catchup_complete() {
-        let line = r#"{"cursor":"sx:live:0","kind":"catchup_complete"}"#;
+        let line = r#"{"cursor":"ak:cursor:live-0","kind":"catchup_complete"}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line)
             .unwrap()
             .unwrap();
@@ -294,7 +347,7 @@ mod account_subscribe_frame_tests {
 
     #[test]
     fn account_subscribe_frame_from_ndjson_line_frontier() {
-        let line = r#"{"cursor":"sx:adv:7","kind":"frontier"}"#;
+        let line = r#"{"cursor":"ak:cursor:adv-7","kind":"frontier"}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line)
             .unwrap()
             .unwrap();
@@ -315,19 +368,17 @@ mod account_subscribe_frame_tests {
 
     #[test]
     fn account_subscribe_frame_from_ndjson_line_dropped_requires_resubscribe() {
-        let line = r#"{"kind":"dropped","reason":"buffer overflow","reconnect_after_ms":10000}"#;
+        let line = r#"{"cursor":"ak:cursor:dropped","kind":"dropped","reconnect_after_ms":10000}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line)
             .unwrap()
             .unwrap();
         assert!(frame.requires_resubscribe());
-        assert_eq!(frame.reason.as_deref(), Some("buffer overflow"));
         assert_eq!(frame.reconnect_after_ms(), Some(10_000));
     }
 
     #[test]
     fn account_subscribe_frame_from_ndjson_line_resync_required_requires_resubscribe() {
-        let line =
-            r#"{"kind":"resync_required","reason":"epoch rotated","reconnect_after_ms":7500}"#;
+        let line = r#"{"kind":"resync_required","reconnect_after_ms":7500}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line)
             .unwrap()
             .unwrap();
@@ -337,7 +388,7 @@ mod account_subscribe_frame_tests {
 
     #[test]
     fn account_subscribe_frame_from_ndjson_line_unauthorized() {
-        let line = r#"{"kind":"unauthorized","reason":"revoked"}"#;
+        let line = r#"{"kind":"unauthorized"}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line)
             .unwrap()
             .unwrap();
@@ -400,6 +451,24 @@ mod account_subscribe_frame_tests {
         let err = AccountSubscribeFrame::from_ndjson_line(line).unwrap_err();
         assert!(format!("{err}").contains("future_kind_42"));
     }
+
+    #[test]
+    fn account_subscribe_fixture_cases_match_typed_wire_model() {
+        let fixture = crate::schema::embedded_json_artifact("fixtures/sync-fixture.json").unwrap();
+        for case in fixture["account_subscribe_schema_cases"]
+            .as_array()
+            .unwrap()
+        {
+            let line = serde_json::to_string(&case["instance"]).unwrap();
+            let accepted = AccountSubscribeFrame::from_ndjson_line(&line).is_ok();
+            assert_eq!(
+                accepted,
+                case["expect_valid"].as_bool().unwrap(),
+                "fixture case {} drifted",
+                case["name"]
+            );
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -407,7 +476,7 @@ mod account_subscribe_frame_tests {
 pub struct AccountSubscribeRealms {
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub entries: BTreeMap<String, Value>,
+    pub entries: BTreeMap<String, RealmSyncEntry>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

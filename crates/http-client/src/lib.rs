@@ -1430,10 +1430,10 @@ mod tests {
             // buffer to assemble it.
             let parts = vec![
                 r#"{"kind":"heartbeat"}"#,
-                "\n{\"cursor\":\"sx:adv:1\"",
+                "\n{\"cursor\":\"ak:cursor:adv-1\"",
                 ",\"kind\":\"frontier\"}\n",
-                "{\"cursor\":\"sx:delta:1\",\"kind\":\"delta\",\"partial\":false}\n",
-                "{\"cursor\":\"sx:live:0\",\"kind\":\"catchup_complete\"}\n",
+                "{\"cursor\":\"ak:cursor:delta-1\",\"kind\":\"delta\",\"partial\":false}\n",
+                "{\"cursor\":\"ak:cursor:live-0\",\"kind\":\"catchup_complete\"}\n",
             ];
             let client = spawn_chunked_ndjson_server(parts).await;
             let mut stream = client
@@ -1462,15 +1462,15 @@ mod tests {
             assert!(got[1].cursor.is_some());
             assert_eq!(got[2].kind, arkret_core::AccountSubscribeFrameKind::Delta);
             assert!(got[3].is_catchup_complete());
-            assert_eq!(stream.reconnect_cursor(), Some("sx:live:0"));
+            assert_eq!(stream.reconnect_cursor(), Some("ak:cursor:live-0"));
         }
 
         #[tokio::test]
         async fn account_subscribe_once_waits_for_valid_catchup_completion() {
             let parts = vec![
-                "{\"cursor\":\"sx:delta:1\",\"kind\":\"delta\",\"partial\":true}\n",
-                "{\"cursor\":\"sx:delta:2\",\"kind\":\"delta\",\"partial\":false}\n",
-                "{\"cursor\":\"sx:complete:2\",\"kind\":\"catchup_complete\"}\n",
+                "{\"cursor\":\"ak:cursor:delta-1\",\"kind\":\"delta\",\"partial\":true}\n",
+                "{\"cursor\":\"ak:cursor:delta-2\",\"kind\":\"delta\",\"partial\":false}\n",
+                "{\"cursor\":\"ak:cursor:complete-2\",\"kind\":\"catchup_complete\"}\n",
             ];
             let client = spawn_chunked_ndjson_server(parts).await;
             let outcome = client
@@ -1484,7 +1484,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_eq!(outcome.cursor, "sx:complete:2");
+            assert_eq!(outcome.cursor, "ak:cursor:complete-2");
             assert!(!outcome.partial);
         }
 
@@ -1497,7 +1497,7 @@ mod tests {
             // of being skipped while waiting for a delta.
             let parts = vec![
                 "{\"kind\":\"heartbeat\"}\n",
-                "{\"kind\":\"dropped\",\"cursor\":\"sx:drop:9\",\"reconnect_after_ms\":10000}\n",
+                "{\"kind\":\"dropped\",\"cursor\":\"ak:cursor:drop-9\",\"reconnect_after_ms\":10000}\n",
             ];
             let client = spawn_chunked_ndjson_server(parts).await;
             let error = client
@@ -1516,7 +1516,7 @@ mod tests {
                     cursor,
                     reconnect_after_ms,
                 }) => {
-                    assert_eq!(cursor, "sx:drop:9");
+                    assert_eq!(cursor, "ak:cursor:drop-9");
                     assert_eq!(reconnect_after_ms, Some(10_000));
                 }
                 other => panic!("expected dropped interrupt, got {other:?}"),
@@ -1527,7 +1527,7 @@ mod tests {
         async fn account_subscribe_once_surfaces_unauthorized_interrupt() {
             use arkret_core::AccountStreamInterrupt;
 
-            let parts = vec!["{\"kind\":\"unauthorized\",\"reason\":\"revoked\"}\n"];
+            let parts = vec!["{\"kind\":\"unauthorized\"}\n"];
             let client = spawn_chunked_ndjson_server(parts).await;
             let error = client
                 .account_subscribe_once(&SyncRequestBody {
@@ -1542,8 +1542,7 @@ mod tests {
 
             assert!(matches!(
                 error,
-                Error::AccountStreamInterrupt(AccountStreamInterrupt::Unauthorized { reason })
-                    if reason.as_deref() == Some("revoked")
+                Error::AccountStreamInterrupt(AccountStreamInterrupt::Unauthorized)
             ));
         }
 

@@ -8,8 +8,7 @@ use crate::{Did, Event, RealmId};
 
 /// Framework-neutral applet endpoint route declaration.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg(test)]
-pub(crate) struct AppletEndpointRoute {
+pub struct AppletEndpointRoute {
     pub method: String,
     pub path: String,
     pub description: String,
@@ -17,12 +16,10 @@ pub(crate) struct AppletEndpointRoute {
 
 /// Route set expected from applet service framework adapters.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg(test)]
-pub(crate) struct AppletEndpointRouteSet {
+pub struct AppletEndpointRouteSet {
     pub routes: Vec<AppletEndpointRoute>,
 }
 
-#[cfg(test)]
 impl AppletEndpointRouteSet {
     /// Standard applet service routes from the Arkret service binding.
     pub fn arkret_default() -> Self {
@@ -183,13 +180,11 @@ pub struct RemoteRealmMapping {
 
 /// In-memory bridge mapping storage.
 #[derive(Clone, Debug, Default)]
-#[cfg(test)]
-pub(crate) struct BridgeMappingStore {
+pub struct BridgeMappingStore {
     users: BTreeMap<String, RemoteUserMapping>,
     realms: BTreeMap<String, RemoteRealmMapping>,
 }
 
-#[cfg(test)]
 impl BridgeMappingStore {
     /// Create an empty mapping store.
     pub fn new() -> Self {
@@ -223,7 +218,6 @@ impl BridgeMappingStore {
     }
 }
 
-#[cfg(test)]
 fn remote_key(protocol: &str, remote_id: &str) -> String {
     format!("{protocol}:{remote_id}")
 }

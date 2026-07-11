@@ -582,6 +582,28 @@ fn encoding_fixture_vectors_execute_against_sdk() {
     assert_eq!(actual, expected, "rank_order drifted");
 }
 
+#[test]
+fn auth_session_fixture_enforces_device_identity_key_separation() {
+    let fixture = fixture_artifact("auth-session-proof-fixture.json");
+    let vector = fixture["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "session_and_device_identity_key_separation")
+        .expect("session/device key-separation vector missing");
+    for case in vector["cases"].as_array().unwrap() {
+        let result = crate::validate_session_device_key_separation(
+            case["session_public_key_fingerprint"].as_str().unwrap(),
+            case["device_public_key_fingerprint"].as_str().unwrap(),
+        );
+        match case["expected"].as_str().unwrap() {
+            "accepted" => result.unwrap(),
+            "unauthenticated" => assert!(result.is_err()),
+            unexpected => panic!("unknown key-separation outcome {unexpected}"),
+        }
+    }
+}
+
 /// Minimal hex decoder for fixture `input_hex` payloads.
 fn hex_decode(input: &str) -> Option<Vec<u8>> {
     if input.len() % 2 != 0 {
