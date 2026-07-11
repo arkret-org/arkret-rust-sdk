@@ -156,6 +156,7 @@ pub use arkret_state::{self as state_runtime, snapshot, state, state as state_re
 pub use crate::store as store_contracts;
 #[cfg(feature = "full-surface")]
 pub mod account;
+pub mod account_data_crypto;
 #[cfg(feature = "full-surface")]
 pub mod agent;
 #[cfg(feature = "full-surface")]
