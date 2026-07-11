@@ -141,9 +141,7 @@ pub fn platform_default_keystore_with_kind(
 
 /// Resolve a durable platform-native key store or fail closed when the target,
 /// feature set, or host service cannot provide one.
-pub fn durable_platform_keystore(
-    application_id: &str,
-) -> Result<Box<dyn KeyStore>, KeyStoreError> {
+pub fn durable_platform_keystore(application_id: &str) -> Result<Box<dyn KeyStore>, KeyStoreError> {
     let (store, kind) = platform_default_keystore_with_kind(application_id);
     if kind == BackendKind::InMemory {
         return Err(KeyStoreError::unsupported(
