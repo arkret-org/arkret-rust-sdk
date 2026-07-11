@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::models::{DeliveryStatus, MembershipPayload, OP_MEMBER_STATE};
-use crate::{Did, Error, InviteId, Operation, OperationId, RealmId, Result};
+use crate::{BlobRef, Did, Error, InviteId, Operation, OperationId, RealmId, Result};
 
 /// Generate a new UUIDv7-based wire ID with the given Arkret typed prefix
 /// (e.g. `ak:invite:`, `ak:operation:`). RFC 9562 §5.7 / `conformance/encoding.md` §4.
@@ -113,8 +113,8 @@ impl MemberRole {
 pub struct MemberProfile {
     /// Display name.
     pub display_name: Option<String>,
-    /// Avatar URL or media reference.
-    pub avatar_url: Option<String>,
+    /// Canonical Arkret avatar Blob reference.
+    pub avatar_blob_ref: Option<BlobRef>,
 }
 
 /// Membership entry.
@@ -702,7 +702,7 @@ mod tests {
                 &bob,
                 MemberProfile {
                     display_name: Some("Bob".to_owned()),
-                    avatar_url: None,
+                    avatar_blob_ref: None,
                 },
             )
             .unwrap();

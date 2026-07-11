@@ -18,8 +18,8 @@ pub struct UserProfile {
     pub user_id: Did,
     /// Display name.
     pub display_name: Option<String>,
-    /// Avatar URL or media reference.
-    pub avatar_url: Option<String>,
+    /// Canonical Arkret avatar Blob reference.
+    pub avatar_blob_ref: Option<BlobRef>,
     /// Bio/description.
     pub bio: Option<String>,
     /// Monotonic profile version.
@@ -34,7 +34,7 @@ impl UserProfile {
         Self {
             user_id,
             display_name: None,
-            avatar_url: None,
+            avatar_blob_ref: None,
             bio: None,
             version: 0,
             updated_at: Utc::now(),
@@ -278,7 +278,7 @@ impl ProfileManager {
         &mut self,
         user_id: Did,
         display_name: Option<String>,
-        avatar_url: Option<String>,
+        avatar_blob_ref: Option<BlobRef>,
         bio: Option<String>,
     ) -> UserProfile {
         let mut profile = self
@@ -286,7 +286,7 @@ impl ProfileManager {
             .remove(&user_id)
             .unwrap_or_else(|| UserProfile::new(user_id.clone()));
         profile.display_name = display_name;
-        profile.avatar_url = avatar_url;
+        profile.avatar_blob_ref = avatar_blob_ref;
         profile.bio = bio;
         profile.version += 1;
         profile.updated_at = Utc::now();
@@ -312,13 +312,13 @@ impl ProfileManager {
         self.update_profile(
             user_id,
             Some(display_name.into()),
-            current.avatar_url,
+            current.avatar_blob_ref,
             current.bio,
         )
     }
 
-    /// Update avatar URL only.
-    pub fn set_avatar_url(&mut self, user_id: Did, avatar_url: impl Into<String>) -> UserProfile {
+    /// Update the canonical avatar Blob reference only.
+    pub fn set_avatar_blob_ref(&mut self, user_id: Did, avatar_blob_ref: BlobRef) -> UserProfile {
         let current = self
             .profiles
             .get(&user_id)
@@ -327,7 +327,7 @@ impl ProfileManager {
         self.update_profile(
             user_id,
             current.display_name,
-            Some(avatar_url.into()),
+            Some(avatar_blob_ref),
             current.bio,
         )
     }
@@ -342,7 +342,7 @@ impl ProfileManager {
         self.update_profile(
             user_id,
             current.display_name,
-            current.avatar_url,
+            current.avatar_blob_ref,
             Some(bio.into()),
         )
     }
@@ -776,10 +776,15 @@ mod tests {
         assert_eq!(v1.version, 1);
         assert_eq!(v1.display_name, Some("Alice".to_owned()));
 
-        let v2 = manager.set_avatar_url(alice.clone(), "ak:blob:avatar");
+        let avatar_blob_ref = BlobRef::new(concat!(
+            "ak:blob:sha256:",
+            "01015dc8af66d01f557ea63f13538f1964848840a350c5311d1efc8ad138bb91"
+        ))
+        .unwrap();
+        let v2 = manager.set_avatar_blob_ref(alice.clone(), avatar_blob_ref.clone());
         assert_eq!(v2.version, 2);
         assert_eq!(v2.display_name, Some("Alice".to_owned()));
-        assert_eq!(v2.avatar_url, Some("ak:blob:avatar".to_owned()));
+        assert_eq!(v2.avatar_blob_ref, Some(avatar_blob_ref));
 
         let v3 = manager.set_bio(alice.clone(), "Builder");
         assert_eq!(v3.version, 3);

@@ -549,12 +549,12 @@ impl BaseClient {
     pub fn update_my_profile(
         &self,
         display_name: Option<String>,
-        avatar_url: Option<String>,
+        avatar_blob_ref: Option<BlobRef>,
         bio: Option<String>,
     ) -> Result<UserProfile> {
         self.mutate_my_profile(|profile| {
             profile.display_name = display_name;
-            profile.avatar_url = avatar_url;
+            profile.avatar_blob_ref = avatar_blob_ref;
             profile.bio = bio;
         })
     }

@@ -86,6 +86,8 @@ pub struct AgentProvisionRequestBody {
     pub display_name: Option<String>,
     pub slug: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub requested_scope: Option<AgentKeyScope>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub accountability: Value,
@@ -168,6 +170,8 @@ pub struct AgentProjection {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     pub slug: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
     pub status: AgentStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at: Option<DateTime<Utc>>,

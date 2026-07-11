@@ -420,6 +420,7 @@ pub fn agent_path_component(value: &str) -> String {
 pub struct AgentProvisionRequestBuilder {
     display_name: Option<String>,
     slug: String,
+    avatar_blob_ref: Option<crate::BlobRef>,
     requested_scope: Option<crate::AgentKeyScope>,
     accountability: Value,
     pairing_ttl_ms: Option<u64>,
@@ -430,6 +431,7 @@ impl AgentProvisionRequestBuilder {
         Self {
             display_name: None,
             slug: slug.into(),
+            avatar_blob_ref: None,
             requested_scope: None,
             accountability: Value::Null,
             pairing_ttl_ms: None,
@@ -438,6 +440,11 @@ impl AgentProvisionRequestBuilder {
 
     pub fn display_name(mut self, display_name: impl Into<String>) -> Self {
         self.display_name = Some(display_name.into());
+        self
+    }
+
+    pub fn avatar_blob_ref(mut self, avatar_blob_ref: crate::BlobRef) -> Self {
+        self.avatar_blob_ref = Some(avatar_blob_ref);
         self
     }
 
@@ -460,6 +467,7 @@ impl AgentProvisionRequestBuilder {
         AgentProvisionRequestBody {
             display_name: self.display_name,
             slug: self.slug,
+            avatar_blob_ref: self.avatar_blob_ref,
             requested_scope: self.requested_scope,
             accountability: self.accountability,
             pairing_ttl_ms: self.pairing_ttl_ms,
@@ -1139,6 +1147,13 @@ mod tests {
     fn personal_agent_request_plans_use_standard_paths() {
         let provision = AgentProvisionRequestBuilder::new("summary")
             .display_name("summary agent")
+            .avatar_blob_ref(
+                crate::BlobRef::new(concat!(
+                    "ak:blob:sha256:",
+                    "01015dc8af66d01f557ea63f13538f1964848840a350c5311d1efc8ad138bb91"
+                ))
+                .unwrap(),
+            )
             .requested_scope(AgentKeyScope {
                 actions: vec!["ak.message.create".to_owned()],
                 resources: vec![AgentKeyScopeResource {
@@ -1160,6 +1175,13 @@ mod tests {
         let body = plan.body_value().unwrap().unwrap();
         assert_eq!(body["display_name"], "summary agent");
         assert_eq!(body["slug"], "summary");
+        assert_eq!(
+            body["avatar_blob_ref"],
+            concat!(
+                "ak:blob:sha256:",
+                "01015dc8af66d01f557ea63f13538f1964848840a350c5311d1efc8ad138bb91"
+            )
+        );
         assert_eq!(body["requested_scope"]["actions"][0], "ak.message.create");
         assert_eq!(body["requested_scope"]["resources"][0]["kind"], "realm");
 
