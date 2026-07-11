@@ -8,7 +8,7 @@ pub const KEY_TRANSPARENCY_SCHEMA: &str = "ak.schema.key_transparency.v1";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeyTransparencyEvidence {
     pub schema: String,
-    pub log_service_did: String,
+    pub log_service_id: String,
     pub principal_id: String,
     pub key_material_digest: String,
     pub log_head: TransparencyLogHead,

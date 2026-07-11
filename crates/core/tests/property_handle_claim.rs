@@ -105,7 +105,7 @@ proptest! {
     ) {
         let mut claim = HandleClaim {
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_service_did: Did::new("did:webvh:z6mkfixture:recipient.example".to_owned()).unwrap(),
+                recipient_service_id: Did::new("did:webvh:z6mkfixture:recipient.example".to_owned()).unwrap(),
                 recipient_service_type: RecipientServiceType::PrincipalServer,
                 binding_source: HandleHintBindingSource::Explicit,
                 delivery_modes: Default::default(),

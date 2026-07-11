@@ -13,7 +13,7 @@ use super::*;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MemberDeliveryBinding {
-    pub recipient_service_did: Did,
+    pub recipient_service_id: Did,
     #[serde(default = "default_recipient_service_type")]
     pub recipient_service_type: RecipientServiceType,
     #[serde(default = "default_binding_scope")]
@@ -141,13 +141,13 @@ pub enum DeliveryStatus {
 
 /// Composite cell-subject key for `ak.device.push_route` events.
 ///
-/// Scope: `(recipient_service_did, principal_id, device_id, push_route)`.
+/// Scope: `(recipient_service_id, principal_id, device_id, push_route)`.
 /// `push_target_id` MUST be derived against this scope; push registration
 /// MUST be scoped to the current Principal Server's service DID.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PushRouteScope {
-    pub recipient_service_did: Did,
+    pub recipient_service_id: Did,
     pub principal_id: Did,
     pub device_id: DeviceId,
     pub push_route: String,
@@ -157,7 +157,7 @@ pub struct PushRouteScope {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DevicePushRoutePayload {
-    pub recipient_service_did: Did,
+    pub recipient_service_id: Did,
     pub principal_id: Did,
     pub device_id: DeviceId,
     pub push_route: String,
@@ -172,7 +172,7 @@ pub struct DevicePushRoutePayload {
 impl DevicePushRoutePayload {
     pub fn scope(&self) -> PushRouteScope {
         PushRouteScope {
-            recipient_service_did: self.recipient_service_did.clone(),
+            recipient_service_id: self.recipient_service_id.clone(),
             principal_id: self.principal_id.clone(),
             device_id: self.device_id.clone(),
             push_route: self.push_route.clone(),
@@ -198,7 +198,7 @@ mod tests {
     #[test]
     fn binding_requires_modes() {
         let mut b = MemberDeliveryBinding {
-            recipient_service_did: fake_did("rs"),
+            recipient_service_id: fake_did("rs"),
             recipient_service_type: RecipientServiceType::PrincipalServer,
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::Explicit,
@@ -219,7 +219,7 @@ mod tests {
     #[test]
     fn binding_source_explicit_requires_acceptance_ref() {
         let b = MemberDeliveryBinding {
-            recipient_service_did: fake_did("rs"),
+            recipient_service_id: fake_did("rs"),
             recipient_service_type: RecipientServiceType::PrincipalServer,
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::Explicit,
@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn member_delivery_binding_rejects_space_binding_scope() {
         let payload = serde_json::json!({
-            "recipient_service_did": "did:webvh:z6mkfixture:rs.example",
+            "recipient_service_id": "did:webvh:z6mkfixture:rs.example",
             "recipient_service_type": "principal_server",
             "binding_scope": "space",
             "binding_source": "explicit",
@@ -290,7 +290,7 @@ mod tests {
     #[test]
     fn binding_source_did_document_default_requires_hash() {
         let b = MemberDeliveryBinding {
-            recipient_service_did: fake_did("rs"),
+            recipient_service_id: fake_did("rs"),
             recipient_service_type: RecipientServiceType::PrincipalServer,
             binding_scope: BindingScope::Realm,
             binding_source: BindingSource::DidDocumentDefault,

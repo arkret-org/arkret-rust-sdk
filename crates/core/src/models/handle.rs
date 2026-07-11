@@ -390,7 +390,7 @@ pub enum HandleClaimKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DeliveryBindingHint {
-    pub recipient_service_did: Did,
+    pub recipient_service_id: Did,
     #[serde(default = "default_hint_recipient_service_type")]
     pub recipient_service_type: RecipientServiceType,
     pub binding_source: HandleHintBindingSource,
@@ -444,7 +444,7 @@ pub struct HandleClaim {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub issuer: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub issuer_service_did: Option<Did>,
+    pub issuer_service_id: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub binding_state: Option<HandleBindingState>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -481,7 +481,7 @@ impl Default for HandleClaim {
             handle_aliases: Vec::new(),
             subject: None,
             issuer: None,
-            issuer_service_did: None,
+            issuer_service_id: None,
             binding_state: None,
             claim_kind: None,
             visibility: None,
@@ -536,7 +536,7 @@ impl HandleClaim {
     pub fn validate_remote_resolution(
         &self,
         expected_audience: Option<&str>,
-        expected_recipient_service_did: Option<&Did>,
+        expected_recipient_service_id: Option<&Did>,
         now: DateTime<Utc>,
     ) -> Result<()> {
         self.validate()?;
@@ -572,10 +572,10 @@ impl HandleClaim {
                 }
             }
         }
-        if let Some(expected_recipient_service_did) = expected_recipient_service_did {
+        if let Some(expected_recipient_service_id) = expected_recipient_service_id {
             match self.member_delivery_binding.as_ref() {
-                Some(binding)
-                    if &binding.recipient_service_did == expected_recipient_service_did => {}
+                Some(binding) if &binding.recipient_service_id == expected_recipient_service_id => {
+                }
                 Some(_) => {
                     return Err(Error::Protocol(
                         "handle claim delivery binding mismatch".to_owned(),
@@ -671,7 +671,7 @@ mod tests {
         let claim = HandleClaim {
             handle: Some(Handle::parse("alice:example.com").unwrap()),
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_service_did: Did::new("did:webvh:z6mkfixture:rs.example".to_owned())
+                recipient_service_id: Did::new("did:webvh:z6mkfixture:rs.example".to_owned())
                     .unwrap(),
                 recipient_service_type: RecipientServiceType::PrincipalServer,
                 binding_source: HandleHintBindingSource::Explicit,
@@ -697,7 +697,7 @@ mod tests {
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
             proofs: vec![placeholder_payload_proof()],
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_service_did: Did::new("did:webvh:z6mkfixture:rs.example".to_owned())
+                recipient_service_id: Did::new("did:webvh:z6mkfixture:rs.example".to_owned())
                     .unwrap(),
                 recipient_service_type: RecipientServiceType::PrincipalServer,
                 binding_source: HandleHintBindingSource::OrganizationPolicy,
@@ -735,7 +735,7 @@ mod tests {
             audience: Some(audience.to_owned()),
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
             member_delivery_binding: Some(DeliveryBindingHint {
-                recipient_service_did: recipient.clone(),
+                recipient_service_id: recipient.clone(),
                 recipient_service_type: RecipientServiceType::PrincipalServer,
                 binding_source: HandleHintBindingSource::OrganizationPolicy,
                 delivery_modes: BTreeSet::from([DeliveryMode::Events]),

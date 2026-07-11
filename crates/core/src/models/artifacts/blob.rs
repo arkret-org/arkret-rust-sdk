@@ -31,7 +31,7 @@ pub struct UploadReceipt {
     pub content_digest: Hash,
     pub size_bytes: u64,
     pub received_at: DateTime<Utc>,
-    pub issuer_service_did: Did,
+    pub issuer_service_id: Did,
     pub signature: SignatureValue,
 }
 

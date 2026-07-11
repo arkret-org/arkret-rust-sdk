@@ -624,7 +624,7 @@ mod tests {
         let mut description: ServerDescription = serde_json::from_value(json!({
             "protocol_version": "1.0",
             "service_type": "principal_server",
-            "service_did": "did:web:server.local",
+            "service_id": "did:web:server.local",
             "trust_domain": "ak:trust_domain:server.local",
             "supported_profiles": [],
             "supported_operations": [],

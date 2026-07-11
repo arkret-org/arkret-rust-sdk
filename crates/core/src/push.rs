@@ -305,7 +305,7 @@ impl PushBridgeDescribeOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PushBridgeDescribeGatewayDescriptor {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_did: Option<String>,
+    pub service_id: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub supported_profiles: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -341,8 +341,8 @@ pub struct PushBridgeDescribeNotifyDescriptor {
     pub operation_id: String,
     pub request_id_header: String,
     pub idempotency_key_header: String,
-    pub origin_service_did_header: String,
-    pub destination_service_did_header: String,
+    pub origin_service_id_header: String,
+    pub destination_service_id_header: String,
     pub max_request_size_bytes: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dedup_backend: Option<String>,
@@ -529,7 +529,7 @@ mod tests {
             platform: Some("fcm".to_owned()),
             app_id: Some("app".to_owned()),
             display_name: None,
-            recipient_service_did: None,
+            recipient_service_id: None,
         };
         let pusher = Pusher::from_register(did("alice"), request);
         assert_eq!(pusher.platform, PushPlatform::Fcm);
@@ -592,7 +592,7 @@ mod tests {
     #[test]
     fn bridge_descriptor_helpers_match_supported_lists() {
         let descriptor = PushBridgeDescribeGatewayDescriptor {
-            service_did: Some("did:webvh:z6mkfixture:gateway.example".to_owned()),
+            service_id: Some("did:webvh:z6mkfixture:gateway.example".to_owned()),
             supported_profiles: vec!["fcm".to_owned(), "APNs".to_owned()],
             supported_providers: vec!["huawei".to_owned()],
             auth_modes: vec!["http-message-signature".to_owned()],
@@ -613,8 +613,8 @@ mod tests {
             operation_id: "ak.edge.push.command.notify".to_owned(),
             request_id_header: "X-Arkret-Request-Id".to_owned(),
             idempotency_key_header: "X-Arkret-Idempotency-Key".to_owned(),
-            origin_service_did_header: "X-Arkret-Origin-Service-Did".to_owned(),
-            destination_service_did_header: "X-Arkret-Destination-Service-Did".to_owned(),
+            origin_service_id_header: "X-Arkret-Origin-Service-Id".to_owned(),
+            destination_service_id_header: "X-Arkret-Destination-Service-Id".to_owned(),
             max_request_size_bytes: 16 * 1024,
             dedup_backend: Some("redis".to_owned()),
             dedup_ttl_seconds: Some(300),
@@ -681,8 +681,8 @@ mod tests {
                 "operation_id": "ak.edge.push.command.notify",
                 "request_id_header": "X-Arkret-Request-Id",
                 "idempotency_key_header": "X-Arkret-Idempotency-Key",
-                "origin_service_did_header": "X-Arkret-Origin-Service-Did",
-                "destination_service_did_header": "X-Arkret-Destination-Service-Did",
+                "origin_service_id_header": "X-Arkret-Origin-Service-Id",
+                "destination_service_id_header": "X-Arkret-Destination-Service-Id",
                 "max_request_size_bytes": 16384,
             },
             "privacy": {

@@ -4,7 +4,6 @@ pub const ACCOUNT_BLOCKLIST: &str = "ak.account.blocklist";
 pub const ACCOUNT_STATUS: &str = "ak.account.status";
 pub const ACCOUNT_DATA_SET: &str = "ak.account_data.set";
 pub const ACTOR_DISCOVERY: &str = "ak.actor.discovery";
-pub const AGENT_ENDPOINT: &str = "ak.agent.endpoint";
 pub const AGENT_KEY_AUTHORIZE: &str = "ak.agent.key.authorize";
 pub const AGENT_KEY_REVOKE: &str = "ak.agent.key.revoke";
 pub const AGENT_KEY_ROTATE: &str = "ak.agent.key.rotate";
@@ -21,9 +20,6 @@ pub const AGENT_DRAFT_PROPOSE: &str = "ak.agent.draft.propose";
 pub const AGENT_ACTION_REQUEST: &str = "ak.agent.action_request";
 pub const AGENT_ACTION_APPROVE: &str = "ak.agent.action_approve";
 pub const AGENT_ACTION_REJECT: &str = "ak.agent.action_reject";
-pub const AGENT_INTEROP_SESSION_RESULT: &str = "ak.agent.interop_session.result";
-pub const AGENT_INTEROP_SESSION_START: &str = "ak.agent.interop_session.start";
-pub const AGENT_INTEROP_SESSION_STATUS: &str = "ak.agent.interop_session.status";
 pub const APPLET_BRIDGE_ERROR: &str = "ak.applet.bridge_error";
 pub const APPLET_DISCOVERY: &str = "ak.applet.discovery";
 pub const APPLET_INTEROP_SESSION_START: &str = "ak.applet.interop_session.start";
@@ -329,10 +325,6 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     AGENT_ACTION_REJECT,
     AGENT_ACTION_REQUEST,
     AGENT_DRAFT_PROPOSE,
-    AGENT_ENDPOINT,
-    AGENT_INTEROP_SESSION_RESULT,
-    AGENT_INTEROP_SESSION_START,
-    AGENT_INTEROP_SESSION_STATUS,
     AGENT_KEY_AUTHORIZED,
     AGENT_KEY_REVOKED,
     AGENT_KEY_ROTATED,
@@ -634,20 +626,9 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
             EventClass::Account
         }
         ACTOR_DISCOVERY => EventClass::Actor,
-        AGENT_ACTION_APPROVE
-        | AGENT_ACTION_REJECT
-        | AGENT_ACTION_REQUEST
-        | AGENT_DEACTIVATE
-        | AGENT_DRAFT_PROPOSE
-        | AGENT_ENDPOINT
-        | AGENT_KEY_AUTHORIZED
-        | AGENT_KEY_REVOKED
-        | AGENT_KEY_ROTATED
-        | AGENT_PAUSE
-        | AGENT_INTEROP_SESSION_RESULT
-        | AGENT_INTEROP_SESSION_START
-        | AGENT_INTEROP_SESSION_STATUS
-        | AGENT_RESUME => EventClass::Agent,
+        AGENT_ACTION_APPROVE | AGENT_ACTION_REJECT | AGENT_ACTION_REQUEST | AGENT_DEACTIVATE
+        | AGENT_DRAFT_PROPOSE | AGENT_KEY_AUTHORIZED | AGENT_KEY_REVOKED | AGENT_KEY_ROTATED
+        | AGENT_PAUSE | AGENT_RESUME => EventClass::Agent,
         APPLET_BRIDGE_ERROR
         | APPLET_DISCOVERY
         | APPLET_INTEROP_SESSION_START
@@ -876,10 +857,6 @@ mod tests {
         assert!(is_strand_lifecycle_kind(STRAND_ARCHIVE));
         assert!(is_morph_lifecycle_kind(MORPH_ARCHIVE));
         assert!(is_strand_tracks_kind(STRAND_TRACKS_UPDATE));
-        assert_eq!(
-            classify_event_kind(AGENT_INTEROP_SESSION_STATUS),
-            EventClass::Agent
-        );
         assert_eq!(classify_event_kind(CALL_SIGNAL), EventClass::Call);
         assert_eq!(
             classify_event_kind("vendor.example.widget"),

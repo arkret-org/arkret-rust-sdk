@@ -109,7 +109,7 @@ fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
 #[test]
 fn server_description_checks_protocol_version() {
     let desc = ServerDescription {
-        service_did: Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
+        service_id: Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
         trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         service_type: "principal_server".to_owned(),
         protocol_version: "1.0".to_owned(),

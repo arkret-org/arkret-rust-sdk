@@ -307,7 +307,7 @@ pub struct AppletAcceptedSigningKeyEvidence {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletRegistrationEpochEvidence {
-    pub service_did: Did,
+    pub service_id: Did,
     pub did_document_digest: crate::Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub method_version_evidence: Option<Value>,
@@ -317,7 +317,7 @@ pub struct AppletRegistrationEpochEvidence {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AppletEpochEvidenceError {
-    ServiceDidMismatch,
+    ServiceIdMismatch,
     DidDocumentDigestMismatch,
     SigningKeySetEmpty,
     SigningKeySetMismatch,
@@ -329,7 +329,7 @@ pub enum AppletEpochEvidenceError {
 impl std::fmt::Display for AppletEpochEvidenceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ServiceDidMismatch => write!(f, "service DID does not match DID document"),
+            Self::ServiceIdMismatch => write!(f, "service DID does not match DID document"),
             Self::DidDocumentDigestMismatch => write!(f, "DID document digest mismatch"),
             Self::SigningKeySetEmpty => write!(f, "accepted signing key set is empty"),
             Self::SigningKeySetMismatch => write!(f, "accepted signing key set mismatch"),
@@ -353,12 +353,12 @@ impl std::error::Error for AppletEpochEvidenceError {}
 
 impl AppletRegistrationEpochEvidence {
     pub fn new(
-        service_did: Did,
+        service_id: Did,
         did_document_digest: crate::Hash,
         accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
     ) -> Self {
         Self {
-            service_did,
+            service_id,
             did_document_digest,
             method_version_evidence: None,
             accepted_signing_keys,
@@ -383,7 +383,7 @@ impl AppletRegistrationEpochEvidence {
             ));
         }
         Ok(Self {
-            service_did: document.id.clone(),
+            service_id: document.id.clone(),
             did_document_digest,
             method_version_evidence,
             accepted_signing_keys,
@@ -394,8 +394,8 @@ impl AppletRegistrationEpochEvidence {
         &self,
         document: &DidDocument,
     ) -> std::result::Result<(), AppletEpochEvidenceError> {
-        if self.service_did != document.id {
-            return Err(AppletEpochEvidenceError::ServiceDidMismatch);
+        if self.service_id != document.id {
+            return Err(AppletEpochEvidenceError::ServiceIdMismatch);
         }
         let actual_document_digest = applet_did_document_digest(document).map_err(|error| {
             AppletEpochEvidenceError::DidDocumentDigestFailed(error.to_string())
@@ -418,7 +418,7 @@ impl AppletRegistrationEpochEvidence {
         }
         let mut current = BTreeMap::new();
         for (key_ref, public_key_material) in &document.verification_methods {
-            let normalized = normalize_applet_signing_key_ref(&self.service_did, key_ref);
+            let normalized = normalize_applet_signing_key_ref(&self.service_id, key_ref);
             let digest =
                 applet_signing_key_material_digest(public_key_material).map_err(|error| {
                     AppletEpochEvidenceError::SigningKeyDigestFailed(error.to_string())
@@ -437,7 +437,7 @@ impl AppletRegistrationEpochEvidence {
     }
 
     pub fn contains_signing_key(&self, verification_method: &str) -> bool {
-        let key_ref = normalize_applet_signing_key_ref(&self.service_did, verification_method);
+        let key_ref = normalize_applet_signing_key_ref(&self.service_id, verification_method);
         self.accepted_signing_keys
             .iter()
             .any(|key| key.key_ref == key_ref)
@@ -455,13 +455,13 @@ pub fn applet_signing_key_material_digest(public_key_material: &str) -> Result<c
     crate::Hash::new(canonical::sha256_digest(public_key_material.as_bytes())).map_err(Into::into)
 }
 
-pub fn normalize_applet_signing_key_ref(service_did: &Did, key_ref: &str) -> String {
+pub fn normalize_applet_signing_key_ref(service_id: &Did, key_ref: &str) -> String {
     if key_ref.starts_with("did:") {
         key_ref.to_owned()
     } else if key_ref.starts_with('#') {
-        format!("{}{}", service_did.as_str(), key_ref)
+        format!("{}{}", service_id.as_str(), key_ref)
     } else {
-        format!("{}#{}", service_did.as_str(), key_ref)
+        format!("{}#{}", service_id.as_str(), key_ref)
     }
 }
 
@@ -477,8 +477,8 @@ pub struct WireAppletRegistration {
     /// Always `"ak.applet.registration"`. Reducer rejects other values.
     pub kind: String,
     pub applet_id: String,
-    pub service_did: Did,
-    pub controller_did: Did,
+    pub service_id: Did,
+    pub controller_id: Did,
     pub base_url: String,
     pub bot_actor_id: Did,
     #[serde(default)]
@@ -522,8 +522,8 @@ impl WireAppletRegistration {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         applet_id: impl Into<String>,
-        service_did: Did,
-        controller_did: Did,
+        service_id: Did,
+        controller_id: Did,
         base_url: impl Into<String>,
         bot_actor_id: Did,
         protocols: Vec<String>,
@@ -533,8 +533,8 @@ impl WireAppletRegistration {
         Self {
             kind: Self::KIND.to_owned(),
             applet_id: applet_id.into(),
-            service_did,
-            controller_did,
+            service_id,
+            controller_id,
             base_url: base_url.into(),
             bot_actor_id,
             protocols,
@@ -610,8 +610,8 @@ pub struct AppletPackage {
     pub package_id: String,
     /// DID or `ak:applet:<uuidv7>`.
     pub applet_id: String,
-    pub service_did: Did,
-    pub controller_did: Did,
+    pub service_id: Did,
+    pub controller_id: Did,
     pub base_url: String,
     /// Visible bot actor DID; MUST NOT carry a `#fragment`.
     pub bot_actor_id: Did,
@@ -674,21 +674,21 @@ impl AppletPackage {
     pub fn new(
         package_id: impl Into<String>,
         applet_id: impl Into<String>,
-        service_did: Did,
-        controller_did: Did,
+        service_id: Did,
+        controller_id: Did,
         base_url: impl Into<String>,
         bot_actor_id: Did,
         protocols: Vec<String>,
         namespaces: AppletWireNamespaces,
         registration_epoch: crate::Hash,
     ) -> Self {
-        let webhook_key_ref = format!("{}#applet-webhook", controller_did.as_str());
+        let webhook_key_ref = format!("{}#applet-webhook", controller_id.as_str());
         Self {
             schema: Self::SCHEMA.to_owned(),
             package_id: package_id.into(),
             applet_id: applet_id.into(),
-            service_did,
-            controller_did,
+            service_id,
+            controller_id,
             base_url: base_url.into(),
             bot_actor_id,
             claimed_profiles: vec![Self::BASE_PROFILE.to_owned()],
@@ -793,9 +793,9 @@ impl AppletPackage {
         let evidence = self.registration_epoch_evidence.as_ref().ok_or_else(|| {
             Error::Protocol("applet package registration_epoch_evidence is missing".to_owned())
         })?;
-        if evidence.service_did != self.service_did {
+        if evidence.service_id != self.service_id {
             return Err(Error::Protocol(
-                "applet package registration_epoch_evidence service_did mismatch".to_owned(),
+                "applet package registration_epoch_evidence service_id mismatch".to_owned(),
             ));
         }
         if evidence.accepted_signing_keys.is_empty() {
@@ -858,8 +858,8 @@ impl AppletPackage {
         self.validate()?;
         let mut reg = WireAppletRegistration::new(
             self.applet_id.clone(),
-            self.service_did.clone(),
-            self.controller_did.clone(),
+            self.service_id.clone(),
+            self.controller_id.clone(),
             self.base_url.clone(),
             self.bot_actor_id.clone(),
             self.protocols.clone(),

@@ -18,7 +18,7 @@ pub type DomainName = String;
 pub struct ServerSelector {
     pub kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_did: Option<Did>,
+    pub service_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub domain: Option<DomainName>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

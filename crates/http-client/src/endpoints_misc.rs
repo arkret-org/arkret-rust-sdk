@@ -27,8 +27,8 @@ use serde::de::DeserializeOwned;
 use crate::{Client, ClientRequestOptions, reject_path_segment};
 
 pub struct SignedAppletTransactionOptions<'a> {
-    pub source_service_did: &'a Did,
-    pub destination_service_did: &'a Did,
+    pub source_service_id: &'a Did,
+    pub destination_service_id: &'a Did,
     pub key_id: &'a str,
     pub signing_key: &'a Ed25519SigningKey,
     pub created: Option<i64>,
@@ -168,9 +168,9 @@ impl Client {
         request: &AppletTransactionRequestBody,
         signature: SignedAppletTransactionOptions<'_>,
     ) -> Result<AppletTransactionOutcome> {
-        if &request.source_service_did != signature.source_service_did {
+        if &request.source_service_id != signature.source_service_id {
             return Err(Error::Protocol(
-                "applet transaction source_service_did must match signing source".to_owned(),
+                "applet transaction source_service_id must match signing source".to_owned(),
             ));
         }
         let path = "/_arkret/edge/applet/transactions";
@@ -194,8 +194,8 @@ impl Client {
             Component::TargetUri,
             Component::Authority,
             Component::Header("content-digest".to_owned()),
-            Component::Header("source-service-did".to_owned()),
-            Component::Header("destination-service-did".to_owned()),
+            Component::Header("source-service-id".to_owned()),
+            Component::Header("destination-service-id".to_owned()),
             Component::Header("idempotency-key".to_owned()),
         ];
         let signature_input_header =
@@ -209,12 +209,12 @@ impl Client {
             .map_err(|error| Error::Protocol(format!("signature input: {error}")))?;
         let headers = vec![
             (
-                "source-service-did".to_owned(),
-                signature.source_service_did.to_string(),
+                "source-service-id".to_owned(),
+                signature.source_service_id.to_string(),
             ),
             (
-                "destination-service-did".to_owned(),
-                signature.destination_service_did.to_string(),
+                "destination-service-id".to_owned(),
+                signature.destination_service_id.to_string(),
             ),
             ("idempotency-key".to_owned(), idempotency_key.to_owned()),
         ];
@@ -237,13 +237,10 @@ impl Client {
         let builder = builder
             .header(CONTENT_TYPE, "application/json")
             .header("Content-Digest", content_digest.wire_value)
+            .header("Source-Service-ID", signature.source_service_id.to_string())
             .header(
-                "Source-Service-DID",
-                signature.source_service_did.to_string(),
-            )
-            .header(
-                "Destination-Service-DID",
-                signature.destination_service_did.to_string(),
+                "Destination-Service-ID",
+                signature.destination_service_id.to_string(),
             )
             .header("Signature-Input", signature_input_header)
             .header("Signature", signature_header)

@@ -14,7 +14,7 @@ use crate::{
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WellKnownArkretServer {
-    pub service_did: Did,
+    pub service_id: Did,
     pub base_url: String,
     pub protocol_versions: Vec<String>,
     #[serde(default)]
@@ -39,8 +39,8 @@ pub struct HttpMessageSignatureInput {
     pub target_uri: String,
     pub authority: String,
     pub content_digest: String,
-    pub origin_service_did: Did,
-    pub destination_service_did: Did,
+    pub origin_service_id: Did,
+    pub destination_service_id: Did,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     /// Optional federation trust-domain transcript fields. When present they
@@ -240,7 +240,7 @@ pub struct FederationQuarantineRecord {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FederationBackfillAuthorization {
-    pub requester_service_did: Did,
+    pub requester_service_id: Did,
     pub realm_id: RealmId,
     pub history_visible: bool,
     pub service_delegated: bool,
@@ -262,8 +262,8 @@ impl FederationBackfillAuthorization {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifyActorChallenge {
     pub actor_id: Did,
-    pub origin_service_did: Did,
-    pub destination_service_did: Did,
+    pub origin_service_id: Did,
+    pub destination_service_id: Did,
     pub challenge: String,
     pub purpose: String,
     pub expires_at: DateTime<Utc>,
@@ -520,7 +520,7 @@ mod tests {
     #[test]
     fn backfill_authorization_requires_all_visibility_flags() {
         let auth = FederationBackfillAuthorization {
-            requester_service_did: did("a"),
+            requester_service_id: did("a"),
             realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
             service_delegated: true,
@@ -532,7 +532,7 @@ mod tests {
     #[test]
     fn federation_backfill_keys_and_media_contracts_validate_fail_closed() {
         let authorized = FederationBackfillAuthorization {
-            requester_service_did: did("a"),
+            requester_service_id: did("a"),
             realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
             service_delegated: true,

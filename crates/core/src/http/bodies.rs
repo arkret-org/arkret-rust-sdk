@@ -14,7 +14,7 @@ fn is_false(value: &bool) -> bool {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventsDescribeOutcome {
-    pub service_did: Did,
+    pub service_id: Did,
     #[serde(default)]
     pub supported_event_schemas: Vec<String>,
     #[serde(default)]
@@ -438,8 +438,8 @@ pub struct DirectConversationSummary {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ContactAgentProjection {
-    pub agent_principal_id: Did,
-    pub controller_principal_id: Did,
+    pub agent_id: Did,
+    pub controller_id: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -474,7 +474,7 @@ pub struct ContactListRow {
     /// responses/invites to the peer's home server. Omitted for
     /// same-Principal-Server contacts (spec contact-operations.schema.json).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub peer_service_did: Option<Did>,
+    pub peer_service_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub direct_conversation: Option<DirectConversationSummary>,
     /// Active agents controlled by this contact that currently accept direct
@@ -501,7 +501,7 @@ pub struct ContactRequestRequestBody {
     /// server can federate the signed `ak.contact.requested` fact via
     /// `ak.peer.contacts.command.submit`. Omit for same-server requests.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recipient_service_did: Option<Did>,
+    pub recipient_service_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub introduction_evidence: Option<ContactIntroductionEvidence>,
 }
@@ -529,7 +529,7 @@ pub struct ContactRespondRequestBody {
     /// is federated back via `ak.peer.contacts.command.submit`. Omit for same-server
     /// responses.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requester_service_did: Option<Did>,
+    pub requester_service_id: Option<Did>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -584,10 +584,10 @@ pub struct ContactTombstoneRequestBody {
     /// Server, the holder supplies the peer's home service DID so the
     /// `ak.contact.tombstoned` fact is federated to the peer's server via
     /// `ak.peer.contacts.command.submit`. Omit for same-server tombstones; when absent
-    /// the issuer falls back to the peer's recorded `peer_service_did` on the
+    /// the issuer falls back to the peer's recorded `peer_service_id` on the
     /// stored contact row.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub peer_service_did: Option<Did>,
+    pub peer_service_id: Option<Did>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1036,7 +1036,7 @@ pub struct SessionGrantAppletDelegation {
     pub effective_scope: Value,
     pub registration_epoch: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_did: Option<Did>,
+    pub service_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capability_grant_refs: Vec<String>,
 }

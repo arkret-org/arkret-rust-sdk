@@ -154,7 +154,7 @@ pub enum ReplayWindowError {
 /// of producing a JWS that won't verify.
 ///
 /// Callers are responsible for choosing the `verification_method`
-/// they advertise alongside this JWS (e.g. `<service_did>#notary-key`);
+/// they advertise alongside this JWS (e.g. `<service_id>#notary-key`);
 /// the SDK doesn't bake the kid into the protected header to keep the
 /// signing input byte-stable per RFC 7515 §4.1.4 (kid is not required
 /// to be in the protected header for detached use cases).

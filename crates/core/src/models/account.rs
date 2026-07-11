@@ -287,7 +287,7 @@ pub struct SessionGrantAppletSelector {
     pub effective_scope: Value,
     pub registration_epoch: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_did: Option<Did>,
+    pub service_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capability_grant_refs: Vec<String>,
 }
@@ -295,7 +295,7 @@ pub struct SessionGrantAppletSelector {
 impl AccountLifecycleProof {
     pub fn session_revoke_request_digest(
         actor_id: &Did,
-        service_did: &Did,
+        service_id: &Did,
         session_device_id: &DeviceId,
         target_grant_id: Option<&GrantId>,
         target_device_id: Option<&DeviceId>,
@@ -306,7 +306,7 @@ impl AccountLifecycleProof {
             "schema": "ak.schema.session_revoke.request.v1",
             "operation": SESSION_REVOKE_OPERATION_ID,
             "actor_id": actor_id,
-            "service_did": service_did,
+            "service_id": service_id,
             "session_device_id": session_device_id,
             "target_grant_id": target_grant_id,
             "target_device_id": target_device_id,
@@ -421,7 +421,7 @@ pub struct SessionRevokeRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub registration_epoch: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_did: Option<Did>,
+    pub service_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capability_grant_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

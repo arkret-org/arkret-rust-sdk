@@ -628,7 +628,7 @@ mod tests {
             lookup_table_ref: "lookup-table-1".to_owned().into(),
             pepper_id: "pepper-1".to_owned().into(),
             max_claims: 3,
-            verification_service_did: did("verifier"),
+            verification_service_id: did("verifier"),
             verification_public_key: "z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH".to_owned(),
         }
     }

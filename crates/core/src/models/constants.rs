@@ -253,8 +253,8 @@ fn base32_lower_no_pad(bytes: &[u8]) -> String {
     out
 }
 
-pub fn agent_sidecar_circle_key(realm_id: &str, controller_principal_id: &str) -> String {
-    let transcript = format!("ak.agent_sidecar_circle.v1\n{realm_id}\n{controller_principal_id}");
+pub fn agent_sidecar_circle_key(realm_id: &str, controller_id: &str) -> String {
+    let transcript = format!("ak.agent_sidecar_circle.v1\n{realm_id}\n{controller_id}");
     let digest = crate::canonical::sha256_bytes(transcript.as_bytes());
     base32_lower_no_pad(&digest).chars().take(24).collect()
 }
@@ -316,9 +316,9 @@ pub const OP_REALM_SEARCH_POLICY: &str = "ak.realm.search_policy";
 /// Device event kinds.
 ///
 /// Round C45 (2026-05-19; spec 0a5ab85) — actor-private push route binding
-/// for the composite tuple `(recipient_service_did, principal, device,
+/// for the composite tuple `(recipient_service_id, principal, device,
 /// push_route)`. MUST NOT be replicated outside the binding's
-/// recipient_service_did context.
+/// recipient_service_id context.
 pub const OP_DEVICE_PUSH_ROUTE: &str = "ak.device.push_route";
 
 /// Message event kinds.
@@ -544,16 +544,9 @@ pub const OP_APPLET_INTEROP_SESSION_START: &str = "ak.applet.interop_session.sta
 pub const OP_APPLET_INTEROP_SESSION_STATUS: &str = "ak.applet.interop_session.status";
 pub const OP_APPLET_REGISTRATION: &str = "ak.applet.registration";
 
-/// Agent protocol-session sub-events (round 13). Same shape as the
-/// applet family but the terminal `*.result` event carries a signed
-/// audit binding. Spec `extensions/agent-integration.md`.
-pub const OP_AGENT_ENDPOINT: &str = "ak.agent.endpoint";
 pub const OP_AGENT_KEY_AUTHORIZE: &str = "ak.agent.key.authorize";
 pub const OP_AGENT_KEY_REVOKE: &str = "ak.agent.key.revoke";
 pub const OP_AGENT_KEY_ROTATE: &str = "ak.agent.key.rotate";
-pub const OP_AGENT_INTEROP_SESSION_RESULT: &str = "ak.agent.interop_session.result";
-pub const OP_AGENT_INTEROP_SESSION_START: &str = "ak.agent.interop_session.start";
-pub const OP_AGENT_INTEROP_SESSION_STATUS: &str = "ak.agent.interop_session.status";
 
 /// Directory operations beyond the bare `describe`.
 pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str =
@@ -889,10 +882,6 @@ pub const OP_RECOVERY_SESSION_CREATE: &str = "ak.root.identity.recovery_session.
 pub const OP_RECOVERY_SESSION_GET: &str = "ak.root.identity.recovery_session.resource.get";
 pub const OP_RECOVERY_SESSION_SUBMIT_PROOF: &str =
     "ak.root.identity.recovery_session.command.submit_proof";
-/// `POST /_arkret/self/agents/discover` — probe the `ak.agent.endpoint`
-/// registry; authorized by `ak.agent.protocol.discover` capability under
-/// `ak.profile.agent_runtime.v1`.
-pub const OP_SELF_AGENT_PROTOCOL_DISCOVER: &str = "ak.self.agent.protocol.query.discover";
 /// `POST /_arkret/find/directory/takedown/appeal` — resource-side appeal of an
 /// operator takedown; returns a signed adjudication receipt.
 pub const OP_DIRECTORY_TAKEDOWN_APPEAL: &str = "ak.find.directory.command.takedown_appeal";
@@ -1090,7 +1079,6 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_RECOVERY_SESSION_CREATE,
     OP_RECOVERY_SESSION_GET,
     OP_RECOVERY_SESSION_SUBMIT_PROOF,
-    OP_SELF_AGENT_PROTOCOL_DISCOVER,
     OP_DIRECTORY_TAKEDOWN_APPEAL,
 ];
 

@@ -60,16 +60,16 @@ impl InviteLocatorResolveRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct InviteAddress {
     pub subject_id: Did,
-    pub recipient_service_did: Did,
+    pub recipient_service_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recipient_service_type: Option<String>,
 }
 
 impl InviteAddress {
-    pub fn principal_server(subject_id: Did, recipient_service_did: Did) -> Self {
+    pub fn principal_server(subject_id: Did, recipient_service_id: Did) -> Self {
         Self {
             subject_id,
-            recipient_service_did,
+            recipient_service_id,
             recipient_service_type: None,
         }
     }
@@ -90,22 +90,22 @@ impl InviteAddress {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct InviteDeliveryTarget {
-    pub recipient_service_did: Did,
+    pub recipient_service_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recipient_service_type: Option<String>,
 }
 
 impl InviteDeliveryTarget {
-    pub fn principal_server(recipient_service_did: Did) -> Self {
+    pub fn principal_server(recipient_service_id: Did) -> Self {
         Self {
-            recipient_service_did,
+            recipient_service_id,
             recipient_service_type: None,
         }
     }
 
     pub fn from_invite_address(address: &InviteAddress) -> Self {
         Self {
-            recipient_service_did: address.recipient_service_did.clone(),
+            recipient_service_id: address.recipient_service_id.clone(),
             recipient_service_type: address.recipient_service_type.clone(),
         }
     }
@@ -128,7 +128,7 @@ impl InviteDeliveryTarget {
 pub struct PrincipalLocator {
     pub schema: String,
     pub subject_id: Did,
-    pub recipient_service_did: Did,
+    pub recipient_service_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recipient_service_type: Option<String>,
     #[serde(
@@ -153,14 +153,14 @@ impl PrincipalLocator {
     pub fn invite_address(&self) -> InviteAddress {
         InviteAddress {
             subject_id: self.subject_id.clone(),
-            recipient_service_did: self.recipient_service_did.clone(),
+            recipient_service_id: self.recipient_service_id.clone(),
             recipient_service_type: self.recipient_service_type.clone(),
         }
     }
 
     pub fn invite_delivery_target(&self) -> InviteDeliveryTarget {
         InviteDeliveryTarget {
-            recipient_service_did: self.recipient_service_did.clone(),
+            recipient_service_id: self.recipient_service_id.clone(),
             recipient_service_type: self.recipient_service_type.clone(),
         }
     }
@@ -510,7 +510,7 @@ mod tests {
         let locator = PrincipalLocator {
             schema: PRINCIPAL_LOCATOR_SCHEMA.to_owned(),
             subject_id: Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
-            recipient_service_did: Did::new("did:webvh:z6mkfixture:ps.bob.example").unwrap(),
+            recipient_service_id: Did::new("did:webvh:z6mkfixture:ps.bob.example").unwrap(),
             recipient_service_type: None,
             issued_at,
             expires_at,

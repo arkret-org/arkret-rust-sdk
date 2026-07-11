@@ -72,7 +72,7 @@ pub type OperationStatusOutcome = AgentLifecycleOutcome;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PendingMemberReconciliationItem {
-    pub agent_principal_id: Did,
+    pub agent_id: Did,
     pub reason: String,
 }
 
@@ -97,49 +97,6 @@ pub type RuntimeAttestation = AgentKeyAuthorizePayloadRuntimeAttestation;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/sidecar_exposure_ack`.
 pub type SidecarExposureAck = AgentSidecarExposureAck;
-
-/// Counterpart for `spec/v1/artifacts/schemas/agent.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AgentAuditBindingValue {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub grant_ref: Option<GrantId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_id: Option<Did>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signature: Option<String>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Agent {
-    pub schema: String,
-    pub agent_id: Did,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub endpoint_url: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub did_document_version: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub did_document_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_entry_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_entry_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub params: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub result: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub detail: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audit_binding: Option<AgentAuditBindingValue>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
 
 /// Counterpart for `spec/v1/artifacts/schemas/seal.schema.json#/$defs/seal_ref`.
 pub type SealRef = String;

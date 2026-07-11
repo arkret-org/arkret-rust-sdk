@@ -111,7 +111,7 @@ first-backup gate, DID format regex).
 
 *Threat model.* A compromised agent key (S-1: signing key, S-2: session key)
 must not let an attacker escalate beyond the controller's grant; key theft
-must be containable to the bound `agent_principal_id` and revocable without
+must be containable to the bound `agent_id` and revocable without
 revoking the controller. The agent runtime also exposes a quiesce surface
 (`pause`/`resume`/`deactivate`) that a hostile caller could abuse to stage
 DOS against the controller's automated workflows.
@@ -122,10 +122,9 @@ request to a signed envelope binding the agent's S-1 key, the calling
 envelope whose `agent_key_id` is not in the active rotation window from
 `ak.self.agent.command.rotate_key`. `ak.self.agent.command.pause` / `ak.self.agent.command.deactivate` are gated on the
 controller's session grant (`ak.profile.agent_delegation_policy.v1`), so a
-stolen agent key cannot deactivate itself or extend its own scope. SDK
-helpers `agent_binding::sign_ed25519_audit_binding` /
-`verify_ed25519_audit_binding` produce and check the canonical subject so
-all hosts apply the same transcript.
+stolen agent key cannot deactivate itself or extend its own scope. Durable
+agent writes remain accountable through the ordinary signed Event envelope,
+`agent_context`, and the controller-issued accountability grant.
 
 ### recovery_policy / recovery_receipt schemas
 

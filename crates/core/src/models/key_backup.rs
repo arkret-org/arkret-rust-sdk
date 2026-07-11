@@ -831,7 +831,7 @@ pub struct RecoveryDeviceQuorumConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryTrustedService {
-    pub service_did: Did,
+    pub service_id: Did,
     pub audience: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attestation_required: Option<bool>,

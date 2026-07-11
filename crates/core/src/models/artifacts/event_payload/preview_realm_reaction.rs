@@ -582,7 +582,7 @@ pub struct RealmKeyWithheldPayload {
 #[serde(deny_unknown_fields)]
 pub struct RealmSearchPolicyPayload {
     pub enabled_profile_refs: Vec<String>,
-    pub allowed_service_dids: Vec<Did>,
+    pub allowed_service_ids: Vec<Did>,
     pub data_classes: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub index_retention_ms: Option<u64>,

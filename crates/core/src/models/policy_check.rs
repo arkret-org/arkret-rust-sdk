@@ -39,7 +39,7 @@ pub fn compute_audit_policy_version_digest(
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PolicyCheckSource {
-    pub service_did: Did,
+    pub service_id: Did,
     pub service_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_ip_digest: Option<Hash>,

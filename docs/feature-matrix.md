@@ -48,6 +48,6 @@ remainder of the catalog is represented by the generated
 | Profile ID | SDK 0.3.x | Notes |
 | --- | --- | --- |
 | `ak.profile.personal_agent_provisioning.v1` | ✓ implemented | Full `ak.gate.account.command.pair_agent_key` + `ak.agent.*` (provision / list / get / pause / resume / rotate-key / grant.attach / grant.detach / sidecar_thread.ensure / deactivate) wiring; example: `personal_agent_provision.rs`. |
-| `ak.profile.agent_auth.v1` | ✓ implemented | S-1 signing-key + S-2 session-key binding via `agent_binding::{sign,verify}_ed25519_audit_binding`; controller-grant verification on every agent envelope. |
+| `ak.profile.agent_auth.v1` | ✓ implemented | S-1 signing-key + S-2 session-key binding and controller-grant verification on every agent Event envelope. |
 | `ak.profile.agent_delegation_policy.v1` | ✓ implemented | Delegation grants gated by `ak.profile.agent_delegation_policy.v1` via `authz::delegation`; controller can revoke without rotating the agent key. |
 | `ak.profile.agent_sidecar_thread.v1` | ✓ implemented | `SidecarCircleId`-bounded sidecar threads with isolated audit logs and parent-Circle membership cross-check. |

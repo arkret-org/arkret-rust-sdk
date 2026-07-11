@@ -128,7 +128,7 @@ pub type SignatureB64u = String;
 #[serde(deny_unknown_fields)]
 pub struct TrustedRecoveryServiceProof {
     pub kind: String,
-    pub service_did: Did,
+    pub service_id: Did,
     pub verification_method: Did,
     pub alg: String,
     pub signature: SignatureB64u,
@@ -140,7 +140,7 @@ pub struct TrustedRecoveryServiceProof {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliveryBindingStaleHandoverProof {
     pub frontier: Value,
-    pub recipient_service_did: Value,
+    pub recipient_service_id: Value,
     pub actor_id: Value,
     pub witness: BTreeMap<String, Value>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
@@ -149,7 +149,7 @@ pub struct DeliveryBindingStaleHandoverProof {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliveryBindingStale {
-    pub new_recipient_service_did: Value,
+    pub new_recipient_service_id: Value,
     pub handover_frontier: Value,
     pub handover_proof: DeliveryBindingStaleHandoverProof,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
@@ -240,7 +240,7 @@ pub struct IdentityReceipt {
     pub did: Did,
     pub seq: u64,
     pub head_event_digest: Hash,
-    pub registry_service_did: Did,
+    pub registry_service_id: Did,
     pub witness_role: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,

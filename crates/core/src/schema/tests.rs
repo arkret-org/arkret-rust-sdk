@@ -1240,7 +1240,7 @@ fn artifact_payload_catalog_enforces_invite_create_payload_shape() {
         "invite_id": "ak:invite:01904100-0000-7000-8000-000000000001",
         "invitee": "did:webvh:z6mkfixture:bob.example",
         "invite_delivery_target": {
-            "recipient_service_did": "did:webvh:z6mkfixture:server.example",
+            "recipient_service_id": "did:webvh:z6mkfixture:server.example",
             "recipient_service_type": "principal_server"
         },
         "introduction_evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",

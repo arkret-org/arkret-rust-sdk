@@ -235,7 +235,7 @@ pub struct ProofVerificationContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<Audience>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub service_did: Option<Did>,
+    pub service_id: Option<Did>,
     pub replay_window: Duration,
     #[serde(default)]
     pub binding_requirements: ProofBindingRequirements,
@@ -249,7 +249,7 @@ impl ProofVerificationContext {
             now: Utc::now(),
             domain: None,
             audience: None,
-            service_did: None,
+            service_id: None,
             replay_window: Duration::minutes(5),
             binding_requirements: ProofBindingRequirements::local(),
         }
@@ -296,8 +296,8 @@ where
     if context.now - proof.created_at > context.replay_window {
         return Err(Error::Protocol("proof replay window expired".to_owned()));
     }
-    if let Some(service_did) = &context.service_did
-        && !audience_contains_service(proof.audience.as_ref(), service_did)
+    if let Some(service_id) = &context.service_id
+        && !audience_contains_service(proof.audience.as_ref(), service_id)
     {
         return Err(Error::Protocol(
             "proof audience does not bind service DID".to_owned(),
@@ -325,12 +325,10 @@ where
     })
 }
 
-fn audience_contains_service(audience: Option<&Audience>, service_did: &Did) -> bool {
+fn audience_contains_service(audience: Option<&Audience>, service_id: &Did) -> bool {
     match audience {
-        Some(Audience::Single(value)) => value == service_did.as_str(),
-        Some(Audience::Multiple(values)) => {
-            values.iter().any(|value| value == service_did.as_str())
-        }
+        Some(Audience::Single(value)) => value == service_id.as_str(),
+        Some(Audience::Multiple(values)) => values.iter().any(|value| value == service_id.as_str()),
         None => false,
     }
 }
@@ -451,7 +449,7 @@ mod tests {
         let mut context = ProofVerificationContext::new(actor, payload_digest);
         context.domain = proof.domain.clone();
         context.audience = proof.audience.clone();
-        context.service_did = Some(did("service"));
+        context.service_id = Some(did("service"));
 
         let verified = verify_proof_with_resolver(&proof, &context, &resolver, |method, proof| {
             Ok(method.public_key_multibase == "zKey" && proof.jws == "sig")

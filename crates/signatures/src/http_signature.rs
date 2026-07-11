@@ -15,8 +15,8 @@
 //!
 //! ```text
 //! Signature-Input: sig1=("@method" "@target-uri" "@authority" \
-//!     "content-digest" "x-arkret-origin-service-did" \
-//!     "x-arkret-destination-service-did");\
+//!     "content-digest" "x-arkret-origin-service-id" \
+//!     "x-arkret-destination-service-id");\
 //!     created=1715990000;expires=1715990300;\
 //!     keyid="did:webvh:z6mkfixture:sync.example.com#push";alg="ed25519"
 //! Signature: sig1=:BASE64URLSAFE_OR_STANDARD_64B:
@@ -254,7 +254,7 @@ impl SignatureInput {
     /// this signature input. Used by verifiers to enforce a minimum
     /// covered-component set (floria requires `@method`,
     /// `@target-uri`, `@authority`, `content-digest`, the two
-    /// service-DID headers).
+    /// service-ID headers).
     pub fn covers_all(&self, required: &[Component]) -> bool {
         let covered: BTreeSet<String> = self
             .covered_components
@@ -913,7 +913,7 @@ mod tests {
     fn floria_signature_input(created: i64, expires: i64) -> String {
         format!(
             "sig1=(\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \
-             \"x-arkret-origin-service-did\" \"x-arkret-destination-service-did\");\
+             \"x-arkret-origin-service-id\" \"x-arkret-destination-service-id\");\
              created={created};expires={expires};\
              keyid=\"did:webvh:z6mkfixture:sync.example.com#push\";alg=\"ed25519\""
         )
@@ -938,7 +938,7 @@ mod tests {
         );
         assert_eq!(
             parsed.covered_components[4],
-            Component::Header("x-arkret-origin-service-did".to_owned())
+            Component::Header("x-arkret-origin-service-id".to_owned())
         );
         // covers_all check
         assert!(parsed.covers_all(&[
@@ -1051,11 +1051,11 @@ mod tests {
             path: "/_arkret/edge/push/notify".to_owned(),
             headers: vec![
                 (
-                    "x-arkret-origin-service-did".to_owned(),
+                    "x-arkret-origin-service-id".to_owned(),
                     "did:webvh:z6mkfixture:sync.example.com".to_owned(),
                 ),
                 (
-                    "x-arkret-destination-service-did".to_owned(),
+                    "x-arkret-destination-service-id".to_owned(),
                     "did:webvh:z6mkfixture:push.example.com".to_owned(),
                 ),
             ],
@@ -1069,11 +1069,11 @@ mod tests {
              \"@target-uri\": http://127.0.0.1/_arkret/edge/push/notify\n\
              \"@authority\": 127.0.0.1\n\
              \"content-digest\": {digest_val}\n\
-             \"x-arkret-origin-service-did\": did:webvh:z6mkfixture:sync.example.com\n\
-             \"x-arkret-destination-service-did\": did:webvh:z6mkfixture:push.example.com\n\
+             \"x-arkret-origin-service-id\": did:webvh:z6mkfixture:sync.example.com\n\
+             \"x-arkret-destination-service-id\": did:webvh:z6mkfixture:push.example.com\n\
              \"@signature-params\": ({components});created={created};expires={expires};keyid=\"did:webvh:z6mkfixture:sync.example.com#push\";alg=\"ed25519\"",
             digest_val = digest.wire_value,
-            components = "\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \"x-arkret-origin-service-did\" \"x-arkret-destination-service-did\"",
+            components = "\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \"x-arkret-origin-service-id\" \"x-arkret-destination-service-id\"",
         );
         assert_eq!(text, expected);
     }
@@ -1095,11 +1095,11 @@ mod tests {
             path: "/_arkret/edge/push/notify".to_owned(),
             headers: vec![
                 (
-                    "x-arkret-origin-service-did".to_owned(),
+                    "x-arkret-origin-service-id".to_owned(),
                     "did:webvh:z6mkfixture:sync.example.com".to_owned(),
                 ),
                 (
-                    "x-arkret-destination-service-did".to_owned(),
+                    "x-arkret-destination-service-id".to_owned(),
                     "did:webvh:z6mkfixture:push.example.com".to_owned(),
                 ),
             ],
@@ -1132,11 +1132,11 @@ mod tests {
             path: "/_arkret/edge/push/notify".to_owned(),
             headers: vec![
                 (
-                    "x-arkret-origin-service-did".to_owned(),
+                    "x-arkret-origin-service-id".to_owned(),
                     "did:webvh:z6mkfixture:sync.example.com".to_owned(),
                 ),
                 (
-                    "x-arkret-destination-service-did".to_owned(),
+                    "x-arkret-destination-service-id".to_owned(),
                     "did:webvh:z6mkfixture:push.example.com".to_owned(),
                 ),
             ],
@@ -1150,11 +1150,11 @@ mod tests {
             ("Signature", signature_header.as_str()),
             ("Content-Digest", digest.wire_value.as_str()),
             (
-                "X-Arkret-Origin-Service-Did",
+                "X-Arkret-Origin-Service-Id",
                 "did:webvh:z6mkfixture:sync.example.com",
             ),
             (
-                "X-Arkret-Destination-Service-Did",
+                "X-Arkret-Destination-Service-Id",
                 "did:webvh:z6mkfixture:push.example.com",
             ),
         ];
@@ -1211,11 +1211,11 @@ mod tests {
             path: "/".to_owned(),
             headers: vec![
                 (
-                    "x-arkret-origin-service-did".to_owned(),
+                    "x-arkret-origin-service-id".to_owned(),
                     "did:webvh:z6mkfixture:sync.example.com".to_owned(),
                 ),
                 (
-                    "x-arkret-destination-service-did".to_owned(),
+                    "x-arkret-destination-service-id".to_owned(),
                     "did:webvh:z6mkfixture:push.example.com".to_owned(),
                 ),
             ],

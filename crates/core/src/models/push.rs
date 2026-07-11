@@ -14,7 +14,7 @@ pub struct PushRegisterDeviceRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipient_service_did: Option<Did>,
+    pub recipient_service_id: Option<Did>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

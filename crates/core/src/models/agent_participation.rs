@@ -271,7 +271,7 @@ pub fn validate_selection_within_ceiling(
 }
 
 /// Request body for `ak.self.agent.participation.resource.replace`
-/// (`PUT /_arkret/self/agents/{agent_principal_id}/participation`).
+/// (`PUT /_arkret/self/agents/{agent_id}/participation`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentParticipationSetRequestBody {
@@ -299,7 +299,7 @@ pub struct AgentParticipationEntry {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentParticipationOutcome {
     pub ok: bool,
-    pub agent_principal_id: String,
+    pub agent_id: String,
     pub entries: Vec<AgentParticipationEntry>,
 }
 

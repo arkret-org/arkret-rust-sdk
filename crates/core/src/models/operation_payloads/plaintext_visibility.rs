@@ -48,7 +48,7 @@ pub enum PlaintextServiceVisibility {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PlaintextVisibleService {
-    pub service_did: Did,
+    pub service_id: Did,
     pub service_type: String,
     pub data_classes: Vec<PlaintextDataClassKind>,
     pub purposes: Vec<String>,
@@ -63,14 +63,14 @@ pub struct PlaintextVisibleService {
 
 impl PlaintextVisibleService {
     pub fn new(
-        service_did: Did,
+        service_id: Did,
         service_type: impl Into<String>,
         data_classes: Vec<PlaintextDataClassKind>,
         purposes: Vec<String>,
         visibility: PlaintextServiceVisibility,
     ) -> Self {
         Self {
-            service_did,
+            service_id,
             service_type: service_type.into(),
             data_classes,
             purposes,

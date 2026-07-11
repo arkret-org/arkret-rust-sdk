@@ -309,7 +309,7 @@ mod salvo_router {
         headers: Vec<(String, String)>,
         body_bytes: Vec<u8>,
         idempotency_key: String,
-        destination_service_did: String,
+        destination_service_id: String,
     }
 
     /// Successfully verified delivery plus the idempotency evidence the
@@ -410,9 +410,9 @@ mod salvo_router {
         // Bind the signing key's controller DID to the declared source service
         // DID so a peer can't sign as itself but claim another service.
         let signer_did = resolved.controller.as_ref().unwrap_or(&resolved.did);
-        if signer_did != &body.source_service_did {
+        if signer_did != &body.source_service_id {
             return Err(Error::Protocol(
-                "source_service_did does not match signature keyid controller".to_owned(),
+                "source_service_id does not match signature keyid controller".to_owned(),
             ));
         }
 
@@ -466,8 +466,8 @@ mod salvo_router {
         let anchor_tuple = serde_json::json!({
             "operation_id": crate::idempotency::APPLET_TRANSACTION_OPERATION_ID,
             "direction": IdempotencyDirection::NodeToApplet.as_str(),
-            "source_service_did": body.source_service_did,
-            "destination_service_did": parts.destination_service_did,
+            "source_service_id": body.source_service_id,
+            "destination_service_id": parts.destination_service_id,
             "verification_method": signature_input.key_id,
             "algorithm": signature_input.algorithm,
             "idempotency_key": parts.idempotency_key,
@@ -503,10 +503,10 @@ mod salvo_router {
             render_invalid_signature(res);
             return;
         };
-        // Destination-Service-DID is likewise a mandatory covered component
+        // Destination-Service-ID is likewise a mandatory covered component
         // and an idempotency identity field (§7.3.1).
-        let Some(destination_service_did) = req
-            .header::<String>("Destination-Service-DID")
+        let Some(destination_service_id) = req
+            .header::<String>("Destination-Service-ID")
             .map(|did| did.trim().to_owned())
             .filter(|did| !did.is_empty())
         else {
@@ -534,7 +534,7 @@ mod salvo_router {
         };
 
         // Pass every request header so any covered component (e.g.
-        // `x-arkret-origin-service-did`) participates in canonicalization.
+        // `x-arkret-origin-service-id`) participates in canonicalization.
         let headers: Vec<(String, String)> = req
             .headers()
             .iter()
@@ -553,7 +553,7 @@ mod salvo_router {
             headers,
             body_bytes,
             idempotency_key: idempotency_key.clone(),
-            destination_service_did: destination_service_did.clone(),
+            destination_service_id: destination_service_id.clone(),
         };
 
         // Fail closed: any source-DID / HTTP-signature / event-proof failure
@@ -577,8 +577,8 @@ mod salvo_router {
 
         let identity = IdempotencyIdentity::applet_transaction(
             IdempotencyDirection::NodeToApplet,
-            verified.body.source_service_did.to_string(),
-            destination_service_did,
+            verified.body.source_service_id.to_string(),
+            destination_service_id,
             idempotency_key,
         );
         match service.dispatch_transaction(
@@ -695,14 +695,14 @@ mod tests {
             Ok(AppletPingOutcome {
                 ok: true,
                 applet_id: "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
-                service_did: Did::new("did:webvh:QmSvc:svc.example").unwrap(),
+                service_id: Did::new("did:webvh:QmSvc:svc.example").unwrap(),
                 protocol_version: "1.0".to_owned(),
             })
         }
         fn describe(&self) -> Result<AppletDescription> {
             Ok(AppletDescription {
                 applet_id: "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
-                service_did: Did::new("did:webvh:QmSvc:svc.example").unwrap(),
+                service_id: Did::new("did:webvh:QmSvc:svc.example").unwrap(),
                 protocols: vec!["ak.applet.v1".to_owned()],
                 namespaces: serde_json::Value::Null,
                 limits: serde_json::Value::Null,
@@ -762,7 +762,7 @@ mod tests {
 
     fn body() -> AppletTransactionRequestBody {
         AppletTransactionRequestBody {
-            source_service_did: Did::new("did:webvh:QmSrc:source.example").unwrap(),
+            source_service_id: Did::new("did:webvh:QmSrc:source.example").unwrap(),
             events: Vec::new(),
             ephemeral: serde_json::Value::Null,
         }

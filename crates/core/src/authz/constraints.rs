@@ -252,9 +252,9 @@ pub enum Constraint {
     AllowedCircleIds {
         allowed_circle_ids: std::collections::BTreeSet<crate::CircleId>,
     },
-    /// Limits agent interop-session status/result writes to explicit session ids.
+    /// Limits applet interop-session writes to explicit session ids.
     AllowedSessionIds {
-        allowed_session_ids: std::collections::BTreeSet<crate::AgentInteropSessionId>,
+        allowed_session_ids: std::collections::BTreeSet<String>,
     },
 }
 

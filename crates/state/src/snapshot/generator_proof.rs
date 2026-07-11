@@ -11,7 +11,7 @@ use crate::{Did, Error, Hash, MoveSignature, RealmId, Result};
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct GeneratorProof {
     /// DID of the snapshot generator (typically the principal server's
-    /// `service_did`).
+    /// `service_id`).
     pub generator_did: Did,
     /// Realm whose state this snapshot covers.
     pub realm_id: RealmId,

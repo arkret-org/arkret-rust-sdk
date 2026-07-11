@@ -82,7 +82,7 @@ pub struct ProviderDirectory {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub schema: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_did: Option<Did>,
+    pub service_id: Option<Did>,
     pub service_type: String,
     pub supported_profiles: Vec<String>,
     pub mimi: ProviderDirectoryMimi,

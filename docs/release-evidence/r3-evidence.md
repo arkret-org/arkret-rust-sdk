@@ -69,7 +69,7 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
 - New helper `call_media_token_exchange(realm_id, call_id, actor_id,
   device_id, focus_id) -> MediaTokenResponse`.
 - `ak.self.agent.command.deactivate` HTTP path is now
-  `POST /agents/{agent_principal_id}/deactivate`; the historical `/revoke`
+  `POST /agents/{agent_id}/deactivate`; the historical `/revoke`
   alias is gone. Grep gate in the completion checklist enforces this.
 
 ### Server (`crates/server/`)
@@ -132,4 +132,4 @@ The completion gate from `_arkret-rust-sdk_todos.md`:
 - `cargo clippy --workspace -- -D warnings` — passes.
 - `cargo test --workspace` — happy paths pass; FSM and proof-witness
   stubs documented above.
-- `grep -RIn "agent_principal_id}/revoke\|sfu_endpoint\"\\s"` — returns zero.
+- `grep -RIn "agent_id}/revoke\|sfu_endpoint\"\\s"` — returns zero.

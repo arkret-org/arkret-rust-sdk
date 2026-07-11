@@ -328,7 +328,7 @@ pub struct Applet {
     pub schema: String,
     pub applet_id: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_did: Option<Did>,
+    pub service_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

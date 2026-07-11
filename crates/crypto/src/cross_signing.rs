@@ -228,7 +228,7 @@ pub enum CrossSigningResetProof {
     },
     /// Signature from a recovery service declared in the principal's DID document.
     TrustedRecoveryService {
-        service_did: Did,
+        service_id: Did,
         verification_method: String,
         alg: String,
         signature: String,
@@ -442,14 +442,14 @@ impl CrossSigningResetContent {
                 })
             }
             CrossSigningResetProof::TrustedRecoveryService {
-                service_did,
+                service_id,
                 verification_method,
                 alg,
                 attestation_ref,
                 ..
             } => {
                 let mut body = serde_json::json!({
-                    "service_did": service_did.as_str(),
+                    "service_id": service_id.as_str(),
                     "verification_method": verification_method,
                     "alg": alg,
                 });

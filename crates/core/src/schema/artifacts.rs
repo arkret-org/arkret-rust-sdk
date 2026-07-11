@@ -599,7 +599,6 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "ak.schema.moderation_report.v1",
     "ak.schema.moderation_queue_item.v1",
     "ak.schema.applet.v1",
-    "ak.schema.agent.v1",
     "ak.schema.agent_selector_claim.v1",
     "ak.schema.audit_ryw_receipt.v1",
     "ak.schema.erasure_receipt.v1",
@@ -698,7 +697,6 @@ pub const ARTIFACT_BACKED_PROFILE_IDS: &[&str] = &[
 
 pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
     "actor_profile",
-    "agent_interop_session",
     "announce",
     "appeal",
     "applet",

@@ -130,7 +130,7 @@ pub struct CallRecordingEncryptionContext {
     pub call_id: CallId,
     pub focus_id: String,
     pub recording_id: String,
-    pub media_service_did: Did,
+    pub media_service_id: Did,
     pub recording_start_event_id: EventId,
 }
 
@@ -248,9 +248,9 @@ impl CallRecordingArtifact {
                 "recording artifact encryption.context.focus_id is required",
             );
         }
-        if self.encryption.context.media_service_did != self.produced_by {
+        if self.encryption.context.media_service_id != self.produced_by {
             return schema_violation(
-                "recording artifact produced_by must match encryption.context.media_service_did",
+                "recording artifact produced_by must match encryption.context.media_service_id",
             );
         }
         if self.retention_policy_id.is_none() && self.retention.retention_expires_at.is_none() {

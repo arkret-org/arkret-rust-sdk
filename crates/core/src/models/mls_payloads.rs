@@ -658,7 +658,7 @@ impl MlsCommitPayload {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MediaPlaintextService {
     /// Service DID authorised to decrypt media (`purpose=media_plaintext`).
-    pub service_did: Did,
+    pub service_id: Did,
 }
 
 /// SEC-03 — the member-visible policy cell value covered by the governance
@@ -690,7 +690,7 @@ impl MediaDecryptPolicyValue {
         let mut services: Vec<String> = self
             .plaintext_visible_services
             .iter()
-            .map(|s| s.service_did.to_string())
+            .map(|s| s.service_id.to_string())
             .collect();
         services.sort_unstable();
         services.dedup();
@@ -747,7 +747,7 @@ fn object_ref_regex() -> &'static Regex {
     static OBJECT_REF: OnceLock<Regex> = OnceLock::new();
     OBJECT_REF.get_or_init(|| {
         Regex::new(
-            r"^(ak:(realm|circle|space|actor_profile|strand|message|morph|relation|view|policy|grant|invite|call|agent_interop_session|blob|snapshot|event|franking_proof|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|ak:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
+            r"^(ak:(realm|circle|space|actor_profile|strand|message|morph|relation|view|policy|grant|invite|call|blob|snapshot|event|franking_proof|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|ak:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
         )
         .expect("object_ref regex compiles")
     })
@@ -1473,7 +1473,7 @@ mod tests {
 
     fn media_service(host: &str) -> MediaPlaintextService {
         MediaPlaintextService {
-            service_did: Did::new(format!("did:webvh:z6mkfixture:{host}")).unwrap(),
+            service_id: Did::new(format!("did:webvh:z6mkfixture:{host}")).unwrap(),
         }
     }
 

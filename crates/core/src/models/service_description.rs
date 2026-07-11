@@ -8,7 +8,7 @@ use crate::http::SessionGrantProofKind;
 /// `schema_violation`.
 ///
 /// The 17 required fields (matches `service-describe.schema.json`):
-/// `service_did`, `trust_domain`, `service_type`, `protocol_version`,
+/// `service_id`, `trust_domain`, `service_type`, `protocol_version`,
 /// `supported_profiles`, `supported_operations`, `supported_bindings`,
 /// `supported_features`, `auth_metadata`, `limits`,
 /// `plaintext_visibility`, `implemented_features`, `claimed_profiles`,
@@ -17,7 +17,7 @@ use crate::http::SessionGrantProofKind;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ServerDescription {
-    pub service_did: Did,
+    pub service_id: Did,
     /// Round 4 — REQUIRED trust domain. Receivers MUST refuse to
     /// register a peer whose `trust_domain` disagrees with the
     /// expected deployment scope.
@@ -258,7 +258,7 @@ mod tests {
 
     fn directory_description() -> ServerDescription {
         ServerDescription {
-            service_did: Did::new("did:webvh:z6mkfixture:directory.example").unwrap(),
+            service_id: Did::new("did:webvh:z6mkfixture:directory.example").unwrap(),
             trust_domain: TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_type: "directory_service".to_owned(),
             protocol_version: PROTOCOL_VERSION.to_owned(),
@@ -439,7 +439,7 @@ pub struct AuthGrantExchange {
 }
 
 pub type ActorDid = Did;
-pub type ServiceDid = Did;
+pub type ServiceId = Did;
 pub type AccountId = String;
 pub type ServiceDescribe = ServerDescription;
 pub type EventSubmitEnvelope = Event;
@@ -586,7 +586,7 @@ impl EgressProtectedPurpose {
 pub struct EgressPrivateException {
     pub purpose: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_did: Option<Did>,
+    pub service_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trust_domain: Option<TypedTrustDomainId>,
     pub cidrs: Vec<String>,

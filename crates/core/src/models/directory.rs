@@ -195,7 +195,7 @@ pub enum RealmJoinCandidateSource {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RealmJoinCandidate {
     pub realm_id: RealmId,
-    pub service_did: Did,
+    pub service_id: Did,
     pub service_type: RealmJoinCandidateServiceType,
     pub role: RealmJoinCandidateRole,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -604,7 +604,7 @@ pub struct AgentSelectorClaim {
     pub subject: Did,
     pub issuer: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub issuer_service_did: Option<Did>,
+    pub issuer_service_id: Option<Did>,
     pub binding_state: HandleBindingState,
     pub visibility: HandleVisibility,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -750,7 +750,7 @@ mod agent_selector_tests {
             agent_slug: "summary".to_owned(),
             subject: did("did:webvh:z6mkfixture:agent.example"),
             issuer: did("did:webvh:z6mkfixture:example.com"),
-            issuer_service_did: Some(did("did:webvh:z6mkfixture:example.com")),
+            issuer_service_id: Some(did("did:webvh:z6mkfixture:example.com")),
             binding_state: HandleBindingState::Verified,
             visibility: HandleVisibility::Restricted,
             audience: Some("ak:realm:018f0000-0000-7000-8000-000000000001".to_owned()),

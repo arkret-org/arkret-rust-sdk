@@ -535,7 +535,7 @@ pub enum SearchLeakageClass {
 #[serde(deny_unknown_fields)]
 pub struct SearchPolicy {
     pub enabled_profile_refs: Vec<SearchProfileRef>,
-    pub allowed_service_dids: Vec<Did>,
+    pub allowed_service_ids: Vec<Did>,
     pub data_classes: Vec<SearchDataClass>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub index_retention_ms: Option<u64>,
@@ -550,7 +550,7 @@ pub struct SearchPolicy {
 impl SearchPolicy {
     pub fn validate(&self) -> Result<()> {
         require_unique("enabled_profile_refs", &self.enabled_profile_refs)?;
-        require_unique("allowed_service_dids", &self.allowed_service_dids)?;
+        require_unique("allowed_service_ids", &self.allowed_service_ids)?;
         require_unique("data_classes", &self.data_classes)?;
         if self.data_classes.is_empty() {
             return Err(Error::Protocol(
@@ -2265,7 +2265,7 @@ mod tests {
                 SearchProfileRef::BlindIndex,
                 SearchProfileRef::ForwardPrivate,
             ],
-            allowed_service_dids: vec![Did::new("did:webvh:z6mkfixture:search.example").unwrap()],
+            allowed_service_ids: vec![Did::new("did:webvh:z6mkfixture:search.example").unwrap()],
             data_classes: vec![
                 SearchDataClass::EncryptedIndex,
                 SearchDataClass::BlindTokens,

@@ -159,7 +159,6 @@ pub mod account;
 #[cfg(feature = "full-surface")]
 pub mod agent;
 #[cfg(feature = "full-surface")]
-pub mod agent_binding;
 #[cfg(feature = "full-surface")]
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub mod applet;
@@ -294,9 +293,8 @@ pub use account::{
 };
 #[cfg(feature = "full-surface")]
 pub use agent::{
-    AgentBridgeMetadata, AgentPrincipal, AgentProtocol, AgentProtocolEndpoint,
-    AgentProtocolMessage, AgentRun, AgentRunState, AgentToolAuditAction, AgentToolAuditEntry,
-    DelegatedActor, ExternalAgent,
+    AgentPrincipal, AgentRun, AgentRunState, AgentToolAuditAction, AgentToolAuditEntry,
+    DelegatedActor,
 };
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet::{

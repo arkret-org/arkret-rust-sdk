@@ -121,7 +121,7 @@ pub struct EventsFrontierFederationPeerState {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventsFrontierAnonymousHealthState {
     pub peer_role: FrontierPeerRole,
-    pub service_did: Did,
+    pub service_id: Did,
     pub healthy: bool,
     /// Wall-clock instant the frontier snapshot was generated. Used for
     /// staleness detection only — not signed.

@@ -11,7 +11,7 @@ use crate::events::kinds::{
 
 /// Count of standard `ak.*` event kinds the registry declares active.
 /// Excludes the [EventKind::Unknown] catch-all.
-pub const EVENT_KIND_COUNT: usize = 191;
+pub const EVENT_KIND_COUNT: usize = 187;
 
 /// Strongly-typed Arkret event kind. One variant per active `ak.*` kind in
 /// `event-kind-registry.json`, plus [EventKind::Unknown] which preserves
@@ -43,14 +43,6 @@ pub enum EventKind {
     AgentActionRequest,
     /// `ak.agent.draft.propose`
     AgentDraftPropose,
-    /// `ak.agent.endpoint`
-    AgentEndpoint,
-    /// `ak.agent.interop_session.result`
-    AgentInteropSessionResult,
-    /// `ak.agent.interop_session.start`
-    AgentInteropSessionStart,
-    /// `ak.agent.interop_session.status`
-    AgentInteropSessionStatus,
     /// `ak.agent.key.authorize`
     AgentKeyAuthorize,
     /// `ak.agent.key.revoke`
@@ -426,10 +418,6 @@ impl EventKind {
             Self::AgentActionReject => "ak.agent.action_reject",
             Self::AgentActionRequest => "ak.agent.action_request",
             Self::AgentDraftPropose => "ak.agent.draft.propose",
-            Self::AgentEndpoint => "ak.agent.endpoint",
-            Self::AgentInteropSessionResult => "ak.agent.interop_session.result",
-            Self::AgentInteropSessionStart => "ak.agent.interop_session.start",
-            Self::AgentInteropSessionStatus => "ak.agent.interop_session.status",
             Self::AgentKeyAuthorize => "ak.agent.key.authorize",
             Self::AgentKeyRevoke => "ak.agent.key.revoke",
             Self::AgentKeyRotate => "ak.agent.key.rotate",
@@ -625,10 +613,6 @@ impl EventKind {
             "ak.agent.action_reject" => Self::AgentActionReject,
             "ak.agent.action_request" => Self::AgentActionRequest,
             "ak.agent.draft.propose" => Self::AgentDraftPropose,
-            "ak.agent.endpoint" => Self::AgentEndpoint,
-            "ak.agent.interop_session.result" => Self::AgentInteropSessionResult,
-            "ak.agent.interop_session.start" => Self::AgentInteropSessionStart,
-            "ak.agent.interop_session.status" => Self::AgentInteropSessionStatus,
             "ak.agent.key.authorize" => Self::AgentKeyAuthorize,
             "ak.agent.key.revoke" => Self::AgentKeyRevoke,
             "ak.agent.key.rotate" => Self::AgentKeyRotate,

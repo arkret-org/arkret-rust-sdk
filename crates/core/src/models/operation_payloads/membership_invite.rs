@@ -68,7 +68,7 @@ pub struct MembershipPayload {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gate_proofs: Vec<Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub via_service_dids: Vec<Did>,
+    pub via_service_ids: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     /// `oneOf(event_ref | invite_id)` — both are opaque strings on the wire.
@@ -91,7 +91,7 @@ impl MembershipPayload {
             delivery_status: None,
             delivery_binding: None,
             gate_proofs: Vec::new(),
-            via_service_dids: Vec::new(),
+            via_service_ids: Vec::new(),
             reason: Some(reason.into()),
             invite_ref: None,
         }
@@ -113,7 +113,7 @@ impl MembershipPayload {
             delivery_status: Some(delivery_status),
             delivery_binding: None,
             gate_proofs: Vec::new(),
-            via_service_dids: Vec::new(),
+            via_service_ids: Vec::new(),
             reason: Some(reason.into()),
             invite_ref: None,
         }
@@ -402,7 +402,7 @@ pub struct InviteSubjectProofBody {
     pub token_commitment: Hash,
     pub claim_nonce: String,
     pub audience: String,
-    pub verification_service_did: Did,
+    pub verification_service_id: Did,
     pub binding_proof_digest: Hash,
 }
 
@@ -413,7 +413,7 @@ impl InviteSubjectProofBody {
         realm_id: RealmId,
         token_commitment: Hash,
         claim_nonce: impl Into<String>,
-        verification_service_did: Did,
+        verification_service_id: Did,
         binding_proof_digest: Hash,
     ) -> Self {
         Self {
@@ -423,7 +423,7 @@ impl InviteSubjectProofBody {
             token_commitment,
             claim_nonce: claim_nonce.into(),
             audience: INVITE_CLAIM_AUDIENCE.to_owned(),
-            verification_service_did,
+            verification_service_id,
             binding_proof_digest,
         }
     }
@@ -434,7 +434,7 @@ impl InviteSubjectProofBody {
         realm_id: impl Into<String>,
         token_commitment: impl Into<String>,
         claim_nonce: impl Into<String>,
-        verification_service_did: impl Into<String>,
+        verification_service_id: impl Into<String>,
         binding_proof_digest: impl Into<String>,
     ) -> Result<Self> {
         Ok(Self::new(
@@ -443,7 +443,7 @@ impl InviteSubjectProofBody {
             RealmId::new(realm_id.into())?,
             Hash::new(token_commitment.into())?,
             claim_nonce,
-            Did::new(verification_service_did.into())?,
+            Did::new(verification_service_id.into())?,
             Hash::new(binding_proof_digest.into())?,
         ))
     }
@@ -492,7 +492,7 @@ pub fn invite_subject_proof_transcript_bytes(
     realm_id: &str,
     token_commitment: &str,
     claim_nonce: &str,
-    verification_service_did: &str,
+    verification_service_id: &str,
     binding_proof_digest: &str,
 ) -> Result<Vec<u8>> {
     InviteSubjectProofBody::from_wire_parts(
@@ -501,7 +501,7 @@ pub fn invite_subject_proof_transcript_bytes(
         realm_id,
         token_commitment,
         claim_nonce,
-        verification_service_did,
+        verification_service_id,
         binding_proof_digest,
     )?
     .canonical_bytes()
@@ -513,7 +513,7 @@ pub fn invite_subject_proof_transcript_digest(
     realm_id: &str,
     token_commitment: &str,
     claim_nonce: &str,
-    verification_service_did: &str,
+    verification_service_id: &str,
     binding_proof_digest: &str,
 ) -> Result<Hash> {
     Ok(Hash::new(canonical::sha256_digest(
@@ -523,7 +523,7 @@ pub fn invite_subject_proof_transcript_digest(
             realm_id,
             token_commitment,
             claim_nonce,
-            verification_service_did,
+            verification_service_id,
             binding_proof_digest,
         )?,
     ))?)
@@ -611,7 +611,7 @@ mod tests {
                 "\"realm_id\":\"ak:realm:0196419b-0000-7000-8000-000000000001\",",
                 "\"subject_id\":\"did:web:bob.example\",",
                 "\"token_commitment\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
-                "\"verification_service_did\":\"did:web:verify.example\"}"
+                "\"verification_service_id\":\"did:web:verify.example\"}"
             )
         );
     }

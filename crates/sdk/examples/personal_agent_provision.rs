@@ -47,7 +47,7 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
     println!("  request: {body}");
     match op_id {
         "ak.self.agent.command.provision" => json!({
-            "agent_principal_id": "did:webvh:z6mkfixture:agent.example",
+            "agent_id": "did:webvh:z6mkfixture:agent.example",
             "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
             "pairing_code": "12345678",
             "expires_at": "2026-06-18T12:15:00Z",
@@ -60,7 +60,7 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
             json!({ "agents": [], "next_cursor": null, "has_more": false })
         }
         "ak.self.agent.resource.get" => {
-            json!({ "agent_principal_id": body["agent_principal_id"], "status": "active" })
+            json!({ "agent_id": body["agent_id"], "status": "active" })
         }
         "ak.self.agent.command.pause" => json!({ "ok": true, "status": "paused" }),
         "ak.self.agent.command.resume" => json!({ "ok": true, "status": "active" }),
@@ -112,7 +112,7 @@ fn main() -> arkret::Result<()> {
                 )?),
                 r#ref: None,
                 operation: None,
-                service_did: None,
+                service_id: None,
             }],
             constraints: Vec::new(),
         })
@@ -120,18 +120,15 @@ fn main() -> arkret::Result<()> {
         .build();
 
     let provisioned = send_plan(plan_agent_provision(provision_body))?;
-    let agent_principal_id = provisioned["agent_principal_id"]
-        .as_str()
-        .unwrap()
-        .to_owned();
+    let agent_id = provisioned["agent_id"].as_str().unwrap().to_owned();
 
     let key_pair_body = AgentKeyPairRequestBody {
         pairing_request_id: provisioned["pairing_request_id"]
             .as_str()
             .unwrap()
             .to_owned(),
-        agent_principal_id: Did::new(agent_principal_id.clone())?,
-        verification_method: format!("{agent_principal_id}#runtime-key-1"),
+        agent_id: Did::new(agent_id.clone())?,
+        verification_method: format!("{agent_id}#runtime-key-1"),
         public_key: json!({
             "kty": "OKP",
             "crv": "Ed25519",
@@ -145,8 +142,8 @@ fn main() -> arkret::Result<()> {
         authorize_event: json!({
             "kind": "ak.agent.key.authorize",
             "payload": {
-                "agent_principal_id": agent_principal_id.clone(),
-                "verification_method": format!("{agent_principal_id}#runtime-key-1"),
+                "agent_id": agent_id.clone(),
+                "verification_method": format!("{agent_id}#runtime-key-1"),
             }
         }),
     };
@@ -156,17 +153,17 @@ fn main() -> arkret::Result<()> {
     let _list = send_plan(plan_agent_list())?;
 
     // 4. ak.self.agent.resource.get
-    let _get = send_plan(plan_agent_get(&agent_principal_id))?;
+    let _get = send_plan(plan_agent_get(&agent_id))?;
 
     // 5-6. pause + resume
     let _paused = send_plan(plan_agent_pause(
-        &agent_principal_id,
+        &agent_id,
         AgentPauseRequestBody {
             reason: Some("user_requested".to_owned()),
         },
     ))?;
     let _resumed = send_plan(plan_agent_resume(
-        &agent_principal_id,
+        &agent_id,
         AgentResumeRequestBody {
             sidecar_exposure_ack: None,
         },
@@ -174,7 +171,7 @@ fn main() -> arkret::Result<()> {
 
     // 7. rotate-key
     let _rotated = send_plan(plan_agent_rotate_key(
-        &agent_principal_id,
+        &agent_id,
         AgentRotateKeyRequestBody {
             replacement_key: json!({
                 "kty": "OKP",
@@ -190,7 +187,7 @@ fn main() -> arkret::Result<()> {
 
     // 8. grant.attach
     let grant = send_plan(plan_agent_grant_attach(
-        &agent_principal_id,
+        &agent_id,
         AgentGrantAttachRequestBody {
             grant: json!({
                 "actions": ["ak.message.create"],
@@ -201,22 +198,22 @@ fn main() -> arkret::Result<()> {
     let grant_id = GrantId::new(grant["grant_id"].as_str().unwrap().to_owned())?;
 
     // 9. grant.detach
-    let _detached = send_plan(plan_agent_grant_detach(&agent_principal_id, &grant_id))?;
+    let _detached = send_plan(plan_agent_grant_detach(&agent_id, &grant_id))?;
 
     // 10. sidecar_thread.ensure
     let realm_id = RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030")?;
     let context_strand_id = StrandId::new("ak:strand:01964137-0000-7000-8000-000000000031")?;
     let _sidecar = send_plan(plan_agent_sidecar_thread_ensure(
         AgentSidecarThreadEnsureRequestBody {
-            controller_principal_id: controller,
-            addressed_agent_principal_ids: vec![Did::new(agent_principal_id.clone())?],
+            controller_id: controller,
+            addressed_agent_ids: vec![Did::new(agent_id.clone())?],
             context_ref: AgentSidecarContextRef::strand(realm_id, context_strand_id),
         },
     ))?;
 
     // 11. deactivate
     let _deactivated = send_plan(plan_agent_deactivate(
-        &agent_principal_id,
+        &agent_id,
         AgentDeactivateRequestBody {
             reason: Some("demo_complete".to_owned()),
         },

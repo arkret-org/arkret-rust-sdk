@@ -237,7 +237,7 @@ mod tests {
             IdempotencyWindow::new(StdDuration::from_secs(5 * 60));
         let identity = IdempotencyIdentity::applet_transaction(
             IdempotencyDirection::NodeToApplet,
-            transaction.request.source_service_did.to_string(),
+            transaction.request.source_service_id.to_string(),
             "did:webvh:QmDst:applet.example",
             transaction.idempotency_key.clone(),
         );
@@ -407,10 +407,10 @@ mod tests {
         crate::Hash::new(format!("sha256:{}", "bb".repeat(32))).unwrap()
     }
 
-    fn sample_epoch_evidence(service_did: &Did) -> AppletRegistrationEpochEvidence {
+    fn sample_epoch_evidence(service_id: &Did) -> AppletRegistrationEpochEvidence {
         let document = crate::identity::DidDocument::new(
-            service_did.clone(),
-            format!("{service_did}#key-1"),
+            service_id.clone(),
+            format!("{service_id}#key-1"),
             "z6MkrJVnaZkeF7EsnJQ9xQY4bqG9tbeFqTzL7uTVs11FwUjT",
         );
         AppletRegistrationEpochEvidence::from_did_document(&document, None).unwrap()
@@ -441,8 +441,8 @@ mod tests {
         let value = serde_json::to_value(&reg).unwrap();
         assert_eq!(value["kind"], "ak.applet.registration");
         assert_eq!(value["applet_id"], reg.applet_id);
-        assert_eq!(value["service_did"], reg.service_did.as_str());
-        assert_eq!(value["controller_did"], reg.controller_did.as_str());
+        assert_eq!(value["service_id"], reg.service_id.as_str());
+        assert_eq!(value["controller_id"], reg.controller_id.as_str());
         assert_eq!(value["base_url"], reg.base_url);
         assert_eq!(value["bot_actor_id"], reg.bot_actor_id.as_str());
         let back: WireAppletRegistration = serde_json::from_value(value).unwrap();
@@ -559,7 +559,7 @@ mod tests {
             "ak:keyref:webhook",
             vec![WebhookSignatureAlg::EdDsa],
         );
-        package.registration_epoch_evidence = Some(sample_epoch_evidence(&package.service_did));
+        package.registration_epoch_evidence = Some(sample_epoch_evidence(&package.service_id));
 
         // Unsealed / unsigned package fails validation and derivation.
         assert!(package.validate().is_err());

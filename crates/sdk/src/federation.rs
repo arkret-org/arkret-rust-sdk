@@ -214,11 +214,11 @@ fn sha256_raw(bytes: &[u8]) -> [u8; 32] {
 
 pub fn did_document_service_endpoint_matches(
     did_document: &Value,
-    service_did: &Did,
+    service_id: &Did,
     service_type: &str,
     endpoint: &str,
 ) -> bool {
-    did_document.get("id").and_then(Value::as_str) == Some(service_did.as_str())
+    did_document.get("id").and_then(Value::as_str) == Some(service_id.as_str())
         && did_document
             .get("service")
             .map(|services| match services {
@@ -498,7 +498,7 @@ mod tests {
         // all three of history_visible AND service_delegated AND
         // plaintext_visible_to_service.
         let fully_authorized = FederationBackfillAuthorization {
-            requester_service_did: Did::new("did:webvh:z6mkfixture:b.example").unwrap(),
+            requester_service_id: Did::new("did:webvh:z6mkfixture:b.example").unwrap(),
             realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
             service_delegated: true,

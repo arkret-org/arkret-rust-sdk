@@ -96,44 +96,39 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     ),
     endpoint!("ak.self.agent.query.list", Get, "/_arkret/self/agents"),
     endpoint!(
-        "ak.self.agent.protocol.query.discover",
-        Post,
-        "/_arkret/self/agents/discover"
-    ),
-    endpoint!(
         "ak.self.agent.resource.get",
         Get,
-        "/_arkret/self/agents/{agent_principal_id}"
+        "/_arkret/self/agents/{agent_id}"
     ),
     endpoint!(
         "ak.self.agent.command.pause",
         Post,
-        "/_arkret/self/agents/{agent_principal_id}/pause"
+        "/_arkret/self/agents/{agent_id}/pause"
     ),
     endpoint!(
         "ak.self.agent.command.resume",
         Post,
-        "/_arkret/self/agents/{agent_principal_id}/resume"
+        "/_arkret/self/agents/{agent_id}/resume"
     ),
     endpoint!(
         "ak.self.agent.command.deactivate",
         Post,
-        "/_arkret/self/agents/{agent_principal_id}/deactivate"
+        "/_arkret/self/agents/{agent_id}/deactivate"
     ),
     endpoint!(
         "ak.self.agent.command.rotate_key",
         Post,
-        "/_arkret/self/agents/{agent_principal_id}/rotate-key"
+        "/_arkret/self/agents/{agent_id}/rotate-key"
     ),
     endpoint!(
         "ak.self.agent.grant.command.attach",
         Post,
-        "/_arkret/self/agents/{agent_principal_id}/grants"
+        "/_arkret/self/agents/{agent_id}/grants"
     ),
     endpoint!(
         "ak.self.agent.grant.resource.delete",
         Delete,
-        "/_arkret/self/agents/{agent_principal_id}/grants/{grant_id}"
+        "/_arkret/self/agents/{agent_id}/grants/{grant_id}"
     ),
     endpoint!(
         "ak.self.agent.sidecar_thread.command.ensure",
@@ -143,12 +138,12 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!(
         "ak.self.agent.participation.resource.replace",
         Put,
-        "/_arkret/self/agents/{agent_principal_id}/participation"
+        "/_arkret/self/agents/{agent_id}/participation"
     ),
     endpoint!(
         "ak.self.agent.participation.resource.get",
         Get,
-        "/_arkret/self/agents/{agent_principal_id}/participation"
+        "/_arkret/self/agents/{agent_id}/participation"
     ),
     endpoint!(
         "ak.gate.account.exchange.complete_oidc",

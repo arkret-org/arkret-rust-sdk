@@ -111,9 +111,9 @@ fn explicit_binding_parses_and_validates_to_expected_route() {
         .as_str()
         .expect("expected delivery_route");
     assert_eq!(
-        binding.recipient_service_did.as_str(),
+        binding.recipient_service_id.as_str(),
         expected_route,
-        "accepted binding must route to recipient_service_did"
+        "accepted binding must route to recipient_service_id"
     );
 }
 
@@ -132,7 +132,7 @@ fn did_document_default_binding_requires_digest() {
         .expect("did_document_default binding with digest must validate");
     assert_eq!(binding.binding_source, BindingSource::DidDocumentDefault);
     assert_eq!(
-        Some(binding.recipient_service_did.as_str()),
+        Some(binding.recipient_service_id.as_str()),
         vector["expected"]["delivery_route"].as_str(),
     );
     assert_eq!(
@@ -218,7 +218,7 @@ fn policy_mismatch_binding_is_structurally_valid_but_policy_rejected() {
         .map(|service| service.as_str().expect("service DID"))
         .collect();
     assert!(
-        !allowed_services.contains(&binding.recipient_service_did.as_str()),
+        !allowed_services.contains(&binding.recipient_service_id.as_str()),
         "fixture premise: recipient service must be outside the policy allow-list"
     );
 }

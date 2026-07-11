@@ -413,7 +413,7 @@ pub struct AccountSubscribeRealms {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncDescription {
-    pub service_did: Did,
+    pub service_id: Did,
     #[serde(default)]
     pub supported_sync_profiles: Vec<String>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -430,7 +430,7 @@ mod sync_description_tests {
     #[test]
     fn sync_description_frontier_preserves_raw_service_shape() {
         let object_frontier: SyncDescription = serde_json::from_value(serde_json::json!({
-            "service_did": "did:web:server.local",
+            "service_id": "did:web:server.local",
             "supported_sync_profiles": ["initial"],
             "limits": {},
             "frontier": {"storage": "memory"}
@@ -446,7 +446,7 @@ mod sync_description_tests {
         );
 
         let array_frontier: SyncDescription = serde_json::from_value(serde_json::json!({
-            "service_did": "did:web:server.local",
+            "service_id": "did:web:server.local",
             "supported_sync_profiles": ["initial"],
             "limits": {},
             "frontier": ["ak:event:0196419b-0000-7000-8000-000000000001"]

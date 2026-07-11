@@ -299,7 +299,6 @@ pub const REASON_AGENT_PARTICIPATION_CEILING_WIDEN: &str = "agent_participation_
 pub const REASON_AGENT_PARTICIPATION_EXCEEDS_CEILING: &str = "agent_participation_exceeds_ceiling";
 /// `failed_precondition` / authorization sub-reason: a native personal
 /// agent action is denied by effective participation policy.
-pub const REASON_AGENT_PARTICIPATION_DENIED: &str = "agent_participation_denied";
 /// `failed_precondition` sub-reason: a write would expose metadata below
 /// the effective `metadata_encryption_floor` floor (max of parent
 /// Realm, Circle, Space child-scope-policy, and object profile floors).
@@ -343,7 +342,6 @@ pub const KNOWN_REASON_CODES_CKP_0007: &[&str] = &[
 pub const KNOWN_REASON_CODES_AGENT_PARTICIPATION: &[&str] = &[
     REASON_AGENT_PARTICIPATION_CEILING_WIDEN,
     REASON_AGENT_PARTICIPATION_EXCEEDS_CEILING,
-    REASON_AGENT_PARTICIPATION_DENIED,
 ];
 
 /// Known `failed_precondition` reason codes registered in round C44.

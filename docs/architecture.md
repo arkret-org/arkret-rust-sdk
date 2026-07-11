@@ -49,11 +49,11 @@ Transition matrix (informational — soland is canonical):
 
 Operations:
 
-- `ak.self.agent.command.pause` — `POST /agents/{agent_principal_id}/pause` — soft stop;
+- `ak.self.agent.command.pause` — `POST /agents/{agent_id}/pause` — soft stop;
   outstanding tasks complete, no new tasks accepted.
-- `ak.self.agent.command.resume` — `POST /agents/{agent_principal_id}/resume` — reverse of
+- `ak.self.agent.command.resume` — `POST /agents/{agent_id}/resume` — reverse of
   pause; rejected if state == Deactivated with `agent_deactivated`.
-- `ak.self.agent.command.deactivate` — `POST /agents/{agent_principal_id}/deactivate` —
+- `ak.self.agent.command.deactivate` — `POST /agents/{agent_id}/deactivate` —
   terminal. The historical `/revoke` alias was dropped at R3. Validator
   ensures no callers reference `/revoke`.
 

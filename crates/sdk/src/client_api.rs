@@ -1157,7 +1157,7 @@ pub struct ThirdPartyInviteRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token_entropy_bits: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_service_did: Option<Did>,
+    pub verification_service_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_public_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

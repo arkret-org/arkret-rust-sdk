@@ -67,134 +67,118 @@ impl Client {
         decode_agent_list_response(value)
     }
 
-    /// `GET /_arkret/self/agents/{agent_principal_id}`
+    /// `GET /_arkret/self/agents/{agent_id}`
     /// (`ak.self.agent.resource.get`).
-    pub async fn agent_get(&self, agent_principal_id: &str) -> Result<AgentView> {
-        let path = format!(
-            "{}/{}",
-            AGENTS_PATH,
-            agent_path_component(agent_principal_id)?
-        );
+    pub async fn agent_get(&self, agent_id: &str) -> Result<AgentView> {
+        let path = format!("{}/{}", AGENTS_PATH, agent_path_component(agent_id)?);
         self.get(&path).await
     }
 
-    /// `POST /_arkret/self/agents/{agent_principal_id}/pause`
+    /// `POST /_arkret/self/agents/{agent_id}/pause`
     /// (`ak.self.agent.command.pause`).
     pub async fn agent_pause(
         &self,
-        agent_principal_id: &str,
+        agent_id: &str,
         request: &AgentPauseRequestBody,
     ) -> Result<AgentLifecycleOutcome> {
-        let path = format!(
-            "{}/{}/pause",
-            AGENTS_PATH,
-            agent_path_component(agent_principal_id)?
-        );
+        let path = format!("{}/{}/pause", AGENTS_PATH, agent_path_component(agent_id)?);
         self.post(&path, request).await
     }
 
-    /// `POST /_arkret/self/agents/{agent_principal_id}/resume`
+    /// `POST /_arkret/self/agents/{agent_id}/resume`
     /// (`ak.self.agent.command.resume`).
     pub async fn agent_resume(
         &self,
-        agent_principal_id: &str,
+        agent_id: &str,
         request: &AgentResumeRequestBody,
     ) -> Result<AgentLifecycleOutcome> {
-        let path = format!(
-            "{}/{}/resume",
-            AGENTS_PATH,
-            agent_path_component(agent_principal_id)?
-        );
+        let path = format!("{}/{}/resume", AGENTS_PATH, agent_path_component(agent_id)?);
         self.post(&path, request).await
     }
 
-    /// `POST /_arkret/self/agents/{agent_principal_id}/deactivate`
+    /// `POST /_arkret/self/agents/{agent_id}/deactivate`
     /// (`ak.self.agent.command.deactivate`).
     pub async fn agent_deactivate(
         &self,
-        agent_principal_id: &str,
+        agent_id: &str,
         request: &AgentDeactivateRequestBody,
     ) -> Result<AgentLifecycleOutcome> {
         let path = format!(
             "{}/{}/deactivate",
             AGENTS_PATH,
-            agent_path_component(agent_principal_id)?
+            agent_path_component(agent_id)?
         );
         self.post(&path, request).await
     }
 
-    /// `POST /_arkret/self/agents/{agent_principal_id}/rotate-key`
+    /// `POST /_arkret/self/agents/{agent_id}/rotate-key`
     /// (`ak.self.agent.command.rotate_key`).
     pub async fn agent_rotate_key(
         &self,
-        agent_principal_id: &str,
+        agent_id: &str,
         request: &AgentRotateKeyRequestBody,
     ) -> Result<AgentRotateKeyOutcome> {
         let path = format!(
             "{}/{}/rotate-key",
             AGENTS_PATH,
-            agent_path_component(agent_principal_id)?
+            agent_path_component(agent_id)?
         );
         self.post(&path, request).await
     }
 
-    /// `POST /_arkret/self/agents/{agent_principal_id}/grants`
+    /// `POST /_arkret/self/agents/{agent_id}/grants`
     /// (`ak.self.agent.grant.command.attach`).
     pub async fn agent_grant_attach(
         &self,
-        agent_principal_id: &str,
+        agent_id: &str,
         request: &AgentGrantAttachRequestBody,
     ) -> Result<AgentGrantAttachOutcome> {
-        let path = format!(
-            "{}/{}/grants",
-            AGENTS_PATH,
-            agent_path_component(agent_principal_id)?
-        );
+        let path = format!("{}/{}/grants", AGENTS_PATH, agent_path_component(agent_id)?);
         self.post(&path, request).await
     }
 
-    /// `DELETE /_arkret/self/agents/{agent_principal_id}/grants/{grant_id}`
+    /// `DELETE /_arkret/self/agents/{agent_id}/grants/{grant_id}`
     /// (`ak.self.agent.grant.resource.delete`). The `_detach` method name is
     /// retained for API compatibility; the registered operation id is `.delete`.
     pub async fn agent_grant_detach(
         &self,
-        agent_principal_id: &str,
+        agent_id: &str,
         grant_id: &GrantId,
     ) -> Result<AgentGrantDetachOutcome> {
         let path = format!(
             "{}/{}/grants/{}",
             AGENTS_PATH,
-            agent_path_component(agent_principal_id)?,
+            agent_path_component(agent_id)?,
             agent_path_component(grant_id.as_str())?
         );
         self.delete(&path).await
     }
 
-    /// `GET /_arkret/self/agents/{agent_principal_id}/participation`
+    /// `GET /_arkret/self/agents/{agent_id}/participation`
     /// (`ak.self.agent.participation.resource.get`).
     pub async fn agent_participation_get(
         &self,
-        agent_principal_id: &str,
+        agent_id: &str,
     ) -> Result<AgentParticipationOutcome> {
         let path = format!(
             "{}/{}/participation",
             AGENTS_PATH,
-            agent_path_component(agent_principal_id)?
+            agent_path_component(agent_id)?
         );
         self.get(&path).await
     }
 
-    /// `PUT /_arkret/self/agents/{agent_principal_id}/participation`
+    /// `PUT /_arkret/self/agents/{agent_id}/participation`
     /// (`ak.self.agent.participation.resource.replace`).
     pub async fn agent_participation_replace(
         &self,
-        agent_principal_id: &str,
+        agent_id: &str,
         request: &AgentParticipationReplaceRequestBody,
     ) -> Result<AgentParticipationOutcome> {
         let path = format!(
             "{}/{}/participation",
             AGENTS_PATH,
-            agent_path_component(agent_principal_id)?
+            agent_path_component(agent_id)?
         );
         self.put(&path, request).await
     }
@@ -268,7 +252,7 @@ mod tests {
     fn agent_list_rejects_legacy_items_field() {
         let error = decode_agent_list_response(serde_json::json!({
             "items": [{
-                "agent_principal_id": "did:web:agents.example:summary",
+                "agent_id": "did:web:agents.example:summary",
                 "display_name": "Summary",
                 "slug": "summary",
                 "status": "active"

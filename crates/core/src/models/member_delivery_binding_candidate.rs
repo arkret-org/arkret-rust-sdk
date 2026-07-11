@@ -83,8 +83,8 @@ pub enum CandidateError {
     },
     #[error(
         "candidate proofs[] missing or empty; at least one proof MUST bind \
-         handle / subject_id / member_delivery_binding.recipient_service_did / audience / \
-         issuer_service_did / expires_at"
+         handle / subject_id / member_delivery_binding.recipient_service_id / audience / \
+         issuer_service_id / expires_at"
     )]
     MissingProof,
     #[error(
@@ -99,10 +99,10 @@ pub enum CandidateError {
     )]
     ForbiddenBindingSource,
     #[error(
-        "candidate recipient_service_did ({outer}) does not match \
-         member_delivery_binding.recipient_service_did ({inner})"
+        "candidate recipient_service_id ({outer}) does not match \
+         member_delivery_binding.recipient_service_id ({inner})"
     )]
-    RecipientServiceDidMismatch { outer: String, inner: String },
+    RecipientServiceIdMismatch { outer: String, inner: String },
     #[error("candidate source_refs MUST NOT be empty")]
     MissingSourceRefs,
     #[error("candidate canonical-JSON serialisation failed: {0}")]
@@ -126,7 +126,7 @@ pub struct MemberDeliveryBindingCandidate {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handle_aliases: Vec<String>,
     pub member_delivery_binding: DeliveryBindingHint,
-    pub issuer_service_did: Did,
+    pub issuer_service_id: Did,
     pub audience: String,
     pub expires_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -244,7 +244,7 @@ mod tests {
         modes.insert(DeliveryMode::Events);
         modes.insert(DeliveryMode::Sync);
         DeliveryBindingHint {
-            recipient_service_did: rs.clone(),
+            recipient_service_id: rs.clone(),
             recipient_service_type: RecipientServiceType::PrincipalServer,
             binding_source: HandleHintBindingSource::OrganizationPolicy,
             delivery_modes: modes,
@@ -262,7 +262,7 @@ mod tests {
             handle: Handle::parse("alice:acme.example").unwrap(),
             handle_aliases: vec!["acct:alice@acme.example".to_owned()],
             member_delivery_binding: sample_hint(&rs),
-            issuer_service_did: fake_did("principal"),
+            issuer_service_id: fake_did("principal"),
             audience: "ak:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
             expires_at: Utc::now() + chrono::Duration::hours(1),
             issued_at: Some(Utc::now()),

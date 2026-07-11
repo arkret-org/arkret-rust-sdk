@@ -170,7 +170,7 @@ mod protocol_wire {
             lookup_table_ref: None,
             pepper_id: None,
             max_claims: 3,
-            verification_service_did: Did::new("did:webvh:z6mkfixture:auth.example").unwrap(),
+            verification_service_id: Did::new("did:webvh:z6mkfixture:auth.example").unwrap(),
             verification_public_key: "z6MkVK".to_owned(),
         };
         // Missing token_commitment + token_salt_id → reject.

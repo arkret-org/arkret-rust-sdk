@@ -138,9 +138,11 @@ pub enum AuditPurpose {
 pub struct AttestationEvidence {
     pub evidence_id: String,
 
-    pub audit_agent_principal_id: Did,
+    pub realm_id: RealmId,
 
-    pub service_did: Did,
+    pub audit_service_actor_id: Did,
+
+    pub service_id: Did,
 
     pub platform: AttestationPlatform,
 

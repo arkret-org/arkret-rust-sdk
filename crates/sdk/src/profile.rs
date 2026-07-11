@@ -124,7 +124,7 @@ pub struct RealmExportManifest {
     pub export_id: String,
     pub realm_id: RealmId,
     pub exported_by: Did,
-    pub source_service_did: Did,
+    pub source_service_id: Did,
     pub event_count: u64,
     pub state_digest: String,
     pub created_at: DateTime<Utc>,
@@ -140,8 +140,8 @@ pub struct RealmImportValidation {
 /// Service replacement contract for sovereign deployments.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServiceReplacementPlan {
-    pub old_service_did: Did,
-    pub new_service_did: Did,
+    pub old_service_id: Did,
+    pub new_service_id: Did,
     pub reason: String,
     pub effective_at: DateTime<Utc>,
     #[serde(default)]
@@ -151,7 +151,7 @@ pub struct ServiceReplacementPlan {
 impl ServiceReplacementPlan {
     /// Validate a service replacement contract.
     pub fn validate(&self, now: DateTime<Utc>) -> Result<()> {
-        if self.old_service_did == self.new_service_did {
+        if self.old_service_id == self.new_service_id {
             return Err(Error::Protocol(
                 "replacement service must change".to_owned(),
             ));
@@ -187,7 +187,7 @@ pub fn validate_realm_import(
         errors.push("state hash is not a sha256 digest".to_owned());
     }
     if !allowed_source_services.is_empty()
-        && !allowed_source_services.contains(&manifest.source_service_did)
+        && !allowed_source_services.contains(&manifest.source_service_id)
     {
         errors.push("source service is not allowed".to_owned());
     }
@@ -810,7 +810,7 @@ mod tests {
             export_id: "export1".to_owned(),
             realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             exported_by: alice,
-            source_service_did: service.clone(),
+            source_service_id: service.clone(),
             event_count: 10,
             state_digest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 .to_owned(),
@@ -829,8 +829,8 @@ mod tests {
         let old_service = did("old");
         let new_service = did("new");
         let plan = ServiceReplacementPlan {
-            old_service_did: old_service.clone(),
-            new_service_did: new_service.clone(),
+            old_service_id: old_service.clone(),
+            new_service_id: new_service.clone(),
             reason: "rotate service".to_owned(),
             effective_at: Utc::now() + chrono::Duration::hours(1),
             preserve_service_history: true,

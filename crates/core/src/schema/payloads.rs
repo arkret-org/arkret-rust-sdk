@@ -326,11 +326,9 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
             candidates.push("container_position_payload".to_owned());
         }
         ["view", "create" | "update" | "reconcile"] => candidates.push("view_payload".to_owned()),
-        ["agent", "endpoint"] => candidates.push("agent_endpoint_payload".to_owned()),
-        // Agent/applet interop-session events resolve through the `exact`
-        // candidate above (agent_interop_session_*_payload /
-        // applet_interop_session_*_payload), which the spec event-payload
-        // schema defines directly. No family override needed.
+        // Applet interop-session events resolve through the `exact`
+        // candidate above, which the spec event-payload schema defines
+        // directly. No family override is needed.
         // `ak.applet.registration` resolves through the `exact` candidate above
         // (`applet_registration_payload`, defined directly in the spec
         // event-payload schema) — it MUST NOT fall back to the generic shape.
@@ -733,10 +731,10 @@ mod tests {
             catalog.rules["ak.applet.registration"].payload_schema_id,
             format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/applet_registration_payload")
         );
-        // The legacy `{service_did, namespace, capabilities}` short form is
+        // The legacy `{service_id, namespace, capabilities}` short form is
         // rejected by the strong validator (missing required fields).
         let legacy = json!({
-            "service_did": "did:webvh:z6mkfixture:applet.example",
+            "service_id": "did:webvh:z6mkfixture:applet.example",
             "namespace": "ns",
             "capabilities": ["ak.message.create"]
         });

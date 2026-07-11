@@ -118,8 +118,8 @@ impl PushPrivacyPolicy {
         }
     }
 
-    pub fn allow(mut self, service_did: Did) -> Self {
-        self.allow_plaintext_for_services.insert(service_did);
+    pub fn allow(mut self, service_id: Did) -> Self {
+        self.allow_plaintext_for_services.insert(service_id);
         self
     }
 

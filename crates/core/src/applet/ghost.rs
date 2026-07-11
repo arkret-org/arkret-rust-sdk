@@ -15,7 +15,7 @@ use crate::{
 /// An Applet service / bridge asks the Principal Server to provision (or
 /// re-validate) an Applet-managed Ghost Actor profile plus accountability
 /// grant for one external user. Built by the bridge side and parsed by the
-/// authz service; the server still re-checks `applet_id`/`service_did`/
+/// authz service; the server still re-checks `applet_id`/`service_id`/
 /// `realm_id` against the installed package before minting anything.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -23,7 +23,7 @@ pub struct GhostActorProvisionRequestBody {
     /// Always [`GhostActorProvisionRequestBody::SCHEMA`].
     pub schema: String,
     pub applet_id: AppletId,
-    pub service_did: Did,
+    pub service_id: Did,
     pub ghost_actor_id: Did,
     pub protocol: String,
     pub tenant: String,
@@ -42,7 +42,7 @@ impl GhostActorProvisionRequestBody {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         applet_id: AppletId,
-        service_did: Did,
+        service_id: Did,
         ghost_actor_id: Did,
         protocol: impl Into<String>,
         tenant: impl Into<String>,
@@ -53,7 +53,7 @@ impl GhostActorProvisionRequestBody {
         Self {
             schema: Self::SCHEMA.to_owned(),
             applet_id,
-            service_did,
+            service_id,
             ghost_actor_id,
             protocol: protocol.into(),
             tenant: tenant.into(),

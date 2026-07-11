@@ -1085,7 +1085,7 @@ mod tests {
     }
 
     #[test]
-    fn service_inception_has_service_did_shape() {
+    fn service_inception_has_service_id_shape() {
         let prepared = run_prepare_service(5);
         assert!(prepared.did.starts_with("did:webvh:"), "{}", prepared.did);
         assert!(

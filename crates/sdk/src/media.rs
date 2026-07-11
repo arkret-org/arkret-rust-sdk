@@ -421,10 +421,10 @@ pub fn verify_call_media_token_outcome(
             "{REASON_TOKEN_ISSUER_UNAUTHORISED}: participant_binding issuer {issuer_did} not in realm media_service anchors"
         )));
     }
-    let service_did = did_from_kid(&outcome.service_signature.kid);
-    if !anchors.contains(service_did) {
+    let service_id = did_from_kid(&outcome.service_signature.kid);
+    if !anchors.contains(service_id) {
         return Err(Error::Protocol(format!(
-            "{REASON_TOKEN_ISSUER_UNAUTHORISED}: service_signature issuer {service_did} not in realm media_service anchors"
+            "{REASON_TOKEN_ISSUER_UNAUTHORISED}: service_signature issuer {service_id} not in realm media_service anchors"
         )));
     }
 
@@ -553,7 +553,7 @@ pub struct Thumbnail {
     pub media_type: String,
     /// Service DID that derived the thumbnail, when server-generated.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub generated_by_service_did: Option<Did>,
+    pub generated_by_service_id: Option<Did>,
     /// Visibility inherited from the source blob metadata.
     pub visibility: MediaVisibility,
     /// Profile describing the deterministic thumbnail derivation.
@@ -735,9 +735,9 @@ impl MemoryBlobStore {
         source_blob_ref: &BlobRef,
         width: u32,
         height: u32,
-        service_did: Did,
+        service_id: Did,
     ) -> Result<Thumbnail> {
-        self.generate_thumbnail_with_service(source_blob_ref, width, height, Some(service_did))
+        self.generate_thumbnail_with_service(source_blob_ref, width, height, Some(service_id))
     }
 
     fn generate_thumbnail_with_service(
@@ -745,7 +745,7 @@ impl MemoryBlobStore {
         source_blob_ref: &BlobRef,
         width: u32,
         height: u32,
-        generated_by_service_did: Option<Did>,
+        generated_by_service_id: Option<Did>,
     ) -> Result<Thumbnail> {
         let source = self
             .blobs
@@ -771,7 +771,7 @@ impl MemoryBlobStore {
             width,
             height,
             media_type: "image/preview".to_owned(),
-            generated_by_service_did,
+            generated_by_service_id,
             visibility,
             derivation_profile: THUMBNAIL_DERIVATION_PROFILE.to_owned(),
         };
@@ -1337,10 +1337,10 @@ mod tests {
                 Did::new("did:webvh:z6mkfixture:media.example".to_owned()).unwrap(),
             )
             .unwrap();
-        let media_service_did = Did::new("did:webvh:z6mkfixture:media.example".to_owned()).unwrap();
+        let media_service_id = Did::new("did:webvh:z6mkfixture:media.example".to_owned()).unwrap();
         assert_eq!(
-            service_thumbnail.generated_by_service_did.as_ref(),
-            Some(&media_service_did)
+            service_thumbnail.generated_by_service_id.as_ref(),
+            Some(&media_service_id)
         );
     }
 

@@ -30,7 +30,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_core::{AgentInteropSessionId, CircleId};
+use arkret_core::CircleId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -127,9 +127,9 @@ pub enum GrantConstraint {
     AllowedCircleIds {
         allowed_circle_ids: BTreeSet<CircleId>,
     },
-    /// Limits agent interop-session status/result writes to explicit session ids.
+    /// Limits applet interop-session writes to explicit session ids.
     AllowedSessionIds {
-        allowed_session_ids: BTreeSet<AgentInteropSessionId>,
+        allowed_session_ids: BTreeSet<String>,
     },
     /// Resource must carry at least one of the listed facets. soland uses
     /// this on `ak:strand:` / `ak:realm:` / `ak:morph:` projections; an
@@ -950,16 +950,13 @@ mod tests {
 
     #[test]
     fn allowed_session_ids_constraint_round_trips_through_serde() {
-        let session = AgentInteropSessionId::new(
-            "ak:agent_interop_session:01904100-0000-7000-8000-000000000000".to_owned(),
-        )
-        .expect("valid AgentInteropSessionId");
+        let session = "applet-session-1".to_owned();
         let constraint = GrantConstraint::AllowedSessionIds {
             allowed_session_ids: BTreeSet::from([session]),
         };
         let json = serde_json::to_string(&constraint).expect("serde round trip");
         assert!(json.contains("allowed_session_ids"));
-        assert!(json.contains("ak:agent_interop_session:01904100-0000-7000-8000-000000000000"));
+        assert!(json.contains("applet-session-1"));
         let round_tripped: GrantConstraint =
             serde_json::from_str(&json).expect("deserialize typed");
         assert_eq!(constraint, round_tripped);

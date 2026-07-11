@@ -95,7 +95,7 @@ test-only `AppletRegistry`) has been deleted. `ak.applet.registration`
 has exactly one representation:
 
 `arkret::WireAppletRegistration` — wire shape `kind / applet_id /
-service_did / controller_did / base_url / bot_actor_id / protocols /
+service_id / controller_id / base_url / bot_actor_id / protocols /
 namespaces { actors, realms, handles } / receive_events /
 receive_ephemeral / rate_limited / requested_scopes / registration_epoch
 / webhook_auth / manifest? / proof / created_at`. Sign it with

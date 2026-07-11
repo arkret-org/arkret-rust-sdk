@@ -11,8 +11,8 @@ use crate::{
 struct AgentKeyPairingRequestBinding<'a> {
     kind: &'static str,
     operation_id: &'static str,
-    controller_principal_id: &'a str,
-    agent_principal_id: &'a str,
+    controller_id: &'a str,
+    agent_id: &'a str,
     verification_method: &'a str,
     runtime_public_key_digest: &'a str,
     pairing_request_id: &'a str,
@@ -26,7 +26,7 @@ struct AgentKeyPairProofRequestBinding<'a> {
     kind: &'static str,
     operation_id: &'static str,
     pairing_request_id: &'a str,
-    agent_principal_id: &'a str,
+    agent_id: &'a str,
     verification_method: &'a str,
     public_key: &'a Value,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -64,8 +64,8 @@ pub fn agent_runtime_public_key_digest(public_key: &Value) -> Result<Hash> {
 
 #[allow(clippy::too_many_arguments)]
 pub fn agent_key_pairing_request_binding_digest(
-    controller_principal_id: &Did,
-    agent_principal_id: &Did,
+    controller_id: &Did,
+    agent_id: &Did,
     verification_method: &str,
     runtime_public_key_digest: &Hash,
     pairing_request_id: &str,
@@ -77,8 +77,8 @@ pub fn agent_key_pairing_request_binding_digest(
         &AgentKeyPairingRequestBinding {
             kind: "ak.agent.key_pairing_request_binding.v1",
             operation_id: OP_ACCOUNT_AGENT_KEY_PAIR,
-            controller_principal_id: controller_principal_id.as_str(),
-            agent_principal_id: agent_principal_id.as_str(),
+            controller_id: controller_id.as_str(),
+            agent_id: agent_id.as_str(),
             verification_method,
             runtime_public_key_digest: runtime_public_key_digest.as_str(),
             pairing_request_id,
@@ -92,7 +92,7 @@ pub fn agent_key_pairing_request_binding_digest(
 
 pub fn agent_key_pair_proof_request_binding_digest(
     pairing_request_id: &str,
-    agent_principal_id: &Did,
+    agent_id: &Did,
     verification_method: &str,
     public_key: &Value,
     runtime_attestation: Option<&Value>,
@@ -102,7 +102,7 @@ pub fn agent_key_pair_proof_request_binding_digest(
             kind: "ak.agent.key_pair_proof_of_possession_request.v1",
             operation_id: OP_ACCOUNT_AGENT_KEY_PAIR,
             pairing_request_id,
-            agent_principal_id: agent_principal_id.as_str(),
+            agent_id: agent_id.as_str(),
             verification_method,
             public_key,
             runtime_attestation,

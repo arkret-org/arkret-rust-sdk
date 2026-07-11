@@ -540,7 +540,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
         handle: Handle::parse("bob:acme.example").unwrap(),
         handle_aliases: vec![],
         member_delivery_binding: DeliveryBindingHint {
-            recipient_service_did: principal.clone(),
+            recipient_service_id: principal.clone(),
             recipient_service_type: RecipientServiceType::PrincipalServer,
             binding_source: HandleHintBindingSource::OrganizationPolicy,
             delivery_modes: modes,
@@ -549,7 +549,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
             ),
             policy_event_ref: Some("ak:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
         },
-        issuer_service_did: principal,
+        issuer_service_id: principal,
         audience: realm_id.as_str().to_owned(),
         expires_at: Utc::now() + chrono::Duration::hours(1),
         issued_at: Some(Utc::now()),
@@ -597,7 +597,7 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
         handle: Handle::parse("bob:acme.example").unwrap(),
         handle_aliases: vec![],
         member_delivery_binding: DeliveryBindingHint {
-            recipient_service_did: principal.clone(),
+            recipient_service_id: principal.clone(),
             recipient_service_type: RecipientServiceType::PrincipalServer,
             binding_source: HandleHintBindingSource::OrganizationPolicy,
             delivery_modes: modes,
@@ -606,7 +606,7 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
             ),
             policy_event_ref: Some("ak:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
         },
-        issuer_service_did: principal,
+        issuer_service_id: principal,
         // Wrong audience — Realm id does not match.
         audience: "ak:realm:DEADBEEF-0000-7000-8000-00000000ffff".to_owned(),
         expires_at: Utc::now() + chrono::Duration::hours(1),

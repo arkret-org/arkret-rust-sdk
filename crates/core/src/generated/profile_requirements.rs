@@ -132,12 +132,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ak.self.events.query.scan",
                     "ak.server.query.describe",
                 ],
-                required_event_kinds: &[
-                    "ak.agent.endpoint",
-                    "ak.agent.interop_session.result",
-                    "ak.agent.interop_session.start",
-                    "ak.agent.interop_session.status",
-                ],
+                required_event_kinds: &[],
                 required_schemas: &["ak.schema.capability.v1"],
                 rejected_event_kinds: &[],
                 required_fixtures: &[

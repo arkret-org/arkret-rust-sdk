@@ -10,7 +10,7 @@ pub const PEER_CONTACT_DELIVERY_REQUEST_SCHEMA: &str = "ak.schema.peer_contact_d
 #[serde(deny_unknown_fields)]
 pub struct PeerContactAddress {
     pub subject_id: Did,
-    pub recipient_service_did: Did,
+    pub recipient_service_id: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recipient_service_type: Option<String>,
 }
@@ -194,7 +194,7 @@ mod tests {
             event("ak.contact.requested"),
             PeerContactAddress {
                 subject_id: did("did:webvh:z6mkfixture:bob.example"),
-                recipient_service_did: did("did:webvh:z6mkfixture:bob.example"),
+                recipient_service_id: did("did:webvh:z6mkfixture:bob.example"),
                 recipient_service_type: None,
             },
             PeerContactFactKind::Requested,

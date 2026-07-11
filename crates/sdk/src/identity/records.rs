@@ -180,7 +180,7 @@ pub struct DidRegistryReceipt {
     /// Witnessed `head_event_digest` (§3.1.3 self-digest rule).
     pub head_event_digest: crate::Hash,
     /// Issuing registry service DID.
-    pub registry_service_did: Did,
+    pub registry_service_id: Did,
     pub witness_role: IdentityReceiptWitnessRole,
     /// Optional audience binding; verifiers MUST reject the receipt
     /// outside this audience context when present.
@@ -196,7 +196,7 @@ pub struct DidRegistryReceipt {
     /// service key. `payload_digest = canonical_digest(receipt without
     /// signature)`; the JWS signs the canonical binding object built
     /// like service-surface.md §3.1.3 with `did =
-    /// registry_service_did` (the issuer).
+    /// registry_service_id` (the issuer).
     pub signature: DetachedPayloadProof,
 }
 
@@ -210,7 +210,7 @@ impl DidRegistryReceipt {
         did: Did,
         seq: u64,
         head_event_digest: crate::Hash,
-        registry_service_did: Did,
+        registry_service_id: Did,
         witness_role: IdentityReceiptWitnessRole,
         signing_key: &ed25519_dalek::SigningKey,
         verification_method: &str,
@@ -221,7 +221,7 @@ impl DidRegistryReceipt {
             did,
             seq,
             head_event_digest,
-            registry_service_did,
+            registry_service_id,
             witness_role,
             audience: None,
             created_at: Utc::now(),
@@ -264,7 +264,7 @@ impl DidRegistryReceipt {
         );
         object.insert(
             "did".to_owned(),
-            Value::String(self.registry_service_did.as_str().to_owned()),
+            Value::String(self.registry_service_id.as_str().to_owned()),
         );
         object.insert(
             "verification_method".to_owned(),
@@ -313,7 +313,7 @@ impl DidRegistryReceipt {
             &binding_bytes,
             &self.signature.jws,
             &self.signature.verification_method,
-            self.registry_service_did.as_str(),
+            self.registry_service_id.as_str(),
             resolver,
         )
         .map_err(|err| Error::Protocol(err.to_string()))

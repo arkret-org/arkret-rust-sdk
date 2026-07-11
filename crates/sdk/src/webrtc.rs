@@ -611,7 +611,7 @@ pub enum RecordingCaptureKind {
 /// `ak.call.recording.start` payload (`call-state.md` §5). Field names are
 /// snake_case per spec; the recording artifact key is derived separately via
 /// [`crate::sframe::derive_recording_key`] over the
-/// `(realm_id, call_id, focus_id, recording_id, media_service_did,
+/// `(realm_id, call_id, focus_id, recording_id, media_service_id,
 /// recording_start_event_id)` tuple.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordingStartPayload {

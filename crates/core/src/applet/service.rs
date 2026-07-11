@@ -89,7 +89,7 @@ pub struct AppletServiceTransaction {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VirtualActor {
     pub actor_id: Did,
-    pub service_did: Did,
+    pub service_id: Did,
     pub localpart: String,
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -101,16 +101,16 @@ pub struct VirtualActor {
 /// Applet service intent for acting as a virtual actor.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppletServiceIntent {
-    pub service_did: Did,
+    pub service_id: Did,
     pub actor_id: Did,
     pub idempotency_prefix: String,
 }
 
 impl AppletServiceIntent {
     /// Create a virtual actor intent.
-    pub fn new(service_did: Did, actor_id: Did) -> Self {
+    pub fn new(service_id: Did, actor_id: Did) -> Self {
         Self {
-            service_did,
+            service_id,
             actor_id,
             idempotency_prefix: "applet_txn".to_owned(),
         }
@@ -125,7 +125,7 @@ impl AppletServiceIntent {
         AppletServiceTransaction {
             idempotency_key: format!("{}:{}", self.idempotency_prefix, idempotency_key.as_ref()),
             request: AppletTransactionRequestBody {
-                source_service_did: self.service_did.clone(),
+                source_service_id: self.service_id.clone(),
                 events,
                 ephemeral: Value::Null,
             },

@@ -10,9 +10,9 @@
 //! - Frame key: label `ak-rtc-frame-key/v1`, Context = canonical JSON of `{realm_id, call_id,
 //!   focus_id, epoch_id, participant_identity, device_id}`.
 //! - Recording key: label `ak-rtc-recording-key/v1`, Context = canonical JSON of `{realm_id,
-//!   call_id, focus_id, recording_id, media_service_did, recording_start_event_id}`.
+//!   call_id, focus_id, recording_id, media_service_id, recording_start_event_id}`.
 //! - Transcript key: label `ak-rtc-transcript-key/v1`, Context = canonical JSON of `{realm_id,
-//!   call_id, focus_id, recording_id, media_service_did, transcript_start_event_id}`.
+//!   call_id, focus_id, recording_id, media_service_id, transcript_start_event_id}`.
 //!
 //! All derivations output `KDF.Nh = 32` bytes (RFC 9420 §8 `MLS-Exporter`).
 
@@ -107,7 +107,7 @@ pub struct RecordingKeyContext {
     pub call_id: CallId,
     pub focus_id: String,
     pub recording_id: String,
-    pub media_service_did: Did,
+    pub media_service_id: Did,
     pub recording_start_event_id: String,
 }
 
@@ -135,7 +135,7 @@ pub struct TranscriptKeyContext {
     pub call_id: CallId,
     pub focus_id: String,
     pub recording_id: String,
-    pub media_service_did: Did,
+    pub media_service_id: Did,
     pub transcript_start_event_id: String,
 }
 
@@ -286,7 +286,7 @@ mod tests {
                 call_id: call(),
                 focus_id: "fra-1".to_owned(),
                 recording_id: "rtc-recording-1".to_owned(),
-                media_service_did: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
+                media_service_id: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
                 recording_start_event_id: "ak:event:01904100-0000-7000-8000-0000000000aa"
                     .to_owned(),
             },
@@ -333,7 +333,7 @@ mod tests {
             call_id: call(),
             focus_id: "fra-1".to_owned(),
             recording_id: String::new(),
-            media_service_did: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
+            media_service_id: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
             recording_start_event_id: "ak:event:01904100-0000-7000-8000-0000000000aa".to_owned(),
         };
         assert!(derive_recording_key(&exporter, &context).is_err());
@@ -345,7 +345,7 @@ mod tests {
             call_id: call(),
             focus_id: "fra-1".to_owned(),
             recording_id: "rtc-transcript-1".to_owned(),
-            media_service_did: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
+            media_service_id: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
             transcript_start_event_id: "ak:event:01904100-0000-7000-8000-0000000000bb".to_owned(),
         }
     }
@@ -368,7 +368,7 @@ mod tests {
                 call_id: call(),
                 focus_id: "fra-1".to_owned(),
                 recording_id: "rtc-transcript-1".to_owned(),
-                media_service_did: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
+                media_service_id: Did::new("did:webvh:z6mkfixture:media.example").unwrap(),
                 recording_start_event_id: "ak:event:01904100-0000-7000-8000-0000000000bb"
                     .to_owned(),
             },
@@ -401,7 +401,7 @@ mod tests {
             text,
             "{\"call_id\":\"ak:call:0196441c-0000-7000-8000-000000000000\",\
              \"focus_id\":\"fra-1\",\
-             \"media_service_did\":\"did:webvh:z6mkfixture:media.example\",\
+             \"media_service_id\":\"did:webvh:z6mkfixture:media.example\",\
              \"realm_id\":\"ak:realm:01904100-0000-7000-8000-9b64700c6ee8\",\
              \"recording_id\":\"rtc-transcript-1\",\
              \"transcript_start_event_id\":\"ak:event:01904100-0000-7000-8000-0000000000bb\"}"

@@ -70,7 +70,7 @@ impl Realm {
             InviteDeliveryTarget::principal_server(
                 candidate
                     .member_delivery_binding
-                    .recipient_service_did
+                    .recipient_service_id
                     .clone(),
             ),
             Hash::new(digest)?,
@@ -119,7 +119,7 @@ impl Realm {
             delivery_status: Some(DeliveryStatus::Routable),
             delivery_binding: Some(payload_value(&binding, "member delivery binding")?),
             gate_proofs: Vec::new(),
-            via_service_dids: Vec::new(),
+            via_service_ids: Vec::new(),
             reason: None,
             invite_ref: None,
         };
@@ -153,7 +153,7 @@ impl Realm {
             delivery_status: Some(DeliveryStatus::Unroutable),
             delivery_binding: None,
             gate_proofs: Vec::new(),
-            via_service_dids: Vec::new(),
+            via_service_ids: Vec::new(),
             reason: None,
             invite_ref: None,
         };
@@ -185,7 +185,7 @@ impl Realm {
             delivery_status: Some(DeliveryStatus::Routable),
             delivery_binding: Some(payload_value(&binding, "member delivery binding")?),
             gate_proofs: Vec::new(),
-            via_service_dids: Vec::new(),
+            via_service_ids: Vec::new(),
             reason: None,
             invite_ref: None,
         };
@@ -214,7 +214,7 @@ impl Realm {
             delivery_status: None,
             delivery_binding: None,
             gate_proofs: Vec::new(),
-            via_service_dids: Vec::new(),
+            via_service_ids: Vec::new(),
             reason: None,
             invite_ref: None,
         };
@@ -243,7 +243,7 @@ impl Realm {
             delivery_status: None,
             delivery_binding: None,
             gate_proofs: Vec::new(),
-            via_service_dids: Vec::new(),
+            via_service_ids: Vec::new(),
             reason,
             invite_ref: None,
         };
@@ -272,7 +272,7 @@ impl Realm {
             delivery_status: None,
             delivery_binding: None,
             gate_proofs: Vec::new(),
-            via_service_dids: Vec::new(),
+            via_service_ids: Vec::new(),
             reason: None,
             invite_ref: None,
         };
@@ -330,7 +330,7 @@ fn candidate_to_delivery_binding(
         .map(|id| EventRef::new(id.clone(), "authorized_by".to_owned()));
 
     MemberDeliveryBinding {
-        recipient_service_did: hint.recipient_service_did.clone(),
+        recipient_service_id: hint.recipient_service_id.clone(),
         recipient_service_type: RecipientServiceType::PrincipalServer,
         binding_scope: BindingScope::Realm,
         binding_source,

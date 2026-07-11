@@ -10,10 +10,10 @@ use salvo::oapi::{
 };
 
 use crate::{
-    ActorProfileId, AgentInteropSessionId, AnnounceId, AppletId, AttestationId, AuditBindingId,
-    AuditReleaseId, AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId,
-    CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId,
-    Did, EventId, FilterId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
+    ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
+    AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
+    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId, Did,
+    EventId, FilterId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
     MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId, PolicyId,
     PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
     RequestId, RtcParticipantId, SealId, SnapshotId, SpaceId, StrandId, TransactionId,
@@ -53,10 +53,6 @@ impl_string_schema!(Did, r"^did:[a-z0-9]+:[^\s#?]+$");
 impl_string_schema!(
     ActorProfileId,
     r"^ak:actor_profile:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-);
-impl_string_schema!(
-    AgentInteropSessionId,
-    r"^ak:agent_interop_session:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
     AttestationId,

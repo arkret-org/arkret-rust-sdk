@@ -96,7 +96,7 @@ pub struct BlobPresignPayload {
     pub blob_ref: BlobRef,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub issuer_service_did: Did,
+    pub issuer_service_id: Did,
     pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub purpose: String,

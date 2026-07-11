@@ -117,7 +117,7 @@ impl ServiceType {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ServiceEndpointBinding {
-    pub service_did: Did,
+    pub service_id: Did,
     pub service_type: ServiceType,
     pub endpoint: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -126,44 +126,44 @@ pub struct ServiceEndpointBinding {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ServiceDidAllowlist {
+pub struct ServiceIdAllowlist {
     #[serde(default)]
     pub services: BTreeMap<Did, ServiceEndpointBinding>,
 }
 
-impl ServiceDidAllowlist {
+impl ServiceIdAllowlist {
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn allow(mut self, binding: ServiceEndpointBinding) -> Self {
-        self.services.insert(binding.service_did.clone(), binding);
+        self.services.insert(binding.service_id.clone(), binding);
         self
     }
 
     pub fn insert(&mut self, binding: ServiceEndpointBinding) {
-        self.services.insert(binding.service_did.clone(), binding);
+        self.services.insert(binding.service_id.clone(), binding);
     }
 
-    pub fn contains(&self, service_did: &Did) -> bool {
-        self.services.contains_key(service_did)
+    pub fn contains(&self, service_id: &Did) -> bool {
+        self.services.contains_key(service_id)
     }
 
-    pub fn binding(&self, service_did: &Did) -> Option<&ServiceEndpointBinding> {
-        self.services.get(service_did)
+    pub fn binding(&self, service_id: &Did) -> Option<&ServiceEndpointBinding> {
+        self.services.get(service_id)
     }
 
     pub fn verify_description(&self, description: &ServerDescription) -> Result<()> {
-        let binding = self.services.get(&description.service_did).ok_or_else(|| {
+        let binding = self.services.get(&description.service_id).ok_or_else(|| {
             Error::Protocol(format!(
                 "service DID {} is not allowlisted",
-                description.service_did
+                description.service_id
             ))
         })?;
         if description.service_type != binding.service_type.as_str() {
             return Err(Error::Protocol(format!(
                 "service DID {} is allowlisted as {}, not {}",
-                description.service_did,
+                description.service_id,
                 binding.service_type.as_str(),
                 description.service_type
             )));
@@ -176,7 +176,7 @@ impl ServiceDidAllowlist {
             {
                 return Err(Error::Protocol(format!(
                     "allowlisted service {} does not advertise operation {operation}",
-                    description.service_did
+                    description.service_id
                 )));
             }
         }
@@ -199,7 +199,7 @@ pub enum RateLimitScopeKind {
     Actor,
     Ip,
     Device,
-    ServiceDid,
+    ServiceId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -421,7 +421,7 @@ mod tests {
     #[test]
     fn verifies_required_service_profile_and_operation() {
         let description = ServerDescription {
-            service_did: Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
+            service_id: Did::new("did:webvh:z6mkfixture:svc.example").unwrap(),
             trust_domain: crate::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_type: "directory_service".to_owned(),
             protocol_version: "1.0".to_owned(),
@@ -489,16 +489,16 @@ mod tests {
     }
 
     #[test]
-    fn service_did_allowlist_verifies_description_and_operations() {
-        let service_did = Did::new("did:webvh:z6mkfixture:svc.example").unwrap();
-        let allowlist = ServiceDidAllowlist::new().allow(ServiceEndpointBinding {
-            service_did: service_did.clone(),
+    fn service_id_allowlist_verifies_description_and_operations() {
+        let service_id = Did::new("did:webvh:z6mkfixture:svc.example").unwrap();
+        let allowlist = ServiceIdAllowlist::new().allow(ServiceEndpointBinding {
+            service_id: service_id.clone(),
             service_type: ServiceType::DirectoryService,
             endpoint: "https://svc.example/_arkret/find/directory".to_owned(),
             operations: vec!["ak.find.directory.query.search_realms".to_owned()],
         });
         let description = ServerDescription {
-            service_did,
+            service_id,
             trust_domain: crate::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_type: "directory_service".to_owned(),
             protocol_version: "1.0".to_owned(),

@@ -3,7 +3,7 @@ use super::*;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IdentityDescription {
-    pub service_did: Did,
+    pub service_id: Did,
     pub registry_mode: String,
     #[serde(default)]
     pub supported_receipts: Vec<String>,

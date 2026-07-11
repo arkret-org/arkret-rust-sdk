@@ -40,7 +40,7 @@ pub struct AppletInteropSessionStartPayload {
     pub applet_id: Value,
     pub session_id: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_did: Option<Did>,
+    pub service_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub params: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -68,8 +68,8 @@ pub struct AppletInteropSessionStatusPayload {
 #[serde(deny_unknown_fields)]
 pub struct AppletRegistrationPayload {
     pub applet_id: Value,
-    pub service_did: Value,
-    pub controller_did: Value,
+    pub service_id: Value,
+    pub controller_id: Value,
     pub base_url: String,
     pub bot_actor_id: Did,
     pub protocols: Vec<String>,
@@ -92,13 +92,13 @@ impl AppletRegistrationPayload {
     /// spec marks 14 fields required plus `created_at`; the collection / flag
     /// fields default to their empty / false forms (all schema-valid) and are
     /// set through the `with_*` chain. Downstream MUST stop sending the legacy
-    /// `{service_did, namespace, capabilities}` short form — it fails the strong
+    /// `{service_id, namespace, capabilities}` short form — it fails the strong
     /// payload validator (missing required fields + `additionalProperties:false`).
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         applet_id: AppletIdentifier,
-        service_did: Did,
-        controller_did: Did,
+        service_id: Did,
+        controller_id: Did,
         base_url: impl Into<String>,
         bot_actor_id: Did,
         registration_epoch: Hash,
@@ -108,8 +108,8 @@ impl AppletRegistrationPayload {
     ) -> Self {
         Self {
             applet_id: Value::String(applet_id.as_str().to_owned()),
-            service_did: Value::String(service_did.as_str().to_owned()),
-            controller_did: Value::String(controller_did.as_str().to_owned()),
+            service_id: Value::String(service_id.as_str().to_owned()),
+            controller_id: Value::String(controller_id.as_str().to_owned()),
             base_url: base_url.into(),
             bot_actor_id,
             protocols: Vec::new(),
@@ -208,14 +208,14 @@ impl AppletInteropSessionStartPayload {
         Self {
             applet_id: Value::String(applet_id.as_str().to_owned()),
             session_id: Value::String(session_id.into()),
-            service_did: None,
+            service_id: None,
             params: None,
             created_at: None,
         }
     }
 
-    pub fn with_service_did(mut self, service_did: Did) -> Self {
-        self.service_did = Some(service_did);
+    pub fn with_service_id(mut self, service_id: Did) -> Self {
+        self.service_id = Some(service_id);
         self
     }
 
@@ -324,7 +324,7 @@ pub struct AuditAppletBindingPayload {
     pub realm_id: RealmId,
     pub effective_scope: EffectiveScope,
     pub applet_id: Value,
-    pub service_did: Did,
+    pub service_id: Did,
     pub status: String,
     pub purpose_classes: Vec<String>,
     pub allowed_release_modes: Vec<String>,
@@ -379,7 +379,7 @@ pub struct AuditReleasePayload {
     pub realm_id: RealmId,
     pub effective_scope: EffectiveScope,
     pub applet_id: Value,
-    pub service_did: Did,
+    pub service_id: Did,
     pub release_mode: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sealed_epoch_range: Option<MlsEpochRange>,
@@ -427,7 +427,7 @@ pub struct AuditSessionPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_did: Option<Did>,
+    pub service_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub requested_by: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -517,7 +517,7 @@ mod applet_builder_tests {
         .with_receive_events(true);
         let value = payload.to_value().unwrap();
         assert_eq!(
-            value["service_did"],
+            value["service_id"],
             json!("did:webvh:z6mkfixture:svc.example")
         );
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
@@ -547,7 +547,7 @@ mod applet_builder_tests {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
 
         let start = AppletInteropSessionStartPayload::new(applet_id(), "session-abc")
-            .with_service_did(did("did:webvh:z6mkfixture:svc.example"));
+            .with_service_id(did("did:webvh:z6mkfixture:svc.example"));
         catalog
             .validate_payload(
                 "ak.applet.interop_session.start",

@@ -861,7 +861,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_circle_ids: Vec<CircleId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allowed_session_ids: Vec<AgentInteropSessionId>,
+    pub allowed_session_ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_view_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

@@ -123,9 +123,9 @@ pub(in crate::models) fn required_fields_for_operation_kind(kind: &str) -> Vec<S
         // soland round 14f wire validator (`src/routing/events/operations.rs`).
         // Spec `extensions/applet-integration.md` + `agent-integration.md`.
         OP_APPLET_REGISTRATION => {
-            vec!["service_did".to_owned(), "namespace".to_owned()]
+            vec!["service_id".to_owned(), "namespace".to_owned()]
         }
-        OP_APPLET_DISCOVERY => vec!["service_did".to_owned(), "manifest".to_owned()],
+        OP_APPLET_DISCOVERY => vec!["service_id".to_owned(), "manifest".to_owned()],
         OP_APPLET_INTEROP_SESSION_START => {
             vec!["applet_id".to_owned(), "session_id".to_owned()]
         }
@@ -133,9 +133,8 @@ pub(in crate::models) fn required_fields_for_operation_kind(kind: &str) -> Vec<S
             vec!["session_id".to_owned(), "status".to_owned()]
         }
         OP_APPLET_BRIDGE_ERROR => vec!["session_id".to_owned(), "errcode".to_owned()],
-        OP_AGENT_ENDPOINT => vec!["agent_id".to_owned(), "endpoints".to_owned()],
         OP_AGENT_KEY_AUTHORIZE => [
-            "agent_principal_id",
+            "agent_id",
             "key_id",
             "verification_method",
             "accountable_principal_id",
@@ -148,12 +147,12 @@ pub(in crate::models) fn required_fields_for_operation_kind(kind: &str) -> Vec<S
         .into_iter()
         .map(str::to_owned)
         .collect(),
-        OP_AGENT_KEY_REVOKE => ["agent_principal_id", "key_id", "revoked_at", "revoked_by"]
+        OP_AGENT_KEY_REVOKE => ["agent_id", "key_id", "revoked_at", "revoked_by"]
             .into_iter()
             .map(str::to_owned)
             .collect(),
         OP_AGENT_KEY_ROTATE => [
-            "agent_principal_id",
+            "agent_id",
             "key_id",
             "replacement_key_id",
             "replacement_verification_method",
@@ -167,24 +166,6 @@ pub(in crate::models) fn required_fields_for_operation_kind(kind: &str) -> Vec<S
         .into_iter()
         .map(str::to_owned)
         .collect(),
-        OP_AGENT_INTEROP_SESSION_START => {
-            vec![
-                "session_id".to_owned(),
-                "counterparty_agent".to_owned(),
-                "protocol".to_owned(),
-                "capability_grant".to_owned(),
-            ]
-        }
-        OP_AGENT_INTEROP_SESSION_STATUS => {
-            vec!["session_id".to_owned(), "status".to_owned()]
-        }
-        OP_AGENT_INTEROP_SESSION_RESULT => {
-            vec![
-                "session_id".to_owned(),
-                "result".to_owned(),
-                "audit_binding".to_owned(),
-            ]
-        }
         OP_MORPH_CREATE => vec!["object".to_owned()],
         OP_MORPH_UPDATE => vec!["target_ref".to_owned(), "patch".to_owned()],
         OP_MORPH_ARCHIVE | OP_MORPH_RESTORE => vec!["target_ref".to_owned()],
@@ -235,7 +216,7 @@ pub(in crate::models) fn required_fields_for_operation_kind(kind: &str) -> Vec<S
         OP_APPLET_GHOST_PROVISION => [
             "schema",
             "applet_id",
-            "service_did",
+            "service_id",
             "ghost_actor_id",
             "protocol",
             "tenant",

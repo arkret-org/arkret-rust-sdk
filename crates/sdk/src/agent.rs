@@ -50,7 +50,7 @@ pub struct RuntimeKeyRequestBuilder<'a> {
 
 impl<'a> RuntimeKeyRequestBuilder<'a> {
     pub fn new(signing_key: &'a SigningKey, bootstrap: AgentPairingBootstrap) -> Self {
-        let verification_method = format!("{}#runtime-key-1", bootstrap.agent_principal_id);
+        let verification_method = format!("{}#runtime-key-1", bootstrap.agent_id);
         let proof_expires_at = bootstrap.pairing_expires_at;
         Self {
             signing_key,
@@ -101,7 +101,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             body: AgentRuntimeApprovalRequestBody {
                 pairing_code: self.bootstrap.pairing_code.clone(),
                 pairing_request_id: self.bootstrap.pairing_request_id.clone(),
-                agent_principal_id: self.bootstrap.agent_principal_id.clone(),
+                agent_id: self.bootstrap.agent_id.clone(),
                 verification_method: self.verification_method.clone(),
                 public_key,
                 proof_of_possession,
@@ -124,7 +124,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         Ok(RuntimeKeyRequest {
             body: AgentKeyPairRequestBody {
                 pairing_request_id: self.bootstrap.pairing_request_id.clone(),
-                agent_principal_id: self.bootstrap.agent_principal_id.clone(),
+                agent_id: self.bootstrap.agent_id.clone(),
                 verification_method: self.verification_method.clone(),
                 public_key,
                 proof_of_possession,
@@ -140,7 +140,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         let public_key_digest = agent_runtime_public_key_digest(&public_key)?;
         let request_digest = agent_key_pair_proof_request_binding_digest(
             &self.bootstrap.pairing_request_id,
-            &self.bootstrap.agent_principal_id,
+            &self.bootstrap.agent_id,
             &self.verification_method,
             &public_key,
             self.runtime_attestation.as_ref(),
@@ -148,14 +148,14 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         let signing_input = agent_key_pair_proof_signing_input(
             self.verification_method.clone(),
             self.bootstrap.pairing_request_id.clone(),
-            self.bootstrap.service_did.to_string(),
+            self.bootstrap.service_id.to_string(),
             self.proof_expires_at,
             request_digest.clone(),
         );
         let signature = self.signing_key.sign(&signing_input.canonical_bytes()?);
         let proof_of_possession = serde_json::json!({
             "challenge": self.bootstrap.pairing_request_id,
-            "audience": self.bootstrap.service_did,
+            "audience": self.bootstrap.service_id,
             "request_canonical_digest": request_digest,
             "expires_at": self.proof_expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
             "signature": arkret_core::base64url_encode(signature.to_bytes()),
@@ -174,10 +174,10 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         if self.verification_method.trim().is_empty()
             || !self
                 .verification_method
-                .starts_with(&format!("{}#", self.bootstrap.agent_principal_id))
+                .starts_with(&format!("{}#", self.bootstrap.agent_id))
         {
             return Err(Error::Protocol(
-                "agent runtime verification_method must belong to agent_principal_id".to_owned(),
+                "agent runtime verification_method must belong to agent_id".to_owned(),
             ));
         }
         Ok(())
@@ -246,7 +246,7 @@ pub struct AgentRequestPlan<B> {
 #[derive(Clone, Debug)]
 pub struct AgentKeyPairRequestBuilder {
     pairing_request_id: String,
-    agent_principal_id: Did,
+    agent_id: Did,
     verification_method: String,
     public_key: Value,
     proof_of_possession: Value,
@@ -257,7 +257,7 @@ pub struct AgentKeyPairRequestBuilder {
 impl AgentKeyPairRequestBuilder {
     pub fn new(
         pairing_request_id: impl Into<String>,
-        agent_principal_id: Did,
+        agent_id: Did,
         verification_method: impl Into<String>,
         public_key: Value,
         proof_of_possession: Value,
@@ -265,7 +265,7 @@ impl AgentKeyPairRequestBuilder {
     ) -> Self {
         Self {
             pairing_request_id: pairing_request_id.into(),
-            agent_principal_id,
+            agent_id,
             verification_method: verification_method.into(),
             public_key,
             proof_of_possession,
@@ -297,7 +297,7 @@ impl AgentKeyPairRequestBuilder {
         }
         Ok(AgentKeyPairRequestBody {
             pairing_request_id: self.pairing_request_id,
-            agent_principal_id: self.agent_principal_id,
+            agent_id: self.agent_id,
             verification_method: self.verification_method,
             public_key: self.public_key,
             proof_of_possession: self.proof_of_possession,
@@ -469,16 +469,16 @@ impl AgentProvisionRequestBuilder {
 
 pub fn agent_pairing_bootstrap(
     arkret_base_url: impl Into<String>,
-    service_did: Did,
-    agent_principal_id: Did,
+    service_id: Did,
+    agent_id: Did,
     pairing_request_id: impl Into<String>,
     pairing_code: impl Into<String>,
     pairing_expires_at: DateTime<Utc>,
 ) -> AgentPairingBootstrap {
     AgentPairingBootstrap {
         arkret_base_url: arkret_base_url.into(),
-        service_did,
-        agent_principal_id,
+        service_id,
+        agent_id,
         pairing_request_id: pairing_request_id.into(),
         pairing_code: pairing_code.into(),
         pairing_expires_at,
@@ -758,52 +758,40 @@ pub fn plan_agent_list() -> AgentRequestPlan<()> {
     AgentRequestPlan::without_body(OP_AGENT_LIST, AgentHttpMethod::Get, AGENTS_PATH)
 }
 
-pub fn plan_agent_get(agent_principal_id: &str) -> AgentRequestPlan<()> {
+pub fn plan_agent_get(agent_id: &str) -> AgentRequestPlan<()> {
     AgentRequestPlan::without_body(
         OP_AGENT_GET,
         AgentHttpMethod::Get,
-        format!(
-            "{}/{}",
-            AGENTS_PATH,
-            agent_path_component(agent_principal_id)
-        ),
+        format!("{}/{}", AGENTS_PATH, agent_path_component(agent_id)),
     )
 }
 
 pub fn plan_agent_pause(
-    agent_principal_id: &str,
+    agent_id: &str,
     body: AgentPauseRequestBody,
 ) -> AgentRequestPlan<AgentPauseRequestBody> {
     AgentRequestPlan::with_body(
         OP_AGENT_PAUSE,
         AgentHttpMethod::Post,
-        format!(
-            "{}/{}/pause",
-            AGENTS_PATH,
-            agent_path_component(agent_principal_id)
-        ),
+        format!("{}/{}/pause", AGENTS_PATH, agent_path_component(agent_id)),
         body,
     )
 }
 
 pub fn plan_agent_resume(
-    agent_principal_id: &str,
+    agent_id: &str,
     body: AgentResumeRequestBody,
 ) -> AgentRequestPlan<AgentResumeRequestBody> {
     AgentRequestPlan::with_body(
         OP_AGENT_RESUME,
         AgentHttpMethod::Post,
-        format!(
-            "{}/{}/resume",
-            AGENTS_PATH,
-            agent_path_component(agent_principal_id)
-        ),
+        format!("{}/{}/resume", AGENTS_PATH, agent_path_component(agent_id)),
         body,
     )
 }
 
 pub fn plan_agent_deactivate(
-    agent_principal_id: &str,
+    agent_id: &str,
     body: AgentDeactivateRequestBody,
 ) -> AgentRequestPlan<AgentDeactivateRequestBody> {
     AgentRequestPlan::with_body(
@@ -812,14 +800,14 @@ pub fn plan_agent_deactivate(
         format!(
             "{}/{}/deactivate",
             AGENTS_PATH,
-            agent_path_component(agent_principal_id)
+            agent_path_component(agent_id)
         ),
         body,
     )
 }
 
 pub fn plan_agent_rotate_key(
-    agent_principal_id: &str,
+    agent_id: &str,
     body: AgentRotateKeyRequestBody,
 ) -> AgentRequestPlan<AgentRotateKeyRequestBody> {
     AgentRequestPlan::with_body(
@@ -828,39 +816,32 @@ pub fn plan_agent_rotate_key(
         format!(
             "{}/{}/rotate-key",
             AGENTS_PATH,
-            agent_path_component(agent_principal_id)
+            agent_path_component(agent_id)
         ),
         body,
     )
 }
 
 pub fn plan_agent_grant_attach(
-    agent_principal_id: &str,
+    agent_id: &str,
     body: AgentGrantAttachRequestBody,
 ) -> AgentRequestPlan<AgentGrantAttachRequestBody> {
     AgentRequestPlan::with_body(
         OP_AGENT_GRANT_ATTACH,
         AgentHttpMethod::Post,
-        format!(
-            "{}/{}/grants",
-            AGENTS_PATH,
-            agent_path_component(agent_principal_id)
-        ),
+        format!("{}/{}/grants", AGENTS_PATH, agent_path_component(agent_id)),
         body,
     )
 }
 
-pub fn plan_agent_grant_detach(
-    agent_principal_id: &str,
-    grant_id: &GrantId,
-) -> AgentRequestPlan<()> {
+pub fn plan_agent_grant_detach(agent_id: &str, grant_id: &GrantId) -> AgentRequestPlan<()> {
     AgentRequestPlan::without_body(
         OP_AGENT_GRANT_DETACH,
         AgentHttpMethod::Delete,
         format!(
             "{}/{}/grants/{}",
             AGENTS_PATH,
-            agent_path_component(agent_principal_id),
+            agent_path_component(agent_id),
             agent_path_component(grant_id.as_str())
         ),
     )
@@ -1078,90 +1059,6 @@ impl AgentToolAuditLog {
     }
 }
 
-/// Agent protocol.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AgentProtocol {
-    A2a,
-    Acp,
-    Mcp,
-}
-
-/// Agent protocol message.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AgentProtocolMessage {
-    pub protocol: AgentProtocol,
-    pub message_id: String,
-    pub sender: Did,
-    pub recipient: Did,
-    pub payload: Value,
-}
-
-/// External agent registration.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ExternalAgent {
-    pub agent_id: Did,
-    pub endpoint: String,
-    pub supported_protocols: Vec<AgentProtocol>,
-}
-
-/// Metadata for one agent protocol bridge endpoint.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct AgentProtocolEndpoint {
-    pub endpoint: String,
-    #[serde(default)]
-    pub capabilities: BTreeSet<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub metadata: Value,
-}
-
-/// A2A/ACP/MCP bridge metadata for an agent.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct AgentBridgeMetadata {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub a2a: Option<AgentProtocolEndpoint>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub acp: Option<AgentProtocolEndpoint>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mcp: Option<AgentProtocolEndpoint>,
-}
-
-/// Protocol bridge and registry.
-#[cfg(test)]
-#[derive(Clone, Debug, Default)]
-pub(crate) struct AgentProtocolBridge {
-    external_agents: BTreeMap<Did, ExternalAgent>,
-    bridge_metadata: BTreeMap<Did, AgentBridgeMetadata>,
-}
-
-#[cfg(test)]
-impl AgentProtocolBridge {
-    /// Create an empty bridge.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Register an external agent.
-    pub fn register_external_agent(&mut self, agent: ExternalAgent) {
-        self.external_agents.insert(agent.agent_id.clone(), agent);
-    }
-
-    /// Get external agent info.
-    pub fn external_agent(&self, agent_id: &Did) -> Option<&ExternalAgent> {
-        self.external_agents.get(agent_id)
-    }
-
-    /// Set bridge metadata for an external agent.
-    pub fn set_bridge_metadata(&mut self, agent_id: Did, metadata: AgentBridgeMetadata) {
-        self.bridge_metadata.insert(agent_id, metadata);
-    }
-
-    /// Get bridge metadata for an external agent.
-    pub fn bridge_metadata(&self, agent_id: &Did) -> Option<&AgentBridgeMetadata> {
-        self.bridge_metadata.get(agent_id)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use arkret_core::move_event::Move;
@@ -1232,7 +1129,7 @@ mod tests {
                 ),
                 r#ref: None,
                 operation: None,
-                service_did: None,
+                service_id: None,
             }],
             constraints: Vec::new(),
         }
@@ -1251,7 +1148,7 @@ mod tests {
                     ),
                     r#ref: None,
                     operation: None,
-                    service_did: None,
+                    service_id: None,
                 }],
                 constraints: Vec::new(),
             })
@@ -1308,7 +1205,7 @@ mod tests {
             body.pairing_request_id,
             "01970000-0000-7000-8000-000000000020"
         );
-        assert_eq!(body.agent_principal_id, agent_id);
+        assert_eq!(body.agent_id, agent_id);
         assert_eq!(body.authorize_event["kind"], OP_AGENT_KEY_AUTHORIZE);
         assert_eq!(
             body.runtime_attestation.as_ref().unwrap()["kind"],
@@ -1335,8 +1232,8 @@ mod tests {
         let expires_at = "2026-05-26T10:05:00Z".parse::<DateTime<Utc>>().unwrap();
         let bootstrap = AgentPairingBootstrap {
             arkret_base_url: "https://arkret.example".to_owned(),
-            service_did: Did::new("did:webvh:z6mkfixture:service.example".to_owned()).unwrap(),
-            agent_principal_id: agent_id.clone(),
+            service_id: Did::new("did:webvh:z6mkfixture:service.example".to_owned()).unwrap(),
+            agent_id: agent_id.clone(),
             pairing_request_id: "01970000-0000-7000-8000-000000000021".to_owned(),
             pairing_code: "12345678".to_owned(),
             pairing_expires_at: expires_at,
@@ -1354,7 +1251,7 @@ mod tests {
             pairing.body.proof_of_possession["request_canonical_digest"]
         );
         assert_eq!(approval.body.pairing_code, "12345678");
-        assert_eq!(pairing.body.agent_principal_id, agent_id);
+        assert_eq!(pairing.body.agent_id, agent_id);
         assert!(
             !approval.body.proof_of_possession["signature"]
                 .as_str()
@@ -1395,7 +1292,7 @@ mod tests {
         let agent_id = did("agent");
         let controller_id = did("controller");
         let payload = AgentKeyAuthorizePayload {
-            agent_principal_id: agent_id.clone(),
+            agent_id: agent_id.clone(),
             key_id: "runtime-key-1".to_owned(),
             verification_method: format!("{}#runtime-key-1", agent_id.as_str()),
             public_key_digest: None,
@@ -1426,7 +1323,7 @@ mod tests {
         assert_eq!(event.kind.as_str(), OP_AGENT_KEY_AUTHORIZE);
         assert_eq!(event.actor_id, controller_id);
         assert_eq!(event.actor_seq, 7);
-        assert_eq!(event.payload["agent_principal_id"], agent_id.as_str());
+        assert_eq!(event.payload["agent_id"], agent_id.as_str());
         assert_eq!(
             event.payload["agent_key_scope"]["actions"][0],
             SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE
@@ -1439,7 +1336,7 @@ mod tests {
             String::from_utf8(canonical::canonical_json_bytes(&event.payload).unwrap()).unwrap();
         assert_eq!(
             canonical_content,
-            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_key_scope":{"actions":["ak.self.events.stream.subscribe","ak.message.create"],"resources":[{"kind":"realm","realm_id":"ak:realm:01904100-0000-7000-8000-000000000001"}]},"agent_principal_id":"did:webvh:z6mkfixture:agent.example","approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","kind":"approval_event","ref":"ak:event:01970000-0000-7000-8000-000000000021"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_key_scope":{"actions":["ak.self.events.stream.subscribe","ak.message.create"],"resources":[{"kind":"realm","realm_id":"ak:realm:01904100-0000-7000-8000-000000000001"}]},"agent_id":"did:webvh:z6mkfixture:agent.example","approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","kind":"approval_event","ref":"ak:event:01970000-0000-7000-8000-000000000021"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
         );
     }
 
@@ -1448,7 +1345,7 @@ mod tests {
         let agent_id = did("agent");
         let controller_id = did("controller");
         let payload = AgentKeyAuthorizePayload {
-            agent_principal_id: agent_id.clone(),
+            agent_id: agent_id.clone(),
             key_id: "runtime-key-1".to_owned(),
             verification_method: format!("{}#runtime-key-1", agent_id.as_str()),
             public_key_digest: None,
@@ -1633,20 +1530,6 @@ mod tests {
                 .contains("pairing-pop")
         );
     }
-
-    #[test]
-    fn agent_protocol_registers_external_agents() {
-        let agent_id = did("external");
-        let mut bridge = AgentProtocolBridge::new();
-        bridge.register_external_agent(ExternalAgent {
-            agent_id: agent_id.clone(),
-            endpoint: "https://agent.example/a2a".to_owned(),
-            supported_protocols: vec![AgentProtocol::A2a],
-        });
-
-        assert!(bridge.external_agent(&agent_id).is_some());
-    }
-
     #[test]
     fn agent_runs_support_lifecycle_kill_switch_and_tool_audit() {
         let agent = did("agent");
@@ -1670,36 +1553,5 @@ mod tests {
             Some("policy".to_owned()),
         );
         assert_eq!(audit.entries_for_run(&run.run_id).len(), 1);
-    }
-
-    #[test]
-    fn agent_protocol_bridge_stores_a2a_acp_mcp_metadata() {
-        let agent_id = did("external");
-        let mut bridge = AgentProtocolBridge::new();
-        bridge.set_bridge_metadata(
-            agent_id.clone(),
-            AgentBridgeMetadata {
-                a2a: Some(AgentProtocolEndpoint {
-                    endpoint: "https://agent.example/a2a".to_owned(),
-                    capabilities: BTreeSet::from(["tasks".to_owned()]),
-                    metadata: Value::Null,
-                }),
-                acp: Some(AgentProtocolEndpoint {
-                    endpoint: "https://agent.example/acp".to_owned(),
-                    capabilities: BTreeSet::new(),
-                    metadata: json!({"version": "1"}),
-                }),
-                mcp: Some(AgentProtocolEndpoint {
-                    endpoint: "https://agent.example/mcp".to_owned(),
-                    capabilities: BTreeSet::from(["tools".to_owned()]),
-                    metadata: Value::Null,
-                }),
-            },
-        );
-
-        let metadata = bridge.bridge_metadata(&agent_id).unwrap();
-        assert!(metadata.a2a.is_some());
-        assert!(metadata.acp.is_some());
-        assert!(metadata.mcp.is_some());
     }
 }

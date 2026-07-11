@@ -5,7 +5,7 @@ use super::*;
 pub struct AppletPingOutcome {
     pub ok: bool,
     pub applet_id: String,
-    pub service_did: Did,
+    pub service_id: Did,
     pub protocol_version: String,
 }
 
@@ -13,7 +13,7 @@ pub struct AppletPingOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletDescription {
     pub applet_id: String,
-    pub service_did: Did,
+    pub service_id: Did,
     #[serde(default)]
     pub protocols: Vec<String>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -27,7 +27,7 @@ pub struct AppletDescription {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletTransactionRequestBody {
-    pub source_service_did: Did,
+    pub source_service_id: Did,
     #[serde(default)]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Value::is_null")]

@@ -2,7 +2,7 @@
 //! §7.3.1).
 //!
 //! The idempotency identity is the spec 5-tuple `(operation_id, direction,
-//! source_service_did, destination_service_did, idempotency_key)`
+//! source_service_id, destination_service_id, idempotency_key)`
 //! (`operation-registry.json` `idempotency_identity_fields`). Each record
 //! additionally pins the canonical body digest and the per-delivery
 //! `source_signature_anchor` formed at verification time, so a rotated key
@@ -52,14 +52,14 @@ impl IdempotencyDirection {
 
 /// Spec 5-tuple idempotency identity
 /// (`applet-integration.md` §7.3: "幂等 identity MUST 至少绑定
-/// `(operation_id, direction, Source-Service-DID, Destination-Service-DID,
+/// `(operation_id, direction, Source-Service-ID, Destination-Service-ID,
 /// Idempotency-Key)`").
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IdempotencyIdentity {
     pub operation_id: String,
     pub direction: IdempotencyDirection,
-    pub source_service_did: String,
-    pub destination_service_did: String,
+    pub source_service_id: String,
+    pub destination_service_id: String,
     pub idempotency_key: String,
 }
 
@@ -67,15 +67,15 @@ impl IdempotencyIdentity {
     /// Identity for a `ak.edge.applet.command.transaction` delivery.
     pub fn applet_transaction(
         direction: IdempotencyDirection,
-        source_service_did: impl Into<String>,
-        destination_service_did: impl Into<String>,
+        source_service_id: impl Into<String>,
+        destination_service_id: impl Into<String>,
         idempotency_key: impl Into<String>,
     ) -> Self {
         Self {
             operation_id: APPLET_TRANSACTION_OPERATION_ID.to_owned(),
             direction,
-            source_service_did: source_service_did.into(),
-            destination_service_did: destination_service_did.into(),
+            source_service_id: source_service_id.into(),
+            destination_service_id: destination_service_id.into(),
             idempotency_key: idempotency_key.into(),
         }
     }

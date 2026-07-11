@@ -91,9 +91,9 @@ pub struct AuthzContext {
     /// grant's allow-list.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub circle_id: Option<arkret_core::CircleId>,
-    /// Agent interop session id for session-scoped status/result writes.
+    /// Applet interop session id for session-scoped writes.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent_interop_session_id: Option<arkret_core::AgentInteropSessionId>,
+    pub interop_session_id: Option<String>,
     /// Accepted authorization frontier used to guard fast-path cache hits.
     ///
     /// When absent, this engine still evaluates grants but refuses to cache
@@ -151,7 +151,7 @@ impl AuthzContext {
             to_container_id: None,
             wip_over_limit: None,
             circle_id: None,
-            agent_interop_session_id: None,
+            interop_session_id: None,
             cache_frontier: None,
         }
     }
@@ -164,12 +164,9 @@ impl AuthzContext {
         self
     }
 
-    /// Set the target agent interop session id for `AllowedSessionIds`.
-    pub fn with_agent_interop_session_id(
-        mut self,
-        session_id: arkret_core::AgentInteropSessionId,
-    ) -> Self {
-        self.agent_interop_session_id = Some(session_id);
+    /// Set the target applet interop session id for `AllowedSessionIds`.
+    pub fn with_interop_session_id(mut self, session_id: impl Into<String>) -> Self {
+        self.interop_session_id = Some(session_id.into());
         self
     }
 
@@ -1232,15 +1229,15 @@ impl AuthzEngine {
                             .to_owned(),
                     };
                 }
-                match &ctx.agent_interop_session_id {
+                match &ctx.interop_session_id {
                     Some(session_id) => {
                         if allowed_session_ids.contains(session_id) {
                             EngineDecision::Allow
                         } else {
                             EngineDecision::Deny {
                                 reason: format!(
-                                    "agent interop session '{}' not in allowed_session_ids allow list",
-                                    session_id.as_ref()
+                                    "applet interop session '{}' not in allowed_session_ids allow list",
+                                    session_id
                                 ),
                             }
                         }
@@ -1289,7 +1286,7 @@ impl AuthzEngine {
             &ctx.to_container_id,
             &ctx.wip_over_limit,
             &ctx.circle_id,
-            &ctx.agent_interop_session_id,
+            &ctx.interop_session_id,
         ))
         .unwrap_or_else(|_| "request-context".to_owned());
         format!(

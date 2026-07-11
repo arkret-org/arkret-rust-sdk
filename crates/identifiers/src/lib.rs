@@ -376,8 +376,7 @@ id_type!(Did, is_did);
 // `uuid` columns (bare) while keeping the `ak:<kind>:<uuid>` wire form.
 uuid_id_type!(ActorProfileId, "ak:actor_profile:");
 // AKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
-// `agent_principal_id` is a DID scalar, represented by `Did`.
-uuid_id_type!(AgentInteropSessionId, "ak:agent_interop_session:");
+// `agent_id` is a DID scalar, represented by `Did`.
 // Audit release-session + attestation typed ids (id-kind-registry kinds
 // `attestation` / `audit_binding` / `audit_release` / `audit_session`).
 uuid_id_type!(AttestationId, "ak:attestation:");
@@ -653,7 +652,6 @@ mod tests {
         }
 
         assert_id!(ActorProfileId, "ak:actor_profile:");
-        assert_id!(AgentInteropSessionId, "ak:agent_interop_session:");
         assert_id!(AttestationId, "ak:attestation:");
         assert_id!(AuditBindingId, "ak:audit_binding:");
         assert_id!(AuditReleaseId, "ak:audit_release:");

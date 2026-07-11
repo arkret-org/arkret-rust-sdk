@@ -4,7 +4,7 @@ use super::*;
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentKeyPairRequestBody {
     pub pairing_request_id: String,
-    pub agent_principal_id: Did,
+    pub agent_id: Did,
     pub verification_method: String,
     pub public_key: Value,
     pub proof_of_possession: Value,
@@ -26,7 +26,7 @@ pub struct AgentKeyPairOutcome {
 pub struct AgentRuntimeApprovalRequestBody {
     pub pairing_code: String,
     pub pairing_request_id: String,
-    pub agent_principal_id: Did,
+    pub agent_id: Did,
     pub verification_method: String,
     pub public_key: Value,
     pub proof_of_possession: Value,
@@ -45,7 +45,7 @@ pub struct AgentRuntimeApprovalOutcome {
 
 /// Runtime-side poll for the controller decision on a previously submitted
 /// runtime key request. The `pairing_request_id` + `pairing_code` +
-/// `agent_principal_id` triple is the query credential; a record miss and a
+/// `agent_id` triple is the query credential; a record miss and a
 /// mismatch are indistinguishable (both not_found). Mirrors
 /// `agent-operations.schema.json#/$defs/agent_runtime_approval_status_request_body`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -54,7 +54,7 @@ pub struct AgentRuntimeApprovalOutcome {
 pub struct AgentRuntimeApprovalStatusRequestBody {
     pub pairing_request_id: String,
     pub pairing_code: String,
-    pub agent_principal_id: Did,
+    pub agent_id: Did,
 }
 
 /// Controller-decision status for an agent runtime key pairing request.
@@ -103,7 +103,7 @@ pub struct AgentProvisionRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentProvisionOutcome {
-    pub agent_principal_id: Did,
+    pub agent_id: Did,
     pub pairing_request_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
@@ -121,8 +121,8 @@ pub struct AgentProvisionOutcome {
 #[serde(deny_unknown_fields)]
 pub struct AgentPairingBootstrap {
     pub arkret_base_url: String,
-    pub service_did: Did,
-    pub agent_principal_id: Did,
+    pub service_id: Did,
+    pub agent_id: Did,
     pub pairing_request_id: String,
     pub pairing_code: String,
     pub pairing_expires_at: DateTime<Utc>,
@@ -150,7 +150,7 @@ pub enum AgentStatus {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentProjection {
-    pub agent_principal_id: Did,
+    pub agent_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     pub slug: String,
@@ -187,34 +187,6 @@ impl AgentLifecycleState {
 pub struct AgentLifecycleOutcome {
     pub ok: bool,
     pub status: AgentLifecycleState,
-}
-
-/// Request body for `POST /_arkret/self/agents/discover`
-/// (`ak.agent.protocol.discover`). The caller names the target agent
-/// runtime DID; soland reflects the registered `ak.agent.endpoint`
-/// projection back as the supported protocol catalogue.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AgentProtocolDiscoverRequestBody {
-    pub agent_id: Did,
-}
-
-/// Outcome for `ak.agent.protocol.discover`. `supported_protocols` is a
-/// subset of the §11 adapter registry ids (`a2a` / `acp` / `mcp_bridge`
-/// / `http_custom`). `agent_card_url` / `metadata_url` mirror the
-/// `ak.agent.endpoint` declaration (§5.1) when present.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AgentProtocolDiscoverOutcome {
-    pub agent_id: Did,
-    #[serde(default)]
-    pub supported_protocols: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent_card_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub endpoint_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -334,9 +306,9 @@ impl AgentSidecarContextRef {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarThreadEnsureRequestBody {
-    pub controller_principal_id: Did,
+    pub controller_id: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub addressed_agent_principal_ids: Vec<Did>,
+    pub addressed_agent_ids: Vec<Did>,
     pub context_ref: AgentSidecarContextRef,
 }
 
@@ -358,11 +330,8 @@ mod tests {
     #[test]
     fn sidecar_thread_ensure_request_uses_context_ref_shape() {
         let request = AgentSidecarThreadEnsureRequestBody {
-            controller_principal_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice")
-                .unwrap(),
-            addressed_agent_principal_ids: vec![
-                Did::new("did:webvh:z6mkfixture:agent.example").unwrap(),
-            ],
+            controller_id: Did::new("did:webvh:z6mkfixture:example.com:users:alice").unwrap(),
+            addressed_agent_ids: vec![Did::new("did:webvh:z6mkfixture:agent.example").unwrap()],
             context_ref: AgentSidecarContextRef::strand(
                 RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030").unwrap(),
                 StrandId::new("ak:strand:01964137-0000-7000-8000-000000000031").unwrap(),
@@ -370,13 +339,13 @@ mod tests {
         };
         let value = serde_json::to_value(request).unwrap();
         assert!(value.get("realm_id").is_none());
-        assert!(value.get("agent_principal_id").is_none());
+        assert!(value.get("agent_id").is_none());
         assert_eq!(
-            value["controller_principal_id"],
+            value["controller_id"],
             "did:webvh:z6mkfixture:example.com:users:alice"
         );
         assert_eq!(
-            value["addressed_agent_principal_ids"][0],
+            value["addressed_agent_ids"][0],
             "did:webvh:z6mkfixture:agent.example"
         );
         assert_eq!(
