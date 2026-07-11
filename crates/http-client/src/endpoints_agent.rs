@@ -5,7 +5,8 @@ use arkret_core::{
     AgentGrantDetachOutcome, AgentKeyPairOutcome, AgentKeyPairRequestBody, AgentLifecycleOutcome,
     AgentList, AgentParticipationOutcome, AgentParticipationReplaceRequestBody,
     AgentPauseRequestBody, AgentProvisionOutcome, AgentProvisionRequestBody,
-    AgentResumeRequestBody, AgentRotateKeyOutcome, AgentRotateKeyRequestBody,
+    AgentRenewPairingRequestBody, AgentResumeRequestBody, AgentRotateKeyOutcome,
+    AgentRotateKeyRequestBody,
     AgentRuntimeApprovalOutcome, AgentRuntimeApprovalRequestBody,
     AgentRuntimeApprovalStatusOutcome, AgentRuntimeApprovalStatusRequestBody,
     AgentSidecarThreadEnsureOutcome, AgentSidecarThreadEnsureRequestBody, AgentView, Error,
@@ -59,6 +60,21 @@ impl Client {
         request: &AgentProvisionRequestBody,
     ) -> Result<AgentProvisionOutcome> {
         self.post(AGENTS_PATH, request).await
+    }
+
+    /// `POST /_arkret/self/agents/{agent_id}/renew-pairing`
+    /// (`ak.self.agent.command.renew_pairing`).
+    pub async fn agent_renew_pairing(
+        &self,
+        agent_id: &str,
+        request: &AgentRenewPairingRequestBody,
+    ) -> Result<AgentProvisionOutcome> {
+        let path = format!(
+            "{}/{}/renew-pairing",
+            AGENTS_PATH,
+            agent_path_component(agent_id)?
+        );
+        self.post(&path, request).await
     }
 
     /// `GET /_arkret/self/agents` (`ak.self.agent.query.list`).
