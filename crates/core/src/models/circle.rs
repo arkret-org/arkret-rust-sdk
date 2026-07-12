@@ -70,6 +70,7 @@ pub enum EncryptionFloor {
 /// token → theme color is a client responsibility; clients MUST NOT
 /// reassign tokens.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleColorToken {
     Slate,
@@ -95,6 +96,7 @@ pub enum CircleColorToken {
 /// `$defs.display.symbol` oneOf). Exactly one of `emoji` / `glyph` is
 /// populated.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum CircleSymbol {
     Emoji { emoji: String },
@@ -104,6 +106,7 @@ pub enum CircleSymbol {
 /// Closed enum of glyph symbols accepted on `Circle.display.symbol.glyph`
 /// (spec circle.schema.json).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleGlyph {
     Lock,
@@ -137,6 +140,7 @@ pub enum CircleGlyph {
 
 /// Display-only nameplate (spec circle.schema.json `$defs.display`).
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CircleDisplay {
     pub short_name: String,
     pub color_token: CircleColorToken,
@@ -152,6 +156,11 @@ pub struct Circle {
     pub schema: String,
     /// Parent Realm — create-locked. Circle never re-binds to another Realm.
     pub realm_id: RealmId,
+    /// Optional create-locked semantic profile discriminator. Ordinary
+    /// Circles omit it; profile-specific Circles persist the registered
+    /// `ak.profile.*.v1` identifier so projections can filter them safely.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_ref: Option<String>,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
@@ -221,9 +230,12 @@ impl CirclePendingMlsRemoval {
 pub struct CircleView {
     pub circle_id: CircleId,
     pub realm_id: RealmId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_ref: Option<String>,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    pub display: CircleDisplay,
     pub directory_visibility: CircleDirectoryVisibility,
     pub join_rule: CircleJoinRule,
     pub history_visibility: HistoryVisibility,
@@ -239,6 +251,10 @@ pub struct CircleView {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pending_mls_removals: Vec<CirclePendingMlsRemoval>,
     pub state: CircleState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub member_count: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub viewer_membership: Option<CircleMembership>,
     #[serde(default)]
     pub members: Vec<Did>,
     pub created_by: Did,
@@ -877,6 +893,7 @@ impl Circle {
             id,
             schema: CIRCLE_SCHEMA.to_owned(),
             realm_id,
+            profile_ref: None,
             title: title.into(),
             summary: None,
             display,
@@ -956,11 +973,13 @@ mod tests {
         let realm_id =
             RealmId::new("ak:realm:0196419b-0000-7000-8000-000000000002".to_owned()).unwrap();
         let actor: Did = "did:webvh:z6mkfixture:alice.example".parse().unwrap();
-        let circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
+        let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
+        circle.profile_ref = Some("ak.profile.agent_sidecar_thread.v1".to_owned());
         let json = serde_json::to_value(&circle).unwrap();
         let parsed: Circle = serde_json::from_value(json).unwrap();
         assert_eq!(parsed.schema, CIRCLE_SCHEMA);
         assert_eq!(parsed.title, "Ops Circle");
+        assert_eq!(parsed.profile_ref, circle.profile_ref);
         assert_eq!(parsed.state, CircleState::Active);
     }
 

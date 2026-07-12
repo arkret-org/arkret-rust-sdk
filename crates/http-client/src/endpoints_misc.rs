@@ -7,8 +7,9 @@ use arkret_core::{
     AppletProtocolMetadata, AppletRealmView, AppletRevokeOutcome, AppletRevokeRequestBody,
     AppletThirdPartyLocationList, AppletThirdPartyUserList, AppletTransactionOutcome,
     AppletTransactionRequestBody, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
-    CircleList, CircleScopeRotateOutcome, CircleScopeRotateRequestBody, Did, Error,
-    MediaIceConfigOutcome, MediaIceConfigRequestBody, MimiProviderDirectory,
+    CircleCreateRequestBody, CircleLifecycleRequestBody, CircleList, CircleMemberRequestBody,
+    CircleMembershipOutcome, CircleScopeRotateOutcome, CircleScopeRotateRequestBody, CircleView,
+    Did, Error, MediaIceConfigOutcome, MediaIceConfigRequestBody, MimiProviderDirectory,
     MimiReportAbuseOutcome, MimiReportAbuseRequestBody, ModerationReportOutcome,
     ModerationReportRequestBody, OkOutcome, PolicyCheckOutcome, PolicyCheckRequestBody,
     PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
@@ -281,6 +282,81 @@ impl Client {
             .request(Method::GET, "/_arkret/self/circles")?
             .query(&[("realm_id", realm_id)]);
         self.send_json(builder).await
+    }
+
+    pub async fn circle_get(&self, circle_id: &str) -> Result<CircleView> {
+        reject_path_segment(circle_id)?;
+        self.get(&format!("/_arkret/self/circles/{circle_id}"))
+            .await
+    }
+
+    pub async fn circle_create(&self, request: &CircleCreateRequestBody) -> Result<CircleView> {
+        self.post("/_arkret/self/circles", request).await
+    }
+
+    pub async fn circle_member_add(
+        &self,
+        circle_id: &str,
+        request: &CircleMemberRequestBody,
+    ) -> Result<CircleMembershipOutcome> {
+        reject_path_segment(circle_id)?;
+        self.post(
+            &format!("/_arkret/self/circles/{circle_id}/members"),
+            request,
+        )
+        .await
+    }
+
+    pub async fn circle_member_remove(
+        &self,
+        circle_id: &str,
+        actor_id: &str,
+    ) -> Result<CircleMembershipOutcome> {
+        reject_path_segment(circle_id)?;
+        reject_path_segment(actor_id)?;
+        self.delete(&format!(
+            "/_arkret/self/circles/{circle_id}/members/{actor_id}"
+        ))
+        .await
+    }
+
+    async fn circle_lifecycle(
+        &self,
+        circle_id: &str,
+        action: &str,
+        request: &CircleLifecycleRequestBody,
+    ) -> Result<CircleView> {
+        reject_path_segment(circle_id)?;
+        reject_path_segment(action)?;
+        self.post(
+            &format!("/_arkret/self/circles/{circle_id}/{action}"),
+            request,
+        )
+        .await
+    }
+
+    pub async fn circle_archive(
+        &self,
+        circle_id: &str,
+        request: &CircleLifecycleRequestBody,
+    ) -> Result<CircleView> {
+        self.circle_lifecycle(circle_id, "archive", request).await
+    }
+
+    pub async fn circle_restore(
+        &self,
+        circle_id: &str,
+        request: &CircleLifecycleRequestBody,
+    ) -> Result<CircleView> {
+        self.circle_lifecycle(circle_id, "restore", request).await
+    }
+
+    pub async fn circle_tombstone(
+        &self,
+        circle_id: &str,
+        request: &CircleLifecycleRequestBody,
+    ) -> Result<CircleView> {
+        self.circle_lifecycle(circle_id, "tombstone", request).await
     }
 
     pub async fn circle_scope_rotate(
