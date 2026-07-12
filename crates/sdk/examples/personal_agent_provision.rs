@@ -8,7 +8,8 @@
 //! 4. `ak.self.agent.resource.get`                     — fetch the principal record
 //! 5. `ak.self.agent.command.pause`                   — quiesce the runtime
 //! 6. `ak.self.agent.command.resume`                  — un-quiesce
-//! 7. `ak.self.agent.command.renew_pairing`           — runtime replacement re-pairing (supersedes old keys on completion)
+//! 7. `ak.self.agent.command.renew_pairing`           — runtime replacement re-pairing (supersedes
+//!    old keys on completion)
 //! 8. `ak.self.agent.grant.command.attach`            — bind a delegation grant
 //! 9. `ak.self.agent.grant.resource.delete`            — release the grant
 //! 10. `ak.self.agent.sidecar_thread.command.ensure`  — pin a sidecar thread for tool calls
