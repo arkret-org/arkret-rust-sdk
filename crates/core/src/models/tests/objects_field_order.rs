@@ -109,7 +109,7 @@ fn strand_discussion_constructor_sets_room_shape() {
 
 #[test]
 fn read_scope_strand_track_uses_explicit_track_field() {
-    let scope = ReadScope::strand(
+    let scope = ReadCursorScope::strand(
         "ak:strand:01904100-0000-7000-8000-58754cf88c25",
         Some("discussion"),
     );
@@ -120,7 +120,7 @@ fn read_scope_strand_track_uses_explicit_track_field() {
         value,
         serde_json::json!({
             "kind": "strand",
-            "ref": "ak:strand:01904100-0000-7000-8000-58754cf88c25",
+            "container_ref": "ak:strand:01904100-0000-7000-8000-58754cf88c25",
             "track_name": "discussion"
         })
     );
@@ -129,7 +129,7 @@ fn read_scope_strand_track_uses_explicit_track_field() {
 #[test]
 fn read_scope_rejects_removed_track_kind_variants() {
     let old = serde_json::json!("strand_discussion");
-    assert!(serde_json::from_value::<ReadScope>(old).is_err());
+    assert!(serde_json::from_value::<ReadCursorScope>(old).is_err());
 }
 
 /// T21 — synthesis-only Strands are not conversational.

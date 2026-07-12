@@ -73,7 +73,7 @@ pub struct AgentActionTarget {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub r#ref: Option<ObjectRef>,
+    pub object_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operation_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -134,7 +134,7 @@ pub enum AgentKeyApprovalEvidenceKind {
 pub struct AgentKeyApprovalEvidence {
     pub kind: AgentKeyApprovalEvidenceKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub r#ref: Option<ObjectRef>,
+    pub evidence_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_canonical_digest: Option<Hash>,
     /// Profile-local pairing artifact. Present only when this authorization
@@ -169,7 +169,7 @@ pub struct AgentKeyScopeResource {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub r#ref: Option<ObjectRef>,
+    pub resource_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operation: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

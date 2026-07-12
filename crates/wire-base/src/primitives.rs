@@ -696,15 +696,115 @@ impl ReadScopeKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct ReadScope {
+pub struct ReadCursorScope {
     pub kind: ReadScopeKind,
-    #[serde(rename = "ref", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub container_ref: Option<String>,
+    #[serde(rename = "track_name", skip_serializing_if = "Option::is_none")]
+    pub track: Option<String>,
+}
+
+impl ReadCursorScope {
+    pub fn realm() -> Self {
+        Self {
+            kind: ReadScopeKind::Realm,
+            container_ref: None,
+            track: None,
+        }
+    }
+
+    pub fn strand(strand_id: impl Into<String>, track: Option<impl Into<String>>) -> Self {
+        Self {
+            kind: ReadScopeKind::Strand,
+            container_ref: Some(strand_id.into()),
+            track: track.map(Into::into),
+        }
+    }
+
+    pub fn thread(thread_id: impl Into<String>) -> Self {
+        Self {
+            kind: ReadScopeKind::Thread,
+            container_ref: Some(thread_id.into()),
+            track: None,
+        }
+    }
+
+    pub fn circle(circle_id: impl Into<String>) -> Self {
+        Self {
+            kind: ReadScopeKind::Circle,
+            container_ref: Some(circle_id.into()),
+            track: None,
+        }
+    }
+
+    pub fn space(space_id: impl Into<String>) -> Self {
+        Self {
+            kind: ReadScopeKind::Space,
+            container_ref: Some(space_id.into()),
+            track: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if !self.kind.valid_for_read_cursor() {
+            return Err(Error::Protocol(format!(
+                "read_scope kind '{}' is not valid for read cursors",
+                self.kind.as_str()
+            )));
+        }
+        if self.kind == ReadScopeKind::Realm {
+            if self.container_ref.is_some() {
+                return Err(Error::Protocol(
+                    "read_scope.container_ref must be omitted when kind is realm".to_owned(),
+                ));
+            }
+            if self.track.is_some() {
+                return Err(Error::Protocol(
+                    "read_scope.track_name must be omitted when kind is realm".to_owned(),
+                ));
+            }
+        } else if self
+            .container_ref
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+        {
+            return Err(Error::Protocol(
+                "read_scope.container_ref is required when kind is not realm".to_owned(),
+            ));
+        }
+
+        match self.kind {
+            ReadScopeKind::Strand => {
+                if let Some(track) = self.track.as_deref() {
+                    validate_read_scope_track(track)?;
+                }
+            }
+            _ if self.track.is_some() => {
+                return Err(Error::Protocol(
+                    "read_scope.track_name is only valid when kind is strand".to_owned(),
+                ));
+            }
+            _ => {}
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ReadReceiptScope {
+    pub kind: ReadScopeKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub object_ref: Option<String>,
     #[serde(rename = "track_name", skip_serializing_if = "Option::is_none")]
     pub track: Option<String>,
 }
 
-impl ReadScope {
+impl ReadReceiptScope {
     pub fn realm() -> Self {
         Self {
             kind: ReadScopeKind::Realm,
@@ -754,10 +854,16 @@ impl ReadScope {
     }
 
     pub fn validate(&self) -> Result<()> {
+        if !self.kind.valid_for_read_receipt() {
+            return Err(Error::Protocol(format!(
+                "read_scope kind '{}' is not valid for read receipts",
+                self.kind.as_str()
+            )));
+        }
         if self.kind == ReadScopeKind::Realm {
             if self.object_ref.is_some() {
                 return Err(Error::Protocol(
-                    "read_scope.ref must be omitted when kind is realm".to_owned(),
+                    "read_scope.object_ref must be omitted when kind is realm".to_owned(),
                 ));
             }
             if self.track.is_some() {
@@ -767,7 +873,7 @@ impl ReadScope {
             }
         } else if self.object_ref.as_deref().unwrap_or("").trim().is_empty() {
             return Err(Error::Protocol(
-                "read_scope.ref is required when kind is not realm".to_owned(),
+                "read_scope.object_ref is required when kind is not realm".to_owned(),
             ));
         }
 
@@ -784,7 +890,6 @@ impl ReadScope {
             }
             _ => {}
         }
-
         Ok(())
     }
 }
