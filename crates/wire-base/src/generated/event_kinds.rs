@@ -11,7 +11,7 @@ use crate::events::kinds::{
 
 /// Count of standard `ak.*` event kinds the registry declares active.
 /// Excludes the [EventKind::Unknown] catch-all.
-pub const EVENT_KIND_COUNT: usize = 187;
+pub const EVENT_KIND_COUNT: usize = 186;
 
 /// Strongly-typed Arkret event kind. One variant per active `ak.*` kind in
 /// `event-kind-registry.json`, plus [EventKind::Unknown] which preserves
@@ -47,8 +47,6 @@ pub enum EventKind {
     AgentKeyAuthorize,
     /// `ak.agent.key.revoke`
     AgentKeyRevoke,
-    /// `ak.agent.key.rotate`
-    AgentKeyRotate,
     /// `ak.applet.bridge_error`
     AppletBridgeError,
     /// `ak.applet.discovery`
@@ -420,7 +418,6 @@ impl EventKind {
             Self::AgentDraftPropose => "ak.agent.draft.propose",
             Self::AgentKeyAuthorize => "ak.agent.key.authorize",
             Self::AgentKeyRevoke => "ak.agent.key.revoke",
-            Self::AgentKeyRotate => "ak.agent.key.rotate",
             Self::AppletBridgeError => "ak.applet.bridge_error",
             Self::AppletDiscovery => "ak.applet.discovery",
             Self::AppletInteropSessionStart => "ak.applet.interop_session.start",
@@ -615,7 +612,6 @@ impl EventKind {
             "ak.agent.draft.propose" => Self::AgentDraftPropose,
             "ak.agent.key.authorize" => Self::AgentKeyAuthorize,
             "ak.agent.key.revoke" => Self::AgentKeyRevoke,
-            "ak.agent.key.rotate" => Self::AgentKeyRotate,
             "ak.applet.bridge_error" => Self::AppletBridgeError,
             "ak.applet.discovery" => Self::AppletDiscovery,
             "ak.applet.interop_session.start" => Self::AppletInteropSessionStart,

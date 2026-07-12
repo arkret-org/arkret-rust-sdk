@@ -141,7 +141,6 @@ pub(in crate::models) fn required_fields_for_operation_kind(kind: &str) -> Vec<S
             "agent_key_scope",
             "audience",
             "issued_at",
-            "expires_at",
             "approval_evidence",
         ]
         .into_iter()
@@ -151,21 +150,6 @@ pub(in crate::models) fn required_fields_for_operation_kind(kind: &str) -> Vec<S
             .into_iter()
             .map(str::to_owned)
             .collect(),
-        OP_AGENT_KEY_ROTATE => [
-            "agent_id",
-            "key_id",
-            "replacement_key_id",
-            "replacement_verification_method",
-            "accountable_principal_id",
-            "agent_key_scope",
-            "audience",
-            "issued_at",
-            "expires_at",
-            "approval_evidence",
-        ]
-        .into_iter()
-        .map(str::to_owned)
-        .collect(),
         OP_MORPH_CREATE => vec!["object".to_owned()],
         OP_MORPH_UPDATE => vec!["target_ref".to_owned(), "patch".to_owned()],
         OP_MORPH_ARCHIVE | OP_MORPH_RESTORE => vec!["target_ref".to_owned()],

@@ -196,12 +196,12 @@ pub const OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST: &str =
 pub const OP_OPEN_AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS: &str =
     "ak.open.agent_pairing.query.runtime_key_request_status";
 pub const OP_AGENT_PROVISION: &str = "ak.self.agent.command.provision";
+pub const OP_AGENT_RENEW_PAIRING: &str = "ak.self.agent.command.renew_pairing";
 pub const OP_AGENT_LIST: &str = "ak.self.agent.query.list";
 pub const OP_AGENT_GET: &str = "ak.self.agent.resource.get";
 pub const OP_AGENT_PAUSE: &str = "ak.self.agent.command.pause";
 pub const OP_AGENT_RESUME: &str = "ak.self.agent.command.resume";
 pub const OP_AGENT_DEACTIVATE: &str = "ak.self.agent.command.deactivate";
-pub const OP_AGENT_ROTATE_KEY: &str = "ak.self.agent.command.rotate_key";
 pub const OP_AGENT_GRANT_ATTACH: &str = "ak.self.agent.grant.command.attach";
 pub const OP_AGENT_GRANT_DETACH: &str = "ak.self.agent.grant.resource.delete";
 pub const OP_AGENT_SIDECAR_THREAD_ENSURE: &str = "ak.self.agent.sidecar_thread.command.ensure";
@@ -555,7 +555,6 @@ pub const OP_APPLET_REGISTRATION: &str = "ak.applet.registration";
 
 pub const OP_AGENT_KEY_AUTHORIZE: &str = "ak.agent.key.authorize";
 pub const OP_AGENT_KEY_REVOKE: &str = "ak.agent.key.revoke";
-pub const OP_AGENT_KEY_ROTATE: &str = "ak.agent.key.rotate";
 
 /// Directory operations beyond the bare `describe`.
 pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str =
@@ -781,12 +780,12 @@ pub const EXPORTER_LABEL_RTC_TRANSCRIPT_KEY: &str = "ak.rtc-transcript-key/v1";
 pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[
     OP_ACCOUNT_AGENT_KEY_PAIR,
     OP_AGENT_PROVISION,
+    OP_AGENT_RENEW_PAIRING,
     OP_AGENT_LIST,
     OP_AGENT_GET,
     OP_AGENT_PAUSE,
     OP_AGENT_RESUME,
     OP_AGENT_DEACTIVATE,
-    OP_AGENT_ROTATE_KEY,
     OP_AGENT_GRANT_ATTACH,
     OP_AGENT_GRANT_DETACH,
     OP_AGENT_SIDECAR_THREAD_ENSURE,
@@ -917,8 +916,8 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_AGENT_LIST,
     OP_AGENT_PAUSE,
     OP_AGENT_PROVISION,
+    OP_AGENT_RENEW_PAIRING,
     OP_AGENT_RESUME,
-    OP_AGENT_ROTATE_KEY,
     OP_AGENT_SIDECAR_THREAD_ENSURE,
     OP_APPLET_DESCRIBE,
     OP_APPLET_PING,

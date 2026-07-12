@@ -5,8 +5,7 @@ use arkret_core::{
     AgentGrantDetachOutcome, AgentKeyPairOutcome, AgentKeyPairRequestBody, AgentLifecycleOutcome,
     AgentList, AgentParticipationOutcome, AgentParticipationReplaceRequestBody,
     AgentPauseRequestBody, AgentProvisionOutcome, AgentProvisionRequestBody,
-    AgentRenewPairingRequestBody, AgentResumeRequestBody, AgentRotateKeyOutcome,
-    AgentRotateKeyRequestBody, AgentRuntimeApprovalOutcome, AgentRuntimeApprovalRequestBody,
+    AgentRenewPairingRequestBody, AgentResumeRequestBody, AgentRuntimeApprovalOutcome, AgentRuntimeApprovalRequestBody,
     AgentRuntimeApprovalStatusOutcome, AgentRuntimeApprovalStatusRequestBody,
     AgentSidecarThreadEnsureOutcome, AgentSidecarThreadEnsureRequestBody, AgentView, Error,
     GrantId, Result,
@@ -120,21 +119,6 @@ impl Client {
     ) -> Result<AgentLifecycleOutcome> {
         let path = format!(
             "{}/{}/deactivate",
-            AGENTS_PATH,
-            agent_path_component(agent_id)?
-        );
-        self.post(&path, request).await
-    }
-
-    /// `POST /_arkret/self/agents/{agent_id}/rotate-key`
-    /// (`ak.self.agent.command.rotate_key`).
-    pub async fn agent_rotate_key(
-        &self,
-        agent_id: &str,
-        request: &AgentRotateKeyRequestBody,
-    ) -> Result<AgentRotateKeyOutcome> {
-        let path = format!(
-            "{}/{}/rotate-key",
             AGENTS_PATH,
             agent_path_component(agent_id)?
         );

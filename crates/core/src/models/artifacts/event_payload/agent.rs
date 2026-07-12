@@ -231,7 +231,10 @@ pub struct AgentKeyAuthorizePayload {
     pub agent_key_scope: AgentKeyScope,
     pub audience: Vec<String>,
     pub issued_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
+    /// Optional: absent means the key authorization is non-expiring and
+    /// governed solely by revocation (key-management.md §3.6.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
     pub approval_evidence: AgentKeyApprovalEvidence,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revocation_check_ref: Option<ObjectRef>,
@@ -250,28 +253,6 @@ pub struct AgentKeyRevokePayload {
     pub revoked_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_rotate_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AgentKeyRotatePayload {
-    pub agent_id: Did,
-    pub key_id: String,
-    pub replacement_key_id: String,
-    /// DID URL for the replacement runtime signing key, including its key fragment.
-    pub replacement_verification_method: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub replacement_public_key_digest: Option<Hash>,
-    pub accountable_principal_id: Did,
-    pub agent_key_scope: AgentKeyScope,
-    pub audience: Vec<String>,
-    pub issued_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
-    pub approval_evidence: AgentKeyApprovalEvidence,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_authorization_ref: Option<EventRef>,
 }
 
 /// Counterpart for

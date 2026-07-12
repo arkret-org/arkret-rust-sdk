@@ -21,8 +21,6 @@ pub enum AgentOperations {
     AgentLifecycleState(AgentLifecycleOutcome),
     AgentResumeRequestBody(AgentResumeRequestBody),
     AgentDeactivateRequestBody(AgentDeactivateRequestBody),
-    AgentRotateKeyRequestBody(AgentRotateKeyRequestBody),
-    AgentRotateKeyOutcome(AgentRotateKeyOutcome),
     AgentGrantAttachRequestBody(AgentGrantAttachRequestBody),
     AgentGrantAttachOutcome(AgentGrantAttachOutcome),
     AgentGrantDetachOutcome(AgentGrantDetachOutcome),

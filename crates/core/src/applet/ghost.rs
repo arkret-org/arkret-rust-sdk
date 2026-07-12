@@ -331,7 +331,11 @@ pub struct AccountabilityGrantPayload {
     pub subject: Did,
     pub accountability_scope: AccountabilityScope,
     pub not_before: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
+    /// Optional: absent means the grant is non-expiring and governed by
+    /// `grant_status` revocation and controller lifecycle cascade
+    /// (actor.md §3.3.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
     pub grant_status: AccountabilityGrantStatus,
     pub proof: Proof,
 }
@@ -342,7 +346,7 @@ impl AccountabilityGrantPayload {
         subject: Did,
         accountability_scope: AccountabilityScope,
         not_before: DateTime<Utc>,
-        expires_at: DateTime<Utc>,
+        expires_at: Option<DateTime<Utc>>,
         proof: Proof,
     ) -> Self {
         Self {
@@ -357,10 +361,17 @@ impl AccountabilityGrantPayload {
     }
 
     pub fn validate_lifecycle_at(&self, now: DateTime<Utc>) -> Result<()> {
-        if self.not_before >= self.expires_at {
-            return Err(Error::Protocol(
-                "accountability_grant not_before must be before expires_at".to_owned(),
-            ));
+        if let Some(expires_at) = self.expires_at {
+            if self.not_before >= expires_at {
+                return Err(Error::Protocol(
+                    "accountability_grant not_before must be before expires_at".to_owned(),
+                ));
+            }
+            if now > expires_at {
+                return Err(Error::Protocol(
+                    "accountability_grant has expired".to_owned(),
+                ));
+            }
         }
         if self.grant_status != AccountabilityGrantStatus::Active {
             return Err(Error::Protocol(
@@ -370,11 +381,6 @@ impl AccountabilityGrantPayload {
         if now < self.not_before {
             return Err(Error::Protocol(
                 "accountability_grant is not yet active".to_owned(),
-            ));
-        }
-        if now > self.expires_at {
-            return Err(Error::Protocol(
-                "accountability_grant has expired".to_owned(),
             ));
         }
         Ok(self.proof.validate_production()?)

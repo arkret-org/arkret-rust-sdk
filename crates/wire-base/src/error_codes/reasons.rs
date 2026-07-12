@@ -194,6 +194,11 @@ pub const REASON_SESSION_FOCUS_NO_SPLIT_BRAIN: &str = "session_focus_no_split_br
 pub const REASON_TOKEN_EXPIRED: &str = "token_expired";
 pub const REASON_VERIFICATION_METHOD_PRINCIPAL_MISMATCH: &str =
     "verification_method_principal_mismatch";
+pub const REASON_AGENT_GRANT_EXPIRY_REQUIRED: &str = "agent_grant_expiry_required";
+pub const REASON_AGENT_GRANT_CONSTRAINT_MISSING: &str = "agent_grant_constraint_missing";
+pub const REASON_AGENT_KEY_AUTHORIZATION_EXPIRED: &str = "agent_key_authorization_expired";
+pub const REASON_SUPERSEDED_BY_REPAIRING: &str = "superseded_by_repairing";
+pub const REASON_PAIRING_EXPIRED: &str = "pairing_expired";
 pub const REASON_PAIRING_REQUEST_EXPIRED: &str = "pairing_request_expired";
 pub const REASON_PROOF_INVALID: &str = "proof_invalid";
 pub const REASON_AGENT_PAUSED: &str = "agent_paused";
@@ -614,6 +619,11 @@ pub const KNOWN_REASON_CODES: &[&str] = &[
     REASON_SESSION_FOCUS_NO_SPLIT_BRAIN,
     REASON_TOKEN_EXPIRED,
     REASON_VERIFICATION_METHOD_PRINCIPAL_MISMATCH,
+    REASON_AGENT_GRANT_EXPIRY_REQUIRED,
+    REASON_AGENT_GRANT_CONSTRAINT_MISSING,
+    REASON_AGENT_KEY_AUTHORIZATION_EXPIRED,
+    REASON_SUPERSEDED_BY_REPAIRING,
+    REASON_PAIRING_EXPIRED,
     REASON_PAIRING_REQUEST_EXPIRED,
     REASON_PROOF_INVALID,
     REASON_AGENT_PAUSED,

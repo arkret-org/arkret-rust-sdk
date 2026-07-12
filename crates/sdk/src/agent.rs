@@ -16,12 +16,12 @@ use serde_json::Value;
 use crate::{
     AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyAuthorizePayload,
     AgentKeyPairRequestBody, AgentPairingBootstrap, AgentPauseRequestBody,
-    AgentProvisionRequestBody, AgentResumeRequestBody, AgentRotateKeyRequestBody,
+    AgentProvisionRequestBody, AgentRenewPairingRequestBody, AgentResumeRequestBody,
     AgentRuntimeApprovalRequestBody, AgentRuntimeApprovalStatusRequestBody,
     AgentSidecarThreadEnsureRequestBody, CapabilityGrant, Did, Error, Event, GrantId, Hash, Hlc,
     OP_ACCOUNT_AGENT_KEY_PAIR, OP_AGENT_DEACTIVATE, OP_AGENT_GET, OP_AGENT_GRANT_ATTACH,
     OP_AGENT_GRANT_DETACH, OP_AGENT_KEY_AUTHORIZE, OP_AGENT_LIST, OP_AGENT_PAUSE,
-    OP_AGENT_PROVISION, OP_AGENT_RESUME, OP_AGENT_ROTATE_KEY, OP_AGENT_SIDECAR_THREAD_ENSURE,
+    OP_AGENT_PROVISION, OP_AGENT_RENEW_PAIRING, OP_AGENT_RESUME, OP_AGENT_SIDECAR_THREAD_ENSURE,
     OP_OPEN_AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS,
     OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST, RealmId, Result,
     SessionGrantDpopBindingProof, SessionGrantProofKind, SessionGrantRequestBody,
@@ -762,6 +762,22 @@ pub fn plan_agent_provision(
     AgentRequestPlan::with_body(OP_AGENT_PROVISION, AgentHttpMethod::Post, AGENTS_PATH, body)
 }
 
+pub fn plan_agent_renew_pairing(
+    agent_id: &str,
+    body: AgentRenewPairingRequestBody,
+) -> AgentRequestPlan<AgentRenewPairingRequestBody> {
+    AgentRequestPlan::with_body(
+        OP_AGENT_RENEW_PAIRING,
+        AgentHttpMethod::Post,
+        format!(
+            "{}/{}/renew-pairing",
+            AGENTS_PATH,
+            agent_path_component(agent_id)
+        ),
+        body,
+    )
+}
+
 pub fn plan_agent_list() -> AgentRequestPlan<()> {
     AgentRequestPlan::without_body(OP_AGENT_LIST, AgentHttpMethod::Get, AGENTS_PATH)
 }
@@ -807,22 +823,6 @@ pub fn plan_agent_deactivate(
         AgentHttpMethod::Post,
         format!(
             "{}/{}/deactivate",
-            AGENTS_PATH,
-            agent_path_component(agent_id)
-        ),
-        body,
-    )
-}
-
-pub fn plan_agent_rotate_key(
-    agent_id: &str,
-    body: AgentRotateKeyRequestBody,
-) -> AgentRequestPlan<AgentRotateKeyRequestBody> {
-    AgentRequestPlan::with_body(
-        OP_AGENT_ROTATE_KEY,
-        AgentHttpMethod::Post,
-        format!(
-            "{}/{}/rotate-key",
             AGENTS_PATH,
             agent_path_component(agent_id)
         ),
@@ -1324,7 +1324,7 @@ mod tests {
             agent_key_scope: test_scope(),
             audience: vec!["https://arkret.example".to_owned()],
             issued_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 0, 0).unwrap(),
-            expires_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap(),
+            expires_at: Some(Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap()),
             approval_evidence: AgentKeyApprovalEvidence {
                 kind: AgentKeyApprovalEvidenceKind::ApprovalEvent,
                 r#ref: "ak:event:01970000-0000-7000-8000-000000000021".to_owned(),
@@ -1377,7 +1377,7 @@ mod tests {
             agent_key_scope: test_scope(),
             audience: vec!["https://arkret.example".to_owned()],
             issued_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 0, 0).unwrap(),
-            expires_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap(),
+            expires_at: Some(Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap()),
             approval_evidence: AgentKeyApprovalEvidence {
                 kind: AgentKeyApprovalEvidenceKind::ApprovalEvent,
                 r#ref: "ak:event:01970000-0000-7000-8000-000000000021".to_owned(),

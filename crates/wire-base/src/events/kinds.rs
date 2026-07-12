@@ -6,10 +6,8 @@ pub const ACCOUNT_DATA_SET: &str = "ak.account_data.set";
 pub const ACTOR_DISCOVERY: &str = "ak.actor.discovery";
 pub const AGENT_KEY_AUTHORIZE: &str = "ak.agent.key.authorize";
 pub const AGENT_KEY_REVOKE: &str = "ak.agent.key.revoke";
-pub const AGENT_KEY_ROTATE: &str = "ak.agent.key.rotate";
 pub const AGENT_KEY_AUTHORIZED: &str = AGENT_KEY_AUTHORIZE;
 pub const AGENT_KEY_REVOKED: &str = AGENT_KEY_REVOKE;
-pub const AGENT_KEY_ROTATED: &str = AGENT_KEY_ROTATE;
 // AKP-0008 / AKP-0009 (spec head 37ce729) — personal-agent lifecycle event
 // kinds (durable, reducer-input).
 pub const AGENT_PAUSE: &str = "ak.self.agent.pause";
@@ -327,7 +325,6 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     AGENT_DRAFT_PROPOSE,
     AGENT_KEY_AUTHORIZED,
     AGENT_KEY_REVOKED,
-    AGENT_KEY_ROTATED,
     APPLET_BRIDGE_ERROR,
     APPLET_DISCOVERY,
     APPLET_INTEROP_SESSION_START,
@@ -627,8 +624,8 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         }
         ACTOR_DISCOVERY => EventClass::Actor,
         AGENT_ACTION_APPROVE | AGENT_ACTION_REJECT | AGENT_ACTION_REQUEST | AGENT_DEACTIVATE
-        | AGENT_DRAFT_PROPOSE | AGENT_KEY_AUTHORIZED | AGENT_KEY_REVOKED | AGENT_KEY_ROTATED
-        | AGENT_PAUSE | AGENT_RESUME => EventClass::Agent,
+        | AGENT_DRAFT_PROPOSE | AGENT_KEY_AUTHORIZED | AGENT_KEY_REVOKED | AGENT_PAUSE
+        | AGENT_RESUME => EventClass::Agent,
         APPLET_BRIDGE_ERROR
         | APPLET_DISCOVERY
         | APPLET_INTEROP_SESSION_START

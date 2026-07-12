@@ -143,7 +143,7 @@ mod tests {
             subject,
             AccountabilityScope::Single("contracted_service".to_owned()),
             now - Duration::minutes(1),
-            now + Duration::minutes(10),
+            Some(now + Duration::minutes(10)),
             production_proof(&owner, now),
         );
 

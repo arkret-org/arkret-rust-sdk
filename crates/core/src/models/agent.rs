@@ -102,10 +102,13 @@ pub struct AgentProvisionRequestBody {
 // The former SDK-local `account/realm/applet/limited` enum was off-spec and
 // has been removed.
 
-/// Re-open pairing on an agent whose runtime key was never authorized
-/// (`pending_runtime_key` or `pairing_expired`). The service issues a fresh
+/// Re-open pairing on any non-terminal agent. The service issues a fresh
 /// one-time pairing handle and every previously issued handle becomes
-/// permanently unresolvable. Mirrors
+/// permanently unresolvable. `pending_runtime_key` / `pairing_expired`
+/// re-open bootstrap pairing; `active` / `paused` perform runtime
+/// replacement re-pairing (existing keys stay valid until the new pairing
+/// completes, then are revoked with reason=`superseded_by_repairing`).
+/// `deactivated` rejects. Mirrors
 /// `agent-operations.schema.json#/$defs/agent_renew_pairing_request_body`;
 /// the response reuses `agent_provision_outcome`.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -247,20 +250,6 @@ pub struct AgentResumeRequestBody {
 pub struct AgentDeactivateRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AgentRotateKeyRequestBody {
-    pub replacement_key: Value,
-    pub proof_of_possession: Value,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AgentRotateKeyOutcome {
-    pub ok: bool,
-    pub authorized_event_ref: EventId,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

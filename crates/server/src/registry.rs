@@ -121,11 +121,6 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_arkret/self/agents/{agent_id}/deactivate"
     ),
     endpoint!(
-        "ak.self.agent.command.rotate_key",
-        Post,
-        "/_arkret/self/agents/{agent_id}/rotate-key"
-    ),
-    endpoint!(
         "ak.self.agent.grant.command.attach",
         Post,
         "/_arkret/self/agents/{agent_id}/grants"

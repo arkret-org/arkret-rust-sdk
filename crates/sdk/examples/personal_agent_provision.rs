@@ -8,7 +8,7 @@
 //! 4. `ak.self.agent.resource.get`                     — fetch the principal record
 //! 5. `ak.self.agent.command.pause`                   — quiesce the runtime
 //! 6. `ak.self.agent.command.resume`                  — un-quiesce
-//! 7. `ak.self.agent.command.rotate_key`              — roll the signing key
+//! 7. `ak.self.agent.command.renew_pairing`           — runtime replacement re-pairing (supersedes old keys on completion)
 //! 8. `ak.self.agent.grant.command.attach`            — bind a delegation grant
 //! 9. `ak.self.agent.grant.resource.delete`            — release the grant
 //! 10. `ak.self.agent.sidecar_thread.command.ensure`  — pin a sidecar thread for tool calls
@@ -28,13 +28,13 @@
 use arkret::agent::{
     AgentProvisionRequestBuilder, AgentRequestPlan, plan_agent_deactivate, plan_agent_get,
     plan_agent_grant_attach, plan_agent_grant_detach, plan_agent_key_pair, plan_agent_list,
-    plan_agent_pause, plan_agent_provision, plan_agent_resume, plan_agent_rotate_key,
+    plan_agent_pause, plan_agent_provision, plan_agent_renew_pairing, plan_agent_resume,
     plan_agent_sidecar_thread_ensure,
 };
 use arkret::{
     AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyPairRequestBody,
     AgentKeyScope, AgentKeyScopeResource, AgentKeyScopeResourceKind, AgentPauseRequestBody,
-    AgentResumeRequestBody, AgentRotateKeyRequestBody, AgentSidecarContextRef,
+    AgentRenewPairingRequestBody, AgentResumeRequestBody, AgentSidecarContextRef,
     AgentSidecarThreadEnsureRequestBody, Did, GrantId, RealmId, StrandId,
 };
 use serde::Serialize;
@@ -64,9 +64,11 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
         }
         "ak.self.agent.command.pause" => json!({ "ok": true, "status": "paused" }),
         "ak.self.agent.command.resume" => json!({ "ok": true, "status": "active" }),
-        "ak.self.agent.command.rotate_key" => json!({
-            "ok": true,
-            "authorized_event_ref": "ak:event:01964137-0000-7000-8000-000000000102",
+        "ak.self.agent.command.renew_pairing" => json!({
+            "agent_id": "did:webvh:z6mkfixture:agent.example",
+            "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000002",
+            "pairing_code": "87654321",
+            "expires_at": "2026-06-18T13:15:00Z",
         }),
         "ak.self.agent.grant.command.attach" => json!({
             "ok": true,
@@ -169,19 +171,13 @@ fn main() -> arkret::Result<()> {
         },
     ))?;
 
-    // 7. rotate-key
-    let _rotated = send_plan(plan_agent_rotate_key(
+    // 7. renew-pairing (runtime replacement re-pairing: the old key keeps
+    // working until the new pairing completes, at which point every prior
+    // active key is revoked with reason=superseded_by_repairing).
+    let _replacement_pairing = send_plan(plan_agent_renew_pairing(
         &agent_id,
-        AgentRotateKeyRequestBody {
-            replacement_key: json!({
-                "kty": "OKP",
-                "crv": "Ed25519",
-                "x": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-            }),
-            proof_of_possession: json!({
-                "challenge": "rotate-key-challenge",
-                "signature": "ed25519-pop-signature",
-            }),
+        AgentRenewPairingRequestBody {
+            pairing_ttl_ms: Some(15 * 60 * 1000),
         },
     ))?;
 

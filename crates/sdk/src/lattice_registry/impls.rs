@@ -290,11 +290,7 @@ impl LatticeKind for AgentKey {
         Ok(Some(format!("{agent_id}::{key_id}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
-        &[
-            "ak.agent.key.authorize",
-            "ak.agent.key.revoke",
-            "ak.agent.key.rotate",
-        ]
+        &["ak.agent.key.authorize", "ak.agent.key.revoke"]
     }
 }
 
