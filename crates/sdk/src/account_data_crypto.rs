@@ -61,7 +61,7 @@ fn validate_actor_and_data_type(actor_id: &str, data_type: &str) -> Result<()> {
     if !actor_id.starts_with("did:") || actor_id.chars().any(char::is_whitespace) {
         return Err(protocol_error("account-data actor_id must be a DID"));
     }
-    let pattern = Regex::new(r"^ak\.[a-z0-9_]+(?:\.[a-z0-9_]+)*(?::[A-Za-z0-9_-]+)?$")
+    let pattern = Regex::new(r"^ak\.[A-Za-z0-9._:-]+$")
         .map_err(|error| Error::Protocol(format!("account-data type regex: {error}")))?;
     if !pattern.is_match(data_type) {
         return Err(protocol_error("account-data data_type is not canonical"));
@@ -254,5 +254,22 @@ mod tests {
         let mut tampered = envelope;
         tampered.ciphertext.push('A');
         assert!(open_account_data_value(&secret, ACTOR, DATA_TYPE, &tampered).is_err());
+    }
+
+    #[test]
+    fn account_data_value_accepts_registered_multi_segment_private_key() {
+        let data_type = "ak.saved.v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+        let envelope = seal_account_data_value_with_nonce(
+            &[17u8; 32],
+            ACTOR,
+            data_type,
+            &serde_json::json!({"saved": true}),
+            [19u8; 24],
+        )
+        .unwrap();
+        assert_eq!(
+            open_account_data_value(&[17u8; 32], ACTOR, data_type, &envelope).unwrap(),
+            serde_json::json!({"saved": true})
+        );
     }
 }

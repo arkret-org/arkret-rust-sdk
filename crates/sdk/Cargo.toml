@@ -30,7 +30,7 @@ mls = [
     "dep:openmls_rust_crypto",
     "dep:tls_codec",
 ]
-full-surface = []
+full-surface = ["arkret-core/embedded-artifacts"]
 # TLS backend passthrough (`cargo add arkret --features client,tls-rustls`
 # gives a working https client out of the box). The SDK stays TLS-neutral
 # without this feature. PQ-hybrid TLS (X25519MLKEM768) is a MUST for all

@@ -18,6 +18,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
+embedded-artifacts = ["arkret-schema/embedded-artifacts"]
 # Client-side URL handling + the transport-agnostic `Error::Http`/`Error::Url`
 # variants. Deliberately does NOT pull in a concrete HTTP stack — reqwest
 # lives in arkret-http-client (ARCHITECTURE.md: core is the wire-model layer).
