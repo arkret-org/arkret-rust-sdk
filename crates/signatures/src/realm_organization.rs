@@ -8,7 +8,7 @@
 //! over those same `signing_bytes`, base64url-unpadded encoded, set as the
 //! `authorization.proof` `SignatureMaterial::NonEmptyString`.
 
-use arkret_core::base64url::base64url_encode;
+use arkret_canonical::base64url::base64url_encode;
 use arkret_core::models::{RealmOrganizationPayload, SignatureMaterial};
 use arkret_core::{Error, Result};
 use ed25519_dalek::{Signer, SigningKey};
@@ -45,7 +45,7 @@ pub fn realm_organization_statement_sign(
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::base64url::base64url_decode;
+    use arkret_canonical::base64url::base64url_decode;
     use arkret_core::identifiers::{Did, RealmId};
     use arkret_core::models::{
         RealmOrganizationAuthorization, RealmOrganizationControlScope, RealmOrganizationIssuerRole,

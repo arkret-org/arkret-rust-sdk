@@ -544,9 +544,6 @@ pub fn project_account_status_heads<'a>(
     AccountStatusProjection { current, rejected }
 }
 
-/// Service implementation profile IDs surfaced by discovery / requirements.
-pub const PROFILE_DIRECTORY_SERVICE: &str = "ak.profile.directory_service.v1";
-
 /// Audit assurance class (encryption-and-audit.md §3.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -555,16 +552,6 @@ pub enum AuditAssurance {
     AttestedHardware,
     DisclosedPolicy,
 }
-
-/// Profile id for the ordinary E2EE client baseline.
-pub const PROFILE_E2EE_CLIENT: &str = "ak.profile.e2ee_client.v1";
-
-/// Profile id for a Realm whose MLS metadata is minimized.
-pub const PROFILE_MLS_MINIMAL_METADATA_REALM: &str = "ak.profile.mls.minimal_metadata_realm.v1";
-
-/// Profile id constants for audit profiles (encryption-and-audit.md §3.1).
-pub const PROFILE_ATTESTED_AUDIT_E2EE: &str = "ak.profile.attested_audit.e2ee.v1";
-pub const PROFILE_DISCLOSED_AUDIT_E2EE: &str = "ak.profile.disclosed_audit.e2ee.v1";
 
 /// Round R2/R3 (2026-05-20) — `ak.profile.e2ee_relaxed.v1`.
 ///
@@ -1044,7 +1031,7 @@ impl ErasureReceipt {
             Error::Protocol("erasure receipt must serialize as an object".to_owned())
         })?;
         object.remove("proofs");
-        canonical::canonical_json_bytes(&value)
+        Ok(canonical::canonical_json_bytes(&value)?)
     }
 
     pub fn canonical_payload_digest(&self) -> Result<Hash> {
@@ -1190,16 +1177,6 @@ impl TryFrom<&str> for BackupClass {
             other => Err(format!("unsupported backup_class {other}")),
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum EvaluationClass {
-    Stateless,
-    GrantLocal,
-    RealmState,
-    External,
 }
 
 /// Approval workflow mode (constraint-schema.md §9.1–§9.2).

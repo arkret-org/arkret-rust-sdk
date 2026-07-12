@@ -1,4 +1,13 @@
+#![allow(unused_qualifications)]
+
+use std::collections::BTreeSet;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use serde_json::{Value, json};
+
 use super::*;
+use crate::schema::*;
 
 fn local_spec_artifacts_dir() -> Option<PathBuf> {
     if let Some(dir) = default_spec_artifacts_dir() {
@@ -70,7 +79,7 @@ fn embedded_spec_artifacts_match_live_spec_when_available() {
             .unwrap_or_else(|error| panic!("failed to read {}: {error}", live_path.display()));
         let live_value: Value = serde_json::from_str(&live_text)
             .unwrap_or_else(|error| panic!("failed to parse {}: {error}", live_path.display()));
-        let embedded_value = read_embedded_json_artifact(&path)
+        let embedded_value = embedded_json_artifact(&path)
             .unwrap_or_else(|error| panic!("embedded artifact {path} failed to load: {error}"));
         assert_eq!(embedded_value, live_value, "artifact {path} drifted");
     }
@@ -84,7 +93,7 @@ fn fixture_artifact(name: &str) -> Value {
         serde_json::from_str(&text)
             .unwrap_or_else(|error| panic!("failed to parse {}: {error}", path.display()))
     } else {
-        read_embedded_json_artifact(&format!("fixtures/{name}")).unwrap()
+        embedded_json_artifact(&format!("fixtures/{name}")).unwrap()
     }
 }
 
@@ -689,7 +698,7 @@ fn event_payload_catalog_validates_known_payload_fields() {
                 "rank": "U"
             })
         ),
-        Err(Error::Protocol(_))
+        Err(crate::schema::SchemaError::Protocol(_))
     ));
 }
 
@@ -746,7 +755,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // join missing delivery_status is rejected by to_value (conditional req).
     let mut bad = join;
     bad.delivery_status = None;
-    assert!(matches!(bad.to_value(), Err(Error::Protocol(_))));
+    assert!(matches!(bad.to_value(), Err(crate::Error::Protocol(_))));
 
     // Unknown additive keys are reported but do not fail schema validation.
     let mut leaky = invite.to_value().unwrap();
@@ -1538,6 +1547,6 @@ fn evolution_plan_rejects_breaking_release_candidate() {
     };
     assert!(matches!(
         plan.validate_release_candidate(),
-        Err(Error::Protocol(_))
+        Err(crate::schema::SchemaError::Protocol(_))
     ));
 }

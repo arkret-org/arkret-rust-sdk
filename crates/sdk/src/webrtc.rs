@@ -1,8 +1,8 @@
 //! WebRTC signaling and conference state helpers.
 
+use arkret_canonical::base64url::base64url_decode;
+use arkret_canonical::canonical::canonical_json_bytes;
 use arkret_core::MediaIceConfigOutcome;
-use arkret_core::base64url::base64url_decode;
-use arkret_core::canonical::canonical_json_bytes;
 use chrono::{DateTime, Utc};
 use ed25519_dalek::Signature;
 use serde::{Deserialize, Serialize};
@@ -730,7 +730,7 @@ impl ModeratePayload {
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::base64url::base64url_encode;
+    use arkret_canonical::base64url::base64url_encode;
     use ed25519_dalek::{Signer, SigningKey};
 
     use super::*;

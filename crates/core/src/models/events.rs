@@ -163,9 +163,9 @@ where
         .collect::<Vec<_>>();
     sorted.sort();
     sorted.dedup();
-    canonical::canonical_sha256(&Value::Array(
+    Ok(canonical::canonical_sha256(&Value::Array(
         sorted.into_iter().map(Value::String).collect(),
-    ))
+    ))?)
 }
 
 /// AKP-0008 / AKP-0009 (spec head 37ce729) runtime classifier stamped by
@@ -495,7 +495,7 @@ impl Event {
     /// Deserialize an inbound Event Envelope after canonical JSON ingress
     /// checks (NFC strings, duplicate keys, number profile).
     pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
-        canonical::from_canonical_json_slice(bytes)
+        Ok(canonical::from_canonical_json_slice(bytes)?)
     }
 
     /// Parse the opaque event payload as `T` without checking `kind`.
@@ -606,7 +606,7 @@ impl Event {
     }
 
     pub fn event_digest(&self) -> Result<String> {
-        canonical::canonical_sha256(&self.digest_payload()?)
+        Ok(canonical::canonical_sha256(&self.digest_payload()?)?)
     }
 
     pub fn validate_for_submit(&self) -> Result<()> {
@@ -678,7 +678,7 @@ impl Event {
         let value = serde_json::to_value(self)?;
         let registry = crate::schema::schema_registry_from_default_spec_artifacts()?
             .unwrap_or_else(ProtocolSchemaRegistry::default);
-        registry.validate_value(EVENT_SCHEMA, &value)
+        Ok(registry.validate_value(EVENT_SCHEMA, &value)?)
     }
 
     /// Enforce the signed-Applet-provenance invariants from

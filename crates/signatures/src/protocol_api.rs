@@ -1,6 +1,7 @@
 //! Canonical signatures, proof binding and HTTP message signature helpers.
 
 #[cfg(feature = "signer")]
+#[path = "signer.rs"]
 pub mod signer;
 
 #[cfg(feature = "signer")]
@@ -9,33 +10,35 @@ pub use signer::Ed25519MoveSigner;
 // Unified Event Envelope proof builder/verifier pipeline. Available without
 // the `signer` feature (canonical bytes + traits + dev-proof gating); the
 // `signer` feature also exposes the Ed25519 detached-JWS backend.
+#[path = "proof.rs"]
 pub mod proof;
 
 // S-1 (savfox SDK gap): one-shot `sign_event` helper that owns the
 // canonical-JSON + detached-JWS pipeline external Applets used to roll
 // themselves.
+#[path = "event_signer.rs"]
 pub mod event_signer;
 pub use event_signer::{SignEventOptions, sign_event};
 
+#[path = "dpop.rs"]
 pub mod dpop;
 pub use dpop::{
     DPOP_JWK_CRV_ED25519, DPOP_JWK_KTY_OKP, DPOP_PROOF_ALG, DPOP_PROOF_TYP, DpopJwk, DpopProof,
     DpopProofRequest, build_dpop_proof, dpop_access_token_hash, dpop_jwk_thumbprint,
 };
 
-// Single source of truth for RFC 9421 HTTP Message Signatures + RFC 9530
-// Content-Digest. floria, teabay, soland, and chime all consume this module;
-// the SDK crate re-exports it for compatibility.
-pub mod http_signature;
+#[path = "jwt.rs"]
 pub mod jwt;
 
 // Shared `did:webvh` inception builder. Pure build + cryptography (keygen, SCID
 // derivation, eddsa-jcs-2022 proof) so clients and servers mint identical
 // inception entries. HTTP submission lives in the caller.
+#[path = "webvh/mod.rs"]
 pub mod webvh;
 
 // Organization-side statement signing (A3). Byte-symmetric counterpart to
 // soland's `verify_realm_organization_proof_signature`.
+#[path = "realm_organization.rs"]
 pub mod realm_organization;
 use std::collections::BTreeMap;
 
@@ -47,11 +50,10 @@ use std::collections::BTreeMap;
 /// diverge again. The v1 set is exactly `["EdDSA"]` — see the core constant's
 /// documentation for why the other registry-active rows are excluded.
 pub use arkret_core::PRODUCTION_ALGORITHMS;
-pub use arkret_core::Proof as ProtocolProof;
 use arkret_core::{
-    Audience, Did, Error, Hash, Proof, ProofBindingRequirements, Result, SignatureBindingPayload,
-    canonical,
+    Audience, Did, Hash, Proof, ProofBindingRequirements, SignatureBindingPayload, canonical,
 };
+pub use arkret_core::{Error, Proof as ProtocolProof, Result};
 use chrono::{DateTime, Duration, Utc};
 pub use jwt::{
     JwtVerificationError, JwtVerificationPolicy, VerifiedJwt, verify_eddsa_jwt_with_jwks,
@@ -163,9 +165,10 @@ impl DetachedSignature {
     }
 
     pub fn validate_against(&self, binding: &DetachedSignatureBinding) -> Result<()> {
-        self.clone()
+        Ok(self
+            .clone()
             .into_proof()
-            .validate_binding(&binding.proof_binding_payload())
+            .validate_binding(&binding.proof_binding_payload())?)
     }
 }
 
@@ -350,7 +353,7 @@ pub fn canonical_payload_digest<T: Serialize>(payload: &T) -> Result<Hash> {
 }
 
 pub fn validate_production_proof(proof: &Proof) -> Result<()> {
-    proof.validate_production()
+    Ok(proof.validate_production()?)
 }
 
 /// Wire-form HTTP Message Signature container.

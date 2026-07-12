@@ -325,7 +325,7 @@ fn validate_aead_nonce_context(context: &AeadNonceContext) -> Result<()> {
 /// Canonical JSON bytes used as MLS-Exporter Context for v1 AEAD nonce prefixes.
 pub fn aead_sender_nonce_context_bytes(context: &AeadNonceContext) -> Result<Vec<u8>> {
     validate_aead_nonce_context(context)?;
-    crate::canonical::canonical_json_bytes(context)
+    Ok(crate::canonical::canonical_json_bytes(context)?)
 }
 
 /// Derive the sender nonce prefix from a fixed exporter secret for tests and adapters.
@@ -504,7 +504,7 @@ pub fn encrypted_envelope_digest_report(
 fn sha256_prefixed(bytes: &[u8]) -> String {
     // Reuse the authoritative `sha256:<lowercase-hex>` formatter in
     // `arkret-core` (single source of truth for the digest prefix/encoding).
-    arkret_core::canonical::sha256_digest(bytes)
+    arkret_canonical::canonical::sha256_digest(bytes)
 }
 
 /// Constant-time string comparison backed by the audited `subtle` crate.
@@ -514,8 +514,8 @@ fn sha256_prefixed(bytes: &[u8]) -> String {
 /// compared with `subtle::ConstantTimeEq`. Shared crate-wide (see
 /// `key_verification::commitment`, `identity::records`, `auth::helpers`).
 pub(crate) fn constant_time_eq(left: &str, right: &str) -> bool {
-    let left = arkret_core::canonical::sha256_bytes(left.as_bytes());
-    let right = arkret_core::canonical::sha256_bytes(right.as_bytes());
+    let left = arkret_canonical::canonical::sha256_bytes(left.as_bytes());
+    let right = arkret_canonical::canonical::sha256_bytes(right.as_bytes());
     left.ct_eq(&right).into()
 }
 

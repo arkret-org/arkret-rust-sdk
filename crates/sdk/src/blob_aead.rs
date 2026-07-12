@@ -228,7 +228,7 @@ fn stream_segment_aad(
         ("media_type", json!(media_type)),
         ("size_bytes", json!(size_bytes)),
     ]);
-    canonical_json_bytes(&map)
+    Ok(canonical_json_bytes(&map)?)
 }
 
 /// Canonical whole-file AAD (§3.3.3 whole-file binding).
@@ -245,7 +245,7 @@ fn whole_file_aad(
         ("media_type", json!(media_type)),
         ("size_bytes", json!(size_bytes)),
     ]);
-    canonical_json_bytes(&map)
+    Ok(canonical_json_bytes(&map)?)
 }
 
 /// `ceil(plaintext_size / segment_size)`, empty plaintext → 1 (§3.3.1).

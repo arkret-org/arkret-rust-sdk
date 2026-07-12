@@ -349,7 +349,7 @@ fn derive_webvh_scid(scid: &str, raw_first: &Value) -> Result<String> {
         // During derivation the initial versionId is the SCID placeholder.
         obj.insert("versionId".to_owned(), Value::String("{SCID}".to_owned()));
     }
-    let bytes = arkret_core::canonical::canonical_json_bytes(&preliminary)
+    let bytes = arkret_canonical::canonical::canonical_json_bytes(&preliminary)
         .map_err(|e| Error::Protocol(format!("did:webvh SCID canonicalization failed: {e}")))?;
     Ok(webvh_multihash_base58(&bytes))
 }
@@ -370,7 +370,7 @@ fn verify_webvh_entry_hash(version_id: &str, prev_anchor: &str, raw: &Value) -> 
             Value::String(prev_anchor.to_owned()),
         );
     }
-    let bytes = arkret_core::canonical::canonical_json_bytes(&preimage)
+    let bytes = arkret_canonical::canonical::canonical_json_bytes(&preimage)
         .map_err(|e| Error::Protocol(format!("did:webvh entry canonicalization failed: {e}")))?;
     let computed = webvh_multihash_base58(&bytes);
     if computed != declared_hash {
@@ -404,9 +404,9 @@ fn verify_webvh_proof(raw_entry: &Value, proof: &Value, key_multibase: &str) -> 
         obj.remove("proof");
     }
 
-    let proof_config_bytes = arkret_core::canonical::canonical_json_bytes(&proof_config)
+    let proof_config_bytes = arkret_canonical::canonical::canonical_json_bytes(&proof_config)
         .map_err(|e| Error::Protocol(format!("did:webvh proofConfig canonicalization: {e}")))?;
-    let doc_bytes = arkret_core::canonical::canonical_json_bytes(&doc)
+    let doc_bytes = arkret_canonical::canonical::canonical_json_bytes(&doc)
         .map_err(|e| Error::Protocol(format!("did:webvh proof doc canonicalization: {e}")))?;
 
     let mut signing_input = Vec::with_capacity(64);

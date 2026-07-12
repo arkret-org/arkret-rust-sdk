@@ -41,7 +41,8 @@
 //! mismatches to distinct wire `schema_violation` / `invalid_signature` 4xx
 //! responses without string sniffing.
 
-use arkret_core::{Hash, canonical};
+use arkret_canonical::canonical;
+use arkret_core::Hash;
 use arkret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_eddsa_detached_jws};
 use chrono::{DateTime, Duration, Utc};
 use ed25519_dalek::{SigningKey, VerifyingKey};
@@ -289,8 +290,11 @@ fn decode_ed25519_multibase(multibase: &str) -> Result<VerifyingKey, JwsVerifyEr
     // Underlying base58btc + multicodec strip is the single `core::multibase`
     // helper (backed by the `bs58` crate); this only adds the VerifyingKey
     // parse + typed-error mapping the JWS verify path expects.
-    let key_array = arkret_core::decode_ed25519_multibase(multibase)
-        .map_err(|source| JwsVerifyError::MultibaseDecode { source })?;
+    let key_array = arkret_canonical::decode_ed25519_multibase(multibase).map_err(|source| {
+        JwsVerifyError::MultibaseDecode {
+            source: source.into(),
+        }
+    })?;
     VerifyingKey::from_bytes(&key_array).map_err(|e| JwsVerifyError::PublicKeyParse {
         reason: e.to_string(),
     })
@@ -428,7 +432,7 @@ pub fn verify_replay_window_at(
 mod tests {
     use std::collections::BTreeMap;
 
-    use arkret_core::{base64url_decode, base64url_encode};
+    use arkret_canonical::{base64url_decode, base64url_encode};
     use ed25519_dalek::SigningKey;
 
     use super::*;
@@ -471,7 +475,7 @@ mod tests {
     /// and DID Document verificationMethod entries. Pure test helper that
     /// reuses the single `core::multibase` encoder.
     fn encode_ed25519_multibase(verifying_key: &VerifyingKey) -> String {
-        arkret_core::ed25519_pubkey_to_did_key_multibase(verifying_key.as_bytes())
+        arkret_canonical::ed25519_pubkey_to_did_key_multibase(verifying_key.as_bytes())
     }
 
     #[test]
@@ -488,7 +492,7 @@ mod tests {
         // 0xe7 is secp256k1-pub, not ed25519.
         let mut bytes = vec![0xe7u8, 0x01];
         bytes.extend_from_slice(&[0u8; 32]);
-        let mb = arkret_core::encode_multibase_base58btc(bytes);
+        let mb = arkret_canonical::encode_multibase_base58btc(bytes);
         let err = decode_ed25519_multibase(&mb).unwrap_err();
         assert!(matches!(err, JwsVerifyError::MultibaseDecode { .. }));
         assert!(err.to_string().contains("ed25519-pub multicodec"));

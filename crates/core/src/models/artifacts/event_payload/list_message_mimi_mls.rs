@@ -315,7 +315,7 @@ impl MlsWelcomeClaimEnvelope {
     }
 
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
-        canonical::canonical_json_bytes(&self.signing_input())
+        Ok(canonical::canonical_json_bytes(&self.signing_input())?)
     }
 
     pub fn validate_signature_shape(&self) -> std::result::Result<(), &'static str> {

@@ -223,7 +223,8 @@ impl AppletService {
 
 #[cfg(feature = "salvo")]
 mod salvo_router {
-    use arkret_core::{ERROR_CODE_DUPLICATE_CONFLICT, ERROR_CODE_INVALID_SIGNATURE, canonical};
+    use arkret_canonical::canonical;
+    use arkret_core::{ERROR_CODE_DUPLICATE_CONFLICT, ERROR_CODE_INVALID_SIGNATURE};
     use arkret_signatures::http_signature::{
         SignatureVerificationPolicy, parse_signature_input, public_key_from_bytes,
         verify_signed_http_message,
@@ -778,7 +779,7 @@ mod tests {
     }
 
     fn digest_of(bytes: &[u8]) -> Hash {
-        Hash::new(arkret_core::canonical::sha256_digest(bytes)).unwrap()
+        Hash::new(arkret_canonical::canonical::sha256_digest(bytes)).unwrap()
     }
 
     #[test]

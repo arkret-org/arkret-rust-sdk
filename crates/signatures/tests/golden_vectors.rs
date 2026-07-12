@@ -13,7 +13,7 @@
 //!    multiencoding stack.
 //! 4. base64url (`core::base64url`) remains unpadded and URL-safe.
 
-use arkret_core::{base64url_decode, base64url_encode, ed25519_pubkey_to_did_key_multibase};
+use arkret_canonical::{base64url_decode, base64url_encode, ed25519_pubkey_to_did_key_multibase};
 
 /// SDK-canonical detached-JWS protected header, base64url-no-pad.
 const PROTECTED_HEADER_B64URL: &str = "eyJhbGciOiJFZERTQSJ9";
@@ -99,7 +99,10 @@ fn base58btc_did_key_ed25519_golden_vector() {
     let mb = ed25519_pubkey_to_did_key_multibase(&key);
     // Known-answer for the all-0x2A key under the Bitcoin base58 alphabet.
     assert_eq!(mb, "z6MkhHrTbtosB4xyyJM217fS4ry35F7JhZ5oA9uVHErBJDL5");
-    assert_eq!(arkret_core::decode_ed25519_multibase(&mb).unwrap(), key);
+    assert_eq!(
+        arkret_canonical::decode_ed25519_multibase(&mb).unwrap(),
+        key
+    );
 }
 
 #[test]

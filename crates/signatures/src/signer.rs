@@ -27,6 +27,7 @@ use arkret_core::{
     Did, Error, Hash, MoveSigner, Result, UnsignedMove, base64url_decode, base64url_encode,
     canonical,
 };
+use arkret_wire_base::{Error as WireError, Result as WireResult};
 use chrono::Utc;
 use ed25519_dalek::{Signer as _, SigningKey};
 
@@ -74,9 +75,9 @@ impl Ed25519MoveSigner {
 }
 
 impl MoveSigner for Ed25519MoveSigner {
-    fn sign_move(&self, unsigned: &UnsignedMove) -> Result<Move> {
+    fn sign_move(&self, unsigned: &UnsignedMove) -> WireResult<Move> {
         if unsigned.issuer != self.did {
-            return Err(Error::Protocol(format!(
+            return Err(WireError::Protocol(format!(
                 "Move issuer {} does not match Ed25519MoveSigner DID {}",
                 unsigned.issuer, self.did
             )));
@@ -105,7 +106,7 @@ impl MoveSigner for Ed25519MoveSigner {
         &self.kid
     }
 
-    fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<MoveSignature> {
+    fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<MoveSignature> {
         // Detached JWS over canonical bytes: SDK-canonical header
         // `{"alg":"EdDSA"}` (no `typ`, matching spec §6 / soland / cotest /
         // teabay), then base64url-no-pad(header) + "." + "" (detached
@@ -120,7 +121,7 @@ impl MoveSigner for Ed25519MoveSigner {
         let jws = format!("{header_b64}..{sig_b64}");
 
         let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))
-            .map_err(|err| Error::Protocol(format!("invalid canonical hash: {err}")))?;
+            .map_err(|err| WireError::Protocol(format!("invalid canonical hash: {err}")))?;
 
         Ok(MoveSignature {
             alg: "EdDSA".to_owned(),

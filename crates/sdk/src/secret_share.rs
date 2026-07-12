@@ -18,7 +18,7 @@
 //! on the wire in cleartext. See hpke-suite-registry.json for the suite
 //! vocabulary.
 
-use arkret_core::base64url::{base64url_decode, base64url_encode};
+use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use hpke::aead::ChaCha20Poly1305;
 use hpke::kdf::HkdfSha256;
 use hpke::kem::X25519HkdfSha256;

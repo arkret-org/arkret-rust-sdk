@@ -8,13 +8,27 @@ pub mod account_subscribe;
 pub mod admin_signer;
 pub mod agent;
 pub mod applet;
-pub mod authz;
-pub mod base64url;
-pub mod binding_contexts;
-pub mod blind_payload_sanitizer;
-pub mod bottom;
-pub mod canonical;
-pub mod cell;
+pub mod authz {
+    pub use arkret_policy::authz::*;
+}
+pub mod base64url {
+    pub use arkret_canonical::base64url::*;
+}
+pub mod binding_contexts {
+    pub use arkret_canonical::binding_contexts::*;
+}
+pub mod blind_payload_sanitizer {
+    pub use arkret_wire_edge::blind_payload_sanitizer::*;
+}
+pub mod bottom {
+    pub use arkret_wire_base::bottom::*;
+}
+pub mod canonical {
+    pub use arkret_canonical::canonical::*;
+}
+pub mod cell {
+    pub use arkret_wire_base::cell::*;
+}
 pub mod cursor;
 pub mod error;
 pub mod events;
@@ -24,29 +38,59 @@ pub mod http;
 pub mod identity;
 pub mod identity_key_log;
 mod inbound;
-pub mod integration;
+pub mod integration {
+    pub use arkret_wire_edge::integration::*;
+}
 pub mod key_transparency;
 pub mod keystore;
-pub mod lattice;
+pub mod lattice {
+    pub use arkret_state::lattice::*;
+}
 pub mod models;
-pub mod move_event;
-pub mod multibase;
-pub mod notary;
+pub mod move_event {
+    pub use arkret_wire_base::move_event::*;
+}
+pub mod multibase {
+    pub use arkret_canonical::multibase::*;
+}
+pub mod notary {
+    pub use arkret_wire_base::notary::*;
+}
 pub mod operations;
-pub mod ops;
+pub mod ops {
+    pub use arkret_wire_edge::ops::*;
+}
 pub mod platform;
 pub mod presence;
-pub mod profile_claim;
-pub mod profile_feature_guard;
-pub mod profile_semantics;
-pub mod push;
-pub mod push_rule_core;
-pub mod schema;
+pub mod profile_claim {
+    pub use arkret_policy::profile_claim::*;
+}
+pub mod profile_feature_guard {
+    pub use arkret_policy::profile_feature_guard::*;
+}
+pub mod profile_semantics {
+    pub use arkret_policy::profile_semantics::*;
+}
+pub mod push {
+    pub use arkret_wire_edge::push::*;
+}
+pub mod push_rule_core {
+    pub use arkret_wire_edge::push_rule_core::*;
+}
+pub mod schema {
+    pub use arkret_schema::*;
+}
 pub mod sdk_conformance;
-pub mod seal;
-pub mod serde_helpers;
+pub mod seal {
+    pub use arkret_wire_base::seal::*;
+}
+pub mod serde_helpers {
+    pub use arkret_canonical::serde_helpers::*;
+}
 pub mod service;
-pub mod signer;
+pub mod signer {
+    pub use arkret_wire_base::signer::*;
+}
 pub mod stream_trace;
 pub mod sync;
 
@@ -61,6 +105,7 @@ pub use agent::{
 };
 pub use applet::*;
 pub use arkret_identifiers as identifiers;
+pub use arkret_wire_base::{EvaluationClass, ServiceType};
 pub use authz::*;
 pub use base64url::{
     base64_standard_decode, base64_standard_encode, base64url_decode, base64url_encode,
@@ -139,8 +184,7 @@ pub use seal::{
 pub use service::{
     ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
     RateLimitMetadata, RateLimitScopeKind, ServiceEndpointBinding, ServiceIdAllowlist,
-    ServiceRequirements, ServiceType, privacy_preserving_not_found, quota_exceeded_error,
-    rate_limited_error,
+    ServiceRequirements, privacy_preserving_not_found, quota_exceeded_error, rate_limited_error,
 };
 pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
 pub use stream_trace::{
@@ -156,6 +200,10 @@ pub use sync::{
     SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage,
     WaitForFrontier, sync_filter_digest,
 };
+
+#[cfg(test)]
+#[path = "schema/tests.rs"]
+mod schema_compat_tests;
 // `SyncOutcome` is the wire-shape projection in [`models::api`]; the typed
 // per-event helpers above (SyncRealm, ToDeviceMessage, AccountData,
 // NotificationDelta, PresenceEvent, DeviceListChanges, UnreadCounts,

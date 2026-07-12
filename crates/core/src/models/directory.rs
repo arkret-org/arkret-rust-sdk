@@ -891,17 +891,6 @@ pub struct DirectoryPushRegisterOutcome {
     pub effective_at: DateTime<Utc>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum DirectoryResourceKind {
-    Realm,
-    Organization,
-    Actor,
-    Applet,
-    Handle,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryAnnounceRequestBody {

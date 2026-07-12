@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use arkret_core::base64url::base64url_decode;
-use arkret_core::canonical::canonical_json_bytes;
+use arkret_canonical::base64url::base64url_decode;
+use arkret_canonical::canonical::canonical_json_bytes;
 use arkret_core::error::{
     REASON_PARTICIPANT_BINDING_INVALID, REASON_TOKEN_ISSUER_UNAUTHORISED, REASON_UNKNOWN_FOCUS_TYPE,
 };
@@ -1131,7 +1131,7 @@ mod tests {
     /// signatures cover the (possibly tampered) authoritative fields.
     fn sign_outcome(outcome: &mut CallMediaTokenExchangeOutcome, key: &SigningKey) {
         let input = participant_binding_signing_input(&outcome.participant_binding).unwrap();
-        let sig = arkret_core::base64url::base64url_encode(key.sign(&input).to_bytes());
+        let sig = arkret_canonical::base64url::base64url_encode(key.sign(&input).to_bytes());
         outcome.participant_binding.sig = sig.clone();
         outcome.service_signature.sig = sig;
     }

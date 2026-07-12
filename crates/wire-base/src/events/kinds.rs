@@ -815,7 +815,7 @@ pub use crate::generated::event_kinds::{EVENT_KIND_COUNT, EventKind};
 // Hand-written OpenAPI schema: `EventKind` serialises as the bare wire
 // string, so expose it as a string schema carrying the registry kind
 // pattern rather than a derive-from-variants object.
-#[cfg(feature = "salvo")]
+#[cfg(feature = "salvo-oapi")]
 impl salvo::oapi::ToSchema for EventKind {
     fn to_schema(
         _components: &mut salvo::oapi::Components,
@@ -827,7 +827,7 @@ impl salvo::oapi::ToSchema for EventKind {
     }
 }
 
-#[cfg(feature = "salvo")]
+#[cfg(feature = "salvo-oapi")]
 impl salvo::oapi::ComposeSchema for EventKind {
     fn compose(
         components: &mut salvo::oapi::Components,

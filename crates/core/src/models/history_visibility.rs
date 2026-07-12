@@ -1,26 +1,9 @@
 use std::collections::BTreeSet;
 use std::fmt;
-use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
 use super::{HistorySharingPolicyPayloadValue, HistorySharingRestrictedRule, HistoryVisibility};
-
-impl HistoryVisibility {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::WorldReadable => "world_readable",
-            Self::Shared => "shared",
-            Self::Invited => "invited",
-            Self::Joined => "joined",
-            Self::Restricted => "restricted",
-        }
-    }
-
-    pub fn admits_pre_join_history(&self) -> bool {
-        matches!(self, Self::WorldReadable | Self::Shared | Self::Invited)
-    }
-}
 
 pub fn content_scheme_is_history_capable(content_scheme: Option<&str>) -> bool {
     matches!(content_scheme.map(str::trim), Some("mls-exporter-aead-v1"))
@@ -47,32 +30,6 @@ pub fn validate_history_visibility_content_scheme_values(
         .map_err(|_| "unknown history_visibility value")?;
     validate_history_visibility_content_scheme(history_visibility, content_scheme)
 }
-
-impl FromStr for HistoryVisibility {
-    type Err = HistoryVisibilityParseError;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "world_readable" => Ok(Self::WorldReadable),
-            "shared" => Ok(Self::Shared),
-            "invited" => Ok(Self::Invited),
-            "joined" => Ok(Self::Joined),
-            "restricted" => Ok(Self::Restricted),
-            _ => Err(HistoryVisibilityParseError),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct HistoryVisibilityParseError;
-
-impl fmt::Display for HistoryVisibilityParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("unknown history_visibility value")
-    }
-}
-
-impl std::error::Error for HistoryVisibilityParseError {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

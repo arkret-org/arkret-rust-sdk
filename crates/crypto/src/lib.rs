@@ -426,7 +426,7 @@ mod tests {
             issued_at: Utc::now(),
         };
         let base = content.reset_signing_input().unwrap();
-        assert!(base.starts_with(arkret_core::binding_contexts::CROSS_SIGNING_RESET_PREFIX));
+        assert!(base.starts_with(arkret_canonical::binding_contexts::CROSS_SIGNING_RESET_PREFIX));
         // Deterministic.
         assert_eq!(base, content.reset_signing_input().unwrap());
         // Generation transition is bound.

@@ -883,9 +883,10 @@ impl AuthManager {
             "principal_id": principal_id.as_str(),
             "device_id": device_id.as_str(),
         });
-        let request_canonical_digest = crate::Hash::new(arkret_core::canonical::sha256_digest(
-            &arkret_core::canonical::canonical_json_bytes(&request_binding)?,
-        ))?;
+        let request_canonical_digest =
+            crate::Hash::new(arkret_canonical::canonical::sha256_digest(
+                &arkret_canonical::canonical::canonical_json_bytes(&request_binding)?,
+            ))?;
 
         // `ak.did.proof` structured canonical-JSON signing payload per
         // `identity-did.md` §5.1 (device_id is signed-over for
@@ -898,10 +899,10 @@ impl AuthManager {
             "audience": audience,
             "challenge": challenge,
             "request_canonical_digest": request_canonical_digest.as_str(),
-            "issued_at": arkret_core::canonical::format_timestamp_canonical(issued_at),
-            "expires_at": arkret_core::canonical::format_timestamp_canonical(expires_at),
+            "issued_at": arkret_canonical::canonical::format_timestamp_canonical(issued_at),
+            "expires_at": arkret_canonical::canonical::format_timestamp_canonical(expires_at),
         });
-        let payload_bytes = arkret_core::canonical::canonical_json_bytes(&signing_payload)?;
+        let payload_bytes = arkret_canonical::canonical::canonical_json_bytes(&signing_payload)?;
         let move_sig = signer.sign_payload(&payload_bytes)?;
 
         client

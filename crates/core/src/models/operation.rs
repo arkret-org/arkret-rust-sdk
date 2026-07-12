@@ -46,7 +46,7 @@ impl Operation {
     }
 
     pub fn operation_digest(&self) -> Result<String> {
-        canonical::canonical_sha256(self)
+        Ok(canonical::canonical_sha256(self)?)
     }
 
     /// Canonical acting-principal accessor for operation payloads.
@@ -121,7 +121,7 @@ impl OperationEnvelope {
     }
 
     pub fn operation_digest(&self) -> Result<String> {
-        canonical::canonical_sha256(&self.digest_payload()?)
+        Ok(canonical::canonical_sha256(&self.digest_payload()?)?)
     }
 
     pub fn validate_for_submit(&self) -> Result<()> {
@@ -1340,7 +1340,7 @@ pub struct ReadCursor {
 impl ReadCursor {
     /// Deserialize an inbound read cursor after canonical JSON ingress checks.
     pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
-        canonical::from_canonical_json_slice(bytes)
+        Ok(canonical::from_canonical_json_slice(bytes)?)
     }
 }
 
@@ -1401,7 +1401,7 @@ pub struct ReadReceipt {
 impl ReadReceipt {
     /// Deserialize an inbound read receipt after canonical JSON ingress checks.
     pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
-        canonical::from_canonical_json_slice(bytes)
+        Ok(canonical::from_canonical_json_slice(bytes)?)
     }
 }
 

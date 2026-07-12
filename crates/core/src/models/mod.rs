@@ -11,12 +11,13 @@ pub use arkret_identifiers::{
     SpaceId, StrandId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId,
     new_prefixed_uuid7,
 };
+pub use arkret_wire_base::{EvaluationClass, ServiceType};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::Sha256;
 
-use crate::{BottomKind, CellRef, Error, Result, SealId, canonical};
+use crate::{Error, Result, SealId, canonical};
 
 mod account;
 mod actor_profile;
@@ -24,13 +25,16 @@ mod admin;
 mod agent;
 mod agent_participation;
 mod applet;
+mod applet_install_plan;
 mod artifacts;
 mod attestation;
 mod authorization;
 mod blob;
 mod circle;
 mod conformance;
-mod constants;
+mod constants {
+    pub use arkret_wire_base::constants::*;
+}
 mod cross_signing;
 mod delivery_binding;
 mod device_verification;
@@ -60,18 +64,26 @@ mod mls_payloads;
 mod moderation;
 mod moderation_appeal;
 mod moderation_queue;
-mod object_address;
+mod object_address {
+    pub use arkret_wire_base::object_address::*;
+}
 mod object_lifecycle;
 mod operation;
 mod operation_payloads;
 mod patch;
 mod peer_contact;
 mod policy_check;
-mod primitives;
-mod problem_details;
+mod primitives {
+    pub use arkret_wire_base::primitives::*;
+}
+mod problem_details {
+    pub use arkret_wire_base::problem_details::*;
+}
 mod productivity;
 mod profiles;
-mod push;
+mod push {
+    pub use arkret_wire_edge::models_push::*;
+}
 mod queries;
 mod query_projection;
 mod realm;
@@ -80,7 +92,9 @@ mod realm_governance;
 mod registry;
 mod relation;
 mod runtime_identity;
-mod service_description;
+mod service_description {
+    pub use arkret_wire_edge::service_description::*;
+}
 mod space;
 mod strand;
 mod sync;
@@ -98,6 +112,11 @@ pub use admin::*;
 pub use agent::*;
 pub use agent_participation::*;
 pub use applet::*;
+pub use applet_install_plan::*;
+pub use arkret_wire_edge::{
+    AccessKind, AuditPolicyAccessPayload, InviteReceiveAction, PlaintextDataClassKind,
+    ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
+};
 pub use artifacts::*;
 pub use attestation::*;
 pub use authorization::*;
@@ -158,6 +177,12 @@ pub use service_description::*;
 pub use space::*;
 pub use strand::*;
 pub use sync::*;
+
+pub type EventSubmitEnvelope = Event;
+pub type FacetName = Facet;
+pub type ObjectRef = String;
+pub type BooleanFilter = Filter;
+pub type QueryFilter = Filter;
 pub use third_party_invite::*;
 
 fn is_false(value: &bool) -> bool {

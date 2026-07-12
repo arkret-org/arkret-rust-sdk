@@ -70,6 +70,7 @@ pub struct Realm {
     /// discriminator must match the genesis `notary` cell value.
     pub notary_profile: NotaryProfile,
     #[serde(default)]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = String)))]
     pub digest_algorithm: canonical::DigestSuite,
     /// Initial notary cell value (data-structures.md §4). Reducers seed the
     /// authoritative notary cell from this genesis value at Realm creation.

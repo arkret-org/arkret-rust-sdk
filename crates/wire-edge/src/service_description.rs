@@ -1,5 +1,26 @@
 use super::*;
-use crate::http::SessionGrantProofKind;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum SessionGrantProofKind {
+    DidBoundSignature,
+    PairedDeviceProof,
+    PasskeyAssertion,
+    OidcCodeExchange,
+    AgentKeyProof,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DirectoryResourceKind {
+    Realm,
+    Organization,
+    Actor,
+    Applet,
+    Handle,
+}
 
 /// Round 4 (2026-05-20, spec a77b995) — `ServiceDescribe` v2 has 17
 /// REQUIRED top-level fields plus a discriminated `rate_limit`. The
@@ -15,7 +36,7 @@ use crate::http::SessionGrantProofKind;
 /// `verified_profiles`, `experimental_features`, `compat_surfaces`,
 /// `development_mode`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ServerDescription {
     pub service_id: Did,
     /// Round 4 — REQUIRED trust domain. Receivers MUST refuse to
@@ -168,14 +189,14 @@ impl ServerDescription {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: development_mode=true forbids non-empty verified_profiles \
                  ({})",
-                crate::ERROR_CODE_SCHEMA_VIOLATION
+                ERROR_CODE_SCHEMA_VIOLATION
             )));
         }
         if self.rate_limit_policy.is_none() && self.rate_limit_policy_id.is_none() {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: one of rate_limit_policy or rate_limit_policy_id is required \
                  ({})",
-                crate::ERROR_CODE_SCHEMA_VIOLATION
+                ERROR_CODE_SCHEMA_VIOLATION
             )));
         }
         if self.service_type == "directory_service" {
@@ -187,7 +208,7 @@ impl ServerDescription {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: service_type=directory_service requires \
                      supported_profiles to include ak.profile.directory_service.v1 ({})",
-                    crate::ERROR_CODE_SCHEMA_VIOLATION
+                    ERROR_CODE_SCHEMA_VIOLATION
                 )));
             }
             if self.resource_types.is_empty()
@@ -204,7 +225,7 @@ impl ServerDescription {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: service_type=directory_service requires the directory \
                      describe overlay fields ({})",
-                    crate::ERROR_CODE_SCHEMA_VIOLATION
+                    ERROR_CODE_SCHEMA_VIOLATION
                 )));
             }
             let default_ttl = self.default_ttl_seconds.unwrap_or_default();
@@ -213,7 +234,7 @@ impl ServerDescription {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: directory TTL fields must satisfy \
                      default_ttl_seconds <= max_ttl_seconds <= 2592000 ({})",
-                    crate::ERROR_CODE_SCHEMA_VIOLATION
+                    ERROR_CODE_SCHEMA_VIOLATION
                 )));
             }
             if self
@@ -224,7 +245,7 @@ impl ServerDescription {
                 return Err(Error::Protocol(format!(
                     "ServiceDescribe: directory accepted_did_methods entries must match \
                      did:<method> with lowercase alphanumeric method names ({})",
-                    crate::ERROR_CODE_SCHEMA_VIOLATION
+                    ERROR_CODE_SCHEMA_VIOLATION
                 )));
             }
         }
@@ -353,7 +374,7 @@ mod tests {
 /// payloads still deserialize; the `extra` flatten captures `x_*` and any
 /// future unknown keys (`additionalProperties: true`) without data loss.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AuthMetadata {
     pub mode: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -366,7 +387,7 @@ pub struct AuthMetadata {
     pub read: Option<String>,
     /// Captures `x_*` and any other `additionalProperties: true` keys so the
     /// SDK round-trips future / vendor-specific fields without dropping them.
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -390,7 +411,7 @@ impl AuthMetadata {
 /// the client-visible Account Authority origin and the gate/account base URL
 /// from which all `/_arkret/gate/account/*` endpoints are derived.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AccountAuthority {
     pub origin: String,
     pub gate_account_base: String,
@@ -400,7 +421,7 @@ pub struct AccountAuthority {
 /// single proof provider, its discovery metadata and the proof kind accepted
 /// by the Account Authority.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AuthMethod {
     pub method: AuthMethodKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -419,7 +440,7 @@ pub struct AuthMethod {
 /// `method` discriminant for [`AuthMethod`]. Mirrors the closed enum in
 /// `service-describe.schema.json#/$defs/auth_method/properties/method`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AuthMethodKind {
     Oidc,
@@ -433,7 +454,7 @@ pub enum AuthMethodKind {
 /// `proof_kind` reuses the authoritative [`SessionGrantProofKind`] enum so
 /// the describe surface and the session-grant request surface stay in lockstep.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AuthGrantExchange {
     pub proof_kind: SessionGrantProofKind,
 }
@@ -442,14 +463,9 @@ pub type ActorDid = Did;
 pub type ServiceId = Did;
 pub type AccountId = String;
 pub type ServiceDescribe = ServerDescription;
-pub type EventSubmitEnvelope = Event;
-pub type FacetName = Facet;
-pub type ObjectRef = String;
-pub type BooleanFilter = Filter;
-pub type QueryFilter = Filter;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BottomDiagnosticSealView {
     pub leaves: Vec<SealId>,
@@ -458,7 +474,7 @@ pub struct BottomDiagnosticSealView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BottomDiagnostic {
     pub kind: BottomKind,
@@ -470,47 +486,13 @@ pub struct BottomDiagnostic {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub heads: Vec<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub details: Option<crate::BottomDetails>,
+    pub details: Option<BottomDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub escalated_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(untagged)]
-pub enum AppletInstallAppletId {
-    Did(Did),
-    AppletId(AppletId),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct AppletInstallPlan {
-    pub schema: String,
-    pub plan_id: String,
-    pub applet_id: AppletInstallAppletId,
-    pub package_digest: Hash,
-    pub registration_epoch: Hash,
-    pub effective_scope: EffectiveScope,
-    pub requested_scopes: Vec<String>,
-    pub approved_scopes: Vec<ScopeGrant>,
-    pub denied_scopes: Vec<DeniedScope>,
-    pub events_to_submit: Vec<EventSubmission>,
-    pub capability_constraints: Vec<CapabilityConstraint>,
-    pub namespace_conflicts: Vec<NamespaceConflict>,
-    pub e2ee_effect: E2eeEffect,
-    pub widget_effect: WidgetEffect,
-    pub warnings: Vec<String>,
-    pub plan_digest: Hash,
-}
-
-impl AppletInstallPlan {
-    pub const SCHEMA: &'static str = "ak.schema.applet_install_plan.v1";
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EgressNetworkPolicy {
     pub version: u32,
     pub private_network_default: EgressPrivateNetworkDefault,
@@ -543,7 +525,7 @@ impl EgressNetworkPolicy {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum EgressPrivateNetworkDefault {
     Deny,
@@ -551,7 +533,7 @@ pub enum EgressPrivateNetworkDefault {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum EgressProtectedPurpose {
     DidResolution,
@@ -582,7 +564,7 @@ impl EgressProtectedPurpose {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct EgressPrivateException {
     pub purpose: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -599,7 +581,7 @@ pub struct EgressPrivateException {
 
 /// Ingest mode vocabulary for the directory-service describe overlay.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DirectoryIngestMode {
     Push,
@@ -608,7 +590,7 @@ pub enum DirectoryIngestMode {
 
 /// Acceptance policy vocabulary for the directory-service describe overlay.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DirectoryAcceptPolicyKind {
     Open,
@@ -624,7 +606,7 @@ pub enum DirectoryAcceptPolicyKind {
 /// is optional + open (`additionalProperties: true`) so receivers can
 /// round-trip future fields without losing them.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ClaimedProfileEntry {
     pub profile_id: String,
     pub claim_kind: SelfClaimedKind,
@@ -632,7 +614,7 @@ pub struct ClaimedProfileEntry {
     pub claimed_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -654,7 +636,7 @@ impl ClaimedProfileEntry {
 /// `self_claimed`; verified-by-cotest claims belong in
 /// [`VerifiedProfileEntry`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SelfClaimedKind {
     SelfClaimed,
@@ -667,7 +649,7 @@ pub enum SelfClaimedKind {
 /// verifier DID, issuer signature, and timestamp so consumers can pin the
 /// claim to an auditable run.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct VerifiedProfileEntry {
     pub profile_id: String,
     pub claim_kind: ConformanceVerifiedKind,
@@ -679,7 +661,7 @@ pub struct VerifiedProfileEntry {
     pub timestamp: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -688,7 +670,7 @@ pub struct VerifiedProfileEntry {
 /// Verifier neutralization (2026-06-10) renamed `cotest_verified` →
 /// `conformance_verified`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ConformanceVerifiedKind {
     ConformanceVerified,
@@ -700,7 +682,7 @@ pub enum ConformanceVerifiedKind {
 /// `name` + `kind` are required and `kind` is restricted to a closed
 /// enum so receivers can fast-path the dispatch.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct CompatSurfaceEntry {
     pub name: String,
     pub kind: CompatSurfaceKind,
@@ -708,7 +690,7 @@ pub struct CompatSurfaceEntry {
     pub since: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -758,7 +740,7 @@ impl CompatSurfaceEntry {
 
 /// Round 4 — closed enum of compat-surface kinds the spec recognises.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CompatSurfaceKind {
     MatrixPassthrough,
@@ -772,12 +754,12 @@ pub enum CompatSurfaceKind {
 /// `additionalProperties: true` so the `extra` flatten round-trips any
 /// transport-specific keys without loss.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SupportedBinding {
     pub kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -809,7 +791,7 @@ impl SupportedBinding {
 /// (`PlaintextVisibility::default()`) means the service claims no plaintext
 /// classes.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PlaintextVisibility {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub data_classes: Vec<PlaintextDataClassKind>,
@@ -826,7 +808,7 @@ pub struct PlaintextVisibility {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
     /// `x_*` extension keys (`additionalProperties: false` otherwise).
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -842,7 +824,7 @@ impl PlaintextVisibility {
 /// closed enum in
 /// `service-describe.schema.json#/properties/plaintext_visibility/properties/max_visibility`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PlaintextMaxVisibility {
     None,
@@ -854,7 +836,7 @@ pub enum PlaintextMaxVisibility {
 /// `service-describe.schema.json#/properties/rate_limit_policy`
 /// (`additionalProperties: true`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RateLimitPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub policy_version: Option<String>,
@@ -866,7 +848,7 @@ pub struct RateLimitPolicy {
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache_ttl_seconds: Option<u32>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -902,7 +884,7 @@ impl RateLimitPolicy {
 /// `additionalProperties: true` entry object; every documented field is
 /// optional and the `extra` flatten preserves the rest.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct RateLimitEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<String>,
@@ -928,14 +910,14 @@ pub struct RateLimitEntry {
     pub backoff_hint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_retry_at: Option<DateTime<Utc>>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
 
 /// `rate_limit_scope` is `string | string[]` in the schema.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum RateLimitScope {
     Single(String),

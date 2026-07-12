@@ -214,7 +214,7 @@ impl StateSnapshot {
     }
 
     pub fn compute_state_digest(&self) -> Result<String> {
-        canonical_sha256(&self.state_payload())
+        Ok(canonical_sha256(&self.state_payload())?)
     }
 
     pub fn state_merkle_root(&self) -> Result<String> {
@@ -222,7 +222,7 @@ impl StateSnapshot {
     }
 
     pub fn canonical_snapshot_bytes(&self) -> Result<Vec<u8>> {
-        canonical_json_bytes(&self.state_payload())
+        Ok(canonical_json_bytes(&self.state_payload())?)
     }
 
     pub fn chunk_manifest(&self, chunk_size: usize) -> Result<Vec<SnapshotChunkManifest>> {
@@ -436,6 +436,7 @@ pub fn state_merkle_root(payload: &Value) -> Result<String> {
                 "key": key,
                 "value": value,
             }))
+            .map_err(Into::into)
         })
         .collect::<Result<Vec<_>>>()?;
     merkle_root(leaves)

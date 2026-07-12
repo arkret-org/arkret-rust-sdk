@@ -7,7 +7,7 @@
 //! production keys in without re-implementing canonical bytes / id / payload
 //! hash plumbing.
 //!
-//! The trait deliberately stays in `arkret-core` (no crypto deps): an
+//! The trait deliberately stays in the wire owner crate (with no crypto deps): an
 //! Ed25519 implementation lives in `arkret-signatures` behind the `signer`
 //! feature, and other backends (HSM, threshold scheme) can layer on the
 //! same trait.

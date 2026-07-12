@@ -485,7 +485,7 @@ fn random_seed<R: RngCore + ?Sized>(rng: &mut R) -> [u8; SECRET_KEY_LENGTH] {
 }
 
 fn canonical_bytes(value: &Value) -> Result<Vec<u8>, WebvhInceptionError> {
-    arkret_core::canonical::canonical_json_bytes(value)
+    arkret_canonical::canonical::canonical_json_bytes(value)
         .map_err(|err| WebvhInceptionError::Canonical(err.to_string()))
 }
 
@@ -652,7 +652,7 @@ fn verify_webvh_log_proof(entry: &Value) -> Result<(), String> {
         map.remove("proof");
     }
     let payload =
-        arkret_core::canonical::canonical_json_bytes(&canonical).map_err(|e| e.to_string())?;
+        arkret_canonical::canonical::canonical_json_bytes(&canonical).map_err(|e| e.to_string())?;
     public_key
         .verify_strict(&payload, &signature)
         .map_err(|_| "webvh log proof signature is invalid".to_owned())
@@ -700,7 +700,7 @@ fn substitute_scid(value: &Value, scid: &str) -> Value {
 /// hashes are 46-char `Qm…` strings; multibase `z` applies to keys/signatures
 /// only).
 fn sha256_multihash_base58btc(bytes: &[u8]) -> String {
-    let digest = arkret_core::canonical::sha256_bytes(bytes);
+    let digest = arkret_canonical::canonical::sha256_bytes(bytes);
     let mut multihash = Vec::with_capacity(34);
     multihash.push(0x12);
     multihash.push(0x20);
@@ -819,8 +819,8 @@ mod tests {
         if let Value::Object(map) = &mut canonical {
             map.remove("proof");
         }
-        let payload =
-            arkret_core::canonical::canonical_json_bytes(&canonical).map_err(|e| e.to_string())?;
+        let payload = arkret_canonical::canonical::canonical_json_bytes(&canonical)
+            .map_err(|e| e.to_string())?;
         public_key
             .verify_strict(&payload, &signature)
             .map_err(|_| "signature invalid".to_owned())

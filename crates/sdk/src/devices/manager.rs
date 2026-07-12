@@ -812,5 +812,5 @@ pub fn device_verification_commitment(
         "challenge": challenge,
         "created_at": created_at,
     });
-    canonical::canonical_sha256(&payload)
+    Ok(canonical::canonical_sha256(&payload)?)
 }

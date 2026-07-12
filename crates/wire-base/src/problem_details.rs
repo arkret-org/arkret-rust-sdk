@@ -1,4 +1,9 @@
-use super::*;
+use std::collections::BTreeMap;
+use std::fmt;
+use std::result::Result as StdResult;
+
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 pub const AGENT_HUMAN_APPROVAL_REASON_CODE: &str = "human_approval_required";
 
@@ -8,7 +13,7 @@ pub const AGENT_HUMAN_APPROVAL_REASON_CODE: &str = "human_approval_required";
 /// The fields are private so callers cannot construct a value with a different
 /// reason code or an empty approval request id.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct AgentHumanApprovalErrorDetails {
     reason_code: &'static str,
     approval_request_id: String,
@@ -17,7 +22,7 @@ pub struct AgentHumanApprovalErrorDetails {
 impl AgentHumanApprovalErrorDetails {
     pub fn new(
         approval_request_id: impl Into<String>,
-    ) -> std::result::Result<Self, AgentHumanApprovalErrorDetailsError> {
+    ) -> StdResult<Self, AgentHumanApprovalErrorDetailsError> {
         let approval_request_id = approval_request_id.into();
         if approval_request_id.trim().is_empty() {
             return Err(AgentHumanApprovalErrorDetailsError::EmptyApprovalRequestId);
@@ -60,7 +65,7 @@ impl AgentHumanApprovalErrorDetails {
 }
 
 impl<'de> Deserialize<'de> for AgentHumanApprovalErrorDetails {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -94,13 +99,13 @@ pub enum AgentHumanApprovalErrorDetailsError {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ErrorDetail {
     pub code: String,
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub details: BTreeMap<String, Value>,
 }
@@ -108,9 +113,9 @@ pub struct ErrorDetail {
 impl ErrorDetail {
     /// Typed registry view of the wire `code` string. `None` when the code is
     /// not (or not yet) in the SDK's error-code registry, so callers can
-    /// `match` on [`crate::error::ErrorCode`] instead of comparing strings.
-    pub fn error_code(&self) -> Option<crate::error::ErrorCode> {
-        crate::error::ErrorCode::from_wire(&self.code)
+    /// `match` on [`crate::error_codes::ErrorCode`] instead of comparing strings.
+    pub fn error_code(&self) -> Option<crate::error_codes::ErrorCode> {
+        crate::error_codes::ErrorCode::from_wire(&self.code)
     }
 
     /// Construct the only typed `claim_required` detail shape currently
@@ -120,7 +125,7 @@ impl ErrorDetail {
         details: AgentHumanApprovalErrorDetails,
     ) -> Self {
         Self {
-            code: crate::error::ERROR_CODE_CLAIM_REQUIRED.to_owned(),
+            code: crate::error_codes::ERROR_CODE_CLAIM_REQUIRED.to_owned(),
             message: message.into(),
             retry_after_ms: None,
             details: details.into_wire_details(),
@@ -132,11 +137,9 @@ impl ErrorDetail {
     /// their open details map.
     pub fn agent_human_approval_details(
         &self,
-    ) -> std::result::Result<
-        Option<AgentHumanApprovalErrorDetails>,
-        AgentHumanApprovalErrorDetailsError,
-    > {
-        if self.code != crate::error::ERROR_CODE_CLAIM_REQUIRED {
+    ) -> StdResult<Option<AgentHumanApprovalErrorDetails>, AgentHumanApprovalErrorDetailsError>
+    {
+        if self.code != crate::error_codes::ERROR_CODE_CLAIM_REQUIRED {
             return Ok(None);
         }
         let value = Value::Object(self.details.clone().into_iter().collect());
@@ -147,7 +150,7 @@ impl ErrorDetail {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ErrorEnvelope {
     pub ok: bool,
     pub error: ErrorDetail,
@@ -155,7 +158,7 @@ pub struct ErrorEnvelope {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Problem {
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub problem_type: Option<String>,
@@ -167,7 +170,7 @@ pub struct Problem {
     pub detail: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instance: Option<String>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -230,10 +233,8 @@ impl ErrorEnvelope {
 
     pub fn agent_human_approval_details(
         &self,
-    ) -> std::result::Result<
-        Option<AgentHumanApprovalErrorDetails>,
-        AgentHumanApprovalErrorDetailsError,
-    > {
+    ) -> StdResult<Option<AgentHumanApprovalErrorDetails>, AgentHumanApprovalErrorDetailsError>
+    {
         self.error.agent_human_approval_details()
     }
 }
@@ -246,6 +247,8 @@ impl fmt::Display for ErrorEnvelope {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
 
     #[test]
@@ -256,7 +259,10 @@ mod tests {
             details.clone(),
         );
 
-        assert_eq!(envelope.code(), crate::error::ERROR_CODE_CLAIM_REQUIRED);
+        assert_eq!(
+            envelope.code(),
+            crate::error_codes::ERROR_CODE_CLAIM_REQUIRED
+        );
         assert_eq!(
             envelope.agent_human_approval_details().unwrap(),
             Some(details)

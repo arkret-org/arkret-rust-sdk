@@ -239,7 +239,7 @@ pub(crate) fn decode_base58btc(input: &str) -> Option<Vec<u8>> {
 /// SCID / entry-hash derivation, which wraps a SHA-256 multihash in
 /// base58btc. Delegates to the single `core::multibase` encoder.
 pub(crate) fn encode_base58btc(bytes: &[u8]) -> String {
-    arkret_core::encode_base58btc(bytes)
+    arkret_canonical::encode_base58btc(bytes)
 }
 
 /// Wrap a SHA-256 digest of `canonical_bytes` in a multihash envelope
@@ -258,7 +258,7 @@ pub(crate) fn webvh_multihash_base58(canonical_bytes: &[u8]) -> String {
 
 pub(super) fn is_supported_did_key_multicodec(bytes: &[u8]) -> bool {
     // multicodec varint parsing reuses the single `core::multibase` helper.
-    let Some((code, offset)) = arkret_core::decode_multicodec_varint(bytes) else {
+    let Some((code, offset)) = arkret_canonical::decode_multicodec_varint(bytes) else {
         return false;
     };
     let key = &bytes[offset..];

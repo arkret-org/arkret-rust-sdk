@@ -28,7 +28,8 @@
 //! (`crates/signatures/src/proof.rs`), which rebuilds the same binding
 //! object via [`arkret_core::Proof::canonical_binding_bytes`].
 
-use arkret_core::{Audience, Error, Event, Hash, MoveSigner, Proof, Result, canonical, proof_kind};
+use arkret_canonical::canonical;
+use arkret_core::{Audience, Error, Event, Hash, MoveSigner, Proof, Result, proof_kind};
 use chrono::{DateTime, Utc};
 
 /// Options threaded into [`sign_event`].
@@ -151,8 +152,9 @@ mod tests {
     use arkret_core::move_event::Move;
     use arkret_core::{
         Audience, Did, Event, EventId, EventRequirements, Hash, Hlc, MoveSignature, MoveSigner,
-        RealmId, Result, UnsignedMove, canonical,
+        RealmId, UnsignedMove, canonical,
     };
+    use arkret_wire_base::Result as WireResult;
     use chrono::{TimeZone, Utc};
     use serde_json::json;
 
@@ -223,7 +225,7 @@ mod tests {
     }
 
     impl MoveSigner for StubMoveSigner {
-        fn sign_move(&self, _unsigned: &UnsignedMove) -> Result<Move> {
+        fn sign_move(&self, _unsigned: &UnsignedMove) -> WireResult<Move> {
             unreachable!("sign_event helper only calls sign_payload");
         }
 
@@ -235,7 +237,7 @@ mod tests {
             &self.kid
         }
 
-        fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<MoveSignature> {
+        fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<MoveSignature> {
             let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))?;
             // Deterministic "signature" — sufficient for transcript
             // coverage tests; no Ed25519 dep required.

@@ -59,6 +59,15 @@ pub const FILE_TRANSFER_SCHEMA: &str = "ak.schema.file_transfer.v1";
 pub const CALENDAR_EVENT_SCHEMA: &str = "ak.schema.calendar_event.v1";
 pub const DISAPPEARING_MESSAGES_SCHEMA: &str = "ak.schema.disappearing_messages.v1";
 pub const SEARCH_SERVICE_SCHEMA: &str = "ak.schema.search_service.v1";
+pub const PRINCIPAL_LOCATOR_SCHEMA: &str = "ak.schema.principal_locator.v1";
+pub const INVITE_DELIVERY_REQUEST_SCHEMA: &str = "ak.schema.invite_delivery_request.v1";
+pub const INVITE_RECEIVE_POLICY_SCHEMA: &str = "ak.schema.invite_receive_policy.v1";
+
+pub const PROFILE_DIRECTORY_SERVICE: &str = "ak.profile.directory_service.v1";
+pub const PROFILE_E2EE_CLIENT: &str = "ak.profile.e2ee_client.v1";
+pub const PROFILE_MLS_MINIMAL_METADATA_REALM: &str = "ak.profile.mls.minimal_metadata_realm.v1";
+pub const PROFILE_ATTESTED_AUDIT_E2EE: &str = "ak.profile.attested_audit.e2ee.v1";
+pub const PROFILE_DISCLOSED_AUDIT_E2EE: &str = "ak.profile.disclosed_audit.e2ee.v1";
 
 // Round R2/R3 (2026-05-20) — new schema ids for the moderation appeal strand,
 // the broadcast ephemeral envelope, and structured attestation evidence.

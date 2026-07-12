@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_core::{base64url_decode, base64url_encode};
+use arkret_canonical::{base64url_decode, base64url_encode};
 use chacha20poly1305::XChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chrono::Utc;
@@ -1244,7 +1244,7 @@ fn content_aead_aad(realm_id: &str, nonce: &[u8], aad_bytes: &[u8]) -> Result<Ve
         "nonce": base64url_encode(nonce),
         "aad": base64url_encode(aad_bytes),
     });
-    canonical::canonical_json_bytes(&map)
+    Ok(canonical::canonical_json_bytes(&map)?)
 }
 
 pub(super) fn snapshot_provider_storage(
@@ -1282,7 +1282,7 @@ pub(super) fn encode(bytes: &[u8]) -> String {
 }
 
 pub(super) fn decode(value: &str) -> Result<Vec<u8>> {
-    base64url_decode(value)
+    Ok(base64url_decode(value)?)
 }
 
 pub(super) fn governance_binding_openmls_extension(

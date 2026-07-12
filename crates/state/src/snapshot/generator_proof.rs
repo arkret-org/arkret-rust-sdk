@@ -67,7 +67,7 @@ impl GeneratorProof {
             total_bytes,
             chunk_bytes,
         };
-        crate::canonical::canonical_json_bytes(&body)
+        Ok(crate::canonical::canonical_json_bytes(&body)?)
     }
 
     /// SHA-256 of the canonical body bytes — convenience helper for

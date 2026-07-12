@@ -162,7 +162,7 @@ impl FederationReplayStore for FederationManager {
 /// hand-rolling `Sha256::new()` in federation code, keeping digest strings
 /// byte-identical with soland / inkson / floria.
 pub fn content_digest_sha256(bytes: &[u8]) -> String {
-    arkret_core::canonical::sha256_digest(bytes)
+    arkret_canonical::canonical::sha256_digest(bytes)
 }
 
 /// Build the value of the RFC 9530 `Content-Digest` header
@@ -173,7 +173,10 @@ pub fn content_digest_sha256(bytes: &[u8]) -> String {
 /// helper computes the raw digest and standard-base64 encodes it.
 pub fn rfc9530_content_digest_sha256(bytes: &[u8]) -> String {
     let raw = sha256_raw(bytes);
-    format!("sha-256=:{}:", arkret_core::base64_standard_encode(raw))
+    format!(
+        "sha-256=:{}:",
+        arkret_canonical::base64_standard_encode(raw)
+    )
 }
 
 /// Verify an RFC 9530 `Content-Digest` header against the body bytes.
@@ -191,7 +194,7 @@ pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> Result
                 "digest_mismatch: unsupported Content-Digest format: {trimmed}"
             ))
         })?;
-    let provided = arkret_core::base64_standard_decode(body).map_err(|err| {
+    let provided = arkret_canonical::base64_standard_decode(body).map_err(|err| {
         Error::Protocol(format!(
             "digest_mismatch: bad base64 in Content-Digest: {err}"
         ))
@@ -209,7 +212,7 @@ pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> Result
 /// `sha256:<hex>` wire string), so this derives them from the canonical
 /// hex helper to keep a single hashing path.
 fn sha256_raw(bytes: &[u8]) -> [u8; 32] {
-    arkret_core::canonical::sha256_bytes(bytes)
+    arkret_canonical::canonical::sha256_bytes(bytes)
 }
 
 pub fn did_document_service_endpoint_matches(
@@ -418,7 +421,7 @@ mod tests {
         // Wire-form digest reuses the single core helper.
         assert_eq!(
             content_digest_sha256(body),
-            arkret_core::canonical::sha256_digest(body)
+            arkret_canonical::canonical::sha256_digest(body)
         );
         // RFC 9530 header verifies against the same body and rejects tamper.
         let header = rfc9530_content_digest_sha256(body);

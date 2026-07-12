@@ -1,7 +1,8 @@
 //! Three-tier cross-signing key records, publish/reset content, and the
 //! stateless device cross-signing chain verifier.
 
-use arkret_core::{DeviceId, Did, Error, Result, binding_contexts};
+use arkret_canonical::binding_contexts;
+use arkret_core::{DeviceId, Did, Error, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -488,7 +489,7 @@ impl CrossSigningResetContent {
     /// reset or another proof shell.
     pub fn reset_signing_input(&self) -> Result<Vec<u8>> {
         let mut out = binding_contexts::CROSS_SIGNING_RESET_PREFIX.to_vec();
-        out.extend_from_slice(&arkret_core::canonical::canonical_json_bytes(
+        out.extend_from_slice(&arkret_canonical::canonical::canonical_json_bytes(
             &self.reset_signing_body(true),
         )?);
         Ok(out)
@@ -498,7 +499,9 @@ impl CrossSigningResetContent {
     /// commitment. This mirrors the reset signing body, except the proof body
     /// excludes both `signature` and `unlock_commitment` to avoid self-reference.
     pub fn recovery_unlock_binding_input(&self) -> Result<Vec<u8>> {
-        arkret_core::canonical::canonical_json_bytes(&self.reset_signing_body(false))
+        Ok(arkret_canonical::canonical::canonical_json_bytes(
+            &self.reset_signing_body(false),
+        )?)
     }
 
     /// Expected `recovery_unlock.unlock_commitment` for this reset payload.
@@ -517,7 +520,7 @@ impl CrossSigningResetContent {
             ));
         };
         let binding_input = self.recovery_unlock_binding_input()?;
-        Ok(arkret_core::canonical::sha256_digest_from_slices(&[
+        Ok(arkret_canonical::canonical::sha256_digest_from_slices(&[
             binding_contexts::CROSS_SIGNING_RESET_UNLOCK_BINDING_PREFIX,
             recovery_secret_ref.as_bytes(),
             &binding_input,
@@ -618,7 +621,7 @@ fn canonical_cross_signing_binding_input(
         "generation": generation,
     });
     let mut out = binding_contexts::CROSS_SIGNING_BIND_PREFIX.to_vec();
-    out.extend_from_slice(&arkret_core::canonical::canonical_json_bytes(&body)?);
+    out.extend_from_slice(&arkret_canonical::canonical::canonical_json_bytes(&body)?);
     Ok(out)
 }
 
@@ -644,7 +647,7 @@ fn canonical_device_trust_binding_input(
         "ssk_generation": ssk_generation,
     });
     let mut out = binding_contexts::DEVICE_TRUST_BIND_PREFIX.to_vec();
-    out.extend_from_slice(&arkret_core::canonical::canonical_json_bytes(&body)?);
+    out.extend_from_slice(&arkret_canonical::canonical::canonical_json_bytes(&body)?);
     Ok(out)
 }
 

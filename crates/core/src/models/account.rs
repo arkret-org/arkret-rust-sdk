@@ -327,7 +327,7 @@ impl AccountLifecycleProof {
             "expires_at": &self.expires_at,
             "verification_method": &self.verification_method,
         });
-        canonical::canonical_json_bytes(&signing_input)
+        Ok(canonical::canonical_json_bytes(&signing_input)?)
     }
 }
 

@@ -93,7 +93,7 @@ impl MemberIdentity {
         if let Some(obj) = value.as_object_mut() {
             obj.remove("proof");
         }
-        canonical::canonical_json_bytes(&value)
+        Ok(canonical::canonical_json_bytes(&value)?)
     }
 }
 

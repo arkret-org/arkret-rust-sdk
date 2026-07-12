@@ -29,7 +29,7 @@ use crate::{Did, Error, Result};
 /// - [`Waived`](Self::Waived) — REQUIRED when `2 * threshold <= members.len()`: the deployment
 ///   explicitly waives automatic culprit attribution and relies on committee-level handling.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ForensicAttribution {
     QuorumIntersection,
@@ -45,7 +45,7 @@ pub enum ForensicAttribution {
 /// can derive a controlling organization; personal / orgless Realms omit them
 /// (decisions/0003 §7).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum NotaryValue {
     SingleDid {

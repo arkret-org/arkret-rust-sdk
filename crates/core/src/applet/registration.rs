@@ -792,7 +792,7 @@ impl AppletRegistrationEpochTranscript {
 
     pub fn canonical_json_bytes(&self) -> Result<Vec<u8>> {
         self.validate_normalized()?;
-        canonical::canonical_json_bytes(self)
+        Ok(canonical::canonical_json_bytes(self)?)
     }
 
     pub fn signing_bytes(&self) -> Result<Vec<u8>> {

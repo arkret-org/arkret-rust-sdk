@@ -1,0 +1,30 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["algorithms", "encoding"]
+description = "Arkret v1 canonical JSON, digest, base64url, and multibase primitives."
+edition = "2024"
+homepage = "https://github.com/arkret/arkret-rust-sdk"
+keywords = ["arkret", "canonical-json", "encoding"]
+license = "Apache-2.0"
+name = "arkret-canonical"
+repository = "https://github.com/arkret/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+base64 = {workspace = true}
+blake3 = {workspace = true}
+bs58 = {workspace = true}
+chrono = {workspace = true,features = ["serde"]}
+hex = {workspace = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+sha2 = {workspace = true}
+thiserror = {workspace = true}
+unicode-normalization = {workspace = true}
+
+[dev-dependencies]
+proptest = {workspace = true,default-features = false,features = ["std"]}
+
+[lints]
+workspace = true

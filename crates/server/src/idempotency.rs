@@ -258,7 +258,7 @@ impl<T: Clone> IdempotencyWindow<T> {
 
 #[cfg(test)]
 mod tests {
-    use arkret_core::canonical;
+    use arkret_canonical::canonical;
 
     use super::*;
 

@@ -378,7 +378,9 @@ impl VerifiedHandleBinding {
         }
         handle_proof.validate()?;
 
-        let document_hash = sha256_hex(&arkret_core::canonical::canonical_json_bytes(document)?);
+        let document_hash = sha256_hex(&arkret_canonical::canonical::canonical_json_bytes(
+            document,
+        )?);
 
         Ok(Self {
             handle: normalized,

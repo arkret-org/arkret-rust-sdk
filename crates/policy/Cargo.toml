@@ -1,0 +1,30 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["algorithms", "data-structures"]
+description = "Arkret v1 authorization constraints and profile policy semantics."
+edition = "2024"
+homepage = "https://github.com/arkret/arkret-rust-sdk"
+keywords = ["arkret", "authorization", "policy"]
+license = "Apache-2.0"
+name = "arkret-policy"
+repository = "https://github.com/arkret/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+default = []
+mls = []
+salvo-oapi = ["dep:salvo", "salvo/oapi", "arkret-wire-base/salvo-oapi"]
+
+[dependencies]
+arkret-schema = {workspace = true}
+arkret-wire-base = {workspace = true}
+chrono = {workspace = true,features = ["serde"]}
+chrono-tz = {workspace = true}
+salvo = {workspace = true,features = ["oapi"],optional = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+thiserror = {workspace = true}
+
+[lints]
+workspace = true

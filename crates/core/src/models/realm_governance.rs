@@ -1244,7 +1244,7 @@ pub fn realm_organization_statement_signing_bytes(
         delegation_ref: authorization.delegation_ref.as_ref(),
         executed_by: authorization.executed_by.as_ref(),
     };
-    canonical::canonical_json_bytes(&transcript)
+    Ok(canonical::canonical_json_bytes(&transcript)?)
 }
 
 #[cfg(test)]

@@ -871,7 +871,7 @@ impl FileTransferAad {
         DeviceId::new(self.origin_device_id.clone()).map_err(|_| {
             Error::Protocol("file-transfer AAD origin_device_id must be a ak:device id".to_owned())
         })?;
-        canonical::validate_timestamp_canonical(&self.created_at)
+        Ok(canonical::validate_timestamp_canonical(&self.created_at)?)
     }
 }
 
@@ -927,7 +927,7 @@ impl FileTransferKeyMessage {
         }
         validate_base64url("file-transfer key message nonce", &self.nonce)?;
         self.key_envelope.validate()?;
-        canonical::validate_timestamp_canonical(&self.expires_at)
+        Ok(canonical::validate_timestamp_canonical(&self.expires_at)?)
     }
 
     pub fn validate_record_binding(&self, record: &FileTransferRecord) -> Result<()> {
@@ -1281,7 +1281,7 @@ pub fn set_realm_pinned(
 }
 
 pub fn scheduled_send_message_payload_digest(message_payload: &Value) -> Result<String> {
-    canonical::canonical_sha256(message_payload)
+    Ok(canonical::canonical_sha256(message_payload)?)
 }
 
 pub fn reminder_account_data_key(id: &str) -> Result<String> {

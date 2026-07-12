@@ -176,7 +176,7 @@ pub fn event_proof_verification_context(
     let builder = arkret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(event)?;
     let expected_digest =
-        crate::Hash::new(arkret_core::canonical::sha256_digest(&canonical_bytes))?;
+        crate::Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))?;
     let signing_actor = event
         .executed_by
         .clone()

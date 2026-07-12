@@ -713,9 +713,9 @@ fn signed_chain_fixture(
     let psk = SigningKey::from_bytes(&psk_seed);
     let ssk = SigningKey::from_bytes(&ssk_seed);
     let psk_multibase =
-        arkret_core::ed25519_pubkey_to_did_key_multibase(&psk.verifying_key().to_bytes());
+        arkret_canonical::ed25519_pubkey_to_did_key_multibase(&psk.verifying_key().to_bytes());
     let ssk_multibase =
-        arkret_core::ed25519_pubkey_to_did_key_multibase(&ssk.verifying_key().to_bytes());
+        arkret_canonical::ed25519_pubkey_to_did_key_multibase(&ssk.verifying_key().to_bytes());
 
     // The published SSK record (PSK signs this over the §5.1 canonical input).
     let mut publish = CrossSigningPublishContent {
@@ -760,7 +760,7 @@ fn signed_chain_fixture(
     // PSK signs the SSK record over the canonical §5.1 input.
     let ssk_input = publish.self_signing_binding_input().unwrap();
     publish.self_signing_key.binding.signature =
-        arkret_core::base64url_encode(psk.sign(&ssk_input).to_bytes());
+        arkret_canonical::base64url_encode(psk.sign(&ssk_input).to_bytes());
 
     // SSK signs the device binding over the canonical §5.2 input.
     let device_input = DeviceTrustBinding::canonical_input(
@@ -776,7 +776,7 @@ fn signed_chain_fixture(
         verification_method: format!("{principal}#ak_self_signing_v1"),
         alg: "EdDSA".to_owned(),
         ssk_generation: binding_generation,
-        signature: arkret_core::base64url_encode(ssk.sign(&device_input).to_bytes()),
+        signature: arkret_canonical::base64url_encode(ssk.sign(&device_input).to_bytes()),
     };
 
     let anchored_psk = arkret_signatures::PublicKeyMaterial::Ed25519Raw {
@@ -846,9 +846,9 @@ fn verify_chain_rejects_tampered_device_binding() {
         1,
     );
     // Flip a byte in the device-binding signature → SSK→device check fails.
-    let mut raw = arkret_core::base64url_decode(&binding.signature).unwrap();
+    let mut raw = arkret_canonical::base64url_decode(&binding.signature).unwrap();
     raw[0] ^= 0xff;
-    binding.signature = arkret_core::base64url_encode(&raw);
+    binding.signature = arkret_canonical::base64url_encode(&raw);
     let state = verify_chain(
         &publish,
         &binding,
@@ -959,9 +959,9 @@ fn verify_chain_rejects_tampered_ssk_binding() {
     );
     // Corrupt the PSK→SSK binding signature → first check fails.
     let mut raw =
-        arkret_core::base64url_decode(&publish.self_signing_key.binding.signature).unwrap();
+        arkret_canonical::base64url_decode(&publish.self_signing_key.binding.signature).unwrap();
     raw[5] ^= 0xff;
-    publish.self_signing_key.binding.signature = arkret_core::base64url_encode(&raw);
+    publish.self_signing_key.binding.signature = arkret_canonical::base64url_encode(&raw);
     let state = verify_chain(
         &publish,
         &binding,

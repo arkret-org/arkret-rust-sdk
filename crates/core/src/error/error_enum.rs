@@ -119,3 +119,42 @@ impl From<arkret_identifiers::IdentifierError> for Error {
         }
     }
 }
+
+impl From<arkret_canonical::CanonicalError> for Error {
+    fn from(error: arkret_canonical::CanonicalError) -> Self {
+        match error {
+            arkret_canonical::CanonicalError::NonCanonicalNumber => Self::NonCanonicalNumber,
+            arkret_canonical::CanonicalError::NumberOutOfSafeRange => Self::NumberOutOfSafeRange,
+            arkret_canonical::CanonicalError::DuplicateObjectKey(key) => {
+                Self::DuplicateObjectKey(key)
+            }
+            arkret_canonical::CanonicalError::NonCanonicalString(message) => {
+                Self::NonCanonicalString(message)
+            }
+            arkret_canonical::CanonicalError::CanonicalJson(error) => Self::CanonicalJson(error),
+            arkret_canonical::CanonicalError::Protocol(message) => Self::Protocol(message),
+            _ => Self::Protocol(error.to_string()),
+        }
+    }
+}
+
+impl From<arkret_wire_base::WireError> for Error {
+    fn from(error: arkret_wire_base::WireError) -> Self {
+        match error {
+            arkret_wire_base::WireError::Protocol(message) => Self::Protocol(message),
+            arkret_wire_base::WireError::Canonical(error) => error.into(),
+            arkret_wire_base::WireError::Identifier(error) => error.into(),
+            arkret_wire_base::WireError::Json(error) => Self::CanonicalJson(error),
+            _ => Self::Protocol(error.to_string()),
+        }
+    }
+}
+
+impl From<arkret_schema::SchemaError> for Error {
+    fn from(error: arkret_schema::SchemaError) -> Self {
+        match error {
+            arkret_schema::SchemaError::Protocol(message) => Self::Protocol(message),
+            _ => Self::Protocol(error.to_string()),
+        }
+    }
+}

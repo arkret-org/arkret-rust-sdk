@@ -157,7 +157,7 @@ impl DidKeyLogEntry {
         if let Some(audience) = &proof.audience {
             object.insert("audience".to_owned(), serde_json::to_value(audience)?);
         }
-        canonical::canonical_json_bytes(&Value::Object(object))
+        Ok(canonical::canonical_json_bytes(&Value::Object(object))?)
     }
 
     /// Structural validation against `did-key-log-entry.schema.json` +

@@ -73,7 +73,7 @@ impl DeviceMessage {
             body: &self.body,
             hlc: &self.hlc,
         };
-        canonical::canonical_json_bytes(&view)
+        Ok(canonical::canonical_json_bytes(&view)?)
     }
 
     /// Verify the detached JWS signature against the supplied signer's
@@ -278,6 +278,7 @@ impl DeviceMessageReceipt {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire_base::Result as WireResult;
     use chrono::TimeZone;
     use serde_json::json;
 
@@ -293,7 +294,7 @@ mod tests {
     }
 
     impl MoveSigner for TestSigner {
-        fn sign_move(&self, _unsigned: &UnsignedMove) -> Result<arkret_core::Move> {
+        fn sign_move(&self, _unsigned: &UnsignedMove) -> WireResult<arkret_core::Move> {
             panic!(
                 "TestSigner::sign_move is test-only and intentionally unsupported; \
                  device-message tests call sign_payload directly"
@@ -308,7 +309,7 @@ mod tests {
             &self.kid
         }
 
-        fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<MoveSignature> {
+        fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<MoveSignature> {
             let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes)).unwrap();
             Ok(MoveSignature {
                 alg: "EdDSA".to_owned(),

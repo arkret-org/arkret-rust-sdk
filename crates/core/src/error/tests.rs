@@ -23,7 +23,7 @@ fn local_spec_artifacts_dir() -> Option<PathBuf> {
 /// as `ERROR_CODE_*`, or a wire code with no registry entry) or drops one.
 #[test]
 fn error_code_constants_exactly_match_registry_codes() {
-    let source = include_str!("codes.rs");
+    let source = include_str!("../../../wire-base/src/error_codes/codes.rs");
     let mut declared: Vec<String> = Vec::new();
     for line in source.lines() {
         let line = line.trim_start();

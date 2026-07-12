@@ -65,7 +65,7 @@ impl SnapshotChunker {
 }
 
 pub fn snapshot_chunk_payload_bytes(payload: &SnapshotChunkPayload) -> Result<Vec<u8>> {
-    crate::canonical::canonical_json_bytes(payload)
+    Ok(crate::canonical::canonical_json_bytes(payload)?)
 }
 
 pub fn build_snapshot_chunks(

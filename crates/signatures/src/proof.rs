@@ -83,7 +83,7 @@ impl PublicKeyMaterial {
 ///
 /// Tolerates either the standard 2-byte multicodec prefix (`0xed 0x01`) or a
 /// bare 32-byte payload. The base58btc primitive comes from
-/// [`arkret_core::multibase`] — the single base58 home shared with `sdk`.
+/// [`arkret_canonical::multibase`] — the single base58 home shared with `sdk`.
 fn decode_multibase_btc58(value: &str) -> Result<Vec<u8>> {
     let decoded = canonical_decode_multibase(value)?;
     if decoded.len() == 34 && decoded[0] == 0xed && decoded[1] == 0x01 {
@@ -94,11 +94,11 @@ fn decode_multibase_btc58(value: &str) -> Result<Vec<u8>> {
 }
 
 fn canonical_decode_multibase(value: &str) -> Result<Vec<u8>> {
-    arkret_core::decode_multibase_base58btc(value)
+    Ok(arkret_canonical::decode_multibase_base58btc(value)?)
 }
 
 mod key_bytes {
-    use arkret_core::{base64url_decode, base64url_encode};
+    use arkret_canonical::{base64url_decode, base64url_encode};
     use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn serialize<S: Serializer>(bytes: &[u8], s: S) -> Result<S::Ok, S::Error> {
@@ -123,7 +123,7 @@ fn decode_jwk_ed25519(value: &serde_json::Value) -> Result<Vec<u8>> {
         .get("x")
         .and_then(|v| v.as_str())
         .ok_or_else(|| Error::Protocol("Ed25519 JWK missing 'x' parameter".to_owned()))?;
-    base64url_decode(x)
+    Ok(base64url_decode(x)?)
 }
 
 #[derive(Debug, Deserialize)]
@@ -368,7 +368,7 @@ impl EventProofBuilder {
     /// Encode `value` as canonical JSON bytes ready to be hashed and
     /// signed. The bytes are stable for any logically equal value.
     pub fn canonical_bytes<T: Serialize>(&self, value: &T) -> Result<Vec<u8>> {
-        canonical::canonical_json_bytes(value)
+        Ok(canonical::canonical_json_bytes(value)?)
     }
 
     /// Compute the `sha256:<hex>` payload hash for `value`.
@@ -383,7 +383,7 @@ impl EventProofBuilder {
     /// canonicalization rule callers would write by hand.
     pub fn envelope_bytes(&self, event: &arkret_core::Event) -> Result<Vec<u8>> {
         let payload = event.digest_payload()?;
-        canonical::canonical_json_bytes(&payload)
+        Ok(canonical::canonical_json_bytes(&payload)?)
     }
 
     /// Run `signer` over the canonical bytes for `value` and return the

@@ -31,7 +31,7 @@ pub const MOVE_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
 
 /// Top-level Move object as defined by `move.schema.json`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Move {
     pub id: MoveId,
     pub issuer: Did,
@@ -46,7 +46,7 @@ pub struct Move {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SealBasis {
     pub leaves: Vec<SealId>,
     pub control_event_set_root: Hash,
@@ -55,7 +55,7 @@ pub struct SealBasis {
 
 /// Single precondition: a cell + a predicate. Combined with AND across the Move.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Precondition {
     pub cell: CellRef,
     pub predicate: Predicate,
@@ -67,7 +67,7 @@ pub struct Precondition {
 /// reserved for `satisfies`-mode lookups against a cell's schema-registered
 /// deterministic predicates.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Predicate {
     pub op: PredicateOp,
     #[serde(
@@ -83,7 +83,7 @@ pub struct Predicate {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PredicateOp {
     /// Cell value / head must equal `value`.
@@ -98,7 +98,7 @@ pub enum PredicateOp {
 
 /// Single effect: a cell + a lattice operation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Effect {
     pub cell: CellRef,
     pub op: LatticeOp,
@@ -110,7 +110,7 @@ pub struct Effect {
 /// (see spec §3.2). This struct accepts the union; per-type validation lives
 /// in the `lattice` crate's per-implementation `validate_op`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct LatticeOp {
     #[serde(rename = "kind")]
     pub op_type: LatticeOpType,
@@ -141,7 +141,7 @@ pub struct LatticeOp {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum LatticeOpType {
     /// or-set add (requires `tag`, often `value`).
@@ -165,7 +165,7 @@ pub enum LatticeOpType {
 /// `critical` defaults to `true`; unrecognized critical roles MUST fail
 /// closed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct SemanticRef {
     pub id: String,
     pub role: String,
@@ -186,7 +186,7 @@ fn is_default_critical(value: &bool) -> bool {
 
 /// Issuer detached-JWS signature over canonical bytes (excluding `sig` and `id`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct MoveSignature {
     pub alg: String,
     pub verification_method: String,
@@ -227,7 +227,7 @@ impl Move {
             refs: &self.refs,
             hlc: &self.hlc,
         };
-        canonical::canonical_json_bytes(&body)
+        Ok(canonical::canonical_json_bytes(&body)?)
     }
 
     /// Compute the content-addressed Move id for this Move's body.

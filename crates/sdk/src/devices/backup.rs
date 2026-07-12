@@ -133,7 +133,7 @@ pub fn key_backup_aad(
         "schema_id": schema_id,
         "created_at": created_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
     });
-    canonical::canonical_json_bytes(&aad)
+    Ok(canonical::canonical_json_bytes(&aad)?)
 }
 
 // The backup encryption descriptor is owned by `arkret-core`

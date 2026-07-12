@@ -70,7 +70,7 @@ fn validate_actor_and_data_type(actor_id: &str, data_type: &str) -> Result<()> {
 }
 
 fn canonical_aad(aad: &AccountDataEncryptedValueAad) -> Result<Vec<u8>> {
-    crate::canonical::canonical_json_bytes(aad)
+    Ok(crate::canonical::canonical_json_bytes(aad)?)
 }
 
 pub fn derive_account_data_value_key(

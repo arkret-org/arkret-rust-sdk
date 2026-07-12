@@ -85,7 +85,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             "kty": "OKP",
             "kid": self.verification_method,
             "alg": "Ed25519",
-            "key": arkret_core::base64url_encode(self.signing_key.verifying_key().to_bytes()),
+            "key": arkret_canonical::base64url_encode(self.signing_key.verifying_key().to_bytes()),
         }))
     }
 
@@ -158,7 +158,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             "audience": self.bootstrap.service_id,
             "request_canonical_digest": request_digest,
             "expires_at": self.proof_expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
-            "signature": arkret_core::base64url_encode(signature.to_bytes()),
+            "signature": arkret_canonical::base64url_encode(signature.to_bytes()),
         });
         Ok((public_key, public_key_digest, proof_of_possession))
     }
@@ -331,11 +331,11 @@ pub struct AgentKeyPairProofSigningInput {
 
 impl AgentKeyProofSigningInput {
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
-        arkret_core::canonical::canonical_json_bytes(self).map_err(Into::into)
+        arkret_canonical::canonical::canonical_json_bytes(self).map_err(Into::into)
     }
 
     pub fn canonical_digest(&self) -> Result<Hash> {
-        Ok(Hash::new(arkret_core::canonical::sha256_digest(
+        Ok(Hash::new(arkret_canonical::canonical::sha256_digest(
             self.canonical_bytes()?,
         ))?)
     }
@@ -343,11 +343,11 @@ impl AgentKeyProofSigningInput {
 
 impl AgentKeyPairProofSigningInput {
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
-        arkret_core::canonical::canonical_json_bytes(self).map_err(Into::into)
+        arkret_canonical::canonical::canonical_json_bytes(self).map_err(Into::into)
     }
 
     pub fn canonical_digest(&self) -> Result<Hash> {
-        Ok(Hash::new(arkret_core::canonical::sha256_digest(
+        Ok(Hash::new(arkret_canonical::canonical::sha256_digest(
             self.canonical_bytes()?,
         ))?)
     }
@@ -560,7 +560,7 @@ pub fn agent_key_proof_request_binding_digest(body: &SessionGrantRequestBody) ->
         .ok_or_else(|| Error::Protocol("session grant proof must be an object".to_owned()))?;
     proof.remove("signature");
     proof.remove("request_canonical_digest");
-    Ok(Hash::new(arkret_core::canonical::canonical_sha256(
+    Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
         &value,
     )?)?)
 }
@@ -1069,8 +1069,10 @@ impl AgentToolAuditLog {
 
 #[cfg(test)]
 mod tests {
+    use arkret_canonical::canonical;
     use arkret_core::move_event::Move;
-    use arkret_core::{MoveSignature, MoveSigner, UnsignedMove, canonical, proof_kind};
+    use arkret_core::{MoveSignature, MoveSigner, UnsignedMove, proof_kind};
+    use arkret_wire_base::Result as WireResult;
     use chrono::TimeZone;
     use serde_json::json;
 
@@ -1100,7 +1102,7 @@ mod tests {
     }
 
     impl MoveSigner for StubMoveSigner {
-        fn sign_move(&self, _unsigned: &UnsignedMove) -> Result<Move> {
+        fn sign_move(&self, _unsigned: &UnsignedMove) -> WireResult<Move> {
             unreachable!("agent authorize helper only calls sign_payload");
         }
 
@@ -1112,7 +1114,7 @@ mod tests {
             &self.kid
         }
 
-        fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<MoveSignature> {
+        fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<MoveSignature> {
             let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))?;
             Ok(MoveSignature {
                 alg: "EdDSA".to_owned(),

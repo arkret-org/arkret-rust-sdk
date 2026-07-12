@@ -330,7 +330,6 @@ impl<'de> serde::de::Visitor<'de> for CanonicalValueVisitor {
 
 /// Active canonical JSON digest suites for v1 typed digest values.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DigestSuite {
     #[default]

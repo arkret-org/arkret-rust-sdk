@@ -1,5 +1,7 @@
+use arkret_canonical::serde_helpers::{
+    deserialize_canonical_timestamp, serialize_canonical_timestamp,
+};
 use arkret_core::DetachedPayloadProof;
-use arkret_core::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
 
 use super::*;
 
@@ -250,10 +252,10 @@ impl DidRegistryReceipt {
             .as_object_mut()
             .expect("DidRegistryReceipt serializes to an object")
             .remove("signature");
-        let bytes = arkret_core::canonical::canonical_json_bytes(&value)?;
-        Ok(crate::Hash::new(arkret_core::canonical::sha256_digest(
-            &bytes,
-        ))?)
+        let bytes = arkret_canonical::canonical::canonical_json_bytes(&value)?;
+        Ok(crate::Hash::new(
+            arkret_canonical::canonical::sha256_digest(&bytes),
+        )?)
     }
 
     fn binding_bytes(&self) -> Result<Vec<u8>> {
@@ -272,7 +274,7 @@ impl DidRegistryReceipt {
         );
         object.insert(
             "created_at".to_owned(),
-            Value::String(arkret_core::canonical::format_timestamp_canonical(
+            Value::String(arkret_canonical::canonical::format_timestamp_canonical(
                 self.signature.created_at,
             )),
         );
@@ -282,7 +284,9 @@ impl DidRegistryReceipt {
         if let Some(audience) = &self.signature.audience {
             object.insert("audience".to_owned(), serde_json::to_value(audience)?);
         }
-        arkret_core::canonical::canonical_json_bytes(&Value::Object(object))
+        Ok(arkret_canonical::canonical::canonical_json_bytes(
+            &Value::Object(object),
+        )?)
     }
 
     /// Verify the receipt: digest recompute (constant-time compare) then

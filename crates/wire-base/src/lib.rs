@@ -1,0 +1,61 @@
+//! Cross-domain Arkret v1 wire primitives.
+//!
+//! This crate owns serialized state object shapes. Reducers, stores, snapshot
+//! construction, transports, and framework adapters deliberately live in
+//! higher-level crates.
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+mod error;
+
+pub mod base64url {
+    pub use arkret_canonical::base64url::*;
+}
+pub mod canonical {
+    pub use arkret_canonical::canonical::*;
+}
+pub mod serde_helpers {
+    pub use arkret_canonical::serde_helpers::*;
+}
+
+pub mod bottom;
+pub mod cell;
+pub mod constants;
+pub mod error_codes;
+pub mod events;
+pub mod generated;
+pub mod move_event;
+pub mod notary;
+pub mod object_address;
+pub mod primitives;
+pub mod problem_details;
+pub mod seal;
+pub mod service_type;
+pub mod signer;
+
+pub use arkret_identifiers::*;
+pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
+pub use cell::{CellId, composite_subject, composite_subject_pipe};
+pub use constants::*;
+pub use error::{Error, Result, WireError};
+pub use error_codes::*;
+pub use events::*;
+pub use generated::{EVENT_KIND_COUNT, EventKind};
+pub use move_event::{
+    Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
+    Predicate, PredicateOp, SealBasis, SemanticRef,
+};
+pub use notary::{ForensicAttribution, NotaryValue};
+pub use object_address::*;
+pub use primitives::{proof_kind, *};
+pub use problem_details::*;
+pub use seal::{
+    MultiSigKind, MultiSignature, NotarySig, SEAL_SIGNATURE_ALGS, Seal, SealKind, ThresholdSigKind,
+    ThresholdSignature, compute_seal_id, seal_canonical_bytes,
+};
+pub use service_type::{EvaluationClass, ServiceType};
+pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};

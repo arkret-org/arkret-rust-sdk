@@ -115,7 +115,7 @@ impl SnapshotManifest {
 
 impl UnsignedSnapshotManifest<'_> {
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
-        crate::canonical::canonical_json_bytes(self)
+        Ok(crate::canonical::canonical_json_bytes(self)?)
     }
 
     pub fn payload_digest(&self) -> Result<Hash> {

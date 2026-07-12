@@ -73,7 +73,7 @@ impl GrantProjection {
         let resources = grant
             .resources
             .iter()
-            .map(ResourceSelector::from_spec_value)
+            .map(|value| ResourceSelector::from_spec_value(value).map_err(Into::into))
             .collect::<Result<Vec<_>>>()
             .map_err(|err| Error::Protocol(format!("schema_violation: {err}")))?;
         let mut constraints = Vec::new();

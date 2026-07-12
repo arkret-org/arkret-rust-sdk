@@ -21,8 +21,9 @@ default = []
 salvo = ["arkret-core/salvo", "arkret-state/salvo", "dep:salvo", "dep:tokio"]
 
 [dependencies]
+arkret-canonical = {workspace = true}
 arkret-core = {workspace = true}
-arkret-signatures = {workspace = true}
+arkret-signatures = {workspace = true,features = ["protocol"]}
 arkret-state = {workspace = true}
 chrono = {workspace = true}
 salvo = {workspace = true,features = ["affix-state", "oapi"],optional = true}

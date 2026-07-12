@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_core::base64url_encode;
+use arkret_canonical::base64url_encode;
 use chrono::{Duration, Utc};
 use openmls::prelude::{
     BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,

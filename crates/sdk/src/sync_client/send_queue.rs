@@ -430,10 +430,10 @@ fn queue_payload_digest(
     content: &Value,
     depends_on: &[String],
 ) -> Result<String> {
-    canonical::canonical_sha256(&serde_json::json!({
+    Ok(canonical::canonical_sha256(&serde_json::json!({
         "realm_id": realm_id,
         "kind": kind,
         "content": content,
         "depends_on": depends_on,
-    }))
+    }))?)
 }

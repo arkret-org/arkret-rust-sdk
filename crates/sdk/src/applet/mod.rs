@@ -742,9 +742,9 @@ mod tests {
 
         use arkret_core::move_event::Move;
         use arkret_core::{
-            Did as CoreDid, Hash as CoreHash, MoveSignature, MoveSigner, Result as CoreResult,
-            UnsignedMove, canonical,
+            Did as CoreDid, Hash as CoreHash, MoveSignature, MoveSigner, UnsignedMove, canonical,
         };
+        use arkret_wire_base::Result as WireResult;
 
         struct StubSigner {
             did: CoreDid,
@@ -752,7 +752,7 @@ mod tests {
         }
 
         impl MoveSigner for StubSigner {
-            fn sign_move(&self, _: &UnsignedMove) -> CoreResult<Move> {
+            fn sign_move(&self, _: &UnsignedMove) -> WireResult<Move> {
                 unreachable!()
             }
             fn signer_did(&self) -> &CoreDid {
@@ -761,7 +761,7 @@ mod tests {
             fn verification_method_id(&self) -> &str {
                 &self.kid
             }
-            fn sign_payload(&self, canonical_bytes: &[u8]) -> CoreResult<MoveSignature> {
+            fn sign_payload(&self, canonical_bytes: &[u8]) -> WireResult<MoveSignature> {
                 let payload_digest = CoreHash::new(canonical::sha256_digest(canonical_bytes))?;
                 Ok(MoveSignature {
                     alg: "EdDSA".to_owned(),

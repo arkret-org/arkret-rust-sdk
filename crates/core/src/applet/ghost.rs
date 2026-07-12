@@ -377,7 +377,7 @@ impl AccountabilityGrantPayload {
                 "accountability_grant has expired".to_owned(),
             ));
         }
-        self.proof.validate_production()
+        Ok(self.proof.validate_production()?)
     }
 
     pub fn validate_for_profile(&self, profile: &ActorProfile, now: DateTime<Utc>) -> Result<()> {

@@ -46,7 +46,7 @@ pub const WEB_ARKRET_SCHEME: &str = "web+arkret:";
 /// authorization; `invite` carries membership/join material; `preview` carries
 /// only policy-limited pre-join preview authority.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum LinkType {
     Reference,
@@ -79,7 +79,7 @@ impl LinkType {
 /// UI action hint. Pure presentation; MUST NOT escalate permissions. Default
 /// [`AddressAction::View`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AddressAction {
     View,
@@ -110,7 +110,7 @@ impl AddressAction {
 /// anything else (domain-style / contains `.`) is an opaque ALIAS that a
 /// server must resolve to a canonical `realm_id`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmRef {
     /// Bare lowercase UUIDv7 (sigil-stripped `ak:realm:` identity).
@@ -465,7 +465,7 @@ fn typed_id(prefix: &str, bare: &str) -> String {
 /// canonical-JSON digest does not drift. VALUES are typed canonical ids
 /// (`ak:realm:<uuid>` etc.), never the bare path uuid or an alias string.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct TargetDescriptor {
     pub realm_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -518,7 +518,7 @@ impl TargetDescriptor {
 /// descriptor entirely, so refreshing routing hints or changing the UI action
 /// does NOT invalidate a token, while switching Strand/Message DOES.
 pub fn target_digest(descriptor: &TargetDescriptor) -> Result<String> {
-    canonical::canonical_sha256(descriptor)
+    Ok(canonical::canonical_sha256(descriptor)?)
 }
 
 /// Recompute the digest of `address` (under `effective_link_type`) and compare

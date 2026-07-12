@@ -422,7 +422,7 @@ pub fn sync_filter_digest(
             normalized_subscription_config(subscriptions)?,
         );
     }
-    canonical::canonical_sha256(&Value::Object(binding))
+    Ok(canonical::canonical_sha256(&Value::Object(binding))?)
 }
 
 fn sorted_unique_strings<'a>(values: impl IntoIterator<Item = &'a str>) -> Vec<String> {

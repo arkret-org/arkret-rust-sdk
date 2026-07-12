@@ -21,7 +21,7 @@ pub fn sign_snapshot_manifest_ed25519(
     created_at: DateTime<Utc>,
 ) -> Result<DetachedJwsProof> {
     let canonical_bytes = manifest.unsigned_canonical_bytes()?;
-    let payload_digest = Hash::new(arkret_core::canonical::sha256_digest(&canonical_bytes))?;
+    let payload_digest = Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))?;
     let jws =
         crate::jws::sign_jws_ed25519(&canonical_bytes, signing_key).map_err(Error::Protocol)?;
     let proof =
@@ -58,13 +58,13 @@ pub fn verify_snapshot_manifest_signature(
             format!("snapshot signature transcript could not be canonicalized: {err}"),
         )
     })?;
-    let expected_digest = Hash::new(arkret_core::canonical::sha256_digest(&canonical_bytes))
+    let expected_digest = Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))
         .map_err(|err| {
-            SnapshotValidationError::new(
-                SnapshotValidationCode::DigestMismatch,
-                format!("snapshot signature payload digest could not be computed: {err}"),
-            )
-        })?;
+        SnapshotValidationError::new(
+            SnapshotValidationCode::DigestMismatch,
+            format!("snapshot signature payload digest could not be computed: {err}"),
+        )
+    })?;
     if manifest.signature.payload_digest != expected_digest {
         return Err(SnapshotValidationError::new(
             SnapshotValidationCode::DigestMismatch,
@@ -138,7 +138,7 @@ mod tests {
     fn resolver_for(signing_key: &SigningKey) -> DidWebResolver {
         let did = did();
         let verification_method = format!("{did}#snapshot-key-1");
-        let public_key = arkret_core::ed25519_pubkey_to_did_key_multibase(
+        let public_key = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
             signing_key.verifying_key().as_bytes(),
         );
         let mut resolver = DidWebResolver::new();

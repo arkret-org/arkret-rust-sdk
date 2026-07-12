@@ -1,7 +1,8 @@
 use std::sync::OnceLock;
 
+use events::STANDARD_EVENT_KINDS;
+
 use super::*;
-use crate::events::STANDARD_EVENT_KINDS;
 use crate::{
     BUILT_IN_OPERATION_KINDS, INVITE_DELIVERY_REQUEST_SCHEMA, INVITE_RECEIVE_POLICY_SCHEMA,
     PRINCIPAL_LOCATOR_SCHEMA, PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DIRECTORY_SERVICE,
@@ -9,7 +10,10 @@ use crate::{
 };
 
 const EMBEDDED_ARTIFACTS_SENTINEL: &str = "<embedded-spec-artifacts>";
+#[cfg(feature = "embedded-artifacts")]
 const EMBEDDED_SPEC_ARTIFACTS_JSON: &str = include_str!("embedded_artifacts.json");
+#[cfg(not(feature = "embedded-artifacts"))]
+const EMBEDDED_SPEC_ARTIFACTS_JSON: &str = "{}";
 
 static EMBEDDED_SPEC_ARTIFACTS: OnceLock<std::result::Result<BTreeMap<String, Value>, String>> =
     OnceLock::new();
@@ -845,7 +849,7 @@ fn active_standard_durable_event_kinds(registry: &Value) -> Vec<&str> {
         .filter(|entry| entry.get("status").and_then(Value::as_str) == Some("active"))
         .filter(|entry| entry.get("wire_scope").and_then(Value::as_str) == Some("durable_event"))
         .filter_map(|entry| entry.get("event_kind").and_then(Value::as_str))
-        .filter(|event_kind| crate::events::is_standard_event_kind(event_kind))
+        .filter(|event_kind| events::is_standard_event_kind(event_kind))
         .collect()
 }
 
@@ -1087,8 +1091,8 @@ pub fn embedded_json_artifact(path: &str) -> Result<Value> {
     read_embedded_json_artifact(path)
 }
 
-#[cfg(test)]
-pub(super) fn embedded_spec_artifact_paths() -> Result<Vec<String>> {
+#[doc(hidden)]
+pub fn embedded_spec_artifact_paths() -> Result<Vec<String>> {
     Ok(embedded_spec_artifacts()?.keys().cloned().collect())
 }
 

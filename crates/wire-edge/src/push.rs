@@ -21,7 +21,7 @@ fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PushPlatform {
     Apns,
@@ -30,7 +30,7 @@ pub enum PushPlatform {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PushPriority {
     Low,
@@ -40,7 +40,7 @@ pub enum PushPriority {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct Pusher {
     pub user_id: Did,
     pub device_id: DeviceId,
@@ -72,7 +72,7 @@ impl Pusher {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PushRule {
     pub rule_id: String,
     pub enabled: bool,
@@ -82,7 +82,7 @@ pub struct PushRule {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PushEventNotification {
     pub event_id: EventId,
     pub user_id: Did,
@@ -92,14 +92,14 @@ pub struct PushEventNotification {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PushPayload {
     pub platform: PushPlatform,
     pub push_key: String,
     pub title: String,
     pub body: String,
     pub priority: PushPriority,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub data: Value,
 }
@@ -201,7 +201,7 @@ fn parse_platform(value: &str) -> Option<PushPlatform> {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PushRuleSet {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub rules: BTreeMap<String, PushRule>,
@@ -238,7 +238,7 @@ pub const EXPECTED_SPEC_VERSION: &str = "arkret-spec@2026-05-26";
 /// strands. It intentionally lives in `arkret-core` rather than individual
 /// services so bridge producers and consumers cannot drift silently.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PushBridgeDescribeOutcome {
     pub contract: String,
     pub version: String,
@@ -302,7 +302,7 @@ impl PushBridgeDescribeOutcome {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PushBridgeDescribeGatewayDescriptor {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_id: Option<String>,
@@ -335,7 +335,7 @@ impl PushBridgeDescribeGatewayDescriptor {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PushBridgeDescribeNotifyDescriptor {
     pub notify_path: String,
     pub operation_id: String,
@@ -384,7 +384,7 @@ impl PushBridgeDescribeNotifyDescriptor {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PushBridgeDescribePrivacyDescriptor {
     pub default_mode: String,
     pub plaintext_visibility_class: String,
@@ -395,7 +395,7 @@ pub struct PushBridgeDescribePrivacyDescriptor {
 /// Per-app frozen capability matrix entry, surfaced by the gateway via
 /// `bridge/describe.provider_capabilities[]`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ProviderCapabilityDescriptor {
     /// Configured app name as known to the gateway registry.
     pub name: String,
@@ -444,7 +444,7 @@ impl ProviderCapabilityDescriptor {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PushBridgeFailureCodeDescriptor {
     pub code: String,
     pub http_status: u16,
@@ -469,15 +469,15 @@ impl PushBridgeFailureCodeDescriptor {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct PushBridgeDescribeExamples {
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default)]
     pub notify_headers: Value,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default)]
     pub blind_wakeup_request: Value,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default)]
     pub plaintext_visible_service_request: Value,
 }
@@ -485,7 +485,7 @@ pub struct PushBridgeDescribeExamples {
 /// Combined view of a push gateway's high-level integration manifest plus its
 /// active bridge contract.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[non_exhaustive]
 pub struct IntegrationView {
     /// Service-level integration manifest (`/_floria/integration/describe`).

@@ -148,7 +148,7 @@ fn event_payload_validator_catalog_from_bundle(
         let Some(event_kind) = entry.get("event_kind").and_then(Value::as_str) else {
             continue;
         };
-        if !crate::events::is_standard_event_kind(event_kind) {
+        if !events::is_standard_event_kind(event_kind) {
             continue;
         }
         let Some(payload_schema_id) =
@@ -408,7 +408,7 @@ fn required_fields_for_event_kind(
 ) -> Vec<String> {
     let mut required_fields =
         required_fields_for_schema_ref(registry, schema_ref).unwrap_or_default();
-    if event_kind == crate::events::INVITE_CREATE {
+    if event_kind == events::INVITE_CREATE {
         for field in [
             "invite_id",
             "invitee",
@@ -528,7 +528,7 @@ mod tests {
             let Some(event_kind) = entry.get("event_kind").and_then(Value::as_str) else {
                 continue;
             };
-            if !crate::events::is_standard_event_kind(event_kind) {
+            if !events::is_standard_event_kind(event_kind) {
                 continue;
             }
             if !catalog.has_payload_validator(event_kind) {
@@ -675,7 +675,7 @@ mod tests {
             let Some(event_kind) = entry.get("event_kind").and_then(Value::as_str) else {
                 continue;
             };
-            if !crate::events::is_standard_event_kind(event_kind) {
+            if !events::is_standard_event_kind(event_kind) {
                 continue;
             }
             let Some(rule) = catalog.rules.get(event_kind) else {
@@ -755,7 +755,7 @@ mod tests {
     fn catalog_reports_registered_payload_validators() {
         let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
 
-        assert!(catalog.has_payload_validator(crate::events::kinds::REALM_KEY_SHARE));
+        assert!(catalog.has_payload_validator(events::kinds::REALM_KEY_SHARE));
         assert!(!catalog.has_payload_validator("ak.unknown.test"));
     }
 

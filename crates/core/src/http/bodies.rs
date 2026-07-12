@@ -1043,17 +1043,6 @@ pub struct SessionGrantAppletDelegation {
     pub capability_grant_refs: Vec<String>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum SessionGrantProofKind {
-    DidBoundSignature,
-    PairedDeviceProof,
-    PasskeyAssertion,
-    OidcCodeExchange,
-    AgentKeyProof,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantRequestProof {

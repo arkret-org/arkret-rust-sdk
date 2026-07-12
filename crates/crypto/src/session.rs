@@ -611,5 +611,5 @@ pub(crate) fn session_key(realm_id: &RealmId, session_id: &str) -> String {
 pub(crate) fn sha256_prefixed(bytes: &[u8]) -> String {
     // Delegate to the authoritative `sha256:<lowercase-hex>` formatter in
     // `arkret-core` so the prefix/encoding lives in a single place.
-    arkret_core::canonical::sha256_digest(bytes)
+    arkret_canonical::canonical::sha256_digest(bytes)
 }

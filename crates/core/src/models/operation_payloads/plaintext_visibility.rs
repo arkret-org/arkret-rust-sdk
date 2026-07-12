@@ -7,28 +7,6 @@ use crate::*;
 /// Closed machine-checkable class of plaintext / reversible-derived content a
 /// service may receive
 /// (`event-payload.schema.json#/$defs/plaintext_data_class`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum PlaintextDataClassKind {
-    MessageContent,
-    StrandContent,
-    AttachmentPlaintext,
-    AttachmentPreview,
-    Thumbnail,
-    FullTextIndex,
-    SearchSnippet,
-    Embedding,
-    NotificationSummary,
-    InboxPreview,
-    HistoryPreview,
-    PublicHistoryExport,
-    MediaPlaintext,
-    DerivedPlaintext,
-    AccountPrivateState,
-    ProfilePrivateField,
-}
-
 /// Plaintext exposure level for a declared service
 /// (`plaintext_visible_services_payload` item `visibility`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

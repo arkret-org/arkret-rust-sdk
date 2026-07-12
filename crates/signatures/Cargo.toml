@@ -12,8 +12,10 @@ rust-version.workspace = true
 version.workspace = true
 
 [features]
-default = []
-signer = []
+default = ["protocol"]
+http-signature = []
+protocol = ["dep:arkret-core"]
+signer = ["protocol"]
 
 [dependencies]
 # RFC 9421 HTTP Message Signatures + detached-JWS Ed25519 verify are always
@@ -22,7 +24,9 @@ signer = []
 # no longer gates these crypto deps.
 base64 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
-arkret-core = {workspace = true}
+arkret-canonical = {workspace = true}
+arkret-core = {workspace = true,optional = true}
+arkret-wire-base = {workspace = true}
 ed25519-dalek = {workspace = true}
 rand_core = {workspace = true}
 serde = {workspace = true}

@@ -206,9 +206,9 @@ impl CachedResolution {
 
 /// Compute the document's canonical SHA-256 digest with the `sha256:` prefix.
 fn document_canonical_hash(document: &DidDocument) -> Result<String> {
-    let bytes = arkret_core::canonical::canonical_json_bytes(document)
+    let bytes = arkret_canonical::canonical::canonical_json_bytes(document)
         .map_err(|e| Error::Protocol(format!("DID document canonicalization failed: {e}")))?;
-    Ok(arkret_core::canonical::sha256_digest(bytes))
+    Ok(arkret_canonical::canonical::sha256_digest(bytes))
 }
 
 /// Mutable state for `CachingDidResolver`, protected by a `Mutex`.

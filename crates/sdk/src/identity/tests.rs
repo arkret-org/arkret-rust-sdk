@@ -45,7 +45,7 @@ fn vector_update_key(signing_key: &SigningKey) -> String {
 /// Bare base58btc multihash digest of canonical JSON, matching the verifier's
 /// `webvh_multihash_base58` (did:webvh v1.0 — no multibase `z` prefix).
 fn vector_multihash(value: &Value) -> String {
-    let bytes = arkret_core::canonical::canonical_json_bytes(value).unwrap();
+    let bytes = arkret_canonical::canonical::canonical_json_bytes(value).unwrap();
     let digest = crate::canonical::sha256_bytes(&bytes);
     let mut envelope = vec![0x12u8, 0x20];
     envelope.extend_from_slice(&digest);
@@ -73,8 +73,8 @@ fn vector_sign_entry(mut entry: Value, signing_key: &SigningKey) -> Value {
         "verificationMethod": vm,
     });
     let doc = entry.clone();
-    let config_bytes = arkret_core::canonical::canonical_json_bytes(&proof_config).unwrap();
-    let doc_bytes = arkret_core::canonical::canonical_json_bytes(&doc).unwrap();
+    let config_bytes = arkret_canonical::canonical::canonical_json_bytes(&proof_config).unwrap();
+    let doc_bytes = arkret_canonical::canonical::canonical_json_bytes(&doc).unwrap();
     let config_hash = crate::canonical::sha256_bytes(&config_bytes);
     let doc_hash = crate::canonical::sha256_bytes(&doc_bytes);
     let mut signing_input = Vec::with_capacity(64);
@@ -591,8 +591,10 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method,
-        event_digest: crate::Hash::new(arkret_core::canonical::sha256_digest(&canonical_bytes))
-            .unwrap(),
+        event_digest: crate::Hash::new(arkret_canonical::canonical::sha256_digest(
+            &canonical_bytes,
+        ))
+        .unwrap(),
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -639,8 +641,10 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method,
-        event_digest: crate::Hash::new(arkret_core::canonical::sha256_digest(&canonical_bytes))
-            .unwrap(),
+        event_digest: crate::Hash::new(arkret_canonical::canonical::sha256_digest(
+            &canonical_bytes,
+        ))
+        .unwrap(),
         created_at: Utc::now(),
         domain: None,
         audience: None,

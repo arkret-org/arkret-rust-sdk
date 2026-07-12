@@ -22,10 +22,16 @@ default = []
 # variants. Deliberately does NOT pull in a concrete HTTP stack — reqwest
 # lives in arkret-http-client (ARCHITECTURE.md: core is the wire-model layer).
 client = ["dep:url"]
-mls = []
-salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "arkret-identifiers/salvo"]
+mls = ["arkret-policy/mls"]
+salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "arkret-identifiers/salvo", "arkret-wire-base/salvo-oapi", "arkret-wire-edge/salvo-oapi", "arkret-schema/salvo-oapi", "arkret-policy/salvo-oapi"]
 
 [dependencies]
+arkret-canonical = {workspace = true}
+arkret-policy = {workspace = true}
+arkret-schema = {workspace = true}
+arkret-state = {workspace = true}
+arkret-wire-base = {workspace = true}
+arkret-wire-edge = {workspace = true}
 base64 = {workspace = true}
 blake3 = {workspace = true}
 bs58 = {workspace = true}
@@ -49,6 +55,7 @@ url = {workspace = true,optional = true}
 zeroize = {workspace = true,default-features = true}
 
 [dev-dependencies]
+arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
 # T8.2 § property tests for blind payload sanitizer / canonical JSON.
 proptest = {workspace = true,default-features = false,features = ["std"]}
 serde_json = {workspace = true}

@@ -6,7 +6,8 @@
 //! crypto cost (binding-object canonicalization + Ed25519 verify) is measured,
 //! not an early rejection.
 
-use arkret_core::{Did, Hash, canonical};
+use arkret_canonical::canonical;
+use arkret_core::{Did, Hash};
 use arkret_signatures::proof::{
     Ed25519DetachedJwsSigner, PublicKeyMaterial, sign_eddsa_detached_jws,
     verify_eddsa_detached_jws_proof,

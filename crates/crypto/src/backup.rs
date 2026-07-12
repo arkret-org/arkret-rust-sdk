@@ -33,7 +33,7 @@
 //! ```
 
 use argon2::{Algorithm, Argon2, Params, Version};
-use arkret_core::canonical::{
+use arkret_canonical::canonical::{
     canonical_json_bytes, canonical_sha256, format_timestamp_canonical, sha256_digest, sha256_hex,
 };
 use arkret_core::{
@@ -49,7 +49,7 @@ use getrandom::fill;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use serde_json::json;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use crate::errors::KeyBackupError;
@@ -343,11 +343,11 @@ pub fn encrypt_vault_with_nonce_salt(
     let mut aead_key = binding.subkey(&kek.key, "aead");
     let cipher = XChaCha20Poly1305::new((&aead_key).into());
     let nonce_bytes = binding.derive_nonce(&kek.key, &nonce_salt_b64)?;
-    let nonce = XNonce::from_slice(&nonce_bytes);
+    let nonce = XNonce::from(nonce_bytes);
     let aad = binding.aad()?;
     let ciphertext = cipher
         .encrypt(
-            nonce,
+            &nonce,
             Payload {
                 msg: plaintext,
                 aad: &aad,
@@ -411,9 +411,10 @@ pub fn decrypt_vault(
     let mut aead_key = binding.subkey(&kek.key, "aead");
     let cipher = XChaCha20Poly1305::new((&aead_key).into());
     let aad = binding.aad()?;
+    let nonce = XNonce::from(nonce_array);
     let plaintext = cipher
         .decrypt(
-            XNonce::from_slice(&nonce_array),
+            &nonce,
             Payload {
                 msg: ciphertext.as_slice(),
                 aad: &aad,
@@ -744,7 +745,7 @@ fn key_backup_supersedes_digest(predecessor: &KeyBackup) -> Result<String> {
 /// directly in another domain). Public for conformance KAT verification.
 pub fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_class: BackupClass) -> Vec<u8> {
     let mut commitment_key = derive_subkey(root, backup_class.hkdf_info("commitment").as_bytes());
-    let digest = arkret_core::canonical::sha256_bytes(&commitment_key).to_vec();
+    let digest = arkret_canonical::canonical::sha256_bytes(&commitment_key).to_vec();
     commitment_key.zeroize();
     digest
 }
