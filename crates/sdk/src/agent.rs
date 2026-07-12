@@ -1327,8 +1327,9 @@ mod tests {
             expires_at: Some(Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap()),
             approval_evidence: AgentKeyApprovalEvidence {
                 kind: AgentKeyApprovalEvidenceKind::ApprovalEvent,
-                r#ref: "ak:event:01970000-0000-7000-8000-000000000021".to_owned(),
+                r#ref: Some("ak:event:01970000-0000-7000-8000-000000000021".to_owned()),
                 request_canonical_digest: None,
+                pairing_request_id: None,
                 approved_by: Some(controller_id.clone()),
             },
             revocation_check_ref: None,
@@ -1380,8 +1381,9 @@ mod tests {
             expires_at: Some(Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap()),
             approval_evidence: AgentKeyApprovalEvidence {
                 kind: AgentKeyApprovalEvidenceKind::ApprovalEvent,
-                r#ref: "ak:event:01970000-0000-7000-8000-000000000021".to_owned(),
+                r#ref: Some("ak:event:01970000-0000-7000-8000-000000000021".to_owned()),
                 request_canonical_digest: None,
+                pairing_request_id: None,
                 approved_by: Some(controller_id.clone()),
             },
             revocation_check_ref: None,
