@@ -1,30 +1,12 @@
-//! Applet interop envelope models.
+//! Applet protocol object models.
 
 use super::*;
 
 // ---------------------------------------------------------------------------
-// Applet interop shared types
+// Applet protocol object (applet.schema.json)
 // ---------------------------------------------------------------------------
 
-/// Lifecycle state for `ak.applet.interop_session.status` events.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum InteropSessionStatus {
-    Pending,
-    Running,
-    Completed,
-    Failed,
-    Cancelled,
-}
-
-// ---------------------------------------------------------------------------
-// Applet interop envelope (applet.schema.json)
-// ---------------------------------------------------------------------------
-
-/// Wire shape for the `ak.applet.*` event family
-/// (`applet.schema.json`): registration, discovery,
-/// `interop_session.start`, `.status`, and `bridge_error`.
+/// Wire shape for the registered `ak.applet.*` protocol object fields.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletInteropEnvelope {
@@ -37,21 +19,6 @@ pub struct AppletInteropEnvelope {
     /// registration / discovery).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_id: Option<Did>,
-    /// Per-invocation correlation id used by `interop_session.start /
-    /// .status` to pair request/response.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session_id: Option<String>,
-    /// Lifecycle state for `ak.applet.interop_session.status` events.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<InteropSessionStatus>,
-    /// Caller-supplied parameters for `interop_session.start`. Opaque
-    /// to soland — bridge implementations interpret per applet manifest.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub params: Option<Value>,
-    /// Bridge-side detail surface (echo response payload, error
-    /// context, bridge identifier, etc.).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub detail: Option<Value>,
     /// Bridge-error context for `ak.applet.bridge_error` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<AppletErrorContext>,
@@ -83,12 +50,8 @@ mod tests {
             service_id: Some(
                 Did::new("did:webvh:z6mkfixture:bridge.example.com".to_owned()).unwrap(),
             ),
-            session_id: Some("sess-1".to_owned()),
-            status: Some(InteropSessionStatus::Completed),
-            params: None,
-            detail: Some(json!({"bridge": "matrix"})),
             error: None,
-            manifest: None,
+            manifest: Some(json!({"name": "bridge"})),
         };
         let json_text = serde_json::to_string(&env).unwrap();
         let parsed: AppletInteropEnvelope = serde_json::from_str(&json_text).unwrap();

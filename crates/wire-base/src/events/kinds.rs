@@ -20,8 +20,6 @@ pub const AGENT_ACTION_APPROVE: &str = "ak.agent.action_approve";
 pub const AGENT_ACTION_REJECT: &str = "ak.agent.action_reject";
 pub const APPLET_BRIDGE_ERROR: &str = "ak.applet.bridge_error";
 pub const APPLET_DISCOVERY: &str = "ak.applet.discovery";
-pub const APPLET_INTEROP_SESSION_START: &str = "ak.applet.interop_session.start";
-pub const APPLET_INTEROP_SESSION_STATUS: &str = "ak.applet.interop_session.status";
 pub const APPLET_REGISTRATION: &str = "ak.applet.registration";
 pub const ATTESTATION_RANGE_COMPLETENESS: &str = "ak.attestation.range_completeness";
 pub const AUDIT_ACCESSED: &str = "ak.audit.accessed";
@@ -327,8 +325,6 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     AGENT_KEY_REVOKED,
     APPLET_BRIDGE_ERROR,
     APPLET_DISCOVERY,
-    APPLET_INTEROP_SESSION_START,
-    APPLET_INTEROP_SESSION_STATUS,
     APPLET_REGISTRATION,
     ATTESTATION_RANGE_COMPLETENESS,
     AUDIT_ACCESSED,
@@ -626,11 +622,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         AGENT_ACTION_APPROVE | AGENT_ACTION_REJECT | AGENT_ACTION_REQUEST | AGENT_DEACTIVATE
         | AGENT_DRAFT_PROPOSE | AGENT_KEY_AUTHORIZED | AGENT_KEY_REVOKED | AGENT_PAUSE
         | AGENT_RESUME => EventClass::Agent,
-        APPLET_BRIDGE_ERROR
-        | APPLET_DISCOVERY
-        | APPLET_INTEROP_SESSION_START
-        | APPLET_INTEROP_SESSION_STATUS
-        | APPLET_REGISTRATION => EventClass::Applet,
+        APPLET_BRIDGE_ERROR | APPLET_DISCOVERY | APPLET_REGISTRATION => EventClass::Applet,
         ATTESTATION_RANGE_COMPLETENESS
         | AUDIT_ACCESSED
         | AUDIT_APPLET_BINDING

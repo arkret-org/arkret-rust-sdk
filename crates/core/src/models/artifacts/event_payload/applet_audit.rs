@@ -1,4 +1,4 @@
-//! Applet-registration, applet-interop-session, audit, and seal-frontier payloads.
+//! Applet-registration, audit, and seal-frontier payloads.
 
 use std::collections::BTreeMap;
 
@@ -29,37 +29,6 @@ pub struct AppletBridgeErrorPayload {
     pub message: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
-/// applet_interop_session_start_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AppletInteropSessionStartPayload {
-    pub applet_id: Value,
-    pub session_id: Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_id: Option<Did>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub params: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub created_at: Option<DateTime<Utc>>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
-/// applet_interop_session_status_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AppletInteropSessionStatusPayload {
-    pub applet_id: Value,
-    pub session_id: String,
-    pub runtime_status: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub detail: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<DateTime<Utc>>,
 }
 
 /// Counterpart for
@@ -173,107 +142,6 @@ impl AppletRegistrationPayload {
     }
 }
 
-/// Bridge-implementation runtime status for `ak.applet.interop_session.status`
-/// (`event-payload.schema.json#/$defs/applet_interop_session_status_payload`
-/// `runtime_status` enum). Named `runtime_status` (not `status`) so applet
-/// snapshots stay distinguishable from the canonical agent session state
-/// machine; v1 does not mandate a canonical applet session state machine.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum AppletRuntimeStatus {
-    Pending,
-    Running,
-    Completed,
-    Failed,
-    Cancelled,
-}
-
-impl AppletRuntimeStatus {
-    pub fn as_wire(self) -> &'static str {
-        match self {
-            Self::Pending => "pending",
-            Self::Running => "running",
-            Self::Completed => "completed",
-            Self::Failed => "failed",
-            Self::Cancelled => "cancelled",
-        }
-    }
-}
-
-impl AppletInteropSessionStartPayload {
-    /// Build a `ak.applet.interop_session.start` payload. Required per spec:
-    /// `applet_id`, `session_id`. `params` are opaque to the protocol.
-    pub fn new(applet_id: AppletIdentifier, session_id: impl Into<String>) -> Self {
-        Self {
-            applet_id: Value::String(applet_id.as_str().to_owned()),
-            session_id: Value::String(session_id.into()),
-            service_id: None,
-            params: None,
-            created_at: None,
-        }
-    }
-
-    pub fn with_service_id(mut self, service_id: Did) -> Self {
-        self.service_id = Some(service_id);
-        self
-    }
-
-    pub fn with_params(mut self, params: BTreeMap<String, Value>) -> Self {
-        self.params = Some(params);
-        self
-    }
-
-    pub fn with_created_at(mut self, created_at: DateTime<Utc>) -> Self {
-        self.created_at = Some(created_at);
-        self
-    }
-
-    pub fn to_value(&self) -> Result<Value> {
-        serde_json::to_value(self).map_err(|err| {
-            Error::Protocol(format!(
-                "applet interop session start payload serialize: {err}"
-            ))
-        })
-    }
-}
-
-impl AppletInteropSessionStatusPayload {
-    /// Build a `ak.applet.interop_session.status` payload. Required per spec:
-    /// `applet_id`, `session_id`, `runtime_status`.
-    pub fn new(
-        applet_id: AppletIdentifier,
-        session_id: impl Into<String>,
-        runtime_status: AppletRuntimeStatus,
-    ) -> Self {
-        Self {
-            applet_id: Value::String(applet_id.as_str().to_owned()),
-            session_id: session_id.into(),
-            runtime_status: runtime_status.as_wire().to_owned(),
-            detail: None,
-            updated_at: None,
-        }
-    }
-
-    pub fn with_detail(mut self, detail: BTreeMap<String, Value>) -> Self {
-        self.detail = Some(detail);
-        self
-    }
-
-    pub fn with_updated_at(mut self, updated_at: DateTime<Utc>) -> Self {
-        self.updated_at = Some(updated_at);
-        self
-    }
-
-    pub fn to_value(&self) -> Result<Value> {
-        serde_json::to_value(self).map_err(|err| {
-            Error::Protocol(format!(
-                "applet interop session status payload serialize: {err}"
-            ))
-        })
-    }
-}
-
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_accessed_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -317,6 +185,27 @@ pub struct AuditAppletBindingPayloadReleaseWindowPolicy {
     pub allowed_target_classes: Option<Vec<String>>,
 }
 
+/// Closed state set for `ak.component.audit.binding.v1`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AuditBindingStatus {
+    Active,
+    Suspended,
+    Revoked,
+}
+
+impl AuditBindingStatus {
+    pub fn allows_transition_to(self, target: Self) -> bool {
+        self == target
+            || matches!(
+                (self, target),
+                (Self::Active, Self::Suspended | Self::Revoked)
+                    | (Self::Suspended, Self::Active | Self::Revoked)
+            )
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuditAppletBindingPayload {
@@ -325,7 +214,7 @@ pub struct AuditAppletBindingPayload {
     pub effective_scope: EffectiveScope,
     pub applet_id: Value,
     pub service_id: Did,
-    pub status: String,
+    pub status: AuditBindingStatus,
     pub purpose_classes: Vec<String>,
     pub allowed_release_modes: Vec<String>,
     pub audit_assurance_class: String,
@@ -414,6 +303,29 @@ pub type AuditSessionClosePayload = AuditSessionPayload;
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_session_notice_payload`.
 pub type AuditSessionNoticePayload = AuditSessionPayload;
 
+/// Closed state set for `ak.component.audit.session.v1`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AuditSessionStage {
+    Request,
+    Authorize,
+    Notice,
+    Close,
+}
+
+impl AuditSessionStage {
+    pub fn allows_transition_to(self, target: Self) -> bool {
+        self == target
+            || matches!(
+                (self, target),
+                (Self::Request, Self::Authorize | Self::Close)
+                    | (Self::Authorize, Self::Notice | Self::Close)
+                    | (Self::Notice, Self::Close)
+            )
+    }
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_session_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -423,7 +335,7 @@ pub struct AuditSessionPayload {
     pub binding_id: String,
     pub realm_id: RealmId,
     pub effective_scope: EffectiveScope,
-    pub stage: String,
+    pub stage: AuditSessionStage,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -543,27 +455,14 @@ mod applet_builder_tests {
     }
 
     #[test]
-    fn applet_interop_start_and_status_builders_validate_against_catalog() {
-        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+    fn audit_control_plane_state_transitions_are_closed() {
+        assert!(AuditBindingStatus::Active.allows_transition_to(AuditBindingStatus::Suspended));
+        assert!(AuditBindingStatus::Suspended.allows_transition_to(AuditBindingStatus::Revoked));
+        assert!(!AuditBindingStatus::Revoked.allows_transition_to(AuditBindingStatus::Active));
 
-        let start = AppletInteropSessionStartPayload::new(applet_id(), "session-abc")
-            .with_service_id(did("did:webvh:z6mkfixture:svc.example"));
-        catalog
-            .validate_payload(
-                "ak.applet.interop_session.start",
-                &start.to_value().unwrap(),
-            )
-            .unwrap();
-
-        let status = AppletInteropSessionStatusPayload::new(
-            applet_id(),
-            "session-abc",
-            AppletRuntimeStatus::Running,
-        );
-        let value = status.to_value().unwrap();
-        assert_eq!(value["runtime_status"], json!("running"));
-        catalog
-            .validate_payload("ak.applet.interop_session.status", &value)
-            .unwrap();
+        assert!(AuditSessionStage::Request.allows_transition_to(AuditSessionStage::Authorize));
+        assert!(AuditSessionStage::Authorize.allows_transition_to(AuditSessionStage::Notice));
+        assert!(AuditSessionStage::Notice.allows_transition_to(AuditSessionStage::Close));
+        assert!(!AuditSessionStage::Close.allows_transition_to(AuditSessionStage::Notice));
     }
 }

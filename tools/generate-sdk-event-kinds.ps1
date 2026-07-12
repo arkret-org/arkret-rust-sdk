@@ -1,9 +1,9 @@
 param(
     [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\..\arkret-spec\spec\v1\artifacts"),
-    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\core\src\generated\event_kinds.rs")
+    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\wire-base\src\generated\event_kinds.rs")
 )
 
-# Emits crates/core/src/generated/event_kinds.rs from
+# Emits crates/wire-base/src/generated/event_kinds.rs from
 # arkret-spec/spec/v1/artifacts/registry/event-kind-registry.json.
 #
 # Outputs the strongly-typed `EventKind` enum: one PascalCase variant per

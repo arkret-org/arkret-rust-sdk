@@ -42,10 +42,13 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     // Fsm
     registry.register(MemberState);
     registry.register(AgentStatus);
+    registry.register(AuditBinding);
+    registry.register(AuditSession);
     registry.register(CallState);
     registry.register(RealmLink);
 
     // OrderedLog
+    registry.register(AuditRelease);
     registry.register(CircleCreate);
     registry.register(SpaceParent);
     registry.register(AccountStatus);
@@ -127,9 +130,12 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         // Fsm
         "ak.component.member.state.v1",
         "ak.component.agent.status.v1",
+        "ak.component.audit.binding.v1",
+        "ak.component.audit.session.v1",
         "ak.component.call.state.v1",
         "ak.component.realm.link.v1",
         // OrderedLog
+        "ak.component.audit.release.v1",
         "ak.component.circle.create.v1",
         "ak.component.space.parent.v1",
         "ak.component.account.status.v1",

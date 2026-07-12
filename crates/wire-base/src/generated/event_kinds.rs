@@ -11,7 +11,7 @@ use crate::events::kinds::{
 
 /// Count of standard `ak.*` event kinds the registry declares active.
 /// Excludes the [EventKind::Unknown] catch-all.
-pub const EVENT_KIND_COUNT: usize = 186;
+pub const EVENT_KIND_COUNT: usize = 184;
 
 /// Strongly-typed Arkret event kind. One variant per active `ak.*` kind in
 /// `event-kind-registry.json`, plus [EventKind::Unknown] which preserves
@@ -51,10 +51,6 @@ pub enum EventKind {
     AppletBridgeError,
     /// `ak.applet.discovery`
     AppletDiscovery,
-    /// `ak.applet.interop_session.start`
-    AppletInteropSessionStart,
-    /// `ak.applet.interop_session.status`
-    AppletInteropSessionStatus,
     /// `ak.applet.registration`
     AppletRegistration,
     /// `ak.attestation.range_completeness`
@@ -420,8 +416,6 @@ impl EventKind {
             Self::AgentKeyRevoke => "ak.agent.key.revoke",
             Self::AppletBridgeError => "ak.applet.bridge_error",
             Self::AppletDiscovery => "ak.applet.discovery",
-            Self::AppletInteropSessionStart => "ak.applet.interop_session.start",
-            Self::AppletInteropSessionStatus => "ak.applet.interop_session.status",
             Self::AppletRegistration => "ak.applet.registration",
             Self::AttestationRangeCompleteness => "ak.attestation.range_completeness",
             Self::AuditAccessed => "ak.audit.accessed",
@@ -614,8 +608,6 @@ impl EventKind {
             "ak.agent.key.revoke" => Self::AgentKeyRevoke,
             "ak.applet.bridge_error" => Self::AppletBridgeError,
             "ak.applet.discovery" => Self::AppletDiscovery,
-            "ak.applet.interop_session.start" => Self::AppletInteropSessionStart,
-            "ak.applet.interop_session.status" => Self::AppletInteropSessionStatus,
             "ak.applet.registration" => Self::AppletRegistration,
             "ak.attestation.range_completeness" => Self::AttestationRangeCompleteness,
             "ak.audit.accessed" => Self::AuditAccessed,

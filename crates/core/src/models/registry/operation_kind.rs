@@ -119,19 +119,10 @@ pub(in crate::models) fn required_fields_for_operation_kind(kind: &str) -> Vec<S
             .into_iter()
             .map(str::to_owned)
             .collect(),
-        // Round 13 — Applet / Agent protocol-session sub-events. Mirrors
-        // soland round 14f wire validator (`src/routing/events/operations.rs`).
-        // Spec `extensions/applet-integration.md` + `agent-integration.md`.
         OP_APPLET_REGISTRATION => {
             vec!["service_id".to_owned(), "namespace".to_owned()]
         }
         OP_APPLET_DISCOVERY => vec!["service_id".to_owned(), "manifest".to_owned()],
-        OP_APPLET_INTEROP_SESSION_START => {
-            vec!["applet_id".to_owned(), "session_id".to_owned()]
-        }
-        OP_APPLET_INTEROP_SESSION_STATUS => {
-            vec!["session_id".to_owned(), "status".to_owned()]
-        }
         OP_APPLET_BRIDGE_ERROR => vec!["session_id".to_owned(), "errcode".to_owned()],
         OP_AGENT_KEY_AUTHORIZE => [
             "agent_id",

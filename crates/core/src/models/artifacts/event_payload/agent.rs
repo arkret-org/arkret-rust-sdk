@@ -1,10 +1,7 @@
 //! Agent-lifecycle and agent-key payloads.
 
-use std::collections::BTreeMap;
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::*;
 
@@ -262,10 +259,6 @@ pub struct AgentKeyRevokePayload {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_lifecycle_frontier`.
-pub type AgentLifecycleFrontier = BTreeMap<String, Value>;
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_pause_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -275,7 +268,6 @@ pub struct AgentPausePayload {
     pub transition: String,
     pub previous_status: String,
     pub status_changed_at: DateTime<Utc>,
-    pub freshness_frontier: AgentLifecycleFrontier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
@@ -290,7 +282,6 @@ pub struct AgentResumePayload {
     pub transition: String,
     pub previous_status: String,
     pub status_changed_at: DateTime<Utc>,
-    pub freshness_frontier: AgentLifecycleFrontier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sidecar_exposure_ack: Option<AgentSidecarExposureAck>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

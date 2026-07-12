@@ -89,14 +89,20 @@ impl LatticeKind {
             Self::Fsm => &[
                 "ak.member.state",
                 "ak.realm.link",
-                // AKP-0008 / AKP-0009 (R3 spec-sync 2026-05-27) — personal-agent
-                // lifecycle is an FSM with bottom=reject; deactivate is terminal.
+                "ak.audit.applet_binding",
+                "ak.audit.session.request",
+                "ak.audit.session.authorize",
+                "ak.audit.session.notice",
+                "ak.audit.session.close",
+                // Personal-agent lifecycle is an FSM with bottom=reject;
+                // deactivate is terminal.
                 "ak.self.agent.pause",
                 "ak.self.agent.resume",
                 "ak.self.agent.deactivate",
             ],
             Self::Counter => &[],
             Self::OrderedLog => &[
+                "ak.audit.release",
                 "ak.space.create",
                 "ak.space.child",
                 "ak.policy.rule",

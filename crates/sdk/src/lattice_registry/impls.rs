@@ -498,6 +498,31 @@ per_subject_lattice!(
 );
 
 per_subject_lattice!(
+    AuditBinding,
+    "ak.component.audit.binding.v1",
+    SdkLatticeKind::Fsm,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "binding_id",
+    &["ak.audit.applet_binding"]
+);
+
+per_subject_lattice!(
+    AuditSession,
+    "ak.component.audit.session.v1",
+    SdkLatticeKind::Fsm,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "session_id",
+    &[
+        "ak.audit.session.request",
+        "ak.audit.session.authorize",
+        "ak.audit.session.notice",
+        "ak.audit.session.close"
+    ]
+);
+
+per_subject_lattice!(
     CallState,
     "ak.component.call.state.v1",
     SdkLatticeKind::Fsm,
@@ -604,6 +629,16 @@ impl LatticeKind for CircleMember {
 }
 
 // ────────────────────────── OrderedLog families ──────────────────────────
+
+per_subject_lattice!(
+    AuditRelease,
+    "ak.component.audit.release.v1",
+    SdkLatticeKind::OrderedLog,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "session_id",
+    &["ak.audit.release"]
+);
 
 singleton_lattice!(
     CircleCreate,

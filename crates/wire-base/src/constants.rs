@@ -540,17 +540,9 @@ pub const OP_APPLET_THIRD_PARTY_LOCATIONS: &str = "ak.edge.applet.third_party_lo
 pub const OP_APPLET_THIRD_PARTY_USERS: &str = "ak.edge.applet.third_party_users.query.list";
 pub const OP_APPLET_TRANSACTION: &str = "ak.edge.applet.command.transaction";
 
-/// Applet protocol-session sub-events (round 13, 2026-05-16). Spec
-/// `extensions/applet-integration.md` event-kind-registry rows. These
-/// are durable reducer-input events (distinct from the RPC-style
-/// `OP_APPLET_DESCRIBE` / `_PING` / `_TRANSACTION` ops above). SDK
-/// reducer doesn't maintain per-session state — the applet bridge
-/// state machine lives client-side — but operation-registry must
-/// carry the required-fields shapes for downstream submit validation.
+/// Applet durable event kinds, distinct from the RPC-style applet operations.
 pub const OP_APPLET_BRIDGE_ERROR: &str = "ak.applet.bridge_error";
 pub const OP_APPLET_DISCOVERY: &str = "ak.applet.discovery";
-pub const OP_APPLET_INTEROP_SESSION_START: &str = "ak.applet.interop_session.start";
-pub const OP_APPLET_INTEROP_SESSION_STATUS: &str = "ak.applet.interop_session.status";
 pub const OP_APPLET_REGISTRATION: &str = "ak.applet.registration";
 
 pub const OP_AGENT_KEY_AUTHORIZE: &str = "ak.agent.key.authorize";
@@ -927,8 +919,8 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_APPLET_THIRD_PARTY_LOCATIONS,
     OP_APPLET_THIRD_PARTY_USERS,
     OP_APPLET_TRANSACTION,
-    // Note: OP_APPLET_REGISTRATION / OP_APPLET_DISCOVERY / OP_APPLET_INTEROP_SESSION_*
-    // / OP_APPLET_BRIDGE_ERROR and OP_AGENT_* are reducer-input EVENTS
+    // Note: OP_APPLET_REGISTRATION / OP_APPLET_DISCOVERY /
+    // OP_APPLET_BRIDGE_ERROR and OP_AGENT_* are reducer-input EVENTS
     // (registered in spec `event-kind-registry.json`), not service RPC
     // operations. They follow the same `OP_*` const naming for
     // ergonomic dispatch in registry.rs::required_fields_for_operation_kind

@@ -1,9 +1,9 @@
 param(
     [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\..\arkret-spec\spec\v1\artifacts"),
-    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\core\src\generated\profile_requirements.rs")
+    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\schema\src\generated\profile_requirements.rs")
 )
 
-# Emits crates/core/src/generated/profile_requirements.rs from
+# Emits crates/schema/src/generated/profile_requirements.rs from
 # arkret-spec/spec/v1/artifacts/profiles/conformance-profiles.json.
 #
 # Mirrors the style of tools/generate-sdk-profile-constants.ps1 but produces a
