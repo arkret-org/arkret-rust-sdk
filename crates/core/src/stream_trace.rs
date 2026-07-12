@@ -204,7 +204,13 @@ impl StreamTraceValidator {
             }
         }
 
-        if kind == StreamTraceFrameKind::Data {
+        // A frontier is an explicit server baseline for an empty catch-up.
+        // It therefore satisfies the same completion-ordering precondition as
+        // a replayed data frame while remaining projection-neutral.
+        if matches!(
+            kind,
+            StreamTraceFrameKind::Data | StreamTraceFrameKind::Frontier
+        ) {
             self.baseline_data_seen = true;
         }
         if kind == StreamTraceFrameKind::CatchupComplete {
@@ -420,5 +426,32 @@ mod tests {
             assert!(!update.cursor_advanced);
             assert_eq!(validator.reconnect_cursor(), Some("ak:cursor:saved"));
         }
+    }
+
+    #[test]
+    fn frontier_baseline_allows_empty_catchup_completion() {
+        struct Frame(StreamTraceFrameKind, Option<&'static str>);
+        impl StreamTraceFrame for Frame {
+            fn trace_kind(&self) -> StreamTraceFrameKind {
+                self.0
+            }
+
+            fn trace_cursor(&self) -> Option<&str> {
+                self.1
+            }
+        }
+
+        let cursor = "ak:cursor:empty-catchup";
+        let mut validator = StreamTraceValidator::new(true, Some(cursor.to_owned()));
+        validator
+            .push(&Frame(StreamTraceFrameKind::Frontier, Some(cursor)))
+            .unwrap();
+        validator
+            .push(&Frame(StreamTraceFrameKind::CatchupComplete, Some(cursor)))
+            .unwrap();
+        validator.finish().unwrap();
+        assert!(validator.baseline_data_seen());
+        assert!(validator.catchup_complete_seen());
+        assert_eq!(validator.reconnect_cursor(), Some(cursor));
     }
 }
