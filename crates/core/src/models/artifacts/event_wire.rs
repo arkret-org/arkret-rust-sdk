@@ -190,7 +190,7 @@ pub type SubjectRef = String;
 #[serde(deny_unknown_fields)]
 pub struct VerificationStubSubject {
     pub kind: String,
-    pub r#ref: SubjectRef,
+    pub subject_ref: SubjectRef,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -243,7 +243,7 @@ pub struct VerificationStub {
 #[serde(deny_unknown_fields)]
 pub struct ErasureVerificationStubSubject {
     pub kind: String,
-    pub r#ref: Hash,
+    pub subject_ref: Hash,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -113,7 +113,7 @@ fn main() -> arkret::Result<()> {
                 realm_id: Some(RealmId::new(
                     "ak:realm:01904100-0000-7000-8000-000000000001",
                 )?),
-                r#ref: None,
+                resource_ref: None,
                 operation: None,
                 service_id: None,
             }],

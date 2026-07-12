@@ -1137,7 +1137,7 @@ mod tests {
                 realm_id: Some(
                     RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
                 ),
-                r#ref: None,
+                resource_ref: None,
                 operation: None,
                 service_id: None,
             }],
@@ -1163,7 +1163,7 @@ mod tests {
                     realm_id: Some(
                         RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
                     ),
-                    r#ref: None,
+                    resource_ref: None,
                     operation: None,
                     service_id: None,
                 }],
@@ -1327,7 +1327,7 @@ mod tests {
             expires_at: Some(Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap()),
             approval_evidence: AgentKeyApprovalEvidence {
                 kind: AgentKeyApprovalEvidenceKind::ApprovalEvent,
-                r#ref: Some("ak:event:01970000-0000-7000-8000-000000000021".to_owned()),
+                evidence_ref: Some("ak:event:01970000-0000-7000-8000-000000000021".to_owned()),
                 request_canonical_digest: None,
                 pairing_request_id: None,
                 approved_by: Some(controller_id.clone()),
@@ -1361,7 +1361,7 @@ mod tests {
             String::from_utf8(canonical::canonical_json_bytes(&event.payload).unwrap()).unwrap();
         assert_eq!(
             canonical_content,
-            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_id":"did:webvh:z6mkfixture:agent.example","agent_key_scope":{"actions":["ak.self.events.stream.subscribe","ak.message.create"],"resources":[{"kind":"realm","realm_id":"ak:realm:01904100-0000-7000-8000-000000000001"}]},"approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","kind":"approval_event","ref":"ak:event:01970000-0000-7000-8000-000000000021"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_id":"did:webvh:z6mkfixture:agent.example","agent_key_scope":{"actions":["ak.self.events.stream.subscribe","ak.message.create"],"resources":[{"kind":"realm","realm_id":"ak:realm:01904100-0000-7000-8000-000000000001"}]},"approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","evidence_ref":"ak:event:01970000-0000-7000-8000-000000000021","kind":"approval_event"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
         );
     }
 
@@ -1381,7 +1381,7 @@ mod tests {
             expires_at: Some(Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap()),
             approval_evidence: AgentKeyApprovalEvidence {
                 kind: AgentKeyApprovalEvidenceKind::ApprovalEvent,
-                r#ref: Some("ak:event:01970000-0000-7000-8000-000000000021".to_owned()),
+                evidence_ref: Some("ak:event:01970000-0000-7000-8000-000000000021".to_owned()),
                 request_canonical_digest: None,
                 pairing_request_id: None,
                 approved_by: Some(controller_id.clone()),

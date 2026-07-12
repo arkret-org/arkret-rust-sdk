@@ -76,8 +76,7 @@ pub enum SdkClauseResult {
 #[serde(deny_unknown_fields)]
 pub struct SdkConformanceEvidence {
     pub kind: SdkEvidenceKind,
-    #[serde(rename = "ref")]
-    pub reference: String,
+    pub evidence_ref: String,
     pub digest: String,
 }
 
@@ -205,7 +204,7 @@ impl SdkConformanceClaim {
                 validate_text("clause_claim.rationale", rationale, 2048)?;
             }
             for evidence in &claim.evidence {
-                validate_text("evidence.ref", &evidence.reference, 2048)?;
+                validate_text("evidence.evidence_ref", &evidence.evidence_ref, 2048)?;
                 validate_nonzero_digest("evidence.digest", &evidence.digest)?;
             }
         }
@@ -340,7 +339,7 @@ mod tests {
                 result: SdkClauseResult::Pass,
                 evidence: vec![SdkConformanceEvidence {
                     kind: SdkEvidenceKind::VectorResult,
-                    reference: "ci://run/1".to_owned(),
+                    evidence_ref: "ci://run/1".to_owned(),
                     digest: format!("sha256:{}", "4".repeat(64)),
                 }],
                 rationale: None,

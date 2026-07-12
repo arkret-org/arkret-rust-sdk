@@ -888,8 +888,7 @@ pub enum ErasedClass {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ErasureSubject {
     pub kind: ErasureSubjectKind,
-    #[serde(rename = "ref")]
-    pub reference: String,
+    pub subject_ref: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1086,7 +1085,7 @@ mod erasure_receipt_tests {
             issuer: Did::new("did:webvh:z6mkfixture:erasure.example".to_owned()).unwrap(),
             subject: ErasureSubject {
                 kind: ErasureSubjectKind::Event,
-                reference: "ak:event:01970e58-0004-7000-8000-000000000004".to_owned(),
+                subject_ref: "ak:event:01970e58-0004-7000-8000-000000000004".to_owned(),
             },
             scope: ErasureScope {
                 storage_boundary: ErasureStorageBoundary::CanonicalLogMinimization,
@@ -1119,7 +1118,7 @@ mod erasure_receipt_tests {
     fn retained_stub_digest_mismatch_fails_closed() {
         let stub = serde_json::json!({
             "stub_schema": "ak.schema.erasure_verification_stub.v1",
-            "subject": {"kind": "event", "ref": "ak:event:01970e58-0004-7000-8000-000000000004"},
+            "subject": {"kind": "event", "subject_ref": "ak:event:01970e58-0004-7000-8000-000000000004"},
             "receipt_id": "ak:receipt:01970e58-0004-7000-8000-000000000010"
         });
         let receipt = receipt(&stub);
@@ -1127,7 +1126,7 @@ mod erasure_receipt_tests {
 
         let tampered = serde_json::json!({
             "stub_schema": "ak.schema.erasure_verification_stub.v1",
-            "subject": {"kind": "event", "ref": "ak:event:01970e58-0004-7000-8000-ffffffffffff"},
+            "subject": {"kind": "event", "subject_ref": "ak:event:01970e58-0004-7000-8000-ffffffffffff"},
             "receipt_id": "ak:receipt:01970e58-0004-7000-8000-000000000010"
         });
         assert!(receipt.validate_with_retained_stub(&tampered).is_err());

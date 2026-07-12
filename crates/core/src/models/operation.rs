@@ -1332,7 +1332,7 @@ pub struct ReadCursor {
     pub actor_id: Did,
     pub device_id: DeviceId,
     pub realm_id: RealmId,
-    pub read_scope: ReadScope,
+    pub read_scope: ReadCursorScope,
     pub position: ReadCursorPosition,
     pub updated_at: DateTime<Utc>,
 }
@@ -1359,7 +1359,7 @@ pub struct ReadCursorPosition {
 #[serde(deny_unknown_fields)]
 pub struct ReadCursorAdvanceRequestBody {
     pub realm_id: RealmId,
-    pub read_scope: ReadScope,
+    pub read_scope: ReadCursorScope,
     pub position: ReadCursorPosition,
 }
 
@@ -1370,7 +1370,7 @@ pub struct ReadMarkerOutcome {
     pub realm_id: RealmId,
     pub actor_id: Did,
     pub device_id: DeviceId,
-    pub read_scope: ReadScope,
+    pub read_scope: ReadCursorScope,
     pub position: ReadCursorPosition,
     pub updated_at: DateTime<Utc>,
 }
@@ -1394,7 +1394,7 @@ pub struct ReadReceipt {
     pub event_id: EventId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hlc: Option<Hlc>,
-    pub read_scope: ReadScope,
+    pub read_scope: ReadReceiptScope,
     pub created_at: DateTime<Utc>,
 }
 

@@ -16,7 +16,7 @@ use serde_json::Value;
 use crate::Result;
 use crate::base::BaseClient;
 use crate::models::{DeviceId, Did, Event, EventId, RealmId};
-use crate::receipts::{ReadReceipt, ReadScope};
+use crate::receipts::{ReadReceipt, ReadReceiptScope};
 use crate::sync::{
     BackfillDirection, BackfillFrom, BackfillRequestBody, SyncGapReason, SyncTimeline,
     TimelineOrderKey,
@@ -135,7 +135,7 @@ pub struct TimelineReadReceipt {
     /// Event the receipt targets.
     pub event_id: EventId,
     /// Read scope of the receipt (`read-receipt.schema.json`).
-    pub read_scope: ReadScope,
+    pub read_scope: ReadReceiptScope,
     /// Receipt time.
     pub created_at: DateTime<Utc>,
 }
@@ -1373,7 +1373,7 @@ mod tests {
             actor_id: actor.clone(),
             event_id: event_id.clone(),
             hlc: None,
-            read_scope: ReadScope::realm(),
+            read_scope: ReadReceiptScope::realm(),
             created_at: Utc::now(),
         });
         timeline.apply_typing(TypingNotification {

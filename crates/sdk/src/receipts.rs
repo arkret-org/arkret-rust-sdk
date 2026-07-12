@@ -24,23 +24,28 @@ use arkret_core::ReadCursorId;
 // manager reuses them instead of keeping `user_id`-shaped local copies.
 pub use arkret_core::{
     READ_CURSOR_SCHEMA, READ_RECEIPT_SCHEMA, READ_RECEIPT_TYPE, ReadCursor, ReadCursorPosition,
-    ReadMarker, ReadReceipt, ReadScope, ReadScopeKind,
+    ReadCursorScope, ReadMarker, ReadReceipt, ReadReceiptScope, ReadScopeKind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{DeviceId, Did, EventId, Hlc, RealmId, Result, StrandId};
 
-/// Build the [`ReadScope`] for an optional thread position.
-fn scope_for_thread(thread_id: Option<&str>) -> ReadScope {
+fn cursor_scope_for_thread(thread_id: Option<&str>) -> ReadCursorScope {
     match thread_id {
-        Some(thread_id) => ReadScope::thread(thread_id),
-        None => ReadScope::realm(),
+        Some(thread_id) => ReadCursorScope::thread(thread_id),
+        None => ReadCursorScope::realm(),
     }
 }
 
-/// Extract the manager thread key from a [`ReadScope`].
-fn scope_thread_id(read_scope: &ReadScope) -> Option<String> {
+fn receipt_scope_for_thread(thread_id: Option<&str>) -> ReadReceiptScope {
+    match thread_id {
+        Some(thread_id) => ReadReceiptScope::thread(thread_id),
+        None => ReadReceiptScope::realm(),
+    }
+}
+
+fn receipt_scope_thread_id(read_scope: &ReadReceiptScope) -> Option<String> {
     if read_scope.kind == ReadScopeKind::Thread {
         read_scope.object_ref.clone()
     } else {
@@ -105,7 +110,7 @@ impl ReceiptManager {
             actor_id: actor_id.clone(),
             device_id,
             realm_id: realm_id.clone(),
-            read_scope: scope_for_thread(thread_id.as_deref()),
+            read_scope: cursor_scope_for_thread(thread_id.as_deref()),
             position: ReadCursorPosition { event_id, hlc },
             updated_at: Utc::now(),
         };
@@ -164,7 +169,7 @@ impl ReceiptManager {
             actor_id,
             event_id: event_id.clone(),
             hlc,
-            read_scope: scope_for_thread(thread_id.as_deref()),
+            read_scope: receipt_scope_for_thread(thread_id.as_deref()),
             created_at: now,
         };
         self.thread_index
@@ -179,7 +184,7 @@ impl ReceiptManager {
 
     /// Process a receipt received from sync.
     pub fn process_receipt(&mut self, receipt: ReadReceipt) {
-        let thread_id = scope_thread_id(&receipt.read_scope);
+        let thread_id = receipt_scope_thread_id(&receipt.read_scope);
         self.thread_index
             .insert((receipt.realm_id.clone(), thread_id.clone()));
         self.receipts
