@@ -39,7 +39,8 @@
 //! ## Example
 //!
 //! ```rust
-//! use arkret_core::{ProfileClaim, ProfileClaimKind, ProfileValidator, ServiceType};
+//! use arkret_policy::{ProfileClaim, ProfileClaimKind, ProfileValidator};
+//! use arkret_wire_base::ServiceType;
 //!
 //! let validator = ProfileValidator::new(ServiceType::PushGateway);
 //! let claims = [
