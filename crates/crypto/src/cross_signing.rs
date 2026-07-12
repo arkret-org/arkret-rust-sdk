@@ -229,6 +229,7 @@ pub enum CrossSigningResetProof {
     },
     /// Signature from a recovery service declared in the principal's DID document.
     TrustedRecoveryService {
+        recovery_session_id: String,
         service_id: Did,
         verification_method: String,
         alg: String,
@@ -322,12 +323,6 @@ impl CrossSigningResetContent {
                 verification_method,
                 alg,
                 signature,
-            }
-            | CrossSigningResetProof::TrustedRecoveryService {
-                verification_method,
-                alg,
-                signature,
-                ..
             } => {
                 if verification_method.trim().is_empty()
                     || alg.trim().is_empty()
@@ -337,6 +332,35 @@ impl CrossSigningResetContent {
                         "reset proof requires verification_method + alg + signature".to_owned(),
                     ));
                 }
+                validate_max_length(
+                    "reset proof verification_method",
+                    verification_method,
+                    MAX_IDENTIFIER_LEN,
+                )?;
+                validate_max_length("reset proof alg", alg, MAX_ALGORITHM_NAME_LEN)?;
+                validate_max_length("reset proof signature", signature, MAX_KEY_FIELD_LEN)?;
+            }
+            CrossSigningResetProof::TrustedRecoveryService {
+                recovery_session_id,
+                verification_method,
+                alg,
+                signature,
+                ..
+            } => {
+                if recovery_session_id.trim().is_empty()
+                    || verification_method.trim().is_empty()
+                    || alg.trim().is_empty()
+                    || signature.trim().is_empty()
+                {
+                    return Err(Error::Protocol(
+                        "trusted_recovery_service proof requires recovery_session_id + verification_method + alg + signature".to_owned(),
+                    ));
+                }
+                validate_max_length(
+                    "trusted_recovery_service recovery_session_id",
+                    recovery_session_id,
+                    MAX_IDENTIFIER_LEN,
+                )?;
                 validate_max_length(
                     "reset proof verification_method",
                     verification_method,
@@ -443,6 +467,7 @@ impl CrossSigningResetContent {
                 })
             }
             CrossSigningResetProof::TrustedRecoveryService {
+                recovery_session_id,
                 service_id,
                 verification_method,
                 alg,
@@ -450,6 +475,7 @@ impl CrossSigningResetContent {
                 ..
             } => {
                 let mut body = serde_json::json!({
+                    "recovery_session_id": recovery_session_id,
                     "service_id": service_id.as_str(),
                     "verification_method": verification_method,
                     "alg": alg,

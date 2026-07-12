@@ -128,6 +128,7 @@ pub type SignatureB64u = String;
 #[serde(deny_unknown_fields)]
 pub struct TrustedRecoveryServiceProof {
     pub kind: String,
+    pub recovery_session_id: RecoverySessionId,
     pub service_id: Did,
     pub verification_method: Did,
     pub alg: String,
