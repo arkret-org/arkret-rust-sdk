@@ -208,6 +208,7 @@ dependencies = [
  "argon2",
  "arkret-canonical",
  "arkret-core",
+ "arkret-schema",
  "arkret-signatures",
  "chacha20poly1305",
  "chrono",

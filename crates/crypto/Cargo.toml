@@ -45,3 +45,10 @@ zeroize = {workspace = true,optional = true}
 
 [lints]
 workspace = true
+
+[[example]]
+name = "dump_key_backup_kat"
+required-features = ["backup"]
+
+[dev-dependencies]
+arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
