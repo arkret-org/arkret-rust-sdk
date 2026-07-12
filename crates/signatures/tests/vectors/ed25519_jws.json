@@ -21,9 +21,9 @@
         "payload": {"text": "hi"}
       },
       "canonical_bytes": "{\"actor_id\":\"did:web:alice.example\",\"kind\":\"ak.message.posted.v1\",\"payload\":{\"text\":\"hi\"}}",
-      "payload_digest": "sha256:2cd093faa64434f21f4c3c5db94c059597972936d85ce88eaebb5924d487aeb5",
-      "signature_hex": "00b4a0618a30bd562e94aef3d73d07d02ba7b75a309cc946f78b2ce2c782f6448f9a1281b91ebda8c8427d56b4ea4bbae42e359239b0f4411cbcd9180137130a",
-      "detached_jws": "eyJhbGciOiJFZERTQSJ9..ALSgYYowvVYulK7z1z0H0Cunt1ownMlG94ss4seC9kSPmhKBuR69qMhCfVa06ku65C41kjmw9EEcvNkYATcTCg"
+      "payload_digest": "sha256:2b8e967ff1ef5b3856a2efa04618436314d6ed995866267baddc4dc9336dc9be",
+      "signature_hex": "9fe71583aa61ea7fdf9e34c9e9edd08417a090cbdfa2114330cc31e35df648d09db6af312a500c9fd962044603884ba5679c8ba4bc4b3d05265d561c0d396c05",
+      "detached_jws": "eyJhbGciOiJFZERTQSJ9..n-cVg6ph6n_fnjTJ6e3QhBegkMvfohFDMMwx4132SNCdtq8xKlAMn9liBEYDiEulZ5yLpLxLPQUmXVYcDTlsBQ"
     },
     {
       "name": "seed_three_integer_array",
