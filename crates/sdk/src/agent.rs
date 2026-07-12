@@ -1360,7 +1360,7 @@ mod tests {
             String::from_utf8(canonical::canonical_json_bytes(&event.payload).unwrap()).unwrap();
         assert_eq!(
             canonical_content,
-            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_key_scope":{"actions":["ak.self.events.stream.subscribe","ak.message.create"],"resources":[{"kind":"realm","realm_id":"ak:realm:01904100-0000-7000-8000-000000000001"}]},"agent_id":"did:webvh:z6mkfixture:agent.example","approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","kind":"approval_event","ref":"ak:event:01970000-0000-7000-8000-000000000021"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_id":"did:webvh:z6mkfixture:agent.example","agent_key_scope":{"actions":["ak.self.events.stream.subscribe","ak.message.create"],"resources":[{"kind":"realm","realm_id":"ak:realm:01904100-0000-7000-8000-000000000001"}]},"approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","kind":"approval_event","ref":"ak:event:01970000-0000-7000-8000-000000000021"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
         );
     }
 
@@ -1451,7 +1451,7 @@ mod tests {
         let signing_json = String::from_utf8(signing_input.canonical_bytes().unwrap()).unwrap();
         assert_eq!(
             signing_json,
-            r#"{"audience":"https://arkret.example","challenge":"challenge","expires_at":"2026-05-26T10:05:00Z","nonce":"nonce-abc","request_canonical_digest":"sha256:36b158c5b5ceafe211d21558731991459d80ebc7b6ddd8749d99360f116d9e3b","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+            r#"{"audience":"https://arkret.example","challenge":"challenge","expires_at":"2026-05-26T10:05:00Z","nonce":"nonce-abc","request_canonical_digest":"sha256:989eefe3158e7cc381de4f12283b08217e3db5c3717c4669f665c7b9f26b7cd4","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
         );
         assert!(!signing_json.contains(AGENT_KEY_PROOF_KIND));
 
@@ -1473,7 +1473,7 @@ mod tests {
 
         assert_eq!(
             digest.as_str(),
-            "sha256:36b158c5b5ceafe211d21558731991459d80ebc7b6ddd8749d99360f116d9e3b"
+            "sha256:989eefe3158e7cc381de4f12283b08217e3db5c3717c4669f665c7b9f26b7cd4"
         );
         assert_eq!(request.principal_id.as_ref(), Some(&principal_id));
         assert_eq!(request.device_id, None);

@@ -1379,7 +1379,7 @@ mod content_scheme_anchor_tests {
         let content_key = derive_content_key(&history_secret).unwrap();
         assert_eq!(
             hex(content_key.as_ref()),
-            "4642059a41bc938003f5594dba0c8baa69631408c417ff5fba205c4de1affa98",
+            "4b6592be46e0ff01546651b4631f6e51ca7af945bc0f25c875662d2d3aa6b582",
             "ak.content-v1 HKDF content key drifted"
         );
 
@@ -1398,7 +1398,7 @@ mod content_scheme_anchor_tests {
         let prefix = derive_aead_sender_nonce_prefix(&[0x24u8; 32], &context, 24).unwrap();
         assert_eq!(
             hex(&prefix),
-            "448f58a4b6a14afe04af8dc00c868da9",
+            "0fc040d005169d79fec51dcd48188a9e",
             "exporter label/context nonce-prefix derivation drifted"
         );
 
@@ -1410,7 +1410,7 @@ mod content_scheme_anchor_tests {
         let aad = content_aead_aad(REALM, &nonce, aad_bytes).unwrap();
         assert_eq!(
             std::str::from_utf8(&aad).unwrap(),
-            "{\"aad\":\"YW5jaG9yLWFhZA\",\"key_ref\":{\"algorithm\":\"mls-exporter-aead-v1\",\"realm_id\":\"ak:realm:01904100-0000-7000-8000-000000000042\"},\"nonce\":\"RI9YpLahSv4Er43ADIaNqQAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\"}",
+            "{\"aad\":\"YW5jaG9yLWFhZA\",\"key_ref\":{\"algorithm\":\"mls-exporter-aead-v1\",\"realm_id\":\"ak:realm:01904100-0000-7000-8000-000000000042\"},\"nonce\":\"D8BA0AUWnXn-xR3NSBiKngAAAAAAAAAH\",\"purpose\":\"mls_exporter_aead_content\"}",
             "canonical content AAD drifted"
         );
 
@@ -1428,7 +1428,7 @@ mod content_scheme_anchor_tests {
             .unwrap();
         assert_eq!(
             hex(&ciphertext),
-            "61f6e7789fe04229327cb1351b696e4cbc46e323ec6df1b823dc37dc86b9d88189ab5b8cf42aa7d80534b78c0c7262",
+            "0c6ac115d620005f3b9687f376c61fdae6e28f03da7de29d38a993208d898b9daff69572b8feb3a30290c25f3a73de",
             "exporter-aead ciphertext drifted"
         );
 

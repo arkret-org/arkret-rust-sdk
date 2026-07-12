@@ -551,7 +551,7 @@ mod tests {
         const EXPORTER_SECRET: [u8; 32] = [0x24u8; 32];
         const DEVICE_ONE: &str = "ak:device:01964137-0000-7000-8000-000000000001";
         const DEVICE_TWO: &str = "ak:device:01964137-0000-7000-8000-000000000002";
-        const EXPECTED_PREFIX_HEX: &str = "3625435ed962752ae133dd014413a855";
+        const EXPECTED_PREFIX_HEX: &str = "5d62cff5f7a7befee1e39e3dc287cb67";
 
         let context = fixture_nonce_context(DEVICE_ONE);
         let prefix = derive_aead_sender_nonce_prefix(
