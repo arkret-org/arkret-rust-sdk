@@ -124,6 +124,7 @@ pub enum AgentKeyApprovalEvidenceKind {
     ApprovalEvent,
     ProposalEvent,
     PolicyEvent,
+    PairingRequest,
 }
 
 /// Counterpart for
@@ -132,9 +133,14 @@ pub enum AgentKeyApprovalEvidenceKind {
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyApprovalEvidence {
     pub kind: AgentKeyApprovalEvidenceKind,
-    pub r#ref: ObjectRef,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub r#ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_canonical_digest: Option<Hash>,
+    /// Profile-local pairing artifact. Present only when this authorization
+    /// accepts an agent runtime pairing request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing_request_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approved_by: Option<Did>,
 }
