@@ -30,3 +30,4 @@ _*.md
 
 # Claude Code worktrees / session state
 .claude/
+**/*/*.pyc

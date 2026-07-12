@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate crates/core/src/schema/embedded_artifacts.json from the live spec.
+"""Generate crates/schema/src/embedded_artifacts.json from the live spec.
 
 The embedded snapshot is a single JSON object mapping the artifact path
 (relative to arkret-spec/spec/v1/artifacts, forward slashes) to the parsed
@@ -24,7 +24,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 DEFAULT_ARTIFACTS = REPO.parent / "arkret-spec" / "spec" / "v1" / "artifacts"
-TARGET = REPO / "crates" / "core" / "src" / "schema" / "embedded_artifacts.json"
+TARGET = REPO / "crates" / "schema" / "src" / "embedded_artifacts.json"
 
 
 def minify_json_preserving_number_lexemes(raw: str) -> str:
