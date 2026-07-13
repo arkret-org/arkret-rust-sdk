@@ -1515,15 +1515,16 @@ mod engine_wire_tests {
         Did::new("did:webvh:z6mkfixture:bob.example").unwrap()
     }
 
-    fn proof(issuer: &Did) -> arkret_core::Proof {
-        arkret_core::Proof {
+    fn proof(issuer: &Did) -> arkret_core::PayloadProof {
+        arkret_core::PayloadProof {
             kind: arkret_core::proof_kind::DETACHED_JWS.to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: format!("{issuer}#device-1"),
-            event_digest: arkret_core::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            payload_digest: arkret_core::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
             domain: None,
             audience: None,
+            proof_purpose: Some(arkret_core::PayloadProofPurpose::IssuerAttestation),
             jws: "eyJhbGciOiJFZERTQSJ9..signature".to_owned(),
         }
     }

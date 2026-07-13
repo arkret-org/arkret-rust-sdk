@@ -271,7 +271,8 @@ fn main() -> arkret::Result<()> {
                 })],
                 constraints: Vec::new(),
                 parent_grant_id: None,
-                issued_at: chrono::DateTime::parse_from_rfc3339("2026-06-18T12:00:00Z")?
+                issued_at: chrono::DateTime::parse_from_rfc3339("2026-06-18T12:00:00Z")
+                    .expect("static grant timestamp must be valid")
                     .with_timezone(&Utc),
                 not_before: None,
                 expires_at: None,
@@ -285,7 +286,8 @@ fn main() -> arkret::Result<()> {
                     alg: "EdDSA".to_owned(),
                     verification_method: format!("{controller}#key-1"),
                     payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64)))?,
-                    created_at: chrono::DateTime::parse_from_rfc3339("2026-06-18T12:00:00Z")?
+                    created_at: chrono::DateTime::parse_from_rfc3339("2026-06-18T12:00:00Z")
+                        .expect("static proof timestamp must be valid")
                         .with_timezone(&Utc),
                     domain: None,
                     audience: None,

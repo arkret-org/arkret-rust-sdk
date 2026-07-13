@@ -4,7 +4,11 @@ use serde_json::{Value, json};
 
 use super::*;
 use crate::sync::{PresenceStatus, SyncRealm, UnreadCounts};
-use crate::{Did, RealmId};
+use crate::{
+    AccountNotificationDataKind, AgentRuntimeApprovalNotificationData,
+    AgentRuntimeApprovalNotificationRemovalData, AgentRuntimeApprovalRemovalReason, Did,
+    NotificationContainer, NotificationData, NotificationId, NotificationType, RealmId,
+};
 
 fn sync_response(cursor: &str) -> SyncOutcome {
     SyncOutcome {
@@ -21,6 +25,30 @@ fn sync_response(cursor: &str) -> SyncOutcome {
         presence: Vec::new(),
         notifications: Default::default(),
         partial: false,
+    }
+}
+
+fn approval_notifications(notification_id: &str, expires_at: &str) -> NotificationContainer {
+    NotificationContainer {
+        items: vec![NotificationDelta {
+            id: NotificationId::new(notification_id).unwrap(),
+            notification_type: NotificationType::Agent,
+            action: NotificationDeltaAction::Add,
+            data: Some(NotificationData::AgentRuntimeApproval(
+                AgentRuntimeApprovalNotificationData {
+                    kind: AccountNotificationDataKind::AgentRuntimeApproval,
+                    approval_request_id:
+                        "agent_runtime_approval:01964137-0000-7000-8000-000000000001".to_owned(),
+                    agent_id: Did::new("did:webvh:z6mkfixture:agent.example").unwrap(),
+                    requested_at: DateTime::parse_from_rfc3339("2026-07-13T10:00:00Z")
+                        .unwrap()
+                        .with_timezone(&Utc),
+                    expires_at: DateTime::parse_from_rfc3339(expires_at)
+                        .unwrap()
+                        .with_timezone(&Utc),
+                },
+            )),
+        }],
     }
 }
 
@@ -268,21 +296,7 @@ fn processor_dispatches_all_update_categories() {
         .unwrap(),
     );
     let notification_id = "ak:notification:01964137-0000-7000-8000-000000000000";
-    response.notifications = serde_json::from_value(json!({
-        "items": [{
-            "id": notification_id,
-            "type": "agent",
-            "action": "add",
-            "data": {
-                "kind": "agent_runtime_approval",
-                "approval_request_id": "agent_runtime_approval:01964137-0000-7000-8000-000000000000",
-                "agent_id": "did:webvh:z6mkfixture:agent.example",
-                "requested_at": "2026-07-13T10:00:00Z",
-                "expires_at": "2026-07-13T10:15:00Z"
-            }
-        }]
-    }))
-    .unwrap();
+    response.notifications = approval_notifications(notification_id, "2026-07-13T10:15:00Z");
 
     let mut processor = SyncResponseProcessor::new();
     let updates = processor.process(response).unwrap();
@@ -375,32 +389,14 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
 #[test]
 fn processor_applies_notification_add_update_and_remove_deltas() {
     let notification_id = "ak:notification:01964137-0000-7000-8000-000000000001";
-    let approval = |expires_at: &str| {
-        serde_json::from_value(json!({
-            "items": [{
-                "id": notification_id,
-                "type": "agent",
-                "action": "add",
-                "data": {
-                    "kind": "agent_runtime_approval",
-                    "approval_request_id": "agent_runtime_approval:01964137-0000-7000-8000-000000000001",
-                    "agent_id": "did:webvh:z6mkfixture:agent.example",
-                    "requested_at": "2026-07-13T10:00:00Z",
-                    "expires_at": expires_at
-                }
-            }]
-        }))
-        .unwrap()
-    };
-
     let mut processor = SyncResponseProcessor::new();
     let mut add = sync_response("s-add");
-    add.notifications = approval("2026-07-13T10:15:00Z");
+    add.notifications = approval_notifications(notification_id, "2026-07-13T10:15:00Z");
     processor.process(add).unwrap();
     assert!(processor.notification(notification_id).is_some());
 
     let mut update = sync_response("s-update");
-    update.notifications = approval("2026-07-13T10:20:00Z");
+    update.notifications = approval_notifications(notification_id, "2026-07-13T10:20:00Z");
     update.notifications.items[0].action = NotificationDeltaAction::Update;
     processor.process(update).unwrap();
     let serialized =
@@ -408,15 +404,19 @@ fn processor_applies_notification_add_update_and_remove_deltas() {
     assert_eq!(serialized["data"]["expires_at"], "2026-07-13T10:20:00Z");
 
     let mut remove = sync_response("s-remove");
-    remove.notifications = serde_json::from_value(json!({
-        "items": [{
-            "id": notification_id,
-            "type": "agent",
-            "action": "remove",
-            "data": {"kind": "agent_runtime_approval", "reason": "approved"}
-        }]
-    }))
-    .unwrap();
+    remove.notifications = NotificationContainer {
+        items: vec![NotificationDelta {
+            id: NotificationId::new(notification_id).unwrap(),
+            notification_type: NotificationType::Agent,
+            action: NotificationDeltaAction::Remove,
+            data: Some(NotificationData::AgentRuntimeApprovalRemoval(
+                AgentRuntimeApprovalNotificationRemovalData {
+                    kind: AccountNotificationDataKind::AgentRuntimeApproval,
+                    reason: AgentRuntimeApprovalRemovalReason::Approved,
+                },
+            )),
+        }],
+    };
     processor.process(remove).unwrap();
     assert!(processor.notification(notification_id).is_none());
 }
