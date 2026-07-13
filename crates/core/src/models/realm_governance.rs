@@ -42,8 +42,9 @@ pub const REALM_MODERATION_POLICY_MERGE_STRATEGY_MOST_RESTRICTIVE: &str = "most_
 /// Canonical fanout source value for organization moderation policy projection.
 pub const REALM_MODERATION_POLICY_FANOUT_SOURCE_ORGANIZATION_POLICY: &str = "organization_policy";
 
-/// Wire code returned when a Realm moderation policy override needs organization approval.
-pub const REALM_MODERATION_POLICY_WIRE_CODE_REQUIRES_ORGANIZATION_APPROVAL: &str =
+/// `failed_precondition` reason returned when a Realm moderation policy
+/// override needs organization approval.
+pub const REALM_MODERATION_POLICY_REASON_REQUIRES_ORGANIZATION_APPROVAL: &str =
     "requires_organization_approval";
 
 /// Canonical link_kind values for `ak.realm.link`. The eight values

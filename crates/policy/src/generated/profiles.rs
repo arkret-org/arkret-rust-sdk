@@ -23,7 +23,6 @@ pub const PROFILE_IDS: &[&str] = &[
     "ak.profile.chat_mvp.v1",
     "ak.profile.circle_conformance.v1",
     "ak.profile.circle_seal_cadence.fixed_5m.v1",
-    "ak.profile.collaborative_text.v1",
     "ak.profile.constraint.approval_workflow.v1",
     "ak.profile.constraint.claim_based.v1",
     "ak.profile.constraint.encryption_requirement.v1",
@@ -152,7 +151,14 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
         "ak.profile.accountable_principals.strict_reject.v1",
         ProfileRole::Admin,
     ),
+    ("ak.profile.agent_auth.v1", ProfileRole::Server),
+    ("ak.profile.agent_delegation_policy.v1", ProfileRole::Server),
+    (
+        "ak.profile.agent_participation_policy.v1",
+        ProfileRole::Server,
+    ),
     ("ak.profile.agent_runtime.v1", ProfileRole::Server),
+    ("ak.profile.agent_sidecar_thread.v1", ProfileRole::Server),
     ("ak.profile.applet_bridge.v1", ProfileRole::Server),
     ("ak.profile.applet_delegated.v1", ProfileRole::Server),
     ("ak.profile.applet_e2ee_join.v1", ProfileRole::Server),
@@ -169,7 +175,6 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
         "ak.profile.circle_seal_cadence.fixed_5m.v1",
         ProfileRole::Admin,
     ),
-    ("ak.profile.collaborative_text.v1", ProfileRole::Client),
     (
         "ak.profile.constraint.approval_workflow.v1",
         ProfileRole::Admin,
@@ -216,6 +221,7 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
         "ak.profile.high_security_organization.v1",
         ProfileRole::Admin,
     ),
+    ("ak.profile.hpke.p256.v1", ProfileRole::Admin),
     ("ak.profile.identity_registry.v1", ProfileRole::Directory),
     (
         "ak.profile.isolated_sovereign_network.v1",
@@ -258,6 +264,10 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
         ProfileRole::Directory,
     ),
     ("ak.profile.organization.v1", ProfileRole::Admin),
+    (
+        "ak.profile.personal_agent_provisioning.v1",
+        ProfileRole::Server,
+    ),
     ("ak.profile.personal_node.v1", ProfileRole::Admin),
     ("ak.profile.personal_productivity.v1", ProfileRole::Client),
     ("ak.profile.pinned_items.v1", ProfileRole::Client),
@@ -287,6 +297,8 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
     ("ak.profile.search.blind_index.v1", ProfileRole::Server),
     ("ak.profile.search.client_index.v1", ProfileRole::Client),
     ("ak.profile.search.forward_private.v1", ProfileRole::Server),
+    ("ak.profile.signature.ecdsa_p256.v1", ProfileRole::Admin),
+    ("ak.profile.signature.pqc.v1", ProfileRole::Admin),
     ("ak.profile.small_team.v1", ProfileRole::Admin),
     ("ak.profile.sovereign_client.v1", ProfileRole::Client),
     ("ak.profile.sovereign_deployment.v1", ProfileRole::Admin),
@@ -295,6 +307,7 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
         "ak.profile.traffic_metadata_hardened.v1",
         ProfileRole::Admin,
     ),
+    ("ak.profile.ucan_interop.v1", ProfileRole::Interop),
     ("ak.profile.webrtc_media.v1", ProfileRole::Gateway),
 ];
 

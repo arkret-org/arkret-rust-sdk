@@ -54,11 +54,11 @@ pub struct BlindNotification {
 #[serde(deny_unknown_fields)]
 pub struct Counts {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub badge: Option<Value>,
+    pub badge: Option<PushCountIndicator>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unread_increment: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub missed_call: Option<u64>,
+    pub missed_call: Option<PushCountIndicator>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/device_route`.

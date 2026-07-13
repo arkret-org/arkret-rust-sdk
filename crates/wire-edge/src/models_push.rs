@@ -60,11 +60,84 @@ pub struct OkOutcome {
 #[serde(deny_unknown_fields)]
 pub struct PushCounts {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub badge: Option<Value>,
+    pub badge: Option<PushCountIndicator>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unread_increment: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub missed_call: Option<u64>,
+    pub missed_call: Option<PushCountIndicator>,
+}
+
+/// Privacy-preserving absolute-count indicator used by blind push payloads.
+///
+/// The wire value is either a boolean presence bit or a policy-declared bucket
+/// label. Plain integer absolute counts are deliberately not representable.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(untagged)]
+pub enum PushCountIndicator {
+    Present(bool),
+    Bucket(String),
+}
+
+impl<'de> Deserialize<'de> for PushCountIndicator {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        match value {
+            Value::Bool(value) => Ok(Self::Present(value)),
+            Value::String(value) if is_valid_push_count_bucket(&value) => Ok(Self::Bucket(value)),
+            Value::String(_) => Err(serde::de::Error::custom("invalid push count bucket")),
+            _ => Err(serde::de::Error::custom(
+                "push count indicator must be a boolean or bucket string",
+            )),
+        }
+    }
+}
+
+impl PushCountIndicator {
+    #[must_use]
+    pub fn is_present(&self) -> bool {
+        match self {
+            Self::Present(value) => *value,
+            Self::Bucket(value) => value != "0",
+        }
+    }
+
+    #[must_use]
+    pub fn bucket(&self) -> Option<&str> {
+        match self {
+            Self::Present(_) => None,
+            Self::Bucket(value) => Some(value),
+        }
+    }
+}
+
+fn is_valid_push_count_bucket(value: &str) -> bool {
+    if value.is_empty() || value.len() > 32 {
+        return false;
+    }
+    if value == "0" {
+        return true;
+    }
+    let parse_positive = |digits: &str| {
+        !digits.is_empty()
+            && !digits.starts_with('0')
+            && digits.bytes().all(|byte| byte.is_ascii_digit())
+    };
+    if let Some(lower) = value.strip_suffix('+') {
+        return parse_positive(lower);
+    }
+    if let Some((lower, upper)) = value.split_once('-') {
+        return parse_positive(lower)
+            && parse_positive(upper)
+            && matches!(
+                (lower.parse::<u128>(), upper.parse::<u128>()),
+                (Ok(lower), Ok(upper)) if lower < upper
+            );
+    }
+    parse_positive(value)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -629,17 +702,23 @@ mod tests {
     }
 
     #[test]
-    fn rejects_forbidden_proof_signature_inside_opaque_counts() {
-        let mut request = valid_request();
-        request.notification.counts = Some(PushCounts {
-            badge: Some(json!({
-                "binding_proof": {
-                    "signature": "leak"
-                }
-            })),
-            ..PushCounts::default()
-        });
-        let error = validate_push_notify_contract_shape(&request).unwrap_err();
-        assert!(error.contains("binding_proof.signature"));
+    fn push_count_indicators_reject_absolute_counts_and_invalid_buckets() {
+        for invalid in [
+            json!(1),
+            json!(-1),
+            json!("01"),
+            json!("5-2"),
+            json!("1--2"),
+        ] {
+            assert!(serde_json::from_value::<PushCountIndicator>(invalid).is_err());
+        }
+        assert_eq!(
+            serde_json::from_value::<PushCountIndicator>(json!(true)).unwrap(),
+            PushCountIndicator::Present(true)
+        );
+        assert_eq!(
+            serde_json::from_value::<PushCountIndicator>(json!("6-20")).unwrap(),
+            PushCountIndicator::Bucket("6-20".to_owned())
+        );
     }
 }

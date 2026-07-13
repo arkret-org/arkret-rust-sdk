@@ -160,6 +160,7 @@ pub const REASON_EXECUTED_BY_MISSING: &str = "executed_by_missing";
 pub const REASON_THIRD_PARTY_INVITE_TOKEN_IN_QUERY: &str = "third_party_invite_token_in_query";
 pub const REASON_PATCH_PATH_INVALID: &str = "patch_path_invalid";
 pub const REASON_PATCH_ATOMIC_CONFLICT: &str = "patch_atomic_conflict";
+pub const REASON_EFFECTS_PAYLOAD_MISMATCH: &str = "effects_payload_mismatch";
 pub const REASON_PATCH_PATH_REDUCER_MANAGED: &str = "patch_path_reducer_managed";
 pub const REASON_PATCH_UNSET_REDACTABLE_FIELD: &str = "patch_unset_redactable_field";
 pub const REASON_PATCH_SELECTOR_NO_MATCH: &str = "patch_selector_no_match";
@@ -453,7 +454,10 @@ pub const REASON_INVALIDATED_BY_RATE_LIMIT: &str = "invalidated_by_rate_limit";
 pub const REASON_INVITE_OOB_ENTROPY_TOO_LOW: &str = "invite_oob_entropy_too_low";
 pub const REASON_REALM_LINK_SELF_REFERENCE: &str = "realm_link_self_reference";
 pub const REASON_REALM_LINK_INVALID_TRANSITION: &str = "realm_link_invalid_transition";
+pub const REASON_REQUIRES_ORGANIZATION_APPROVAL: &str = "requires_organization_approval";
 pub const REASON_HUMAN_APPROVAL_REQUIRED: &str = "human_approval_required";
+pub const REASON_KEYPACKAGE_ROTATED: &str = "keypackage_rotated";
+pub const REASON_KEYPACKAGE_EXPIRED: &str = "keypackage_expired";
 pub const REASON_MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID: &str =
     "minimal_metadata_author_credential_invalid";
 
@@ -588,6 +592,7 @@ pub const KNOWN_REASON_CODES: &[&str] = &[
     REASON_THIRD_PARTY_INVITE_TOKEN_IN_QUERY,
     REASON_PATCH_PATH_INVALID,
     REASON_PATCH_ATOMIC_CONFLICT,
+    REASON_EFFECTS_PAYLOAD_MISMATCH,
     REASON_PATCH_PATH_REDUCER_MANAGED,
     REASON_PATCH_UNSET_REDACTABLE_FIELD,
     REASON_PATCH_SELECTOR_NO_MATCH,
@@ -849,6 +854,9 @@ pub const KNOWN_REASON_CODES: &[&str] = &[
     REASON_INVITE_OOB_ENTROPY_TOO_LOW,
     REASON_REALM_LINK_SELF_REFERENCE,
     REASON_REALM_LINK_INVALID_TRANSITION,
+    REASON_REQUIRES_ORGANIZATION_APPROVAL,
     REASON_HUMAN_APPROVAL_REQUIRED,
+    REASON_KEYPACKAGE_ROTATED,
+    REASON_KEYPACKAGE_EXPIRED,
     REASON_MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID,
 ];

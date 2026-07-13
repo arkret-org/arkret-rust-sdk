@@ -348,7 +348,7 @@ impl ArkretMlsGroup {
     // The content key for epoch `N` is derived purely from the MLS exporter at
     // that epoch:
     //   history_secret[N] = MLS-Exporter("ak.history-v1", realm_id, 32)
-    //   K_content[N]      = HKDF-Expand(history_secret[N], "ak.content-v1", 32)
+    //   K_content[N]      = ExpandWithLabel(history_secret[N], "ak.content-v1", "", 32)
     // Content is XChaCha20-Poly1305 over (nonce, aad, plaintext) with the §10.1
     // nonce `sender_nonce_prefix || counter_be64`. Because `history_secret[N]`
     // is reproducible from `history_secret` alone (no ratchet state), a provider
@@ -1167,7 +1167,7 @@ impl ArkretMlsGroup {
     }
 }
 
-/// `K_content = HKDF-Expand(history_secret, "ak.content-v1", AEAD.Nk)`.
+/// `K_content = ExpandWithLabel(history_secret, "ak.content-v1", "", AEAD.Nk)`.
 ///
 /// Per spec the history_secret already has full entropy (it is an MLS exporter
 /// output), so the history_secret is used directly as the HKDF PRK (Expand-only,
@@ -1208,10 +1208,40 @@ pub fn decrypt_content_exporter_aead_standalone(
 fn derive_content_key(history_secret: &[u8]) -> Result<Zeroizing<[u8; CONTENT_AEAD_KEY_LEN]>> {
     let hkdf = Hkdf::<Sha256>::from_prk(history_secret)
         .map_err(|_| Error::Crypto("history_secret too short for HKDF PRK".to_owned()))?;
+    let info = mls_kdf_label(CONTENT_AEAD_KEY_LEN, CONTENT_KEY_LABEL, &[])?;
     let mut key = Zeroizing::new([0u8; CONTENT_AEAD_KEY_LEN]);
-    hkdf.expand(CONTENT_KEY_LABEL.as_bytes(), key.as_mut())
+    hkdf.expand(&info, key.as_mut())
         .map_err(|_| Error::Crypto("content key derivation failed".to_owned()))?;
     Ok(key)
+}
+
+fn mls_kdf_label(length: usize, label: &str, context: &[u8]) -> Result<Vec<u8>> {
+    let length = u16::try_from(length)
+        .map_err(|_| Error::Crypto("MLS KDF output length exceeds uint16".to_owned()))?;
+    let full_label = format!("MLS 1.0 {label}");
+    let mut encoded = Vec::with_capacity(2 + full_label.len() + context.len() + 8);
+    encoded.extend_from_slice(&length.to_be_bytes());
+    encode_mls_varint(full_label.len(), &mut encoded)?;
+    encoded.extend_from_slice(full_label.as_bytes());
+    encode_mls_varint(context.len(), &mut encoded)?;
+    encoded.extend_from_slice(context);
+    Ok(encoded)
+}
+
+fn encode_mls_varint(value: usize, output: &mut Vec<u8>) -> Result<()> {
+    let value = u32::try_from(value)
+        .map_err(|_| Error::Crypto("MLS vector length exceeds uint32".to_owned()))?;
+    match value {
+        0..=63 => output.push(value as u8),
+        64..=16_383 => output.extend_from_slice(&(value as u16 | 0x4000).to_be_bytes()),
+        16_384..=1_073_741_823 => output.extend_from_slice(&(value | 0x8000_0000).to_be_bytes()),
+        _ => {
+            return Err(Error::Crypto(
+                "MLS vector length exceeds varint range".to_owned(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn content_cipher(content_key: &[u8; CONTENT_AEAD_KEY_LEN]) -> Result<XChaCha20Poly1305> {
@@ -1352,7 +1382,7 @@ mod content_scheme_anchor_tests {
     use super::{
         MLS_EXPORTER_AEAD_CONTENT_PURPOSE, MLS_EXPORTER_AEAD_CONTENT_SCHEME, content_aead_aad,
         content_cipher, content_nonce_array, decrypt_content_exporter_aead_standalone,
-        derive_content_key,
+        derive_content_key, mls_kdf_label,
     };
     use crate::crypto::{
         AEAD_PROFILE_XCHACHA20_POLY1305, AeadNonceContext, compose_aead_nonce,
@@ -1365,22 +1395,20 @@ mod content_scheme_anchor_tests {
 
     const REALM: &str = "ak:realm:01904100-0000-7000-8000-000000000042";
 
-    /// Self-generated regression anchor (NOT a spec vector): pins the
-    /// byte-exact `mls-exporter-aead-v1` content-scheme chain from a fixed
-    /// history_secret — HKDF content key (`ak-content-v1` label), exporter
+    /// Pins the byte-exact `mls-exporter-aead-v1` content-scheme chain from a
+    /// fixed history_secret — RFC 9420 ExpandWithLabel content key, exporter
     /// nonce-prefix derivation (`arkret-aead-sender-nonce-prefix-v1` label +
     /// canonical context bytes), canonical AAD construction, and the AEAD
     /// ciphertext itself. Any silent change to a label, context field, AAD
-    /// shape or nonce composition breaks these bytes. Replace with spec
-    /// vectors once the spec ships them (SDK-TEST-08).
+    /// shape or nonce composition breaks these bytes.
     #[test]
     fn exporter_aead_content_scheme_regression_anchor() {
         let history_secret = [0x42u8; 32];
         let content_key = derive_content_key(&history_secret).unwrap();
         assert_eq!(
             hex(content_key.as_ref()),
-            "4b6592be46e0ff01546651b4631f6e51ca7af945bc0f25c875662d2d3aa6b582",
-            "ak.content-v1 HKDF content key drifted"
+            "d5060a411113d876e41a0c68710882bdca7b8de490e3b3201668e860098ef9e0",
+            "ak.content-v1 ExpandWithLabel content key drifted"
         );
 
         // Exporter label/context binding: the deterministic mirror of the
@@ -1451,6 +1479,29 @@ mod content_scheme_anchor_tests {
         assert!(
             decrypt_content_exporter_aead_standalone(&history_secret, REALM, &tampered, aad_bytes)
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn content_key_matches_registered_spec_vector() {
+        let fixture =
+            crate::schema::embedded_json_artifact("fixtures/arkret-private-kdf-fixture.json")
+                .unwrap();
+        let case = &fixture["cases"][0];
+        let history_secret =
+            hex::decode(case["expected"]["history_secret_hex"].as_str().unwrap()).unwrap();
+        let expected_info = case["expected"]["content_expand_with_label_info_hex"]
+            .as_str()
+            .unwrap();
+        let expected_key = case["expected"]["content_key_hex"].as_str().unwrap();
+
+        assert_eq!(
+            hex(&mls_kdf_label(32, "ak.content-v1", &[]).unwrap()),
+            expected_info
+        );
+        assert_eq!(
+            hex(derive_content_key(&history_secret).unwrap().as_ref()),
+            expected_key
         );
     }
 }

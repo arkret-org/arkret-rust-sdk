@@ -525,23 +525,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             },
         );
         map.insert(
-            "ak.profile.collaborative_text.v1",
-            ProfileRequirements {
-                profile_id: "ak.profile.collaborative_text.v1",
-                inherits: &[],
-                required_operations: &[],
-                required_event_kinds: &[],
-                required_schemas: &["ak.schema.realm.v1"],
-                rejected_event_kinds: &[],
-                required_fixtures: &[],
-                required_capability_actions: &[],
-                required_features: &[],
-                required_cell_namespaces: &[],
-                required_cells: &[],
-                required_constraint_kinds: &[],
-            },
-        );
-        map.insert(
             "ak.profile.core_event_store.v1",
             ProfileRequirements {
                 profile_id: "ak.profile.core_event_store.v1",
@@ -601,7 +584,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ak.schema.cross_signing_reset.v1",
                 ],
                 rejected_event_kinds: &[],
-                required_fixtures: &[],
+                required_fixtures: &["cross-signing-binding-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -768,6 +751,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 rejected_event_kinds: &[],
                 required_fixtures: &[
                     "crypto-signature-fixture.json",
+                    "mls-rfc9420-kat-fixture.json",
                     "privacy-security-fixture.json",
                     "sync-fixture.json",
                 ],
@@ -787,7 +771,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_event_kinds: &[],
                 required_schemas: &[],
                 rejected_event_kinds: &[],
-                required_fixtures: &[],
+                required_fixtures: &["security-closure-vectors.json"],
                 required_capability_actions: &[],
                 required_features: &["ak.feature.e2ee_relaxed.v1"],
                 required_cell_namespaces: &[],
@@ -1015,6 +999,23 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             },
         );
         map.insert(
+            "ak.profile.hpke.p256.v1",
+            ProfileRequirements {
+                profile_id: "ak.profile.hpke.p256.v1",
+                inherits: &[],
+                required_operations: &[],
+                required_event_kinds: &[],
+                required_schemas: &[],
+                rejected_event_kinds: &[],
+                required_fixtures: &["hpke-suite-fixture.json"],
+                required_capability_actions: &[],
+                required_features: &[],
+                required_cell_namespaces: &[],
+                required_cells: &[],
+                required_constraint_kinds: &[],
+            },
+        );
+        map.insert(
             "ak.profile.identity_registry.v1",
             ProfileRequirements {
                 profile_id: "ak.profile.identity_registry.v1",
@@ -1193,7 +1194,12 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_event_kinds: &[],
                 required_schemas: &["ak.schema.device_message.v1"],
                 rejected_event_kinds: &[],
-                required_fixtures: &[],
+                required_fixtures: &[
+                    "cross-signing-binding-fixture.json",
+                    "keypackage-lifecycle-fixture.json",
+                    "push-rule-core-fixture.json",
+                    "sync-fixture.json",
+                ],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1950,6 +1956,40 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_schemas: &["ak.schema.search_service.v1"],
                 rejected_event_kinds: &[],
                 required_fixtures: &["privacy-security-fixture.json"],
+                required_capability_actions: &[],
+                required_features: &[],
+                required_cell_namespaces: &[],
+                required_cells: &[],
+                required_constraint_kinds: &[],
+            },
+        );
+        map.insert(
+            "ak.profile.signature.ecdsa_p256.v1",
+            ProfileRequirements {
+                profile_id: "ak.profile.signature.ecdsa_p256.v1",
+                inherits: &[],
+                required_operations: &[],
+                required_event_kinds: &[],
+                required_schemas: &[],
+                rejected_event_kinds: &[],
+                required_fixtures: &["crypto-signature-fixture.json"],
+                required_capability_actions: &[],
+                required_features: &[],
+                required_cell_namespaces: &[],
+                required_cells: &[],
+                required_constraint_kinds: &[],
+            },
+        );
+        map.insert(
+            "ak.profile.signature.pqc.v1",
+            ProfileRequirements {
+                profile_id: "ak.profile.signature.pqc.v1",
+                inherits: &[],
+                required_operations: &[],
+                required_event_kinds: &[],
+                required_schemas: &[],
+                rejected_event_kinds: &[],
+                required_fixtures: &["crypto-signature-fixture.json"],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
