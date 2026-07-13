@@ -9,10 +9,10 @@ use arkret_core::{
     AgentList, AgentParticipationOutcome, AgentParticipationReplaceRequestBody,
     AgentPauseRequestBody, AgentProvisionOutcome, AgentProvisionRequestBody,
     AgentRenewPairingOutcome, AgentRenewPairingRequestBody, AgentResumeRequestBody,
-    AgentRuntimeApprovalOutcome,
-    AgentRuntimeApprovalRequestBody, AgentRuntimeApprovalStatusOutcome,
-    AgentRuntimeApprovalStatusRequestBody, AgentSidecarThreadEnsureOutcome,
-    AgentSidecarThreadEnsureRequestBody, AgentView, Error, GrantId, Result,
+    AgentRuntimeApprovalOutcome, AgentRuntimeApprovalRequestBody,
+    AgentRuntimeApprovalStatusOutcome, AgentRuntimeApprovalStatusRequestBody,
+    AgentSidecarThreadEnsureOutcome, AgentSidecarThreadEnsureRequestBody, AgentView, Error,
+    GrantId, Result,
 };
 use serde_json::Value;
 
