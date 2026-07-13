@@ -3,6 +3,7 @@
 #[cfg(test)]
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
+use std::time::Duration;
 
 pub use arkret_core::agent::{
     agent_key_pair_proof_request_binding_digest, agent_key_pairing_request_binding_digest,
@@ -30,6 +31,31 @@ use crate::{
 };
 
 pub const AGENT_KEY_PROOF_KIND: &str = "agent_key_proof";
+
+#[derive(Clone, Debug, Default)]
+pub struct AgentRuntimeApprovalPollSchedule {
+    attempt: usize,
+}
+
+impl AgentRuntimeApprovalPollSchedule {
+    const DELAYS: [Duration; 5] = [
+        Duration::from_secs(1),
+        Duration::from_secs(2),
+        Duration::from_secs(5),
+        Duration::from_secs(10),
+        Duration::from_secs(30),
+    ];
+
+    pub fn next_delay(&mut self, retry_after: Option<Duration>) -> Duration {
+        let fallback = Self::DELAYS[self.attempt.min(Self::DELAYS.len() - 1)];
+        self.attempt = self.attempt.saturating_add(1);
+        retry_after.unwrap_or(fallback)
+    }
+
+    pub fn reset(&mut self) {
+        self.attempt = 0;
+    }
+}
 
 /// A runtime-key request body together with the digest of the generated
 /// public key. The digest is reused by the controller-side authorize event.
@@ -1580,5 +1606,20 @@ mod tests {
             Some("policy".to_owned()),
         );
         assert_eq!(audit.entries_for_run(&run.run_id).len(), 1);
+    }
+
+    #[test]
+    fn runtime_approval_poll_schedule_honors_server_delay_and_caps_fallback() {
+        let mut schedule = AgentRuntimeApprovalPollSchedule::default();
+        let expected = [1, 2, 5, 10, 30, 30];
+        for seconds in expected {
+            assert_eq!(schedule.next_delay(None), Duration::from_secs(seconds));
+        }
+        assert_eq!(
+            schedule.next_delay(Some(Duration::from_secs(17))),
+            Duration::from_secs(17)
+        );
+        schedule.reset();
+        assert_eq!(schedule.next_delay(None), Duration::from_secs(1));
     }
 }

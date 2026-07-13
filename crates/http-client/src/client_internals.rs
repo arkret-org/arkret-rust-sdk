@@ -162,6 +162,15 @@ impl Client {
         &self,
         builder: RequestBuilder,
     ) -> Result<T> {
+        self.send_json_with_headers(builder)
+            .await
+            .map(|(body, _headers)| body)
+    }
+
+    pub(crate) async fn send_json_with_headers<T: DeserializeOwned>(
+        &self,
+        builder: RequestBuilder,
+    ) -> Result<(T, HeaderMap)> {
         let response = self.execute(builder).await?;
         let status = response.status();
         if !status.is_success() {
@@ -172,8 +181,11 @@ impl Client {
             });
         }
 
+        let headers = response.headers().clone();
         let body = read_body_limited(response, MAX_RESPONSE_BODY_BYTES).await?;
-        serde_json::from_slice(&body).map_err(Error::from)
+        serde_json::from_slice(&body)
+            .map(|body| (body, headers))
+            .map_err(Error::from)
     }
 
     pub(crate) async fn send_empty(&self, builder: RequestBuilder) -> Result<HeaderMap> {

@@ -11,8 +11,10 @@ use arkret_core::{
     AgentSidecarThreadEnsureRequestBody, AgentView, Error, GrantId, Result,
 };
 use serde_json::Value;
+use std::ops::Deref;
+use std::time::Duration;
 
-use crate::Client;
+use crate::{Client, retry_after_ms};
 
 const AGENT_KEY_PAIR_PATH: &str = "/_arkret/gate/account/agent-key-pair";
 const AGENT_PAIRING_RUNTIME_KEY_REQUESTS_PATH: &str =
@@ -21,6 +23,20 @@ const AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH: &str =
     "/_arkret/open/agent-pairing/runtime-key-requests/status";
 const AGENTS_PATH: &str = "/_arkret/self/agents";
 const AGENT_SIDECAR_THREAD_ENSURE_PATH: &str = "/_arkret/self/agent-sidecar-threads:ensure";
+
+#[derive(Clone, Debug)]
+pub struct AgentRuntimeApprovalStatusResponse {
+    pub outcome: AgentRuntimeApprovalStatusOutcome,
+    pub retry_after: Option<Duration>,
+}
+
+impl Deref for AgentRuntimeApprovalStatusResponse {
+    type Target = AgentRuntimeApprovalStatusOutcome;
+
+    fn deref(&self) -> &Self::Target {
+        &self.outcome
+    }
+}
 
 impl Client {
     /// `POST /_arkret/gate/account/agent-key-pair`
@@ -47,9 +63,18 @@ impl Client {
     pub async fn agent_runtime_approval_status(
         &self,
         request: &AgentRuntimeApprovalStatusRequestBody,
-    ) -> Result<AgentRuntimeApprovalStatusOutcome> {
-        self.post(AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH, request)
-            .await
+    ) -> Result<AgentRuntimeApprovalStatusResponse> {
+        let builder = self
+            .request(
+                reqwest::Method::POST,
+                AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS_PATH,
+            )?
+            .json(request);
+        let (outcome, headers) = self.send_json_with_headers(builder).await?;
+        Ok(AgentRuntimeApprovalStatusResponse {
+            outcome,
+            retry_after: retry_after_ms(&headers).map(Duration::from_millis),
+        })
     }
 
     /// `POST /_arkret/self/agents` (`ak.self.agent.command.provision`).
