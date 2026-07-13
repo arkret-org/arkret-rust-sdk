@@ -160,7 +160,7 @@ fn interoperability_serialization_roundtrips() {
         device_lists: serde_json::Value::Null,
         account_data: Vec::new(),
         presence: Vec::new(),
-        notifications: serde_json::Value::Null,
+        notifications: Default::default(),
         partial: false,
     };
 

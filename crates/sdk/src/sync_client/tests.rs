@@ -19,7 +19,7 @@ fn sync_response(cursor: &str) -> SyncOutcome {
         device_lists: Value::Null,
         account_data: Vec::new(),
         presence: Vec::new(),
-        notifications: Value::Null,
+        notifications: Default::default(),
         partial: false,
     }
 }
@@ -267,16 +267,22 @@ fn processor_dispatches_all_update_categories() {
         })
         .unwrap(),
     );
-    response.notifications = json!({
-        "events": [
-            serde_json::to_value(NotificationDelta {
-                id: "n1".to_owned(),
-                notification_type: "mention".to_owned(),
-                action: "add".to_owned(),
-                data: None,
-            }).unwrap()
-        ]
-    });
+    let notification_id = "ak:notification:01964137-0000-7000-8000-000000000000";
+    response.notifications = serde_json::from_value(json!({
+        "items": [{
+            "id": notification_id,
+            "type": "agent",
+            "action": "add",
+            "data": {
+                "kind": "agent_runtime_approval",
+                "approval_request_id": "agent_runtime_approval:01964137-0000-7000-8000-000000000000",
+                "agent_id": "did:webvh:z6mkfixture:agent.example",
+                "requested_at": "2026-07-13T10:00:00Z",
+                "expires_at": "2026-07-13T10:15:00Z"
+            }
+        }]
+    }))
+    .unwrap();
 
     let mut processor = SyncResponseProcessor::new();
     let updates = processor.process(response).unwrap();
@@ -312,7 +318,7 @@ fn processor_dispatches_all_update_categories() {
             .is_some()
     );
     assert!(processor.account_data("ak.settings").is_some());
-    assert!(processor.notification("n1").is_some());
+    assert!(processor.notification(notification_id).is_some());
     assert_eq!(processor.device_lists().changed.len(), 1);
 }
 
@@ -364,6 +370,55 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
     );
     assert_eq!(processor.limited_timelines().len(), 1);
     assert_eq!(processor.to_device_ack("devmsg1"), Some(&ack));
+}
+
+#[test]
+fn processor_applies_notification_add_update_and_remove_deltas() {
+    let notification_id = "ak:notification:01964137-0000-7000-8000-000000000001";
+    let approval = |expires_at: &str| {
+        serde_json::from_value(json!({
+            "items": [{
+                "id": notification_id,
+                "type": "agent",
+                "action": "add",
+                "data": {
+                    "kind": "agent_runtime_approval",
+                    "approval_request_id": "agent_runtime_approval:01964137-0000-7000-8000-000000000001",
+                    "agent_id": "did:webvh:z6mkfixture:agent.example",
+                    "requested_at": "2026-07-13T10:00:00Z",
+                    "expires_at": expires_at
+                }
+            }]
+        }))
+        .unwrap()
+    };
+
+    let mut processor = SyncResponseProcessor::new();
+    let mut add = sync_response("s-add");
+    add.notifications = approval("2026-07-13T10:15:00Z");
+    processor.process(add).unwrap();
+    assert!(processor.notification(notification_id).is_some());
+
+    let mut update = sync_response("s-update");
+    update.notifications = approval("2026-07-13T10:20:00Z");
+    update.notifications.items[0].action = NotificationDeltaAction::Update;
+    processor.process(update).unwrap();
+    let serialized =
+        serde_json::to_value(processor.notification(notification_id).unwrap()).unwrap();
+    assert_eq!(serialized["data"]["expires_at"], "2026-07-13T10:20:00Z");
+
+    let mut remove = sync_response("s-remove");
+    remove.notifications = serde_json::from_value(json!({
+        "items": [{
+            "id": notification_id,
+            "type": "agent",
+            "action": "remove",
+            "data": {"kind": "agent_runtime_approval", "reason": "approved"}
+        }]
+    }))
+    .unwrap();
+    processor.process(remove).unwrap();
+    assert!(processor.notification(notification_id).is_none());
 }
 
 #[test]

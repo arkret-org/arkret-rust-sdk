@@ -202,6 +202,7 @@ pub const REASON_SUPERSEDED_BY_REPAIRING: &str = "superseded_by_repairing";
 pub const REASON_PAIRING_EXPIRED: &str = "pairing_expired";
 pub const REASON_PAIRING_REQUEST_EXPIRED: &str = "pairing_request_expired";
 pub const REASON_PROOF_INVALID: &str = "proof_invalid";
+pub const REASON_AGENT_RUNTIME_REQUEST_CONFLICT: &str = "agent_runtime_request_conflict";
 pub const REASON_AGENT_PAUSED: &str = "agent_paused";
 pub const REASON_AGENT_DEACTIVATED: &str = "agent_deactivated";
 pub const REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH: &str =
@@ -631,6 +632,7 @@ pub const KNOWN_REASON_CODES: &[&str] = &[
     REASON_PAIRING_EXPIRED,
     REASON_PAIRING_REQUEST_EXPIRED,
     REASON_PROOF_INVALID,
+    REASON_AGENT_RUNTIME_REQUEST_CONFLICT,
     REASON_AGENT_PAUSED,
     REASON_AGENT_DEACTIVATED,
     REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH,

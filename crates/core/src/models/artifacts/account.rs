@@ -185,9 +185,140 @@ pub struct DataOrControlPayloadPresentPresence {
     pub extra: BTreeMap<String, Value>,
 }
 
+/// Closed action set for account notification projection deltas.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum NotificationDeltaAction {
+    Add,
+    Update,
+    Remove,
+}
+
+/// Closed notification data discriminator.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AccountNotificationDataKind {
+    AgentRuntimeApproval,
+}
+
+/// Account-private Agent runtime approval projection.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeApprovalNotificationData {
+    pub kind: AccountNotificationDataKind,
+    pub approval_request_id: String,
+    pub agent_id: Did,
+    pub requested_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+}
+
+/// Closed terminal reasons for an Agent runtime approval notification.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentRuntimeApprovalRemovalReason {
+    Approved,
+    Expired,
+    Renewed,
+    Deactivated,
+    Superseded,
+}
+
+/// Optional data carried by a remove delta.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeApprovalNotificationRemovalData {
+    pub kind: AccountNotificationDataKind,
+    pub reason: AgentRuntimeApprovalRemovalReason,
+}
+
+/// Closed data branches for account notification deltas.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(untagged)]
+pub enum NotificationData {
+    AgentRuntimeApproval(AgentRuntimeApprovalNotificationData),
+    AgentRuntimeApprovalRemoval(AgentRuntimeApprovalNotificationRemovalData),
+}
+
+/// Strongly typed account notification projection delta.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct NotificationDelta {
+    pub id: NotificationId,
+    #[serde(rename = "type")]
+    pub notification_type: NotificationType,
+    pub action: NotificationDeltaAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<NotificationData>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NotificationDeltaWire {
+    id: NotificationId,
+    #[serde(rename = "type")]
+    notification_type: NotificationType,
+    action: NotificationDeltaAction,
+    #[serde(default)]
+    data: Option<NotificationData>,
+}
+
+impl<'de> Deserialize<'de> for NotificationDelta {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = NotificationDeltaWire::deserialize(deserializer)?;
+        if wire.notification_type != NotificationType::Agent {
+            return Err(serde::de::Error::custom(
+                "account notification delta type must be agent",
+            ));
+        }
+        match (wire.action, wire.data.as_ref()) {
+            (
+                NotificationDeltaAction::Add | NotificationDeltaAction::Update,
+                Some(NotificationData::AgentRuntimeApproval(_)),
+            )
+            | (
+                NotificationDeltaAction::Remove,
+                None | Some(NotificationData::AgentRuntimeApprovalRemoval(_)),
+            ) => {}
+            (NotificationDeltaAction::Add | NotificationDeltaAction::Update, _) => {
+                return Err(serde::de::Error::custom(
+                    "notification add/update requires agent_runtime_approval data",
+                ));
+            }
+            (NotificationDeltaAction::Remove, _) => {
+                return Err(serde::de::Error::custom(
+                    "notification remove data must contain only a terminal reason",
+                ));
+            }
+        }
+        Ok(Self {
+            id: wire.id,
+            notification_type: wire.notification_type,
+            action: wire.action,
+            data: wire.data,
+        })
+    }
+}
+
+/// Dedicated notification container for account subscribe.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct NotificationContainer {
+    pub items: Vec<NotificationDelta>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DataOrControlPayloadPresentNotifications {
-    pub notifications: Value,
+    pub notifications: NotificationContainer,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
 }

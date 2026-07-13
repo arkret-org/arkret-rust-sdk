@@ -19,6 +19,10 @@ use sha2::Sha256;
 
 use crate::{Error, Result, SealId, canonical};
 
+fn notification_container_is_empty(container: &NotificationContainer) -> bool {
+    container.items.is_empty()
+}
+
 mod account;
 mod actor_profile;
 mod agent;

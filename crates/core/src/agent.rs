@@ -33,6 +33,16 @@ struct AgentKeyPairProofRequestBinding<'a> {
     runtime_attestation: Option<&'a Value>,
 }
 
+#[derive(Serialize)]
+struct AgentRuntimeKeyBinding<'a> {
+    agent_id: &'a str,
+    attestation_digest: &'a str,
+    kind: &'static str,
+    pairing_request_id: &'a str,
+    public_key_digest: &'a str,
+    verification_method: &'a str,
+}
+
 pub fn agent_runtime_public_key_digest(public_key: &Value) -> Result<Hash> {
     let key: PublicKey = serde_json::from_value(public_key.clone()).map_err(|error| {
         Error::Protocol(format!(
@@ -60,6 +70,53 @@ pub fn agent_runtime_public_key_digest(public_key: &Value) -> Result<Hash> {
         ));
     }
     Hash::new(canonical::canonical_sha256(public_key)?).map_err(Error::from)
+}
+
+/// Digest the runtime attestation value used by the stable approval binding.
+/// An absent attestation is represented by canonical JSON `null`.
+pub fn agent_runtime_attestation_digest(runtime_attestation: Option<&Value>) -> Result<Hash> {
+    Hash::new(canonical::canonical_sha256(
+        runtime_attestation.unwrap_or(&Value::Null),
+    )?)
+    .map_err(Error::from)
+}
+
+/// Compute the stable runtime-key approval binding from source key material.
+pub fn agent_runtime_key_binding_digest(
+    agent_id: &Did,
+    pairing_request_id: &str,
+    verification_method: &str,
+    public_key: &Value,
+    runtime_attestation: Option<&Value>,
+) -> Result<Hash> {
+    let public_key_digest = agent_runtime_public_key_digest(public_key)?;
+    let attestation_digest = agent_runtime_attestation_digest(runtime_attestation)?;
+    agent_runtime_key_binding_digest_from_digests(
+        agent_id,
+        pairing_request_id,
+        verification_method,
+        &public_key_digest,
+        &attestation_digest,
+    )
+}
+
+/// Compute the stable runtime-key approval binding from persisted digests.
+pub fn agent_runtime_key_binding_digest_from_digests(
+    agent_id: &Did,
+    pairing_request_id: &str,
+    verification_method: &str,
+    public_key_digest: &Hash,
+    attestation_digest: &Hash,
+) -> Result<Hash> {
+    Hash::new(canonical::canonical_sha256(&AgentRuntimeKeyBinding {
+        agent_id: agent_id.as_str(),
+        attestation_digest: attestation_digest.as_str(),
+        kind: "ak.agent.runtime_key_binding.v1",
+        pairing_request_id,
+        public_key_digest: public_key_digest.as_str(),
+        verification_method,
+    })?)
+    .map_err(Error::from)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -109,4 +166,74 @@ pub fn agent_key_pair_proof_request_binding_digest(
         },
     )?)
     .map_err(Error::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn runtime_key_binding_matches_normative_vector() {
+        let agent_id = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
+        let public_key = json!({
+            "alg": "EdDSA",
+            "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "kid": "runtime-1",
+            "kty": "OKP"
+        });
+
+        let public_key_digest = agent_runtime_public_key_digest(&public_key).unwrap();
+        let attestation_digest = agent_runtime_attestation_digest(None).unwrap();
+        let binding_digest = agent_runtime_key_binding_digest(
+            &agent_id,
+            "pairing_request:01964137-0000-7000-8000-000000000000",
+            "did:webvh:z6mkagent:agent.example#runtime-1",
+            &public_key,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            public_key_digest.as_str(),
+            "sha256:7bfcb9251367ab71fd32c19fc23c11b46ddbc371b52fcb5a75eaa1a79f5f463b"
+        );
+        assert_eq!(
+            attestation_digest.as_str(),
+            "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        );
+        assert_eq!(
+            binding_digest.as_str(),
+            "sha256:1dd1a4f03dfc6086a43ae3f0e1eca877c9040c25fd95fc48d1b278568306fb06"
+        );
+    }
+
+    #[test]
+    fn runtime_key_binding_changes_when_key_material_changes() {
+        let agent_id = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
+        let first = json!({
+            "alg": "EdDSA",
+            "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "kid": "runtime-1",
+            "kty": "OKP"
+        });
+        let second = json!({
+            "alg": "EdDSA",
+            "key": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "kid": "runtime-1",
+            "kty": "OKP"
+        });
+        let digest = |public_key: &Value| {
+            agent_runtime_key_binding_digest(
+                &agent_id,
+                "pairing_request:01964137-0000-7000-8000-000000000000",
+                "did:webvh:z6mkagent:agent.example#runtime-1",
+                public_key,
+                None,
+            )
+            .unwrap()
+        };
+        assert_ne!(digest(&first), digest(&second));
+    }
 }

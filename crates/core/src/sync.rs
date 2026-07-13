@@ -12,7 +12,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Cursor, DeviceId, Did, Error, Event, EventId, Hlc, RealmId, Result, canonical};
+use crate::{
+    Cursor, DeviceId, Did, Error, Event, EventId, Hlc, NotificationDelta, RealmId, Result,
+    canonical,
+};
 
 /// Query parameters for `ak.self.account.stream.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -197,22 +200,6 @@ pub struct AccountData {
     pub data_type: String,
     /// Data content
     pub content: Value,
-}
-
-/// Notification delta.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct NotificationDelta {
-    /// Notification ID
-    pub id: String,
-    /// Notification type
-    #[serde(rename = "type")]
-    pub notification_type: String,
-    /// Action (add/update/remove)
-    pub action: String,
-    /// Notification data
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<Value>,
 }
 
 /// Sync filter for selective synchronization.
@@ -828,21 +815,6 @@ pub fn project_typed_vec<T: serde::de::DeserializeOwned>(items: Vec<Value>) -> V
         .collect()
 }
 
-/// Project a single `Value` (the wire-shape `notifications` field —
-/// the spec leaves it as an events-container `{"events": [...]}`)
-/// into a typed `Vec<T>`. Accepts the spec's events-container shape
-/// or a bare array. Items that fail to parse are dropped.
-pub fn project_typed_vec_from_value<T: serde::de::DeserializeOwned>(value: Value) -> Vec<T> {
-    match value {
-        Value::Array(items) => project_typed_vec(items),
-        Value::Object(mut map) => match map.remove("events") {
-            Some(Value::Array(items)) => project_typed_vec(items),
-            _ => Vec::new(),
-        },
-        _ => Vec::new(),
-    }
-}
-
 /// Sync client for managing incremental synchronization.
 pub struct SyncClient {
     /// Current sync token
@@ -942,7 +914,7 @@ impl SyncClient {
             device_lists: serde_json::from_value(response.device_lists).unwrap_or_default(),
             presence: project_typed_vec(response.presence),
             account_data: project_typed_vec(response.account_data),
-            notifications: project_typed_vec_from_value(response.notifications),
+            notifications: response.notifications.items,
             partial: response.partial,
         }
     }
@@ -1069,7 +1041,7 @@ mod tests {
             },
             "presence": [],
             "account_data": [],
-            "notifications": [],
+            "notifications": {"items": []},
             "partial": false
         }"#;
 
@@ -1106,7 +1078,7 @@ mod tests {
             device_lists: Value::Null,
             account_data: Vec::new(),
             presence: Vec::new(),
-            notifications: Value::Null,
+            notifications: Default::default(),
             partial: false,
         };
 

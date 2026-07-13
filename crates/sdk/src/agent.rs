@@ -6,7 +6,8 @@ use std::collections::BTreeSet;
 
 pub use arkret_core::agent::{
     agent_key_pair_proof_request_binding_digest, agent_key_pairing_request_binding_digest,
-    agent_runtime_public_key_digest,
+    agent_runtime_attestation_digest, agent_runtime_key_binding_digest,
+    agent_runtime_key_binding_digest_from_digests, agent_runtime_public_key_digest,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signer, SigningKey};

@@ -107,8 +107,7 @@ impl SyncResponseProcessor {
             serde_json::from_value(response.device_lists).unwrap_or_default();
         let presence: Vec<PresenceEvent> = project_typed_vec(response.presence);
         let account_data: Vec<AccountData> = project_typed_vec(response.account_data);
-        let notifications: Vec<NotificationDelta> =
-            project_typed_vec_from_value(response.notifications);
+        let notifications = response.notifications.items;
 
         for message in &to_device {
             self.to_device.push_back(message.clone());
@@ -127,8 +126,15 @@ impl SyncResponseProcessor {
                 .insert(item.data_type.clone(), item.clone());
         }
         for notification in &notifications {
-            self.notifications
-                .insert(notification.id.clone(), notification.clone());
+            match notification.action {
+                NotificationDeltaAction::Add | NotificationDeltaAction::Update => {
+                    self.notifications
+                        .insert(notification.id.as_str().to_owned(), notification.clone());
+                }
+                NotificationDeltaAction::Remove => {
+                    self.notifications.remove(notification.id.as_str());
+                }
+            }
         }
 
         Ok(SyncUpdates {

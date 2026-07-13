@@ -58,7 +58,7 @@
 //!         device_lists: Default::default(),
 //!         presence: Vec::new(),
 //!         account_data: Vec::new(),
-//!         notifications: serde_json::Value::Null,
+//!         notifications: Default::default(),
 //!         partial: false,
 //!     })
 //! };

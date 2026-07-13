@@ -101,7 +101,8 @@ pub use account_subscribe::{
 pub use admin_signer::{AdminKeyStore, SessionGrantIntrospection, admin_scopes};
 pub use agent::{
     agent_key_pair_proof_request_binding_digest, agent_key_pairing_request_binding_digest,
-    agent_runtime_public_key_digest,
+    agent_runtime_attestation_digest, agent_runtime_key_binding_digest,
+    agent_runtime_key_binding_digest_from_digests, agent_runtime_public_key_digest,
 };
 pub use applet::*;
 pub use arkret_identifiers as identifiers;
@@ -193,12 +194,12 @@ pub use stream_trace::{
 };
 pub use sync::{
     AccountData, BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody,
-    BucketedRealmUpdate, DeviceListChanges, LimitedTimelineState, MembershipBucket,
-    NotificationDelta, PresenceEvent, PresenceStatus, RealmSubscription, RealmUpdate,
-    SubscriptionConfig, SyncClient, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncRealm,
-    SyncRequestBody, SyncSemantics, SyncStreamPosition, SyncTimeline, SyncTokenBinding,
-    SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage,
-    WaitForFrontier, sync_filter_digest,
+    BucketedRealmUpdate, DeviceListChanges, LimitedTimelineState, MembershipBucket, PresenceEvent,
+    PresenceStatus, RealmSubscription, RealmUpdate, SubscriptionConfig, SyncClient, SyncFilter,
+    SyncGap, SyncGapReason, SyncMode, SyncRealm, SyncRequestBody, SyncSemantics,
+    SyncStreamPosition, SyncTimeline, SyncTokenBinding, SyncUpdates, TimelineFilter,
+    TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage, WaitForFrontier,
+    sync_filter_digest,
 };
 
 #[cfg(test)]
@@ -206,7 +207,7 @@ pub use sync::{
 mod schema_compat_tests;
 // `SyncOutcome` is the wire-shape projection in [`models::api`]; the typed
 // per-event helpers above (SyncRealm, ToDeviceMessage, AccountData,
-// NotificationDelta, PresenceEvent, DeviceListChanges, UnreadCounts,
+// PresenceEvent, DeviceListChanges, UnreadCounts,
 // SyncTimeline) are typed views that consumers parse per-field from the
 // loose `BTreeMap<String, Value>` / `Vec<Value>` carried by the wire
 // type. `pub use models::*;` re-exports `SyncOutcome` at the crate root.

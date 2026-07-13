@@ -43,11 +43,9 @@ pub struct SyncOutcome {
     pub account_data: Vec<Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub presence: Vec<Value>,
-    /// Notification delta (inbox / push). `Value` to round-trip the
-    /// spec's events-container shape without committing to a typed
-    /// projection here.
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub notifications: Value,
+    /// Closed account-private notification projection deltas.
+    #[serde(default, skip_serializing_if = "notification_container_is_empty")]
+    pub notifications: NotificationContainer,
     #[serde(default, skip_serializing_if = "is_false")]
     pub partial: bool,
 }
@@ -131,7 +129,7 @@ impl SyncOutcome {
                 .unwrap_or(Value::Null),
             account_data: event_values(frame.account_data),
             presence: event_values(frame.presence),
-            notifications: Value::Array(event_values(frame.notifications)),
+            notifications: frame.notifications.unwrap_or_default(),
             partial: frame.partial.unwrap_or(false),
         })
     }
@@ -159,8 +157,7 @@ pub struct AccountSubscribeFrame {
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub presence: Option<EventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub notifications: Option<EventContainer>,
+    pub notifications: Option<NotificationContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub partial: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -414,6 +411,25 @@ mod account_subscribe_frame_tests {
             Some("ak:cursor:device-2")
         );
         assert_eq!(outcome.to_device_lost, Some(false));
+    }
+
+    #[test]
+    fn account_subscribe_delta_accepts_closed_agent_notification_items() {
+        let line = r#"{"cursor":"ak:cursor:account-2","kind":"delta","notifications":{"items":[{"action":"add","data":{"agent_id":"did:webvh:z6mkfixture:agent.example","approval_request_id":"agent_runtime_approval:01964137-0000-7000-8000-000000000002","expires_at":"2026-07-13T10:15:00Z","kind":"agent_runtime_approval","requested_at":"2026-07-13T10:00:00Z"},"id":"ak:notification:01964137-0000-7000-8000-000000000002","type":"agent"}]}}"#;
+        let frame = AccountSubscribeFrame::from_ndjson_line(line)
+            .unwrap()
+            .unwrap();
+        assert_eq!(frame.notifications.unwrap().items.len(), 1);
+    }
+
+    #[test]
+    fn account_subscribe_delta_rejects_old_or_incomplete_notification_shapes() {
+        let old_container =
+            r#"{"cursor":"ak:cursor:account-3","kind":"delta","notifications":{"events":[]}}"#;
+        assert!(AccountSubscribeFrame::from_ndjson_line(old_container).is_err());
+
+        let missing_data = r#"{"cursor":"ak:cursor:account-4","kind":"delta","notifications":{"items":[{"id":"ak:notification:01964137-0000-7000-8000-000000000003","type":"agent","action":"add"}]}}"#;
+        assert!(AccountSubscribeFrame::from_ndjson_line(missing_data).is_err());
     }
 
     #[test]

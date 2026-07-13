@@ -16,15 +16,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::sync::{
-    AccountData, DeviceListChanges, LimitedTimelineState, MembershipBucket, NotificationDelta,
-    PresenceEvent, RealmSubscription, RealmUpdate, SubscriptionConfig, SyncFilter, SyncRealm,
-    SyncRequestBody, SyncTimeline, SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck,
-    ToDeviceAckStatus, ToDeviceMessage, WaitForFrontier, project_typed_vec,
-    project_typed_vec_from_value,
+    AccountData, DeviceListChanges, LimitedTimelineState, MembershipBucket, PresenceEvent,
+    RealmSubscription, RealmUpdate, SubscriptionConfig, SyncFilter, SyncRealm, SyncRequestBody,
+    SyncTimeline, SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus,
+    ToDeviceMessage, WaitForFrontier, project_typed_vec,
 };
 use crate::{
-    AccountStreamInterrupt, DeviceId, Error, Event, EventId, RealmId, Result, SyncOutcome,
-    canonical,
+    AccountStreamInterrupt, DeviceId, Error, Event, EventId, NotificationDelta,
+    NotificationDeltaAction, RealmId, Result, SyncOutcome, canonical,
 };
 
 mod loop_control;

@@ -165,9 +165,7 @@ fn merge_account_subscribe_delta(acc: &mut SyncOutcome, next: SyncOutcome) {
     if !next.device_lists.is_null() {
         acc.device_lists = next.device_lists;
     }
-    if !next.notifications.is_null() {
-        acc.notifications = next.notifications;
-    }
+    acc.notifications.items.extend(next.notifications.items);
     acc.partial = next.partial;
 }
 
@@ -203,6 +201,7 @@ fn merge_realm_delta_value(current: &mut Value, incoming: Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::NotificationDeltaAction;
 
     fn request(catchup: bool, after: Option<&str>) -> SyncRequestBody {
         SyncRequestBody {
@@ -280,6 +279,56 @@ mod tests {
             panic!("expected folded delta");
         };
         assert_eq!(outcome.cursor, "ak:cursor:complete");
+    }
+
+    #[test]
+    fn folder_preserves_ordered_notification_deltas_across_frames() {
+        let notification_id = "ak:notification:01964137-0000-7000-8000-000000000004";
+        let approval = serde_json::json!({
+            "kind": "agent_runtime_approval",
+            "approval_request_id": "agent_runtime_approval:01964137-0000-7000-8000-000000000004",
+            "agent_id": "did:webvh:z6mkfixture:agent.example",
+            "requested_at": "2026-07-13T10:00:00Z",
+            "expires_at": "2026-07-13T10:15:00Z"
+        });
+        let mut folder = AccountSubscribeFolder::for_request(&request(false, None));
+        folder
+            .push(frame(serde_json::json!({
+                "kind": "delta",
+                "cursor": "ak:cursor:add",
+                "notifications": {"items": [{
+                    "id": notification_id,
+                    "type": "agent",
+                    "action": "add",
+                    "data": approval
+                }]}
+            })))
+            .unwrap();
+        folder
+            .push(frame(serde_json::json!({
+                "kind": "delta",
+                "cursor": "ak:cursor:remove",
+                "notifications": {"items": [{
+                    "id": notification_id,
+                    "type": "agent",
+                    "action": "remove",
+                    "data": {"kind": "agent_runtime_approval", "reason": "approved"}
+                }]}
+            })))
+            .unwrap();
+
+        let AccountSubscribeSnapshotResult::Delta(outcome) = folder.finish().unwrap() else {
+            panic!("expected folded delta");
+        };
+        assert_eq!(outcome.notifications.items.len(), 2);
+        assert_eq!(
+            outcome.notifications.items[0].action,
+            NotificationDeltaAction::Add
+        );
+        assert_eq!(
+            outcome.notifications.items[1].action,
+            NotificationDeltaAction::Remove
+        );
     }
 
     #[test]
