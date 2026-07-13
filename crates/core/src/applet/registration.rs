@@ -1073,7 +1073,7 @@ pub struct AppletPackage {
     pub widget: Option<Value>,
     /// Captured DID document + signing-key evidence covered by
     /// `registration_epoch`.
-    #[serde(skip)]
+    #[serde(skip_serializing)]
     pub registration_epoch_evidence: Option<AppletRegistrationEpochEvidence>,
     /// Canonical package hash (excludes `package_digest` + `proof`).
     /// `None` until [`seal`](Self::seal).

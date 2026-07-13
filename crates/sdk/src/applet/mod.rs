@@ -615,11 +615,19 @@ mod tests {
         let recomputed = package.compute_package_digest().unwrap();
         assert_eq!(recomputed, package.package_digest.clone().unwrap());
 
-        let wire = serde_json::to_value(&package).unwrap();
+        let mut wire = serde_json::to_value(&package).unwrap();
         assert!(wire.get("registration_epoch_evidence").is_none());
-        let back: AppletPackage = serde_json::from_value(wire.clone()).unwrap();
-        assert!(back.registration_epoch_evidence.is_none());
-        assert_eq!(serde_json::to_value(back).unwrap(), wire);
+        wire.as_object_mut().unwrap().insert(
+            "registration_epoch_evidence".to_owned(),
+            serde_json::to_value(package.registration_epoch_evidence.as_ref().unwrap()).unwrap(),
+        );
+        let back: AppletPackage = serde_json::from_value(wire).unwrap();
+        assert_eq!(
+            back.registration_epoch_evidence,
+            package.registration_epoch_evidence
+        );
+        let back_wire = serde_json::to_value(back).unwrap();
+        assert!(back_wire.get("registration_epoch_evidence").is_none());
     }
 
     #[test]
