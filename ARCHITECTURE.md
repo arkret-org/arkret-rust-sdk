@@ -12,13 +12,12 @@ arkret (umbrella SDK)
     |-- arkret-core: wire models, canonical JSON, sync/cursor, service metadata and the protocol-adjacent service / product DTOs
     |-- arkret-crypto: local encryption, backup and key-management helpers
     |-- arkret-ffi: C ABI bindings and runtime bridge helpers
-    |-- arkret-html: rich-text sanitization and conformance helpers
     |-- arkret-http-client: HTTP transport for Arkret service endpoints
     |-- arkret-keystore: platform KeyStore backends behind target feature gates
     |-- arkret-server: endpoint registry, routed dispatch, server middleware, adapter contracts, OpenAPI helpers and optional Salvo router
     |-- arkret-signatures: HTTP signatures, JWS/JWT and proof verification
     |-- base + sync_client: local client state, response processing and account subscribe
-    |-- membership/devices/receipts/notifications: client business state
+    |-- membership/devices/receipts: client business state
     |-- content/media/profile/settings/search/discovery: feature helpers
     |-- auth/identity/e2ee/push: production protocol services
     |-- federation: discovery, replay/fork quarantine and digest helpers (the

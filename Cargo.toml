@@ -23,7 +23,6 @@ arkret-canonical = {version = "0.3.0",path = "crates/canonical",default-features
 arkret-core = {version = "0.3.0",path = "crates/core",default-features = false}
 arkret-crypto = {version = "0.3.0",path = "crates/crypto",default-features = false}
 arkret-ffi = {version = "0.3.0",path = "crates/ffi",default-features = false}
-arkret-html = {version = "0.3.0",path = "crates/html",default-features = false}
 arkret-http-client = {version = "0.3.0",path = "crates/http-client",default-features = false}
 arkret-identifiers = {version = "0.3.0",path = "crates/identifiers",default-features = false}
 arkret-keystore = {version = "0.3.0",path = "crates/keystore",default-features = false}

@@ -128,7 +128,7 @@ Request/response DTO suffixes are unified workspace-wide (no removed aliases):
 - Endpoint request bodies use `*RequestBody` (e.g. `SyncRequestBody`,
   `AccountRegisterRequestBody`). Do not introduce new `*ReqBody` names.
 - Endpoint success responses use `*Outcome` (e.g. `EventsQueryOutcome`,
-  `NotificationCountsOutcome`). Do not introduce new `*ResBody` or
+  `PolicyCheckOutcome`). Do not introduce new `*ResBody` or
   `*Response` names.
 - Path/query/header parameter groups use `*Params` / `*Args`.
 - Struct field declaration order for wire objects follows the matching spec

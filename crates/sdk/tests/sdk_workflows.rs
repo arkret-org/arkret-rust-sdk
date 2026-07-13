@@ -51,7 +51,7 @@ fn event(kind: &str, seq: u64, realm_id: &RealmId, content: serde_json::Value) -
 }
 
 #[test]
-fn end_to_end_auth_session_realm_query_and_notifications() {
+fn end_to_end_auth_session_and_realm_query() {
     let alice = did("alice");
     let mut auth = AuthManager::default();
     auth.register_password_user("alice", "secret", alice.clone())
@@ -97,17 +97,6 @@ fn end_to_end_auth_session_realm_query_and_notifications() {
 
     let realm = Realm::new(realm_id.clone(), base);
     assert_eq!(realm.search_morphs("ship").len(), 1);
-
-    let mut notifications = NotificationManager::new();
-    notifications.add_notification(
-        "n1",
-        Some(realm_id.clone()),
-        EventId::new("ak:event:01904100-0000-7000-8000-b2b79cd5161d").unwrap(),
-        alice,
-        "ak.message.create",
-        Some(json!({"body": "hello"})),
-    );
-    assert_eq!(notifications.counts(Some(&realm_id)).notification_count, 1);
 }
 
 #[test]

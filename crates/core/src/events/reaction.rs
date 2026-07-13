@@ -1,8 +1,4 @@
 //! In-memory reaction bookkeeping helpers.
-//!
-//! Rich text parsing (markdown, mentions, link previews) is owned by the
-//! `arkret-html` crate; this module only keeps the reaction aggregation
-//! helpers that used to live next to it.
 
 use std::collections::BTreeMap;
 

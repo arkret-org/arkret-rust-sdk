@@ -17,8 +17,7 @@ directly and re-exports the shared contracts crate as `arkret::api`:
 - service discovery over Principal Server, Repo, Sync, Index, Blob, Directory and Authz surfaces
 - protocol-shaped Query and Client Sync response models
 
-The narrower contract facades are `arkret::client_api`,
-`arkret::identity_api`, `arkret::federation_api` and
+The narrower contract facades are `arkret::identity_api`, `arkret::federation_api` and
 `arkret::push_gateway_api`. Use those when a caller needs DTOs shared across
 services such as floria, chime and inkson without taking on server runtime
 dependencies.

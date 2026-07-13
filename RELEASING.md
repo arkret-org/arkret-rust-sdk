@@ -1,6 +1,6 @@
 # Local Release Readiness
 
-The Arkret Rust SDK is a 16-crate Cargo workspace. This repository's release
+The Arkret Rust SDK is a 15-crate Cargo workspace. This repository's release
 readiness strand is local-only: it validates the coordinated crate set without
 publishing to crates.io, creating GitHub releases, or pushing tags.
 
@@ -19,7 +19,6 @@ arkret-schema
 arkret-policy
 arkret-core
 arkret-ffi
-arkret-html
 arkret-keystore
 arkret-signatures
 arkret-http-client

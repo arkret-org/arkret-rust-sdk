@@ -62,7 +62,6 @@ re-exports the public SDK surface:
 - `arkret-canonical`: canonical JSON, digest, base64url and multibase primitives
 - `arkret-crypto`: local encryption, backup and key-management helpers
 - `arkret-ffi`: C ABI surface for core identifiers, canonical helpers and runtime bridges
-- `arkret-html`: rich-text sanitization helpers and conformance fixtures
 - `arkret-identifiers`: validated DIDs, typed IDs, hashes, cursors and HLC values
 - `arkret-http-client`: HTTP transport bindings
 - `arkret-keystore`: platform KeyStore backends behind target-specific feature gates
@@ -161,9 +160,9 @@ The first Arkret crate currently includes:
 - in-memory persistence helpers for event cache, verified state snapshots and account-local records
 - Server description and profile version checks
 - HTTP client methods for the Arkret v1 service HTTP binding behind the `client` feature, including request metadata, retry/backoff and `Retry-After` handling
-- shared contract DTOs that live in `arkret-core` and are re-exported from the umbrella SDK as `arkret::api`, `arkret::identity_api`, `arkret::federation_api` and `arkret::push_gateway_api` (product-local client DTOs live in the SDK's own `arkret::client_api`)
+- shared contract DTOs that live in `arkret-core` and are re-exported from the umbrella SDK as `arkret::api`, `arkret::identity_api`, `arkret::federation_api` and `arkret::push_gateway_api`
 - framework-independent server handler contracts, endpoint fixture coverage and Salvo OAPI DTO support through `arkret-core`
-- high-level `full-surface` sync loop, membership, devices, receipts, notifications, content,
+- high-level `full-surface` sync loop, membership, devices, receipts,
   media, profile/settings, discovery, E2EE, auth/identity, federation, push,
   typing, WebRTC, store and event-handler helpers
 

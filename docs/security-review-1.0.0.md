@@ -9,7 +9,7 @@ attestation; it is the evidence bundle a reviewer needs before the local
 ## Scope
 
 - Workspace crates: `arkret-identifiers`, `arkret-core`, `arkret-ffi`,
-  `arkret-html`, `arkret-http-client`, `arkret-signatures`,
+  `arkret-http-client`, `arkret-signatures`,
   `arkret-crypto`, `arkret-contracts`, `arkret-server`, and
   `arkret`.
 - Wire-critical surfaces: canonical JSON, Event Envelope signatures,

@@ -8,9 +8,31 @@ use ed25519_dalek::Signature;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-// Signaling DTOs are owned by the SDK's `client_api` module; re-export the
-// authoritative definitions instead of keeping a parallel copy here.
-pub use crate::client_api::{CallSessionDescription, IceCandidate, SdpType};
+/// SDP description type used by the SDK's WebRTC transport helpers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum SdpType {
+    Offer,
+    Answer,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct CallSessionDescription {
+    pub sdp_type: SdpType,
+    pub sdp: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct IceCandidate {
+    pub candidate: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sdp_mid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sdp_m_line_index: Option<u32>,
+}
 use crate::media::MediaServiceAnchors;
 use crate::{Did, Error, RealmId, Result};
 

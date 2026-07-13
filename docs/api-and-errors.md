@@ -3,14 +3,14 @@
 The SDK exposes protocol-first modules. Wire data structures live in `model`,
 deterministic hashing in `canonical`, local client state in `base`, sync helpers
 in `sync` and `sync_client`, and higher-level feature managers in modules such
-as `membership`, `devices`, `receipts`, `notifications`, `content`, `media`,
+as `membership`, `devices`, `receipts`, `media`,
 `profile`, `settings`, `search`, `discovery`, `e2ee`, `auth`, `identity`,
 `federation`, `push`, `typing`, `webrtc` and `store`.
 
 Shared product and service DTOs live in `arkret-core` and are re-exported
 from the umbrella crate as `arkret::api`, with narrower facades for
-`identity_api`, `federation_api` and `push_gateway_api`. Product-local client
-DTOs live in the SDK's own `arkret::client_api`.
+`identity_api`, `federation_api` and `push_gateway_api`. Protocol DTOs are not
+duplicated in a parallel SDK-local client API module.
 
 Most fallible APIs return `arkret::Result<T>`, whose error type is
 `arkret::Error`.

@@ -23,7 +23,6 @@ jobs:
         arkret-policy
         arkret-core
         arkret-ffi
-        arkret-html
         arkret-keystore
         arkret-signatures
         arkret-http-client

@@ -80,7 +80,6 @@ chrono-tz = {workspace = true}
 arkret-core = {workspace = true}
 arkret-crypto = {workspace = true}
 arkret-ffi = {workspace = true}
-arkret-html = {workspace = true}
 arkret-http-client = {workspace = true,optional = true}
 arkret-keystore = {workspace = true}
 arkret-server = {workspace = true,optional = true}

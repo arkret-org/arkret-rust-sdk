@@ -37,9 +37,6 @@ for path in $rust_touched; do
         crates/ffi/*)
             add_package arkret-ffi
             ;;
-        crates/html/*)
-            add_package arkret-html
-            ;;
         crates/http-client/*)
             add_package arkret-http-client
             ;;

@@ -112,12 +112,6 @@ compile_error!(
      (see crates/sdk/Cargo.toml feature graph)"
 );
 
-// Product-local client API DTOs (auth/realm/media/call wire shapes that need
-// `arkret-crypto`/`arkret-html` types) are owned by the SDK. The canonical
-// protocol/federation/push/integration wire contracts live in `arkret-core`
-// and are surfaced here under stable `*_api` aliases that do not clash with the
-// SDK's own manager modules (`federation`, `identity`, `push`).
-pub mod client_api;
 // The pure KeyStore contract (trait + in-memory backend + error type) lives
 // in `arkret-core`; the OS-native backends and the platform-default
 // constructor now live in the dedicated `arkret-keystore` crate.
@@ -129,7 +123,6 @@ pub use arkret_core::{
 };
 pub use arkret_crypto as crypto_protocol;
 pub use arkret_ffi as ffi;
-pub use arkret_html as html;
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;
 pub use arkret_keystore::{
@@ -250,8 +243,6 @@ pub mod membership;
 pub mod mls;
 #[cfg(feature = "full-surface")]
 pub mod mls_move;
-#[cfg(feature = "full-surface")]
-pub mod notifications;
 #[cfg(feature = "full-surface")]
 pub mod platform;
 #[cfg(feature = "full-surface")]
@@ -500,10 +491,6 @@ pub use membership::{
 };
 #[cfg(all(feature = "full-surface", feature = "mls"))]
 pub use mls::*;
-#[cfg(feature = "full-surface")]
-pub use notifications::{
-    NotificationAction, NotificationCounts, NotificationItem, NotificationManager, NotificationRule,
-};
 #[cfg(feature = "full-surface")]
 pub use platform::{
     FfiCallbackAction, FfiCallbackResult, FfiCancellationHandle, FfiError, FfiErrorCode, FfiEvent,
