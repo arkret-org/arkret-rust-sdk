@@ -168,7 +168,8 @@ pub struct MlsGenesisPayload {
     pub ratchet_tree_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_keypackage_refs: Option<Vec<ObjectRef>>,
-    pub governance_binding: MlsGovernanceBinding,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub governance_binding: Option<MlsGovernanceBinding>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -352,9 +353,8 @@ pub struct MlsWelcomePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ciphertext: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub commit_ref: Option<EventRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub governance_binding: Option<MlsGovernanceBinding>,
+    pub commit_ref: Option<String>,
+    pub governance_binding: MlsGovernanceBinding,
     #[serde(
         serialize_with = "serialize_canonical_timestamp",
         deserialize_with = "deserialize_canonical_timestamp"

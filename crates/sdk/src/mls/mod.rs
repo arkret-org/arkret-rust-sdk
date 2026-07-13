@@ -175,6 +175,103 @@ mod tests {
     }
 
     #[test]
+    fn add_member_commit_carries_governance_binding_into_welcome() {
+        let group_id_bytes = b"ak:realm:01904100-0000-7000-8000-f1c00000000a";
+        let group_id = base64url_encode(group_id_bytes);
+        let genesis_binding = governance_binding(&group_id, 0, 0, governance_hash('1'));
+        let alice = ArkretMlsIdentity::new_basic(
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1ca").unwrap(),
+        )
+        .unwrap();
+        let bob = ArkretMlsIdentity::new_basic(
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1cb").unwrap(),
+        )
+        .unwrap();
+        let bob_key_package = bob.key_package_record().unwrap();
+        let mut alice_group = alice
+            .create_group_with_governance_binding(group_id_bytes, &genesis_binding)
+            .unwrap();
+        let commit_binding = governance_binding(&group_id, 0, 1, governance_hash('2'));
+
+        let add = alice_group
+            .add_member_with_governance_binding(&bob_key_package, &commit_binding)
+            .unwrap();
+        let bob_group = ArkretMlsGroup::join_from_welcome(bob, &add.welcome).unwrap();
+
+        assert_eq!(add.commit.epoch, 1);
+        assert_eq!(
+            alice_group.current_governance_binding().unwrap(),
+            Some(commit_binding.clone())
+        );
+        assert_eq!(
+            bob_group.current_governance_binding().unwrap(),
+            Some(commit_binding)
+        );
+    }
+
+    #[test]
+    fn remove_member_commit_carries_governance_binding_to_survivors() {
+        let group_id_bytes = b"ak:realm:01904100-0000-7000-8000-f1c00000000b";
+        let group_id = base64url_encode(group_id_bytes);
+        let genesis_binding = governance_binding(&group_id, 0, 0, governance_hash('1'));
+        let alice = ArkretMlsIdentity::new_basic(
+            Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1da").unwrap(),
+        )
+        .unwrap();
+        let bob = ArkretMlsIdentity::new_basic(
+            Did::new("did:webvh:z6mkfixture:bob.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1db").unwrap(),
+        )
+        .unwrap();
+        let carol = ArkretMlsIdentity::new_basic(
+            Did::new("did:webvh:z6mkfixture:carol.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1dc").unwrap(),
+        )
+        .unwrap();
+        let bob_did = bob.principal_id.clone();
+        let bob_key_package = bob.key_package_record().unwrap();
+        let carol_key_package = carol.key_package_record().unwrap();
+        let mut alice_group = alice
+            .create_group_with_governance_binding(group_id_bytes, &genesis_binding)
+            .unwrap();
+        let add_binding = governance_binding(&group_id, 0, 1, governance_hash('2'));
+        let add = alice_group
+            .add_members_with_governance_binding(
+                &[bob_key_package, carol_key_package],
+                &add_binding,
+            )
+            .unwrap();
+        let carol_welcome = add
+            .welcomes
+            .iter()
+            .find(|welcome| welcome.recipient_principal_id == carol.principal_id)
+            .unwrap();
+        let mut carol_group = ArkretMlsGroup::join_from_welcome(carol, carol_welcome).unwrap();
+        let remove_binding = governance_binding(&group_id, 1, 2, governance_hash('3'));
+
+        let remove = alice_group
+            .remove_member_by_principal_with_governance_binding(&bob_did, &remove_binding)
+            .unwrap();
+        for proposal in &remove.proposals {
+            carol_group.apply_proposal(proposal).unwrap();
+        }
+        carol_group.apply_commit(&remove.commit).unwrap();
+
+        assert_eq!(remove.commit.epoch, 2);
+        assert_eq!(
+            alice_group.current_governance_binding().unwrap(),
+            Some(remove_binding.clone())
+        );
+        assert_eq!(
+            carol_group.current_governance_binding().unwrap(),
+            Some(remove_binding)
+        );
+    }
+
+    #[test]
     fn governance_binding_verification_fails_closed_when_extension_missing() {
         let alice = ArkretMlsIdentity::new_basic(
             Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),

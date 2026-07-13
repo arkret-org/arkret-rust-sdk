@@ -788,8 +788,10 @@ mod tests {
 
         use arkret_core::{
             BlobRef, BlobUploadMetadata, Did, DirectConversationResolveRequestBody,
-            DirectoryPrivateContactDiscoveryRequestBody, Event, EventId, EventRequirements, Hash,
-            Hlc, MimiReportAbuseRequestBody, RealmId, StrandId, SyncRequestBody,
+            DirectoryPrivateContactDiscoveryRequestBody, EffectiveScope, Event, EventId,
+            EventRequirements, Hash, Hlc, MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            MimiReportAbuseRequestBody, MlsGovernanceProofRequest, RealmId, StrandId,
+            SyncRequestBody,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -955,6 +957,42 @@ mod tests {
             assert_eq!(parsed["kind"], "ak.message.create");
             assert_eq!(parsed["payload"]["body"], "hello");
             assert_eq!(parsed["actor_id"], "did:webvh:z6mkfixture:alice.example");
+        }
+
+        #[tokio::test]
+        async fn mls_governance_proof_posts_typed_request() {
+            let (client, capture) = spawn_capture_server("{}").await;
+            let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap();
+            let request = MlsGovernanceProofRequest {
+                realm_id: realm_id.clone(),
+                effective_scope: EffectiveScope::Realm {
+                    realm_id: realm_id.clone(),
+                },
+                mls_group_id: "Z3JvdXA".to_owned(),
+                previous_epoch: 0,
+                next_epoch: 0,
+                binding_profile: MLS_GOVERNANCE_BINDING_FULL_PROFILE.to_owned(),
+                reducer_profile: "ak.reducer.v1".to_owned(),
+            };
+
+            client.mls_governance_proof(&request).await.unwrap_err();
+
+            let raw = capture.await.unwrap();
+            let (request_line, _headers, body) = split_request(&raw);
+            assert!(
+                request_line.starts_with("POST /_arkret/self/events/mls-governance-proof "),
+                "unexpected request line: {request_line}",
+            );
+            let parsed: Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(parsed["realm_id"], realm_id.as_str());
+            assert_eq!(parsed["effective_scope"]["kind"], "realm");
+            assert_eq!(parsed["mls_group_id"], "Z3JvdXA");
+            assert_eq!(parsed["previous_epoch"], 0);
+            assert_eq!(parsed["next_epoch"], 0);
+            assert_eq!(
+                parsed["binding_profile"],
+                MLS_GOVERNANCE_BINDING_FULL_PROFILE
+            );
         }
 
         #[tokio::test]
