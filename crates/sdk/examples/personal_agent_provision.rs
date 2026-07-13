@@ -27,17 +27,21 @@
 //! ```
 
 use arkret::agent::{
-    AgentProvisionRequestBuilder, AgentRequestPlan, plan_agent_deactivate, plan_agent_get,
-    plan_agent_grant_attach, plan_agent_grant_detach, plan_agent_key_pair, plan_agent_list,
-    plan_agent_pause, plan_agent_provision, plan_agent_renew_pairing, plan_agent_resume,
+    AgentProvisionRequestBuilder, AgentRequestPlan, agent_key_pairing_request_binding_digest,
+    agent_key_pair_proof_request_binding_digest, agent_runtime_public_key_digest,
+    build_agent_key_authorize_event, plan_agent_deactivate, plan_agent_get, plan_agent_grant_attach,
+    plan_agent_grant_detach, plan_agent_key_pair, plan_agent_list, plan_agent_pause,
+    plan_agent_provision, plan_agent_renew_pairing, plan_agent_resume,
     plan_agent_sidecar_thread_ensure,
 };
 use arkret::{
-    AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyPairRequestBody,
-    AgentKeyScope, AgentKeyScopeResource, AgentKeyScopeResourceKind, AgentPauseRequestBody,
+    AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyApprovalEvidence,
+    AgentKeyApprovalEvidenceKind, AgentKeyAuthorizePayload, AgentKeyPairRequestBody, AgentKeyScope,
+    AgentKeyScopeResource, AgentKeyScopeResourceKind, AgentPauseRequestBody,
     AgentRenewPairingRequestBody, AgentResumeRequestBody, AgentSidecarContextRef,
-    AgentSidecarThreadEnsureRequestBody, Did, GrantId, RealmId, StrandId,
+    AgentSidecarThreadEnsureRequestBody, Did, GrantId, Hlc, RealmId, StrandId,
 };
+use chrono::Utc;
 use serde::Serialize;
 use serde_json::{Value, json};
 
@@ -49,9 +53,12 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
     match op_id {
         "ak.self.agent.command.provision" => json!({
             "agent_id": "did:webvh:z6mkfixture:agent.example",
+            "principal_control_realm_id": "ak:realm:01964137-0000-7000-8000-000000000100",
+            "controller_authorization_ref": "did:webvh:z6mkfixture:agent.example#managed-controller",
             "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
             "pairing_code": "12345678",
             "expires_at": "2026-06-18T12:15:00Z",
+            "pcr_recovery": { "status": "pending" },
         }),
         "ak.gate.account.command.pair_agent_key" => json!({
             "ok": true,
@@ -125,30 +132,92 @@ fn main() -> arkret::Result<()> {
     let provisioned = send_plan(plan_agent_provision(provision_body))?;
     let agent_id = provisioned["agent_id"].as_str().unwrap().to_owned();
 
-    let key_pair_body = AgentKeyPairRequestBody {
-        pairing_request_id: provisioned["pairing_request_id"]
+    let agent_id = Did::new(agent_id)?;
+    let pairing_request_id = provisioned["pairing_request_id"].as_str().unwrap();
+    let verification_method = format!("{agent_id}#runtime-key-1");
+    let public_key = json!({
+        "kty": "OKP",
+        "kid": verification_method,
+        "alg": "Ed25519",
+        "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    });
+    let pop_digest = agent_key_pair_proof_request_binding_digest(
+        pairing_request_id,
+        &agent_id,
+        &verification_method,
+        &public_key,
+        None,
+    )?;
+    let pairing_digest = agent_key_pairing_request_binding_digest(
+        &controller,
+        &agent_id,
+        &verification_method,
+        &agent_runtime_public_key_digest(&public_key)?,
+        pairing_request_id,
+        provisioned["pairing_code"].as_str().unwrap(),
+        provisioned["expires_at"].as_str().unwrap(),
+        "did:web:soland.local",
+    )?;
+    let authorize_event = build_agent_key_authorize_event(
+        &AgentKeyAuthorizePayload {
+            agent_id: agent_id.clone(),
+            key_id: "runtime-key-1".to_owned(),
+            verification_method: verification_method.clone(),
+            public_key_digest: Some(agent_runtime_public_key_digest(&public_key)?),
+            accountable_principal_id: controller.clone(),
+            agent_key_scope: AgentKeyScope {
+                actions: vec!["ak.message.create".to_owned()],
+                resources: vec![AgentKeyScopeResource {
+                    kind: AgentKeyScopeResourceKind::Realm,
+                    realm_id: Some(RealmId::new(
+                        "ak:realm:01904100-0000-7000-8000-000000000001",
+                    )?),
+                    resource_ref: None,
+                    operation: None,
+                    service_id: None,
+                }],
+                constraints: vec![],
+            },
+            audience: vec!["did:web:soland.local".to_owned()],
+            issued_at: Utc::now(),
+            expires_at: None,
+            approval_evidence: AgentKeyApprovalEvidence {
+                kind: AgentKeyApprovalEvidenceKind::PairingRequest,
+                evidence_ref: None,
+                request_canonical_digest: Some(pairing_digest),
+                pairing_request_id: Some(pairing_request_id.to_owned()),
+                approved_by: Some(controller.clone()),
+            },
+            supersedes: vec![],
+            revocation_check_ref: None,
+            runtime_attestation: None,
+        },
+        RealmId::new(provisioned["principal_control_realm_id"].as_str().unwrap())?,
+        agent_id.clone(),
+        controller.clone(),
+        provisioned["controller_authorization_ref"]
             .as_str()
-            .unwrap()
-            .to_owned(),
-        agent_id: Did::new(agent_id.clone())?,
-        verification_method: format!("{agent_id}#runtime-key-1"),
-        public_key: json!({
-            "kty": "OKP",
-            "crv": "Ed25519",
-            "x": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        }),
+            .unwrap(),
+        1,
+        Hlc::new("01970e589d21-0004-a13f9c2e")?,
+    )?;
+    let key_pair_body = AgentKeyPairRequestBody {
+        pairing_request_id: pairing_request_id.to_owned(),
+        agent_id: agent_id.clone(),
+        verification_method,
+        public_key,
         proof_of_possession: json!({
-            "challenge": provisioned["pairing_request_id"],
+            "challenge": pairing_request_id,
+            "audience": "did:web:soland.local",
+            "request_canonical_digest": pop_digest,
+            "expires_at": provisioned["expires_at"],
             "signature": "ed25519-pop-signature",
         }),
         runtime_attestation: None,
-        authorize_event: json!({
-            "kind": "ak.agent.key.authorize",
-            "payload": {
-                "agent_id": agent_id.clone(),
-                "verification_method": format!("{agent_id}#runtime-key-1"),
-            }
-        }),
+        // A real client signs this Event with the controller/device key before
+        // submitting it. The mock transport below only demonstrates the
+        // strongly typed wire shape.
+        authorize_event,
     };
     let _key = send_plan(plan_agent_key_pair(key_pair_body))?;
 
@@ -156,17 +225,17 @@ fn main() -> arkret::Result<()> {
     let _list = send_plan(plan_agent_list())?;
 
     // 4. ak.self.agent.resource.get
-    let _get = send_plan(plan_agent_get(&agent_id))?;
+    let _get = send_plan(plan_agent_get(agent_id.as_str()))?;
 
     // 5-6. pause + resume
     let _paused = send_plan(plan_agent_pause(
-        &agent_id,
+        agent_id.as_str(),
         AgentPauseRequestBody {
             reason: Some("user_requested".to_owned()),
         },
     ))?;
     let _resumed = send_plan(plan_agent_resume(
-        &agent_id,
+        agent_id.as_str(),
         AgentResumeRequestBody {
             sidecar_exposure_ack: None,
         },
@@ -176,7 +245,7 @@ fn main() -> arkret::Result<()> {
     // working until the new pairing completes, at which point every prior
     // active key is revoked with reason=superseded_by_repairing).
     let _replacement_pairing = send_plan(plan_agent_renew_pairing(
-        &agent_id,
+        agent_id.as_str(),
         AgentRenewPairingRequestBody {
             pairing_ttl_ms: Some(15 * 60 * 1000),
         },
@@ -184,7 +253,7 @@ fn main() -> arkret::Result<()> {
 
     // 8. grant.attach
     let grant = send_plan(plan_agent_grant_attach(
-        &agent_id,
+        agent_id.as_str(),
         AgentGrantAttachRequestBody {
             grant: serde_json::from_value(json!({
                 "id": "ak:grant:01964137-0000-7000-8000-000000000010",
@@ -206,7 +275,7 @@ fn main() -> arkret::Result<()> {
     let grant_id = GrantId::new(grant["grant_id"].as_str().unwrap().to_owned())?;
 
     // 9. grant.detach
-    let _detached = send_plan(plan_agent_grant_detach(&agent_id, &grant_id))?;
+    let _detached = send_plan(plan_agent_grant_detach(agent_id.as_str(), &grant_id))?;
 
     // 10. sidecar_thread.ensure
     let realm_id = RealmId::new("ak:realm:01964137-0000-7000-8000-000000000030")?;
@@ -214,14 +283,14 @@ fn main() -> arkret::Result<()> {
     let _sidecar = send_plan(plan_agent_sidecar_thread_ensure(
         AgentSidecarThreadEnsureRequestBody {
             controller_id: controller,
-            addressed_agent_ids: vec![Did::new(agent_id.clone())?],
+            addressed_agent_ids: vec![agent_id.clone()],
             context_ref: AgentSidecarContextRef::strand(realm_id, context_strand_id),
         },
     ))?;
 
     // 11. deactivate
     let _deactivated = send_plan(plan_agent_deactivate(
-        &agent_id,
+        agent_id.as_str(),
         AgentDeactivateRequestBody {
             reason: Some("demo_complete".to_owned()),
         },

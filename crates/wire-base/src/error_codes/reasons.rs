@@ -203,6 +203,7 @@ pub const REASON_PAIRING_EXPIRED: &str = "pairing_expired";
 pub const REASON_PAIRING_REQUEST_EXPIRED: &str = "pairing_request_expired";
 pub const REASON_PROOF_INVALID: &str = "proof_invalid";
 pub const REASON_AGENT_RUNTIME_REQUEST_CONFLICT: &str = "agent_runtime_request_conflict";
+pub const REASON_AGENT_PCR_RECOVERY_NOT_READY: &str = "agent_pcr_recovery_not_ready";
 pub const REASON_AGENT_PAUSED: &str = "agent_paused";
 pub const REASON_AGENT_DEACTIVATED: &str = "agent_deactivated";
 pub const REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH: &str =
@@ -633,6 +634,7 @@ pub const KNOWN_REASON_CODES: &[&str] = &[
     REASON_PAIRING_REQUEST_EXPIRED,
     REASON_PROOF_INVALID,
     REASON_AGENT_RUNTIME_REQUEST_CONFLICT,
+    REASON_AGENT_PCR_RECOVERY_NOT_READY,
     REASON_AGENT_PAUSED,
     REASON_AGENT_DEACTIVATED,
     REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH,

@@ -2,6 +2,7 @@ use super::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AgentKeyPairRequestBody {
     pub pairing_request_id: String,
     pub agent_id: Did,
@@ -9,7 +10,7 @@ pub struct AgentKeyPairRequestBody {
     pub public_key: Value,
     pub proof_of_possession: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub runtime_attestation: Option<Value>,
+    pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
     pub authorize_event: Event,
 }
 
@@ -31,7 +32,7 @@ pub struct AgentRuntimeApprovalRequestBody {
     pub public_key: Value,
     pub proof_of_possession: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub runtime_attestation: Option<Value>,
+    pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -421,6 +422,44 @@ pub struct AgentSidecarThreadEnsureOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn runtime_approval_request(runtime_attestation: Value) -> Value {
+        serde_json::json!({
+            "pairing_code": "12345678",
+            "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
+            "agent_id": "did:webvh:z6mkfixture:agent.example",
+            "verification_method": "did:webvh:z6mkfixture:agent.example#runtime-key-1",
+            "public_key": {},
+            "proof_of_possession": {},
+            "runtime_attestation": runtime_attestation
+        })
+    }
+
+    #[test]
+    fn runtime_attestation_is_closed_to_the_v1_self_asserted_shape() {
+        let accepted: AgentRuntimeApprovalRequestBody =
+            serde_json::from_value(runtime_approval_request(serde_json::json!({
+                "kind": "self_asserted",
+                "software": "arkret-agent"
+            })))
+            .expect("registered self_asserted attestation accepts");
+        assert!(accepted.runtime_attestation.is_some());
+
+        assert!(
+            serde_json::from_value::<AgentRuntimeApprovalRequestBody>(runtime_approval_request(
+                serde_json::json!({ "kind": "tee" })
+            ))
+            .is_err(),
+            "unknown attestation kinds must fail closed"
+        );
+        assert!(
+            serde_json::from_value::<AgentRuntimeApprovalRequestBody>(runtime_approval_request(
+                serde_json::json!({ "kind": "self_asserted", "unregistered": true })
+            ))
+            .is_err(),
+            "unregistered attestation fields must fail closed"
+        );
+    }
 
     #[test]
     fn sidecar_thread_ensure_request_uses_context_ref_shape() {

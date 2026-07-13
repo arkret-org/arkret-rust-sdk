@@ -15,11 +15,13 @@ use ed25519_dalek::{Signer, SigningKey};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+#[cfg(test)]
+use crate::AgentKeyRuntimeAttestationKind;
 use crate::{
     AgentDeactivateRequestBody, AgentGrantAttachRequestBody, AgentKeyAuthorizePayload,
-    AgentKeyPairRequestBody, AgentPairingBootstrap, AgentPauseRequestBody,
-    AgentProvisionRequestBody, AgentRenewPairingRequestBody, AgentResumeRequestBody,
-    AgentRuntimeApprovalRequestBody, AgentRuntimeApprovalStatusRequestBody,
+    AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyPairRequestBody, AgentPairingBootstrap,
+    AgentPauseRequestBody, AgentProvisionRequestBody, AgentRenewPairingRequestBody,
+    AgentResumeRequestBody, AgentRuntimeApprovalRequestBody, AgentRuntimeApprovalStatusRequestBody,
     AgentSidecarThreadEnsureRequestBody, CapabilityGrant, Did, Error, Event, GrantId, Hash, Hlc,
     OP_ACCOUNT_AGENT_KEY_PAIR, OP_AGENT_DEACTIVATE, OP_AGENT_GET, OP_AGENT_GRANT_ATTACH,
     OP_AGENT_GRANT_DETACH, OP_AGENT_KEY_AUTHORIZE, OP_AGENT_LIST, OP_AGENT_PAUSE,
@@ -72,7 +74,7 @@ pub struct RuntimeKeyRequestBuilder<'a> {
     bootstrap: AgentPairingBootstrap,
     verification_method: String,
     proof_expires_at: DateTime<Utc>,
-    runtime_attestation: Option<Value>,
+    runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
 }
 
 impl<'a> RuntimeKeyRequestBuilder<'a> {
@@ -110,7 +112,10 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
     }
 
     #[must_use]
-    pub fn runtime_attestation(mut self, runtime_attestation: Value) -> Self {
+    pub fn runtime_attestation(
+        mut self,
+        runtime_attestation: AgentKeyAuthorizePayloadRuntimeAttestation,
+    ) -> Self {
         self.runtime_attestation = Some(runtime_attestation);
         self
     }
@@ -151,6 +156,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         &self,
         authorize_event: Event,
     ) -> Result<RuntimeKeyRequest<AgentKeyPairRequestBody>> {
+        validate_pairing_authorize_event(&authorize_event, &self.bootstrap.agent_id)?;
         let (public_key, public_key_digest, proof_of_possession) = self.request_material()?;
         Ok(RuntimeKeyRequest {
             body: AgentKeyPairRequestBody {
@@ -174,7 +180,11 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             &self.bootstrap.agent_id,
             &self.verification_method,
             &public_key,
-            self.runtime_attestation.as_ref(),
+            self.runtime_attestation
+                .as_ref()
+                .map(serde_json::to_value)
+                .transpose()?
+                .as_ref(),
         )?;
         let signing_input = agent_key_pair_proof_signing_input(
             self.verification_method.clone(),
@@ -281,7 +291,7 @@ pub struct AgentKeyPairRequestBuilder {
     verification_method: String,
     public_key: Value,
     proof_of_possession: Value,
-    runtime_attestation: Option<Value>,
+    runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
     authorize_event: Event,
 }
 
@@ -305,7 +315,10 @@ impl AgentKeyPairRequestBuilder {
         }
     }
 
-    pub fn runtime_attestation(mut self, runtime_attestation: Value) -> Self {
+    pub fn runtime_attestation(
+        mut self,
+        runtime_attestation: AgentKeyAuthorizePayloadRuntimeAttestation,
+    ) -> Self {
         self.runtime_attestation = Some(runtime_attestation);
         self
     }
@@ -321,6 +334,7 @@ impl AgentKeyPairRequestBuilder {
                 "agent key verification_method must not be empty".to_owned(),
             ));
         }
+        validate_pairing_authorize_event(&self.authorize_event, &self.agent_id)?;
         Ok(AgentKeyPairRequestBody {
             pairing_request_id: self.pairing_request_id,
             agent_id: self.agent_id,
@@ -331,6 +345,20 @@ impl AgentKeyPairRequestBuilder {
             authorize_event: self.authorize_event,
         })
     }
+}
+
+fn validate_pairing_authorize_event(authorize_event: &Event, agent_id: &Did) -> Result<()> {
+    if authorize_event.kind.as_str() != OP_AGENT_KEY_AUTHORIZE {
+        return Err(Error::Protocol(
+            "agent authorize_event.kind must be ak.agent.key.authorize".to_owned(),
+        ));
+    }
+    if authorize_event.actor_id != *agent_id {
+        return Err(Error::Protocol(
+            "agent authorize_event.actor_id must match agent_id".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1127,6 +1155,22 @@ mod tests {
         Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
+    fn event(kind: &str, actor_id: Did) -> Event {
+        Event::new(
+            kind,
+            RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            actor_id,
+            1,
+            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            json!({}),
+        )
+        .unwrap()
+    }
+
+    fn authorize_event(actor_id: Did) -> Event {
+        event(OP_AGENT_KEY_AUTHORIZE, actor_id)
+    }
+
     struct StubMoveSigner {
         did: Did,
         kid: String,
@@ -1259,9 +1303,15 @@ mod tests {
                 "x": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
             }),
             json!({"challenge": "pairing", "signature": "sig"}),
-            json!({"kind": OP_AGENT_KEY_AUTHORIZE}),
+            authorize_event(agent_id.clone()),
         )
-        .runtime_attestation(json!({"kind": "self_asserted"}))
+        .runtime_attestation(AgentKeyAuthorizePayloadRuntimeAttestation {
+            kind: AgentKeyRuntimeAttestationKind::SelfAsserted,
+            software: None,
+            version: None,
+            attestation_digest: None,
+            evidence_ref: None,
+        })
         .build()
         .unwrap();
 
@@ -1270,10 +1320,10 @@ mod tests {
             "01970000-0000-7000-8000-000000000020"
         );
         assert_eq!(body.agent_id, agent_id);
-        assert_eq!(body.authorize_event["kind"], OP_AGENT_KEY_AUTHORIZE);
+        assert_eq!(body.authorize_event.kind.as_str(), OP_AGENT_KEY_AUTHORIZE);
         assert_eq!(
-            body.runtime_attestation.as_ref().unwrap()["kind"],
-            "self_asserted"
+            body.runtime_attestation.as_ref().unwrap().kind,
+            AgentKeyRuntimeAttestationKind::SelfAsserted
         );
 
         let err = AgentKeyPairRequestBuilder::new(
@@ -1282,7 +1332,7 @@ mod tests {
             "did:webvh:z6mkfixture:agent2.example#runtime-key-1",
             json!({}),
             json!({}),
-            Value::Null,
+            event("ak.message.create", did("agent2")),
         )
         .build()
         .unwrap_err();
@@ -1305,7 +1355,7 @@ mod tests {
         let builder = RuntimeKeyRequestBuilder::new(&signing_key, bootstrap);
         let approval = builder.build_approval_request().unwrap();
         let pairing = builder
-            .build_key_pair_request(json!({"kind": OP_AGENT_KEY_AUTHORIZE}))
+            .build_key_pair_request(authorize_event(agent_id.clone()))
             .unwrap();
 
         assert_eq!(approval.public_key_digest, pairing.public_key_digest);
