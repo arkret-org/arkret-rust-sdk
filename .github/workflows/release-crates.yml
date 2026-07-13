@@ -14,21 +14,27 @@ jobs:
       # Topologically sorted dependency order. Generated from
       # `cargo metadata --no-deps`; keep in sync with `RELEASING.md`.
       CRATES: >-
+        arkret-canonical
         arkret-identifiers
+        arkret-wire-base
+        arkret-wire-edge
+        arkret-state
+        arkret-schema
+        arkret-policy
         arkret-core
         arkret-ffi
         arkret-html
+        arkret-keystore
         arkret-signatures
         arkret-http-client
         arkret-crypto
-        arkret-keystore
         arkret-server
         arkret
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.92"
+          toolchain: "1.96"
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-features --all-targets -- -D warnings

@@ -54,6 +54,8 @@ mod tests {
             next_epoch,
             vec![governance_event(1)],
             policy_root,
+            governance_hash('c'),
+            governance_hash('d'),
             MLS_GOVERNANCE_BINDING_FULL_PROFILE,
             GOVERNANCE_REDUCER_PROFILE,
         )
@@ -1021,7 +1023,10 @@ mod tests {
             .unwrap();
 
         let realm_id = "ak:realm:01904100-0000-7000-8000-0abc0abc0abc";
-        let aad = EncryptedEnvelopeAadV1::hidden(realm_id, "ak.message.create");
+        let aad = crate::EncryptedEnvelopeAad::hidden(
+            RealmId::new(realm_id).unwrap(),
+            "ak.message.create",
+        );
         let aad_value = serde_json::to_value(&aad).unwrap();
         let plaintext = br#"{"body":"hello encrypted discussion"}"#;
         let payload = group
@@ -1088,7 +1093,10 @@ mod tests {
         // payload_digest at encryption time.
         let mismatch = EncryptedEnvelopeV1::from_payload(
             &payload,
-            EncryptedEnvelopeAadV1::hidden(realm_id, "ak.strand.update"),
+            crate::EncryptedEnvelopeAad::hidden(
+                RealmId::new(realm_id).unwrap(),
+                "ak.strand.update",
+            ),
             AadVisibility::Hidden,
             commit_ref,
         );
@@ -1205,7 +1213,10 @@ mod tests {
     #[test]
     fn encrypted_envelope_v1_binds_exporter_scheme_to_exporter_key_algorithm() {
         let mut group = exporter_aead_founder();
-        let envelope_aad = EncryptedEnvelopeAadV1::hidden(HISTORY_REALM, "ak.message.create");
+        let envelope_aad = crate::EncryptedEnvelopeAad::hidden(
+            RealmId::new(HISTORY_REALM).unwrap(),
+            "ak.message.create",
+        );
         let payload_aad = serde_json::to_value(&envelope_aad).unwrap();
         let payload = group
             .encrypt_payload_exporter_aead(

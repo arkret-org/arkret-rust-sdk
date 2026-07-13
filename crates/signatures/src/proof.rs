@@ -1,12 +1,13 @@
-//! Unified Event Envelope canonical proof builder and verifier.
+//! Canonical proof builders, Event proof verification, and signing primitives.
 //!
 //! T5.1 (Round 22, 2026-05-19) — `coauth`, `soland`, and `inkson` each
 //! grew their own canonical JSON + detached JWS plumbing for signing
 //! Event Envelopes. This module is the single pipeline they should all
 //! converge on: canonical-bytes computation, the `EventSigner` /
 //! `EventVerifier` traits, the `PublicKeyMaterial` carrier, and a
-//! production-grade `Ed25519DetachedJwsSigner` /
-//! `Ed25519DetachedJwsVerifier` (RFC 7797 detached payload form).
+//! generic `Ed25519DetachedJwsSigner` / `Ed25519DetachedJwsVerifier` primitives.
+//! Arkret Event proofs are signed through [`crate::sign_event`], which constructs
+//! the mandatory domain-separated proof binding object.
 //!
 //! Migration is staged across T5.2 / T5.3; downstream services replace
 //! their bespoke implementations with calls into this module.
@@ -540,10 +541,7 @@ impl<V: EventVerifier> EventVerifier for ProductionVerifier<V> {
 }
 
 mod ed25519_jws {
-    use arkret_core::{
-        Audience, Hash, Proof, base64url_decode, base64url_encode, canonical, proof_kind,
-    };
-    use chrono::Utc;
+    use arkret_core::{base64url_decode, base64url_encode, canonical};
     use ed25519_dalek::{Signer as _, SigningKey, VerifyingKey};
     use serde::Deserialize;
 
@@ -554,17 +552,14 @@ mod ed25519_jws {
     /// `typ`; the default v1 proof profile does not declare one.
     pub(super) const PROTECTED_HEADER_EDDSA: &str = r#"{"alg":"EdDSA"}"#;
 
-    use super::{
-        EventProofBuilder, EventSigner, EventVerifier, ProofType, PublicKeyMaterial, SignerError,
-        VerifierError,
-    };
+    use super::{EventSigner, EventVerifier, PublicKeyMaterial, SignerError, VerifierError};
 
     /// Production Ed25519 [`EventSigner`] producing RFC 7797 detached
     /// JWS bytes (header.payload-stripped.signature).
     ///
     /// The signature is computed over `b64u(header) "." b64u(canonical_bytes)`
-    /// so receivers re-derive the payload from the canonical Event
-    /// Envelope rather than trusting the JWS payload segment.
+    /// so receivers re-derive the caller-supplied payload rather than trusting
+    /// the JWS payload segment. This is not the Event-proof assembly API.
     pub struct Ed25519DetachedJwsSigner {
         signing_key: SigningKey,
         verification_method: String,
@@ -586,45 +581,13 @@ mod ed25519_jws {
             self.signing_key.verifying_key()
         }
 
-        /// Produce a full Arkret [`Proof`] over `value` using this
-        /// signer. Returns the canonical bytes alongside the proof so
-        /// callers can persist them next to the envelope.
-        pub fn sign_payload<T: serde::Serialize>(
-            &self,
-            value: &T,
-            domain: Option<String>,
-            audience: Option<Audience>,
-        ) -> arkret_core::Result<(Vec<u8>, Proof)> {
-            let builder = EventProofBuilder::new();
-            let bytes = builder.canonical_bytes(value)?;
-            let proof = self.build_proof(&bytes, domain, audience)?;
-            Ok((bytes, proof))
-        }
-
-        /// Assemble a Arkret [`Proof`] over pre-canonicalized `bytes`.
-        pub fn build_proof(
-            &self,
-            bytes: &[u8],
-            domain: Option<String>,
-            audience: Option<Audience>,
-        ) -> arkret_core::Result<Proof> {
-            let jws = detached_jws_over(&self.signing_key, bytes);
-            let event_digest = Hash::new(canonical::sha256_digest(bytes))?;
-            Ok(Proof {
-                kind: proof_kind::DETACHED_JWS.to_owned(),
-                alg: "EdDSA".to_owned(),
-                verification_method: self.verification_method.clone(),
-                event_digest,
-                created_at: Utc::now(),
-                domain,
-                audience,
-                jws,
-            })
-        }
-
-        /// The matching [`ProofType`] tag.
-        pub fn proof_type() -> ProofType {
-            ProofType::production(proof_kind::DETACHED_JWS, "EdDSA")
+        /// Produce a generic detached JWS over caller-supplied bytes.
+        ///
+        /// This primitive does not assemble an Arkret event [`arkret_core::Proof`]. Event
+        /// proofs must be created with [`crate::sign_event`], which signs the
+        /// protocol proof-binding object rather than raw event bytes.
+        pub fn sign_detached_jws(&self, bytes: &[u8]) -> String {
+            detached_jws_over(&self.signing_key, bytes)
         }
     }
 
@@ -671,7 +634,7 @@ mod ed25519_jws {
             Self
         }
 
-        /// Verify a detached-JWS [`Proof`] whose signature covers exactly
+        /// Verify a generic detached JWS whose signature covers exactly
         /// `canonical_bytes` (the JWS signing input is
         /// `b64u(header).b64u(canonical_bytes)`).
         ///
@@ -681,36 +644,13 @@ mod ed25519_jws {
         /// object* (not the raw event bytes) — use the top-level
         /// [`super::verify_eddsa_detached_jws_proof`], which constructs that
         /// binding object from `proof` + `actor_id` per `encoding.md` §6.
-        pub fn verify_proof(
+        pub fn verify_detached_jws(
             &self,
-            proof: &Proof,
+            jws: &str,
             canonical_bytes: &[u8],
             public_key: &PublicKeyMaterial,
         ) -> Result<(), VerifierError> {
-            if proof.alg != "EdDSA" {
-                return Err(VerifierError::Backend(format!(
-                    "Ed25519 verifier received non-EdDSA alg '{}'",
-                    proof.alg
-                )));
-            }
-            let expected = canonical::sha256_digest(canonical_bytes);
-            // spec §6: the digest binding check MUST be constant-time. Both sides are
-            // fixed-length lowercase hex of a SHA-256 digest, so length is not secret;
-            // `ct_eq` compares the bytes without an early-exit timing side channel.
-            use subtle::ConstantTimeEq;
-            if !bool::from(
-                proof
-                    .event_digest
-                    .as_str()
-                    .as_bytes()
-                    .ct_eq(expected.as_bytes()),
-            ) {
-                return Err(VerifierError::Binding(format!(
-                    "proof event_digest '{}' does not match canonical bytes '{}'",
-                    proof.event_digest, expected
-                )));
-            }
-            let parts: Vec<&str> = proof.jws.split('.').collect();
+            let parts: Vec<&str> = jws.split('.').collect();
             if parts.len() != 3 || !parts[1].is_empty() {
                 return Err(VerifierError::Encoding(
                     "detached JWS must be header..signature with empty payload segment".to_owned(),
@@ -722,12 +662,6 @@ mod ed25519_jws {
                 .map_err(|err| {
                     VerifierError::Encoding(format!("invalid protected header: {err}"))
                 })?;
-            if header.alg != proof.alg {
-                return Err(VerifierError::Binding(format!(
-                    "protected header alg '{}' does not match proof alg '{}'",
-                    header.alg, proof.alg
-                )));
-            }
             if header.alg != "EdDSA" {
                 return Err(VerifierError::Backend(format!(
                     "Ed25519 verifier received non-EdDSA protected alg '{}'",
@@ -1000,7 +934,7 @@ mod tests {
 
     #[cfg(feature = "signer")]
     #[test]
-    fn ed25519_signer_proof_round_trips_through_jws_verifier() {
+    fn ed25519_generic_detached_jws_round_trips() {
         use base64::Engine;
         use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 
@@ -1008,34 +942,30 @@ mod tests {
             [2u8; 32],
             "did:webvh:z6mkfixture:bob.example#key-1",
         );
-        let (bytes, proof) = signer
-            .sign_payload(
-                &json!({"a": 1, "b": 2}),
-                Some("api.example".to_owned()),
-                None,
-            )
-            .unwrap();
+        let bytes = canonical::canonical_json_bytes(&json!({"a": 1, "b": 2})).unwrap();
+        let jws = signer.sign_detached_jws(&bytes);
         let verifier = Ed25519DetachedJwsVerifier::new();
         let public_key = PublicKeyMaterial::Ed25519Raw {
             bytes: signer.verifying_key().to_bytes().to_vec(),
         };
-        verifier.verify_proof(&proof, &bytes, &public_key).unwrap();
+        verifier
+            .verify_detached_jws(&jws, &bytes, &public_key)
+            .unwrap();
         // Tampering MUST fail.
         let mut tampered = bytes;
         tampered.push(b'!');
         assert!(
             verifier
-                .verify_proof(&proof, &tampered, &public_key)
+                .verify_detached_jws(&jws, &tampered, &public_key)
                 .is_err()
         );
 
-        let signature = proof.jws.rsplit('.').next().unwrap();
+        let signature = jws.rsplit('.').next().unwrap();
         let bad_header = URL_SAFE_NO_PAD.encode(br#"{"alg":"none","typ":"JWT"}"#);
-        let mut header_tampered = proof.clone();
-        header_tampered.jws = format!("{bad_header}..{signature}");
+        let header_tampered = format!("{bad_header}..{signature}");
         assert!(
             verifier
-                .verify_proof(
+                .verify_detached_jws(
                     &header_tampered,
                     &tampered[..tampered.len() - 1],
                     &public_key
@@ -1044,26 +974,11 @@ mod tests {
         );
 
         let crit_header = URL_SAFE_NO_PAD.encode(br#"{"alg":"EdDSA","typ":"JWT","crit":["b64"]}"#);
-        let mut crit_tampered = proof.clone();
-        crit_tampered.jws = format!("{crit_header}..{signature}");
+        let crit_tampered = format!("{crit_header}..{signature}");
         assert!(
             verifier
-                .verify_proof(&crit_tampered, &tampered[..tampered.len() - 1], &public_key)
+                .verify_detached_jws(&crit_tampered, &tampered[..tampered.len() - 1], &public_key)
                 .is_err()
         );
-    }
-
-    #[cfg(feature = "signer")]
-    #[test]
-    fn ed25519_signer_proof_type_is_production() {
-        let pt = Ed25519DetachedJwsSigner::proof_type();
-        assert!(!pt.is_development());
-        match pt {
-            ProofType::Production { kind, algorithm } => {
-                assert_eq!(kind, "detached_jws");
-                assert_eq!(algorithm, "EdDSA");
-            }
-            other => panic!("expected production proof type, got {other:?}"),
-        }
     }
 }

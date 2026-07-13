@@ -383,12 +383,12 @@ pub use blob_aead::{
 pub use crypto::{
     AEAD_ALGORITHM, AEAD_NONCE_AES_GCM_LEN, AEAD_NONCE_COUNTER_LEN, AEAD_NONCE_EXPORTER_LABEL,
     AEAD_NONCE_XCHACHA20_POLY1305_LEN, AEAD_PROFILE_AES_256_GCM, AEAD_PROFILE_XCHACHA20_POLY1305,
-    AeadNonceContext, AeadNonceReplayTracker, EncryptedEnvelopeAad, EncryptedEnvelopeDigestReport,
-    FeatureSafetyReport, REDACTED_SECRET, UnsafeFeatureCombination,
-    aead_sender_nonce_context_bytes, compose_aead_nonce, current_feature_safety_report,
-    derive_aead_sender_nonce_prefix, encrypted_envelope_digest_report, envelope_aad_digest,
-    feature_safety_report, is_sensitive_log_key, json_aad_digest, redact_log_value,
-    verify_aead_nonce_derivation, verify_aead_sender_nonce, verify_envelope_aad_digest,
+    AeadNonceContext, AeadNonceReplayTracker, EncryptedEnvelopeDigestReport, FeatureSafetyReport,
+    REDACTED_SECRET, UnsafeFeatureCombination, aead_sender_nonce_context_bytes, compose_aead_nonce,
+    current_feature_safety_report, derive_aead_sender_nonce_prefix,
+    encrypted_envelope_digest_report, envelope_aad_digest, feature_safety_report,
+    is_sensitive_log_key, json_aad_digest, redact_log_value, verify_aead_nonce_derivation,
+    verify_aead_sender_nonce, verify_envelope_aad_digest,
 };
 #[cfg(feature = "full-surface")]
 pub use crypto_store::{
@@ -440,8 +440,7 @@ pub use history_recovery::{
 #[cfg(feature = "full-surface")]
 pub use hlc::{
     EXPECTED_FUTURE_SKEW_MS, HARD_FUTURE_SKEW_MS, HlcComponents, HlcFutureDrift, HlcGenerator,
-    compare_hlc, is_clock_skew_acceptable, parse_hlc, time_until_hlc, validate_hlc_format,
-    validate_hlc_future_drift,
+    compare_hlc, parse_hlc, time_until_hlc, validate_hlc_format, validate_hlc_future_drift,
 };
 #[cfg(feature = "client")]
 pub use http_client::{Auth, Client, ClientBuilder, ClientRequestOptions, RetryConfig};

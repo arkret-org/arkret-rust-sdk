@@ -6,9 +6,9 @@
 //! 1. The detached-JWS protected header is exactly `{"alg":"EdDSA"}` across the ecosystem
 //!    (base64url `eyJhbGciOiJFZERTQSJ9`), matching spec §6, soland `move_seal_wire`, cotest and
 //!    teabay `sdk::jws`.
-//! 2. `Ed25519MoveSigner` (Move/Seal signing) and `Ed25519DetachedJwsSigner` (event-proof signing)
-//!    produce the same signing input and same 64-byte signature for identical canonical bytes,
-//!    proving the historical JWS forks have converged.
+//! 2. `Ed25519MoveSigner` (Move/Seal signing) and the generic detached-JWS signer produce the same
+//!    signing input and same 64-byte signature for identical canonical bytes, proving the
+//!    historical JWS forks have converged.
 //! 3. base58btc (`core::multibase`, `bs58` backend) stays stable for the did:key Ed25519
 //!    multiencoding stack.
 //! 4. base64url (`core::base64url`) remains unpadded and URL-safe.
@@ -33,7 +33,7 @@ fn detached_jws_protected_header_is_alg_eddsa_only() {
 
 #[cfg(feature = "signer")]
 #[test]
-fn move_signer_and_event_proof_signer_share_one_jws_header_and_signature() {
+fn move_signer_and_generic_detached_jws_signer_share_one_header_and_signature() {
     use arkret_core::move_event::{Effect, LatticeOp, LatticeOpType, SealBasis};
     use arkret_core::{CellRef, Did, Hash, Hlc, MoveSigner, RealmId, SealId, UnsignedMove};
     use arkret_signatures::Ed25519MoveSigner;
@@ -80,15 +80,15 @@ fn move_signer_and_event_proof_signer_share_one_jws_header_and_signature() {
         "Move JWS header drift"
     );
 
-    // The event-proof signer over the SAME bytes must produce the SAME raw
+    // The generic signer over the SAME bytes must produce the SAME raw
     // 64-byte signature (proving a single signing input across both paths).
-    let event_signer = Ed25519DetachedJwsSigner::from_seed(seed, vm);
-    let event_sig = event_signer.sign(&move_bytes).unwrap();
+    let detached_signer = Ed25519DetachedJwsSigner::from_seed(seed, vm);
+    let detached_sig = detached_signer.sign(&move_bytes).unwrap();
     let move_sig_seg = signed_move.sig.jws.rsplit('.').next().unwrap();
     assert_eq!(
-        base64url_encode(&event_sig),
+        base64url_encode(&detached_sig),
         move_sig_seg,
-        "Move/event signature bytes diverge"
+        "Move/generic detached signature bytes diverge"
     );
 }
 

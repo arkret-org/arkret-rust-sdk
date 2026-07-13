@@ -159,6 +159,34 @@ pub fn verify_ed25519_move_signature(
     }
     let header_b64 = parts[0];
     let sig_b64 = parts[2];
+    if !parts[1].is_empty() {
+        return Err(Error::Protocol(
+            "Ed25519 detached JWS payload segment must be empty".to_owned(),
+        ));
+    }
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct ProtectedHeader {
+        alg: String,
+        #[serde(default)]
+        typ: Option<String>,
+        #[serde(default)]
+        crit: Option<serde_json::Value>,
+    }
+    let header_bytes = base64url_decode(header_b64)
+        .map_err(|err| Error::Protocol(format!("invalid header base64: {err}")))?;
+    let header: ProtectedHeader = canonical::from_canonical_json_slice(&header_bytes)
+        .map_err(|err| Error::Protocol(format!("invalid protected header: {err}")))?;
+    if sig.alg != "EdDSA" || header.alg != sig.alg {
+        return Err(Error::Protocol(
+            "Move signature and protected header alg must both be EdDSA".to_owned(),
+        ));
+    }
+    if header.typ.is_some() || header.crit.is_some() {
+        return Err(Error::Protocol(
+            "Move detached JWS does not support typ or crit headers".to_owned(),
+        ));
+    }
     let sig_bytes = base64url_decode(sig_b64)
         .map_err(|err| Error::Protocol(format!("invalid sig base64: {err}")))?;
     if sig_bytes.len() != 64 {
@@ -330,5 +358,21 @@ mod tests {
         let err =
             verify_ed25519_move_signature(&bytes, &m.sig, &signer.verifying_key()).unwrap_err();
         assert!(format!("{err}").contains("payload_digest"));
+    }
+
+    #[test]
+    fn verify_ed25519_rejects_non_eddsa_protected_header() {
+        let signer = Ed25519MoveSigner::from_did_key_seed(
+            [3u8; 32],
+            alice(),
+            "did:webvh:z6mkfixture:alice.example#key-1",
+        );
+        let mut signed = signer.sign_move(&sample_unsigned()).unwrap();
+        let signature = signed.sig.jws.rsplit('.').next().unwrap().to_owned();
+        signed.sig.jws = format!("{}..{signature}", base64url_encode(br#"{"alg":"none"}"#));
+        let bytes = signed.canonical_bytes_for_id().unwrap();
+        let error = verify_ed25519_move_signature(&bytes, &signed.sig, &signer.verifying_key())
+            .unwrap_err();
+        assert!(error.to_string().contains("must both be EdDSA"));
     }
 }

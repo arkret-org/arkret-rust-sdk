@@ -172,7 +172,8 @@ impl Client {
             });
         }
 
-        response.json().await.map_err(transport_error)
+        let body = read_body_limited(response, MAX_RESPONSE_BODY_BYTES).await?;
+        serde_json::from_slice(&body).map_err(Error::from)
     }
 
     pub(crate) async fn send_empty(&self, builder: RequestBuilder) -> Result<HeaderMap> {
@@ -578,12 +579,18 @@ pub(crate) fn validate_request_builder(builder: &RequestBuilder) -> Result<()> {
 async fn error_envelope_from_response(response: Response) -> ErrorEnvelope {
     let status = response.status();
     let retry_after_ms = retry_after_ms(response.headers());
-    let error = response.json::<ErrorEnvelope>().await.unwrap_or_else(|_| {
-        ErrorEnvelope::new(
+    let error = match read_body_limited(response, MAX_RESPONSE_BODY_BYTES).await {
+        Ok(body) => serde_json::from_slice::<ErrorEnvelope>(&body).unwrap_or_else(|_| {
+            ErrorEnvelope::new(
+                "internal_error",
+                format!("HTTP request failed with status {status}"),
+            )
+        }),
+        Err(_) => ErrorEnvelope::new(
             "internal_error",
             format!("HTTP request failed with status {status}"),
-        )
-    });
+        ),
+    };
     // api-conventions.md §9: when both the `Retry-After` header and the body
     // `retry_after_ms` are present, the header wins. The body value is only
     // kept when no header was sent.

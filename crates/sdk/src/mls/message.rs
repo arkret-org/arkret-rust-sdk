@@ -4,45 +4,14 @@ use serde_json::Value;
 
 use super::group::{ArkretMlsGroup, decode};
 use super::security::AadVisibility;
-use crate::{EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash, RealmId, Result};
+use crate::{
+    EncryptedEnvelopeAad, EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash, Result,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EncryptedMessage {
     pub message_id: String,
     pub payload: EncryptedPayload,
-}
-
-/// Structured AAD for `ak.schema.encrypted_envelope.v1`. `realm_id` +
-/// `event_kind` are mandatory; the event-id fields are governed by
-/// [`AadVisibility`] and the schema discriminator (a `hidden` envelope MUST
-/// omit both `event_id` and `event_ref_digest`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EncryptedEnvelopeAadV1 {
-    pub realm_id: String,
-    pub event_kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_ref_digest: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub causal_refs: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub causal_ref_digests: Vec<String>,
-}
-
-impl EncryptedEnvelopeAadV1 {
-    /// Minimal `hidden`-visibility AAD: realm + canonical event kind only.
-    pub fn hidden(realm_id: impl Into<String>, event_kind: impl Into<String>) -> Self {
-        Self {
-            realm_id: realm_id.into(),
-            event_kind: event_kind.into(),
-            event_id: None,
-            event_ref_digest: None,
-            causal_refs: Vec::new(),
-            causal_ref_digests: Vec::new(),
-        }
-    }
 }
 
 /// `key_ref` for `ak.schema.encrypted_envelope.v1`. `algorithm` is bound to
@@ -72,7 +41,7 @@ pub struct EncryptedEnvelopeV1 {
     pub content_type: String,
     pub ciphertext: String,
     pub aad_visibility_event_id: AadVisibility,
-    pub aad: EncryptedEnvelopeAadV1,
+    pub aad: EncryptedEnvelopeAad,
     pub key_ref: EnvelopeKeyRefV1,
     pub aad_digest: String,
     pub payload_digest: String,
@@ -155,7 +124,7 @@ impl EncryptedEnvelopeV1 {
     /// under.
     pub fn from_payload(
         payload: &EncryptedPayload,
-        aad: EncryptedEnvelopeAadV1,
+        aad: EncryptedEnvelopeAad,
         visibility: AadVisibility,
         group_state_ref: impl Into<String>,
     ) -> Result<Self> {
@@ -217,42 +186,26 @@ impl EncryptedEnvelopeV1 {
     }
 }
 
-fn validate_envelope_aad(aad: &EncryptedEnvelopeAadV1, visibility: AadVisibility) -> Result<()> {
-    RealmId::new(aad.realm_id.clone())
-        .map_err(|_| Error::Protocol("encrypted envelope aad.realm_id is invalid".to_owned()))?;
+fn validate_envelope_aad(aad: &EncryptedEnvelopeAad, visibility: AadVisibility) -> Result<()> {
     if !event_kind_token(&aad.event_kind) {
         return Err(Error::Protocol(
             "encrypted envelope aad.event_kind is invalid".to_owned(),
         ));
-    }
-    if let Some(event_id) = &aad.event_id {
-        EventId::new(event_id.clone()).map_err(|_| {
-            Error::Protocol("encrypted envelope aad.event_id is invalid".to_owned())
-        })?;
-    }
-    if let Some(event_ref_digest) = &aad.event_ref_digest {
-        Hash::new(event_ref_digest.clone()).map_err(|_| {
-            Error::Protocol("encrypted envelope aad.event_ref_digest is invalid".to_owned())
-        })?;
-    }
-    for event_id in &aad.causal_refs {
-        EventId::new(event_id.clone()).map_err(|_| {
-            Error::Protocol("encrypted envelope aad.causal_refs contains invalid id".to_owned())
-        })?;
-    }
-    for digest in &aad.causal_ref_digests {
-        Hash::new(digest.clone()).map_err(|_| {
-            Error::Protocol(
-                "encrypted envelope aad.causal_ref_digests contains invalid digest".to_owned(),
-            )
-        })?;
     }
     if aad.event_id.is_some() && aad.event_ref_digest.is_some() {
         return Err(Error::Protocol(
             "encrypted envelope aad must not carry both event_id and event_ref_digest".to_owned(),
         ));
     }
-    if !aad.causal_refs.is_empty() && !aad.causal_ref_digests.is_empty() {
+    if aad
+        .causal_refs
+        .as_ref()
+        .is_some_and(|refs| !refs.is_empty())
+        && aad
+            .causal_ref_digests
+            .as_ref()
+            .is_some_and(|refs| !refs.is_empty())
+    {
         return Err(Error::Protocol(
             "encrypted envelope aad must not carry both causal_refs and causal_ref_digests"
                 .to_owned(),

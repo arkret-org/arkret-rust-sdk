@@ -95,12 +95,26 @@ pub(crate) const QUERY_AUTH_KEYS: &[&str] = &[
     "token",
 ];
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum Auth {
     Bearer(String),
     DeviceProof(String),
     ServiceSignature(String),
     Dpop(DpopAuth),
+}
+
+impl std::fmt::Debug for Auth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bearer(_) => f.debug_tuple("Bearer").field(&"<redacted>").finish(),
+            Self::DeviceProof(_) => f.debug_tuple("DeviceProof").field(&"<redacted>").finish(),
+            Self::ServiceSignature(_) => f
+                .debug_tuple("ServiceSignature")
+                .field(&"<redacted>")
+                .finish(),
+            Self::Dpop(auth) => f.debug_tuple("Dpop").field(auth).finish(),
+        }
+    }
 }
 
 pub use arkret_signatures::DpopProofRequest;
@@ -430,6 +444,25 @@ mod tests {
     use reqwest::header::{HeaderValue, USER_AGENT};
 
     use super::*;
+
+    #[test]
+    fn auth_debug_redacts_all_credentials() {
+        for (auth, secret) in [
+            (Auth::Bearer("bearer-secret".to_owned()), "bearer-secret"),
+            (
+                Auth::DeviceProof("device-secret".to_owned()),
+                "device-secret",
+            ),
+            (
+                Auth::ServiceSignature("service-secret".to_owned()),
+                "service-secret",
+            ),
+        ] {
+            let debug = format!("{auth:?}");
+            assert!(debug.contains("<redacted>"));
+            assert!(!debug.contains(secret));
+        }
+    }
 
     #[test]
     fn builds_relative_api_url() {

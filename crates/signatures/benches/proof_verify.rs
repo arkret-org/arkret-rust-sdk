@@ -9,7 +9,7 @@
 use arkret_canonical::canonical;
 use arkret_core::{Did, Hash};
 use arkret_signatures::proof::{
-    Ed25519DetachedJwsSigner, PublicKeyMaterial, sign_eddsa_detached_jws,
+    PublicKeyMaterial, build_proof_envelope, sign_eddsa_detached_jws,
     verify_eddsa_detached_jws_proof,
 };
 use criterion::{Criterion, criterion_group, criterion_main};
@@ -17,7 +17,6 @@ use criterion::{Criterion, criterion_group, criterion_main};
 fn bench_proof_verify(c: &mut Criterion) {
     let seed = [7u8; 32];
     let verification_method = "did:webvh:z6mkfixture:alice.example#key-1";
-    let signer = Ed25519DetachedJwsSigner::from_seed(seed, verification_method);
     let actor_id = Did::new("did:webvh:z6mkfixture:alice.example").expect("static did");
     let public_key = PublicKeyMaterial::Ed25519Raw {
         bytes: ed25519_dalek::SigningKey::from_bytes(&seed)
@@ -36,10 +35,15 @@ fn bench_proof_verify(c: &mut Criterion) {
 
     // Build a proof whose event_digest matches the bytes, then sign the
     // canonical binding object (what the verifier actually checks).
-    let mut proof = signer
-        .build_proof(&canonical_bytes, None, None)
-        .expect("build proof");
-    proof.event_digest = Hash::new(canonical::sha256_digest(&canonical_bytes)).expect("digest");
+    let mut proof = build_proof_envelope(
+        "detached_jws",
+        "EdDSA",
+        verification_method,
+        Hash::new(canonical::sha256_digest(&canonical_bytes)).expect("digest"),
+        None,
+        None,
+        "",
+    );
     let binding_bytes = proof
         .canonical_binding_bytes(&actor_id)
         .expect("binding bytes");

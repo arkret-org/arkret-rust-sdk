@@ -189,15 +189,15 @@ pub struct FfiEvent {
     pub payload: Value,
 }
 
-pub trait FfiEventSink {
-    fn emit(&self, event: FfiEvent) -> FfiCallbackResult;
+pub trait FfiEventSink: Send + Sync {
+    fn on_event(&self, event: FfiEvent) -> FfiCallbackResult;
 }
 
 impl<F> FfiEventSink for F
 where
-    F: Fn(FfiEvent) -> FfiCallbackResult,
+    F: Fn(FfiEvent) -> FfiCallbackResult + Send + Sync,
 {
-    fn emit(&self, event: FfiEvent) -> FfiCallbackResult {
+    fn on_event(&self, event: FfiEvent) -> FfiCallbackResult {
         self(event)
     }
 }
@@ -208,8 +208,16 @@ pub struct FfiCancellationHandle {
 }
 
 impl FfiCancellationHandle {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::SeqCst);
+    }
+
+    pub fn reset(&self) {
+        self.cancelled.store(false, Ordering::SeqCst);
     }
 
     pub fn is_cancelled(&self) -> bool {
@@ -408,7 +416,7 @@ mod tests {
             FfiCallbackResult::continue_stream()
         };
         assert_eq!(
-            sink.emit(FfiEvent {
+            sink.on_event(FfiEvent {
                 stream: handle,
                 sequence: 1,
                 event_kind: "ak.self.account.stream.subscribe".to_owned(),

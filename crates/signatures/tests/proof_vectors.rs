@@ -154,7 +154,7 @@ fn _dump_ed25519_vectors_helper() {
         let bytes = builder.canonical_bytes(&value).unwrap();
         let hash = builder.payload_digest(&value).unwrap();
         let sig = signer.sign(&bytes).unwrap();
-        let (_, proof) = signer.sign_payload(&value, None, None).unwrap();
+        let jws = signer.sign_detached_jws(&bytes);
         println!(
             "name={} seed_hex={} public_hex={} canonical={} hash={} sig_hex={} jws={}",
             name,
@@ -163,7 +163,7 @@ fn _dump_ed25519_vectors_helper() {
             String::from_utf8(bytes).unwrap(),
             hash.as_str(),
             hex_encode(&sig),
-            proof.jws,
+            jws,
         );
     }
 }
@@ -228,10 +228,10 @@ fn ed25519_vectors_round_trip_through_signer_and_verifier() {
             v.name
         );
 
-        // Detached JWS matches.
-        let (_, proof) = signer.sign_payload(&v.value, None, None).unwrap();
+        // Generic detached JWS over the supplied canonical bytes matches.
+        let jws = signer.sign_detached_jws(&bytes);
         assert_eq!(
-            proof.jws, v.detached_jws,
+            jws, v.detached_jws,
             "vector '{}' detached JWS drift",
             v.name
         );
@@ -244,8 +244,8 @@ fn ed25519_vectors_round_trip_through_signer_and_verifier() {
             .verify(&bytes, &sig, &key_material)
             .expect("verifier accepts signature");
         verifier
-            .verify_proof(&proof, &bytes, &key_material)
-            .expect("verifier accepts proof");
+            .verify_detached_jws(&jws, &bytes, &key_material)
+            .expect("verifier accepts detached JWS");
 
         // Tampered bytes rejected.
         let mut tampered = bytes.clone();

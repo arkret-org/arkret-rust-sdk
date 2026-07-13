@@ -29,6 +29,20 @@ pub struct EncryptedEnvelopeAad {
     pub causal_ref_digests: Option<Vec<Hash>>,
 }
 
+impl EncryptedEnvelopeAad {
+    /// Build the minimal AAD allowed for hidden event-id visibility.
+    pub fn hidden(realm_id: RealmId, event_kind: impl Into<String>) -> Self {
+        Self {
+            realm_id,
+            event_kind: event_kind.into(),
+            event_id: None,
+            event_ref_digest: None,
+            causal_refs: None,
+            causal_ref_digests: None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EncryptedEnvelopeAadVisibility {

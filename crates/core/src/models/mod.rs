@@ -21,7 +21,6 @@ use crate::{Error, Result, SealId, canonical};
 
 mod account;
 mod actor_profile;
-mod admin;
 mod agent;
 mod agent_participation;
 mod applet;
@@ -79,6 +78,7 @@ mod primitives {
 mod problem_details {
     pub use arkret_wire_base::problem_details::*;
 }
+pub mod product;
 mod productivity;
 mod profiles;
 mod push {
@@ -108,7 +108,6 @@ mod wire_model_tests;
 
 pub use account::*;
 pub use actor_profile::*;
-pub use admin::*;
 pub use agent::*;
 pub use agent_participation::*;
 pub use applet::*;

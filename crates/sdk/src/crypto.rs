@@ -2,6 +2,7 @@
 
 use std::collections::BTreeSet;
 
+pub use arkret_core::EncryptedEnvelopeAad;
 use arkret_core::error::{
     REASON_AEAD_NONCE_COUNTER_REPLAY, REASON_AEAD_NONCE_DERIVATION_INVALID,
     REASON_AEAD_NONCE_SENDER_DOMAIN_COLLISION,
@@ -61,18 +62,6 @@ impl AeadNonceReplayTracker {
         }
         Ok(())
     }
-}
-
-/// Canonical AAD shape for encrypted timeline and operation envelopes.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EncryptedEnvelopeAad {
-    pub realm_id: String,
-    /// Canonical event kind (`ak.<category>.<verb>`).
-    #[serde(rename = "event_kind")]
-    pub event_kind: String,
-    pub event_id: String,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub causal_refs: Vec<String>,
 }
 
 /// Digest report used by callers that store AAD digest separately from ciphertext.
@@ -623,10 +612,16 @@ mod tests {
     #[test]
     fn encrypted_envelope_aad_digest_is_canonical() {
         let aad = EncryptedEnvelopeAad {
-            realm_id: "ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+            realm_id: crate::RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             event_kind: "ak.message.create".to_owned(),
-            event_id: "ak:event:01904100-0000-7000-8000-51495aba0a08".to_owned(),
-            causal_refs: vec!["ak:event:01904100-0000-7000-8000-2b39e7197b88".to_owned()],
+            event_id: Some(
+                crate::EventId::new("ak:event:01904100-0000-7000-8000-51495aba0a08").unwrap(),
+            ),
+            event_ref_digest: None,
+            causal_refs: Some(vec![
+                crate::EventId::new("ak:event:01904100-0000-7000-8000-2b39e7197b88").unwrap(),
+            ]),
+            causal_ref_digests: None,
         };
         let digest = envelope_aad_digest(&aad).unwrap();
         verify_envelope_aad_digest(&aad, &digest).unwrap();
@@ -839,10 +834,14 @@ mod tests {
     #[test]
     fn canonical_digest_is_deterministic_for_same_input() {
         let aad = EncryptedEnvelopeAad {
-            realm_id: "ak:realm:01904100-0000-7000-8000-cfc039892036".to_owned(),
+            realm_id: crate::RealmId::new("ak:realm:01904100-0000-7000-8000-cfc039892036").unwrap(),
             event_kind: "ak.message.create".to_owned(),
-            event_id: "ak:event:01904100-0000-7000-8000-b70714ca75c5".to_owned(),
-            causal_refs: vec![],
+            event_id: Some(
+                crate::EventId::new("ak:event:01904100-0000-7000-8000-b70714ca75c5").unwrap(),
+            ),
+            event_ref_digest: None,
+            causal_refs: None,
+            causal_ref_digests: None,
         };
         let digest1 = envelope_aad_digest(&aad).unwrap();
         let digest2 = envelope_aad_digest(&aad).unwrap();
@@ -853,16 +852,24 @@ mod tests {
     #[test]
     fn canonical_digest_differs_for_different_inputs() {
         let aad1 = EncryptedEnvelopeAad {
-            realm_id: "ak:realm:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            realm_id: crate::RealmId::new("ak:realm:01904100-0000-7000-8000-1a412919cd4b").unwrap(),
             event_kind: "ak.message.create".to_owned(),
-            event_id: "ak:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
-            causal_refs: vec![],
+            event_id: Some(
+                crate::EventId::new("ak:event:01904100-0000-7000-8000-0b94566027c1").unwrap(),
+            ),
+            event_ref_digest: None,
+            causal_refs: None,
+            causal_ref_digests: None,
         };
         let aad2 = EncryptedEnvelopeAad {
-            realm_id: "ak:realm:01904100-0000-7000-8000-2a9d538f2fcf".to_owned(),
+            realm_id: crate::RealmId::new("ak:realm:01904100-0000-7000-8000-2a9d538f2fcf").unwrap(),
             event_kind: "ak.message.create".to_owned(),
-            event_id: "ak:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
-            causal_refs: vec![],
+            event_id: Some(
+                crate::EventId::new("ak:event:01904100-0000-7000-8000-0b94566027c1").unwrap(),
+            ),
+            event_ref_digest: None,
+            causal_refs: None,
+            causal_ref_digests: None,
         };
         let digest1 = envelope_aad_digest(&aad1).unwrap();
         let digest2 = envelope_aad_digest(&aad2).unwrap();

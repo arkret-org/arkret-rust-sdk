@@ -41,8 +41,6 @@
 //! mismatches to distinct wire `schema_violation` / `invalid_signature` 4xx
 //! responses without string sniffing.
 
-use arkret_canonical::canonical;
-use arkret_core::Hash;
 use arkret_signatures::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_eddsa_detached_jws};
 use chrono::{DateTime, Duration, Utc};
 use ed25519_dalek::{SigningKey, VerifyingKey};
@@ -194,25 +192,11 @@ pub fn verify_jws_ed25519(
     // Resolve verification_method via the supplied resolver chain. All JWS
     // shape/header/signature checks are delegated to arkret-signatures.
     let public_key = resolve_ed25519_pubkey(resolver, verification_method)?;
-    let proof = arkret_core::Proof {
-        kind: "detached_jws".to_owned(),
-        alg: "EdDSA".to_owned(),
-        verification_method: verification_method.to_owned(),
-        event_digest: Hash::new(canonical::sha256_digest(canonical_bytes)).map_err(|error| {
-            JwsVerifyError::Digest {
-                reason: error.to_string(),
-            }
-        })?,
-        created_at: Utc::now(),
-        domain: None,
-        audience: None,
-        jws: jws.to_owned(),
-    };
     let material = PublicKeyMaterial::Ed25519Raw {
         bytes: public_key.to_bytes().to_vec(),
     };
     Ed25519DetachedJwsVerifier::new()
-        .verify_proof(&proof, canonical_bytes, &material)
+        .verify_detached_jws(jws, canonical_bytes, &material)
         .map_err(|source| JwsVerifyError::Proof { source })
 }
 

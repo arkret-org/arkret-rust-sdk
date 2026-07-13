@@ -31,9 +31,6 @@ pub const EXPECTED_FUTURE_SKEW_MS: i64 = 30 * 1000;
 /// Hard future-drift cap from encoding.md §7.2.
 pub const HARD_FUTURE_SKEW_MS: i64 = 5 * 60 * 1000;
 
-/// Maximum allowed absolute clock skew kept for the legacy boolean helper.
-const MAX_SKEW_MS: i64 = HARD_FUTURE_SKEW_MS;
-
 /// Physical time maximum value (48-bit: 0xffffffffffff ms ≈ 8,925 years)
 const MAX_PHYSICAL: u64 = 0xffffffffffff;
 
@@ -382,19 +379,6 @@ pub fn compare_hlc(hlc1: &str, hlc2: &str) -> Result<std::cmp::Ordering> {
     Ok(left.cmp(&right))
 }
 
-/// Check if HLC is within acceptable clock skew window.
-pub fn is_clock_skew_acceptable(hlc: &str, current_time_ms: u64) -> Result<bool> {
-    let parts = parse_hlc(hlc)?;
-
-    let skew = if parts.physical_ms > current_time_ms {
-        (parts.physical_ms - current_time_ms) as i64
-    } else {
-        (current_time_ms - parts.physical_ms) as i64
-    };
-
-    Ok(skew <= MAX_SKEW_MS)
-}
-
 /// Calculate time until HLC expiration (for cursors).
 ///
 /// Returns None if HLC is in the past.
@@ -560,7 +544,7 @@ mod tests {
 
         // Create HLC far in the future (> 5 minutes)
         // MAX_SKEW_MS is 5 minutes in milliseconds, so we add more than that
-        let future_physical = HlcGenerator::current_time_ms() + MAX_SKEW_MS as u64 + 1000;
+        let future_physical = HlcGenerator::current_time_ms() + HARD_FUTURE_SKEW_MS as u64 + 1000;
         let future_hlc = HlcType::new(format!("{:012x}-0001-a13f9c2e", future_physical)).unwrap();
 
         assert!(hlc_gen.validate_incoming(&future_hlc).is_err());
@@ -580,16 +564,6 @@ mod tests {
         assert_eq!(id1.len(), 8);
         assert_ne!(id1, id3);
         assert_ne!(id1, id4);
-    }
-
-    #[test]
-    fn clock_skew_check_within_bounds() {
-        let current = 0x01970e589d21;
-        let within_skew = format!("{:012x}-0001-a13f9c2e", current + MAX_SKEW_MS as u64);
-        let beyond_skew = format!("{:012x}-0001-a13f9c2e", current + MAX_SKEW_MS as u64 + 1000);
-
-        assert!(is_clock_skew_acceptable(&within_skew, current).unwrap());
-        assert!(!is_clock_skew_acceptable(&beyond_skew, current).unwrap());
     }
 
     #[test]

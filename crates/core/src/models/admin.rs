@@ -27,7 +27,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{AccountStatus, Did};
+use super::super::{AccountStatus, Did};
 
 /// One actor row in the admin actors projection.
 ///

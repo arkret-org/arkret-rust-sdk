@@ -26,6 +26,7 @@ salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono"]
 diesel = ["dep:diesel"]
 
 [dependencies]
+arkret-canonical = {workspace = true}
 
 # wasm32 randomness: getrandom 0.3 needs the `wasm_js` feature, and the
 # transitive getrandom 0.2 (pulled in via `rand_core` from ed25519-dalek
@@ -39,11 +40,9 @@ diesel = {workspace = true,features = [
     "uuid",
 ],optional = true}
 getrandom = {workspace = true}
-hex = {workspace = true}
 salvo = {workspace = true,features = ["oapi"],optional = true}
 salvo-oapi = {workspace = true,optional = true}
 serde = {workspace = true}
-sha2 = {workspace = true}
 thiserror = {workspace = true}
 uuid = {workspace = true}
 [target.'cfg(target_arch = "wasm32")'.dependencies]

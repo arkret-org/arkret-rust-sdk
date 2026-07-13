@@ -9,7 +9,6 @@ use std::fmt;
 use std::str::FromStr;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
-use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, IdentifierError>;
@@ -472,7 +471,7 @@ impl BlobRef {
 }
 
 fn sha256_digest(bytes: &[u8]) -> String {
-    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
+    arkret_canonical::canonical::sha256_digest(bytes)
 }
 
 impl Did {

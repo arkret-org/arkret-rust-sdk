@@ -59,14 +59,20 @@ The workspace is split into focused crates and the top-level `arkret` crate
 re-exports the public SDK surface:
 
 - `arkret-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types, service metadata and the shared wire-contract DTOs (identity, federation and push gateway integration)
+- `arkret-canonical`: canonical JSON, digest, base64url and multibase primitives
 - `arkret-crypto`: local encryption, backup and key-management helpers
 - `arkret-ffi`: C ABI surface for core identifiers, canonical helpers and runtime bridges
 - `arkret-html`: rich-text sanitization helpers and conformance fixtures
 - `arkret-identifiers`: validated DIDs, typed IDs, hashes, cursors and HLC values
 - `arkret-http-client`: HTTP transport bindings
 - `arkret-keystore`: platform KeyStore backends behind target-specific feature gates
+- `arkret-policy`: protocol policy, authorization and resource-selector models
+- `arkret-schema`: generated protocol registries and schema/artifact validation
 - `arkret-server`: framework-independent server handler contracts, service route metadata and endpoint fixture coverage
 - `arkret-signatures`: HTTP signatures, JWS/JWT and proof verification helpers
+- `arkret-state`: reducer, snapshot, lattice and state-transition primitives
+- `arkret-wire-base`: foundational wire constants, identifiers and protocol primitives
+- `arkret-wire-edge`: edge-facing wire contracts layered on `arkret-wire-base`
 - `arkret`: umbrella SDK crate with high-level state managers and feature forwarding
 
 The workspace default members include all crates:

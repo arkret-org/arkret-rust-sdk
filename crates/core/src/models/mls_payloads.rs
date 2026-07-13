@@ -53,6 +53,8 @@ impl MlsGovernanceBindingPayload {
         next_epoch: u64,
         membership_frontier: Vec<EventId>,
         policy_root: Hash,
+        capability_root: Hash,
+        discussion_metadata_digest: Hash,
         binding_profile: impl Into<String>,
         reducer_profile: impl Into<String>,
     ) -> Result<Self> {
@@ -67,8 +69,8 @@ impl MlsGovernanceBindingPayload {
             next_epoch,
             membership_frontier,
             policy_root,
-            capability_root: None,
-            discussion_metadata_digest: None,
+            capability_root: Some(capability_root),
+            discussion_metadata_digest: Some(discussion_metadata_digest),
             binding_profile: binding_profile.into(),
             reducer_profile: reducer_profile.into(),
         };
@@ -85,6 +87,8 @@ impl MlsGovernanceBindingPayload {
         next_epoch: u64,
         membership_frontier: Vec<EventId>,
         policy_root: Hash,
+        capability_root: Hash,
+        discussion_metadata_digest: Hash,
         binding_profile: impl Into<String>,
         reducer_profile: impl Into<String>,
     ) -> Result<Self> {
@@ -102,8 +106,8 @@ impl MlsGovernanceBindingPayload {
             next_epoch,
             membership_frontier,
             policy_root,
-            capability_root: None,
-            discussion_metadata_digest: None,
+            capability_root: Some(capability_root),
+            discussion_metadata_digest: Some(discussion_metadata_digest),
             binding_profile: binding_profile.into(),
             reducer_profile: reducer_profile.into(),
         };
@@ -158,6 +162,18 @@ impl MlsGovernanceBindingPayload {
             "mls_governance_binding.binding_profile",
             &self.binding_profile,
         )?;
+        if self.binding_profile == MLS_GOVERNANCE_BINDING_FULL_PROFILE {
+            if self.capability_root.is_none() {
+                return Err(Error::Protocol(format!(
+                    "full mls_governance_binding requires capability_root ({ERROR_CODE_SCHEMA_VIOLATION})"
+                )));
+            }
+            if self.discussion_metadata_digest.is_none() {
+                return Err(Error::Protocol(format!(
+                    "full mls_governance_binding requires discussion_metadata_digest ({ERROR_CODE_SCHEMA_VIOLATION})"
+                )));
+            }
+        }
         if self.reducer_profile.is_empty() {
             return Err(Error::Protocol(format!(
                 "mls_governance_binding.reducer_profile must be non-empty ({ERROR_CODE_SCHEMA_VIOLATION})"
@@ -1195,12 +1211,12 @@ mod tests {
             1,
             vec![event(2)],
             hash('2'),
+            hash('3'),
+            hash('4'),
             MLS_GOVERNANCE_BINDING_FULL_PROFILE,
             reducer_profile(),
         )
         .unwrap()
-        .with_capability_root(hash('3'))
-        .with_discussion_metadata_digest(hash('4'))
     }
 
     #[test]
@@ -1212,6 +1228,8 @@ mod tests {
             1,
             vec![event(2)],
             hash('2'),
+            hash('3'),
+            hash('4'),
             MLS_GOVERNANCE_BINDING_FULL_PROFILE,
             reducer_profile(),
         )
@@ -1258,7 +1276,7 @@ mod tests {
     }
 
     #[test]
-    fn mls_governance_binding_validates_optional_profile_fields() {
+    fn mls_governance_binding_full_profile_requires_all_roots() {
         let binding = MlsGovernanceBindingPayload::realm(
             realm(),
             group_id(),
@@ -1266,6 +1284,8 @@ mod tests {
             1,
             vec![event(2)],
             hash('2'),
+            hash('3'),
+            hash('4'),
             MLS_GOVERNANCE_BINDING_FULL_PROFILE,
             reducer_profile(),
         )
@@ -1277,6 +1297,23 @@ mod tests {
             .unwrap();
         assert!(binding.clone().with_binding_profile("mls.full").is_err());
         assert!(binding.with_reducer_profile("").is_err());
+
+        let missing_roots: MlsGovernanceBindingPayload = serde_json::from_value(json!({
+            "binding_version": MLS_GOVERNANCE_BINDING_VERSION,
+            "encoding_profile": MLS_GOVERNANCE_BINDING_ENCODING_PROFILE,
+            "realm_id": realm(),
+            "effective_scope": {"kind": "realm", "realm_id": realm()},
+            "mls_group_id": group_id(),
+            "previous_epoch": 0,
+            "next_epoch": 1,
+            "membership_frontier": [event(2)],
+            "policy_root": hash('2'),
+            "binding_profile": MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            "reducer_profile": reducer_profile(),
+        }))
+        .unwrap();
+        let error = missing_roots.validate().unwrap_err();
+        assert!(error.to_string().contains("requires capability_root"));
     }
 
     #[test]
@@ -1305,6 +1342,8 @@ mod tests {
             8,
             vec![event(2), event(3)],
             hash('5'),
+            hash('6'),
+            hash('7'),
             MLS_GOVERNANCE_BINDING_FULL_PROFILE,
             reducer_profile(),
         )
