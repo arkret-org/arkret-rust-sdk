@@ -229,10 +229,20 @@ pub fn prepare_inception<R: RngCore + ?Sized>(
     rng: &mut R,
     input: &InceptionInput<'_>,
 ) -> Result<PreparedInception, WebvhInceptionError> {
+    prepare_inception_with_did_key_seed(rng, input, None)
+}
+
+fn prepare_inception_with_did_key_seed<R: RngCore + ?Sized>(
+    rng: &mut R,
+    input: &InceptionInput<'_>,
+    supplied_did_key_seed: Option<&[u8; SECRET_KEY_LENGTH]>,
+) -> Result<PreparedInception, WebvhInceptionError> {
     let (method_authority, https_authority) = authority_pair(input.principal_endpoint)?;
     let local_id = normalize_local_id(input.local_id).ok_or(WebvhInceptionError::InvalidLocalId)?;
 
-    let did_key_seed = random_seed(rng);
+    let did_key_seed = supplied_did_key_seed
+        .copied()
+        .unwrap_or_else(|| random_seed(rng));
     let update_key_seed = random_seed(rng);
     let did_signing = SigningKey::from_bytes(&did_key_seed);
     let update_signing = SigningKey::from_bytes(&update_key_seed);
@@ -361,7 +371,7 @@ pub fn prepare_service_inception<R: RngCore + ?Sized>(
     rng: &mut R,
     input: &ServiceInceptionInput<'_>,
 ) -> Result<PreparedInception, WebvhInceptionError> {
-    prepare_inception(
+    prepare_inception_with_did_key_seed(
         rng,
         &InceptionInput {
             principal_endpoint: input.principal_endpoint,
@@ -371,6 +381,34 @@ pub fn prepare_service_inception<R: RngCore + ?Sized>(
             did_key_fragment: input.did_key_fragment,
             enrollment_authority_did: "",
         },
+        None,
+    )
+}
+
+/// Prepare a service WebVH inception whose DID assertion key is supplied by
+/// the service's durable signing-key custody layer.
+///
+/// This is the correct primitive when the same service identity signs Arkret
+/// credentials or notary Seals: the resulting DID document publishes the
+/// public half of `did_key_seed`, while the WebVH update key remains freshly
+/// generated from `rng`. The secret seed is copied into the returned
+/// [`PreparedInception`] so its existing zeroization guarantees still apply.
+pub fn prepare_service_inception_with_did_key_seed<R: RngCore + ?Sized>(
+    rng: &mut R,
+    input: &ServiceInceptionInput<'_>,
+    did_key_seed: &[u8; SECRET_KEY_LENGTH],
+) -> Result<PreparedInception, WebvhInceptionError> {
+    prepare_inception_with_did_key_seed(
+        rng,
+        &InceptionInput {
+            principal_endpoint: input.principal_endpoint,
+            local_id: input.local_id,
+            also_known_as: input.also_known_as,
+            version_time: input.version_time,
+            did_key_fragment: input.did_key_fragment,
+            enrollment_authority_did: "",
+        },
+        Some(did_key_seed),
     )
 }
 
@@ -1118,6 +1156,42 @@ mod tests {
             }),
             "service DID document should keep the ArkretPrincipalServer entry",
         );
+    }
+
+    #[test]
+    fn service_inception_can_publish_durable_signing_key() {
+        let mut rng = ChaCha20Rng::seed_from_u64(19);
+        let endpoint = Url::parse("https://auth.example.com/").unwrap();
+        let input = ServiceInceptionInput {
+            principal_endpoint: &endpoint,
+            local_id: "service",
+            also_known_as: &[],
+            version_time: DateTime::parse_from_rfc3339("2026-07-05T00:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            did_key_fragment: Some("notary-key"),
+        };
+        let signing_seed = [0x5au8; SECRET_KEY_LENGTH];
+        let prepared = prepare_service_inception_with_did_key_seed(&mut rng, &input, &signing_seed)
+            .expect("service prepare with durable key");
+        let expected_public_key = encode_ed25519_pubkey_multibase(
+            SigningKey::from_bytes(&signing_seed)
+                .verifying_key()
+                .as_bytes(),
+        );
+
+        assert_eq!(prepared.did_key_seed, signing_seed);
+        assert_eq!(prepared.did_public_key_multibase, expected_public_key);
+        assert_eq!(prepared.did_key_id, format!("{}#notary-key", prepared.did));
+        assert_eq!(
+            prepared.log_entry["state"]["verificationMethod"][0]["id"],
+            prepared.did_key_id,
+        );
+        assert_eq!(
+            prepared.log_entry["state"]["verificationMethod"][0]["publicKeyMultibase"],
+            expected_public_key,
+        );
+        verify_proof_like_soland(&prepared.log_entry).expect("service inception proof verifies");
     }
 
     #[test]

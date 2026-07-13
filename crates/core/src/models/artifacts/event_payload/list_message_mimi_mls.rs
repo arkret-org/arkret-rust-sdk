@@ -187,7 +187,7 @@ pub struct MlsGovernanceBinding {
     pub mls_group_id: String,
     pub previous_epoch: u64,
     pub next_epoch: u64,
-    pub membership_frontier: Vec<EventRef>,
+    pub membership_frontier: Vec<EventId>,
     pub policy_root: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capability_root: Option<Hash>,
@@ -550,5 +550,39 @@ mod tests {
             "ak:event:01904100-0000-7000-8000-000000000001"
         );
         assert!(value.get("event_id").is_none());
+    }
+
+    #[test]
+    fn mls_governance_binding_frontier_uses_event_id_strings() {
+        let value = serde_json::json!({
+            "binding_version": 1,
+            "encoding_profile": "cbor-deterministic-rfc8949-v1",
+            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "effective_scope": {
+                "kind": "realm",
+                "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001"
+            },
+            "mls_group_id": "Z3JvdXA",
+            "previous_epoch": 0,
+            "next_epoch": 1,
+            "membership_frontier": [
+                "ak:event:01904100-0000-7000-8000-000000000001"
+            ],
+            "policy_root":
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "capability_root":
+                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "discussion_metadata_digest":
+                "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "binding_profile": "ak.profile.mls_governance_binding.full.v1",
+            "reducer_profile": "ak.reducer.control_state.v1"
+        });
+
+        let binding = serde_json::from_value::<MlsGovernanceBinding>(value).unwrap();
+
+        assert_eq!(
+            binding.membership_frontier[0].as_str(),
+            "ak:event:01904100-0000-7000-8000-000000000001"
+        );
     }
 }
