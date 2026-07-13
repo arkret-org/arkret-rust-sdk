@@ -759,7 +759,7 @@ pub fn capability_grant_attach_body(
     grant: &CapabilityGrant,
 ) -> Result<AgentGrantAttachRequestBody> {
     Ok(AgentGrantAttachRequestBody {
-        grant: serde_json::to_value(grant)?,
+        grant: grant.clone(),
     })
 }
 

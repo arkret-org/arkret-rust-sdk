@@ -343,7 +343,7 @@ pub struct AgentDeactivateRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentGrantAttachRequestBody {
-    pub grant: Value,
+    pub grant: CapabilityGrant,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

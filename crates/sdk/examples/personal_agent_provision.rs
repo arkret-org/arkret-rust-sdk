@@ -186,10 +186,21 @@ fn main() -> arkret::Result<()> {
     let grant = send_plan(plan_agent_grant_attach(
         &agent_id,
         AgentGrantAttachRequestBody {
-            grant: json!({
+            grant: serde_json::from_value(json!({
+                "id": "ak:grant:01964137-0000-7000-8000-000000000010",
+                "schema": "ak.schema.capability.v1",
+                "realm_id": "ak:realm:01964137-0000-7000-8000-000000000030",
+                "issuer": controller,
+                "subject": agent_id,
                 "actions": ["ak.message.create"],
                 "resources": [{ "kind": "realm", "realm_id": "ak:realm:01964137-0000-7000-8000-000000000030" }],
-            }),
+                "issued_at": "2026-06-18T12:00:00Z",
+                "proofs": [{
+                    "type": "dev-proof",
+                    "verification_method": "did:webvh:z6mkfixture:alice.example",
+                    "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+                }]
+            }))?,
         },
     ))?;
     let grant_id = GrantId::new(grant["grant_id"].as_str().unwrap().to_owned())?;
