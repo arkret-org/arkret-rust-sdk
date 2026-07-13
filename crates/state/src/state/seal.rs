@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::Value;
 use thiserror::Error;
 
-use super::state_root::compute_state_root;
+use super::state_root::{compute_state_root, seal_merkle_root_from_leaf_data};
 use super::store::{CellRegistry, CellStore, MoveStore, SealStore};
 use super::verify::verify_move;
 use crate::lattice::{CellState, SealedOp};
@@ -277,14 +277,18 @@ fn collect_covered_events(
 }
 
 pub fn control_event_set_root(covered: &BTreeSet<MoveId>) -> Result<Hash, SealReject> {
-    let leaves: Result<Vec<Hash>, SealReject> = covered
+    let leaves: Result<Vec<Vec<u8>>, SealReject> = covered
         .iter()
         .map(|m| {
-            Hash::new(m.as_str().to_owned())
-                .map_err(|e| SealReject::Structural(format!("invalid control event digest: {e}")))
+            let digest = m.as_str().strip_prefix("sha256:").ok_or_else(|| {
+                SealReject::Structural(format!("unsupported control event digest suite: {m}"))
+            })?;
+            hex::decode(digest).map_err(|e| {
+                SealReject::Structural(format!("invalid control event digest {m}: {e}"))
+            })
         })
         .collect();
-    crate::snapshot::merkle_root_from_hashes(leaves?)
+    seal_merkle_root_from_leaf_data(&leaves?)
         .map_err(|e| SealReject::Store(format!("control_event_set_root: {e}")))
 }
 
@@ -494,6 +498,31 @@ mod tests {
             hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
             kind: SealKind::Normal,
         }
+    }
+
+    #[test]
+    fn control_event_set_root_uses_seal_merkle_domain_separation() {
+        let mut one = BTreeSet::new();
+        one.insert(move_id(0x11));
+        let mut leaf_input = vec![0x00];
+        leaf_input.extend([0x11; 32]);
+        let expected_leaf = canonical::sha256_bytes(&leaf_input);
+        assert_eq!(
+            control_event_set_root(&one).unwrap().as_str(),
+            format!("sha256:{}", hex::encode(expected_leaf))
+        );
+
+        let mut two = one;
+        two.insert(move_id(0x22));
+        let mut right_input = vec![0x00];
+        right_input.extend([0x22; 32]);
+        let expected_right = canonical::sha256_bytes(&right_input);
+        let expected_root =
+            canonical::sha256_bytes_from_slices(&[&[0x01], &expected_leaf, &expected_right]);
+        assert_eq!(
+            control_event_set_root(&two).unwrap().as_str(),
+            format!("sha256:{}", hex::encode(expected_root))
+        );
     }
 
     fn move_for_order(byte: u8, refs: Vec<SemanticRef>) -> Move {

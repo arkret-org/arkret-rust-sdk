@@ -25,10 +25,10 @@
 
 use std::collections::BTreeMap;
 
-use serde_json::{Value, json};
+use serde_json::json;
 
 use crate::lattice::CellState;
-use crate::{Bottom, CellRef, Hash, canonical};
+use crate::{CellRef, Hash, canonical};
 
 /// Domain-separation prefix for Merkle leaves (RFC 6962, spec §6.2.2).
 const LEAF_PREFIX: u8 = 0x00;
@@ -46,20 +46,37 @@ pub const EMPTY_STATE_ROOT: &str =
 /// [`crate::lattice::Lattice::join`].
 /// Empty input returns [`EMPTY_STATE_ROOT`].
 pub fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, crate::Error> {
-    if cells.is_empty() {
-        return Hash::new(EMPTY_STATE_ROOT.to_owned())
-            .map_err(|e| crate::Error::Protocol(format!("invalid empty-state hash: {e}")));
-    }
-
     let mut leaves: Vec<(String, [u8; 32])> = Vec::with_capacity(cells.len());
     for (cell, state) in cells {
+        if matches!(state, CellState::Bottom(_)) {
+            continue;
+        }
         let leaf = leaf_hash(cell, state)?;
         leaves.push((cell.as_str().to_owned(), leaf));
     }
     // Sort by cell wire string ascending (Unicode code point).
     leaves.sort_by(|a, b| a.0.cmp(&b.0));
 
-    let mut layer: Vec<[u8; 32]> = leaves.into_iter().map(|(_, h)| h).collect();
+    seal_merkle_root_from_leaf_hashes(leaves.into_iter().map(|(_, hash)| hash).collect())
+}
+
+/// Compute a Seal-family Merkle root from already ordered raw leaf data.
+///
+/// This is shared by `state_root` and `control_event_set_root`; snapshot
+/// roots intentionally use a different, unprefixed Merkle family.
+pub(crate) fn seal_merkle_root_from_leaf_data(leaf_data: &[Vec<u8>]) -> Result<Hash, crate::Error> {
+    let leaves = leaf_data
+        .iter()
+        .map(|data| canonical::sha256_bytes_from_slices(&[&[LEAF_PREFIX][..], data.as_slice()]))
+        .collect();
+    seal_merkle_root_from_leaf_hashes(leaves)
+}
+
+fn seal_merkle_root_from_leaf_hashes(mut layer: Vec<[u8; 32]>) -> Result<Hash, crate::Error> {
+    if layer.is_empty() {
+        return Hash::new(EMPTY_STATE_ROOT.to_owned())
+            .map_err(|e| crate::Error::Protocol(format!("invalid empty-state hash: {e}")));
+    }
     while layer.len() > 1 {
         let mut next: Vec<[u8; 32]> = Vec::with_capacity(layer.len().div_ceil(2));
         let mut i = 0;
@@ -90,14 +107,13 @@ pub fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, 
 pub fn leaf_hash(cell: &CellRef, state: &CellState) -> Result<[u8; 32], crate::Error> {
     let state_object = match state {
         CellState::Value(v) => json!({ "value": v }),
-        CellState::Bottom(b) => {
-            // Strip `seal_view` to prevent self-recursion (spec §6.2.1).
-            let mut stripped: Bottom = b.clone();
-            stripped.seal_view = None;
-            json!({ "bottom": stripped })
+        CellState::Bottom(_) => {
+            return Err(crate::Error::Protocol(
+                "bottom control cells do not have state_root leaves".to_owned(),
+            ));
         }
     };
-    let leaf_input: Value = json!({
+    let leaf_input = json!({
         "cell": cell.as_str(),
         "state": state_object,
     });
@@ -114,7 +130,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::{BottomKind, SealView};
+    use crate::BottomKind;
 
     fn cell(s: &str) -> CellRef {
         CellRef::new(s.to_owned()).unwrap()
@@ -192,30 +208,20 @@ mod tests {
     }
 
     #[test]
-    fn bottom_state_serializes_without_seal_view() {
-        // Two Bottoms differing only in seal_view MUST yield the same leaf.
-        let mut bottom_a = Bottom::new(
+    fn bottom_state_is_excluded_from_root_and_has_no_leaf() {
+        let target = cell("ak:cell:ak.component.test.state_x.v1:1");
+        let bottom = CellState::Bottom(crate::Bottom::new(
             BottomKind::Conflict,
-            vec![cell("ak:cell:ak.component.test.state_x.v1:1")],
-        );
-        bottom_a.seal_view = Some(SealView {
-            leaves: vec![],
-            state_root: None,
-        });
-        let mut bottom_b = bottom_a.clone();
-        bottom_b.seal_view = None;
+            vec![target.clone()],
+        ));
+        let mut cells = BTreeMap::new();
+        cells.insert(target.clone(), bottom.clone());
 
-        let h_a = leaf_hash(
-            &cell("ak:cell:ak.component.test.state_x.v1:1"),
-            &CellState::Bottom(bottom_a),
-        )
-        .unwrap();
-        let h_b = leaf_hash(
-            &cell("ak:cell:ak.component.test.state_x.v1:1"),
-            &CellState::Bottom(bottom_b),
-        )
-        .unwrap();
-        assert_eq!(h_a, h_b, "seal_view must be stripped before hashing");
+        assert_eq!(
+            compute_state_root(&cells).unwrap().as_str(),
+            EMPTY_STATE_ROOT
+        );
+        assert!(leaf_hash(&target, &bottom).is_err());
     }
 
     #[test]
@@ -248,26 +254,24 @@ mod tests {
     }
 
     #[test]
-    fn bottom_kind_affects_root() {
-        // Different BottomKind on the same cell MUST yield different leaf hashes.
-        let bottom_conflict = Bottom::new(
-            BottomKind::Conflict,
-            vec![cell("ak:cell:ak.component.test.state_x.v1:1")],
+    fn bottom_kind_does_not_affect_root() {
+        let target = cell("ak:cell:ak.component.test.state_x.v1:1");
+        let mut conflict = BTreeMap::new();
+        conflict.insert(
+            target.clone(),
+            CellState::Bottom(crate::Bottom::new(
+                BottomKind::Conflict,
+                vec![target.clone()],
+            )),
         );
-        let bottom_schema = Bottom::new(
-            BottomKind::SchemaError,
-            vec![cell("ak:cell:ak.component.test.state_x.v1:1")],
+        let mut schema = BTreeMap::new();
+        schema.insert(
+            target.clone(),
+            CellState::Bottom(crate::Bottom::new(BottomKind::SchemaError, vec![target])),
         );
-        let h_a = leaf_hash(
-            &cell("ak:cell:ak.component.test.state_x.v1:1"),
-            &CellState::Bottom(bottom_conflict),
-        )
-        .unwrap();
-        let h_b = leaf_hash(
-            &cell("ak:cell:ak.component.test.state_x.v1:1"),
-            &CellState::Bottom(bottom_schema),
-        )
-        .unwrap();
-        assert_ne!(h_a, h_b);
+        assert_eq!(
+            compute_state_root(&conflict).unwrap(),
+            compute_state_root(&schema).unwrap()
+        );
     }
 }
