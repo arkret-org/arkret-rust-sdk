@@ -4,9 +4,10 @@
 use arkret_core::{
     AuthzCheckOutcome, AuthzCheckRequestBody, AuthzInviteList, CollectionProjectionView,
     DocumentMorphProjectionOutcome, Error, Event, EventsQueryOutcome, EventsSubmitBatchRequestBody,
-    EventsSubmitOutcome, EventsSubscribeFrame, GrantList, ProjectionSpaceList,
-    ProjectionStrandList, RealmOrganizationRelationshipList, Result, ServiceDescribe,
-    StreamTraceValidator, SyncBackfillOutcome, ViewProjectionRequestBody,
+    EventsSubmitOutcome, EventsSubscribeFrame, GrantList, MlsGovernanceProofBundle,
+    MlsGovernanceProofRequest, ProjectionSpaceList, ProjectionStrandList,
+    RealmOrganizationRelationshipList, Result, ServiceDescribe, StreamTraceValidator,
+    SyncBackfillOutcome, ViewProjectionRequestBody,
 };
 use arkret_state::SnapshotManifest;
 use reqwest::{Method, Response};
@@ -357,6 +358,17 @@ impl Client {
             pages += 1;
         }
         Ok(combined)
+    }
+
+    /// Fetch a complete accepted-Seal proof for a full-profile MLS
+    /// governance binding.
+    pub async fn mls_governance_proof(
+        &self,
+        request: &MlsGovernanceProofRequest,
+    ) -> Result<MlsGovernanceProofBundle> {
+        request.validate()?;
+        self.post("/_arkret/self/events/mls-governance-proof", request)
+            .await
     }
 
     /// Submit a single signed Event Envelope via `ak.self.events.command.submit`

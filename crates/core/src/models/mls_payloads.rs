@@ -663,7 +663,8 @@ impl MlsCommitPayload {
     }
 }
 
-/// SEC-03 — one `purpose=media_plaintext` service entry covered by the
+/// SEC-03 — one service entry whose `data_classes[]` contains
+/// `media_plaintext`, covered by the
 /// governance-binding `discussion_metadata_digest`.
 ///
 /// Carries the SFU / MCU service DID that media-service-binding.md §8.2 rule 2
@@ -673,7 +674,7 @@ impl MlsCommitPayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MediaPlaintextService {
-    /// Service DID authorised to decrypt media (`purpose=media_plaintext`).
+    /// Service DID authorised to decrypt media (`data_classes=media_plaintext`).
     pub service_id: Did,
 }
 
@@ -692,7 +693,8 @@ pub struct MediaPlaintextService {
 pub struct MediaDecryptPolicyValue {
     /// `ak.realm.policy_components.media_service_decrypts` (§10.5.1 rule 1).
     pub media_service_decrypts: bool,
-    /// `plaintext_visible_services[]` with `purpose=media_plaintext`
+    /// `plaintext_visible_services[]` whose `data_classes[]` contains
+    /// `media_plaintext`
     /// (§10.5.1 rule 2). Order is normalised before hashing so two members
     /// holding the same set derive an identical digest.
     pub plaintext_visible_services: Vec<MediaPlaintextService>,

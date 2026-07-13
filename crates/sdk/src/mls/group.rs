@@ -254,25 +254,8 @@ impl ArkretMlsGroup {
         &mut self,
         binding: &MlsGovernanceBindingPayload,
     ) -> Result<MlsCommitEnvelope> {
-        binding.validate()?;
-        if binding.mls_group_id() != self.group_id() {
-            return Err(Error::Protocol(
-                "mls_governance_binding.mls_group_id does not match current MLS group".to_owned(),
-            ));
-        }
-        if binding.previous_epoch() != self.epoch() || binding.next_epoch() != self.epoch() + 1 {
-            return Err(Error::Protocol(
-                "mls_governance_binding epoch does not match current MLS group".to_owned(),
-            ));
-        }
+        let extensions = self.governance_extensions_for_next_epoch(binding)?;
 
-        let mut extensions = self.group.extensions().clone();
-        extensions
-            .add_or_replace(governance_binding_required_capabilities_extension())
-            .map_err(mls_error)?;
-        extensions
-            .add_or_replace(governance_binding_openmls_extension(binding)?)
-            .map_err(mls_error)?;
         let (commit, _welcome, _group_info) = self
             .group
             .update_group_context_extensions(
@@ -295,6 +278,32 @@ impl ArkretMlsGroup {
             ratchet_tree,
             app_state_ref: None,
         })
+    }
+
+    fn governance_extensions_for_next_epoch(
+        &self,
+        binding: &MlsGovernanceBindingPayload,
+    ) -> Result<Extensions<GroupContext>> {
+        binding.validate()?;
+        if binding.mls_group_id() != self.group_id() {
+            return Err(Error::Protocol(
+                "mls_governance_binding.mls_group_id does not match current MLS group".to_owned(),
+            ));
+        }
+        if binding.previous_epoch() != self.epoch() || binding.next_epoch() != self.epoch() + 1 {
+            return Err(Error::Protocol(
+                "mls_governance_binding epoch does not match current MLS group".to_owned(),
+            ));
+        }
+
+        let mut extensions = self.group.extensions().clone();
+        extensions
+            .add_or_replace(governance_binding_required_capabilities_extension())
+            .map_err(mls_error)?;
+        extensions
+            .add_or_replace(governance_binding_openmls_extension(binding)?)
+            .map_err(mls_error)?;
+        Ok(extensions)
     }
 
     /// Content hash of the group's current key schedule, suitable for use as
@@ -691,7 +700,29 @@ impl ArkretMlsGroup {
         &mut self,
         member_key_package: &MlsKeyPackageRecord,
     ) -> Result<MlsAddMemberResult> {
-        let result = self.add_members(std::slice::from_ref(member_key_package))?;
+        self.add_member_with_optional_governance_binding(member_key_package, None)
+    }
+
+    pub fn add_member_with_governance_binding(
+        &mut self,
+        member_key_package: &MlsKeyPackageRecord,
+        governance_binding: &MlsGovernanceBindingPayload,
+    ) -> Result<MlsAddMemberResult> {
+        self.add_member_with_optional_governance_binding(
+            member_key_package,
+            Some(governance_binding),
+        )
+    }
+
+    fn add_member_with_optional_governance_binding(
+        &mut self,
+        member_key_package: &MlsKeyPackageRecord,
+        governance_binding: Option<&MlsGovernanceBindingPayload>,
+    ) -> Result<MlsAddMemberResult> {
+        let result = self.add_members_with_optional_governance_binding(
+            std::slice::from_ref(member_key_package),
+            governance_binding,
+        )?;
         let welcome = result
             .welcomes
             .into_iter()
@@ -706,6 +737,25 @@ impl ArkretMlsGroup {
     pub fn add_members(
         &mut self,
         member_key_packages: &[MlsKeyPackageRecord],
+    ) -> Result<MlsAddMembersResult> {
+        self.add_members_with_optional_governance_binding(member_key_packages, None)
+    }
+
+    pub fn add_members_with_governance_binding(
+        &mut self,
+        member_key_packages: &[MlsKeyPackageRecord],
+        governance_binding: &MlsGovernanceBindingPayload,
+    ) -> Result<MlsAddMembersResult> {
+        self.add_members_with_optional_governance_binding(
+            member_key_packages,
+            Some(governance_binding),
+        )
+    }
+
+    fn add_members_with_optional_governance_binding(
+        &mut self,
+        member_key_packages: &[MlsKeyPackageRecord],
+        governance_binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<MlsAddMembersResult> {
         if member_key_packages.is_empty() {
             return Err(Error::Protocol(
@@ -724,14 +774,32 @@ impl ArkretMlsGroup {
                 member_key_package,
             )?);
         }
-        let (commit, welcome, _) = self
-            .group
-            .add_members(
-                &self.identity.provider,
+        let governance_extensions = governance_binding
+            .map(|binding| self.governance_extensions_for_next_epoch(binding))
+            .transpose()?;
+        let mut builder = self.group.commit_builder().propose_adds(key_packages);
+        if let Some(extensions) = governance_extensions {
+            builder = builder
+                .propose_group_context_extensions(extensions)
+                .map_err(mls_error)?;
+        }
+        let bundle = builder
+            .force_self_update(true)
+            .load_psks(self.identity.provider.storage())
+            .map_err(mls_error)?
+            .build(
+                self.identity.provider.rand(),
+                self.identity.provider.crypto(),
                 &self.identity.signer,
-                &key_packages,
+                |_| true,
             )
+            .map_err(mls_error)?
+            .stage_commit(&self.identity.provider)
             .map_err(mls_error)?;
+        let welcome = bundle.to_welcome_msg().ok_or_else(|| {
+            Error::Protocol("MLS add_members produced no Welcome message".to_owned())
+        })?;
+        let (commit, ..) = bundle.into_contents();
         self.group
             .merge_pending_commit(&self.identity.provider)
             .map_err(mls_error)?;
@@ -780,6 +848,25 @@ impl ArkretMlsGroup {
     ///
     /// Errors when the target principal has no leaf in this group.
     pub fn remove_member_by_principal(&mut self, target: &Did) -> Result<MlsRemoveMemberResult> {
+        self.remove_member_by_principal_with_optional_governance_binding(target, None)
+    }
+
+    pub fn remove_member_by_principal_with_governance_binding(
+        &mut self,
+        target: &Did,
+        governance_binding: &MlsGovernanceBindingPayload,
+    ) -> Result<MlsRemoveMemberResult> {
+        self.remove_member_by_principal_with_optional_governance_binding(
+            target,
+            Some(governance_binding),
+        )
+    }
+
+    fn remove_member_by_principal_with_optional_governance_binding(
+        &mut self,
+        target: &Did,
+        governance_binding: Option<&MlsGovernanceBindingPayload>,
+    ) -> Result<MlsRemoveMemberResult> {
         let target_bytes = target.as_str().as_bytes();
         let leaves: Vec<LeafNodeIndex> = self
             .group
@@ -801,7 +888,7 @@ impl ArkretMlsGroup {
             )));
         }
 
-        self.remove_leaves(&leaves)
+        self.remove_leaves(&leaves, governance_binding)
     }
 
     /// Remove a single leaf by its raw OpenMLS leaf index. Use this when the
@@ -809,10 +896,22 @@ impl ArkretMlsGroup {
     /// (e.g. a inkson DeviceManager with leaf bookkeeping) and wants to
     /// revoke just one device of a multi-device principal.
     pub fn remove_member_by_leaf(&mut self, leaf_index: u32) -> Result<MlsRemoveMemberResult> {
-        self.remove_leaves(&[LeafNodeIndex::new(leaf_index)])
+        self.remove_leaves(&[LeafNodeIndex::new(leaf_index)], None)
     }
 
-    fn remove_leaves(&mut self, leaves: &[LeafNodeIndex]) -> Result<MlsRemoveMemberResult> {
+    pub fn remove_member_by_leaf_with_governance_binding(
+        &mut self,
+        leaf_index: u32,
+        governance_binding: &MlsGovernanceBindingPayload,
+    ) -> Result<MlsRemoveMemberResult> {
+        self.remove_leaves(&[LeafNodeIndex::new(leaf_index)], Some(governance_binding))
+    }
+
+    fn remove_leaves(
+        &mut self,
+        leaves: &[LeafNodeIndex],
+        governance_binding: Option<&MlsGovernanceBindingPayload>,
+    ) -> Result<MlsRemoveMemberResult> {
         // Capture credential identity bytes before commit so we can report
         // which principal each removed leaf belonged to even after the leaf
         // is gone from the post-commit group state.
@@ -861,10 +960,28 @@ impl ArkretMlsGroup {
             });
         }
 
-        let (commit, _welcome_opt, _) = self
-            .group
-            .commit_to_pending_proposals(&self.identity.provider, &self.identity.signer)
-            .map_err(mls_error)?;
+        let governance_extensions = governance_binding
+            .map(|binding| self.governance_extensions_for_next_epoch(binding))
+            .transpose()?;
+        let mut builder = self.group.commit_builder().consume_proposal_store(true);
+        if let Some(extensions) = governance_extensions {
+            builder = builder
+                .propose_group_context_extensions(extensions)
+                .map_err(mls_error)?;
+        }
+        let (commit, _welcome_opt, _) = builder
+            .load_psks(self.identity.provider.storage())
+            .map_err(mls_error)?
+            .build(
+                self.identity.provider.rand(),
+                self.identity.provider.crypto(),
+                &self.identity.signer,
+                |_| true,
+            )
+            .map_err(mls_error)?
+            .stage_commit(&self.identity.provider)
+            .map_err(mls_error)?
+            .into_contents();
         self.group
             .merge_pending_commit(&self.identity.provider)
             .map_err(mls_error)?;
