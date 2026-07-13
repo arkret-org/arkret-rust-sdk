@@ -77,7 +77,16 @@ pub struct RuntimeKeyRequestBuilder<'a> {
 
 impl<'a> RuntimeKeyRequestBuilder<'a> {
     pub fn new(signing_key: &'a SigningKey, bootstrap: AgentPairingBootstrap) -> Self {
-        let verification_method = format!("{}#runtime-key-1", bootstrap.agent_id);
+        let key_digest = arkret_canonical::sha256_digest(&signing_key.verifying_key().to_bytes());
+        let key_suffix = key_digest
+            .as_str()
+            .strip_prefix("sha256:")
+            .unwrap_or(key_digest.as_str());
+        let verification_method = format!(
+            "{}#runtime-key-{}",
+            bootstrap.agent_id,
+            &key_suffix[..16.min(key_suffix.len())]
+        );
         let proof_expires_at = bootstrap.pairing_expires_at;
         Self {
             signing_key,
@@ -140,13 +149,8 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
 
     pub fn build_key_pair_request(
         &self,
-        authorize_event: Value,
+        authorize_event: Event,
     ) -> Result<RuntimeKeyRequest<AgentKeyPairRequestBody>> {
-        if !authorize_event.is_object() {
-            return Err(Error::Protocol(
-                "agent key authorize_event must be a signed event object".to_owned(),
-            ));
-        }
         let (public_key, public_key_digest, proof_of_possession) = self.request_material()?;
         Ok(RuntimeKeyRequest {
             body: AgentKeyPairRequestBody {
@@ -278,7 +282,7 @@ pub struct AgentKeyPairRequestBuilder {
     public_key: Value,
     proof_of_possession: Value,
     runtime_attestation: Option<Value>,
-    authorize_event: Value,
+    authorize_event: Event,
 }
 
 impl AgentKeyPairRequestBuilder {
@@ -288,7 +292,7 @@ impl AgentKeyPairRequestBuilder {
         verification_method: impl Into<String>,
         public_key: Value,
         proof_of_possession: Value,
-        authorize_event: Value,
+        authorize_event: Event,
     ) -> Self {
         Self {
             pairing_request_id: pairing_request_id.into(),
@@ -315,11 +319,6 @@ impl AgentKeyPairRequestBuilder {
         if self.verification_method.trim().is_empty() {
             return Err(Error::Protocol(
                 "agent key verification_method must not be empty".to_owned(),
-            ));
-        }
-        if !self.authorize_event.is_object() {
-            return Err(Error::Protocol(
-                "agent key authorize_event must be a signed event object".to_owned(),
             ));
         }
         Ok(AgentKeyPairRequestBody {
@@ -527,33 +526,47 @@ pub fn agent_key_authorize_payload_value(payload: &AgentKeyAuthorizePayload) -> 
 pub fn build_agent_key_authorize_event(
     payload: &AgentKeyAuthorizePayload,
     realm_id: RealmId,
-    controller_actor_id: Did,
+    agent_actor_id: Did,
+    controller_id: Did,
+    controller_authorization_ref: impl Into<String>,
     actor_seq: u64,
     hlc: Hlc,
 ) -> Result<Event> {
-    Event::new(
+    let mut event = Event::new(
         OP_AGENT_KEY_AUTHORIZE,
         realm_id,
-        controller_actor_id,
+        agent_actor_id,
         actor_seq,
         hlc,
         agent_key_authorize_payload_value(payload)?,
-    )
+    )?;
+    event.executed_by = Some(controller_id);
+    event.authorization_ref = Some(controller_authorization_ref.into());
+    Ok(event)
 }
 
 #[allow(clippy::too_many_arguments)]
 pub fn build_signed_agent_key_authorize_event<S: arkret_core::MoveSigner + ?Sized>(
     payload: &AgentKeyAuthorizePayload,
     realm_id: RealmId,
-    controller_actor_id: Did,
+    agent_actor_id: Did,
+    controller_id: Did,
+    controller_authorization_ref: impl Into<String>,
     actor_seq: u64,
     hlc: Hlc,
     controller_signer: &S,
     controller_verification_method: &str,
     proof_options: arkret_signatures::SignEventOptions,
 ) -> Result<Event> {
-    let mut event =
-        build_agent_key_authorize_event(payload, realm_id, controller_actor_id, actor_seq, hlc)?;
+    let mut event = build_agent_key_authorize_event(
+        payload,
+        realm_id,
+        agent_actor_id,
+        controller_id,
+        controller_authorization_ref,
+        actor_seq,
+        hlc,
+    )?;
     arkret_signatures::sign_event(
         &mut event,
         controller_signer,
@@ -1359,6 +1372,7 @@ mod tests {
                 pairing_request_id: None,
                 approved_by: Some(controller_id.clone()),
             },
+            supersedes: Vec::new(),
             revocation_check_ref: None,
             runtime_attestation: None,
         };
@@ -1366,14 +1380,21 @@ mod tests {
         let event = build_agent_key_authorize_event(
             &payload,
             RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            agent_id.clone(),
             controller_id.clone(),
+            format!("{}#managed-controller", agent_id.as_str()),
             7,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         )
         .unwrap();
 
         assert_eq!(event.kind.as_str(), OP_AGENT_KEY_AUTHORIZE);
-        assert_eq!(event.actor_id, controller_id);
+        assert_eq!(event.actor_id, agent_id);
+        assert_eq!(event.executed_by, Some(controller_id));
+        assert_eq!(
+            event.authorization_ref.as_deref(),
+            Some("did:webvh:z6mkfixture:agent.example#managed-controller")
+        );
         assert_eq!(event.actor_seq, 7);
         assert_eq!(event.payload["agent_id"], agent_id.as_str());
         assert_eq!(
@@ -1413,6 +1434,7 @@ mod tests {
                 pairing_request_id: None,
                 approved_by: Some(controller_id.clone()),
             },
+            supersedes: Vec::new(),
             revocation_check_ref: None,
             runtime_attestation: None,
         };
@@ -1421,7 +1443,9 @@ mod tests {
         let event = build_signed_agent_key_authorize_event(
             &payload,
             RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            agent_id.clone(),
             controller_id.clone(),
+            format!("{}#managed-controller", agent_id.as_str()),
             7,
             Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             &signer,
@@ -1432,7 +1456,8 @@ mod tests {
         .unwrap();
 
         assert_eq!(event.kind.as_str(), OP_AGENT_KEY_AUTHORIZE);
-        assert_eq!(event.actor_id, controller_id);
+        assert_eq!(event.actor_id, agent_id);
+        assert_eq!(event.executed_by, Some(controller_id));
         assert_eq!(event.proofs.len(), 1);
         assert_eq!(event.proofs[0].kind, proof_kind::DETACHED_JWS);
         assert_eq!(event.proofs[0].verification_method, controller_vm);

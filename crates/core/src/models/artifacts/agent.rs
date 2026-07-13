@@ -14,6 +14,8 @@ pub enum AgentOperations {
     AgentRuntimeApprovalOutcome(AgentRuntimeApprovalOutcome),
     AgentProvisionRequestBody(AgentProvisionRequestBody),
     AgentProvisionOutcome(AgentProvisionOutcome),
+    AgentRenewPairingRequestBody(AgentRenewPairingRequestBody),
+    AgentRenewPairingOutcome(AgentRenewPairingOutcome),
     AgentPairingBootstrap(AgentPairingBootstrap),
     AgentList(AgentList),
     AgentView(AgentView),
@@ -44,17 +46,46 @@ pub struct GrantSnapshot {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/agent_key_authorization_state`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentKeyAuthorizationState {
+    pub key_id: String,
+    pub verification_method: String,
+    pub authorized_event_ref: EventId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/key_state`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyState {
-    /// DID URL for the authorized runtime key, including its fragment.
-    pub verification_method: String,
-    pub status: String,
+    pub agent_id: Did,
+    pub controller_id: Did,
+    pub principal_control_realm_id: RealmId,
+    pub controller_authorization_ref: String,
+    pub status: AgentStatus,
+    pub pcr_recovery: AgentPcrRecoveryState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requested_scope: Option<AgentKeyScope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing_request_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing_expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_request_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_runtime_key_request: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_requested_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub active_authorizations: Vec<AgentKeyAuthorizationState>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/opaque_local_id`.

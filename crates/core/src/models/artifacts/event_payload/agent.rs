@@ -219,6 +219,15 @@ pub struct AgentKeyAuthorizePayloadRuntimeAttestation {
     pub evidence_ref: Option<ObjectRef>,
 }
 
+/// One active authorization dot atomically replaced by a controller-signed
+/// runtime re-pairing authorization.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentKeySupersession {
+    pub key_id: String,
+    pub authorized_event_ref: EventId,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_authorize_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -239,6 +248,8 @@ pub struct AgentKeyAuthorizePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     pub approval_evidence: AgentKeyApprovalEvidence,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supersedes: Vec<AgentKeySupersession>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revocation_check_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -107,6 +107,7 @@ fn build_envelope(
                 backup_version: "kb_1".to_owned(),
                 created_at,
                 item_types: vec!["recovery_secret".to_owned()],
+                managed_principal_bindings: Vec::new(),
                 recipient_method: None,
                 recipient_key_ref: None,
                 extra: BTreeMap::new(),
@@ -116,6 +117,7 @@ fn build_envelope(
         contents: vec![KeyBackupContentItem {
             item_type: "recovery_secret".to_owned(),
             realm_id: None,
+            managed_principal_binding: None,
             mls_group_id: None,
             epoch: Some(seq),
             first_event_id: None,

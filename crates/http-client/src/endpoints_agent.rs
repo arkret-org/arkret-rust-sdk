@@ -8,7 +8,8 @@ use arkret_core::{
     AgentGrantDetachOutcome, AgentKeyPairOutcome, AgentKeyPairRequestBody, AgentLifecycleOutcome,
     AgentList, AgentParticipationOutcome, AgentParticipationReplaceRequestBody,
     AgentPauseRequestBody, AgentProvisionOutcome, AgentProvisionRequestBody,
-    AgentRenewPairingRequestBody, AgentResumeRequestBody, AgentRuntimeApprovalOutcome,
+    AgentRenewPairingOutcome, AgentRenewPairingRequestBody, AgentResumeRequestBody,
+    AgentRuntimeApprovalOutcome,
     AgentRuntimeApprovalRequestBody, AgentRuntimeApprovalStatusOutcome,
     AgentRuntimeApprovalStatusRequestBody, AgentSidecarThreadEnsureOutcome,
     AgentSidecarThreadEnsureRequestBody, AgentView, Error, GrantId, Result,
@@ -46,7 +47,11 @@ impl Client {
         &self,
         request: &AgentKeyPairRequestBody,
     ) -> Result<AgentKeyPairOutcome> {
-        self.post(AGENT_KEY_PAIR_PATH, request).await
+        let builder = self
+            .request(reqwest::Method::POST, AGENT_KEY_PAIR_PATH)?
+            .header("Idempotency-Key", request.authorize_event.event_id.as_str())
+            .json(request);
+        self.send_json(builder).await
     }
 
     /// `POST /_arkret/open/agent-pairing/runtime-key-requests`
@@ -82,7 +87,7 @@ impl Client {
     pub async fn agent_provision(
         &self,
         request: &AgentProvisionRequestBody,
-    ) -> Result<AgentProvisionOutcome> {
+    ) -> Result<AgentRenewPairingOutcome> {
         self.post(AGENTS_PATH, request).await
     }
 

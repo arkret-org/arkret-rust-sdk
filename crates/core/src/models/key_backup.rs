@@ -499,6 +499,10 @@ pub struct KeyBackupDomainSeparationAad {
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub item_types: Vec<String>,
+    /// Canonical sorted set of every managed Agent PCR binding represented by
+    /// the public content metadata and the encrypted plaintext keybag.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub managed_principal_bindings: Vec<ManagedPrincipalBinding>,
     /// SEC-04: the envelope's `encryption.recipient_method` bound into the AEAD
     /// AAD (key-backup.schema.json `domain_separation.aead_aad.recipient_method`)
     /// so a ciphertext can never be cross-opened under the wrong recipient
@@ -514,6 +518,26 @@ pub struct KeyBackupDomainSeparationAad {
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ManagedFrontierRef {
+    pub frontier_digest: Hash,
+    pub seal_ref: String,
+    pub mls_epoch: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ManagedPrincipalBinding {
+    pub managed_principal_id: Did,
+    pub controller_id: Did,
+    pub principal_control_realm_id: RealmId,
+    pub authorization_ref: String,
+    pub managed_frontier_ref: ManagedFrontierRef,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -590,6 +614,8 @@ pub struct KeyBackupContentItem {
     pub item_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub managed_principal_binding: Option<ManagedPrincipalBinding>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

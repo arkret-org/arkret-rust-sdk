@@ -605,6 +605,7 @@ pub fn build_key_backup_envelope(
             backup_version: backup_version.to_owned(),
             created_at,
             item_types: binding.item_types.clone(),
+            managed_principal_bindings: Vec::new(),
             recipient_method: None,
             recipient_key_ref: None,
             extra: Default::default(),
@@ -616,6 +617,7 @@ pub fn build_key_backup_envelope(
         .map(|(item_type, secret_id)| KeyBackupContentItem {
             item_type: (*item_type).to_owned(),
             realm_id: None,
+            managed_principal_binding: None,
             mls_group_id: None,
             epoch: None,
             first_event_id: None,

@@ -10,7 +10,7 @@ pub struct AgentKeyPairRequestBody {
     pub proof_of_possession: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<Value>,
-    pub authorize_event: Value,
+    pub authorize_event: Event,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -107,10 +107,10 @@ pub struct AgentProvisionRequestBody {
 /// permanently unresolvable. `pending_runtime_key` / `pairing_expired`
 /// re-open bootstrap pairing; `active` / `paused` perform runtime
 /// replacement re-pairing (existing keys stay valid until the new pairing
-/// completes, then are revoked with reason=`superseded_by_repairing`).
+/// completes, then are atomically superseded by the single accepted
+/// authorization Event).
 /// `deactivated` rejects. Mirrors
-/// `agent-operations.schema.json#/$defs/agent_renew_pairing_request_body`;
-/// the response reuses `agent_provision_outcome`.
+/// `agent-operations.schema.json#/$defs/agent_renew_pairing_request_body`.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -119,10 +119,98 @@ pub struct AgentRenewPairingRequestBody {
     pub pairing_ttl_ms: Option<u64>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentPcrRecoveryStatus {
+    Pending,
+    Ready,
+    Stale,
+}
+
+/// Recovery coverage for a managed Agent Principal Control Realm. The tagged
+/// representation preserves the schema invariant that only ready/stale states
+/// carry an accepted backup reference.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AgentPcrRecoveryState {
+    Pending,
+    Ready {
+        backup_id: BackupId,
+        series_id: BackupSeriesId,
+        series_seq: u64,
+        managed_frontier_ref: ManagedFrontierRef,
+    },
+    Stale {
+        backup_id: BackupId,
+        series_id: BackupSeriesId,
+        series_seq: u64,
+        managed_frontier_ref: ManagedFrontierRef,
+    },
+}
+
+impl AgentPcrRecoveryState {
+    pub const fn status(&self) -> AgentPcrRecoveryStatus {
+        match self {
+            Self::Pending => AgentPcrRecoveryStatus::Pending,
+            Self::Ready { .. } => AgentPcrRecoveryStatus::Ready,
+            Self::Stale { .. } => AgentPcrRecoveryStatus::Stale,
+        }
+    }
+
+    pub const fn is_ready(&self) -> bool {
+        matches!(self, Self::Ready { .. })
+    }
+}
+
+/// Provisioning is the raw allocation stage, so its recovery projection is
+/// constrained to pending and carries no backup reference.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentProvisionPcrRecovery {
+    pub status: AgentProvisionPcrRecoveryStatus,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentProvisionPcrRecoveryStatus {
+    #[default]
+    Pending,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentPairingMode {
+    Bootstrap,
+    Replacement,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentProvisionOutcome {
     pub agent_id: Did,
+    pub principal_control_realm_id: RealmId,
+    pub controller_authorization_ref: String,
+    pub pcr_recovery: AgentProvisionPcrRecovery,
+    pub pairing_request_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pairing_code: Option<String>,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentRenewPairingOutcome {
+    pub agent_id: Did,
+    pub principal_control_realm_id: RealmId,
+    pub controller_authorization_ref: String,
+    pub pcr_recovery: AgentPcrRecoveryState,
+    pub pairing_mode: AgentPairingMode,
     pub pairing_request_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
@@ -223,12 +311,12 @@ pub struct AgentList {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentView {
-    pub agent: Value,
-    pub status: String,
+    pub agent: AgentProjection,
+    pub status: AgentStatus,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub grants: Vec<Value>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub key_state: Value,
+    pub grants: Vec<GrantSnapshot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_state: Option<KeyState>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -30,6 +30,8 @@ pub struct PlaintextItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub managed_principal_binding: Option<ManagedPrincipalBinding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub epoch: Option<u64>,
