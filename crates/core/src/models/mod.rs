@@ -161,6 +161,7 @@ pub use peer_contact::*;
 pub use policy_check::*;
 pub use primitives::{proof_kind, *};
 pub use problem_details::*;
+pub use product::*;
 pub use productivity::*;
 pub use profiles::*;
 pub use push::*;
