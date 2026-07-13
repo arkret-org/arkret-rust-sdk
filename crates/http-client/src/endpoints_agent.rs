@@ -87,7 +87,7 @@ impl Client {
     pub async fn agent_provision(
         &self,
         request: &AgentProvisionRequestBody,
-    ) -> Result<AgentRenewPairingOutcome> {
+    ) -> Result<AgentProvisionOutcome> {
         self.post(AGENTS_PATH, request).await
     }
 
@@ -97,7 +97,7 @@ impl Client {
         &self,
         agent_id: &str,
         request: &AgentRenewPairingRequestBody,
-    ) -> Result<AgentProvisionOutcome> {
+    ) -> Result<AgentRenewPairingOutcome> {
         let path = format!(
             "{}/{}/renew-pairing",
             AGENTS_PATH,

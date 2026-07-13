@@ -274,6 +274,7 @@ pub struct KeyBackupActiveSeries {
     pub actor_id: Did,
     pub backup_class: BackupClass,
     pub active_series_id: BackupSeriesId,
+    pub series_pointer_version: u64,
     pub previous_series_ids: Vec<BackupSeriesId>,
     pub frontier_ref: Value,
     pub issued_at: DateTime<Utc>,
