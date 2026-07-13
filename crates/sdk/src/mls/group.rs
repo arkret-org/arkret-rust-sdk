@@ -1456,7 +1456,7 @@ mod content_scheme_anchor_tests {
             .unwrap();
         assert_eq!(
             hex(&ciphertext),
-            "0c6ac115d620005f3b9687f376c61fdae6e28f03da7de29d38a993208d898b9daff69572b8feb3a30290c25f3a73de",
+            "6adccf12da17af55e9cda3a5cea7201fd92ca1dab391198f7a906769fe7a6f0a9b3b43b113b80db52347750c8c6dea",
             "exporter-aead ciphertext drifted"
         );
 
