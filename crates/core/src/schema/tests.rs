@@ -341,24 +341,36 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                 }
             }
             "canonical_json_reject_raw" => {
-                let input_hex = vector
-                    .get("input_hex")
-                    .and_then(Value::as_str)
-                    .unwrap_or_else(|| panic!("{vector_id}: missing input_hex"));
-                let bytes = hex_decode(input_hex)
-                    .unwrap_or_else(|| panic!("{vector_id}: input_hex is not valid hex"));
-                match crate::canonical::parse_canonical_json(&bytes) {
-                    Err(_) => {}
-                    Ok(value) => {
-                        // The bytes are canonical JSON; the rejection layer is
-                        // the typed field validator (malformed HLC case).
-                        let hlc = value.get("hlc").and_then(Value::as_str).unwrap_or_else(|| {
-                            panic!("{vector_id}: input unexpectedly accepted end-to-end")
-                        });
-                        assert!(
-                            crate::Hlc::new(hlc).is_err(),
-                            "{vector_id}: malformed HLC {hlc:?} must reject"
-                        );
+                let cases = vector
+                    .get("cases")
+                    .and_then(Value::as_array)
+                    .map(|cases| cases.iter().collect::<Vec<_>>())
+                    .unwrap_or_else(|| vec![vector]);
+                for case in cases {
+                    let name = case["name"].as_str().unwrap_or("direct");
+                    let input_hex = case
+                        .get("input_hex")
+                        .and_then(Value::as_str)
+                        .unwrap_or_else(|| panic!("{vector_id}/{name}: missing input_hex"));
+                    let bytes = hex_decode(input_hex).unwrap_or_else(|| {
+                        panic!("{vector_id}/{name}: input_hex is not valid hex")
+                    });
+                    match crate::canonical::parse_canonical_json(&bytes) {
+                        Err(_) => {}
+                        Ok(value) => {
+                            // The bytes are canonical JSON; the rejection layer is
+                            // the typed field validator (malformed HLC case).
+                            let hlc =
+                                value.get("hlc").and_then(Value::as_str).unwrap_or_else(|| {
+                                    panic!(
+                                        "{vector_id}/{name}: input unexpectedly accepted end-to-end"
+                                    )
+                                });
+                            assert!(
+                                crate::Hlc::new(hlc).is_err(),
+                                "{vector_id}/{name}: malformed HLC {hlc:?} must reject"
+                            );
+                        }
                     }
                 }
             }
@@ -606,6 +618,61 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                             "{vector_id}/{name}: verify_digest must reject {value}"
                         );
                     }
+                }
+            }
+            "open_registry_unknown_roundtrip" => {
+                let input = vector
+                    .get("input")
+                    .unwrap_or_else(|| panic!("{vector_id}: missing input"));
+                let unknown = input["registry_value"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{vector_id}: registry_value must be a string"));
+                let encoded =
+                    crate::canonical::canonical_json_bytes(input).unwrap_or_else(|error| {
+                        panic!("{vector_id}: canonical encode failed: {error}")
+                    });
+                assert_eq!(
+                    encoded,
+                    vector["expected_canonical_bytes_utf8"]
+                        .as_str()
+                        .unwrap()
+                        .as_bytes(),
+                    "{vector_id}: canonical bytes drifted"
+                );
+                let decoded: Value = crate::canonical::from_canonical_json_slice(&encoded)
+                    .unwrap_or_else(|error| panic!("{vector_id}: decode failed: {error}"));
+                assert_eq!(
+                    decoded["registry_value"].as_str(),
+                    Some(unknown),
+                    "{vector_id}: unknown open-registry value was not preserved"
+                );
+            }
+            "extension_slot_canonical_roundtrip" => {
+                let input = vector
+                    .get("input")
+                    .unwrap_or_else(|| panic!("{vector_id}: missing input"));
+                let expected = vector["expected_canonical_bytes_utf8"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{vector_id}: missing expected canonical bytes"))
+                    .as_bytes();
+                let mut bytes =
+                    crate::canonical::canonical_json_bytes(input).unwrap_or_else(|error| {
+                        panic!("{vector_id}: canonical encode failed: {error}")
+                    });
+                assert_eq!(bytes, expected, "{vector_id}: initial bytes drifted");
+                for stage in ["store_reload", "federation_forward", "backfill"] {
+                    let decoded: Value = crate::canonical::from_canonical_json_slice(&bytes)
+                        .unwrap_or_else(|error| {
+                            panic!("{vector_id}: {stage} decode failed: {error}")
+                        });
+                    bytes =
+                        crate::canonical::canonical_json_bytes(&decoded).unwrap_or_else(|error| {
+                            panic!("{vector_id}: {stage} re-encode failed: {error}")
+                        });
+                    assert_eq!(
+                        bytes, expected,
+                        "{vector_id}: {stage} did not preserve extension bytes"
+                    );
                 }
             }
             other => {
