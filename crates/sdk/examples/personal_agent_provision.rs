@@ -27,11 +27,11 @@
 //! ```
 
 use arkret::agent::{
-    AgentProvisionRequestBuilder, AgentRequestPlan, agent_key_pairing_request_binding_digest,
-    agent_key_pair_proof_request_binding_digest, agent_runtime_public_key_digest,
-    build_agent_key_authorize_event, plan_agent_deactivate, plan_agent_get, plan_agent_grant_attach,
-    plan_agent_grant_detach, plan_agent_key_pair, plan_agent_list, plan_agent_pause,
-    plan_agent_provision, plan_agent_renew_pairing, plan_agent_resume,
+    AgentProvisionRequestBuilder, AgentRequestPlan, agent_key_pair_proof_request_binding_digest,
+    agent_key_pairing_request_binding_digest, agent_runtime_public_key_digest,
+    build_agent_key_authorize_event, plan_agent_deactivate, plan_agent_get,
+    plan_agent_grant_attach, plan_agent_grant_detach, plan_agent_key_pair, plan_agent_list,
+    plan_agent_pause, plan_agent_provision, plan_agent_renew_pairing, plan_agent_resume,
     plan_agent_sidecar_thread_ensure,
 };
 use arkret::{
