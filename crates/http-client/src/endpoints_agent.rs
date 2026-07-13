@@ -1,5 +1,8 @@
 //! Personal-agent endpoint methods on [`Client`].
 
+use std::ops::Deref;
+use std::time::Duration;
+
 use arkret_core::{
     AgentDeactivateRequestBody, AgentGrantAttachOutcome, AgentGrantAttachRequestBody,
     AgentGrantDetachOutcome, AgentKeyPairOutcome, AgentKeyPairRequestBody, AgentLifecycleOutcome,
@@ -11,8 +14,6 @@ use arkret_core::{
     AgentSidecarThreadEnsureRequestBody, AgentView, Error, GrantId, Result,
 };
 use serde_json::Value;
-use std::ops::Deref;
-use std::time::Duration;
 
 use crate::{Client, retry_after_ms};
 
