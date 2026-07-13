@@ -71,14 +71,32 @@ impl RealmSealFrontierView {
     }
 }
 
-/// Actor shape of the account-client frontier: highest accepted
-/// `actor_seq` visible to the caller.
+/// Actor shape of the account-client frontier: highest accepted `actor_seq`
+/// visible to the caller. An empty visible history is represented by
+/// `actor_seq == 0` and no `event_id`; non-empty frontiers carry both a
+/// positive sequence and its Event id.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ActorFrontierView {
     pub actor_id: Did,
     pub actor_seq: u64,
-    pub event_id: EventId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_id: Option<EventId>,
+}
+
+impl ActorFrontierView {
+    /// Enforce the registered empty/non-empty actor frontier invariant.
+    pub fn validate(&self) -> Result<()> {
+        match (self.actor_seq, self.event_id.is_some()) {
+            (0, false) | (1.., true) => Ok(()),
+            (0, true) => Err(Error::Protocol(
+                "empty actor frontier must not include event_id".to_owned(),
+            )),
+            (_, false) => Err(Error::Protocol(
+                "non-empty actor frontier must include event_id".to_owned(),
+            )),
+        }
+    }
 }
 
 /// `ak.peer.events.query.frontier` federation-peer response
@@ -315,6 +333,35 @@ mod tests {
                 .unwrap()
                 .as_str(),
             FEDERATION_MINIMAL_REDUCER_PROFILE_DIGEST
+        );
+    }
+
+    #[test]
+    fn actor_frontier_distinguishes_empty_and_non_empty_histories() {
+        let actor_id = Did::new("did:web:alice.example").unwrap();
+        ActorFrontierView {
+            actor_id: actor_id.clone(),
+            actor_seq: 0,
+            event_id: None,
+        }
+        .validate()
+        .unwrap();
+        ActorFrontierView {
+            actor_id: actor_id.clone(),
+            actor_seq: 1,
+            event_id: Some(EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap()),
+        }
+        .validate()
+        .unwrap();
+
+        assert!(
+            ActorFrontierView {
+                actor_id,
+                actor_seq: 1,
+                event_id: None,
+            }
+            .validate()
+            .is_err()
         );
     }
 }
