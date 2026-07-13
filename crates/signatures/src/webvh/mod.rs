@@ -11,5 +11,5 @@ pub mod inception;
 pub use inception::{
     InceptionInput, PreparedInception, ServiceInceptionInput, SubmittedInception,
     SuppliedInceptionInput, WebvhInceptionError, prepare_inception, prepare_service_inception,
-    prepare_supplied_inception,
+    prepare_service_inception_with_did_key_seed, prepare_supplied_inception,
 };
