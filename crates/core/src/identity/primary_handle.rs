@@ -379,6 +379,7 @@ mod tests {
             created_at: Utc::now(),
             domain: None,
             audience: None,
+            proof_purpose: None,
             jws: "placeholder".to_owned(),
         }
     }

@@ -1159,6 +1159,15 @@ pub struct Proof {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
+pub enum PayloadProofPurpose {
+    IssuerAttestation,
+    HolderAcceptance,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct PayloadProof {
     pub kind: String,
     pub alg: String,
@@ -1169,6 +1178,8 @@ pub struct PayloadProof {
     pub domain: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<Audience>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_purpose: Option<PayloadProofPurpose>,
     pub jws: String,
 }
 

@@ -39,7 +39,8 @@ use arkret::{
     AgentKeyApprovalEvidenceKind, AgentKeyAuthorizePayload, AgentKeyPairRequestBody, AgentKeyScope,
     AgentKeyScopeResource, AgentKeyScopeResourceKind, AgentPauseRequestBody,
     AgentRenewPairingRequestBody, AgentResumeRequestBody, AgentSidecarContextRef,
-    AgentSidecarThreadEnsureRequestBody, Did, GrantId, Hlc, RealmId, StrandId,
+    AgentSidecarThreadEnsureRequestBody, CapabilityGrant, CapabilitySubject, Did, GrantId, Hash,
+    Hlc, PayloadProof, PayloadProofPurpose, RealmId, StrandId,
 };
 use chrono::Utc;
 use serde::Serialize;
@@ -255,21 +256,43 @@ fn main() -> arkret::Result<()> {
     let grant = send_plan(plan_agent_grant_attach(
         agent_id.as_str(),
         AgentGrantAttachRequestBody {
-            grant: serde_json::from_value(json!({
-                "id": "ak:grant:01964137-0000-7000-8000-000000000010",
-                "schema": "ak.schema.capability.v1",
-                "realm_id": "ak:realm:01964137-0000-7000-8000-000000000030",
-                "issuer": controller,
-                "subject": agent_id,
-                "actions": ["ak.message.create"],
-                "resources": [{ "kind": "realm", "realm_id": "ak:realm:01964137-0000-7000-8000-000000000030" }],
-                "issued_at": "2026-06-18T12:00:00Z",
-                "proofs": [{
-                    "type": "dev-proof",
-                    "verification_method": "did:webvh:z6mkfixture:alice.example",
-                    "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-                }]
-            }))?,
+            grant: CapabilityGrant {
+                id: GrantId::new("ak:grant:01964137-0000-7000-8000-000000000010")?,
+                schema: "ak.schema.capability.v1".to_owned(),
+                realm_id: Some(RealmId::new(
+                    "ak:realm:01964137-0000-7000-8000-000000000030",
+                )?),
+                issuer: controller.clone(),
+                subject: CapabilitySubject::Did(agent_id.clone()),
+                actions: vec!["ak.message.create".to_owned()],
+                resources: vec![json!({
+                    "kind": "realm",
+                    "realm_id": "ak:realm:01964137-0000-7000-8000-000000000030"
+                })],
+                constraints: Vec::new(),
+                parent_grant_id: None,
+                issued_at: chrono::DateTime::parse_from_rfc3339("2026-06-18T12:00:00Z")?
+                    .with_timezone(&Utc),
+                not_before: None,
+                expires_at: None,
+                effective_after_first_authorized_key: None,
+                updated_by: None,
+                updated_at: None,
+                revoked_by: None,
+                revoked_at: None,
+                proofs: vec![PayloadProof {
+                    kind: "detached_jws".to_owned(),
+                    alg: "EdDSA".to_owned(),
+                    verification_method: format!("{controller}#key-1"),
+                    payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64)))?,
+                    created_at: chrono::DateTime::parse_from_rfc3339("2026-06-18T12:00:00Z")?
+                        .with_timezone(&Utc),
+                    domain: None,
+                    audience: None,
+                    proof_purpose: Some(PayloadProofPurpose::IssuerAttestation),
+                    jws: "header..signature".to_owned(),
+                }],
+            },
         },
     ))?;
     let grant_id = GrantId::new(grant["grant_id"].as_str().unwrap().to_owned())?;

@@ -226,6 +226,7 @@ mod tests {
                 created_at: Utc::now(),
                 domain: None,
                 audience: None,
+                proof_purpose: None,
                 jws: "header..sig".to_owned(),
             }],
             ..Default::default()

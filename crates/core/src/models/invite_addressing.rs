@@ -583,6 +583,7 @@ mod tests {
                 created_at: test_time(),
                 domain: None,
                 audience: None,
+                proof_purpose: None,
                 jws: "header..sig".to_owned(),
             }],
             ..Default::default()

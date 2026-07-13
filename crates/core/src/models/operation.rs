@@ -1193,7 +1193,7 @@ pub struct CapabilityGrant {
     pub revoked_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revoked_at: Option<DateTime<Utc>>,
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

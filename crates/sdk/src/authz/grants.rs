@@ -1252,7 +1252,7 @@ impl CapabilityGrantBuilder {
 
     /// Attach the issuer proofs over the grant body (spec requires at least
     /// one).
-    pub fn with_proofs(mut self, proofs: Vec<arkret_core::Proof>) -> Self {
+    pub fn with_proofs(mut self, proofs: Vec<arkret_core::PayloadProof>) -> Self {
         self.grant.proofs = proofs;
         self
     }
