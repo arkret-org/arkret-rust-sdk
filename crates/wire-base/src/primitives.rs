@@ -1173,6 +1173,10 @@ pub struct PayloadProof {
     pub alg: String,
     pub verification_method: String,
     pub payload_digest: Hash,
+    #[serde(
+        serialize_with = "crate::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,

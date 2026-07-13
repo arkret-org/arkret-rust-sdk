@@ -1174,10 +1174,24 @@ pub struct CapabilityGrant {
     pub constraints: Vec<GrantConstraint>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_grant_id: Option<GrantId>,
+    #[serde(
+        serialize_with = "crate::serde_helpers::serialize_canonical_timestamp",
+        deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "crate::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "crate::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub not_before: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "crate::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "crate::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     // ak.profile.personal_agent_provisioning.v1 flag (AKP-0008 §4.3.2). When true, the
     // grant is durable but inactive: the capability evaluator MUST fail closed until the
@@ -1187,11 +1201,21 @@ pub struct CapabilityGrant {
     pub effective_after_first_authorized_key: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<Did>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "crate::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "crate::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revoked_by: Option<Did>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "crate::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "crate::serde_helpers::deserialize_optional_canonical_timestamp"
+    )]
     pub revoked_at: Option<DateTime<Utc>>,
     pub proofs: Vec<PayloadProof>,
 }
@@ -1876,5 +1900,57 @@ mod actor_accessor_tests {
         assert!(operation.actor().is_none());
         let non_object = operation_with_payload(json!("string payload"));
         assert!(non_object.actor().is_none());
+    }
+
+    #[test]
+    fn capability_grant_serializes_all_timestamps_canonically() {
+        let fractional = DateTime::parse_from_rfc3339("2026-07-14T12:34:56.789Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let grant = CapabilityGrant {
+            id: GrantId::new("ak:grant:01904100-0000-7000-8000-000000000001").unwrap(),
+            schema: "ak.schema.capability.v1".to_owned(),
+            realm_id: Some(RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()),
+            issuer: Did::new("did:web:issuer.example").unwrap(),
+            subject: CapabilitySubject::Did(Did::new("did:web:subject.example").unwrap()),
+            actions: vec!["ak.event.read".to_owned()],
+            resources: vec![json!({"kind": "realm"})],
+            constraints: Vec::new(),
+            parent_grant_id: None,
+            issued_at: fractional,
+            not_before: Some(fractional),
+            expires_at: Some(fractional),
+            effective_after_first_authorized_key: None,
+            updated_by: None,
+            updated_at: Some(fractional),
+            revoked_by: None,
+            revoked_at: Some(fractional),
+            proofs: vec![PayloadProof {
+                kind: "detached_jws".to_owned(),
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:web:issuer.example#key-1".to_owned(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                created_at: fractional,
+                domain: None,
+                audience: None,
+                proof_purpose: Some(PayloadProofPurpose::IssuerAttestation),
+                jws: "header..signature".to_owned(),
+            }],
+        };
+
+        let wire = serde_json::to_value(grant).unwrap();
+        for pointer in [
+            "/issued_at",
+            "/not_before",
+            "/expires_at",
+            "/updated_at",
+            "/revoked_at",
+            "/proofs/0/created_at",
+        ] {
+            assert_eq!(
+                wire.pointer(pointer).and_then(Value::as_str),
+                Some("2026-07-14T12:34:56Z")
+            );
+        }
     }
 }
