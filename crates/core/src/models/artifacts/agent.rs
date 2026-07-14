@@ -117,7 +117,7 @@ pub type OperationStatusOutcome = AgentLifecycleOutcome;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/
 /// pending_member_reconciliation_item`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PendingMemberReconciliationItem {
