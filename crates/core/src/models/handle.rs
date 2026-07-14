@@ -429,7 +429,6 @@ fn default_handle_claim_schema() -> String {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
 pub struct HandleClaim {
     #[serde(default = "default_handle_claim_schema")]
     pub schema: String,
@@ -722,6 +721,29 @@ mod tests {
             "ak:event:01890000-0000-7000-8000-000000000002"
         );
         assert!(value["member_delivery_binding"].get("policy_ref").is_none());
+    }
+
+    #[test]
+    fn handle_claim_accepts_and_drops_unknown_wire_fields() {
+        // `handle-claim.schema.json` root is `unevaluatedProperties: true`: the
+        // open channel carries server-attested hints / cache metadata that are
+        // excluded from the signed `semantic_projection` digest. The wire type
+        // must accept such extras (no `deny_unknown_fields`) and drop them.
+        let wire = serde_json::json!({
+            "schema": "ak.schema.handle_claim.v1",
+            "handle": "alice:example.com",
+            "subject": "did:webvh:z6mkfixture:alice.example",
+            "issuer": "did:webvh:z6mkfixture:issuer.example",
+            "binding_state": "pending",
+            "x_directory_cache_hint": {"served_at": "2026-07-15T00:00:00Z"},
+            "server_attested_freshness": 42
+        });
+        let claim: HandleClaim =
+            serde_json::from_value(wire).expect("open handle claim must not reject unknown fields");
+        let reserialized = serde_json::to_value(&claim).unwrap();
+        assert!(reserialized.get("x_directory_cache_hint").is_none());
+        assert!(reserialized.get("server_attested_freshness").is_none());
+        assert_eq!(reserialized["handle"], "alice:example.com");
     }
 
     #[test]
