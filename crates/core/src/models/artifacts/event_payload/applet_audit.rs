@@ -256,16 +256,16 @@ pub struct AuditPayload {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_release_payload`.
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_release_payload/properties/eligibility_proof`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuditReleasePayloadEligibilityProof {
     pub binding_activation_frontier_digest: Hash,
     pub first_auditable_epoch: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub activation_commit_ref: Option<Value>,
-    pub policy_snapshot_digest: Value,
-    pub target_eligibility_digest: Value,
+    pub activation_commit_ref: Option<EventId>,
+    pub policy_snapshot_digest: Hash,
+    pub target_eligibility_digest: Hash,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

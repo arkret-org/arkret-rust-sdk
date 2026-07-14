@@ -883,7 +883,7 @@ pub struct PlaintextVisibility {
     /// `x_*` extension keys (`additionalProperties: false` otherwise).
     #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
-    pub extra: arkret_core::XExtensionMap,
+    pub extra: XExtensionMap,
 }
 
 impl PlaintextVisibility {

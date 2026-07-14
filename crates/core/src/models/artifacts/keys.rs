@@ -43,15 +43,14 @@ pub struct PlaintextItem {
     pub extra: XExtensionMap,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json`.
+/// Counterpart for `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json#/properties/auth_data`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupUnlockProofAuthData {
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub verification_method: Value,
-    pub signature_algorithm: String,
-    pub signature: String,
+    pub verification_method: DidUrl,
+    pub signature_algorithm: KeyBackupSignatureAlgorithm,
+    pub signature: Base64UrlString,
     pub signed_fields: Vec<String>,
 }
 
@@ -61,26 +60,34 @@ pub struct KeyBackupUnlockProof {
     pub schema: String,
     pub recovery_session_id: RecoverySessionId,
     pub principal_id: Did,
-    pub requesting_device_id: String,
+    pub requesting_device_id: DeviceId,
     pub backup_id: BackupId,
     pub backup_class: BackupClass,
     pub series_id: BackupSeriesId,
     pub ciphertext_digest: Hash,
     pub proof_kind: ProofKind,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub proof_digest: Value,
+    pub proof_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub challenge: Option<String>,
     pub issued_at: DateTime<Utc>,
     pub auth_data: KeyBackupUnlockProofAuthData,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json#/$defs/proof_kind`.
-pub type ProofKind = String;
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ProofKind {
+    PrincipalSigning,
+    RecoveryUnlock,
+    DeviceQuorum,
+    TrustedRecoveryService,
+    ThresholdRecovery,
+}
 
 /// Counterpart for the shared signature object used by key operations:
 /// `spec/v1/artifacts/schemas/keypackage-operations.schema.json#/$defs/signature` and
