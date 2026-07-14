@@ -181,6 +181,15 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         let public_key_value = self.public_key()?;
         let public_key: PublicKey = serde_json::from_value(public_key_value.clone())?;
         let public_key_digest = agent_runtime_public_key_digest(&public_key_value)?;
+        // This builder emits millisecond RFC 3339 timestamps. Sign the normalized
+        // value so verifier reconstruction cannot lose submilliseconds.
+        let proof_expires_at =
+            DateTime::<Utc>::from_timestamp_millis(self.proof_expires_at.timestamp_millis())
+                .ok_or_else(|| {
+                    Error::Protocol(
+                        "agent key proof expires_at is outside the wire timestamp range".into(),
+                    )
+                })?;
         let request_digest = agent_key_pair_proof_request_binding_digest(
             &self.bootstrap.pairing_request_id,
             &self.bootstrap.agent_id,
@@ -196,7 +205,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             self.verification_method.clone(),
             self.bootstrap.pairing_request_id.clone(),
             self.bootstrap.service_id.to_string(),
-            self.proof_expires_at,
+            proof_expires_at,
             request_digest.clone(),
         );
         let signature = self.signing_key.sign(&signing_input.canonical_bytes()?);
@@ -204,7 +213,7 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             "challenge": self.bootstrap.pairing_request_id,
             "audience": self.bootstrap.service_id,
             "request_canonical_digest": request_digest,
-            "expires_at": self.proof_expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            "expires_at": proof_expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
             "signature": arkret_canonical::base64url_encode(signature.to_bytes()),
         }))?;
         Ok((public_key, public_key_digest, proof_of_possession))
@@ -1145,6 +1154,7 @@ mod tests {
     use arkret_core::{MoveSignature, MoveSigner, UnsignedMove, proof_kind};
     use arkret_wire_base::Result as WireResult;
     use chrono::TimeZone;
+    use ed25519_dalek::Verifier as _;
     use serde_json::json;
 
     use super::*;
@@ -1368,6 +1378,55 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn runtime_key_request_builder_signs_the_wire_timestamp_precision() {
+        let signing_key = SigningKey::from_bytes(&[7_u8; 32]);
+        let agent_id = did("runtime-builder-submillisecond");
+        let expires_at = "2026-07-14T14:43:48.784473Z"
+            .parse::<DateTime<Utc>>()
+            .unwrap();
+        let bootstrap = AgentPairingBootstrap {
+            arkret_base_url: "https://arkret.example".to_owned(),
+            service_id: Did::new("did:webvh:z6mkfixture:service.example".to_owned()).unwrap(),
+            agent_id,
+            pairing_request_id: "01970000-0000-7000-8000-000000000022".to_owned(),
+            pairing_code: "12345678".to_owned(),
+            pairing_expires_at: expires_at,
+        };
+        let request = RuntimeKeyRequestBuilder::new(&signing_key, bootstrap)
+            .build_approval_request()
+            .unwrap();
+        let proof = request.body.proof_of_possession.as_map();
+        let proof_expires_at = proof["expires_at"]
+            .as_str()
+            .unwrap()
+            .parse::<DateTime<Utc>>()
+            .unwrap();
+        let request_digest = Hash::new(
+            proof["request_canonical_digest"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
+        )
+        .unwrap();
+        let signing_input = agent_key_pair_proof_signing_input(
+            request.body.verification_method.to_string(),
+            proof["challenge"].as_str().unwrap(),
+            proof["audience"].as_str().unwrap(),
+            proof_expires_at,
+            request_digest,
+        );
+        let signature =
+            arkret_canonical::base64url_decode(proof["signature"].as_str().unwrap()).unwrap();
+        let signature = ed25519_dalek::Signature::from_slice(&signature).unwrap();
+
+        assert_eq!(proof["expires_at"], "2026-07-14T14:43:48.784Z");
+        signing_key
+            .verifying_key()
+            .verify(&signing_input.canonical_bytes().unwrap(), &signature)
+            .expect("signature must bind the timestamp sent on the wire");
     }
 
     #[test]
