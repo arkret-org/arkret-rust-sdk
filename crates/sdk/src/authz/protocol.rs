@@ -47,11 +47,7 @@ mod tests {
         });
         let parsed: ProtocolGrantConstraint = serde_json::from_value(value).unwrap();
         let extension_key = ProtocolGrantExtensionKey::new("x_approval_profile").unwrap();
-        assert!(
-            parsed
-                .extensions
-                .contains_key(extension_key.as_str())
-        );
+        assert!(parsed.extensions.contains_key(extension_key.as_str()));
     }
 
     #[test]

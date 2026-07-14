@@ -226,9 +226,11 @@ fn main() -> arkret::Result<()> {
         Hlc::new("01970e589d21-0004-a13f9c2e")?,
     )?;
     let key_pair_body = AgentKeyPairRequestBody {
-        pairing_request_id: NonEmptyString::new(pairing_request_id)?,
+        pairing_request_id: NonEmptyString::new(pairing_request_id)
+            .map_err(|reason| arkret::Error::Protocol(reason.to_owned()))?,
         agent_id: agent_id.clone(),
-        verification_method: arkret::DidUrl::new(verification_method)?,
+        verification_method: arkret::DidUrl::new(verification_method)
+            .map_err(|reason| arkret::Error::Protocol(reason.to_owned()))?,
         public_key: serde_json::from_value(public_key_value)?,
         proof_of_possession: serde_json::from_value(json!({
             "challenge": pairing_request_id,

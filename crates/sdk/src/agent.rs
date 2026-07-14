@@ -1526,9 +1526,7 @@ mod tests {
             "ak.message.create".to_owned(),
         ];
         let agent_scope_request = SessionGrantAgentScopeRequest {
-            realm_ids: vec![
-                RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
-            ],
+            realm_ids: vec![RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap()],
             strand_ids: Vec::new(),
             track_names: vec![NonEmptyString::new("summary").unwrap()],
         };

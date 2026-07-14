@@ -553,9 +553,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
         audience: realm_id.as_str().to_owned(),
         expires_at: Utc::now() + chrono::Duration::hours(1),
         issued_at: Utc::now(),
-        source_refs: vec![
-            EventId::new("ak:event:01890000-0000-7000-8000-0000000000a3").unwrap(),
-        ],
+        source_refs: vec![EventId::new("ak:event:01890000-0000-7000-8000-0000000000a3").unwrap()],
         proofs: vec![Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
@@ -614,9 +612,7 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
         audience: "ak:realm:DEADBEEF-0000-7000-8000-00000000ffff".to_owned(),
         expires_at: Utc::now() + chrono::Duration::hours(1),
         issued_at: Utc::now(),
-        source_refs: vec![
-            EventId::new("ak:event:01890000-0000-7000-8000-0000000000a3").unwrap(),
-        ],
+        source_refs: vec![EventId::new("ak:event:01890000-0000-7000-8000-0000000000a3").unwrap()],
         proofs: vec![Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
