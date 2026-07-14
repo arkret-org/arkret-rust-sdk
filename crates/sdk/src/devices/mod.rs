@@ -3,11 +3,10 @@
 use std::collections::{BTreeMap, VecDeque};
 
 pub use arkret_core::DeviceMessageEnvelope;
+use arkret_core::{CrossSigningPublish, DeviceBootstrapBinding};
 pub use arkret_crypto::{
-    CrossSigningBinding, CrossSigningKeyKind, CrossSigningKeyRecord, CrossSigningPublishContent,
-    CrossSigningResetContent, CrossSigningResetProof, DeviceBootstrapBinding,
-    DeviceCrossSigningChainVerification, DeviceQuorumSignature, DeviceTrustBinding,
-    DeviceTrustChainOutcome, DeviceTrustState, SignedCrossSigningKey,
+    CrossSigningResetContent, CrossSigningResetProof, DeviceCrossSigningChainVerification,
+    DeviceQuorumSignature, DeviceTrustBinding, DeviceTrustChainOutcome, DeviceTrustState,
     cross_signing_publish_cell_subject, verify_device_cross_signing_chain,
 };
 use chrono::{DateTime, Duration, Utc};

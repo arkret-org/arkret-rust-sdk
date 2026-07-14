@@ -1,7 +1,15 @@
+use arkret_core::{
+    CrossSigningPublish, KeyFormat, NonEmptyString, PublishedKey, SubordinateSignedKey,
+    SubordinateSignedKeyBinding,
+};
 use chrono::Utc;
 use serde_json::json;
 
 use super::*;
+
+fn non_empty(value: impl Into<String>) -> NonEmptyString {
+    NonEmptyString::new(value).unwrap()
+}
 
 fn did(name: &str) -> Did {
     Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
@@ -28,44 +36,40 @@ fn fake_binding(generation: u64) -> DeviceTrustBinding {
     }
 }
 
-fn sample_publish(principal: &Did, generation: u64) -> CrossSigningPublishContent {
-    CrossSigningPublishContent {
+fn sample_publish(principal: &Did, generation: u64) -> CrossSigningPublish {
+    CrossSigningPublish {
         principal_id: principal.clone(),
         trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-        principal_signing_key: CrossSigningKeyRecord {
-            kid: format!("{principal}#cx_principal_signing_v1"),
-            alg: "EdDSA".to_owned(),
-            public_key: "z6MkPrincipalAlice".to_owned(),
-            key_format: "multibase".to_owned(),
+        principal_signing_key: PublishedKey {
+            kid: non_empty(format!("{principal}#cx_principal_signing_v1")),
+            alg: non_empty("EdDSA"),
+            public_key: non_empty("z6MkPrincipalAlice"),
+            key_format: KeyFormat::Multibase,
         },
-        self_signing_key: SignedCrossSigningKey {
-            key: CrossSigningKeyRecord {
-                kid: format!("{principal}#cx_self_signing_v1"),
-                alg: "EdDSA".to_owned(),
-                public_key: "z6MkSelfAlice".to_owned(),
-                key_format: "multibase".to_owned(),
-            },
-            binding: CrossSigningBinding {
-                verification_method: format!("{principal}#cx_principal_signing_v1"),
-                alg: "EdDSA".to_owned(),
-                signature: format!("psk-sig-ssk-gen-{generation}"),
+        self_signing_key: SubordinateSignedKey {
+            kid: non_empty(format!("{principal}#cx_self_signing_v1")),
+            alg: non_empty("EdDSA"),
+            public_key: non_empty("z6MkSelfAlice"),
+            key_format: KeyFormat::Multibase,
+            binding: SubordinateSignedKeyBinding {
+                verification_method: non_empty(format!("{principal}#cx_principal_signing_v1")),
+                alg: non_empty("EdDSA"),
+                signature: non_empty(format!("psk-sig-ssk-gen-{generation}")),
             },
         },
-        user_signing_key: SignedCrossSigningKey {
-            key: CrossSigningKeyRecord {
-                kid: format!("{principal}#cx_user_signing_v1"),
-                alg: "EdDSA".to_owned(),
-                public_key: "z6MkUserAlice".to_owned(),
-                key_format: "multibase".to_owned(),
-            },
-            binding: CrossSigningBinding {
-                verification_method: format!("{principal}#cx_principal_signing_v1"),
-                alg: "EdDSA".to_owned(),
-                signature: format!("psk-sig-usk-gen-{generation}"),
+        user_signing_key: SubordinateSignedKey {
+            kid: non_empty(format!("{principal}#cx_user_signing_v1")),
+            alg: non_empty("EdDSA"),
+            public_key: non_empty("z6MkUserAlice"),
+            key_format: KeyFormat::Multibase,
+            binding: SubordinateSignedKeyBinding {
+                verification_method: non_empty(format!("{principal}#cx_principal_signing_v1")),
+                alg: non_empty("EdDSA"),
+                signature: non_empty(format!("psk-sig-usk-gen-{generation}")),
             },
         },
         expected_previous_generation: generation.saturating_sub(1),
-        generation,
+        generation: std::num::NonZeroU64::new(generation).unwrap(),
         issued_at: Utc::now(),
     }
 }
@@ -456,8 +460,11 @@ fn evaluate_trust_chain_states() {
             &alice,
             &phone,
             DeviceBootstrapBinding {
-                kind: "inception_self_authorized".to_owned(),
-                did_method_evidence_ref: "did:webvh:alice.example/entry-0".to_owned(),
+                kind: arkret_core::DeviceBootstrapBindingKind::InceptionSelfAuthorized,
+                did_method_evidence_ref: arkret_core::NonEmptyString::new(
+                    "did:webvh:alice.example/entry-0",
+                )
+                .unwrap(),
             },
         )
         .unwrap();
@@ -704,7 +711,7 @@ fn signed_chain_fixture(
     publish_generation: u64,
     binding_generation: u64,
 ) -> (
-    CrossSigningPublishContent,
+    CrossSigningPublish,
     DeviceTrustBinding,
     arkret_signatures::PublicKeyMaterial,
 ) {
@@ -718,49 +725,46 @@ fn signed_chain_fixture(
         arkret_canonical::ed25519_pubkey_to_did_key_multibase(&ssk.verifying_key().to_bytes());
 
     // The published SSK record (PSK signs this over the §5.1 canonical input).
-    let mut publish = CrossSigningPublishContent {
+    let mut publish = CrossSigningPublish {
         principal_id: principal.clone(),
         trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-        principal_signing_key: CrossSigningKeyRecord {
-            kid: format!("{principal}#ak_principal_signing_v1"),
-            alg: "EdDSA".to_owned(),
-            public_key: psk_multibase,
-            key_format: "multibase".to_owned(),
+        principal_signing_key: PublishedKey {
+            kid: non_empty(format!("{principal}#ak_principal_signing_v1")),
+            alg: non_empty("EdDSA"),
+            public_key: non_empty(psk_multibase),
+            key_format: KeyFormat::Multibase,
         },
-        self_signing_key: SignedCrossSigningKey {
-            key: CrossSigningKeyRecord {
-                kid: format!("{principal}#ak_self_signing_v1"),
-                alg: "EdDSA".to_owned(),
-                public_key: ssk_multibase,
-                key_format: "multibase".to_owned(),
-            },
-            binding: CrossSigningBinding {
-                verification_method: format!("{principal}#ak_principal_signing_v1"),
-                alg: "EdDSA".to_owned(),
-                signature: String::new(),
+        self_signing_key: SubordinateSignedKey {
+            kid: non_empty(format!("{principal}#ak_self_signing_v1")),
+            alg: non_empty("EdDSA"),
+            public_key: non_empty(ssk_multibase),
+            key_format: KeyFormat::Multibase,
+            binding: SubordinateSignedKeyBinding {
+                verification_method: non_empty(format!("{principal}#ak_principal_signing_v1")),
+                alg: non_empty("EdDSA"),
+                signature: non_empty("pending"),
             },
         },
-        user_signing_key: SignedCrossSigningKey {
-            key: CrossSigningKeyRecord {
-                kid: format!("{principal}#ak_user_signing_v1"),
-                alg: "EdDSA".to_owned(),
-                public_key: "z6MkUserDistinct".to_owned(),
-                key_format: "multibase".to_owned(),
-            },
-            binding: CrossSigningBinding {
-                verification_method: format!("{principal}#ak_principal_signing_v1"),
-                alg: "EdDSA".to_owned(),
-                signature: "unused".to_owned(),
+        user_signing_key: SubordinateSignedKey {
+            kid: non_empty(format!("{principal}#ak_user_signing_v1")),
+            alg: non_empty("EdDSA"),
+            public_key: non_empty("z6MkUserDistinct"),
+            key_format: KeyFormat::Multibase,
+            binding: SubordinateSignedKeyBinding {
+                verification_method: non_empty(format!("{principal}#ak_principal_signing_v1")),
+                alg: non_empty("EdDSA"),
+                signature: non_empty("unused"),
             },
         },
         expected_previous_generation: publish_generation.saturating_sub(1),
-        generation: publish_generation,
+        generation: std::num::NonZeroU64::new(publish_generation).unwrap(),
         issued_at: Utc::now(),
     };
     // PSK signs the SSK record over the canonical §5.1 input.
     let ssk_input = publish.self_signing_binding_input().unwrap();
-    publish.self_signing_key.binding.signature =
-        arkret_canonical::base64url_encode(psk.sign(&ssk_input).to_bytes());
+    publish.self_signing_key.binding.signature = non_empty(arkret_canonical::base64url_encode(
+        psk.sign(&ssk_input).to_bytes(),
+    ));
 
     // SSK signs the device binding over the canonical §5.2 input.
     let device_input = DeviceTrustBinding::canonical_input(
@@ -786,7 +790,7 @@ fn signed_chain_fixture(
 }
 
 fn verify_chain(
-    publish: &CrossSigningPublishContent,
+    publish: &CrossSigningPublish,
     binding: &DeviceTrustBinding,
     principal_id: &Did,
     device_id: &DeviceId,

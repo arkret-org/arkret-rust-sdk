@@ -392,13 +392,12 @@ pub use crypto_store::{
 pub use device_message::{DeviceMessage, DeviceMessageBuilder, DeviceMessageReceipt};
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use devices::{
-    CrossSigningBinding, CrossSigningKeyKind, CrossSigningKeyRecord, CrossSigningPublishContent,
-    CrossSigningResetContent, CrossSigningResetProof, Device, DeviceBootstrapBinding, DeviceChange,
+    CrossSigningResetContent, CrossSigningResetProof, Device, DeviceChange,
     DeviceCrossSigningChainVerification, DeviceManager, DeviceMetadata, DeviceQuorumSignature,
     DeviceTrustBinding, DeviceTrustChainOutcome, DeviceTrustState, DeviceVerificationChallenge,
     DeviceVerificationMessageContent, DeviceVerificationMessageKind, KeyBackupClass,
-    KeyBackupContentItem, ProtocolKeyBackup, QrVerificationPayload, SignedCrossSigningKey,
-    ToDeviceEnvelope, cross_signing_publish_cell_subject, device_verification_commitment,
+    KeyBackupContentItem, ProtocolKeyBackup, QrVerificationPayload, ToDeviceEnvelope,
+    cross_signing_publish_cell_subject, device_verification_commitment,
     verify_device_cross_signing_chain,
 };
 #[cfg(feature = "full-surface")]

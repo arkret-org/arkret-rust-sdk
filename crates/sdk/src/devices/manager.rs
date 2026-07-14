@@ -11,7 +11,7 @@ pub struct DeviceManager {
     verification_challenges: BTreeMap<String, DeviceVerificationChallenge>,
     revoked_devices: BTreeMap<Did, BTreeMap<DeviceId, DateTime<Utc>>>,
     /// Latest accepted `ak.cross_signing.publish.v1` per principal.
-    cross_signing_publishes: BTreeMap<Did, CrossSigningPublishContent>,
+    cross_signing_publishes: BTreeMap<Did, CrossSigningPublish>,
     /// Round 4 (spec a77b995) — generation lineage counter that survives
     /// a `ak.cross_signing.reset`. The next accepted publish MUST carry
     /// `expected_previous_generation == cross_signing_generation_high_water` and
@@ -456,7 +456,7 @@ impl DeviceManager {
                     .to_owned(),
             )
         })?;
-        let accepted_generation = publish.generation;
+        let accepted_generation = publish.generation.get();
 
         let trusted = self
             .device(user_id, trusted_device_id)
@@ -549,10 +549,7 @@ impl DeviceManager {
     /// Implementations MUST also verify the PSK and SSK / USK bindings
     /// against the principal's DID key-log head before calling this; this
     /// method handles only the state-machine bookkeeping.
-    pub fn record_cross_signing_publish(
-        &mut self,
-        publish: CrossSigningPublishContent,
-    ) -> Result<()> {
+    pub fn record_cross_signing_publish(&mut self, publish: CrossSigningPublish) -> Result<()> {
         publish.validate_structure()?;
         let principal = publish.principal_id.clone();
         // Round 4 (spec a77b995) — high-water tracks the lineage across
@@ -573,7 +570,7 @@ impl DeviceManager {
                 publish.expected_previous_generation, current_generation
             )));
         }
-        if publish.generation != current_generation + 1 {
+        if publish.generation.get() != current_generation + 1 {
             return Err(Error::Protocol(format!(
                 "cross_signing publish generation {} must equal current {} + 1 (cas_conflict)",
                 publish.generation, current_generation
@@ -584,7 +581,7 @@ impl DeviceManager {
             self.mark_principal_needs_reverification(&principal)?;
         }
         self.cross_signing_generation_high_water
-            .insert(principal.clone(), publish.generation);
+            .insert(principal.clone(), publish.generation.get());
         self.cross_signing_publishes.insert(principal, publish);
         Ok(())
     }
@@ -601,7 +598,7 @@ impl DeviceManager {
                 "cannot reset cross-signing: no current publish accepted for principal".to_owned(),
             )
         })?;
-        if reset.previous_generation != current.generation {
+        if reset.previous_generation != current.generation.get() {
             return Err(Error::Protocol(format!(
                 "cross_signing reset previous_generation {} does not match accepted {}",
                 reset.previous_generation, current.generation
@@ -633,7 +630,7 @@ impl DeviceManager {
     }
 
     /// Current accepted cross-signing publish for `principal`, if any.
-    pub fn current_cross_signing(&self, principal: &Did) -> Option<&CrossSigningPublishContent> {
+    pub fn current_cross_signing(&self, principal: &Did) -> Option<&CrossSigningPublish> {
         self.cross_signing_publishes.get(principal)
     }
 
@@ -651,7 +648,7 @@ impl DeviceManager {
                     .to_owned(),
             )
         })?;
-        if binding.ssk_generation != publish.generation {
+        if binding.ssk_generation != publish.generation.get() {
             return Err(Error::Protocol(
                 "binding generation does not match accepted publish generation".to_owned(),
             ));
@@ -714,7 +711,7 @@ impl DeviceManager {
             return Ok(DeviceTrustChainOutcome::Invalid);
         }
 
-        let accepted_generation = publish.generation;
+        let accepted_generation = publish.generation.get();
         if binding.ssk_generation < accepted_generation {
             return Ok(DeviceTrustChainOutcome::NeedsReverification);
         }
@@ -764,10 +761,10 @@ impl DeviceManager {
         // stored after only checking `ssk_generation` matched
         // (`attach_cross_signing_binding`), so its `verification_method` is not
         // otherwise guaranteed to reference the SSK the PSK cross-signed. Pin
-        // the locator to `publish.self_signing_key.key.kid` so the closure
+        // the locator to `publish.self_signing_key.kid` so the closure
         // resolves the published SSK — mirroring `verify_device_cross_signing_chain`,
-        // which verifies against `publish.self_signing_key.key.public_key`.
-        let ssk_locator = &publish.self_signing_key.key.kid;
+        // which verifies against `publish.self_signing_key.public_key`.
+        let ssk_locator = publish.self_signing_key.kid.as_str();
         let device_ok =
             verify_signature(ssk_locator, &binding.alg, &device_input, &binding.signature)?;
         if !device_ok {

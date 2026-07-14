@@ -2,7 +2,7 @@
 //! stateless device cross-signing chain verifier.
 
 use arkret_canonical::binding_contexts;
-use arkret_core::{DeviceId, Did, Error, Result};
+use arkret_core::{CrossSigningPublish, DeviceId, Did, Error, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -12,92 +12,6 @@ use crate::errors::{
     MAX_ALGORITHM_NAME_LEN, MAX_DEVICE_QUORUM_SIGNATURES, MAX_IDENTIFIER_LEN, MAX_KEY_FIELD_LEN,
     MAX_REASON_LEN, validate_max_length, validate_nonempty_key,
 };
-
-/// Three-tier cross-signing key kinds — see `crypto-media/device-lifecycle.md` §5.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CrossSigningKeyKind {
-    /// DID-control-rooted principal signing key. Rotation MUST enter DID
-    /// method history / key log.
-    PrincipalSigning,
-    /// Signs the principal's own devices (`ak.device.authorize` bindings).
-    SelfSigning,
-    /// Signs other principals' identity keys to express manual trust.
-    UserSigning,
-}
-
-/// Public key record used inside `ak.cross_signing.publish.v1` content.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CrossSigningKeyRecord {
-    /// Verification method id, e.g. `did:webvh:...#cx_self_signing_v1`.
-    pub kid: String,
-    /// Signature algorithm; defaults to `EdDSA` for v1 core.
-    pub alg: String,
-    /// Multibase-encoded public key (or whatever `key_format` declares).
-    pub public_key: String,
-    /// Encoding used for `public_key`; v1 core defaults to `multibase`.
-    #[serde(default = "default_key_format")]
-    pub key_format: String,
-}
-
-fn default_key_format() -> String {
-    "multibase".to_owned()
-}
-
-/// Signature binding produced by the principal signing key (PSK) over a
-/// subordinate `self_signing` / `user_signing` record.
-///
-/// Canonical signing input (spec §5.1):
-///
-/// ```text
-/// "ak.cross-signing-bind-v1\n"
-///   + canonical_json({
-///       "principal_id": <did>,
-///       "subordinate_key_kind": "self_signing" | "user_signing",
-///       "subordinate_kid": <kid>,
-///       "subordinate_alg": <alg>,
-///       "subordinate_public_key": <public_key>,
-///       "generation": <generation>
-///     })
-/// ```
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CrossSigningBinding {
-    pub verification_method: String,
-    pub alg: String,
-    pub signature: String,
-}
-
-/// `ak.cross_signing.publish.v1` content (spec §5.1).
-///
-/// Round 4 (2026-05-20, spec a77b995) — wire-breaking: adds required
-/// `expected_previous_generation` so the reducer can run a CAS check
-/// `(principal_id, expected_previous_generation == current)` before the
-/// signature is verified. The CAS cell key is the tuple
-/// `(principal_id, expected_previous_generation)` (see
-/// [`cross_signing_publish_cell_subject`]). Reducer behaviour: reject with
-/// `cas_conflict` when `expected_previous_generation != current_generation`
-/// or `generation != current_generation + 1`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CrossSigningPublishContent {
-    pub principal_id: Did,
-    /// Round 4 (spec a77b995) — REQUIRED deployment-scope trust domain.
-    /// Mixed into the canonical `ak.cross-signing-bind-v1` signing input
-    /// so a publish from deployment A cannot be replayed into deployment
-    /// B. MUST match the receiver's accepted trust domain.
-    pub trust_domain: arkret_core::TypedTrustDomainId,
-    pub principal_signing_key: CrossSigningKeyRecord,
-    pub self_signing_key: SignedCrossSigningKey,
-    pub user_signing_key: SignedCrossSigningKey,
-    /// Round 4 (spec a77b995) — CAS guard: MUST equal the current accepted
-    /// generation. 0 for the very first publish, otherwise the prior
-    /// accepted generation. Reducer compares this against state BEFORE
-    /// verifying signatures.
-    pub expected_previous_generation: u64,
-    /// Monotonic counter; MUST equal previous accepted generation + 1 when
-    /// this publish follows a reset, or 1 for the very first publish.
-    pub generation: u64,
-    pub issued_at: DateTime<Utc>,
-}
 
 /// Round 4 (spec a77b995) — canonical cell_subject for the CAS-register
 /// guarding `ak.cross_signing.publish`. The wire form is the tuple
@@ -111,71 +25,6 @@ pub fn cross_signing_publish_cell_subject(
     expected_previous_generation: u64,
 ) -> String {
     format!("{}|{}", principal_id.as_str(), expected_previous_generation)
-}
-
-/// SSK / USK record carrying its PSK binding.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SignedCrossSigningKey {
-    #[serde(flatten)]
-    pub key: CrossSigningKeyRecord,
-    pub binding: CrossSigningBinding,
-}
-
-impl CrossSigningPublishContent {
-    pub fn validate_structure(&self) -> Result<()> {
-        if self.principal_signing_key.kid.trim().is_empty()
-            || self.self_signing_key.key.kid.trim().is_empty()
-            || self.user_signing_key.key.kid.trim().is_empty()
-        {
-            return Err(Error::Protocol(
-                "cross-signing publish requires non-empty kids".to_owned(),
-            ));
-        }
-        if self.self_signing_key.key.public_key == self.user_signing_key.key.public_key {
-            return Err(Error::Protocol(
-                "cross-signing publish requires distinct SSK and USK public keys".to_owned(),
-            ));
-        }
-        if self.generation == 0 {
-            return Err(Error::Protocol(
-                "cross-signing publish generation must be ≥ 1".to_owned(),
-            ));
-        }
-        // Bindings must reference the published PSK kid.
-        if self.self_signing_key.binding.verification_method != self.principal_signing_key.kid {
-            return Err(Error::Protocol(
-                "self_signing_key binding must reference the published PSK kid".to_owned(),
-            ));
-        }
-        if self.user_signing_key.binding.verification_method != self.principal_signing_key.kid {
-            return Err(Error::Protocol(
-                "user_signing_key binding must reference the published PSK kid".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    /// Canonical JSON bytes signed by PSK for the `self_signing_key` binding.
-    pub fn self_signing_binding_input(&self) -> Result<Vec<u8>> {
-        canonical_cross_signing_binding_input(
-            &self.principal_id,
-            &self.trust_domain,
-            CrossSigningKeyKind::SelfSigning,
-            &self.self_signing_key.key,
-            self.generation,
-        )
-    }
-
-    /// Canonical JSON bytes signed by PSK for the `user_signing_key` binding.
-    pub fn user_signing_binding_input(&self) -> Result<Vec<u8>> {
-        canonical_cross_signing_binding_input(
-            &self.principal_id,
-            &self.trust_domain,
-            CrossSigningKeyKind::UserSigning,
-            &self.user_signing_key.key,
-            self.generation,
-        )
-    }
 }
 
 /// `ak.cross_signing.reset.v1` content (spec §14.1).
@@ -591,13 +440,6 @@ impl DeviceTrustBinding {
     }
 }
 
-/// Bootstrap binding for the first-device inception path (spec §5.3).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DeviceBootstrapBinding {
-    pub kind: String,
-    pub did_method_evidence_ref: String,
-}
-
 /// Verifier outcome for a single device's trust chain (spec §5.2.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -619,36 +461,6 @@ pub enum DeviceTrustChainOutcome {
     Unverified,
     /// Cryptographic check failed.
     Invalid,
-}
-
-fn canonical_cross_signing_binding_input(
-    principal_id: &Did,
-    trust_domain: &arkret_core::TypedTrustDomainId,
-    subordinate_kind: CrossSigningKeyKind,
-    subordinate: &CrossSigningKeyRecord,
-    generation: u64,
-) -> Result<Vec<u8>> {
-    let kind_str = match subordinate_kind {
-        CrossSigningKeyKind::SelfSigning => "self_signing",
-        CrossSigningKeyKind::UserSigning => "user_signing",
-        CrossSigningKeyKind::PrincipalSigning => {
-            return Err(Error::Protocol(
-                "principal_signing key is not a subordinate binding target".to_owned(),
-            ));
-        }
-    };
-    let body = serde_json::json!({
-        "principal_id": principal_id.as_str(),
-        "trust_domain": trust_domain.as_str(),
-        "subordinate_key_kind": kind_str,
-        "subordinate_kid": subordinate.kid,
-        "subordinate_alg": subordinate.alg,
-        "subordinate_public_key": subordinate.public_key,
-        "generation": generation,
-    });
-    let mut out = binding_contexts::CROSS_SIGNING_BIND_PREFIX.to_vec();
-    out.extend_from_slice(&arkret_canonical::canonical::canonical_json_bytes(&body)?);
-    Ok(out)
 }
 
 fn canonical_device_trust_binding_input(
@@ -700,12 +512,12 @@ fn canonical_device_trust_binding_input(
 /// gave us ⇔ the key the SSK cross-signed" (§8.3 step 5).
 ///
 /// The canonical signing inputs come from the **same** constructors used
-/// everywhere else in the ecosystem — [`CrossSigningPublishContent::self_signing_binding_input`]
+/// everywhere else in the ecosystem — [`CrossSigningPublish::self_signing_binding_input`]
 /// and [`DeviceTrustBinding::canonical_input`] — so soland's
 /// `check_device_cross_signing_binding` and this client-side primitive sign and
 /// verify byte-identical bytes.
 pub struct DeviceCrossSigningChainVerification<'a> {
-    pub publish: &'a CrossSigningPublishContent,
+    pub publish: &'a CrossSigningPublish,
     pub binding: &'a DeviceTrustBinding,
     pub principal_id: &'a Did,
     pub device_id: &'a DeviceId,
@@ -736,9 +548,9 @@ pub fn verify_device_cross_signing_chain(
     // as Ed25519 (a declared `ML-DSA-65` binding must never pass because its
     // carried key happens to decode as 32 bytes).
     const EDDSA_ALG: &str = "EdDSA";
-    if publish.principal_signing_key.alg != EDDSA_ALG
-        || publish.self_signing_key.key.alg != EDDSA_ALG
-        || publish.self_signing_key.binding.alg != EDDSA_ALG
+    if publish.principal_signing_key.alg.as_str() != EDDSA_ALG
+        || publish.self_signing_key.alg.as_str() != EDDSA_ALG
+        || publish.self_signing_key.binding.alg.as_str() != EDDSA_ALG
         || binding.alg != EDDSA_ALG
     {
         return DeviceTrustState::Unverified;
@@ -757,7 +569,7 @@ pub fn verify_device_cross_signing_chain(
     }
 
     // (b) generation comparison (§5.2.1 step 5).
-    match binding.ssk_generation.cmp(&publish.generation) {
+    match binding.ssk_generation.cmp(&publish.generation.get()) {
         std::cmp::Ordering::Less => return DeviceTrustState::NeedsReverification,
         std::cmp::Ordering::Greater => return DeviceTrustState::Unverified,
         std::cmp::Ordering::Equal => {}
@@ -766,7 +578,7 @@ pub fn verify_device_cross_signing_chain(
     // (c) SSK→device: the published SSK public key MUST sign the device
     // binding over the §5.2 ak.device-trust-bind-v1 canonical input.
     let ssk_key = arkret_signatures::PublicKeyMaterial::Ed25519Multibase {
-        value: publish.self_signing_key.key.public_key.clone(),
+        value: publish.self_signing_key.public_key.as_str().to_owned(),
     };
     let Ok(device_input) = DeviceTrustBinding::canonical_input(
         principal_id,
