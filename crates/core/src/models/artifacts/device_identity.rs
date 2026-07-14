@@ -418,7 +418,7 @@ mod tests {
 
     use super::*;
 
-    fn publish_value() -> serde_json::Value {
+    fn publish_value() -> Value {
         json!({
             "principal_id": "did:webvh:z6mkfixture:alice.example",
             "trust_domain": "ak:trust_domain:example.net",
