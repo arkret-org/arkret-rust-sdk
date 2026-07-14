@@ -8,8 +8,9 @@ use serde_json::Value;
 
 pub use crate::HttpMessageSignature;
 use crate::{
-    BlobRef, Did, Error, EventId, FederationTransactionRequestBody, Hash, Operation, OperationId,
-    RealmId, Result, TypedTrustDomainId, canonical,
+    BlobRef, Did, Error, EventEnvelope, EventId, EventsSubmitRejectedItem,
+    FederationTransactionRequestBody, Hash, Operation, OperationId, RealmId, Result,
+    TypedTrustDomainId, canonical,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -305,11 +306,11 @@ impl FederationBackfillQuery {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FederationBackfillOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub events: Vec<Value>,
+    pub events: Vec<EventEnvelope>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub state_events: Vec<Value>,
+    pub state_events: Vec<EventEnvelope>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub auth_events: Vec<Value>,
+    pub auth_events: Vec<EventEnvelope>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
 }
@@ -323,7 +324,7 @@ pub struct FederationEventAuthQuery {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FederationEventAuthOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub auth_chain: Vec<Value>,
+    pub auth_chain: Vec<EventEnvelope>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_digest: Option<Hash>,
 }
@@ -408,7 +409,7 @@ pub struct FederationDeltaBatch {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub accepted: Vec<OperationId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<Value>,
+    pub rejected: Vec<EventsSubmitRejectedItem>,
 }
 
 #[cfg(test)]

@@ -283,7 +283,11 @@ class SchemaResolver:
             if not isinstance(definitions, dict):
                 continue
             for name, node in definitions.items():
-                index.setdefault(name, []).append((path, name, node))
+                candidate = (path, name, node)
+                index.setdefault(name, []).append(candidate)
+                normalized = self.rust_name_to_schema_name(name)
+                if normalized != name:
+                    index.setdefault(normalized, []).append(candidate)
         self.def_index = index
         return index
 

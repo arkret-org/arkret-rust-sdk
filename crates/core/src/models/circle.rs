@@ -910,7 +910,6 @@ impl Circle {
             created_at: Utc::now(),
             updated_by: None,
             updated_at: None,
-            extra: BTreeMap::new(),
         }
     }
 

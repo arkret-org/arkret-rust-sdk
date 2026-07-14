@@ -145,7 +145,9 @@ impl MlsWelcomeCarrier {
         ciphertext: Option<NonEmptyString>,
     ) -> std::result::Result<Self, &'static str> {
         if welcome_ref.is_none() && encrypted_welcome_ref.is_none() && ciphertext.is_none() {
-            return Err("MLS Welcome carrier must include welcome_ref, encrypted_welcome_ref, or ciphertext");
+            return Err(
+                "MLS Welcome carrier must include welcome_ref, encrypted_welcome_ref, or ciphertext",
+            );
         }
         Ok(Self {
             welcome_ref,
@@ -996,10 +998,7 @@ pub fn validate_mls_welcome_claim_envelope(
         || published.keypackage_digest.as_str() != claim.keypackage_digest.as_str()
         || welcome.claim_ref.capabilities_digest.as_str() != claim.capabilities_digest.as_str()
         || welcome.claim_ref.trust_binding.ssk_generation() != claim.ssk_generation
-        || welcome
-            .claim_ref
-            .trust_binding
-            .device_authorize_event_id()
+        || welcome.claim_ref.trust_binding.device_authorize_event_id()
             != claim.device_authorize_event_id.as_deref()
     {
         return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);

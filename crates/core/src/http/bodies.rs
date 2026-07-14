@@ -358,15 +358,24 @@ pub struct EventsQueryOutcome {
     #[serde(default)]
     pub events: Vec<Event>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub snapshot_bootstrap: Option<Value>,
+    pub snapshot_bootstrap: Option<SnapshotBootstrap>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_cursor: Option<String>,
     #[serde(default)]
     pub has_more: bool,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub range_completeness: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub range_completeness: Option<EventsRangeCompleteness>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct EventsRangeCompleteness {
+    pub attestation_refs: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attestations: Vec<EventEnvelope>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1017,8 +1026,8 @@ pub struct SessionGrantRequestBody {
     pub requested_scope: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent_key_authorization_ref: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub agent_scope_request: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_scope_request: Option<SessionGrantAgentScopeRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dpop_binding_proof: Option<SessionGrantDpopBindingProof>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1034,9 +1043,21 @@ pub struct SessionGrantDpopBindingProof {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantAgentScopeRequest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub realm_ids: Vec<RealmId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub strand_ids: Vec<StrandId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub track_names: Vec<NonEmptyString>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantAppletDelegation {
     pub applet_id: String,
-    pub effective_scope: Value,
+    pub effective_scope: EffectiveScope,
     pub registration_epoch: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_id: Option<Did>,

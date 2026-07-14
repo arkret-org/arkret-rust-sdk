@@ -284,7 +284,7 @@ pub const SESSION_REVOKE_OPERATION_ID: &str = "ak.gate.account.command.revoke_se
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantAppletSelector {
     pub applet_id: String,
-    pub effective_scope: Value,
+    pub effective_scope: EffectiveScope,
     pub registration_epoch: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_id: Option<Did>,

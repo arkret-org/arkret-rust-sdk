@@ -13,39 +13,40 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::base::BaseClient;
-use crate::{Did, Result};
+use crate::{Did, Hash, NonEmptyString, Result};
 
 /// Standard account-data type for the personal blocklist
 /// (`moderation.md` §4.1).
 pub const ACCOUNT_DATA_BLOCKLIST: &str = "ak.account.blocklist";
 
 /// AKP R3 spec-sync (2026-05-27) — wire payload for `ak.account_data.set`.
-/// Mirrors the spec event payload `account-data-set.schema.json` shape:
-/// owner/key/body/encrypted_content/body_digest/tombstone/updated_at/
+/// Mirrors `event-payload.schema.json#/$defs/account_data_set_payload`:
+/// owner/key/body/encrypted_payload/body_digest/tombstone/updated_at/
 /// expected_state_digest.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AccountDataSetPayload {
     /// Account owner DID. MUST equal the submitting actor.
     pub owner: Did,
     /// Account-data type key (e.g. `ak.account.blocklist`,
     /// `m.push_rules`).
-    pub key: String,
-    /// Cleartext body. Mutually exclusive with `encrypted_content`.
+    pub key: NonEmptyString,
+    /// Cleartext body.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub body: Option<Value>,
+    pub body: Option<BTreeMap<String, Value>>,
     /// AEAD-wrapped body (preferred at rest for sensitive types).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_content: Option<Value>,
+    pub encrypted_payload: Option<BTreeMap<String, Value>>,
     /// SHA-256 digest of the canonical body for tombstone-safe deletes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub body_digest: Option<String>,
+    pub body_digest: Option<Hash>,
     /// Tombstone marker — when true the entry is logically deleted.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub tombstone: bool,
     pub updated_at: DateTime<Utc>,
     /// CAS guard against expected per-key state digest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_state_digest: Option<String>,
+    pub expected_state_digest: Option<Hash>,
 }
 
 /// AKP R3 spec-sync (2026-05-27) — `ak.account.blocklist` payload shape.

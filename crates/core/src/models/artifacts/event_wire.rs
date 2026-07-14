@@ -323,7 +323,7 @@ pub struct EventBatchReceiptFrontier {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_seq: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_id: Option<EventRef>,
+    pub event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -338,9 +338,16 @@ pub struct EventBatchReceipt {
     pub issuer: Did,
     pub scope: EventBatchReceiptScope,
     pub frontier: EventBatchReceiptFrontier,
-    pub events: Vec<Value>,
+    pub events: Vec<EventBatchReceiptEvent>,
     pub created_at: DateTime<Utc>,
     pub proofs: Vec<Proof>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum EventBatchReceiptEvent {
+    Event(EventId),
+    Digest(Hash),
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/board_space_id`.

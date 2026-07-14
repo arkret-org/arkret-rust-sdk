@@ -43,9 +43,9 @@ pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};
 pub use constants::*;
 pub use error::{Error, Result, WireError};
-pub use extension_map::XExtensionMap;
 pub use error_codes::*;
 pub use events::*;
+pub use extension_map::XExtensionMap;
 pub use generated::{EVENT_KIND_COUNT, EventKind};
 pub use move_event::{
     Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,

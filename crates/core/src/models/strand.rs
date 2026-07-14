@@ -4,7 +4,7 @@ use super::*;
 
 /// Shared `metadata` shape for materialised objects that carry
 /// `metadata.title` / `metadata.summary` (Strand, Morph). Field set matches
-/// `strand.schema.json#/$defs/metadata` (common-fields §3): `title`, `summary`,
+/// `strand.schema.json#/$defs/strand_metadata` (common-fields §3): `title`, `summary`,
 /// `fields`, plus a `#[serde(flatten)]` `extra` catch-all. Empty `fields` is
 /// omitted from the wire (`skip_serializing_if`), so objects that do not use
 /// `metadata.fields` (e.g. Morph, which carries top-level `fields`) serialise

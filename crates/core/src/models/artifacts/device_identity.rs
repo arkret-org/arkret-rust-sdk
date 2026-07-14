@@ -170,7 +170,8 @@ pub enum CrossSigningResetProof {
     TrustedRecoveryService(TrustedRecoveryServiceProof),
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/delivery-binding-stale.schema.json#/properties/handover_proof`.
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/delivery-binding-stale.schema.json#/properties/handover_proof`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliveryBindingStaleHandoverProof {
     pub frontier: Vec<EventId>,
@@ -291,7 +292,7 @@ pub enum KeyVerificationCancellationCode {
 pub type StringList = Vec<String>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/identity-receipt.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityReceipt {
     pub schema: String,

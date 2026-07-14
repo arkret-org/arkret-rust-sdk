@@ -164,41 +164,6 @@ impl MembershipPayload {
     }
 }
 
-/// serde adapter that maps a `BTreeMap<String, Value>` to/from wire keys
-/// carrying the mandatory `x_` extension prefix.
-mod x_prefixed_map {
-    use serde::ser::SerializeMap;
-    use serde::{Deserializer, Serializer};
-
-    use super::*;
-
-    pub fn serialize<S: Serializer>(
-        map: &BTreeMap<String, Value>,
-        serializer: S,
-    ) -> std::result::Result<S::Ok, S::Error> {
-        let mut m = serializer.serialize_map(Some(map.len()))?;
-        for (k, v) in map {
-            let key = if k.starts_with("x_") {
-                k.clone()
-            } else {
-                format!("x_{k}")
-            };
-            m.serialize_entry(&key, v)?;
-        }
-        m.end()
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(
-        deserializer: D,
-    ) -> std::result::Result<BTreeMap<String, Value>, D::Error> {
-        let raw = BTreeMap::<String, Value>::deserialize(deserializer)?;
-        Ok(raw
-            .into_iter()
-            .map(|(k, v)| (k.strip_prefix("x_").map(str::to_owned).unwrap_or(k), v))
-            .collect())
-    }
-}
-
 /// Directed-create form of `invite_payload`
 /// (`event-payload.schema.json#/$defs/invite_payload`, anyOf branch that
 /// requires `invitee + invite_delivery_target + introduction_evidence_digest
@@ -223,11 +188,10 @@ pub struct InviteCreatePayload {
     pub expires_at: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    /// `x_*` extension properties (key is stored WITHOUT the `x_` prefix; the
-    /// prefix is re-applied on serialize). e.g. `role` => wire `x_role`.
+    /// `x_*` extension properties.
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(flatten, default, with = "x_prefixed_map")]
-    pub extensions: BTreeMap<String, Value>,
+    #[serde(flatten, default)]
+    pub extensions: XExtensionMap,
 }
 
 impl InviteCreatePayload {
@@ -245,13 +209,21 @@ impl InviteCreatePayload {
             introduction_evidence_digest,
             expires_at,
             reason: None,
-            extensions: BTreeMap::new(),
+            extensions: XExtensionMap::default(),
         }
     }
 
-    pub fn with_extension(mut self, key: impl Into<String>, value: Value) -> Self {
-        self.extensions.insert(key.into(), value);
-        self
+    pub fn with_extension(mut self, key: impl Into<String>, value: Value) -> Result<Self> {
+        let key = key.into();
+        let wire_key = if key.starts_with("x_") {
+            key
+        } else {
+            format!("x_{key}")
+        };
+        self.extensions
+            .insert(wire_key, value)
+            .map_err(|error| Error::Protocol(error.to_owned()))?;
+        Ok(self)
     }
 
     pub fn from_wire_value(value: &Value) -> Result<Self> {

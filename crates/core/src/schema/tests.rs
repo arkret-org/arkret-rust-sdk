@@ -851,7 +851,8 @@ fn invite_payload_strong_types_pass_spec_validator() {
         Hash::new("sha256:".to_owned() + &"a".repeat(64)).unwrap(),
         chrono::Utc::now() + chrono::Duration::days(7),
     )
-    .with_extension("role", json!("member"));
+    .with_extension("role", json!("member"))
+    .unwrap();
     let create_value = create.to_value().unwrap();
     assert_eq!(create_value["x_role"], "member");
     catalog

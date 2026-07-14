@@ -6,7 +6,7 @@ use serde_json::Value;
 
 /// JSON object whose members are restricted to the protocol `x_*` extension
 /// namespace (`^x_[a-z][a-z0-9_]{0,63}$`).
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
 pub struct XExtensionMap(BTreeMap<String, Value>);
 
@@ -29,6 +29,18 @@ impl XExtensionMap {
 
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    pub fn insert(
+        &mut self,
+        key: impl Into<String>,
+        value: Value,
+    ) -> Result<Option<Value>, &'static str> {
+        let key = key.into();
+        if !is_x_extension_key(&key) {
+            return Err("extension keys must match ^x_[a-z][a-z0-9_]{0,63}$");
+        }
+        Ok(self.0.insert(key, value))
     }
 }
 

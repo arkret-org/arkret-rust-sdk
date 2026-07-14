@@ -110,12 +110,12 @@ pub enum CandidateError {
 }
 
 /// Typed `MemberDeliveryBindingCandidate` corresponding 1:1 to
-/// `artifacts/schemas/member-delivery-binding-candidate.schema.json`.
+/// `spec/v1/artifacts/schemas/member-delivery-binding-candidate.schema.json`.
 ///
 /// `additionalProperties: false` at the schema level is enforced here by
 /// `#[serde(deny_unknown_fields)]` so the SDK refuses to silently widen
 /// the wire shape.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MemberDeliveryBindingCandidate {
@@ -129,12 +129,11 @@ pub struct MemberDeliveryBindingCandidate {
     pub issuer_service_id: Did,
     pub audience: String,
     pub expires_at: DateTime<Utc>,
+    pub issued_at: DateTime<Utc>,
+    pub source_refs: Vec<EventId>,
+    pub proofs: Vec<Proof>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub issued_at: Option<DateTime<Utc>>,
-    pub source_refs: Vec<String>,
-    pub proofs: Vec<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub claim_digest: Option<String>,
+    pub claim_digest: Option<Hash>,
     pub intent: CandidateIntent,
 }
 

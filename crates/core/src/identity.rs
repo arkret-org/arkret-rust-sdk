@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Did, DidDocumentRef, Hash, IdentityResolveOutcome, Proof, Result};
+use crate::{Did, DidDocumentRef, Hash, IdentityReceipt, IdentityResolveOutcome, Proof, Result};
 
 /// §3.2.1 deterministic primary-handle selection, `claim_digest`, and
 /// §3.8.2 mention/subject rendering. wasm-safe, dependency-free helpers
@@ -247,7 +247,7 @@ pub struct KeyLogHead {
     pub seq: u64,
     pub head_event_digest: Hash,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub receipts: Vec<Value>,
+    pub receipts: Vec<IdentityReceipt>,
 }
 
 pub fn resolve_response_from_document(

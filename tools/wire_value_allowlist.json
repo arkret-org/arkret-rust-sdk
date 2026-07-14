@@ -13,6 +13,30 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
+      "rust_field": "crates/core/src/http/bodies.rs::EventView.receipts",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventView/properties/receipts",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/http/bodies.rs::EventView.visibility",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventView/properties/visibility",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/http/bodies.rs::EventsSubmitOutcome.actor_frontier",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome/properties/actor_frontier",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/http/bodies.rs::EventsSubmitOutcome.realm_frontier",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome/properties/realm_frontier",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
       "rust_field": "crates/core/src/identity_key_log.rs::DidKeyLogEntry.operation_body",
       "spec_pointer": "did-key-log-entry.schema.json/properties/operation_body",
       "classification": "open_json",
@@ -67,8 +91,32 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
+      "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessage.content",
+      "spec_pointer": "device-message.schema.json/properties/content",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessage.device_proof",
+      "spec_pointer": "device-message.schema.json/properties/device_proof",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessage.unsigned",
+      "spec_pointer": "device-message.schema.json/properties/unsigned",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
       "rust_field": "crates/core/src/models/artifacts/account.rs::EventContainer.extra",
       "spec_pointer": "account-subscribe-frame.schema.json#/$defs/event_container/additionalProperties",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/artifacts/account.rs::Timeline.extra",
+      "spec_pointer": "account-subscribe-frame.schema.json#/$defs/timeline/additionalProperties",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
@@ -373,6 +421,12 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
+      "rust_field": "crates/core/src/models/artifacts/object_facets.rs::MorphCustomerRiskFields.extra",
+      "spec_pointer": "morph-customer-risk.schema.json#/properties/fields/additionalProperties",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
       "rust_field": "crates/core/src/models/artifacts/object_facets.rs::StrandTrack.metadata",
       "spec_pointer": "strand.schema.json#/$defs/strand_track/properties/metadata",
       "classification": "open_json",
@@ -387,6 +441,18 @@
     {
       "rust_field": "crates/core/src/models/artifacts/sync.rs::CellLattice.parameters",
       "spec_pointer": "realm.schema.json#/$defs/cell_lattice/properties/parameters",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/artifacts/sync.rs::RangeCompletenessAttestationEventRangeFromFrontier.extra",
+      "spec_pointer": "range-completeness-attestation.schema.json#/properties/event_range/properties/from_frontier/additionalProperties",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/artifacts/sync.rs::RangeCompletenessAttestationEventRangeToFrontier.extra",
+      "spec_pointer": "range-completeness-attestation.schema.json#/properties/event_range/properties/to_frontier/additionalProperties",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
@@ -411,6 +477,78 @@
     {
       "rust_field": "crates/core/src/models/artifacts/view.rs::CollectionGrouping.lanes",
       "spec_pointer": "view.schema.json#/$defs/collection_grouping/properties/lanes",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/artifacts/view.rs::QueryValue.extra",
+      "spec_pointer": "view.schema.json#/$defs/query/additionalProperties",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/artifacts/view.rs::QueryValue.filters",
+      "spec_pointer": "view.schema.json#/$defs/query/properties/filters",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/artifacts/view.rs::QueryValue.relation",
+      "spec_pointer": "view.schema.json#/$defs/query/properties/relation",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.applied_constraints",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/applied_constraints",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.frontier",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/frontier",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.matched_grants",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/matched_grants",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.missing_proofs",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/missing_proofs",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.obligations",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/obligations",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.policy_results",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/policy_results",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckRequestBody.context",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckRequestBody/properties/context",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckRequestBody.resource",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckRequestBody/properties/resource",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/directory.rs::DirectoryAnnounceRequestBody.discovery_state",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/DirectoryAnnounceRequestBody/properties/discovery_state",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
@@ -451,6 +589,18 @@
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
+      "rust_field": "crates/core/src/models/directory.rs::DirectoryWithdrawRequestBody.governance_proof",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody/properties/governance_proof",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/event_query.rs::EventsQueryPostRequestBody.filters",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsQueryPostRequestBody/properties/filters",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
       "rust_field": "crates/core/src/models/event_sync.rs::EventsFrontierAccountClientState.receipts",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsFrontierAccountClientState/properties/receipts",
       "classification": "open_json",
@@ -465,6 +615,48 @@
     {
       "rust_field": "crates/core/src/models/event_sync.rs::EventsFrontierFederationPeerState.witness_receipts",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsFrontierFederationPeerState/properties/witness_receipts",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/identity.rs::DidOperationSubmitRequestBody.operation",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/DidOperationSubmitRequestBody/properties/operation",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/identity.rs::DidOperationSubmitRequestBody.policy_context",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/DidOperationSubmitRequestBody/properties/policy_context",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/identity.rs::IdentityLogListOutcome.events",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/IdentityLogListOutcome/properties/events",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/keys.rs::DeviceMessageEnvelope.content",
+      "spec_pointer": "device-message.schema.json#/$defs/DeviceMessageEnvelope/properties/content",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/keys.rs::DeviceMessageEnvelope.device_proof",
+      "spec_pointer": "device-message.schema.json#/$defs/DeviceMessageEnvelope/properties/device_proof",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/keys.rs::DeviceMessageEnvelope.unsigned",
+      "spec_pointer": "device-message.schema.json#/$defs/DeviceMessageEnvelope/properties/unsigned",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/keys.rs::DeviceMessageTarget.content",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/DeviceMessageTarget/properties/content",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
@@ -519,6 +711,24 @@
     {
       "rust_field": "crates/core/src/models/operation_payloads/object_create.rs::ObjectCreatePayload.initial_relations",
       "spec_pointer": "event-payload.schema.json#/$defs/object_create_payload/properties/initial_relations",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/policy_check.rs::PolicyCheckOutcome.obligations",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/PolicyCheckOutcome/properties/obligations",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/policy_check.rs::PolicyCheckRequestBody.auth_context",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/PolicyCheckRequestBody/properties/auth_context",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/policy_check.rs::PolicyCheckRequestBody.event_preview",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/PolicyCheckRequestBody/properties/event_preview",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
@@ -621,6 +831,30 @@
     {
       "rust_field": "crates/core/src/models/realm_governance.rs::RealmModerationPolicyDocument.policy",
       "spec_pointer": "realm-read-operations.schema.json#/$defs/realm_moderation_policy_document/properties/policy",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/strand.rs::ObjectMetadata.extra",
+      "spec_pointer": "strand.schema.json#/$defs/strand_metadata/additionalProperties",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/core/src/models/strand.rs::ObjectMetadata.fields",
+      "spec_pointer": "strand.schema.json#/$defs/strand_metadata/properties/fields",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/sdk/src/account.rs::AccountDataSetPayload.body",
+      "spec_pointer": "event-payload.schema.json#/$defs/account_data_set_payload/properties/body",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
+    },
+    {
+      "rust_field": "crates/sdk/src/account.rs::AccountDataSetPayload.encrypted_payload",
+      "spec_pointer": "event-payload.schema.json#/$defs/account_data_set_payload/properties/encrypted_payload",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },

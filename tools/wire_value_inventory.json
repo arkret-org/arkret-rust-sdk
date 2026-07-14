@@ -1,8 +1,8 @@
 {
   "summary": {
-    "total": 478,
+    "total": 446,
     "by_crate": {
-      "core": 374,
+      "core": 342,
       "ffi": 1,
       "schema": 8,
       "sdk": 51,
@@ -13,15 +13,15 @@
       "wire-edge": 17
     },
     "by_classification": {
-      "open_json": 113,
-      "unclassified": 365
+      "open_json": 152,
+      "unclassified": 294
     },
     "by_schema_shape": {
       "closed": 1,
       "open_json": 20,
-      "open_json_container": 28,
-      "open_map": 72,
-      "unknown": 357
+      "open_json_container": 36,
+      "open_map": 96,
+      "unknown": 293
     }
   },
   "entries": [
@@ -211,7 +211,7 @@
       "rust_field": "crates/core/src/http/bodies.rs::AccountDevicePairOutcome.key_backup_hint",
       "crate": "core",
       "file": "crates/core/src/http/bodies.rs",
-      "line": 1395,
+      "line": 1416,
       "owner": "AccountDevicePairOutcome",
       "field": "key_backup_hint",
       "rust_type": "Option<BTreeMap<String, Value>>",
@@ -224,7 +224,7 @@
       "rust_field": "crates/core/src/http/bodies.rs::AdminServerStatusOutcome.capacity",
       "crate": "core",
       "file": "crates/core/src/http/bodies.rs",
-      "line": 1467,
+      "line": 1488,
       "owner": "AdminServerStatusOutcome",
       "field": "capacity",
       "rust_type": "Value",
@@ -237,7 +237,7 @@
       "rust_field": "crates/core/src/http/bodies.rs::DirectoryPrivateContactDiscoveryRequestBody.padding",
       "crate": "core",
       "file": "crates/core/src/http/bodies.rs",
-      "line": 639,
+      "line": 648,
       "owner": "DirectoryPrivateContactDiscoveryRequestBody",
       "field": "padding",
       "rust_type": "BTreeMap<String, Value>",
@@ -254,10 +254,10 @@
       "owner": "EventView",
       "field": "receipts",
       "rust_type": "Vec<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventView/properties/receipts",
+      "schema_shape": "open_json_container",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/http/bodies.rs::EventView.visibility",
@@ -267,10 +267,10 @@
       "owner": "EventView",
       "field": "visibility",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventView/properties/visibility",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/http/bodies.rs::EventsDescribeOutcome.limits",
@@ -286,32 +286,6 @@
       "reason": null
     },
     {
-      "rust_field": "crates/core/src/http/bodies.rs::EventsQueryOutcome.range_completeness",
-      "crate": "core",
-      "file": "crates/core/src/http/bodies.rs",
-      "line": 367,
-      "owner": "EventsQueryOutcome",
-      "field": "range_completeness",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/http/bodies.rs::EventsQueryOutcome.snapshot_bootstrap",
-      "crate": "core",
-      "file": "crates/core/src/http/bodies.rs",
-      "line": 359,
-      "owner": "EventsQueryOutcome",
-      "field": "snapshot_bootstrap",
-      "rust_type": "Option<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
       "rust_field": "crates/core/src/http/bodies.rs::EventsSubmitOutcome.actor_frontier",
       "crate": "core",
       "file": "crates/core/src/http/bodies.rs",
@@ -319,10 +293,10 @@
       "owner": "EventsSubmitOutcome",
       "field": "actor_frontier",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome/properties/actor_frontier",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/http/bodies.rs::EventsSubmitOutcome.realm_frontier",
@@ -332,10 +306,10 @@
       "owner": "EventsSubmitOutcome",
       "field": "realm_frontier",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome/properties/realm_frontier",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/http/bodies.rs::EventsSubscribeFrame.payload",
@@ -354,7 +328,7 @@
       "rust_field": "crates/core/src/http/bodies.rs::MimiProviderDirectory.features",
       "crate": "core",
       "file": "crates/core/src/http/bodies.rs",
-      "line": 771,
+      "line": 780,
       "owner": "MimiProviderDirectory",
       "field": "features",
       "rust_type": "Value",
@@ -367,7 +341,7 @@
       "rust_field": "crates/core/src/http/bodies.rs::MimiProviderDirectory.providers",
       "crate": "core",
       "file": "crates/core/src/http/bodies.rs",
-      "line": 769,
+      "line": 778,
       "owner": "MimiProviderDirectory",
       "field": "providers",
       "rust_type": "Vec<Value>",
@@ -380,7 +354,7 @@
       "rust_field": "crates/core/src/http/bodies.rs::ModerationQueueView.counts",
       "crate": "core",
       "file": "crates/core/src/http/bodies.rs",
-      "line": 1524,
+      "line": 1545,
       "owner": "ModerationQueueView",
       "field": "counts",
       "rust_type": "Value",
@@ -393,7 +367,7 @@
       "rust_field": "crates/core/src/http/bodies.rs::ModerationQueueView.items",
       "crate": "core",
       "file": "crates/core/src/http/bodies.rs",
-      "line": 1520,
+      "line": 1541,
       "owner": "ModerationQueueView",
       "field": "items",
       "rust_type": "Vec<Value>",
@@ -403,38 +377,12 @@
       "reason": null
     },
     {
-      "rust_field": "crates/core/src/http/bodies.rs::SessionGrantAppletDelegation.effective_scope",
-      "crate": "core",
-      "file": "crates/core/src/http/bodies.rs",
-      "line": 1038,
-      "owner": "SessionGrantAppletDelegation",
-      "field": "effective_scope",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
       "rust_field": "crates/core/src/http/bodies.rs::SessionGrantIntrospectGrant.scope_details",
       "crate": "core",
       "file": "crates/core/src/http/bodies.rs",
-      "line": 1323,
+      "line": 1344,
       "owner": "SessionGrantIntrospectGrant",
       "field": "scope_details",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/http/bodies.rs::SessionGrantRequestBody.agent_scope_request",
-      "crate": "core",
-      "file": "crates/core/src/http/bodies.rs",
-      "line": 1019,
-      "owner": "SessionGrantRequestBody",
-      "field": "agent_scope_request",
       "rust_type": "Value",
       "spec_pointer": null,
       "schema_shape": "unknown",
@@ -475,19 +423,6 @@
       "owner": "HandleBinding",
       "field": "proof",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/identity.rs::KeyLogHead.receipts",
-      "crate": "core",
-      "file": "crates/core/src/identity.rs",
-      "line": 248,
-      "owner": "KeyLogHead",
-      "field": "receipts",
-      "rust_type": "Vec<Value>",
       "spec_pointer": null,
       "schema_shape": "unknown",
       "classification": "unclassified",
@@ -559,19 +494,6 @@
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
-      "rust_field": "crates/core/src/models/account.rs::SessionGrantAppletSelector.effective_scope",
-      "crate": "core",
-      "file": "crates/core/src/models/account.rs",
-      "line": 286,
-      "owner": "SessionGrantAppletSelector",
-      "field": "effective_scope",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
       "rust_field": "crates/core/src/models/actor_profile.rs::ActorProfile.profile_fields",
       "crate": "core",
       "file": "crates/core/src/models/actor_profile.rs",
@@ -627,7 +549,7 @@
       "rust_field": "crates/core/src/models/agent.rs::AgentProvisionRequestBody.accountability",
       "crate": "core",
       "file": "crates/core/src/models/agent.rs",
-      "line": 92,
+      "line": 93,
       "owner": "AgentProvisionRequestBody",
       "field": "accountability",
       "rust_type": "Value",
@@ -696,10 +618,10 @@
       "owner": "DeviceMessage",
       "field": "content",
       "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": "account-subscribe-frame.schema.json#/$defs/device_message_container",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "device-message.schema.json/properties/content",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessage.device_proof",
@@ -709,36 +631,10 @@
       "owner": "DeviceMessage",
       "field": "device_proof",
       "rust_type": "Option<BTreeMap<String, Value>>",
-      "spec_pointer": "account-subscribe-frame.schema.json#/$defs/device_message_container",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessage.recipient_principal_id",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/account.rs",
-      "line": 238,
-      "owner": "DeviceMessage",
-      "field": "recipient_principal_id",
-      "rust_type": "Value",
-      "spec_pointer": "account-subscribe-frame.schema.json#/$defs/device_message_container",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessage.sender_principal_id",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/account.rs",
-      "line": 236,
-      "owner": "DeviceMessage",
-      "field": "sender_principal_id",
-      "rust_type": "Value",
-      "spec_pointer": "account-subscribe-frame.schema.json#/$defs/device_message_container",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "device-message.schema.json/properties/device_proof",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessage.unsigned",
@@ -748,10 +644,10 @@
       "owner": "DeviceMessage",
       "field": "unsigned",
       "rust_type": "Option<BTreeMap<String, Value>>",
-      "spec_pointer": "account-subscribe-frame.schema.json#/$defs/device_message_container",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "device-message.schema.json/properties/unsigned",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessageContainer.extra",
@@ -789,8 +685,8 @@
       "rust_type": "BTreeMap<String, Value>",
       "spec_pointer": "account-subscribe-frame.schema.json#/$defs/timeline/additionalProperties",
       "schema_shape": "open_map",
-      "classification": "unclassified",
-      "reason": null
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/artifacts/agent.rs::KeyState.pending_runtime_key_request",
@@ -936,58 +832,6 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/blob.rs::Blob.extra",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/blob.rs",
-      "line": 82,
-      "owner": "Blob",
-      "field": "extra",
-      "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/blob.rs::Blob.realm_id",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/blob.rs",
-      "line": 65,
-      "owner": "Blob",
-      "field": "realm_id",
-      "rust_type": "Option<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/blob.rs::EncryptedAttachment.extra",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/blob.rs",
-      "line": 57,
-      "owner": "EncryptedAttachment",
-      "field": "extra",
-      "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/blob.rs::EncryptedAttachmentKeyRef.group_state_ref",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/blob.rs",
-      "line": 42,
-      "owner": "EncryptedAttachmentKeyRef",
-      "field": "group_state_ref",
-      "rust_type": "Value",
-      "spec_pointer": "blob.schema.json",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
       "rust_field": "crates/core/src/models/artifacts/contact_directory.rs::BlindedContact.padding",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/contact_directory.rs",
@@ -1001,101 +845,10 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/device_identity.rs::DeliveryBindingStale.extra",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/device_identity.rs",
-      "line": 188,
-      "owner": "DeliveryBindingStale",
-      "field": "extra",
-      "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/device_identity.rs::DeliveryBindingStale.handover_frontier",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/device_identity.rs",
-      "line": 186,
-      "owner": "DeliveryBindingStale",
-      "field": "handover_frontier",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/device_identity.rs::DeliveryBindingStale.new_recipient_service_id",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/device_identity.rs",
-      "line": 185,
-      "owner": "DeliveryBindingStale",
-      "field": "new_recipient_service_id",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/device_identity.rs::DeliveryBindingStaleHandoverProof.actor_id",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/device_identity.rs",
-      "line": 177,
-      "owner": "DeliveryBindingStaleHandoverProof",
-      "field": "actor_id",
-      "rust_type": "Value",
-      "spec_pointer": "delivery-binding-stale.schema.json",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/device_identity.rs::DeliveryBindingStaleHandoverProof.frontier",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/device_identity.rs",
-      "line": 175,
-      "owner": "DeliveryBindingStaleHandoverProof",
-      "field": "frontier",
-      "rust_type": "Value",
-      "spec_pointer": "delivery-binding-stale.schema.json",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/device_identity.rs::DeliveryBindingStaleHandoverProof.recipient_service_id",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/device_identity.rs",
-      "line": 176,
-      "owner": "DeliveryBindingStaleHandoverProof",
-      "field": "recipient_service_id",
-      "rust_type": "Value",
-      "spec_pointer": "delivery-binding-stale.schema.json",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/device_identity.rs::DeliveryBindingStaleHandoverProof.witness",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/device_identity.rs",
-      "line": 178,
-      "owner": "DeliveryBindingStaleHandoverProof",
-      "field": "witness",
-      "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": "delivery-binding-stale.schema.json",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
       "rust_field": "crates/core/src/models/artifacts/device_identity.rs::KeyVerificationContent.device_metadata",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/device_identity.rs",
-      "line": 234,
+      "line": 235,
       "owner": "KeyVerificationContent",
       "field": "device_metadata",
       "rust_type": "Option<BTreeMap<String, Value>>",
@@ -1108,7 +861,7 @@
       "rust_field": "crates/core/src/models/artifacts/device_identity.rs::KeyVerificationContent.extra",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/device_identity.rs",
-      "line": 260,
+      "line": 261,
       "owner": "KeyVerificationContent",
       "field": "extra",
       "rust_type": "BTreeMap<String, Value>",
@@ -1121,7 +874,7 @@
       "rust_field": "crates/core/src/models/artifacts/device_identity.rs::KeyVerificationContent.signatures",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/device_identity.rs",
-      "line": 254,
+      "line": 255,
       "owner": "KeyVerificationContent",
       "field": "signatures",
       "rust_type": "Option<BTreeMap<String, Value>>",
@@ -1134,7 +887,7 @@
       "rust_field": "crates/core/src/models/artifacts/device_identity.rs::KeyVerificationContentNewDevicePubkey.extra",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/device_identity.rs",
-      "line": 206,
+      "line": 207,
       "owner": "KeyVerificationContentNewDevicePubkey",
       "field": "extra",
       "rust_type": "BTreeMap<String, Value>",
@@ -1235,49 +988,10 @@
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/event_payload/applet_audit.rs::AuditReleasePayloadEligibilityProof.activation_commit_ref",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/event_payload/applet_audit.rs",
-      "line": 264,
-      "owner": "AuditReleasePayloadEligibilityProof",
-      "field": "activation_commit_ref",
-      "rust_type": "Option<Value>",
-      "spec_pointer": "event-payload.schema.json#/$defs/audit_release_payload",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/event_payload/applet_audit.rs::AuditReleasePayloadEligibilityProof.policy_snapshot_digest",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/event_payload/applet_audit.rs",
-      "line": 266,
-      "owner": "AuditReleasePayloadEligibilityProof",
-      "field": "policy_snapshot_digest",
-      "rust_type": "Value",
-      "spec_pointer": "event-payload.schema.json#/$defs/audit_release_payload",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/event_payload/applet_audit.rs::AuditReleasePayloadEligibilityProof.target_eligibility_digest",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/event_payload/applet_audit.rs",
-      "line": 267,
-      "owner": "AuditReleasePayloadEligibilityProof",
-      "field": "target_eligibility_digest",
-      "rust_type": "Value",
-      "spec_pointer": "event-payload.schema.json#/$defs/audit_release_payload",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
       "rust_field": "crates/core/src/models/artifacts/event_payload/applet_audit.rs::AuditSessionPayload.notice_policy",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/event_payload/applet_audit.rs",
-      "line": 377,
+      "line": 378,
       "owner": "AuditSessionPayload",
       "field": "notice_policy",
       "rust_type": "Option<BTreeMap<String, Value>>",
@@ -1836,7 +1550,7 @@
       "rust_field": "crates/core/src/models/artifacts/keys.rs::BackupMetadata.frontier_ref",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/keys.rs",
-      "line": 215,
+      "line": 223,
       "owner": "BackupMetadata",
       "field": "frontier_ref",
       "rust_type": "Option<BTreeMap<String, Value>>",
@@ -1849,7 +1563,7 @@
       "rust_field": "crates/core/src/models/artifacts/keys.rs::BackupMetadata.recovery_policy_ref",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/keys.rs",
-      "line": 217,
+      "line": 225,
       "owner": "BackupMetadata",
       "field": "recovery_policy_ref",
       "rust_type": "Option<BTreeMap<String, Value>>",
@@ -1862,7 +1576,7 @@
       "rust_field": "crates/core/src/models/artifacts/keys.rs::BackupMetadata.retention",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/keys.rs",
-      "line": 225,
+      "line": 233,
       "owner": "BackupMetadata",
       "field": "retention",
       "rust_type": "Option<BTreeMap<String, Value>>",
@@ -1875,7 +1589,7 @@
       "rust_field": "crates/core/src/models/artifacts/keys.rs::DeviceAuthorizeMaterial.extra",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/keys.rs",
-      "line": 328,
+      "line": 336,
       "owner": "DeviceAuthorizeMaterial",
       "field": "extra",
       "rust_type": "BTreeMap<String, Value>",
@@ -1888,7 +1602,7 @@
       "rust_field": "crates/core/src/models/artifacts/keys.rs::GenericRecoveryTranscript.proof_body",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/keys.rs",
-      "line": 349,
+      "line": 357,
       "owner": "GenericRecoveryTranscript",
       "field": "proof_body",
       "rust_type": "BTreeMap<String, Value>",
@@ -1896,45 +1610,6 @@
       "schema_shape": "open_map",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/keys.rs::KeyBackupUnlockProof.extra",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/keys.rs",
-      "line": 75,
-      "owner": "KeyBackupUnlockProof",
-      "field": "extra",
-      "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/keys.rs::KeyBackupUnlockProof.proof_digest",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/keys.rs",
-      "line": 69,
-      "owner": "KeyBackupUnlockProof",
-      "field": "proof_digest",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/keys.rs::KeyBackupUnlockProofAuthData.verification_method",
-      "crate": "core",
-      "file": "crates/core/src/models/artifacts/keys.rs",
-      "line": 50,
-      "owner": "KeyBackupUnlockProofAuthData",
-      "field": "verification_method",
-      "rust_type": "Value",
-      "spec_pointer": "key-backup-unlock-proof.schema.json",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
     },
     {
       "rust_field": "crates/core/src/models/artifacts/object_facets.rs::MorphCustomerRiskExt.extra",
@@ -1972,8 +1647,8 @@
       "rust_type": "BTreeMap<String, Value>",
       "spec_pointer": "morph-customer-risk.schema.json#/properties/fields/additionalProperties",
       "schema_shape": "open_map",
-      "classification": "unclassified",
-      "reason": null
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/artifacts/object_facets.rs::StrandTrack.metadata",
@@ -1992,7 +1667,7 @@
       "rust_field": "crates/core/src/models/artifacts/sync.rs::CellLattice.initial_value",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/sync.rs",
-      "line": 83,
+      "line": 87,
       "owner": "CellLattice",
       "field": "initial_value",
       "rust_type": "Option<Value>",
@@ -2005,7 +1680,7 @@
       "rust_field": "crates/core/src/models/artifacts/sync.rs::CellLattice.parameters",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/sync.rs",
-      "line": 81,
+      "line": 85,
       "owner": "CellLattice",
       "field": "parameters",
       "rust_type": "Option<BTreeMap<String, Value>>",
@@ -2018,7 +1693,7 @@
       "rust_field": "crates/core/src/models/artifacts/sync.rs::RangeCompletenessAttestation.observed_at",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/sync.rs",
-      "line": 65,
+      "line": 69,
       "owner": "RangeCompletenessAttestation",
       "field": "observed_at",
       "rust_type": "Value",
@@ -2031,33 +1706,33 @@
       "rust_field": "crates/core/src/models/artifacts/sync.rs::RangeCompletenessAttestationEventRangeFromFrontier.extra",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/sync.rs",
-      "line": 8,
+      "line": 10,
       "owner": "RangeCompletenessAttestationEventRangeFromFrontier",
       "field": "extra",
       "rust_type": "BTreeMap<String, Value>",
       "spec_pointer": "range-completeness-attestation.schema.json#/properties/event_range/properties/from_frontier/additionalProperties",
       "schema_shape": "open_map",
-      "classification": "unclassified",
-      "reason": null
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/artifacts/sync.rs::RangeCompletenessAttestationEventRangeToFrontier.extra",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/sync.rs",
-      "line": 16,
+      "line": 20,
       "owner": "RangeCompletenessAttestationEventRangeToFrontier",
       "field": "extra",
       "rust_type": "BTreeMap<String, Value>",
       "spec_pointer": "range-completeness-attestation.schema.json#/properties/event_range/properties/to_frontier/additionalProperties",
       "schema_shape": "open_map",
-      "classification": "unclassified",
-      "reason": null
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/artifacts/sync.rs::RangeCompletenessAttestationWitnessAttestationWitnessesItem.extra",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/sync.rs",
-      "line": 43,
+      "line": 47,
       "owner": "RangeCompletenessAttestationWitnessAttestationWitnessesItem",
       "field": "extra",
       "rust_type": "BTreeMap<String, Value>",
@@ -2070,7 +1745,7 @@
       "rust_field": "crates/core/src/models/artifacts/sync.rs::Snapshot.extra",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/sync.rs",
-      "line": 194,
+      "line": 198,
       "owner": "Snapshot",
       "field": "extra",
       "rust_type": "BTreeMap<String, Value>",
@@ -2083,7 +1758,7 @@
       "rust_field": "crates/core/src/models/artifacts/sync.rs::Snapshot.signature",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/sync.rs",
-      "line": 193,
+      "line": 197,
       "owner": "Snapshot",
       "field": "signature",
       "rust_type": "Value",
@@ -2096,7 +1771,7 @@
       "rust_field": "crates/core/src/models/artifacts/sync.rs::SnapshotChunksItem.extra",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/sync.rs",
-      "line": 161,
+      "line": 165,
       "owner": "SnapshotChunksItem",
       "field": "extra",
       "rust_type": "BTreeMap<String, Value>",
@@ -2109,7 +1784,7 @@
       "rust_field": "crates/core/src/models/artifacts/sync.rs::SnapshotVerificationHintsValue.extra",
       "crate": "core",
       "file": "crates/core/src/models/artifacts/sync.rs",
-      "line": 152,
+      "line": 156,
       "owner": "SnapshotVerificationHintsValue",
       "field": "extra",
       "rust_type": "BTreeMap<String, Value>",
@@ -2193,8 +1868,8 @@
       "rust_type": "BTreeMap<String, Value>",
       "spec_pointer": "view.schema.json#/$defs/query/additionalProperties",
       "schema_shape": "open_map",
-      "classification": "unclassified",
-      "reason": null
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/artifacts/view.rs::QueryValue.filters",
@@ -2206,8 +1881,8 @@
       "rust_type": "Option<Vec<BTreeMap<String, Value>>>",
       "spec_pointer": "view.schema.json#/$defs/query/properties/filters",
       "schema_shape": "open_json_container",
-      "classification": "unclassified",
-      "reason": null
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/artifacts/view.rs::QueryValue.relation",
@@ -2219,8 +1894,8 @@
       "rust_type": "Option<BTreeMap<String, Value>>",
       "spec_pointer": "view.schema.json#/$defs/query/properties/relation",
       "schema_shape": "open_map",
-      "classification": "unclassified",
-      "reason": null
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/attestation.rs::AttestationEvidence.proofs",
@@ -2243,10 +1918,10 @@
       "owner": "AuthzCheckOutcome",
       "field": "applied_constraints",
       "rust_type": "Vec<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/applied_constraints",
+      "schema_shape": "open_json_container",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.frontier",
@@ -2256,10 +1931,10 @@
       "owner": "AuthzCheckOutcome",
       "field": "frontier",
       "rust_type": "Option<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/frontier",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.matched_grants",
@@ -2269,10 +1944,10 @@
       "owner": "AuthzCheckOutcome",
       "field": "matched_grants",
       "rust_type": "Vec<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/matched_grants",
+      "schema_shape": "open_json_container",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.missing_proofs",
@@ -2282,10 +1957,10 @@
       "owner": "AuthzCheckOutcome",
       "field": "missing_proofs",
       "rust_type": "Vec<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/missing_proofs",
+      "schema_shape": "open_json_container",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.obligations",
@@ -2295,10 +1970,10 @@
       "owner": "AuthzCheckOutcome",
       "field": "obligations",
       "rust_type": "Vec<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/obligations",
+      "schema_shape": "open_json_container",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckOutcome.policy_results",
@@ -2308,10 +1983,10 @@
       "owner": "AuthzCheckOutcome",
       "field": "policy_results",
       "rust_type": "Vec<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome/properties/policy_results",
+      "schema_shape": "open_json_container",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckRequestBody.context",
@@ -2321,10 +1996,10 @@
       "owner": "AuthzCheckRequestBody",
       "field": "context",
       "rust_type": "Option<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckRequestBody/properties/context",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/authorization.rs::AuthzCheckRequestBody.resource",
@@ -2334,10 +2009,10 @@
       "owner": "AuthzCheckRequestBody",
       "field": "resource",
       "rust_type": "Option<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckRequestBody/properties/resource",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/circle.rs::CircleScopeRotateOutcome.rejected",
@@ -2399,10 +2074,10 @@
       "owner": "DirectoryAnnounceRequestBody",
       "field": "discovery_state",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/DirectoryAnnounceRequestBody/properties/discovery_state",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/directory.rs::DirectoryHandleResolutionOutcome.claims",
@@ -2490,10 +2165,10 @@
       "owner": "DirectoryWithdrawRequestBody",
       "field": "governance_proof",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody/properties/governance_proof",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/ephemeral.rs::CallSignalPayload.data",
@@ -2542,10 +2217,10 @@
       "owner": "EventsQueryPostRequestBody",
       "field": "filters",
       "rust_type": "Option<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsQueryPostRequestBody/properties/filters",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/event_sync.rs::EventsFrontierAccountClientState.receipts",
@@ -2769,19 +2444,6 @@
       "reason": null
     },
     {
-      "rust_field": "crates/core/src/models/identity.rs::DidOperationSubmitOutcome.receipts",
-      "crate": "core",
-      "file": "crates/core/src/models/identity.rs",
-      "line": 94,
-      "owner": "DidOperationSubmitOutcome",
-      "field": "receipts",
-      "rust_type": "Vec<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
       "rust_field": "crates/core/src/models/identity.rs::DidOperationSubmitRequestBody.operation",
       "crate": "core",
       "file": "crates/core/src/models/identity.rs",
@@ -2789,10 +2451,10 @@
       "owner": "DidOperationSubmitRequestBody",
       "field": "operation",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/DidOperationSubmitRequestBody/properties/operation",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/identity.rs::DidOperationSubmitRequestBody.policy_context",
@@ -2802,23 +2464,10 @@
       "owner": "DidOperationSubmitRequestBody",
       "field": "policy_context",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/identity.rs::IdentityDocumentView.receipts",
-      "crate": "core",
-      "file": "crates/core/src/models/identity.rs",
-      "line": 52,
-      "owner": "IdentityDocumentView",
-      "field": "receipts",
-      "rust_type": "Vec<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/DidOperationSubmitRequestBody/properties/policy_context",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/identity.rs::IdentityLogListOutcome.events",
@@ -2828,23 +2477,10 @@
       "owner": "IdentityLogListOutcome",
       "field": "events",
       "rust_type": "Vec<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/identity.rs::IdentityReceiptListOutcome.receipts",
-      "crate": "core",
-      "file": "crates/core/src/models/identity.rs",
-      "line": 101,
-      "owner": "IdentityReceiptListOutcome",
-      "field": "receipts",
-      "rust_type": "Vec<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/IdentityLogListOutcome/properties/events",
+      "schema_shape": "open_json_container",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/identity.rs::IdentityResolveOutcome.method_evidence",
@@ -2854,19 +2490,6 @@
       "owner": "IdentityResolveOutcome",
       "field": "method_evidence",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/identity.rs::IdentityResolveOutcome.receipts",
-      "crate": "core",
-      "file": "crates/core/src/models/identity.rs",
-      "line": 30,
-      "owner": "IdentityResolveOutcome",
-      "field": "receipts",
-      "rust_type": "Vec<Value>",
       "spec_pointer": null,
       "schema_shape": "unknown",
       "classification": "unclassified",
@@ -3032,59 +2655,59 @@
       "rust_field": "crates/core/src/models/keys.rs::DeviceMessageEnvelope.content",
       "crate": "core",
       "file": "crates/core/src/models/keys.rs",
-      "line": 207,
+      "line": 208,
       "owner": "DeviceMessageEnvelope",
       "field": "content",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "device-message.schema.json#/$defs/DeviceMessageEnvelope/properties/content",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/keys.rs::DeviceMessageEnvelope.device_proof",
       "crate": "core",
       "file": "crates/core/src/models/keys.rs",
-      "line": 208,
+      "line": 209,
       "owner": "DeviceMessageEnvelope",
       "field": "device_proof",
       "rust_type": "Option<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "device-message.schema.json#/$defs/DeviceMessageEnvelope/properties/device_proof",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/keys.rs::DeviceMessageEnvelope.unsigned",
       "crate": "core",
       "file": "crates/core/src/models/keys.rs",
-      "line": 210,
+      "line": 211,
       "owner": "DeviceMessageEnvelope",
       "field": "unsigned",
       "rust_type": "Option<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "device-message.schema.json#/$defs/DeviceMessageEnvelope/properties/unsigned",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/keys.rs::DeviceMessageTarget.content",
       "crate": "core",
       "file": "crates/core/src/models/keys.rs",
-      "line": 193,
+      "line": 194,
       "owner": "DeviceMessageTarget",
       "field": "content",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/DeviceMessageTarget/properties/content",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/keys.rs::DeviceMessagesPutOutcome.delivered",
       "crate": "core",
       "file": "crates/core/src/models/keys.rs",
-      "line": 218,
+      "line": 219,
       "owner": "DeviceMessagesPutOutcome",
       "field": "delivered",
       "rust_type": "BTreeMap<String, Value>",
@@ -3097,7 +2720,7 @@
       "rust_field": "crates/core/src/models/keys.rs::DeviceMessagesPutOutcome.unknown_devices",
       "crate": "core",
       "file": "crates/core/src/models/keys.rs",
-      "line": 220,
+      "line": 221,
       "owner": "DeviceMessagesPutOutcome",
       "field": "unknown_devices",
       "rust_type": "BTreeMap<String, Value>",
@@ -3128,19 +2751,6 @@
       "field": "signature",
       "rust_type": "Value",
       "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/member_delivery_binding_candidate.rs::MemberDeliveryBindingCandidate.proofs",
-      "crate": "core",
-      "file": "crates/core/src/models/member_delivery_binding_candidate.rs",
-      "line": 134,
-      "owner": "MemberDeliveryBindingCandidate",
-      "field": "proofs",
-      "rust_type": "Vec<Value>",
-      "spec_pointer": "artifacts/schemas/member-delivery-binding-candidate.schema.json",
       "schema_shape": "unknown",
       "classification": "unclassified",
       "reason": null
@@ -3201,7 +2811,7 @@
       "rust_field": "crates/core/src/models/operation.rs::BlobMetadata.encryption",
       "crate": "core",
       "file": "crates/core/src/models/operation.rs",
-      "line": 1469,
+      "line": 1463,
       "owner": "BlobMetadata",
       "field": "encryption",
       "rust_type": "Option<Value>",
@@ -3227,25 +2837,12 @@
       "rust_field": "crates/core/src/models/operation.rs::EncryptedPayload.aad",
       "crate": "core",
       "file": "crates/core/src/models/operation.rs",
-      "line": 1487,
+      "line": 1481,
       "owner": "EncryptedPayload",
       "field": "aad",
       "rust_type": "Option<Value>",
       "spec_pointer": "encrypted-envelope.schema.json#/$defs/encrypted_payload/properties/aad",
       "schema_shape": "closed",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/operation.rs::GrantConstraint.extensions",
-      "crate": "core",
-      "file": "crates/core/src/models/operation.rs",
-      "line": 976,
-      "owner": "GrantConstraint",
-      "field": "extensions",
-      "rust_type": "BTreeMap<GrantConstraintExtensionKey, Value>",
-      "spec_pointer": "grant-constraint.schema.json",
-      "schema_shape": "unknown",
       "classification": "unclassified",
       "reason": null
     },
@@ -3305,7 +2902,7 @@
       "rust_field": "crates/core/src/models/operation.rs::Invite.join_rule_snapshot",
       "crate": "core",
       "file": "crates/core/src/models/operation.rs",
-      "line": 1335,
+      "line": 1329,
       "owner": "Invite",
       "field": "join_rule_snapshot",
       "rust_type": "BTreeMap<String, Value>",
@@ -3318,7 +2915,7 @@
       "rust_field": "crates/core/src/models/operation.rs::Invite.third_party_id",
       "crate": "core",
       "file": "crates/core/src/models/operation.rs",
-      "line": 1333,
+      "line": 1327,
       "owner": "Invite",
       "field": "third_party_id",
       "rust_type": "Option<Value>",
@@ -3331,7 +2928,7 @@
       "rust_field": "crates/core/src/models/operation.rs::Notification.preview",
       "crate": "core",
       "file": "crates/core/src/models/operation.rs",
-      "line": 1449,
+      "line": 1443,
       "owner": "Notification",
       "field": "preview",
       "rust_type": "Option<Value>",
@@ -3362,19 +2959,6 @@
       "field": "payload",
       "rust_type": "Value",
       "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/core/src/models/operation_payloads/membership_invite.rs::InviteCreatePayload.extensions",
-      "crate": "core",
-      "file": "crates/core/src/models/operation_payloads/membership_invite.rs",
-      "line": 225,
-      "owner": "InviteCreatePayload",
-      "field": "extensions",
-      "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": "event-payload.schema.json#/$defs/invite_payload",
       "schema_shape": "unknown",
       "classification": "unclassified",
       "reason": null
@@ -3621,10 +3205,10 @@
       "owner": "PolicyCheckOutcome",
       "field": "obligations",
       "rust_type": "Vec<Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/PolicyCheckOutcome/properties/obligations",
+      "schema_shape": "open_json_container",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/policy_check.rs::PolicyCheckRequestBody.auth_context",
@@ -3634,10 +3218,10 @@
       "owner": "PolicyCheckRequestBody",
       "field": "auth_context",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/PolicyCheckRequestBody/properties/auth_context",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/policy_check.rs::PolicyCheckRequestBody.event_preview",
@@ -3647,10 +3231,10 @@
       "owner": "PolicyCheckRequestBody",
       "field": "event_preview",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/PolicyCheckRequestBody/properties/event_preview",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/productivity.rs::DraftSyncValue.content",
@@ -4544,10 +4128,10 @@
       "owner": "ObjectMetadata",
       "field": "extra",
       "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": "strand.schema.json#/$defs/metadata",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "strand.schema.json#/$defs/strand_metadata/additionalProperties",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/strand.rs::ObjectMetadata.fields",
@@ -4557,10 +4141,10 @@
       "owner": "ObjectMetadata",
       "field": "fields",
       "rust_type": "BTreeMap<String, Value>",
-      "spec_pointer": "strand.schema.json#/$defs/metadata",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "spec_pointer": "strand.schema.json#/$defs/strand_metadata/properties/fields",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/strand.rs::Strand.body",
@@ -5008,7 +4592,7 @@
       "rust_field": "crates/sdk/src/account.rs::AccountData.content",
       "crate": "sdk",
       "file": "crates/sdk/src/account.rs",
-      "line": 165,
+      "line": 166,
       "owner": "AccountData",
       "field": "content",
       "rust_type": "Value",
@@ -5021,27 +4605,27 @@
       "rust_field": "crates/sdk/src/account.rs::AccountDataSetPayload.body",
       "crate": "sdk",
       "file": "crates/sdk/src/account.rs",
-      "line": 32,
+      "line": 33,
       "owner": "AccountDataSetPayload",
       "field": "body",
-      "rust_type": "Option<Value>",
-      "spec_pointer": "account-data-set.schema.json",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "rust_type": "Option<BTreeMap<String, Value>>",
+      "spec_pointer": "event-payload.schema.json#/$defs/account_data_set_payload/properties/body",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/sdk/src/account.rs::AccountDataSetPayload.encrypted_content",
+      "rust_field": "crates/sdk/src/account.rs::AccountDataSetPayload.encrypted_payload",
       "crate": "sdk",
       "file": "crates/sdk/src/account.rs",
-      "line": 35,
+      "line": 36,
       "owner": "AccountDataSetPayload",
-      "field": "encrypted_content",
-      "rust_type": "Option<Value>",
-      "spec_pointer": "account-data-set.schema.json",
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
+      "field": "encrypted_payload",
+      "rust_type": "Option<BTreeMap<String, Value>>",
+      "spec_pointer": "event-payload.schema.json#/$defs/account_data_set_payload/properties/encrypted_payload",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/sdk/src/agent.rs::AgentPrincipal.metadata",
@@ -5060,7 +4644,7 @@
       "rust_field": "crates/sdk/src/agent.rs::AgentRun.input",
       "crate": "sdk",
       "file": "crates/sdk/src/agent.rs",
-      "line": 978,
+      "line": 973,
       "owner": "AgentRun",
       "field": "input",
       "rust_type": "Value",
@@ -5073,7 +4657,7 @@
       "rust_field": "crates/sdk/src/agent.rs::AgentRun.output",
       "crate": "sdk",
       "file": "crates/sdk/src/agent.rs",
-      "line": 980,
+      "line": 975,
       "owner": "AgentRun",
       "field": "output",
       "rust_type": "Value",
@@ -5086,7 +4670,7 @@
       "rust_field": "crates/sdk/src/agent.rs::AgentToolAuditEntry.input",
       "crate": "sdk",
       "file": "crates/sdk/src/agent.rs",
-      "line": 1078,
+      "line": 1073,
       "owner": "AgentToolAuditEntry",
       "field": "input",
       "rust_type": "Value",
@@ -5099,7 +4683,7 @@
       "rust_field": "crates/sdk/src/agent.rs::AgentToolAuditEntry.output",
       "crate": "sdk",
       "file": "crates/sdk/src/agent.rs",
-      "line": 1080,
+      "line": 1075,
       "owner": "AgentToolAuditEntry",
       "field": "output",
       "rust_type": "Value",

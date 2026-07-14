@@ -77,7 +77,7 @@ impl Realm {
             candidate.expires_at,
         );
         if let Some(role) = role {
-            payload = payload.with_extension("role", Value::String(role));
+            payload = payload.with_extension("role", Value::String(role))?;
         }
 
         Ok(Operation::create(

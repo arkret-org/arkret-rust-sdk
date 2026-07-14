@@ -1,5 +1,6 @@
-use super::*;
 use std::num::NonZeroU64;
+
+use super::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

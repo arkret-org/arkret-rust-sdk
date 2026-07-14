@@ -43,7 +43,8 @@ pub struct PlaintextItem {
     pub extra: XExtensionMap,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json#/properties/auth_data`.
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json#/properties/auth_data`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]

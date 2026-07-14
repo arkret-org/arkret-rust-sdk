@@ -975,8 +975,8 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub depends_on_moderation_state: Option<bool>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extensions: BTreeMap<GrantConstraintExtensionKey, Value>,
+    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
+    pub extensions: XExtensionMap,
 }
 
 impl GrantConstraint {
@@ -1076,7 +1076,7 @@ impl GrantConstraint {
             require_key_backup: None,
             approved_key_issuers: Vec::new(),
             depends_on_moderation_state: None,
-            extensions: BTreeMap::new(),
+            extensions: XExtensionMap::default(),
         }
     }
 

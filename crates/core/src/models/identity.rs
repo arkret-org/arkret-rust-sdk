@@ -29,7 +29,7 @@ pub struct IdentityResolveOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub receipts: Vec<Value>,
+    pub receipts: Vec<IdentityReceipt>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub method_evidence: Value,
 }
@@ -51,7 +51,7 @@ pub struct IdentityDocumentView {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub receipts: Vec<Value>,
+    pub receipts: Vec<IdentityReceipt>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -93,14 +93,14 @@ pub struct DidOperationSubmitOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub operation_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub receipts: Vec<Value>,
+    pub receipts: Vec<IdentityReceipt>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IdentityReceiptListOutcome {
     #[serde(default)]
-    pub receipts: Vec<Value>,
+    pub receipts: Vec<IdentityReceipt>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub threshold_met: Option<bool>,
 }
