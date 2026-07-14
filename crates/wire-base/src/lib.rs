@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 mod error;
+mod extension_map;
 
 pub mod base64url {
     pub use arkret_canonical::base64url::*;
@@ -42,6 +43,7 @@ pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};
 pub use constants::*;
 pub use error::{Error, Result, WireError};
+pub use extension_map::XExtensionMap;
 pub use error_codes::*;
 pub use events::*;
 pub use generated::{EVENT_KIND_COUNT, EventKind};

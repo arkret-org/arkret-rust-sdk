@@ -632,22 +632,22 @@ pub struct DirectConversationResolveOutcome {
 pub struct DirectoryPrivateContactDiscoveryRequestBody {
     pub requester: Did,
     #[serde(default)]
-    pub contacts: Vec<Value>,
+    pub contacts: Vec<BlindedContact>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<Proof>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub privacy_profile: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub padding: Value,
+    pub privacy_profile: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub padding: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryPrivateContactDiscoveryOutcome {
     #[serde(default)]
-    pub matches: Vec<Value>,
+    pub matches: Vec<PrivateContactMatch>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Value>,
+    pub proofs: Vec<Proof>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
 }
@@ -797,19 +797,21 @@ pub struct MimiKeyMaterialRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiKeyMaterialOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub key_packages: Vec<Value>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub group_info: Value,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub failures: Value,
+    pub key_packages: Vec<MimiKeyPackage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_info: Option<MimiGroupInfo>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub failures: Vec<MimiFailure>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<Proof>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiRoomUpdateRequestBody {
-    pub mls_group_id: String,
-    pub update: Value,
+    pub mls_group_id: MlsGroupId,
+    pub update: MimiRoomUpdate,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub epoch: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -825,17 +827,17 @@ pub struct MimiRoomUpdateOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub room_state_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<Value>,
+    pub rejected: Vec<MimiFailure>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiNotifyRequestBody {
-    pub notification: Value,
+    pub notification: MimiNotification,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub origin_provider: Option<Did>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub routing: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub routing: Option<MimiNotificationRouting>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -852,13 +854,13 @@ pub struct MimiNotifyOutcome {
 pub struct MimiSubmitMessageRequestBody {
     pub sender_actor_id: Did,
     pub device_id: DeviceId,
-    pub ciphertext: Value,
+    pub ciphertext: MimiCiphertext,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<String>,
+    pub mls_group_id: Option<MlsGroupId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub epoch: Option<u64>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub associated_data: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub associated_data: Option<MimiOpaquePayload>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -866,28 +868,27 @@ pub struct MimiSubmitMessageRequestBody {
 pub struct MimiSubmitMessageOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub delivery: Value,
+    pub delivery: MimiDelivery,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<Value>,
+    pub rejected: Vec<MimiFailure>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiGroupInfoOutcome {
-    pub group_info: Value,
+    pub group_info: MimiGroupInfo,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub room_binding_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Value>,
+    pub proofs: Vec<Proof>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiRequestConsentRequestBody {
     pub requester_id: Did,
-    pub target: Value,
-    pub purpose: String,
+    pub target: MimiConsentTarget,
+    pub purpose: MimiConsentPurpose,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -920,7 +921,7 @@ pub struct MimiUpdateConsentRequestBody {
     pub consent_id: String,
     pub decision: MimiConsentDecision,
     pub actor_id: Did,
-    pub signature: Value,
+    pub signature: Proof,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -940,7 +941,7 @@ pub struct MimiUpdateConsentOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiIdentifierQueryRequestBody {
     #[serde(default)]
-    pub identifiers: Vec<Value>,
+    pub identifiers: Vec<MimiIdentifier>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requester: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -953,9 +954,9 @@ pub struct MimiIdentifierQueryRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiIdentifierQueryOutcome {
     #[serde(default)]
-    pub matches: Vec<Value>,
+    pub matches: Vec<MimiIdentifierMatch>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Value>,
+    pub proofs: Vec<Proof>,
     pub has_more: bool,
 }
 
@@ -964,31 +965,31 @@ pub struct MimiIdentifierQueryOutcome {
 pub struct MimiReportAbuseRequestBody {
     pub strand_id: StrandId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mimi_room_uri: Option<String>,
+    pub mimi_room_uri: Option<MimiRoomUri>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    pub target_ref: String,
+    pub target_ref: NonEmptyString,
     pub reporter: Did,
-    pub abuse_reason_code: String,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub evidence_package: Value,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub franking_proof: Value,
+    pub abuse_reason_code: NonEmptyString,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence_package: Option<MimiOpaquePayload>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub franking_proof: Option<MimiOpaquePayload>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
+    pub description: Option<NonEmptyString>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiProxyDownloadRequestBody {
-    pub asset_ref: String,
+    pub asset_ref: NonEmptyString,
     pub requester: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub ohttp_context: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ohttp_context: Option<MimiOhttpContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub range: Option<String>,
+    pub range: Option<NonEmptyString>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1373,25 +1374,27 @@ pub struct AccountLogoutOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AccountDevicePairRequestBody {
-    pub pairing_code: String,
-    pub new_device_pubkey: Value,
-    pub challenge_signature: String,
+    pub pairing_code: NonEmptyString,
+    pub new_device_pubkey: PublicKey,
+    pub challenge_signature: Base64UrlString,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub device_metadata: Value,
+    pub display_name: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_metadata: Option<DeviceMetadata>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AccountDevicePairOutcome {
     pub device_id: DeviceId,
     pub authorized_event_ref: EventId,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub device_grant: Value,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub key_backup_hint: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_grant: Option<GrantSnapshot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_backup_hint: Option<BTreeMap<String, Value>>,
 }
 
 /// Request body for `ak.gate.account.command.enroll_device`
@@ -1529,8 +1532,8 @@ pub struct AppletThirdPartyUserList {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub actor_id: Option<Did>,
     pub exists: bool,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub external_ref: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_ref: Option<ExternalRef>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1539,8 +1542,8 @@ pub struct AppletThirdPartyLocationList {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     pub exists: bool,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub external_ref: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_ref: Option<ExternalRef>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

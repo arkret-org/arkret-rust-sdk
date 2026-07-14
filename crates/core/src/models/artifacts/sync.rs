@@ -2,7 +2,7 @@
 
 use super::*;
 
-/// Counterpart for `spec/v1/artifacts/schemas/range-completeness-attestation.schema.json`.
+/// Counterpart for `spec/v1/artifacts/schemas/range-completeness-attestation.schema.json#/properties/event_range/properties/from_frontier`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RangeCompletenessAttestationEventRangeFromFrontier {
     pub realm_frontier: Vec<EventId>,
@@ -10,6 +10,7 @@ pub struct RangeCompletenessAttestationEventRangeFromFrontier {
     pub extra: BTreeMap<String, Value>,
 }
 
+/// Counterpart for `spec/v1/artifacts/schemas/range-completeness-attestation.schema.json#/properties/event_range/properties/to_frontier`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RangeCompletenessAttestationEventRangeToFrontier {
     pub realm_frontier: Vec<EventId>,
@@ -110,7 +111,7 @@ pub struct SnapshotFrontierValue {
     pub event_ids: Vec<EventId>,
     pub timeline_hlc: String,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

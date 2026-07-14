@@ -19,7 +19,7 @@ pub enum AppletEdgeOperations {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/external_ref`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExternalRef {
     pub protocol: Protocol,
@@ -34,7 +34,7 @@ pub struct ExternalRef {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/field_type`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FieldType {
     pub r#type: String,
@@ -62,7 +62,7 @@ pub struct ProtocolInstance {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/rejected_item`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RejectedItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -151,7 +151,7 @@ pub struct E2eeEffect {
     pub requires_mls_join: bool,
     pub plaintext_access: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorization_refs: Option<Vec<EventRef>>,
+    pub authorization_refs: Option<Vec<EventId>>,
 }
 
 /// Counterpart for
@@ -186,7 +186,7 @@ pub struct NamespaceConflict {
 pub struct WidgetEffect {
     pub allow_widget: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_event_ref: Option<EventRef>,
+    pub policy_event_ref: Option<EventId>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/applet_namespaces`.
@@ -199,11 +199,22 @@ pub struct AppletNamespaces {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/delegation_policy`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DelegationPolicy {
     pub enabled: bool,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AppletPackageE2eePolicy {
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mls_join_requested: Option<bool>,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extensions: BTreeMap<String, Value>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/detached_proof`.
@@ -217,10 +228,10 @@ pub struct DetachedProof {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<Value>,
+    pub audience: Option<EventProofAudience>,
     pub jws: String,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/endpoint_entry`.
@@ -233,7 +244,7 @@ pub struct EndpointEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/endpoint_policy`.
@@ -241,7 +252,7 @@ pub struct EndpointEntry {
 pub struct EndpointPolicy {
     pub endpoints: Vec<EndpointEntry>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/ghost_policy`.
@@ -251,7 +262,7 @@ pub struct GhostPolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accountability_template: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/limits`.
@@ -264,7 +275,7 @@ pub struct Limits {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rate_limit_per_minute: Option<u64>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/namespace_entry`.
@@ -287,21 +298,23 @@ pub type SignatureAlg = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-widget-declaration.schema.json#/properties/token_scope`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct WidgetTokenScope {
     pub actions: Vec<String>,
-    pub resources: Vec<Value>,
+    pub resources: Vec<WireResourceSelector>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_ids: Option<Vec<RealmId>>,
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_ttl_seconds: Option<u64>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-widget-declaration.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Widget {
     pub schema: String,
     pub widget_origin: String,
@@ -309,7 +322,7 @@ pub struct Widget {
     pub token_scope: WidgetTokenScope,
     pub requires_consent: bool,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet.schema.json`.
@@ -320,7 +333,7 @@ pub struct AppletError {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -342,5 +355,5 @@ pub struct Applet {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest: Option<BTreeMap<String, Value>>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }

@@ -14,8 +14,8 @@ use crate::*;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModerationDecisionLiftPayload {
-    pub target_ref: Value,
-    pub decision_ref: Value,
+    pub target_ref: ObjectRef,
+    pub decision_ref: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -29,7 +29,7 @@ pub struct ModerationDecisionLiftPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModerationDecisionPayload {
-    pub target_ref: Value,
+    pub target_ref: ObjectRef,
     pub decision: String,
     pub issuer: Did,
     pub request_canonical_digest: Hash,
@@ -40,9 +40,9 @@ pub struct ModerationDecisionPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_decision_ref: Option<Value>,
+    pub policy_decision_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub modify_decision_ref: Option<Value>,
+    pub modify_decision_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -56,7 +56,7 @@ pub struct ModerationDecisionPayload {
 pub struct ModerationReportPayload {
     pub realm_id: RealmId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<Value>,
+    pub effective_scope: Option<EffectiveScope>,
     pub target_ref: ObjectRef,
     pub report_reason_code: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

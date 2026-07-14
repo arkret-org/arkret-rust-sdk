@@ -12,6 +12,7 @@ use super::*;
 /// (commit 0a5ab85, 2026-05-19).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct MemberDeliveryBinding {
     pub recipient_service_id: Did,
     #[serde(default = "default_recipient_service_type")]
@@ -26,11 +27,11 @@ pub struct MemberDeliveryBinding {
     pub did_document_digest: Option<Hash>,
     pub resolved_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub service_acceptance_ref: Option<EventRef>,
+    pub service_acceptance_ref: Option<EventId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub holder_proof_ref: Option<EventRef>,
+    pub holder_proof_ref: Option<EventId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub policy_event_ref: Option<EventRef>,
+    pub policy_event_ref: Option<EventId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
 }

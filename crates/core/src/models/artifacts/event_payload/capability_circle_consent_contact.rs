@@ -91,7 +91,7 @@ pub struct CirclePatchPayload {
 #[serde(deny_unknown_fields)]
 pub struct ConsentGrantPayload {
     pub consent_id: String,
-    pub peer: Value,
+    pub peer: Did,
     pub consent_scope: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub not_before: Option<DateTime<Utc>>,
@@ -110,7 +110,7 @@ pub struct ConsentGrantPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContactAcceptedPayload {
-    pub request_id: EventRef,
+    pub request_id: EventId,
     pub requester: Did,
     pub granted_scopes: ContactConsentScopes,
     pub consent_grant_refs: ContactEventRefs,
@@ -127,14 +127,14 @@ pub type ContactConsentScope = String;
 pub type ContactConsentScopes = Vec<ContactConsentScope>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/contact_event_refs`.
-pub type ContactEventRefs = Vec<EventRef>;
+pub type ContactEventRefs = Vec<EventId>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/contact_rejected_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContactRejectedPayload {
-    pub request_id: EventRef,
+    pub request_id: EventId,
     pub requester: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
@@ -145,10 +145,12 @@ pub struct ContactRejectedPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContactRequestedPayload {
-    pub request_id: Value,
+    pub request_id: EventId,
     pub target: Did,
     pub requested_scopes: ContactConsentScopes,
-    pub requester_consent_refs: Value,
+    pub requester_consent_refs: ContactEventRefs,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub introduction_evidence_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }

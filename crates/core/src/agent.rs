@@ -76,12 +76,12 @@ pub fn agent_runtime_public_key_digest(public_key: &Value) -> Result<Hash> {
             "agent runtime public_key must match public_key schema: {error}"
         ))
     })?;
-    if key.kty != "OKP" {
+    if key.kty.as_str() != "OKP" {
         return Err(Error::Protocol(
             "agent runtime public_key.kty must be OKP".to_owned(),
         ));
     }
-    if key.alg != "Ed25519" && key.alg != "EdDSA" {
+    if key.alg.as_str() != "Ed25519" && key.alg.as_str() != "EdDSA" {
         return Err(Error::Protocol(
             "agent runtime public_key.alg must be Ed25519 or EdDSA".to_owned(),
         ));

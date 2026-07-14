@@ -4,11 +4,11 @@ use super::*;
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyPairRequestBody {
-    pub pairing_request_id: String,
+    pub pairing_request_id: NonEmptyString,
     pub agent_id: Did,
-    pub verification_method: String,
-    pub public_key: Value,
-    pub proof_of_possession: Value,
+    pub verification_method: DidUrl,
+    pub public_key: PublicKey,
+    pub proof_of_possession: NonEmptyJsonObject,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
     pub authorize_event: Event,
@@ -25,12 +25,12 @@ pub struct AgentKeyPairOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentRuntimeApprovalRequestBody {
-    pub pairing_code: String,
-    pub pairing_request_id: String,
+    pub pairing_code: NonEmptyString,
+    pub pairing_request_id: NonEmptyString,
     pub agent_id: Did,
-    pub verification_method: String,
-    pub public_key: Value,
-    pub proof_of_possession: Value,
+    pub verification_method: DidUrl,
+    pub public_key: PublicKey,
+    pub proof_of_possession: NonEmptyJsonObject,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
 }
@@ -334,7 +334,7 @@ pub struct AgentPauseRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentResumeRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sidecar_exposure_ack: Option<Value>,
+    pub sidecar_exposure_ack: Option<SidecarExposureAck>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -419,7 +419,7 @@ pub struct AgentSidecarThreadEnsureOutcome {
     pub private_strand_id: StrandId,
     pub private_relation_id: RelationId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub pending_member_reconciliations: Vec<Value>,
+    pub pending_member_reconciliations: Vec<PendingMemberReconciliationItem>,
 }
 
 #[cfg(test)]

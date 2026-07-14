@@ -102,7 +102,7 @@ pub struct PollBlock {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub format: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub formatted_body: Option<Value>,
+    pub formatted_body: Option<FormattedBody>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reply_context: Option<PollReplyContext>,
     pub poll: PollBody,
@@ -126,10 +126,17 @@ pub struct PollResponseBlock {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub format: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub formatted_body: Option<Value>,
+    pub formatted_body: Option<FormattedBody>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reply_context: Option<PollReplyContext>,
     pub poll_response: PollResponseBody,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum FormattedBody {
+    Text(String),
+    Structured(BTreeMap<String, Value>),
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/content-block-poll.schema.json`.

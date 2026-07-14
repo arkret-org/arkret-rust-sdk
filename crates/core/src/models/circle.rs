@@ -151,6 +151,7 @@ pub struct CircleDisplay {
 ///
 /// Field order/shape mirrors `spec/v1/artifacts/schemas/circle.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Circle {
     pub id: CircleId,
     pub schema: String,
@@ -197,8 +198,6 @@ pub struct Circle {
     pub updated_by: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
-    #[serde(flatten, default)]
-    pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

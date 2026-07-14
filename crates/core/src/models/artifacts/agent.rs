@@ -47,6 +47,20 @@ pub struct GrantSnapshot {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct DeviceMetadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub platform: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub app_id: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub app_version: Option<NonEmptyString>,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/agent_key_authorization_state`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -107,17 +121,17 @@ pub type OperationStatusOutcome = AgentLifecycleOutcome;
 #[serde(deny_unknown_fields)]
 pub struct PendingMemberReconciliationItem {
     pub agent_id: Did,
-    pub reason: String,
+    pub reason: NonEmptyString,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/public_key`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PublicKey {
-    pub kty: String,
-    pub kid: String,
-    pub alg: String,
-    pub key: Base64url,
+    pub kty: NonEmptyString,
+    pub kid: NonEmptyString,
+    pub alg: NonEmptyString,
+    pub key: Base64UrlString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_digest: Option<Hash>,
 }
@@ -143,7 +157,7 @@ pub type EventDigest = Hash;
 pub struct Signature {
     pub verification_method: Did,
     pub alg: String,
-    pub payload_digest: Value,
+    pub payload_digest: Hash,
     pub created_at: DateTime<Utc>,
     pub jws: String,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]

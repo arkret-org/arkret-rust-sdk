@@ -6,7 +6,9 @@ use serde_json::Value;
 
 use super::namespace_match::namespace_patterns_overlap;
 use crate::identity::DidDocument;
-use crate::{Did, Error, Proof, Result, canonical};
+use crate::{
+    AppletPackageE2eePolicy, DelegationPolicy, Did, Error, Proof, Result, Widget, canonical,
+};
 
 /// Which namespace bucket a claim lives in. The wire model
 /// (`applet-schema.md` §1.namespaces) groups claims into exactly
@@ -169,7 +171,7 @@ pub struct WebhookAuth {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature_header: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: crate::models::XExtensionMap,
 }
 
 #[cfg(feature = "salvo")]
@@ -204,7 +206,7 @@ impl WebhookAuth {
             key_ref: key_ref.into(),
             accepted_algs,
             signature_header: None,
-            extra: BTreeMap::new(),
+            extra: crate::models::XExtensionMap::default(),
         }
     }
 }
@@ -253,7 +255,7 @@ pub struct AppletEndpointEntry {
     /// (`patternProperties ^x_[a-z][a-z0-9_]{0,63}$`).
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: crate::models::XExtensionMap,
 }
 
 /// Supported Applet API endpoints and their auth requirements
@@ -269,7 +271,7 @@ pub struct AppletEndpointPolicy {
     pub endpoints: Vec<AppletEndpointEntry>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: crate::models::XExtensionMap,
 }
 
 /// Service-side resource hints derived into the registration manifest
@@ -285,7 +287,7 @@ pub struct AppletLimits {
     pub rate_limit_per_minute: Option<u64>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: crate::models::XExtensionMap,
 }
 
 /// Ghost Actor support and accountability template
@@ -300,7 +302,7 @@ pub struct AppletGhostPolicy {
     pub accountability_template: Option<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: crate::models::XExtensionMap,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -563,10 +565,10 @@ pub struct AppletRegistrationEpochSecurityPolicy {
     pub claimed_profiles: Vec<String>,
     pub limits: AppletLimits,
     pub ghost_policy: AppletGhostPolicy,
-    pub delegation_policy: Value,
-    pub e2ee_policy: Value,
+    pub delegation_policy: DelegationPolicy,
+    pub e2ee_policy: AppletPackageE2eePolicy,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub widget: Option<Value>,
+    pub widget: Option<Widget>,
 }
 
 /// Closed normalized transcript hashed to derive `registration_epoch`.
@@ -1065,12 +1067,12 @@ pub struct AppletPackage {
     /// (`applet-package.schema.json#/$defs/ghost_policy`).
     pub ghost_policy: AppletGhostPolicy,
     /// Delegated native-user acting request; defaults to disabled.
-    pub delegation_policy: Value,
+    pub delegation_policy: DelegationPolicy,
     /// MLS join request; defaults to disabled.
-    pub e2ee_policy: Value,
+    pub e2ee_policy: AppletPackageE2eePolicy,
     /// Widget origin / CSP / token scope / consent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub widget: Option<Value>,
+    pub widget: Option<Widget>,
     /// Captured DID document + signing-key evidence covered by
     /// `registration_epoch`.
     #[serde(skip_serializing)]
@@ -1132,8 +1134,12 @@ impl AppletPackage {
             rate_limited: true,
             limits: AppletLimits::default(),
             ghost_policy: AppletGhostPolicy::default(),
-            delegation_policy: serde_json::json!({"enabled": false}),
-            e2ee_policy: serde_json::json!({"enabled": false, "mls_join_requested": false}),
+            delegation_policy: DelegationPolicy::default(),
+            e2ee_policy: AppletPackageE2eePolicy {
+                enabled: false,
+                mls_join_requested: Some(false),
+                extensions: BTreeMap::new(),
+            },
             widget: None,
             registration_epoch_evidence: None,
             package_digest: None,
@@ -1273,6 +1279,8 @@ impl AppletPackage {
         }
         validate_applet_extension_fields("limits", &self.limits.extra)?;
         validate_applet_extension_fields("ghost_policy", &self.ghost_policy.extra)?;
+        validate_applet_extension_fields("delegation_policy", &self.delegation_policy.extra)?;
+        validate_applet_extension_fields("e2ee_policy", &self.e2ee_policy.extensions)?;
         let Some(package_digest) = &self.package_digest else {
             return Err(Error::Protocol("applet package is not sealed".to_owned()));
         };
@@ -1335,11 +1343,17 @@ impl AppletPackage {
         );
         manifest.insert(
             "delegation_policy".to_owned(),
-            self.delegation_policy.clone(),
+            serde_json::to_value(&self.delegation_policy).unwrap_or(Value::Null),
         );
-        manifest.insert("e2ee_policy".to_owned(), self.e2ee_policy.clone());
+        manifest.insert(
+            "e2ee_policy".to_owned(),
+            serde_json::to_value(&self.e2ee_policy).unwrap_or(Value::Null),
+        );
         if let Some(widget) = &self.widget {
-            manifest.insert("widget".to_owned(), widget.clone());
+            manifest.insert(
+                "widget".to_owned(),
+                serde_json::to_value(widget).unwrap_or(Value::Null),
+            );
         }
         if let Some(evidence) = &self.registration_epoch_evidence
             && let Ok(value) = serde_json::to_value(evidence)

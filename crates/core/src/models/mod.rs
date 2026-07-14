@@ -63,6 +63,7 @@ mod media;
 mod member_delivery_binding_candidate;
 mod member_identity;
 mod mention;
+mod mimi;
 mod mls_governance_proof;
 mod mls_payloads;
 mod moderation;
@@ -96,6 +97,7 @@ mod realm_alias;
 mod realm_governance;
 mod registry;
 mod relation;
+mod resource_selector;
 mod runtime_identity;
 mod service_description {
     pub use arkret_wire_edge::service_description::*;
@@ -106,6 +108,7 @@ mod sync;
 #[cfg(test)]
 mod tests;
 mod third_party_invite;
+mod wire_strings;
 #[cfg(test)]
 mod wire_dto_tests;
 #[cfg(test)]
@@ -153,6 +156,7 @@ pub use media::*;
 pub use member_delivery_binding_candidate::*;
 pub use member_identity::*;
 pub use mention::*;
+pub use mimi::*;
 pub use mls_governance_proof::*;
 pub use mls_payloads::*;
 pub use moderation::*;
@@ -178,6 +182,7 @@ pub use realm_alias::*;
 pub use realm_governance::*;
 pub use registry::*;
 pub use relation::*;
+pub use resource_selector::*;
 pub use runtime_identity::*;
 pub use service_description::*;
 pub use space::*;
@@ -190,6 +195,7 @@ pub type ObjectRef = String;
 pub type BooleanFilter = Filter;
 pub type QueryFilter = Filter;
 pub use third_party_invite::*;
+pub use wire_strings::*;
 
 fn is_false(value: &bool) -> bool {
     !*value

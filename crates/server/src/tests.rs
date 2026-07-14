@@ -153,7 +153,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                             .collect(),
                         supported_bindings: vec![],
                         auth_metadata: arkret_core::AuthMetadata::minimal("development"),
-                        limits: Value::Null,
+                        limits: arkret_core::ServerLimits::default(),
                         plaintext_visibility: arkret_core::PlaintextVisibility::none(),
                         privacy_derivation: None,
                         receive_policy_constraints: None,

@@ -290,7 +290,7 @@ impl DeviceEnrollmentAuthorityBinding {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceCrossSigningBinding {
-    pub verification_method: Value,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub ssk_generation: u64,
     pub signature: String,
@@ -347,7 +347,7 @@ pub struct DirectConversationBoundPayload {
     pub realm_id: RealmId,
     pub main_strand_id: StrandId,
     pub contact_refs: ContactEventRefs,
-    pub member_event_refs: Value,
+    pub member_event_refs: ContactEventRefs,
     pub main_strand_create_ref: EventRef,
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

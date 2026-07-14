@@ -395,8 +395,9 @@ pub struct AccountRegisterOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AccountUpdateProfileRequestBody {
-    pub patch: Value,
+    pub patch: ProfilePatch,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -407,6 +408,7 @@ pub struct AccountUpdateProfileOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct SessionRevokeRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_grant_id: Option<GrantId>,
@@ -415,9 +417,9 @@ pub struct SessionRevokeRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub all_sessions: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub applet_id: Option<String>,
+    pub applet_id: Option<AppletId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<Value>,
+    pub effective_scope: Option<EffectiveScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub registration_epoch: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -64,16 +64,23 @@ pub struct MembershipPayload {
     /// see the "real wire divergence" note in the migration spec. Producers
     /// build the binding `Value` directly.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delivery_binding: Option<Value>,
+    pub delivery_binding: Option<MemberDeliveryBinding>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub gate_proofs: Vec<Value>,
+    pub gate_proofs: Vec<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub via_service_ids: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     /// `oneOf(event_ref | invite_id)` — both are opaque strings on the wire.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub invite_ref: Option<String>,
+    pub invite_ref: Option<MembershipInviteRef>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MembershipInviteRef {
+    Event(EventId),
+    Invite(InviteId),
 }
 
 impl MembershipPayload {
@@ -124,13 +131,13 @@ impl MembershipPayload {
         self
     }
 
-    pub fn with_delivery_binding(mut self, binding: Value) -> Self {
+    pub fn with_delivery_binding(mut self, binding: MemberDeliveryBinding) -> Self {
         self.delivery_binding = Some(binding);
         self
     }
 
-    pub fn with_invite_ref(mut self, invite_ref: impl Into<String>) -> Self {
-        self.invite_ref = Some(invite_ref.into());
+    pub fn with_invite_ref(mut self, invite_ref: MembershipInviteRef) -> Self {
+        self.invite_ref = Some(invite_ref);
         self
     }
 
