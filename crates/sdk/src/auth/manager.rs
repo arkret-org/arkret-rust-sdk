@@ -786,10 +786,10 @@ impl AuthManager {
         did_document.validate()?;
         let public_key = did_document
             .verification_methods
-            .get(verification_method)
+            .get(verification_method.as_str())
             .ok_or_else(|| Error::Protocol("verification method not found".to_owned()))?
             .clone();
-        if proof.verification_method != *verification_method {
+        if proof.verification_method != verification_method.as_str() {
             return Err(Error::Protocol(
                 "proof verification method mismatch".to_owned(),
             ));
@@ -798,7 +798,11 @@ impl AuthManager {
             subject: request.user_id.clone(),
             did_document,
             verification_method: verification_method.clone(),
-            public_key,
+            public_key: NonEmptyString::new(public_key).map_err(|reason| {
+                Error::Protocol(format!(
+                    "invalid DID verification method public key: {reason}"
+                ))
+            })?,
             proof,
         })?;
         if !verification.verified

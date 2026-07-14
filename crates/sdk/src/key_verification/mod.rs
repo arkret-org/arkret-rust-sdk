@@ -1,7 +1,7 @@
 //! Production typed key-verification strand per `crypto-media/device-lifecycle.md` §4.
 //!
 //! Provides a typed envelope-per-step API on top of
-//! [`crate::devices::DeviceVerificationMessageContent`], plus a state
+//! [`arkret_core::KeyVerificationContent`], plus a state
 //! machine that enforces the protocol's strict step ordering.
 //!
 //! Mirrors the Matrix-style `start → accept → key → mac → done` strand with

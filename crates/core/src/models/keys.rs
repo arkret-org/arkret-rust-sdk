@@ -192,27 +192,11 @@ pub type DeviceMessagesSendRequestBody = DeviceMessagesPutRequestBody;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct DeviceMessageTarget {
-    pub kind: String,
-    pub content: Value,
+    pub kind: ProtocolKind,
+    pub content: BTreeMap<String, Value>,
     pub expires_at: DateTime<Utc>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DeviceMessageEnvelope {
-    pub kind: String,
-    pub sender_principal_id: Did,
-    pub sender_device_id: DeviceId,
-    pub recipient_principal_id: Did,
-    pub recipient_device_id: DeviceId,
-    pub sent_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
-    pub content: Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub device_proof: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub unsigned: Option<Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -255,4 +239,35 @@ pub struct DeviceMessagesAckOutcome {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pruned_count: Option<u64>,
+}
+
+#[cfg(test)]
+mod device_message_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn device_message_target_rejects_non_object_content_and_invalid_kind() {
+        let valid = json!({
+            "kind": "ak.key.verification.request",
+            "content": {"transaction_id": "txn"},
+            "expires_at": "2026-07-15T01:00:00Z"
+        });
+        assert!(serde_json::from_value::<DeviceMessageTarget>(valid).is_ok());
+
+        let invalid_kind = json!({
+            "kind": "key.verification.request",
+            "content": {},
+            "expires_at": "2026-07-15T01:00:00Z"
+        });
+        assert!(serde_json::from_value::<DeviceMessageTarget>(invalid_kind).is_err());
+
+        let scalar_content = json!({
+            "kind": "ak.key.verification.request",
+            "content": "legacy payload",
+            "expires_at": "2026-07-15T01:00:00Z"
+        });
+        assert!(serde_json::from_value::<DeviceMessageTarget>(scalar_content).is_err());
+    }
 }
