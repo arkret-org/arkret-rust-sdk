@@ -71,8 +71,8 @@ pub struct KeyState {
     pub controller_authorization_ref: String,
     pub status: AgentStatus,
     pub pcr_recovery: AgentPcrRecoveryState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requested_scope: Option<AgentKeyScope>,
+    /// Immutable global Agent ceiling captured by provisioning.
+    pub requested_scope: AgentKeyScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_request_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

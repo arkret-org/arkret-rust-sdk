@@ -1193,12 +1193,6 @@ pub struct CapabilityGrant {
         deserialize_with = "crate::serde_helpers::deserialize_optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
-    // ak.profile.personal_agent_provisioning.v1 flag (AKP-0008 §4.3.2). When true, the
-    // grant is durable but inactive: the capability evaluator MUST fail closed until the
-    // agent principal has an accepted ak.agent.key.authorize, after which the reducer
-    // clears the flag. See capability-grant.schema.json and key-management.md §3.6.1.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_after_first_authorized_key: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_by: Option<Did>,
     #[serde(
@@ -1920,7 +1914,6 @@ mod actor_accessor_tests {
             issued_at: fractional,
             not_before: Some(fractional),
             expires_at: Some(fractional),
-            effective_after_first_authorized_key: None,
             updated_by: None,
             updated_at: Some(fractional),
             revoked_by: None,

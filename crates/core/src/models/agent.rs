@@ -88,8 +88,9 @@ pub struct AgentProvisionRequestBody {
     pub slug: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub requested_scope: Option<AgentKeyScope>,
+    /// Immutable global Agent ceiling selected at provision time. This is not
+    /// a grant; later key scopes, Realm grants and sessions may only narrow it.
+    pub requested_scope: AgentKeyScope,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub accountability: Value,
     #[serde(skip_serializing_if = "Option::is_none")]

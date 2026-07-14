@@ -1547,7 +1547,6 @@ mod engine_wire_tests {
             issued_at: "2026-04-26T00:00:00Z".parse().unwrap(),
             not_before: None,
             expires_at: None,
-            effective_after_first_authorized_key: None,
             updated_by: None,
             updated_at: None,
             revoked_by: None,

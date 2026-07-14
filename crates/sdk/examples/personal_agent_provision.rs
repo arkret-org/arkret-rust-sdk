@@ -112,23 +112,26 @@ fn send_plan<B: Serialize>(plan: AgentRequestPlan<B>) -> arkret::Result<Value> {
 fn main() -> arkret::Result<()> {
     let controller: Did = Did::new("did:webvh:z6mkfixture:alice.example")?;
 
-    let provision_body = AgentProvisionRequestBuilder::new("summary")
-        .display_name("alice-personal-agent")
-        .requested_scope(AgentKeyScope {
-            actions: vec!["ak.message.create".to_owned()],
+    let provision_body = AgentProvisionRequestBuilder::new(
+        "summary",
+        AgentKeyScope {
+            actions: vec![
+                "ak.message.create".to_owned(),
+                "ak.self.events.command.submit".to_owned(),
+            ],
             resources: vec![AgentKeyScopeResource {
-                kind: AgentKeyScopeResourceKind::Realm,
-                realm_id: Some(RealmId::new(
-                    "ak:realm:01904100-0000-7000-8000-000000000001",
-                )?),
+                kind: AgentKeyScopeResourceKind::Operation,
+                realm_id: None,
                 resource_ref: None,
-                operation: None,
+                operation: Some("ak.self.events.command.submit".to_owned()),
                 service_id: None,
             }],
             constraints: Vec::new(),
-        })
-        .pairing_ttl_ms(15 * 60 * 1000)
-        .build();
+        },
+    )
+    .display_name("alice-personal-agent")
+    .pairing_ttl_ms(15 * 60 * 1000)
+    .build();
 
     let provisioned = send_plan(plan_agent_provision(provision_body))?;
     let agent_id = provisioned["agent_id"].as_str().unwrap().to_owned();
@@ -167,14 +170,15 @@ fn main() -> arkret::Result<()> {
             public_key_digest: Some(agent_runtime_public_key_digest(&public_key)?),
             accountable_principal_id: controller.clone(),
             agent_key_scope: AgentKeyScope {
-                actions: vec!["ak.message.create".to_owned()],
+                actions: vec![
+                    "ak.message.create".to_owned(),
+                    "ak.self.events.command.submit".to_owned(),
+                ],
                 resources: vec![AgentKeyScopeResource {
-                    kind: AgentKeyScopeResourceKind::Realm,
-                    realm_id: Some(RealmId::new(
-                        "ak:realm:01904100-0000-7000-8000-000000000001",
-                    )?),
+                    kind: AgentKeyScopeResourceKind::Operation,
+                    realm_id: None,
                     resource_ref: None,
-                    operation: None,
+                    operation: Some("ak.self.events.command.submit".to_owned()),
                     service_id: None,
                 }],
                 constraints: vec![],
@@ -276,7 +280,6 @@ fn main() -> arkret::Result<()> {
                     .with_timezone(&Utc),
                 not_before: None,
                 expires_at: None,
-                effective_after_first_authorized_key: None,
                 updated_by: None,
                 updated_at: None,
                 revoked_by: None,
