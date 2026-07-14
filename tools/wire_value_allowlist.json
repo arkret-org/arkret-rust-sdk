@@ -67,20 +67,8 @@
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
-      "rust_field": "crates/core/src/models/agent.rs::AgentKeyPairRequestBody.proof_of_possession",
-      "spec_pointer": "agent-operations.schema.json#/$defs/agent_key_pair_request_body/properties/proof_of_possession",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
       "rust_field": "crates/core/src/models/agent.rs::AgentProvisionRequestBody.accountability",
       "spec_pointer": "agent-operations.schema.json#/$defs/agent_provision_request_body/properties/accountability",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
-      "rust_field": "crates/core/src/models/agent.rs::AgentRuntimeApprovalRequestBody.proof_of_possession",
-      "spec_pointer": "agent-operations.schema.json#/$defs/agent_runtime_approval_request_body/properties/proof_of_possession",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
@@ -253,24 +241,6 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/event_payload/device_identity.rs::CrossSigningPublishPayload.principal_signing_key",
-      "spec_pointer": "event-payload.schema.json#/$defs/cross_signing_publish_payload/properties/principal_signing_key",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/event_payload/device_identity.rs::CrossSigningPublishPayload.self_signing_key",
-      "spec_pointer": "event-payload.schema.json#/$defs/cross_signing_publish_payload/properties/self_signing_key",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/event_payload/device_identity.rs::CrossSigningPublishPayload.user_signing_key",
-      "spec_pointer": "event-payload.schema.json#/$defs/cross_signing_publish_payload/properties/user_signing_key",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
       "rust_field": "crates/core/src/models/artifacts/event_payload/moderation_morph_misc.rs::ModerationReportPayload.evidence_package",
       "spec_pointer": "event-payload.schema.json#/$defs/moderation_report_payload/properties/evidence_package",
       "classification": "open_json",
@@ -365,18 +335,6 @@
       "spec_pointer": "event-payload.schema.json#/$defs/strand_create_payload/properties/initial_relations",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/event_wire.rs::Message.encrypted_content",
-      "spec_pointer": "message.schema.json/properties/encrypted_content",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/event_wire.rs::Message.encrypted_metadata",
-      "spec_pointer": "message.schema.json/properties/encrypted_metadata",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
     {
       "rust_field": "crates/core/src/models/artifacts/interop.rs::ContentMappingReceipt.extra",
@@ -675,12 +633,6 @@
     {
       "rust_field": "crates/core/src/models/operation.rs::Invite.third_party_id",
       "spec_pointer": "invite.schema.json/properties/third_party_id",
-      "classification": "open_json",
-      "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
-    },
-    {
-      "rust_field": "crates/core/src/models/operation_payloads/membership_invite.rs::MembershipPayload.delivery_binding",
-      "spec_pointer": "event-payload.schema.json#/$defs/membership_payload/properties/delivery_binding",
       "classification": "open_json",
       "reason": "The resolved Spec field is explicitly unconstrained JSON or an open additionalProperties map."
     },
