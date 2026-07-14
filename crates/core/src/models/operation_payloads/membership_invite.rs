@@ -77,6 +77,7 @@ pub struct MembershipPayload {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum MembershipInviteRef {
     Event(EventId),

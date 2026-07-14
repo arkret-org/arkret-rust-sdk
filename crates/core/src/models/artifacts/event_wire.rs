@@ -307,6 +307,7 @@ pub struct ErasureVerificationStub {
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-batch-receipt.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventBatchReceiptScope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -318,6 +319,7 @@ pub struct EventBatchReceiptScope {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventBatchReceiptFrontier {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -331,6 +333,7 @@ pub struct EventBatchReceiptFrontier {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct EventBatchReceipt {
     pub schema: String,
@@ -344,6 +347,7 @@ pub struct EventBatchReceipt {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum EventBatchReceiptEvent {
     Event(EventId),

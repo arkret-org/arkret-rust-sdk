@@ -62,7 +62,7 @@ impl Realm {
         let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let digest = match candidate.claim_digest.as_ref() {
             Some(claim_digest) => claim_digest.clone(),
-            None => candidate.canonical_sha256().map_err(map_candidate_err)?,
+            None => Hash::new(candidate.canonical_sha256().map_err(map_candidate_err)?)?,
         };
         let mut payload = InviteCreatePayload::new(
             InviteId::new(generate_id("ak:invite:"))?,
@@ -73,7 +73,7 @@ impl Realm {
                     .recipient_service_id
                     .clone(),
             ),
-            Hash::new(digest)?,
+            digest,
             candidate.expires_at,
         );
         if let Some(role) = role {
@@ -102,7 +102,7 @@ impl Realm {
         let ctx = CandidateValidationContext::new(self.realm_id.as_str().to_owned());
         candidate.validate(&ctx).map_err(map_candidate_err)?;
 
-        let binding = candidate_to_delivery_binding(candidate);
+        let binding = candidate_to_delivery_binding(candidate)?;
         binding.validate()?;
 
         let _session_meta = self
@@ -117,7 +117,7 @@ impl Realm {
             realm_id: Some(self.realm_id()?),
             actor_id: Some(candidate.subject_id.clone()),
             delivery_status: Some(DeliveryStatus::Routable),
-            delivery_binding: Some(payload_value(&binding, "member delivery binding")?),
+            delivery_binding: Some(binding),
             gate_proofs: Vec::new(),
             via_service_ids: Vec::new(),
             reason: None,
@@ -183,7 +183,7 @@ impl Realm {
             realm_id: Some(self.realm_id()?),
             actor_id: Some(session_meta.user_id.clone()),
             delivery_status: Some(DeliveryStatus::Routable),
-            delivery_binding: Some(payload_value(&binding, "member delivery binding")?),
+            delivery_binding: Some(binding),
             gate_proofs: Vec::new(),
             via_service_ids: Vec::new(),
             reason: None,
@@ -293,10 +293,9 @@ impl Realm {
 /// `binding_source` constraints (that is the reducer / validator's job).
 fn candidate_to_delivery_binding(
     candidate: &MemberDeliveryBindingCandidate,
-) -> MemberDeliveryBinding {
+) -> Result<MemberDeliveryBinding> {
     use crate::models::{
-        BindingScope, BindingSource, DeliveryMode, EventRef, HandleHintBindingSource,
-        RecipientServiceType,
+        BindingScope, BindingSource, DeliveryMode, HandleHintBindingSource, RecipientServiceType,
     };
 
     let hint = &candidate.member_delivery_binding;
@@ -323,13 +322,15 @@ fn candidate_to_delivery_binding(
     let service_acceptance_ref = hint
         .service_acceptance_ref
         .as_ref()
-        .map(|id| EventRef::new(id.clone(), "authorized_by".to_owned()));
+        .map(|id| EventId::new(id.clone()))
+        .transpose()?;
     let policy_event_ref = hint
         .policy_event_ref
         .as_ref()
-        .map(|id| EventRef::new(id.clone(), "authorized_by".to_owned()));
+        .map(|id| EventId::new(id.clone()))
+        .transpose()?;
 
-    MemberDeliveryBinding {
+    Ok(MemberDeliveryBinding {
         recipient_service_id: hint.recipient_service_id.clone(),
         recipient_service_type: RecipientServiceType::PrincipalServer,
         binding_scope: BindingScope::Realm,
@@ -342,7 +343,7 @@ fn candidate_to_delivery_binding(
         holder_proof_ref: None,
         policy_event_ref,
         expires_at: Some(candidate.expires_at),
-    }
+    })
 }
 
 /// Map a [`CandidateError`] into the SDK's generic [`crate::Error`] surface

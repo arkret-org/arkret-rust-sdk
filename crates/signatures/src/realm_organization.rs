@@ -9,7 +9,7 @@
 //! `authorization.proof` `SignatureMaterial::NonEmptyString`.
 
 use arkret_canonical::base64url::base64url_encode;
-use arkret_core::models::{RealmOrganizationPayload, SignatureMaterial};
+use arkret_core::models::{NonEmptyString, RealmOrganizationPayload, SignatureMaterial};
 use arkret_core::{Error, Result};
 use ed25519_dalek::{Signer, SigningKey};
 
@@ -32,12 +32,8 @@ pub fn realm_organization_statement_sign(
 ) -> Result<RealmOrganizationPayload> {
     let signing_bytes = arkret_core::models::realm_organization_statement_signing_bytes(payload)?;
     let signature = signing_key.sign(&signing_bytes);
-    let proof = base64url_encode(signature.to_bytes());
-    if proof.trim().is_empty() {
-        return Err(Error::Protocol(
-            "computed organization statement proof is empty".to_owned(),
-        ));
-    }
+    let proof = NonEmptyString::new(base64url_encode(signature.to_bytes()))
+        .map_err(|reason| Error::Protocol(reason.to_owned()))?;
     let mut signed = payload.clone();
     signed.authorization.proof = SignatureMaterial::NonEmptyString(proof);
     Ok(signed)
@@ -93,7 +89,9 @@ mod tests {
                 executed_by: None,
                 signed_at: now(),
                 // Placeholder proof; replaced by the signer.
-                proof: SignatureMaterial::NonEmptyString("placeholder".to_owned()),
+                proof: SignatureMaterial::NonEmptyString(
+                    NonEmptyString::new("placeholder").unwrap(),
+                ),
             },
         }
     }

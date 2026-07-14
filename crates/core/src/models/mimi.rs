@@ -30,6 +30,7 @@ pub struct MimiFailure {
     pub reason_code: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_ref: Option<NonEmptyString>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = Option<u64>)))]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<NonZeroU64>,
 }

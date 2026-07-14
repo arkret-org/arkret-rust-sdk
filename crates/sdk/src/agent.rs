@@ -22,14 +22,14 @@ use crate::{
     AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyPairRequestBody, AgentPairingBootstrap,
     AgentPauseRequestBody, AgentProvisionRequestBody, AgentRenewPairingRequestBody,
     AgentResumeRequestBody, AgentRuntimeApprovalRequestBody, AgentRuntimeApprovalStatusRequestBody,
-    AgentSidecarThreadEnsureRequestBody, CapabilityGrant, Did, Error, Event, GrantId, Hash, Hlc,
-    OP_ACCOUNT_AGENT_KEY_PAIR, OP_AGENT_DEACTIVATE, OP_AGENT_GET, OP_AGENT_GRANT_ATTACH,
-    OP_AGENT_GRANT_DETACH, OP_AGENT_KEY_AUTHORIZE, OP_AGENT_LIST, OP_AGENT_PAUSE,
-    OP_AGENT_PROVISION, OP_AGENT_RENEW_PAIRING, OP_AGENT_RESUME, OP_AGENT_SIDECAR_THREAD_ENSURE,
-    OP_OPEN_AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS,
-    OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST, RealmId, Result,
-    SessionGrantDpopBindingProof, SessionGrantProofKind, SessionGrantRequestBody,
-    SessionGrantRequestProof,
+    AgentSidecarThreadEnsureRequestBody, CapabilityGrant, Did, DidUrl, Error, Event, GrantId, Hash,
+    Hlc, NonEmptyJsonObject, NonEmptyString, OP_ACCOUNT_AGENT_KEY_PAIR, OP_AGENT_DEACTIVATE,
+    OP_AGENT_GET, OP_AGENT_GRANT_ATTACH, OP_AGENT_GRANT_DETACH, OP_AGENT_KEY_AUTHORIZE,
+    OP_AGENT_LIST, OP_AGENT_PAUSE, OP_AGENT_PROVISION, OP_AGENT_RENEW_PAIRING, OP_AGENT_RESUME,
+    OP_AGENT_SIDECAR_THREAD_ENSURE, OP_OPEN_AGENT_PAIRING_RUNTIME_KEY_REQUEST_STATUS,
+    OP_OPEN_AGENT_PAIRING_SUBMIT_RUNTIME_KEY_REQUEST, PublicKey, RealmId, Result,
+    SessionGrantAgentScopeRequest, SessionGrantDpopBindingProof, SessionGrantProofKind,
+    SessionGrantRequestBody, SessionGrantRequestProof,
 };
 
 pub const AGENT_KEY_PROOF_KIND: &str = "agent_key_proof";
@@ -140,10 +140,13 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         let (public_key, public_key_digest, proof_of_possession) = self.request_material()?;
         Ok(RuntimeKeyRequest {
             body: AgentRuntimeApprovalRequestBody {
-                pairing_code: self.bootstrap.pairing_code.clone(),
-                pairing_request_id: self.bootstrap.pairing_request_id.clone(),
+                pairing_code: NonEmptyString::new(self.bootstrap.pairing_code.clone())
+                    .map_err(|reason| Error::Protocol(reason.to_owned()))?,
+                pairing_request_id: NonEmptyString::new(self.bootstrap.pairing_request_id.clone())
+                    .map_err(|reason| Error::Protocol(reason.to_owned()))?,
                 agent_id: self.bootstrap.agent_id.clone(),
-                verification_method: self.verification_method.clone(),
+                verification_method: DidUrl::new(self.verification_method.clone())
+                    .map_err(|reason| Error::Protocol(reason.to_owned()))?,
                 public_key,
                 proof_of_possession,
                 runtime_attestation: self.runtime_attestation.clone(),
@@ -160,9 +163,11 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         let (public_key, public_key_digest, proof_of_possession) = self.request_material()?;
         Ok(RuntimeKeyRequest {
             body: AgentKeyPairRequestBody {
-                pairing_request_id: self.bootstrap.pairing_request_id.clone(),
+                pairing_request_id: NonEmptyString::new(self.bootstrap.pairing_request_id.clone())
+                    .map_err(|reason| Error::Protocol(reason.to_owned()))?,
                 agent_id: self.bootstrap.agent_id.clone(),
-                verification_method: self.verification_method.clone(),
+                verification_method: DidUrl::new(self.verification_method.clone())
+                    .map_err(|reason| Error::Protocol(reason.to_owned()))?,
                 public_key,
                 proof_of_possession,
                 runtime_attestation: self.runtime_attestation.clone(),
@@ -172,14 +177,15 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
         })
     }
 
-    fn request_material(&self) -> Result<(Value, Hash, Value)> {
-        let public_key = self.public_key()?;
-        let public_key_digest = agent_runtime_public_key_digest(&public_key)?;
+    fn request_material(&self) -> Result<(PublicKey, Hash, NonEmptyJsonObject)> {
+        let public_key_value = self.public_key()?;
+        let public_key: PublicKey = serde_json::from_value(public_key_value.clone())?;
+        let public_key_digest = agent_runtime_public_key_digest(&public_key_value)?;
         let request_digest = agent_key_pair_proof_request_binding_digest(
             &self.bootstrap.pairing_request_id,
             &self.bootstrap.agent_id,
             &self.verification_method,
-            &public_key,
+            &public_key_value,
             self.runtime_attestation
                 .as_ref()
                 .map(serde_json::to_value)
@@ -194,13 +200,13 @@ impl<'a> RuntimeKeyRequestBuilder<'a> {
             request_digest.clone(),
         );
         let signature = self.signing_key.sign(&signing_input.canonical_bytes()?);
-        let proof_of_possession = serde_json::json!({
+        let proof_of_possession = serde_json::from_value(serde_json::json!({
             "challenge": self.bootstrap.pairing_request_id,
             "audience": self.bootstrap.service_id,
             "request_canonical_digest": request_digest,
             "expires_at": self.proof_expires_at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
             "signature": arkret_canonical::base64url_encode(signature.to_bytes()),
-        });
+        }))?;
         Ok((public_key, public_key_digest, proof_of_possession))
     }
 
@@ -336,11 +342,13 @@ impl AgentKeyPairRequestBuilder {
         }
         validate_pairing_authorize_event(&self.authorize_event, &self.agent_id)?;
         Ok(AgentKeyPairRequestBody {
-            pairing_request_id: self.pairing_request_id,
+            pairing_request_id: NonEmptyString::new(self.pairing_request_id)
+                .map_err(|reason| Error::Protocol(reason.to_owned()))?,
             agent_id: self.agent_id,
-            verification_method: self.verification_method,
-            public_key: self.public_key,
-            proof_of_possession: self.proof_of_possession,
+            verification_method: DidUrl::new(self.verification_method)
+                .map_err(|reason| Error::Protocol(reason.to_owned()))?,
+            public_key: serde_json::from_value(self.public_key)?,
+            proof_of_possession: serde_json::from_value(self.proof_of_possession)?,
             runtime_attestation: self.runtime_attestation,
             authorize_event: self.authorize_event,
         })
@@ -633,7 +641,7 @@ pub fn agent_key_proof_signing_input_for_session_grant(
     principal_id: &Did,
     requested_scope: &[String],
     agent_key_authorization_ref: &str,
-    agent_scope_request: &Value,
+    agent_scope_request: &SessionGrantAgentScopeRequest,
     dpop_binding_proof: &SessionGrantDpopBindingProof,
     verification_method: impl Into<String>,
     challenge: impl Into<String>,
@@ -675,7 +683,7 @@ pub fn agent_key_proof_session_grant_request(
     principal_id: Did,
     requested_scope: Vec<String>,
     agent_key_authorization_ref: impl Into<String>,
-    agent_scope_request: Value,
+    agent_scope_request: SessionGrantAgentScopeRequest,
     dpop_binding_proof: SessionGrantDpopBindingProof,
     verification_method: impl Into<String>,
     challenge: impl Into<String>,
@@ -722,7 +730,7 @@ fn agent_key_proof_unsigned_session_grant_request(
     principal_id: Did,
     requested_scope: Vec<String>,
     agent_key_authorization_ref: impl Into<String>,
-    agent_scope_request: Value,
+    agent_scope_request: SessionGrantAgentScopeRequest,
     dpop_binding_proof: SessionGrantDpopBindingProof,
     verification_method: impl Into<String>,
     challenge: impl Into<String>,
@@ -736,7 +744,7 @@ fn agent_key_proof_unsigned_session_grant_request(
         device_id: None,
         requested_scope,
         agent_key_authorization_ref: Some(agent_key_authorization_ref.into()),
-        agent_scope_request,
+        agent_scope_request: Some(agent_scope_request),
         dpop_binding_proof: Some(dpop_binding_proof),
         applet_delegation: None,
         proof: SessionGrantRequestProof {

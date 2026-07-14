@@ -16,6 +16,7 @@ from typing import Any, Iterable
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SPEC_ROOT = ROOT.parent / "arkret-spec" / "spec" / "v1" / "artifacts" / "schemas"
 DEFAULT_ALLOWLIST = ROOT / "tools" / "wire_value_allowlist.json"
+DEFAULT_INVENTORY = ROOT / "tools" / "wire_value_inventory.json"
 VALUE_RE = re.compile(r"(?<![A-Za-z0-9_])(?:serde_json::)?Value(?![A-Za-z0-9_])")
 STRUCT_RE = re.compile(r"\bpub\s+struct\s+([A-Za-z_][A-Za-z0-9_]*)[^;{]*\{")
 FIELD_RE = re.compile(
@@ -186,10 +187,10 @@ def normalize_pointer(raw: str) -> str:
     return value
 
 
-def scan_file(path: Path) -> list[PublicValueField]:
+def scan_file(path: Path, source_root: Path) -> list[PublicValueField]:
     source = path.read_text(encoding="utf-8")
     masked = mask_non_code(source)
-    relative = path.relative_to(ROOT).as_posix()
+    relative = path.relative_to(source_root).as_posix()
     crate = relative.split("/", 2)[1]
     found: list[PublicValueField] = []
     for match in STRUCT_RE.finditer(masked):
@@ -226,10 +227,10 @@ def scan_file(path: Path) -> list[PublicValueField]:
     return found
 
 
-def scan_fields() -> list[PublicValueField]:
+def scan_fields(source_root: Path = ROOT) -> list[PublicValueField]:
     fields: list[PublicValueField] = []
-    for path in sorted((ROOT / "crates").glob("**/*.rs")):
-        fields.extend(scan_file(path))
+    for path in sorted((source_root / "crates").glob("**/*.rs")):
+        fields.extend(scan_file(path, source_root))
     return sorted(fields, key=lambda field: field.key)
 
 
@@ -279,11 +280,13 @@ class SchemaResolver:
         index: dict[str, list[tuple[Path, str, Any]]] = {}
         for path in sorted(self.root.glob("*.schema.json")):
             document = self.load(path)
+            root_name = path.name.removesuffix(".schema.json").replace("-", "_")
+            index.setdefault(root_name, []).append((path, "", document))
             definitions = document.get("$defs") if isinstance(document, dict) else None
             if not isinstance(definitions, dict):
                 continue
             for name, node in definitions.items():
-                candidate = (path, name, node)
+                candidate = (path, f"#/$defs/{name}", node)
                 index.setdefault(name, []).append(candidate)
                 normalized = self.rust_name_to_schema_name(name)
                 if normalized != name:
@@ -299,13 +302,26 @@ class SchemaResolver:
     def inferred_owner(self, struct_name: str, field_name: str) -> tuple[Path, str, Any] | None:
         name = self.rust_name_to_schema_name(struct_name)
         candidates = []
-        for path, def_name, node in self.build_def_index().get(name, []):
+        for path, fragment, node in self.build_def_index().get(name, []):
             resolved_path, resolved = self.resolve_ref(path, node)
             properties = resolved.get("properties") if isinstance(resolved, dict) else None
-            if isinstance(properties, dict) and field_name in properties:
-                candidates.append((resolved_path, def_name, resolved))
+            has_field = isinstance(properties, dict) and field_name in properties
+            has_extra = field_name == "extra" and isinstance(resolved, dict) and (
+                "additionalProperties" in resolved or "unevaluatedProperties" in resolved
+            )
+            if has_field or has_extra:
+                candidates.append((path, fragment, resolved))
+        candidates = list(dict.fromkeys((path, fragment) for path, fragment, _ in candidates))
         if len(candidates) == 1:
-            return candidates[0]
+            path, fragment = candidates[0]
+            document = self.load(path)
+            node = document
+            if fragment:
+                for token in fragment.lstrip("#/").split("/"):
+                    token = token.replace("~1", "/").replace("~0", "~")
+                    node = node[token]
+            _, node = self.resolve_ref(path, node)
+            return path, fragment, node
         return None
 
     def field_shape(
@@ -329,9 +345,15 @@ class SchemaResolver:
                 inferred = self.inferred_owner(struct_name, field_name)
                 if inferred is None:
                     return "unknown", pointer
-                path, def_name, owner = inferred
-                effective_pointer = f"{path.name}#/$defs/{def_name}"
+                path, fragment, owner = inferred
+                effective_pointer = f"{path.name}{fragment}"
                 properties = owner.get("properties")
+                if field_name == "extra":
+                    additional = owner.get("additionalProperties")
+                    if additional is False or owner.get("unevaluatedProperties") is False:
+                        return "closed", effective_pointer
+                    if additional is True or isinstance(additional, dict):
+                        return "open_map", f"{effective_pointer}/additionalProperties"
             field = properties[field_name]
             assert path is not None
             shape = self.classify_node(path, field)
@@ -386,10 +408,11 @@ def load_allowlist(path: Path) -> dict[str, dict[str, Any]]:
 def report(fields: list[PublicValueField], resolver: SchemaResolver, allowlist: dict[str, dict[str, Any]]) -> dict[str, Any]:
     entries = []
     for field in fields:
-        shape, field_pointer = resolver.field_shape(
-            field.spec_pointer, field.struct_name, field.field_name
-        )
         allowed = allowlist.get(field.key)
+        allowed_pointer = allowed.get("spec_pointer") if allowed else None
+        shape, field_pointer = resolver.field_shape(
+            allowed_pointer or field.spec_pointer, field.struct_name, field.field_name
+        )
         classification = allowed.get("classification") if allowed else None
         entries.append(
             {
@@ -400,7 +423,11 @@ def report(fields: list[PublicValueField], resolver: SchemaResolver, allowlist: 
                 "owner": field.struct_name,
                 "field": field.field_name,
                 "rust_type": field.rust_type,
-                "spec_pointer": field_pointer or field.spec_pointer,
+                "spec_pointer": (
+                    allowed.get("spec_pointer")
+                    if allowed is not None and "spec_pointer" in allowed
+                    else field_pointer or field.spec_pointer
+                ),
                 "schema_shape": shape,
                 "classification": classification or "unclassified",
                 "reason": allowed.get("reason") if allowed else None,
@@ -420,7 +447,11 @@ def report(fields: list[PublicValueField], resolver: SchemaResolver, allowlist: 
     }
 
 
-def validate(report_payload: dict[str, Any], allowlist: dict[str, dict[str, Any]]) -> list[str]:
+def validate(
+    report_payload: dict[str, Any],
+    allowlist: dict[str, dict[str, Any]],
+    resolver: SchemaResolver,
+) -> list[str]:
     errors: list[str] = []
     current = {entry["rust_field"]: entry for entry in report_payload["entries"]}
     for key, entry in current.items():
@@ -428,8 +459,14 @@ def validate(report_payload: dict[str, Any], allowlist: dict[str, dict[str, Any]
         if classification == "unclassified":
             errors.append(f"unclassified public Value field: {key}")
             continue
-        if classification == "open_json" and entry["schema_shape"] == "closed":
-            errors.append(f"open_json allowlist entry now points to a closed schema: {key}")
+        if classification == "open_json" and entry["schema_shape"] not in {
+            "open_json",
+            "open_json_container",
+            "open_map",
+        }:
+            errors.append(
+                f"open_json allowlist entry does not resolve to an open schema: {key}"
+            )
         if entry["field"] == "extra" and entry["schema_shape"] == "closed":
             errors.append(f"closed schema exposes a public flattened extra map: {key}")
         if classification == "open_json" and entry["schema_shape"] == "open_map" and "Map<" not in entry["rust_type"]:
@@ -450,6 +487,12 @@ def validate(report_payload: dict[str, Any], allowlist: dict[str, dict[str, Any]
             "spec_pointer"
         ):
             errors.append(f"wire allowlist entry has no Spec pointer: {key}")
+        pointer = entry.get("spec_pointer")
+        if pointer:
+            try:
+                resolver.pointer_node(pointer)
+            except (FileNotFoundError, KeyError, json.JSONDecodeError, TypeError):
+                errors.append(f"allowlist entry has an invalid Spec pointer: {key}")
     for key in sorted(set(allowlist) - set(current)):
         errors.append(f"stale allowlist entry: {key}")
     return errors
@@ -476,13 +519,15 @@ def seed_open_allowlist(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--spec-root", type=Path, default=DEFAULT_SPEC_ROOT)
+    parser.add_argument("--source-root", type=Path, default=ROOT)
     parser.add_argument("--allowlist", type=Path, default=DEFAULT_ALLOWLIST)
+    parser.add_argument("--inventory", type=Path, default=DEFAULT_INVENTORY)
     parser.add_argument("--write-report", type=Path)
     parser.add_argument("--seed-open-allowlist", action="store_true")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
 
-    fields = scan_fields()
+    fields = scan_fields(args.source_root)
     resolver = SchemaResolver(args.spec_root)
     allowlist = load_allowlist(args.allowlist)
     payload = report(fields, resolver, allowlist)
@@ -495,7 +540,13 @@ def main() -> int:
     else:
         print(rendered, end="")
     if args.check:
-        errors = validate(payload, allowlist)
+        errors = validate(payload, allowlist, resolver)
+        if args.inventory.exists() and args.source_root.resolve() == ROOT.resolve():
+            tracked = json.loads(args.inventory.read_text(encoding="utf-8"))
+            if tracked != payload:
+                errors.append(
+                    "wire Value inventory drifted; regenerate tools/wire_value_inventory.json"
+                )
         if errors:
             for error in errors:
                 print(error, file=sys.stderr)

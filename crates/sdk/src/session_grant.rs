@@ -9,7 +9,6 @@
 //! (`oidc_code_exchange`) uses [`oidc_session_grant_request`].
 
 use chrono::{DateTime, Utc};
-use serde_json::Value;
 
 use crate::{
     DeviceId, Did, Hash, SessionGrantAppletDelegation, SessionGrantDpopBindingProof,
@@ -66,7 +65,7 @@ pub fn holder_proof_session_grant_request(
         device_id,
         requested_scope,
         agent_key_authorization_ref: None,
-        agent_scope_request: Value::Null,
+        agent_scope_request: None,
         dpop_binding_proof,
         applet_delegation,
         proof: proof.into_request_proof(SessionGrantProofKind::PairedDeviceProof),
@@ -87,7 +86,7 @@ pub fn did_proof_session_grant_request(
         device_id: Some(device_id),
         requested_scope,
         agent_key_authorization_ref: None,
-        agent_scope_request: Value::Null,
+        agent_scope_request: None,
         dpop_binding_proof,
         applet_delegation,
         proof: proof.into_request_proof(SessionGrantProofKind::DidBoundSignature),
@@ -119,7 +118,7 @@ pub fn oidc_session_grant_request(
         device_id,
         requested_scope,
         agent_key_authorization_ref: None,
-        agent_scope_request: Value::Null,
+        agent_scope_request: None,
         dpop_binding_proof: None,
         applet_delegation: None,
         proof: SessionGrantRequestProof {

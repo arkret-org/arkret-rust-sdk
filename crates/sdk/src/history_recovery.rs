@@ -26,13 +26,15 @@
 //! HPKE public key, NOT an MLS member or member device.
 
 use arkret_canonical::multibase::{decode_multibase_base58btc, decode_multicodec_varint};
+use arkret_core::EffectiveScope as WireEffectiveScope;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 use crate::secret_share::seal_history_secret_to_device_pubkey;
 use crate::{
-    Did, EventId, HistoryVisibilityValue, RealmKeyScope, RealmKeyShareClass, RealmKeySharePayload,
-    RealmRecoveryRecipient, Result,
+    DeviceId, Did, DidUrl, EventId, Hash, HistoryVisibilityValue, NonEmptyString, RealmId,
+    RealmKeyScope, RealmKeyShareClass, RealmKeySharePayload, RealmRecoveryRecipient, Result,
+    SignatureMaterial,
 };
 
 /// DID service entry `type` designating an offline RRK (`identity-did.md` §8.3).
@@ -281,11 +283,11 @@ fn decode_x25519_multibase(
 pub fn seal_history_secrets_to_recovery_recipient(
     recovery_key: &ResolvedRealmHistoryRecoveryKey,
     history_secrets: &[(u64, Vec<u8>)],
-    realm_id: &str,
+    realm_id: &RealmId,
     key_scope: RealmKeyScope,
-    sender_device_id: impl Into<String>,
-    source_authorization_ref: impl Into<String>,
-    sender_device_signature: Value,
+    sender_device_id: DeviceId,
+    source_authorization_ref: EventId,
+    sender_device_signature: SignatureMaterial,
     created_at: DateTime<Utc>,
     expires_at: Option<DateTime<Utc>>,
 ) -> Result<RealmKeySharePayload> {
@@ -297,24 +299,15 @@ pub fn seal_history_secrets_to_recovery_recipient(
     // The realm_id is mixed into the scope's effective_scope by the caller; we
     // require it here only to bind the seal diagnostically and to reject a scope
     // that names a different Realm.
-    if let Some(scope_realm) = key_scope
-        .effective_scope
-        .get("realm_id")
-        .and_then(Value::as_str)
-        && scope_realm != realm_id
-    {
+    if key_scope.effective_scope.realm_id() != realm_id {
         return Err(crate::Error::Protocol(format!(
-            "RRK seal realm_id {realm_id} does not match key_scope.effective_scope.realm_id {scope_realm}"
+            "RRK seal realm_id {realm_id} does not match key_scope.effective_scope.realm_id {}",
+            key_scope.effective_scope.realm_id()
         )));
     }
 
     let ciphertext =
         seal_history_secret_to_device_pubkey(&recovery_key.hpke_public_key, history_secrets)?;
-
-    let source_authorization_ref = source_authorization_ref.into();
-    EventId::new(source_authorization_ref.clone()).map_err(|err| {
-        crate::Error::Protocol(format!("invalid source_authorization_ref: {err}"))
-    })?;
 
     Ok(RealmKeySharePayload {
         // The RRK is offline and not a member device; the durable share is
@@ -323,13 +316,22 @@ pub fn seal_history_secrets_to_recovery_recipient(
         share_class: RealmKeyShareClass::RealmRecoveryKey,
         recipient_principal_id: recovery_key.principal_id.clone(),
         recipient_device_id: None,
-        recipient_verification_method: Some(recovery_key.verification_method.clone()),
-        recovery_recipient_id: Some(recovery_key.recipient_id.clone()),
-        sender_device_id: sender_device_id.into(),
+        recipient_verification_method: Some(
+            DidUrl::new(recovery_key.verification_method.clone())
+                .map_err(|reason| crate::Error::Protocol(reason.to_owned()))?,
+        ),
+        recovery_recipient_id: Some(
+            NonEmptyString::new(recovery_key.recipient_id.clone())
+                .map_err(|reason| crate::Error::Protocol(reason.to_owned()))?,
+        ),
+        sender_device_id,
         source_authorization_ref,
         sender_device_signature,
         key_scope,
-        ciphertext: Some(ciphertext),
+        ciphertext: Some(
+            NonEmptyString::new(ciphertext)
+                .map_err(|reason| crate::Error::Protocol(reason.to_owned()))?,
+        ),
         encrypted_key_ref: None,
         aad_digest: None,
         expires_at,
@@ -342,14 +344,14 @@ pub fn seal_history_secrets_to_recovery_recipient(
 /// history-sharing policy at seal time; `history_visibility` is the effective
 /// value. Provider-initiated RRK seals always name an explicit epoch range.
 pub fn rrk_key_scope(
-    realm_id: &str,
+    realm_id: RealmId,
     from_epoch: u64,
     to_epoch: u64,
-    policy_digest: Value,
+    policy_digest: Hash,
     history_visibility: Option<HistoryVisibilityValue>,
 ) -> RealmKeyScope {
     RealmKeyScope {
-        effective_scope: serde_json::json!({ "kind": "realm", "realm_id": realm_id }),
+        effective_scope: WireEffectiveScope::Realm { realm_id },
         policy_digest,
         membership_frontier_digest: None,
         from_epoch: Some(from_epoch),

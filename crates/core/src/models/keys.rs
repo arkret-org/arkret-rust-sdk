@@ -28,6 +28,7 @@ pub struct KeysUploadOutcome {
 #[serde(deny_unknown_fields)]
 pub struct KeysQueryRequestBody {
     pub device_keys: QueryDeviceMap,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = Option<u64>)))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout_ms: Option<NonZeroU64>,
 }
@@ -167,6 +168,7 @@ pub struct KeysOperationFailure {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub algorithm: Option<NonEmptyString>,
     pub reason_code: NonEmptyString,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = Option<u64>)))]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<NonZeroU64>,
 }

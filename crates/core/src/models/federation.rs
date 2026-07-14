@@ -1,4 +1,6 @@
 use super::*;
+use crate::federation::VerifyActorChallengeSignature;
+use crate::http::EventsSubmitRejectedItem;
 
 fn is_false(value: &bool) -> bool {
     !*value
@@ -96,7 +98,7 @@ pub struct FederationVerifyActorRequestBody {
     pub challenge: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signed_payload_digest: Option<Hash>,
-    pub signature: crate::VerifyActorChallengeSignature,
+    pub signature: VerifyActorChallengeSignature,
     pub purpose: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,

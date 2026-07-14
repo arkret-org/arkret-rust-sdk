@@ -26,6 +26,7 @@ pub struct CrossSigningResetPayload {
     /// One of `principal_signing` / `recovery_unlock` / `device_quorum` /
     /// `trusted_recovery_service`. Validated in the proof verification
     /// path (see zh/crypto-media/device-lifecycle.md §14.4).
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub proof: CrossSigningResetProof,
 
     pub issued_at: DateTime<Utc>,

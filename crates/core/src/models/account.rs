@@ -397,6 +397,7 @@ pub struct AccountRegisterOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AccountUpdateProfileRequestBody {
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub patch: ProfilePatch,
 }
 

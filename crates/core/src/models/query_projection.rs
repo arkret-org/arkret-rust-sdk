@@ -146,12 +146,14 @@ pub struct ProjectionItem {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub enum FieldValuePositionModel {
     #[serde(rename = "field_value")]
     FieldValue,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FieldValueCollectionPosition {
     pub model: FieldValuePositionModel,
@@ -160,12 +162,14 @@ pub struct FieldValueCollectionPosition {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub enum RelationPositionModel {
     #[serde(rename = "relation")]
     Relation,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RelationCollectionPosition {
     pub model: RelationPositionModel,
@@ -177,12 +181,14 @@ pub struct RelationCollectionPosition {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub enum TimeWindowPositionModel {
     #[serde(rename = "time_window")]
     TimeWindow,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct TimeWindowCollectionPosition {
     pub model: TimeWindowPositionModel,
@@ -195,12 +201,14 @@ pub struct TimeWindowCollectionPosition {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub enum CrosstabPositionModel {
     #[serde(rename = "crosstab_cell")]
     CrosstabCell,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct CrosstabCollectionPosition {
     pub model: CrosstabPositionModel,
@@ -210,12 +218,14 @@ pub struct CrosstabCollectionPosition {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SortKeyCollectionPosition {
     pub sort_key: NonEmptyString,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum CollectionPosition {
     FieldValue(FieldValueCollectionPosition),
@@ -683,6 +693,7 @@ pub struct DocumentMorphProjectionOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DocumentMorphProjection {
     pub morph_id: MorphId,
     pub realm_id: RealmId,
@@ -708,6 +719,7 @@ pub struct DocumentMorphProjection {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub extensions: BTreeMap<String, Value>,
 }
 

@@ -1291,7 +1291,7 @@ mod realm_organization_verifier_tests {
                 delegation_ref: None,
                 executed_by: None,
                 signed_at: now(),
-                proof: SignatureMaterial::NonEmptyString("c2ln".to_owned()),
+                proof: SignatureMaterial::NonEmptyString(NonEmptyString::new("c2ln").unwrap()),
             },
         }
     }
@@ -1414,7 +1414,8 @@ mod realm_organization_verifier_tests {
     #[test]
     fn empty_proof_fails() {
         let mut p = active_payload();
-        p.authorization.proof = SignatureMaterial::NonEmptyString("   ".to_owned());
+        p.authorization.proof =
+            SignatureMaterial::NonEmptyString(NonEmptyString::new("   ").unwrap());
         assert!(
             verify_realm_organization_statement(&p, &realm_id(), now(), &NoDelegationResolver)
                 .is_err()

@@ -116,6 +116,7 @@ pub type OperationStatusOutcome = AgentLifecycleOutcome;
 /// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/
 /// pending_member_reconciliation_item`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PendingMemberReconciliationItem {
     pub agent_id: Did,
@@ -124,6 +125,7 @@ pub struct PendingMemberReconciliationItem {
 
 /// Counterpart for `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/public_key`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct PublicKey {
     pub kty: NonEmptyString,

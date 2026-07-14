@@ -7,6 +7,7 @@ use serde_json::Value;
 /// JSON object whose members are restricted to the protocol `x_*` extension
 /// namespace (`^x_[a-z][a-z0-9_]{0,63}$`).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(transparent)]
 pub struct XExtensionMap(BTreeMap<String, Value>);
 

@@ -293,6 +293,7 @@ pub type StringList = Vec<String>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/identity-receipt.schema.json`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct IdentityReceipt {
     pub schema: String,

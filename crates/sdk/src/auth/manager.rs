@@ -911,7 +911,7 @@ impl AuthManager {
                 device_id: Some(device_id),
                 requested_scope: Vec::new(),
                 agent_key_authorization_ref: None,
-                agent_scope_request: Value::Null,
+                agent_scope_request: None,
                 dpop_binding_proof: None,
                 applet_delegation: None,
                 proof: arkret_core::SessionGrantRequestProof {

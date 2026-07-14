@@ -43,7 +43,23 @@ struct AgentRuntimeKeyBinding<'a> {
     verification_method: &'a str,
 }
 
-pub fn agent_runtime_public_key_digest(public_key: &Value) -> Result<Hash> {
+pub fn agent_requested_scope_digest(
+    agent_id: &Did,
+    controller_id: &Did,
+    requested_scope: &impl Serialize,
+) -> Result<Hash> {
+    Hash::new(canonical::canonical_sha256(&serde_json::json!({
+        "agent_id": agent_id.as_str(),
+        "controller_id": controller_id.as_str(),
+        "requested_scope": requested_scope,
+    }))?)
+    .map_err(Error::from)
+}
+
+pub fn agent_runtime_public_key_digest(public_key: &impl Serialize) -> Result<Hash> {
+    let public_key = serde_json::to_value(public_key).map_err(|error| {
+        Error::Protocol(format!("agent runtime public_key must serialize to JSON: {error}"))
+    })?;
     let key: PublicKey = serde_json::from_value(public_key.clone()).map_err(|error| {
         Error::Protocol(format!(
             "agent runtime public_key must match public_key schema: {error}"
@@ -69,7 +85,7 @@ pub fn agent_runtime_public_key_digest(public_key: &Value) -> Result<Hash> {
             "agent runtime public_key.key must be a 32-byte Ed25519 key".to_owned(),
         ));
     }
-    Hash::new(canonical::canonical_sha256(public_key)?).map_err(Error::from)
+    Hash::new(canonical::canonical_sha256(&public_key)?).map_err(Error::from)
 }
 
 /// Digest the runtime attestation value used by the stable approval binding.
@@ -86,7 +102,7 @@ pub fn agent_runtime_key_binding_digest(
     agent_id: &Did,
     pairing_request_id: &str,
     verification_method: &str,
-    public_key: &Value,
+    public_key: &impl Serialize,
     runtime_attestation: Option<&Value>,
 ) -> Result<Hash> {
     let public_key_digest = agent_runtime_public_key_digest(public_key)?;
