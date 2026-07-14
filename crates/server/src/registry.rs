@@ -415,6 +415,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_arkret/self/events/frontier"
     ),
     endpoint!(
+        "ak.self.events.query.mls_governance_proof",
+        Post,
+        "/_arkret/self/events/mls-governance-proof"
+    ),
+    endpoint!(
         "ak.self.events.resource.get",
         Get,
         "/_arkret/self/events/{event_id}"

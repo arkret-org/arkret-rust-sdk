@@ -580,7 +580,7 @@ mod tests {
                 alg: "EdDSA".to_owned(),
                 verification_method: "did:webvh:z6mkfixture:issuer.example#key-1".to_owned(),
                 payload_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
-                created_at: test_time(),
+                created_at: resolved_at.to_owned(),
                 domain: None,
                 audience: None,
                 proof_purpose: None,

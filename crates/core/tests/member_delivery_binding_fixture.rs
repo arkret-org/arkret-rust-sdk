@@ -18,17 +18,9 @@
 //!   code registration.
 //! * `unroutable.v1` delivery-side effects (skipping notifications / sync / push / to-device /
 //!   key-packages) — server delivery pipeline conduct.
-//!
-//! Known wire-shape divergence (reported, not papered over in the model):
-//! the payload-schema `event_ref` (`event-payload.schema.json#/$defs/
-//! event_ref`) is a bare `ak:event:...` string, while the SDK
-//! `MemberDeliveryBinding.service_acceptance_ref` is the envelope-style
-//! `EventRef {id, role}` object. `binding_from_fixture` adapts the string
-//! form explicitly so the divergence stays visible in exactly one place.
-
 use arkret_core::schema::{embedded_error_code_identifiers, embedded_json_artifact};
 use arkret_core::{BindingSource, DeliveryStatus, MemberDeliveryBinding};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 const FIXTURE_PATH: &str = "fixtures/membership-delivery-binding-fixture.json";
 
@@ -46,22 +38,9 @@ fn vector(fixture: &Value, vector_id: &str) -> Value {
         .clone()
 }
 
-/// Deserialize a fixture `delivery_binding` object into the typed model,
-/// adapting the payload-schema string `service_acceptance_ref` into the
-/// SDK's `EventRef {id, role}` object form (see module docs).
+/// Deserialize a fixture `delivery_binding` object into the typed model.
 fn binding_from_fixture(raw: &Value) -> MemberDeliveryBinding {
-    let mut raw = raw.clone();
-    if let Some(reference) = raw
-        .get("service_acceptance_ref")
-        .and_then(Value::as_str)
-        .map(str::to_owned)
-    {
-        raw["service_acceptance_ref"] = json!({
-            "id": reference,
-            "role": "service_acceptance",
-        });
-    }
-    serde_json::from_value(raw).expect("fixture delivery_binding must deserialize")
+    serde_json::from_value(raw.clone()).expect("fixture delivery_binding must deserialize")
 }
 
 fn registered_identifiers() -> std::collections::BTreeSet<String> {

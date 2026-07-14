@@ -855,7 +855,14 @@ mod event_wire_surface_tests {
     fn message_event_payload_classifies_message_and_reaction_kinds() {
         let mut revise = base_event();
         revise.kind = crate::events::kinds::MESSAGE_REVISE.into();
-        revise.payload = json!({"reason": "typo"});
+        revise.payload = json!({
+            "message_id": "ak:message:01904100-0000-7000-8000-000000000001",
+            "content": {
+                "kind": "ak.content.text",
+                "body": "hello revised"
+            },
+            "reason": "typo"
+        });
         assert!(matches!(
             revise.as_message_event_payload().unwrap(),
             MessageEventPayload::Revise(_)

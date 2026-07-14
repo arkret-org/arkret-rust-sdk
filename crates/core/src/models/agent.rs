@@ -432,8 +432,13 @@ mod tests {
             "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
             "agent_id": "did:webvh:z6mkfixture:agent.example",
             "verification_method": "did:webvh:z6mkfixture:agent.example#runtime-key-1",
-            "public_key": {},
-            "proof_of_possession": {},
+            "public_key": {
+                "kty": "OKP",
+                "kid": "did:webvh:z6mkfixture:agent.example#runtime-key-1",
+                "alg": "Ed25519",
+                "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "proof_of_possession": { "signature": "c2ln" },
             "runtime_attestation": runtime_attestation
         })
     }

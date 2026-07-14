@@ -169,9 +169,6 @@ pub const REASON_AEAD_NONCE_COUNTER_REPLAY: &str = "aead_nonce_counter_replay";
 pub const REASON_AEAD_NONCE_DERIVATION_INVALID: &str = "aead_nonce_derivation_invalid";
 pub const REASON_AEAD_NONCE_SENDER_DOMAIN_COLLISION: &str = "aead_nonce_sender_domain_collision";
 pub const REASON_ACCOUNTABILITY_GRANT_MISSING: &str = "accountability_grant_missing";
-pub const REASON_AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE: &str = "agent_grant_exceeds_requested_scope";
-pub const REASON_AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID: &str =
-    "agent_requested_scope_commitment_invalid";
 pub const REASON_FOCUS_MISMATCH: &str = "focus_mismatch";
 pub const REASON_UNKNOWN_FOCUS_TYPE: &str = "unknown_focus_type";
 pub const REASON_TOKEN_ISSUER_UNAUTHORISED: &str = "token_issuer_unauthorised";
@@ -351,6 +348,9 @@ pub const REASON_DURABILITY_SEAL_MISSING_BEFORE_GC: &str = "durability_seal_miss
 pub const REASON_METADATA_ENCRYPTION_FLOOR_DOWNGRADE: &str = "metadata_encryption_floor_downgrade";
 pub const REASON_SCOPE_REBIND_FORBIDDEN: &str = "scope_rebind_forbidden";
 pub const REASON_AGENT_PARTICIPATION_CEILING_WIDEN: &str = "agent_participation_ceiling_widen";
+pub const REASON_AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE: &str = "agent_grant_exceeds_requested_scope";
+pub const REASON_AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID: &str =
+    "agent_requested_scope_commitment_invalid";
 pub const REASON_AGENT_PARTICIPATION_EXCEEDS_CEILING: &str = "agent_participation_exceeds_ceiling";
 pub const REASON_AGENT_REPLY_NOT_PERMITTED: &str = "agent_reply_not_permitted";
 pub const REASON_EFFECTIVE_SCOPE_REDUCER_MANAGED: &str = "effective_scope_reducer_managed";
@@ -606,8 +606,6 @@ pub const KNOWN_REASON_CODES: &[&str] = &[
     REASON_AEAD_NONCE_DERIVATION_INVALID,
     REASON_AEAD_NONCE_SENDER_DOMAIN_COLLISION,
     REASON_ACCOUNTABILITY_GRANT_MISSING,
-    REASON_AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE,
-    REASON_AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID,
     REASON_FOCUS_MISMATCH,
     REASON_UNKNOWN_FOCUS_TYPE,
     REASON_TOKEN_ISSUER_UNAUTHORISED,
@@ -769,6 +767,8 @@ pub const KNOWN_REASON_CODES: &[&str] = &[
     REASON_METADATA_ENCRYPTION_FLOOR_DOWNGRADE,
     REASON_SCOPE_REBIND_FORBIDDEN,
     REASON_AGENT_PARTICIPATION_CEILING_WIDEN,
+    REASON_AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE,
+    REASON_AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID,
     REASON_AGENT_PARTICIPATION_EXCEEDS_CEILING,
     REASON_AGENT_REPLY_NOT_PERMITTED,
     REASON_EFFECTIVE_SCOPE_REDUCER_MANAGED,

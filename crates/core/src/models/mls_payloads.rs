@@ -1394,7 +1394,7 @@ mod tests {
         assert!(binding.clone().with_binding_profile("mls.full").is_err());
         assert!(binding.with_reducer_profile("").is_err());
 
-        let missing_roots: MlsGovernanceBindingPayload = serde_json::from_value(json!({
+        let error = serde_json::from_value::<MlsGovernanceBindingPayload>(json!({
             "binding_version": MLS_GOVERNANCE_BINDING_VERSION,
             "encoding_profile": MLS_GOVERNANCE_BINDING_ENCODING_PROFILE,
             "realm_id": realm(),
@@ -1407,8 +1407,7 @@ mod tests {
             "binding_profile": MLS_GOVERNANCE_BINDING_FULL_PROFILE,
             "reducer_profile": reducer_profile(),
         }))
-        .unwrap();
-        let error = missing_roots.validate().unwrap_err();
+        .unwrap_err();
         assert!(error.to_string().contains("requires capability_root"));
     }
 
