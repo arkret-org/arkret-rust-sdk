@@ -595,6 +595,12 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
+      "rust_field": "crates/core/src/models/key_backup.rs::KeyBackupRetention.extra",
+      "spec_pointer": "key-backup.schema.json#/properties/retention",
+      "classification": "open_json",
+      "reason": "The retention object explicitly sets additionalProperties to true, so arbitrary retention metadata is part of this exact wire boundary."
+    },
+    {
       "rust_field": "crates/core/src/models/keys.rs::DeviceMessageEnvelope.content",
       "spec_pointer": "device-message.schema.json#/$defs/DeviceMessageEnvelope/properties/content",
       "classification": "open_json",

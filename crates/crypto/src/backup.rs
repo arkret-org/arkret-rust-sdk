@@ -37,9 +37,10 @@ use arkret_canonical::canonical::{
     canonical_json_bytes, canonical_sha256, format_timestamp_canonical, sha256_digest, sha256_hex,
 };
 use arkret_core::{
-    BackupClass, BackupId, DeviceId, Did, Hash, KeyBackup, KeyBackupAead, KeyBackupContentItem,
-    KeyBackupDomainSeparation, KeyBackupDomainSeparationAad, KeyBackupEncryption,
-    KeyBackupFrontierRef, KeyBackupKdf, KeyBackupRecipientMethod, base64url_decode,
+    BackupClass, BackupId, Base64UrlString, DeviceId, Did, Hash, KeyBackup, KeyBackupAead,
+    KeyBackupAeadName, KeyBackupContentItem, KeyBackupDomainSeparation,
+    KeyBackupDomainSeparationAad, KeyBackupEncryption, KeyBackupFrontierRef, KeyBackupKdf,
+    KeyBackupKdfName, KeyBackupKdfParams, KeyBackupRecipientMethod, base64url_decode,
     base64url_encode,
 };
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
@@ -556,24 +557,31 @@ pub fn build_key_backup_envelope(
     };
     let ciphertext = encrypt_vault(kek, &binding, plaintext)?;
 
-    let kdf_params = json!({
-        "memory_kib": kek.m_kib,
-        "iterations": kek.t,
-        "parallelism": kek.p,
-        "hkdf_info": backup_class.hkdf_info("aead"),
-    });
     let kdf = KeyBackupKdf {
-        name: "argon2id".to_owned(),
-        salt: ciphertext.salt_b64.clone(),
-        params: kdf_params,
+        name: KeyBackupKdfName::Argon2id,
+        salt: Base64UrlString::new(ciphertext.salt_b64.clone())
+            .map_err(|error| KeyBackupError::InvalidInput(error.to_owned()))?,
+        params: KeyBackupKdfParams {
+            memory_kib: Some(u64::from(kek.m_kib)),
+            iterations: Some(u64::from(kek.t)),
+            parallelism: Some(u64::from(kek.p)),
+            digest_algorithm: None,
+            extra: Default::default(),
+        },
         degraded_profile_reason: None,
         extra: Default::default(),
     };
     let aead = KeyBackupAead {
-        name: "xchacha20_poly1305".to_owned(),
+        name: KeyBackupAeadName::Xchacha20Poly1305,
         aead_profile: Some(VAULT_AEAD_PROFILE.to_owned()),
-        nonce_salt: Some(ciphertext.nonce_salt_b64.clone()),
-        nonce: Some(ciphertext.nonce_b64.clone()),
+        nonce_salt: Some(
+            Base64UrlString::new(ciphertext.nonce_salt_b64.clone())
+                .map_err(|error| KeyBackupError::InvalidInput(error.to_owned()))?,
+        ),
+        nonce: Some(
+            Base64UrlString::new(ciphertext.nonce_b64.clone())
+                .map_err(|error| KeyBackupError::InvalidInput(error.to_owned()))?,
+        ),
         enc: None,
         extra: Default::default(),
     };
@@ -954,7 +962,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(envelope.backup_class, BackupClass::SecretStorage);
-        assert_eq!(envelope.encryption.aead.name, "xchacha20_poly1305");
+        assert_eq!(
+            envelope.encryption.aead.name,
+            KeyBackupAeadName::Xchacha20Poly1305
+        );
         assert_eq!(
             envelope.encryption.aead.aead_profile.as_deref(),
             Some("ak.aead.xchacha20_poly1305.v1")
@@ -963,14 +974,10 @@ mod tests {
         assert!(envelope.encryption.aead.nonce.is_some());
         assert!(envelope.encryption.kdf.is_some());
         let kdf = envelope.encryption.kdf.as_ref().unwrap();
-        assert_eq!(kdf.name, "argon2id");
-        assert_eq!(kdf.params["memory_kib"], VAULT_ARGON2_M_KIB);
-        assert_eq!(kdf.params["iterations"], VAULT_ARGON2_T);
-        assert_eq!(kdf.params["parallelism"], VAULT_ARGON2_P);
-        assert_eq!(
-            kdf.params["hkdf_info"],
-            "arkret-key-backup/secret_storage/aead/v1"
-        );
+        assert_eq!(kdf.name, KeyBackupKdfName::Argon2id);
+        assert_eq!(kdf.params.memory_kib, Some(u64::from(VAULT_ARGON2_M_KIB)));
+        assert_eq!(kdf.params.iterations, Some(u64::from(VAULT_ARGON2_T)));
+        assert_eq!(kdf.params.parallelism, Some(u64::from(VAULT_ARGON2_P)));
         assert!(envelope.encryption.key_commitment.is_some());
         assert_eq!(envelope.contents.len(), 1);
         assert_eq!(envelope.contents[0].item_type, "recovery_secret");

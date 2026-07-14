@@ -461,10 +461,8 @@ fn evaluate_trust_chain_states() {
             &phone,
             DeviceBootstrapBinding {
                 kind: arkret_core::DeviceBootstrapBindingKind::InceptionSelfAuthorized,
-                did_method_evidence_ref: arkret_core::NonEmptyString::new(
-                    "did:webvh:alice.example/entry-0",
-                )
-                .unwrap(),
+                did_method_evidence_ref: NonEmptyString::new("did:webvh:alice.example/entry-0")
+                    .unwrap(),
             },
         )
         .unwrap();
@@ -559,7 +557,9 @@ fn evaluate_trust_chain_rejects_psk_not_anchored_to_principal() {
 
     // Point the PSK (and its dependent bindings, so `validate_structure`
     // passes) at a foreign principal's DID.
-    let foreign_kid = "did:webvh:z6mkfixture:mallory.example#cx_principal_signing_v1".to_owned();
+    let foreign_kid =
+        NonEmptyString::new("did:webvh:z6mkfixture:mallory.example#cx_principal_signing_v1")
+            .unwrap();
     let mut publish = sample_publish(&alice, 1);
     publish.principal_signing_key.kid = foreign_kid.clone();
     publish.self_signing_key.binding.verification_method = foreign_kid.clone();
@@ -898,7 +898,7 @@ fn verify_chain_rejects_non_eddsa_alg_declarations() {
 
     // Same for the PSK record's declared alg (also outside any transcript).
     let mut forged_publish = publish.clone();
-    forged_publish.principal_signing_key.alg = "ES256".to_owned();
+    forged_publish.principal_signing_key.alg = NonEmptyString::new("ES256").unwrap();
     assert_eq!(
         verify_chain(
             &forged_publish,
@@ -913,7 +913,7 @@ fn verify_chain_rejects_non_eddsa_alg_declarations() {
 
     // And for the SSK record / SSK binding alg fields.
     let mut forged_ssk = publish.clone();
-    forged_ssk.self_signing_key.binding.alg = "ML-DSA-65".to_owned();
+    forged_ssk.self_signing_key.binding.alg = NonEmptyString::new("ML-DSA-65").unwrap();
     assert_eq!(
         verify_chain(
             &forged_ssk,
@@ -963,9 +963,11 @@ fn verify_chain_rejects_tampered_ssk_binding() {
     );
     // Corrupt the PSK→SSK binding signature → first check fails.
     let mut raw =
-        arkret_canonical::base64url_decode(&publish.self_signing_key.binding.signature).unwrap();
+        arkret_canonical::base64url_decode(publish.self_signing_key.binding.signature.as_str())
+            .unwrap();
     raw[5] ^= 0xff;
-    publish.self_signing_key.binding.signature = arkret_canonical::base64url_encode(&raw);
+    publish.self_signing_key.binding.signature =
+        NonEmptyString::new(arkret_canonical::base64url_encode(&raw)).unwrap();
     let state = verify_chain(
         &publish,
         &binding,

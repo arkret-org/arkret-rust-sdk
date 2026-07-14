@@ -22,15 +22,13 @@
 //! cargo run --example key_backup_recovery_chain
 //! ```
 
-use std::collections::BTreeMap;
-
 use arkret::models::{
-    BackupClass, KeyBackup, KeyBackupAead, KeyBackupAuthData, KeyBackupContentItem,
-    KeyBackupDomainSeparation, KeyBackupDomainSeparationAad, KeyBackupEncryption,
-    KeyBackupFrontierRef, KeyBackupKdf, KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm,
+    BackupClass, KeyBackup, KeyBackupAead, KeyBackupAeadName, KeyBackupAuthData,
+    KeyBackupContentItem, KeyBackupDomainSeparation, KeyBackupDomainSeparationAad,
+    KeyBackupEncryption, KeyBackupFrontierRef, KeyBackupKdf, KeyBackupKdfName, KeyBackupKdfParams,
+    KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm,
 };
-use arkret::{BackupId, BackupSeriesId, DeviceId, Did, Hash};
-use serde_json::json;
+use arkret::{BackupId, BackupSeriesId, Base64UrlString, DeviceId, Did, DidUrl, Hash};
 
 fn build_envelope(
     actor_id: &Did,
@@ -70,19 +68,27 @@ fn build_envelope(
             recipient_method: KeyBackupRecipientMethod::PassphraseKdf,
             recipient_key_ref: None,
             kdf: Some(KeyBackupKdf {
-                name: "argon2id".to_owned(),
-                salt: format!("salt-{seq}"),
-                params: json!({ "memory_kib": 65_536, "iterations": 3, "parallelism": 1 }),
+                name: KeyBackupKdfName::Argon2id,
+                salt: Base64UrlString::new(format!("salt-{seq}")).expect("valid KDF salt"),
+                params: KeyBackupKdfParams {
+                    memory_kib: Some(65_536),
+                    iterations: Some(3),
+                    parallelism: Some(1),
+                    digest_algorithm: None,
+                    extra: Default::default(),
+                },
                 degraded_profile_reason: None,
-                extra: BTreeMap::new(),
+                extra: Default::default(),
             }),
             aead: KeyBackupAead {
-                name: "xchacha20_poly1305".to_owned(),
+                name: KeyBackupAeadName::Xchacha20Poly1305,
                 aead_profile: Some("ak.aead.xchacha20_poly1305.v1".to_owned()),
-                nonce: Some(format!("nonce-{seq}")),
-                nonce_salt: Some(format!("nonce-salt-{seq}")),
+                nonce: Some(Base64UrlString::new(format!("nonce-{seq}")).expect("valid nonce")),
+                nonce_salt: Some(
+                    Base64UrlString::new(format!("nonce-salt-{seq}")).expect("valid nonce salt"),
+                ),
                 enc: None,
-                extra: BTreeMap::new(),
+                extra: Default::default(),
             },
             key_commitment: Some(format!(
                 "sha256:{:0>64}",
@@ -94,7 +100,7 @@ fn build_envelope(
                     .collect::<String>()
             )),
             hpke_suite: None,
-            extra: BTreeMap::new(),
+            extra: Default::default(),
         },
         domain_separation: KeyBackupDomainSeparation {
             hkdf_info: "arkret-key-backup/secret_storage/recovery/v1".to_owned(),
@@ -110,9 +116,9 @@ fn build_envelope(
                 managed_principal_bindings: Vec::new(),
                 recipient_method: None,
                 recipient_key_ref: None,
-                extra: BTreeMap::new(),
+                extra: Default::default(),
             },
-            extra: BTreeMap::new(),
+            extra: Default::default(),
         },
         contents: vec![KeyBackupContentItem {
             item_type: "recovery_secret".to_owned(),
@@ -124,17 +130,18 @@ fn build_envelope(
             last_event_id: None,
             secret_id: Some(format!("recovery-{seq}")),
             secret_version: Some(seq as u32),
-            extra: BTreeMap::new(),
+            extra: Default::default(),
         }],
         ciphertext: ciphertext.to_owned(),
         ciphertext_digest,
         plaintext_commitment: None,
         auth_data: Some(KeyBackupAuthData {
             device_id: device_id.clone(),
-            verification_method: "did:webvh:z6mkfixture:alice.example#device-1".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1")
+                .expect("valid verification method"),
             signature_algorithm: KeyBackupSignatureAlgorithm::Ed25519,
-            signature: format!("sig-{seq}"),
-            ssk_generation: Some(1),
+            signature: Base64UrlString::new(format!("sig-{seq}")).expect("valid signature token"),
+            ssk_generation: std::num::NonZeroU64::new(1),
             device_authorize_event_id: None,
             signed_fields: vec![
                 "backup_id".to_owned(),
@@ -148,7 +155,7 @@ fn build_envelope(
                 "series_id".to_owned(),
                 "series_seq".to_owned(),
             ],
-            extra: BTreeMap::new(),
+            extra: Default::default(),
         }),
         retention: None,
         series_id: series_id.clone(),
@@ -162,7 +169,7 @@ fn build_envelope(
             ssk_generation: Some(1),
         }),
         recovery_policy_ref: None,
-        extra: BTreeMap::new(),
+        extra: Default::default(),
     }
 }
 

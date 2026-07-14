@@ -395,9 +395,8 @@ pub use devices::{
     CrossSigningResetContent, CrossSigningResetProof, Device, DeviceChange,
     DeviceCrossSigningChainVerification, DeviceManager, DeviceMetadata, DeviceQuorumSignature,
     DeviceTrustBinding, DeviceTrustChainOutcome, DeviceTrustState, DeviceVerificationChallenge,
-    DeviceVerificationMessageContent, DeviceVerificationMessageKind, KeyBackupClass,
-    KeyBackupContentItem, ProtocolKeyBackup, QrVerificationPayload, ToDeviceEnvelope,
-    cross_signing_publish_cell_subject, device_verification_commitment,
+    DeviceVerificationMessageContent, DeviceVerificationMessageKind, QrVerificationPayload,
+    ToDeviceEnvelope, cross_signing_publish_cell_subject, device_verification_commitment,
     verify_device_cross_signing_chain,
 };
 #[cfg(feature = "full-surface")]

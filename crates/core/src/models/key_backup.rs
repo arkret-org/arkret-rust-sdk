@@ -1,3 +1,5 @@
+use std::num::NonZeroU64;
+
 use super::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -202,9 +204,8 @@ pub struct KeyBackup {
     /// for `backup_class=did_recovery`; optional signed hint for other classes.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recovery_policy_ref: Option<RecoveryPolicyRef>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 impl KeyBackup {
@@ -298,7 +299,7 @@ pub struct KeyBackupEncryption {
     pub hpke_suite: Option<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -310,7 +311,7 @@ struct KeyBackupEncryptionWire {
     key_commitment: Option<String>,
     hpke_suite: Option<String>,
     #[serde(default, flatten)]
-    extra: BTreeMap<String, Value>,
+    extra: XExtensionMap,
 }
 
 impl TryFrom<KeyBackupEncryptionWire> for KeyBackupEncryption {
@@ -350,11 +351,12 @@ impl KeyBackupEncryption {
             KeyBackupRecipientMethod::PassphraseKdf => {
                 // `if recipient_method==passphrase_kdf then required kdf; aead
                 // requires nonce + nonce_salt`.
-                if self.kdf.is_none() {
+                let Some(kdf) = self.kdf.as_ref() else {
                     return Err(Error::Protocol(
                         "key backup encryption: passphrase_kdf requires `kdf`".to_owned(),
                     ));
-                }
+                };
+                kdf.validate().map_err(Error::Protocol)?;
                 if self.aead.nonce.is_none() {
                     return Err(Error::Protocol(
                         "key backup encryption: passphrase_kdf requires `aead.nonce`".to_owned(),
@@ -428,11 +430,11 @@ impl KeyBackupEncryption {
                          hpke-suite-registry row (unsupported_hpke_suite)"
                     ))
                 })?;
-                if self.aead.name != suite_aead {
+                if self.aead.name.as_str() != suite_aead {
                     return Err(Error::Protocol(format!(
                         "key backup encryption: aead.name `{}` does not equal hpke_suite \
                          `{suite_id}` aead `{suite_aead}` (schema_violation)",
-                        self.aead.name
+                        self.aead.name.as_str()
                     )));
                 }
             }
@@ -483,9 +485,8 @@ pub struct KeyBackupDomainSeparation {
     pub hkdf_info: String,
     pub subdomain: String,
     pub aead_aad: KeyBackupDomainSeparationAad,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -515,9 +516,8 @@ pub struct KeyBackupDomainSeparationAad {
     /// context.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recipient_key_ref: Option<String>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -540,51 +540,143 @@ pub struct ManagedPrincipalBinding {
     pub managed_frontier_ref: ManagedFrontierRef,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum KeyBackupKdfName {
+    Argon2id,
+    Pbkdf2,
+}
+
+impl KeyBackupKdfName {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Argon2id => "argon2id",
+            Self::Pbkdf2 => "pbkdf2",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "lowercase")]
+pub enum KeyBackupKdfDigestAlgorithm {
+    Sha256,
+    Sha384,
+    Sha512,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupKdfParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory_kib: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iterations: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parallelism: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub digest_algorithm: Option<KeyBackupKdfDigestAlgorithm>,
+    #[serde(default, flatten)]
+    pub extra: XExtensionMap,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(try_from = "KeyBackupKdfWire")]
 pub struct KeyBackupKdf {
-    pub name: String,
-    pub salt: String,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub params: Value,
+    pub name: KeyBackupKdfName,
+    pub salt: Base64UrlString,
+    pub params: KeyBackupKdfParams,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub degraded_profile_reason: Option<String>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 struct KeyBackupKdfWire {
-    name: String,
-    salt: String,
-    #[serde(default)]
-    params: Value,
+    name: KeyBackupKdfName,
+    salt: Base64UrlString,
+    params: KeyBackupKdfParams,
     degraded_profile_reason: Option<String>,
     #[serde(default, flatten)]
-    extra: BTreeMap<String, Value>,
+    extra: XExtensionMap,
 }
 
 impl TryFrom<KeyBackupKdfWire> for KeyBackupKdf {
     type Error = String;
 
     fn try_from(wire: KeyBackupKdfWire) -> std::result::Result<Self, Self::Error> {
-        Ok(Self {
+        let kdf = Self {
             name: wire.name,
             salt: wire.salt,
             params: wire.params,
             degraded_profile_reason: wire.degraded_profile_reason,
             extra: wire.extra,
-        })
+        };
+        kdf.validate()?;
+        Ok(kdf)
+    }
+}
+
+impl KeyBackupKdf {
+    pub fn validate(&self) -> std::result::Result<(), String> {
+        match self.name {
+            KeyBackupKdfName::Argon2id => {
+                if self.params.memory_kib.is_none_or(|value| value < 65_536) {
+                    return Err("argon2id params.memory_kib must be >= 65536".to_owned());
+                }
+                if self.params.iterations.is_none_or(|value| value < 3) {
+                    return Err("argon2id params.iterations must be >= 3".to_owned());
+                }
+                if self.params.parallelism.is_none_or(|value| value < 1) {
+                    return Err("argon2id params.parallelism must be >= 1".to_owned());
+                }
+            }
+            KeyBackupKdfName::Pbkdf2 => {
+                if self.params.iterations.is_none_or(|value| value < 600_000) {
+                    return Err("pbkdf2 params.iterations must be >= 600000".to_owned());
+                }
+                if self.params.digest_algorithm.is_none() {
+                    return Err("pbkdf2 params.digest_algorithm is required".to_owned());
+                }
+                if self
+                    .degraded_profile_reason
+                    .as_deref()
+                    .is_none_or(str::is_empty)
+                {
+                    return Err("pbkdf2 degraded_profile_reason is required".to_owned());
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum KeyBackupAeadName {
+    Xchacha20Poly1305,
+    Aes256Gcm,
+    Chacha20Poly1305,
+}
+
+impl KeyBackupAeadName {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Xchacha20Poly1305 => "xchacha20_poly1305",
+            Self::Aes256Gcm => "aes_256_gcm",
+            Self::Chacha20Poly1305 => "chacha20_poly1305",
+        }
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupAead {
-    pub name: String,
+    pub name: KeyBackupAeadName,
     /// AEAD profile selector binding algorithm version, nonce/tag/key lengths
     /// and AAD construction (key-management.md §7.2). Receivers MUST fail
     /// closed on an unsupported profile.
@@ -596,16 +688,15 @@ pub struct KeyBackupAead {
     /// envelopes; receivers MUST reject a missing `nonce_salt` as
     /// `schema_violation`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub nonce_salt: Option<String>,
+    pub nonce_salt: Option<Base64UrlString>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub nonce: Option<String>,
+    pub nonce: Option<Base64UrlString>,
     /// HPKE KEM encapsulated key for `recipient_method=recovery_public_key`
     /// (key-backup.schema.json `encryption.aead.enc`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub enc: Option<String>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub enc: Option<Base64UrlString>,
     #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -632,26 +723,25 @@ pub struct KeyBackupContentItem {
     /// absent on share-style items (e.g. `recovery_key_share`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub secret_version: Option<u32>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupAuthData {
     pub device_id: DeviceId,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
-    pub signature: String,
+    pub signature: Base64UrlString,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ssk_generation: Option<u64>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = u64)))]
+    pub ssk_generation: Option<NonZeroU64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_authorize_event_id: Option<EventId>,
     pub signed_fields: Vec<String>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -681,6 +771,8 @@ pub struct KeyBackupRetention {
     pub delete_after: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub legal_hold: Option<bool>,
+    /// Open retention metadata permitted by
+    /// `key-backup.schema.json#/properties/retention`.
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
@@ -1104,41 +1196,50 @@ pub struct RecoveryReceiptAuthData {
 mod encryption_validate_tests {
     use super::*;
 
-    fn aead(name: &str) -> KeyBackupAead {
+    fn aead(name: KeyBackupAeadName) -> KeyBackupAead {
         KeyBackupAead {
-            name: name.to_owned(),
+            name,
             aead_profile: None,
             nonce_salt: None,
             nonce: None,
             enc: None,
-            extra: BTreeMap::new(),
+            extra: Default::default(),
         }
     }
 
     fn passphrase() -> KeyBackupEncryption {
-        let mut aead = aead("xchacha20_poly1305");
-        aead.nonce = Some("AAAA".to_owned());
-        aead.nonce_salt = Some("AAAAAAAAAAAAAAAA".to_owned());
+        let mut aead = aead(KeyBackupAeadName::Xchacha20Poly1305);
+        aead.nonce = Some(Base64UrlString::new("AAAA").unwrap());
+        aead.nonce_salt = Some(Base64UrlString::new("AAAAAAAAAAAAAAAA").unwrap());
         KeyBackupEncryption {
             recipient_method: KeyBackupRecipientMethod::PassphraseKdf,
             recipient_key_ref: None,
             kdf: Some(KeyBackupKdf {
-                name: "argon2id".to_owned(),
-                salt: "AAAA".to_owned(),
-                params: Value::Null,
+                name: KeyBackupKdfName::Argon2id,
+                salt: Base64UrlString::new("AAAA").unwrap(),
+                params: KeyBackupKdfParams {
+                    memory_kib: Some(65_536),
+                    iterations: Some(3),
+                    parallelism: Some(1),
+                    digest_algorithm: None,
+                    extra: Default::default(),
+                },
                 degraded_profile_reason: None,
-                extra: BTreeMap::new(),
+                extra: Default::default(),
             }),
             aead,
             key_commitment: None,
             hpke_suite: None,
-            extra: BTreeMap::new(),
+            extra: Default::default(),
         }
     }
 
-    fn recovery_public_key(suite: Option<&str>, aead_name: &str) -> KeyBackupEncryption {
+    fn recovery_public_key(
+        suite: Option<&str>,
+        aead_name: KeyBackupAeadName,
+    ) -> KeyBackupEncryption {
         let mut aead = aead(aead_name);
-        aead.enc = Some("AAAA".to_owned());
+        aead.enc = Some(Base64UrlString::new("AAAA").unwrap());
         KeyBackupEncryption {
             recipient_method: KeyBackupRecipientMethod::RecoveryPublicKey,
             recipient_key_ref: Some("did:webvh:example#recovery".to_owned()),
@@ -1146,7 +1247,7 @@ mod encryption_validate_tests {
             aead,
             key_commitment: None,
             hpke_suite: suite.map(str::to_owned),
-            extra: BTreeMap::new(),
+            extra: Default::default(),
         }
     }
 
@@ -1171,7 +1272,7 @@ mod encryption_validate_tests {
     fn recovery_public_key_default_suite_passes() {
         // Absent selector denotes the default-MUST RFC 9180 ChaCha20-Poly1305
         // suite; aead.name MUST match that suite's AEAD.
-        recovery_public_key(None, "chacha20_poly1305")
+        recovery_public_key(None, KeyBackupAeadName::Chacha20Poly1305)
             .validate()
             .expect("default suite envelope is valid");
     }
@@ -1181,11 +1282,14 @@ mod encryption_validate_tests {
         // Reserved (not active) PQ hybrid row MUST fail closed.
         let envelope = recovery_public_key(
             Some("ak.hpke_xwing_aead_chacha20poly1305.v1"),
-            "xchacha20_poly1305",
+            KeyBackupAeadName::Xchacha20Poly1305,
         );
         assert!(envelope.validate().is_err());
         // Wholly unregistered id MUST fail closed.
-        let bogus = recovery_public_key(Some("ak.hpke_bogus.v1"), "xchacha20_poly1305");
+        let bogus = recovery_public_key(
+            Some("ak.hpke_bogus.v1"),
+            KeyBackupAeadName::Xchacha20Poly1305,
+        );
         assert!(bogus.validate().is_err());
     }
 
@@ -1194,32 +1298,41 @@ mod encryption_validate_tests {
         // active aes256gcm suite but aead.name is xchacha → mismatch.
         let envelope = recovery_public_key(
             Some("ak.hpke_x25519_aead_aes256gcm.v1"),
-            "xchacha20_poly1305",
+            KeyBackupAeadName::Xchacha20Poly1305,
         );
         assert!(envelope.validate().is_err());
         // Matching aead passes.
-        recovery_public_key(Some("ak.hpke_x25519_aead_aes256gcm.v1"), "aes_256_gcm")
-            .validate()
-            .expect("matching aead is valid");
+        recovery_public_key(
+            Some("ak.hpke_x25519_aead_aes256gcm.v1"),
+            KeyBackupAeadName::Aes256Gcm,
+        )
+        .validate()
+        .expect("matching aead is valid");
     }
 
     #[test]
     fn recovery_public_key_requires_enc_and_key_ref() {
-        let mut missing_enc = recovery_public_key(None, "xchacha20_poly1305");
+        let mut missing_enc = recovery_public_key(None, KeyBackupAeadName::Xchacha20Poly1305);
         missing_enc.aead.enc = None;
         assert!(missing_enc.validate().is_err());
 
-        let mut missing_ref = recovery_public_key(None, "xchacha20_poly1305");
+        let mut missing_ref = recovery_public_key(None, KeyBackupAeadName::Xchacha20Poly1305);
         missing_ref.recipient_key_ref = None;
         assert!(missing_ref.validate().is_err());
 
-        let mut stray_kdf = recovery_public_key(None, "xchacha20_poly1305");
+        let mut stray_kdf = recovery_public_key(None, KeyBackupAeadName::Xchacha20Poly1305);
         stray_kdf.kdf = Some(KeyBackupKdf {
-            name: "argon2id".to_owned(),
-            salt: "AAAA".to_owned(),
-            params: Value::Null,
+            name: KeyBackupKdfName::Argon2id,
+            salt: Base64UrlString::new("AAAA").unwrap(),
+            params: KeyBackupKdfParams {
+                memory_kib: Some(65_536),
+                iterations: Some(3),
+                parallelism: Some(1),
+                digest_algorithm: None,
+                extra: Default::default(),
+            },
             degraded_profile_reason: None,
-            extra: BTreeMap::new(),
+            extra: Default::default(),
         });
         assert!(stray_kdf.validate().is_err());
     }
@@ -1238,5 +1351,81 @@ mod encryption_validate_tests {
             parsed.is_err(),
             "missing aead.enc must fail deserialization"
         );
+    }
+
+    #[test]
+    fn kdf_deserialization_enforces_closed_params_and_algorithm_requirements() {
+        let argon2id: KeyBackupKdf = serde_json::from_value(serde_json::json!({
+            "name": "argon2id",
+            "salt": "AAAA",
+            "params": {
+                "memory_kib": 65_536,
+                "iterations": 3,
+                "parallelism": 1,
+                "x_profile": { "version": 1 }
+            },
+            "x_provider": "fixture"
+        }))
+        .expect("valid argon2id KDF");
+        assert_eq!(argon2id.name, KeyBackupKdfName::Argon2id);
+        assert!(argon2id.params.extra.get("x_profile").is_some());
+        assert!(argon2id.extra.get("x_provider").is_some());
+
+        let unknown_param: std::result::Result<KeyBackupKdf, _> =
+            serde_json::from_value(serde_json::json!({
+                "name": "argon2id",
+                "salt": "AAAA",
+                "params": {
+                    "memory_kib": 65_536,
+                    "iterations": 3,
+                    "parallelism": 1,
+                    "hkdf_info": "must-not-be-here"
+                }
+            }));
+        assert!(unknown_param.is_err());
+
+        let weak_argon2id: std::result::Result<KeyBackupKdf, _> =
+            serde_json::from_value(serde_json::json!({
+                "name": "argon2id",
+                "salt": "AAAA",
+                "params": {
+                    "memory_kib": 1024,
+                    "iterations": 1,
+                    "parallelism": 1
+                }
+            }));
+        assert!(weak_argon2id.is_err());
+
+        let incomplete_pbkdf2: std::result::Result<KeyBackupKdf, _> =
+            serde_json::from_value(serde_json::json!({
+                "name": "pbkdf2",
+                "salt": "AAAA",
+                "params": {
+                    "iterations": 600_000,
+                    "digest_algorithm": "sha256"
+                }
+            }));
+        assert!(incomplete_pbkdf2.is_err());
+    }
+
+    #[test]
+    fn aead_and_auth_data_reject_untyped_security_values() {
+        let unknown_aead: std::result::Result<KeyBackupAead, _> =
+            serde_json::from_value(serde_json::json!({
+                "name": "custom_cipher",
+                "nonce": "AAAA"
+            }));
+        assert!(unknown_aead.is_err());
+
+        let invalid_auth: std::result::Result<KeyBackupAuthData, _> =
+            serde_json::from_value(serde_json::json!({
+                "device_id": "ak:device:01964137-0000-7000-8000-000000000000",
+                "verification_method": "not-a-did-url",
+                "signature_algorithm": "Ed25519",
+                "signature": "padded==",
+                "ssk_generation": 0,
+                "signed_fields": ["backup_id"]
+            }));
+        assert!(invalid_auth.is_err());
     }
 }

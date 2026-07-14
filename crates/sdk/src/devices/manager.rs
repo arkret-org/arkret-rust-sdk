@@ -1,3 +1,5 @@
+use arkret_core::{BackupId, KeyBackup};
+
 use super::*;
 
 /// In-memory device manager.
@@ -7,7 +9,7 @@ pub struct DeviceManager {
     changes: Vec<DeviceChange>,
     to_device_queue: VecDeque<ToDeviceEnvelope>,
     device_message_envelopes: VecDeque<DeviceMessageEnvelope>,
-    protocol_key_backups: BTreeMap<String, ProtocolKeyBackup>,
+    key_backups: BTreeMap<BackupId, KeyBackup>,
     verification_challenges: BTreeMap<String, DeviceVerificationChallenge>,
     revoked_devices: BTreeMap<Did, BTreeMap<DeviceId, DateTime<Utc>>>,
     /// Latest accepted `ak.cross_signing.publish.v1` per principal.
@@ -494,31 +496,25 @@ impl DeviceManager {
         self.verify_device(user_id, target_device_id, Some(target_binding))
     }
 
-    /// Store a schema-aligned encrypted key backup scaffold.
-    pub fn store_protocol_key_backup(&mut self, backup: ProtocolKeyBackup) -> Result<()> {
-        if backup.backup_id.trim().is_empty() {
-            return Err(Error::Protocol(
-                "protocol key backup backup_id must not be empty".to_owned(),
-            ));
-        }
+    /// Store a schema-aligned encrypted key backup.
+    pub fn store_key_backup(&mut self, backup: KeyBackup) -> Result<()> {
         if backup.backup_version.trim().is_empty() {
             return Err(Error::Protocol(
-                "protocol key backup backup_version must not be empty".to_owned(),
+                "key backup backup_version must not be empty".to_owned(),
             ));
         }
         if backup.ciphertext.trim().is_empty() || backup.ciphertext_digest.trim().is_empty() {
             return Err(Error::Protocol(
-                "protocol key backup ciphertext and digest must not be empty".to_owned(),
+                "key backup ciphertext and digest must not be empty".to_owned(),
             ));
         }
-        self.protocol_key_backups
-            .insert(backup.backup_id.clone(), backup);
+        self.key_backups.insert(backup.backup_id.clone(), backup);
         Ok(())
     }
 
-    /// Get a schema-aligned encrypted key backup scaffold.
-    pub fn protocol_key_backup(&self, backup_id: &str) -> Option<&ProtocolKeyBackup> {
-        self.protocol_key_backups.get(backup_id)
+    /// Get a schema-aligned encrypted key backup.
+    pub fn key_backup(&self, backup_id: &BackupId) -> Option<&KeyBackup> {
+        self.key_backups.get(backup_id)
     }
 
     fn set_verification(

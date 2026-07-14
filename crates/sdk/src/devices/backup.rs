@@ -1,43 +1,6 @@
+use arkret_core::BackupClass;
+
 use super::*;
-
-fn is_false(value: &bool) -> bool {
-    !*value
-}
-
-/// Schema-aligned encrypted key backup class
-/// (`key-management.md` §7.1–§7.2).
-///
-/// Each variant maps to its own HKDF subdomain and AEAD AAD binding.
-/// `External` is reserved for hardware-attested or third-party
-/// backup providers that don't fit the on-device passphrase model.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum KeyBackupClass {
-    DidRecovery,
-    SecretStorage,
-    MlsHistory,
-    External,
-}
-
-impl KeyBackupClass {
-    /// Canonical wire string, mirroring the `serde(rename_all = "snake_case")`
-    /// representation.
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::DidRecovery => "did_recovery",
-            Self::SecretStorage => "secret_storage",
-            Self::MlsHistory => "mls_history",
-            Self::External => "external",
-        }
-    }
-
-    /// HKDF `info` string for deriving an in-domain subkey from the
-    /// passphrase-derived root unlock key, per `key-management.md`
-    /// §7.2: `arkret-key-backup/<class>/<sub>/v1`.
-    pub fn hkdf_info(&self, subdomain: &str) -> String {
-        format!("arkret-key-backup/{}/{}/v1", self.as_str(), subdomain)
-    }
-}
 
 /// HMAC-SHA256 helper (RFC 2104) used to bootstrap HKDF without a
 /// dedicated dependency.
@@ -101,7 +64,7 @@ pub fn key_backup_commitment(derived_key: &[u8]) -> String {
 /// using `info = backup_class.hkdf_info(subdomain)`.
 pub fn key_backup_subdomain_key(
     derived_key: &[u8],
-    backup_class: &KeyBackupClass,
+    backup_class: BackupClass,
     subdomain: &str,
 ) -> [u8; 32] {
     let info = backup_class.hkdf_info(subdomain);
@@ -118,7 +81,7 @@ pub fn key_backup_subdomain_key(
 pub fn key_backup_aad(
     actor_id: &Did,
     device_id: Option<&DeviceId>,
-    backup_class: &KeyBackupClass,
+    backup_class: BackupClass,
     backup_version: &str,
     item_type: &str,
     schema_id: &str,
@@ -134,57 +97,4 @@ pub fn key_backup_aad(
         "created_at": created_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
     });
     Ok(canonical::canonical_json_bytes(&aad)?)
-}
-
-// The backup encryption descriptor is owned by `arkret-core`
-// (`models/key_backup.rs`, aligned with `key-backup.schema.json` including
-// `hpke_suite` and open extension fields); the SDK reuses it directly.
-use arkret_core::KeyBackupEncryption;
-
-/// Schema-aligned backup content item.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct KeyBackupContentItem {
-    pub item_type: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub epoch: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub first_event_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_event_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub secret_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub extra: Value,
-}
-
-/// Schema-aligned encrypted key backup facade from `ak.schema.key_backup.v1`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ProtocolKeyBackup {
-    pub backup_id: String,
-    pub actor_id: Did,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<DeviceId>,
-    pub backup_class: KeyBackupClass,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub mixed_secret_storage: bool,
-    pub backup_version: String,
-    pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
-    pub encryption: KeyBackupEncryption,
-    pub contents: Vec<KeyBackupContentItem>,
-    pub ciphertext: String,
-    pub ciphertext_digest: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub plaintext_commitment: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub auth_data: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retention: Option<Value>,
 }
