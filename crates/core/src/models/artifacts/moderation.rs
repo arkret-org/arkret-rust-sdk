@@ -6,7 +6,7 @@ use super::*;
 pub type ModerationAppeal = BTreeMap<String, Value>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/moderation-appeal.schema.json#/$defs/actor_ref`.
-pub type ActorRef = String;
+pub type ActorRef = Did;
 
 /// Counterpart for `spec/v1/artifacts/schemas/moderation-appeal.schema.json#/$defs/appeal_id`.
 pub type AppealId = String;
@@ -17,7 +17,7 @@ pub type AppealId = String;
 pub struct ClosePayload {
     pub appeal_id: AppealId,
     pub realm_id: RealmId,
-    pub closer: Value,
+    pub closer: ActorRef,
     pub closed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auto_closed: Option<bool>,
@@ -45,7 +45,7 @@ pub type DecisionRef = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/moderation-appeal.schema.json#/$defs/evidence_visibility`.
-pub type EvidenceVisibility = String;
+pub type EvidenceVisibility = AppealEvidenceVisibility;
 
 /// Counterpart for `spec/v1/artifacts/schemas/moderation-appeal.schema.json#/$defs/review_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -67,12 +67,12 @@ pub struct SubmitPayload {
     pub realm_id: RealmId,
     pub decision_ref: DecisionRef,
     pub target_ref: TargetRef,
-    pub appellant: Value,
+    pub appellant: ActorRef,
     pub reason_text_ref: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_refs: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub evidence_visibility: Option<Value>,
+    pub evidence_visibility: Option<EvidenceVisibility>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -97,7 +97,7 @@ pub struct FrankingProof {
     pub franking_proof_id: String,
     pub realm_id: RealmId,
     pub event_id: EventId,
-    pub routing_metadata_digest: Value,
+    pub routing_metadata_digest: Hash,
     pub ciphertext_digest: Hash,
     pub aad_digest: Hash,
     pub sender_claim: FrankingProofSenderClaim,

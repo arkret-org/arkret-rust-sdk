@@ -11,18 +11,27 @@ use crate::*;
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/seal_frontier`.
 pub type SealFrontier = Vec<Hash>;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AppletBridgeVisibilityScope {
+    RealmAdmins,
+    AppletController,
+    RealmMembers,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/applet_bridge_error_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletBridgeErrorPayload {
-    pub applet_id: Value,
+    pub applet_id: AppletIdentifier,
     pub realm_id: RealmId,
-    pub failed_transaction_ref: Value,
+    pub failed_transaction_ref: ObjectRef,
     pub error_class: String,
-    pub error_code: Value,
+    pub error_code: NonEmptyString,
     pub retriable: bool,
-    pub visibility_scope: Value,
+    pub visibility_scope: AppletBridgeVisibilityScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub external_ref: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -36,9 +45,9 @@ pub struct AppletBridgeErrorPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletRegistrationPayload {
-    pub applet_id: Value,
-    pub service_id: Value,
-    pub controller_id: Value,
+    pub applet_id: AppletIdentifier,
+    pub service_id: Did,
+    pub controller_id: Did,
     pub base_url: String,
     pub bot_actor_id: Did,
     pub protocols: Vec<String>,
@@ -76,9 +85,9 @@ impl AppletRegistrationPayload {
         created_at: DateTime<Utc>,
     ) -> Self {
         Self {
-            applet_id: Value::String(applet_id.as_str().to_owned()),
-            service_id: Value::String(service_id.as_str().to_owned()),
-            controller_id: Value::String(controller_id.as_str().to_owned()),
+            applet_id,
+            service_id,
+            controller_id,
             base_url: base_url.into(),
             bot_actor_id,
             protocols: Vec::new(),
@@ -159,7 +168,7 @@ pub struct AuditAccessedPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paired_event_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub late_recovery_original_event_id: Option<Value>,
+    pub late_recovery_original_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cell_head_before: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -212,7 +221,7 @@ pub struct AuditAppletBindingPayload {
     pub binding_id: String,
     pub realm_id: RealmId,
     pub effective_scope: EffectiveScope,
-    pub applet_id: Value,
+    pub applet_id: AppletIdentifier,
     pub service_id: Did,
     pub status: AuditBindingStatus,
     pub purpose_classes: Vec<String>,
@@ -221,7 +230,7 @@ pub struct AuditAppletBindingPayload {
     pub notice_policy: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approver_policy: Option<BTreeMap<String, Value>>,
-    pub activation_frontier_digest: Value,
+    pub activation_frontier_digest: Hash,
     pub first_auditable_epoch: u64,
     pub release_window_policy: AuditAppletBindingPayloadReleaseWindowPolicy,
     pub policy_version_digest: Hash,
@@ -267,7 +276,7 @@ pub struct AuditReleasePayload {
     pub binding_id: String,
     pub realm_id: RealmId,
     pub effective_scope: EffectiveScope,
-    pub applet_id: Value,
+    pub applet_id: AppletIdentifier,
     pub service_id: Did,
     pub release_mode: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -337,7 +346,7 @@ pub struct AuditSessionPayload {
     pub effective_scope: EffectiveScope,
     pub stage: AuditSessionStage,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub applet_id: Option<Value>,
+    pub applet_id: Option<AppletIdentifier>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::num::NonZeroU64;
 
 use crate::models::{
     HistoryKeyShareDefault, HistoryKeySource, HistorySharingPostRemovalRecoveryPolicy,
@@ -171,7 +172,7 @@ pub struct JoinPolicyPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub review_capability: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reviewer_quorum: Option<Value>,
+    pub reviewer_quorum: Option<JoinReviewerQuorum>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub application_ttl: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -184,6 +185,28 @@ pub struct JoinPolicyPayload {
     pub directory_hint: Option<BTreeMap<String, Value>>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JoinReviewerQuorumPreset {
+    Any,
+    Majority,
+    All,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JoinReviewerQuorumMembers {
+    pub threshold: NonZeroU64,
+    pub reviewers: Vec<Did>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum JoinReviewerQuorum {
+    Preset(JoinReviewerQuorumPreset),
+    Members(JoinReviewerQuorumMembers),
 }
 
 /// A join-policy gate proof submitted with a `membership=join` Move on the

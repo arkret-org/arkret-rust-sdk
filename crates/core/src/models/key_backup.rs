@@ -743,7 +743,7 @@ pub struct RecoveryPolicy {
     /// `x_*` extension fields (`patternProperties`).
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 /// Read-model summary for the currently accepted recovery policy.
@@ -821,9 +821,28 @@ pub struct RecoveryThresholdConfig {
     pub shares: Vec<RecoveryShare>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vss_root_commitment: Option<Hash>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reshare_policy: Option<Value>,
+    pub reshare_policy: Option<RecoveryResharePolicy>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryReshareScheme {
+    None,
+    ProactiveVss,
+    ProactiveFeldman,
+    ServiceDefined,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryResharePolicy {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_share_age_seconds: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scheme: Option<RecoveryReshareScheme>,
 }
 
 /// `recovery-policy.schema.json#/$defs/share` — single recovery share.
@@ -833,8 +852,7 @@ pub struct RecoveryShare {
     pub share_id: String,
     pub holder: Did,
     pub transport: String,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub share_commitment: Value,
+    pub share_commitment: ShareShareCommitment,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub not_before: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1002,7 +1020,7 @@ pub struct RecoveryReceipt {
     /// `x_*` extension fields (`patternProperties`).
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 /// `recovery-receipt.schema.json#/properties/proof_summary`.

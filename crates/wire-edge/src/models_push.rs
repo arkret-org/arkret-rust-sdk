@@ -363,7 +363,7 @@ pub struct PushNotifyRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct PushNotifyOutcome {
     #[serde(default)]
-    pub rejected: Vec<Value>,
+    pub rejected: Vec<PushNotifyRejection>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

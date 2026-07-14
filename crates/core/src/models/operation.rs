@@ -1269,7 +1269,7 @@ pub struct PolicyRule {
     pub effect: PolicyEffect,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 impl PolicyRule {
@@ -1327,7 +1327,7 @@ pub struct Invite {
     pub introduction_evidence_digest: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub third_party_id: Option<Value>,
-    pub join_rule_snapshot: Value,
+    pub join_rule_snapshot: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capability_grant_refs: Vec<GrantId>,
     pub state: InviteState,
@@ -1613,6 +1613,7 @@ pub enum MlsKeyPackageState {
     Published,
     Claimed,
     Consumed,
+    Expired,
     Revoked,
 }
 
@@ -1662,7 +1663,9 @@ impl MlsKeyPackageRecord {
     pub fn is_usable(&self) -> bool {
         !matches!(
             self.state,
-            MlsKeyPackageState::Revoked | MlsKeyPackageState::Consumed
+            MlsKeyPackageState::Revoked
+                | MlsKeyPackageState::Consumed
+                | MlsKeyPackageState::Expired
         )
     }
 }

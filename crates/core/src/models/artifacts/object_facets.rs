@@ -39,7 +39,7 @@ pub struct StrandTrack {
 /// Counterpart for `spec/v1/artifacts/schemas/strand.schema.json#/$defs/metadata_fields`.
 pub type MetadataFields = BTreeMap<String, Value>;
 
-/// Counterpart for `spec/v1/artifacts/schemas/morph-customer-risk.schema.json`.
+/// Counterpart for `spec/v1/artifacts/schemas/morph-customer-risk.schema.json#/properties/fields`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MorphCustomerRiskFields {
     pub status: String,

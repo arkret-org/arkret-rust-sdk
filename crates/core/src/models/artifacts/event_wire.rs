@@ -239,7 +239,7 @@ pub struct VerificationStub {
     pub subject: VerificationStubSubject,
     pub scope: VerificationStubScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_digest: Option<Value>,
+    pub event_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retained_digests: Option<Vec<Hash>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -247,7 +247,7 @@ pub struct VerificationStub {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redaction_authorization_ref: Option<SubjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub legal_hold_ref: Option<Value>,
+    pub legal_hold_ref: Option<LegalHoldRef>,
     pub receipt_id: String,
     pub completed_at: DateTime<Utc>,
 }
@@ -300,7 +300,7 @@ pub struct ErasureVerificationStub {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redaction_authorization_ref: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub legal_hold_ref: Option<Value>,
+    pub legal_hold_ref: Option<LegalHoldRef>,
     pub receipt_id: String,
     pub completed_at: DateTime<Utc>,
 }
@@ -358,8 +358,29 @@ pub struct EventProof {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<Value>,
+    pub audience: Option<EventProofAudience>,
     pub jws: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum EventProofAudience {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum LegalHoldRef {
+    PolicyId(PolicyId),
+    Hash(Hash),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageLifecycleState {
+    Active,
+    Redacted,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/feature_ref`.
@@ -382,25 +403,26 @@ pub type TrackName = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/message.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Message {
     pub id: MessageId,
     pub schema: String,
     pub realm_id: RealmId,
     pub strand_id: StrandId,
-    pub track_name: String,
+    pub track_name: MessageTrackName,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub effective_scope: Option<Value>,
+    pub effective_scope: Option<EffectiveScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<ContentBlock>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_content: Option<Value>,
+    pub encrypted_content: Option<EncryptedEnvelope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<MessageMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_metadata: Option<Value>,
-    pub state: String,
+    pub encrypted_metadata: Option<EncryptedEnvelope>,
+    pub state: MessageLifecycleState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state_changed_at: Option<Value>,
+    pub state_changed_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revision_root: Option<MessageId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -410,9 +432,7 @@ pub struct Message {
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Value>,
+    pub updated_by: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
 }

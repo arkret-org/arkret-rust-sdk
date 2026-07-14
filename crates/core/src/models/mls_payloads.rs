@@ -21,9 +21,8 @@ pub const MLS_GOVERNANCE_BINDING_FULL_PROFILE: &str = "ak.profile.mls_governance
 pub const MLS_GOVERNANCE_BINDING_RELAXED_PROFILE: &str = "ak.profile.e2ee_relaxed.v1";
 
 /// `event-payload.schema.json#/$defs/mls_governance_binding`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
 pub struct MlsGovernanceBindingPayload {
     binding_version: u8,
     encoding_profile: String,
@@ -31,7 +30,7 @@ pub struct MlsGovernanceBindingPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     circle_id: Option<CircleId>,
     effective_scope: EffectiveScope,
-    mls_group_id: String,
+    mls_group_id: MlsGroupId,
     previous_epoch: u64,
     next_epoch: u64,
     membership_frontier: Vec<EventId>,
@@ -64,7 +63,11 @@ impl MlsGovernanceBindingPayload {
             realm_id: realm_id.clone(),
             circle_id: None,
             effective_scope: EffectiveScope::Realm { realm_id },
-            mls_group_id: mls_group_id.into(),
+            mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
+                Error::Protocol(format!(
+                    "mls_governance_binding.mls_group_id is invalid: {err} ({ERROR_CODE_SCHEMA_VIOLATION})"
+                ))
+            })?,
             previous_epoch,
             next_epoch,
             membership_frontier,
@@ -101,7 +104,11 @@ impl MlsGovernanceBindingPayload {
                 realm_id,
                 circle_id,
             },
-            mls_group_id: mls_group_id.into(),
+            mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
+                Error::Protocol(format!(
+                    "mls_governance_binding.mls_group_id is invalid: {err} ({ERROR_CODE_SCHEMA_VIOLATION})"
+                ))
+            })?,
             previous_epoch,
             next_epoch,
             membership_frontier,
@@ -146,11 +153,6 @@ impl MlsGovernanceBindingPayload {
         if self.encoding_profile != MLS_GOVERNANCE_BINDING_ENCODING_PROFILE {
             return Err(Error::Protocol(format!(
                 "mls_governance_binding.encoding_profile must be {MLS_GOVERNANCE_BINDING_ENCODING_PROFILE} ({ERROR_CODE_SCHEMA_VIOLATION})"
-            )));
-        }
-        if self.mls_group_id.trim().is_empty() {
-            return Err(Error::Protocol(format!(
-                "mls_governance_binding.mls_group_id must be non-empty ({ERROR_CODE_SCHEMA_VIOLATION})"
             )));
         }
         if self.membership_frontier.is_empty() {
@@ -206,7 +208,7 @@ impl MlsGovernanceBindingPayload {
         expected: &MlsGovernanceBindingValidationContext<'_>,
     ) -> Result<()> {
         self.validate()?;
-        if self.mls_group_id != expected.mls_group_id {
+        if self.mls_group_id.as_str() != expected.mls_group_id {
             return Err(Error::Protocol(format!(
                 "mls_governance_binding.mls_group_id does not match expected commit group ({ERROR_CODE_STATE_MISMATCH})"
             )));
@@ -303,7 +305,7 @@ impl MlsGovernanceBindingPayload {
             cbor_put_bstr(&mut out, event_id.as_str().as_bytes());
         }
         cbor_put_tstr(&mut out, "mls_group_id");
-        cbor_put_bstr(&mut out, &base64url_decode(&self.mls_group_id).map_err(|err| {
+        cbor_put_bstr(&mut out, &base64url_decode(self.mls_group_id.as_str()).map_err(|err| {
             Error::Protocol(format!(
                 "mls_governance_binding.mls_group_id must be base64url for CBOR bstr encoding: {err} ({ERROR_CODE_SCHEMA_VIOLATION})"
             ))
@@ -358,7 +360,7 @@ impl MlsGovernanceBindingPayload {
     }
 
     pub fn mls_group_id(&self) -> &str {
-        &self.mls_group_id
+        self.mls_group_id.as_str()
     }
 
     pub fn previous_epoch(&self) -> u64 {
@@ -430,7 +432,11 @@ impl MlsGovernanceBindingPayload {
                     })
             })
             .collect::<Result<Vec<_>>>()?;
-        let mls_group_id = base64url_encode(&take_bstr(&mut fields, "mls_group_id")?);
+        let mls_group_id = MlsGroupId::new(base64url_encode(&take_bstr(
+            &mut fields,
+            "mls_group_id",
+        )?))
+        .map_err(|err| cbor_error_message(format!("mls_group_id is invalid: {err}")))?;
         let next_epoch = take_uint(&mut fields, "next_epoch")?;
         let policy_root = take_hash(&mut fields, "policy_root")?;
         let previous_epoch = take_uint(&mut fields, "previous_epoch")?;
@@ -460,6 +466,63 @@ impl MlsGovernanceBindingPayload {
         };
         payload.validate()?;
         Ok(payload)
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MlsGovernanceBindingPayloadWire {
+    binding_version: u8,
+    encoding_profile: String,
+    realm_id: RealmId,
+    #[serde(default)]
+    circle_id: Option<CircleId>,
+    effective_scope: EffectiveScope,
+    mls_group_id: MlsGroupId,
+    previous_epoch: u64,
+    next_epoch: u64,
+    membership_frontier: Vec<EventId>,
+    policy_root: Hash,
+    #[serde(default)]
+    capability_root: Option<Hash>,
+    #[serde(default)]
+    discussion_metadata_digest: Option<Hash>,
+    binding_profile: String,
+    reducer_profile: String,
+}
+
+impl TryFrom<MlsGovernanceBindingPayloadWire> for MlsGovernanceBindingPayload {
+    type Error = Error;
+
+    fn try_from(wire: MlsGovernanceBindingPayloadWire) -> Result<Self> {
+        let payload = Self {
+            binding_version: wire.binding_version,
+            encoding_profile: wire.encoding_profile,
+            realm_id: wire.realm_id,
+            circle_id: wire.circle_id,
+            effective_scope: wire.effective_scope,
+            mls_group_id: wire.mls_group_id,
+            previous_epoch: wire.previous_epoch,
+            next_epoch: wire.next_epoch,
+            membership_frontier: wire.membership_frontier,
+            policy_root: wire.policy_root,
+            capability_root: wire.capability_root,
+            discussion_metadata_digest: wire.discussion_metadata_digest,
+            binding_profile: wire.binding_profile,
+            reducer_profile: wire.reducer_profile,
+        };
+        payload.validate()?;
+        Ok(payload)
+    }
+}
+
+impl<'de> Deserialize<'de> for MlsGovernanceBindingPayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = MlsGovernanceBindingPayloadWire::deserialize(deserializer)?;
+        Self::try_from(wire).map_err(serde::de::Error::custom)
     }
 }
 
@@ -539,11 +602,10 @@ pub fn verify_mls_governance_binding_extension(
 }
 
 /// `event-payload.schema.json#/$defs/mls_commit_payload`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
 pub struct MlsCommitPayload {
-    mls_group_id: String,
+    mls_group_id: MlsGroupId,
     base_epoch: u64,
     base_epoch_ref: String,
     proposal_refs: Vec<EventId>,
@@ -552,6 +614,41 @@ pub struct MlsCommitPayload {
     commit_message_ref: Option<String>,
     commit_digest: Hash,
     governance_binding: MlsGovernanceBindingPayload,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MlsCommitPayloadWire {
+    mls_group_id: MlsGroupId,
+    base_epoch: u64,
+    base_epoch_ref: String,
+    proposal_refs: Vec<EventId>,
+    next_epoch: u64,
+    #[serde(default)]
+    commit_message_ref: Option<String>,
+    commit_digest: Hash,
+    governance_binding: MlsGovernanceBindingPayload,
+}
+
+impl<'de> Deserialize<'de> for MlsCommitPayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = MlsCommitPayloadWire::deserialize(deserializer)?;
+        let payload = Self {
+            mls_group_id: wire.mls_group_id,
+            base_epoch: wire.base_epoch,
+            base_epoch_ref: wire.base_epoch_ref,
+            proposal_refs: wire.proposal_refs,
+            next_epoch: wire.next_epoch,
+            commit_message_ref: wire.commit_message_ref,
+            commit_digest: wire.commit_digest,
+            governance_binding: wire.governance_binding,
+        };
+        payload.validate().map_err(serde::de::Error::custom)?;
+        Ok(payload)
+    }
 }
 
 impl MlsCommitPayload {
@@ -565,7 +662,11 @@ impl MlsCommitPayload {
         governance_binding: MlsGovernanceBindingPayload,
     ) -> Result<Self> {
         let payload = Self {
-            mls_group_id: mls_group_id.into(),
+            mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
+                Error::Protocol(format!(
+                    "mls_commit_payload.mls_group_id is invalid: {err} ({ERROR_CODE_SCHEMA_VIOLATION})"
+                ))
+            })?,
             base_epoch,
             base_epoch_ref: base_epoch_ref.into(),
             proposal_refs,
@@ -588,11 +689,6 @@ impl MlsCommitPayload {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.mls_group_id.trim().is_empty() {
-            return Err(Error::Protocol(format!(
-                "mls_commit_payload.mls_group_id must be non-empty ({ERROR_CODE_SCHEMA_VIOLATION})"
-            )));
-        }
         if self.base_epoch.checked_add(1) != Some(self.next_epoch) {
             return Err(Error::Protocol(format!(
                 "mls_commit_payload.next_epoch must equal base_epoch + 1 ({ERROR_CODE_SCHEMA_VIOLATION})"
@@ -611,7 +707,7 @@ impl MlsCommitPayload {
             }
         }
         self.governance_binding.validate()?;
-        if self.governance_binding.mls_group_id() != self.mls_group_id {
+        if self.governance_binding.mls_group_id() != self.mls_group_id.as_str() {
             return Err(Error::Protocol(format!(
                 "mls_commit_payload.governance_binding.mls_group_id mismatch ({ERROR_CODE_SCHEMA_VIOLATION})"
             )));
@@ -631,7 +727,7 @@ impl MlsCommitPayload {
     }
 
     pub fn mls_group_id(&self) -> &str {
-        &self.mls_group_id
+        self.mls_group_id.as_str()
     }
 
     pub fn base_epoch(&self) -> u64 {

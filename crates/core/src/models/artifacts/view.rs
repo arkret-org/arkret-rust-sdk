@@ -60,7 +60,7 @@ pub struct CollectionGrouping {
     pub extra: BTreeMap<String, Value>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/dashboard_config`.
+/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/query`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QueryValue {
     #[serde(default, skip_serializing_if = "Option::is_none")]

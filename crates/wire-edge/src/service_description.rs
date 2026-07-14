@@ -22,6 +22,72 @@ pub enum DirectoryResourceKind {
     Handle,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+pub struct ServerLimits {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_get_query_selectors: Option<std::num::NonZeroU64>,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extensions: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PushTargetDerivationProfile {
+    #[serde(rename = "ak.push_target_id.hmac_sha256.v1")]
+    HmacSha256V1,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PushTargetSecretScope {
+    PerService,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PushTargetInputBinding {
+    RecipientServiceId,
+    PrincipalId,
+    DeviceId,
+    PushRouteId,
+    SaltEpochId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PushTargetPrivacyDerivation {
+    pub derivation_profile: PushTargetDerivationProfile,
+    pub secret_scope: PushTargetSecretScope,
+    pub salt_epoch_id: String,
+    pub salt_rotation_seconds: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_binding: Option<Vec<PushTargetInputBinding>>,
+}
+
+impl PushTargetPrivacyDerivation {
+    pub fn validate(&self) -> Result<()> {
+        if self.salt_epoch_id.is_empty()
+            || self.salt_epoch_id.chars().count() > 128
+            || !(3_600..=2_592_000).contains(&self.salt_rotation_seconds)
+        {
+            return Err(Error::Protocol(format!(
+                "ServiceDescribe: invalid push_target privacy derivation ({})",
+                ERROR_CODE_SCHEMA_VIOLATION
+            )));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PrivacyDerivation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub push_target_id: Option<PushTargetPrivacyDerivation>,
+}
+
 /// Round 4 (2026-05-20, spec a77b995) — `ServiceDescribe` v2 has 17
 /// REQUIRED top-level fields plus a discriminated `rate_limit`. The
 /// pre-round-4 sparse-default surface is wire-broken; receivers MUST
@@ -52,7 +118,7 @@ pub struct ServerDescription {
     pub supported_bindings: Vec<SupportedBinding>,
     pub supported_features: Vec<String>,
     pub auth_metadata: AuthMetadata,
-    pub limits: Value,
+    pub limits: ServerLimits,
     /// Round 4 — plaintext visibility advertisement. Receivers MUST
     /// treat a missing value as `untrusted` (fail-closed for the
     /// mention-redirect / late-recovery paths). Wire shape per
@@ -63,7 +129,7 @@ pub struct ServerDescription {
     /// public derivation profile and epoch metadata needed by clients and
     /// conformance tools.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub privacy_derivation: Option<Value>,
+    pub privacy_derivation: Option<PrivacyDerivation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub receive_policy_constraints: Option<ReceivePolicyConstraints>,
     /// Round 4 — features the service has actually implemented (subset
@@ -185,6 +251,13 @@ impl ServerDescription {
     /// - `verified_profiles` MUST be empty when `development_mode = true`.
     /// - the describe `anyOf` requires `rate_limit_policy` or `rate_limit_policy_id`.
     pub fn validate(&self) -> Result<()> {
+        if let Some(push_target) = self
+            .privacy_derivation
+            .as_ref()
+            .and_then(|derivation| derivation.push_target_id.as_ref())
+        {
+            push_target.validate()?;
+        }
         if self.development_mode && !self.verified_profiles.is_empty() {
             return Err(Error::Protocol(format!(
                 "ServiceDescribe: development_mode=true forbids non-empty verified_profiles \
@@ -288,7 +361,7 @@ mod tests {
             supported_bindings: vec![],
             supported_features: vec![],
             auth_metadata: AuthMetadata::minimal("development"),
-            limits: json!({}),
+            limits: ServerLimits::default(),
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,
             receive_policy_constraints: None,
@@ -810,7 +883,7 @@ pub struct PlaintextVisibility {
     /// `x_*` extension keys (`additionalProperties: false` otherwise).
     #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: arkret_core::XExtensionMap,
 }
 
 impl PlaintextVisibility {

@@ -15,7 +15,7 @@ use crate::*;
 pub struct ObjectCreatePayload<T> {
     pub object: T,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub initial_relations: Vec<Value>,
+    pub initial_relations: Vec<BTreeMap<String, Value>>,
 }
 
 impl<T> ObjectCreatePayload<T> {
@@ -26,7 +26,7 @@ impl<T> ObjectCreatePayload<T> {
         }
     }
 
-    pub fn with_initial_relation(mut self, relation: Value) -> Self {
+    pub fn with_initial_relation(mut self, relation: BTreeMap<String, Value>) -> Self {
         self.initial_relations.push(relation);
         self
     }

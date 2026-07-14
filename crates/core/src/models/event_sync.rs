@@ -32,7 +32,7 @@ pub enum FrontierPeerRole {
 pub struct EventsFrontierAccountClientState {
     pub frontier: EventsFrontierView,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub receipts: Vec<Value>,
+    pub receipts: Vec<BTreeMap<String, Value>>,
 }
 
 /// Selector-dependent `frontier` object of
@@ -120,12 +120,12 @@ pub struct EventsFrontierFederationPeerState {
     pub actor_seq_upper_bounds: BTreeMap<Did, u64>,
     /// Optional witness / receipt-service attestations over the frontier.
     #[serde(default)]
-    pub witness_receipts: Vec<Value>,
+    pub witness_receipts: Vec<BTreeMap<String, Value>>,
     /// RFC 3339 (`Z`-suffixed) instant the issuer observed this frontier.
     pub observed_at: String,
     pub issuer: Did,
     /// Service signature object over the peer frontier response.
-    pub signature: Value,
+    pub signature: BTreeMap<String, Value>,
     /// Maximum HLC observed by the issuer at this frontier, when available.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_hlc: Option<String>,

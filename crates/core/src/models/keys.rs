@@ -1,30 +1,34 @@
 use super::*;
+use std::num::NonZeroU64;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct KeysUploadRequestBody {
     pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub one_time_keys: BTreeMap<String, Value>,
+    pub one_time_keys: AlgorithmKeyRecords,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fallback_keys: BTreeMap<String, Value>,
-    pub device_signature: Value,
+    pub fallback_keys: AlgorithmKeyRecords,
+    pub device_signature: KeyOperationSignature,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct KeysUploadOutcome {
-    pub one_time_key_counts: BTreeMap<String, u64>,
+    pub one_time_key_counts: AlgorithmCounts,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fallback_keys: BTreeMap<String, Value>,
+    pub fallback_keys: AlgorithmKeyRecords,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct KeysQueryRequestBody {
-    pub device_keys: BTreeMap<Did, Vec<DeviceId>>,
+    pub device_keys: QueryDeviceMap,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeout_ms: Option<u64>,
+    pub timeout_ms: Option<NonZeroU64>,
 }
 
 /// Directory status of a `(principal_id, device_id)` pair at query time.
@@ -59,14 +63,14 @@ pub enum DeviceStatus {
 pub struct QueryDeviceCrossSigningBinding {
     /// DID URL of the self-signing key (SSK) that produced the binding
     /// signature, e.g. `did:webvh:...#ak_self_signing_v1`.
-    pub verification_method: String,
+    pub verification_method: DidUrl,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub alg: Option<String>,
+    pub alg: Option<NonEmptyString>,
     /// `cross_signing.publish` generation under which the SSK signed this
     /// device binding; compared to the principal's accepted generation per
     /// §5.2.1.
     pub ssk_generation: u64,
-    pub signature: String,
+    pub signature: Base64UrlString,
 }
 
 /// Per-`(principal_id, device_id)` entry in [`KeysQueryOutcome::device_keys`].
@@ -79,30 +83,31 @@ pub struct QueryDeviceCrossSigningBinding {
 /// `keys-operations.schema.json#/$defs/query_device_record`.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct QueryDeviceRecord {
     /// Prekey bundle keyed by algorithm name. The demo projection carries the
     /// opaque uploaded key payload here; each value matches the schema
     /// `key_record` once real prekey records are published.
     #[serde(default)]
-    pub algorithms: BTreeMap<String, Value>,
+    pub algorithms: AlgorithmKeyRecords,
     /// Authoritative device verify key as an Ed25519 `did:key`
     /// (multibase base58btc, multicodec ed25519-pub). Present only for
     /// verified, non-revoked devices.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_signing_key: Option<String>,
+    pub device_signing_key: Option<DidKey>,
     /// Device HPKE sealing public key echoed verbatim from the authoritative
     /// `ak.device.authorize.payload.hpke_key` (`device-lifecycle.md` §8.2).
     /// Present only for verified, non-revoked devices; services MUST NOT
     /// substitute this value in projection.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hpke_key: Option<String>,
+    pub hpke_key: Option<NonEmptyString>,
     /// Canonical (UTF-8 bytewise sorted, deduplicated) algorithm ids echoed
     /// verbatim from `ak.device.authorize.payload.algorithms`; together with
     /// `device_signing_key` and `hpke_key` this is the material the §5.2
     /// `ak-device-trust-bind-v1` transcript covers. Distinct from the sibling
     /// `algorithms` prekey-bundle map.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trust_algorithms: Option<Vec<String>>,
+    pub trust_algorithms: Option<Vec<NonEmptyString>>,
     /// Directory status of the device at query time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_status: Option<DeviceStatus>,
@@ -128,10 +133,11 @@ pub struct QueryDeviceRecord {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct KeysQueryOutcome {
     pub device_keys: BTreeMap<Did, BTreeMap<DeviceId, QueryDeviceRecord>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub failures: Vec<Value>,
+    pub failures: Vec<KeysOperationFailure>,
     /// Tier-2: per-principal current accepted-generation
     /// `ak.cross_signing.publish` payload (`device-lifecycle.md` §5.1), letting
     /// the client anchor the SSK to the DID control set before trusting any
@@ -143,16 +149,34 @@ pub struct KeysQueryOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct KeysClaimRequestBody {
-    pub one_time_keys: BTreeMap<Did, BTreeMap<DeviceId, String>>,
+    pub one_time_keys: PrincipalDeviceAlgorithmMap,
+}
+
+/// Per-target failure returned by keys query and claim operations.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct KeysOperationFailure {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub principal_id: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub algorithm: Option<NonEmptyString>,
+    pub reason_code: NonEmptyString,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<NonZeroU64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct KeysClaimOutcome {
-    pub one_time_keys: BTreeMap<Did, BTreeMap<DeviceId, Value>>,
+    pub one_time_keys: PrincipalDeviceKeyRecords,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub failures: Vec<Value>,
+    pub failures: Vec<KeysOperationFailure>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

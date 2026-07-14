@@ -63,8 +63,8 @@ pub struct SearchRequestBody {
     pub object_types: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub morph_types: Vec<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub time_range: Value,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub time_range: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -115,8 +115,8 @@ pub struct ProjectionObject {
     pub facets: Vec<Facet>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub fields: Value,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -137,12 +137,92 @@ pub struct ProjectionItem {
     pub object: ProjectionObject,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub render: Option<ProjectionItemRender>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub display: Value,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub position: Value,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub state: Value,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub display: BTreeMap<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position: Option<CollectionPosition>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub state: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FieldValuePositionModel {
+    #[serde(rename = "field_value")]
+    FieldValue,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FieldValueCollectionPosition {
+    pub model: FieldValuePositionModel,
+    pub container_id: NonEmptyString,
+    pub rank: NonEmptyString,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RelationPositionModel {
+    #[serde(rename = "relation")]
+    Relation,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RelationCollectionPosition {
+    pub model: RelationPositionModel,
+    pub scope_container_id: ObjectRef,
+    pub container_id: ObjectRef,
+    pub relation_kind: NonEmptyString,
+    pub relation_id: RelationId,
+    pub rank: NonEmptyString,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TimeWindowPositionModel {
+    #[serde(rename = "time_window")]
+    TimeWindow,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TimeWindowCollectionPosition {
+    pub model: TimeWindowPositionModel,
+    pub start: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timezone: Option<NonEmptyString>,
+    pub sort_key: NonEmptyString,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CrosstabPositionModel {
+    #[serde(rename = "crosstab_cell")]
+    CrosstabCell,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CrosstabCollectionPosition {
+    pub model: CrosstabPositionModel,
+    pub row_key: NonEmptyString,
+    pub column_key: NonEmptyString,
+    pub sort_key: NonEmptyString,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SortKeyCollectionPosition {
+    pub sort_key: NonEmptyString,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CollectionPosition {
+    FieldValue(FieldValueCollectionPosition),
+    Relation(RelationCollectionPosition),
+    TimeWindow(TimeWindowCollectionPosition),
+    Crosstab(CrosstabCollectionPosition),
+    SortKey(SortKeyCollectionPosition),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -589,18 +669,46 @@ pub struct DocumentProjectionView {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DocumentMorphProjectionOutcome {
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub document: Value,
+    pub document: DocumentMorphProjection,
     #[serde(default)]
-    pub versions: Vec<Value>,
+    pub versions: Vec<BTreeMap<String, Value>>,
     #[serde(default)]
-    pub relations: Vec<Value>,
+    pub relations: Vec<BTreeMap<String, Value>>,
     #[serde(default)]
-    pub comments: Vec<Value>,
+    pub comments: Vec<BTreeMap<String, Value>>,
     #[serde(default)]
-    pub cursor_presence: Vec<Value>,
+    pub cursor_presence: Vec<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frontier: Option<StateFrontier>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DocumentMorphProjection {
+    pub morph_id: MorphId,
+    pub realm_id: RealmId,
+    pub morph_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    pub state: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_changed_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
+    pub body: Value,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub schema_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub facets: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_by: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extensions: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

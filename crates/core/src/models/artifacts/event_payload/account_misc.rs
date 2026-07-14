@@ -2,8 +2,6 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-
 use crate::*;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json`.
@@ -24,7 +22,7 @@ pub struct AccountStatusPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<NullableTimestamp>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub supersedes_status_event_id: Option<Value>,
+    pub supersedes_status_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub admin_proof: Option<SignatureMaterial>,
 }

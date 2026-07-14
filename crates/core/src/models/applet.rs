@@ -39,7 +39,7 @@ pub struct AppletTransactionRequestBody {
 pub struct AppletTransactionOutcome {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<Value>,
+    pub rejected: Vec<RejectedItem>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
 }
@@ -95,8 +95,7 @@ pub struct AppletWidgetPolicy {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallPreviewRequestBody {
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub applet_package: Value,
+    pub applet_package: crate::AppletPackage,
     pub effective_scope: EffectiveScope,
     pub approval_request: AppletApprovalRequest,
 }
@@ -106,8 +105,7 @@ pub struct AppletInstallPreviewRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallRequestBody {
     pub plan_digest: Hash,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub applet_package: Value,
+    pub applet_package: crate::AppletPackage,
     pub effective_scope: EffectiveScope,
     pub approved_scopes: Vec<ScopeGrant>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -191,8 +189,8 @@ pub struct AppletActorView {
     pub actor_id: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub external_ref: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_ref: Option<ExternalRef>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -203,8 +201,8 @@ pub struct AppletRealmView {
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub external_ref: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_ref: Option<ExternalRef>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -214,8 +212,7 @@ pub struct AppletProtocolMetadata {
     pub display_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_blob_ref: Option<BlobRef>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub field_types: Value,
+    pub field_types: BTreeMap<String, FieldType>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub instances: Vec<Value>,
+    pub instances: Vec<ProtocolInstance>,
 }

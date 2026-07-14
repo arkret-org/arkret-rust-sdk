@@ -390,7 +390,7 @@ pub struct CallStatePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session_focus: Option<Value>,
+    pub session_focus: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub participants: Option<Vec<CallParticipant>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

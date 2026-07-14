@@ -381,10 +381,10 @@ impl RealmOrganizationPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmKeyScope {
-    pub effective_scope: Value,
-    pub policy_digest: Value,
+    pub effective_scope: EffectiveScope,
+    pub policy_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub membership_frontier_digest: Option<Value>,
+    pub membership_frontier_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_epoch: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -403,11 +403,11 @@ pub struct RealmKeyScope {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmKeyRequestScope {
-    pub effective_scope: Value,
+    pub effective_scope: EffectiveScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_digest: Option<Value>,
+    pub policy_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub membership_frontier_digest: Option<Value>,
+    pub membership_frontier_digest: Option<Hash>,
     pub from_epoch: u64,
     pub to_epoch: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -432,10 +432,10 @@ pub struct RealmKeyRequestScope {
 pub struct RealmKeyRequestPayload {
     pub key_scope: RealmKeyRequestScope,
     pub recipient_principal_id: Did,
-    pub recipient_device_id: String,
-    pub recipient_hpke_public_key: String,
+    pub recipient_device_id: DeviceId,
+    pub recipient_hpke_public_key: NonEmptyString,
     pub requested_source_class: HistoryKeySource,
-    pub target_source_ref: String,
+    pub target_source_ref: RealmKeySourceRef,
     pub target_principal_id: Did,
     pub created_at: DateTime<Utc>,
 }
@@ -444,16 +444,6 @@ impl RealmKeyRequestPayload {
     /// Reject empty load-bearing fields and the out-of-scope `key_backup`
     /// source class before the request is shipped.
     pub fn validate(&self) -> Result<()> {
-        if self.recipient_device_id.trim().is_empty() {
-            return Err(Error::Protocol(
-                "ak.realm_key.request.recipient_device_id must not be empty".to_owned(),
-            ));
-        }
-        if self.recipient_hpke_public_key.trim().is_empty() {
-            return Err(Error::Protocol(
-                "ak.realm_key.request.recipient_hpke_public_key must not be empty".to_owned(),
-            ));
-        }
         if self.requested_source_class == HistoryKeySource::KeyBackup {
             return Err(Error::Protocol(
                 "ak.realm_key.request.requested_source_class must not be key_backup".to_owned(),
@@ -463,19 +453,36 @@ impl RealmKeyRequestPayload {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RealmKeySourceRef {
+    Device(DeviceId),
+    Service(Did),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmKeyShareResult {
+    Shared,
+    Withheld,
+    Rejected,
+    Expired,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_key_share_audit_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmKeyShareAuditPayload {
-    pub share_event_ref: EventRef,
-    pub result: Value,
+    pub share_event_ref: EventId,
+    pub result: RealmKeyShareResult,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recipient_principal_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recipient_device_id: Option<String>,
+    pub recipient_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audit_digest: Option<Hash>,
     pub recorded_at: DateTime<Utc>,
@@ -505,24 +512,24 @@ pub struct RealmKeySharePayload {
     /// Present only for `share_class=member_device`; forbidden for
     /// `realm_recovery_key`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recipient_device_id: Option<String>,
+    pub recipient_device_id: Option<DeviceId>,
     /// Present only for `share_class=realm_recovery_key`: the RRK
     /// `verification_method` (identity-did.md §8.3).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recipient_verification_method: Option<String>,
+    pub recipient_verification_method: Option<DidUrl>,
     /// Present only for `share_class=realm_recovery_key`: the
     /// `durability_policy.recovery_recipients[].recipient_id`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recovery_recipient_id: Option<String>,
-    pub sender_device_id: String,
+    pub recovery_recipient_id: Option<NonEmptyString>,
+    pub sender_device_id: DeviceId,
     /// Accepted policy/grant/source authorization event reference covering this
     /// delivery at the Event CBA basis. The receiver verifies it before
     /// installing any history secret material.
-    pub source_authorization_ref: String,
-    pub sender_device_signature: Value,
+    pub source_authorization_ref: EventId,
+    pub sender_device_signature: SignatureMaterial,
     pub key_scope: RealmKeyScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ciphertext: Option<String>,
+    pub ciphertext: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypted_key_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -621,7 +628,7 @@ pub struct RelationUpdatePayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SignatureMaterial {
-    NonEmptyString(String),
+    NonEmptyString(NonEmptyString),
     Variant1(BTreeMap<String, Value>),
 }
 

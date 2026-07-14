@@ -1,6 +1,7 @@
 //! List-reorder, message-redact/revise, MIMI-room-binding, and MLS payloads.
 
 use std::collections::BTreeMap;
+use std::num::NonZeroU64;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -8,6 +9,163 @@ use serde_json::Value;
 
 use crate::serde_helpers::{deserialize_canonical_timestamp, serialize_canonical_timestamp};
 use crate::*;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageTrackName {
+    Discussion,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MimiLocalProviderRole {
+    Hub,
+    Follower,
+    Observer,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MimiRoomBindingStatus {
+    Proposed,
+    Accepted,
+    Revoked,
+    Migrating,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MlsCommitFailureStage {
+    WelcomeDecrypt,
+    TranscriptVerify,
+    GovernanceBinding,
+    GroupStateUpdate,
+    KeypackageClaim,
+    PolicyRootMismatch,
+    UnsupportedCipherSuite,
+    StorageFailure,
+    UnknownEpoch,
+    Other,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MlsProposalType {
+    Add,
+    Update,
+    Remove,
+    Psk,
+    Reinit,
+    ExternalInit,
+    GroupContextExtensions,
+    AppCustom,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MlsGenesisEpoch;
+
+impl Serialize for MlsGenesisEpoch {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u8(0)
+    }
+}
+
+impl<'de> Deserialize<'de> for MlsGenesisEpoch {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let epoch = u64::deserialize(deserializer)?;
+        if epoch == 0 {
+            Ok(Self)
+        } else {
+            Err(serde::de::Error::custom("MLS genesis epoch must be 0"))
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MlsClaimTrustBinding {
+    SskGeneration(NonZeroU64),
+    DeviceAuthorizeEventId(NonEmptyString),
+}
+
+impl MlsClaimTrustBinding {
+    pub fn ssk_generation(&self) -> Option<u64> {
+        match self {
+            Self::SskGeneration(generation) => Some(generation.get()),
+            Self::DeviceAuthorizeEventId(_) => None,
+        }
+    }
+
+    pub fn device_authorize_event_id(&self) -> Option<&str> {
+        match self {
+            Self::SskGeneration(_) => None,
+            Self::DeviceAuthorizeEventId(event_id) => Some(event_id.as_str()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MlsRequesterTrustBinding {
+    SskGeneration(NonZeroU64),
+    RequesterDeviceId(DeviceId),
+}
+
+impl MlsRequesterTrustBinding {
+    pub fn ssk_generation(&self) -> Option<u64> {
+        match self {
+            Self::SskGeneration(generation) => Some(generation.get()),
+            Self::RequesterDeviceId(_) => None,
+        }
+    }
+
+    pub fn requester_device_id(&self) -> Option<&DeviceId> {
+        match self {
+            Self::SskGeneration(_) => None,
+            Self::RequesterDeviceId(device_id) => Some(device_id),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MlsWelcomeCarrier {
+    welcome_ref: Option<ObjectRef>,
+    encrypted_welcome_ref: Option<ObjectRef>,
+    ciphertext: Option<NonEmptyString>,
+}
+
+impl MlsWelcomeCarrier {
+    pub fn new(
+        welcome_ref: Option<ObjectRef>,
+        encrypted_welcome_ref: Option<ObjectRef>,
+        ciphertext: Option<NonEmptyString>,
+    ) -> std::result::Result<Self, &'static str> {
+        if welcome_ref.is_none() && encrypted_welcome_ref.is_none() && ciphertext.is_none() {
+            return Err("MLS Welcome carrier must include welcome_ref, encrypted_welcome_ref, or ciphertext");
+        }
+        Ok(Self {
+            welcome_ref,
+            encrypted_welcome_ref,
+            ciphertext,
+        })
+    }
+
+    pub fn welcome_ref(&self) -> Option<&str> {
+        self.welcome_ref.as_deref()
+    }
+
+    pub fn encrypted_welcome_ref(&self) -> Option<&str> {
+        self.encrypted_welcome_ref.as_deref()
+    }
+
+    pub fn ciphertext(&self) -> Option<&str> {
+        self.ciphertext.as_deref()
+    }
+}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/list_reorder_payload`.
@@ -42,7 +200,7 @@ pub type MessageMetadataFields = BTreeMap<String, Value>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_redact_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct MessageRedactPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -54,16 +212,62 @@ pub struct MessageRedactPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_name: Option<Value>,
+    pub track_name: Option<MessageTrackName>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preserve: Option<Vec<String>>,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MessageRedactPayloadWire {
+    #[serde(default)]
+    message_id: Option<MessageId>,
+    #[serde(default)]
+    target_ref: Option<ObjectRef>,
+    #[serde(default)]
+    event_id: Option<EventId>,
+    #[serde(default)]
+    target_event_id: Option<EventId>,
+    #[serde(default)]
+    track_name: Option<MessageTrackName>,
+    #[serde(default)]
+    reason: Option<String>,
+    #[serde(default)]
+    preserve: Option<Vec<String>>,
+}
+
+impl<'de> Deserialize<'de> for MessageRedactPayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = MessageRedactPayloadWire::deserialize(deserializer)?;
+        if wire.message_id.is_none()
+            && wire.target_ref.is_none()
+            && wire.event_id.is_none()
+            && wire.target_event_id.is_none()
+        {
+            return Err(serde::de::Error::custom(
+                "message_redact_payload requires a target identifier",
+            ));
+        }
+        Ok(Self {
+            message_id: wire.message_id,
+            target_ref: wire.target_ref,
+            event_id: wire.event_id,
+            target_event_id: wire.target_event_id,
+            track_name: wire.track_name,
+            reason: wire.reason,
+            preserve: wire.preserve,
+        })
+    }
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_revise_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct MessageRevisePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -73,7 +277,7 @@ pub struct MessageRevisePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revision_of: Option<MessageId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_name: Option<Value>,
+    pub track_name: Option<MessageTrackName>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<ContentBlock>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -84,6 +288,64 @@ pub struct MessageRevisePayload {
     pub encrypted_metadata: Option<EncryptedMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MessageRevisePayloadWire {
+    #[serde(default)]
+    message_id: Option<MessageId>,
+    #[serde(default)]
+    target_ref: Option<ObjectRef>,
+    #[serde(default)]
+    revision_of: Option<MessageId>,
+    #[serde(default)]
+    track_name: Option<MessageTrackName>,
+    #[serde(default)]
+    content: Option<ContentBlock>,
+    #[serde(default)]
+    encrypted_content: Option<EncryptedEnvelope>,
+    #[serde(default)]
+    metadata: Option<MessageMetadata>,
+    #[serde(default)]
+    encrypted_metadata: Option<EncryptedMetadata>,
+    #[serde(default)]
+    reason: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for MessageRevisePayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = MessageRevisePayloadWire::deserialize(deserializer)?;
+        if wire.message_id.is_none() && wire.target_ref.is_none() && wire.revision_of.is_none() {
+            return Err(serde::de::Error::custom(
+                "message_revise_payload requires a target identifier",
+            ));
+        }
+        if wire.content.is_some() == wire.encrypted_content.is_some() {
+            return Err(serde::de::Error::custom(
+                "message_revise_payload requires exactly one content carrier",
+            ));
+        }
+        if wire.metadata.is_some() && wire.encrypted_metadata.is_some() {
+            return Err(serde::de::Error::custom(
+                "message_revise_payload cannot contain both metadata forms",
+            ));
+        }
+        Ok(Self {
+            message_id: wire.message_id,
+            target_ref: wire.target_ref,
+            revision_of: wire.revision_of,
+            track_name: wire.track_name,
+            content: wire.content,
+            encrypted_content: wire.encrypted_content,
+            metadata: wire.metadata,
+            encrypted_metadata: wire.encrypted_metadata,
+            reason: wire.reason,
+        })
+    }
 }
 
 /// Counterpart for
@@ -98,24 +360,20 @@ pub struct MimiRoomBindingPayloadBindingScope {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MimiRoomBindingPayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub profile: Option<Value>,
-    pub mimi_room_uri: String,
+    pub profile: MimiInteropProfileId,
+    pub mimi_room_uri: MimiRoomUri,
     pub binding_scope: MimiRoomBindingPayloadBindingScope,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hub_provider: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub local_provider_role: Option<String>,
+    pub hub_provider: Did,
+    pub local_provider_role: MimiLocalProviderRole,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub follower_providers: Option<Vec<Did>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<Value>,
+    pub mls_group_id: Option<MlsGroupId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_profile: Option<Value>,
+    pub content_profile: Option<ContentProfileId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_component_root: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<String>,
+    pub policy_root: Option<Hash>,
+    pub status: MimiRoomBindingStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub created_at: Option<DateTime<Utc>>,
 }
@@ -125,13 +383,13 @@ pub struct MimiRoomBindingPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsCommitFailedPayload {
-    pub mls_group_id: String,
-    pub commit_ref: EventRef,
+    pub mls_group_id: MlsGroupId,
+    pub commit_ref: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub welcome_ref: Option<EventRef>,
+    pub welcome_ref: Option<EventId>,
     pub epoch: u64,
-    pub failure_stage: Value,
-    pub reporter_device_id: String,
+    pub failure_stage: MlsCommitFailureStage,
+    pub reporter_device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -149,15 +407,15 @@ pub struct MlsEpochRange {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/mls_genesis_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGenesisPayload {
-    pub mls_group_id: String,
-    pub effective_scope: Value,
-    pub epoch: u64,
+    pub mls_group_id: MlsGroupId,
+    pub effective_scope: EffectiveScope,
+    pub epoch: MlsGenesisEpoch,
     pub creator_principal_id: Did,
-    pub creator_device_id: String,
-    pub cipher_suite: String,
+    pub creator_device_id: DeviceId,
+    pub cipher_suite: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group_info_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -168,35 +426,80 @@ pub struct MlsGenesisPayload {
     pub ratchet_tree_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_keypackage_refs: Option<Vec<ObjectRef>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub governance_binding: Option<MlsGovernanceBinding>,
+    pub governance_binding: MlsGovernanceBindingPayload,
     pub created_at: DateTime<Utc>,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/mls_governance_binding`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MlsGovernanceBinding {
-    pub binding_version: u64,
-    pub encoding_profile: String,
-    pub realm_id: Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub circle_id: Option<Value>,
-    pub effective_scope: Value,
-    pub mls_group_id: String,
-    pub previous_epoch: u64,
-    pub next_epoch: u64,
-    pub membership_frontier: Vec<EventId>,
-    pub policy_root: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub capability_root: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub discussion_metadata_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub binding_profile: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reducer_profile: Option<String>,
+struct MlsGenesisPayloadWire {
+    mls_group_id: MlsGroupId,
+    effective_scope: EffectiveScope,
+    epoch: MlsGenesisEpoch,
+    creator_principal_id: Did,
+    creator_device_id: DeviceId,
+    cipher_suite: NonEmptyString,
+    #[serde(default)]
+    group_info_ref: Option<ObjectRef>,
+    #[serde(default)]
+    group_info_digest: Option<Hash>,
+    #[serde(default)]
+    ratchet_tree_ref: Option<ObjectRef>,
+    #[serde(default)]
+    ratchet_tree_digest: Option<Hash>,
+    #[serde(default)]
+    initial_keypackage_refs: Option<Vec<ObjectRef>>,
+    governance_binding: MlsGovernanceBindingPayload,
+    created_at: DateTime<Utc>,
+}
+
+impl<'de> Deserialize<'de> for MlsGenesisPayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = MlsGenesisPayloadWire::deserialize(deserializer)?;
+        if wire.group_info_ref.is_none() && wire.group_info_digest.is_none() {
+            return Err(serde::de::Error::custom(
+                "mls_genesis_payload requires group_info_ref or group_info_digest",
+            ));
+        }
+        if wire.ratchet_tree_ref.is_none() && wire.ratchet_tree_digest.is_none() {
+            return Err(serde::de::Error::custom(
+                "mls_genesis_payload requires ratchet_tree_ref or ratchet_tree_digest",
+            ));
+        }
+        if wire.governance_binding.mls_group_id() != wire.mls_group_id.as_str()
+            || wire.governance_binding.effective_scope() != &wire.effective_scope
+        {
+            return Err(serde::de::Error::custom(
+                "mls_genesis_payload governance binding does not match the group and scope",
+            ));
+        }
+        if let Some(refs) = &wire.initial_keypackage_refs {
+            let unique = refs.iter().collect::<std::collections::BTreeSet<_>>();
+            if unique.len() != refs.len() {
+                return Err(serde::de::Error::custom(
+                    "mls_genesis_payload initial_keypackage_refs must be unique",
+                ));
+            }
+        }
+        Ok(Self {
+            mls_group_id: wire.mls_group_id,
+            effective_scope: wire.effective_scope,
+            epoch: wire.epoch,
+            creator_principal_id: wire.creator_principal_id,
+            creator_device_id: wire.creator_device_id,
+            cipher_suite: wire.cipher_suite,
+            group_info_ref: wire.group_info_ref,
+            group_info_digest: wire.group_info_digest,
+            ratchet_tree_ref: wire.ratchet_tree_ref,
+            ratchet_tree_digest: wire.ratchet_tree_digest,
+            initial_keypackage_refs: wire.initial_keypackage_refs,
+            governance_binding: wire.governance_binding,
+            created_at: wire.created_at,
+        })
+    }
 }
 
 /// Counterpart for
@@ -205,17 +508,17 @@ pub struct MlsGovernanceBinding {
 #[serde(deny_unknown_fields)]
 pub struct MlsKeypackagePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub keypackage_id: Option<String>,
+    pub keypackage_id: Option<NonEmptyString>,
     pub principal_id: Did,
-    pub device_id: String,
+    pub device_id: DeviceId,
     pub keypackage_ref: ObjectRef,
-    pub keypackage_digest: Value,
+    pub keypackage_digest: Hash,
     pub cipher_suites: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<Vec<String>>,
-    pub state: Value,
+    pub state: MlsKeyPackageState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub claim_id: Option<String>,
+    pub claim_id: Option<NonEmptyString>,
     pub expires_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
     pub device_signature: SignatureMaterial,
@@ -223,12 +526,12 @@ pub struct MlsKeypackagePayload {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/mls_proposal_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsProposalPayload {
-    pub mls_group_id: String,
+    pub mls_group_id: MlsGroupId,
     pub base_epoch: u64,
-    pub proposal_type: Value,
+    pub proposal_type: MlsProposalType,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proposal_message_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -236,67 +539,281 @@ pub struct MlsProposalPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_principal_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_device_id: Option<String>,
+    pub target_device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub governance_binding: Option<MlsGovernanceBinding>,
+    pub governance_binding: Option<MlsGovernanceBindingPayload>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MlsProposalPayloadWire {
+    mls_group_id: MlsGroupId,
+    base_epoch: u64,
+    proposal_type: MlsProposalType,
+    #[serde(default)]
+    proposal_message_ref: Option<ObjectRef>,
+    #[serde(default)]
+    proposal_digest: Option<Hash>,
+    #[serde(default)]
+    target_principal_id: Option<Did>,
+    #[serde(default)]
+    target_device_id: Option<DeviceId>,
+    #[serde(default)]
+    governance_binding: Option<MlsGovernanceBindingPayload>,
+}
+
+impl<'de> Deserialize<'de> for MlsProposalPayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = MlsProposalPayloadWire::deserialize(deserializer)?;
+        if wire.proposal_message_ref.is_none() && wire.proposal_digest.is_none() {
+            return Err(serde::de::Error::custom(
+                "mls_proposal_payload requires proposal_message_ref or proposal_digest",
+            ));
+        }
+        if let Some(binding) = &wire.governance_binding
+            && binding.mls_group_id() != wire.mls_group_id.as_str()
+        {
+            return Err(serde::de::Error::custom(
+                "mls_proposal_payload governance binding does not match mls_group_id",
+            ));
+        }
+        Ok(Self {
+            mls_group_id: wire.mls_group_id,
+            base_epoch: wire.base_epoch,
+            proposal_type: wire.proposal_type,
+            proposal_message_ref: wire.proposal_message_ref,
+            proposal_digest: wire.proposal_digest,
+            target_principal_id: wire.target_principal_id,
+            target_device_id: wire.target_device_id,
+            governance_binding: wire.governance_binding,
+        })
+    }
 }
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/mls_welcome_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MlsWelcomePayloadClaimRef {
-    pub claim_id: String,
+    pub claim_id: NonEmptyString,
     pub keypackage_ref: ObjectRef,
     pub keypackage_digest: Hash,
     pub capabilities_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ssk_generation: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_authorize_event_id: Option<String>,
+    pub trust_binding: MlsClaimTrustBinding,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub struct MlsWelcomeClaimEnvelope {
     pub keypackage_ref: ObjectRef,
     pub keypackage_digest: Hash,
     pub intended_realm_id: RealmId,
-    pub claim_id: String,
+    pub claim_id: NonEmptyString,
     pub requester_did: Did,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ssk_generation: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requester_device_id: Option<String>,
-    pub nonce: String,
+    pub trust_binding: MlsRequesterTrustBinding,
+    pub nonce: NonEmptyString,
     pub welcome_digest: Hash,
-    #[serde(
-        serialize_with = "serialize_canonical_timestamp",
-        deserialize_with = "deserialize_canonical_timestamp"
-    )]
     pub created_at: DateTime<Utc>,
     pub signature: KeyOperationSignature,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub struct MlsWelcomeClaimEnvelopeSigningInput {
     pub keypackage_ref: ObjectRef,
     pub keypackage_digest: Hash,
     pub intended_realm_id: RealmId,
-    pub claim_id: String,
+    pub claim_id: NonEmptyString,
     pub requester_did: Did,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ssk_generation: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requester_device_id: Option<String>,
-    pub nonce: String,
+    pub trust_binding: MlsRequesterTrustBinding,
+    pub nonce: NonEmptyString,
     pub welcome_digest: Hash,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MlsWelcomePayloadClaimRefWire {
+    claim_id: NonEmptyString,
+    keypackage_ref: ObjectRef,
+    keypackage_digest: Hash,
+    capabilities_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ssk_generation: Option<NonZeroU64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    device_authorize_event_id: Option<NonEmptyString>,
+}
+
+impl Serialize for MlsWelcomePayloadClaimRef {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let (ssk_generation, device_authorize_event_id) = match &self.trust_binding {
+            MlsClaimTrustBinding::SskGeneration(generation) => (Some(*generation), None),
+            MlsClaimTrustBinding::DeviceAuthorizeEventId(event_id) => {
+                (None, Some(event_id.clone()))
+            }
+        };
+        MlsWelcomePayloadClaimRefWire {
+            claim_id: self.claim_id.clone(),
+            keypackage_ref: self.keypackage_ref.clone(),
+            keypackage_digest: self.keypackage_digest.clone(),
+            capabilities_digest: self.capabilities_digest.clone(),
+            ssk_generation,
+            device_authorize_event_id,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for MlsWelcomePayloadClaimRef {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = MlsWelcomePayloadClaimRefWire::deserialize(deserializer)?;
+        let trust_binding = match (wire.ssk_generation, wire.device_authorize_event_id) {
+            (Some(generation), None) => MlsClaimTrustBinding::SskGeneration(generation),
+            (None, Some(event_id)) => MlsClaimTrustBinding::DeviceAuthorizeEventId(event_id),
+            _ => {
+                return Err(serde::de::Error::custom(
+                    "claim_ref must contain exactly one trust binding",
+                ));
+            }
+        };
+        Ok(Self {
+            claim_id: wire.claim_id,
+            keypackage_ref: wire.keypackage_ref,
+            keypackage_digest: wire.keypackage_digest,
+            capabilities_digest: wire.capabilities_digest,
+            trust_binding,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MlsWelcomeClaimEnvelopeWire {
+    keypackage_ref: ObjectRef,
+    keypackage_digest: Hash,
+    intended_realm_id: RealmId,
+    claim_id: NonEmptyString,
+    requester_did: Did,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ssk_generation: Option<NonZeroU64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    requester_device_id: Option<DeviceId>,
+    nonce: NonEmptyString,
+    welcome_digest: Hash,
     #[serde(
         serialize_with = "serialize_canonical_timestamp",
         deserialize_with = "deserialize_canonical_timestamp"
     )]
-    pub created_at: DateTime<Utc>,
+    created_at: DateTime<Utc>,
+    signature: KeyOperationSignature,
+}
+
+impl Serialize for MlsWelcomeClaimEnvelope {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let (ssk_generation, requester_device_id) = match &self.trust_binding {
+            MlsRequesterTrustBinding::SskGeneration(generation) => (Some(*generation), None),
+            MlsRequesterTrustBinding::RequesterDeviceId(device_id) => {
+                (None, Some(device_id.clone()))
+            }
+        };
+        MlsWelcomeClaimEnvelopeWire {
+            keypackage_ref: self.keypackage_ref.clone(),
+            keypackage_digest: self.keypackage_digest.clone(),
+            intended_realm_id: self.intended_realm_id.clone(),
+            claim_id: self.claim_id.clone(),
+            requester_did: self.requester_did.clone(),
+            ssk_generation,
+            requester_device_id,
+            nonce: self.nonce.clone(),
+            welcome_digest: self.welcome_digest.clone(),
+            created_at: self.created_at,
+            signature: self.signature.clone(),
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for MlsWelcomeClaimEnvelope {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = MlsWelcomeClaimEnvelopeWire::deserialize(deserializer)?;
+        let trust_binding = match (wire.ssk_generation, wire.requester_device_id) {
+            (Some(generation), None) => MlsRequesterTrustBinding::SskGeneration(generation),
+            (None, Some(device_id)) => MlsRequesterTrustBinding::RequesterDeviceId(device_id),
+            _ => {
+                return Err(serde::de::Error::custom(
+                    "claim_envelope must contain exactly one requester trust binding",
+                ));
+            }
+        };
+        Ok(Self {
+            keypackage_ref: wire.keypackage_ref,
+            keypackage_digest: wire.keypackage_digest,
+            intended_realm_id: wire.intended_realm_id,
+            claim_id: wire.claim_id,
+            requester_did: wire.requester_did,
+            trust_binding,
+            nonce: wire.nonce,
+            welcome_digest: wire.welcome_digest,
+            created_at: wire.created_at,
+            signature: wire.signature,
+        })
+    }
+}
+
+#[derive(Serialize)]
+struct MlsWelcomeClaimEnvelopeSigningInputWire {
+    keypackage_ref: ObjectRef,
+    keypackage_digest: Hash,
+    intended_realm_id: RealmId,
+    claim_id: NonEmptyString,
+    requester_did: Did,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ssk_generation: Option<NonZeroU64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    requester_device_id: Option<DeviceId>,
+    nonce: NonEmptyString,
+    welcome_digest: Hash,
+    #[serde(serialize_with = "serialize_canonical_timestamp")]
+    created_at: DateTime<Utc>,
+}
+
+impl Serialize for MlsWelcomeClaimEnvelopeSigningInput {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let (ssk_generation, requester_device_id) = match &self.trust_binding {
+            MlsRequesterTrustBinding::SskGeneration(generation) => (Some(*generation), None),
+            MlsRequesterTrustBinding::RequesterDeviceId(device_id) => {
+                (None, Some(device_id.clone()))
+            }
+        };
+        MlsWelcomeClaimEnvelopeSigningInputWire {
+            keypackage_ref: self.keypackage_ref.clone(),
+            keypackage_digest: self.keypackage_digest.clone(),
+            intended_realm_id: self.intended_realm_id.clone(),
+            claim_id: self.claim_id.clone(),
+            requester_did: self.requester_did.clone(),
+            ssk_generation,
+            requester_device_id,
+            nonce: self.nonce.clone(),
+            welcome_digest: self.welcome_digest.clone(),
+            created_at: self.created_at,
+        }
+        .serialize(serializer)
+    }
 }
 
 impl MlsWelcomeClaimEnvelope {
@@ -307,8 +824,7 @@ impl MlsWelcomeClaimEnvelope {
             intended_realm_id: self.intended_realm_id.clone(),
             claim_id: self.claim_id.clone(),
             requester_did: self.requester_did.clone(),
-            ssk_generation: self.ssk_generation,
-            requester_device_id: self.requester_device_id.clone(),
+            trust_binding: self.trust_binding.clone(),
             nonce: self.nonce.clone(),
             welcome_digest: self.welcome_digest.clone(),
             created_at: self.created_at,
@@ -332,34 +848,128 @@ impl MlsWelcomeClaimEnvelope {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub struct MlsWelcomePayload {
-    pub mls_group_id: String,
+    pub mls_group_id: MlsGroupId,
     pub epoch: u64,
     pub recipient_principal_id: Did,
-    pub recipient_device_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sender_device_id: Option<String>,
+    pub recipient_device_id: DeviceId,
+    pub sender_device_id: Option<DeviceId>,
     pub keypackage_ref: ObjectRef,
-    pub keypackage_digest: Value,
-    pub claim_id: String,
+    pub keypackage_digest: Hash,
+    pub claim_id: NonEmptyString,
     pub claim_ref: MlsWelcomePayloadClaimRef,
     pub claim_envelope: MlsWelcomeClaimEnvelope,
+    pub carrier: MlsWelcomeCarrier,
+    pub commit_ref: Option<EventId>,
+    pub governance_binding: MlsGovernanceBindingPayload,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MlsWelcomePayloadWire {
+    mls_group_id: MlsGroupId,
+    epoch: u64,
+    recipient_principal_id: Did,
+    recipient_device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub welcome_ref: Option<ObjectRef>,
+    sender_device_id: Option<DeviceId>,
+    keypackage_ref: ObjectRef,
+    keypackage_digest: Hash,
+    claim_id: NonEmptyString,
+    claim_ref: MlsWelcomePayloadClaimRef,
+    claim_envelope: MlsWelcomeClaimEnvelope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_welcome_ref: Option<ObjectRef>,
+    welcome_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ciphertext: Option<String>,
+    encrypted_welcome_ref: Option<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub commit_ref: Option<String>,
-    pub governance_binding: MlsGovernanceBinding,
+    ciphertext: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    commit_ref: Option<EventId>,
+    governance_binding: MlsGovernanceBindingPayload,
     #[serde(
         serialize_with = "serialize_canonical_timestamp",
         deserialize_with = "deserialize_canonical_timestamp"
     )]
-    pub expires_at: DateTime<Utc>,
+    expires_at: DateTime<Utc>,
+}
+
+impl Serialize for MlsWelcomePayload {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        MlsWelcomePayloadWire {
+            mls_group_id: self.mls_group_id.clone(),
+            epoch: self.epoch,
+            recipient_principal_id: self.recipient_principal_id.clone(),
+            recipient_device_id: self.recipient_device_id.clone(),
+            sender_device_id: self.sender_device_id.clone(),
+            keypackage_ref: self.keypackage_ref.clone(),
+            keypackage_digest: self.keypackage_digest.clone(),
+            claim_id: self.claim_id.clone(),
+            claim_ref: self.claim_ref.clone(),
+            claim_envelope: self.claim_envelope.clone(),
+            welcome_ref: self.carrier.welcome_ref.clone(),
+            encrypted_welcome_ref: self.carrier.encrypted_welcome_ref.clone(),
+            ciphertext: self.carrier.ciphertext.clone(),
+            commit_ref: self.commit_ref.clone(),
+            governance_binding: self.governance_binding.clone(),
+            expires_at: self.expires_at,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for MlsWelcomePayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = MlsWelcomePayloadWire::deserialize(deserializer)?;
+        let carrier = MlsWelcomeCarrier::new(
+            wire.welcome_ref,
+            wire.encrypted_welcome_ref,
+            wire.ciphertext,
+        )
+        .map_err(serde::de::Error::custom)?;
+        if wire.governance_binding.mls_group_id() != wire.mls_group_id.as_str()
+            || wire.governance_binding.next_epoch() != wire.epoch
+        {
+            return Err(serde::de::Error::custom(
+                "mls_welcome_payload governance binding does not match group and epoch",
+            ));
+        }
+        if wire.claim_ref.claim_id != wire.claim_id
+            || wire.claim_ref.keypackage_ref != wire.keypackage_ref
+            || wire.claim_ref.keypackage_digest != wire.keypackage_digest
+            || wire.claim_envelope.claim_id != wire.claim_id
+            || wire.claim_envelope.keypackage_ref != wire.keypackage_ref
+            || wire.claim_envelope.keypackage_digest != wire.keypackage_digest
+        {
+            return Err(serde::de::Error::custom(
+                "mls_welcome_payload claim bindings do not match top-level fields",
+            ));
+        }
+        Ok(Self {
+            mls_group_id: wire.mls_group_id,
+            epoch: wire.epoch,
+            recipient_principal_id: wire.recipient_principal_id,
+            recipient_device_id: wire.recipient_device_id,
+            sender_device_id: wire.sender_device_id,
+            keypackage_ref: wire.keypackage_ref,
+            keypackage_digest: wire.keypackage_digest,
+            claim_id: wire.claim_id,
+            claim_ref: wire.claim_ref,
+            claim_envelope: wire.claim_envelope,
+            carrier,
+            commit_ref: wire.commit_ref,
+            governance_binding: wire.governance_binding,
+            expires_at: wire.expires_at,
+        })
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -376,29 +986,26 @@ pub fn validate_mls_welcome_claim_envelope(
     current_requester_ssk_generation: Option<u64>,
     current_requester_device_id: Option<&str>,
 ) -> std::result::Result<(), &'static str> {
-    let Some(welcome_keypackage_digest) = welcome.keypackage_digest.as_str() else {
-        return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
-    };
-    let Some(published_keypackage_digest) = published.keypackage_digest.as_str() else {
-        return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
-    };
     if welcome.keypackage_ref != claim.keypackage_ref
-        || welcome.claim_id != claim.claim_id
-        || welcome.claim_ref.claim_id != claim.claim_id
+        || welcome.claim_id.as_str() != claim.claim_id
+        || welcome.claim_ref.claim_id.as_str() != claim.claim_id
         || welcome.claim_ref.keypackage_ref != claim.keypackage_ref
         || published.keypackage_ref != claim.keypackage_ref
-        || welcome_keypackage_digest != claim.keypackage_digest.as_str()
+        || welcome.keypackage_digest.as_str() != claim.keypackage_digest.as_str()
         || welcome.claim_ref.keypackage_digest.as_str() != claim.keypackage_digest.as_str()
-        || published_keypackage_digest != claim.keypackage_digest.as_str()
+        || published.keypackage_digest.as_str() != claim.keypackage_digest.as_str()
         || welcome.claim_ref.capabilities_digest.as_str() != claim.capabilities_digest.as_str()
-        || welcome.claim_ref.ssk_generation != claim.ssk_generation
-        || welcome.claim_ref.device_authorize_event_id != claim.device_authorize_event_id
+        || welcome.claim_ref.trust_binding.ssk_generation() != claim.ssk_generation
+        || welcome
+            .claim_ref
+            .trust_binding
+            .device_authorize_event_id()
+            != claim.device_authorize_event_id.as_deref()
     {
         return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
     validate_claim_trust_binding(
-        welcome.claim_ref.ssk_generation,
-        welcome.claim_ref.device_authorize_event_id.as_deref(),
+        &welcome.claim_ref.trust_binding,
         current_claim_ssk_generation,
         current_claim_device_authorize_event_id,
     )?;
@@ -407,16 +1014,15 @@ pub fn validate_mls_welcome_claim_envelope(
     if envelope.keypackage_ref != claim.keypackage_ref
         || envelope.keypackage_digest.as_str() != claim.keypackage_digest.as_str()
         || envelope.intended_realm_id != *intended_realm_id
-        || envelope.claim_id != claim.claim_id
+        || envelope.claim_id.as_str() != claim.claim_id
         || envelope.requester_did != *requester_did
-        || envelope.nonce != claim_nonce
+        || envelope.nonce.as_str() != claim_nonce
         || envelope.welcome_digest.as_str() != welcome_digest.as_str()
     {
         return Err(REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH);
     }
     validate_requester_signature_binding(
-        envelope.ssk_generation,
-        envelope.requester_device_id.as_deref(),
+        &envelope.trust_binding,
         current_requester_ssk_generation,
         current_requester_device_id,
     )?;
@@ -428,20 +1034,18 @@ pub fn validate_mls_welcome_claim_envelope(
 }
 
 fn validate_claim_trust_binding(
-    ssk_generation: Option<u64>,
-    device_authorize_event_id: Option<&str>,
+    trust_binding: &MlsClaimTrustBinding,
     current_claim_ssk_generation: Option<u64>,
     current_claim_device_authorize_event_id: Option<&str>,
 ) -> std::result::Result<(), &'static str> {
-    match (ssk_generation, device_authorize_event_id) {
-        (Some(generation), None)
-            if generation >= 1 && Some(generation) == current_claim_ssk_generation =>
+    match trust_binding {
+        MlsClaimTrustBinding::SskGeneration(generation)
+            if Some(generation.get()) == current_claim_ssk_generation =>
         {
             Ok(())
         }
-        (None, Some(event_id))
-            if !event_id.is_empty()
-                && Some(event_id) == current_claim_device_authorize_event_id =>
+        MlsClaimTrustBinding::DeviceAuthorizeEventId(event_id)
+            if Some(event_id.as_str()) == current_claim_device_authorize_event_id =>
         {
             Ok(())
         }
@@ -450,19 +1054,18 @@ fn validate_claim_trust_binding(
 }
 
 fn validate_requester_signature_binding(
-    ssk_generation: Option<u64>,
-    requester_device_id: Option<&str>,
+    trust_binding: &MlsRequesterTrustBinding,
     current_requester_ssk_generation: Option<u64>,
     current_requester_device_id: Option<&str>,
 ) -> std::result::Result<(), &'static str> {
-    match (ssk_generation, requester_device_id) {
-        (Some(generation), None)
-            if generation >= 1 && Some(generation) == current_requester_ssk_generation =>
+    match trust_binding {
+        MlsRequesterTrustBinding::SskGeneration(generation)
+            if Some(generation.get()) == current_requester_ssk_generation =>
         {
             Ok(())
         }
-        (None, Some(device_id))
-            if !device_id.is_empty() && Some(device_id) == current_requester_device_id =>
+        MlsRequesterTrustBinding::RequesterDeviceId(device_id)
+            if Some(device_id.as_str()) == current_requester_device_id =>
         {
             Ok(())
         }
@@ -486,11 +1089,12 @@ mod tests {
                 "ak:realm:01904100-0000-7000-8000-000000000001".to_owned(),
             )
             .unwrap(),
-            claim_id: "ak:mls:kp:claim".to_owned(),
+            claim_id: NonEmptyString::new("ak:mls:kp:claim").unwrap(),
             requester_did: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-            ssk_generation: None,
-            requester_device_id: Some("ak:device:01904100-0000-7000-8000-000000000001".to_owned()),
-            nonce: "nonce".to_owned(),
+            trust_binding: MlsRequesterTrustBinding::RequesterDeviceId(
+                DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
+            ),
+            nonce: NonEmptyString::new("nonce").unwrap(),
             welcome_digest: Hash::new(
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             )
@@ -578,10 +1182,10 @@ mod tests {
             "reducer_profile": "ak.reducer.control_state.v1"
         });
 
-        let binding = serde_json::from_value::<MlsGovernanceBinding>(value).unwrap();
+        let binding = serde_json::from_value::<MlsGovernanceBindingPayload>(value).unwrap();
 
         assert_eq!(
-            binding.membership_frontier[0].as_str(),
+            binding.membership_frontier()[0].as_str(),
             "ak:event:01904100-0000-7000-8000-000000000001"
         );
     }

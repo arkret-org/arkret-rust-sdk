@@ -299,9 +299,8 @@ pub struct DirectoryTargetResolutionOutcome {
     pub target_kind: TargetKind,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_preview: Option<RealmPreview>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub object_preview: Option<Value>,
+    pub object_preview: Option<ObjectPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub join_rule: Option<JoinRule>,
     pub as_of: DateTime<Utc>,
@@ -309,12 +308,7 @@ pub struct DirectoryTargetResolutionOutcome {
     pub source_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub join_candidates: Vec<RealmJoinCandidate>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub policy_revision: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub stale: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub divergent: Option<bool>,
+    pub policy_revision: NonEmptyString,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -593,7 +587,7 @@ fn default_agent_selector_claim_schema() -> String {
 
 /// Signed controller-scoped selector claim for
 /// `@<controller-handle>/<agent_slug>` resolution.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AgentSelectorClaim {
@@ -619,7 +613,7 @@ pub struct AgentSelectorClaim {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Value>,
+    pub proofs: Vec<Proof>,
 }
 
 impl AgentSelectorClaim {
@@ -654,7 +648,7 @@ pub struct DirectoryResolveAgentSelectorRequestBody {
     pub realm_id: Option<RealmId>,
     pub requester: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Value>,
+    pub proofs: Vec<Proof>,
 }
 
 /// Response body for `ak.find.directory.query.resolve_agent_selector`.
@@ -806,7 +800,7 @@ pub struct DirectoryListHandlesForSubjectRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Value>,
+    pub proofs: Vec<Proof>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub as_of: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]

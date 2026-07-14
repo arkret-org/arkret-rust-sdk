@@ -39,7 +39,7 @@ pub struct BlindNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push_hint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_hint_l10n_key: Option<Value>,
+    pub push_hint_l10n_key: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evaluation_locus_unresolved: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -65,7 +65,7 @@ pub struct Counts {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceRoute {
-    pub device_id: String,
+    pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push_key: Option<PushKey>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -84,7 +84,7 @@ pub struct DeviceRoute {
 pub struct NotifyRejection {
     pub push_target_id: PushTargetId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<String>,
+    pub device_id: Option<DeviceId>,
     pub reason_code: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
@@ -111,7 +111,7 @@ pub struct VisibleNotification {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push_hint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_hint_l10n_key: Option<Value>,
+    pub push_hint_l10n_key: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evaluation_locus_unresolved: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

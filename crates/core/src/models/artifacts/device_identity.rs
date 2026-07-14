@@ -70,7 +70,7 @@ pub struct CrossSigningReset {
     pub previous_generation: u64,
     pub new_generation: u64,
     pub reset_reason_code: String,
-    pub proof: Value,
+    pub proof: CrossSigningResetProof,
     pub issued_at: DateTime<Utc>,
 }
 
@@ -79,8 +79,8 @@ pub struct CrossSigningReset {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceQuorumSignature {
-    pub device_id: String,
-    pub verification_method: Did,
+    pub device_id: DeviceId,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub signature: SignatureB64u,
 }
@@ -88,7 +88,7 @@ pub struct DeviceQuorumSignature {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceQuorumProof {
-    pub kind: String,
+    pub kind: DeviceQuorumProofKind,
     pub threshold: u64,
     pub signatures: Vec<DeviceQuorumSignature>,
 }
@@ -98,8 +98,8 @@ pub struct DeviceQuorumProof {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PrincipalSigningProof {
-    pub kind: String,
-    pub verification_method: Value,
+    pub kind: PrincipalSigningProofKind,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub signature: SignatureB64u,
 }
@@ -109,10 +109,10 @@ pub struct PrincipalSigningProof {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoveryUnlockProof {
-    pub kind: String,
+    pub kind: RecoveryUnlockProofKind,
     pub recovery_session_id: RecoverySessionId,
     pub recovery_secret_ref: String,
-    pub unlock_commitment: Value,
+    pub unlock_commitment: Hash,
     pub alg: String,
     pub signature: SignatureB64u,
 }
@@ -127,34 +127,67 @@ pub type SignatureB64u = String;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TrustedRecoveryServiceProof {
-    pub kind: String,
+    pub kind: TrustedRecoveryServiceProofKind,
     pub recovery_session_id: RecoverySessionId,
     pub service_id: Did,
-    pub verification_method: Did,
+    pub verification_method: DidUrl,
     pub alg: String,
     pub signature: SignatureB64u,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attestation_ref: Option<String>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/delivery-binding-stale.schema.json`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DeviceQuorumProofKind {
+    DeviceQuorum,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PrincipalSigningProofKind {
+    PrincipalSigning,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryUnlockProofKind {
+    RecoveryUnlock,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TrustedRecoveryServiceProofKind {
+    TrustedRecoveryService,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CrossSigningResetProof {
+    PrincipalSigning(PrincipalSigningProof),
+    RecoveryUnlock(RecoveryUnlockProof),
+    DeviceQuorum(DeviceQuorumProof),
+    TrustedRecoveryService(TrustedRecoveryServiceProof),
+}
+
+/// Counterpart for `spec/v1/artifacts/schemas/delivery-binding-stale.schema.json#/properties/handover_proof`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliveryBindingStaleHandoverProof {
-    pub frontier: Value,
-    pub recipient_service_id: Value,
-    pub actor_id: Value,
-    pub witness: BTreeMap<String, Value>,
+    pub frontier: Vec<EventId>,
+    pub recipient_service_id: Did,
+    pub actor_id: Did,
+    pub witness: NonEmptyJsonObject,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliveryBindingStale {
-    pub new_recipient_service_id: Value,
-    pub handover_frontier: Value,
+    pub new_recipient_service_id: Did,
+    pub handover_frontier: Vec<EventId>,
     pub handover_proof: DeliveryBindingStaleHandoverProof,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 /// Counterpart for
@@ -177,8 +210,8 @@ pub struct KeyVerificationContentNewDevicePubkey {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyVerificationContent {
-    pub transaction_id: String,
-    pub from_device: String,
+    pub transaction_id: TransactionId,
+    pub from_device: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub methods: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -188,7 +221,7 @@ pub struct KeyVerificationContent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub purpose: Option<Value>,
+    pub purpose: Option<KeyVerificationPurpose>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -222,11 +255,36 @@ pub struct KeyVerificationContent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signatures: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub code: Option<Value>,
+    pub code: Option<KeyVerificationCancellationCode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyVerificationPurpose {
+    DeviceKeyVerification,
+    SamePrincipalDeviceAuthorization,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyVerificationCancellationCode {
+    UserCancelled,
+    Timeout,
+    UnknownTransaction,
+    UnexpectedMessage,
+    UnsupportedMethod,
+    UnsupportedAlgorithm,
+    MismatchedCommitment,
+    MismatchedMac,
+    DeviceRevoked,
+    UntrustedDevice,
+    PolicyDenied,
+    AcceptedByOtherDevice,
+    CrossSigningReset,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/device-message.schema.json#/$defs/string_list`.

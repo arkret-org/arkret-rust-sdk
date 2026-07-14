@@ -76,9 +76,6 @@ pub struct DeviceSummary {
     pub revoked_at: Option<Timestamp>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/did_url`.
-pub type DidUrl = String;
-
 /// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/display_name`.
 pub type DisplayName = String;
 
@@ -90,10 +87,6 @@ pub type HandleClaimDigests = Vec<Hash>;
 /// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/handle_claim_ref`.
 pub type HandleClaimRef = String;
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/non_empty_string`.
-pub type NonEmptyString = String;
-
 /// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/profile_patch`.
 pub type ProfilePatch = Patch;
 
@@ -102,88 +95,6 @@ pub type Sha256Digest = Hash;
 
 /// Counterpart for `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/timestamp`.
 pub type Timestamp = DateTime<Utc>;
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-subscribe-frame.schema.json#/$defs/
-/// cursor_or_data_or_control_payload_present`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CursorOrDataOrControlPayloadPresentCursor {
-    pub cursor: Value,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CursorOrDataOrControlPayloadPresent {
-    Cursor(CursorOrDataOrControlPayloadPresentCursor),
-    DataOrControlPayloadPresent(DataOrControlPayloadPresent),
-    ReconnectAfterPresent(ReconnectAfterPresent),
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-subscribe-frame.schema.json#/$defs/
-/// cursor_or_data_payload_present`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CursorOrDataPayloadPresentCursor {
-    pub cursor: Value,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CursorOrDataPayloadPresent {
-    Cursor(CursorOrDataPayloadPresentCursor),
-    DataOrControlPayloadPresent(DataOrControlPayloadPresent),
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-subscribe-frame.schema.json#/$defs/cursor_value`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CursorValue {
-    Variant0(crate::Cursor),
-    Cursor(crate::Cursor),
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-subscribe-frame.schema.json#/$defs/
-/// data_or_control_payload_present`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DataOrControlPayloadPresentRealms {
-    pub realms: Value,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DataOrControlPayloadPresentToDevice {
-    pub to_device: Value,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DataOrControlPayloadPresentDeviceLists {
-    pub device_lists: Value,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DataOrControlPayloadPresentAccountData {
-    pub account_data: Value,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DataOrControlPayloadPresentPresence {
-    pub presence: Value,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
 
 /// Closed action set for account notification projection deltas.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -316,51 +227,17 @@ pub struct NotificationContainer {
     pub items: Vec<NotificationDelta>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DataOrControlPayloadPresentNotifications {
-    pub notifications: NotificationContainer,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DataOrControlPayloadPresentPartial {
-    pub partial: Value,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DataOrControlPayloadPresentPriority {
-    pub priority: Value,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DataOrControlPayloadPresent {
-    Realms(DataOrControlPayloadPresentRealms),
-    ToDevice(DataOrControlPayloadPresentToDevice),
-    DeviceLists(DataOrControlPayloadPresentDeviceLists),
-    AccountData(DataOrControlPayloadPresentAccountData),
-    Presence(DataOrControlPayloadPresentPresence),
-    Notifications(DataOrControlPayloadPresentNotifications),
-    Partial(DataOrControlPayloadPresentPartial),
-    Priority(DataOrControlPayloadPresentPriority),
-}
-
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/account-subscribe-frame.schema.json#/$defs/device_message_container`.
+/// `spec/v1/artifacts/schemas/device-message.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DeviceMessage {
-    pub kind: String,
-    pub sender_principal_id: Value,
-    pub sender_device_id: String,
-    pub recipient_principal_id: Value,
-    pub recipient_device_id: String,
+    pub kind: NonEmptyString,
+    pub sender_principal_id: Did,
+    pub sender_device_id: DeviceId,
+    pub recipient_principal_id: Did,
+    pub recipient_device_id: DeviceId,
     pub sent_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub content: BTreeMap<String, Value>,
@@ -428,7 +305,7 @@ pub struct AccountSubscribeDeviceListChanges {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/account-subscribe-frame.schema.json#/$defs/realm_sync_entry`.
+/// `spec/v1/artifacts/schemas/account-subscribe-frame.schema.json#/$defs/timeline`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Timeline {
     pub events: Vec<EventEnvelope>,
@@ -549,13 +426,4 @@ pub struct RealmSyncEntry {
     pub event_states: Option<Vec<RealmSyncEntryEventStatesItem>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bottoms: Option<Vec<RealmSyncEntryBottomsItem>>,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/account-subscribe-frame.schema.json#/$defs/reconnect_after_present`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ReconnectAfterPresent {
-    pub reconnect_after_ms: Value,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
 }

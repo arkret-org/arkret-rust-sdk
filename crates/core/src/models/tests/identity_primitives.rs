@@ -118,7 +118,7 @@ fn server_description_checks_protocol_version() {
         supported_operations: vec![],
         supported_bindings: vec![],
         auth_metadata: AuthMetadata::minimal("development"),
-        limits: Value::Null,
+        limits: ServerLimits::default(),
         plaintext_visibility: PlaintextVisibility::none(),
         privacy_derivation: None,
         receive_policy_constraints: None,

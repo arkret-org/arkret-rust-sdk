@@ -7,7 +7,7 @@ use serde_json::Value;
 use crate::events::kinds::IDENTITY_ACCOUNTABILITY_GRANT;
 use crate::{
     ACTOR_PROFILE_SCHEMA, ActorKind, ActorProfile, ActorProfileId, AppletId, BlobRef, Did, Error,
-    Event, Hlc, ObjectCreatePayload, Proof, RealmId, Result,
+    Event, ExternalRef, Hlc, ObjectCreatePayload, Proof, RealmId, Result,
 };
 
 /// `POST /_arkret/self/applets/{applet_id}/ghosts/provision` request body.
@@ -31,7 +31,7 @@ pub struct GhostActorProvisionRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     pub realm_id: RealmId,
-    pub external_ref: Value,
+    pub external_ref: ExternalRef,
 }
 
 impl GhostActorProvisionRequestBody {
@@ -48,7 +48,7 @@ impl GhostActorProvisionRequestBody {
         tenant: impl Into<String>,
         external_user_id: impl Into<String>,
         realm_id: RealmId,
-        external_ref: Value,
+        external_ref: ExternalRef,
     ) -> Self {
         Self {
             schema: Self::SCHEMA.to_owned(),

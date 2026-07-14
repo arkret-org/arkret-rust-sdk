@@ -184,10 +184,7 @@ pub fn rejected_response(
     rejections: impl IntoIterator<Item = PushNotifyRejection>,
 ) -> PushNotifyOutcome {
     PushNotifyOutcome {
-        rejected: rejections
-            .into_iter()
-            .map(|rejection| serde_json::to_value(rejection).unwrap_or(Value::Null))
-            .collect(),
+        rejected: rejections.into_iter().collect(),
     }
 }
 

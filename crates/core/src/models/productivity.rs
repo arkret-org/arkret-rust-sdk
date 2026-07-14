@@ -216,7 +216,34 @@ pub struct RsvpSetPayload {
     pub status: RsvpStatus,
     pub occurrence: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub comment: Option<Value>,
+    pub comment: Option<RsvpComment>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum RsvpComment {
+    Encrypted(EncryptedEnvelope),
+    Plaintext(String),
+}
+
+impl<'de> Deserialize<'de> for RsvpComment {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        if let Some(text) = value.as_str() {
+            if text.chars().count() > 2_000 {
+                return Err(serde::de::Error::custom(
+                    "RSVP plaintext comment exceeds 2000 characters",
+                ));
+            }
+            return Ok(Self::Plaintext(text.to_owned()));
+        }
+        serde_json::from_value::<EncryptedEnvelope>(value)
+            .map(Self::Encrypted)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 impl CalendarRecurrence {

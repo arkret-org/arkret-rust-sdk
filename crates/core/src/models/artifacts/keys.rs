@@ -12,7 +12,7 @@ pub struct KeyBackupPlaintext {
     pub series_seq: u64,
     pub items: Vec<PlaintextItem>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json#/$defs/item_type`.
@@ -40,7 +40,7 @@ pub struct PlaintextItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_event_id: Option<EventId>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub extra: XExtensionMap,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json`.
@@ -90,10 +90,10 @@ pub type ProofKind = String;
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeyOperationSignature {
-    pub kid: String,
+    pub kid: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub alg: Option<String>,
-    pub sig: String,
+    pub alg: Option<NonEmptyString>,
+    pub sig: Base64UrlString,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/keypackage-operations.schema.json`.
@@ -163,7 +163,7 @@ pub struct KeyPackageUploadEntry {
     pub keypackage_id: String,
     pub keypackage_ref: ObjectRef,
     pub keypackage_digest: Hash,
-    pub key_package: Value,
+    pub key_package: Base64UrlString,
     pub cipher_suites: Vec<String>,
     pub capabilities: Vec<String>,
     pub expires_at: DateTime<Utc>,
@@ -191,11 +191,11 @@ pub enum KeysOperations {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/algorithm_counts`.
-pub type AlgorithmCounts = BTreeMap<String, u64>;
+pub type AlgorithmCounts = BTreeMap<NonEmptyString, u64>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/algorithm_key_records`.
-pub type AlgorithmKeyRecords = BTreeMap<String, KeyRecord>;
+pub type AlgorithmKeyRecords = BTreeMap<NonEmptyString, KeyRecord>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/backup_metadata`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -229,21 +229,21 @@ pub struct BackupMetadata {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/device_algorithm_map`.
-pub type DeviceAlgorithmMap = BTreeMap<String, NonEmptyString>;
+pub type DeviceAlgorithmMap = BTreeMap<DeviceId, NonEmptyString>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/device_key_records`.
-pub type DeviceKeyRecords = BTreeMap<String, AlgorithmKeyRecords>;
+pub type DeviceKeyRecords = BTreeMap<DeviceId, AlgorithmKeyRecords>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/key_record`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyRecord {
-    pub key: String,
-    pub algorithm: String,
+    pub key: Base64UrlString,
+    pub algorithm: NonEmptyString,
     pub signature: KeyOperationSignature,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub key_id: Option<String>,
+    pub key_id: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -256,28 +256,37 @@ pub struct KeyRecord {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/principal_device_algorithm_map`.
-pub type PrincipalDeviceAlgorithmMap = BTreeMap<String, DeviceAlgorithmMap>;
+pub type PrincipalDeviceAlgorithmMap = BTreeMap<Did, DeviceAlgorithmMap>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/principal_device_key_records`.
-pub type PrincipalDeviceKeyRecords = BTreeMap<String, DeviceKeyRecords>;
+pub type PrincipalDeviceKeyRecords = BTreeMap<Did, DeviceKeyRecords>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/query_device_map`.
-pub type QueryDeviceMap = BTreeMap<String, Vec<DeviceId>>;
+pub type QueryDeviceMap = BTreeMap<Did, Vec<DeviceId>>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-policy.schema.json#/$defs/share`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ShareShareCommitment {
-    pub algorithm: String,
-    pub commitment_b64u: String,
+    pub algorithm: RecoveryShareCommitmentAlgorithm,
+    pub commitment_b64u: Base64UrlString,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RecoveryShareCommitmentAlgorithm {
+    FeldmanVssSha256,
+    PedersenVssSha256,
+    ShareHashSha256,
+    ShareHashBlake3,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Share {
     pub share_id: String,
-    pub holder: Value,
+    pub holder: Did,
     pub transport: String,
     pub share_commitment: ShareShareCommitment,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -357,7 +366,7 @@ pub struct PrincipalSigningTranscript {
     pub ssk_generation: u64,
     pub challenge: Challenge,
     pub expires_at: DateTime<Utc>,
-    pub created_at: Value,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/proof_summary`.
@@ -445,8 +454,107 @@ pub struct RecoverySessionProofSubmitOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionProofSubmitRequestBody {
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub proof: Value,
+    pub proof: RecoverySessionProof,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RecoveryPrincipalSigningProofKind {
+    #[serde(rename = "principal_signing")]
+    PrincipalSigning,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryPrincipalSigningProof {
+    pub kind: RecoveryPrincipalSigningProofKind,
+    pub challenge: Challenge,
+    pub verification_method: DidUrl,
+    pub alg: NonEmptyString,
+    pub signature: Base64UrlString,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RecoverySessionUnlockProofKind {
+    #[serde(rename = "recovery_unlock")]
+    RecoveryUnlock,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoverySessionUnlockProof {
+    pub kind: RecoverySessionUnlockProofKind,
+    pub challenge: Challenge,
+    pub recovery_secret_ref: NonEmptyString,
+    pub verification_method: DidUrl,
+    pub alg: NonEmptyString,
+    pub unlock_commitment: Hash,
+    pub signature: Base64UrlString,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryDeviceQuorumSignature {
+    pub device_id: DeviceId,
+    pub verification_method: DidUrl,
+    pub alg: NonEmptyString,
+    pub signature: Base64UrlString,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RecoveryDeviceQuorumProofKind {
+    #[serde(rename = "device_quorum")]
+    DeviceQuorum,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryDeviceQuorumProof {
+    pub kind: RecoveryDeviceQuorumProofKind,
+    pub challenge: Challenge,
+    #[serde(deserialize_with = "deserialize_minimum_two")]
+    pub threshold: u64,
+    pub signatures: Vec<RecoveryDeviceQuorumSignature>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TrustedRecoveryServiceSessionProofKind {
+    #[serde(rename = "trusted_recovery_service")]
+    TrustedRecoveryService,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TrustedRecoveryServiceSessionProof {
+    pub kind: TrustedRecoveryServiceSessionProofKind,
+    pub challenge: Challenge,
+    pub service_id: Did,
+    pub audience: NonEmptyString,
+    pub verification_method: DidUrl,
+    pub alg: NonEmptyString,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attestation_ref: Option<NonEmptyString>,
+    pub signature: Base64UrlString,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RecoverySessionProof {
+    PrincipalSigning(RecoveryPrincipalSigningProof),
+    RecoveryUnlock(RecoverySessionUnlockProof),
+    DeviceQuorum(RecoveryDeviceQuorumProof),
+    TrustedRecoveryService(TrustedRecoveryServiceSessionProof),
+    ThresholdRecovery(ThresholdRecoveryProof),
+}
+
+fn deserialize_minimum_two<'de, D>(deserializer: D) -> std::result::Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = u64::deserialize(deserializer)?;
+    if value < 2 {
+        return Err(serde::de::Error::custom("value must be at least two"));
+    }
+    Ok(value)
 }
 
 /// Counterpart for
@@ -488,22 +596,29 @@ pub enum SessionState {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/threshold_recovery_proof`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThresholdRecoveryProofShareReleasesItem {
-    pub share_id: String,
+    pub share_id: NonEmptyString,
     pub holder: Did,
-    pub transcript_digest: Value,
-    pub verification_method: Did,
-    pub alg: String,
-    pub signature: String,
+    pub transcript_digest: Hash,
+    pub verification_method: DidUrl,
+    pub alg: NonEmptyString,
+    pub signature: Base64UrlString,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ThresholdRecoveryProofKind {
+    #[serde(rename = "threshold_recovery")]
+    ThresholdRecovery,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThresholdRecoveryProof {
-    pub kind: String,
+    pub kind: ThresholdRecoveryProofKind,
     pub challenge: Challenge,
+    #[serde(deserialize_with = "deserialize_minimum_two")]
     pub threshold: u64,
     pub share_releases: Vec<ThresholdRecoveryProofShareReleasesItem>,
 }

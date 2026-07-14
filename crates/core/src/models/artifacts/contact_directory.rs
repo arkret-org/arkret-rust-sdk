@@ -111,7 +111,7 @@ pub struct InviteConsentHandoffStub {
     pub consent_scope: Option<String>,
     pub state: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state_digest: Option<Value>,
+    pub state_digest: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_step: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -123,7 +123,7 @@ pub struct InviteConsentHandoffStub {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ObjectPreview {
-    pub object_id: Value,
+    pub object_id: ObjectPreviewId,
     pub object_kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
@@ -136,6 +136,14 @@ pub struct ObjectPreview {
     pub stale: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub divergent: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ObjectPreviewId {
+    Strand(StrandId),
+    Message(MessageId),
+    Event(EventId),
 }
 
 /// Counterpart for
