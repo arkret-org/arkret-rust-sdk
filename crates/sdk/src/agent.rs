@@ -1223,6 +1223,7 @@ mod tests {
                 kind: AgentKeyScopeResourceKind::Operation,
                 realm_id: None,
                 resource_ref: None,
+                schema_ref: None,
                 operation: Some(SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE.to_owned()),
                 service_id: None,
             }],
@@ -1290,8 +1291,9 @@ mod tests {
             format!("{}#runtime-key-1", agent_id.as_str()),
             json!({
                 "kty": "OKP",
-                "crv": "Ed25519",
-                "x": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "kid": format!("{}#runtime-key-1", agent_id.as_str()),
+                "alg": "Ed25519",
+                "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
             }),
             json!({"challenge": "pairing", "signature": "sig"}),
             authorize_event(agent_id.clone()),
@@ -1307,7 +1309,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            body.pairing_request_id,
+            body.pairing_request_id.as_str(),
             "01970000-0000-7000-8000-000000000020"
         );
         assert_eq!(body.agent_id, agent_id);
@@ -1350,15 +1352,18 @@ mod tests {
             .unwrap();
 
         assert_eq!(approval.public_key_digest, pairing.public_key_digest);
-        assert_eq!(approval.body.public_key, pairing.body.public_key);
         assert_eq!(
-            approval.body.proof_of_possession["request_canonical_digest"],
-            pairing.body.proof_of_possession["request_canonical_digest"]
+            serde_json::to_value(&approval.body.public_key).unwrap(),
+            serde_json::to_value(&pairing.body.public_key).unwrap()
         );
-        assert_eq!(approval.body.pairing_code, "12345678");
+        assert_eq!(
+            approval.body.proof_of_possession.as_map()["request_canonical_digest"],
+            pairing.body.proof_of_possession.as_map()["request_canonical_digest"]
+        );
+        assert_eq!(approval.body.pairing_code.as_str(), "12345678");
         assert_eq!(pairing.body.agent_id, agent_id);
         assert!(
-            !approval.body.proof_of_possession["signature"]
+            !approval.body.proof_of_possession.as_map()["signature"]
                 .as_str()
                 .unwrap()
                 .is_empty()

@@ -220,6 +220,7 @@ pub struct AppletPackageE2eePolicy {
     pub mls_join_requested: Option<bool>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub extensions: BTreeMap<String, Value>,
 }
 

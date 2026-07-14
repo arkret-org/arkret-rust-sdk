@@ -35,7 +35,10 @@ pub fn realm_organization_statement_sign(
     let proof = NonEmptyString::new(base64url_encode(signature.to_bytes()))
         .map_err(|reason| Error::Protocol(reason.to_owned()))?;
     let mut signed = payload.clone();
-    signed.authorization.proof = SignatureMaterial::NonEmptyString(proof);
+    signed.authorization.proof = SignatureMaterial::NonEmptyString(
+        NonEmptyString::new(proof)
+            .map_err(|error| Error::Protocol(format!("invalid organization proof: {error}")))?,
+    );
     Ok(signed)
 }
 

@@ -140,6 +140,7 @@ pub struct ProjectionItem {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub display: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub position: Option<CollectionPosition>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub state: BTreeMap<String, Value>,
@@ -679,6 +680,7 @@ pub struct DocumentProjectionView {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DocumentMorphProjectionOutcome {
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub document: DocumentMorphProjection,
     #[serde(default)]
     pub versions: Vec<BTreeMap<String, Value>>,

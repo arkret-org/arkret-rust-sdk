@@ -73,6 +73,7 @@ pub struct MembershipPayload {
     pub reason: Option<String>,
     /// `oneOf(event_ref | invite_id)` — both are opaque strings on the wire.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub invite_ref: Option<MembershipInviteRef>,
 }
 

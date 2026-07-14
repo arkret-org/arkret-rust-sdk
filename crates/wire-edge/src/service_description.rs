@@ -27,9 +27,11 @@ pub enum DirectoryResourceKind {
 pub struct ServerLimits {
     #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = Option<u64>)))]
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
     pub max_get_query_selectors: Option<std::num::NonZeroU64>,
     #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub extensions: BTreeMap<String, Value>,
 }
 

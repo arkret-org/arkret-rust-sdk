@@ -526,24 +526,24 @@ mod tests {
         let document = did_document(&recipient, &rrk_pub);
         let resolved = resolve_realm_history_recovery_key(&recipient, &document).unwrap();
 
-        let realm_id = "ak:realm:01904100-0000-7000-8000-e2eeae0d0001";
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-e2eeae0d0001").unwrap();
         let secrets: Vec<(u64, Vec<u8>)> = vec![(4, vec![0x11; 32]), (5, vec![0x22; 32])];
         let scope = rrk_key_scope(
-            realm_id,
+            realm_id.clone(),
             4,
             5,
-            serde_json::json!("sha256:policy"),
+            Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             Some(HistoryVisibilityValue::Shared),
         );
 
         let payload = seal_history_secrets_to_recovery_recipient(
             &resolved,
             &secrets,
-            realm_id,
+            &realm_id,
             scope,
-            "ak:device:01904100-0000-7000-8000-00000000ae01",
-            "ak:event:01904100-0000-7000-8000-00000000ae02",
-            serde_json::json!("base64url-sender-sig"),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000ae01").unwrap(),
+            EventId::new("ak:event:01904100-0000-7000-8000-00000000ae02").unwrap(),
+            SignatureMaterial::NonEmptyString(NonEmptyString::new("base64url-sender-sig").unwrap()),
             Utc::now(),
             None,
         )
@@ -575,16 +575,22 @@ mod tests {
         let resolved =
             resolve_realm_history_recovery_key(&recipient, &did_document(&recipient, &rrk_pub))
                 .unwrap();
-        let realm_id = "ak:realm:01904100-0000-7000-8000-e2eeae0d0001";
-        let scope = rrk_key_scope(realm_id, 4, 4, serde_json::json!("sha256:policy"), None);
+        let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-e2eeae0d0001").unwrap();
+        let scope = rrk_key_scope(
+            realm_id.clone(),
+            4,
+            4,
+            Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
+            None,
+        );
         let err = seal_history_secrets_to_recovery_recipient(
             &resolved,
             &[],
-            realm_id,
+            &realm_id,
             scope,
-            "ak:device:01904100-0000-7000-8000-00000000ae01",
-            "ak:event:01904100-0000-7000-8000-00000000ae02",
-            serde_json::json!("sig"),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000ae01").unwrap(),
+            EventId::new("ak:event:01904100-0000-7000-8000-00000000ae02").unwrap(),
+            SignatureMaterial::NonEmptyString(NonEmptyString::new("sig").unwrap()),
             Utc::now(),
             None,
         );
