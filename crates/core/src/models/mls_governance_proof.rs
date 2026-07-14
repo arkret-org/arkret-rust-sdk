@@ -773,6 +773,61 @@ mod tests {
     }
 
     #[test]
+    fn rejected_seal_signature_is_propagated() {
+        let fixture = fixture();
+        let error = verify_mls_governance_proof_bundle(
+            &fixture.bundle,
+            &fixture.binding,
+            &fixture.bundle.trust_anchor_seal_id,
+            |_| {
+                Err(Error::Protocol(
+                    "fixture Seal signature rejected".to_owned(),
+                ))
+            },
+            |_| Ok(()),
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("fixture Seal signature rejected")
+        );
+    }
+
+    #[test]
+    fn rejected_frontier_event_signature_is_propagated() {
+        let fixture = fixture();
+        let error = verify_mls_governance_proof_bundle(
+            &fixture.bundle,
+            &fixture.binding,
+            &fixture.bundle.trust_anchor_seal_id,
+            |_| Ok(()),
+            |_| {
+                Err(Error::Protocol(
+                    "fixture frontier Event signature rejected".to_owned(),
+                ))
+            },
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("fixture frontier Event signature rejected")
+        );
+    }
+
+    #[test]
+    fn seal_signature_payload_digest_tampering_is_rejected() {
+        let mut fixture = fixture();
+        let NotarySig::Single(signature) = &mut fixture.bundle.seal_path[0].notary_signature else {
+            panic!("fixture must use a single notary signature");
+        };
+        signature.payload_digest = hash(0xef);
+        let error = verify(&fixture).unwrap_err();
+        assert!(error.to_string().contains(ERROR_CODE_STATE_MISMATCH));
+    }
+
+    #[test]
     fn proof_request_rejects_epoch_skip() {
         let request = MlsGovernanceProofRequest {
             realm_id: realm(),
@@ -799,6 +854,48 @@ mod tests {
             reducer_profile: "ak.reducer.v1".to_owned(),
         };
         request.validate().unwrap();
+    }
+
+    #[test]
+    fn bundle_epoch_tampering_is_rejected() {
+        let mut fixture = fixture();
+        fixture.bundle.governance_binding = MlsGovernanceBindingPayload::realm(
+            realm(),
+            "YXJrcmV0LW1scy1maXh0dXJl",
+            1,
+            2,
+            vec![event_id()],
+            fixture.binding.policy_root().clone(),
+            fixture.binding.capability_root().unwrap().clone(),
+            fixture
+                .binding
+                .discussion_metadata_digest()
+                .unwrap()
+                .clone(),
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            "ak.reducer.v1",
+        )
+        .unwrap();
+        let error = verify(&fixture).unwrap_err();
+        assert!(error.to_string().contains(ERROR_CODE_STATE_MISMATCH));
+    }
+
+    #[test]
+    fn bundle_scope_tampering_is_rejected() {
+        let mut fixture = fixture();
+        fixture.bundle.effective_scope = EffectiveScope::Realm {
+            realm_id: RealmId::new("ak:realm:0196419b-0000-7000-8000-00000000014b").unwrap(),
+        };
+        let error = verify(&fixture).unwrap_err();
+        assert!(error.to_string().contains(ERROR_CODE_STATE_MISMATCH));
+    }
+
+    #[test]
+    fn bundle_reducer_profile_tampering_is_rejected() {
+        let mut fixture = fixture();
+        fixture.bundle.reducer_profile = "ak.reducer.tampered.v1".to_owned();
+        let error = verify(&fixture).unwrap_err();
+        assert!(error.to_string().contains(ERROR_CODE_STATE_MISMATCH));
     }
 
     #[test]
@@ -845,6 +942,66 @@ mod tests {
             fixture.binding.policy_root().clone(),
             fixture.binding.capability_root().unwrap().clone(),
             hash(0xee),
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            "ak.reducer.v1",
+        )
+        .unwrap();
+        fixture.bundle.governance_binding = bad_binding.clone();
+        fixture.binding = bad_binding;
+        let error = verify(&fixture).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains(REASON_MLS_GOVERNANCE_BINDING_STALE)
+        );
+    }
+
+    #[test]
+    fn policy_root_tampering_is_rejected() {
+        let mut fixture = fixture();
+        let bad_binding = MlsGovernanceBindingPayload::realm(
+            realm(),
+            "YXJrcmV0LW1scy1maXh0dXJl",
+            0,
+            1,
+            vec![event_id()],
+            hash(0xed),
+            fixture.binding.capability_root().unwrap().clone(),
+            fixture
+                .binding
+                .discussion_metadata_digest()
+                .unwrap()
+                .clone(),
+            MLS_GOVERNANCE_BINDING_FULL_PROFILE,
+            "ak.reducer.v1",
+        )
+        .unwrap();
+        fixture.bundle.governance_binding = bad_binding.clone();
+        fixture.binding = bad_binding;
+        let error = verify(&fixture).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains(REASON_MLS_GOVERNANCE_BINDING_STALE)
+        );
+    }
+
+    #[test]
+    fn capability_root_tampering_is_rejected() {
+        let mut fixture = fixture();
+        let bad_binding = MlsGovernanceBindingPayload::realm(
+            realm(),
+            "YXJrcmV0LW1scy1maXh0dXJl",
+            0,
+            1,
+            vec![event_id()],
+            fixture.binding.policy_root().clone(),
+            hash(0xec),
+            fixture
+                .binding
+                .discussion_metadata_digest()
+                .unwrap()
+                .clone(),
             MLS_GOVERNANCE_BINDING_FULL_PROFILE,
             "ak.reducer.v1",
         )

@@ -475,18 +475,18 @@ pub struct AgentProvisionRequestBuilder {
     display_name: Option<String>,
     slug: String,
     avatar_blob_ref: Option<crate::BlobRef>,
-    requested_scope: Option<crate::AgentKeyScope>,
+    requested_scope: crate::AgentKeyScope,
     accountability: Value,
     pairing_ttl_ms: Option<u64>,
 }
 
 impl AgentProvisionRequestBuilder {
-    pub fn new(slug: impl Into<String>) -> Self {
+    pub fn new(slug: impl Into<String>, requested_scope: crate::AgentKeyScope) -> Self {
         Self {
             display_name: None,
             slug: slug.into(),
             avatar_blob_ref: None,
-            requested_scope: None,
+            requested_scope,
             accountability: Value::Null,
             pairing_ttl_ms: None,
         }
@@ -499,11 +499,6 @@ impl AgentProvisionRequestBuilder {
 
     pub fn avatar_blob_ref(mut self, avatar_blob_ref: crate::BlobRef) -> Self {
         self.avatar_blob_ref = Some(avatar_blob_ref);
-        self
-    }
-
-    pub fn requested_scope(mut self, requested_scope: crate::AgentKeyScope) -> Self {
-        self.requested_scope = Some(requested_scope);
         self
     }
 
@@ -1217,12 +1212,10 @@ mod tests {
                 "ak.message.create".to_owned(),
             ],
             resources: vec![AgentKeyScopeResource {
-                kind: AgentKeyScopeResourceKind::Realm,
-                realm_id: Some(
-                    RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
-                ),
+                kind: AgentKeyScopeResourceKind::Operation,
+                realm_id: None,
                 resource_ref: None,
-                operation: None,
+                operation: Some(SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE.to_owned()),
                 service_id: None,
             }],
             constraints: Vec::new(),
@@ -1231,7 +1224,7 @@ mod tests {
 
     #[test]
     fn personal_agent_request_plans_use_standard_paths() {
-        let provision = AgentProvisionRequestBuilder::new("summary")
+        let provision = AgentProvisionRequestBuilder::new("summary", test_scope())
             .display_name("summary agent")
             .avatar_blob_ref(
                 crate::BlobRef::new(concat!(
@@ -1240,19 +1233,6 @@ mod tests {
                 ))
                 .unwrap(),
             )
-            .requested_scope(AgentKeyScope {
-                actions: vec!["ak.message.create".to_owned()],
-                resources: vec![AgentKeyScopeResource {
-                    kind: AgentKeyScopeResourceKind::Realm,
-                    realm_id: Some(
-                        RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
-                    ),
-                    resource_ref: None,
-                    operation: None,
-                    service_id: None,
-                }],
-                constraints: Vec::new(),
-            })
             .build();
         let plan = plan_agent_provision(provision);
         assert_eq!(plan.operation_id, OP_AGENT_PROVISION);
@@ -1268,8 +1248,11 @@ mod tests {
                 "01015dc8af66d01f557ea63f13538f1964848840a350c5311d1efc8ad138bb91"
             )
         );
-        assert_eq!(body["requested_scope"]["actions"][0], "ak.message.create");
-        assert_eq!(body["requested_scope"]["resources"][0]["kind"], "realm");
+        assert_eq!(
+            body["requested_scope"]["actions"][0],
+            SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE
+        );
+        assert_eq!(body["requested_scope"]["resources"][0]["kind"], "operation");
 
         let get = plan_agent_get("did:webvh:z6mkfixture:agent.example");
         assert_eq!(get.operation_id, OP_AGENT_GET);
@@ -1459,7 +1442,7 @@ mod tests {
             String::from_utf8(canonical::canonical_json_bytes(&event.payload).unwrap()).unwrap();
         assert_eq!(
             canonical_content,
-            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_id":"did:webvh:z6mkfixture:agent.example","agent_key_scope":{"actions":["ak.self.events.stream.subscribe","ak.message.create"],"resources":[{"kind":"realm","realm_id":"ak:realm:01904100-0000-7000-8000-000000000001"}]},"approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","evidence_ref":"ak:event:01970000-0000-7000-8000-000000000021","kind":"approval_event"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+            r#"{"accountable_principal_id":"did:webvh:z6mkfixture:controller.example","agent_id":"did:webvh:z6mkfixture:agent.example","agent_key_scope":{"actions":["ak.self.events.stream.subscribe","ak.message.create"],"resources":[{"kind":"operation","operation":"ak.self.events.stream.subscribe"}]},"approval_evidence":{"approved_by":"did:webvh:z6mkfixture:controller.example","evidence_ref":"ak:event:01970000-0000-7000-8000-000000000021","kind":"approval_event"},"audience":["https://arkret.example"],"expires_at":"2026-05-26T10:15:00Z","issued_at":"2026-05-26T10:00:00Z","key_id":"runtime-key-1","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
         );
     }
 

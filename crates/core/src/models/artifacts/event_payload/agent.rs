@@ -177,11 +177,11 @@ pub struct AgentKeyScopeResource {
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_scope`
 /// (also `agent-operations.schema.json#/$defs/agent_key_scope` via `$ref`).
 ///
-/// Closed authorization scope for an agent signing key: `actions` and
-/// `resources` are both explicit so the key cannot silently widen its
-/// authority through omitted dimensions. `actions` may include service
-/// operation ids and content capability action tokens; service-surface scope
-/// is not derived solely from content capability grants.
+/// Scope object used as the required immutable provision ceiling and as a
+/// narrower per-key ceiling. `actions` may include service operation ids and
+/// content capability action tokens. Provisioning records it but grants no
+/// Realm access; later key scopes, Realm grants, participation and sessions
+/// must remain subsets, and provision constraints stay mandatory.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
