@@ -1,5 +1,6 @@
-use super::*;
 use std::num::NonZeroU64;
+
+use super::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -28,6 +29,7 @@ pub struct KeysUploadOutcome {
 pub struct KeysQueryRequestBody {
     pub device_keys: QueryDeviceMap,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = u64)))]
     pub timeout_ms: Option<NonZeroU64>,
 }
 
@@ -167,6 +169,7 @@ pub struct KeysOperationFailure {
     pub algorithm: Option<NonEmptyString>,
     pub reason_code: NonEmptyString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = u64)))]
     pub retry_after_ms: Option<NonZeroU64>,
 }
 

@@ -432,11 +432,9 @@ impl MlsGovernanceBindingPayload {
                     })
             })
             .collect::<Result<Vec<_>>>()?;
-        let mls_group_id = MlsGroupId::new(base64url_encode(&take_bstr(
-            &mut fields,
-            "mls_group_id",
-        )?))
-        .map_err(|err| cbor_error_message(format!("mls_group_id is invalid: {err}")))?;
+        let mls_group_id =
+            MlsGroupId::new(base64url_encode(&take_bstr(&mut fields, "mls_group_id")?))
+                .map_err(|err| cbor_error_message(format!("mls_group_id is invalid: {err}")))?;
         let next_epoch = take_uint(&mut fields, "next_epoch")?;
         let policy_root = take_hash(&mut fields, "policy_root")?;
         let previous_epoch = take_uint(&mut fields, "previous_epoch")?;

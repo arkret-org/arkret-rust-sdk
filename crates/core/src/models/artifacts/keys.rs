@@ -43,7 +43,8 @@ pub struct PlaintextItem {
     pub extra: XExtensionMap,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json#/properties/auth_data`.
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json#/properties/auth_data`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -244,6 +245,7 @@ pub type DeviceKeyRecords = BTreeMap<DeviceId, AlgorithmKeyRecords>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/keys-operations.schema.json#/$defs/key_record`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeyRecord {
     pub key: Base64UrlString,
@@ -274,6 +276,7 @@ pub type QueryDeviceMap = BTreeMap<Did, Vec<DeviceId>>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-policy.schema.json#/$defs/share`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ShareShareCommitment {
     pub algorithm: RecoveryShareCommitmentAlgorithm,
@@ -281,6 +284,7 @@ pub struct ShareShareCommitment {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "kebab-case")]
 pub enum RecoveryShareCommitmentAlgorithm {
     FeldmanVssSha256,
@@ -461,6 +465,7 @@ pub struct RecoverySessionProofSubmitOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionProofSubmitRequestBody {
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub proof: RecoverySessionProof,
 }
 

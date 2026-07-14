@@ -35,7 +35,8 @@ pub struct UploadReceipt {
     pub signature: SignatureValue,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/blob.schema.json#/properties/encryption/properties/key_ref`.
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/blob.schema.json#/properties/encryption/properties/key_ref`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EncryptedAttachmentKeyAlgorithm {
     #[serde(rename = "MLS")]
@@ -60,7 +61,7 @@ pub struct EncryptedAttachmentKeyRef {
 pub struct EncryptedAttachmentMarker;
 
 impl Serialize for EncryptedAttachmentMarker {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -69,7 +70,7 @@ impl Serialize for EncryptedAttachmentMarker {
 }
 
 impl<'de> Deserialize<'de> for EncryptedAttachmentMarker {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {

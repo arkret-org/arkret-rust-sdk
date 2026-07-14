@@ -170,7 +170,8 @@ pub enum CrossSigningResetProof {
     TrustedRecoveryService(TrustedRecoveryServiceProof),
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/delivery-binding-stale.schema.json#/properties/handover_proof`.
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/delivery-binding-stale.schema.json#/properties/handover_proof`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliveryBindingStaleHandoverProof {
     pub frontier: Vec<EventId>,

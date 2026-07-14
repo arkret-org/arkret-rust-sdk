@@ -11,7 +11,7 @@ pub use arkret_identifiers::{
     SpaceId, StrandId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId,
     new_prefixed_uuid7,
 };
-pub use arkret_wire_base::{EvaluationClass, ServiceType};
+pub use arkret_wire_base::{EvaluationClass, ServiceType, XExtensionMap};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -108,11 +108,11 @@ mod sync;
 #[cfg(test)]
 mod tests;
 mod third_party_invite;
-mod wire_strings;
 #[cfg(test)]
 mod wire_dto_tests;
 #[cfg(test)]
 mod wire_model_tests;
+mod wire_strings;
 
 pub use account::*;
 pub use actor_profile::*;

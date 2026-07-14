@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
 use crate::*;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json`.

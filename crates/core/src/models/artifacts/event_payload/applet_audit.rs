@@ -256,7 +256,8 @@ pub struct AuditPayload {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_release_payload/properties/eligibility_proof`.
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/audit_release_payload/properties/
+/// eligibility_proof`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuditReleasePayloadEligibilityProof {

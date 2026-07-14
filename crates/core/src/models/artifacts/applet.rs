@@ -20,6 +20,7 @@ pub enum AppletEdgeOperations {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/external_ref`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ExternalRef {
     pub protocol: Protocol,
@@ -35,6 +36,7 @@ pub struct ExternalRef {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/field_type`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FieldType {
     pub r#type: String,
@@ -52,6 +54,7 @@ pub type Protocol = String;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/protocol_instance`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ProtocolInstance {
     pub instance_id: String,
@@ -63,6 +66,7 @@ pub struct ProtocolInstance {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/rejected_item`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RejectedItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -214,6 +218,7 @@ pub struct AppletPackageE2eePolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_join_requested: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub extensions: BTreeMap<String, Value>,
 }
 

@@ -1,8 +1,8 @@
 //! Validated string scalars used by closed wire models.
 
+use std::collections::BTreeMap;
 use std::fmt;
 use std::ops::Deref;
-use std::collections::BTreeMap;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use serde_json::Value;
@@ -401,8 +401,7 @@ impl DidKey {
         };
         if multibase.is_empty()
             || !multibase.chars().all(|character| {
-                character.is_ascii_alphanumeric()
-                    && !matches!(character, '0' | 'O' | 'I' | 'l')
+                character.is_ascii_alphanumeric() && !matches!(character, '0' | 'O' | 'I' | 'l')
             })
         {
             return Err("Ed25519 DID key must contain a base58btc multibase value");

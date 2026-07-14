@@ -26,24 +26,29 @@ pub enum DirectoryResourceKind {
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ServerLimits {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
     pub max_get_query_selectors: Option<std::num::NonZeroU64>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub extensions: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub enum PushTargetDerivationProfile {
     #[serde(rename = "ak.push_target_id.hmac_sha256.v1")]
     HmacSha256V1,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PushTargetSecretScope {
     PerService,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PushTargetInputBinding {
     RecipientServiceId,

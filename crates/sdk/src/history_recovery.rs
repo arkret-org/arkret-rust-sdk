@@ -26,13 +26,14 @@
 //! HPKE public key, NOT an MLS member or member device.
 
 use arkret_canonical::multibase::{decode_multibase_base58btc, decode_multicodec_varint};
+use arkret_core::models::EffectiveScope as RealmEffectiveScope;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 use crate::secret_share::seal_history_secret_to_device_pubkey;
 use crate::{
-    Did, EventId, HistoryVisibilityValue, RealmKeyScope, RealmKeyShareClass, RealmKeySharePayload,
-    RealmRecoveryRecipient, Result,
+    DeviceId, Did, DidUrl, EventId, Hash, HistoryVisibilityValue, NonEmptyString, RealmId,
+    RealmKeyScope, RealmKeyShareClass, RealmKeySharePayload, RealmRecoveryRecipient, Result,
 };
 
 /// DID service entry `type` designating an offline RRK (`identity-did.md` §8.3).
@@ -297,12 +298,17 @@ pub fn seal_history_secrets_to_recovery_recipient(
     // The realm_id is mixed into the scope's effective_scope by the caller; we
     // require it here only to bind the seal diagnostically and to reject a scope
     // that names a different Realm.
-    if let Some(scope_realm) = key_scope
-        .effective_scope
-        .get("realm_id")
-        .and_then(Value::as_str)
-        && scope_realm != realm_id
-    {
+    let scope_realm = match &key_scope.effective_scope {
+        RealmEffectiveScope::Realm { realm_id } | RealmEffectiveScope::Circle { realm_id, .. } => {
+            realm_id.as_str()
+        }
+        _ => {
+            return Err(crate::Error::Protocol(
+                "RRK seal does not support this effective scope kind".to_owned(),
+            ));
+        }
+    };
+    if scope_realm != realm_id {
         return Err(crate::Error::Protocol(format!(
             "RRK seal realm_id {realm_id} does not match key_scope.effective_scope.realm_id {scope_realm}"
         )));
@@ -311,10 +317,13 @@ pub fn seal_history_secrets_to_recovery_recipient(
     let ciphertext =
         seal_history_secret_to_device_pubkey(&recovery_key.hpke_public_key, history_secrets)?;
 
-    let source_authorization_ref = source_authorization_ref.into();
-    EventId::new(source_authorization_ref.clone()).map_err(|err| {
-        crate::Error::Protocol(format!("invalid source_authorization_ref: {err}"))
-    })?;
+    let source_authorization_ref =
+        EventId::new(source_authorization_ref.into()).map_err(|err| {
+            crate::Error::Protocol(format!("invalid source_authorization_ref: {err}"))
+        })?;
+    let sender_device_id = DeviceId::new(sender_device_id.into())
+        .map_err(|err| crate::Error::Protocol(format!("invalid sender_device_id: {err}")))?;
+    let sender_device_signature = serde_json::from_value(sender_device_signature)?;
 
     Ok(RealmKeySharePayload {
         // The RRK is offline and not a member device; the durable share is
@@ -323,13 +332,22 @@ pub fn seal_history_secrets_to_recovery_recipient(
         share_class: RealmKeyShareClass::RealmRecoveryKey,
         recipient_principal_id: recovery_key.principal_id.clone(),
         recipient_device_id: None,
-        recipient_verification_method: Some(recovery_key.verification_method.clone()),
-        recovery_recipient_id: Some(recovery_key.recipient_id.clone()),
-        sender_device_id: sender_device_id.into(),
+        recipient_verification_method: Some(
+            DidUrl::new(recovery_key.verification_method.clone())
+                .map_err(|error| crate::Error::Protocol(error.to_owned()))?,
+        ),
+        recovery_recipient_id: Some(
+            NonEmptyString::new(recovery_key.recipient_id.clone())
+                .map_err(|error| crate::Error::Protocol(error.to_owned()))?,
+        ),
+        sender_device_id,
         source_authorization_ref,
         sender_device_signature,
         key_scope,
-        ciphertext: Some(ciphertext),
+        ciphertext: Some(
+            NonEmptyString::new(ciphertext)
+                .map_err(|error| crate::Error::Protocol(error.to_owned()))?,
+        ),
         encrypted_key_ref: None,
         aad_digest: None,
         expires_at,
@@ -345,17 +363,19 @@ pub fn rrk_key_scope(
     realm_id: &str,
     from_epoch: u64,
     to_epoch: u64,
-    policy_digest: Value,
+    policy_digest: Hash,
     history_visibility: Option<HistoryVisibilityValue>,
-) -> RealmKeyScope {
-    RealmKeyScope {
-        effective_scope: serde_json::json!({ "kind": "realm", "realm_id": realm_id }),
+) -> Result<RealmKeyScope> {
+    Ok(RealmKeyScope {
+        effective_scope: RealmEffectiveScope::Realm {
+            realm_id: RealmId::new(realm_id.to_owned())?,
+        },
         policy_digest,
         membership_frontier_digest: None,
         from_epoch: Some(from_epoch),
         to_epoch: Some(to_epoch),
         history_visibility,
-    }
+    })
 }
 
 #[cfg(test)]
@@ -530,9 +550,10 @@ mod tests {
             realm_id,
             4,
             5,
-            serde_json::json!("sha256:policy"),
+            Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             Some(HistoryVisibilityValue::Shared),
-        );
+        )
+        .unwrap();
 
         let payload = seal_history_secrets_to_recovery_recipient(
             &resolved,
@@ -574,7 +595,14 @@ mod tests {
             resolve_realm_history_recovery_key(&recipient, &did_document(&recipient, &rrk_pub))
                 .unwrap();
         let realm_id = "ak:realm:01904100-0000-7000-8000-e2eeae0d0001";
-        let scope = rrk_key_scope(realm_id, 4, 4, serde_json::json!("sha256:policy"), None);
+        let scope = rrk_key_scope(
+            realm_id,
+            4,
+            4,
+            Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
+            None,
+        )
+        .unwrap();
         let err = seal_history_secrets_to_recovery_recipient(
             &resolved,
             &[],

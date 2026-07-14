@@ -31,6 +31,7 @@ pub struct MimiFailure {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_ref: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = u64)))]
     pub retry_after_ms: Option<NonZeroU64>,
 }
 

@@ -14,7 +14,6 @@ pub use arkret_core::{
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 use crate::models::{DeliveryStatus, MembershipPayload, OP_MEMBER_STATE};
 use crate::{BlobRef, Did, Error, InviteId, Operation, OperationId, RealmId, Result};
@@ -353,7 +352,7 @@ impl MembershipManager {
             // The in-memory manager does not track the Realm join-rule
             // cell; callers building durable wire invites should snapshot
             // the effective join rule here.
-            join_rule_snapshot: json!({}),
+            join_rule_snapshot: BTreeMap::new(),
             capability_grant_refs: Vec::new(),
             state: InviteState::Pending,
             expires_at,

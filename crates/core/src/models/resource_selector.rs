@@ -1,7 +1,8 @@
 //! Closed selector used by capability and widget token scopes.
 
-use super::*;
 use serde::de;
+
+use super::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -200,8 +201,7 @@ mod tests {
         assert!(serde_json::from_str::<WireResourceSelector>(r#"{"kind":"message"}"#).is_err());
         assert!(serde_json::from_str::<WireResourceSelector>(r#"{"kind":"actor"}"#).is_err());
         assert!(
-            serde_json::from_str::<WireResourceSelector>(r#"{"kind":"*","unknown":true}"#)
-                .is_err()
+            serde_json::from_str::<WireResourceSelector>(r#"{"kind":"*","unknown":true}"#).is_err()
         );
     }
 }

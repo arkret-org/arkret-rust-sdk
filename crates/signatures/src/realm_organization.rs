@@ -9,7 +9,7 @@
 //! `authorization.proof` `SignatureMaterial::NonEmptyString`.
 
 use arkret_canonical::base64url::base64url_encode;
-use arkret_core::models::{RealmOrganizationPayload, SignatureMaterial};
+use arkret_core::models::{NonEmptyString, RealmOrganizationPayload, SignatureMaterial};
 use arkret_core::{Error, Result};
 use ed25519_dalek::{Signer, SigningKey};
 
@@ -39,7 +39,10 @@ pub fn realm_organization_statement_sign(
         ));
     }
     let mut signed = payload.clone();
-    signed.authorization.proof = SignatureMaterial::NonEmptyString(proof);
+    signed.authorization.proof = SignatureMaterial::NonEmptyString(
+        NonEmptyString::new(proof)
+            .map_err(|error| Error::Protocol(format!("invalid organization proof: {error}")))?,
+    );
     Ok(signed)
 }
 
