@@ -45,7 +45,7 @@ The Arkret SDK ships the full three-key hierarchy as typed records, not as a sin
 | `self_signing_key` (SSK) | [`SignedCrossSigningKey`](../crates/crypto/src/lib.rs) under `self_signing_key`, bound to PSK via [`CrossSigningBinding`](../crates/crypto/src/lib.rs) | SSK is the only signer on per-device trust bindings; canonical bytes are `ak-cross-signing-bind-v1\n` + canonical JSON. |
 | `user_signing_key` (USK) | Same envelope as SSK, distinct `public_key` | Signs other principals' identity keys; manual trust only — does NOT promote the other principal's device set. |
 | Wire envelope: `ak.cross_signing.publish.v1` | [`CrossSigningPublishContent`](../crates/crypto/src/lib.rs) + [`DeviceManager::record_cross_signing_publish`](../crates/sdk/src/devices/manager.rs) | `generation` is monotonic; stale publishes are rejected; advancing the generation drops every accepted device binding to `NeedsReverification`. |
-| Wire envelope: `ak.cross_signing.reset.v1` | [`CrossSigningResetContent` + `CrossSigningResetProof`](../crates/crypto/src/lib.rs) + [`DeviceManager::record_cross_signing_reset`](../crates/sdk/src/devices/manager.rs) | Requires `principal_signing` / `recovery_unlock` / `device_quorum` / `trusted_recovery_service` proof; cancels in-flight SAS / QR transactions for the principal. |
+| Wire envelope: `ak.cross_signing.reset.v1` | [`CrossSigningResetPayload` + `CrossSigningResetProof`](../crates/core/src/models/cross_signing.rs) + [`DeviceManager::record_cross_signing_reset`](../crates/sdk/src/devices/manager.rs) | Requires `principal_signing` / `recovery_unlock` / `device_quorum` / `trusted_recovery_service` proof; cancels in-flight SAS / QR transactions for the principal. |
 
 ### Per-device trust binding (spec §5.2)
 

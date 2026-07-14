@@ -172,7 +172,7 @@ pub struct SubordinateSignedKey {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/cross-signing-reset.schema.json#/$defs/device_quorum_proof`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceQuorumSignature {
     pub device_id: DeviceId,
@@ -181,85 +181,65 @@ pub struct DeviceQuorumSignature {
     pub signature: Base64UrlString,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceQuorumProof {
-    pub kind: DeviceQuorumProofKind,
-    pub threshold: NonZeroU64,
-    pub signatures: Vec<DeviceQuorumSignature>,
+/// Device quorum threshold constrained by the reset schema minimum of two.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(transparent)]
+pub struct DeviceQuorumThreshold(NonZeroU64);
+
+impl DeviceQuorumThreshold {
+    pub fn new(value: u64) -> std::result::Result<Self, &'static str> {
+        if value < 2 {
+            return Err("device quorum threshold must be at least 2");
+        }
+        Ok(Self(
+            NonZeroU64::new(value).expect("value was checked as non-zero"),
+        ))
+    }
+
+    pub fn get(self) -> u64 {
+        self.0.get()
+    }
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/cross-signing-reset.schema.json#/$defs/principal_signing_proof`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PrincipalSigningProof {
-    pub kind: PrincipalSigningProofKind,
-    pub verification_method: DidUrl,
-    pub alg: NonEmptyString,
-    pub signature: Base64UrlString,
+impl<'de> Deserialize<'de> for DeviceQuorumThreshold {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = u64::deserialize(deserializer)?;
+        Self::new(value).map_err(serde::de::Error::custom)
+    }
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/cross-signing-reset.schema.json#/$defs/recovery_unlock_proof`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoveryUnlockProof {
-    pub kind: RecoveryUnlockProofKind,
-    pub recovery_session_id: RecoverySessionId,
-    pub recovery_secret_ref: NonEmptyString,
-    pub unlock_commitment: Hash,
-    pub alg: NonEmptyString,
-    pub signature: Base64UrlString,
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/cross-signing-reset.schema.json#/$defs/
-/// trusted_recovery_service_proof`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TrustedRecoveryServiceProof {
-    pub kind: TrustedRecoveryServiceProofKind,
-    pub recovery_session_id: RecoverySessionId,
-    pub service_id: Did,
-    pub verification_method: DidUrl,
-    pub alg: NonEmptyString,
-    pub signature: Base64UrlString,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub attestation_ref: Option<NonEmptyString>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DeviceQuorumProofKind {
-    DeviceQuorum,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PrincipalSigningProofKind {
-    PrincipalSigning,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RecoveryUnlockProofKind {
-    RecoveryUnlock,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TrustedRecoveryServiceProofKind {
-    TrustedRecoveryService,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
+/// High-risk proof for `ak.cross_signing.reset`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CrossSigningResetProof {
-    PrincipalSigning(PrincipalSigningProof),
-    RecoveryUnlock(RecoveryUnlockProof),
-    DeviceQuorum(DeviceQuorumProof),
-    TrustedRecoveryService(TrustedRecoveryServiceProof),
+    PrincipalSigning {
+        verification_method: DidUrl,
+        alg: NonEmptyString,
+        signature: Base64UrlString,
+    },
+    RecoveryUnlock {
+        recovery_session_id: RecoverySessionId,
+        recovery_secret_ref: NonEmptyString,
+        unlock_commitment: Hash,
+        alg: NonEmptyString,
+        signature: Base64UrlString,
+    },
+    DeviceQuorum {
+        threshold: DeviceQuorumThreshold,
+        signatures: Vec<DeviceQuorumSignature>,
+    },
+    TrustedRecoveryService {
+        recovery_session_id: RecoverySessionId,
+        service_id: Did,
+        verification_method: DidUrl,
+        alg: NonEmptyString,
+        signature: Base64UrlString,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        attestation_ref: Option<AttestationId>,
+    },
 }
 
 /// Counterpart for

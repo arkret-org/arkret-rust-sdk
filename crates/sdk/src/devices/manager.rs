@@ -586,26 +586,32 @@ impl DeviceManager {
     /// current PSK / SSK / USK state for `principal`. The caller MUST follow
     /// with a fresh `record_cross_signing_publish` within the window
     /// declared by §14.2 step 5.
-    pub fn record_cross_signing_reset(&mut self, reset: &CrossSigningResetContent) -> Result<()> {
+    pub fn record_cross_signing_reset(&mut self, reset: &CrossSigningResetPayload) -> Result<()> {
         reset.validate_structure()?;
-        let principal = &reset.principal_id;
+        let principal = reset.principal_id();
         let current = self.cross_signing_publishes.get(principal).ok_or_else(|| {
             Error::Protocol(
                 "cannot reset cross-signing: no current publish accepted for principal".to_owned(),
             )
         })?;
-        if reset.previous_generation != current.generation.get() {
+        if reset.previous_generation() != current.generation.get() {
             return Err(Error::Protocol(format!(
                 "cross_signing reset previous_generation {} does not match accepted {}",
-                reset.previous_generation, current.generation
+                reset.previous_generation(),
+                current.generation
             )));
         }
         self.cross_signing_publishes.remove(principal);
         // Round 4 — reset bumps the generation high-water so the next
         // publish MUST chain from `reset.new_generation`.
         self.cross_signing_generation_high_water
-            .insert(principal.clone(), reset.new_generation);
+            .insert(principal.clone(), reset.new_generation());
         self.mark_principal_needs_reverification(principal)?;
+        if let Some(device_ids) = reset.revoked_device_ids() {
+            for device_id in device_ids {
+                self.revoke_device(principal, device_id);
+            }
+        }
         // Cancel any in-flight verification transactions for this principal
         // (spec §14.2 step 4).
         let cancel_ids: Vec<String> = self

@@ -389,12 +389,12 @@ pub use crypto_store::{
 };
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use devices::{
-    CrossSigningResetContent, CrossSigningResetProof, Device, DeviceChange,
-    DeviceCrossSigningChainVerification, DeviceManager, DeviceMetadata, DeviceQuorumSignature,
-    DeviceTrustBinding, DeviceTrustChainOutcome, DeviceTrustState, DeviceVerificationChallenge,
-    DeviceVerificationMessageKind, QrVerificationPayload, ToDeviceEnvelope,
-    cross_signing_publish_cell_subject, device_verification_commitment,
-    verify_device_cross_signing_chain,
+    CrossSigningResetPayload, CrossSigningResetProof, CrossSigningResetReason, Device,
+    DeviceChange, DeviceCrossSigningChainVerification, DeviceManager, DeviceMetadata,
+    DeviceQuorumSignature, DeviceQuorumThreshold, DeviceTrustBinding, DeviceTrustChainOutcome,
+    DeviceTrustState, DeviceVerificationChallenge, DeviceVerificationMessageKind,
+    QrVerificationPayload, ToDeviceEnvelope, cross_signing_publish_cell_subject,
+    device_verification_commitment, verify_device_cross_signing_chain,
 };
 #[cfg(feature = "full-surface")]
 pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};

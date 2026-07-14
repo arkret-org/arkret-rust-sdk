@@ -1,6 +1,8 @@
+use std::num::NonZeroU64;
+
 use arkret_core::{
-    CrossSigningPublish, KeyFormat, NonEmptyString, PublishedKey, SubordinateSignedKey,
-    SubordinateSignedKeyBinding,
+    Base64UrlString, CrossSigningPublish, DidUrl, EventId, KeyFormat, NonEmptyString, PublishedKey,
+    SubordinateSignedKey, SubordinateSignedKeyBinding,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -69,7 +71,7 @@ fn sample_publish(principal: &Did, generation: u64) -> CrossSigningPublish {
             },
         },
         expected_previous_generation: generation.saturating_sub(1),
-        generation: std::num::NonZeroU64::new(generation).unwrap(),
+        generation: NonZeroU64::new(generation).unwrap(),
         issued_at: Utc::now(),
     }
 }
@@ -334,20 +336,23 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
         .verify_device(&alice, &laptop, Some(fake_binding(1)))
         .unwrap();
 
-    let reset = CrossSigningResetContent {
-        principal_id: alice.clone(),
-        trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-        reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
-        previous_generation: 1,
-        new_generation: 2,
-        reset_reason: "rotation".to_owned(),
-        proof: CrossSigningResetProof::PrincipalSigning {
-            verification_method: "did:webvh:z6mkfixture:alice.example#did-control".to_owned(),
-            alg: "EdDSA".to_owned(),
-            signature: "test-psk-sig".to_owned(),
+    let reset = CrossSigningResetPayload::new(
+        arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        EventId::new("ak:event:01964137-0000-7000-8000-0000000000aa").unwrap(),
+        alice.clone(),
+        NonZeroU64::new(1).unwrap(),
+        NonZeroU64::new(2).unwrap(),
+        CrossSigningResetReason::Rotation,
+        None,
+        CrossSigningResetProof::PrincipalSigning {
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#did-control")
+                .unwrap(),
+            alg: non_empty("EdDSA"),
+            signature: Base64UrlString::new("test-psk-sig").unwrap(),
         },
-        issued_at: Utc::now(),
-    };
+        Utc::now(),
+    )
+    .unwrap();
     manager.record_cross_signing_reset(&reset).unwrap();
 
     for d in [&phone, &laptop] {
@@ -655,23 +660,27 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
     let challenge = manager
         .begin_sas_verification(&alice, &phone, "000000")
         .unwrap();
-    let reset = CrossSigningResetContent {
-        principal_id: alice.clone(),
-        trust_domain: arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-        reset_event_id: "ak:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
-        previous_generation: 1,
-        new_generation: 2,
-        reset_reason: "compromise".to_owned(),
-        proof: CrossSigningResetProof::PrincipalSigning {
-            verification_method: "did:webvh:z6mkfixture:alice.example#did-control".to_owned(),
-            alg: "EdDSA".to_owned(),
-            signature: "psk-sig".to_owned(),
+    let reset = CrossSigningResetPayload::new(
+        arkret_core::TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        EventId::new("ak:event:01964137-0000-7000-8000-0000000000aa").unwrap(),
+        alice.clone(),
+        NonZeroU64::new(1).unwrap(),
+        NonZeroU64::new(2).unwrap(),
+        CrossSigningResetReason::Compromise,
+        Some(vec![phone.clone()]),
+        CrossSigningResetProof::PrincipalSigning {
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#did-control")
+                .unwrap(),
+            alg: non_empty("EdDSA"),
+            signature: Base64UrlString::new("psk-sig").unwrap(),
         },
-        issued_at: Utc::now(),
-    };
+        Utc::now(),
+    )
+    .unwrap();
     manager.record_cross_signing_reset(&reset).unwrap();
 
     // In-flight transaction MUST have been cancelled.
+    assert!(manager.is_device_revoked(&alice, &phone));
     assert!(
         manager
             .confirm_verification_strand(&challenge.transaction_id, "000000", None)
@@ -757,7 +766,7 @@ fn signed_chain_fixture(
             },
         },
         expected_previous_generation: publish_generation.saturating_sub(1),
-        generation: std::num::NonZeroU64::new(publish_generation).unwrap(),
+        generation: NonZeroU64::new(publish_generation).unwrap(),
         issued_at: Utc::now(),
     };
     // PSK signs the SSK record over the canonical §5.1 input.

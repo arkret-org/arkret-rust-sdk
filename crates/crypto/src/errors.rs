@@ -119,10 +119,6 @@ pub const MAX_ONE_TIME_KEY_CLAIM_COUNT: u32 = 1000;
 /// `DeviceVerificationStrand`.
 pub const MAX_VERIFICATION_METHODS: usize = 32;
 
-/// Maximum number of device-quorum signatures attached to a single
-/// `CrossSigningResetProof::DeviceQuorum`.
-pub const MAX_DEVICE_QUORUM_SIGNATURES: usize = 256;
-
 /// Helper: reject empty / whitespace-only key strings with a uniform error.
 pub(crate) fn validate_nonempty_key(field: &str, value: &str) -> Result<()> {
     if value.trim().is_empty() {
