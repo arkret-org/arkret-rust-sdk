@@ -1133,20 +1133,12 @@ pub struct RecoveryProofSummary {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryBackupClassUnlocked {
-    pub backup_class: RecoveryBackupClass,
+    /// `recovery-receipt.schema.json` backup-class discriminator; reuses the
+    /// canonical §7.1 controlled vocabulary rather than a duplicate enum.
+    pub backup_class: BackupClass,
     pub backup_id: BackupId,
     pub series_id: BackupSeriesId,
     pub ciphertext_digest: Hash,
-}
-
-/// `recovery-receipt.schema.json` backup-class discriminator.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum RecoveryBackupClass {
-    DidRecovery,
-    SecretStorage,
-    MlsHistory,
 }
 
 /// `recovery-receipt.schema.json#/properties/welcome_realm_summary[]`.
