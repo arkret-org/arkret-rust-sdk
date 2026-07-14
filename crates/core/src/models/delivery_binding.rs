@@ -189,11 +189,8 @@ mod tests {
         Did::new(format!("did:webvh:z6mkfixture:{label}.example")).unwrap()
     }
 
-    fn fake_event_ref() -> EventRef {
-        EventRef::new(
-            "ak:event:01890000-0000-7000-8000-000000000001".to_owned(),
-            "authorized_by".to_owned(),
-        )
+    fn fake_event_id() -> EventId {
+        EventId::new("ak:event:01890000-0000-7000-8000-000000000001").unwrap()
     }
 
     #[test]
@@ -207,7 +204,7 @@ mod tests {
             service_endpoint: None,
             did_document_digest: None,
             resolved_at: Utc::now(),
-            service_acceptance_ref: Some(fake_event_ref()),
+            service_acceptance_ref: Some(fake_event_id()),
             holder_proof_ref: None,
             policy_event_ref: None,
             expires_at: None,

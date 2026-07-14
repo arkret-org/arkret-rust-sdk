@@ -264,21 +264,21 @@ mod tests {
             issuer_service_id: fake_did("principal"),
             audience: "ak:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
             expires_at: Utc::now() + chrono::Duration::hours(1),
-            issued_at: Some(Utc::now()),
-            source_refs: vec!["ak:event:01890000-0000-7000-8000-0000000000ff".to_owned()],
-            proofs: vec![json!({
-                "kind": "detached_jws",
-                "alg": "EdDSA",
-                "verification_method": "did:webvh:z6mkfixture:principal.example#key-1",
-                "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "created_at": "2026-05-19T00:00:00Z",
-                "audience": "ak:realm:0196419b-0000-7000-8000-000000000000",
-                "jws": "aaa.bbb.ccc"
-            })],
-            claim_digest: Some(
-                "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-                    .to_owned(),
-            ),
+            issued_at: Utc::now(),
+            source_refs: vec![
+                EventId::new("ak:event:01890000-0000-7000-8000-0000000000ff").unwrap(),
+            ],
+            proofs: vec![Proof {
+                kind: "detached_jws".to_owned(),
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:principal.example#key-1".to_owned(),
+                event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+                created_at: "2026-05-19T00:00:00Z".parse().unwrap(),
+                domain: None,
+                audience: None,
+                jws: "aaa.bbb.ccc".to_owned(),
+            }],
+            claim_digest: Some(Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap()),
             intent: CandidateIntent::MemberAdd,
         }
     }

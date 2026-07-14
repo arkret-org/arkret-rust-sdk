@@ -1287,7 +1287,7 @@ mod realm_organization_verifier_tests {
             authorization: RealmOrganizationAuthorization {
                 issuer: org_did(),
                 issuer_role: RealmOrganizationIssuerRole::OrganizationDid,
-                verification_method: "did:webvh:example.test:orgs:org1#k1".to_owned(),
+                verification_method: DidUrl::new("did:webvh:example.test:orgs:org1#k1").unwrap(),
                 delegation_ref: None,
                 executed_by: None,
                 signed_at: now(),

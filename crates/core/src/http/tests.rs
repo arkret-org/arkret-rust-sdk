@@ -1,4 +1,4 @@
-use serde_json::{Value, json};
+use serde_json::json;
 
 use super::*;
 use crate::*;
@@ -15,8 +15,18 @@ fn device_id() -> DeviceId {
 fn mimi_room_update_wire_uses_sender_actor_id_only() {
     let actor = did("alice");
     let body = MimiRoomUpdateRequestBody {
-        mls_group_id: "group-1".to_owned(),
-        update: json!({"kind": "room_update", "payload": {}}),
+        mls_group_id: MlsGroupId::new("group-1").unwrap(),
+        update: MimiRoomUpdate {
+            kind: NonEmptyString::new("room_update").unwrap(),
+            payload: MimiOpaquePayload {
+                content_type: NonEmptyString::new("application/arkret").unwrap(),
+                payload_digest: Hash::new(
+                    "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                )
+                .unwrap(),
+                payload: None,
+            },
+        },
         epoch: Some(7),
         confirmed_transcript_hash: Some(
             Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
@@ -51,14 +61,17 @@ fn mimi_submit_message_wire_uses_sender_actor_id_only() {
     let body = MimiSubmitMessageRequestBody {
         sender_actor_id: actor.clone(),
         device_id: device_id(),
-        ciphertext: json!({
-            "content_type": "application/arkret",
-            "ciphertext_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "payload": "AA"
-        }),
-        mls_group_id: Some("group-1".to_owned()),
+        ciphertext: MimiCiphertext {
+            content_type: NonEmptyString::new("application/arkret").unwrap(),
+            ciphertext_digest: Hash::new(
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            )
+            .unwrap(),
+            payload: Base64UrlString::new("AA").unwrap(),
+        },
+        mls_group_id: Some(MlsGroupId::new("group-1").unwrap()),
         epoch: Some(7),
-        associated_data: json!({}),
+        associated_data: None,
     };
     let value = serde_json::to_value(&body).unwrap();
     assert_eq!(value["sender_actor_id"], json!(actor));
@@ -197,7 +210,7 @@ fn events_query_outcome_serializes_has_more_even_when_false() {
         next_cursor: None,
         prev_cursor: None,
         has_more: false,
-        range_completeness: Value::Null,
+        range_completeness: None,
     };
 
     let value = serde_json::to_value(&body).unwrap();

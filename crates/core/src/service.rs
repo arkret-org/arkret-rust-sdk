@@ -316,8 +316,6 @@ impl ServiceRequirements {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value;
-
     use super::*;
     use crate::{AuthMetadata, Did, RealmId};
 

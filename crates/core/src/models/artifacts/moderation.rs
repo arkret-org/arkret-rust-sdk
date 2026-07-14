@@ -211,7 +211,7 @@ mod tests {
             franking_proof_id: "ak:franking_proof:01904100-0000-7000-8000-000000000111".to_owned(),
             realm_id: realm_id(),
             event_id: event_id("ak:event:01904100-0000-7000-8000-000000000222"),
-            routing_metadata_digest: Value::String(hash('c').to_string()),
+            routing_metadata_digest: hash('c'),
             ciphertext_digest: hash('d'),
             aad_digest: hash('e'),
             sender_claim: FrankingProofSenderClaim {

@@ -723,7 +723,11 @@ mod tests {
                 ok: true,
                 // Tag the outcome with the call ordinal so replay tests can
                 // prove the cached outcome (not a re-execution) is returned.
-                rejected: vec![serde_json::json!({ "call": call })],
+                rejected: vec![arkret_core::RejectedItem {
+                    event_id: None,
+                    reason_code: format!("call_{call}"),
+                    retry_after_ms: None,
+                }],
                 retry_after_ms: None,
             })
         }
@@ -732,7 +736,7 @@ mod tests {
                 exists: false,
                 actor_id: None,
                 display_name: None,
-                external_ref: serde_json::Value::Null,
+                external_ref: None,
             })
         }
         fn resolve_realm(&self, _: &str) -> Result<AppletRealmView> {
@@ -740,7 +744,7 @@ mod tests {
                 exists: false,
                 realm_id: None,
                 title: None,
-                external_ref: serde_json::Value::Null,
+                external_ref: None,
             })
         }
         fn resolve_protocol(&self, _: &str) -> Result<AppletProtocolMetadata> {
@@ -748,7 +752,7 @@ mod tests {
                 protocol: "ak.unknown".to_owned(),
                 display_name: "Unknown".to_owned(),
                 icon_blob_ref: None,
-                field_types: serde_json::Value::Null,
+                field_types: Default::default(),
                 instances: Vec::new(),
             })
         }

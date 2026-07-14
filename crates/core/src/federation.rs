@@ -416,7 +416,6 @@ pub struct FederationDeltaBatch {
 #[cfg(test)]
 mod tests {
     use chrono::Duration;
-    use serde_json::json;
 
     use super::*;
 
@@ -586,10 +585,14 @@ mod tests {
             realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             operations: Vec::new(),
             accepted: Vec::new(),
-            rejected: vec![json!({"reason": "bad_signature"})],
+            rejected: vec![EventsSubmitRejectedItem {
+                id: "ak:operation:01904100-0000-7000-8000-000000000001".to_owned(),
+                reason_code: "bad_signature".to_owned(),
+                detail: None,
+            }],
         };
         assert_eq!(
-            serde_json::to_value(batch).unwrap()["rejected"][0]["reason"],
+            serde_json::to_value(batch).unwrap()["rejected"][0]["reason_code"],
             "bad_signature"
         );
     }

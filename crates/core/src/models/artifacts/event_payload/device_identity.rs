@@ -397,7 +397,7 @@ mod tests {
 
     fn cross_signing_binding() -> DeviceCrossSigningBinding {
         DeviceCrossSigningBinding {
-            verification_method: json!("did:webvh:z6mkfixture:alice.example#ssk"),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#ssk").unwrap(),
             alg: "EdDSA".to_owned(),
             ssk_generation: 1,
             signature: "c2ln".to_owned(),

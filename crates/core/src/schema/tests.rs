@@ -814,7 +814,9 @@ fn membership_payload_strong_type_passes_spec_validator() {
         DeliveryStatus::Unroutable,
         "invite_accept",
     )
-    .with_invite_ref("ak:event:01904100-0000-7000-8000-222222222222");
+    .with_invite_ref(MembershipInviteRef::Event(
+        crate::models::EventId::new("ak:event:01904100-0000-7000-8000-222222222222").unwrap(),
+    ));
     catalog
         .validate_payload("ak.member.state", &join.to_value().unwrap())
         .unwrap();

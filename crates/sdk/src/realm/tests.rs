@@ -523,7 +523,7 @@ fn realm_provides_message_membership_and_media_convenience_helpers() {
 fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
     use crate::models::{
         CandidateIntent, DeliveryBindingHint, DeliveryMode, Handle, HandleHintBindingSource,
-        MemberDeliveryBindingCandidate, RecipientServiceType,
+        MemberDeliveryBindingCandidate, Proof, RecipientServiceType,
     };
 
     let base_client = sessioned_base();
@@ -552,17 +552,20 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
         issuer_service_id: principal,
         audience: realm_id.as_str().to_owned(),
         expires_at: Utc::now() + chrono::Duration::hours(1),
-        issued_at: Some(Utc::now()),
-        source_refs: vec!["ak:event:01890000-0000-7000-8000-0000000000a3".to_owned()],
-        proofs: vec![serde_json::json!({
-            "kind": "detached_jws",
-            "alg": "EdDSA",
-            "verification_method": "did:webvh:z6mkfixture:principal.acme.example#key-1",
-            "payload_digest": "sha256:00000000000000000000000000000000000000000000000000000000000000aa",
-            "created_at": "2026-05-19T00:00:00Z",
-            "audience": realm_id.as_str(),
-            "jws": "aaa.bbb.ccc"
-        })],
+        issued_at: Utc::now(),
+        source_refs: vec![
+            EventId::new("ak:event:01890000-0000-7000-8000-0000000000a3").unwrap(),
+        ],
+        proofs: vec![Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:principal.acme.example#key-1".to_owned(),
+            event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            created_at: "2026-05-19T00:00:00Z".parse().unwrap(),
+            domain: None,
+            audience: None,
+            jws: "aaa.bbb.ccc".to_owned(),
+        }],
         claim_digest: None,
         intent: CandidateIntent::MemberAdd,
     };
@@ -582,7 +585,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
 fn member_add_with_candidate_rejects_audience_mismatch() {
     use crate::models::{
         CandidateIntent, DeliveryBindingHint, DeliveryMode, Handle, HandleHintBindingSource,
-        MemberDeliveryBindingCandidate, RecipientServiceType,
+        MemberDeliveryBindingCandidate, Proof, RecipientServiceType,
     };
 
     let base_client = sessioned_base();
@@ -610,9 +613,20 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
         // Wrong audience — Realm id does not match.
         audience: "ak:realm:DEADBEEF-0000-7000-8000-00000000ffff".to_owned(),
         expires_at: Utc::now() + chrono::Duration::hours(1),
-        issued_at: Some(Utc::now()),
-        source_refs: vec!["ak:event:01890000-0000-7000-8000-0000000000a3".to_owned()],
-        proofs: vec![serde_json::json!({"kind":"detached_jws","jws":"a.b.c"})],
+        issued_at: Utc::now(),
+        source_refs: vec![
+            EventId::new("ak:event:01890000-0000-7000-8000-0000000000a3").unwrap(),
+        ],
+        proofs: vec![Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:principal.acme.example#key-1".to_owned(),
+            event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            created_at: "2026-05-19T00:00:00Z".parse().unwrap(),
+            domain: None,
+            audience: None,
+            jws: "aaa.bbb.ccc".to_owned(),
+        }],
         claim_digest: None,
         intent: CandidateIntent::MemberAdd,
     };

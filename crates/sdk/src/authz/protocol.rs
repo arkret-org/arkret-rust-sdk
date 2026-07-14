@@ -46,10 +46,11 @@ mod tests {
             "x_approval_profile": {"name": "ops"}
         });
         let parsed: ProtocolGrantConstraint = serde_json::from_value(value).unwrap();
+        let extension_key = ProtocolGrantExtensionKey::new("x_approval_profile").unwrap();
         assert!(
             parsed
                 .extensions
-                .contains_key(&ProtocolGrantExtensionKey::new("x_approval_profile").unwrap())
+                .contains_key(extension_key.as_str())
         );
     }
 

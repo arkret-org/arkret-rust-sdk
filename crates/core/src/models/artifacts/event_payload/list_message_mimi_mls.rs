@@ -1100,9 +1100,9 @@ mod tests {
             .unwrap(),
             created_at,
             signature: KeyOperationSignature {
-                kid: "did:webvh:z6mkfixture:alice.example#device".to_owned(),
-                alg: Some("EdDSA".to_owned()),
-                sig: "signature".to_owned(),
+                kid: NonEmptyString::new("did:webvh:z6mkfixture:alice.example#device").unwrap(),
+                alg: Some(NonEmptyString::new("EdDSA").unwrap()),
+                sig: Base64UrlString::new("signature").unwrap(),
             },
         }
     }

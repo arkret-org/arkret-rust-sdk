@@ -787,11 +787,11 @@ mod tests {
         use std::collections::BTreeMap;
 
         use arkret_core::{
-            BlobRef, BlobUploadMetadata, Did, DirectConversationResolveRequestBody,
+            BlindedContact, BlobRef, BlobUploadMetadata, Did, DirectConversationResolveRequestBody,
             DirectoryPrivateContactDiscoveryRequestBody, EffectiveScope, Event, EventId,
             EventRequirements, Hash, Hlc, MLS_GOVERNANCE_BINDING_FULL_PROFILE,
-            MimiReportAbuseRequestBody, MlsGovernanceProofRequest, RealmId, StrandId,
-            SyncRequestBody,
+            MimiReportAbuseRequestBody, MimiRoomUri, MlsGovernanceProofRequest, NonEmptyString,
+            RealmId, StrandId, SyncRequestBody,
         };
         use serde_json::{Value, json};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -1229,9 +1229,10 @@ mod tests {
             assert!(response.events.is_empty());
             assert!(!response.has_more);
             assert_eq!(
-                response.range_completeness["attestation_refs"]
-                    .as_array()
-                    .map(Vec::len),
+                response
+                    .range_completeness
+                    .as_ref()
+                    .map(|completeness| completeness.attestation_refs.len()),
                 Some(0)
             );
 
@@ -1288,10 +1289,15 @@ mod tests {
             let (client, capture) = spawn_capture_server(r#"{"matches":[],"proofs":[]}"#).await;
             let request = DirectoryPrivateContactDiscoveryRequestBody {
                 requester: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-                contacts: vec![json!({"contact_digest": "sha256:contact"})],
+                contacts: vec![BlindedContact {
+                    contact_ref: "contact-1".to_owned(),
+                    identifier_kind: None,
+                    identifier_commitment: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
+                    padding: None,
+                }],
                 proofs: Vec::new(),
-                privacy_profile: Some("psi-v1".to_owned()),
-                padding: Value::Null,
+                privacy_profile: Some(NonEmptyString::new("psi-v1").unwrap()),
+                padding: BTreeMap::new(),
             };
 
             let response = client
@@ -1397,14 +1403,15 @@ mod tests {
             .await;
             let request = MimiReportAbuseRequestBody {
                 strand_id: StrandId::new("ak:strand:01904100-0000-7000-8000-f571eead1fc4").unwrap(),
-                mimi_room_uri: Some("mimi://provider/rooms/room-1".to_owned()),
+                mimi_room_uri: Some(MimiRoomUri::new("mimi://provider/rooms/room-1").unwrap()),
                 realm_id: None,
-                target_ref: "mimi://provider/rooms/room-1/messages/msg-1".to_owned(),
+                target_ref: NonEmptyString::new("mimi://provider/rooms/room-1/messages/msg-1")
+                    .unwrap(),
                 reporter: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
-                abuse_reason_code: "spam".to_owned(),
-                evidence_package: Value::Null,
-                franking_proof: Value::Null,
-                description: Some("unsolicited message".to_owned()),
+                abuse_reason_code: NonEmptyString::new("spam").unwrap(),
+                evidence_package: None,
+                franking_proof: None,
+                description: Some(NonEmptyString::new("unsolicited message").unwrap()),
             };
 
             let response = client.mimi_report_abuse(&request).await.unwrap();

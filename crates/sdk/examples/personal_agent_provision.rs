@@ -40,7 +40,7 @@ use arkret::{
     AgentKeyScopeResource, AgentKeyScopeResourceKind, AgentPauseRequestBody,
     AgentRenewPairingRequestBody, AgentResumeRequestBody, AgentSidecarContextRef,
     AgentSidecarThreadEnsureRequestBody, CapabilityGrant, CapabilitySubject, Did, GrantId, Hash,
-    Hlc, PayloadProof, PayloadProofPurpose, RealmId, StrandId,
+    Hlc, NonEmptyString, PayloadProof, PayloadProofPurpose, RealmId, StrandId,
 };
 use chrono::Utc;
 use serde::Serialize;
@@ -157,7 +157,7 @@ fn main() -> arkret::Result<()> {
     );
     let pairing_request_id = provisioned["pairing_request_id"].as_str().unwrap();
     let verification_method = format!("{agent_id}#runtime-key-1");
-    let public_key = json!({
+    let public_key_value = json!({
         "kty": "OKP",
         "kid": verification_method,
         "alg": "Ed25519",
@@ -167,14 +167,14 @@ fn main() -> arkret::Result<()> {
         pairing_request_id,
         &agent_id,
         &verification_method,
-        &public_key,
+        &public_key_value,
         None,
     )?;
     let pairing_digest = agent_key_pairing_request_binding_digest(
         &controller,
         &agent_id,
         &verification_method,
-        &agent_runtime_public_key_digest(&public_key)?,
+        &agent_runtime_public_key_digest(&public_key_value)?,
         pairing_request_id,
         provisioned["pairing_code"].as_str().unwrap(),
         provisioned["expires_at"].as_str().unwrap(),
@@ -185,7 +185,7 @@ fn main() -> arkret::Result<()> {
             agent_id: agent_id.clone(),
             key_id: "runtime-key-1".to_owned(),
             verification_method: verification_method.clone(),
-            public_key_digest: Some(agent_runtime_public_key_digest(&public_key)?),
+            public_key_digest: Some(agent_runtime_public_key_digest(&public_key_value)?),
             accountable_principal_id: controller.clone(),
             agent_key_scope: AgentKeyScope {
                 actions: vec![
@@ -226,17 +226,17 @@ fn main() -> arkret::Result<()> {
         Hlc::new("01970e589d21-0004-a13f9c2e")?,
     )?;
     let key_pair_body = AgentKeyPairRequestBody {
-        pairing_request_id: pairing_request_id.to_owned(),
+        pairing_request_id: NonEmptyString::new(pairing_request_id)?,
         agent_id: agent_id.clone(),
-        verification_method,
-        public_key,
-        proof_of_possession: json!({
+        verification_method: arkret::DidUrl::new(verification_method)?,
+        public_key: serde_json::from_value(public_key_value)?,
+        proof_of_possession: serde_json::from_value(json!({
             "challenge": pairing_request_id,
             "audience": "did:web:soland.local",
             "request_canonical_digest": pop_digest,
             "expires_at": provisioned["expires_at"],
             "signature": "ed25519-pop-signature",
-        }),
+        }))?,
         runtime_attestation: None,
         // A real client signs this Event with the controller/device key before
         // submitting it. The mock transport below only demonstrates the

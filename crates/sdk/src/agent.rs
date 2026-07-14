@@ -1525,10 +1525,13 @@ mod tests {
             SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE.to_owned(),
             "ak.message.create".to_owned(),
         ];
-        let agent_scope_request = json!({
-            "realm_ids": ["ak:realm:01904100-0000-7000-8000-000000000001"],
-            "track_names": ["summary"],
-        });
+        let agent_scope_request = SessionGrantAgentScopeRequest {
+            realm_ids: vec![
+                RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            ],
+            strand_ids: Vec::new(),
+            track_names: vec![NonEmptyString::new("summary").unwrap()],
+        };
         let dpop_binding_proof = SessionGrantDpopBindingProof {
             proof_jwt: "dpop.jwt.value".to_owned(),
         };
@@ -1582,7 +1585,10 @@ mod tests {
             request.agent_key_authorization_ref.as_deref(),
             Some(authorization_ref)
         );
-        assert_eq!(request.agent_scope_request, agent_scope_request);
+        assert_eq!(
+            serde_json::to_value(request.agent_scope_request.as_ref().unwrap()).unwrap(),
+            serde_json::to_value(&agent_scope_request).unwrap()
+        );
         assert_eq!(
             request.dpop_binding_proof.as_ref().unwrap().proof_jwt,
             dpop_binding_proof.proof_jwt

@@ -753,7 +753,16 @@ mod agent_selector_tests {
             created_at: Utc::now(),
             verified_at: None,
             source_refs: Vec::new(),
-            proofs: vec![json!({"kind": "detached_jws"})],
+            proofs: vec![Proof {
+                kind: "detached_jws".to_owned(),
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:webvh:z6mkfixture:example.com#key-1".to_owned(),
+                event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                created_at: Utc::now(),
+                domain: None,
+                audience: None,
+                jws: "aaa.bbb.ccc".to_owned(),
+            }],
         }
     }
 

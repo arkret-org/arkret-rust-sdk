@@ -23,16 +23,26 @@ pub enum DirectoryResourceKind {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 pub struct ServerLimits {
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = Option<u64>)))]
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = u64)))]
     pub max_get_query_selectors: Option<std::num::NonZeroU64>,
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(feature = "salvo-oapi", salvo(schema(value_type = serde_json::Value)))]
     pub extensions: BTreeMap<String, Value>,
+}
+
+#[cfg(feature = "salvo-oapi")]
+impl salvo::oapi::ToSchema for ServerLimits {
+    fn to_schema(
+        _components: &mut salvo::oapi::Components,
+    ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
+        salvo::oapi::Object::new()
+            .property(
+                "max_get_query_selectors",
+                salvo::oapi::Object::with_type(salvo::oapi::BasicType::Integer),
+            )
+            .additional_properties(salvo::oapi::schema::AdditionalProperties::FreeForm(true))
+            .into()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

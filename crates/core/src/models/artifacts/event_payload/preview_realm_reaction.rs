@@ -449,6 +449,11 @@ impl RealmKeyRequestPayload {
                 "ak.realm_key.request.requested_source_class must not be key_backup".to_owned(),
             ));
         }
+        if self.recipient_hpke_public_key.trim().is_empty() {
+            return Err(Error::Protocol(
+                "ak.realm_key.request.recipient_hpke_public_key must not be blank".to_owned(),
+            ));
+        }
         Ok(())
     }
 }
@@ -698,7 +703,9 @@ mod realm_key_request_tests {
 
     fn request_scope() -> RealmKeyRequestScope {
         RealmKeyRequestScope {
-            effective_scope: json!({}),
+            effective_scope: EffectiveScope::Realm {
+                realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap(),
+            },
             policy_digest: None,
             membership_frontier_digest: None,
             from_epoch: 0,
@@ -714,10 +721,13 @@ mod realm_key_request_tests {
                 "did:webvh:example.test:users:01J0000000000000000000000A".to_owned(),
             )
             .unwrap(),
-            recipient_device_id: "ak:device:01J0000000000000000000000B".to_owned(),
-            recipient_hpke_public_key: "cHVia2V5".to_owned(),
+            recipient_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000b")
+                .unwrap(),
+            recipient_hpke_public_key: NonEmptyString::new("cHVia2V5").unwrap(),
             requested_source_class: source,
-            target_source_ref: "ak:device:01J0000000000000000000000C".to_owned(),
+            target_source_ref: RealmKeySourceRef::Device(
+                DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000c").unwrap(),
+            ),
             target_principal_id: Did::new(
                 "did:webvh:example.test:users:01J0000000000000000000000D".to_owned(),
             )
@@ -745,7 +755,7 @@ mod realm_key_request_tests {
         assert!(request(HistoryKeySource::KeyBackup).validate().is_err());
 
         let mut bad = request(HistoryKeySource::OwnDevice);
-        bad.recipient_hpke_public_key = "   ".to_owned();
+        bad.recipient_hpke_public_key = NonEmptyString::new("   ").unwrap();
         assert!(bad.validate().is_err());
     }
 }
