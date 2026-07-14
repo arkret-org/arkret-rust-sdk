@@ -3,11 +3,11 @@ authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["algorithms", "encoding"]
 description = "Arkret v1 canonical JSON, digest, base64url, and multibase primitives."
 edition = "2024"
-homepage = "https://github.com/arkret/arkret-rust-sdk"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "canonical-json", "encoding"]
 license = "Apache-2.0"
 name = "arkret-canonical"
-repository = "https://github.com/arkret/arkret-rust-sdk"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 

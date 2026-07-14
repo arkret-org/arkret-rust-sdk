@@ -1,27 +1,27 @@
 {
   "summary": {
-    "total": 410,
+    "total": 408,
     "by_crate": {
       "core": 314,
       "ffi": 1,
       "schema": 8,
       "sdk": 43,
       "server": 3,
-      "signatures": 6,
+      "signatures": 4,
       "state": 8,
       "wire-base": 10,
       "wire-edge": 17
     },
     "by_classification": {
       "open_json": 147,
-      "unclassified": 263
+      "unclassified": 261
     },
     "by_schema_shape": {
       "closed": 16,
       "open_json": 24,
       "open_json_container": 37,
       "open_map": 86,
-      "unknown": 247
+      "unknown": 245
     }
   },
   "entries": [
@@ -4816,32 +4816,6 @@
       "line": 20,
       "owner": "WireConformanceVector",
       "field": "body",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/signatures/src/jwt.rs::VerifiedJwt.claims",
-      "crate": "signatures",
-      "file": "crates/signatures/src/jwt.rs",
-      "line": 82,
-      "owner": "VerifiedJwt",
-      "field": "claims",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "unclassified",
-      "reason": null
-    },
-    {
-      "rust_field": "crates/signatures/src/jwt.rs::VerifiedJwt.header",
-      "crate": "signatures",
-      "file": "crates/signatures/src/jwt.rs",
-      "line": 81,
-      "owner": "VerifiedJwt",
-      "field": "header",
       "rust_type": "Value",
       "spec_pointer": null,
       "schema_shape": "unknown",

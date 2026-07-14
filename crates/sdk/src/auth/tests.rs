@@ -163,7 +163,7 @@ fn auth_uses_provider_oidc_verifier_with_metadata_and_jwks() {
             token_endpoint: "https://issuer.example/token".to_owned(),
             jwks_uri: "https://issuer.example/jwks".to_owned(),
         },
-        jwks: OidcJwks::new(Vec::new()).unwrap(),
+        jwks: crate::signatures::JsonWebKeySet::new(Vec::new()).unwrap(),
         client_id: "client".to_owned(),
         expected_nonce: Some("nonce".to_owned()),
         credential: OidcCredential::IdToken {
@@ -192,7 +192,7 @@ fn auth_uses_provider_oidc_verifier_with_metadata_and_jwks() {
 }
 
 #[test]
-fn oidc_jwks_accepts_typed_public_keys_and_rejects_ambiguous_input() {
+fn json_web_key_set_accepts_typed_public_keys_and_rejects_ambiguous_input() {
     let jwks = serde_json::json!({
         "keys": [
             {
@@ -214,19 +214,21 @@ fn oidc_jwks_accepts_typed_public_keys_and_rejects_ambiguous_input() {
             }
         ]
     });
-    let parsed: OidcJwks = serde_json::from_value(jwks.clone()).unwrap();
+    let parsed: crate::signatures::JsonWebKeySet = serde_json::from_value(jwks.clone()).unwrap();
     assert_eq!(parsed.keys().len(), 2);
     assert_eq!(serde_json::to_value(parsed).unwrap(), jwks);
 
     let missing_rsa_exponent = serde_json::json!({
         "keys": [{ "kty": "RSA", "n": "AQAB" }]
     });
-    assert!(serde_json::from_value::<OidcJwks>(missing_rsa_exponent).is_err());
+    assert!(
+        serde_json::from_value::<crate::signatures::JsonWebKeySet>(missing_rsa_exponent).is_err()
+    );
 
     let symmetric_key = serde_json::json!({
         "keys": [{ "kty": "oct", "k": "AQAB" }]
     });
-    assert!(serde_json::from_value::<OidcJwks>(symmetric_key).is_err());
+    assert!(serde_json::from_value::<crate::signatures::JsonWebKeySet>(symmetric_key).is_err());
 
     let unknown_member = serde_json::json!({
         "keys": [{
@@ -236,7 +238,7 @@ fn oidc_jwks_accepts_typed_public_keys_and_rejects_ambiguous_input() {
             "legacy_key_material": "opaque"
         }]
     });
-    assert!(serde_json::from_value::<OidcJwks>(unknown_member).is_err());
+    assert!(serde_json::from_value::<crate::signatures::JsonWebKeySet>(unknown_member).is_err());
 
     let duplicate_kid = serde_json::json!({
         "keys": [
@@ -244,10 +246,12 @@ fn oidc_jwks_accepts_typed_public_keys_and_rejects_ambiguous_input() {
             { "kty": "OKP", "kid": "duplicate", "crv": "Ed25519", "x": "AQAB" }
         ]
     });
-    assert!(serde_json::from_value::<OidcJwks>(duplicate_kid).is_err());
+    assert!(serde_json::from_value::<crate::signatures::JsonWebKeySet>(duplicate_kid).is_err());
 
     let legacy_nested_value = serde_json::json!({ "keys": { "keys": [] } });
-    assert!(serde_json::from_value::<OidcJwks>(legacy_nested_value).is_err());
+    assert!(
+        serde_json::from_value::<crate::signatures::JsonWebKeySet>(legacy_nested_value).is_err()
+    );
 }
 
 #[test]

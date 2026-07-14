@@ -3,11 +3,11 @@ authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["algorithms", "data-structures"]
 description = "Arkret v1 authorization constraints and profile policy semantics."
 edition = "2024"
-homepage = "https://github.com/arkret/arkret-rust-sdk"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "authorization", "policy"]
 license = "Apache-2.0"
 name = "arkret-policy"
-repository = "https://github.com/arkret/arkret-rust-sdk"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 

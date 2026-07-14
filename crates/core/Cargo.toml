@@ -3,12 +3,12 @@ authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "data-structures", "encoding"]
 description = "Core Arkret v1 protocol types, canonical JSON, cursors, sync models, and service metadata."
 edition = "2024"
-homepage = "https://github.com/arkret/arkret-rust-sdk"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "collaboration", "did", "protocol"]
 license = "Apache-2.0"
 name = "arkret-core"
 readme = "README.md"
-repository = "https://github.com/arkret/arkret-rust-sdk"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 

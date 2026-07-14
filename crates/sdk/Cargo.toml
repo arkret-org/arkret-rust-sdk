@@ -3,12 +3,12 @@ authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "network-programming", "cryptography"]
 description = "Arkret v1 decentralized collaboration protocol SDK."
 edition = "2024"
-homepage = "https://github.com/arkret/arkret-rust-sdk"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "collaboration", "did", "sdk"]
 license = "Apache-2.0"
 name = "arkret"
 readme = "README.md"
-repository = "https://github.com/arkret/arkret-rust-sdk"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 

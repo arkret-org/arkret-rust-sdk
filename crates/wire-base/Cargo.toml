@@ -3,11 +3,11 @@ authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "data-structures"]
 description = "Arkret v1 cross-domain wire primitives and state object shapes."
 edition = "2024"
-homepage = "https://github.com/arkret/arkret-rust-sdk"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "protocol", "wire"]
 license = "Apache-2.0"
 name = "arkret-wire-base"
-repository = "https://github.com/arkret/arkret-rust-sdk"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 

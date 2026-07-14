@@ -3,12 +3,12 @@ authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "cryptography", "os"]
 description = "Platform-native KeyStore backends (macOS Keychain, Linux Secret Service, Windows Credential Manager) for the Arkret v1 SDK."
 edition = "2024"
-homepage = "https://github.com/arkret/arkret-rust-sdk"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "keystore", "keychain", "secrets"]
 license = "Apache-2.0"
 name = "arkret-keystore"
 readme = "README.md"
-repository = "https://github.com/arkret/arkret-rust-sdk"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 

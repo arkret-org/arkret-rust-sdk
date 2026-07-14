@@ -1,33 +1,170 @@
-//! EdDSA JWT verification against JWKS.
+//! EdDSA JWT verification against JSON Web Key Sets.
 //!
-//! This module intentionally supports only the algorithm family this SDK can
-//! verify without external crypto adapters: compact JWS/JWT with `alg=EdDSA`
-//! and `OKP` / `Ed25519` JWKs. RSA and ECDSA JWTs must be verified by a host
+//! This module intentionally supports only compact JWS/JWT with `alg=EdDSA`
+//! and `OKP` / `Ed25519` keys. RSA and ECDSA JWTs must be verified by a host
 //! adapter until the SDK owns those algorithm implementations.
 
+use std::collections::{BTreeMap, BTreeSet};
+use std::result::Result;
+
 use arkret_canonical::base64url_decode;
+use arkret_core::NonEmptyString;
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
 
+use super::jwk::JsonWebKeySet;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum JwtAlgorithm {
+    #[serde(rename = "EdDSA")]
+    EdDsa,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum JwtType {
+    #[serde(rename = "JWT")]
+    Jwt,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct JwtAudience(JwtAudienceValue);
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum JwtAudienceValue {
+    Single(NonEmptyString),
+    Multiple(Vec<NonEmptyString>),
+}
+
+impl<'de> Deserialize<'de> for JwtAudience {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = JwtAudienceValue::deserialize(deserializer)?;
+        if let JwtAudienceValue::Multiple(audiences) = &value {
+            if audiences.is_empty() {
+                return Err(serde::de::Error::custom(
+                    "JWT audience array must not be empty",
+                ));
+            }
+            let unique: BTreeSet<&str> = audiences.iter().map(NonEmptyString::as_str).collect();
+            if unique.len() != audiences.len() {
+                return Err(serde::de::Error::custom(
+                    "JWT audience array must not contain duplicates",
+                ));
+            }
+        }
+        Ok(Self(value))
+    }
+}
+
+impl JwtAudience {
+    pub fn single(audience: NonEmptyString) -> Self {
+        Self(JwtAudienceValue::Single(audience))
+    }
+
+    pub fn multiple(audiences: Vec<NonEmptyString>) -> Result<Self, &'static str> {
+        if audiences.is_empty() {
+            return Err("JWT audience array must not be empty");
+        }
+        let unique: BTreeSet<&str> = audiences.iter().map(NonEmptyString::as_str).collect();
+        if unique.len() != audiences.len() {
+            return Err("JWT audience array must not contain duplicates");
+        }
+        Ok(Self(JwtAudienceValue::Multiple(audiences)))
+    }
+
+    pub fn contains(&self, expected: &str) -> bool {
+        match &self.0 {
+            JwtAudienceValue::Single(audience) => audience.as_str() == expected,
+            JwtAudienceValue::Multiple(audiences) => audiences
+                .iter()
+                .any(|audience| audience.as_str() == expected),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JsonWebTokenHeader {
+    pub alg: JwtAlgorithm,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kid: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub typ: Option<JwtType>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crit: Option<Vec<NonEmptyString>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct JsonWebTokenClaims {
+    #[serde(rename = "iss", default, skip_serializing_if = "Option::is_none")]
+    issuer: Option<NonEmptyString>,
+    #[serde(rename = "sub", default, skip_serializing_if = "Option::is_none")]
+    subject: Option<NonEmptyString>,
+    #[serde(rename = "aud", default, skip_serializing_if = "Option::is_none")]
+    audience: Option<JwtAudience>,
+    #[serde(rename = "exp", default, skip_serializing_if = "Option::is_none")]
+    expiration: Option<i64>,
+    #[serde(rename = "nbf", default, skip_serializing_if = "Option::is_none")]
+    not_before: Option<i64>,
+    #[serde(rename = "iat", default, skip_serializing_if = "Option::is_none")]
+    issued_at: Option<i64>,
+    #[serde(rename = "jti", default, skip_serializing_if = "Option::is_none")]
+    jwt_id: Option<NonEmptyString>,
+    #[serde(flatten)]
+    additional: BTreeMap<String, Value>,
+}
+
+impl JsonWebTokenClaims {
+    pub fn issuer(&self) -> Option<&NonEmptyString> {
+        self.issuer.as_ref()
+    }
+
+    pub fn subject(&self) -> Option<&NonEmptyString> {
+        self.subject.as_ref()
+    }
+
+    pub fn audience(&self) -> Option<&JwtAudience> {
+        self.audience.as_ref()
+    }
+
+    pub fn expiration(&self) -> Option<i64> {
+        self.expiration
+    }
+
+    pub fn not_before(&self) -> Option<i64> {
+        self.not_before
+    }
+
+    pub fn issued_at(&self) -> Option<i64> {
+        self.issued_at
+    }
+
+    pub fn jwt_id(&self) -> Option<&NonEmptyString> {
+        self.jwt_id.as_ref()
+    }
+
+    pub fn additional(&self, name: &str) -> Option<&Value> {
+        self.additional.get(name)
+    }
+}
+
 /// Verification policy for a compact JWT.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JwtVerificationPolicy {
-    /// Expected `iss` claim.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub issuer: Option<String>,
-    /// Expected `aud` claim. Accepts either a string claim or an array
-    /// containing this value.
+    issuer: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub audience: Option<String>,
-    /// Current Unix timestamp in seconds.
-    pub now_unix_seconds: i64,
-    /// Accepted clock skew for `exp`, `nbf`, and `iat`.
-    pub max_clock_skew_seconds: i64,
-    /// Require an `exp` claim. OIDC-facing callers should leave this enabled.
+    audience: Option<NonEmptyString>,
+    now_unix_seconds: i64,
+    max_clock_skew_seconds: u64,
     #[serde(default = "default_require_exp")]
-    pub require_exp: bool,
+    require_exp: bool,
 }
 
 impl Default for JwtVerificationPolicy {
@@ -51,18 +188,18 @@ impl JwtVerificationPolicy {
         }
     }
 
-    pub fn issuer(mut self, issuer: impl Into<String>) -> Self {
-        self.issuer = Some(issuer.into());
+    pub fn issuer(mut self, issuer: NonEmptyString) -> Self {
+        self.issuer = Some(issuer);
         self
     }
 
-    pub fn audience(mut self, audience: impl Into<String>) -> Self {
-        self.audience = Some(audience.into());
+    pub fn audience(mut self, audience: NonEmptyString) -> Self {
+        self.audience = Some(audience);
         self
     }
 
-    pub fn max_clock_skew_seconds(mut self, seconds: i64) -> Self {
-        self.max_clock_skew_seconds = seconds.max(0);
+    pub fn max_clock_skew_seconds(mut self, seconds: u64) -> Self {
+        self.max_clock_skew_seconds = seconds;
         self
     }
 
@@ -79,10 +216,10 @@ fn default_require_exp() -> bool {
 /// Verified JWT material returned after signature and claim policy checks.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VerifiedJwt {
-    pub header: Value,
-    pub claims: Value,
+    pub header: JsonWebTokenHeader,
+    pub claims: JsonWebTokenClaims,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub key_id: Option<String>,
+    pub key_id: Option<NonEmptyString>,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -91,13 +228,11 @@ pub enum JwtVerificationError {
     MalformedCompact,
     #[error("JWT header or claims are not valid base64url JSON")]
     MalformedJson,
-    #[error("JWT algorithm is unsupported: `{0}`")]
-    UnsupportedAlgorithm(String),
     #[error("JWT critical headers are unsupported")]
     UnsupportedCriticalHeader,
-    #[error("JWKS is malformed")]
-    MalformedJwks,
-    #[error("JWKS does not contain a matching Ed25519 key")]
+    #[error("JSON Web Key contains malformed Ed25519 material")]
+    MalformedKey,
+    #[error("JSON Web Key Set does not contain a matching Ed25519 key")]
     KeyNotFound,
     #[error("JWT key selection is ambiguous")]
     AmbiguousKeySelection,
@@ -117,32 +252,15 @@ pub enum JwtVerificationError {
     IssuedAtInFuture,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct JwtHeader {
-    alg: String,
-    #[serde(default)]
-    kid: Option<String>,
-    #[serde(default)]
-    typ: Option<String>,
-    #[serde(default)]
-    crit: Option<Value>,
-}
-
 #[derive(Clone)]
-struct JwksKey {
-    kid: Option<String>,
+struct VerificationKey {
+    kid: Option<NonEmptyString>,
     public_key: VerifyingKey,
 }
 
-/// Verify a compact EdDSA JWT against a JWKS JSON object.
-///
-/// `jwks` must be an object with a `keys` array. Key selection uses `kid` when
-/// the JWT supplies it; without `kid`, the JWKS must contain exactly one
-/// Ed25519-compatible key.
 pub fn verify_eddsa_jwt_with_jwks(
     jwt: &str,
-    jwks: &Value,
+    jwks: &JsonWebKeySet,
     policy: &JwtVerificationPolicy,
 ) -> Result<VerifiedJwt, JwtVerificationError> {
     let parts: Vec<&str> = jwt.split('.').collect();
@@ -154,26 +272,16 @@ pub fn verify_eddsa_jwt_with_jwks(
         base64url_decode(parts[0]).map_err(|_| JwtVerificationError::MalformedJson)?;
     let claims_bytes =
         base64url_decode(parts[1]).map_err(|_| JwtVerificationError::MalformedJson)?;
-    let header_value: Value =
+    let header: JsonWebTokenHeader =
         serde_json::from_slice(&header_bytes).map_err(|_| JwtVerificationError::MalformedJson)?;
-    let header: JwtHeader = serde_json::from_value(header_value.clone())
-        .map_err(|_| JwtVerificationError::MalformedJson)?;
-    let claims: Value =
+    let claims: JsonWebTokenClaims =
         serde_json::from_slice(&claims_bytes).map_err(|_| JwtVerificationError::MalformedJson)?;
 
-    if header.alg != "EdDSA" {
-        return Err(JwtVerificationError::UnsupportedAlgorithm(header.alg));
-    }
     if header.crit.is_some() {
         return Err(JwtVerificationError::UnsupportedCriticalHeader);
     }
-    if let Some(typ) = header.typ.as_deref()
-        && typ != "JWT"
-    {
-        return Err(JwtVerificationError::MalformedJson);
-    }
 
-    let key = select_jwks_key(jwks, header.kid.as_deref())?;
+    let key = select_verification_key(jwks, header.kid.as_ref())?;
     let signature_bytes =
         base64url_decode(parts[2]).map_err(|_| JwtVerificationError::MalformedSignature)?;
     if signature_bytes.len() != 64 {
@@ -190,115 +298,100 @@ pub fn verify_eddsa_jwt_with_jwks(
     validate_claims(&claims, policy)?;
 
     Ok(VerifiedJwt {
-        header: header_value,
+        header,
         claims,
         key_id: key.kid,
     })
 }
 
-fn select_jwks_key(jwks: &Value, kid: Option<&str>) -> Result<JwksKey, JwtVerificationError> {
-    let keys = jwks
-        .get("keys")
-        .and_then(Value::as_array)
-        .ok_or(JwtVerificationError::MalformedJwks)?;
+fn select_verification_key(
+    jwks: &JsonWebKeySet,
+    kid: Option<&NonEmptyString>,
+) -> Result<VerificationKey, JwtVerificationError> {
     let mut candidates = Vec::new();
-    for key in keys {
-        let Some(candidate) = decode_jwks_ed25519_key(key)? else {
+    for key in jwks.keys() {
+        let Some(x) = key.ed25519_x_for_verification() else {
             continue;
         };
-        if kid.is_none_or(|expected| candidate.kid.as_deref() == Some(expected)) {
-            candidates.push(candidate);
+        if kid.is_some_and(|expected| key.kid() != Some(expected)) {
+            continue;
         }
+        let raw = base64url_decode(x.as_str()).map_err(|_| JwtVerificationError::MalformedKey)?;
+        if raw.len() != 32 {
+            return Err(JwtVerificationError::MalformedKey);
+        }
+        let mut key_bytes = [0u8; 32];
+        key_bytes.copy_from_slice(&raw);
+        let public_key =
+            VerifyingKey::from_bytes(&key_bytes).map_err(|_| JwtVerificationError::MalformedKey)?;
+        candidates.push(VerificationKey {
+            kid: key.kid().cloned(),
+            public_key,
+        });
     }
-    match (kid, candidates.len()) {
-        (_, 0) => Err(JwtVerificationError::KeyNotFound),
-        (Some(_), 1) => Ok(candidates.remove(0)),
-        (Some(_), _) => Err(JwtVerificationError::AmbiguousKeySelection),
-        (None, 1) => Ok(candidates.remove(0)),
-        (None, _) => Err(JwtVerificationError::AmbiguousKeySelection),
-    }
-}
 
-fn decode_jwks_ed25519_key(key: &Value) -> Result<Option<JwksKey>, JwtVerificationError> {
-    if key.get("kty").and_then(Value::as_str) != Some("OKP")
-        || key.get("crv").and_then(Value::as_str) != Some("Ed25519")
-    {
-        return Ok(None);
+    match candidates.len() {
+        0 => Err(JwtVerificationError::KeyNotFound),
+        1 => Ok(candidates.remove(0)),
+        _ => Err(JwtVerificationError::AmbiguousKeySelection),
     }
-    let x = key
-        .get("x")
-        .and_then(Value::as_str)
-        .ok_or(JwtVerificationError::MalformedJwks)?;
-    let raw = base64url_decode(x).map_err(|_| JwtVerificationError::MalformedJwks)?;
-    if raw.len() != 32 {
-        return Err(JwtVerificationError::MalformedJwks);
-    }
-    let mut key_bytes = [0u8; 32];
-    key_bytes.copy_from_slice(&raw);
-    let public_key =
-        VerifyingKey::from_bytes(&key_bytes).map_err(|_| JwtVerificationError::MalformedJwks)?;
-    let kid = key
-        .get("kid")
-        .and_then(Value::as_str)
-        .map(ToOwned::to_owned);
-    Ok(Some(JwksKey { kid, public_key }))
 }
 
 fn validate_claims(
-    claims: &Value,
+    claims: &JsonWebTokenClaims,
     policy: &JwtVerificationPolicy,
 ) -> Result<(), JwtVerificationError> {
     if let Some(expected_issuer) = &policy.issuer
-        && claims.get("iss").and_then(Value::as_str) != Some(expected_issuer.as_str())
+        && claims.issuer() != Some(expected_issuer)
     {
         return Err(JwtVerificationError::IssuerMismatch);
     }
     if let Some(expected_audience) = &policy.audience
-        && !claim_audience_contains(claims.get("aud"), expected_audience)
+        && !claims
+            .audience()
+            .is_some_and(|audience| audience.contains(expected_audience.as_str()))
     {
         return Err(JwtVerificationError::AudienceMismatch);
     }
 
     let now = policy.now_unix_seconds;
-    let skew = policy.max_clock_skew_seconds.max(0);
-    match claims.get("exp").and_then(Value::as_i64) {
-        Some(exp) if exp < now.saturating_sub(skew) => {
+    let skew = i64::try_from(policy.max_clock_skew_seconds).unwrap_or(i64::MAX);
+    match claims.expiration() {
+        Some(expiration) if expiration < now.saturating_sub(skew) => {
             return Err(JwtVerificationError::Expired);
         }
         Some(_) => {}
         None if policy.require_exp => return Err(JwtVerificationError::Expired),
         None => {}
     }
-    if let Some(nbf) = claims.get("nbf").and_then(Value::as_i64)
-        && nbf > now.saturating_add(skew)
+    if claims
+        .not_before()
+        .is_some_and(|not_before| not_before > now.saturating_add(skew))
     {
         return Err(JwtVerificationError::NotYetValid);
     }
-    if let Some(iat) = claims.get("iat").and_then(Value::as_i64)
-        && iat > now.saturating_add(skew)
+    if claims
+        .issued_at()
+        .is_some_and(|issued_at| issued_at > now.saturating_add(skew))
     {
         return Err(JwtVerificationError::IssuedAtInFuture);
     }
     Ok(())
 }
 
-fn claim_audience_contains(claim: Option<&Value>, expected: &str) -> bool {
-    match claim {
-        Some(Value::String(value)) => value == expected,
-        Some(Value::Array(values)) => values.iter().any(|value| value.as_str() == Some(expected)),
-        _ => false,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use arkret_canonical::base64url_encode;
     use ed25519_dalek::{Signer, SigningKey};
-    use serde_json::json;
+    use serde_json::{Value, json};
 
     use super::*;
 
-    fn jwt_fixture(now: i64, kid: Option<&str>) -> (String, Value) {
+    fn non_empty(value: &str) -> NonEmptyString {
+        NonEmptyString::new(value).unwrap()
+    }
+
+    fn jwt_fixture(now: i64, kid: Option<&str>) -> (String, JsonWebKeySet) {
         jwt_fixture_with_claims(
             kid,
             json!({
@@ -312,7 +405,7 @@ mod tests {
         )
     }
 
-    fn jwt_fixture_with_claims(kid: Option<&str>, claims: Value) -> (String, Value) {
+    fn jwt_fixture_with_claims(kid: Option<&str>, claims: Value) -> (String, JsonWebKeySet) {
         let signing_key = SigningKey::from_bytes(&[7u8; 32]);
         let public_key = signing_key.verifying_key();
         let header = match kid {
@@ -332,7 +425,8 @@ mod tests {
         if let Some(kid) = kid {
             jwk["kid"] = json!(kid);
         }
-        (jwt, json!({ "keys": [jwk] }))
+        let jwks = serde_json::from_value(json!({ "keys": [jwk] })).unwrap();
+        (jwt, jwks)
     }
 
     #[test]
@@ -340,12 +434,18 @@ mod tests {
         let now = 1_715_990_000;
         let (jwt, jwks) = jwt_fixture(now, Some("key-1"));
         let policy = JwtVerificationPolicy::new(now)
-            .issuer("https://issuer.example")
-            .audience("arkret-client");
+            .issuer(non_empty("https://issuer.example"))
+            .audience(non_empty("arkret-client"));
 
         let verified = verify_eddsa_jwt_with_jwks(&jwt, &jwks, &policy).unwrap();
-        assert_eq!(verified.key_id.as_deref(), Some("key-1"));
-        assert_eq!(verified.claims["sub"], json!("alice"));
+        assert_eq!(
+            verified.key_id.as_ref().map(NonEmptyString::as_str),
+            Some("key-1")
+        );
+        assert_eq!(
+            verified.claims.subject().map(NonEmptyString::as_str),
+            Some("alice")
+        );
     }
 
     #[test]
@@ -356,14 +456,14 @@ mod tests {
         parts[1] = "eyJzdWIiOiJib2IifQ";
         let tampered = parts.join(".");
         let policy = JwtVerificationPolicy::new(now)
-            .issuer("https://issuer.example")
-            .audience("arkret-client");
+            .issuer(non_empty("https://issuer.example"))
+            .audience(non_empty("arkret-client"));
         assert_eq!(
             verify_eddsa_jwt_with_jwks(&tampered, &jwks, &policy),
             Err(JwtVerificationError::InvalidSignature)
         );
 
-        let wrong_audience = JwtVerificationPolicy::new(now).audience("unknown-client");
+        let wrong_audience = JwtVerificationPolicy::new(now).audience(non_empty("unknown-client"));
         assert_eq!(
             verify_eddsa_jwt_with_jwks(&jwt, &jwks, &wrong_audience),
             Err(JwtVerificationError::AudienceMismatch)
@@ -373,11 +473,11 @@ mod tests {
     #[test]
     fn requires_unambiguous_key_when_jwt_has_no_kid() {
         let now = 1_715_990_000;
-        let (jwt, mut jwks) = jwt_fixture(now, None);
-        let second = jwks["keys"][0].clone();
-        jwks["keys"].as_array_mut().unwrap().push(second);
+        let (jwt, jwks) = jwt_fixture(now, None);
+        let second = jwks.keys()[0].clone();
+        let ambiguous = JsonWebKeySet::new(vec![jwks.keys()[0].clone(), second]).unwrap();
         assert_eq!(
-            verify_eddsa_jwt_with_jwks(&jwt, &jwks, &JwtVerificationPolicy::new(now)),
+            verify_eddsa_jwt_with_jwks(&jwt, &ambiguous, &JwtVerificationPolicy::new(now)),
             Err(JwtVerificationError::AmbiguousKeySelection)
         );
     }
@@ -403,5 +503,11 @@ mod tests {
 
         let policy = JwtVerificationPolicy::new(now).require_exp(false);
         assert!(verify_eddsa_jwt_with_jwks(&jwt, &jwks, &policy).is_ok());
+    }
+
+    #[test]
+    fn rejects_empty_or_duplicate_audience_arrays() {
+        assert!(serde_json::from_value::<JwtAudience>(json!([])).is_err());
+        assert!(serde_json::from_value::<JwtAudience>(json!(["client", "client"])).is_err());
     }
 }
