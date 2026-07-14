@@ -122,6 +122,35 @@ mod tests {
     }
 
     #[test]
+    fn realm_member_fsm_uses_leave_as_the_normative_initial_state() {
+        let registry = build_sdk_cell_registry();
+        let realm_id =
+            crate::RealmId::new("ak:realm:01904100-0000-7000-8000-000000000011").unwrap();
+        let cell = crate::CellRef::new(
+            "ak:cell:ak.component.member.state.v1:did:web:bob.example".to_owned(),
+        )
+        .unwrap();
+        let binding = registry.resolve(&realm_id, &cell).unwrap();
+        let invite = crate::SealedOp::new(
+            crate::MoveId::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
+            crate::LatticeOp {
+                op_type: crate::LatticeOpType::Transition,
+                tag: None,
+                value: None,
+                from: Some(json!("leave")),
+                to: Some(json!("invite")),
+                reason: None,
+                issuer_seq: None,
+            },
+        );
+
+        assert_eq!(
+            binding.lattice.join(&cell, &[invite]),
+            crate::CellState::Value(json!("invite"))
+        );
+    }
+
+    #[test]
     fn call_state_and_summary_use_call_id_subjects() {
         let registry = default_lattice_registry();
         let state = registry.lookup("ak.component.call.state.v1").unwrap();
