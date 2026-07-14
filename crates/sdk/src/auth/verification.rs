@@ -1,4 +1,5 @@
 use super::*;
+use crate::{DidUrl, NonEmptyString};
 
 /// Auth operation category supplied to rate-limit hooks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -82,12 +83,6 @@ pub struct OidcIssuerMetadata {
     pub jwks_uri: String,
 }
 
-/// JWKS material fetched or pinned by the embedding application.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OidcJwks {
-    pub keys: Value,
-}
-
 /// OIDC credential presented for verification.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
@@ -101,7 +96,7 @@ pub enum OidcCredential {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OidcVerificationRequestBody {
     pub issuer_metadata: OidcIssuerMetadata,
-    pub jwks: OidcJwks,
+    pub jwks: crate::signatures::JsonWebKeySet,
     pub client_id: String,
     pub expected_nonce: Option<String>,
     pub credential: OidcCredential,
@@ -186,8 +181,8 @@ where
 pub struct DidProofVerificationRequestBody {
     pub subject: Did,
     pub did_document: DidDocument,
-    pub verification_method: String,
-    pub public_key: String,
+    pub verification_method: DidUrl,
+    pub public_key: NonEmptyString,
     pub proof: Proof,
 }
 
@@ -196,7 +191,7 @@ pub struct DidProofVerificationRequestBody {
 pub struct DidProofVerification {
     pub verified: bool,
     pub subject: Did,
-    pub verification_method: String,
+    pub verification_method: DidUrl,
 }
 
 /// Application-supplied DID proof verifier.

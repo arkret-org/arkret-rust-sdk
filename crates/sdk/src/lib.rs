@@ -173,7 +173,6 @@ pub mod crypto;
 #[cfg(feature = "full-surface")]
 pub mod crypto_store;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub mod device_message;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod devices;
 #[cfg(feature = "full-surface")]
@@ -329,7 +328,7 @@ pub use auth::{
     ClaimDisclosureRequirement, DidProofVerification, DidProofVerificationRequestBody,
     DidProofVerifier, DisclosureProofAdapterBoundary, DisclosureProofFormat,
     MemorySessionGrantOutbox, MfaChallenge, OidcAuthRequestBody, OidcCredential,
-    OidcIssuerMetadata, OidcJwks, OidcVerificationRequestBody, OidcVerifiedIdentity, OidcVerifier,
+    OidcIssuerMetadata, OidcVerificationRequestBody, OidcVerifiedIdentity, OidcVerifier,
     PasskeyChallenge, PasskeyVerification, PasskeyVerificationRequestBody, PasskeyVerifier,
     PasswordHashAlgorithm, PasswordHashVerifier, PasswordUser, PasswordVerification,
     PasswordVerificationRequestBody, PersistedAuthSession, PresentationRequestBody,
@@ -389,14 +388,12 @@ pub use crypto_store::{
     StoredDeviceVerification,
 };
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub use device_message::{DeviceMessage, DeviceMessageBuilder, DeviceMessageReceipt};
-#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use devices::{
     CrossSigningResetContent, CrossSigningResetProof, Device, DeviceChange,
     DeviceCrossSigningChainVerification, DeviceManager, DeviceMetadata, DeviceQuorumSignature,
     DeviceTrustBinding, DeviceTrustChainOutcome, DeviceTrustState, DeviceVerificationChallenge,
-    DeviceVerificationMessageContent, DeviceVerificationMessageKind, QrVerificationPayload,
-    ToDeviceEnvelope, cross_signing_publish_cell_subject, device_verification_commitment,
+    DeviceVerificationMessageKind, QrVerificationPayload, ToDeviceEnvelope,
+    cross_signing_publish_cell_subject, device_verification_commitment,
     verify_device_cross_signing_chain,
 };
 #[cfg(feature = "full-surface")]

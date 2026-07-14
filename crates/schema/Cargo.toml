@@ -3,11 +3,11 @@ authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "development-tools"]
 description = "Arkret v1 schema catalog, validators, and spec artifact tooling."
 edition = "2024"
-homepage = "https://github.com/arkret/arkret-rust-sdk"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "schema", "conformance"]
 license = "Apache-2.0"
 name = "arkret-schema"
-repository = "https://github.com/arkret/arkret-rust-sdk"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 

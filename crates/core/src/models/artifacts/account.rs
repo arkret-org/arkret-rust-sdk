@@ -229,11 +229,11 @@ pub struct NotificationContainer {
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/device-message.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct DeviceMessage {
-    pub kind: NonEmptyString,
+pub struct DeviceMessageEnvelope {
+    pub kind: ProtocolKind,
     pub sender_principal_id: Did,
     pub sender_device_id: DeviceId,
     pub recipient_principal_id: Did,
@@ -247,9 +247,52 @@ pub struct DeviceMessage {
     pub unsigned: Option<BTreeMap<String, Value>>,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DeviceMessageEnvelopeWire {
+    kind: ProtocolKind,
+    sender_principal_id: Did,
+    sender_device_id: DeviceId,
+    recipient_principal_id: Did,
+    recipient_device_id: DeviceId,
+    sent_at: DateTime<Utc>,
+    expires_at: DateTime<Utc>,
+    content: BTreeMap<String, Value>,
+    #[serde(default)]
+    device_proof: Option<BTreeMap<String, Value>>,
+    #[serde(default)]
+    unsigned: Option<BTreeMap<String, Value>>,
+}
+
+impl<'de> Deserialize<'de> for DeviceMessageEnvelope {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = DeviceMessageEnvelopeWire::deserialize(deserializer)?;
+        if wire.expires_at <= wire.sent_at {
+            return Err(serde::de::Error::custom(
+                "device message expires_at must be later than sent_at",
+            ));
+        }
+        Ok(Self {
+            kind: wire.kind,
+            sender_principal_id: wire.sender_principal_id,
+            sender_device_id: wire.sender_device_id,
+            recipient_principal_id: wire.recipient_principal_id,
+            recipient_device_id: wire.recipient_device_id,
+            sent_at: wire.sent_at,
+            expires_at: wire.expires_at,
+            content: wire.content,
+            device_proof: wire.device_proof,
+            unsigned: wire.unsigned,
+        })
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeviceMessageContainer {
-    pub messages: Vec<DeviceMessage>,
+    pub messages: Vec<DeviceMessageEnvelope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ack_token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -426,4 +469,43 @@ pub struct RealmSyncEntry {
     pub event_states: Option<Vec<RealmSyncEntryEventStatesItem>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bottoms: Option<Vec<RealmSyncEntryBottomsItem>>,
+}
+
+#[cfg(test)]
+mod device_message_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn envelope_value() -> Value {
+        json!({
+            "kind": "ak.key.verification.request",
+            "sender_principal_id": "did:webvh:z6mkfixture:alice.example",
+            "sender_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
+            "recipient_principal_id": "did:webvh:z6mkfixture:alice.example",
+            "recipient_device_id": "ak:device:01904100-0000-7000-8000-000000000002",
+            "sent_at": "2026-07-15T00:00:00Z",
+            "expires_at": "2026-07-15T00:10:00Z",
+            "content": {"transaction_id": "txn"},
+            "device_proof": {"vendor_proof": true},
+            "unsigned": {"retry_after_ms": 1000}
+        })
+    }
+
+    #[test]
+    fn device_message_envelope_enforces_closed_object_shape_and_expiry_order() {
+        assert!(serde_json::from_value::<DeviceMessageEnvelope>(envelope_value()).is_ok());
+
+        let mut expired = envelope_value();
+        expired["expires_at"] = expired["sent_at"].clone();
+        assert!(serde_json::from_value::<DeviceMessageEnvelope>(expired).is_err());
+
+        let mut scalar_content = envelope_value();
+        scalar_content["content"] = json!("legacy payload");
+        assert!(serde_json::from_value::<DeviceMessageEnvelope>(scalar_content).is_err());
+
+        let mut unknown_root_field = envelope_value();
+        unknown_root_field["legacy"] = json!(true);
+        assert!(serde_json::from_value::<DeviceMessageEnvelope>(unknown_root_field).is_err());
+    }
 }

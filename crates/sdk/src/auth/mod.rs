@@ -9,7 +9,7 @@ use serde_json::Value;
 
 use crate::identity::DidDocument;
 use crate::models::Proof;
-use crate::{DeviceId, Did, Error, Result};
+use crate::{DeviceId, Did, DidUrl, Error, NonEmptyString, Result};
 
 mod claims;
 mod grants;
@@ -90,7 +90,7 @@ impl fmt::Debug for MfaChallenge {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AccountRecoveryMethod {
-    DidProof { verification_method: String },
+    DidProof { verification_method: DidUrl },
     PasswordReset { reset_token_hash: String },
     PasskeyWebAuthnRebinding { credential_id: String },
 }

@@ -2,12 +2,12 @@
 authors = ["Chris Young <chris@sonc.ai>"]
 description = "Arkret v1 FFI/WASM embedding contract types (contracts-only; defines no ABI, exports no extern \"C\"/UniFFI/wasm-bindgen surface)."
 edition = "2024"
-homepage = "https://github.com/arkret/arkret-rust-sdk"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "ffi", "wasm", "uniffi"]
 license = "Apache-2.0"
 name = "arkret-ffi"
 readme = "README.md"
-repository = "https://github.com/arkret/arkret-rust-sdk"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 

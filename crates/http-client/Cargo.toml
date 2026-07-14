@@ -3,12 +3,12 @@ authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "network-programming"]
 description = "HTTP transport bindings for Arkret v1 service endpoints."
 edition = "2024"
-homepage = "https://github.com/arkret/arkret-rust-sdk"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "client", "http", "sdk"]
 license = "Apache-2.0"
 name = "arkret-http-client"
 readme = "README.md"
-repository = "https://github.com/arkret/arkret-rust-sdk"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 

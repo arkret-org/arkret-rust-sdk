@@ -79,19 +79,19 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessage.content",
+      "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessageEnvelope.content",
       "spec_pointer": "device-message.schema.json/properties/content",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessage.device_proof",
+      "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessageEnvelope.device_proof",
       "spec_pointer": "device-message.schema.json/properties/device_proof",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessage.unsigned",
+      "rust_field": "crates/core/src/models/artifacts/account.rs::DeviceMessageEnvelope.unsigned",
       "spec_pointer": "device-message.schema.json/properties/unsigned",
       "classification": "open_json",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
@@ -599,24 +599,6 @@
       "spec_pointer": "key-backup.schema.json#/properties/retention",
       "classification": "open_json",
       "reason": "The retention object explicitly sets additionalProperties to true, so arbitrary retention metadata is part of this exact wire boundary."
-    },
-    {
-      "rust_field": "crates/core/src/models/keys.rs::DeviceMessageEnvelope.content",
-      "spec_pointer": "device-message.schema.json#/$defs/DeviceMessageEnvelope/properties/content",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/core/src/models/keys.rs::DeviceMessageEnvelope.device_proof",
-      "spec_pointer": "device-message.schema.json#/$defs/DeviceMessageEnvelope/properties/device_proof",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/core/src/models/keys.rs::DeviceMessageEnvelope.unsigned",
-      "spec_pointer": "device-message.schema.json#/$defs/DeviceMessageEnvelope/properties/unsigned",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
       "rust_field": "crates/core/src/models/keys.rs::DeviceMessageTarget.content",

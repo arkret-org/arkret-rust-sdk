@@ -23,12 +23,15 @@ pub use event_signer::{SignEventOptions, sign_event};
 #[path = "dpop.rs"]
 pub mod dpop;
 pub use dpop::{
-    DPOP_JWK_CRV_ED25519, DPOP_JWK_KTY_OKP, DPOP_PROOF_ALG, DPOP_PROOF_TYP, DpopJwk, DpopProof,
-    DpopProofRequest, build_dpop_proof, dpop_access_token_hash, dpop_jwk_thumbprint,
+    DPOP_PROOF_ALG, DPOP_PROOF_TYP, DpopProof, DpopProofRequest, build_dpop_proof,
+    dpop_access_token_hash, dpop_jwk_thumbprint,
 };
 
 #[path = "jwt.rs"]
 pub mod jwt;
+
+#[path = "jwk.rs"]
+pub mod jwk;
 
 // Shared `did:webvh` inception builder. Pure build + cryptography (keygen, SCID
 // derivation, eddsa-jcs-2022 proof) so clients and servers mint identical
@@ -55,7 +58,9 @@ use arkret_core::{
 };
 pub use arkret_core::{Error, Proof as ProtocolProof, Result};
 use chrono::{DateTime, Duration, Utc};
+pub use jwk::{JsonWebKey, JsonWebKeyOperation, JsonWebKeySet, JsonWebKeyUse};
 pub use jwt::{
+    JsonWebTokenClaims, JsonWebTokenHeader, JwtAlgorithm, JwtAudience, JwtType,
     JwtVerificationError, JwtVerificationPolicy, VerifiedJwt, verify_eddsa_jwt_with_jwks,
 };
 pub use proof::{

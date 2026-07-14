@@ -83,6 +83,94 @@ impl<'de> Deserialize<'de> for NonEmptyString {
     }
 }
 
+/// Arkret protocol kind matching `^ak\.[a-z0-9_]+(\.[a-z0-9_]+)*$`.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(transparent)]
+pub struct ProtocolKind(String);
+
+impl ProtocolKind {
+    pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
+        let value = value.into();
+        let Some(suffix) = value.strip_prefix("ak.") else {
+            return Err("protocol kind must start with ak.");
+        };
+        if suffix.split('.').any(|segment| {
+            segment.is_empty()
+                || !segment.chars().all(|character| {
+                    character.is_ascii_lowercase() || character.is_ascii_digit() || character == '_'
+                })
+        }) {
+            return Err("protocol kind contains an invalid segment");
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl AsRef<str> for ProtocolKind {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Deref for ProtocolKind {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for ProtocolKind {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl PartialEq<str> for ProtocolKind {
+    fn eq(&self, other: &str) -> bool {
+        self.as_str() == other
+    }
+}
+
+impl PartialEq<&str> for ProtocolKind {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
+impl TryFrom<String> for ProtocolKind {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<ProtocolKind> for String {
+    fn from(value: ProtocolKind) -> Self {
+        value.into_string()
+    }
+}
+
+impl<'de> Deserialize<'de> for ProtocolKind {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).map_err(de::Error::custom)
+    }
+}
+
 macro_rules! non_empty_wire_string {
     ($(#[$meta:meta])* $name:ident) => {
         $(#[$meta])*
@@ -464,6 +552,10 @@ mod tests {
         assert!(DidKey::new("did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x").is_ok());
         assert!(DidKey::new("did:web:example.test#device").is_err());
         assert!(serde_json::from_str::<NonEmptyJsonObject>("{}").is_err());
+        assert!(ProtocolKind::new("ak.key.verification.request").is_ok());
+        assert!(ProtocolKind::new("ak.key..request").is_err());
+        assert!(ProtocolKind::new("ak.Key.request").is_err());
+        assert!(ProtocolKind::new("vendor.key.request").is_err());
     }
 
     #[test]

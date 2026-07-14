@@ -1,34 +1,16 @@
 //! DPoP helper types for session-grant issuance and self-surface requests.
 
 use chrono::{DateTime, Utc};
-use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
+use ed25519_dalek::{Signer, SigningKey};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
+use super::jwk::JsonWebKey;
 use crate::{Error, Result};
 
 pub const DPOP_PROOF_TYP: &str = "dpop+jwt";
 pub const DPOP_PROOF_ALG: &str = "EdDSA";
-pub const DPOP_JWK_KTY_OKP: &str = "OKP";
-pub const DPOP_JWK_CRV_ED25519: &str = "Ed25519";
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DpopJwk {
-    pub kty: String,
-    pub crv: String,
-    pub x: String,
-}
-
-impl DpopJwk {
-    pub fn from_ed25519_verifying_key(verifying_key: &VerifyingKey) -> Self {
-        Self {
-            kty: DPOP_JWK_KTY_OKP.to_owned(),
-            crv: DPOP_JWK_CRV_ED25519.to_owned(),
-            x: arkret_canonical::base64url_encode(verifying_key.to_bytes()),
-        }
-    }
-}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DpopProofRequest {
@@ -77,7 +59,7 @@ impl DpopProofRequest {
 pub struct DpopProof {
     pub proof_jwt: String,
     pub header_value: String,
-    pub public_jwk: DpopJwk,
+    pub public_jwk: JsonWebKey,
     pub jkt: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ath: Option<String>,
@@ -87,11 +69,14 @@ pub fn dpop_access_token_hash(access_token: &str) -> String {
     arkret_canonical::canonical::sha256_base64url(access_token.as_bytes())
 }
 
-pub fn dpop_jwk_thumbprint(jwk: &DpopJwk) -> Result<String> {
+pub fn dpop_jwk_thumbprint(jwk: &JsonWebKey) -> Result<String> {
+    let (crv, x) = jwk
+        .ed25519_thumbprint_members()
+        .ok_or_else(|| Error::Protocol("DPoP public JWK must be an Ed25519 key".to_owned()))?;
     let thumbprint_object = json!({
-        "crv": jwk.crv,
-        "kty": jwk.kty,
-        "x": jwk.x,
+        "crv": crv,
+        "kty": "OKP",
+        "x": x,
     });
     let bytes = arkret_canonical::canonical::canonical_json_bytes(&thumbprint_object)?;
     Ok(arkret_canonical::canonical::sha256_base64url(bytes))
@@ -108,7 +93,7 @@ pub fn build_dpop_proof(request: &DpopProofRequest, signing_key: &SigningKey) ->
         return Err(Error::Protocol("DPoP jti must not be empty".to_owned()));
     }
 
-    let public_jwk = DpopJwk::from_ed25519_verifying_key(&signing_key.verifying_key());
+    let public_jwk = JsonWebKey::from_ed25519_verifying_key(&signing_key.verifying_key());
     let jkt = dpop_jwk_thumbprint(&public_jwk)?;
     let ath = request.access_token.as_deref().map(dpop_access_token_hash);
 
@@ -201,8 +186,8 @@ mod tests {
 
         assert_eq!(header["typ"], DPOP_PROOF_TYP);
         assert_eq!(header["alg"], DPOP_PROOF_ALG);
-        assert_eq!(header["jwk"]["kty"], DPOP_JWK_KTY_OKP);
-        assert_eq!(header["jwk"]["crv"], DPOP_JWK_CRV_ED25519);
+        assert_eq!(header["jwk"]["kty"], "OKP");
+        assert_eq!(header["jwk"]["crv"], "Ed25519");
         assert_eq!(payload["htm"], "POST");
         assert_eq!(payload["htu"], "https://arkret.example/_arkret/self/events");
         assert_eq!(payload["ath"], dpop_access_token_hash("grant-token"));

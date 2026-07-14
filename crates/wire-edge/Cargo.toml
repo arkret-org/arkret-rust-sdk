@@ -3,11 +3,11 @@ authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "data-structures"]
 description = "Arkret v1 push, integration, and cross-deployment edge wire contracts."
 edition = "2024"
-homepage = "https://github.com/arkret/arkret-rust-sdk"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "push", "integration", "wire"]
 license = "Apache-2.0"
 name = "arkret-wire-edge"
-repository = "https://github.com/arkret/arkret-rust-sdk"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 

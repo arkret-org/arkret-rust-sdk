@@ -3,12 +3,12 @@ authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["algorithms", "data-structures"]
 description = "Arkret v1 Move/Seal state resolution and snapshot runtime."
 edition = "2024"
-homepage = "https://github.com/arkret/arkret-rust-sdk"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "state", "snapshot", "protocol"]
 license = "Apache-2.0"
 name = "arkret-state"
 readme = "README.md"
-repository = "https://github.com/arkret/arkret-rust-sdk"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
 rust-version.workspace = true
 version.workspace = true
 
