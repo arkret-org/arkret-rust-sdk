@@ -149,9 +149,22 @@ pub struct AgentKeyApprovalEvidence {
 #[serde(rename_all = "snake_case")]
 pub enum AgentKeyScopeResourceKind {
     Realm,
-    Strand,
     Space,
+    Circle,
+    Strand,
+    Message,
+    Morph,
     Object,
+    Relation,
+    View,
+    Event,
+    Actor,
+    Schema,
+    Policy,
+    Invite,
+    Notification,
+    ReadCursor,
+    Blob,
     Operation,
     Service,
 }
@@ -167,6 +180,8 @@ pub struct AgentKeyScopeResource {
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resource_ref: Option<ObjectRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub schema_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operation: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

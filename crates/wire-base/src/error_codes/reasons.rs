@@ -170,6 +170,8 @@ pub const REASON_AEAD_NONCE_DERIVATION_INVALID: &str = "aead_nonce_derivation_in
 pub const REASON_AEAD_NONCE_SENDER_DOMAIN_COLLISION: &str = "aead_nonce_sender_domain_collision";
 pub const REASON_ACCOUNTABILITY_GRANT_MISSING: &str = "accountability_grant_missing";
 pub const REASON_AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE: &str = "agent_grant_exceeds_requested_scope";
+pub const REASON_AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID: &str =
+    "agent_requested_scope_commitment_invalid";
 pub const REASON_FOCUS_MISMATCH: &str = "focus_mismatch";
 pub const REASON_UNKNOWN_FOCUS_TYPE: &str = "unknown_focus_type";
 pub const REASON_TOKEN_ISSUER_UNAUTHORISED: &str = "token_issuer_unauthorised";
@@ -605,6 +607,7 @@ pub const KNOWN_REASON_CODES: &[&str] = &[
     REASON_AEAD_NONCE_SENDER_DOMAIN_COLLISION,
     REASON_ACCOUNTABILITY_GRANT_MISSING,
     REASON_AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE,
+    REASON_AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID,
     REASON_FOCUS_MISMATCH,
     REASON_UNKNOWN_FOCUS_TYPE,
     REASON_TOKEN_ISSUER_UNAUTHORISED,

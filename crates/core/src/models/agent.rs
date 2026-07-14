@@ -197,6 +197,7 @@ pub struct AgentProvisionOutcome {
     pub agent_id: Did,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: String,
+    pub requested_scope_digest: Hash,
     pub pcr_recovery: AgentProvisionPcrRecovery,
     pub pairing_request_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -211,6 +212,7 @@ pub struct AgentRenewPairingOutcome {
     pub agent_id: Did,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: String,
+    pub requested_scope_digest: Hash,
     pub pcr_recovery: AgentPcrRecoveryState,
     pub pairing_mode: AgentPairingMode,
     pub pairing_request_id: String,

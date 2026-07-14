@@ -101,8 +101,9 @@ pub use account_subscribe::{
 pub use admin_signer::{AdminKeyStore, SessionGrantIntrospection, admin_scopes};
 pub use agent::{
     agent_key_pair_proof_request_binding_digest, agent_key_pairing_request_binding_digest,
-    agent_runtime_attestation_digest, agent_runtime_key_binding_digest,
-    agent_runtime_key_binding_digest_from_digests, agent_runtime_public_key_digest,
+    agent_requested_scope_digest, agent_runtime_attestation_digest,
+    agent_runtime_key_binding_digest, agent_runtime_key_binding_digest_from_digests,
+    agent_runtime_public_key_digest,
 };
 pub use applet::*;
 pub use arkret_identifiers as identifiers;

@@ -73,6 +73,8 @@ pub struct KeyState {
     pub pcr_recovery: AgentPcrRecoveryState,
     /// Immutable global Agent ceiling captured by provisioning.
     pub requested_scope: AgentKeyScope,
+    /// Digest of the immutable ceiling committed by the accepted Agent DID.
+    pub requested_scope_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_request_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

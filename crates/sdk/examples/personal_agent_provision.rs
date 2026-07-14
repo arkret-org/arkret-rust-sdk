@@ -52,15 +52,25 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
     println!("→ {method} {path}  ({op_id})");
     println!("  request: {body}");
     match op_id {
-        "ak.self.agent.command.provision" => json!({
-            "agent_id": "did:webvh:z6mkfixture:agent.example",
-            "principal_control_realm_id": "ak:realm:01964137-0000-7000-8000-000000000100",
-            "controller_authorization_ref": "did:webvh:z6mkfixture:agent.example#managed-controller",
-            "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
-            "pairing_code": "12345678",
-            "expires_at": "2026-06-18T12:15:00Z",
-            "pcr_recovery": { "status": "pending" },
-        }),
+        "ak.self.agent.command.provision" => {
+            let agent_id = Did::new("did:webvh:z6mkfixture:agent.example").unwrap();
+            let controller_id = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+            let requested_scope: AgentKeyScope =
+                serde_json::from_value(body["requested_scope"].clone()).unwrap();
+            let requested_scope_digest =
+                arkret::agent_requested_scope_digest(&agent_id, &controller_id, &requested_scope)
+                    .unwrap();
+            json!({
+                "agent_id": agent_id,
+                "principal_control_realm_id": "ak:realm:01964137-0000-7000-8000-000000000100",
+                "controller_authorization_ref": "did:webvh:z6mkfixture:agent.example#managed-controller",
+                "requested_scope_digest": requested_scope_digest,
+                "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
+                "pairing_code": "12345678",
+                "expires_at": "2026-06-18T12:15:00Z",
+                "pcr_recovery": { "status": "pending" },
+            })
+        }
         "ak.gate.account.command.pair_agent_key" => json!({
             "ok": true,
             "authorized_event_ref": "ak:event:01964137-0000-7000-8000-000000000101",
@@ -123,6 +133,7 @@ fn main() -> arkret::Result<()> {
                 kind: AgentKeyScopeResourceKind::Operation,
                 realm_id: None,
                 resource_ref: None,
+                schema_ref: None,
                 operation: Some("ak.self.events.command.submit".to_owned()),
                 service_id: None,
             }],
@@ -133,10 +144,17 @@ fn main() -> arkret::Result<()> {
     .pairing_ttl_ms(15 * 60 * 1000)
     .build();
 
+    let requested_scope = provision_body.requested_scope.clone();
     let provisioned = send_plan(plan_agent_provision(provision_body))?;
     let agent_id = provisioned["agent_id"].as_str().unwrap().to_owned();
 
     let agent_id = Did::new(agent_id)?;
+    let expected_scope_digest =
+        arkret::agent_requested_scope_digest(&agent_id, &controller, &requested_scope)?;
+    assert_eq!(
+        provisioned["requested_scope_digest"].as_str(),
+        Some(expected_scope_digest.as_str())
+    );
     let pairing_request_id = provisioned["pairing_request_id"].as_str().unwrap();
     let verification_method = format!("{agent_id}#runtime-key-1");
     let public_key = json!({
@@ -178,6 +196,7 @@ fn main() -> arkret::Result<()> {
                     kind: AgentKeyScopeResourceKind::Operation,
                     realm_id: None,
                     resource_ref: None,
+                    schema_ref: None,
                     operation: Some("ak.self.events.command.submit".to_owned()),
                     service_id: None,
                 }],

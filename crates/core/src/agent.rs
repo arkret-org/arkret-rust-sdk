@@ -4,8 +4,17 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::{
-    Did, Error, Hash, OP_ACCOUNT_AGENT_KEY_PAIR, PublicKey, Result, base64url_decode, canonical,
+    AgentKeyScope, Did, Error, Hash, OP_ACCOUNT_AGENT_KEY_PAIR, PublicKey, Result,
+    base64url_decode, canonical,
 };
+
+#[derive(Serialize)]
+struct AgentRequestedScopeCommitment<'a> {
+    agent_id: &'a str,
+    controller_id: &'a str,
+    kind: &'static str,
+    requested_scope: &'a AgentKeyScope,
+}
 
 #[derive(Serialize)]
 struct AgentKeyPairingRequestBinding<'a> {
@@ -41,6 +50,24 @@ struct AgentRuntimeKeyBinding<'a> {
     pairing_request_id: &'a str,
     public_key_digest: &'a str,
     verification_method: &'a str,
+}
+
+/// Compute the immutable provision ceiling commitment fixed in the accepted
+/// Agent DID `ArkretPrincipalControlRealm` service entry.
+pub fn agent_requested_scope_digest(
+    agent_id: &Did,
+    controller_id: &Did,
+    requested_scope: &AgentKeyScope,
+) -> Result<Hash> {
+    Hash::new(canonical::canonical_sha256(
+        &AgentRequestedScopeCommitment {
+            agent_id: agent_id.as_str(),
+            controller_id: controller_id.as_str(),
+            kind: "ak.agent.requested_scope_commitment.v1",
+            requested_scope,
+        },
+    )?)
+    .map_err(Error::from)
 }
 
 pub fn agent_runtime_public_key_digest(public_key: &Value) -> Result<Hash> {
@@ -173,6 +200,35 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    fn requested_scope() -> AgentKeyScope {
+        serde_json::from_value(json!({
+            "actions": [
+                "ak.event.read",
+                "ak.self.events.stream.subscribe"
+            ],
+            "resources": [
+                {
+                    "kind": "operation",
+                    "operation": "ak.self.events.stream.subscribe"
+                }
+            ]
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn requested_scope_commitment_is_domain_separated_and_stable() {
+        let agent_id = Did::new("did:webvh:z6mkagent:agent.example").unwrap();
+        let controller_id = Did::new("did:webvh:z6mkcontroller:controller.example").unwrap();
+        let digest =
+            agent_requested_scope_digest(&agent_id, &controller_id, &requested_scope()).unwrap();
+
+        assert_eq!(
+            digest.as_str(),
+            "sha256:fc25a74d604984484de924bf889d612ba574d4bb4970620c70dc603adf22a042"
+        );
+    }
 
     #[test]
     fn runtime_key_binding_matches_normative_vector() {

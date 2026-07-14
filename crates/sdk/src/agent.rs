@@ -1215,6 +1215,7 @@ mod tests {
                 kind: AgentKeyScopeResourceKind::Operation,
                 realm_id: None,
                 resource_ref: None,
+                schema_ref: None,
                 operation: Some(SERVICE_SCOPE_SELF_EVENTS_STREAM_SUBSCRIBE.to_owned()),
                 service_id: None,
             }],
