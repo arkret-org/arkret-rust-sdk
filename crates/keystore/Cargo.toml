@@ -1,7 +1,7 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "cryptography", "os"]
-description = "Platform-native KeyStore backends (macOS Keychain, Linux Secret Service, Windows Credential Manager) for the Arkret v1 SDK."
+description = "Durable encrypted-file and platform-native KeyStore backends for the Arkret v1 SDK."
 edition = "2024"
 homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "keystore", "keychain", "secrets"]
@@ -18,6 +18,14 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
+keystore-encrypted-file = [
+    "dep:atomic-write-file",
+    "dep:chacha20poly1305",
+    "dep:getrandom",
+    "dep:hkdf",
+    "dep:sha2",
+    "dep:zeroize",
+]
 # Platform KeyStore native backends. Each pulls its target-specific dep
 # only on the matching target_os via `[target.*]` blocks below, so
 # enabling all three on a non-matching host is a no-op for that backend.
@@ -27,7 +35,13 @@ keystore-windows = ["dep:windows"]
 
 [dependencies]
 arkret-core = {workspace = true}
+atomic-write-file = {workspace = true,optional = true}
+chacha20poly1305 = {workspace = true,optional = true}
+getrandom = {workspace = true,optional = true}
+hkdf = {workspace = true,optional = true}
+sha2 = {workspace = true,optional = true}
 tracing = {workspace = true}
+zeroize = {workspace = true,optional = true}
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = {workspace = true,optional = true}

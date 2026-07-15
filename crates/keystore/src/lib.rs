@@ -1,4 +1,4 @@
-//! Platform-native [`KeyStore`] backends for the Arkret v1 SDK.
+//! Durable [`KeyStore`] backends for the Arkret v1 SDK.
 //!
 //! The pure storage contract — the [`KeyStore`] trait, [`KeyStoreError`] and
 //! the dependency-free [`InMemoryKeyStore`] — lives in `arkret-core`. This
@@ -11,6 +11,7 @@
 //! | Backend | Feature | `target_os` |
 //! |---|---|---|
 //! | [`InMemoryKeyStore`] | always available | any |
+//! | [`EncryptedFileKeyStore`] | `keystore-encrypted-file` | native targets |
 //! | [`MacOsKeychainKeyStore`] | `keystore-macos` | `macos` |
 //! | [`LinuxSecretServiceKeyStore`] | `keystore-linux` | `linux` |
 //! | [`WindowsCredentialKeyStore`] | `keystore-windows` | `windows` |
@@ -28,14 +29,16 @@
 //! | Backend | Persistence | At-rest protection | Cross-process concurrency |
 //! |---|---|---|---|
 //! | [`InMemoryKeyStore`] | none — lost on process exit | none (process memory) | none (per-process map) |
+//! | [`EncryptedFileKeyStore`] | survives reboot with caller-custodied master key | XChaCha20-Poly1305 authenticated encryption | stable lock file + atomic same-directory replacement |
 //! | [`MacOsKeychainKeyStore`] | survives logout and reboot (login keychain) | Keychain, unlocked with the login session | Keychain serializes item ops; no SDK-level CAS |
 //! | [`LinuxSecretServiceKeyStore`] | survives logout and reboot (default collection) | Secret Service daemon; the collection may lock on logout | D-Bus daemon serializes ops; no SDK-level CAS |
 //! | [`WindowsCredentialKeyStore`] | survives logout and reboot (`CRED_PERSIST_LOCAL_MACHINE`) | DPAPI, scoped to the user profile | Win32 credential API serializes ops; no SDK-level CAS |
 //!
-//! Concurrency: every backend is last-writer-wins for `store` on the same
-//! id — there is no compare-and-swap and no cross-process lock. If two
-//! processes race a `store` for one id, one write silently wins; serialize
-//! key rotation at the application layer.
+//! Concurrency: every backend is last-writer-wins for `store` on the same id
+//! and provides no compare-and-swap. The encrypted-file backend serializes
+//! whole-map updates with a cross-process lock; OS-native backends rely on
+//! their platform service. Serialize semantic key rotation at the application
+//! layer.
 //!
 //! ## Service-name namespacing
 //!
@@ -57,6 +60,11 @@
 // of `arkret-keystore` get the trait + in-memory backend + error type from a
 // single import surface alongside the platform backends below.
 pub use arkret_core::keystore::{InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError};
+
+#[cfg(feature = "keystore-encrypted-file")]
+mod encrypted_file;
+#[cfg(feature = "keystore-encrypted-file")]
+pub use encrypted_file::EncryptedFileKeyStore;
 
 #[cfg(all(target_os = "macos", feature = "keystore-macos"))]
 mod macos;

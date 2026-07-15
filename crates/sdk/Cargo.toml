@@ -65,6 +65,7 @@ timeline-runtime = ["full-surface"]
 keystore-macos = ["arkret-keystore/keystore-macos"]
 keystore-linux = ["arkret-keystore/keystore-linux"]
 keystore-windows = ["arkret-keystore/keystore-windows"]
+keystore-encrypted-file = ["arkret-keystore/keystore-encrypted-file"]
 
 [dependencies]
 
