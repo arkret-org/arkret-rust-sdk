@@ -3,7 +3,7 @@
 mod session_and_identity {
     use std::collections::BTreeMap;
 
-    use chrono::{Duration, Utc};
+    use chrono::{DateTime, Duration, Utc};
 
     use super::super::*;
     fn realm() -> RealmId {

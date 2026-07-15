@@ -26,17 +26,27 @@ backup = [
     "dep:hmac",
     "dep:zeroize",
 ]
+identity-root = [
+    "dep:bip39",
+    "dep:ed25519-dalek",
+    "dep:hkdf",
+    "dep:hpke",
+    "dep:zeroize",
+]
 
 [dependencies]
 arkret-canonical = {workspace = true}
 argon2 = {workspace = true,default-features = false,features = ["alloc"],optional = true}
+bip39 = {workspace = true,optional = true}
 chacha20poly1305 = {workspace = true,optional = true}
 chrono = {workspace = true,features = ["serde"]}
 arkret-core = {workspace = true}
 arkret-signatures = {workspace = true,features = ["protocol"]}
+ed25519-dalek = {workspace = true,optional = true}
 getrandom = {workspace = true,optional = true}
 hkdf = {workspace = true,optional = true}
 hmac = {workspace = true,optional = true}
+hpke = {workspace = true,optional = true}
 serde = {workspace = true}
 serde_json = {workspace = true}
 sha2 = {workspace = true}
@@ -52,3 +62,4 @@ required-features = ["backup"]
 
 [dev-dependencies]
 arkret-schema = {workspace = true,features = ["embedded-artifacts"]}
+hex = {workspace = true}

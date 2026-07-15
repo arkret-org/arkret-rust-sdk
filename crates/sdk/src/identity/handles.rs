@@ -433,7 +433,7 @@ impl IdentityManager {
         document
             .verification_methods
             .insert(key_id.into(), public_key.into());
-        document.updated_at = Utc::now();
+        document.updated_at = Some(Utc::now());
         Ok(())
     }
 

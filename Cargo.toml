@@ -11,6 +11,7 @@ rust-version = "1.96"
 anyhow = "1.0"
 argon2 = {version = "0.5.3",default-features = false,features = ["alloc", "password-hash"]}
 base64 = {version = "0.22.1",default-features = false,features = ["std"]}
+bip39 = {version = "2.2.0",default-features = false,features = ["std"]}
 blake3 = {version = "1.5.5",default-features = false}
 bs58 = {version = "0.5.1",default-features = false,features = ["std"]}
 chacha20poly1305 = {version = "0.10.1",default-features = false,features = ["alloc"]}

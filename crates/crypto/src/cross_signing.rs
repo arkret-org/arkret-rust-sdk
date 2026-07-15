@@ -71,10 +71,7 @@ pub enum DeviceTrustChainOutcome {
     /// `cross_signing_binding.ssk_generation` is ahead of the accepted
     /// publish — caller MUST trigger a control-stream re-sync.
     AwaitingPublish,
-    /// Legitimate bootstrap path (`§5.3 bootstrap_binding` present and no
-    /// prior publish accepted).
-    Bootstrap,
-    /// No cross-signing binding present and bootstrap is not allowed.
+    /// No cross-signing binding is present.
     Unverified,
     /// Cryptographic check failed.
     Invalid,

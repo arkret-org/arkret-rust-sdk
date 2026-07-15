@@ -560,6 +560,8 @@ impl Event {
         as_strand_update => (StrandPatchPayload, crate::events::kinds::STRAND_UPDATE),
         /// Parse a `ak.member.state` payload.
         as_member_state => (MembershipPayload, crate::events::kinds::MEMBER_STATE),
+        /// Parse a `ak.device.reanchor` payload.
+        as_device_reanchor => (DeviceReanchorPayload, crate::events::kinds::DEVICE_REANCHOR),
         /// Parse a `ak.morph.create` payload.
         as_morph_create => (MorphCreatePayload, crate::events::kinds::MORPH_CREATE),
         /// Parse a `ak.morph.update` payload.

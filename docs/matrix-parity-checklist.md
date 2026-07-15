@@ -53,16 +53,16 @@ The Arkret SDK ships the full three-key hierarchy as typed records, not as a sin
 [`DeviceTrustBinding`](../crates/crypto/src/lib.rs) on the SDK side, with `ssk_generation` so the verifier can detect stale bindings without re-fetching the publish stream:
 
 - [`DeviceTrustBinding::canonical_input`](../crates/crypto/src/lib.rs) returns the spec-canonical `ak-device-trust-bind-v1\n + canonical_json({principal_id, device_id, device_public_key, ssk_generation})` bytes.
-- [`DeviceManager::evaluate_trust_chain`](../crates/sdk/src/devices/manager.rs) implements spec §5.2.1 step-by-step and returns one of `CrossSigned` / `NeedsReverification` / `AwaitingPublish` / `Bootstrap` / `Unverified` / `Invalid` so callers can render the right UI without re-implementing the algorithm.
+- [`DeviceManager::evaluate_trust_chain`](../crates/sdk/src/devices/manager.rs) implements spec §5.2.1 step-by-step and returns one of `CrossSigned` / `NeedsReverification` / `AwaitingPublish` / `Unverified` / `Invalid` so callers can render the right UI without re-implementing the algorithm.
 - [`DeviceManager::propagate_trust`](../crates/sdk/src/devices/manager.rs) now requires the TARGET device to already carry a binding under the current generation — sibling trust isn't transitive in the protocol, unlike Matrix's "if any of my devices verified you, all do" shortcut.
 
 ### `NeedsReverification` state (spec §14.2)
 
 Both `crypto::DeviceTrustState` and `core::models::api::DeviceVerificationState` now have a `NeedsReverification` variant. After a reset, every accepted device drops to this state and its binding is cleared. UI / policy MUST treat it as "no longer cross-signed". This is the SDK-side enforcement of spec §14.2 steps 1–3.
 
-### Bootstrap path (spec §5.3)
+### Inception authorization
 
-[`DeviceManager::attach_bootstrap_binding`](../crates/sdk/src/devices/manager.rs) accepts a [`DeviceBootstrapBinding`](../crates/crypto/src/lib.rs) **only when no cross-signing publish exists yet** for the principal. Once a publish lands, bootstrap-only devices report `NeedsReverification` from `evaluate_trust_chain`. This implements the spec's first-device inception escape hatch without leaving it as a permanent backdoor.
+Device authorization has no bootstrap self-authorization escape hatch. A device is admitted only by a current cross-signing binding or by the enrollment authority designated in the principal DID document; unbound first devices remain `Unverified`.
 
 ### Cancel code registry
 

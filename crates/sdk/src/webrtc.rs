@@ -11,8 +11,6 @@ use arkret_core::{MediaIceConfigSignature, MediaIceSignatureInput};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::Signature;
 use serde::{Deserialize, Serialize};
-#[cfg(test)]
-use serde_json::Value;
 
 /// SDP description type used by the SDK's WebRTC transport helpers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -31,7 +31,7 @@ fn event(kind: &str, seq: u64, realm_id: &RealmId, content: Value) -> Event {
         seal_basis: None,
         requirements: EventRequirements::default(),
         redacts: None,
-        payload: content,
+        payload: serde_json::from_value(content).unwrap(),
         executed_by: None,
         authorization_ref: None,
         applet_id: None,

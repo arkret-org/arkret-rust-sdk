@@ -989,12 +989,9 @@ pub struct MimiProxyDownloadOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantRequestBody {
-    /// Optional for `proof_kind = oidc_code_exchange` first sign-in: the client
-    /// may omit it and the Account Authority derives/returns the principal DID
-    /// (see `SessionGrantOutcome.principal_id`). Other proof kinds still supply
-    /// it; the server enforces presence per the spec's conditional.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub principal_id: Option<Did>,
+    /// Existing principal DID. OIDC verifies a login factor and never mints or
+    /// derives protocol identity.
+    pub principal_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

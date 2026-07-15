@@ -124,6 +124,7 @@ pub use arkret_core::{
     identifiers, integration, keystore, lattice, models, operations, ops, push_rule_core, schema,
     service, sync, *,
 };
+pub use arkret_crypto::identity_root;
 pub use arkret_ffi as ffi;
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;
@@ -138,7 +139,7 @@ pub use arkret_signatures as signatures;
 pub use arkret_signatures::Ed25519MoveSigner;
 // Shared `did:webvh` inception builder + organization statement signer, surfaced
 // at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
-// reach one implementation: `arkret_sdk::webvh::prepare_inception`,
+// reach one implementation: `arkret_sdk::webvh::prepare_principal_inception`,
 // `arkret_sdk::realm_organization_statement_sign`.
 pub use arkret_signatures::{realm_organization, realm_organization_statement_sign, webvh};
 pub use arkret_state::{snapshot, state, *};

@@ -47,12 +47,27 @@ pub enum DeviceStatus {
     Revoked,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DeviceGenerationStatus {
+    Active,
+    Conflicted,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct DeviceGenerationState {
+    pub current_device_generation_ref: NonEmptyString,
+    pub device_generation_status: DeviceGenerationStatus,
+}
+
 /// Per-device cross-signing binding echoed from
 /// `ak.device.authorize.payload.cross_signing_binding`
 /// (`crypto-media/device-lifecycle.md` §5.2). The accepted-generation SSK signs
 /// `"ak.device-trust-bind-v1\n" + canonical_json({principal_id, device_id,
 /// device_public_key, hpke_key, algorithms, ssk_generation})`. Absent for
-/// inception bootstrap and
 /// service-attested devices. Mirrors
 /// `keys-operations.schema.json#/$defs/cross_signing_binding`.
 ///
@@ -116,7 +131,7 @@ pub struct QueryDeviceRecord {
     /// Cross-signing trust material: the device's authoritative
     /// `cross_signing_binding` echoed verbatim, so the client can
     /// independently verify the device-key ← SSK link (`device-lifecycle.md`
-    /// §8.3). Absent for inception bootstrap and service-attested devices.
+    /// §8.3). Absent for service-attested devices.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cross_signing_binding: Option<QueryDeviceCrossSigningBinding>,
     /// Service-attested trust material for managed-DID devices
@@ -131,6 +146,26 @@ pub struct QueryDeviceRecord {
     /// clients carry forward.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_authorize_event_id: Option<EventId>,
+    /// Reducer-managed B-model generation that authorized this device.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorized_generation_ref: Option<NonEmptyString>,
+}
+
+impl QueryDeviceRecord {
+    pub fn is_usable_in_generation(&self, generation: Option<&DeviceGenerationState>) -> bool {
+        if self.device_status != Some(DeviceStatus::Active) {
+            return false;
+        }
+        match (generation, self.authorized_generation_ref.as_ref()) {
+            (None, None) => self.cross_signing_binding.is_some(),
+            (Some(state), Some(device_generation)) => {
+                state.device_generation_status == DeviceGenerationStatus::Active
+                    && device_generation == &state.current_device_generation_ref
+                    && self.enrollment_authority_binding.is_some()
+            }
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -147,6 +182,9 @@ pub struct KeysQueryOutcome {
     /// [`CrossSigningPublish`].
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub cross_signing: BTreeMap<Did, CrossSigningPublish>,
+    /// Reducer-managed B-model device generation fence by principal.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub device_generations: BTreeMap<Did, DeviceGenerationState>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -11,7 +11,7 @@ use crate::events::kinds::{
 
 /// Count of standard `ak.*` event kinds the registry declares active.
 /// Excludes the [EventKind::Unknown] catch-all.
-pub const EVENT_KIND_COUNT: usize = 184;
+pub const EVENT_KIND_COUNT: usize = 186;
 
 /// Strongly-typed Arkret event kind. One variant per active `ak.*` kind in
 /// `event-kind-registry.json`, plus [EventKind::Unknown] which preserves
@@ -47,6 +47,8 @@ pub enum EventKind {
     AgentKeyAuthorize,
     /// `ak.agent.key.revoke`
     AgentKeyRevoke,
+    /// `ak.agent.selector_claim`
+    AgentSelectorClaim,
     /// `ak.applet.bridge_error`
     AppletBridgeError,
     /// `ak.applet.discovery`
@@ -129,6 +131,8 @@ pub enum EventKind {
     DeviceListUpdate,
     /// `ak.device.push_route`
     DevicePushRoute,
+    /// `ak.device.reanchor`
+    DeviceReanchor,
     /// `ak.device.revoke`
     DeviceRevoke,
     /// `ak.did.proof`
@@ -414,6 +418,7 @@ impl EventKind {
             Self::AgentDraftPropose => "ak.agent.draft.propose",
             Self::AgentKeyAuthorize => "ak.agent.key.authorize",
             Self::AgentKeyRevoke => "ak.agent.key.revoke",
+            Self::AgentSelectorClaim => "ak.agent.selector_claim",
             Self::AppletBridgeError => "ak.applet.bridge_error",
             Self::AppletDiscovery => "ak.applet.discovery",
             Self::AppletRegistration => "ak.applet.registration",
@@ -455,6 +460,7 @@ impl EventKind {
             Self::DeviceAuthorize => "ak.device.authorize",
             Self::DeviceListUpdate => "ak.device.list_update",
             Self::DevicePushRoute => "ak.device.push_route",
+            Self::DeviceReanchor => "ak.device.reanchor",
             Self::DeviceRevoke => "ak.device.revoke",
             Self::DidProof => "ak.did.proof",
             Self::DirectConversationBound => "ak.direct_conversation.bound",
@@ -606,6 +612,7 @@ impl EventKind {
             "ak.agent.draft.propose" => Self::AgentDraftPropose,
             "ak.agent.key.authorize" => Self::AgentKeyAuthorize,
             "ak.agent.key.revoke" => Self::AgentKeyRevoke,
+            "ak.agent.selector_claim" => Self::AgentSelectorClaim,
             "ak.applet.bridge_error" => Self::AppletBridgeError,
             "ak.applet.discovery" => Self::AppletDiscovery,
             "ak.applet.registration" => Self::AppletRegistration,
@@ -647,6 +654,7 @@ impl EventKind {
             "ak.device.authorize" => Self::DeviceAuthorize,
             "ak.device.list_update" => Self::DeviceListUpdate,
             "ak.device.push_route" => Self::DevicePushRoute,
+            "ak.device.reanchor" => Self::DeviceReanchor,
             "ak.device.revoke" => Self::DeviceRevoke,
             "ak.did.proof" => Self::DidProof,
             "ak.direct_conversation.bound" => Self::DirectConversationBound,

@@ -61,38 +61,31 @@ pub struct HandleAttestation {
 /// data model for `arkret-core`. Core keeps the protocol response envelope
 /// (`IdentityResolveOutcome`) while this type provides the
 /// serde shape and convenience helpers used by identity resolvers.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DidDocument {
     pub id: Did,
-    #[serde(
-        rename = "verificationMethod",
-        default,
-        deserialize_with = "deserialize_verification_methods",
-        skip_serializing_if = "BTreeMap::is_empty"
-    )]
     pub verification_methods: BTreeMap<String, String>,
-    #[serde(rename = "alsoKnownAs", default, skip_serializing_if = "Vec::is_empty")]
     pub also_known_as: Vec<String>,
-    #[serde(rename = "updated", default = "Utc::now")]
-    pub updated_at: DateTime<Utc>,
+    pub updated_at: Option<DateTime<Utc>>,
+    /// Exact DID Document properties received on the wire. This preserves
+    /// standard relationships, services, contexts, controller declarations,
+    /// and extension properties that the convenience indexes above do not
+    /// interpret.
+    pub raw_properties: BTreeMap<String, Value>,
 }
 
-fn deserialize_verification_methods<'de, D>(
-    deserializer: D,
-) -> std::result::Result<BTreeMap<String, String>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let value = Value::deserialize(deserializer)?;
+fn verification_method_index(
+    value: &Value,
+) -> std::result::Result<BTreeMap<String, String>, String> {
     match value {
         Value::Object(methods) => Ok(methods
-            .into_iter()
+            .iter()
             .map(|(key_id, key_value)| {
                 let public_key = key_value
                     .as_str()
                     .map(ToOwned::to_owned)
                     .unwrap_or_else(|| key_value.to_string());
-                (key_id, public_key)
+                (key_id.clone(), public_key)
             })
             .collect()),
         Value::Array(methods) => {
@@ -122,9 +115,113 @@ where
             Ok(out)
         }
         Value::Null => Ok(BTreeMap::new()),
-        other => Err(serde::de::Error::custom(format!(
+        other => Err(format!(
             "verificationMethod must be an object or array, got {other}"
-        ))),
+        )),
+    }
+}
+
+impl Serialize for DidDocument {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut properties = self.raw_properties.clone();
+        properties.insert("id".to_owned(), Value::String(self.id.to_string()));
+
+        let keep_raw_verification_methods = properties
+            .get("verificationMethod")
+            .and_then(|value| verification_method_index(value).ok())
+            .is_some_and(|index| index == self.verification_methods);
+        if !keep_raw_verification_methods {
+            if self.verification_methods.is_empty() {
+                properties.remove("verificationMethod");
+            } else {
+                properties.insert(
+                    "verificationMethod".to_owned(),
+                    serde_json::to_value(&self.verification_methods)
+                        .map_err(serde::ser::Error::custom)?,
+                );
+            }
+        }
+
+        let keep_raw_aliases = properties
+            .get("alsoKnownAs")
+            .and_then(Value::as_array)
+            .is_some_and(|items| {
+                items.iter().map(Value::as_str).collect::<Option<Vec<_>>>()
+                    == Some(self.also_known_as.iter().map(String::as_str).collect())
+            });
+        if !keep_raw_aliases {
+            if self.also_known_as.is_empty() {
+                properties.remove("alsoKnownAs");
+            } else {
+                properties.insert(
+                    "alsoKnownAs".to_owned(),
+                    serde_json::to_value(&self.also_known_as).map_err(serde::ser::Error::custom)?,
+                );
+            }
+        }
+
+        let keep_raw_updated = properties
+            .get("updated")
+            .cloned()
+            .and_then(|value| serde_json::from_value::<DateTime<Utc>>(value).ok())
+            .as_ref()
+            == self.updated_at.as_ref();
+        match (self.updated_at.as_ref(), keep_raw_updated) {
+            (Some(_), true) => {}
+            (Some(updated_at), false) => {
+                properties.insert(
+                    "updated".to_owned(),
+                    serde_json::to_value(updated_at).map_err(serde::ser::Error::custom)?,
+                );
+            }
+            (None, _) => {
+                properties.remove("updated");
+            }
+        }
+        properties.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for DidDocument {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw_properties = BTreeMap::<String, Value>::deserialize(deserializer)?;
+        let id = raw_properties
+            .get("id")
+            .cloned()
+            .ok_or_else(|| serde::de::Error::missing_field("id"))
+            .and_then(|value| serde_json::from_value(value).map_err(serde::de::Error::custom))?;
+        let verification_methods = raw_properties
+            .get("verificationMethod")
+            .map(verification_method_index)
+            .transpose()
+            .map_err(serde::de::Error::custom)?
+            .unwrap_or_default();
+        let also_known_as = raw_properties
+            .get("alsoKnownAs")
+            .cloned()
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(serde::de::Error::custom)?
+            .unwrap_or_default();
+        let updated_at = raw_properties
+            .get("updated")
+            .cloned()
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(serde::de::Error::custom)?;
+        Ok(Self {
+            id,
+            verification_methods,
+            also_known_as,
+            updated_at,
+            raw_properties,
+        })
     }
 }
 
@@ -134,7 +231,8 @@ impl DidDocument {
             id,
             verification_methods: BTreeMap::from([(key_id.into(), public_key.into())]),
             also_known_as: Vec::new(),
-            updated_at: Utc::now(),
+            updated_at: Some(Utc::now()),
+            raw_properties: BTreeMap::new(),
         }
     }
 
@@ -147,9 +245,14 @@ impl DidDocument {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.verification_methods.is_empty() {
+        if self
+            .raw_properties
+            .get("id")
+            .and_then(Value::as_str)
+            .is_some_and(|raw_id| raw_id != self.id.as_str())
+        {
             return Err(crate::Error::Protocol(
-                "did document has no verification methods".to_owned(),
+                "did document id mismatch".to_owned(),
             ));
         }
         Ok(())
@@ -261,7 +364,8 @@ mod tests {
             id: did("alice"),
             verification_methods: BTreeMap::from([("key-1".to_owned(), "pub".to_owned())]),
             also_known_as: vec!["@alice:example".to_owned()],
-            updated_at: Utc::now(),
+            updated_at: Some(Utc::now()),
+            raw_properties: BTreeMap::new(),
         };
         document.validate().unwrap();
 
@@ -272,6 +376,27 @@ mod tests {
         assert!(response.did_document.get("updated").is_some());
         assert!(response.did_document.get("verification_methods").is_none());
         assert!(response.did_document.get("also_known_as").is_none());
+    }
+
+    #[test]
+    fn did_document_preserves_relationships_and_allows_empty_verification_methods() {
+        let value = serde_json::json!({
+            "@context": ["https://www.w3.org/ns/did/v1"],
+            "id": "did:webvh:z6mkfixture:alice.example",
+            "capabilityDelegation": [
+                "did:webvh:z6mkfixture:alice.example#device-enrollment-authority"
+            ],
+            "service": [{
+                "id": "did:webvh:z6mkfixture:alice.example#principal-server",
+                "type": "ArkretPrincipalServer",
+                "serviceEndpoint": "https://principal.example"
+            }],
+            "x-vendor": {"preserve": true}
+        });
+        let document: DidDocument = serde_json::from_value(value.clone()).unwrap();
+        assert!(document.verification_methods.is_empty());
+        document.validate().unwrap();
+        assert_eq!(serde_json::to_value(document).unwrap(), value);
     }
 
     #[test]

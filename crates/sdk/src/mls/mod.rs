@@ -16,6 +16,9 @@ pub const ARKRET_MLS_ALGORITHM: &str = "ak.mls.v1";
 
 #[cfg(test)]
 mod tests {
+    use arkret_core::{
+        EncryptedEnvelope, EncryptedEnvelopeAadVisibility, EncryptedEnvelopeKeyAlgorithm,
+    };
     use chrono::Utc;
 
     use super::*;
@@ -1344,11 +1347,14 @@ mod tests {
             group_state_ref,
         )
         .unwrap();
-        assert_eq!(envelope.key_ref.algorithm, "MLS-EXPORTER-AEAD");
+        assert_eq!(
+            envelope.key_ref.algorithm,
+            EncryptedEnvelopeKeyAlgorithm::MlsExporterAead
+        );
         envelope.validate().unwrap();
 
         let mut mismatched = envelope;
-        mismatched.key_ref.algorithm = "MLS".to_owned();
+        mismatched.key_ref.algorithm = EncryptedEnvelopeKeyAlgorithm::Mls;
         assert!(mismatched.validate().is_err());
     }
 

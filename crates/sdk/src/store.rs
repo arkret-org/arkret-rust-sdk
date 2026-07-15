@@ -393,7 +393,7 @@ mod tests {
             seal_basis: None,
             requirements: crate::EventRequirements::default(),
             redacts: None,
-            payload: json!({
+            payload: serde_json::from_value(json!({
                 "object": {
                     "id": "ak:morph:01904100-0000-7000-8000-b7a4e10c8c77",
                     "schema": crate::MORPH_SCHEMA,
@@ -405,7 +405,8 @@ mod tests {
                     "created_by": "did:webvh:z6mkfixture:alice.example.com",
                     "created_at": "2026-05-02T00:00:00.000Z"
                 }
-            }),
+            }))
+            .unwrap(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -446,7 +447,7 @@ mod tests {
         store.put_event(event.clone()).unwrap();
 
         let mut conflicting = event;
-        conflicting.payload = json!({
+        conflicting.payload = serde_json::from_value(json!({
             "object": {
                 "id": "ak:morph:01904100-0000-7000-8000-b7a4e10c8c77",
                 "schema": crate::MORPH_SCHEMA,
@@ -458,7 +459,8 @@ mod tests {
                 "created_by": "did:webvh:z6mkfixture:alice.example.com",
                 "created_at": "2026-05-02T00:00:00.000Z"
             }
-        });
+        }))
+        .unwrap();
         assert!(matches!(
             store.put_event(conflicting),
             Err(Error::IdempotencyConflict(_))

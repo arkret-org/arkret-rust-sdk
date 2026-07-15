@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, VecDeque};
 
-use arkret_core::{CrossSigningPublish, DeviceBootstrapBinding};
+use arkret_core::CrossSigningPublish;
 pub use arkret_core::{
     CrossSigningResetPayload, CrossSigningResetProof, CrossSigningResetReason,
     DeviceMessageEnvelope, DeviceQuorumSignature, DeviceQuorumThreshold,
@@ -68,11 +68,6 @@ pub struct Device {
     /// the device participates in the cross-signed trust chain.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cross_signing_binding: Option<DeviceTrustBinding>,
-    /// First-device bootstrap binding (spec §5.3). Mutually exclusive with
-    /// `cross_signing_binding`; only valid before the first cross-signing
-    /// publish.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bootstrap_binding: Option<DeviceBootstrapBinding>,
     /// Last local update time.
     pub updated_at: DateTime<Utc>,
 }

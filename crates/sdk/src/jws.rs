@@ -450,7 +450,8 @@ mod tests {
                 id: self.did.clone(),
                 verification_methods,
                 also_known_as: Vec::new(),
-                updated_at: Utc::now(),
+                updated_at: Some(Utc::now()),
+                raw_properties: BTreeMap::new(),
             })
         }
     }

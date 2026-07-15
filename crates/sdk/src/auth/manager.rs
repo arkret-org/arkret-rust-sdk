@@ -911,7 +911,7 @@ impl AuthManager {
 
         client
             .auth_issue_session_grant(&arkret_core::SessionGrantRequestBody {
-                principal_id: Some(principal_id),
+                principal_id,
                 device_id: Some(device_id),
                 requested_scope: Vec::new(),
                 agent_key_authorization_ref: None,

@@ -11,21 +11,6 @@ use crate::*;
 
 pub const DEVICE_AUTHORIZE_BINDING_ONE_OF_REASON: &str = "device_authorize_binding_one_of";
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/device_authorize_payload`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceBootstrapBinding {
-    pub kind: DeviceBootstrapBindingKind,
-    pub did_method_evidence_ref: NonEmptyString,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DeviceBootstrapBindingKind {
-    InceptionSelfAuthorized,
-}
-
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceAuthorizePayload {
@@ -55,8 +40,6 @@ pub struct DeviceAuthorizePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cross_signing_binding: Option<DeviceCrossSigningBinding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bootstrap_binding: Option<DeviceBootstrapBinding>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enrollment_authority_binding: Option<DeviceEnrollmentAuthorityBinding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_session_id: Option<RecoverySessionId>,
@@ -85,8 +68,6 @@ struct DeviceAuthorizePayloadWire {
     #[serde(default)]
     cross_signing_binding: Option<DeviceCrossSigningBinding>,
     #[serde(default)]
-    bootstrap_binding: Option<DeviceBootstrapBinding>,
-    #[serde(default)]
     enrollment_authority_binding: Option<DeviceEnrollmentAuthorityBinding>,
     #[serde(default)]
     recovery_session_id: Option<RecoverySessionId>,
@@ -112,7 +93,6 @@ impl<'de> Deserialize<'de> for DeviceAuthorizePayload {
             device_signature: wire.device_signature,
             proof: wire.proof,
             cross_signing_binding: wire.cross_signing_binding,
-            bootstrap_binding: wire.bootstrap_binding,
             enrollment_authority_binding: wire.enrollment_authority_binding,
             recovery_session_id: wire.recovery_session_id,
         };
@@ -144,7 +124,6 @@ impl DeviceAuthorizePayload {
 
     pub fn authorization_binding_count(&self) -> usize {
         self.cross_signing_binding.is_some() as usize
-            + self.bootstrap_binding.is_some() as usize
             + self.enrollment_authority_binding.is_some() as usize
     }
 
@@ -195,8 +174,6 @@ impl DeviceAuthorizePayload {
         let (authorization_binding_kind, cross_signing_generation) =
             if let Some(binding) = &self.cross_signing_binding {
                 ("cross_signing", Some(binding.ssk_generation))
-            } else if self.bootstrap_binding.is_some() {
-                ("bootstrap", None)
             } else if self.enrollment_authority_binding.is_some() {
                 ("enrollment_authority", None)
             } else {
@@ -258,6 +235,149 @@ impl DeviceAuthorizePayload {
         })?;
         binding.validate_against_event_anchor(executed_by, authorization_ref, accepted_at)
     }
+}
+
+/// Closed B-model recovery payload for `ak.device.reanchor`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeviceReanchorPayload {
+    pub principal_id: Did,
+    pub did_version_id: NonEmptyString,
+    pub previous_device_generation: NonEmptyString,
+    pub new_device_generation: NonEmptyString,
+    pub pre_fence_basis: Option<SealBasis>,
+    pub replacement_authorize_event_id: EventId,
+    pub replacement_authorize_digest: Hash,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DeviceReanchorPayloadWire {
+    principal_id: Did,
+    did_version_id: NonEmptyString,
+    previous_device_generation: NonEmptyString,
+    new_device_generation: NonEmptyString,
+    #[serde(deserialize_with = "deserialize_required_nullable")]
+    pre_fence_basis: Option<SealBasis>,
+    replacement_authorize_event_id: EventId,
+    replacement_authorize_digest: Hash,
+}
+
+fn deserialize_required_nullable<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
+}
+
+impl<'de> Deserialize<'de> for DeviceReanchorPayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = DeviceReanchorPayloadWire::deserialize(deserializer)?;
+        let payload = Self {
+            principal_id: wire.principal_id,
+            did_version_id: wire.did_version_id,
+            previous_device_generation: wire.previous_device_generation,
+            new_device_generation: wire.new_device_generation,
+            pre_fence_basis: wire.pre_fence_basis,
+            replacement_authorize_event_id: wire.replacement_authorize_event_id,
+            replacement_authorize_digest: wire.replacement_authorize_digest,
+        };
+        payload.validate().map_err(serde::de::Error::custom)?;
+        Ok(payload)
+    }
+}
+
+impl DeviceReanchorPayload {
+    pub fn validate(&self) -> std::result::Result<(), &'static str> {
+        parse_did_webvh_version_id(self.did_version_id.as_str())?;
+        parse_did_webvh_version_id(self.previous_device_generation.as_str())?;
+        parse_did_webvh_version_id(self.new_device_generation.as_str())?;
+        if self.new_device_generation != self.did_version_id {
+            return Err("device reanchor new_device_generation must equal did_version_id");
+        }
+        if let Some(basis) = &self.pre_fence_basis {
+            if basis.leaves.is_empty() {
+                return Err("device reanchor pre_fence_basis leaves must not be empty");
+            }
+            let unique = basis.leaves.iter().collect::<BTreeSet<_>>();
+            if unique.len() != basis.leaves.len() || basis.leaves.len() > 64 {
+                return Err("device reanchor pre_fence_basis leaves must be unique and at most 64");
+            }
+        }
+        Ok(())
+    }
+
+    pub fn did_version_number(&self) -> u64 {
+        parse_did_webvh_version_id(self.did_version_id.as_str())
+            .expect("validated DeviceReanchorPayload has a valid did_version_id")
+    }
+}
+
+/// Validate the special first Seal after a B-model recovery re-anchor when the
+/// accepted pre-fence basis is explicitly null. Generic Seal validation still
+/// applies; this helper requires the business delta to cover the re-anchor and
+/// its replacement device authorization while permitting other pending Control
+/// Moves admitted by the contextual Seal rules.
+pub fn validate_device_reanchor_recovery_first_seal(
+    payload: &DeviceReanchorPayload,
+    predecessor_refs: &[SealId],
+    delta: &[MoveId],
+    reanchor_digest: &Hash,
+) -> Result<()> {
+    if payload.pre_fence_basis.is_some() {
+        return Err(Error::Protocol(
+            "device reanchor recovery-first Seal requires pre_fence_basis=null".to_owned(),
+        ));
+    }
+    if !predecessor_refs.is_empty() {
+        return Err(Error::Protocol(
+            "device reanchor recovery-first Seal must have predecessor_refs=[]".to_owned(),
+        ));
+    }
+    if delta
+        .windows(2)
+        .any(|pair| pair[0].as_str() >= pair[1].as_str())
+    {
+        return Err(Error::Protocol(
+            "device reanchor recovery-first Seal delta must be canonical sorted and duplicate-free"
+                .to_owned(),
+        ));
+    }
+    if !delta
+        .iter()
+        .any(|digest| digest.as_str() == reanchor_digest.as_str())
+        || !delta
+            .iter()
+            .any(|digest| digest.as_str() == payload.replacement_authorize_digest.as_str())
+    {
+        return Err(Error::Protocol(
+            "device reanchor recovery-first Seal delta must cover reanchor and replacement authorize"
+                .to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn parse_did_webvh_version_id(value: &str) -> std::result::Result<u64, &'static str> {
+    let (number_text, digest) = value
+        .split_once('-')
+        .ok_or("did:webvh versionId must be <positive-number>-<digest>")?;
+    if digest.is_empty() || digest.chars().any(char::is_whitespace) {
+        return Err("did:webvh versionId digest must be non-empty and contain no whitespace");
+    }
+    let number = number_text
+        .parse::<u64>()
+        .map_err(|_| "did:webvh versionId number is invalid")?;
+    if number == 0 || number_text.starts_with('0') {
+        return Err("did:webvh versionId number must be positive without leading zeros");
+    }
+    Ok(number)
 }
 
 /// Counterpart for
@@ -508,9 +628,10 @@ mod tests {
             "device_signature": "c2ln",
             "authorized_by": "did:webvh:z6mkfixture:alice.example",
             "not_before": "2026-05-30T00:00:00Z",
-            "bootstrap_binding": {
-                "kind": "inception_self_authorized",
-                "did_method_evidence_ref": "did:webvh:z6mkfixture:alice.example#inception"
+            "enrollment_authority_binding": {
+                "kind": "service_attested",
+                "authority_did": "did:webvh:z6mkauthority:auth.example",
+                "authorization_ref": "did:webvh:z6mkfixture:alice.example#enrollment-authority"
             }
         })
     }
@@ -535,7 +656,6 @@ mod tests {
             device_signature: None,
             proof: None,
             cross_signing_binding: None,
-            bootstrap_binding: None,
             enrollment_authority_binding: None,
             recovery_session_id: None,
         }
@@ -561,10 +681,11 @@ mod tests {
         payload.cross_signing_binding = Some(cross_signing_binding());
         assert!(payload.validate_authorization_binding_one_of().is_ok());
 
-        payload.bootstrap_binding = Some(DeviceBootstrapBinding {
-            kind: DeviceBootstrapBindingKind::InceptionSelfAuthorized,
-            did_method_evidence_ref: NonEmptyString::new(
-                "did:webvh:z6mkfixture:alice.example#inception",
+        payload.enrollment_authority_binding = Some(DeviceEnrollmentAuthorityBinding {
+            kind: DeviceEnrollmentAuthorityBindingKind::ServiceAttested,
+            authority_did: Did::new("did:webvh:z6mkauthority:auth.example").unwrap(),
+            authorization_ref: NonEmptyString::new(
+                "did:webvh:z6mkfixture:alice.example#enrollment-authority",
             )
             .unwrap(),
         });
@@ -650,10 +771,6 @@ mod tests {
 
     #[test]
     fn device_authorize_rejects_wrong_consts_and_scalar_shapes() {
-        let mut wrong_bootstrap_kind = device_authorize_value();
-        wrong_bootstrap_kind["bootstrap_binding"]["kind"] = json!("inception_key");
-        assert!(serde_json::from_value::<DeviceAuthorizePayload>(wrong_bootstrap_kind).is_err());
-
         let mut empty_key = device_authorize_value();
         empty_key["device_public_key"] = json!("");
         assert!(serde_json::from_value::<DeviceAuthorizePayload>(empty_key).is_err());
@@ -768,5 +885,85 @@ mod tests {
         assert!(DeviceRevocationReason::new("DeviceLost").is_err());
         assert!(DeviceRevocationReason::new("device-lost").is_err());
         assert!(DeviceRevocationReason::new(format!("a{}", "b".repeat(64))).is_err());
+    }
+
+    #[test]
+    fn device_reanchor_enforces_version_shape_generation_equality_and_basis() {
+        let valid = json!({
+            "principal_id": "did:webvh:z6mkfixture:alice.example",
+            "did_version_id": "2-QmCurrent",
+            "previous_device_generation": "1-QmPrevious",
+            "new_device_generation": "2-QmCurrent",
+            "pre_fence_basis": null,
+            "replacement_authorize_event_id": "ak:event:01904100-0000-7000-8000-000000000001",
+            "replacement_authorize_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        });
+        let payload: DeviceReanchorPayload = serde_json::from_value(valid.clone()).unwrap();
+        assert_eq!(payload.did_version_number(), 2);
+        let reanchor_digest = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
+        let delta = vec![
+            MoveId::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            MoveId::new(reanchor_digest.as_str().to_owned()).unwrap(),
+            MoveId::new(payload.replacement_authorize_digest.as_str().to_owned()).unwrap(),
+        ];
+        assert!(
+            validate_device_reanchor_recovery_first_seal(&payload, &[], &delta, &reanchor_digest)
+                .is_ok()
+        );
+        assert!(
+            validate_device_reanchor_recovery_first_seal(
+                &payload,
+                &[SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap()],
+                &delta,
+                &reanchor_digest
+            )
+            .is_err()
+        );
+        assert!(
+            validate_device_reanchor_recovery_first_seal(
+                &payload,
+                &[],
+                &delta[..2],
+                &reanchor_digest
+            )
+            .is_err()
+        );
+        let missing_reanchor = vec![delta[0].clone(), delta[2].clone()];
+        assert!(
+            validate_device_reanchor_recovery_first_seal(
+                &payload,
+                &[],
+                &missing_reanchor,
+                &reanchor_digest
+            )
+            .is_err()
+        );
+        let duplicate = vec![delta[1].clone(), delta[1].clone(), delta[2].clone()];
+        assert!(
+            validate_device_reanchor_recovery_first_seal(
+                &payload,
+                &[],
+                &duplicate,
+                &reanchor_digest
+            )
+            .is_err()
+        );
+
+        let mut missing_required_nullable = valid.clone();
+        missing_required_nullable
+            .as_object_mut()
+            .unwrap()
+            .remove("pre_fence_basis");
+        assert!(
+            serde_json::from_value::<DeviceReanchorPayload>(missing_required_nullable).is_err()
+        );
+
+        let mut mismatched = valid.clone();
+        mismatched["new_device_generation"] = json!("3-QmOther");
+        assert!(serde_json::from_value::<DeviceReanchorPayload>(mismatched).is_err());
+
+        let mut leading_zero = valid;
+        leading_zero["did_version_id"] = json!("02-QmCurrent");
+        assert!(serde_json::from_value::<DeviceReanchorPayload>(leading_zero).is_err());
     }
 }

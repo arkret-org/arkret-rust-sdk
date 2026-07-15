@@ -290,10 +290,13 @@ fn main() -> arkret::Result<()> {
                 issuer: controller.clone(),
                 subject: CapabilitySubject::Did(agent_id.clone()),
                 actions: vec!["ak.message.create".to_owned()],
-                resources: vec![json!({
-                    "kind": "realm",
-                    "realm_id": "ak:realm:01964137-0000-7000-8000-000000000030"
-                })],
+                resources: vec![
+                    serde_json::from_value(json!({
+                        "kind": "realm",
+                        "realm_id": "ak:realm:01964137-0000-7000-8000-000000000030"
+                    }))
+                    .unwrap(),
+                ],
                 constraints: Vec::new(),
                 parent_grant_id: None,
                 issued_at: chrono::DateTime::parse_from_rfc3339("2026-06-18T12:00:00Z")

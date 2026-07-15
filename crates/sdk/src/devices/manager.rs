@@ -32,32 +32,18 @@ impl DeviceManager {
     /// Insert or update a device.
     pub fn upsert_device(&mut self, user_id: Did, device_id: DeviceId, metadata: DeviceMetadata) {
         let entry = self.devices.entry(user_id.clone()).or_default();
-        let (
-            verification,
-            device_public_key,
-            hpke_key,
-            algorithms,
-            cross_signing_binding,
-            bootstrap_binding,
-        ) = if let Some(device) = entry.get(&device_id) {
-            (
-                device.verification,
-                device.device_public_key.clone(),
-                device.hpke_key.clone(),
-                device.algorithms.clone(),
-                device.cross_signing_binding.clone(),
-                device.bootstrap_binding.clone(),
-            )
-        } else {
-            (
-                DeviceVerificationState::Unverified,
-                None,
-                None,
-                None,
-                None,
-                None,
-            )
-        };
+        let (verification, device_public_key, hpke_key, algorithms, cross_signing_binding) =
+            if let Some(device) = entry.get(&device_id) {
+                (
+                    device.verification,
+                    device.device_public_key.clone(),
+                    device.hpke_key.clone(),
+                    device.algorithms.clone(),
+                    device.cross_signing_binding.clone(),
+                )
+            } else {
+                (DeviceVerificationState::Unverified, None, None, None, None)
+            };
         entry.insert(
             device_id.clone(),
             Device {
@@ -69,7 +55,6 @@ impl DeviceManager {
                 hpke_key,
                 algorithms,
                 cross_signing_binding,
-                bootstrap_binding,
                 updated_at: Utc::now(),
             },
         );
@@ -386,28 +371,6 @@ impl DeviceManager {
         Ok(())
     }
 
-    /// Attach a bootstrap binding (spec §5.3 — first-device inception).
-    /// Only valid before any `ak.cross_signing.publish.v1` has been
-    /// recorded for the principal.
-    pub fn attach_bootstrap_binding(
-        &mut self,
-        user_id: &Did,
-        device_id: &DeviceId,
-        binding: DeviceBootstrapBinding,
-    ) -> Result<()> {
-        if self.cross_signing_publishes.contains_key(user_id) {
-            return Err(Error::Protocol(
-                "bootstrap binding refused: cross-signing publish already accepted for principal"
-                    .to_owned(),
-            ));
-        }
-        let device = self.device_mut(user_id, device_id)?;
-        device.bootstrap_binding = Some(binding);
-        device.cross_signing_binding = None;
-        device.updated_at = Utc::now();
-        Ok(())
-    }
-
     /// Block a device.
     pub fn block_device(&mut self, user_id: &Did, device_id: &DeviceId) -> Result<()> {
         self.set_verification(user_id, device_id, DeviceVerificationState::Blocked)
@@ -657,7 +620,6 @@ impl DeviceManager {
         }
         let device = self.device_mut(user_id, device_id)?;
         device.cross_signing_binding = Some(binding);
-        device.bootstrap_binding = None;
         device.updated_at = Utc::now();
         Ok(())
     }
@@ -681,16 +643,6 @@ impl DeviceManager {
         let device = self
             .device(user_id, device_id)
             .ok_or_else(|| Error::Protocol("device not found".to_owned()))?;
-
-        // Bootstrap path: §5.3.
-        if let Some(_bootstrap) = &device.bootstrap_binding {
-            if self.cross_signing_publishes.contains_key(user_id) {
-                // A publish has landed — bootstrap path is no longer legitimate
-                // and the device needs a real cross-signing binding.
-                return Ok(DeviceTrustChainOutcome::NeedsReverification);
-            }
-            return Ok(DeviceTrustChainOutcome::Bootstrap);
-        }
 
         let Some(binding) = &device.cross_signing_binding else {
             return Ok(DeviceTrustChainOutcome::Unverified);

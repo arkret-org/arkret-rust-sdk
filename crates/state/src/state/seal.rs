@@ -76,12 +76,6 @@ where
         .map_err(|e| SealReject::Structural(format!("id: {e}")))?;
     seal.validate_structural()
         .map_err(|e| SealReject::Structural(e.to_string()))?;
-    if seal.predecessor_refs.is_empty() && !seal.delta.is_empty() {
-        return Err(SealReject::Structural(
-            "Genesis Seal MUST have delta=[]; predecessor_refs=[] with non-empty delta is invalid"
-                .to_owned(),
-        ));
-    }
     if !seals.predecessors_known(&seal.predecessor_refs)? {
         return Err(SealReject::UnknownPredecessor);
     }

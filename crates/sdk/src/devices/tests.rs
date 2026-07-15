@@ -459,31 +459,14 @@ fn evaluate_trust_chain_states() {
         .unwrap();
     assert_eq!(outcome, DeviceTrustChainOutcome::Unverified);
 
-    // Attach bootstrap binding before any publish → Bootstrap.
-    manager
-        .attach_bootstrap_binding(
-            &alice,
-            &phone,
-            DeviceBootstrapBinding {
-                kind: arkret_core::DeviceBootstrapBindingKind::InceptionSelfAuthorized,
-                did_method_evidence_ref: NonEmptyString::new("did:webvh:alice.example/entry-0")
-                    .unwrap(),
-            },
-        )
-        .unwrap();
-    let outcome = manager
-        .evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true))
-        .unwrap();
-    assert_eq!(outcome, DeviceTrustChainOutcome::Bootstrap);
-
-    // After a publish, bootstrap is no longer accepted.
+    // A publish does not make an unbound device trusted.
     manager
         .record_cross_signing_publish(sample_publish(&alice, 1))
         .unwrap();
     let outcome = manager
         .evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true))
         .unwrap();
-    assert_eq!(outcome, DeviceTrustChainOutcome::NeedsReverification);
+    assert_eq!(outcome, DeviceTrustChainOutcome::Unverified);
 
     // Real binding + verifier that always returns true → CrossSigned.
     manager

@@ -816,6 +816,10 @@ pub struct RecoveryPolicy {
     /// required when `allowed_proof_kinds` contains `recovery_unlock`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_keys: Option<Vec<RecoveryKeyEntry>>,
+    /// Dedicated backup-only HPKE recipients referenced by
+    /// `recovery_keys[].key_agreement_ref` and key-backup envelopes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_key_agreements: Option<Vec<RecoveryKeyAgreementEntry>>,
     /// Two-person-rule / cooldown enforcement layered on the proofs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_requirement: Option<RecoveryApprovalRequirement>,
@@ -834,6 +838,165 @@ pub struct RecoveryPolicy {
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
+}
+
+impl RecoveryPolicy {
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != "ak.schema.recovery_policy.v1" {
+            return Err(Error::Protocol(
+                "recovery policy schema must be ak.schema.recovery_policy.v1".to_owned(),
+            ));
+        }
+        if self.version < 1
+            || (self.version == 1) != self.supersedes.is_none()
+            || (self.version >= 2 && self.supersedes.is_none())
+        {
+            return Err(Error::Protocol(
+                "recovery policy version and supersedes do not form a valid chain".to_owned(),
+            ));
+        }
+        let unique_proof_kinds = self
+            .allowed_proof_kinds
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        if unique_proof_kinds.len() != self.allowed_proof_kinds.len() {
+            return Err(Error::Protocol(
+                "recovery policy allowed_proof_kinds must be unique".to_owned(),
+            ));
+        }
+        if self.allowed_proof_kinds.is_empty() && self.expires_at.is_none() {
+            return Err(Error::Protocol(
+                "revoked recovery policy requires expires_at".to_owned(),
+            ));
+        }
+        self.require_proof_configuration(
+            RecoveryProofKind::ThresholdRecovery,
+            self.threshold.is_some(),
+            "threshold",
+        )?;
+        self.require_proof_configuration(
+            RecoveryProofKind::DeviceQuorum,
+            self.device_quorum.is_some(),
+            "device_quorum",
+        )?;
+        self.require_proof_configuration(
+            RecoveryProofKind::TrustedRecoveryService,
+            self.trusted_recovery_services
+                .as_ref()
+                .is_some_and(|items| !items.is_empty()),
+            "trusted_recovery_services",
+        )?;
+
+        let unlock_enabled = unique_proof_kinds.contains(&RecoveryProofKind::RecoveryUnlock);
+        let recovery_keys = self.recovery_keys.as_deref().unwrap_or_default();
+        let agreements = self.recovery_key_agreements.as_deref().unwrap_or_default();
+        if unlock_enabled && (recovery_keys.is_empty() || agreements.is_empty()) {
+            return Err(Error::Protocol(
+                "recovery_unlock requires recovery_keys and recovery_key_agreements".to_owned(),
+            ));
+        }
+        if !recovery_keys.is_empty() && agreements.is_empty() {
+            return Err(Error::Protocol(
+                "recovery_keys require recovery_key_agreements".to_owned(),
+            ));
+        }
+
+        let agreement_refs = agreements
+            .iter()
+            .map(|entry| entry.key_agreement_ref.as_str())
+            .collect::<BTreeSet<_>>();
+        if agreement_refs.len() != agreements.len() {
+            return Err(Error::Protocol(
+                "recovery_key_agreements key_agreement_ref values must be unique".to_owned(),
+            ));
+        }
+        for entry in agreements {
+            entry.validate()?;
+        }
+
+        let verification_methods = recovery_keys
+            .iter()
+            .map(|entry| entry.verification_method.as_str())
+            .collect::<BTreeSet<_>>();
+        if verification_methods.len() != recovery_keys.len() {
+            return Err(Error::Protocol(
+                "recovery_keys verification_method values must be unique".to_owned(),
+            ));
+        }
+        for entry in recovery_keys {
+            entry.validate()?;
+            if !agreement_refs.contains(entry.key_agreement_ref.as_str()) {
+                return Err(Error::Protocol(format!(
+                    "recovery key {} references an unknown key agreement",
+                    entry.verification_method
+                )));
+            }
+        }
+
+        let signed_fields = self
+            .auth_data
+            .signed_fields
+            .iter()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        let required_signed_fields = [
+            "schema",
+            "policy_id",
+            "principal_id",
+            "version",
+            "supersedes",
+            "trust_domain",
+            "allowed_proof_kinds",
+            "issued_at",
+        ];
+        if required_signed_fields
+            .iter()
+            .any(|field| !signed_fields.contains(field))
+        {
+            return Err(Error::Protocol(
+                "recovery policy auth_data omits a required signed field".to_owned(),
+            ));
+        }
+        for (present, field) in [
+            (self.threshold.is_some(), "threshold"),
+            (self.device_quorum.is_some(), "device_quorum"),
+            (
+                self.trusted_recovery_services.is_some(),
+                "trusted_recovery_services",
+            ),
+            (self.recovery_keys.is_some(), "recovery_keys"),
+            (
+                self.recovery_key_agreements.is_some(),
+                "recovery_key_agreements",
+            ),
+            (self.approval_requirement.is_some(), "approval_requirement"),
+            (self.audit.is_some(), "audit"),
+            (self.not_before.is_some(), "not_before"),
+            (self.expires_at.is_some(), "expires_at"),
+        ] {
+            if present && !signed_fields.contains(field) {
+                return Err(Error::Protocol(format!(
+                    "recovery policy auth_data must sign {field}"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    fn require_proof_configuration(
+        &self,
+        proof_kind: RecoveryProofKind,
+        present: bool,
+        field: &str,
+    ) -> Result<()> {
+        if self.allowed_proof_kinds.contains(&proof_kind) && !present {
+            return Err(Error::Protocol(format!(
+                "recovery policy proof kind {proof_kind:?} requires {field}"
+            )));
+        }
+        Ok(())
+    }
 }
 
 /// Read-model summary for the currently accepted recovery policy.
@@ -983,9 +1146,13 @@ pub struct RecoveryTrustedService {
 pub struct RecoveryKeyEntry {
     /// DID URL identifying this recovery signing key
     /// (e.g. `did:webvh:...#recovery-1`). Unique within `recovery_keys[]`.
-    pub verification_method: String,
+    pub verification_method: DidUrl,
+    /// Signing public multikey. This is never the paired HPKE public key.
+    pub public_key_multibase: NonEmptyString,
+    /// Dedicated backup recipient entry paired with this signing key.
+    pub key_agreement_ref: DidUrl,
     /// Signature algorithm; v1 fixes this to `Ed25519`.
-    pub alg: String,
+    pub alg: RecoveryKeySignatureAlgorithm,
     /// Earliest instant this key may authorize a `recovery_unlock` proof.
     pub not_before: DateTime<Utc>,
     /// Instant after which this key MUST NOT authorize a proof.
@@ -993,6 +1160,118 @@ pub struct RecoveryKeyEntry {
     /// When set, the entry is revoked from this instant onward.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revoked_at: Option<DateTime<Utc>>,
+}
+
+impl RecoveryKeyEntry {
+    pub fn validate(&self) -> Result<()> {
+        validate_canonical_multibase(self.public_key_multibase.as_str())?;
+        if self.not_before >= self.expires_at {
+            return Err(Error::Protocol(
+                "recovery key expires_at must be after not_before".to_owned(),
+            ));
+        }
+        if self
+            .revoked_at
+            .is_some_and(|revoked_at| revoked_at < self.not_before)
+        {
+            return Err(Error::Protocol(
+                "recovery key revoked_at must not precede not_before".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum RecoveryKeySignatureAlgorithm {
+    Ed25519,
+    ES256,
+    #[serde(rename = "ML-DSA-65")]
+    MlDsa65,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum RecoveryKeyAgreementAlgorithm {
+    X25519,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryKeyAgreementUse {
+    BackupHpke,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum RecoveryHpkeSuite {
+    #[serde(rename = "ak.hpke_x25519_aead_chacha20poly1305.v1")]
+    X25519ChaCha20Poly1305,
+    #[serde(rename = "ak.hpke_x25519_aead_aes256gcm.v1")]
+    X25519Aes256Gcm,
+}
+
+/// `recovery-policy.schema.json#/$defs/recovery_key_agreement_entry`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryKeyAgreementEntry {
+    pub key_agreement_ref: DidUrl,
+    pub alg: RecoveryKeyAgreementAlgorithm,
+    pub public_key_multibase: NonEmptyString,
+    pub hpke_suites: Vec<RecoveryHpkeSuite>,
+    #[serde(rename = "use")]
+    pub usage: RecoveryKeyAgreementUse,
+    pub not_before: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<DateTime<Utc>>,
+}
+
+impl RecoveryKeyAgreementEntry {
+    pub fn validate(&self) -> Result<()> {
+        let decoded = validate_canonical_multibase(self.public_key_multibase.as_str())?;
+        let (codec, header_len) = crate::decode_multicodec_varint(&decoded).ok_or_else(|| {
+            Error::Protocol("recovery key agreement has an invalid multicodec".to_owned())
+        })?;
+        if codec != 0xec || decoded.len().saturating_sub(header_len) != 32 {
+            return Err(Error::Protocol(
+                "recovery key agreement must carry a 32-byte x25519-pub multikey".to_owned(),
+            ));
+        }
+        let suites = self.hpke_suites.iter().copied().collect::<BTreeSet<_>>();
+        if suites.is_empty() || suites.len() != self.hpke_suites.len() {
+            return Err(Error::Protocol(
+                "recovery key agreement hpke_suites must be non-empty and unique".to_owned(),
+            ));
+        }
+        if self.not_before >= self.expires_at {
+            return Err(Error::Protocol(
+                "recovery key agreement expires_at must be after not_before".to_owned(),
+            ));
+        }
+        if self
+            .revoked_at
+            .is_some_and(|revoked_at| revoked_at < self.not_before)
+        {
+            return Err(Error::Protocol(
+                "recovery key agreement revoked_at must not precede not_before".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_canonical_multibase(value: &str) -> Result<Vec<u8>> {
+    let decoded = crate::decode_multibase_base58btc(value)?;
+    if decoded.is_empty() || crate::encode_multibase_base58btc(&decoded) != value {
+        return Err(Error::Protocol(
+            "public_key_multibase must use canonical non-empty base58btc".to_owned(),
+        ));
+    }
+    Ok(decoded)
 }
 
 /// `recovery-policy.schema.json#/properties/approval_requirement`.
@@ -1032,7 +1311,7 @@ pub struct RecoveryPolicyAuthData {
 /// `allowed_proof_kinds[]` and `recovery-receipt.schema.json`
 /// `proof_summary.kind`. Cryptographic proof validation is specified by
 /// device-lifecycle verifier rules and handled outside this discriminator.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryProofKind {

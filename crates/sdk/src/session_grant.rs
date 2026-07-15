@@ -5,7 +5,7 @@
 //! first-class SDK constructor and callers do not hand-assemble
 //! `SessionGrantRequestBody`. The signature-based kinds
 //! (`did_bound_signature`, `paired_device_proof`) share
-//! [`SessionGrantProofFields`]; the first-sign-in OIDC kind
+//! [`SessionGrantProofFields`]; the OIDC kind
 //! (`oidc_code_exchange`) uses [`oidc_session_grant_request`].
 
 use chrono::{DateTime, Utc};
@@ -61,7 +61,7 @@ pub fn holder_proof_session_grant_request(
     proof: SessionGrantProofFields,
 ) -> SessionGrantRequestBody {
     SessionGrantRequestBody {
-        principal_id: Some(principal_id),
+        principal_id,
         device_id,
         requested_scope,
         agent_key_authorization_ref: None,
@@ -82,7 +82,7 @@ pub fn did_proof_session_grant_request(
     proof: SessionGrantProofFields,
 ) -> SessionGrantRequestBody {
     SessionGrantRequestBody {
-        principal_id: Some(principal_id),
+        principal_id,
         device_id: Some(device_id),
         requested_scope,
         agent_key_authorization_ref: None,
@@ -93,13 +93,10 @@ pub fn did_proof_session_grant_request(
     }
 }
 
-/// Build an `oidc_code_exchange` first-sign-in session-grant request.
-///
-/// `principal_id` MAY be omitted for OIDC first sign-in — the Account Authority
-/// derives and returns the principal DID (`SessionGrantOutcome.principal_id`).
+/// Build an `oidc_code_exchange` session-grant request for an existing principal.
 #[allow(clippy::too_many_arguments)]
 pub fn oidc_session_grant_request(
-    principal_id: Option<Did>,
+    principal_id: Did,
     device_id: Option<DeviceId>,
     requested_scope: Vec<String>,
     challenge: impl Into<String>,
@@ -184,7 +181,7 @@ mod tests {
             request.proof.proof_kind,
             SessionGrantProofKind::PairedDeviceProof
         );
-        assert_eq!(request.principal_id, Some(did()));
+        assert_eq!(request.principal_id, did());
         assert_eq!(request.device_id, Some(device_id()));
         assert_eq!(request.proof.signature, "proof-signature");
         assert!(request.agent_key_authorization_ref.is_none());
@@ -215,7 +212,7 @@ mod tests {
     #[test]
     fn oidc_builds_code_exchange_request() {
         let request = oidc_session_grant_request(
-            None,
+            did(),
             Some(device_id()),
             Vec::new(),
             "oidc-challenge",
@@ -233,7 +230,7 @@ mod tests {
             request.proof.proof_kind,
             SessionGrantProofKind::OidcCodeExchange
         );
-        assert_eq!(request.principal_id, None);
+        assert_eq!(request.principal_id, did());
         assert_eq!(
             request.proof.issuer.as_deref(),
             Some("https://issuer.example")

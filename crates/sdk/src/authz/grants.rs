@@ -1341,7 +1341,7 @@ mod capability_grant_builder_tests {
             issuer: alice(),
             subject: CapabilitySubject::Did(bob()),
             actions: vec!["ak.message.create".to_owned()],
-            resources: vec![json!({"kind": "*"})],
+            resources: vec![serde_json::from_value(json!({"kind": "*"})).unwrap()],
             constraints: Vec::new(),
             parent_grant_id: None,
             issued_at: "2026-04-26T00:00:00Z".parse().unwrap(),
@@ -1396,7 +1396,7 @@ mod capability_grant_builder_tests {
             actor_id: alice(),
             actor_seq: 1,
             hlc: hlc(),
-            content: event.payload.clone(),
+            content: Value::Object(event.payload.clone().into_iter().collect()),
         };
         let grant = capability_grant_from_resolved_event(&event_view, None).unwrap();
         assert_eq!(

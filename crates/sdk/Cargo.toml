@@ -78,7 +78,7 @@ chacha20poly1305 = {workspace = true}
 chrono = {workspace = true,features = ["serde"]}
 chrono-tz = {workspace = true}
 arkret-core = {workspace = true}
-arkret-crypto = {workspace = true}
+arkret-crypto = {workspace = true,features = ["identity-root"]}
 arkret-ffi = {workspace = true}
 arkret-http-client = {workspace = true,optional = true}
 arkret-keystore = {workspace = true}

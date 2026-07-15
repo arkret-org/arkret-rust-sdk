@@ -9,6 +9,8 @@
 
 #[cfg(feature = "backup")]
 pub mod backup;
+#[cfg(feature = "identity-root")]
+pub mod identity_root;
 
 mod cross_signing;
 mod device;

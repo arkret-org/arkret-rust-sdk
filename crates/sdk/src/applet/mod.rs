@@ -14,6 +14,9 @@ pub use portal::*;
 mod tests {
     use std::collections::BTreeMap;
 
+    use arkret_core::{
+        AppletInstallAppletId, AppletInstallPlan, E2eeEffect, EffectiveScope, WidgetEffect,
+    };
     use chrono::{DateTime, Duration, Utc};
     use serde_json::{Value, json};
 

@@ -659,18 +659,22 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
     assert!(accepted.accepted);
     assert_eq!(
         accepted.disclosed_claims[0].value,
-        serde_json::json!({"handle": "alice"})
+        serde_json::from_value(serde_json::json!({"handle": "alice"})).unwrap()
     );
     assert_eq!(
         accepted.disclosed_claims[1].value,
-        serde_json::json!({"organization": "did:webvh:z6mkfixture:org.example"})
+        serde_json::from_value(serde_json::json!({
+            "organization": "did:webvh:z6mkfixture:org.example"
+        }))
+        .unwrap()
     );
     assert_eq!(
         accepted.disclosed_claims[2].value,
-        serde_json::json!({
+        serde_json::from_value(serde_json::json!({
             "guardian": guardian,
             "controller": controller
-        })
+        }))
+        .unwrap()
     );
     let boundary = DisclosureProofAdapterBoundary {
         format: DisclosureProofFormat::SdJwt,

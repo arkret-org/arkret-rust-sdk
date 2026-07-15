@@ -1541,7 +1541,7 @@ mod engine_wire_tests {
             issuer: alice(),
             subject: CapabilitySubject::Did(bob()),
             actions: vec!["ak.message.create".to_owned()],
-            resources: vec![json!({"kind": "*"})],
+            resources: vec![serde_json::from_value(json!({"kind": "*"})).unwrap()],
             constraints,
             parent_grant_id: None,
             issued_at: "2026-04-26T00:00:00Z".parse().unwrap(),

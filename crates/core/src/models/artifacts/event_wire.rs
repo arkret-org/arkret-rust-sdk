@@ -252,14 +252,42 @@ pub struct VerificationStub {
 /// Counterpart for `spec/v1/artifacts/schemas/event-batch-receipt.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(untagged)]
+pub enum EventBatchReceiptScope {
+    DeviceReanchor(DeviceReanchorReceiptScope),
+    Ordinary(EventBatchOrdinaryReceiptScope),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct EventBatchReceiptScope {
+pub struct EventBatchOrdinaryReceiptScope {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub query_digest: Option<Hash>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum DeviceReanchorReceiptScopeKind {
+    #[serde(rename = "device_reanchor_unit")]
+    DeviceReanchorUnit,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct DeviceReanchorReceiptScope {
+    pub kind: DeviceReanchorReceiptScopeKind,
+    pub principal_id: Did,
+    pub realm_id: RealmId,
+    pub did_version_id: NonEmptyString,
+    pub registry_head: Hash,
+    pub reanchor_digest: Hash,
+    pub replacement_authorize_digest: Hash,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -281,7 +309,7 @@ pub struct EventBatchReceiptFrontier {
 #[serde(deny_unknown_fields)]
 pub struct EventBatchReceipt {
     pub schema: String,
-    pub receipt_id: String,
+    pub receipt_id: ReceiptId,
     pub issuer: Did,
     pub scope: EventBatchReceiptScope,
     pub frontier: EventBatchReceiptFrontier,
@@ -296,6 +324,74 @@ pub struct EventBatchReceipt {
 pub enum EventBatchReceiptEvent {
     Event(EventId),
     Digest(Hash),
+    Item(EventBatchReceiptItem),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct EventBatchReceiptItem {
+    pub event_id: EventId,
+    pub event_digest: Hash,
+    pub kind: NonEmptyString,
+}
+
+impl EventBatchReceipt {
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != "ak.schema.event_batch_receipt.v1" {
+            return Err(Error::Protocol(
+                "event batch receipt schema must be ak.schema.event_batch_receipt.v1".to_owned(),
+            ));
+        }
+        if self.events.is_empty() || self.proofs.is_empty() {
+            return Err(Error::Protocol(
+                "event batch receipt requires events and proofs".to_owned(),
+            ));
+        }
+        if self.frontier.actor_seq.is_none()
+            && self.frontier.event_id.is_none()
+            && self.frontier.event_digest.is_none()
+            && self.frontier.hlc.is_none()
+        {
+            return Err(Error::Protocol(
+                "event batch receipt frontier must not be empty".to_owned(),
+            ));
+        }
+        match &self.scope {
+            EventBatchReceiptScope::Ordinary(scope) => {
+                if scope.actor_id.is_none()
+                    && scope.realm_id.is_none()
+                    && scope.query_digest.is_none()
+                {
+                    return Err(Error::Protocol(
+                        "event batch receipt ordinary scope must not be empty".to_owned(),
+                    ));
+                }
+            }
+            EventBatchReceiptScope::DeviceReanchor(scope) => {
+                let [
+                    EventBatchReceiptEvent::Item(reanchor),
+                    EventBatchReceiptEvent::Item(authorize),
+                ] = self.events.as_slice()
+                else {
+                    return Err(Error::Protocol(
+                        "device reanchor receipt must contain exactly two typed event items"
+                            .to_owned(),
+                    ));
+                };
+                if reanchor.kind.as_str() != "ak.device.reanchor"
+                    || authorize.kind.as_str() != "ak.device.authorize"
+                    || reanchor.event_digest != scope.reanchor_digest
+                    || authorize.event_digest != scope.replacement_authorize_digest
+                {
+                    return Err(Error::Protocol(
+                        "device reanchor receipt event binding mismatch".to_owned(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-envelope.schema.json#/$defs/board_space_id`.

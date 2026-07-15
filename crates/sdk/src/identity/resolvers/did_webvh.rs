@@ -14,12 +14,14 @@ use crate::identity::*;
 /// - the document size is bounded by [`DID_WEB_MAX_DOCUMENT_BYTES`]
 /// - **full `did:webvh` v1.0 cryptographic verification** — SCID derivation from the initial entry,
 ///   the per-entry hash chain, every entry's `eddsa-jcs-2022` Data Integrity proof, and the
-///   key-rotation authorization chain (see [`verify_webvh_log`]). Any failure is fatal: the whole
-///   log is rejected (fail-closed).
+///   key-rotation authorization chain (see [`verify_did_webvh_v1_chain`]). Any failure is fatal:
+///   the whole log is rejected (fail-closed).
 #[derive(Clone, Debug, Default)]
 pub struct DidWebvhResolver {
     documents: BTreeMap<Did, DidDocument>,
     logs: BTreeMap<Did, Vec<DidWebvhLogEntry>>,
+    raw_logs: BTreeMap<Did, Vec<Value>>,
+    conflicted: std::collections::BTreeSet<Did>,
 }
 
 /// A single line from a `did.jsonl` log file. The shape is permissive
@@ -54,6 +56,18 @@ pub struct DidWebvhLogOutcome {
     pub body: Vec<u8>,
 }
 
+/// Result of fail-closed verification of a complete WebVH history. Raw entries
+/// and head state are retained so callers can preserve fork evidence and
+/// compare a separately fetched `did.json` without discarding DID Core fields.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedDidWebvhLog {
+    pub raw_entries: Vec<Value>,
+    pub entries: Vec<DidWebvhLogEntry>,
+    pub head_version_id: String,
+    pub head_state: Value,
+    pub active_update_keys: Vec<String>,
+}
+
 impl DidWebvhResolver {
     pub fn new() -> Self {
         Self::default()
@@ -77,6 +91,11 @@ impl DidWebvhResolver {
         did: &Did,
         response: DidWebvhDocumentOutcome,
     ) -> Result<DidDocument> {
+        if self.conflicted.contains(did) {
+            return Err(Error::Protocol(
+                "did:webvh history is conflicted; current state is unavailable".to_owned(),
+            ));
+        }
         let expected_url = Self::document_url(did)?;
         if response.url != expected_url {
             return Err(Error::Protocol(
@@ -98,6 +117,11 @@ impl DidWebvhResolver {
             return Err(Error::Protocol("did:webvh document id mismatch".to_owned()));
         }
         document.validate()?;
+        if let Some(entries) = self.logs.get(did)
+            && let Some(head) = entries.last()
+        {
+            verify_document_matches_webvh_head(&document, &head.state)?;
+        }
         self.documents.insert(did.clone(), document.clone());
         Ok(document)
     }
@@ -109,6 +133,11 @@ impl DidWebvhResolver {
         did: &Did,
         response: DidWebvhLogOutcome,
     ) -> Result<Vec<DidWebvhLogEntry>> {
+        if self.conflicted.contains(did) {
+            return Err(Error::Protocol(
+                "did:webvh history is conflicted; current state is unavailable".to_owned(),
+            ));
+        }
         let expected_url = Self::log_url(did)?;
         if response.url != expected_url {
             return Err(Error::Protocol("did:webvh log URL mismatch".to_owned()));
@@ -118,78 +147,17 @@ impl DidWebvhResolver {
                 "did:webvh log exceeds maximum size".to_owned(),
             ));
         }
-        let scid = did_webvh_scid(did)
-            .ok_or_else(|| Error::Protocol("did:webvh DID has no SCID".to_owned()))?;
-        let mut entries = Vec::new();
-        // Raw JSON value of each line, preserving every field (including
-        // ones the typed [`DidWebvhLogEntry`] does not model). Cryptographic
-        // verification MUST run over the producer's exact object, so the
-        // canonicalization step uses these raw values rather than a
-        // re-serialized typed struct.
-        let mut raw_entries: Vec<Value> = Vec::new();
-        let mut last_version_id: Option<String> = None;
-        for line in response
-            .body
-            .split(|b| *b == b'\n')
-            .filter(|chunk| !chunk.is_empty())
-        {
-            let raw: Value = serde_json::from_slice(line)?;
-            let entry: DidWebvhLogEntry = serde_json::from_value(raw.clone())?;
-            // SCID consistency.
-            let entry_scid = entry
-                .parameters
-                .get("scid")
-                .and_then(Value::as_str)
-                .unwrap_or_default();
-            if !entry_scid.is_empty() && entry_scid != scid {
+        let verified = verify_did_webvh_v1_chain_bytes(did, &response.body)?;
+        if let Some(existing) = self.raw_logs.get(did) {
+            let shared_length = existing.len().min(verified.raw_entries.len());
+            if existing[..shared_length] != verified.raw_entries[..shared_length] {
+                self.mark_conflicted(did);
                 return Err(Error::Protocol(
-                    "did:webvh log entry SCID does not match DID".to_owned(),
+                    "did:webvh sibling history detected; current state is unavailable".to_owned(),
                 ));
             }
-            // Sequential version chain. Entries follow `<seq>-<hash>`.
-            let (seq, _) = entry.version_id.split_once('-').ok_or_else(|| {
-                Error::Protocol("did:webvh entry has malformed versionId".to_owned())
-            })?;
-            let seq: u64 = seq.parse().map_err(|_| {
-                Error::Protocol("did:webvh entry versionId seq not numeric".to_owned())
-            })?;
-            if seq != entries.len() as u64 + 1 {
-                return Err(Error::Protocol(
-                    "did:webvh entry versions are not sequential".to_owned(),
-                ));
-            }
-            // Every entry MUST carry at least one Data Integrity proof. An
-            // entry with no proof is trivially forgeable, so reject it
-            // outright (fail-closed) rather than accepting an unsigned
-            // history line.
-            if entry.proof.is_empty() {
-                return Err(Error::Protocol(
-                    "did:webvh entry is missing its proof".to_owned(),
-                ));
-            }
-            // Optional `prevVersionId` field for >1 entries.
-            if let Some(prev) = entry
-                .parameters
-                .get("prevVersionId")
-                .or_else(|| entry.parameters.get("previousVersionId"))
-                .and_then(Value::as_str)
-                && Some(prev) != last_version_id.as_deref()
-            {
-                return Err(Error::Protocol(
-                    "did:webvh entry prevVersionId does not match previous head".to_owned(),
-                ));
-            }
-            last_version_id = Some(entry.version_id.clone());
-            entries.push(entry);
-            raw_entries.push(raw);
         }
-        if entries.is_empty() {
-            return Err(Error::Protocol("did:webvh log is empty".to_owned()));
-        }
-        // Cryptographic verification: SCID derivation, per-entry EdDSA proof
-        // verification, and the key-rotation authorization chain. Any failure
-        // here is fatal (fail-closed) — the log is never accepted.
-        verify_webvh_log(&scid, &entries, &raw_entries)?;
+        let entries = verified.entries;
         // Version-rollback protection: a re-ingested log MUST NOT be shorter
         // than one we already accepted for this DID. This prevents an
         // attacker who controls the host from serving a truncated history
@@ -201,6 +169,10 @@ impl DidWebvhResolver {
                 "did:webvh log rolls back to an earlier version".to_owned(),
             ));
         }
+        if let Some(document) = self.documents.get(did) {
+            verify_document_matches_webvh_head(document, &verified.head_state)?;
+        }
+        self.raw_logs.insert(did.clone(), verified.raw_entries);
         self.logs.insert(did.clone(), entries.clone());
         Ok(entries)
     }
@@ -208,6 +180,17 @@ impl DidWebvhResolver {
     /// Latest verified entry for a previously-ingested DID.
     pub fn latest_entry(&self, did: &Did) -> Option<&DidWebvhLogEntry> {
         self.logs.get(did).and_then(|entries| entries.last())
+    }
+
+    pub fn is_conflicted(&self, did: &Did) -> bool {
+        self.conflicted.contains(did)
+    }
+
+    fn mark_conflicted(&mut self, did: &Did) {
+        self.conflicted.insert(did.clone());
+        self.documents.remove(did);
+        self.logs.remove(did);
+        self.raw_logs.remove(did);
     }
 }
 
@@ -222,6 +205,11 @@ impl DidResolver for DidWebvhResolver {
                 "unsupported DID method for did:webvh resolver".to_owned(),
             ));
         }
+        if self.conflicted.contains(did) {
+            return Err(Error::Protocol(
+                "did:webvh history is conflicted; current state is unavailable".to_owned(),
+            ));
+        }
         self.documents
             .get(did)
             .cloned()
@@ -229,91 +217,245 @@ impl DidResolver for DidWebvhResolver {
     }
 }
 
-/// Full cryptographic verification of a parsed `did:webvh` log.
-///
-/// Implements the `did:webvh` v1.0 integrity model on top of the
-/// `eddsa-jcs-2022` Data Integrity suite (per `identity-did.md` §3.4,
-/// which delegates to the DIF `did:webvh` v1.0 method specification):
-///
-/// 1. **SCID derivation** — the first entry's SCID MUST be reproducible from the entry's own
-///    content (every literal SCID occurrence replaced by the `{SCID}` placeholder,
-///    JCS-canonicalized, hashed with SHA-256, wrapped in a multihash, base58btc/multibase encoded).
-/// 2. **Entry hash chain** — each `versionId`'s hash component MUST equal the multihash of the
-///    entry canonicalized with its `versionId` replaced by the predecessor's `versionId` (the SCID
-///    for entry 1) and the `proof` removed.
-/// 3. **Per-entry proof verification** — every Data Integrity proof on an entry MUST verify with
-///    Ed25519 over `hash(proofConfig) || hash(transformedDoc)`, using the public key named by the
-///    proof's `verificationMethod`.
-/// 4. **Key-rotation authorization chain** — entry 1's proof key MUST be one of the `updateKeys`
-///    the SCID commits to; entry N's proof key MUST be one of the `updateKeys` authorized by entry
-///    N-1 (carried forward when an entry does not re-declare them). This binds every `updateKeys`
-///    change to the previous version's authority.
-///
-/// Any failure is fatal: the function returns `Err` and the caller MUST
-/// reject the whole log (fail-closed).
-fn verify_webvh_log(scid: &str, entries: &[DidWebvhLogEntry], raw_entries: &[Value]) -> Result<()> {
-    // SCID derivation check, sealed on the first entry.
-    let derived = derive_webvh_scid(scid, &raw_entries[0])?;
-    if derived != scid {
+/// Parse and verify a complete JSON-lines Arkret principal WebVH history.
+pub fn verify_did_webvh_v1_log_bytes(did: &Did, bytes: &[u8]) -> Result<VerifiedDidWebvhLog> {
+    let raw_entries = parse_did_webvh_json_lines(bytes)?;
+    verify_did_webvh_v1_log(did, &raw_entries)
+}
+
+/// Parse and verify the generic WebVH integrity/current-key profile.
+pub fn verify_did_webvh_v1_chain_bytes(did: &Did, bytes: &[u8]) -> Result<VerifiedDidWebvhLog> {
+    let raw_entries = parse_did_webvh_json_lines(bytes)?;
+    verify_did_webvh_v1_chain(did, &raw_entries)
+}
+
+fn parse_did_webvh_json_lines(bytes: &[u8]) -> Result<Vec<Value>> {
+    let mut raw_entries = Vec::new();
+    for line in bytes.split(|byte| *byte == b'\n') {
+        let line = line.strip_suffix(b"\r").unwrap_or(line);
+        if line.iter().all(u8::is_ascii_whitespace) {
+            continue;
+        }
+        raw_entries.push(serde_json::from_slice(line)?);
+    }
+    Ok(raw_entries)
+}
+
+/// Fail-closed verification of the entire current-entry/pre-rotation/spent-key
+/// model. Every entry explicitly declares and is signed by its current root
+/// key; after inception that key must match the previous entry's commitment,
+/// and a previously activated root key can never become active again.
+pub fn verify_did_webvh_v1_log(did: &Did, raw_entries: &[Value]) -> Result<VerifiedDidWebvhLog> {
+    verify_did_webvh_v1_internal(did, raw_entries, true)
+}
+
+/// Verify generic WebVH SCID/hash-chain/proof/current-key integrity. Rotation
+/// requires the previous entry's pre-rotation commitment, while a single-head
+/// service or organization DID need not advertise a future key.
+pub fn verify_did_webvh_v1_chain(did: &Did, raw_entries: &[Value]) -> Result<VerifiedDidWebvhLog> {
+    verify_did_webvh_v1_internal(did, raw_entries, false)
+}
+
+fn verify_did_webvh_v1_internal(
+    did: &Did,
+    raw_entries: &[Value],
+    principal_profile: bool,
+) -> Result<VerifiedDidWebvhLog> {
+    if did.method() != "webvh" {
+        return Err(Error::Protocol("DID is not did:webvh".to_owned()));
+    }
+    let scid = did_webvh_scid(did)
+        .ok_or_else(|| Error::Protocol("did:webvh DID has no SCID".to_owned()))?;
+    if raw_entries.is_empty() {
+        return Err(Error::Protocol("did:webvh log is empty".to_owned()));
+    }
+    let entries = raw_entries
+        .iter()
+        .cloned()
+        .map(serde_json::from_value)
+        .collect::<std::result::Result<Vec<DidWebvhLogEntry>, _>>()?;
+    if derive_webvh_scid(&scid, &raw_entries[0])? != scid {
         return Err(Error::Protocol(
             "did:webvh SCID does not derive from initial entry".to_owned(),
         ));
     }
 
-    // `updateKeys` authorized by the *previous* version. For the first
-    // entry the authority is the key set the SCID commits to (the entry's
-    // own declared `updateKeys`).
-    let mut authorized_keys = webvh_update_keys(&entries[0].parameters)?;
-    if authorized_keys.is_empty() {
-        return Err(Error::Protocol(
-            "did:webvh initial entry declares no updateKeys".to_owned(),
-        ));
-    }
+    let mut spent_keys = std::collections::BTreeSet::new();
+    let mut previous_version_id: Option<&str> = None;
+    let mut previous_next_hashes: Option<Vec<String>> = None;
+    let mut active_update_keys = Vec::new();
 
-    let mut prev_version_id: Option<&str> = None;
-    for (index, (entry, raw)) in entries.iter().zip(raw_entries.iter()).enumerate() {
-        // Entry-hash chain: the `versionId` hash MUST commit to the entry
-        // body (predecessor versionId substituted, proof removed).
-        let prev_anchor = prev_version_id.unwrap_or(scid);
-        verify_webvh_entry_hash(&entry.version_id, prev_anchor, raw)?;
+    for (index, (entry, raw)) in entries.iter().zip(raw_entries).enumerate() {
+        let expected_sequence = index as u64 + 1;
+        let (sequence, _) = entry
+            .version_id
+            .split_once('-')
+            .ok_or_else(|| Error::Protocol("did:webvh entry has malformed versionId".to_owned()))?;
+        if sequence.parse::<u64>().ok() != Some(expected_sequence)
+            || (sequence.len() > 1 && sequence.starts_with('0'))
+        {
+            return Err(Error::Protocol(
+                "did:webvh entry versions are not sequential".to_owned(),
+            ));
+        }
+        if entry.parameters.get("scid").and_then(Value::as_str) != Some(scid.as_str()) {
+            return Err(Error::Protocol(
+                "did:webvh log entry SCID does not match DID".to_owned(),
+            ));
+        }
+        if entry.parameters.get("method").and_then(Value::as_str) != Some("did:webvh:1.0") {
+            return Err(Error::Protocol(
+                "did:webvh log entry method must be did:webvh:1.0".to_owned(),
+            ));
+        }
+        if entry.state.get("id").and_then(Value::as_str) != Some(did.as_str()) {
+            return Err(Error::Protocol(
+                "did:webvh log state id does not match DID".to_owned(),
+            ));
+        }
+        if let Some(declared_previous) = entry
+            .parameters
+            .get("prevVersionId")
+            .or_else(|| entry.parameters.get("previousVersionId"))
+            .and_then(Value::as_str)
+            && Some(declared_previous) != previous_version_id
+        {
+            return Err(Error::Protocol(
+                "did:webvh entry previous version does not match the verified head".to_owned(),
+            ));
+        }
+        let previous_anchor = previous_version_id.unwrap_or(scid.as_str());
+        verify_webvh_entry_hash(&entry.version_id, previous_anchor, raw)?;
 
-        // Proof verification + authorization. At least one proof MUST
-        // verify under a currently-authorized key. We require *every*
-        // proof on the entry to be a well-formed, key-authorized,
-        // cryptographically valid signature (fail-closed on any bad one).
-        let mut any_authorized = false;
+        let current_keys = webvh_update_keys(&entry.parameters)?;
+        if current_keys.is_empty() {
+            return Err(Error::Protocol(
+                "did:webvh entry must explicitly declare updateKeys".to_owned(),
+            ));
+        }
+        ensure_unique_webvh_values("updateKeys", &current_keys)?;
+        for key in &current_keys {
+            binding::decode_multicodec_ed25519(key).map_err(|error| {
+                Error::Protocol(format!("did:webvh update key is not Ed25519: {error}"))
+            })?;
+            if spent_keys.contains(key) {
+                return Err(Error::Protocol(
+                    "did:webvh spent update key cannot become active again".to_owned(),
+                ));
+            }
+        }
+        if index > 0 && previous_next_hashes.is_none() {
+            return Err(Error::Protocol(
+                "did:webvh rotation has no previous nextKeyHashes authorization".to_owned(),
+            ));
+        }
+        if let Some(committed_hashes) = &previous_next_hashes {
+            for key in &current_keys {
+                let commitment = webvh_multihash_base58(key.as_bytes());
+                if !committed_hashes.contains(&commitment) {
+                    return Err(Error::Protocol(
+                        "did:webvh current update key was not committed by the previous entry"
+                            .to_owned(),
+                    ));
+                }
+            }
+        }
+        if principal_profile {
+            let forbidden_roots = spent_keys
+                .iter()
+                .chain(current_keys.iter())
+                .map(String::as_str)
+                .collect::<Vec<_>>();
+            arkret_signatures::webvh::validate_principal_did_document_profile(
+                did.as_str(),
+                &entry.state,
+                &forbidden_roots,
+            )
+            .map_err(|error| Error::Protocol(format!("invalid principal DID profile: {error}")))?;
+        }
+
+        if entry.proof.is_empty() {
+            return Err(Error::Protocol(
+                "did:webvh entry is missing its proof".to_owned(),
+            ));
+        }
         for proof in &entry.proof {
-            let vm = proof
+            let verification_method = proof
                 .get("verificationMethod")
                 .and_then(Value::as_str)
                 .ok_or_else(|| {
                     Error::Protocol("did:webvh proof missing verificationMethod".to_owned())
                 })?;
-            let key_multibase = webvh_verification_method_key(vm);
-            verify_webvh_proof(raw, proof, &key_multibase)?;
-            if authorized_keys.iter().any(|k| k == &key_multibase) {
-                any_authorized = true;
-            } else {
+            let key_multibase = webvh_verification_method_key(verification_method);
+            let exact_method = format!("did:key:{key_multibase}#{key_multibase}");
+            if verification_method != exact_method {
                 return Err(Error::Protocol(
-                    "did:webvh proof key is not authorized by the previous version".to_owned(),
+                    "did:webvh proof verificationMethod is not canonical did:key form".to_owned(),
+                ));
+            }
+            if !current_keys.contains(&key_multibase) {
+                return Err(Error::Protocol(
+                    "did:webvh proof key is not active in the current entry".to_owned(),
+                ));
+            }
+            verify_webvh_proof(raw, proof, &key_multibase)?;
+        }
+
+        let next_hashes = webvh_next_key_hashes(&entry.parameters)?;
+        if principal_profile && next_hashes.is_empty() {
+            return Err(Error::Protocol(
+                "did:webvh principal entry must declare nextKeyHashes".to_owned(),
+            ));
+        }
+        ensure_unique_webvh_values("nextKeyHashes", &next_hashes)?;
+        for activated_key in spent_keys.iter().chain(current_keys.iter()) {
+            let activated_commitment = webvh_multihash_base58(activated_key.as_bytes());
+            if next_hashes.contains(&activated_commitment) {
+                return Err(Error::Protocol(
+                    "did:webvh nextKeyHashes cannot recommit an activated or spent update key"
+                        .to_owned(),
                 ));
             }
         }
-        if !any_authorized {
-            return Err(Error::Protocol(
-                "did:webvh entry has no proof from an authorized key".to_owned(),
-            ));
-        }
 
-        // Key rotation: the keys this entry declares become the authority
-        // for the *next* entry. An entry that omits `updateKeys` carries
-        // the previous authority forward unchanged.
-        let declared = webvh_update_keys(&entry.parameters)?;
-        if !declared.is_empty() {
-            authorized_keys = declared;
-        }
-        let _ = index;
-        prev_version_id = Some(&entry.version_id);
+        spent_keys.extend(current_keys.iter().cloned());
+        active_update_keys = current_keys;
+        previous_next_hashes = Some(next_hashes);
+        previous_version_id = Some(&entry.version_id);
+    }
+
+    let head = entries.last().expect("non-empty checked above");
+    Ok(VerifiedDidWebvhLog {
+        raw_entries: raw_entries.to_vec(),
+        entries: entries.clone(),
+        head_version_id: head.version_id.clone(),
+        head_state: head.state.clone(),
+        active_update_keys,
+    })
+}
+
+fn verify_document_matches_webvh_head(document: &DidDocument, head_state: &Value) -> Result<()> {
+    let document_value = serde_json::to_value(document)?;
+    let document_bytes = arkret_canonical::canonical::canonical_json_bytes(&document_value)
+        .map_err(|error| {
+            Error::Protocol(format!("did:webvh document canonicalization: {error}"))
+        })?;
+    let head_bytes = arkret_canonical::canonical::canonical_json_bytes(head_state)
+        .map_err(|error| Error::Protocol(format!("did:webvh head canonicalization: {error}")))?;
+    if document_bytes != head_bytes {
+        return Err(Error::Protocol(
+            "did:webvh did.json does not match the verified log head state".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn ensure_unique_webvh_values(field: &str, values: &[String]) -> Result<()> {
+    let unique = values.iter().collect::<std::collections::BTreeSet<_>>();
+    if unique.len() != values.len() {
+        return Err(Error::Protocol(format!(
+            "did:webvh {field} contains duplicate values"
+        )));
     }
     Ok(())
 }
@@ -388,6 +530,14 @@ fn verify_webvh_entry_hash(version_id: &str, prev_anchor: &str, raw: &Value) -> 
 /// is the entry without its `proof` field. `key_multibase` is the
 /// `z6Mk…` Ed25519 public key the proof's `verificationMethod` names.
 fn verify_webvh_proof(raw_entry: &Value, proof: &Value, key_multibase: &str) -> Result<()> {
+    if proof.get("type").and_then(Value::as_str) != Some("DataIntegrityProof")
+        || proof.get("cryptosuite").and_then(Value::as_str) != Some("eddsa-jcs-2022")
+        || proof.get("proofPurpose").and_then(Value::as_str) != Some("assertionMethod")
+    {
+        return Err(Error::Protocol(
+            "did:webvh proof must be an eddsa-jcs-2022 assertionMethod proof".to_owned(),
+        ));
+    }
     let proof_value = proof
         .get("proofValue")
         .and_then(Value::as_str)
@@ -464,4 +614,35 @@ fn webvh_update_keys(parameters: &Value) -> Result<Vec<String>> {
         out.push(s.strip_prefix("did:key:").unwrap_or(s).to_owned());
     }
     Ok(out)
+}
+
+fn webvh_next_key_hashes(parameters: &Value) -> Result<Vec<String>> {
+    let Some(hashes) = parameters.get("nextKeyHashes") else {
+        return Ok(Vec::new());
+    };
+    let hashes = hashes
+        .as_array()
+        .ok_or_else(|| Error::Protocol("did:webvh nextKeyHashes is not an array".to_owned()))?;
+    hashes
+        .iter()
+        .map(|hash| {
+            let hash = hash.as_str().ok_or_else(|| {
+                Error::Protocol("did:webvh nextKeyHashes entry is not a string".to_owned())
+            })?;
+            let decoded = arkret_core::decode_base58btc(hash).map_err(|_| {
+                Error::Protocol("did:webvh nextKeyHashes entry is not base58btc".to_owned())
+            })?;
+            if decoded.len() != 34 || decoded[..2] != [0x12, 0x20] {
+                return Err(Error::Protocol(
+                    "did:webvh nextKeyHashes entry is not a sha2-256 multihash".to_owned(),
+                ));
+            }
+            if arkret_core::encode_base58btc(&decoded) != hash {
+                return Err(Error::Protocol(
+                    "did:webvh nextKeyHashes entry is not canonical base58btc".to_owned(),
+                ));
+            }
+            Ok(hash.to_owned())
+        })
+        .collect()
 }

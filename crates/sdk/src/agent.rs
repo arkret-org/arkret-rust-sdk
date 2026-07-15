@@ -747,7 +747,7 @@ fn agent_key_proof_unsigned_session_grant_request(
 ) -> Result<SessionGrantRequestBody> {
     let request_canonical_digest = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
     Ok(SessionGrantRequestBody {
-        principal_id: Some(principal_id),
+        principal_id,
         device_id: None,
         requested_scope,
         agent_key_authorization_ref: Some(agent_key_authorization_ref.into()),
@@ -1633,7 +1633,7 @@ mod tests {
             digest.as_str(),
             "sha256:989eefe3158e7cc381de4f12283b08217e3db5c3717c4669f665c7b9f26b7cd4"
         );
-        assert_eq!(request.principal_id.as_ref(), Some(&principal_id));
+        assert_eq!(request.principal_id, principal_id);
         assert_eq!(request.device_id, None);
         assert_eq!(request.requested_scope, requested_scope);
         assert_eq!(

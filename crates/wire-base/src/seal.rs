@@ -94,7 +94,11 @@ pub struct Seal {
     pub data_event_set_root: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub availability_root: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_optional_object"
+    )]
     pub coverage_scope: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub covered_event_digests: Vec<MoveId>,
@@ -107,6 +111,15 @@ pub struct Seal {
     pub hlc: Hlc,
     #[serde(default, skip)]
     pub kind: SealKind,
+}
+
+fn deserialize_optional_object<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<BTreeMap<String, Value>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    BTreeMap::<String, Value>::deserialize(deserializer).map(Some)
 }
 
 #[derive(Serialize)]
@@ -180,12 +193,6 @@ impl Seal {
     }
 
     pub fn validate_structural(&self) -> Result<()> {
-        if self.predecessor_refs.is_empty() && !self.delta.is_empty() {
-            return Err(Error::Protocol(
-                "Genesis Seal MUST have delta=[]; predecessor_refs=[] with non-empty delta is invalid"
-                    .to_owned(),
-            ));
-        }
         validate_sorted_unique("Seal.predecessor_refs", &self.predecessor_refs)?;
         validate_sorted_unique("Seal.delta", &self.delta)?;
         validate_sorted_unique("Seal.covered_event_digests", &self.covered_event_digests)?;
@@ -346,12 +353,11 @@ mod tests {
     }
 
     #[test]
-    fn genesis_requires_empty_delta() {
+    fn empty_predecessors_allow_a_canonical_non_empty_delta() {
         let mut seal = sample();
         seal.predecessor_refs.clear();
         seal.id = seal.derive_id().unwrap();
-        let err = seal.validate_structural().unwrap_err();
-        assert!(format!("{err}").contains("delta=[]"));
+        seal.validate_structural().unwrap();
     }
 
     #[test]
@@ -368,23 +374,11 @@ mod tests {
     }
 
     #[test]
-    fn coverage_scope_normalizes_explicit_null_to_absence() {
+    fn coverage_scope_rejects_explicit_null() {
         let mut value = serde_json::to_value(sample()).unwrap();
         value["coverage_scope"] = Value::Null;
 
-        let decoded: Seal = serde_json::from_value(value).unwrap();
-
-        assert_eq!(decoded.coverage_scope, None);
-        assert!(
-            serde_json::to_value(&decoded)
-                .unwrap()
-                .get("coverage_scope")
-                .is_none()
-        );
-        assert!(
-            !String::from_utf8(decoded.canonical_bytes_for_id().unwrap())
-                .unwrap()
-                .contains("\"coverage_scope\":null")
-        );
+        let error = serde_json::from_value::<Seal>(value).unwrap_err();
+        assert!(error.to_string().contains("map"));
     }
 }

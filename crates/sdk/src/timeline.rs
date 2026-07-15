@@ -1169,7 +1169,7 @@ mod tests {
             seal_basis: None,
             requirements: crate::EventRequirements::default(),
             redacts: None,
-            payload: json!({
+            payload: serde_json::from_value(json!({
                 "object": {
                     "id": format!("ak:morph:01904100-0000-7000-8000-{:012x}", index),
                     "schema": crate::MORPH_SCHEMA,
@@ -1180,7 +1180,8 @@ mod tests {
                     "created_by": "did:webvh:z6mkfixture:alice.example.com",
                     "created_at": "2026-05-02T00:00:00.000Z"
                 }
-            }),
+            }))
+            .unwrap(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -1326,16 +1327,20 @@ mod tests {
         let mut timeline = TimelineStore::new(realm_id.clone(), base_client);
         let mut message = create_test_event(&realm_id, 1);
         message.kind = "ak.message.create".into();
-        message.payload = json!({"message_id":"m1","body":"hello"});
+        message.payload =
+            serde_json::from_value(json!({"message_id":"m1","body":"hello"})).unwrap();
         let mut edit = create_test_event(&realm_id, 2);
         edit.kind = "ak.message.revise".into();
-        edit.payload = json!({"target_message_id":"m1","content":{"body":"hi"}});
+        edit.payload =
+            serde_json::from_value(json!({"target_message_id":"m1","content":{"body":"hi"}}))
+                .unwrap();
         let mut reaction = create_test_event(&realm_id, 3);
         reaction.kind = "ak.reaction.add".into();
-        reaction.payload = json!({"message_id":"m1","reaction_key":"+1"});
+        reaction.payload =
+            serde_json::from_value(json!({"message_id":"m1","reaction_key":"+1"})).unwrap();
         let mut redaction = create_test_event(&realm_id, 4);
         redaction.kind = "ak.message.redact".into();
-        redaction.payload = json!({"target_message_id":"m1"});
+        redaction.payload = serde_json::from_value(json!({"target_message_id":"m1"})).unwrap();
 
         timeline
             .append_events(vec![message, edit, reaction])
@@ -1360,7 +1365,8 @@ mod tests {
         let mut timeline = TimelineStore::new(realm_id.clone(), base_client);
         let mut message = create_test_event(&realm_id, 1);
         message.kind = "ak.message.create".into();
-        message.payload = json!({"message_id":"m1","body":"hello"});
+        message.payload =
+            serde_json::from_value(json!({"message_id":"m1","body":"hello"})).unwrap();
         let event_id = message.event_id.clone();
         let actor = Did::new("did:webvh:z6mkfixture:alice.example.com").unwrap();
 
@@ -1396,8 +1402,9 @@ mod tests {
     fn event_cache_deduplicates_records_limited_gaps_and_reconciles_backfill() {
         let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = create_test_event(&realm_id, 1);
+        let event_id = event.event_id.clone();
         let timeline_section = Timeline {
-            events: vec![event],
+            events: vec![event.clone()],
             limited: true,
             prev_cursor: Some("prev".to_owned()),
             preview_only: None,
@@ -1424,8 +1431,8 @@ mod tests {
             .reconcile_backfill(realm_id.clone(), vec![create_test_event(&realm_id, 0)])
             .unwrap();
 
-        assert_eq!(update.inserted, vec![event.event_id.clone()]);
-        assert_eq!(duplicate.duplicate_event_ids, vec![event.event_id]);
+        assert_eq!(update.inserted, vec![event_id.clone()]);
+        assert_eq!(duplicate.duplicate_event_ids, vec![event_id]);
         assert!(matches!(request.from, BackfillFrom::Cursor { .. }));
         assert_eq!(cache.processed_items(&realm_id).len(), 1);
         assert!(backfill.gaps.is_empty());

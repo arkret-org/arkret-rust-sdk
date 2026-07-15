@@ -1395,6 +1395,8 @@ mod tests {
                 .mimi_provider_directory(Some("provider-a"), &features)
                 .await
                 .unwrap();
+            assert_eq!(response.service_type, "mimi_provider");
+            assert_eq!(response.mimi.provider_id, "provider-a");
             assert!(response.mimi.features.is_empty());
 
             let raw = capture.await.unwrap();

@@ -1,6 +1,11 @@
 {
   "entries": [
     {
+      "rust_field": "crates/core/src/identity.rs::DidDocument.raw_properties",
+      "classification": "internal_or_fixture",
+      "reason": "DID Core relationships, services, contexts, and extension properties belong to the external DID document format."
+    },
+    {
       "rust_field": "crates/core/src/models/conformance.rs::ConformanceCase.vector",
       "classification": "internal_or_fixture",
       "reason": "Conformance vectors are test inputs, not an Arkret wire DTO."
@@ -164,6 +169,16 @@
       "rust_field": "crates/sdk/src/identity/resolvers/did_webvh.rs::DidWebvhLogEntry.proof",
       "classification": "internal_or_fixture",
       "reason": "DID method proof parsing is an external-method resolver representation."
+    },
+    {
+      "rust_field": "crates/sdk/src/identity/resolvers/did_webvh.rs::VerifiedDidWebvhLog.head_state",
+      "classification": "internal_or_fixture",
+      "reason": "Verified WebVH head state preserves the external DID document without narrowing its extension fields."
+    },
+    {
+      "rust_field": "crates/sdk/src/identity/resolvers/did_webvh.rs::VerifiedDidWebvhLog.raw_entries",
+      "classification": "internal_or_fixture",
+      "reason": "Verified WebVH evidence preserves complete external log entries for fork comparison."
     },
     {
       "rust_field": "crates/sdk/src/profile.rs::PairwiseControlMessage.payload",
@@ -1373,6 +1388,11 @@
       "reason": "Prepared WebVH inception material follows the external WebVH format rather than an Arkret wire schema."
     },
     {
+      "rust_field": "crates/signatures/src/webvh/inception.rs::PreparedPrincipalInception.log_entry",
+      "classification": "internal_or_fixture",
+      "reason": "Prepared principal WebVH inception material follows the external WebVH format rather than an Arkret wire schema."
+    },
+    {
       "rust_field": "crates/signatures/src/webvh/inception.rs::SubmittedInception.did_document",
       "classification": "internal_or_fixture",
       "reason": "Submitted DID documents follow the external DID format rather than an Arkret wire schema."
@@ -1383,7 +1403,7 @@
       "reason": "Submitted DID logs follow the external WebVH format rather than an Arkret wire schema."
     },
     {
-      "rust_field": "crates/signatures/src/webvh/inception.rs::SuppliedInceptionInput.proof",
+      "rust_field": "crates/signatures/src/webvh/inception.rs::SuppliedPrincipalInceptionInput.proof",
       "classification": "internal_or_fixture",
       "reason": "Supplied WebVH proof material follows the external WebVH format rather than an Arkret wire schema."
     },

@@ -11,6 +11,7 @@ use serde_json::Value;
 use crate::{Did, Error, Result};
 
 pub mod binding;
+mod bootstrap;
 mod handles;
 pub(crate) mod helpers;
 pub mod primary_handle;
@@ -19,6 +20,7 @@ mod resolvers;
 #[cfg(test)]
 mod tests;
 
+pub use bootstrap::*;
 pub use handles::*;
 /// Public re-export of the `did:webvh` splitter so downstream crates
 /// (e.g. starid) can parse a webvh DID into its parts without depending

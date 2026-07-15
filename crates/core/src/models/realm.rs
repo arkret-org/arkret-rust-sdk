@@ -78,6 +78,12 @@ pub struct Realm {
     /// Subsequent notary changes strand through Move on the
     /// `ak:cell:ak.component.notary.v1:<realm_id>` cell.
     pub notary: crate::notary::NotaryValue,
+    /// Product/profile fields carried by `realm.schema.json`. Security
+    /// discriminators such as `purpose=principal_control` are validated by
+    /// the profile-specific admission path.
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
     /// Soft cap on how stale the latest Seal leaf may be before clients
     /// SHOULD warn / re-fetch. `None` means "implementation default" (spec
     /// suggests 30s for single-DID, longer for threshold). Reducer-derived
@@ -264,6 +270,7 @@ impl Realm {
             notary_profile,
             digest_algorithm: canonical::DigestSuite::Sha256,
             notary,
+            fields: BTreeMap::new(),
             revocation_freshness_window_ms: None,
             max_delegation_lifetime_ms: default_max_delegation_lifetime_ms(),
             bottom_escalation_after_ms: None,

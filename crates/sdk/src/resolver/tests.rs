@@ -31,7 +31,7 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
         seal_basis: None,
         requirements: EventRequirements::default(),
         redacts: None,
-        payload: content,
+        payload: serde_json::from_value(content).unwrap(),
         executed_by: None,
         authorization_ref: None,
         applet_id: None,
@@ -1036,17 +1036,19 @@ fn realm_organization_distinct_relationships_coexist() {
 fn realm_organization_same_subject_replaces_under_lww() {
     let org = "did:webvh:z6mkfixture:org-a.example.com";
     let mut first = realm_organization_event(1, org, "member");
-    first.payload = json!({
+    first.payload = serde_json::from_value(json!({
         "organization_id": org,
         "relationship": "member",
         "label": "first"
-    });
+    }))
+    .unwrap();
     let mut second = realm_organization_event(2, org, "member");
-    second.payload = json!({
+    second.payload = serde_json::from_value(json!({
         "organization_id": org,
         "relationship": "member",
         "label": "second"
-    });
+    }))
+    .unwrap();
 
     let mut state = RealmState::new(realm_id());
     // `second` has the higher HLC/seq, so it wins under the CAS-register LWW
@@ -1067,7 +1069,10 @@ fn realm_organization_requires_subject_fields() {
     // Missing relationship must surface a protocol error, not a silent
     // realm_id fallback.
     let mut ev = realm_organization_event(1, "did:webvh:z6mkfixture:org-a.example.com", "member");
-    ev.payload = json!({ "organization_id": "did:webvh:z6mkfixture:org-a.example.com" });
+    ev.payload = serde_json::from_value(
+        json!({ "organization_id": "did:webvh:z6mkfixture:org-a.example.com" }),
+    )
+    .unwrap();
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[ev]).unwrap_err();
