@@ -196,9 +196,8 @@ pub struct DidRegistryReceipt {
     /// Generic detached-JWS proof
     /// (`event-envelope.schema.json#/$defs/proof`) by the registry
     /// service key. `payload_digest = canonical_digest(receipt without
-    /// signature)`; the JWS signs the canonical binding object built
-    /// like service-surface.md §3.1.3 with `did =
-    /// registry_service_id` (the issuer).
+    /// signature)`; the JWS signs the `ak.identity-receipt-proof-v1`
+    /// binding object defined by identity-did.md section 4.3.
     pub signature: DetachedPayloadProof,
 }
 
@@ -217,6 +216,7 @@ impl DidRegistryReceipt {
         signing_key: &ed25519_dalek::SigningKey,
         verification_method: &str,
     ) -> Result<Self> {
+        let created_at = Utc::now();
         let mut receipt = Self {
             schema: Self::SCHEMA.to_owned(),
             receipt_id,
@@ -226,13 +226,13 @@ impl DidRegistryReceipt {
             registry_service_id,
             witness_role,
             audience: None,
-            created_at: Utc::now(),
+            created_at,
             signature: DetachedPayloadProof {
                 kind: "detached_jws".to_owned(),
                 verification_method: verification_method.to_owned(),
                 alg: "EdDSA".to_owned(),
                 payload_digest: placeholder_digest(),
-                created_at: Utc::now(),
+                created_at,
                 domain: None,
                 audience: None,
                 jws: String::new(),
@@ -261,12 +261,20 @@ impl DidRegistryReceipt {
     fn binding_bytes(&self) -> Result<Vec<u8>> {
         let mut object = serde_json::Map::new();
         object.insert(
+            "context".to_owned(),
+            Value::String(arkret_core::IDENTITY_RECEIPT_PROOF_BINDING_CONTEXT.to_owned()),
+        );
+        object.insert(
             "payload_digest".to_owned(),
             Value::String(self.signature.payload_digest.as_str().to_owned()),
         );
         object.insert(
-            "did".to_owned(),
+            "registry_service_id".to_owned(),
             Value::String(self.registry_service_id.as_str().to_owned()),
+        );
+        object.insert(
+            "did".to_owned(),
+            Value::String(self.did.as_str().to_owned()),
         );
         object.insert(
             "verification_method".to_owned(),
@@ -304,6 +312,21 @@ impl DidRegistryReceipt {
             return Err(Error::Protocol(
                 "identity receipt proof kind must be detached_jws".to_owned(),
             ));
+        }
+        if self.signature.created_at != self.created_at {
+            return Err(Error::Protocol(
+                "identity receipt proof created_at must equal receipt created_at".to_owned(),
+            ));
+        }
+        match (&self.audience, &self.signature.audience) {
+            (None, None) => {}
+            (Some(expected), Some(arkret_core::Audience::Single(actual))) if expected == actual => {
+            }
+            _ => {
+                return Err(Error::Protocol(
+                    "identity receipt and proof audience must be the same single value".to_owned(),
+                ));
+            }
         }
         let recomputed = self.payload_digest()?;
         if !constant_time_digest_eq(&recomputed, &self.signature.payload_digest) {
