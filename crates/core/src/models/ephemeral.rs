@@ -9,7 +9,7 @@ use crate::ERROR_CODE_INVALID_PARAM;
 /// Absolute hard ceiling on `expires_at - sent_at` for an ephemeral signal,
 /// in milliseconds. Per `schemas/ephemeral-envelope.schema.json`:
 /// "Signals with expires_at > sent_at + 5 minutes MUST be dropped by
-/// receivers (`invalid_param`)." Five minutes = 300_000 ms. Round R2/R3.
+/// receivers (`invalid_param`)." Five minutes = 300_000 ms.
 pub const EPHEMERAL_ABSOLUTE_HARD_CEILING_MS: u32 = 300_000;
 
 /// Broadcast ephemeral envelope (`ak.schema.ephemeral_envelope.v1`).
@@ -92,12 +92,9 @@ impl EphemeralEnvelope {
     }
 }
 
-// ── EphemeralEnvelope v2 / ak.call.signal ───────────────────────────────
-
-/// Round 4 (commit 58c5926) — typed `ak.call.signal` envelope payload.
+/// Typed `ak.call.signal` envelope payload.
 ///
-/// The pre-round-4 envelope carried an open `Value` payload; the round-4
-/// wire requires the three fields `call_id` + `signal_type` + `seq` and
+/// The wire requires the three fields `call_id` + `signal_type` + `seq` and
 /// validates `signal_type` against [`crate::CALL_SIGNAL_TYPES`] (14
 /// values). `seq` is monotonic per `(realm, call, actor, device)` —
 /// see [`validate_signal_seq`].
@@ -115,8 +112,7 @@ pub struct CallSignalPayload {
 }
 
 impl CallSignalPayload {
-    /// Returns `true` when `signal_type` is in the round-4 canonical
-    /// 14-value enum.
+    /// Returns `true` when `signal_type` is in the canonical 14-value enum.
     pub fn signal_type_is_canonical(&self) -> bool {
         CALL_SIGNAL_TYPES.contains(&self.signal_type.as_str())
     }
@@ -135,7 +131,7 @@ impl CallSignalPayload {
     }
 }
 
-/// Round 4 — composite key for the `ak.call.signal` `seq` monotonicity
+/// Composite key for the `ak.call.signal` `seq` monotonicity
 /// guard. Receivers maintain one `seq` per `(realm, call, actor,
 /// device)` tuple; rollback rejects the signal and the receiver SHOULD
 /// emit `hangup` for that call.
@@ -158,7 +154,7 @@ impl CallSignalSeqKey {
     }
 }
 
-/// Round 4 — verify `next` is strictly greater than `prev` for the same
+/// Verify `next` is strictly greater than `prev` for the same
 /// `key`. `prev = None` accepts any `next` (first observation).
 ///
 /// Returns `Err(ERROR_CODE_SCHEMA_VIOLATION)` on rollback / repeat —
@@ -174,7 +170,7 @@ pub fn validate_signal_seq(prev: Option<u64>, next: u64) -> Result<()> {
     }
 }
 
-/// Round 4 — in-memory bookkeeping for `seq` monotonicity per key.
+/// In-memory bookkeeping for `seq` monotonicity per key.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CallSignalState {
     seqs: BTreeMap<String, u64>,
@@ -201,8 +197,6 @@ impl CallSignalState {
         Ok(())
     }
 }
-
-// ── EphemeralEnvelope v2 helpers (ak.call.signal required fields) ────
 
 /// Verify that an `ak.call.signal` [`EphemeralEnvelope`] carries a device
 /// binding and a payload with a canonical `signal_type`.

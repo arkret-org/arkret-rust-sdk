@@ -20,7 +20,7 @@ pub struct AccountSubscribeFrame {
     pub account_data: Option<EventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub presence: Option<EventContainer>,
+    pub presence: Option<EphemeralEventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notifications: Option<NotificationContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
