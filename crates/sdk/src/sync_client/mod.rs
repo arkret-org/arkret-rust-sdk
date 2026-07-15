@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
+use arkret_signatures::{PublicKeyMaterial, verify_eddsa_detached_jws_ephemeral_proof};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -25,8 +26,9 @@ use crate::sync::{
 use crate::{
     AccountStreamInterrupt, AccountSubscribeBatch, AccountSubscribeDeviceListChanges,
     AccountSubscribeFrameKind, AccountSubscribeRealmSummary, DeviceId, DeviceMessageEnvelope, Did,
-    EphemeralEnvelope, Error, Event, EventId, NotificationDelta, NotificationDeltaAction, RealmId,
-    Result, Timeline, canonical,
+    EphemeralEnvelope, Error, Event, EventId, NotificationDelta, NotificationDeltaAction,
+    PresenceStatus, RealmId, Result, Timeline, aggregate_presence_states, canonical,
+    validate_last_active_at, validate_status_message,
 };
 
 mod loop_control;

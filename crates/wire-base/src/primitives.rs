@@ -1242,6 +1242,9 @@ impl PayloadProof {
 /// snapshot witnesses, handle claims, which carry their own context values).
 pub const EVENT_PROOF_BINDING_CONTEXT: &str = "ak.event-proof-v1";
 
+/// Fixed signing-context domain tag for ephemeral broadcast proof bindings.
+pub const EPHEMERAL_PROOF_BINDING_CONTEXT: &str = "ak.ephemeral-proof-v1";
+
 /// Canonical proof kind constants.
 pub mod proof_kind {
     /// Standard actor / device / service detached JWS. Per `encoding.md` §6
@@ -1324,8 +1327,21 @@ impl Proof {
     /// in canonical UTC `YYYY-MM-DDTHH:MM:SSZ` form so producers and
     /// verifiers reconstruct byte-identical transcripts.
     pub fn canonical_binding_bytes(&self, actor_id: &Did) -> Result<Vec<u8>> {
+        self.canonical_binding_bytes_with_context(actor_id, EVENT_PROOF_BINDING_CONTEXT)
+    }
+
+    /// Build canonical proof binding bytes for an ephemeral broadcast.
+    pub fn canonical_ephemeral_binding_bytes(&self, actor_id: &Did) -> Result<Vec<u8>> {
+        self.canonical_binding_bytes_with_context(actor_id, EPHEMERAL_PROOF_BINDING_CONTEXT)
+    }
+
+    fn canonical_binding_bytes_with_context(
+        &self,
+        actor_id: &Did,
+        context: &str,
+    ) -> Result<Vec<u8>> {
         Ok(canonical::canonical_json_bytes(
-            &self.binding_object(actor_id),
+            &self.binding_object_with_context(actor_id, context)?,
         )?)
     }
 
@@ -1333,16 +1349,23 @@ impl Proof {
     /// irrelevant — canonical JSON re-sorts by JCS). Shared by signer and
     /// verifier so both derive identical transcripts.
     pub fn binding_object(&self, actor_id: &Did) -> Value {
+        self.binding_object_with_context(actor_id, EVENT_PROOF_BINDING_CONTEXT)
+            .expect("the fixed event proof context is non-empty")
+    }
+
+    fn binding_object_with_context(&self, actor_id: &Did, context: &str) -> Result<Value> {
+        if context.trim().is_empty() {
+            return Err(Error::Protocol(
+                "proof binding context must not be empty".to_owned(),
+            ));
+        }
         let mut obj = serde_json::Map::new();
         // Fixed signing-context domain tag (encoding.md §2): every Event proof
         // binding MUST carry `context = "ak.event-proof-v1"` so an Event proof
         // signature cannot be confused with another object family's binding
         // (receipts, snapshot witnesses, handle claims each use their own
         // context). Key order is irrelevant — canonical JSON re-sorts by JCS.
-        obj.insert(
-            "context".to_owned(),
-            Value::String(EVENT_PROOF_BINDING_CONTEXT.to_owned()),
-        );
+        obj.insert("context".to_owned(), Value::String(context.to_owned()));
         obj.insert(
             "event_digest".to_owned(),
             Value::String(self.event_digest.as_str().to_owned()),
@@ -1368,7 +1391,7 @@ impl Proof {
                 serde_json::to_value(audience).unwrap_or(Value::Null),
             );
         }
-        Value::Object(obj)
+        Ok(Value::Object(obj))
     }
 
     /// Validate proof structural requirements.

@@ -4,6 +4,8 @@ use arkret_core::{
     AccountSubscribeRealms, AccountSubscribeUnreadCounts, DeviceMessageContainer,
     EphemeralEventContainer, EventContainer, ProtocolKind, RealmSyncEntry,
 };
+use arkret_signatures::{PublicKeyMaterial, sign_eddsa_detached_jws};
+use ed25519_dalek::SigningKey;
 use serde_json::json;
 
 use super::*;
@@ -59,6 +61,52 @@ fn approval_notifications(notification_id: &str, expires_at: &str) -> Notificati
             )),
         }],
     }
+}
+
+fn signed_presence(
+    realm_id: RealmId,
+    actor_id: Did,
+    device_id: DeviceId,
+    sent_at: DateTime<Utc>,
+    expires_at: DateTime<Utc>,
+    state: &str,
+    seed: [u8; 32],
+) -> (EphemeralEnvelope, PublicKeyMaterial) {
+    let signing_key = SigningKey::from_bytes(&seed);
+    let verification_method = format!("{actor_id}#{device_id}");
+    let mut envelope = EphemeralEnvelope::new(
+        "ak.presence",
+        realm_id,
+        actor_id.clone(),
+        device_id,
+        sent_at,
+        expires_at,
+        serde_json::from_value(json!({"state":state})).unwrap(),
+        Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method,
+            event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            created_at: sent_at,
+            domain: None,
+            audience: None,
+            jws: "header..signature".to_owned(),
+        },
+    )
+    .unwrap();
+    envelope.proof.event_digest = Hash::new(canonical::sha256_digest(
+        &envelope.canonical_bytes_without_proof().unwrap(),
+    ))
+    .unwrap();
+    let binding = envelope
+        .proof
+        .canonical_ephemeral_binding_bytes(&actor_id)
+        .unwrap();
+    envelope.proof.jws = sign_eddsa_detached_jws(&signing_key, &binding).unwrap();
+    let public_key = PublicKeyMaterial::Ed25519Raw {
+        bytes: signing_key.verifying_key().to_bytes().to_vec(),
+    };
+    (envelope, public_key)
 }
 
 #[test]
@@ -271,27 +319,18 @@ fn processor_dispatches_all_update_categories() {
     let sender = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
     let recipient = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
     let realm = RealmId::new(realm_id).unwrap();
+    let presence_device_id =
+        DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap();
     let presence_sent_at = Utc::now();
-    let presence_event = EphemeralEnvelope::new(
-        "ak.presence",
+    let (presence_event, presence_public_key) = signed_presence(
         realm.clone(),
         sender.clone(),
-        None,
+        presence_device_id.clone(),
         presence_sent_at,
         presence_sent_at + chrono::Duration::seconds(30),
-        serde_json::from_value(json!({"state":"online"})).unwrap(),
-        Proof {
-            kind: "detached_jws".to_owned(),
-            alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:alice.example#device-key".to_owned(),
-            event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-            created_at: presence_sent_at,
-            domain: None,
-            audience: None,
-            jws: "header..signature".to_owned(),
-        },
-    )
-    .unwrap();
+        "online",
+        [7; 32],
+    );
     let account_data_event = Event::new(
         "ak.account_data.set",
         realm,
@@ -344,7 +383,15 @@ fn processor_dispatches_all_update_categories() {
     ));
 
     let mut processor = SyncResponseProcessor::new();
-    let updates = processor.process(response).unwrap();
+    let resolver_actor = sender.clone();
+    let resolver_device = presence_device_id.clone();
+    let resolver = move |actor: &Did, device: &DeviceId| {
+        (actor == &resolver_actor && device == &resolver_device)
+            .then(|| presence_public_key.clone())
+    };
+    let updates = processor
+        .process_with_ephemeral_key_resolver(response, &resolver)
+        .unwrap();
     let parsed_realm_id = RealmId::new(realm_id).unwrap();
 
     assert_eq!(updates.realm_updates.len(), 1);
@@ -371,10 +418,108 @@ fn processor_dispatches_all_update_categories() {
     assert_eq!(processor.recovery_actions(), expected_recovery_actions);
     assert_eq!(processor.take_recovery_actions(), expected_recovery_actions);
     assert!(processor.recovery_actions().is_empty());
-    assert!(processor.presence(&sender).is_some());
+    assert_eq!(processor.presence(&sender).len(), 1);
+    assert_eq!(
+        processor.aggregated_presence(&sender),
+        PresenceStatus::Online
+    );
     assert!(processor.account_data("ak.settings").is_some());
     assert!(processor.notification(notification_id).is_some());
     assert_eq!(processor.device_lists().changed.len(), 1);
+}
+
+#[test]
+fn processor_authenticates_retains_and_aggregates_per_device_presence() {
+    let realm = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let actor = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+    let device_a = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap();
+    let device_b = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap();
+    let now = Utc::now();
+    let (online, key_a) = signed_presence(
+        realm.clone(),
+        actor.clone(),
+        device_a.clone(),
+        now,
+        now + chrono::Duration::seconds(30),
+        "online",
+        [11; 32],
+    );
+    let (dnd, key_b) = signed_presence(
+        realm,
+        actor.clone(),
+        device_b.clone(),
+        now,
+        now + chrono::Duration::seconds(30),
+        "dnd",
+        [12; 32],
+    );
+    let keys = BTreeMap::from([
+        ((actor.clone(), device_a), key_a),
+        ((actor.clone(), device_b), key_b),
+    ]);
+    let resolver =
+        move |actor: &Did, device: &DeviceId| keys.get(&(actor.clone(), device.clone())).cloned();
+    let mut batch = sync_response("presence-multi-device");
+    delta_mut(&mut batch).presence = Some(EphemeralEventContainer {
+        events: vec![online, dnd],
+    });
+
+    let mut processor = SyncResponseProcessor::new();
+    let updates = processor
+        .process_with_ephemeral_key_resolver(batch, &resolver)
+        .unwrap();
+
+    assert_eq!(updates.presence.len(), 2);
+    assert_eq!(processor.presence(&actor).len(), 2);
+    assert_eq!(processor.aggregated_presence(&actor), PresenceStatus::Dnd);
+    assert_eq!(
+        processor.expire_presence(now + chrono::Duration::seconds(30)),
+        2
+    );
+    assert!(processor.presence(&actor).is_empty());
+    assert_eq!(
+        processor.aggregated_presence(&actor),
+        PresenceStatus::Offline
+    );
+}
+
+#[test]
+fn processor_drops_unverified_and_expired_presence() {
+    let realm = RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let actor = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+    let device = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap();
+    let now = Utc::now();
+    let (unverified, _) = signed_presence(
+        realm.clone(),
+        actor.clone(),
+        device.clone(),
+        now,
+        now + chrono::Duration::seconds(30),
+        "online",
+        [21; 32],
+    );
+    let (expired, expired_key) = signed_presence(
+        realm,
+        actor.clone(),
+        device,
+        now - chrono::Duration::seconds(60),
+        now - chrono::Duration::seconds(30),
+        "online",
+        [22; 32],
+    );
+    let resolver = move |_actor: &Did, _device: &DeviceId| Some(expired_key.clone());
+    let mut batch = sync_response("presence-reject");
+    delta_mut(&mut batch).presence = Some(EphemeralEventContainer {
+        events: vec![unverified, expired],
+    });
+
+    let mut processor = SyncResponseProcessor::new();
+    let updates = processor
+        .process_with_ephemeral_key_resolver(batch, &resolver)
+        .unwrap();
+
+    assert!(updates.presence.is_empty());
+    assert!(processor.presence(&actor).is_empty());
 }
 
 #[test]

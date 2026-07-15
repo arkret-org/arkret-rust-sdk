@@ -34,7 +34,8 @@
 use std::fmt;
 
 use arkret_core::{
-    Error, Hash, Proof, Result, base64url_decode, base64url_encode, canonical, proof_kind,
+    EphemeralEnvelope, Error, Hash, Proof, Result, base64url_decode, base64url_encode, canonical,
+    proof_kind,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -157,6 +158,44 @@ pub fn verify_eddsa_detached_jws_proof(
     actor_id: &arkret_core::Did,
     public_key: &PublicKeyMaterial,
 ) -> std::result::Result<(), VerifierError> {
+    verify_eddsa_detached_jws_proof_with_context(
+        proof,
+        canonical_bytes,
+        actor_id,
+        public_key,
+        false,
+    )
+}
+
+/// Verify an ephemeral broadcast envelope against an authorized device key.
+/// The envelope's digest excludes `proof`, while its detached JWS uses the
+/// `ak.ephemeral-proof-v1` binding context mandated by the wire schema.
+pub fn verify_eddsa_detached_jws_ephemeral_proof(
+    envelope: &EphemeralEnvelope,
+    public_key: &PublicKeyMaterial,
+) -> std::result::Result<(), VerifierError> {
+    envelope
+        .validate()
+        .map_err(|error| VerifierError::Binding(error.to_string()))?;
+    let canonical_bytes = envelope
+        .canonical_bytes_without_proof()
+        .map_err(|error| VerifierError::Encoding(error.to_string()))?;
+    verify_eddsa_detached_jws_proof_with_context(
+        &envelope.proof,
+        &canonical_bytes,
+        &envelope.actor_id,
+        public_key,
+        true,
+    )
+}
+
+fn verify_eddsa_detached_jws_proof_with_context(
+    proof: &Proof,
+    canonical_bytes: &[u8],
+    actor_id: &arkret_core::Did,
+    public_key: &PublicKeyMaterial,
+    ephemeral_context: bool,
+) -> std::result::Result<(), VerifierError> {
     if canonical_bytes.is_empty() {
         return Err(VerifierError::Encoding(
             "canonical bytes must not be empty".to_owned(),
@@ -182,9 +221,12 @@ pub fn verify_eddsa_detached_jws_proof(
             proof.event_digest, expected
         )));
     }
-    let binding_bytes = proof
-        .canonical_binding_bytes(actor_id)
-        .map_err(|err| VerifierError::Encoding(format!("proof binding object: {err}")))?;
+    let binding_bytes = if ephemeral_context {
+        proof.canonical_ephemeral_binding_bytes(actor_id)
+    } else {
+        proof.canonical_binding_bytes(actor_id)
+    }
+    .map_err(|err| VerifierError::Encoding(format!("proof binding object: {err}")))?;
 
     let parts: Vec<&str> = proof.jws.split('.').collect();
     if parts.len() != 3 || !parts[1].is_empty() {

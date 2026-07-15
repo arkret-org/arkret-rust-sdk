@@ -558,11 +558,12 @@ pub use store::{
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{
     AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
-    EventsSubscribeTransport, ExponentialBackoff, LocalEcho, ProcessedRealm, RealmListChange,
-    RealmListEntry, RealmListFilter, RealmListService, RealmListSnapshot, RealmListSort, SendQueue,
-    SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus, SlidingSync,
-    SlidingWindow, SyncGapStrategy, SyncLoop, SyncLoopControl, SyncLoopSnapshot, SyncLoopStep,
-    SyncRecoveryAction, SyncResponseProcessor, SyncTransport,
+    EphemeralDeviceKeyResolver, EventsSubscribeTransport, ExponentialBackoff, LocalEcho,
+    ProcessedRealm, RealmListChange, RealmListEntry, RealmListFilter, RealmListService,
+    RealmListSnapshot, RealmListSort, SendQueue, SendQueueItem, SendQueueItemKind,
+    SendQueueSnapshot, SendQueueStatus, SlidingSync, SlidingWindow, SyncGapStrategy, SyncLoop,
+    SyncLoopControl, SyncLoopSnapshot, SyncLoopStep, SyncRecoveryAction, SyncResponseProcessor,
+    SyncTransport,
 };
 #[cfg(all(feature = "full-surface", feature = "timeline-runtime"))]
 pub use timeline::{

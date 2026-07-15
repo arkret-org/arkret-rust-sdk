@@ -14,6 +14,10 @@ mod session_and_identity {
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
     }
 
+    fn device_id() -> DeviceId {
+        DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005").unwrap()
+    }
+
     fn ephemeral_payload() -> BTreeMap<String, Value> {
         BTreeMap::from([("status".to_owned(), Value::String("online".to_owned()))])
     }
@@ -22,7 +26,7 @@ mod session_and_identity {
         Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
-            verification_method: "did:webvh:z6mkfixture:alice.example#device-key".to_owned(),
+            verification_method: format!("{}#{}", did(), device_id()),
             event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
             created_at,
             domain: None,
@@ -38,7 +42,7 @@ mod session_and_identity {
             "ak.presence",
             realm(),
             did(),
-            None,
+            device_id(),
             now,
             now + Duration::milliseconds(EPHEMERAL_ABSOLUTE_HARD_CEILING_MS as i64 + 1),
             ephemeral_payload(),
@@ -54,7 +58,7 @@ mod session_and_identity {
             "ak.presence",
             realm(),
             did(),
-            None,
+            device_id(),
             now,
             now + Duration::milliseconds(EPHEMERAL_ABSOLUTE_HARD_CEILING_MS as i64),
             ephemeral_payload(),
@@ -71,7 +75,7 @@ mod session_and_identity {
                 "ak.message.create",
                 realm(),
                 did(),
-                None,
+                device_id(),
                 now,
                 now + Duration::seconds(30),
                 BTreeMap::new(),
@@ -79,6 +83,49 @@ mod session_and_identity {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn ephemeral_envelope_deserialization_requires_device_id() {
+        let now = Utc::now();
+        let envelope = EphemeralEnvelope::new(
+            "ak.presence",
+            realm(),
+            did(),
+            device_id(),
+            now,
+            now + Duration::seconds(30),
+            ephemeral_payload(),
+            ephemeral_proof(now),
+        )
+        .unwrap();
+        let mut value = serde_json::to_value(envelope).unwrap();
+        value.as_object_mut().unwrap().remove("device_id");
+
+        assert!(serde_json::from_value::<EphemeralEnvelope>(value).is_err());
+    }
+
+    #[test]
+    fn ephemeral_envelope_deserialization_rejects_unknown_fields() {
+        let now = Utc::now();
+        let envelope = EphemeralEnvelope::new(
+            "ak.presence",
+            realm(),
+            did(),
+            device_id(),
+            now,
+            now + Duration::seconds(30),
+            ephemeral_payload(),
+            ephemeral_proof(now),
+        )
+        .unwrap();
+        let mut value = serde_json::to_value(envelope).unwrap();
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("unexpected".to_owned(), Value::Bool(true));
+
+        assert!(serde_json::from_value::<EphemeralEnvelope>(value).is_err());
     }
 
     #[test]

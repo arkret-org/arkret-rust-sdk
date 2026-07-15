@@ -240,7 +240,7 @@ fn canonical_principal_builders_produce_a_verified_rotation_chain() {
     let rotation = prepare_principal_rotation(&PrincipalRotationInput {
         did: &inception.did,
         local_id: &inception.local_id,
-        previous_entry: &inception.log_entry,
+        previous_entries: std::slice::from_ref(&inception.log_entry),
         version_time: DateTime::parse_from_rfc3339("2026-05-07T00:00:00Z")
             .unwrap()
             .with_timezone(&Utc),

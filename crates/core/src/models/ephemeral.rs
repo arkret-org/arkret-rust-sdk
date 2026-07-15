@@ -21,13 +21,13 @@ pub const EPHEMERAL_ABSOLUTE_HARD_CEILING_MS: u32 = 300_000;
 /// signals (`ak.key.verification.*`) use the device message schema instead.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct EphemeralEnvelope {
     /// Ephemeral signal kind. MUST be one of the four broadcast forms.
     pub kind: String,
     pub realm_id: RealmId,
     pub actor_id: Did,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<DeviceId>,
+    pub device_id: DeviceId,
     pub sent_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     /// Kind-specific signal payload. Schema per kind is defined by the
@@ -52,35 +52,14 @@ impl EphemeralEnvelope {
         kind: impl Into<String>,
         realm_id: RealmId,
         actor_id: Did,
-        device_id: Option<DeviceId>,
+        device_id: DeviceId,
         sent_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
         payload: BTreeMap<String, Value>,
         proof: Proof,
     ) -> Result<Self> {
-        let kind = kind.into();
-        if !matches!(
-            kind.as_str(),
-            "ak.call.signal" | "ak.presence" | "ak.typing" | "ak.receipt.read"
-        ) {
-            return Err(Error::Protocol(format!(
-                "ephemeral envelope kind {kind:?} not in {{ak.call.signal, ak.presence, ak.typing, ak.receipt.read}}"
-            )));
-        }
-        if expires_at <= sent_at {
-            return Err(Error::Protocol(
-                "ephemeral envelope expires_at must be strictly after sent_at".to_owned(),
-            ));
-        }
-        let window_ms = expires_at.signed_duration_since(sent_at).num_milliseconds();
-        if window_ms < 0 || (window_ms as u64) > EPHEMERAL_ABSOLUTE_HARD_CEILING_MS as u64 {
-            return Err(Error::Protocol(format!(
-                "ephemeral envelope window {window_ms}ms exceeds absolute hard ceiling \
-                 {EPHEMERAL_ABSOLUTE_HARD_CEILING_MS}ms ({ERROR_CODE_INVALID_PARAM})"
-            )));
-        }
-        Ok(Self {
-            kind,
+        let envelope = Self {
+            kind: kind.into(),
             realm_id,
             actor_id,
             device_id,
@@ -88,7 +67,63 @@ impl EphemeralEnvelope {
             expires_at,
             payload,
             proof,
-        })
+        };
+        envelope.validate()?;
+        Ok(envelope)
+    }
+
+    /// Validate protocol-level envelope invariants that do not require a
+    /// device-directory key. Cryptographic verification remains the
+    /// receiver's responsibility.
+    pub fn validate(&self) -> Result<()> {
+        if !matches!(
+            self.kind.as_str(),
+            "ak.call.signal" | "ak.presence" | "ak.typing" | "ak.receipt.read"
+        ) {
+            return Err(Error::Protocol(format!(
+                "ephemeral envelope kind {:?} not in {{ak.call.signal, ak.presence, ak.typing, ak.receipt.read}}",
+                self.kind
+            )));
+        }
+        if self.expires_at <= self.sent_at {
+            return Err(Error::Protocol(
+                "ephemeral envelope expires_at must be strictly after sent_at".to_owned(),
+            ));
+        }
+        let window_ms = self
+            .expires_at
+            .signed_duration_since(self.sent_at)
+            .num_milliseconds();
+        if window_ms < 0 || (window_ms as u64) > EPHEMERAL_ABSOLUTE_HARD_CEILING_MS as u64 {
+            return Err(Error::Protocol(format!(
+                "ephemeral envelope window {window_ms}ms exceeds absolute hard ceiling \
+                 {EPHEMERAL_ABSOLUTE_HARD_CEILING_MS}ms ({ERROR_CODE_INVALID_PARAM})"
+            )));
+        }
+        self.proof.validate_production()?;
+        if self.proof.kind != proof_kind::DETACHED_JWS {
+            return Err(Error::Protocol(
+                "ephemeral proof kind must be detached_jws".to_owned(),
+            ));
+        }
+        let expected_verification_method = format!("{}#{}", self.actor_id, self.device_id);
+        if self.proof.verification_method != expected_verification_method {
+            return Err(Error::Protocol(format!(
+                "ephemeral proof verification_method must be {expected_verification_method}"
+            )));
+        }
+        Ok(())
+    }
+
+    /// Canonical JCS bytes used to compute `proof.event_digest`.
+    /// The proof itself is excluded exactly as required by the wire schema.
+    pub fn canonical_bytes_without_proof(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self)?;
+        let object = value.as_object_mut().ok_or_else(|| {
+            Error::Protocol("ephemeral envelope must serialize as an object".to_owned())
+        })?;
+        object.remove("proof");
+        Ok(canonical::canonical_json_bytes(&value)?)
     }
 }
 
@@ -205,12 +240,6 @@ pub fn validate_call_signal_envelope(env: &EphemeralEnvelope) -> Result<CallSign
         return Err(Error::Protocol(format!(
             "envelope kind {:?} is not ak.call.signal",
             env.kind
-        )));
-    }
-    if env.device_id.is_none() {
-        return Err(Error::Protocol(format!(
-            "ak.call.signal envelope MUST carry device_id ({})",
-            crate::ERROR_CODE_SCHEMA_VIOLATION
         )));
     }
     let payload: CallSignalPayload = serde_json::from_value(Value::Object(

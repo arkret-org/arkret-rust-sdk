@@ -380,6 +380,7 @@ pub struct SyncLoop {
     wait_for: Option<WaitForFrontier>,
     backoff: ExponentialBackoff,
     processor: SyncResponseProcessor,
+    ephemeral_device_key_resolver: Option<Arc<dyn EphemeralDeviceKeyResolver>>,
     gap_strategy: SyncGapStrategy,
 }
 
@@ -394,6 +395,7 @@ impl SyncLoop {
             wait_for: None,
             backoff: ExponentialBackoff::default(),
             processor: SyncResponseProcessor::new(),
+            ephemeral_device_key_resolver: None,
             gap_strategy: SyncGapStrategy::PreserveTokenAndBackfill,
         }
     }
@@ -443,6 +445,16 @@ impl SyncLoop {
         self
     }
 
+    /// Configure the authoritative active-device key resolver used to verify
+    /// ephemeral broadcasts. Without one, presence is dropped fail-closed.
+    pub fn with_ephemeral_device_key_resolver(
+        mut self,
+        resolver: Arc<dyn EphemeralDeviceKeyResolver>,
+    ) -> Self {
+        self.ephemeral_device_key_resolver = Some(resolver);
+        self
+    }
+
     /// Build the next long-poll request.
     ///
     /// The loop's `timeout` is intentionally not part of the wire request:
@@ -473,7 +485,13 @@ impl SyncLoop {
                 error: "account subscribe batch requires a non-empty cursor".to_owned(),
             };
         }
-        match self.processor.process(batch) {
+        let processed = match self.ephemeral_device_key_resolver.as_deref() {
+            Some(resolver) => self
+                .processor
+                .process_with_ephemeral_key_resolver(batch, resolver),
+            None => self.processor.process(batch),
+        };
+        match processed {
             Ok(updates) => {
                 self.backoff.reset();
                 self.token = Some(cursor);

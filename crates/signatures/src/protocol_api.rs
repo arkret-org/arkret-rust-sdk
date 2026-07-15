@@ -70,7 +70,8 @@ pub use proof::{
     Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier, EventProofBuilder, EventSigner,
     EventVerifier, ProductionVerifier, ProofType, PublicKeyMaterial, SignedPayload, SignerError,
     VerifierError, build_proof_envelope, detached_jws_kind, sign_eddsa_detached_jws,
-    verify_detached_ed25519_signature, verify_eddsa_detached_jws_proof,
+    verify_detached_ed25519_signature, verify_eddsa_detached_jws_ephemeral_proof,
+    verify_eddsa_detached_jws_proof,
 };
 pub use realm_organization::realm_organization_statement_sign;
 use serde::{Deserialize, Serialize};

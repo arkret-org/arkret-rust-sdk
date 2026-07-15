@@ -29,7 +29,7 @@
 //! (sodmin / inkson) and servers (soland / coauth) can all share one
 //! implementation with no drift.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_core::{
     CanonicalServiceUrl, Did, DidOperationSubmitRequestBody, Hash, ServiceRegistrationKey,
@@ -161,14 +161,13 @@ pub struct PreparedPrincipalInception {
     pub log_url: String,
 }
 
-/// Inputs for one canonical principal root rotation. The current root seed
-/// must have been committed by `previous_entry.parameters.nextKeyHashes`; the
-/// next public root is committed by the new entry and its secret remains with
-/// the caller.
+/// Inputs for one canonical principal root rotation. `previous_entries` must
+/// be the complete, ordered log through the current head so the builder can
+/// enforce the permanent no-reuse rule across every activated root.
 pub struct PrincipalRotationInput<'a> {
     pub did: &'a str,
     pub local_id: &'a str,
-    pub previous_entry: &'a Value,
+    pub previous_entries: &'a [Value],
     pub version_time: DateTime<Utc>,
     pub current_root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
@@ -395,11 +394,139 @@ pub fn prepare_principal_inception(
     })
 }
 
-/// Build one principal rotation using the root precommitted by the immediately
-/// preceding entry. Complete-history verification remains available through
-/// `arkret::identity::verify_did_webvh_v1_log`; this builder additionally
-/// refuses to sign when the supplied current root is not authorized by the
-/// previous `nextKeyHashes` commitment.
+fn validate_principal_rotation_history<'a>(
+    did: &str,
+    entries: &'a [Value],
+) -> Result<(&'a Value, BTreeSet<String>), WebvhInceptionError> {
+    if entries.is_empty() {
+        return Err(WebvhInceptionError::InvalidProof(
+            "principal rotation requires the complete non-empty preceding log".to_owned(),
+        ));
+    }
+    let scid = did.split(':').nth(2).ok_or_else(|| {
+        WebvhInceptionError::InvalidDid("did:webvh is missing its SCID".to_owned())
+    })?;
+    let mut activated_roots = BTreeSet::new();
+    let mut previous_version_id: Option<&str> = None;
+    let mut previous_next_hash: Option<String> = None;
+
+    for (index, entry) in entries.iter().enumerate() {
+        let sequence = index + 1;
+        let version_id = entry
+            .get("versionId")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                WebvhInceptionError::InvalidProof(format!(
+                    "principal history entry {sequence} is missing versionId"
+                ))
+            })?;
+        if !version_id.starts_with(&format!("{sequence}-")) {
+            return Err(WebvhInceptionError::InvalidProof(format!(
+                "principal history entry {sequence} has a non-contiguous versionId"
+            )));
+        }
+        if entry.pointer("/state/id").and_then(Value::as_str) != Some(did) {
+            return Err(WebvhInceptionError::InvalidProof(format!(
+                "principal history entry {sequence} state id does not match DID"
+            )));
+        }
+        let parameters = entry
+            .get("parameters")
+            .and_then(Value::as_object)
+            .ok_or_else(|| {
+                WebvhInceptionError::InvalidProof(format!(
+                    "principal history entry {sequence} is missing parameters"
+                ))
+            })?;
+        if parameters.get("method").and_then(Value::as_str) != Some(WEBVH_METHOD_VERSION)
+            || parameters.get("scid").and_then(Value::as_str) != Some(scid)
+        {
+            return Err(WebvhInceptionError::InvalidProof(format!(
+                "principal history entry {sequence} method or SCID does not match DID"
+            )));
+        }
+        let update_keys = parameters
+            .get("updateKeys")
+            .and_then(Value::as_array)
+            .ok_or_else(|| {
+                WebvhInceptionError::InvalidProof(format!(
+                    "principal history entry {sequence} is missing updateKeys"
+                ))
+            })?;
+        if update_keys.len() != 1 {
+            return Err(WebvhInceptionError::InvalidProof(format!(
+                "principal history entry {sequence} must contain exactly one update key"
+            )));
+        }
+        let update_key = update_keys[0].as_str().ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(format!(
+                "principal history entry {sequence} update key is not a string"
+            ))
+        })?;
+        decode_ed25519_multibase(update_key).map_err(|error| {
+            WebvhInceptionError::InvalidProof(format!(
+                "principal history entry {sequence} update key is invalid: {error}"
+            ))
+        })?;
+        if !activated_roots.insert(update_key.to_owned()) {
+            return Err(WebvhInceptionError::InvalidProof(
+                "principal history reuses an activated root".to_owned(),
+            ));
+        }
+        if let Some(expected_commitment) = previous_next_hash.as_deref() {
+            let actual_commitment = webvh_next_key_hash(update_key)?;
+            if expected_commitment != actual_commitment {
+                return Err(WebvhInceptionError::InvalidProof(format!(
+                    "principal history entry {sequence} root was not precommitted by its predecessor"
+                )));
+            }
+        }
+
+        let next_hashes = parameters
+            .get("nextKeyHashes")
+            .and_then(Value::as_array)
+            .ok_or_else(|| {
+                WebvhInceptionError::InvalidProof(format!(
+                    "principal history entry {sequence} is missing nextKeyHashes"
+                ))
+            })?;
+        if next_hashes.len() != 1 {
+            return Err(WebvhInceptionError::InvalidProof(format!(
+                "principal history entry {sequence} must contain exactly one next root commitment"
+            )));
+        }
+        previous_next_hash = Some(
+            next_hashes[0]
+                .as_str()
+                .ok_or_else(|| {
+                    WebvhInceptionError::InvalidProof(format!(
+                        "principal history entry {sequence} next root commitment is not a string"
+                    ))
+                })?
+                .to_owned(),
+        );
+
+        let hash_anchor = previous_version_id.unwrap_or(scid);
+        let expected_hash =
+            sha256_multihash_base58btc(&canonical_bytes(&strip_for_hash(entry, hash_anchor))?);
+        if version_id != format!("{sequence}-{expected_hash}") {
+            return Err(WebvhInceptionError::InvalidProof(format!(
+                "principal history entry {sequence} versionId hash is invalid"
+            )));
+        }
+        verify_webvh_log_proof(entry).map_err(WebvhInceptionError::InvalidProof)?;
+        previous_version_id = Some(version_id);
+    }
+
+    Ok((
+        entries.last().expect("history is non-empty"),
+        activated_roots,
+    ))
+}
+
+/// Build one principal rotation after validating the complete preceding log.
+/// The builder refuses both an uncommitted current root and any next root that
+/// appeared in an earlier `updateKeys` generation.
 pub fn prepare_principal_rotation(
     input: &PrincipalRotationInput<'_>,
 ) -> Result<PreparedPrincipalRotation, WebvhInceptionError> {
@@ -416,8 +543,9 @@ pub fn prepare_principal_rotation(
             "local_id does not match the principal DID".to_owned(),
         ));
     }
-    let previous_version_id = input
-        .previous_entry
+    let (previous_entry, activated_roots) =
+        validate_principal_rotation_history(input.did, input.previous_entries)?;
+    let previous_version_id = previous_entry
         .get("versionId")
         .and_then(Value::as_str)
         .ok_or_else(|| {
@@ -442,8 +570,7 @@ pub fn prepare_principal_rotation(
                 "previous principal entry sequence cannot advance".to_owned(),
             )
         })?;
-    let parameters = input
-        .previous_entry
+    let parameters = previous_entry
         .get("parameters")
         .and_then(Value::as_object)
         .ok_or_else(|| {
@@ -465,23 +592,17 @@ pub fn prepare_principal_rotation(
                 "previous principal entry SCID does not match DID".to_owned(),
             )
         })?;
-    if input
-        .previous_entry
-        .pointer("/state/id")
-        .and_then(Value::as_str)
-        != Some(input.did)
-    {
-        return Err(WebvhInceptionError::InvalidProof(
-            "previous principal entry state id does not match DID".to_owned(),
-        ));
-    }
-
     let current_signing = SigningKey::from_bytes(input.current_root_seed);
     let current_root_public_key_multibase =
         encode_ed25519_pubkey_multibase(&current_signing.verifying_key().to_bytes());
     if current_root_public_key_multibase == input.next_root_public_key_multibase {
         return Err(WebvhInceptionError::InvalidProof(
             "current and next root keys must be distinct".to_owned(),
+        ));
+    }
+    if activated_roots.contains(input.next_root_public_key_multibase) {
+        return Err(WebvhInceptionError::InvalidProof(
+            "next principal root was already activated and cannot be reused".to_owned(),
         ));
     }
     let current_commitment = webvh_next_key_hash(&current_root_public_key_multibase)?;
@@ -544,7 +665,7 @@ pub fn prepare_principal_rotation(
     }
     verify_webvh_log_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
     let previous_event_digest = Hash::new(
-        arkret_canonical::canonical::canonical_sha256(input.previous_entry)
+        arkret_canonical::canonical::canonical_sha256(previous_entry)
             .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
     )
     .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
@@ -1107,10 +1228,7 @@ pub fn validate_principal_did_document_profile(
             ));
         }
     }
-    let unique_keys = method_keys
-        .values()
-        .copied()
-        .collect::<std::collections::BTreeSet<_>>();
+    let unique_keys = method_keys.values().copied().collect::<BTreeSet<_>>();
     if unique_keys.len() != method_keys.len() {
         return Err(WebvhInceptionError::InvalidProof(
             "principal signing and enrollment keys must be distinct".to_owned(),
@@ -1754,7 +1872,7 @@ mod tests {
         let rotated = prepare_principal_rotation(&PrincipalRotationInput {
             did: &genesis.did,
             local_id: &genesis.local_id,
-            previous_entry: &genesis.log_entry,
+            previous_entries: std::slice::from_ref(&genesis.log_entry),
             version_time: DateTime::parse_from_rfc3339("2026-05-16T00:00:00Z")
                 .unwrap()
                 .with_timezone(&Utc),
@@ -1799,7 +1917,7 @@ mod tests {
         let error = prepare_principal_rotation(&PrincipalRotationInput {
             did: &genesis.did,
             local_id: &genesis.local_id,
-            previous_entry: &genesis.log_entry,
+            previous_entries: std::slice::from_ref(&genesis.log_entry),
             version_time: Utc::now(),
             current_root_seed: &[4; SECRET_KEY_LENGTH],
             next_root_public_key_multibase: &next_root,
@@ -1807,6 +1925,40 @@ mod tests {
         })
         .unwrap_err();
         assert!(error.to_string().contains("not uniquely precommitted"));
+    }
+
+    #[test]
+    fn principal_rotation_rejects_any_previously_activated_root() {
+        let genesis = run_prepare(1);
+        let third_root = public_multikey(3);
+        let first_rotation = prepare_principal_rotation(&PrincipalRotationInput {
+            did: &genesis.did,
+            local_id: &genesis.local_id,
+            previous_entries: std::slice::from_ref(&genesis.log_entry),
+            version_time: DateTime::parse_from_rfc3339("2026-05-16T00:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            current_root_seed: &[2; SECRET_KEY_LENGTH],
+            next_root_public_key_multibase: &third_root,
+            state: &genesis.log_entry["state"],
+        })
+        .unwrap();
+        let history = vec![genesis.log_entry.clone(), first_rotation.log_entry.clone()];
+
+        let error = prepare_principal_rotation(&PrincipalRotationInput {
+            did: &genesis.did,
+            local_id: &genesis.local_id,
+            previous_entries: &history,
+            version_time: DateTime::parse_from_rfc3339("2026-05-17T00:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            current_root_seed: &[3; SECRET_KEY_LENGTH],
+            next_root_public_key_multibase: &public_multikey(1),
+            state: &first_rotation.log_entry["state"],
+        })
+        .unwrap_err();
+
+        assert!(error.to_string().contains("already activated"));
     }
 
     #[test]
