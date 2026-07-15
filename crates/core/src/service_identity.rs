@@ -781,18 +781,21 @@ pub enum ServiceIdentityState {
     },
     DegradedStored {
         identity: LocalServiceIdentity,
-        since: DateTime<Utc>,
-        provider_error: String,
-    },
-    WaitingProvider {
-        provider: ServiceIdentityProviderRef,
         retry_at: DateTime<Utc>,
         last_error: String,
     },
+    WaitingProvider {
+        registration_key: ServiceRegistrationKey,
+        retry_at: DateTime<Utc>,
+    },
     RegistrationKeyDrift {
         identity: LocalServiceIdentity,
-        configured_key: ServiceRegistrationKey,
-        next_action: String,
+        stored_key: ServiceRegistrationKey,
+        computed_key: ServiceRegistrationKey,
+    },
+    Conflict {
+        stored_service_id: Did,
+        provider_service_id: Did,
     },
     Faulted {
         diagnostic: ServiceIdentityDiagnostic,
@@ -806,12 +809,15 @@ impl ServiceIdentityState {
             Self::Ready { identity }
             | Self::DegradedStored { identity, .. }
             | Self::RegistrationKeyDrift { identity, .. } => Some(identity),
-            Self::WaitingProvider { .. } | Self::Faulted { .. } => None,
+            Self::WaitingProvider { .. } | Self::Conflict { .. } | Self::Faulted { .. } => None,
         }
     }
 
     pub fn is_ready(&self) -> bool {
-        matches!(self, Self::Ready { .. } | Self::DegradedStored { .. })
+        matches!(
+            self,
+            Self::Ready { .. } | Self::DegradedStored { .. } | Self::RegistrationKeyDrift { .. }
+        )
     }
 
     pub fn permits_identity_mutation(&self) -> bool {
@@ -822,13 +828,44 @@ impl ServiceIdentityState {
         if let Some(identity) = self.identity() {
             identity.validate()?;
         }
-        if let Self::Faulted { next_action, .. } | Self::RegistrationKeyDrift { next_action, .. } =
-            self
-            && next_action.trim().is_empty()
-        {
-            return Err(Error::Protocol(
-                "faulted service identity states must include a next_action".to_owned(),
-            ));
+        match self {
+            Self::DegradedStored { last_error, .. } if last_error.trim().is_empty() => {
+                return Err(Error::Protocol(
+                    "degraded service identity state must include a last_error".to_owned(),
+                ));
+            }
+            Self::RegistrationKeyDrift {
+                identity,
+                stored_key,
+                computed_key,
+            } => {
+                if stored_key != &identity.registration_key {
+                    return Err(Error::Protocol(
+                        "stored registration key must match the active service identity".to_owned(),
+                    ));
+                }
+                if computed_key == stored_key {
+                    return Err(Error::Protocol(
+                        "registration key drift requires distinct stored and computed keys"
+                            .to_owned(),
+                    ));
+                }
+            }
+            Self::Conflict {
+                stored_service_id,
+                provider_service_id,
+            } if stored_service_id == provider_service_id => {
+                return Err(Error::Protocol(
+                    "service identity conflict requires distinct stored and Provider DIDs"
+                        .to_owned(),
+                ));
+            }
+            Self::Faulted { next_action, .. } if next_action.trim().is_empty() => {
+                return Err(Error::Protocol(
+                    "faulted service identity state must include a next_action".to_owned(),
+                ));
+            }
+            _ => {}
         }
         Ok(())
     }
@@ -1222,13 +1259,64 @@ mod tests {
     #[test]
     fn degraded_stored_runs_but_cannot_mutate_identity() {
         let identity = stored_identity().identity;
+        let retry_at: DateTime<Utc> = "2026-07-15T00:05:00Z".parse().unwrap();
         let state = ServiceIdentityState::DegradedStored {
             identity,
-            since: Utc::now(),
-            provider_error: "provider unavailable".to_owned(),
+            retry_at,
+            last_error: "provider unavailable".to_owned(),
         };
         assert!(state.is_ready());
         assert!(!state.permits_identity_mutation());
         state.validate().unwrap();
+        assert_eq!(
+            serde_json::to_value(&state).unwrap()["retry_at"],
+            "2026-07-15T00:05:00Z"
+        );
+    }
+
+    #[test]
+    fn registration_key_drift_serves_without_identity_mutation() {
+        let identity = stored_identity().identity;
+        let state = ServiceIdentityState::RegistrationKeyDrift {
+            stored_key: identity.registration_key.clone(),
+            computed_key: ServiceRegistrationKey::new(
+                ServiceType::AuthServer,
+                CanonicalServiceUrl::new("https://new-auth.example/").unwrap(),
+            )
+            .unwrap(),
+            identity,
+        };
+        assert!(state.identity().is_some());
+        assert!(state.is_ready());
+        assert!(!state.permits_identity_mutation());
+        state.validate().unwrap();
+    }
+
+    #[test]
+    fn conflicting_provider_mapping_fails_closed() {
+        let state = ServiceIdentityState::Conflict {
+            stored_service_id: Did::new("did:webvh:QmStored:identity.example:webvh:auth").unwrap(),
+            provider_service_id: Did::new("did:webvh:QmProvider:identity.example:webvh:auth")
+                .unwrap(),
+        };
+        assert!(state.identity().is_none());
+        assert!(!state.is_ready());
+        assert!(!state.permits_identity_mutation());
+        state.validate().unwrap();
+        let serialized = serde_json::to_value(&state).unwrap();
+        assert_eq!(
+            serde_json::from_value::<ServiceIdentityState>(serialized).unwrap(),
+            state
+        );
+
+        let same_did = Did::new("did:webvh:QmStored:identity.example:webvh:auth").unwrap();
+        assert!(
+            ServiceIdentityState::Conflict {
+                stored_service_id: same_did.clone(),
+                provider_service_id: same_did,
+            }
+            .validate()
+            .is_err()
+        );
     }
 }
