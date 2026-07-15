@@ -7,8 +7,10 @@ use serde_json::Value;
 use crate::events::kinds::IDENTITY_ACCOUNTABILITY_GRANT;
 use crate::{
     ACTOR_PROFILE_SCHEMA, ActorKind, ActorProfile, ActorProfileId, AppletId, BlobRef, Did, Error,
-    Event, ExternalRef, Hlc, ObjectCreatePayload, Proof, RealmId, Result,
+    Event, ExternalRef, Hlc, ObjectCreatePayload, PayloadProof, RealmId, Result,
 };
+
+pub const ACCOUNTABILITY_GRANT_SCHEMA: &str = "ak.schema.accountability_grant.v1";
 
 /// `POST /_arkret/self/applets/{applet_id}/ghosts/provision` request body.
 ///
@@ -328,6 +330,7 @@ pub enum AccountabilityScope {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountabilityGrantPayload {
+    pub schema: String,
     pub issuer: Did,
     pub subject: Did,
     pub accountability_scope: AccountabilityScope,
@@ -338,7 +341,7 @@ pub struct AccountabilityGrantPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     pub grant_status: AccountabilityGrantStatus,
-    pub proof: Proof,
+    pub proof: PayloadProof,
 }
 
 impl AccountabilityGrantPayload {
@@ -348,9 +351,10 @@ impl AccountabilityGrantPayload {
         accountability_scope: AccountabilityScope,
         not_before: DateTime<Utc>,
         expires_at: Option<DateTime<Utc>>,
-        proof: Proof,
+        proof: PayloadProof,
     ) -> Self {
         Self {
+            schema: ACCOUNTABILITY_GRANT_SCHEMA.to_owned(),
             issuer,
             subject,
             accountability_scope,

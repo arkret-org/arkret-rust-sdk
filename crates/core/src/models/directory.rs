@@ -213,7 +213,7 @@ pub struct RealmJoinCandidate {
     pub as_of: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -620,7 +620,7 @@ pub struct AgentSelectorClaim {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
+    pub proofs: Vec<PayloadProof>,
 }
 
 impl AgentSelectorClaim {
@@ -760,14 +760,15 @@ mod agent_selector_tests {
             created_at: Utc::now(),
             verified_at: None,
             source_refs: Vec::new(),
-            proofs: vec![Proof {
+            proofs: vec![PayloadProof {
                 kind: "detached_jws".to_owned(),
                 alg: "EdDSA".to_owned(),
                 verification_method: "did:webvh:z6mkfixture:example.com#key-1".to_owned(),
-                event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 created_at: Utc::now(),
                 domain: None,
                 audience: None,
+                proof_purpose: None,
                 jws: "aaa.bbb.ccc".to_owned(),
             }],
         }

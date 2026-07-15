@@ -1187,6 +1187,55 @@ pub struct PayloadProof {
     pub jws: String,
 }
 
+impl PayloadProof {
+    pub fn validate(&self) -> Result<()> {
+        if self.kind.is_empty() {
+            return Err(Error::Protocol("proof kind must not be empty".to_owned()));
+        }
+        if self.alg.is_empty() || self.alg.eq_ignore_ascii_case("none") {
+            return Err(Error::Protocol(
+                "proof algorithm must be a concrete registered algorithm".to_owned(),
+            ));
+        }
+        if self.verification_method.is_empty() {
+            return Err(Error::Protocol(
+                "proof verification_method must not be empty".to_owned(),
+            ));
+        }
+        if self.jws.is_empty() {
+            return Err(Error::Protocol("proof JWS must not be empty".to_owned()));
+        }
+        if self
+            .domain
+            .as_deref()
+            .is_some_and(|domain| domain.trim().is_empty())
+        {
+            return Err(Error::Protocol("proof domain must not be empty".to_owned()));
+        }
+        if let Some(audience) = &self.audience {
+            audience.validate_binding_value()?;
+        }
+        Ok(())
+    }
+
+    pub fn validate_production(&self) -> Result<()> {
+        self.validate()?;
+        if self.kind != proof_kind::DETACHED_JWS {
+            return Err(Error::Protocol(format!(
+                "unsupported production proof kind: {}",
+                self.kind
+            )));
+        }
+        if !PRODUCTION_ALGORITHMS.contains(&self.alg.as_str()) {
+            return Err(Error::Protocol(format!(
+                "unsupported production proof algorithm: {}",
+                self.alg
+            )));
+        }
+        Ok(())
+    }
+}
+
 /// Fixed signing-context domain tag for Event proof bindings (`encoding.md`
 /// §2). Included in every [`Proof::binding_object`] so an Event proof
 /// signature is domain-separated from other proof families (receipts,

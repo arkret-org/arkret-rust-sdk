@@ -23,7 +23,7 @@ mod tests {
     use super::*;
     use crate::events::kinds::IDENTITY_ACCOUNTABILITY_GRANT;
     use crate::models::AppletTransactionOutcome;
-    use crate::{ActorKind, ActorProfileId, AppletId, Did, Hlc, Proof, RealmId};
+    use crate::{ActorKind, ActorProfileId, AppletId, Did, Hlc, PayloadProof, RealmId};
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
@@ -45,18 +45,19 @@ mod tests {
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
     }
 
-    fn production_proof(issuer: &Did, now: DateTime<Utc>) -> Proof {
-        Proof {
+    fn production_proof(issuer: &Did, now: DateTime<Utc>) -> PayloadProof {
+        PayloadProof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: format!("{issuer}#key-1"),
-            event_digest: crate::Hash::new(
+            payload_digest: crate::Hash::new(
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             )
             .unwrap(),
             created_at: now,
             domain: None,
             audience: None,
+            proof_purpose: None,
             jws: "eyJhbGciOiJFZERTQSJ9..c2ln".to_owned(),
         }
     }
