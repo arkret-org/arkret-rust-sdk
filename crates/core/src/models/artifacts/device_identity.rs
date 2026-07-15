@@ -522,7 +522,7 @@ pub struct IdentityReceipt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
     pub created_at: DateTime<Utc>,
-    pub signature: Proof,
+    pub signature: PayloadProof,
 }
 
 /// Counterpart for
@@ -653,5 +653,39 @@ mod tests {
         let mut long_reason = valid;
         long_reason["reason"] = json!("x".repeat(257));
         assert!(serde_json::from_value::<KeyVerificationContent>(long_reason).is_err());
+    }
+
+    #[test]
+    fn identity_receipt_uses_non_event_payload_proof() {
+        let receipt = json!({
+            "schema": "ak.schema.identity_receipt.v1",
+            "receipt_id": "ak:receipt:019a6aa0-0000-7000-8000-0000000000cc",
+            "did": "did:webvh:z6mkfixture:alice.example",
+            "seq": 1,
+            "head_event_digest":
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "registry_service_id": "did:webvh:z6mkfixture:registry.example",
+            "witness_role": "writer",
+            "created_at": "2026-07-15T00:00:00Z",
+            "signature": {
+                "kind": "detached_jws",
+                "alg": "EdDSA",
+                "verification_method": "did:webvh:z6mkfixture:registry.example#service-key",
+                "payload_digest":
+                    "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "created_at": "2026-07-15T00:00:00Z",
+                "jws": "a..b"
+            }
+        });
+
+        let parsed = serde_json::from_value::<IdentityReceipt>(receipt.clone())
+            .expect("identity receipt must accept the generic non-Event proof shape");
+        let serialized = serde_json::to_value(parsed).expect("identity receipt must serialize");
+        assert_eq!(serialized, receipt);
+
+        let mut event_proof = receipt;
+        event_proof["signature"]["event_digest"] =
+            event_proof["signature"]["payload_digest"].take();
+        assert!(serde_json::from_value::<IdentityReceipt>(event_proof).is_err());
     }
 }
