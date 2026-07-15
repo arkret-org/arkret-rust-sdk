@@ -822,11 +822,12 @@ mod event_wire_surface_tests {
             seal_basis: None,
             requirements: EventRequirements::default(),
             redacts: None,
-            payload: json!({
+            payload: serde_json::from_value(json!({
                 "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
                 "track_name": "discussion",
                 "content": {"kind": "ak.content.text", "body": "hello"}
-            }),
+            }))
+            .unwrap(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -851,8 +852,8 @@ mod event_wire_surface_tests {
             payload
                 .content
                 .as_ref()
-                .and_then(|content| content.get("body")),
-            Some(&json!("hello"))
+                .map(|content| content.body.as_str()),
+            Some("hello")
         );
         assert!(payload.encrypted_content.is_none());
     }
@@ -861,14 +862,15 @@ mod event_wire_surface_tests {
     fn message_event_payload_classifies_message_and_reaction_kinds() {
         let mut revise = base_event();
         revise.kind = crate::events::kinds::MESSAGE_REVISE.into();
-        revise.payload = json!({
+        revise.payload = serde_json::from_value(json!({
             "message_id": "ak:message:01904100-0000-7000-8000-000000000001",
             "content": {
                 "kind": "ak.content.text",
                 "body": "hello revised"
             },
             "reason": "typo"
-        });
+        }))
+        .unwrap();
         assert!(matches!(
             revise.as_message_event_payload().unwrap(),
             MessageEventPayload::Revise(_)
@@ -876,10 +878,11 @@ mod event_wire_surface_tests {
 
         let mut reaction = base_event();
         reaction.kind = crate::events::kinds::REACTION_ADD.into();
-        reaction.payload = json!({
+        reaction.payload = serde_json::from_value(json!({
             "target_ref": "ak:event:01904100-0000-7000-8000-000000000099",
             "key": "+1"
-        });
+        }))
+        .unwrap();
 
         let payload = reaction.as_message_event_payload().unwrap();
         match payload {
@@ -891,14 +894,30 @@ mod event_wire_surface_tests {
     #[test]
     fn payload_accessor_parses_encrypted_message_payload() {
         let mut event = base_event();
-        event.payload = json!({
+        event.payload = serde_json::from_value(json!({
             "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
             "encrypted_content": {
-                "scheme": "ak.test.encrypted",
-                "ciphertext": "opaque"
+                "scheme": "mls-rfc9420",
+                "version": "1.0",
+                "group_id": "AA",
+                "epoch": 1,
+                "content_type": "application/vnd.arkret.message+json",
+                "ciphertext": "b3BhcXVl",
+                "aad_visibility_event_id": "hidden",
+                "aad": {
+                    "realm_id": "ak:realm:01904100-0000-7000-8000-6c663fa0205f",
+                    "event_kind": "ak.message.create"
+                },
+                "key_ref": {
+                    "algorithm": "MLS",
+                    "group_state_ref": "ak:event:01904100-0000-7000-8000-000000000004"
+                },
+                "payload_digest": format!("sha256:{}", "a".repeat(64)),
+                "aad_digest": format!("sha256:{}", "b".repeat(64))
             }
-        });
+        }))
+        .unwrap();
 
         let payload = event.payload_as::<MessageCreatePayload>().unwrap();
         assert!(payload.content.is_none());
@@ -906,8 +925,8 @@ mod event_wire_surface_tests {
             payload
                 .encrypted_content
                 .as_ref()
-                .and_then(|content| content.get("ciphertext")),
-            Some(&json!("opaque"))
+                .map(|content| content.ciphertext.as_str()),
+            Some("b3BhcXVl")
         );
     }
 
@@ -924,10 +943,11 @@ mod event_wire_surface_tests {
     #[test]
     fn payload_accessor_rejects_missing_required_field() {
         let mut event = base_event();
-        event.payload = json!({
+        event.payload = serde_json::from_value(json!({
             "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
             "content": {"kind": "ak.content.text", "body": "hello"}
-        });
+        }))
+        .unwrap();
 
         assert!(event.payload_as::<MessageCreatePayload>().is_err());
     }

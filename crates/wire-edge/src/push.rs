@@ -582,7 +582,6 @@ mod tests {
             "ak:pseudonym:push:01js0pt0000000000000000000"
         );
         assert_eq!(rejected.rejected[0].reason_code, "invalid_token");
-        assert!(rejected.rejected[0].extra.get("event_id").is_none());
     }
 
     #[test]

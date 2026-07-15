@@ -368,19 +368,21 @@ mod tests {
     }
 
     #[test]
-    fn coverage_scope_preserves_explicit_null_round_trip() {
+    fn coverage_scope_normalizes_explicit_null_to_absence() {
         let mut value = serde_json::to_value(sample()).unwrap();
         value["coverage_scope"] = Value::Null;
 
         let decoded: Seal = serde_json::from_value(value).unwrap();
 
-        assert_eq!(decoded.coverage_scope, Some(Value::Null));
-        assert_eq!(
-            serde_json::to_value(&decoded).unwrap()["coverage_scope"],
-            Value::Null
+        assert_eq!(decoded.coverage_scope, None);
+        assert!(
+            serde_json::to_value(&decoded)
+                .unwrap()
+                .get("coverage_scope")
+                .is_none()
         );
         assert!(
-            String::from_utf8(decoded.canonical_bytes_for_id().unwrap())
+            !String::from_utf8(decoded.canonical_bytes_for_id().unwrap())
                 .unwrap()
                 .contains("\"coverage_scope\":null")
         );

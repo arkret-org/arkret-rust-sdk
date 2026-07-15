@@ -117,7 +117,8 @@ impl Space {
             default_scope_circle_id: None,
             child_scope_policy: None,
             created_by,
-            created_at: Utc::now(),
+            created_at: DateTime::<Utc>::from_timestamp(Utc::now().timestamp(), 0)
+                .unwrap_or_else(Utc::now),
             updated_by: None,
             updated_at: None,
         }

@@ -659,7 +659,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::time::Duration;
 
-    use arkret_core::{AppletPingOutcome, Did};
+    use arkret_core::{AppletPingOutcome, Did, TypedTrustDomainId};
     use arkret_signatures::{
         DidVerificationMethodResolver, StaticDidVerificationMethodResolver,
         VerificationMethodDocument,

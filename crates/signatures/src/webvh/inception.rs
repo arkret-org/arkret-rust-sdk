@@ -978,7 +978,10 @@ mod tests {
         assert!(body.prev_event_digest.is_none());
         assert!(body.proofs.is_empty());
         assert_eq!(
-            body.policy_context["local_id"].as_str(),
+            body.policy_context
+                .as_ref()
+                .and_then(|context| context.get("local_id"))
+                .and_then(Value::as_str),
             Some(prepared.local_id.as_str())
         );
         assert_eq!(

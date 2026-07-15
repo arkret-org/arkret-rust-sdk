@@ -1908,7 +1908,7 @@ mod actor_accessor_tests {
             issuer: Did::new("did:web:issuer.example").unwrap(),
             subject: CapabilitySubject::Did(Did::new("did:web:subject.example").unwrap()),
             actions: vec!["ak.event.read".to_owned()],
-            resources: vec![json!({"kind": "realm"})],
+            resources: vec![serde_json::from_value(json!({"kind": "realm"})).unwrap()],
             constraints: Vec::new(),
             parent_grant_id: None,
             issued_at: fractional,

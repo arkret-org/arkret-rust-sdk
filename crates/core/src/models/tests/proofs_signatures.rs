@@ -712,7 +712,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
     assert_eq!(event.kind, OP_MESSAGE_CREATE);
     assert_eq!(event.actor_seq, 7);
     assert_eq!(
-        event.payload,
+        serde_json::to_value(&event.payload).unwrap(),
         json!({
             "strand_id": "ak:strand:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",

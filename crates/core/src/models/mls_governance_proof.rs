@@ -635,7 +635,7 @@ mod tests {
             seal_basis: None,
             requirements: EventRequirements::default(),
             redacts: None,
-            payload: json!({}),
+            payload: BTreeMap::new(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,

@@ -195,7 +195,7 @@ mod tests {
             seal_basis: None,
             requirements: EventRequirements::default(),
             redacts: None,
-            payload: json!({ "body": "hello" }),
+            payload: BTreeMap::from([("body".to_owned(), json!("hello"))]),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -379,7 +379,7 @@ mod tests {
         // Payload tamper: the recomputed canonical event digest changes, so
         // the signed proof binding no longer matches.
         let mut payload_tampered = event.clone();
-        payload_tampered.payload = json!({ "body": "tampered" });
+        payload_tampered.payload = BTreeMap::from([("body".to_owned(), json!("tampered"))]);
         let err = payload_tampered
             .validate_proof_bindings()
             .expect_err("payload tamper must fail binding validation");

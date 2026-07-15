@@ -18,7 +18,7 @@ mod session_and_identity {
         BTreeMap::from([("status".to_owned(), Value::String("online".to_owned()))])
     }
 
-    fn ephemeral_proof(created_at: chrono::DateTime<Utc>) -> Proof {
+    fn ephemeral_proof(created_at: DateTime<Utc>) -> Proof {
         Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),

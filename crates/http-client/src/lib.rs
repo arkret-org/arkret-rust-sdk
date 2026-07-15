@@ -823,7 +823,7 @@ mod tests {
                 seal_basis: None,
                 requirements: EventRequirements::default(),
                 redacts: None,
-                payload: json!({ "body": content_body }),
+                payload: BTreeMap::from([("body".to_owned(), json!(content_body))]),
                 executed_by: None,
                 authorization_ref: None,
                 applet_id: None,
@@ -1375,14 +1375,27 @@ mod tests {
 
         #[tokio::test]
         async fn mimi_provider_directory_gets_canonical_path_with_filters() {
-            let (client, capture) = spawn_capture_server(r#"{"providers":[]}"#).await;
+            let (client, capture) = spawn_capture_server(
+                r#"{
+                    "service_type":"mimi_provider",
+                    "supported_profiles":[],
+                    "mimi":{
+                        "protocol_draft":"draft-ietf-mimi-protocol-04",
+                        "content_draft":"draft-ietf-mimi-content-04",
+                        "base_url":"https://mimi.example.test",
+                        "provider_id":"provider-a",
+                        "features":[]
+                    }
+                }"#,
+            )
+            .await;
             let features = vec!["blind_wakeup".to_owned(), "mimi_v1".to_owned()];
 
             let response = client
                 .mimi_provider_directory(Some("provider-a"), &features)
                 .await
                 .unwrap();
-            assert!(response.providers.is_empty());
+            assert!(response.mimi.features.is_empty());
 
             let raw = capture.await.unwrap();
             let (request_line, _headers, _body) = split_request(&raw);

@@ -40,7 +40,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         seal_basis: None,
         requirements: EventRequirements::default(),
         redacts: None,
-        payload: json!({ "body": "hello" }),
+        payload: BTreeMap::from([("body".to_owned(), json!("hello"))]),
         executed_by: None,
         authorization_ref: None,
         applet_id: None,
