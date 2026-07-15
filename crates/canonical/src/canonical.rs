@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Number, Value};
 use sha2::{Digest, Sha256};
 
-use crate::{Error, Result};
+use crate::{CanonicalError as Error, Result};
 
 /// Serialize a value with Arkret canonical JSON.
 ///

@@ -128,6 +128,8 @@ pub use arkret_crypto::identity_root;
 pub use arkret_ffi as ffi;
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;
+#[cfg(feature = "keystore-encrypted-file")]
+pub use arkret_keystore::EncryptedFileKeyStore;
 pub use arkret_keystore::{
     BackendKind, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
     durable_platform_keystore, platform_default_keystore_with_kind,

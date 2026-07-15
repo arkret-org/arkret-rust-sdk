@@ -30,7 +30,3 @@ pub enum CanonicalError {
     #[error("canonical encoding error: {0}")]
     Protocol(String),
 }
-
-/// Compatibility alias for code that previously imported `Error` from the
-/// canonical implementation module.
-pub type Error = CanonicalError;

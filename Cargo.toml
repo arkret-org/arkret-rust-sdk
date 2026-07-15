@@ -9,6 +9,7 @@ rust-version = "1.96"
 
 [workspace.dependencies]
 argon2 = {version = "0.5.3",default-features = false,features = ["alloc", "password-hash"]}
+atomic-write-file = "0.3.0"
 base64 = {version = "0.22.1",default-features = false,features = ["std"]}
 bip39 = {version = "2.2.0",default-features = false,features = ["std"]}
 blake3 = {version = "1.5.5",default-features = false}
