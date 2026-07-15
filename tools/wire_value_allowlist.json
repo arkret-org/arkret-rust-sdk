@@ -917,12 +917,6 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/identity.rs::DidOperationSubmitRequestBody.policy_context",
-      "spec_pointer": "service-operation-dtos.schema.json#/$defs/DidOperationSubmitRequestBody/properties/policy_context",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
       "rust_field": "crates/core/src/models/key_backup.rs::KeyBackupRetention.extra",
       "spec_pointer": "key-backup.schema.json#/properties/retention",
       "classification": "open_json",
@@ -1383,6 +1377,12 @@
       "reason": "Presented claim values are deliberately claim-type-defined JSON."
     },
     {
+      "rust_field": "crates/core/src/models/realm.rs::Realm.fields",
+      "spec_pointer": "realm.schema.json#/properties/fields",
+      "classification": "open_json",
+      "reason": "Realm product/profile fields are an explicitly open extension map in the Spec."
+    },
+    {
       "rust_field": "crates/signatures/src/webvh/inception.rs::PreparedInception.log_entry",
       "classification": "internal_or_fixture",
       "reason": "Prepared WebVH inception material follows the external WebVH format rather than an Arkret wire schema."
@@ -1391,6 +1391,21 @@
       "rust_field": "crates/signatures/src/webvh/inception.rs::PreparedPrincipalInception.log_entry",
       "classification": "internal_or_fixture",
       "reason": "Prepared principal WebVH inception material follows the external WebVH format rather than an Arkret wire schema."
+    },
+    {
+      "rust_field": "crates/signatures/src/webvh/inception.rs::PreparedPrincipalRotation.log_entry",
+      "classification": "internal_or_fixture",
+      "reason": "Prepared principal WebVH rotation material follows the external WebVH format rather than an Arkret wire schema."
+    },
+    {
+      "rust_field": "crates/signatures/src/webvh/inception.rs::PrincipalRotationInput.previous_entry",
+      "classification": "internal_or_fixture",
+      "reason": "Previous WebVH entries follow the external WebVH format and are adapter input rather than an Arkret-defined wire DTO."
+    },
+    {
+      "rust_field": "crates/signatures/src/webvh/inception.rs::PrincipalRotationInput.state",
+      "classification": "internal_or_fixture",
+      "reason": "Rotated DID document state follows the external DID format and is adapter input rather than an Arkret-defined wire DTO."
     },
     {
       "rust_field": "crates/signatures/src/webvh/inception.rs::SubmittedInception.did_document",

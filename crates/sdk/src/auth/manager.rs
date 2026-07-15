@@ -865,7 +865,7 @@ impl AuthManager {
         device_id: DeviceId,
         signer: &S,
         challenge: &str,
-        audience: &str,
+        audience: Did,
     ) -> Result<arkret_core::SessionGrantOutcome>
     where
         S: arkret_core::MoveSigner + ?Sized,
@@ -900,7 +900,7 @@ impl AuthManager {
             "purpose": "ak.session.grant",
             "did": principal_id.as_str(),
             "device_id": device_id.as_str(),
-            "audience": audience,
+            "audience": audience.as_str(),
             "challenge": challenge,
             "request_canonical_digest": request_canonical_digest.as_str(),
             "issued_at": arkret_canonical::canonical::format_timestamp_canonical(issued_at),
@@ -922,7 +922,7 @@ impl AuthManager {
                     proof_kind: arkret_core::SessionGrantProofKind::DidBoundSignature,
                     challenge: challenge.to_owned(),
                     request_canonical_digest,
-                    audience: audience.to_owned(),
+                    audience,
                     expires_at: Some(expires_at),
                     signature: move_sig.jws,
                     verification_method: None,

@@ -10,7 +10,7 @@ use crate::identity::*;
 /// - the `did:webvh:<scid>:<host[:port]>[:path]` shape
 /// - that the fetched document `id` equals the requested DID
 /// - the SCID present on every log entry matches the DID
-/// - the entry chain (`prevVersionId` → `versionId`) is contiguous
+/// - the `versionId` hash chain is contiguous
 /// - the document size is bounded by [`DID_WEB_MAX_DOCUMENT_BYTES`]
 /// - **full `did:webvh` v1.0 cryptographic verification** — SCID derivation from the initial entry,
 ///   the per-entry hash chain, every entry's `eddsa-jcs-2022` Data Integrity proof, and the
@@ -311,17 +311,6 @@ fn verify_did_webvh_v1_internal(
         if entry.state.get("id").and_then(Value::as_str) != Some(did.as_str()) {
             return Err(Error::Protocol(
                 "did:webvh log state id does not match DID".to_owned(),
-            ));
-        }
-        if let Some(declared_previous) = entry
-            .parameters
-            .get("prevVersionId")
-            .or_else(|| entry.parameters.get("previousVersionId"))
-            .and_then(Value::as_str)
-            && Some(declared_previous) != previous_version_id
-        {
-            return Err(Error::Protocol(
-                "did:webvh entry previous version does not match the verified head".to_owned(),
             ));
         }
         let previous_anchor = previous_version_id.unwrap_or(scid.as_str());

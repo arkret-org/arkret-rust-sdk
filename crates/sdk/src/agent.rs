@@ -378,7 +378,7 @@ fn validate_pairing_authorize_event(authorize_event: &Event, agent_id: &Did) -> 
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentKeyProofSigningInput {
-    pub audience: String,
+    pub audience: Did,
     pub challenge: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nonce: Option<String>,
@@ -653,13 +653,12 @@ pub fn agent_key_proof_signing_input_for_session_grant(
     verification_method: impl Into<String>,
     challenge: impl Into<String>,
     nonce: impl Into<String>,
-    audience: impl Into<String>,
+    audience: Did,
     expires_at: DateTime<Utc>,
 ) -> Result<AgentKeyProofSigningInput> {
     let verification_method = verification_method.into();
     let challenge = challenge.into();
     let nonce = nonce.into();
-    let audience = audience.into();
     let mut body = agent_key_proof_unsigned_session_grant_request(
         principal_id.clone(),
         requested_scope.to_vec(),
@@ -695,7 +694,7 @@ pub fn agent_key_proof_session_grant_request(
     verification_method: impl Into<String>,
     challenge: impl Into<String>,
     nonce: impl Into<String>,
-    audience: impl Into<String>,
+    audience: Did,
     expires_at: DateTime<Utc>,
     signature: impl Into<String>,
 ) -> Result<SessionGrantRequestBody> {
@@ -703,7 +702,6 @@ pub fn agent_key_proof_session_grant_request(
     let verification_method = verification_method.into();
     let challenge = challenge.into();
     let nonce = nonce.into();
-    let audience = audience.into();
     let signing_input = agent_key_proof_signing_input_for_session_grant(
         &principal_id,
         &requested_scope,
@@ -742,7 +740,7 @@ fn agent_key_proof_unsigned_session_grant_request(
     verification_method: impl Into<String>,
     challenge: impl Into<String>,
     nonce: impl Into<String>,
-    audience: impl Into<String>,
+    audience: Did,
     expires_at: DateTime<Utc>,
 ) -> Result<SessionGrantRequestBody> {
     let request_canonical_digest = Hash::new(format!("sha256:{}", "0".repeat(64)))?;
@@ -758,7 +756,7 @@ fn agent_key_proof_unsigned_session_grant_request(
             proof_kind: SessionGrantProofKind::AgentKeyProof,
             challenge: challenge.into(),
             request_canonical_digest,
-            audience: audience.into(),
+            audience,
             expires_at: Some(expires_at),
             signature: String::new(),
             verification_method: Some(verification_method.into()),
@@ -1593,6 +1591,7 @@ mod tests {
         let expires_at = Utc.with_ymd_and_hms(2026, 5, 26, 10, 5, 0).unwrap();
         let authorization_ref = "ak:event:01970000-0000-7000-8000-000000000021";
         let nonce = "nonce-abc";
+        let audience = did("service");
         let signing_input = agent_key_proof_signing_input_for_session_grant(
             &principal_id,
             &requested_scope,
@@ -1602,14 +1601,14 @@ mod tests {
             format!("{}#runtime-key-1", principal_id.as_str()),
             "challenge",
             nonce,
-            "https://arkret.example",
+            audience.clone(),
             expires_at,
         )
         .unwrap();
         let signing_json = String::from_utf8(signing_input.canonical_bytes().unwrap()).unwrap();
         assert_eq!(
             signing_json,
-            r#"{"audience":"https://arkret.example","challenge":"challenge","expires_at":"2026-05-26T10:05:00Z","nonce":"nonce-abc","request_canonical_digest":"sha256:989eefe3158e7cc381de4f12283b08217e3db5c3717c4669f665c7b9f26b7cd4","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
+            r#"{"audience":"did:webvh:z6mkfixture:service.example","challenge":"challenge","expires_at":"2026-05-26T10:05:00Z","nonce":"nonce-abc","request_canonical_digest":"sha256:663117b841f137d20feb109b9a1e32eaa361191cbef8a9bd677e0d98d389ef9b","verification_method":"did:webvh:z6mkfixture:agent.example#runtime-key-1"}"#
         );
         assert!(!signing_json.contains(AGENT_KEY_PROOF_KIND));
 
@@ -1622,7 +1621,7 @@ mod tests {
             format!("{}#runtime-key-1", principal_id.as_str()),
             "challenge",
             nonce,
-            "https://arkret.example",
+            audience,
             expires_at,
             "agent-key-signature",
         )
@@ -1631,7 +1630,7 @@ mod tests {
 
         assert_eq!(
             digest.as_str(),
-            "sha256:989eefe3158e7cc381de4f12283b08217e3db5c3717c4669f665c7b9f26b7cd4"
+            "sha256:663117b841f137d20feb109b9a1e32eaa361191cbef8a9bd677e0d98d389ef9b"
         );
         assert_eq!(request.principal_id, principal_id);
         assert_eq!(request.device_id, None);

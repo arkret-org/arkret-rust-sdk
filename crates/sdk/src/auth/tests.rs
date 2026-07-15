@@ -32,7 +32,7 @@ fn session_grant_notification(
     let device_id = device("desktop");
     let payload = SessionGrantPayload {
         subject: did("alice"),
-        audience: vec!["did:webvh:z6mkfixture:soland.example".to_owned()],
+        audience: did("soland"),
         scopes: vec![
             "urn:arkret:principal-server:session.bind".to_owned(),
             arkret_device_scope(&device_id),
@@ -404,7 +404,7 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
     let device_id = device("desktop");
     let payload = SessionGrantPayload {
         subject: did("alice"),
-        audience: vec!["did:webvh:z6mkfixture:soland.example".to_owned()],
+        audience: did("soland"),
         scopes: vec![
             "urn:arkret:principal-server:session.bind".to_owned(),
             arkret_device_scope(&device_id),

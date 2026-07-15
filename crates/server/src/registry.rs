@@ -527,6 +527,16 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
         "/_arkret/root/identity/submit-did-operation"
     ),
     endpoint!(
+        "ak.root.identity.service_registration.command.ensure",
+        Post,
+        "/_arkret/root/identity/service-registrations:ensure"
+    ),
+    endpoint!(
+        "ak.root.identity.service_registration.resource.get",
+        Get,
+        "/_arkret/root/identity/service-registrations"
+    ),
+    endpoint!(
         "ak.root.identity.recovery_policy.resource.get",
         Get,
         "/_arkret/root/identity/recovery-policy"

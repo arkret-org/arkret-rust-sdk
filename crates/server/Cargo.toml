@@ -31,5 +31,8 @@ serde = {workspace = true}
 serde_json = {workspace = true}
 tokio = {workspace = true,features = ["rt"],optional = true}
 
+[dev-dependencies]
+arkret-core = {workspace = true,features = ["embedded-artifacts"]}
+
 [lints]
 workspace = true

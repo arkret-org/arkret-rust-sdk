@@ -32,8 +32,9 @@
 use std::collections::BTreeMap;
 
 use arkret_core::{
-    Did, DidOperationSubmitRequestBody, decode_base58btc, decode_ed25519_multibase,
-    encode_base58btc,
+    CanonicalServiceUrl, Did, DidOperationSubmitRequestBody, Hash, ServiceRegistrationKey,
+    ServiceType, ServiceWebvhInceptionOperation, decode_base58btc, decode_ed25519_multibase,
+    encode_base58btc, service_registration_local_id,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{
@@ -68,6 +69,8 @@ pub enum WebvhInceptionError {
     Canonical(String),
     #[error("webvh proof rejected: {0}")]
     InvalidProof(String),
+    #[error("service registration input is invalid: {0}")]
+    InvalidRegistration(String),
 }
 
 /// Prepared service inception. Principal inception uses
@@ -113,6 +116,12 @@ pub struct PreparedInception {
     /// Multibase ed25519 **public** key for `updateKeys[0]`.
     #[zeroize(skip)]
     pub update_public_key_multibase: String,
+    /// Multibase ed25519 public key committed by `nextKeyHashes[0]`.
+    #[zeroize(skip)]
+    pub next_update_public_key_multibase: String,
+    /// Bare multihash commitment to `next_update_public_key_multibase`.
+    #[zeroize(skip)]
+    pub next_update_key_hash: String,
     /// DID + key fragment, e.g. `did:webvh:...#did-key-1`.
     #[zeroize(skip)]
     pub did_key_id: String,
@@ -130,6 +139,8 @@ pub struct PreparedInception {
     /// 32-byte ed25519 secret seed for the update key — caller must persist
     /// this (encrypted) to sign future rotations.
     pub update_key_seed: [u8; 32],
+    /// 32-byte ed25519 secret seed for the precommitted next update key.
+    pub next_update_key_seed: [u8; 32],
 }
 
 #[derive(Clone, Debug)]
@@ -197,13 +208,34 @@ impl std::fmt::Debug for PreparedInception {
                 "update_public_key_multibase",
                 &self.update_public_key_multibase,
             )
+            .field(
+                "next_update_public_key_multibase",
+                &self.next_update_public_key_multibase,
+            )
+            .field("next_update_key_hash", &self.next_update_key_hash)
             .field("did_key_id", &self.did_key_id)
             .field("update_key_id", &self.update_key_id)
             .field("document_url", &self.document_url)
             .field("log_url", &self.log_url)
             .field("did_key_seed", &"<redacted>")
             .field("update_key_seed", &"<redacted>")
+            .field("next_update_key_seed", &"<redacted>")
             .finish()
+    }
+}
+
+impl PreparedInception {
+    /// Convert the prepared log entry into the closed service-registration
+    /// wire type. This is the only supported bridge from the WebVH builder's
+    /// internal JSON construction to the Provider contract.
+    pub fn service_registration_operation(
+        &self,
+    ) -> Result<ServiceWebvhInceptionOperation, WebvhInceptionError> {
+        serde_json::from_value(self.log_entry.clone()).map_err(|error| {
+            WebvhInceptionError::InvalidRegistration(format!(
+                "prepared WebVH entry does not match the service-registration schema: {error}"
+            ))
+        })
     }
 }
 
@@ -341,7 +373,7 @@ pub fn prepare_principal_inception(
         map.insert("proof".to_owned(), Value::Array(vec![proof]));
     }
     verify_webvh_log_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
-    let submit_body = did_submit_body(&did, 1, log_entry.clone(), &local_id)?;
+    let submit_body = did_submit_body(&did, 1, None, log_entry.clone())?;
     let document_url = identity_document_url(input.principal_endpoint, &did)?;
     let log_url = identity_log_url(input.principal_endpoint, &did)?;
 
@@ -487,7 +519,6 @@ pub fn prepare_principal_rotation(
         "parameters": {
             "scid": scid,
             "method": WEBVH_METHOD_VERSION,
-            "prevVersionId": previous_version_id,
             "updateKeys": [current_root_public_key_multibase],
             "nextKeyHashes": [next_root_key_hash],
         },
@@ -512,7 +543,17 @@ pub fn prepare_principal_rotation(
         properties.insert("proof".to_owned(), Value::Array(vec![proof]));
     }
     verify_webvh_log_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
-    let submit_body = did_submit_body(input.did, sequence, log_entry.clone(), &local_id)?;
+    let previous_event_digest = Hash::new(
+        arkret_canonical::canonical::canonical_sha256(input.previous_entry)
+            .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
+    )
+    .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let submit_body = did_submit_body(
+        input.did,
+        sequence,
+        Some(previous_event_digest),
+        log_entry.clone(),
+    )?;
 
     Ok(PreparedPrincipalRotation {
         did: did.to_string(),
@@ -550,6 +591,19 @@ pub struct ServiceInceptionInput<'a> {
     pub did_key_fragment: Option<&'a str>,
 }
 
+/// Inputs for a service DID hosted by a Service Identity Provider.
+///
+/// `provider_endpoint` determines the did:webvh method authority and read
+/// URLs. The signed DID document endpoint and role come exclusively from
+/// `registration_key`, so a Provider cannot rewrite them.
+pub struct ServiceRegistrationInceptionInput<'a> {
+    pub provider_endpoint: &'a Url,
+    pub registration_key: &'a ServiceRegistrationKey,
+    pub also_known_as: &'a [String],
+    pub version_time: DateTime<Utc>,
+    pub did_key_fragment: Option<&'a str>,
+}
+
 /// Prepare a `did:webvh` inception entry for a service's own service DID.
 ///
 /// The service-identity counterpart to [`prepare_principal_inception`]: it self-generates
@@ -582,39 +636,105 @@ pub fn prepare_service_inception_with_did_key_seed<R: RngCore + ?Sized>(
     prepare_service_inception_internal(rng, input, Some(did_key_seed))
 }
 
+pub fn prepare_service_registration_inception<R: RngCore + ?Sized>(
+    rng: &mut R,
+    input: &ServiceRegistrationInceptionInput<'_>,
+) -> Result<PreparedInception, WebvhInceptionError> {
+    prepare_service_registration_inception_internal(rng, input, None)
+}
+
+pub fn prepare_service_registration_inception_with_did_key_seed<R: RngCore + ?Sized>(
+    rng: &mut R,
+    input: &ServiceRegistrationInceptionInput<'_>,
+    did_key_seed: &[u8; SECRET_KEY_LENGTH],
+) -> Result<PreparedInception, WebvhInceptionError> {
+    prepare_service_registration_inception_internal(rng, input, Some(did_key_seed))
+}
+
+fn prepare_service_registration_inception_internal<R: RngCore + ?Sized>(
+    rng: &mut R,
+    input: &ServiceRegistrationInceptionInput<'_>,
+    supplied_did_key_seed: Option<&[u8; SECRET_KEY_LENGTH]>,
+) -> Result<PreparedInception, WebvhInceptionError> {
+    let local_id = service_registration_local_id(input.registration_key)
+        .map_err(|error| WebvhInceptionError::InvalidRegistration(error.to_string()))?;
+    prepare_service_inception_parts(
+        rng,
+        input.provider_endpoint,
+        input.registration_key.public_base(),
+        *input.registration_key.service_type(),
+        &local_id,
+        input.also_known_as,
+        input.version_time,
+        input.did_key_fragment,
+        supplied_did_key_seed,
+    )
+}
+
 fn prepare_service_inception_internal<R: RngCore + ?Sized>(
     rng: &mut R,
     input: &ServiceInceptionInput<'_>,
     supplied_did_key_seed: Option<&[u8; SECRET_KEY_LENGTH]>,
 ) -> Result<PreparedInception, WebvhInceptionError> {
-    let (method_authority, https_authority) = authority_pair(input.principal_endpoint)?;
-    let local_id = normalize_local_id(input.local_id).ok_or(WebvhInceptionError::InvalidLocalId)?;
+    let public_base = CanonicalServiceUrl::canonicalize(input.principal_endpoint.as_str())
+        .map_err(|error| WebvhInceptionError::InvalidRegistration(error.to_string()))?;
+    prepare_service_inception_parts(
+        rng,
+        input.principal_endpoint,
+        &public_base,
+        ServiceType::PrincipalServer,
+        input.local_id,
+        input.also_known_as,
+        input.version_time,
+        input.did_key_fragment,
+        supplied_did_key_seed,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn prepare_service_inception_parts<R: RngCore + ?Sized>(
+    rng: &mut R,
+    provider_endpoint: &Url,
+    public_base: &CanonicalServiceUrl,
+    service_type: ServiceType,
+    local_id: &str,
+    also_known_as: &[String],
+    version_time: DateTime<Utc>,
+    did_key_fragment: Option<&str>,
+    supplied_did_key_seed: Option<&[u8; SECRET_KEY_LENGTH]>,
+) -> Result<PreparedInception, WebvhInceptionError> {
+    let (method_authority, https_authority) = authority_pair(provider_endpoint)?;
+    let local_id = normalize_local_id(local_id).ok_or(WebvhInceptionError::InvalidLocalId)?;
     let did_key_seed = supplied_did_key_seed
         .copied()
         .unwrap_or_else(|| random_seed(rng));
     let update_key_seed = random_seed(rng);
+    let next_update_key_seed = random_seed(rng);
     let did_signing = SigningKey::from_bytes(&did_key_seed);
     let update_signing = SigningKey::from_bytes(&update_key_seed);
+    let next_update_signing = SigningKey::from_bytes(&next_update_key_seed);
     let did_public_key_multibase =
         encode_ed25519_pubkey_multibase(&did_signing.verifying_key().to_bytes());
     let update_public_key_multibase =
         encode_ed25519_pubkey_multibase(&update_signing.verifying_key().to_bytes());
-    let did_key_fragment = normalize_key_fragment(input.did_key_fragment.unwrap_or("did-key-1"))
+    let next_update_public_key_multibase =
+        encode_ed25519_pubkey_multibase(&next_update_signing.verifying_key().to_bytes());
+    let next_update_key_hash = webvh_next_key_hash(&next_update_public_key_multibase)?;
+    let did_key_fragment = normalize_key_fragment(did_key_fragment.unwrap_or("did-key-1"))
         .ok_or(WebvhInceptionError::InvalidKeyFragment)?;
     let update_key_fragment =
         normalize_key_fragment("update-key-1").ok_or(WebvhInceptionError::InvalidKeyFragment)?;
     let placeholder_did = format_webvh_did(&method_authority, WEBVH_SCID_PLACEHOLDER, &local_id);
     let placeholder_key_id = format!("{placeholder_did}#{did_key_fragment}");
-    let service_endpoint = trimmed_endpoint(input.principal_endpoint);
-    let version_time = input
-        .version_time
-        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let service_endpoint = public_base.as_str();
+    let version_time = version_time.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     let document_skeleton = embedded_webvh_document_value_without_enrollment(
         &placeholder_did,
         &placeholder_key_id,
         &did_public_key_multibase,
-        input.also_known_as,
-        &service_endpoint,
+        also_known_as,
+        service_endpoint,
+        service_type,
     );
     let entry_skeleton = json!({
         "versionId": WEBVH_SCID_PLACEHOLDER,
@@ -623,6 +743,7 @@ fn prepare_service_inception_internal<R: RngCore + ?Sized>(
             "scid": WEBVH_SCID_PLACEHOLDER,
             "method": WEBVH_METHOD_VERSION,
             "updateKeys": [update_public_key_multibase],
+            "nextKeyHashes": [next_update_key_hash],
         },
         "state": document_skeleton,
     });
@@ -642,9 +763,9 @@ fn prepare_service_inception_internal<R: RngCore + ?Sized>(
         map.insert("proof".to_owned(), Value::Array(vec![proof]));
     }
     verify_webvh_log_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
-    let submit_body = did_submit_body(&did, 1, log_entry.clone(), &local_id)?;
-    let document_url = identity_document_url(input.principal_endpoint, &did)?;
-    let log_url = identity_log_url(input.principal_endpoint, &did)?;
+    let submit_body = did_submit_body(&did, 1, None, log_entry.clone())?;
+    let document_url = identity_document_url(provider_endpoint, &did)?;
+    let log_url = identity_log_url(provider_endpoint, &did)?;
     Ok(PreparedInception {
         did,
         method_authority,
@@ -656,12 +777,15 @@ fn prepare_service_inception_internal<R: RngCore + ?Sized>(
         submit_body,
         did_public_key_multibase,
         update_public_key_multibase,
+        next_update_public_key_multibase,
+        next_update_key_hash,
         did_key_id,
         update_key_id,
         document_url,
         log_url,
         did_key_seed,
         update_key_seed,
+        next_update_key_seed,
     })
 }
 
@@ -723,7 +847,7 @@ pub fn prepare_supplied_principal_inception(
 
     let did = format_webvh_did(&method_authority, &scid, &local_id);
     let root_verification_method = did_key_verification_method(input.root_public_key_multibase);
-    let submit_body = did_submit_body(&did, 1, log_entry.clone(), &local_id)?;
+    let submit_body = did_submit_body(&did, 1, None, log_entry.clone())?;
     let document_url = identity_document_url(input.principal_endpoint, &did)?;
     let log_url = identity_log_url(input.principal_endpoint, &did)?;
     let did_document = log_entry
@@ -766,6 +890,7 @@ fn embedded_webvh_document_value_without_enrollment(
     did_public_key_multibase: &str,
     also_known_as: &[String],
     service_endpoint: &str,
+    service_type: ServiceType,
 ) -> Value {
     json!({
         "@context": ["https://www.w3.org/ns/did/v1"],
@@ -781,8 +906,9 @@ fn embedded_webvh_document_value_without_enrollment(
         "alsoKnownAs": also_known_as,
         "service": [
             {
-                "id": format!("{did}#soland"),
-                "type": "ArkretPrincipalServer",
+                "id": format!("{did}#service"),
+                "type": "ArkretService",
+                "serviceType": service_type,
                 "serviceEndpoint": service_endpoint,
             }
         ],
@@ -1076,8 +1202,8 @@ pub fn webvh_next_key_hash(public_key_multibase: &str) -> Result<String, WebvhIn
 fn did_submit_body(
     did: &str,
     seq: u64,
+    prev_event_digest: Option<Hash>,
     operation: Value,
-    local_id: &str,
 ) -> Result<DidOperationSubmitRequestBody, WebvhInceptionError> {
     let typed_did = Did::new(did.to_owned())
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
@@ -1088,22 +1214,10 @@ fn did_submit_body(
     };
     Ok(DidOperationSubmitRequestBody {
         did: typed_did,
-        did_method: "did:webvh".to_owned(),
+        did_method: "webvh".to_owned(),
         seq: Some(seq),
-        prev_event_digest: None,
+        prev_event_digest,
         operation: operation.into_iter().collect(),
-        policy_context: Some(BTreeMap::from([
-            (
-                "provider_id".to_owned(),
-                Value::String("soland.protocol".to_owned()),
-            ),
-            (
-                "profile".to_owned(),
-                Value::String("ak.identity.webvh.provider.v1".to_owned()),
-            ),
-            ("local_id".to_owned(), Value::String(local_id.to_owned())),
-        ])),
-        proofs: Vec::new(),
     })
 }
 
@@ -1504,17 +1618,9 @@ mod tests {
         let prepared = run_prepare(3);
         let body = &prepared.submit_body;
         assert_eq!(body.did.as_str(), prepared.did.as_str());
-        assert_eq!(body.did_method, "did:webvh");
+        assert_eq!(body.did_method, "webvh");
         assert_eq!(body.seq, Some(1));
         assert!(body.prev_event_digest.is_none());
-        assert!(body.proofs.is_empty());
-        assert_eq!(
-            body.policy_context
-                .as_ref()
-                .and_then(|context| context.get("local_id"))
-                .and_then(Value::as_str),
-            Some(prepared.local_id.as_str())
-        );
         assert_eq!(
             body.operation["parameters"]["updateKeys"][0].as_str(),
             Some(prepared.root_public_key_multibase.as_str()),
@@ -1660,16 +1766,34 @@ mod tests {
 
         assert!(rotated.version_id.starts_with("2-Qm"));
         assert_eq!(rotated.previous_version_id, genesis.version_id);
-        assert_eq!(
-            rotated.log_entry["parameters"]["prevVersionId"],
-            genesis.version_id
+        assert!(
+            rotated.log_entry["parameters"]
+                .get("prevVersionId")
+                .is_none()
+        );
+        assert!(
+            rotated.log_entry["parameters"]
+                .get("previousVersionId")
+                .is_none()
         );
         assert_eq!(
             rotated.log_entry["parameters"]["updateKeys"][0],
             public_multikey(2)
         );
-        assert_eq!(rotated.submit_body.did_method, "did:webvh");
+        assert_eq!(rotated.submit_body.did_method, "webvh");
         assert_eq!(rotated.submit_body.seq, Some(2));
+        assert_eq!(
+            rotated
+                .submit_body
+                .prev_event_digest
+                .as_ref()
+                .map(Hash::as_str),
+            Some(
+                arkret_canonical::canonical::canonical_sha256(&genesis.log_entry)
+                    .unwrap()
+                    .as_str()
+            )
+        );
         verify_webvh_log_proof(&rotated.log_entry).unwrap();
 
         let error = prepare_principal_rotation(&PrincipalRotationInput {
@@ -1836,9 +1960,46 @@ mod tests {
         );
         assert!(
             services.iter().any(|svc| {
-                svc.get("type").and_then(Value::as_str) == Some("ArkretPrincipalServer")
+                svc.get("type").and_then(Value::as_str) == Some("ArkretService")
+                    && svc.get("serviceType").and_then(Value::as_str) == Some("principal_server")
             }),
-            "service DID document should keep the ArkretPrincipalServer entry",
+            "service DID document should carry the typed ArkretService entry",
+        );
+    }
+
+    #[test]
+    fn provider_host_and_registered_public_base_are_independent() {
+        let mut rng = ChaCha20Rng::seed_from_u64(29);
+        let provider_endpoint = Url::parse("https://identity.example/").unwrap();
+        let registration_key = ServiceRegistrationKey::new(
+            ServiceType::AuthServer,
+            CanonicalServiceUrl::new("https://auth.example/").unwrap(),
+        )
+        .unwrap();
+        let prepared = prepare_service_registration_inception(
+            &mut rng,
+            &ServiceRegistrationInceptionInput {
+                provider_endpoint: &provider_endpoint,
+                registration_key: &registration_key,
+                also_known_as: &[],
+                version_time: DateTime::parse_from_rfc3339("2026-07-15T00:00:00Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                did_key_fragment: None,
+            },
+        )
+        .unwrap();
+
+        assert!(prepared.did.contains(":identity.example:webvh:"));
+        let operation = prepared.service_registration_operation().unwrap();
+        operation.validate_for(&registration_key).unwrap();
+        assert_eq!(
+            operation.state.service[0].service_endpoint.as_str(),
+            "https://auth.example/"
+        );
+        assert_eq!(
+            operation.state.service[0].service_type,
+            ServiceType::AuthServer
         );
     }
 

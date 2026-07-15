@@ -29,7 +29,8 @@ use arkret_core::{
     MediaIceConfigRequestBody, ModerationReportOutcome, ModerationReportRequestBody, OkOutcome,
     PolicyCheckOutcome, PolicyCheckRequestBody, PushNotifyOutcome, PushNotifyRequestBody,
     PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody,
-    Result, ServiceDescribe, SyncRequestBody,
+    Result, ServiceDescribe, ServiceRegistrationEnsureRequestBody, ServiceRegistrationKey,
+    ServiceRegistrationOutcome, SyncRequestBody,
 };
 pub use arkret_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
 pub use arkret_signatures as signatures;

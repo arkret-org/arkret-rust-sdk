@@ -22,7 +22,7 @@ embedded-artifacts = ["arkret-schema/embedded-artifacts"]
 # Client-side URL handling + the transport-agnostic `Error::Http`/`Error::Url`
 # variants. Deliberately does NOT pull in a concrete HTTP stack — reqwest
 # lives in arkret-http-client (ARCHITECTURE.md: core is the wire-model layer).
-client = ["dep:url"]
+client = []
 mls = ["arkret-policy/mls"]
 salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "arkret-identifiers/salvo", "arkret-wire-base/salvo-oapi", "arkret-wire-edge/salvo-oapi", "arkret-schema/salvo-oapi", "arkret-policy/salvo-oapi"]
 
@@ -52,7 +52,7 @@ thiserror = {workspace = true}
 subtle = {workspace = true}
 tracing = {workspace = true}
 unicode-normalization = {workspace = true}
-url = {workspace = true,optional = true}
+url = {workspace = true}
 zeroize = {workspace = true,default-features = true}
 
 [dev-dependencies]

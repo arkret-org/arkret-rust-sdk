@@ -16,6 +16,8 @@ pub enum ServerRequestBody {
         limit: Option<u32>,
     },
     IdentitySubmitDidOperation(DidOperationSubmitRequestBody),
+    IdentityEnsureServiceRegistration(ServiceRegistrationEnsureRequestBody),
+    IdentityGetServiceRegistration(ServiceRegistrationKey),
     IdentityReceipts {
         did: String,
         head: String,
@@ -123,6 +125,7 @@ pub enum ServerOutcome {
     IdentityDocument(IdentityDocumentView),
     IdentityLog(IdentityLogListOutcome),
     SubmitDidOperation(DidOperationSubmitOutcome),
+    ServiceRegistration(ServiceRegistrationOutcome),
     IdentityReceipts(IdentityReceiptListOutcome),
     AccountSubscribeFrame(AccountSubscribeFrame),
     AccountCursorRevoke(AccountCursorRevokeOutcome),

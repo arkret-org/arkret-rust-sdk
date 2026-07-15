@@ -1043,7 +1043,7 @@ pub struct SessionGrantRequestProof {
     pub proof_kind: SessionGrantProofKind,
     pub challenge: String,
     pub request_canonical_digest: Hash,
-    pub audience: String,
+    pub audience: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     pub signature: String,
@@ -1093,7 +1093,7 @@ pub struct SessionGrantOutcome {
     pub session_public_key: Option<String>,
     /// Audience the grant is bound to. Mirrors `SessionGrantRefreshOutcome.audience`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<String>,
+    pub audience: Option<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub granted_scope: Vec<String>,
     /// `ak.profile.agent_auth.v1` overlay (AKP-0008 §4.6). Materialized narrow
@@ -1175,7 +1175,7 @@ pub struct SessionGrantIntrospectionProofClaims {
     pub kind: String,
     pub grant_id: String,
     pub grant_jwt_hash: String,
-    pub audience: String,
+    pub audience: Did,
     pub challenge: String,
     pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
@@ -1198,7 +1198,7 @@ pub struct SessionGrantRefreshRequestBody {
     /// MUST equal the grant's bound audience if present (audience MUST NOT
     /// change across rotation, else `audience_mismatch`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<String>,
+    pub audience: Option<Did>,
     /// Required when recovering from `soft_logged_out`; binds the signed
     /// challenge to the concrete authorized device that owns this grant chain.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1218,7 +1218,7 @@ pub struct SessionGrantRefreshProof {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_canonical_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<String>,
+    pub audience: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub issued_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1239,7 +1239,7 @@ pub struct SessionGrantRefreshOutcome {
     /// does not mint a fresh session private key on rotation.
     pub session_public_key: String,
     pub expires_at: DateTime<Utc>,
-    pub audience: String,
+    pub audience: Did,
     #[serde(default)]
     pub scopes: Vec<String>,
     /// RFC 7638 thumbprint of the holder key (equals the grant's `cnf.jkt`).
@@ -1297,7 +1297,7 @@ pub struct SessionGrantIntrospectGrant {
     pub service_account_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
-    pub audience: String,
+    pub audience: Did,
     #[serde(default)]
     pub scopes: Vec<String>,
     pub expires_at: DateTime<Utc>,
@@ -1332,7 +1332,7 @@ pub struct SessionGrantIntrospectRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grant_jwt: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audience: Option<String>,
+    pub audience: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<SessionGrantIntrospectionProof>,
 }

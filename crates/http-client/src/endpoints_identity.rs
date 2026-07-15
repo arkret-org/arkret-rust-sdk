@@ -13,8 +13,9 @@ use arkret_core::{
     DirectorySearchRealmsRequestBody, DirectorySearchUsersRequestBody, DirectorySubjectHandleList,
     DirectoryTargetResolutionOutcome, DirectoryUserSearchOutcome, IdentityDescription,
     IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
-    IdentityResolveOutcome, IdentityResolveRequestBody, Result, ServiceDescribe,
-    ServiceRequirements,
+    IdentityResolveOutcome, IdentityResolveRequestBody, Result, SERVICE_REGISTRATION_ENSURE_PATH,
+    SERVICE_REGISTRATION_GET_PATH, ServiceDescribe, ServiceRegistrationEnsureRequestBody,
+    ServiceRegistrationKey, ServiceRegistrationOutcome, ServiceRequirements,
 };
 use reqwest::Method;
 
@@ -83,6 +84,42 @@ impl Client {
     ) -> Result<DidOperationSubmitOutcome> {
         self.post("/_arkret/root/identity/submit-did-operation", request)
             .await
+    }
+
+    /// Idempotently return or create the service identity bound to the signed
+    /// registration request. The returned receipt and DID-document binding are
+    /// validated before the outcome reaches the caller.
+    pub async fn service_registration_ensure(
+        &self,
+        request: &ServiceRegistrationEnsureRequestBody,
+    ) -> Result<ServiceRegistrationOutcome> {
+        request.validate()?;
+        let outcome: ServiceRegistrationOutcome =
+            self.post(SERVICE_REGISTRATION_ENSURE_PATH, request).await?;
+        outcome.validate_ensure_response(request)?;
+        Ok(outcome)
+    }
+
+    /// Read an existing service registration without creating identity state.
+    /// The returned registration key, DID document, and receipt are validated.
+    pub async fn service_registration_get(
+        &self,
+        key: &ServiceRegistrationKey,
+    ) -> Result<ServiceRegistrationOutcome> {
+        let builder = self
+            .request(Method::GET, SERVICE_REGISTRATION_GET_PATH)?
+            .query(&[
+                ("service_type", key.service_type().as_str()),
+                ("public_base", key.public_base().as_str()),
+            ]);
+        let outcome: ServiceRegistrationOutcome = self.send_json(builder).await?;
+        outcome.validate_for(key)?;
+        if outcome.created {
+            return Err(arkret_core::Error::Protocol(
+                "service-registration GET response must set created=false".to_owned(),
+            ));
+        }
+        Ok(outcome)
     }
 
     pub async fn identity_receipts(

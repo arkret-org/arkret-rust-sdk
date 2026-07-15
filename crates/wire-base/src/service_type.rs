@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ServiceType {
@@ -20,6 +20,11 @@ pub enum ServiceType {
     SfuService,
     TurnService,
     ModerationService,
+    Notary,
+    SearchService,
+    ArchiveNode,
+    KeyRecoveryService,
+    RecoveryService,
 }
 
 impl ServiceType {
@@ -41,6 +46,11 @@ impl ServiceType {
             Self::SfuService => "sfu_service",
             Self::TurnService => "turn_service",
             Self::ModerationService => "moderation_service",
+            Self::Notary => "notary",
+            Self::SearchService => "search_service",
+            Self::ArchiveNode => "archive_node",
+            Self::KeyRecoveryService => "key_recovery_service",
+            Self::RecoveryService => "recovery_service",
         }
     }
 
@@ -59,6 +69,7 @@ impl ServiceType {
                 "ak.policy.",
                 "ak.identity.",
                 "ak.account_data.",
+                "ak.root.identity.service_registration.",
             ],
             Self::IdentityRegistry => &["ak.root.identity.", "ak.identity."],
             Self::AuthServer => &["ak.gate.account.", "ak.self.policy.query.check"],
@@ -75,6 +86,11 @@ impl ServiceType {
             Self::SfuService => &["ak.self.call.media.", "ak.self.media."],
             Self::TurnService => &["ak.self.media.query.ice_config"],
             Self::ModerationService => &["ak.self.moderation."],
+            Self::Notary => &[],
+            Self::SearchService => &[],
+            Self::ArchiveNode => &[],
+            Self::KeyRecoveryService => &["ak.root.identity.recovery_"],
+            Self::RecoveryService => &["ak.root.identity.recovery_"],
         }
     }
 

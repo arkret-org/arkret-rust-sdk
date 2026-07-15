@@ -146,7 +146,6 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
         "versionTime": "2026-05-07T00:00:00Z",
         "parameters": {
             "method": "did:webvh:1.0",
-            "prevVersionId": version1,
             "scid": scid,
             "updateKeys": [update2]
         },
@@ -381,11 +380,17 @@ fn webvh_rejects_unauthorized_key_rotation() {
     let host = "starid.local:users:alice";
     let update1 = vector_update_key(&key1);
     let update2 = vector_update_key(&key2);
+    let update2_commitment = arkret_signatures::webvh::webvh_next_key_hash(&update2).unwrap();
 
     let prelim_entry1 = json!({
         "versionId": "{SCID}",
         "versionTime": "2026-05-06T00:00:00Z",
-        "parameters": { "method": "did:webvh:1.0", "scid": "{SCID}", "updateKeys": [update1] },
+        "parameters": {
+            "method": "did:webvh:1.0",
+            "scid": "{SCID}",
+            "updateKeys": [update1],
+            "nextKeyHashes": [update2_commitment]
+        },
         "state": json!({ "id": "did:webvh:{SCID}:starid.local:users:alice" }),
     });
     let scid = vector_derive_scid(&prelim_entry1);
@@ -395,7 +400,12 @@ fn webvh_rejects_unauthorized_key_rotation() {
     let mut e1 = json!({
         "versionId": scid,
         "versionTime": "2026-05-06T00:00:00Z",
-        "parameters": { "method": "did:webvh:1.0", "scid": scid, "updateKeys": [update1] },
+        "parameters": {
+            "method": "did:webvh:1.0",
+            "scid": scid,
+            "updateKeys": [update1],
+            "nextKeyHashes": [update2_commitment]
+        },
         "state": state,
     });
     let v1 = format!("1-{}", vector_multihash(&e1));
@@ -407,7 +417,7 @@ fn webvh_rejects_unauthorized_key_rotation() {
     let mut e2 = json!({
         "versionId": v1,
         "versionTime": "2026-05-07T00:00:00Z",
-        "parameters": { "prevVersionId": v1, "scid": scid, "updateKeys": [update2] },
+        "parameters": { "method": "did:webvh:1.0", "scid": scid, "updateKeys": [update2] },
         "state": state,
     });
     let v2 = format!("2-{}", vector_multihash(&e2));

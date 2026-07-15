@@ -10,7 +10,7 @@ use super::*;
 pub struct SessionGrantPayload {
     /// Principal or agent DID authorized by this grant.
     pub subject: Did,
-    pub audience: Vec<String>,
+    pub audience: Did,
     pub scopes: Vec<String>,
     pub session_id: String,
     pub grant_jti: String,
@@ -29,11 +29,6 @@ pub struct SessionGrantConfirmation {
 impl SessionGrantPayload {
     /// Validate the payload before it is signed or persisted.
     pub fn validate(&self) -> Result<()> {
-        if self.audience.is_empty() {
-            return Err(Error::Protocol(
-                "session grant audience must not be empty".to_owned(),
-            ));
-        }
         if self.scopes.is_empty() {
             return Err(Error::Protocol(
                 "session grant scopes must not be empty".to_owned(),

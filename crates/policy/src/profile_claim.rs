@@ -256,10 +256,14 @@ impl ProfileValidator {
             | ServiceType::AuthServer
             | ServiceType::AppletService
             | ServiceType::AgentRuntime
-            | ServiceType::ModerationService => {
+            | ServiceType::ModerationService
+            | ServiceType::Notary
+            | ServiceType::RecoveryService => {
                 vec![ProfileRole::Server]
             }
-            ServiceType::DirectoryService => {
+            ServiceType::DirectoryService
+            | ServiceType::SearchService
+            | ServiceType::ArchiveNode => {
                 vec![ProfileRole::Directory]
             }
             ServiceType::IdentityRegistry => {
@@ -274,7 +278,8 @@ impl ProfileValidator {
             }
             ServiceType::DeviceKeyService
             | ServiceType::AuthzService
-            | ServiceType::PolicyServer => {
+            | ServiceType::PolicyServer
+            | ServiceType::KeyRecoveryService => {
                 vec![ProfileRole::Server, ProfileRole::Directory]
             }
         };

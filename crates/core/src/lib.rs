@@ -88,6 +88,7 @@ pub mod serde_helpers {
     pub use arkret_canonical::serde_helpers::*;
 }
 pub mod service;
+pub mod service_identity;
 pub mod signer {
     pub use arkret_wire_base::signer::*;
 }
@@ -189,6 +190,7 @@ pub use service::{
     RateLimitMetadata, RateLimitScopeKind, ServiceEndpointBinding, ServiceIdAllowlist,
     ServiceRequirements, privacy_preserving_not_found, quota_exceeded_error, rate_limited_error,
 };
+pub use service_identity::*;
 pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
 pub use stream_trace::{
     StreamTraceError, StreamTraceFrame, StreamTraceFrameKind, StreamTraceUpdate,
