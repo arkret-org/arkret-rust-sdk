@@ -18,7 +18,7 @@
 use base64::Engine;
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 
-use crate::{Error, Result};
+use crate::{CanonicalError as Error, Result};
 
 /// Encode `bytes` as base64url **without** padding (RFC 4648 §5).
 ///

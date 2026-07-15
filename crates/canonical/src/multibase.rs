@@ -19,7 +19,7 @@
 //! The underlying bytes match the previous hand-rolled implementations, so
 //! existing did:key and did:webvh tests remain stable.
 
-use crate::{Error, Result};
+use crate::{CanonicalError as Error, Result};
 
 /// Multicodec code for an Ed25519 public key (`0xed`, encoded as unsigned-varint
 /// bytes `0xed 0x01`).
