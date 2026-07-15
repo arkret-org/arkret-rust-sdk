@@ -492,6 +492,72 @@ pub struct ServiceRegistrationReceipt {
 }
 
 impl ServiceRegistrationReceipt {
+    /// Recompute the stable receipt identifier from the canonical claims that
+    /// exclude both `receipt_id` and `proof`.
+    pub fn expected_receipt_id(&self) -> Result<String> {
+        let claims = serde_json::json!({
+            "registration_key": &self.registration_key,
+            "service_id": &self.service_id,
+            "version_id": &self.version_id,
+            "log_head_digest": &self.log_head_digest,
+            "control_key_digest": &self.control_key_digest,
+            "issued_at": self.issued_at,
+            "provider_service_id": &self.provider_service_id,
+        });
+        let digest = sha256_canonical(&claims)?;
+        Ok(format!(
+            "ak:service_registration_receipt:{}",
+            digest.strip_prefix("sha256:").unwrap_or(&digest)
+        ))
+    }
+
+    /// Build the exact `eddsa-jcs-2022` signing input for this receipt.
+    ///
+    /// The proof configuration excludes `proofValue`; the signed document
+    /// excludes the complete `proof` object. Each canonical JSON value is
+    /// hashed independently and the two 32-byte digests are concatenated.
+    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
+        let mut proof_config = serde_json::to_value(&self.proof)?;
+        proof_config
+            .as_object_mut()
+            .ok_or_else(|| {
+                Error::Protocol("service registration proof must be an object".to_owned())
+            })?
+            .remove("proofValue");
+        let mut document = serde_json::to_value(self)?;
+        document
+            .as_object_mut()
+            .ok_or_else(|| {
+                Error::Protocol("service registration receipt must be an object".to_owned())
+            })?
+            .remove("proof");
+        let proof_config = canonical::canonical_json_bytes(&proof_config)?;
+        let document = canonical::canonical_json_bytes(&document)?;
+        let mut binding = Vec::with_capacity(64);
+        binding.extend_from_slice(&Sha256::digest(proof_config));
+        binding.extend_from_slice(&Sha256::digest(document));
+        Ok(binding)
+    }
+
+    /// Validate all proof bindings that can be checked without resolving the
+    /// Provider DID verification method.
+    pub fn validate_proof_binding(&self) -> Result<()> {
+        self.proof.validate_shape()?;
+        if self.receipt_id != self.expected_receipt_id()? {
+            return Err(Error::Protocol(
+                "service registration receipt_id does not match its canonical claims".to_owned(),
+            ));
+        }
+        let provider_prefix = format!("{}#", self.provider_service_id);
+        if !self.proof.verification_method.starts_with(&provider_prefix) {
+            return Err(Error::Protocol(
+                "service registration proof verificationMethod is not controlled by provider_service_id"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn validate_for(&self, key: &ServiceRegistrationKey, service_id: &Did) -> Result<()> {
         if &self.registration_key != key || &self.service_id != service_id {
             return Err(Error::Protocol(
@@ -508,7 +574,7 @@ impl ServiceRegistrationReceipt {
                 "service registration receipt contains an invalid id or digest".to_owned(),
             ));
         }
-        self.proof.validate_shape()
+        self.validate_proof_binding()
     }
 }
 
@@ -1130,7 +1196,9 @@ mod tests {
     }
 
     fn receipt(operation: &ServiceWebvhInceptionOperation) -> ServiceRegistrationReceipt {
-        ServiceRegistrationReceipt {
+        let provider_service_id =
+            Did::new("did:webvh:QmProvider:identity.example:webvh:service").unwrap();
+        let mut receipt = ServiceRegistrationReceipt {
             receipt_id: format!("ak:service_registration_receipt:{}", "a".repeat(64)),
             registration_key: registration_key(),
             service_id: operation.state.id.clone(),
@@ -1138,16 +1206,17 @@ mod tests {
             log_head_digest: operation.log_head_digest().unwrap(),
             control_key_digest: operation.control_key_digest().unwrap(),
             issued_at: "2026-07-15T00:00:01Z".parse().unwrap(),
-            provider_service_id: Did::new("did:webvh:QmProvider:identity.example:webvh:service")
-                .unwrap(),
+            provider_service_id: provider_service_id.clone(),
             proof: ServiceWebvhDataIntegrityProof {
                 proof_type: "DataIntegrityProof".to_owned(),
                 cryptosuite: "eddsa-jcs-2022".to_owned(),
-                verification_method: "did:key:z6MkiProvider#z6MkiProvider".to_owned(),
+                verification_method: format!("{provider_service_id}#service-key"),
                 proof_purpose: "assertionMethod".to_owned(),
                 proof_value: "zReceiptProof".to_owned(),
             },
-        }
+        };
+        receipt.receipt_id = receipt.expected_receipt_id().unwrap();
+        receipt
     }
 
     fn stored_identity() -> StoredServiceIdentity {
@@ -1232,6 +1301,24 @@ mod tests {
         let mut wrong = request;
         wrong.public_base = CanonicalServiceUrl::new("https://other.example/").unwrap();
         assert!(wrong.validate().is_err());
+    }
+
+    #[test]
+    fn service_registration_receipt_binds_claims_and_provider_controller() {
+        let operation = inception();
+        let receipt = receipt(&operation);
+        receipt
+            .validate_for(&registration_key(), &operation.state.id)
+            .unwrap();
+
+        let mut tampered = receipt.clone();
+        tampered.control_key_digest = format!("sha256:{}", "b".repeat(64));
+        assert!(tampered.validate_proof_binding().is_err());
+
+        let mut wrong_controller = receipt;
+        wrong_controller.proof.verification_method =
+            "did:webvh:QmOther:identity.example:webvh:service#service-key".to_owned();
+        assert!(wrong_controller.validate_proof_binding().is_err());
     }
 
     #[test]

@@ -39,6 +39,9 @@ pub mod jwk;
 #[path = "webvh/mod.rs"]
 pub mod webvh;
 
+#[path = "service_identity.rs"]
+pub mod service_identity;
+
 // Organization-side statement signing (A3). Byte-symmetric counterpart to
 // soland's `verify_realm_organization_proof_signature`.
 #[path = "realm_organization.rs"]

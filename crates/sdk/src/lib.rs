@@ -141,7 +141,9 @@ pub use arkret_signatures::Ed25519MoveSigner;
 // at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
 // reach one implementation: `arkret_sdk::webvh::prepare_principal_inception`,
 // `arkret_sdk::realm_organization_statement_sign`.
-pub use arkret_signatures::{realm_organization, realm_organization_statement_sign, webvh};
+pub use arkret_signatures::{
+    realm_organization, realm_organization_statement_sign, service_identity, webvh,
+};
 pub use arkret_state::{snapshot, state, *};
 
 // Platform-native KeyStore backends. The glob import above already
