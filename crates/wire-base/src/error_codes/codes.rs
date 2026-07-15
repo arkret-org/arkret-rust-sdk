@@ -96,6 +96,7 @@ pub const ERROR_CODE_DID_ALREADY_EXISTS: &str = "did_already_exists";
 pub const ERROR_CODE_DID_NOT_FOUND: &str = "did_not_found";
 pub const ERROR_CODE_DID_REVOKED: &str = "did_revoked";
 pub const ERROR_CODE_FRONTIER_UNAVAILABLE: &str = "frontier_unavailable";
+pub const ERROR_CODE_MLS_GOVERNANCE_ANCHOR_UNREACHABLE: &str = "mls_governance_anchor_unreachable";
 pub const ERROR_CODE_HANDLE_UNVERIFIED: &str = "handle_unverified";
 pub const ERROR_CODE_KEY_REPLAY: &str = "key_replay";
 pub const ERROR_CODE_KEYPACKAGE_ALREADY_CONSUMED: &str = "keypackage_already_consumed";
@@ -125,6 +126,11 @@ pub const ERROR_CODE_PROJECTION_INCOMPLETE: &str = "projection_incomplete";
 pub const ERROR_CODE_INTERNAL_ERROR: &str = "internal_error";
 pub const ERROR_CODE_TEMPORARILY_UNAVAILABLE: &str = "temporarily_unavailable";
 pub const ERROR_CODE_SERVICE_UNAVAILABLE: &str = "service_unavailable";
+pub const ERROR_CODE_SERVICE_IDENTITY_UNAVAILABLE: &str = "service_identity_unavailable";
+pub const ERROR_CODE_SERVICE_IDENTITY_PROVIDER_UNAVAILABLE: &str =
+    "service_identity_provider_unavailable";
+pub const ERROR_CODE_SERVICE_REGISTRATION_REJECTED: &str = "service_registration_rejected";
+pub const ERROR_CODE_SERVICE_IDENTITY_CONFLICT: &str = "service_identity_conflict";
 pub const ERROR_CODE_POLICY_COMBINATION_INVALID: &str = "policy_combination_invalid";
 pub const ERROR_CODE_HISTORY_SHARING_POLICY_MISSING: &str = "history_sharing_policy_missing";
 pub const ERROR_CODE_HISTORY_NOT_VISIBLE: &str = "history_not_visible";
@@ -343,6 +349,7 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_DID_NOT_FOUND,
     ERROR_CODE_DID_REVOKED,
     ERROR_CODE_FRONTIER_UNAVAILABLE,
+    ERROR_CODE_MLS_GOVERNANCE_ANCHOR_UNREACHABLE,
     ERROR_CODE_HANDLE_UNVERIFIED,
     ERROR_CODE_KEY_REPLAY,
     ERROR_CODE_KEYPACKAGE_ALREADY_CONSUMED,
@@ -372,6 +379,10 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_INTERNAL_ERROR,
     ERROR_CODE_TEMPORARILY_UNAVAILABLE,
     ERROR_CODE_SERVICE_UNAVAILABLE,
+    ERROR_CODE_SERVICE_IDENTITY_UNAVAILABLE,
+    ERROR_CODE_SERVICE_IDENTITY_PROVIDER_UNAVAILABLE,
+    ERROR_CODE_SERVICE_REGISTRATION_REJECTED,
+    ERROR_CODE_SERVICE_IDENTITY_CONFLICT,
     ERROR_CODE_POLICY_COMBINATION_INVALID,
     ERROR_CODE_HISTORY_SHARING_POLICY_MISSING,
     ERROR_CODE_HISTORY_NOT_VISIBLE,

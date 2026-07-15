@@ -100,6 +100,7 @@ pub enum ErrorCode {
     DidNotFound,
     DidRevoked,
     FrontierUnavailable,
+    MlsGovernanceAnchorUnreachable,
     HandleUnverified,
     KeyReplay,
     KeypackageAlreadyConsumed,
@@ -129,6 +130,10 @@ pub enum ErrorCode {
     InternalError,
     TemporarilyUnavailable,
     ServiceUnavailable,
+    ServiceIdentityUnavailable,
+    ServiceIdentityProviderUnavailable,
+    ServiceRegistrationRejected,
+    ServiceIdentityConflict,
     PolicyCombinationInvalid,
     HistorySharingPolicyMissing,
     HistoryNotVisible,
@@ -239,7 +244,7 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    pub const ALL: [Self; 226] = [
+    pub const ALL: [Self; 231] = [
         Self::BadJson,
         Self::BadQuery,
         Self::SchemaViolation,
@@ -330,6 +335,7 @@ impl ErrorCode {
         Self::DidNotFound,
         Self::DidRevoked,
         Self::FrontierUnavailable,
+        Self::MlsGovernanceAnchorUnreachable,
         Self::HandleUnverified,
         Self::KeyReplay,
         Self::KeypackageAlreadyConsumed,
@@ -359,6 +365,10 @@ impl ErrorCode {
         Self::InternalError,
         Self::TemporarilyUnavailable,
         Self::ServiceUnavailable,
+        Self::ServiceIdentityUnavailable,
+        Self::ServiceIdentityProviderUnavailable,
+        Self::ServiceRegistrationRejected,
+        Self::ServiceIdentityConflict,
         Self::PolicyCombinationInvalid,
         Self::HistorySharingPolicyMissing,
         Self::HistoryNotVisible,
@@ -566,6 +576,7 @@ impl ErrorCode {
             Self::DidNotFound => ERROR_CODE_DID_NOT_FOUND,
             Self::DidRevoked => ERROR_CODE_DID_REVOKED,
             Self::FrontierUnavailable => ERROR_CODE_FRONTIER_UNAVAILABLE,
+            Self::MlsGovernanceAnchorUnreachable => ERROR_CODE_MLS_GOVERNANCE_ANCHOR_UNREACHABLE,
             Self::HandleUnverified => ERROR_CODE_HANDLE_UNVERIFIED,
             Self::KeyReplay => ERROR_CODE_KEY_REPLAY,
             Self::KeypackageAlreadyConsumed => ERROR_CODE_KEYPACKAGE_ALREADY_CONSUMED,
@@ -595,6 +606,12 @@ impl ErrorCode {
             Self::InternalError => ERROR_CODE_INTERNAL_ERROR,
             Self::TemporarilyUnavailable => ERROR_CODE_TEMPORARILY_UNAVAILABLE,
             Self::ServiceUnavailable => ERROR_CODE_SERVICE_UNAVAILABLE,
+            Self::ServiceIdentityUnavailable => ERROR_CODE_SERVICE_IDENTITY_UNAVAILABLE,
+            Self::ServiceIdentityProviderUnavailable => {
+                ERROR_CODE_SERVICE_IDENTITY_PROVIDER_UNAVAILABLE
+            }
+            Self::ServiceRegistrationRejected => ERROR_CODE_SERVICE_REGISTRATION_REJECTED,
+            Self::ServiceIdentityConflict => ERROR_CODE_SERVICE_IDENTITY_CONFLICT,
             Self::PolicyCombinationInvalid => ERROR_CODE_POLICY_COMBINATION_INVALID,
             Self::HistorySharingPolicyMissing => ERROR_CODE_HISTORY_SHARING_POLICY_MISSING,
             Self::HistoryNotVisible => ERROR_CODE_HISTORY_NOT_VISIBLE,
@@ -833,6 +850,7 @@ impl ErrorCode {
             ERROR_CODE_DID_NOT_FOUND => Self::DidNotFound,
             ERROR_CODE_DID_REVOKED => Self::DidRevoked,
             ERROR_CODE_FRONTIER_UNAVAILABLE => Self::FrontierUnavailable,
+            ERROR_CODE_MLS_GOVERNANCE_ANCHOR_UNREACHABLE => Self::MlsGovernanceAnchorUnreachable,
             ERROR_CODE_HANDLE_UNVERIFIED => Self::HandleUnverified,
             ERROR_CODE_KEY_REPLAY => Self::KeyReplay,
             ERROR_CODE_KEYPACKAGE_ALREADY_CONSUMED => Self::KeypackageAlreadyConsumed,
@@ -862,6 +880,12 @@ impl ErrorCode {
             ERROR_CODE_INTERNAL_ERROR => Self::InternalError,
             ERROR_CODE_TEMPORARILY_UNAVAILABLE => Self::TemporarilyUnavailable,
             ERROR_CODE_SERVICE_UNAVAILABLE => Self::ServiceUnavailable,
+            ERROR_CODE_SERVICE_IDENTITY_UNAVAILABLE => Self::ServiceIdentityUnavailable,
+            ERROR_CODE_SERVICE_IDENTITY_PROVIDER_UNAVAILABLE => {
+                Self::ServiceIdentityProviderUnavailable
+            }
+            ERROR_CODE_SERVICE_REGISTRATION_REJECTED => Self::ServiceRegistrationRejected,
+            ERROR_CODE_SERVICE_IDENTITY_CONFLICT => Self::ServiceIdentityConflict,
             ERROR_CODE_POLICY_COMBINATION_INVALID => Self::PolicyCombinationInvalid,
             ERROR_CODE_HISTORY_SHARING_POLICY_MISSING => Self::HistorySharingPolicyMissing,
             ERROR_CODE_HISTORY_NOT_VISIBLE => Self::HistoryNotVisible,

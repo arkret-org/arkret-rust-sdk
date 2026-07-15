@@ -1,10 +1,10 @@
 param(
     [string]$ArtifactsDir = (Join-Path $PSScriptRoot "..\..\arkret-spec\spec\v1\artifacts"),
-    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\core\src\error\codes.rs"),
-    [string]$ReasonOutputPath = (Join-Path $PSScriptRoot "..\crates\core\src\error\reasons.rs")
+    [string]$OutputPath = (Join-Path $PSScriptRoot "..\crates\wire-base\src\error_codes\codes.rs"),
+    [string]$ReasonOutputPath = (Join-Path $PSScriptRoot "..\crates\wire-base\src\error_codes\reasons.rs")
 )
 
-# Emits crates/core/src/error/codes.rs from
+# Emits the canonical arkret-wire-base error-code modules from
 # arkret-spec/spec/v1/artifacts/registry/error-code-registry.json.
 #
 # One `pub const ERROR_CODE_<UPPER>: &str = "<code>"` per top-level `codes`
