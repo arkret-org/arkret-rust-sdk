@@ -92,7 +92,11 @@ pub const REASON_INCEPTION_UPGRADE_OLD_DOCUMENT_HASH_MISMATCH: &str =
     "inception_upgrade_old_document_hash_mismatch";
 pub const REASON_INCEPTION_UPGRADE_FINGERPRINT_MISMATCH: &str =
     "inception_upgrade_fingerprint_mismatch";
-pub const REASON_INCEPTION_KEY_WINDOW_EXCEEDED: &str = "inception_key_window_exceeded";
+pub const REASON_DEVICE_REANCHOR_ENTRY_NOT_HEAD: &str = "device_reanchor_entry_not_head";
+pub const REASON_DEVICE_REANCHOR_FRONTIER_MISMATCH: &str = "device_reanchor_frontier_mismatch";
+pub const REASON_DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &str = "device_reanchor_authorize_mismatch";
+pub const REASON_DEVICE_REANCHOR_CONFLICT: &str = "device_reanchor_conflict";
+pub const REASON_DEVICE_GENERATION_FENCED: &str = "device_generation_fenced";
 pub const REASON_AUDIT_RELEASE_BINDING_MISSING: &str = "audit_release_binding_missing";
 pub const REASON_AUDIT_RELEASE_BINDING_INACTIVE: &str = "audit_release_binding_inactive";
 pub const REASON_AUDIT_RELEASE_SCOPE_MISMATCH: &str = "audit_release_scope_mismatch";
@@ -544,7 +548,11 @@ pub const KNOWN_REASON_CODES: &[&str] = &[
     REASON_INCEPTION_UPGRADE_SIGNATURE_CHAIN_INVALID,
     REASON_INCEPTION_UPGRADE_OLD_DOCUMENT_HASH_MISMATCH,
     REASON_INCEPTION_UPGRADE_FINGERPRINT_MISMATCH,
-    REASON_INCEPTION_KEY_WINDOW_EXCEEDED,
+    REASON_DEVICE_REANCHOR_ENTRY_NOT_HEAD,
+    REASON_DEVICE_REANCHOR_FRONTIER_MISMATCH,
+    REASON_DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
+    REASON_DEVICE_REANCHOR_CONFLICT,
+    REASON_DEVICE_GENERATION_FENCED,
     REASON_AUDIT_RELEASE_BINDING_MISSING,
     REASON_AUDIT_RELEASE_BINDING_INACTIVE,
     REASON_AUDIT_RELEASE_SCOPE_MISMATCH,

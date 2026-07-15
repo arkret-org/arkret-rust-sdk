@@ -750,13 +750,18 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("device_signature");
+        missing_proof
+            .as_object_mut()
+            .unwrap()
+            .remove("enrollment_authority_binding");
         assert!(serde_json::from_value::<DeviceAuthorizePayload>(missing_proof).is_err());
 
         let mut conflicting_binding = device_authorize_value();
-        conflicting_binding["enrollment_authority_binding"] = json!({
-            "kind": "service_attested",
-            "authority_did": "did:webvh:z6mkfixture:authority.example",
-            "authorization_ref": "did:webvh:z6mkfixture:alice.example#enrollment-authority"
+        conflicting_binding["cross_signing_binding"] = json!({
+            "verification_method": "did:webvh:z6mkfixture:alice.example#ssk",
+            "alg": "EdDSA",
+            "ssk_generation": 1,
+            "signature": "c2ln"
         });
         assert!(serde_json::from_value::<DeviceAuthorizePayload>(conflicting_binding).is_err());
 
