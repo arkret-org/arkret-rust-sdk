@@ -152,16 +152,24 @@ pub struct QueryDeviceRecord {
 }
 
 impl QueryDeviceRecord {
+    /// Return whether this device is usable under exactly one accepted trust
+    /// model. A-model devices require only a cross-signing binding. B-model
+    /// devices require the current generation, enrollment-authority binding,
+    /// and accepted authorize-event anchor. Mixed A/B projections fail closed.
     pub fn is_usable_in_generation(&self, generation: Option<&DeviceGenerationState>) -> bool {
         if self.device_status != Some(DeviceStatus::Active) {
             return false;
         }
         match (generation, self.authorized_generation_ref.as_ref()) {
-            (None, None) => self.cross_signing_binding.is_some(),
+            (None, None) => {
+                self.cross_signing_binding.is_some() && self.enrollment_authority_binding.is_none()
+            }
             (Some(state), Some(device_generation)) => {
                 state.device_generation_status == DeviceGenerationStatus::Active
                     && device_generation == &state.current_device_generation_ref
                     && self.enrollment_authority_binding.is_some()
+                    && self.device_authorize_event_id.is_some()
+                    && self.cross_signing_binding.is_none()
             }
             _ => false,
         }
@@ -303,5 +311,49 @@ mod device_message_tests {
             "expires_at": "2026-07-15T01:00:00Z"
         });
         assert!(serde_json::from_value::<DeviceMessageTarget>(scalar_content).is_err());
+    }
+
+    #[test]
+    fn device_generation_trust_models_are_exclusive_and_fully_anchored() {
+        let cross_signing_binding = json!({
+            "verification_method": "did:webvh:z6mkfixture:alice.example#ssk",
+            "ssk_generation": 1,
+            "signature": "c2ln"
+        });
+        let enrollment_authority_binding = json!({
+            "kind": "service_attested",
+            "authority_did": "did:webvh:z6mkauthority:auth.example",
+            "authorization_ref": "did:webvh:z6mkfixture:alice.example#enrollment-authority"
+        });
+
+        let mut a_model: QueryDeviceRecord = serde_json::from_value(json!({
+            "device_status": "active",
+            "cross_signing_binding": cross_signing_binding
+        }))
+        .unwrap();
+        assert!(a_model.is_usable_in_generation(None));
+        a_model.enrollment_authority_binding =
+            Some(serde_json::from_value(enrollment_authority_binding.clone()).unwrap());
+        assert!(!a_model.is_usable_in_generation(None));
+
+        let generation = DeviceGenerationState {
+            current_device_generation_ref: NonEmptyString::new("did-version-7").unwrap(),
+            device_generation_status: DeviceGenerationStatus::Active,
+        };
+        let mut b_model: QueryDeviceRecord = serde_json::from_value(json!({
+            "device_status": "active",
+            "enrollment_authority_binding": enrollment_authority_binding,
+            "device_authorize_event_id": "ak:event:01904100-0000-7000-8000-a11ce0000001",
+            "authorized_generation_ref": "did-version-7"
+        }))
+        .unwrap();
+        assert!(b_model.is_usable_in_generation(Some(&generation)));
+
+        b_model.device_authorize_event_id = None;
+        assert!(!b_model.is_usable_in_generation(Some(&generation)));
+        b_model.device_authorize_event_id =
+            Some(EventId::new("ak:event:01904100-0000-7000-8000-a11ce0000001").unwrap());
+        b_model.cross_signing_binding = a_model.cross_signing_binding;
+        assert!(!b_model.is_usable_in_generation(Some(&generation)));
     }
 }
