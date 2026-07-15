@@ -74,6 +74,20 @@ pub trait MoveStore: Send + Sync {
 pub trait SealStore: Send + Sync {
     fn put(&self, a: &Seal) -> StoreResult<()>;
 
+    /// Atomically insert `seal` only when the Realm's current leaf set is
+    /// exactly `expected_leaves`.
+    ///
+    /// Equality is set equality: ordering and duplicate entries do not affect
+    /// the comparison. The frontier read, comparison, and insert MUST execute
+    /// in one transaction or lock domain. Implementations MUST NOT compose
+    /// this operation from [`SealStore::list_leaves`] followed by
+    /// [`SealStore::put`], because that admits two writers from the same stale
+    /// frontier.
+    ///
+    /// Returns `true` when the Seal was inserted and `false` when the expected
+    /// frontier was stale. A `false` result MUST leave the store unchanged.
+    fn put_if_frontier(&self, seal: &Seal, expected_leaves: &[SealId]) -> StoreResult<bool>;
+
     fn get(&self, id: &SealId) -> StoreResult<Option<Seal>>;
 
     /// Current leaf set for a Realm (Seals with no successor).

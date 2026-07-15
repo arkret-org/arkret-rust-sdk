@@ -9,7 +9,7 @@
 // hold plain data (no torn multi-step invariants across a panic point), so
 // `PoisonError::into_inner` is safe and keeps one panicked writer from
 // cascading panics into every later caller.
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;
 
 use serde_json::{Value, json};
@@ -160,31 +160,58 @@ struct MemorySealStoreInner {
     genesis: BTreeMap<String, SealId>,
 }
 
+impl MemorySealStoreInner {
+    fn put(&mut self, seal: &Seal) {
+        let realm = seal.realm_id.as_str().to_owned();
+        let id_str = seal.id.as_str().to_owned();
+        self.seals.insert(id_str, seal.clone());
+
+        if seal.predecessor_refs.is_empty() {
+            self.genesis
+                .entry(realm.clone())
+                .or_insert_with(|| seal.id.clone());
+        }
+
+        let leaves = self.leaves.entry(realm).or_default();
+        leaves.retain(|leaf| !seal.predecessor_refs.iter().any(|p| p == leaf));
+        if !leaves.iter().any(|leaf| leaf == &seal.id) {
+            leaves.push(seal.id.clone());
+        }
+    }
+
+    fn frontier_matches(&self, realm_id: &RealmId, expected_leaves: &[SealId]) -> bool {
+        let current: BTreeSet<&str> = self
+            .leaves
+            .get(realm_id.as_str())
+            .into_iter()
+            .flatten()
+            .map(SealId::as_str)
+            .collect();
+        let expected: BTreeSet<&str> = expected_leaves.iter().map(SealId::as_str).collect();
+        current == expected
+    }
+}
+
 impl SealStore for MemorySealStore {
-    fn put(&self, a: &Seal) -> StoreResult<()> {
+    fn put(&self, seal: &Seal) -> StoreResult<()> {
         let mut inner = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let realm = a.realm_id.as_str().to_owned();
-        let id_str = a.id.as_str().to_owned();
-        inner.seals.insert(id_str, a.clone());
-
-        // Genesis: first seal with empty predecessors.
-        if a.predecessor_refs.is_empty() {
-            inner
-                .genesis
-                .entry(realm.clone())
-                .or_insert_with(|| a.id.clone());
-        }
-
-        // Leaf set: remove all of `a.predecessor_refs` from leaves; add `a` as a new leaf.
-        let leaves = inner.leaves.entry(realm).or_default();
-        leaves.retain(|leaf| !a.predecessor_refs.iter().any(|p| p == leaf));
-        if !leaves.iter().any(|l| l == &a.id) {
-            leaves.push(a.id.clone());
-        }
+        inner.put(seal);
         Ok(())
+    }
+
+    fn put_if_frontier(&self, seal: &Seal, expected_leaves: &[SealId]) -> StoreResult<bool> {
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if !inner.frontier_matches(&seal.realm_id, expected_leaves) {
+            return Ok(false);
+        }
+        inner.put(seal);
+        Ok(true)
     }
 
     fn get(&self, id: &SealId) -> StoreResult<Option<Seal>> {
@@ -435,7 +462,7 @@ impl CellStore for MemoryCellStore {
         }
         inner.seal_ops.insert(seal.as_str().to_owned(), applied);
         // Cache invalidation: clear cache entries for cells touched by this seal.
-        let touched: std::collections::BTreeSet<_> = new_ops
+        let touched: BTreeSet<_> = new_ops
             .iter()
             .map(|(c, _)| (realm_id.as_str().to_owned(), c.as_str().to_owned()))
             .collect();
@@ -699,6 +726,8 @@ impl CellRegistry for MemoryCellRegistry {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Barrier};
+
     use chrono::{TimeZone, Utc};
 
     use super::*;
@@ -837,6 +866,88 @@ mod tests {
         let child = dummy_seal(seal_id(0xa1), vec![g.id], vec![move_id(0x02)]);
         store.put(&child).unwrap();
         assert_eq!(store.list_leaves(&realm()).unwrap(), vec![child.id]);
+    }
+
+    #[test]
+    fn seal_store_put_if_frontier_accepts_exact_set() {
+        let store = MemorySealStore::default();
+        let genesis = dummy_seal(seal_id(0xe0), vec![], vec![move_id(0x01)]);
+        assert!(store.put_if_frontier(&genesis, &[]).unwrap());
+
+        let left = dummy_seal(seal_id(0xe1), vec![genesis.id.clone()], vec![move_id(0x02)]);
+        store.put(&left).unwrap();
+        let right = dummy_seal(seal_id(0xe2), vec![genesis.id], vec![move_id(0x03)]);
+        store.put(&right).unwrap();
+
+        let joined = dummy_seal(
+            seal_id(0xe3),
+            vec![left.id.clone(), right.id.clone()],
+            vec![move_id(0x04)],
+        );
+        assert!(
+            store
+                .put_if_frontier(
+                    &joined,
+                    &[right.id.clone(), left.id.clone(), right.id.clone()]
+                )
+                .unwrap()
+        );
+        assert_eq!(store.list_leaves(&realm()).unwrap(), vec![joined.id]);
+    }
+
+    #[test]
+    fn seal_store_put_if_frontier_rejects_stale_set_without_mutation() {
+        let store = MemorySealStore::default();
+        let genesis = dummy_seal(seal_id(0xf0), vec![], vec![move_id(0x01)]);
+        store.put(&genesis).unwrap();
+        let stale = dummy_seal(seal_id(0xf1), vec![genesis.id.clone()], vec![move_id(0x02)]);
+
+        assert!(!store.put_if_frontier(&stale, &[seal_id(0xff)]).unwrap());
+        assert!(store.get(&stale.id).unwrap().is_none());
+        assert_eq!(store.list_leaves(&realm()).unwrap(), vec![genesis.id]);
+    }
+
+    #[test]
+    fn seal_store_put_if_frontier_allows_only_one_concurrent_writer() {
+        let store = Arc::new(MemorySealStore::default());
+        let genesis = dummy_seal(seal_id(0x90), vec![], vec![move_id(0x01)]);
+        store.put(&genesis).unwrap();
+        let barrier = Arc::new(Barrier::new(3));
+
+        let writers: Vec<_> = [
+            dummy_seal(seal_id(0x91), vec![genesis.id.clone()], vec![move_id(0x02)]),
+            dummy_seal(seal_id(0x92), vec![genesis.id.clone()], vec![move_id(0x03)]),
+        ]
+        .into_iter()
+        .map(|candidate| {
+            let store = Arc::clone(&store);
+            let barrier = Arc::clone(&barrier);
+            let expected = genesis.id.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                let inserted = store.put_if_frontier(&candidate, &[expected]).unwrap();
+                (candidate.id, inserted)
+            })
+        })
+        .collect();
+
+        barrier.wait();
+        let outcomes: Vec<_> = writers
+            .into_iter()
+            .map(|writer| writer.join().unwrap())
+            .collect();
+        assert_eq!(outcomes.iter().filter(|(_, inserted)| *inserted).count(), 1);
+
+        let winner = outcomes
+            .iter()
+            .find_map(|(id, inserted)| inserted.then_some(id.clone()))
+            .unwrap();
+        let loser = outcomes
+            .iter()
+            .find_map(|(id, inserted)| (!inserted).then_some(id.clone()))
+            .unwrap();
+        assert_eq!(store.list_leaves(&realm()).unwrap(), vec![winner]);
+        assert!(store.get(&loser).unwrap().is_none());
     }
 
     #[test]
