@@ -1013,17 +1013,32 @@ fn embedded_webvh_document_value_without_enrollment(
     service_endpoint: &str,
     service_type: ServiceType,
 ) -> Value {
+    let mut verification_methods = vec![json!({
+        "id": did_key_id,
+        "type": "Multikey",
+        "controller": did,
+        "publicKeyMultibase": did_public_key_multibase,
+    })];
+    let authentication = vec![did_key_id.to_owned()];
+    let mut assertion_methods = vec![did_key_id.to_owned()];
+    if service_type == ServiceType::PrincipalServer {
+        let federation_key_id = format!("{did}#federation-fanout-key");
+        if federation_key_id != did_key_id {
+            verification_methods.push(json!({
+                "id": federation_key_id,
+                "type": "Multikey",
+                "controller": did,
+                "publicKeyMultibase": did_public_key_multibase,
+            }));
+            assertion_methods.push(federation_key_id);
+        }
+    }
     json!({
         "@context": ["https://www.w3.org/ns/did/v1"],
         "id": did,
-        "verificationMethod": [{
-            "id": did_key_id,
-            "type": "Multikey",
-            "controller": did,
-            "publicKeyMultibase": did_public_key_multibase,
-        }],
-        "authentication": [did_key_id],
-        "assertionMethod": [did_key_id],
+        "verificationMethod": verification_methods,
+        "authentication": authentication,
+        "assertionMethod": assertion_methods,
         "alsoKnownAs": also_known_as,
         "service": [
             {
@@ -2187,6 +2202,18 @@ mod tests {
         assert_eq!(
             prepared.log_entry["state"]["verificationMethod"][0]["publicKeyMultibase"],
             expected_public_key,
+        );
+        assert_eq!(
+            prepared.log_entry["state"]["verificationMethod"][1]["id"],
+            format!("{}#federation-fanout-key", prepared.did),
+        );
+        assert_eq!(
+            prepared.log_entry["state"]["verificationMethod"][1]["publicKeyMultibase"],
+            expected_public_key,
+        );
+        assert_eq!(
+            prepared.log_entry["state"]["assertionMethod"][1],
+            format!("{}#federation-fanout-key", prepared.did),
         );
         verify_proof_like_soland(&prepared.log_entry).expect("service inception proof verifies");
     }
