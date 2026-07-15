@@ -13,7 +13,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    DeviceId, Did, Error, Event, EventId, Hlc, NotificationDelta, RealmId, Result, canonical,
+    DeviceId, Did, EphemeralEnvelope, Error, Event, EventId, Hlc, NotificationDelta, RealmId,
+    Result, canonical,
 };
 
 /// Query parameters for `ak.self.account.stream.subscribe`.
@@ -666,8 +667,8 @@ pub struct SyncUpdates {
     pub to_device_lost: bool,
     /// Device list changes
     pub device_lists: crate::models::AccountSubscribeDeviceListChanges,
-    /// Presence events
-    pub presence: Vec<Event>,
+    /// Broadcast presence signals from the dedicated ephemeral channel.
+    pub presence: Vec<EphemeralEnvelope>,
     /// Account data
     pub account_data: Vec<Event>,
     /// Notification deltas

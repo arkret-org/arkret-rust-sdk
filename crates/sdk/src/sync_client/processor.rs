@@ -10,7 +10,7 @@ pub struct SyncResponseProcessor {
     changed_device_lists: BTreeSet<Did>,
     left_device_lists: BTreeSet<Did>,
     pending_recovery_actions: BTreeSet<SyncRecoveryAction>,
-    presence: BTreeMap<Did, Event>,
+    presence: BTreeMap<Did, EphemeralEnvelope>,
     account_data: BTreeMap<String, Event>,
     notifications: BTreeMap<String, NotificationDelta>,
     last_token: Option<String>,
@@ -220,7 +220,7 @@ impl SyncResponseProcessor {
         self.last_token.as_deref()
     }
 
-    pub fn presence(&self, actor_id: &Did) -> Option<&Event> {
+    pub fn presence(&self, actor_id: &Did) -> Option<&EphemeralEnvelope> {
         self.presence.get(actor_id)
     }
 

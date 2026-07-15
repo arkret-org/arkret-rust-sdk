@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use arkret_core::{
-    AccountSubscribeRealms, AccountSubscribeUnreadCounts, DeviceMessageContainer, EventContainer,
-    ProtocolKind, RealmSyncEntry,
+    AccountSubscribeRealms, AccountSubscribeUnreadCounts, DeviceMessageContainer,
+    EphemeralEventContainer, EventContainer, ProtocolKind, RealmSyncEntry,
 };
 use serde_json::json;
 
@@ -10,7 +10,8 @@ use super::*;
 use crate::{
     AccountNotificationDataKind, AgentRuntimeApprovalNotificationData,
     AgentRuntimeApprovalNotificationRemovalData, AgentRuntimeApprovalRemovalReason, Did,
-    NotificationContainer, NotificationData, NotificationId, NotificationType, RealmId,
+    EphemeralEnvelope, Hash, NotificationContainer, NotificationData, NotificationId,
+    NotificationType, Proof, RealmId,
 };
 
 fn sync_response(cursor: &str) -> AccountSubscribeBatch {
@@ -270,13 +271,25 @@ fn processor_dispatches_all_update_categories() {
     let sender = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
     let recipient = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
     let realm = RealmId::new(realm_id).unwrap();
-    let presence_event = Event::new(
+    let presence_sent_at = Utc::now();
+    let presence_event = EphemeralEnvelope::new(
         "ak.presence",
         realm.clone(),
         sender.clone(),
-        1,
-        crate::Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
-        json!({"state":"online"}),
+        None,
+        presence_sent_at,
+        presence_sent_at + chrono::Duration::seconds(30),
+        serde_json::from_value(json!({"state":"online"})).unwrap(),
+        Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#device-key".to_owned(),
+            event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            created_at: presence_sent_at,
+            domain: None,
+            audience: None,
+            jws: "header..signature".to_owned(),
+        },
     )
     .unwrap();
     let account_data_event = Event::new(
@@ -317,9 +330,8 @@ fn processor_dispatches_all_update_categories() {
         changed: vec![sender.clone()],
         left: Vec::new(),
     });
-    frame.presence = Some(EventContainer {
+    frame.presence = Some(EphemeralEventContainer {
         events: vec![presence_event],
-        extra: BTreeMap::new(),
     });
     frame.account_data = Some(EventContainer {
         events: vec![account_data_event],

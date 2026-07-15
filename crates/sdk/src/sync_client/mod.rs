@@ -25,8 +25,8 @@ use crate::sync::{
 use crate::{
     AccountStreamInterrupt, AccountSubscribeBatch, AccountSubscribeDeviceListChanges,
     AccountSubscribeFrameKind, AccountSubscribeRealmSummary, DeviceId, DeviceMessageEnvelope, Did,
-    Error, Event, EventId, NotificationDelta, NotificationDeltaAction, RealmId, Result, Timeline,
-    canonical,
+    EphemeralEnvelope, Error, Event, EventId, NotificationDelta, NotificationDeltaAction, RealmId,
+    Result, Timeline, canonical,
 };
 
 mod loop_control;
