@@ -151,9 +151,11 @@ fn event_payload_validator_catalog_from_bundle(
         if !events::is_standard_event_kind(event_kind) {
             continue;
         }
-        let Some(payload_schema_id) =
-            payload_schema_ref_for_event_entry(entry, event_payload_schema)
-        else {
+        let Some(payload_schema_id) = payload_schema_ref_for_event_entry(
+            entry,
+            event_payload_schema,
+            &bundle.schema_registry,
+        ) else {
             continue;
         };
         let required_fields =
@@ -173,9 +175,28 @@ fn event_payload_validator_catalog_from_bundle(
 pub(super) fn payload_schema_ref_for_event_entry(
     entry: &Value,
     event_payload_schema: &Value,
+    schema_registry: &Value,
 ) -> Option<String> {
     if let Some(schema_id) = entry.get("payload_schema").and_then(Value::as_str) {
         return Some(schema_id.to_owned());
+    }
+    if let Some(schema_ref) = entry.get("payload_schema_ref").and_then(Value::as_str) {
+        let (file, fragment) = schema_ref
+            .split_once('#')
+            .map_or((schema_ref, None), |(file, fragment)| {
+                (file, Some(fragment))
+            });
+        let schema_id = schema_registry
+            .get("schemas")
+            .and_then(Value::as_array)?
+            .iter()
+            .find(|schema| schema.get("file").and_then(Value::as_str) == Some(file))?
+            .get("schema_id")
+            .and_then(Value::as_str)?;
+        return Some(match fragment {
+            Some(fragment) => format!("{schema_id}#{fragment}"),
+            None => schema_id.to_owned(),
+        });
     }
     let event_kind = entry.get("event_kind").and_then(Value::as_str)?;
     let def_name = payload_def_name_for_event_kind(event_kind, event_payload_schema)?;
@@ -620,7 +641,6 @@ mod tests {
     const KINDS_USING_STATE_PAYLOAD: &[&str] = &[
         "ak.actor.discovery",
         "ak.handle.discovery",
-        "ak.identity.accountability_grant",
         "ak.identity.disclosure_policy",
         "ak.identity.disclosure_receipt",
         "ak.identity.presentation_request",
@@ -757,6 +777,31 @@ mod tests {
 
         assert!(catalog.has_payload_validator(events::kinds::REALM_KEY_SHARE));
         assert!(!catalog.has_payload_validator("ak.unknown.test"));
+    }
+
+    #[test]
+    fn selector_claim_resolves_to_its_registered_schema() {
+        let catalog = event_payload_validator_catalog_from_embedded_spec_artifacts().unwrap();
+        let rule = &catalog.rules[events::kinds::AGENT_SELECTOR_CLAIM];
+
+        assert_eq!(
+            rule.payload_schema_id,
+            arkret_wire_base::AGENT_SELECTOR_CLAIM_SCHEMA
+        );
+        assert!(
+            rule.required_fields
+                .contains(&"controller_subject".to_owned())
+        );
+        assert!(rule.required_fields.contains(&"proofs".to_owned()));
+        assert!(
+            catalog
+                .validate_payload(
+                    events::kinds::AGENT_SELECTOR_CLAIM,
+                    &json!({"schema": arkret_wire_base::AGENT_SELECTOR_CLAIM_SCHEMA})
+                )
+                .is_err(),
+            "partial selector claims must fail the dedicated schema validator"
+        );
     }
 
     #[test]
