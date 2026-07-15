@@ -9,7 +9,7 @@ as `membership`, `devices`, `receipts`, `media`,
 
 Shared product and service DTOs live in `arkret-core` and are re-exported
 from the umbrella crate as `arkret::api`, with narrower facades for
-`identity_api`, `federation_api` and `push_gateway_api`. Protocol DTOs are not
+`identity`, `federation` and `push`. Protocol DTOs are not
 duplicated in a parallel SDK-local client API module.
 
 Most fallible APIs return `arkret::Result<T>`, whose error type is

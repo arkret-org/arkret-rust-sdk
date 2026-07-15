@@ -164,7 +164,7 @@ fn events_subscribe_frame_parses_ndjson_line() {
     );
     assert_eq!(frame.cursor.as_ref().unwrap().as_str(), "ak:cursor:resume");
     assert_eq!(
-        frame.payload["event_id"],
+        frame.payload.as_ref().unwrap()["event_id"],
         "ak:event:01904100-0000-7000-8000-834e21b98552"
     );
     assert!(frame.is_event());

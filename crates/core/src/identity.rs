@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Did, DidDocumentRef, Hash, IdentityReceipt, IdentityResolveOutcome, Proof, Result};
+use crate::{Did, Hash, IdentityReceipt, IdentityResolveOutcome, Proof, Result};
 
 /// §3.2.1 deterministic primary-handle selection, `claim_digest`, and
 /// §3.8.2 mention/subject rendering. wasm-safe, dependency-free helpers
@@ -59,7 +59,7 @@ pub struct HandleAttestation {
 ///
 /// This is intentionally a product/shared contract, not the normative DID
 /// data model for `arkret-core`. Core keeps the protocol response envelope
-/// (`DidDocumentRef`, `IdentityResolveOutcome`) while this type provides the
+/// (`IdentityResolveOutcome`) while this type provides the
 /// serde shape and convenience helpers used by identity resolvers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DidDocument {
@@ -138,11 +138,12 @@ impl DidDocument {
         }
     }
 
-    pub fn to_ref(&self) -> DidDocumentRef {
-        DidDocumentRef {
-            did: self.id.clone(),
-            document: serde_json::to_value(self).unwrap_or(Value::Null),
-        }
+    pub fn to_wire_document(&self) -> BTreeMap<String, Value> {
+        serde_json::to_value(self)
+            .ok()
+            .and_then(|value| value.as_object().cloned())
+            .map(|object| object.into_iter().collect())
+            .unwrap_or_default()
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -184,24 +185,6 @@ impl DidDocument {
             .map(String::as_str)
             .collect()
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct HandleBinding {
-    pub handle: String,
-    pub did: Did,
-    pub proof_profile: HandleProofProfile,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub proof: Value,
-    pub verified_at: DateTime<Utc>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum HandleProofProfile {
-    DnsTxt,
-    WellKnown,
-    RegistryReceipt,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -255,13 +238,12 @@ pub fn resolve_response_from_document(
     key_log_head: Option<KeyLogHead>,
 ) -> IdentityResolveOutcome {
     IdentityResolveOutcome {
-        did_document: document.to_ref(),
+        did_document: document.to_wire_document(),
         key_log_head: key_log_head
             .as_ref()
             .map(|head| head.head_event_digest.clone()),
         seq: key_log_head.as_ref().map(|head| head.seq),
         receipts: key_log_head.map(|head| head.receipts).unwrap_or_default(),
-        method_evidence: Value::Null,
     }
 }
 
@@ -284,30 +266,12 @@ mod tests {
         document.validate().unwrap();
 
         let response = resolve_response_from_document(document.clone(), None);
-        assert_eq!(response.did_document.did, document.id);
-        assert!(
-            response
-                .did_document
-                .document
-                .get("verificationMethod")
-                .is_some()
-        );
-        assert!(response.did_document.document.get("alsoKnownAs").is_some());
-        assert!(response.did_document.document.get("updated").is_some());
-        assert!(
-            response
-                .did_document
-                .document
-                .get("verification_methods")
-                .is_none()
-        );
-        assert!(
-            response
-                .did_document
-                .document
-                .get("also_known_as")
-                .is_none()
-        );
+        assert_eq!(response.did_document["id"], document.id.as_str());
+        assert!(response.did_document.get("verificationMethod").is_some());
+        assert!(response.did_document.get("alsoKnownAs").is_some());
+        assert!(response.did_document.get("updated").is_some());
+        assert!(response.did_document.get("verification_methods").is_none());
+        assert!(response.did_document.get("also_known_as").is_none());
     }
 
     #[test]

@@ -7,11 +7,11 @@ pub struct AuthzCheckRequestBody {
     pub action: String,
     /// Optional resource selector (Realm / Strand / Space / Morph / etc.).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub resource: Option<Value>,
+    pub resource: Option<BTreeMap<String, Value>>,
     /// Optional decision context — claim presentations, frontier reference,
     /// request metadata.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub context: Option<Value>,
+    pub context: Option<BTreeMap<String, Value>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -27,7 +27,7 @@ pub struct AuthzCheckOutcome {
     #[serde(default)]
     pub missing_proofs: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub frontier: Option<Value>,
+    pub frontier: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub freshness_state: Option<FreshnessState>,
     #[serde(skip_serializing_if = "Option::is_none")]

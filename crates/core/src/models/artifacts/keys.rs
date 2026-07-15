@@ -317,31 +317,6 @@ pub type RecoverySession = RecoverySessionState;
 pub type Challenge = String;
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/device_authorize_material`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DeviceAuthorizeMaterialCrossSigningBinding {
-    pub verification_method: Did,
-    pub alg: String,
-    pub ssk_generation: u64,
-    pub signature: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DeviceAuthorizeMaterial {
-    pub principal_id: Did,
-    pub device_id: DeviceId,
-    pub device_public_key: String,
-    pub authorized_by: String,
-    pub not_before: DateTime<Utc>,
-    pub device_signature: String,
-    pub recovery_session_id: RecoverySessionId,
-    pub cross_signing_binding: DeviceAuthorizeMaterialCrossSigningBinding,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/generic_recovery_transcript`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

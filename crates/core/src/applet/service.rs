@@ -1,10 +1,7 @@
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
-use crate::models::{AppletActorView, AppletRealmView, AppletTransactionRequestBody};
-use crate::{Did, Event, RealmId};
+use crate::models::AppletTransactionRequestBody;
+use crate::{Did, Event};
 
 /// Framework-neutral applet endpoint route declaration.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -82,19 +79,6 @@ pub struct AppletServiceTransaction {
     pub request: AppletTransactionRequestBody,
 }
 
-/// Virtual actor controlled by an applet service.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct VirtualActor {
-    pub actor_id: Did,
-    pub service_id: Did,
-    pub localpart: String,
-    pub display_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub external_ref: Value,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub accountable_principal_ids: Vec<Did>,
-}
-
 /// Applet service intent for acting as a virtual actor.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppletServiceIntent {
@@ -124,100 +108,8 @@ impl AppletServiceIntent {
             request: AppletTransactionRequestBody {
                 source_service_id: self.service_id.clone(),
                 events,
-                ephemeral: Value::Null,
+                ephemeral: None,
             },
         }
     }
-}
-
-/// Third-party lookup kind.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ThirdPartyLookupKind {
-    User,
-    Location,
-}
-
-/// Third-party user or location lookup request.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ThirdPartyLookupRequestBody {
-    pub kind: ThirdPartyLookupKind,
-    pub protocol: String,
-    #[serde(default)]
-    pub fields: BTreeMap<String, Value>,
-}
-
-/// Third-party lookup response.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ThirdPartyLookupOutcome {
-    User(AppletActorView),
-    Location(AppletRealmView),
-}
-
-/// Bridge mapping from a remote user to a Arkret virtual actor.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct RemoteUserMapping {
-    pub protocol: String,
-    pub remote_user_id: String,
-    pub actor_id: Did,
-    pub ghost_actor: Option<Did>,
-    pub display_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub external_ref: Value,
-}
-
-/// Bridge mapping from a remote location to a Arkret Realm.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct RemoteRealmMapping {
-    pub protocol: String,
-    pub remote_realm_id: String,
-    pub realm_id: RealmId,
-    pub portal_id: Option<String>,
-    pub title: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub external_ref: Value,
-}
-
-/// In-memory bridge mapping storage.
-#[derive(Clone, Debug, Default)]
-pub struct BridgeMappingStore {
-    users: BTreeMap<String, RemoteUserMapping>,
-    realms: BTreeMap<String, RemoteRealmMapping>,
-}
-
-impl BridgeMappingStore {
-    /// Create an empty mapping store.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Store or replace a remote user mapping.
-    pub fn upsert_user(&mut self, mapping: RemoteUserMapping) {
-        self.users.insert(
-            remote_key(&mapping.protocol, &mapping.remote_user_id),
-            mapping,
-        );
-    }
-
-    /// Store or replace a remote location mapping.
-    pub fn upsert_realm(&mut self, mapping: RemoteRealmMapping) {
-        self.realms.insert(
-            remote_key(&mapping.protocol, &mapping.remote_realm_id),
-            mapping,
-        );
-    }
-
-    /// Resolve a remote user mapping.
-    pub fn user(&self, protocol: &str, remote_user_id: &str) -> Option<&RemoteUserMapping> {
-        self.users.get(&remote_key(protocol, remote_user_id))
-    }
-
-    /// Resolve a remote location mapping.
-    pub fn realm(&self, protocol: &str, remote_realm_id: &str) -> Option<&RemoteRealmMapping> {
-        self.realms.get(&remote_key(protocol, remote_realm_id))
-    }
-}
-
-fn remote_key(protocol: &str, remote_id: &str) -> String {
-    format!("{protocol}:{remote_id}")
 }

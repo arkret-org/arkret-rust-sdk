@@ -175,7 +175,7 @@ pub struct PushNotifyParams {
     feature = "salvo",
     derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema)
 )]
-pub struct DeviceMessagesPutParams {
+pub struct DeviceMessagesSendParams {
     #[serde(rename = "Idempotency-Key")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Idempotency-Key", parameter(parameter_in = Header)))]
     pub idempotency_key: String,

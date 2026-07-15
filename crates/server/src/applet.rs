@@ -19,8 +19,8 @@
 use std::sync::Arc;
 
 use arkret_core::{
-    AppletActorView, AppletDescription, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
-    AppletTransactionOutcome, AppletTransactionRequestBody, Error, Hash, Result,
+    AppletActorView, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
+    AppletTransactionOutcome, AppletTransactionRequestBody, Error, Hash, Result, ServerDescription,
 };
 use arkret_signatures::VerificationMethodDocument;
 
@@ -98,7 +98,7 @@ pub trait AppletHandler: Send + Sync + 'static {
     /// `GET /_arkret/edge/applet/ping`
     fn ping(&self) -> Result<AppletPingOutcome>;
     /// `GET /_arkret/edge/applet/describe`
-    fn describe(&self) -> Result<AppletDescription>;
+    fn describe(&self) -> Result<ServerDescription>;
     /// `POST /_arkret/edge/applet/transactions`
     ///
     /// The [`router`] factory only dispatches here **after** it has
@@ -700,15 +700,15 @@ mod tests {
                 protocol_version: "1.0".to_owned(),
             })
         }
-        fn describe(&self) -> Result<AppletDescription> {
-            Ok(AppletDescription {
-                applet_id: "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
-                service_id: Did::new("did:webvh:QmSvc:svc.example").unwrap(),
-                protocols: vec!["ak.applet.v1".to_owned()],
-                namespaces: serde_json::Value::Null,
-                limits: serde_json::Value::Null,
-                auth: serde_json::Value::Null,
-            })
+        fn describe(&self) -> Result<ServerDescription> {
+            let mut description = ServerDescription::development(
+                Did::new("did:webvh:QmSvc:svc.example").unwrap(),
+                TypedTrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+                "applet_service",
+            );
+            description.supported_profiles = vec!["ak.profile.applet.v1".to_owned()];
+            description.supported_operations = vec!["ak.edge.applet.query.describe".to_owned()];
+            Ok(description)
         }
         fn handle_transaction(
             &self,
@@ -769,7 +769,7 @@ mod tests {
         AppletTransactionRequestBody {
             source_service_id: Did::new("did:webvh:QmSrc:source.example").unwrap(),
             events: Vec::new(),
-            ephemeral: serde_json::Value::Null,
+            ephemeral: None,
         }
     }
 

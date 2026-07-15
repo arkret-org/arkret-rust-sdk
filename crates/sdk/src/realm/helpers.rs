@@ -131,13 +131,16 @@ pub(super) fn morph_field_value(morph: &Morph, field: &str) -> Option<Value> {
         "updated_at" => morph
             .updated_at
             .map(|updated_at| json!(updated_at.to_rfc3339())),
-        "content" => morph.content.clone(),
-        "labels" => Some(json!(morph.labels)),
-        _ if field.starts_with("fields.") => morph.fields.get(&field["fields.".len()..]).cloned(),
-        _ if field.starts_with("content.") => morph
+        "content" => morph
             .content
             .as_ref()
-            .and_then(|content| value_at_path(content, &field["content.".len()..])),
+            .and_then(|content| serde_json::to_value(content).ok()),
+        _ if field.starts_with("fields.") => morph.fields.get(&field["fields.".len()..]).cloned(),
+        _ if field.starts_with("content.") => morph.content.as_ref().and_then(|content| {
+            serde_json::to_value(content)
+                .ok()
+                .and_then(|content| value_at_path(&content, &field["content.".len()..]))
+        }),
         _ => morph.fields.get(field).cloned(),
     }
 }
@@ -161,7 +164,9 @@ pub(super) fn morph_search_text(morph: &Morph) -> String {
         text.push(' ');
     }
     if let Some(content) = &morph.content {
-        text.push_str(&value_search_text(Some(content)));
+        if let Ok(content) = serde_json::to_value(content) {
+            text.push_str(&value_search_text(Some(&content)));
+        }
         text.push(' ');
     }
     text.push_str(&value_search_text(Some(&json!(morph.fields))));

@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 use crate::lattice::LatticeKind as SdkLatticeKind;
-use crate::state_res::BottomMode;
+use crate::state::BottomMode;
 
 /// Cell-cardinality declared by a [`LatticeKind`] — corresponds to the
 /// arkret-spec event-kind-registry's `cell_subject` shape.

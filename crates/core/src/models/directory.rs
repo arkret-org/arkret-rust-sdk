@@ -15,7 +15,7 @@ pub struct DirectoryPresentedClaim {
     pub subject: Did,
     pub issuer: Did,
     pub claim_kind: String,
-    pub value: Value,
+    pub value: BTreeMap<String, Value>,
     pub issued_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refreshed_at: Option<DateTime<Utc>>,
@@ -316,8 +316,8 @@ pub struct DirectoryTargetResolutionOutcome {
 pub struct DirectorySearchOrganizationsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub claims: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub claims: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -414,9 +414,20 @@ pub struct DirectoryActorSearchOutcome {
 pub struct ActorPreview {
     pub actor_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub handle: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub preview: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub organization_did: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+    pub as_of: DateTime<Utc>,
+    pub source_refs: Vec<EventId>,
+    pub policy_revision: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stale: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub divergent: Option<bool>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -559,8 +570,8 @@ pub struct DirectoryHandleResolutionOutcome {
     pub handle: String,
     #[serde(default)]
     pub verified: bool,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub claims: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub claims: Option<Vec<HandleClaim>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -899,8 +910,7 @@ pub struct DirectoryPushRegisterOutcome {
 pub struct DirectoryAnnounceRequestBody {
     pub resource_kind: DirectoryResourceKind,
     pub resource_id: String,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub discovery_state: Value,
+    pub discovery_state: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
     pub as_of: DateTime<Utc>,
@@ -926,8 +936,7 @@ pub struct DirectoryAnnounceOutcome {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryWithdrawRequestBody {
     pub resource_id: String,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub governance_proof: Value,
+    pub governance_proof: BTreeMap<String, Value>,
     pub reason: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub effective_at: Option<DateTime<Utc>>,
@@ -967,8 +976,7 @@ pub struct DirectoryTakedownAppealRequestBody {
     pub requested_outcome: DirectoryTakedownAppealOutcomeRequest,
     pub created_at: DateTime<Utc>,
     /// Signature by the resource governance key or an authorized advocate.
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub governance_proof: Value,
+    pub governance_proof: BTreeMap<String, Value>,
 }
 
 /// `ak.find.directory.command.takedown_appeal` outcome — signed decision
@@ -982,6 +990,5 @@ pub struct DirectoryTakedownAppealOutcome {
     pub appeal_id: String,
     pub received_at: DateTime<Utc>,
     /// Signed Directory decision receipt; status pending until adjudicated.
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub decision_receipt: Value,
+    pub decision_receipt: BTreeMap<String, Value>,
 }

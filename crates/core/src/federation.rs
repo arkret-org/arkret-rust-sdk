@@ -4,7 +4,6 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 pub use crate::HttpMessageSignature;
 use crate::{
@@ -331,48 +330,6 @@ pub struct FederationEventAuthOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FederationProfileQuery {
-    pub user_id: Did,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub field: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FederationProfileOutcome {
-    pub user_id: Did,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub profile: BTreeMap<String, Value>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FederationKeyQuery {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub services: Vec<Did>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub users: Vec<Did>,
-}
-
-impl FederationKeyQuery {
-    pub fn validate(&self) -> Result<()> {
-        if self.services.is_empty() && self.users.is_empty() {
-            Err(Error::Protocol(
-                "federation key query requires service or user ids".to_owned(),
-            ))
-        } else {
-            Ok(())
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FederationKeyOutcome {
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub keys: BTreeMap<Did, Value>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub failures: BTreeMap<Did, String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FederationMediaRequestBody {
     pub blob_ref: BlobRef,
     #[serde(default)]
@@ -546,21 +503,6 @@ mod tests {
             ),
             limit: 10,
             authorization: authorized,
-        }
-        .validate()
-        .unwrap();
-
-        assert!(matches!(
-            FederationKeyQuery {
-                services: Vec::new(),
-                users: Vec::new()
-            }
-            .validate(),
-            Err(Error::Protocol(_))
-        ));
-        FederationKeyQuery {
-            services: vec![did("server")],
-            users: Vec::new(),
         }
         .validate()
         .unwrap();

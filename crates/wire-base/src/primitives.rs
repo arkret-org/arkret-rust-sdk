@@ -1140,7 +1140,7 @@ fn proof_audience_covers_expected(proof: Option<&Audience>, expected: Option<&Au
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo-oapi", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Proof {
@@ -1214,7 +1214,7 @@ pub struct CriticalExtension {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub profile_ref: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parameters: Option<Value>,
+    pub parameters: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub material_digest: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

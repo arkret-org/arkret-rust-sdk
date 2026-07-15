@@ -140,15 +140,15 @@ impl AppletDelegatedEventAuthorization {
 #[serde(deny_unknown_fields)]
 pub struct GhostActorProfileFields {
     pub managed_by_applet: AppletId,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub external_ref: Value,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub external_ref: BTreeMap<String, Value>,
 }
 
 impl GhostActorProfileFields {
     pub fn new(managed_by_applet: AppletId) -> Self {
         Self {
             managed_by_applet,
-            external_ref: Value::Null,
+            external_ref: BTreeMap::new(),
         }
     }
 }
@@ -221,7 +221,7 @@ impl GhostActorProfileRequest {
         self
     }
 
-    pub fn with_external_ref(mut self, external_ref: Value) -> Self {
+    pub fn with_external_ref(mut self, external_ref: BTreeMap<String, Value>) -> Self {
         self.profile_fields.external_ref = external_ref;
         self
     }
@@ -256,10 +256,11 @@ impl GhostActorProfileRequest {
             "managed_by_applet".to_owned(),
             Value::String(self.profile_fields.managed_by_applet.to_string()),
         )]);
-        if !self.profile_fields.external_ref.is_null() {
+        if !self.profile_fields.external_ref.is_empty() {
             profile_fields.insert(
                 "external_ref".to_owned(),
-                self.profile_fields.external_ref.clone(),
+                serde_json::to_value(&self.profile_fields.external_ref)
+                    .map_err(Error::CanonicalJson)?,
             );
         }
         Ok(ActorProfile {

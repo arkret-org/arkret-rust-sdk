@@ -7,9 +7,10 @@ use super::*;
 // realm.schema.json). Product container fields live on `Space`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 // Field declaration order mirrors `realm.schema.json` properties order
 // (`id, schema, title, summary, security_class, trust_domain, …`); local
-// non-schema fields (`labels` / `metadata` / `extra`) trail the cluster.
+// fields trail the cluster.
 pub struct Realm {
     pub id: RealmId,
     pub schema: String,
@@ -114,13 +115,6 @@ pub struct Realm {
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub labels: Vec<String>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub metadata: BTreeMap<String, Value>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
 }
 
 /// Realm Recovery Key (RRK) durability policy (realm-and-space.md §2.3.1,
@@ -281,9 +275,6 @@ impl Realm {
             created_at: Utc::now(),
             updated_by: None,
             updated_at: None,
-            labels: Vec::new(),
-            metadata: BTreeMap::new(),
-            extra: BTreeMap::new(),
         }
     }
 

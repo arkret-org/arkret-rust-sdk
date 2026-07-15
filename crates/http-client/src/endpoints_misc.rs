@@ -2,18 +2,18 @@
 //! helper methods on [`Client`].
 
 use arkret_core::{
-    AppletActorView, AppletDescription, AppletInstallOutcome, AppletInstallPlan,
-    AppletInstallPreviewRequestBody, AppletInstallRequestBody, AppletPingOutcome,
-    AppletProtocolMetadata, AppletRealmView, AppletRevokeOutcome, AppletRevokeRequestBody,
-    AppletThirdPartyLocationList, AppletThirdPartyUserList, AppletTransactionOutcome,
-    AppletTransactionRequestBody, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
-    CircleCreateRequestBody, CircleLifecycleRequestBody, CircleList, CircleMemberRequestBody,
-    CircleMembershipOutcome, CircleScopeRotateOutcome, CircleScopeRotateRequestBody, CircleView,
-    Did, Error, MediaIceConfigOutcome, MediaIceConfigRequestBody, MimiProviderDirectory,
-    MimiReportAbuseOutcome, MimiReportAbuseRequestBody, ModerationReportOutcome,
-    ModerationReportRequestBody, OkOutcome, PolicyCheckOutcome, PolicyCheckRequestBody,
-    PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
-    PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, Result, canonical,
+    AppletActorView, AppletInstallOutcome, AppletInstallPlan, AppletInstallPreviewRequestBody,
+    AppletInstallRequestBody, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
+    AppletRevokeOutcome, AppletRevokeRequestBody, AppletThirdPartyLocationList,
+    AppletThirdPartyUserList, AppletTransactionOutcome, AppletTransactionRequestBody,
+    CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody, CircleCreateRequestBody,
+    CircleLifecycleRequestBody, CircleList, CircleMemberRequestBody, CircleMembershipOutcome,
+    CircleScopeRotateOutcome, CircleScopeRotateRequestBody, CircleView, Did, Error,
+    MediaIceConfigOutcome, MediaIceConfigRequestBody, MimiReportAbuseOutcome,
+    MimiReportAbuseRequestBody, ModerationReportOutcome, ModerationReportRequestBody, OkOutcome,
+    PolicyCheckOutcome, PolicyCheckRequestBody, ProviderDirectory, PushNotifyOutcome,
+    PushNotifyRequestBody, PushRegisterDeviceOutcome, PushRegisterDeviceRequestBody,
+    PushUnregisterDeviceRequestBody, Result, ServerDescription, canonical,
 };
 use arkret_signatures::http_signature::{
     Component, ContentDigest, ContentDigestAlgorithm, Ed25519SigningKey, SignedRequestParts,
@@ -99,7 +99,7 @@ impl Client {
         &self,
         provider_id: Option<&str>,
         features: &[String],
-    ) -> Result<MimiProviderDirectory> {
+    ) -> Result<ProviderDirectory> {
         let mut builder = self.request(Method::GET, "/_arkret/open/mimi/provider-directory")?;
         if let Some(provider_id) = provider_id {
             builder = builder.query(&[("provider_id", provider_id)]);
@@ -121,7 +121,7 @@ impl Client {
         self.get("/_arkret/edge/applet/ping").await
     }
 
-    pub async fn applet_describe(&self) -> Result<AppletDescription> {
+    pub async fn applet_describe(&self) -> Result<ServerDescription> {
         self.get("/_arkret/edge/applet/describe").await
     }
 

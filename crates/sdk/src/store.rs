@@ -426,7 +426,7 @@ mod tests {
             size_bytes,
             media_type: "text/plain".to_owned(),
             filename: Some("note.txt".to_owned()),
-            encryption: Some(json!({"scheme": "none"})),
+            encryption: None,
             created_by: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             created_at: Utc::now(),
             updated_by: None,

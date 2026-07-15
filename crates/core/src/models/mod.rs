@@ -19,10 +19,6 @@ use sha2::Sha256;
 
 use crate::{Error, Result, SealId, canonical};
 
-fn notification_container_is_empty(container: &NotificationContainer) -> bool {
-    container.items.is_empty()
-}
-
 mod account;
 mod actor_profile;
 mod agent;
@@ -55,7 +51,6 @@ mod handle;
 mod history_visibility;
 mod identity;
 mod identity_link_cache;
-mod interop_envelopes;
 mod invite_addressing;
 mod key_backup;
 mod keys;
@@ -148,7 +143,6 @@ pub use handle::*;
 pub use history_visibility::*;
 pub use identity::*;
 pub use identity_link_cache::*;
-pub use interop_envelopes::*;
 pub use invite_addressing::*;
 pub use key_backup::*;
 pub use keys::*;

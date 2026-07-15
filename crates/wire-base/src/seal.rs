@@ -4,6 +4,8 @@
 //! `delta[]` contains only the control Move digests newly accepted by this
 //! Seal. Cumulative coverage is derived recursively from `predecessor_refs[]`.
 
+use std::collections::BTreeMap;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -92,12 +94,8 @@ pub struct Seal {
     pub data_event_set_root: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub availability_root: Option<Hash>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_helpers::deserialize_optional_value_preserving_null"
-    )]
-    pub coverage_scope: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coverage_scope: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub covered_event_digests: Vec<MoveId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -127,7 +125,7 @@ struct SealBody<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     availability_root: &'a Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    coverage_scope: &'a Option<Value>,
+    coverage_scope: &'a Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "move_slice_is_empty")]
     covered_event_digests: &'a [MoveId],
     #[serde(skip_serializing_if = "Option::is_none")]

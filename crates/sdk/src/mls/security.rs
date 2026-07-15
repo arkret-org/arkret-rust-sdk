@@ -1,5 +1,4 @@
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 
@@ -24,15 +23,6 @@ pub fn minimal_metadata_max_epoch_lifetime() -> chrono::Duration {
     chrono::Duration::seconds(MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS)
 }
 
-/// AAD event-id visibility discriminator for `ak.schema.encrypted_envelope.v1`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AadVisibility {
-    Hidden,
-    RoutingDigest,
-    OpaqueId,
-}
-
 /// SEC-08 — fail-closed enforcement that a `minimal_metadata_realm` Realm uses
 /// `aad_visibility=hidden`, per `crypto-media/encryption-and-audit.md` §2.9.
 ///
@@ -42,10 +32,12 @@ pub enum AadVisibility {
 /// correlation from per-`target_ref` to per-message. Non-minimal Realms are
 /// unaffected (this helper returns `Ok(())`).
 pub fn enforce_minimal_metadata_aad(
-    visibility: &AadVisibility,
+    visibility: &crate::EncryptedEnvelopeAadVisibility,
     is_minimal_metadata_realm: bool,
 ) -> Result<()> {
-    if is_minimal_metadata_realm && !matches!(visibility, AadVisibility::Hidden) {
+    if is_minimal_metadata_realm
+        && !matches!(visibility, crate::EncryptedEnvelopeAadVisibility::Hidden)
+    {
         return Err(Error::Protocol(format!(
             "{MINIMAL_METADATA_REALM_PROFILE} Realm MUST use aad_visibility=hidden \
              (encryption-and-audit.md §2.9); got {visibility:?}"

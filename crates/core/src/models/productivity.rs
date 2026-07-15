@@ -20,7 +20,7 @@ pub const FILE_TRANSFER_KEY_ENVELOPE_SCHEME: &str = "ak.hpke_x25519_aead_chacha2
 pub const MAX_CALENDAR_ATTENDEES: usize = 1_000;
 pub const MAX_CALENDAR_RECURRENCE_COUNT: u64 = 10_000;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PersonalProductivityValue {
     Reminder(ReminderValue),
@@ -39,25 +39,21 @@ pub struct ReminderValue {
     pub updated_hlc: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScheduledSendValue {
     pub planned_message_id: MessageId,
     pub send_at: String,
-    pub message_payload: Value,
+    pub message_payload: MessageCreatePayload,
     pub message_payload_digest: String,
     pub updated_hlc: String,
 }
 
 impl ScheduledSendValue {
     pub fn validate_message_id_and_digest(&self) -> Result<()> {
-        let payload_message_id = self
-            .message_payload
-            .get("message_id")
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                Error::Protocol("scheduled_send.message_payload.message_id required".to_owned())
-            })?;
+        let payload_message_id = self.message_payload.message_id.as_deref().ok_or_else(|| {
+            Error::Protocol("scheduled_send.message_payload.message_id required".to_owned())
+        })?;
         if payload_message_id != self.planned_message_id.as_str() {
             return Err(Error::Protocol(
                 "scheduled_send.message_payload.message_id must equal planned_message_id"
@@ -105,7 +101,7 @@ pub struct DraftSyncValue {
     pub target_ref: String,
     pub kind: DraftKind,
     pub draft_slot: String,
-    pub content: Value,
+    pub content: BTreeMap<String, Value>,
     pub updated_hlc: String,
     pub origin_device_id: DeviceId,
     pub retention_expires_at: String,
@@ -502,7 +498,7 @@ pub struct PinAddPayload {
     pub target_ref: String,
     pub rank: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub note: Option<Value>,
+    pub note: Option<EncryptedEnvelope>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1106,7 +1102,7 @@ pub struct RealmRemark {
 #[serde(deny_unknown_fields)]
 pub struct RealmRemarkAccountDataUpdate {
     pub key: String,
-    pub encrypted_payload: Value,
+    pub remark: Option<RealmRemark>,
 }
 
 impl RealmRemark {
@@ -1293,21 +1289,23 @@ pub fn set_realm_pinned(
 ) -> Result<RealmRemarkAccountDataUpdate> {
     let key = realm_remark_account_data_key(&realm_id);
     let remark = RealmRemark::with_pinned_preserving_fields(realm_id, existing, pinned, updated_at);
-    let encrypted_payload = if remark.is_empty() {
+    let value = if remark.is_empty() {
         json!({})
     } else {
         serde_json::to_value(&remark).map_err(|error| {
             Error::Protocol(format!("realm remark serialization failed: {error}"))
         })?
     };
-    validate_realm_remark_account_data_value(&key, &encrypted_payload)?;
+    validate_realm_remark_account_data_value(&key, &value)?;
     Ok(RealmRemarkAccountDataUpdate {
         key,
-        encrypted_payload,
+        remark: (!remark.is_empty()).then_some(remark),
     })
 }
 
-pub fn scheduled_send_message_payload_digest(message_payload: &Value) -> Result<String> {
+pub fn scheduled_send_message_payload_digest(
+    message_payload: &MessageCreatePayload,
+) -> Result<String> {
     Ok(canonical::canonical_sha256(message_payload)?)
 }
 
@@ -1932,12 +1930,12 @@ mod tests {
     #[test]
     fn scheduled_send_validates_payload_id_and_digest() {
         let message_id = MessageId::new("ak:message:01904100-0000-7000-8000-000000000001").unwrap();
-        let payload = json!({
-            "strand_id": "ak:strand:01904100-0000-7000-8000-000000000002",
-            "track_name": "discussion",
-            "message_id": message_id.as_str(),
-            "content": {"body": "hello"}
-        });
+        let payload = MessageCreatePayload::with_content(
+            StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap(),
+            "discussion",
+            ContentBlock::text("hello"),
+        )
+        .with_message_id(message_id.as_str());
         let value = ScheduledSendValue {
             planned_message_id: message_id,
             send_at: "2026-06-07T00:00:00Z".to_owned(),
@@ -2253,21 +2251,27 @@ mod tests {
         let unpinned =
             set_realm_pinned(realm_id.clone(), Some(&existing), false, test_time(2)).unwrap();
         assert_eq!(unpinned.key, realm_remark_account_data_key(&realm_id));
-        let unpinned_remark: RealmRemark =
-            serde_json::from_value(unpinned.encrypted_payload.clone()).unwrap();
+        let unpinned_remark = unpinned.remark.as_ref().unwrap();
         assert!(!unpinned_remark.pinned);
         assert_eq!(unpinned_remark.local_name, "Ops private alias");
         assert_eq!(unpinned_remark.note, "keep me");
-        validate_realm_remark_account_data_value(&unpinned.key, &unpinned.encrypted_payload)
-            .unwrap();
+        validate_realm_remark_account_data_value(
+            &unpinned.key,
+            &serde_json::to_value(unpinned_remark).unwrap(),
+        )
+        .unwrap();
 
         let pinned = set_realm_pinned(realm_id.clone(), None, true, test_time(3)).unwrap();
-        assert_eq!(pinned.encrypted_payload["pinned"], true);
-        validate_realm_remark_account_data_value(&pinned.key, &pinned.encrypted_payload).unwrap();
+        assert!(pinned.remark.as_ref().unwrap().pinned);
+        validate_realm_remark_account_data_value(
+            &pinned.key,
+            &serde_json::to_value(pinned.remark.as_ref().unwrap()).unwrap(),
+        )
+        .unwrap();
 
         let empty = set_realm_pinned(realm_id, None, false, test_time(4)).unwrap();
-        assert_eq!(empty.encrypted_payload, json!({}));
-        validate_realm_remark_account_data_value(&empty.key, &empty.encrypted_payload).unwrap();
+        assert!(empty.remark.is_none());
+        validate_realm_remark_account_data_value(&empty.key, &json!({})).unwrap();
     }
 
     #[test]
@@ -2276,7 +2280,7 @@ mod tests {
             target_ref: "ak:message:01904100-0000-7000-8000-000000000001".to_owned(),
             kind: DraftKind::Message,
             draft_slot: "main".to_owned(),
-            content: json!({"body": "draft"}),
+            content: BTreeMap::from([("body".to_owned(), json!("draft"))]),
             updated_hlc: "01970e589d21-0000-a13f9c2e".to_owned(),
             origin_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002")
                 .unwrap(),

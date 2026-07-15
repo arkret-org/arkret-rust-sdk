@@ -215,7 +215,7 @@ pub struct ServerDescription {
     /// Directory-service overlay: optional governance or human-readable
     /// reference for obtaining acceptance.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub accept_policy_ref: Option<Value>,
+    pub accept_policy_ref: Option<BTreeMap<String, Value>>,
     /// Directory-service overlay: default entry TTL in seconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_ttl_seconds: Option<u64>,
@@ -237,7 +237,7 @@ pub struct ServerDescription {
     /// Directory-service overlay: readable per-DID/per-org/per-IP quota
     /// limits that do not fit the global `rate_limit_policy` shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rate_limits: Option<Value>,
+    pub rate_limits: Option<BTreeMap<String, Value>>,
     /// Reducer profiles supported (kept for back-compat — populated
     /// by the producer alongside `supported_profiles`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -264,6 +264,57 @@ pub struct ServerDescription {
 }
 
 impl ServerDescription {
+    /// Build a complete development-mode description for a service surface.
+    pub fn development(
+        service_id: Did,
+        trust_domain: TypedTrustDomainId,
+        service_type: impl Into<String>,
+    ) -> Self {
+        Self {
+            service_id,
+            trust_domain,
+            service_type: service_type.into(),
+            protocol_version: PROTOCOL_VERSION.to_owned(),
+            supported_profiles: Vec::new(),
+            supported_operations: Vec::new(),
+            supported_bindings: Vec::new(),
+            supported_features: Vec::new(),
+            auth_metadata: AuthMetadata::minimal("development"),
+            limits: ServerLimits::default(),
+            plaintext_visibility: PlaintextVisibility::none(),
+            privacy_derivation: None,
+            receive_policy_constraints: None,
+            implemented_features: Vec::new(),
+            claimed_profiles: Vec::new(),
+            verified_profiles: Vec::new(),
+            experimental_features: Vec::new(),
+            compat_surfaces: Vec::new(),
+            development_mode: true,
+            rate_limit_policy: Some(RateLimitPolicy::unspecified()),
+            rate_limit_policy_id: None,
+            egress_network_policy: None,
+            resource_types: Vec::new(),
+            discovery_profiles: Vec::new(),
+            restricted_query_proof: None,
+            ingest_modes: Vec::new(),
+            accept_policy_kind: None,
+            accept_policy_ref: None,
+            default_ttl_seconds: None,
+            max_ttl_seconds: None,
+            revalidation_grace_seconds: None,
+            accepted_resource_kinds: Vec::new(),
+            accepted_did_methods: Vec::new(),
+            takedown_contact: None,
+            rate_limits: None,
+            supported_reducer_profiles: Vec::new(),
+            supported_schema_profiles: Vec::new(),
+            frontier: Vec::new(),
+            snapshot_frontier: Vec::new(),
+            reducer_profile: None,
+            last_materialized_at: None,
+        }
+    }
+
     /// Round 4 — validate the cross-field invariants:
     /// - `verified_profiles` MUST be empty when `development_mode = true`.
     /// - the describe `anyOf` requires `rate_limit_policy` or `rate_limit_policy_id`.
@@ -415,7 +466,10 @@ mod tests {
             ],
             accepted_did_methods: vec!["did:web".to_owned(), "did:webvh".to_owned()],
             takedown_contact: None,
-            rate_limits: Some(json!({"per_ip_per_minute": 60})),
+            rate_limits: Some(BTreeMap::from([(
+                "per_ip_per_minute".to_owned(),
+                json!(60),
+            )])),
             supported_reducer_profiles: vec![],
             supported_schema_profiles: vec![],
             frontier: vec![],

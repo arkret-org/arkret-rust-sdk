@@ -339,7 +339,7 @@ pub struct AccountView {
     #[serde(default)]
     pub devices: Vec<AccountDeviceSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub primary_handle_claim: Option<Value>,
+    pub primary_handle_claim: Option<HandleClaim>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub primary_handle_claim_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -382,7 +382,7 @@ pub struct AccountRegisterOutcome {
     #[serde(default)]
     pub devices: Vec<AccountDeviceSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub primary_handle_claim: Option<Value>,
+    pub primary_handle_claim: Option<HandleClaim>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub primary_handle_claim_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

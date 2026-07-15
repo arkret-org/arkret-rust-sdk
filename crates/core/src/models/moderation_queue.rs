@@ -61,11 +61,8 @@ pub struct ModerationEvidencePolicy {
 pub struct ModerationQueueItem {
     /// `ak:moderation_queue_item:<uuidv7>`.
     pub id: String,
-    /// The full report this queue entry represents. Stored as
-    /// [`serde_json::Value`] so callers can choose to deserialise into
-    /// the existing `ModerationReport` struct without forcing a
-    /// circular dependency between this module and `profiles.rs`.
-    pub report: Value,
+    /// The full report this queue entry represents.
+    pub report: ModerationReport,
     pub status: ModerationQueueStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub priority: Option<ModerationQueuePriority>,
@@ -85,15 +82,19 @@ pub struct ModerationQueueItem {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
-
     use super::*;
 
     #[test]
     fn queue_item_round_trips() {
         let item = ModerationQueueItem {
             id: "ak:moderation_queue_item:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
-            report: json!({"realm_id": "ak:realm:...", "reason": "spam"}),
+            report: ModerationReport::new(
+                "ak:report:01970e58-9d21-7000-8000-bbbbbbbbbbbb",
+                RealmId::new("ak:realm:01970e58-9d21-7000-8000-cccccccccccc").unwrap(),
+                "ak:message:01970e58-9d21-7000-8000-dddddddddddd",
+                "spam",
+                Did::new("did:webvh:z6mkfixture:reporter.example").unwrap(),
+            ),
             status: ModerationQueueStatus::Submitted,
             priority: Some(ModerationQueuePriority::Normal),
             visibility: ModerationQueueVisibility::MetadataOnly,

@@ -206,13 +206,31 @@ pub enum EnvelopeActorKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
+pub struct SemanticRefProof {
+    pub kind: SemanticRefProofKind,
+    pub leaf_digest: Hash,
+    pub audit_path: Vec<Hash>,
+    pub leaf_index: u64,
+    pub tree_size: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum SemanticRefProofKind {
+    #[serde(rename = "rfc6962_merkle")]
+    Rfc6962Merkle,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct EventRef {
     pub id: String,
     pub role: String,
     #[serde(default = "default_event_ref_critical")]
     pub critical: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub proof: Option<Value>,
+    pub proof: Option<SemanticRefProof>,
 }
 
 impl EventRef {
@@ -306,7 +324,7 @@ pub struct Event {
     pub requirements: EventRequirements,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redacts: Option<EventId>,
-    pub payload: Value,
+    pub payload: BTreeMap<String, Value>,
     /// AKP-0008 / AKP-0009 (spec head 37ce729) DID of the runtime that
     /// actually executed this envelope on behalf of `actor_id`. When
     /// present, the reducer MUST verify that the DID resolved from
@@ -340,7 +358,7 @@ pub struct Event {
     /// `event_digest`. Invariant: only meaningful when bound to a signed
     /// `applet_id` (schema `allOf`: external_ref ⇒ applet_id).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub external_ref: Option<Value>,
+    pub external_ref: Option<BTreeMap<String, Value>>,
     /// AKP-0008 / AKP-0009 runtime-origin classifier. Reducer-stamped
     /// projection; clients MUST NOT supply it. See
     /// [`EnvelopeActorKind`] for invariants.
@@ -386,7 +404,7 @@ struct EventWire {
     pub requirements: EventRequirements,
     #[serde(default)]
     pub redacts: Option<EventId>,
-    pub payload: Value,
+    pub payload: BTreeMap<String, Value>,
     #[serde(default)]
     pub executed_by: Option<Did>,
     #[serde(default)]
@@ -394,7 +412,7 @@ struct EventWire {
     #[serde(default)]
     pub applet_id: Option<AppletId>,
     #[serde(default)]
-    pub external_ref: Option<Value>,
+    pub external_ref: Option<BTreeMap<String, Value>>,
     #[serde(default)]
     pub actor_kind: Option<EnvelopeActorKind>,
     #[serde(default)]
@@ -500,30 +518,19 @@ impl Event {
 
     /// Parse the opaque event payload as `T` without checking `kind`.
     pub fn payload_as<T: DeserializeOwned>(&self) -> Result<T> {
-        serde_json::from_value(self.payload.clone()).map_err(Into::into)
-    }
-
-    /// Parse the opaque event payload by borrowing the stored JSON value.
-    pub fn payload_as_ref<'de, T>(&'de self) -> Result<T>
-    where
-        T: Deserialize<'de>,
-    {
-        T::deserialize(&self.payload).map_err(Into::into)
+        serde_json::from_value(Value::Object(
+            self.payload
+                .clone()
+                .into_iter()
+                .collect::<serde_json::Map<_, _>>(),
+        ))
+        .map_err(Into::into)
     }
 
     /// Assert the event kind before parsing the payload as `T`.
     pub fn typed_payload<T: DeserializeOwned>(&self, expected_kind: &str) -> Result<T> {
         self.ensure_payload_kind(expected_kind)?;
         self.payload_as()
-    }
-
-    /// Assert the event kind before parsing the payload by reference.
-    pub fn typed_payload_ref<'de, T>(&'de self, expected_kind: &str) -> Result<T>
-    where
-        T: Deserialize<'de>,
-    {
-        self.ensure_payload_kind(expected_kind)?;
-        self.payload_as_ref()
     }
 
     fn ensure_payload_kind(&self, expected_kind: &str) -> Result<()> {
@@ -626,11 +633,6 @@ impl Event {
         if self.proofs.is_empty() {
             return Err(Error::Protocol(
                 "event proofs must contain at least one proof".to_owned(),
-            ));
-        }
-        if !self.payload.is_object() {
-            return Err(Error::Protocol(
-                "event payload must be a JSON object".to_owned(),
             ));
         }
         if self
@@ -748,6 +750,11 @@ impl Event {
         hlc: Hlc,
         payload: Value,
     ) -> Result<Self> {
+        let Value::Object(payload) = payload else {
+            return Err(Error::Protocol(
+                "event payload must be a JSON object".to_owned(),
+            ));
+        };
         Ok(Self {
             event_id: EventId::new(new_prefixed_uuid7("ak:event:"))?,
             kind: EventKind::from_wire(&kind.into()),
@@ -766,7 +773,7 @@ impl Event {
             seal_basis: None,
             requirements: EventRequirements::default(),
             redacts: None,
-            payload,
+            payload: payload.into_iter().collect(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -953,10 +960,10 @@ mod event_wire_surface_tests {
         event.applet_id =
             Some(AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap());
         event.authorization_ref = Some("ak:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
-        event.external_ref = Some(json!({
-            "protocol": "slack",
-            "external_id": "1234567890.0001"
-        }));
+        event.external_ref = Some(BTreeMap::from([
+            ("protocol".to_owned(), json!("slack")),
+            ("external_id".to_owned(), json!("1234567890.0001")),
+        ]));
 
         let value = serde_json::to_value(&event).unwrap();
         // Both fields serialize at the top level (so they enter canonical bytes).
@@ -976,7 +983,10 @@ mod event_wire_surface_tests {
         assert!(digest_payload.get("external_ref").is_some());
         // Mutating external_ref changes the event digest (it is covered).
         let mut mutated = event.clone();
-        mutated.external_ref = Some(json!({ "protocol": "slack", "external_id": "different" }));
+        mutated.external_ref = Some(BTreeMap::from([
+            ("protocol".to_owned(), json!("slack")),
+            ("external_id".to_owned(), json!("different")),
+        ]));
         assert_ne!(
             event.event_digest().unwrap(),
             mutated.event_digest().unwrap()

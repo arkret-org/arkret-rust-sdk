@@ -60,10 +60,10 @@ pub struct PolicyCheckRequestBody {
     pub action: String,
     pub request_canonical_digest: Hash,
     pub source: PolicyCheckSource,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub event_preview: Value,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub auth_context: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_preview: Option<BTreeMap<String, Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_context: Option<BTreeMap<String, Value>>,
 }
 
 /// Round 4 — `bound_to` binding inside [`PolicyCheckOutcome`].

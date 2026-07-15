@@ -1,8 +1,6 @@
 //! Agent runtime and protocol interop helpers.
 
-#[cfg(test)]
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
 pub use arkret_core::agent::{
@@ -493,7 +491,7 @@ pub struct AgentProvisionRequestBuilder {
     slug: String,
     avatar_blob_ref: Option<crate::BlobRef>,
     requested_scope: crate::AgentKeyScope,
-    accountability: Value,
+    accountability: Option<BTreeMap<String, Value>>,
     pairing_ttl_ms: Option<u64>,
 }
 
@@ -504,7 +502,7 @@ impl AgentProvisionRequestBuilder {
             slug: slug.into(),
             avatar_blob_ref: None,
             requested_scope,
-            accountability: Value::Null,
+            accountability: None,
             pairing_ttl_ms: None,
         }
     }
@@ -519,8 +517,8 @@ impl AgentProvisionRequestBuilder {
         self
     }
 
-    pub fn accountability(mut self, accountability: Value) -> Self {
-        self.accountability = accountability;
+    pub fn accountability(mut self, accountability: BTreeMap<String, Value>) -> Self {
+        self.accountability = Some(accountability);
         self
     }
 

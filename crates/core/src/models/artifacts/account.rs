@@ -403,7 +403,7 @@ pub struct StateAtWindowStart {
     pub e2ee_epoch: WindowStartNullableE2eeEpoch,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountSubscribeRealmSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -414,7 +414,7 @@ pub struct AccountSubscribeRealmSummary {
     pub heroes: Option<Vec<Did>>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountSubscribeUnreadCounts {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -440,7 +440,7 @@ pub struct RealmSyncEntryBottomsItem {
     pub bottom: crate::Bottom,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmSyncEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]

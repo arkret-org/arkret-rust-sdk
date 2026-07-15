@@ -575,7 +575,6 @@ mod tests {
             ),
             reason_code: "invalid_token".to_owned(),
             retry_after_ms: None,
-            extra: BTreeMap::new(),
         }]);
         assert_eq!(rejected.rejected.len(), 1);
         assert_eq!(

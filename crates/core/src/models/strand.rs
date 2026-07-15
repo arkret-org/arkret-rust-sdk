@@ -47,6 +47,7 @@ pub struct MessageMetadata {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Strand {
     pub id: StrandId,
     pub schema: String,
@@ -65,11 +66,14 @@ pub struct Strand {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<StrandMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_metadata: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub encrypted_metadata: Option<EncryptedEnvelope>,
     #[serde(rename = "content", skip_serializing_if = "Option::is_none")]
-    pub body: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub body: Option<ContentBlock>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub encrypted_content: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub encrypted_content: Option<EncryptedEnvelope>,
     /// Active Strand tracks keyed by canonical track name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tracks: BTreeMap<String, StrandTrackConfig>,
@@ -92,9 +96,6 @@ pub struct Strand {
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
 }
 
 impl Strand {
@@ -122,7 +123,6 @@ impl Strand {
             created_at: Utc::now(),
             updated_by: None,
             updated_at: None,
-            extra: BTreeMap::new(),
         }
     }
 

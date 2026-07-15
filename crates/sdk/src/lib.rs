@@ -42,24 +42,28 @@
 //! ```rust
 //! # #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 //! # fn main() {
-//! use arkret::{SyncLoop, SyncLoopStep, SyncOutcome, SyncRequestBody};
+//! use arkret::{
+//!     AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind, SyncLoop,
+//!     SyncLoopStep, SyncRequestBody,
+//! };
 //!
 //! let mut sync_loop = SyncLoop::new();
 //! let mut transport = |_request: SyncRequestBody| {
-//!     Ok(SyncOutcome {
+//!     Ok(AccountSubscribeBatch {
 //!         cursor: "s1".to_owned(),
-//!         realms: Default::default(),
-//!         left_realms: Vec::new(),
-//!         to_device: Vec::new(),
-//!         to_device_ack_token: None,
-//!         to_device_limited: false,
-//!         to_device_next_cursor: None,
-//!         to_device_lost: None,
-//!         device_lists: Default::default(),
-//!         presence: Vec::new(),
-//!         account_data: Vec::new(),
-//!         notifications: Default::default(),
-//!         partial: false,
+//!         frames: vec![AccountSubscribeFrame {
+//!             kind: AccountSubscribeFrameKind::Delta,
+//!             cursor: Some("s1".to_owned()),
+//!             realms: None,
+//!             to_device: None,
+//!             device_lists: None,
+//!             account_data: None,
+//!             presence: None,
+//!             notifications: None,
+//!             partial: None,
+//!             priority: None,
+//!             reconnect_after_ms: None,
+//!         }],
 //!     })
 //! };
 //! assert!(matches!(
@@ -117,11 +121,9 @@ compile_error!(
 // constructor now live in the dedicated `arkret-keystore` crate.
 pub use arkret_core::{
     InMemoryKeyStore, KeyRefObject, KeyStore, KeyStoreError, canonical, cursor, error, events,
-    federation as federation_api, identifiers, identity as identity_api,
-    integration as integration_api, keystore, lattice, models, operations, ops as ops_api,
-    push as push_gateway_api, push_rule_core, schema, schema as schema_contracts, service, sync, *,
+    identifiers, integration, keystore, lattice, models, operations, ops, push_rule_core, schema,
+    service, sync, *,
 };
-pub use arkret_crypto as crypto_protocol;
 pub use arkret_ffi as ffi;
 #[cfg(feature = "client")]
 pub use arkret_http_client as http_client;
@@ -139,21 +141,17 @@ pub use arkret_signatures::Ed25519MoveSigner;
 // reach one implementation: `arkret_sdk::webvh::prepare_inception`,
 // `arkret_sdk::realm_organization_statement_sign`.
 pub use arkret_signatures::{realm_organization, realm_organization_statement_sign, webvh};
-pub use arkret_state::{self as state_runtime, snapshot, state, state as state_res, *};
+pub use arkret_state::{snapshot, state, *};
 
 // Platform-native KeyStore backends. The glob import above already
 // re-exports these symbols, but listing them explicitly keeps them
 // visible in `cargo doc` and signals the supported surface to
 // downstream crates that depend only on `arkret` (not `arkret-core`).
 #[cfg(feature = "full-surface")]
-pub use crate::store as store_contracts;
-#[cfg(feature = "full-surface")]
 pub mod account;
 pub mod account_data_crypto;
 #[cfg(feature = "full-surface")]
 pub mod agent;
-#[cfg(feature = "full-surface")]
-#[cfg(feature = "full-surface")]
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub mod applet;
 #[cfg(feature = "full-surface")]
@@ -289,19 +287,14 @@ pub use agent::{
 };
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet::{
-    AccountabilityGrantPayload, AccountabilityGrantStatus, AccountabilityScope, ActorPolicy,
+    AccountabilityGrantPayload, AccountabilityGrantStatus, AccountabilityScope,
     AppletAcceptedSigningKeyEvidence, AppletBridgeErrorBuilder, AppletBridgeErrorClass,
     AppletBridgeErrorVisibility, AppletDelegatedEventAuthorization, AppletEpochEvidenceError,
     AppletNamespaceConflict, AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage,
     AppletPortal, AppletRegistrationEpochEvidence, AppletServiceIntent, AppletServiceTransaction,
-    AppletWireNamespaces, ApprovalRequest, ApprovedScope, EffectiveScope, GhostActorProfileFields,
-    GhostActorProfileRequest, GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
-    InstallCapabilityConstraint, InstallCommitOutcome, InstallCommitRequestBody,
-    InstallDeniedScope, InstallE2eeEffect, InstallE2eePolicy, InstallEventSubmission,
-    InstallNamespaceConflict, InstallPlan, InstallPreviewRequestBody, InstallRevokeRequestBody,
-    InstallWidgetEffect, PortalMode, PortalRealmMapping, RemoteRealmMapping, RemoteUserMapping,
-    ThirdPartyLookupKind, ThirdPartyLookupOutcome, ThirdPartyLookupRequestBody, VirtualActor,
-    WebhookAuth, WidgetPolicy, WireAppletRegistration, applet_did_document_digest,
+    AppletWireNamespaces, GhostActorProfileFields, GhostActorProfileRequest,
+    GhostActorProvisionOutcome, GhostActorProvisionRequestBody, PortalMode, PortalRealmMapping,
+    WebhookAuth, WireAppletRegistration, applet_did_document_digest,
     applet_signing_key_material_digest, namespace_pattern_matches,
     normalize_applet_signing_key_ref, sign_registration,
 };
@@ -348,14 +341,11 @@ pub use authz::{
     CapabilityGrantBuilder, ClaimRequirement, Constraint, ConstraintDuration, ConstraintEffect,
     ConstraintEntry, EngineDecision, FieldScope, GrantProposal, GrantRateLimitScope,
     PolicyEvaluationRequest, PolicyEvaluationResult, PolicyModerationReport, PolicyServerEffect,
-    ProposalApproval, ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
-    ProtocolGrantConstraint, ProtocolGrantConstraintEffect, ProtocolGrantConstraintScope,
-    ProtocolGrantConstraintSubtype, ProtocolGrantConstraintType, ProtocolResourceSelector,
-    ProtocolResourceSelectorKind, ProtocolResourceSelectorScope, Recurrence, Resource,
-    ResourceSelector, ScopeLimitation, VerifiedClaim, apply_policy_response,
-    capability_grants_from_realm_state, grant_requires_approval,
-    moderation_report_for_policy_outcome, reject_unknown_critical_constraints,
-    validate_capability_frontier,
+    ProposalApproval, ProposalStatus, ProtocolResourceSelector, ProtocolResourceSelectorKind,
+    ProtocolResourceSelectorScope, Recurrence, Resource, ResourceSelector, ScopeLimitation,
+    VerifiedClaim, apply_policy_response, capability_grants_from_realm_state,
+    grant_requires_approval, moderation_report_for_policy_outcome,
+    reject_unknown_critical_constraints, validate_capability_frontier,
 };
 #[cfg(feature = "full-surface")]
 pub use base::{
@@ -573,17 +563,18 @@ pub use sync_client::{
 };
 #[cfg(all(feature = "full-surface", feature = "timeline-runtime"))]
 pub use timeline::{
-    CachedEvent, EventCache, EventCacheInsert, EventCacheUpdate, FocusedTimeline, Timeline,
+    CachedEvent, EventCache, EventCacheInsert, EventCacheUpdate, FocusedTimeline,
     TimelineDirection, TimelineEvent, TimelineFrom, TimelineGap, TimelineItem, TimelineItemKind,
-    TimelineOptions, TimelineReactionSummary, TimelineReadReceipt, TimelineTypingUpdate,
+    TimelineOptions, TimelineReactionSummary, TimelineReadReceipt, TimelineStore,
+    TimelineTypingUpdate,
 };
 #[cfg(feature = "full-surface")]
 pub use typing::{TypingManager, TypingNotification};
 #[cfg(feature = "full-surface")]
 pub use webrtc::{
-    CallSessionDescription, IceCandidate, IceConfig, IceServer, IceServerKind, MediaStateData,
-    MediaTrackSet, ModeratePayload, ModerationAction, MuteSource, MuteStateData,
-    RecordingCaptureKind, RecordingMode, RecordingResult, RecordingStartPayload, RecordingState,
-    RenegotiateData, RenegotiateReason, ScreenShareState, SdpType, SpeakingData, TranscribePayload,
+    CallSessionDescription, IceCandidate, IceConfig, MediaStateData, MediaTrackSet,
+    ModeratePayload, ModerationAction, MuteSource, MuteStateData, RecordingCaptureKind,
+    RecordingMode, RecordingResult, RecordingStartPayload, RecordingState, RenegotiateData,
+    RenegotiateReason, ScreenShareState, SdpType, SpeakingData, TranscribePayload,
     WebRtcSignalKind, WebRtcSignalMessage, verify_ice_config_outcome,
 };

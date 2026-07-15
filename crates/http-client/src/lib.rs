@@ -80,7 +80,7 @@ pub const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Maximum bytes a single NDJSON subscribe frame (one line) may occupy
-/// before [`Client::account_subscribe_once`] aborts. Bounds memory while
+/// before [`Client::account_subscribe_batch`] aborts. Bounds memory while
 /// waiting for the first newline on a hostile / misbehaving stream.
 pub(crate) const MAX_SUBSCRIBE_FRAME_BYTES: usize = 8 * 1024 * 1024;
 
@@ -1545,7 +1545,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn account_subscribe_once_waits_for_valid_catchup_completion() {
+        async fn account_subscribe_batch_waits_for_valid_catchup_completion() {
             let parts = vec![
                 "{\"cursor\":\"ak:cursor:delta-1\",\"kind\":\"delta\",\"partial\":true}\n",
                 "{\"cursor\":\"ak:cursor:delta-2\",\"kind\":\"delta\",\"partial\":false}\n",
@@ -1553,7 +1553,7 @@ mod tests {
             ];
             let client = spawn_chunked_ndjson_server(parts).await;
             let outcome = client
-                .account_subscribe_once(&SyncRequestBody {
+                .account_subscribe_batch(&SyncRequestBody {
                     after: None,
                     catchup: Some(true),
                     filter: None,
@@ -1564,11 +1564,12 @@ mod tests {
                 .unwrap();
 
             assert_eq!(outcome.cursor, "ak:cursor:complete-2");
-            assert!(!outcome.partial);
+            assert_eq!(outcome.frames.len(), 2);
+            assert_eq!(outcome.frames[1].partial, Some(false));
         }
 
         #[tokio::test]
-        async fn account_subscribe_once_surfaces_dropped_interrupt() {
+        async fn account_subscribe_batch_surfaces_dropped_interrupt() {
             use arkret_core::AccountStreamInterrupt;
 
             // Benign keepalive first, then a `dropped` control frame: the
@@ -1580,7 +1581,7 @@ mod tests {
             ];
             let client = spawn_chunked_ndjson_server(parts).await;
             let error = client
-                .account_subscribe_once(&SyncRequestBody {
+                .account_subscribe_batch(&SyncRequestBody {
                     after: None,
                     catchup: Some(true),
                     filter: None,
@@ -1603,13 +1604,13 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn account_subscribe_once_surfaces_unauthorized_interrupt() {
+        async fn account_subscribe_batch_surfaces_unauthorized_interrupt() {
             use arkret_core::AccountStreamInterrupt;
 
             let parts = vec!["{\"kind\":\"unauthorized\"}\n"];
             let client = spawn_chunked_ndjson_server(parts).await;
             let error = client
-                .account_subscribe_once(&SyncRequestBody {
+                .account_subscribe_batch(&SyncRequestBody {
                     after: None,
                     catchup: Some(true),
                     filter: None,

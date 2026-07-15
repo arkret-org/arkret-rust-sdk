@@ -171,13 +171,14 @@ impl Realm {
     pub fn morph_versions(&self, morph_id: &MorphId) -> Vec<MorphVersion> {
         let mut versions = Vec::new();
         let mut title = None;
-        let mut content = None;
+        let mut content: Option<ContentBlock> = None;
         let mut fields = BTreeMap::new();
         let mut state = None;
         let mut version = None;
 
         for event in &self.state.state_events {
-            let object = event.payload.get("object").unwrap_or(&event.payload);
+            let payload = Value::Object(event.payload.clone().into_iter().collect());
+            let object = payload.get("object").unwrap_or(&payload);
             let target_id = object
                 .get("id")
                 .or_else(|| event.payload.get("target_ref"))
@@ -194,7 +195,10 @@ impl Realm {
                         .pointer("/metadata/title")
                         .and_then(Value::as_str)
                         .map(str::to_owned);
-                    content = object.get("content").cloned();
+                    content = object
+                        .get("content")
+                        .cloned()
+                        .and_then(|value| serde_json::from_value(value).ok());
                     fields = object
                         .get("fields")
                         .cloned()
@@ -210,7 +214,8 @@ impl Realm {
                     let patch = event.payload.get("patch").and_then(Value::as_object);
                     if let Some(next_title) = event
                         .payload
-                        .pointer("/metadata/title")
+                        .get("metadata")
+                        .and_then(|metadata| metadata.get("title"))
                         .or_else(|| patch.and_then(|patch| patch.get("metadata.title")))
                         .or_else(|| {
                             patch.and_then(|patch| {
@@ -228,7 +233,9 @@ impl Realm {
                         .get("content")
                         .or_else(|| patch.and_then(|p| p.get("content")))
                     {
-                        content = Some(next_content.clone());
+                        if let Ok(next_content) = serde_json::from_value(next_content.clone()) {
+                            content = Some(next_content);
+                        }
                     }
                     if let Some(next_fields) = event
                         .payload

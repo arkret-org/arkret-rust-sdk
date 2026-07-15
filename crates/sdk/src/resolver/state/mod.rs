@@ -161,7 +161,7 @@ impl RealmState {
         if self.redacted_events.contains(&stored_event.event_id) {
             // Preserve envelope fields required for chain validation per
             // event-auth-state-resolution.md §10; clear payload + unsigned.
-            stored_event.payload = serde_json::json!({});
+            stored_event.payload = BTreeMap::new();
             stored_event.unsigned.clear();
         }
         self.state_events.push(stored_event.clone());

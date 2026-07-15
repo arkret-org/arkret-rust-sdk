@@ -98,7 +98,7 @@ pub struct KeyState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_request_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pending_runtime_key_request: Option<Value>,
+    pub pending_runtime_key_request: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_requested_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

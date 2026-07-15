@@ -166,7 +166,7 @@ pub struct AttestationEvidence {
 
     pub created_at: DateTime<Utc>,
 
-    pub proofs: Vec<Value>,
+    pub proofs: Vec<Proof>,
 }
 
 impl AttestationEvidence {

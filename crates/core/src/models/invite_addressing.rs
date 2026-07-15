@@ -291,7 +291,7 @@ impl IntroductionEvidence {
 #[serde(deny_unknown_fields)]
 pub struct InviteDeliveryRequest {
     pub schema: String,
-    pub invite_event: Value,
+    pub invite_event: Event,
     pub invite_address: InviteAddress,
     pub introduction_evidence: IntroductionEvidence,
     pub idempotency_key: String,
@@ -299,7 +299,7 @@ pub struct InviteDeliveryRequest {
 
 impl InviteDeliveryRequest {
     pub fn new(
-        invite_event: Value,
+        invite_event: Event,
         invite_address: InviteAddress,
         introduction_evidence: IntroductionEvidence,
         idempotency_key: impl Into<String>,

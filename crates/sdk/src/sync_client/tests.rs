@@ -1,31 +1,35 @@
 use std::collections::BTreeMap;
 
-use serde_json::{Value, json};
+use serde_json::json;
 
 use super::*;
-use crate::sync::{PresenceStatus, SyncRealm, UnreadCounts};
 use crate::{
     AccountNotificationDataKind, AgentRuntimeApprovalNotificationData,
     AgentRuntimeApprovalNotificationRemovalData, AgentRuntimeApprovalRemovalReason, Did,
     NotificationContainer, NotificationData, NotificationId, NotificationType, RealmId,
 };
 
-fn sync_response(cursor: &str) -> SyncOutcome {
-    SyncOutcome {
+fn sync_response(cursor: &str) -> AccountSubscribeBatch {
+    AccountSubscribeBatch {
         cursor: cursor.to_owned(),
-        realms: BTreeMap::new(),
-        left_realms: Vec::new(),
-        to_device: Vec::new(),
-        to_device_ack_token: None,
-        to_device_limited: false,
-        to_device_next_cursor: None,
-        to_device_lost: None,
-        device_lists: Value::Null,
-        account_data: Vec::new(),
-        presence: Vec::new(),
-        notifications: Default::default(),
-        partial: false,
+        frames: vec![AccountSubscribeFrame {
+            kind: AccountSubscribeFrameKind::Delta,
+            cursor: Some(cursor.to_owned()),
+            realms: None,
+            to_device: None,
+            device_lists: None,
+            account_data: None,
+            presence: None,
+            notifications: None,
+            partial: None,
+            priority: None,
+            reconnect_after_ms: None,
+        }],
     }
+}
+
+fn delta_mut(batch: &mut AccountSubscribeBatch) -> &mut AccountSubscribeFrame {
+    batch.frames.first_mut().unwrap()
 }
 
 fn approval_notifications(notification_id: &str, expires_at: &str) -> NotificationContainer {
@@ -113,7 +117,14 @@ fn sync_loop_rejects_empty_cursor_without_advancing_position() {
 fn sync_loop_exposes_to_device_loss_recovery_actions() {
     let mut transport = |_request: SyncRequestBody| {
         let mut response = sync_response("loss1");
-        response.to_device_lost = Some(true);
+        delta_mut(&mut response).to_device = Some(DeviceMessageContainer {
+            messages: Vec::new(),
+            ack_token: None,
+            lost: Some(true),
+            limited: None,
+            next_cursor: None,
+            extra: BTreeMap::new(),
+        });
         Ok(response)
     };
     let mut sync_loop = SyncLoop::new();
@@ -191,22 +202,19 @@ fn sync_loop_control_applies_backpressure() {
 fn sync_loop_can_reset_token_on_limited_timeline_gap() {
     let realm_id = "ak:realm:01904100-0000-7000-8000-9b64700c6ee8";
     let mut response = sync_response("gap-token");
-    let sync_realm = SyncRealm {
-        timeline: Some(SyncTimeline {
+    let entry = RealmSyncEntry {
+        timeline: Some(Timeline {
             events: Vec::new(),
             limited: true,
             prev_cursor: Some("prev".to_owned()),
+            preview_only: None,
+            extra: BTreeMap::new(),
         }),
-        state: Vec::new(),
-        summary: json!({}),
-        ephemeral: Vec::new(),
-        unread: UnreadCounts::default(),
         ..Default::default()
     };
-    response.realms.insert(
-        realm_id.to_owned(),
-        serde_json::to_value(sync_realm).unwrap(),
-    );
+    delta_mut(&mut response).realms = Some(AccountSubscribeRealms {
+        entries: BTreeMap::from([(realm_id.to_owned(), entry)]),
+    });
     let mut transport = |_request: SyncRequestBody| Ok(response.clone());
     let mut sync_loop =
         SyncLoop::new().with_gap_strategy(SyncGapStrategy::ResetTokenOnLimitedTimeline);
@@ -243,60 +251,81 @@ fn sync_loop_includes_wait_for_frontier() {
 fn processor_dispatches_all_update_categories() {
     let realm_id = "ak:realm:01904100-0000-7000-8000-9b64700c6ee8";
     let mut response = sync_response("s2");
-    let sync_realm = SyncRealm {
-        timeline: None,
-        state: vec![json!({"kind":"state"})],
-        summary: json!({"name":"realm"}),
-        ephemeral: Vec::new(),
-        unread: UnreadCounts {
-            notification_count: 3,
-            highlight_count: 1,
-        },
+    let entry = RealmSyncEntry {
+        summary: Some(AccountSubscribeRealmSummary {
+            joined_member_count: Some(2),
+            invited_member_count: None,
+            heroes: None,
+        }),
+        unread_notifications: Some(AccountSubscribeUnreadCounts {
+            notification_count: Some(3),
+            highlight_count: Some(1),
+        }),
         ..Default::default()
     };
-    response.realms.insert(
-        realm_id.to_owned(),
-        serde_json::to_value(sync_realm).unwrap(),
-    );
-    response.to_device.push(
-        serde_json::to_value(ToDeviceMessage {
-            message_type: "m.test".to_owned(),
-            content: json!({"ok":true}),
-            sender_principal_id: None,
-            sender_device_id: None,
-            recipient_principal_id: None,
-            recipient_device_id: None,
-            sent_at: None,
-            expires_at: None,
+    let sender = Did::new("did:webvh:z6mkfixture:alice.example").unwrap();
+    let recipient = Did::new("did:webvh:z6mkfixture:bob.example").unwrap();
+    let realm = RealmId::new(realm_id).unwrap();
+    let presence_event = Event::new(
+        "ak.presence",
+        realm.clone(),
+        sender.clone(),
+        1,
+        crate::Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
+        json!({"state":"online"}),
+    )
+    .unwrap();
+    let account_data_event = Event::new(
+        "ak.account_data.set",
+        realm,
+        sender.clone(),
+        2,
+        crate::Hlc::new("01970e589d22-0000-a13f9c2e").unwrap(),
+        json!({"key":"ak.settings","body":{"theme":"light"}}),
+    )
+    .unwrap();
+    let frame = delta_mut(&mut response);
+    frame.realms = Some(AccountSubscribeRealms {
+        entries: BTreeMap::from([(realm_id.to_owned(), entry)]),
+    });
+    frame.to_device = Some(DeviceMessageContainer {
+        messages: vec![DeviceMessageEnvelope {
+            kind: ProtocolKind::new("ak.test.message").unwrap(),
+            content: serde_json::from_value(json!({"ok":true})).unwrap(),
+            sender_principal_id: sender.clone(),
+            sender_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005")
+                .unwrap(),
+            recipient_principal_id: recipient,
+            recipient_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006")
+                .unwrap(),
+            sent_at: Utc::now(),
+            expires_at: Utc::now() + chrono::Duration::hours(1),
             device_proof: None,
             unsigned: None,
-        })
-        .unwrap(),
-    );
-    response.to_device_ack_token = Some("ack-sync-1".to_owned());
-    response.to_device_limited = true;
-    response.to_device_next_cursor = Some("device-cursor-2".to_owned());
-    response.to_device_lost = Some(true);
-    response.device_lists = json!({"changed": ["did:webvh:z6mkfixture:alice.example"], "left": []});
-    response.presence.push(
-        serde_json::to_value(PresenceEvent {
-            user_id: "did:webvh:z6mkfixture:alice.example".to_owned(),
-            presence: PresenceStatus::Online,
-            last_active_at: None,
-            status_message: None,
-            device_id: None,
-        })
-        .unwrap(),
-    );
-    response.account_data.push(
-        serde_json::to_value(AccountData {
-            data_type: "ak.settings".to_owned(),
-            content: json!({"theme":"light"}),
-        })
-        .unwrap(),
-    );
+        }],
+        ack_token: Some("ack-sync-1".to_owned()),
+        lost: Some(true),
+        limited: Some(true),
+        next_cursor: Some("device-cursor-2".to_owned()),
+        extra: BTreeMap::new(),
+    });
+    frame.device_lists = Some(AccountSubscribeDeviceListChanges {
+        changed: vec![sender.clone()],
+        left: Vec::new(),
+    });
+    frame.presence = Some(EventContainer {
+        events: vec![presence_event],
+        extra: BTreeMap::new(),
+    });
+    frame.account_data = Some(EventContainer {
+        events: vec![account_data_event],
+        extra: BTreeMap::new(),
+    });
     let notification_id = "ak:notification:01964137-0000-7000-8000-000000000000";
-    response.notifications = approval_notifications(notification_id, "2026-07-13T10:15:00Z");
+    frame.notifications = Some(approval_notifications(
+        notification_id,
+        "2026-07-13T10:15:00Z",
+    ));
 
     let mut processor = SyncResponseProcessor::new();
     let updates = processor.process(response).unwrap();
@@ -326,11 +355,7 @@ fn processor_dispatches_all_update_categories() {
     assert_eq!(processor.recovery_actions(), expected_recovery_actions);
     assert_eq!(processor.take_recovery_actions(), expected_recovery_actions);
     assert!(processor.recovery_actions().is_empty());
-    assert!(
-        processor
-            .presence("did:webvh:z6mkfixture:alice.example")
-            .is_some()
-    );
+    assert!(processor.presence(&sender).is_some());
     assert!(processor.account_data("ak.settings").is_some());
     assert!(processor.notification(notification_id).is_some());
     assert_eq!(processor.device_lists().changed.len(), 1);
@@ -350,22 +375,19 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
     )
     .unwrap();
     let mut response = sync_response("s3");
-    let sync_realm = SyncRealm {
-        timeline: Some(SyncTimeline {
-            events: vec![serde_json::to_value(event).unwrap()],
+    let entry = RealmSyncEntry {
+        timeline: Some(Timeline {
+            events: vec![event],
             limited: true,
             prev_cursor: Some("prev".to_owned()),
+            preview_only: None,
+            extra: BTreeMap::new(),
         }),
-        state: Vec::new(),
-        summary: json!({}),
-        ephemeral: Vec::new(),
-        unread: UnreadCounts::default(),
         ..Default::default()
     };
-    response.realms.insert(
-        realm_id.to_owned(),
-        serde_json::to_value(sync_realm).unwrap(),
-    );
+    delta_mut(&mut response).realms = Some(AccountSubscribeRealms {
+        entries: BTreeMap::from([(realm_id.to_owned(), entry)]),
+    });
 
     let mut processor = SyncResponseProcessor::new();
     processor.process(response).unwrap();
@@ -391,20 +413,24 @@ fn processor_applies_notification_add_update_and_remove_deltas() {
     let notification_id = "ak:notification:01964137-0000-7000-8000-000000000001";
     let mut processor = SyncResponseProcessor::new();
     let mut add = sync_response("s-add");
-    add.notifications = approval_notifications(notification_id, "2026-07-13T10:15:00Z");
+    delta_mut(&mut add).notifications = Some(approval_notifications(
+        notification_id,
+        "2026-07-13T10:15:00Z",
+    ));
     processor.process(add).unwrap();
     assert!(processor.notification(notification_id).is_some());
 
     let mut update = sync_response("s-update");
-    update.notifications = approval_notifications(notification_id, "2026-07-13T10:20:00Z");
-    update.notifications.items[0].action = NotificationDeltaAction::Update;
+    let mut update_notifications = approval_notifications(notification_id, "2026-07-13T10:20:00Z");
+    update_notifications.items[0].action = NotificationDeltaAction::Update;
+    delta_mut(&mut update).notifications = Some(update_notifications);
     processor.process(update).unwrap();
     let serialized =
         serde_json::to_value(processor.notification(notification_id).unwrap()).unwrap();
     assert_eq!(serialized["data"]["expires_at"], "2026-07-13T10:20:00Z");
 
     let mut remove = sync_response("s-remove");
-    remove.notifications = NotificationContainer {
+    delta_mut(&mut remove).notifications = Some(NotificationContainer {
         items: vec![NotificationDelta {
             id: NotificationId::new(notification_id).unwrap(),
             notification_type: NotificationType::Agent,
@@ -416,7 +442,7 @@ fn processor_applies_notification_add_update_and_remove_deltas() {
                 },
             )),
         }],
-    };
+    });
     processor.process(remove).unwrap();
     assert!(processor.notification(notification_id).is_none());
 }

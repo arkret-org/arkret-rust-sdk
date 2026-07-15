@@ -23,7 +23,7 @@ pub struct CollectionConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub count_policy: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub grouping: Option<CollectionGrouping>,
+    pub grouping: Option<ViewCollectionGrouping>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page_size: Option<u64>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
@@ -32,7 +32,7 @@ pub struct CollectionConfig {
 
 /// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/collection_grouping`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CollectionGrouping {
+pub struct ViewCollectionGrouping {
     pub mode: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub field: Option<String>,

@@ -132,30 +132,28 @@ fn protocol_conformance_vectors_remain_stable() {
 
 #[test]
 fn interoperability_serialization_roundtrips() {
-    let mut realms = BTreeMap::new();
-    realms.insert(
-        "ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
-        serde_json::to_value(SyncRealm::default()).unwrap(),
-    );
-    let response = SyncOutcome {
-        cursor: "s1".to_owned(),
-        realms,
-        left_realms: Vec::new(),
-        to_device: Vec::new(),
-        to_device_ack_token: None,
-        to_device_limited: false,
-        to_device_next_cursor: None,
-        to_device_lost: None,
-        device_lists: serde_json::Value::Null,
-        account_data: Vec::new(),
-        presence: Vec::new(),
-        notifications: Default::default(),
-        partial: false,
+    let frame = AccountSubscribeFrame {
+        kind: AccountSubscribeFrameKind::Delta,
+        cursor: Some("s1".to_owned()),
+        realms: Some(AccountSubscribeRealms {
+            entries: BTreeMap::from([(
+                "ak:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+                RealmSyncEntry::default(),
+            )]),
+        }),
+        to_device: None,
+        device_lists: None,
+        account_data: None,
+        presence: None,
+        notifications: None,
+        partial: None,
+        priority: None,
+        reconnect_after_ms: None,
     };
 
-    let json = serde_json::to_string(&response).unwrap();
-    let decoded: SyncOutcome = serde_json::from_str(&json).unwrap();
-    assert_eq!(decoded.cursor, "s1");
+    let json = serde_json::to_string(&frame).unwrap();
+    let decoded: AccountSubscribeFrame = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.cursor.as_deref(), Some("s1"));
 }
 
 #[test]

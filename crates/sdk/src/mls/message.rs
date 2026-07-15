@@ -1,11 +1,11 @@
-use arkret_core::{base64url_token, content_type_token, major_minor_version};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::group::{ArkretMlsGroup, decode};
-use super::security::AadVisibility;
 use crate::{
-    EncryptedEnvelopeAad, EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash, Result,
+    EncryptedEnvelope, EncryptedEnvelopeAad, EncryptedEnvelopeAadVisibility,
+    EncryptedEnvelopeGroupStateRef, EncryptedEnvelopeKeyAlgorithm, EncryptedEnvelopeKeyRef,
+    EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash, Result,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -14,245 +14,75 @@ pub struct EncryptedMessage {
     pub payload: EncryptedPayload,
 }
 
-/// `key_ref` for `ak.schema.encrypted_envelope.v1`. `algorithm` is bound to
-/// the envelope `scheme`; `group_state_ref` MUST point at an accepted
-/// `ak.mls.genesis` / winning `ak.mls.commit` event id (or equivalent group
-/// state proof hash).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EnvelopeKeyRefV1 {
-    pub algorithm: String,
-    pub group_state_ref: String,
+pub fn parse_and_validate_encrypted_envelope(value: Value) -> Result<EncryptedEnvelope> {
+    let envelope: EncryptedEnvelope = serde_json::from_value(value)
+        .map_err(|err| Error::Protocol(format!("encrypted envelope schema: {err}")))?;
+    envelope.validate()?;
+    Ok(envelope)
 }
 
-/// Wire-canonical encrypted payload envelope matching
-/// `ak.schema.encrypted_envelope.v1` — the single source of truth for the
-/// encrypted-message wire shape across produce / validate / consume. Build it
-/// from an [`EncryptedPayload`] (the MLS encrypt primitive output) plus the
-/// caller-supplied AAD context and the `ak.mls.commit` event id that bounds
-/// the group state.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EncryptedEnvelopeV1 {
-    pub scheme: EncryptedPayloadScheme,
-    pub version: String,
-    pub group_id: String,
-    pub epoch: u64,
-    pub content_type: String,
-    pub ciphertext: String,
-    pub aad_visibility_event_id: AadVisibility,
-    pub aad: EncryptedEnvelopeAad,
-    pub key_ref: EnvelopeKeyRefV1,
-    pub aad_digest: String,
-    pub payload_digest: String,
-}
-
-impl EncryptedEnvelopeV1 {
-    /// Envelope format version (`^\d+\.\d+$`).
-    pub const VERSION: &'static str = "1.0";
-
-    pub fn key_ref_algorithm_for_scheme(scheme: &EncryptedPayloadScheme) -> &'static str {
-        match scheme {
-            EncryptedPayloadScheme::MlsRfc9420 => "MLS",
-            EncryptedPayloadScheme::MlsExporterAeadV1 => "MLS-EXPORTER-AEAD",
-        }
-    }
-
-    pub fn parse_and_validate(value: Value) -> Result<Self> {
-        let envelope: Self = serde_json::from_value(value)
-            .map_err(|err| Error::Protocol(format!("encrypted envelope schema: {err}")))?;
-        envelope.validate_spec()?;
-        Ok(envelope)
-    }
-
-    pub fn validate_spec(&self) -> Result<()> {
-        if !major_minor_version(&self.version) {
-            return Err(Error::Protocol(
-                "encrypted envelope version must be major.minor".to_owned(),
-            ));
-        }
-        if !base64url_token(&self.group_id) {
-            return Err(Error::Protocol(
-                "encrypted envelope group_id is invalid".to_owned(),
-            ));
-        }
-        if self.epoch > i64::MAX as u64 {
-            return Err(Error::Protocol(
-                "encrypted envelope epoch exceeds JSON schema integer range".to_owned(),
-            ));
-        }
-        if !content_type_token(&self.content_type) {
-            return Err(Error::Protocol(
-                "encrypted envelope content_type is invalid".to_owned(),
-            ));
-        }
-        if !base64url_token(&self.ciphertext) {
-            return Err(Error::Protocol(
-                "encrypted envelope ciphertext is invalid".to_owned(),
-            ));
-        }
-        validate_envelope_aad(&self.aad, self.aad_visibility_event_id)?;
-        let expected_algorithm = Self::key_ref_algorithm_for_scheme(&self.scheme);
-        if self.key_ref.algorithm != expected_algorithm {
-            return Err(Error::Protocol(format!(
-                "encrypted envelope key_ref.algorithm must be {expected_algorithm}"
-            )));
-        }
-        if EventId::new(self.key_ref.group_state_ref.clone()).is_err()
-            && Hash::new(self.key_ref.group_state_ref.clone()).is_err()
-        {
-            return Err(Error::Protocol(
-                "encrypted envelope key_ref.group_state_ref is invalid".to_owned(),
-            ));
-        }
-        Hash::new(self.aad_digest.clone())
-            .map_err(|_| Error::Protocol("encrypted envelope aad_digest is invalid".to_owned()))?;
-        Hash::new(self.payload_digest.clone()).map_err(|_| {
-            Error::Protocol("encrypted envelope payload_digest is invalid".to_owned())
-        })?;
-        Ok(())
-    }
-
-    /// Assemble a conforming envelope from an MLS [`EncryptedPayload`].
-    ///
-    /// The `payload` MUST have been produced by
-    /// [`ArkretMlsGroup::encrypt_payload_with_aad`] with AAD equal to
-    /// `serde_json::to_value(&aad)` — the AAD is bound into `payload_digest`,
-    /// so a mismatch would make the receiver's digest verification fail. We
-    /// fail closed if they disagree. `group_state_ref` is the `ak.mls.commit`
-    /// (or genesis) event id carrying the epoch this payload was encrypted
-    /// under.
-    pub fn from_payload(
-        payload: &EncryptedPayload,
-        aad: EncryptedEnvelopeAad,
-        visibility: AadVisibility,
-        group_state_ref: impl Into<String>,
-    ) -> Result<Self> {
-        let aad_value = serde_json::to_value(&aad)
-            .map_err(|err| Error::Protocol(format!("encode envelope aad: {err}")))?;
-        if payload.aad.as_ref() != Some(&aad_value) {
-            return Err(Error::Protocol(
-                "encrypted envelope aad does not match the aad bound at encryption time".to_owned(),
-            ));
-        }
-        let aad_digest = crate::crypto::json_aad_digest(&aad_value)?;
-        Self {
-            scheme: payload.scheme.clone(),
-            version: Self::VERSION.to_owned(),
-            group_id: payload.group_id.clone(),
-            epoch: payload.epoch,
-            content_type: payload.content_type.clone(),
-            ciphertext: payload.ciphertext.clone(),
-            aad_visibility_event_id: visibility,
-            aad,
-            key_ref: EnvelopeKeyRefV1 {
-                algorithm: Self::key_ref_algorithm_for_scheme(&payload.scheme).to_owned(),
-                group_state_ref: group_state_ref.into(),
-            },
-            aad_digest,
-            payload_digest: payload.payload_digest.as_str().to_owned(),
-        }
-        .validated()
-    }
-
-    /// Reconstruct the MLS [`EncryptedPayload`] needed to decrypt this
-    /// envelope. The reconstructed AAD round-trips byte-identically with the
-    /// AAD bound at encryption time, so `payload_digest` verification holds.
-    pub fn to_payload(&self) -> Result<EncryptedPayload> {
-        let aad_value = serde_json::to_value(&self.aad)
-            .map_err(|err| Error::Protocol(format!("encode envelope aad: {err}")))?;
-        Ok(EncryptedPayload {
-            scheme: self.scheme.clone(),
-            group_id: self.group_id.clone(),
-            epoch: self.epoch,
-            content_type: self.content_type.clone(),
-            ciphertext: self.ciphertext.clone(),
-            aad: Some(aad_value),
-            payload_digest: Hash::new(self.payload_digest.clone())?,
-            key_ref: Some(match &self.scheme {
-                EncryptedPayloadScheme::MlsRfc9420 => {
-                    arkret_core::KeyRefObject::mls_rfc9420(self.group_id.clone(), self.epoch)
-                }
-                EncryptedPayloadScheme::MlsExporterAeadV1 => {
-                    arkret_core::KeyRefObject::mls_exporter_aead(self.group_id.clone(), self.epoch)
-                }
-            }),
-        })
-    }
-
-    fn validated(self) -> Result<Self> {
-        self.validate_spec()?;
-        Ok(self)
-    }
-}
-
-fn validate_envelope_aad(aad: &EncryptedEnvelopeAad, visibility: AadVisibility) -> Result<()> {
-    if !event_kind_token(&aad.event_kind) {
+pub fn encrypted_envelope_from_payload(
+    payload: &EncryptedPayload,
+    aad: EncryptedEnvelopeAad,
+    visibility: EncryptedEnvelopeAadVisibility,
+    group_state_ref: impl Into<String>,
+) -> Result<EncryptedEnvelope> {
+    if payload.aad.as_ref() != Some(&aad) {
         return Err(Error::Protocol(
-            "encrypted envelope aad.event_kind is invalid".to_owned(),
+            "encrypted envelope aad does not match the aad bound at encryption time".to_owned(),
         ));
     }
-    if aad.event_id.is_some() && aad.event_ref_digest.is_some() {
-        return Err(Error::Protocol(
-            "encrypted envelope aad must not carry both event_id and event_ref_digest".to_owned(),
-        ));
-    }
-    if aad
-        .causal_refs
-        .as_ref()
-        .is_some_and(|refs| !refs.is_empty())
-        && aad
-            .causal_ref_digests
-            .as_ref()
-            .is_some_and(|refs| !refs.is_empty())
-    {
-        return Err(Error::Protocol(
-            "encrypted envelope aad must not carry both causal_refs and causal_ref_digests"
-                .to_owned(),
-        ));
-    }
-    match visibility {
-        AadVisibility::Hidden => {
-            if aad.event_id.is_some() || aad.event_ref_digest.is_some() {
-                return Err(Error::Protocol(
-                    "encrypted envelope hidden aad exposes event id".to_owned(),
-                ));
-            }
-        }
-        AadVisibility::RoutingDigest => {
-            if aad.event_id.is_some() || aad.event_ref_digest.is_none() {
-                return Err(Error::Protocol(
-                    "encrypted envelope routing_digest aad requires only event_ref_digest"
-                        .to_owned(),
-                ));
-            }
-        }
-        AadVisibility::OpaqueId => {
-            if aad.event_ref_digest.is_some() || aad.event_id.is_none() {
-                return Err(Error::Protocol(
-                    "encrypted envelope opaque_id aad requires only event_id".to_owned(),
-                ));
-            }
-        }
-    }
-    Ok(())
-}
-
-// `major_minor_version`, `base64url_token`, `content_type_token` and
-// `content_type_byte` are the shared wire-token validators reused from
-// `arkret-core` (see `models::artifacts::event_wire`); only the
-// MLS-specific `event_kind_token` lives here.
-fn event_kind_token(value: &str) -> bool {
-    let Some(rest) = value.strip_prefix("ak.") else {
-        return false;
+    let group_state_ref = group_state_ref.into();
+    let group_state_ref = match EventId::new(group_state_ref.clone()) {
+        Ok(event_id) => EncryptedEnvelopeGroupStateRef::Event(event_id),
+        Err(_) => EncryptedEnvelopeGroupStateRef::Digest(Hash::new(group_state_ref)?),
     };
-    !rest.is_empty()
-        && rest.split('.').all(|part| {
-            !part.is_empty()
-                && part
-                    .bytes()
-                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
-        })
+    let algorithm = match payload.scheme {
+        EncryptedPayloadScheme::MlsRfc9420 => EncryptedEnvelopeKeyAlgorithm::Mls,
+        EncryptedPayloadScheme::MlsExporterAeadV1 => EncryptedEnvelopeKeyAlgorithm::MlsExporterAead,
+    };
+    let envelope = EncryptedEnvelope {
+        scheme: payload.scheme.clone(),
+        version: "1.0".to_owned(),
+        group_id: payload.group_id.clone(),
+        epoch: payload.epoch,
+        content_type: payload.content_type.clone(),
+        ciphertext: payload.ciphertext.clone(),
+        aad_visibility_event_id: visibility,
+        aad_digest: Hash::new(crate::crypto::envelope_aad_digest(&aad)?)?,
+        aad,
+        key_ref: EncryptedEnvelopeKeyRef {
+            algorithm,
+            group_state_ref,
+        },
+        payload_digest: payload.payload_digest.clone(),
+    };
+    envelope.validate()?;
+    Ok(envelope)
+}
+
+pub fn encrypted_envelope_to_payload(envelope: &EncryptedEnvelope) -> Result<EncryptedPayload> {
+    envelope.validate()?;
+    Ok(EncryptedPayload {
+        scheme: envelope.scheme.clone(),
+        group_id: envelope.group_id.clone(),
+        epoch: envelope.epoch,
+        content_type: envelope.content_type.clone(),
+        ciphertext: envelope.ciphertext.clone(),
+        aad: Some(envelope.aad.clone()),
+        payload_digest: envelope.payload_digest.clone(),
+        key_ref: Some(match &envelope.scheme {
+            EncryptedPayloadScheme::MlsRfc9420 => {
+                arkret_core::KeyRefObject::mls_rfc9420(envelope.group_id.clone(), envelope.epoch)
+            }
+            EncryptedPayloadScheme::MlsExporterAeadV1 => {
+                arkret_core::KeyRefObject::mls_exporter_aead(
+                    envelope.group_id.clone(),
+                    envelope.epoch,
+                )
+            }
+        }),
+    })
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -303,7 +133,7 @@ impl MessageCrypto {
         group: &mut ArkretMlsGroup,
         message_id: impl Into<String>,
         content_type: impl Into<String>,
-        aad: Value,
+        aad: EncryptedEnvelopeAad,
         plaintext: &[u8],
     ) -> Result<EncryptedMessage> {
         Ok(EncryptedMessage {
@@ -327,7 +157,8 @@ impl MessageCrypto {
                 message.payload.aad.as_ref().ok_or_else(|| {
                     Error::Protocol("encrypted payload AAD is missing".to_owned())
                 })?;
-            let actual = crate::crypto::json_aad_digest(aad)?;
+            let aad = serde_json::to_value(aad)?;
+            let actual = crate::crypto::json_aad_digest(&aad)?;
             if actual != expected {
                 return Err(Error::Protocol(
                     "encrypted payload AAD digest mismatch".to_owned(),

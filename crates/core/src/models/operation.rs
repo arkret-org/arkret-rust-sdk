@@ -1169,7 +1169,7 @@ pub struct CapabilityGrant {
     pub issuer: Did,
     pub subject: CapabilitySubject,
     pub actions: Vec<String>,
-    pub resources: Vec<Value>,
+    pub resources: Vec<WireResourceSelector>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub constraints: Vec<GrantConstraint>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1326,7 +1326,7 @@ pub struct Invite {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub introduction_evidence_digest: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub third_party_id: Option<Value>,
+    pub third_party_id: Option<ThirdPartyInvite>,
     pub join_rule_snapshot: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capability_grant_refs: Vec<GrantId>,
@@ -1442,7 +1442,7 @@ pub struct Notification {
     pub priority: NotificationPriority,
     pub state: NotificationState,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub preview: Option<Value>,
+    pub preview: Option<BTreeMap<String, Value>>,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
@@ -1462,7 +1462,8 @@ pub struct BlobMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub encryption: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub encryption: Option<EncryptedAttachment>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1480,7 +1481,8 @@ pub struct EncryptedPayload {
     pub content_type: String,
     pub ciphertext: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub aad: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub aad: Option<EncryptedEnvelopeAad>,
     pub payload_digest: Hash,
     /// Reference to the key material that decrypts `ciphertext`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1519,7 +1521,7 @@ impl EncryptedPayload {
     pub fn mls_payload_digest(
         epoch: u64,
         content_type: &str,
-        aad: Option<&Value>,
+        aad: Option<&EncryptedEnvelopeAad>,
         ciphertext_bytes: &[u8],
     ) -> Result<Hash> {
         Self::payload_digest_for_scheme(
@@ -1541,7 +1543,7 @@ impl EncryptedPayload {
         scheme: EncryptedPayloadScheme,
         epoch: u64,
         content_type: &str,
-        aad: Option<&Value>,
+        aad: Option<&EncryptedEnvelopeAad>,
         ciphertext_bytes: &[u8],
     ) -> Result<Hash> {
         let metadata = EncryptedPayloadDigestMetadata {
@@ -1598,7 +1600,7 @@ struct EncryptedPayloadDigestMetadata<'a> {
     pub encryption: &'a str,
     pub epoch: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub aad: Option<&'a Value>,
+    pub aad: Option<&'a EncryptedEnvelopeAad>,
 }
 
 /// Lifecycle of a published KeyPackage per `device-lifecycle.md` §2 /

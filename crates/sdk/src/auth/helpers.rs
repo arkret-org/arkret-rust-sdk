@@ -45,23 +45,19 @@ pub(super) fn disclose_claim(claim: &PresentedClaim, reveal_fields: &[String]) -
     let mut disclosed = claim.clone();
     disclosed.disclosed_fields = reveal_fields.iter().cloned().collect();
     if reveal_fields.is_empty() {
-        disclosed.value = Value::Null;
+        disclosed.value.clear();
         return disclosed;
     }
     if reveal_fields.iter().any(|field| field == "*") {
         return disclosed;
     }
-    let Some(object) = claim.value.as_object() else {
-        disclosed.value = Value::Null;
-        return disclosed;
-    };
-    let mut filtered = serde_json::Map::new();
+    let mut filtered = BTreeMap::new();
     for field in reveal_fields {
-        if let Some(value) = object.get(field) {
+        if let Some(value) = claim.value.get(field) {
             filtered.insert(field.clone(), value.clone());
         }
     }
-    disclosed.value = Value::Object(filtered);
+    disclosed.value = filtered;
     disclosed
 }
 

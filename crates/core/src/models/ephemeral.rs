@@ -32,14 +32,12 @@ pub struct EphemeralEnvelope {
     pub expires_at: DateTime<Utc>,
     /// Kind-specific signal payload. Schema per kind is defined by the
     /// producing module; MUST NOT carry mutable governance state.
-    pub payload: Value,
+    pub payload: BTreeMap<String, Value>,
     /// Detached signature over canonical envelope bytes (excluding `proof`
     /// itself). Per `ephemeral-envelope.schema.json` this is REQUIRED for
     /// every broadcast ephemeral kind (`ak.presence`, `ak.typing`,
-    /// `ak.receipt.read`, `ak.call.signal`); kept optional in the struct for
-    /// non-broadcast relay uses.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<Value>,
+    /// `ak.receipt.read`, `ak.call.signal`).
+    pub proof: Proof,
 }
 
 impl EphemeralEnvelope {
@@ -57,8 +55,8 @@ impl EphemeralEnvelope {
         device_id: Option<DeviceId>,
         sent_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
-        payload: Value,
-        proof: Option<Value>,
+        payload: BTreeMap<String, Value>,
+        proof: Proof,
     ) -> Result<Self> {
         let kind = kind.into();
         if !matches!(
@@ -112,8 +110,8 @@ pub struct CallSignalPayload {
     /// Per-signal_type extra fields nested under `data` so the
     /// envelope shape stays predictable (sdp, ice, mute_state, etc.).
     /// The SDK does not parse this — the client renderer does.
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub data: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<BTreeMap<String, Value>>,
 }
 
 impl CallSignalPayload {
@@ -206,10 +204,8 @@ impl CallSignalState {
 
 // ── EphemeralEnvelope v2 helpers (ak.call.signal required fields) ────
 
-/// Round 4 — verify a `ak.call.signal` [`EphemeralEnvelope`] satisfies
-/// the v2 wire requirements: `device_id` + `proof` are REQUIRED, and
-/// the payload deserialises into a [`CallSignalPayload`] with a
-/// canonical `signal_type`.
+/// Verify that an `ak.call.signal` [`EphemeralEnvelope`] carries a device
+/// binding and a payload with a canonical `signal_type`.
 pub fn validate_call_signal_envelope(env: &EphemeralEnvelope) -> Result<CallSignalPayload> {
     if env.kind != "ak.call.signal" {
         return Err(Error::Protocol(format!(
@@ -223,13 +219,10 @@ pub fn validate_call_signal_envelope(env: &EphemeralEnvelope) -> Result<CallSign
             crate::ERROR_CODE_SCHEMA_VIOLATION
         )));
     }
-    if env.proof.is_none() {
-        return Err(Error::Protocol(format!(
-            "ak.call.signal envelope MUST carry proof ({})",
-            crate::ERROR_CODE_SCHEMA_VIOLATION
-        )));
-    }
-    let payload: CallSignalPayload = serde_json::from_value(env.payload.clone()).map_err(|e| {
+    let payload: CallSignalPayload = serde_json::from_value(Value::Object(
+        env.payload.clone().into_iter().collect(),
+    ))
+    .map_err(|e| {
         Error::Protocol(format!(
             "ak.call.signal payload must carry {{call_id, signal_type, seq}}: {e} ({})",
             crate::ERROR_CODE_SCHEMA_VIOLATION

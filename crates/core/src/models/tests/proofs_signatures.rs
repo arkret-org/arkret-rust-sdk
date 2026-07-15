@@ -146,10 +146,9 @@ fn view_supports_renderer_and_facet_config_facades() {
         layout: None,
         collection: Some(CollectionViewConfig {
             item_facets: vec![Facet::Stateful, Facet::Rankable],
-            item_render: Some("card".to_owned()),
+            item_render: Some(CollectionItemRender::Card),
             ..Default::default()
         }),
-        time_window: None,
         timeline: None,
         graph: None,
         document: None,
@@ -191,10 +190,6 @@ fn operation_serializes_protocol_field_names() {
     assert!(value.get("target_object_id").is_none());
     assert_eq!(value["schema"], OPERATION_SCHEMA);
 }
-
-// SyncOutcome carries `cursor` / `realms` / `left_realms` /
-// `notifications`. Realm ids and product Space ids are validated by their
-// typed-id constructors and exercised by the typed-ID tests above.
 
 #[test]
 fn proof_validate_rejects_alg_none() {

@@ -344,35 +344,20 @@ impl RealmListService {
             .cloned()
             .unwrap_or_else(|| RealmListEntry::joined(update.realm_id.clone()));
         entry.membership = membership;
-        if let Some(name) = update
-            .summary
-            .get("name")
-            .or_else(|| update.summary.get("title"))
-            .and_then(Value::as_str)
+        if let Some(metadata) = update
+            .entry
+            .state_at_window_start
+            .as_ref()
+            .map(|state| &state.realm_metadata)
         {
-            entry.name = Some(name.to_owned());
+            entry.name = metadata.title.clone();
         }
-        if let Some(favorite) = update.summary.get("favorite").and_then(Value::as_bool) {
-            entry.favorite = favorite;
+        if let Some(unread) = &update.entry.unread_notifications {
+            entry.unread_count = unread.notification_count.unwrap_or(0);
+            entry.highlight_count = unread.highlight_count.unwrap_or(0);
         }
-        if let Some(category) = update.summary.get("category").and_then(Value::as_str) {
-            entry.category = Some(category.to_owned());
-        }
-        if let Some(unread_count) = update.summary.get("unread_count").and_then(Value::as_u64) {
-            entry.unread_count = unread_count;
-        }
-        if let Some(highlight_count) = update
-            .summary
-            .get("highlight_count")
-            .and_then(Value::as_u64)
-        {
-            entry.highlight_count = highlight_count;
-        }
-        if let Some(timeline) = &update.timeline
-            && let Some(event) = timeline
-                .events
-                .last()
-                .and_then(|value| serde_json::from_value::<Event>(value.clone()).ok())
+        if let Some(timeline) = &update.entry.timeline
+            && let Some(event) = timeline.events.last()
         {
             entry.last_event_id = Some(event.event_id.clone());
             entry.last_activity = Some(TimelineOrderKey::from_event(

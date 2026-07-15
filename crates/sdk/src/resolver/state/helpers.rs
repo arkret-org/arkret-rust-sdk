@@ -2,9 +2,25 @@ use super::super::snapshot::{canonicalize_strand_ref, membership_rank};
 use super::super::*;
 use super::RealmState;
 
+pub(super) trait JsonFields {
+    fn json_field(&self, field: &str) -> Option<&Value>;
+}
+
+impl JsonFields for Value {
+    fn json_field(&self, field: &str) -> Option<&Value> {
+        self.as_object()?.get(field)
+    }
+}
+
+impl JsonFields for BTreeMap<String, Value> {
+    fn json_field(&self, field: &str) -> Option<&Value> {
+        self.get(field)
+    }
+}
+
 impl RealmState {
     /// Extract Morph id from event content.
-    pub(super) fn extract_morph_id(&self, content: &Value) -> Result<String> {
+    pub(super) fn extract_morph_id(&self, content: &(impl JsonFields + ?Sized)) -> Result<String> {
         self.extract_optional_field(content, "target_ref")
             .or_else(|| self.extract_optional_field(content, "morph_id"))
             .or_else(|| self.extract_optional_field(content, "id"))
@@ -14,7 +30,7 @@ impl RealmState {
     }
 
     /// Extract strand_id from event content.
-    pub(super) fn extract_strand_id(&self, content: &Value) -> Result<String> {
+    pub(super) fn extract_strand_id(&self, content: &(impl JsonFields + ?Sized)) -> Result<String> {
         self.extract_optional_field::<String>(content, "strand_id")
             .or_else(|| self.extract_optional_field::<String>(content, "target_ref"))
             .or_else(|| self.extract_optional_field::<String>(content, "id"))
@@ -25,14 +41,17 @@ impl RealmState {
     }
 
     /// Extract the container `space_id` from event content.
-    pub(super) fn extract_space_id(&self, content: &Value) -> Result<String> {
+    pub(super) fn extract_space_id(&self, content: &(impl JsonFields + ?Sized)) -> Result<String> {
         self.extract_optional_field::<String>(content, "space_id")
             .or_else(|| self.extract_optional_field::<String>(content, "id"))
             .ok_or_else(|| Error::Protocol("container event requires space_id".to_owned()))
     }
 
     /// Extract relation_id from event content.
-    pub(super) fn extract_relation_id(&self, content: &Value) -> Result<String> {
+    pub(super) fn extract_relation_id(
+        &self,
+        content: &(impl JsonFields + ?Sized),
+    ) -> Result<String> {
         self.extract_optional_field(content, "relation_id")
             .or_else(|| self.extract_optional_field(content, "id"))
             .ok_or_else(|| Error::Protocol("relation event requires relation_id or id".to_owned()))
@@ -41,14 +60,11 @@ impl RealmState {
     /// Extract a required field from event content.
     pub(super) fn extract_field<T: serde::de::DeserializeOwned>(
         &self,
-        content: &Value,
+        content: &(impl JsonFields + ?Sized),
         field: &str,
     ) -> Result<T> {
-        let obj = content
-            .as_object()
-            .ok_or_else(|| Error::Protocol("event content must be an object".to_owned()))?;
-        let value = obj
-            .get(field)
+        let value = content
+            .json_field(field)
             .ok_or_else(|| Error::Protocol(format!("missing field: {}", field)))?;
 
         serde_json::from_value(value.clone())
@@ -58,16 +74,18 @@ impl RealmState {
     /// Extract an optional field from event content.
     pub(super) fn extract_optional_field<T: serde::de::DeserializeOwned>(
         &self,
-        content: &Value,
+        content: &(impl JsonFields + ?Sized),
         field: &str,
     ) -> Option<T> {
-        let obj = content.as_object()?;
-        let value = obj.get(field)?;
+        let value = content.json_field(field)?;
         serde_json::from_value(value.clone()).ok()
     }
 
     /// Extract fields map from event content.
-    pub(super) fn extract_fields(&self, content: &Value) -> Result<BTreeMap<String, Value>> {
+    pub(super) fn extract_fields(
+        &self,
+        content: &(impl JsonFields + ?Sized),
+    ) -> Result<BTreeMap<String, Value>> {
         Ok(self
             .extract_optional_field(content, "fields")
             .unwrap_or_default())

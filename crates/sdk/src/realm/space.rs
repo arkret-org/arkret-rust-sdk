@@ -60,7 +60,7 @@ impl Realm {
 
         let space_id = SpaceId::new(generate_id("ak:space:"))?;
         let operation_id = OperationId::new(generate_id("ak:operation:"))?;
-        let mut object = SpaceCreateObject::new(
+        let mut object = Space::new(
             space_id.clone(),
             self.realm_id()?,
             kind,

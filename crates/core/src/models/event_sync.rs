@@ -1,7 +1,7 @@
 //! Event frontier, submission, subscription, and snapshot wire models.
 
 use super::*;
-use crate::{SealBasis, canonical};
+use crate::SealBasis;
 
 // ── EventsFrontier 3-way split ──────────────────────────────────────────
 
@@ -221,97 +221,23 @@ pub struct EventsSubmitFederationRequestBody {
 /// to `ResyncRequired`.
 pub type EventsSubscribeFrameBody = crate::http::EventsSubscribeFrame;
 
-// ── SnapshotBootstrap ───────────────────────────────────────────────────
-
-/// Round 4 — chunked snapshot delivery envelope.
-///
-/// The signature binds the canonical bootstrap header:
-/// `domain`, `state_digest`, `snapshot_frontier`, and a deterministic digest
-/// root over the ordered chunk digests. Consumers still fetch and verify each
-/// chunk by its declared digest before applying the snapshot.
-///
-/// Dev-only shape. Current production snapshot bootstrap uses
-/// `ak.schema.snapshot.v1` [`crate::SnapshotManifest`].
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// Snapshot acceleration hint returned by event range queries and federation
+/// pulls. The referenced snapshot manifest remains the authoritative signed
+/// object; consumers must verify it before applying any snapshot state.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotBootstrap {
-    /// Signature over [`SnapshotBootstrap::signing_payload_digest`].
-    pub signature: SnapshotBootstrapSignature,
-    /// Canonical state root over the snapshot's projected state.
+    pub snapshot_ref: SnapshotId,
     pub state_digest: Hash,
-    /// Frontier the snapshot was generated against.
     pub snapshot_frontier: Vec<EventId>,
-    /// Ordered chunk digests. Consumers MUST verify each chunk's bytes
-    /// match the declared digest before applying.
-    pub chunks: Vec<SnapshotBootstrapChunk>,
-}
-
-/// Dev-only bootstrap signature for [`SnapshotBootstrap`].
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SnapshotBootstrapSignature {
-    pub alg: String,
-    pub verification_method: String,
-    pub payload_digest: Hash,
+    pub created_by: Did,
     pub created_at: DateTime<Utc>,
-    pub jws: String,
-}
-
-impl SnapshotBootstrap {
-    pub const SIGNING_DOMAIN: &'static str = "ak.snapshot.bootstrap.v1";
-
-    pub fn chunk_digest_root(&self) -> Result<Hash> {
-        let digests: Vec<&str> = self
-            .chunks
-            .iter()
-            .map(|chunk| chunk.digest.as_str())
-            .collect();
-        let digest = canonical::canonical_sha256(&serde_json::json!({
-            "domain": Self::SIGNING_DOMAIN,
-            "chunk_digests": digests,
-        }))?;
-        Hash::new(digest).map_err(Into::into)
-    }
-
-    pub fn signing_payload(&self) -> Result<Value> {
-        Ok(serde_json::json!({
-            "domain": Self::SIGNING_DOMAIN,
-            "state_digest": self.state_digest.as_str(),
-            "snapshot_frontier": self
-                .snapshot_frontier
-                .iter()
-                .map(EventId::as_str)
-                .collect::<Vec<_>>(),
-            "chunk_digest_root": self.chunk_digest_root()?.as_str(),
-        }))
-    }
-
-    pub fn signing_payload_digest(&self) -> Result<Hash> {
-        let digest = canonical::canonical_sha256(&self.signing_payload()?)?;
-        Hash::new(digest).map_err(Into::into)
-    }
-
-    pub fn validate_signature_binding(&self) -> Result<()> {
-        let expected = self.signing_payload_digest()?;
-        if self.signature.payload_digest != expected {
-            return Err(Error::Protocol(
-                "snapshot bootstrap signature payload_digest mismatch".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-/// Dev-only bootstrap chunk descriptor for [`SnapshotBootstrap`].
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SnapshotBootstrapChunk {
-    pub chunk_id: String,
-    pub digest: Hash,
-    pub size_bytes: u64,
-    /// HTTP URL or `ak:blob:` reference where the chunk bytes can be
-    /// fetched.
-    pub fetch_ref: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub authority_binding: SnapshotAuthorityBinding,
+    pub signature: PayloadProof,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub verification_hints: Option<SnapshotVerificationHintsValue>,
 }
 
 #[cfg(test)]

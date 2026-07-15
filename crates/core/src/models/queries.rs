@@ -115,114 +115,6 @@ pub struct ViewQueryOutcome<T = Value> {
     pub frontier: Option<QueryFrontier>,
 }
 
-// ============================================================================
-// Collection projection (T20) — board / list / table renderer responses.
-// Per `models/views.md` §6.3.
-//
-// Unlike `ViewQueryOutcome<T>`'s flat item list, a collection projection is
-// nested: `groups` (Lists / status columns) each contain `items` (Strands
-// with rank + locked-discussion metadata). This shape lets a kanban
-// renderer paint the board in one pass without correlating two response
-// vectors.
-// ============================================================================
-
-/// Top-level response for a `View{kind="collection"}` projection — the
-/// canonical shape for kanban / list / table / calendar renderers.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct CollectionProjectionOutcome {
-    /// Always `"collection"`. Pinned to `ViewKind::Collection` for
-    /// callers that match on it.
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = String)))]
-    pub kind: ViewKind,
-    /// Renderer hint — `board`, `row`, `table`, `calendar`, `gantt`, …
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = String)))]
-    pub renderer: ViewRenderer,
-    /// Source View id; clients echo this back so they can correlate
-    /// async responses with the active View.
-    pub view_id: ViewId,
-    /// Frontier (signed Event refs) that this projection was computed
-    /// against. Clients should retain this so they can replay against
-    /// the same baseline if they need to reproduce the exact rendering.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub frontier: Vec<String>,
-    /// Groups are typically Space(kind=list) cells in a kanban or
-    /// status-segmented columns in a table. Order is reducer-stable
-    /// (rank ascending, then HLC tie-break per spec §10).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub groups: Vec<CollectionProjectionGroup>,
-}
-
-/// One column / list / status bucket in a collection projection.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct CollectionProjectionGroup {
-    /// Stable id for this group. Typically a `ak:space:` (List form)
-    /// or a synthetic id for status / facet buckets.
-    pub group_id: String,
-    /// Human-readable group title.
-    pub title: String,
-    /// Reducer-stable rank string used for inter-group ordering.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rank: Option<String>,
-    /// Items in this group, already sorted (rank ascending then
-    /// HLC tie-break) and authz-trimmed by the projection executor.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub items: Vec<CollectionProjectionItem>,
-    /// Optional hidden item count when `hidden_count_policy != omit`.
-    /// When `Some(n)` the group conceptually contains `items.len() + n`
-    /// rows; the unseen rows are policy-trimmed and SHOULD NOT leak
-    /// titles / counts beyond what the policy permits.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hidden_count: Option<u32>,
-}
-
-/// A single item (typically a Strand card) inside a projection group.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct CollectionProjectionItem {
-    /// The materialised object — usually a Strand but MAY be a Morph or
-    /// Message depending on `View.collection.item_object_types`. The
-    /// shape is whatever `Strand` / `Morph` / `Message` deserialise to.
-    pub object: Value,
-    /// Position metadata: which `contains` Relation places this item
-    /// in this group, and at what rank.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub position: Option<CollectionProjectionPosition>,
-    /// Card-vs-discussion visibility split. When `Some`, indicates the
-    /// item has a Circle-scoped private discussion Strand linked by
-    /// `confidential_discussion_of`; when the discussion is locked
-    /// (visibility != "readable"), `lazy_link=true` MUST hold and no
-    /// discussion metadata beyond opaque hash MAY be exposed.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub discussion: Option<CollectionProjectionDiscussion>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct CollectionProjectionPosition {
-    /// `ak:relation:` id for the `contains` Relation that places this
-    /// item in this group. Stable across reducer recomputation.
-    pub relation_id: String,
-    /// Rank string (lexicographic). Same ordering rules as
-    /// `CollectionProjectionGroup::rank`.
-    pub rank: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct CollectionProjectionDiscussion {
-    /// Whether the discussion track is enabled on this Strand.
-    pub enabled: bool,
-    /// `readable` (caller MAY render thread / member preview) or
-    /// `locked` (caller MUST treat as opaque link only).
-    pub visibility: String,
-    /// True when the discussion is referenced via cross-Space
-    /// lazy_link — caller MUST NOT expand title / members / counts.
-    #[serde(default)]
-    pub lazy_link: bool,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct View {
@@ -243,19 +135,18 @@ pub struct View {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub visible_fields: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub layout: Option<Value>,
+    pub layout: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub collection: Option<CollectionViewConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub time_window: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeline: Option<Value>,
+    pub timeline: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub graph: Option<GraphViewConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub document: Option<Value>,
+    pub document: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub dashboard: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub dashboard: Option<DashboardConfig>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sort: Vec<SortSpec>,
     pub created_by: Did,
@@ -274,11 +165,100 @@ pub struct CollectionViewConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub item_facets: Vec<Facet>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub item_render: Option<String>,
+    pub item_render: Option<CollectionItemRender>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub item_order_by: Vec<SortSpec>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub display_fields: Vec<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub grouping: Option<Value>,
+    pub selection_policy: Option<CollectionSelectionPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count_policy: Option<CollectionCountPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grouping: Option<QueryCollectionGrouping>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page_size: Option<u32>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum CollectionItemRender {
+    Card,
+    Row,
+    Tile,
+    Compact,
+    Badge,
+    Message,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum CollectionSelectionPolicy {
+    None,
+    Single,
+    Multiple,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum CollectionCountPolicy {
+    Omit,
+    AuthorizedEstimate,
+    AuthorizedExact,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum CollectionGroupingMode {
+    None,
+    Field,
+    RelationContainer,
+    TimeBucket,
+    Matrix,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum CollectionWipLimitEnforcement {
+    Warn,
+    Reject,
+    RequireReview,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct QueryCollectionGrouping {
+    pub mode: CollectionGroupingMode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lanes: Vec<BTreeMap<String, Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub board_space_id: Option<SpaceId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub container_relation_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub item_relation_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_field: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_field: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rows_by: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub columns_by: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hidden_count_policy: Option<CollectionCountPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wip_limit_enforcement: Option<CollectionWipLimitEnforcement>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,

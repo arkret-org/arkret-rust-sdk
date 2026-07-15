@@ -416,14 +416,10 @@ impl SyncTracker {
         }
     }
 
-    /// Update the tracker with a sync response.
-    pub fn update(&mut self, response: &crate::SyncOutcome) -> Result<()> {
-        // Update the sync token
+    /// Update the tracker after accepting an account-subscribe batch.
+    pub fn update(&mut self, batch: &crate::AccountSubscribeBatch) -> Result<()> {
         self.sync_tokens
-            .insert("default".to_owned(), response.cursor.clone());
-
-        // Update positions from the response
-        // (Implementation would parse the response and update realms/devices)
+            .insert("default".to_owned(), batch.cursor.clone());
 
         Ok(())
     }

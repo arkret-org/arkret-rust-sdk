@@ -90,7 +90,7 @@ pub struct ReactionPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub annotation: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_payload: Option<Value>,
+    pub encrypted_payload: Option<EncryptedEnvelope>,
 }
 
 /// Counterpart for

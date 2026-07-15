@@ -221,7 +221,7 @@ pub struct AppletPackageE2eePolicy {
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub extensions: BTreeMap<String, Value>,
+    pub extensions: XExtensionMap,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/detached_proof`.
@@ -348,17 +348,9 @@ pub struct AppletError {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Applet {
     pub schema: String,
-    pub applet_id: Value,
+    pub applet_id: AppletIdentifier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_id: Option<Did>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub runtime_status: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub params: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub detail: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<AppletError>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

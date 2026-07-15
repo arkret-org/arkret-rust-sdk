@@ -27,7 +27,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::super::{AccountStatus, Did};
+use super::super::{AccountStatus, Did, GrantConstraint};
 
 /// One actor row in the admin actors projection.
 ///
@@ -177,8 +177,7 @@ impl CapabilityGrantState {
 /// One capability grant row in the admin capabilities projection.
 ///
 /// Flat summary of the authz read-index `Grant` (the projection of
-/// `ak.component.capability.grant.v1` cells). `constraints` is the raw
-/// constraint list for display; typed evaluation stays server-side.
+/// `ak.component.capability.grant.v1` cells).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -193,7 +192,7 @@ pub struct CapabilitySummary {
     #[serde(default)]
     pub actions: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub constraints: Vec<Value>,
+    pub constraints: Vec<GrantConstraint>,
     pub revoked: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub created_at: Option<DateTime<Utc>>,
@@ -220,12 +219,11 @@ pub struct AdminCapabilityList {
     pub filters: BTreeMap<String, String>,
 }
 
-/// One device row in the admin devices projection.
+/// One device row in the non-protocol product-admin projection.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct AdminDevice {
-    /// Device id.
     pub id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_id: Option<String>,
@@ -243,7 +241,7 @@ pub struct AdminDevice {
     pub revoked_at: Option<DateTime<Utc>>,
 }
 
-/// Cursor-paginated admin devices page.
+/// Cursor-paginated product-admin devices page.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]

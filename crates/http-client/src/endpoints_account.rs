@@ -7,23 +7,23 @@ use arkret_core::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountDeviceEnrollOutcome,
     AccountDeviceEnrollRequestBody, AccountDevicePairOutcome, AccountDevicePairRequestBody,
     AccountLogoutOutcome, AccountLogoutRequestBody, AccountRegisterOutcome,
-    AccountRegisterRequestBody, AccountSubscribeFolder, AccountSubscribeFrame,
-    AccountSubscribeFrameKind, AccountSubscribeSnapshotResult, AccountUpdateProfileOutcome,
-    AccountUpdateProfileRequestBody, AccountView, ContactList, ContactRequestOutcome,
-    ContactRequestRequestBody, ContactRespondOutcome, ContactRespondRequestBody, ContactTombstone,
-    ContactTombstoneRequestBody, DirectConversationResolveOutcome,
-    DirectConversationResolveRequestBody, Error, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
-    PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
-    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, Result, SessionGrantOutcome,
-    SessionGrantRefreshOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
-    SyncDescription, SyncOutcome, SyncRequestBody,
+    AccountRegisterRequestBody, AccountSubscribeBatch, AccountSubscribeFolder,
+    AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeSnapshotResult,
+    AccountUpdateProfileOutcome, AccountUpdateProfileRequestBody, AccountView, ContactList,
+    ContactRequestOutcome, ContactRequestRequestBody, ContactRespondOutcome,
+    ContactRespondRequestBody, ContactTombstone, ContactTombstoneRequestBody,
+    DirectConversationResolveOutcome, DirectConversationResolveRequestBody, Error,
+    PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST, PATH_SELF_CONTACTS_RESPOND,
+    PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, Result,
+    ServerDescription, SessionGrantOutcome, SessionGrantRefreshOutcome,
+    SessionGrantRefreshRequestBody, SessionGrantRequestBody, SyncRequestBody,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use reqwest::Response;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, RequestBuilder};
 
-use crate::client_internals::{read_body_limited, transport_error, trim_ascii};
+use crate::client_internals::{transport_error, trim_ascii};
 use crate::{Client, MAX_SUBSCRIBE_FRAME_BYTES};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -234,7 +234,10 @@ impl Client {
     /// `unauthorized`) surface as [`Error::AccountStreamInterrupt`] so
     /// the caller can reconcile per client-sync.md §2.2 — they are never
     /// silently consumed.
-    pub async fn account_subscribe_once(&self, request: &SyncRequestBody) -> Result<SyncOutcome> {
+    pub async fn account_subscribe_batch(
+        &self,
+        request: &SyncRequestBody,
+    ) -> Result<AccountSubscribeBatch> {
         use futures_util::StreamExt;
 
         fn decode_subscribe_line(line: &[u8]) -> Result<Option<AccountSubscribeFrame>> {
@@ -261,9 +264,9 @@ impl Client {
             Ok(stopped || (!catchup && is_delta))
         }
 
-        fn finish_folder(folder: AccountSubscribeFolder) -> Result<SyncOutcome> {
+        fn finish_folder(folder: AccountSubscribeFolder) -> Result<AccountSubscribeBatch> {
             match folder.finish()? {
-                AccountSubscribeSnapshotResult::Delta(response) => Ok(*response),
+                AccountSubscribeSnapshotResult::Batch(batch) => Ok(batch),
                 AccountSubscribeSnapshotResult::ReconnectAfter { .. } => Err(Error::Protocol(
                     "account subscribe terminated before a delta snapshot".to_owned(),
                 )),
@@ -271,9 +274,7 @@ impl Client {
         }
 
         let response = self
-            .send_response(
-                self.account_subscribe_request(request, "application/json, application/x-ndjson")?,
-            )
+            .send_response(self.account_subscribe_request(request, "application/x-ndjson")?)
             .await?;
         let content_type = response
             .headers()
@@ -282,15 +283,9 @@ impl Client {
             .unwrap_or_default()
             .to_ascii_lowercase();
         if !content_type.contains("application/x-ndjson") {
-            let bytes = read_body_limited(response, MAX_SUBSCRIBE_FRAME_BYTES).await?;
-            let outcome: SyncOutcome = serde_json::from_slice(trim_ascii(&bytes))
-                .map_err(|error| Error::Protocol(error.to_string()))?;
-            if outcome.cursor.trim().is_empty() {
-                return Err(Error::Protocol(
-                    "account subscribe JSON outcome requires a non-empty cursor".to_owned(),
-                ));
-            }
-            return Ok(outcome);
+            return Err(Error::Protocol(
+                "account subscribe requires application/x-ndjson".to_owned(),
+            ));
         }
 
         let catchup = request.catchup.unwrap_or(false);
@@ -346,7 +341,7 @@ impl Client {
         let reader = StreamReader::new(byte_stream);
         // Bound the per-line buffer so a hostile / misbehaving server that
         // never emits a newline can't drive unbounded memory growth (DoS).
-        // Matches `account_subscribe_once`'s 8 MiB cap; over-limit lines
+        // Matches `account_subscribe_batch`'s 8 MiB cap; over-limit lines
         // surface as `LinesCodecError::MaxLineLengthExceeded`, mapped to
         // `Error::Protocol` in the `Err` arm below.
         let lines = FramedRead::new(
@@ -375,7 +370,7 @@ impl Client {
         })
     }
 
-    pub async fn account_describe(&self) -> Result<SyncDescription> {
+    pub async fn account_describe(&self) -> Result<ServerDescription> {
         self.get("/_arkret/self/account/describe").await
     }
 

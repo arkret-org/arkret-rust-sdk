@@ -91,8 +91,8 @@ pub struct AgentProvisionRequestBody {
     /// Immutable global Agent ceiling selected at provision time. This is not
     /// a grant; later key scopes, Realm grants and sessions may only narrow it.
     pub requested_scope: AgentKeyScope,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub accountability: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accountability: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_ttl_ms: Option<u64>,
 }

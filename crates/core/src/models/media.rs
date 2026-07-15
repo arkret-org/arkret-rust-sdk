@@ -27,8 +27,7 @@ pub struct MediaIceConfigOutcome {
     pub call_id: String,
     pub actor_id: Did,
     pub device_id: DeviceId,
-    #[serde(default)]
-    pub ice_servers: Vec<Value>,
+    pub ice_servers: Vec<MediaIceServer>,
     pub ttl_seconds: u32,
     pub refresh_lead_seconds: u32,
     pub issued_at: DateTime<Utc>,
@@ -38,7 +37,129 @@ pub struct MediaIceConfigOutcome {
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub force_turn: bool,
-    pub signature: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub constraints: Option<MediaIceConstraints>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_retry_at: Option<DateTime<Utc>>,
+    pub signature: MediaIceConfigSignature,
+    #[serde(default, flatten)]
+    pub extensions: XExtensionMap,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "lowercase")]
+pub enum MediaIceCredentialType {
+    Password,
+    Oauth,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct MediaIceServer {
+    #[serde(
+        deserialize_with = "deserialize_ice_server_urls",
+        serialize_with = "serialize_ice_server_urls"
+    )]
+    pub urls: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credential: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credential_type: Option<MediaIceCredentialType>,
+    #[serde(default, flatten)]
+    pub extensions: XExtensionMap,
+}
+
+impl MediaIceServer {
+    pub fn is_turn(&self) -> bool {
+        self.urls
+            .iter()
+            .any(|url| url.starts_with("turn:") || url.starts_with("turns:"))
+    }
+
+    pub fn is_stun(&self) -> bool {
+        !self.is_turn()
+            && self
+                .urls
+                .iter()
+                .any(|url| url.starts_with("stun:") || url.starts_with("stuns:"))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct MediaIceConstraints {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_udp: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_tcp: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_ipv6: Option<bool>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum MediaIceSignatureAlgorithm {
+    #[serde(rename = "ES256")]
+    Es256,
+    #[serde(rename = "EdDSA")]
+    EdDsa,
+    #[serde(rename = "ML-DSA-65")]
+    MlDsa65,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum MediaIceSignatureInput {
+    #[serde(rename = "ak.media.ice_config.v1")]
+    IceConfigV1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct MediaIceConfigSignature {
+    pub kid: String,
+    pub alg: MediaIceSignatureAlgorithm,
+    pub signature_input: MediaIceSignatureInput,
+    pub payload_digest: Hash,
+    pub sig: String,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum MediaIceServerUrls {
+    One(String),
+    Many(Vec<String>),
+}
+
+fn deserialize_ice_server_urls<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match MediaIceServerUrls::deserialize(deserializer)? {
+        MediaIceServerUrls::One(url) => Ok(vec![url]),
+        MediaIceServerUrls::Many(urls) if !urls.is_empty() => Ok(urls),
+        MediaIceServerUrls::Many(_) => Err(serde::de::Error::custom(
+            "ice server urls must not be empty",
+        )),
+    }
+}
+
+fn serialize_ice_server_urls<S>(
+    urls: &[String],
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    urls.serialize(serializer)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -7,7 +7,7 @@ use arkret_core::{
     EventsSubmitOutcome, EventsSubscribeFrame, GrantList, MlsGovernanceProofBundle,
     MlsGovernanceProofRequest, ProjectionSpaceList, ProjectionStrandList,
     RealmOrganizationRelationshipList, Result, ServiceDescribe, StreamTraceValidator,
-    SyncBackfillOutcome, ViewProjectionRequestBody,
+    ViewProjectionRequestBody,
 };
 use arkret_state::SnapshotManifest;
 use reqwest::{Method, Response};
@@ -266,7 +266,7 @@ impl Client {
         after: Option<&str>,
         order: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<SyncBackfillOutcome> {
+    ) -> Result<EventsQueryOutcome> {
         let mut builder = self
             .request(Method::GET, "/_arkret/self/events")?
             .query(&[("realms", realm_id)]);

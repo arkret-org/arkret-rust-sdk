@@ -32,4 +32,20 @@ pub struct AppletInstallPlan {
 
 impl AppletInstallPlan {
     pub const SCHEMA: &'static str = "ak.schema.applet_install_plan.v1";
+
+    /// Compute the canonical plan digest with `plan_digest` omitted.
+    pub fn compute_plan_digest(&self) -> Result<Hash> {
+        let mut value = serde_json::to_value(self)?;
+        let object = value.as_object_mut().ok_or_else(|| {
+            Error::Protocol("applet install plan must serialize as an object".to_owned())
+        })?;
+        object.remove("plan_digest");
+        Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
+    }
+
+    /// Recompute and replace the canonical plan digest.
+    pub fn seal(&mut self) -> Result<()> {
+        self.plan_digest = self.compute_plan_digest()?;
+        Ok(())
+    }
 }

@@ -12,6 +12,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
+try:
+    import yaml
+except ModuleNotFoundError:  # Keep the audit runnable with the Python standard library.
+    yaml = None
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SPEC_ROOT = ROOT.parent / "arkret-spec" / "spec" / "v1" / "artifacts" / "schemas"
@@ -26,6 +31,50 @@ FIELD_RE = re.compile(
 POINTER_RE = re.compile(
     r"`([^`]*(?:spec/v1/artifacts/schemas/)?[A-Za-z0-9_.-]+\.schema\.json(?:#[^`]*)?)`"
 )
+
+
+def load_yaml_mapping(source: str) -> dict[str, Any]:
+    """Parse the mapping subset needed for OpenAPI JSON-pointer traversal."""
+    root: dict[str, Any] = {}
+    stack: list[tuple[int, dict[str, Any]]] = [(-1, root)]
+    block_scalar_indent: int | None = None
+    for raw_line in source.splitlines():
+        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+            continue
+        indent = len(raw_line) - len(raw_line.lstrip(" "))
+        if block_scalar_indent is not None:
+            if indent > block_scalar_indent:
+                continue
+            block_scalar_indent = None
+        line = raw_line.strip()
+        if line.startswith("-") or ":" not in line:
+            continue
+        key, raw_value = line.split(":", 1)
+        key = key.strip().strip("'\"")
+        raw_value = raw_value.strip()
+        while stack[-1][0] >= indent:
+            stack.pop()
+        parent = stack[-1][1]
+        if raw_value in {"|", ">", "|-", ">-", "|+", ">+"}:
+            parent[key] = ""
+            block_scalar_indent = indent
+        elif not raw_value:
+            child: dict[str, Any] = {}
+            parent[key] = child
+            stack.append((indent, child))
+        elif raw_value == "{}":
+            parent[key] = {}
+        elif raw_value == "[]":
+            parent[key] = []
+        elif raw_value.lower() in {"true", "false"}:
+            parent[key] = raw_value.lower() == "true"
+        elif raw_value.lower() in {"null", "~"}:
+            parent[key] = None
+        elif re.fullmatch(r"-?[0-9]+", raw_value):
+            parent[key] = int(raw_value)
+        else:
+            parent[key] = raw_value.strip("'\"")
+    return root
 
 
 @dataclass(frozen=True)
@@ -184,6 +233,9 @@ def normalize_pointer(raw: str) -> str:
     marker = "spec/v1/artifacts/schemas/"
     if marker in value:
         value = value.split(marker, 1)[1]
+    schema_marker = ".schema.json/"
+    if "#" not in value and schema_marker in value:
+        value = value.replace(schema_marker, ".schema.json#/", 1)
     return value
 
 
@@ -243,18 +295,33 @@ class SchemaResolver:
     def load(self, path: Path) -> Any:
         resolved = path.resolve()
         if resolved not in self.cache:
-            self.cache[resolved] = json.loads(resolved.read_text(encoding="utf-8"))
+            source = resolved.read_text(encoding="utf-8")
+            if resolved.suffix.lower() in {".yaml", ".yml"}:
+                self.cache[resolved] = (
+                    yaml.safe_load(source) if yaml is not None else load_yaml_mapping(source)
+                )
+            else:
+                self.cache[resolved] = json.loads(source)
         return self.cache[resolved]
 
     def pointer_node(self, pointer: str) -> tuple[Path, Any]:
+        pointer = normalize_pointer(pointer)
         file_part, separator, fragment = pointer.partition("#")
         path = (self.root / file_part).resolve()
         node = self.load(path)
         if separator and fragment:
             for token in fragment.lstrip("/").split("/"):
                 token = token.replace("~1", "/").replace("~0", "~")
-                node = node[token]
+                if isinstance(node, dict) and token not in node:
+                    path, node = self.resolve_ref(path, node)
+                node = self.pointer_child(node, token)
         return path, node
+
+    @staticmethod
+    def pointer_child(node: Any, token: str) -> Any:
+        if isinstance(node, list):
+            return node[int(token)]
+        return node[token]
 
     def resolve_ref(self, path: Path, node: Any, seen: set[tuple[Path, str]] | None = None) -> tuple[Path, Any]:
         seen = seen or set()
@@ -270,7 +337,7 @@ class SchemaResolver:
             if separator and fragment:
                 for token in fragment.lstrip("/").split("/"):
                     token = token.replace("~1", "/").replace("~0", "~")
-                    target = target[token]
+                    target = self.pointer_child(target, token)
             path, node = next_path, target
         return path, node
 
@@ -306,8 +373,13 @@ class SchemaResolver:
             resolved_path, resolved = self.resolve_ref(path, node)
             properties = resolved.get("properties") if isinstance(resolved, dict) else None
             has_field = isinstance(properties, dict) and field_name in properties
-            has_extra = field_name == "extra" and isinstance(resolved, dict) and (
-                "additionalProperties" in resolved or "unevaluatedProperties" in resolved
+            has_extra = (
+                field_name == "extra"
+                and isinstance(resolved, dict)
+                and (
+                    resolved.get("type") == "object"
+                    or isinstance(resolved.get("properties"), dict)
+                )
             )
             if has_field or has_extra:
                 candidates.append((path, fragment, resolved))
@@ -334,14 +406,27 @@ class SchemaResolver:
             if pointer:
                 path, owner = self.pointer_node(pointer)
                 path, owner = self.resolve_ref(path, owner)
+                normalized_pointer = pointer.rstrip("/")
+                if normalized_pointer.endswith(f"/properties/{field_name}"):
+                    return self.classify_node(path, owner), pointer
+                if normalized_pointer.endswith(
+                    ("/additionalProperties", "/unevaluatedProperties")
+                ):
+                    if owner is False:
+                        return "closed", pointer
+                    return "open_map", pointer
             properties = owner.get("properties") if isinstance(owner, dict) else None
             if not isinstance(properties, dict) or field_name not in properties:
                 if pointer and field_name == "extra" and isinstance(owner, dict):
                     additional = owner.get("additionalProperties")
                     if additional is False or owner.get("unevaluatedProperties") is False:
                         return "closed", pointer
+                    if additional is None:
+                        return "open_map", pointer
                     if additional is True or isinstance(additional, dict):
-                        return "open_map", f"{pointer}/additionalProperties"
+                        return "open_map", normalize_pointer(
+                            f"{pointer}/additionalProperties"
+                        )
                 inferred = self.inferred_owner(struct_name, field_name)
                 if inferred is None:
                     return "unknown", pointer
@@ -352,12 +437,18 @@ class SchemaResolver:
                     additional = owner.get("additionalProperties")
                     if additional is False or owner.get("unevaluatedProperties") is False:
                         return "closed", effective_pointer
+                    if additional is None:
+                        return "open_map", effective_pointer
                     if additional is True or isinstance(additional, dict):
-                        return "open_map", f"{effective_pointer}/additionalProperties"
+                        return "open_map", normalize_pointer(
+                            f"{effective_pointer}/additionalProperties"
+                        )
             field = properties[field_name]
             assert path is not None
             shape = self.classify_node(path, field)
-            return shape, f"{effective_pointer}/properties/{field_name}"
+            return shape, normalize_pointer(
+                f"{effective_pointer}/properties/{field_name}"
+            )
         except (FileNotFoundError, KeyError, json.JSONDecodeError):
             return "unknown", None
 
@@ -373,19 +464,31 @@ class SchemaResolver:
             return "closed"
         if "const" in node or "enum" in node:
             return "closed"
-        for union_key in ("oneOf", "anyOf", "allOf"):
+        for union_key in ("oneOf", "anyOf"):
             branches = node.get(union_key)
             if isinstance(branches, list):
                 shapes = {self.classify_node(path, branch) for branch in branches}
                 return "open_json" if shapes == {"open_json"} else "closed"
+        all_of = node.get("allOf")
+        if isinstance(all_of, list) and not any(
+            key in node for key in ("type", "properties", "items", "const", "enum")
+        ):
+            shapes = {self.classify_node(path, branch) for branch in all_of}
+            return "open_json" if shapes == {"open_json"} else "closed"
         node_type = node.get("type")
         if node_type == "object" or (
             isinstance(node_type, list) and "object" in node_type
         ):
             additional = node.get("additionalProperties")
             properties = node.get("properties")
-            if additional in (None, True, {}) and not properties and not node.get("required"):
+            if additional is True or additional == {}:
                 return "open_map"
+            if additional is None and not properties and not node.get("required"):
+                return "open_map"
+            if isinstance(additional, dict) and not properties and not node.get("required"):
+                value_shape = self.classify_node(path, additional)
+                if value_shape in {"open_json", "open_json_container", "open_map"}:
+                    return "open_json_container"
             return "closed"
         if node.get("type") == "array" and self.classify_node(path, node.get("items", {})) in {
             "open_json",
@@ -402,6 +505,9 @@ def load_allowlist(path: Path) -> dict[str, dict[str, Any]]:
         return {}
     payload = json.loads(path.read_text(encoding="utf-8"))
     entries = payload.get("entries", [])
+    for entry in entries:
+        if entry.get("spec_pointer"):
+            entry["spec_pointer"] = normalize_pointer(entry["spec_pointer"])
     return {entry["rust_field"]: entry for entry in entries}
 
 

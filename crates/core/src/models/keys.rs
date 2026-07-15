@@ -184,11 +184,9 @@ pub struct KeysClaimOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DeviceMessagesPutRequestBody {
+pub struct DeviceMessagesSendRequestBody {
     pub messages: BTreeMap<Did, BTreeMap<DeviceId, DeviceMessageTarget>>,
 }
-
-pub type DeviceMessagesSendRequestBody = DeviceMessagesPutRequestBody;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -201,15 +199,13 @@ pub struct DeviceMessageTarget {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DeviceMessagesPutOutcome {
+pub struct DeviceMessagesSendOutcome {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub delivered: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub unknown_devices: BTreeMap<String, Value>,
 }
-
-pub type DeviceMessagesSendOutcome = DeviceMessagesPutOutcome;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

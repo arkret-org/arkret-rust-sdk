@@ -357,16 +357,6 @@ pub struct CircleScopeRotateOutcome {
     pub mls_group_ref: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub accepted: Vec<EventId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub duplicate: Vec<EventId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejected: Vec<Value>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub quarantine: Vec<EventId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cleared_pending_removals: Vec<Did>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

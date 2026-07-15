@@ -8,7 +8,7 @@ impl Realm {
         morph_type: impl Into<String>,
         title: Option<String>,
         summary: Option<String>,
-        content: Option<Value>,
+        content: Option<ContentBlock>,
         fields: BTreeMap<String, Value>,
     ) -> Result<Operation> {
         let session_meta = self
@@ -19,7 +19,7 @@ impl Realm {
         let morph_id = MorphId::new(generate_id("ak:morph:"))?;
         let operation_id = OperationId::new(generate_id("ak:operation:"))?;
 
-        let mut object = MorphCreateObject::new(
+        let mut object = Morph::new(
             morph_id,
             self.realm_id()?,
             morph_type,
@@ -27,13 +27,16 @@ impl Realm {
         );
 
         if let Some(title) = title {
-            object = object.with_title(title);
+            object = object.with_metadata_title(title);
         }
         if let Some(summary) = summary {
-            object = object.with_summary(summary);
+            object
+                .metadata
+                .get_or_insert_with(ObjectMetadata::default)
+                .summary = Some(summary);
         }
         if let Some(content) = content {
-            object = object.with_content(content);
+            object.content = Some(content);
         }
         object.fields = fields;
 
@@ -51,7 +54,7 @@ impl Realm {
         morph_id: MorphId,
         title: Option<String>,
         summary: Option<String>,
-        content: Option<Value>,
+        content: Option<ContentBlock>,
         fields: Option<BTreeMap<String, Value>>,
     ) -> Result<Operation> {
         let _session_meta = self
@@ -69,7 +72,7 @@ impl Realm {
             patch.insert("metadata.summary", summary)?;
         }
         if let Some(content) = content {
-            patch.insert("content", content)?;
+            patch.insert("content", payload_value(&content, "morph content")?)?;
         }
         if let Some(fields) = fields {
             patch.insert("fields", payload_value(&fields, "morph fields")?)?;

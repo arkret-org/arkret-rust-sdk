@@ -15,15 +15,18 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+#[cfg(test)]
+use crate::AccountSubscribeFrame;
 use crate::sync::{
-    AccountData, DeviceListChanges, LimitedTimelineState, MembershipBucket, PresenceEvent,
-    RealmSubscription, RealmUpdate, SubscriptionConfig, SyncFilter, SyncRealm, SyncRequestBody,
-    SyncTimeline, SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus,
-    ToDeviceMessage, WaitForFrontier, project_typed_vec,
+    LimitedTimelineState, MembershipBucket, RealmSubscription, RealmUpdate, SubscriptionConfig,
+    SyncFilter, SyncRequestBody, SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck,
+    ToDeviceAckStatus, WaitForFrontier,
 };
 use crate::{
-    AccountStreamInterrupt, DeviceId, Error, Event, EventId, NotificationDelta,
-    NotificationDeltaAction, RealmId, Result, SyncOutcome, canonical,
+    AccountStreamInterrupt, AccountSubscribeBatch, AccountSubscribeDeviceListChanges,
+    AccountSubscribeFrameKind, AccountSubscribeRealmSummary, DeviceId, DeviceMessageEnvelope, Did,
+    Error, Event, EventId, NotificationDelta, NotificationDeltaAction, RealmId, Result, Timeline,
+    canonical,
 };
 
 mod loop_control;

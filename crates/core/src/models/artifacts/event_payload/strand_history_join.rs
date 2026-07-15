@@ -209,76 +209,6 @@ pub enum JoinReviewerQuorum {
     Members(JoinReviewerQuorumMembers),
 }
 
-/// A join-policy gate proof submitted with a `membership=join` Move on the
-/// auto-resolve path (`governance/join-policy.md` §5) or inside a
-/// `member.application` (§7.2). Exactly one of `claim_presentation` /
-/// `challenge_proof` is populated per gate, keyed by `gate_id`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GateProof {
-    pub gate_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub claim_presentation: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub challenge_proof: Option<Value>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-/// A single applicant answer to an `application_form` question
-/// (`governance/join-policy.md` §7.2).
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MemberApplicationAnswer {
-    pub question_id: String,
-    pub value: Value,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-/// Candidate `member.application` record (`governance/join-policy.md` §7.2).
-/// This is a profile-private workflow concept — NOT a standalone `ak.*`
-/// Event.kind. Carried on the active `ak.member.state{knock}` event under an
-/// `application` sub-object.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MemberApplicationPayload {
-    pub realm_id: RealmId,
-    pub applicant_did: Did,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub knock_ref: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_version_digest: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub answers: Vec<MemberApplicationAnswer>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub gate_proofs: Vec<GateProof>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub application_receipt_digest: Option<String>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-/// Candidate `member.application.review` record (`governance/join-policy.md`
-/// §7.3). Profile-private, carried on a `ak.member.state` event under an
-/// `application_review` sub-object.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MemberApplicationReviewPayload {
-    pub realm_id: RealmId,
-    pub application_ref: String,
-    /// `accept` / `reject` / `request_changes`.
-    pub decision: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_text: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reviewer_did: Option<Did>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub review_receipt_digest: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reviewer_capability_proof: Option<Value>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/key_backup_active_series_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -292,6 +222,16 @@ pub struct KeyBackupActiveSeriesAuthData {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyBackupActiveSeriesFrontierRef {
+    pub frontier_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seal_ref: Option<String>,
+    pub ssk_generation: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyBackupActiveSeries {
     pub schema: String,
     pub actor_id: Did,
@@ -299,11 +239,11 @@ pub struct KeyBackupActiveSeries {
     pub active_series_id: BackupSeriesId,
     pub series_pointer_version: u64,
     pub previous_series_ids: Vec<BackupSeriesId>,
-    pub frontier_ref: Value,
+    pub frontier_ref: KeyBackupActiveSeriesFrontierRef,
     pub issued_at: DateTime<Utc>,
     pub auth_data: KeyBackupActiveSeriesAuthData,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
+    pub extra: XExtensionMap,
 }
 
 pub type KeyBackupActiveSeriesPayload = KeyBackupActiveSeries;

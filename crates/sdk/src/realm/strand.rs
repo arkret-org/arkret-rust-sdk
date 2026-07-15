@@ -3,9 +3,9 @@ use super::*;
 /// Optional Strand create metadata accepted by [`Space::create_strand_operation_with_metadata`].
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct StrandCreateMetadata {
-    pub content: Option<Value>,
-    pub encrypted_content: Option<Value>,
-    pub encrypted_metadata: Option<Value>,
+    pub content: Option<ContentBlock>,
+    pub encrypted_content: Option<crate::EncryptedEnvelope>,
+    pub encrypted_metadata: Option<crate::EncryptedEnvelope>,
     pub tracks: BTreeMap<String, crate::StrandTrackConfig>,
     /// AKP-0007 — optional Circle that defines this Strand's encryption scope.
     pub scope_circle_id: Option<arkret_core::CircleId>,
@@ -14,9 +14,9 @@ pub struct StrandCreateMetadata {
 /// Optional Strand patch metadata accepted by [`Space::update_strand_operation_with_metadata`].
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct StrandUpdateMetadata {
-    pub content: Option<Value>,
-    pub encrypted_content: Option<Value>,
-    pub encrypted_metadata: Option<Value>,
+    pub content: Option<ContentBlock>,
+    pub encrypted_content: Option<crate::EncryptedEnvelope>,
+    pub encrypted_metadata: Option<crate::EncryptedEnvelope>,
     pub tracks: Option<BTreeMap<String, crate::StrandTrackConfig>>,
 }
 
@@ -138,15 +138,21 @@ impl Realm {
             )?;
         }
         if let Some(content) = metadata.content {
-            patch.insert("content", content)?;
+            patch.insert("content", payload_value(&content, "strand content")?)?;
             patch.insert("encrypted_content", Value::Null)?;
         }
         if let Some(encrypted_content) = metadata.encrypted_content {
-            patch.insert("encrypted_content", encrypted_content)?;
+            patch.insert(
+                "encrypted_content",
+                payload_value(&encrypted_content, "strand encrypted content")?,
+            )?;
             patch.insert("content", Value::Null)?;
         }
         if let Some(encrypted_metadata) = metadata.encrypted_metadata {
-            patch.insert("encrypted_metadata", encrypted_metadata)?;
+            patch.insert(
+                "encrypted_metadata",
+                payload_value(&encrypted_metadata, "strand encrypted metadata")?,
+            )?;
             patch.insert("metadata", Value::Null)?;
         }
         if let Some(tracks) = metadata.tracks {

@@ -1,6 +1,8 @@
 //! Wire-model invariants preserved while domain modules stay split.
 
 mod session_and_identity {
+    use std::collections::BTreeMap;
+
     use chrono::{Duration, Utc};
 
     use super::super::*;
@@ -10,6 +12,23 @@ mod session_and_identity {
 
     fn did() -> Did {
         Did::new("did:webvh:z6mkfixture:alice.example").unwrap()
+    }
+
+    fn ephemeral_payload() -> BTreeMap<String, Value> {
+        BTreeMap::from([("status".to_owned(), Value::String("online".to_owned()))])
+    }
+
+    fn ephemeral_proof(created_at: chrono::DateTime<Utc>) -> Proof {
+        Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:webvh:z6mkfixture:alice.example#device-key".to_owned(),
+            event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            created_at,
+            domain: None,
+            audience: None,
+            jws: "header..signature".to_owned(),
+        }
     }
 
     #[test]
@@ -22,8 +41,8 @@ mod session_and_identity {
             None,
             now,
             now + Duration::milliseconds(EPHEMERAL_ABSOLUTE_HARD_CEILING_MS as i64 + 1),
-            serde_json::json!({"status":"online"}),
-            None,
+            ephemeral_payload(),
+            ephemeral_proof(now),
         );
         assert!(bad.is_err());
     }
@@ -38,8 +57,8 @@ mod session_and_identity {
             None,
             now,
             now + Duration::milliseconds(EPHEMERAL_ABSOLUTE_HARD_CEILING_MS as i64),
-            serde_json::json!({"status":"online"}),
-            None,
+            ephemeral_payload(),
+            ephemeral_proof(now),
         );
         assert!(ok.is_ok());
     }
@@ -55,8 +74,8 @@ mod session_and_identity {
                 None,
                 now,
                 now + Duration::seconds(30),
-                serde_json::json!({}),
-                None,
+                BTreeMap::new(),
+                ephemeral_proof(now),
             )
             .is_err()
         );
@@ -247,46 +266,6 @@ mod protocol_wire {
             reason: None,
         };
         assert!(payload.validate_minimal().is_err());
-    }
-
-    #[test]
-    fn snapshot_bootstrap_signature_binds_header_and_chunk_root() {
-        let mut bootstrap = SnapshotBootstrap {
-            signature: SnapshotBootstrapSignature {
-                alg: "EdDSA".to_owned(),
-                verification_method: "did:webvh:z6mkfixture:snapshot.example#k1".to_owned(),
-                payload_digest: Hash::new(
-                    "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-                )
-                .unwrap(),
-                created_at: Utc::now(),
-                jws: "AAAA.BBBB.CCCC".to_owned(),
-            },
-            state_digest: Hash::new(
-                "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-            )
-            .unwrap(),
-            snapshot_frontier: vec![
-                EventId::new("ak:event:01904100-0000-7000-8000-000000000001").unwrap(),
-            ],
-            chunks: vec![SnapshotBootstrapChunk {
-                chunk_id: "0".to_owned(),
-                digest: Hash::new(
-                    "sha256:2222222222222222222222222222222222222222222222222222222222222222",
-                )
-                .unwrap(),
-                size_bytes: 1024,
-                fetch_ref: "ak:blob:sha256:3333333333333333333333333333333333333333333333333333333333333333"
-                    .to_owned(),
-            }],
-        };
-        bootstrap.signature.payload_digest = bootstrap.signing_payload_digest().unwrap();
-        bootstrap.validate_signature_binding().unwrap();
-
-        bootstrap.chunks[0].digest =
-            Hash::new("sha256:4444444444444444444444444444444444444444444444444444444444444444")
-                .unwrap();
-        assert!(bootstrap.validate_signature_binding().is_err());
     }
 
     #[test]

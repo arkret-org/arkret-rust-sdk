@@ -200,14 +200,14 @@ pub type SubjectRef = String;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/erasure-receipt.schema.json#/$defs/verification_stub`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStubSubject {
     pub kind: String,
     pub subject_ref: SubjectRef,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStubScope {
     pub storage_boundary: String,
@@ -221,7 +221,7 @@ pub struct VerificationStubScope {
     pub service_scope: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStubSealInclusion {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -232,7 +232,7 @@ pub struct VerificationStubSealInclusion {
     pub state_root: Option<Hash>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStub {
     pub stub_schema: String,
@@ -246,59 +246,6 @@ pub struct VerificationStub {
     pub seal_inclusion: Option<VerificationStubSealInclusion>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redaction_authorization_ref: Option<SubjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub legal_hold_ref: Option<LegalHoldRef>,
-    pub receipt_id: String,
-    pub completed_at: DateTime<Utc>,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/erasure-verification-stub.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ErasureVerificationStubSubject {
-    pub kind: String,
-    pub subject_ref: Hash,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ErasureVerificationStubScope {
-    pub storage_boundary: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_refs: Option<Vec<Hash>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retention_policy_id: Option<PolicyId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_scope: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ErasureVerificationStubSealInclusion {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_ref: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub frontier_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state_root: Option<Hash>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ErasureVerificationStub {
-    pub stub_schema: String,
-    pub subject: ErasureVerificationStubSubject,
-    pub scope: ErasureVerificationStubScope,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retained_digests: Option<Vec<Hash>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_inclusion: Option<ErasureVerificationStubSealInclusion>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub redaction_authorization_ref: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub legal_hold_ref: Option<LegalHoldRef>,
     pub receipt_id: String,
@@ -380,7 +327,7 @@ pub enum EventProofAudience {
     Multiple(Vec<String>),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum LegalHoldRef {
     PolicyId(PolicyId),

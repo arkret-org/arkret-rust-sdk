@@ -3,6 +3,29 @@ use serde_json::json;
 use super::*;
 use crate::{canonical, *};
 
+fn encrypted_envelope() -> EncryptedEnvelope {
+    serde_json::from_value(json!({
+        "scheme": "mls-rfc9420",
+        "version": "1.0",
+        "group_id": "AA",
+        "epoch": 1,
+        "content_type": "application/vnd.arkret.message+json",
+        "ciphertext": "AA",
+        "aad_visibility_event_id": "hidden",
+        "aad": {
+            "realm_id": "ak:realm:01904100-0000-7000-8000-000000000001",
+            "event_kind": "ak.message.create"
+        },
+        "key_ref": {
+            "algorithm": "MLS",
+            "group_state_ref": "ak:event:01904100-0000-7000-8000-000000000004"
+        },
+        "payload_digest": format!("sha256:{}", "a".repeat(64)),
+        "aad_digest": format!("sha256:{}", "b".repeat(64))
+    }))
+    .unwrap()
+}
+
 #[test]
 fn object_create_payload_wraps_object() {
     let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
@@ -24,7 +47,7 @@ fn space_create_object_uses_canonical_timestamp() {
     let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
     let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
     let space_id = SpaceId::new("ak:space:01904100-0000-7000-8000-000000000002").unwrap();
-    let space = SpaceCreateObject::new(space_id, realm_id, "board", "Board", actor);
+    let space = Space::new(space_id, realm_id, "board", "Board", actor);
     let payload = ObjectCreatePayload::new(space).to_value().unwrap();
     canonical::validate_timestamp_canonical(payload["object"]["created_at"].as_str().unwrap())
         .unwrap();
@@ -59,14 +82,16 @@ fn morph_create_payload_uses_metadata_and_encrypted_content_names() {
     let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
     let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
     let morph_id = MorphId::new("ak:morph:01904100-0000-7000-8000-000000000002").unwrap();
-    let morph = MorphCreateObject::new(morph_id, realm_id, "document", actor)
-        .with_title("Spec")
-        .with_summary("Draft")
-        .with_encrypted_content(json!({"version": 1}));
+    let mut morph = Morph::new(morph_id, realm_id, "document", actor).with_metadata_title("Spec");
+    morph
+        .metadata
+        .get_or_insert_with(MorphMetadata::default)
+        .summary = Some("Draft".to_owned());
+    morph.encrypted_content = Some(encrypted_envelope());
     let payload = ObjectCreatePayload::new(morph).to_value().unwrap();
     assert_eq!(payload["object"]["metadata"]["title"], "Spec");
     assert_eq!(payload["object"]["metadata"]["summary"], "Draft");
-    assert_eq!(payload["object"]["encrypted_content"]["version"], 1);
+    assert_eq!(payload["object"]["encrypted_content"]["version"], "1.0");
     canonical::validate_timestamp_canonical(payload["object"]["created_at"].as_str().unwrap())
         .unwrap();
     assert!(payload["object"].get("title").is_none());
@@ -77,13 +102,10 @@ fn morph_create_payload_uses_metadata_and_encrypted_content_names() {
 #[test]
 fn message_create_payload_requires_exactly_one_content_carrier() {
     let strand_id = StrandId::new("ak:strand:01904100-0000-7000-8000-000000000002").unwrap();
-    let payload = MessageCreatePayload::with_content(
-        strand_id,
-        "discussion",
-        ContentBlock::text("hello").to_value().unwrap(),
-    )
-    .to_value()
-    .unwrap();
+    let payload =
+        MessageCreatePayload::with_content(strand_id, "discussion", ContentBlock::text("hello"))
+            .to_value()
+            .unwrap();
     assert_eq!(payload["content"]["kind"], "ak.content.text");
     assert!(payload.get("encrypted_content").is_none());
 }
@@ -99,8 +121,7 @@ fn message_create_payload_reads_plain_body_and_first_media_block() {
     let content = ContentBlock::new(CONTENT_KIND_COMPOSITE, "caption text")
         .with_part(ContentBlock::text("caption text"))
         .with_part(media);
-    let mut payload =
-        MessageCreatePayload::with_content(strand_id, "discussion", content.to_value().unwrap());
+    let mut payload = MessageCreatePayload::with_content(strand_id, "discussion", content);
     payload.blob_refs.push(blob_ref.clone());
 
     assert_eq!(payload.plain_body().unwrap(), "caption text");
@@ -187,15 +208,12 @@ fn message_create_payload_carries_disappearing_expiry() {
         DisappearingMessageExpiry::new(60_000, DisappearingMessageExpiryTrigger::OnLastRead)
             .unwrap()
             .with_grace_ms(5_000);
-    let payload = MessageCreatePayload::with_content(
-        strand_id,
-        "discussion",
-        ContentBlock::text("hello").to_value().unwrap(),
-    )
-    .with_message_id("ak:message:01904100-0000-7000-8000-000000000003")
-    .with_expiry(expiry)
-    .to_value()
-    .unwrap();
+    let payload =
+        MessageCreatePayload::with_content(strand_id, "discussion", ContentBlock::text("hello"))
+            .with_message_id("ak:message:01904100-0000-7000-8000-000000000003")
+            .with_expiry(expiry)
+            .to_value()
+            .unwrap();
 
     assert_eq!(payload["expiry"]["ttl_ms"], 60_000);
     assert_eq!(payload["expiry"]["trigger"], "on_last_read");
@@ -207,14 +225,19 @@ fn message_create_payload_carries_disappearing_expiry() {
 }
 
 #[test]
-fn morph_create_object_rejects_both_content_carriers() {
+fn morph_create_payload_rejects_both_content_carriers() {
     let actor = Did::new("did:webvh:z6mkfixture:alice.example".to_owned()).unwrap();
     let realm_id = RealmId::new("ak:realm:01904100-0000-7000-8000-000000000001").unwrap();
     let morph_id = MorphId::new("ak:morph:01904100-0000-7000-8000-000000000003").unwrap();
-    let mut morph = MorphCreateObject::new(morph_id, realm_id, "document", actor);
-    morph.content = Some(json!({"kind": "ak.content.text", "body": "hello"}));
-    morph.encrypted_content = Some(json!({"schema": ENCRYPTED_ENVELOPE_SCHEMA}));
+    let mut morph = Morph::new(morph_id, realm_id, "document", actor);
+    morph.content = Some(ContentBlock::text("hello"));
+    morph.encrypted_content = Some(encrypted_envelope());
 
-    let err = morph.to_create_payload_value().unwrap_err();
-    assert!(err.to_string().contains("content and encrypted_content"));
+    let payload = ObjectCreatePayload::new(morph).to_value().unwrap();
+    assert!(
+        schema::event_payload_validator_catalog()
+            .unwrap()
+            .validate_payload("ak.morph.create", &payload)
+            .is_err()
+    );
 }

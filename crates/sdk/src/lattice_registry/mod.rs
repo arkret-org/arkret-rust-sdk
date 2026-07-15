@@ -41,7 +41,7 @@ mod tests {
 
     use super::*;
     use crate::lattice::LatticeKind as SdkLatticeKind;
-    use crate::state_res::{BottomMode, CellRegistry};
+    use crate::state::{BottomMode, CellRegistry};
 
     #[test]
     fn default_registry_covers_at_least_all_spec_normative_cell_families() {

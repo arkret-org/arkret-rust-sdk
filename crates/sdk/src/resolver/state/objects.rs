@@ -30,8 +30,6 @@ impl RealmState {
             created_at: event.created_at,
             updated_by: None,
             updated_at: None,
-            labels: Vec::new(),
-            extra: object.extra,
         };
         morph.validate_morph_type(&[])?;
         self.morphs.insert(morph_id_str, morph);
@@ -52,10 +50,18 @@ impl RealmState {
         let summary = patch_metadata_string(&patch, "summary");
         let content = patch
             .as_ref()
-            .and_then(|patch| patch.get("content").cloned());
+            .and_then(|patch| patch.get("content").cloned())
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|error| Error::Protocol(format!("invalid Morph content: {error}")))?;
         let encrypted_content = patch
             .as_ref()
-            .and_then(|patch| patch.get("encrypted_content").cloned());
+            .and_then(|patch| patch.get("encrypted_content").cloned())
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|error| {
+                Error::Protocol(format!("invalid Morph encrypted_content: {error}"))
+            })?;
         let fields = patch_fields(&patch);
         let facets = patch.as_ref().and_then(|patch| {
             patch
@@ -149,7 +155,8 @@ impl RealmState {
     }
 
     pub(super) fn create_space(&mut self, event: &Event) -> Result<()> {
-        let object = event.payload.get("object").unwrap_or(&event.payload);
+        let payload = Value::Object(event.payload.clone().into_iter().collect());
+        let object = payload.get("object").unwrap_or(&payload);
         let space_id = self
             .extract_optional_field::<String>(object, "id")
             .ok_or_else(|| Error::Protocol("container object requires id".to_owned()))?;
@@ -196,7 +203,6 @@ impl RealmState {
                 .unwrap_or(event.created_at),
             updated_by: self.extract_optional_field(object, "updated_by"),
             updated_at: self.extract_optional_field(object, "updated_at"),
-            extra: BTreeMap::new(),
         };
         space.validate()?;
         self.spaces.insert(space_id, space);
@@ -389,11 +395,11 @@ impl RealmState {
 
     /// Create a new relation.
     pub(super) fn create_relation(&mut self, event: &Event) -> Result<()> {
-        let object = event
-            .payload
+        let payload = Value::Object(event.payload.clone().into_iter().collect());
+        let object = payload
             .get("relation")
-            .or_else(|| event.payload.get("object"))
-            .unwrap_or(&event.payload);
+            .or_else(|| payload.get("object"))
+            .unwrap_or(&payload);
         let relation_id_str = self
             .extract_optional_field::<String>(object, "relation_id")
             .or_else(|| self.extract_optional_field::<String>(object, "id"))
@@ -480,7 +486,6 @@ impl RealmState {
             created_at: event.created_at,
             updated_by: None,
             updated_at: None,
-            extra: object.extra,
         };
         subject.validate_title()?;
         self.subjects.insert(strand_id_str, subject);
@@ -508,10 +513,18 @@ impl RealmState {
         });
         let patched_body = patch
             .as_ref()
-            .and_then(|patch| patch.get("content").cloned());
+            .and_then(|patch| patch.get("content").cloned())
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|error| Error::Protocol(format!("invalid Strand content: {error}")))?;
         let patched_encrypted_content = patch
             .as_ref()
-            .and_then(|patch| patch.get("encrypted_content").cloned());
+            .and_then(|patch| patch.get("encrypted_content").cloned())
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|error| {
+                Error::Protocol(format!("invalid Strand encrypted_content: {error}"))
+            })?;
 
         let subject = self
             .subjects

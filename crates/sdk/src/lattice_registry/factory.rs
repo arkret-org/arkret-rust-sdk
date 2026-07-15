@@ -1,7 +1,7 @@
 use super::impls::*;
 use super::registry::*;
 use crate::lattice::LatticeKind as SdkLatticeKind;
-use crate::state_res::{BottomMode, MemoryCellRegistry};
+use crate::state::{BottomMode, MemoryCellRegistry};
 
 /// Build a [`LatticeRegistry`] pre-populated with every spec-normative
 /// cell family covered by this module. Downstream Move/Seal receive

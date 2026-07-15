@@ -4,6 +4,7 @@ use super::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Space {
     pub id: SpaceId,
     pub schema: String,
@@ -54,9 +55,6 @@ pub struct Space {
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
 }
 
 /// AKP-0007 (spec b7d35be) — Space `child_scope_policy` discriminator.
@@ -122,7 +120,6 @@ impl Space {
             created_at: Utc::now(),
             updated_by: None,
             updated_at: None,
-            extra: BTreeMap::new(),
         }
     }
 

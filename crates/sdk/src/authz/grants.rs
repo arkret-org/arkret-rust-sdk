@@ -73,7 +73,10 @@ impl GrantProjection {
         let resources = grant
             .resources
             .iter()
-            .map(|value| ResourceSelector::from_spec_value(value).map_err(Into::into))
+            .map(|value| {
+                let value = serde_json::to_value(value)?;
+                ResourceSelector::from_spec_value(&value).map_err(Into::into)
+            })
             .collect::<Result<Vec<_>>>()
             .map_err(|err| Error::Protocol(format!("schema_violation: {err}")))?;
         let mut constraints = Vec::new();
@@ -1200,6 +1203,10 @@ impl CapabilityGrantBuilder {
         self.grant.resources = resources
             .iter()
             .map(ResourceSelector::to_spec_value)
+            .map(|value| {
+                serde_json::from_value(value)
+                    .expect("policy resource selectors serialize to the canonical wire schema")
+            })
             .collect();
         self
     }

@@ -2,10 +2,16 @@
 
 use arkret_canonical::base64url::base64url_decode;
 use arkret_canonical::canonical::canonical_json_bytes;
-use arkret_core::MediaIceConfigOutcome;
+use arkret_core::{
+    MediaIceConfigOutcome, MediaIceConstraints, MediaIceServer, MediaIceSignatureAlgorithm,
+    XExtensionMap,
+};
+#[cfg(test)]
+use arkret_core::{MediaIceConfigSignature, MediaIceSignatureInput};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::Signature;
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use serde_json::Value;
 
 /// SDP description type used by the SDK's WebRTC transport helpers.
@@ -150,59 +156,6 @@ impl WebRtcSignalMessage {
     }
 }
 
-/// ICE server kind.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IceServerKind {
-    Stun,
-    Turn,
-}
-
-/// STUN/TURN server config.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct IceServer {
-    pub kind: IceServerKind,
-    pub urls: Vec<String>,
-    pub username: Option<String>,
-    pub credential: Option<String>,
-}
-
-impl IceServer {
-    /// Reject TURN configurations whose `username` embeds a raw DID. The
-    /// TURN operator MUST NOT learn cross-Realm stable identities; clients
-    /// SHOULD derive the username from a short-lived ephemeral identifier
-    /// such as `<unix>:<random_b64>` instead.
-    pub fn validate_credential_privacy(&self) -> Result<()> {
-        const FORBIDDEN_PREFIXES: &[&str] = &[
-            "did:web:",
-            "did:plc:",
-            "did:key:",
-            "did:webvh:",
-            "did:webs:",
-            "did:keri:",
-        ];
-        for value in [&self.username, &self.credential].into_iter().flatten() {
-            for prefix in FORBIDDEN_PREFIXES {
-                if value.contains(prefix) {
-                    return Err(Error::Protocol(format!(
-                        "ICE server credential leaks DID prefix '{prefix}'; use a Realm-scoped pairwise pseudonym (B-14)"
-                    )));
-                }
-            }
-            // Reject colon-separated pairs whose tail is a DID-shaped substring.
-            if let Some((_left, tail)) = value.split_once(':')
-                && FORBIDDEN_PREFIXES.iter().any(|p| tail.contains(p))
-            {
-                return Err(Error::Protocol(
-                    "ICE server username embeds a DID after a colon separator; use an ephemeral token (B-14)"
-                        .to_owned(),
-                ));
-            }
-        }
-        Ok(())
-    }
-}
-
 /// Strongly-typed ICE configuration parsed from a verified
 /// [`MediaIceConfigOutcome`] (`webrtc-signaling.md` §4 / §4.1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -211,7 +164,7 @@ pub struct IceConfig {
     pub call_id: String,
     pub actor_id: Did,
     /// STUN / TURN servers offered for this call leg.
-    pub ice_servers: Vec<IceServer>,
+    pub ice_servers: Vec<MediaIceServer>,
     /// Credential lifetime in seconds.
     pub ttl_seconds: u32,
     /// Refresh lead — clients SHOULD re-fetch once remaining ≤ this (always
@@ -225,85 +178,37 @@ pub struct IceConfig {
 
 impl IceConfig {
     /// TURN servers only.
-    pub fn turn_servers(&self) -> impl Iterator<Item = &IceServer> {
-        self.ice_servers
-            .iter()
-            .filter(|server| server.kind == IceServerKind::Turn)
+    pub fn turn_servers(&self) -> impl Iterator<Item = &MediaIceServer> {
+        self.ice_servers.iter().filter(|server| server.is_turn())
     }
 
     /// STUN servers only.
-    pub fn stun_servers(&self) -> impl Iterator<Item = &IceServer> {
-        self.ice_servers
-            .iter()
-            .filter(|server| server.kind == IceServerKind::Stun)
+    pub fn stun_servers(&self) -> impl Iterator<Item = &MediaIceServer> {
+        self.ice_servers.iter().filter(|server| server.is_stun())
     }
 }
 
-/// Parse one wire `ice_servers[]` entry (an open `Value`, since the server
-/// emits a transport-specific descriptor) into a strongly-typed [`IceServer`].
-fn ice_server_from_value(value: &Value) -> Result<IceServer> {
-    let object = value.as_object().ok_or_else(|| {
-        Error::Protocol("ice_config_denied: ice server entry is not an object".to_owned())
-    })?;
-    let urls = match object.get("urls") {
-        Some(Value::Array(items)) => items
+fn validate_ice_server_credential_privacy(server: &MediaIceServer) -> Result<()> {
+    const FORBIDDEN_PREFIXES: &[&str] = &[
+        "did:web:",
+        "did:plc:",
+        "did:key:",
+        "did:webvh:",
+        "did:webs:",
+        "did:keri:",
+    ];
+    for value in [&server.username, &server.credential].into_iter().flatten() {
+        if FORBIDDEN_PREFIXES
             .iter()
-            .filter_map(|item| item.as_str().map(str::to_owned))
-            .collect::<Vec<_>>(),
-        Some(Value::String(single)) => vec![single.clone()],
-        _ => Vec::new(),
-    };
-    if urls.is_empty() {
-        return Err(Error::Protocol(
-            "ice_config_denied: ice server entry has no urls".to_owned(),
-        ));
+            .any(|prefix| value.contains(prefix))
+        {
+            return Err(Error::Protocol(
+                "ICE server credential leaks a DID; use a Realm-scoped pairwise pseudonym"
+                    .to_owned(),
+            ));
+        }
     }
-    let kind = if urls
-        .iter()
-        .any(|url| url.starts_with("turn:") || url.starts_with("turns:"))
-    {
-        IceServerKind::Turn
-    } else {
-        IceServerKind::Stun
-    };
-    Ok(IceServer {
-        kind,
-        urls,
-        username: object
-            .get("username")
-            .and_then(Value::as_str)
-            .map(str::to_owned),
-        credential: object
-            .get("credential")
-            .and_then(Value::as_str)
-            .map(str::to_owned),
-    })
-}
-
-/// Extract the signing `kid` from the top-level ICE config `signature` object.
-fn ice_signature_kid(signature: &Value) -> Result<String> {
-    signature
-        .get("kid")
-        .and_then(Value::as_str)
-        .filter(|kid| !kid.is_empty())
-        .map(str::to_owned)
-        .ok_or_else(|| Error::Protocol("ice_config_denied: signature missing kid".to_owned()))
-}
-
-fn ice_signature_alg(signature: &Value) -> Result<&str> {
-    signature
-        .get("alg")
-        .and_then(Value::as_str)
-        .filter(|alg| !alg.is_empty())
-        .ok_or_else(|| Error::Protocol("ice_config_denied: signature missing alg".to_owned()))
-}
-
-fn ice_signature_sig(signature: &Value) -> Result<&str> {
-    signature
-        .get("sig")
-        .and_then(Value::as_str)
-        .filter(|sig| !sig.is_empty())
-        .ok_or_else(|| Error::Protocol("ice_config_denied: signature missing sig".to_owned()))
+    Ok(())
 }
 
 #[derive(Serialize)]
@@ -312,7 +217,7 @@ struct IceConfigSigningFields<'a> {
     call_id: &'a str,
     actor_id: &'a Did,
     device_id: &'a crate::DeviceId,
-    ice_servers: &'a [Value],
+    ice_servers: &'a [MediaIceServer],
     ttl_seconds: u32,
     refresh_lead_seconds: u32,
     issued_at: DateTime<Utc>,
@@ -322,6 +227,12 @@ struct IceConfigSigningFields<'a> {
     expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     force_turn: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    constraints: &'a Option<MediaIceConstraints>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    next_retry_at: &'a Option<DateTime<Utc>>,
+    #[serde(flatten)]
+    extensions: &'a XExtensionMap,
 }
 
 fn ice_config_signing_input(
@@ -345,6 +256,9 @@ fn ice_config_signing_input(
         } else {
             None
         },
+        constraints: &outcome.constraints,
+        next_retry_at: &outcome.next_retry_at,
+        extensions: &outcome.extensions,
     };
     let canonical = canonical_json_bytes(&fields).map_err(|err| {
         Error::Protocol(format!("ice_config_denied: canonicalization failed: {err}"))
@@ -361,13 +275,12 @@ fn verify_ice_config_signature(
     anchors: &MediaServiceAnchors,
     kid: &str,
 ) -> Result<()> {
-    let alg = ice_signature_alg(&outcome.signature)?;
-    if alg != "EdDSA" {
-        return Err(Error::Protocol(format!(
-            "ice_config_denied: unsupported signature alg {alg}"
-        )));
+    if outcome.signature.alg != MediaIceSignatureAlgorithm::EdDsa {
+        return Err(Error::Protocol(
+            "ice_config_denied: unsupported signature algorithm".to_owned(),
+        ));
     }
-    let sig_b64 = ice_signature_sig(&outcome.signature)?;
+    let sig_b64 = &outcome.signature.sig;
     let key = anchors.verifying_key(kid).ok_or_else(|| {
         Error::Protocol(format!(
             "ice_config_denied: no verifying key registered for ICE config kid {kid}"
@@ -416,7 +329,12 @@ pub fn verify_ice_config_outcome(
     outcome: &MediaIceConfigOutcome,
     anchors: &MediaServiceAnchors,
 ) -> Result<IceConfig> {
-    let kid = ice_signature_kid(&outcome.signature)?;
+    let kid = outcome.signature.kid.clone();
+    if kid.is_empty() {
+        return Err(Error::Protocol(
+            "ice_config_denied: signature missing kid".to_owned(),
+        ));
+    }
     let issuer_did = kid.split('#').next().unwrap_or(&kid).to_owned();
     if anchors.is_empty() || !anchors.contains(&issuer_did) {
         return Err(Error::Protocol(format!(
@@ -452,18 +370,20 @@ pub fn verify_ice_config_outcome(
         ));
     }
 
-    let mut ice_servers = Vec::with_capacity(outcome.ice_servers.len());
-    for entry in &outcome.ice_servers {
-        let server = ice_server_from_value(entry)?;
-        server.validate_credential_privacy()?;
-        ice_servers.push(server);
+    for server in &outcome.ice_servers {
+        if server.urls.is_empty() {
+            return Err(Error::Protocol(
+                "ice_config_denied: ice server entry has no urls".to_owned(),
+            ));
+        }
+        validate_ice_server_credential_privacy(server)?;
     }
 
     Ok(IceConfig {
         realm_id: outcome.realm_id.clone(),
         call_id: outcome.call_id.clone(),
         actor_id: outcome.actor_id.clone(),
-        ice_servers,
+        ice_servers: outcome.ice_servers.clone(),
         ttl_seconds: outcome.ttl_seconds,
         refresh_lead_seconds: outcome.refresh_lead_seconds,
         force_turn: outcome.force_turn,
@@ -781,18 +701,11 @@ mod tests {
         kid: &str,
         key: &SigningKey,
     ) -> MediaIceConfigOutcome {
-        outcome.signature = serde_json::json!({
-            "alg": "EdDSA",
-            "kid": kid,
-            "sig": ""
-        });
+        outcome.signature.kid = kid.to_owned();
+        outcome.signature.sig.clear();
         let signing_input = ice_config_signing_input(&outcome, true).unwrap();
         let signature = key.sign(&signing_input);
-        outcome.signature = serde_json::json!({
-            "alg": "EdDSA",
-            "kid": kid,
-            "sig": base64url_encode(signature.to_bytes())
-        });
+        outcome.signature.sig = base64url_encode(signature.to_bytes());
         outcome
     }
 
@@ -808,12 +721,20 @@ mod tests {
             device_id: crate::DeviceId::new("ak:device:01904100-0000-7000-8000-000000000005")
                 .unwrap(),
             ice_servers: vec![
-                serde_json::json!({ "urls": ["stun:stun.example.com"] }),
-                serde_json::json!({
-                    "urls": ["turn:turn.example.com"],
-                    "username": "1718000000:rand",
-                    "credential": "secret"
-                }),
+                MediaIceServer {
+                    urls: vec!["stun:stun.example.com".to_owned()],
+                    username: None,
+                    credential: None,
+                    credential_type: None,
+                    extensions: XExtensionMap::default(),
+                },
+                MediaIceServer {
+                    urls: vec!["turn:turn.example.com".to_owned()],
+                    username: Some("1718000000:rand".to_owned()),
+                    credential: Some("secret".to_owned()),
+                    credential_type: None,
+                    extensions: XExtensionMap::default(),
+                },
             ],
             ttl_seconds: 300,
             refresh_lead_seconds: 60,
@@ -822,11 +743,16 @@ mod tests {
             bucket_seconds: 300,
             expires_at: None,
             force_turn: false,
-            signature: serde_json::json!({
-                "alg": "EdDSA",
-                "kid": kid,
-                "sig": "AAAA"
-            }),
+            constraints: None,
+            next_retry_at: None,
+            signature: MediaIceConfigSignature {
+                kid: kid.to_owned(),
+                alg: MediaIceSignatureAlgorithm::EdDsa,
+                signature_input: MediaIceSignatureInput::IceConfigV1,
+                payload_digest: crate::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                sig: "AAAA".to_owned(),
+            },
+            extensions: XExtensionMap::default(),
         }
     }
 
@@ -863,11 +789,7 @@ mod tests {
         let key = issuer_key();
         let anchors = anchors_with_issuer_key(&key);
         let mut leaky = ice_outcome(MEDIA_KID);
-        leaky.ice_servers[1] = serde_json::json!({
-            "urls": ["turn:turn.example.com"],
-            "username": "did:webvh:z6mkfixture:alice.example",
-            "credential": "secret"
-        });
+        leaky.ice_servers[1].username = Some("did:webvh:z6mkfixture:alice.example".to_owned());
         let leaky = sign_ice_outcome(leaky, MEDIA_KID, &key);
         assert!(verify_ice_config_outcome(&leaky, &anchors).is_err());
     }
@@ -878,10 +800,7 @@ mod tests {
         let anchors = anchors_with_issuer_key(&key);
 
         let mut missing_sig = ice_outcome(MEDIA_KID);
-        missing_sig.signature = serde_json::json!({
-            "alg": "EdDSA",
-            "kid": MEDIA_KID
-        });
+        missing_sig.signature.sig.clear();
         assert!(verify_ice_config_outcome(&missing_sig, &anchors).is_err());
 
         let mut tampered = signed_ice_outcome(MEDIA_KID, &key);

@@ -7,7 +7,8 @@ use serde_json::Value;
 use super::namespace_match::namespace_patterns_overlap;
 use crate::identity::DidDocument;
 use crate::{
-    AppletPackageE2eePolicy, DelegationPolicy, Did, Error, Proof, Result, Widget, canonical,
+    AppletPackageE2eePolicy, DelegationPolicy, Did, Error, Proof, Result, Widget, XExtensionMap,
+    canonical,
 };
 
 /// Which namespace bucket a claim lives in. The wire model
@@ -171,7 +172,7 @@ pub struct WebhookAuth {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature_header: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: crate::models::XExtensionMap,
+    pub extra: XExtensionMap,
 }
 
 #[cfg(feature = "salvo")]
@@ -206,7 +207,7 @@ impl WebhookAuth {
             key_ref: key_ref.into(),
             accepted_algs,
             signature_header: None,
-            extra: crate::models::XExtensionMap::default(),
+            extra: XExtensionMap::default(),
         }
     }
 }
@@ -255,7 +256,7 @@ pub struct AppletEndpointEntry {
     /// (`patternProperties ^x_[a-z][a-z0-9_]{0,63}$`).
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: crate::models::XExtensionMap,
+    pub extra: XExtensionMap,
 }
 
 /// Supported Applet API endpoints and their auth requirements
@@ -271,7 +272,7 @@ pub struct AppletEndpointPolicy {
     pub endpoints: Vec<AppletEndpointEntry>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: crate::models::XExtensionMap,
+    pub extra: XExtensionMap,
 }
 
 /// Service-side resource hints derived into the registration manifest
@@ -287,7 +288,7 @@ pub struct AppletLimits {
     pub rate_limit_per_minute: Option<u64>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: crate::models::XExtensionMap,
+    pub extra: XExtensionMap,
 }
 
 /// Ghost Actor support and accountability template
@@ -302,7 +303,7 @@ pub struct AppletGhostPolicy {
     pub accountability_template: Option<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: crate::models::XExtensionMap,
+    pub extra: XExtensionMap,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -902,8 +903,6 @@ pub fn normalize_applet_signing_key_ref(service_id: &Did, key_ref: &str) -> Stri
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct WireAppletRegistration {
-    /// Always `"ak.applet.registration"`. Reducer rejects other values.
-    pub kind: String,
     pub applet_id: String,
     pub service_id: Did,
     pub controller_id: Did,
@@ -937,7 +936,7 @@ pub struct WireAppletRegistration {
     /// [`AppletPackage::to_registration`]; never a substitute for the
     /// top-level required fields.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub manifest: Option<Value>,
+    pub manifest: Option<BTreeMap<String, Value>>,
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<Proof>,
@@ -960,7 +959,6 @@ impl WireAppletRegistration {
         registration_epoch: crate::Hash,
     ) -> Self {
         Self {
-            kind: Self::KIND.to_owned(),
             applet_id: applet_id.into(),
             service_id,
             controller_id,
@@ -1138,7 +1136,7 @@ impl AppletPackage {
             e2ee_policy: AppletPackageE2eePolicy {
                 enabled: false,
                 mls_join_requested: Some(false),
-                extensions: BTreeMap::new(),
+                extensions: XExtensionMap::default(),
             },
             widget: None,
             registration_epoch_evidence: None,
@@ -1321,7 +1319,7 @@ impl AppletPackage {
 
     /// Manifest snapshot folded into the derived registration's
     /// `manifest` slot (spec §1a derivation row `manifest`).
-    pub fn manifest_snapshot(&self) -> Value {
+    pub fn manifest_snapshot(&self) -> BTreeMap<String, Value> {
         let mut manifest = serde_json::Map::new();
         manifest.insert(
             "claimed_profiles".to_owned(),
@@ -1360,7 +1358,7 @@ impl AppletPackage {
         {
             manifest.insert("registration_epoch_evidence".to_owned(), value);
         }
-        Value::Object(manifest)
+        manifest.into_iter().collect()
     }
 
     /// Derive the canonical `ak.applet.registration` payload per the

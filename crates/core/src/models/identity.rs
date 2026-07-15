@@ -1,4 +1,5 @@
 use super::*;
+use crate::DidKeyLogEntry;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -23,29 +24,19 @@ pub struct IdentityResolveRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IdentityResolveOutcome {
-    pub did_document: DidDocumentRef,
+    pub did_document: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_log_head: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub receipts: Vec<IdentityReceipt>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub method_evidence: Value,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DidDocumentRef {
-    pub did: Did,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub document: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IdentityDocumentView {
-    pub did_document: DidDocumentRef,
+    pub did_document: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub head_event_digest: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -58,7 +49,8 @@ pub struct IdentityDocumentView {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IdentityLogListOutcome {
     #[serde(default)]
-    pub events: Vec<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub events: Vec<DidKeyLogEntry>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     #[serde(default)]
@@ -74,9 +66,9 @@ pub struct DidOperationSubmitRequestBody {
     pub seq: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_event_digest: Option<Hash>,
-    pub operation: Value,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub policy_context: Value,
+    pub operation: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_context: Option<BTreeMap<String, Value>>,
     #[serde(default)]
     pub proofs: Vec<Proof>,
 }

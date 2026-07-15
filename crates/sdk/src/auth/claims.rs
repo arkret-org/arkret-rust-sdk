@@ -37,7 +37,7 @@ pub struct PresentedClaim {
     pub subject: Did,
     pub issuer: Did,
     pub claim_kind: String,
-    pub value: Value,
+    pub value: BTreeMap<String, Value>,
     pub issued_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refreshed_at: Option<DateTime<Utc>>,
@@ -50,12 +50,19 @@ pub struct PresentedClaim {
 }
 
 impl PresentedClaim {
+    fn object(value: Value) -> BTreeMap<String, Value> {
+        let Value::Object(value) = value else {
+            unreachable!("claim constructors always build JSON objects")
+        };
+        value.into_iter().collect()
+    }
+
     pub fn new(
         claim_id: impl Into<String>,
         subject: Did,
         issuer: Did,
         claim_kind: impl Into<String>,
-        value: Value,
+        value: BTreeMap<String, Value>,
     ) -> Self {
         Self {
             claim_id: claim_id.into(),
@@ -82,7 +89,7 @@ impl PresentedClaim {
             subject,
             issuer,
             AuthClaimKind::VerifiedHandle.as_str(),
-            serde_json::json!({ "handle": handle.into() }),
+            Self::object(serde_json::json!({ "handle": handle.into() })),
         )
     }
 
@@ -97,7 +104,7 @@ impl PresentedClaim {
             subject,
             issuer,
             AuthClaimKind::EmailDomain.as_str(),
-            serde_json::json!({ "domain": domain.into() }),
+            Self::object(serde_json::json!({ "domain": domain.into() })),
         )
     }
 
@@ -113,7 +120,7 @@ impl PresentedClaim {
             subject,
             issuer,
             AuthClaimKind::OrganizationMembership.as_str(),
-            serde_json::json!({ "organization": organization, "roles": roles }),
+            Self::object(serde_json::json!({ "organization": organization, "roles": roles })),
         )
     }
 
@@ -129,7 +136,9 @@ impl PresentedClaim {
             subject,
             issuer,
             AuthClaimKind::DeviceTrust.as_str(),
-            serde_json::json!({ "device_id": device_id, "trust_state": trust_state.into() }),
+            Self::object(
+                serde_json::json!({ "device_id": device_id, "trust_state": trust_state.into() }),
+            ),
         )
     }
 
@@ -145,7 +154,7 @@ impl PresentedClaim {
             subject,
             issuer,
             AuthClaimKind::GuardianController.as_str(),
-            serde_json::json!({ "guardian": guardian, "controller": controller }),
+            Self::object(serde_json::json!({ "guardian": guardian, "controller": controller })),
         )
     }
 
@@ -160,7 +169,7 @@ impl PresentedClaim {
             subject,
             issuer,
             AuthClaimKind::MfaLevel.as_str(),
-            serde_json::json!({ "level": level.into() }),
+            Self::object(serde_json::json!({ "level": level.into() })),
         )
     }
 
@@ -175,7 +184,7 @@ impl PresentedClaim {
             subject,
             issuer,
             AuthClaimKind::RiskLevel.as_str(),
-            serde_json::json!({ "level": level.into() }),
+            Self::object(serde_json::json!({ "level": level.into() })),
         )
     }
 }

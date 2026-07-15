@@ -376,8 +376,6 @@ pub struct PushNotifyRejection {
     pub reason_code: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
 }
 
 const FORBIDDEN_PLAINTEXT_PARENT_LEAF: &[(&str, &str)] = &[

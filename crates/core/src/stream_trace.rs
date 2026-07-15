@@ -327,7 +327,7 @@ mod tests {
                     cursor: value["cursor"]
                         .as_str()
                         .map(|cursor| crate::identifiers::Cursor::new(cursor.to_owned()).unwrap()),
-                    payload: Value::Null,
+                    payload: None,
                     reconnect_after_ms: value["reconnect_after_ms"].as_u64(),
                 })
             }

@@ -110,7 +110,7 @@ pub struct ResolvedRealmHistoryRecoveryKey {
 
 /// Resolve and verify the offline RRK HPKE public key for `recipient` from its
 /// principal's `did_document` (the raw W3C DID Document JSON, e.g. the
-/// `DidDocumentRef.document` value or a freshly resolved document).
+/// raw DID Document value or a freshly resolved document).
 ///
 /// Verification (`identity-did.md` §8.3, `encryption-and-audit.md` §2.10.8),
 /// all fail-closed:

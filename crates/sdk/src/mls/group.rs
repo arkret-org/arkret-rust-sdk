@@ -21,11 +21,12 @@ use zeroize::Zeroizing;
 
 use super::identity::{ARKRET_MLS_CIPHERSUITE, ArkretMlsIdentity, decode_key_package};
 use crate::{
-    CryptoStore, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, Hash,
-    MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsCommitEnvelope, MlsGovernanceBindingExtension,
-    MlsGovernanceBindingPayload, MlsGovernanceBindingValidationContext, MlsGroupStateRecord,
-    MlsKeyPackageRecord, MlsProposalEnvelope, MlsWelcomeEnvelope, Operation, OperationId, RealmId,
-    Result, ToDeviceMessage, canonical, verify_mls_governance_binding_extension,
+    CryptoStore, DeviceId, DeviceMessageTarget, Did, EncryptedPayload, EncryptedPayloadScheme,
+    Error, Hash, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsCommitEnvelope,
+    MlsGovernanceBindingExtension, MlsGovernanceBindingPayload,
+    MlsGovernanceBindingValidationContext, MlsGroupStateRecord, MlsKeyPackageRecord,
+    MlsProposalEnvelope, MlsWelcomeEnvelope, Operation, OperationId, ProtocolKind, RealmId, Result,
+    canonical, verify_mls_governance_binding_extension,
 };
 
 const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
@@ -156,16 +157,14 @@ impl MlsAddMemberResult {
         Ok(operation)
     }
 
-    pub fn welcome_to_device_message(&self) -> Result<ToDeviceMessage> {
-        Ok(ToDeviceMessage {
-            message_type: "ak.mls.welcome.v1".to_owned(),
-            sender_principal_id: None,
-            sender_device_id: None,
-            recipient_principal_id: None,
-            recipient_device_id: None,
-            sent_at: None,
-            expires_at: None,
-            content: json!({
+    pub fn welcome_device_message_target(
+        &self,
+        expires_at: chrono::DateTime<Utc>,
+    ) -> Result<DeviceMessageTarget> {
+        Ok(DeviceMessageTarget {
+            kind: ProtocolKind::new("ak.mls.welcome.v1")
+                .map_err(|error| Error::Protocol(error.to_owned()))?,
+            content: serde_json::from_value(json!({
                 "group_id": self.welcome.group_id,
                 "epoch": self.welcome.epoch,
                 "recipient_principal_id": self.welcome.recipient_principal_id,
@@ -173,9 +172,8 @@ impl MlsAddMemberResult {
                 "welcome": self.welcome.welcome,
                 "welcome_hash": self.welcome.welcome_hash,
                 "ratchet_tree": self.welcome.ratchet_tree,
-            }),
-            device_proof: None,
-            unsigned: None,
+            }))?,
+            expires_at,
         })
     }
 }
@@ -1085,7 +1083,7 @@ impl ArkretMlsGroup {
     pub fn encrypt_payload_with_aad(
         &mut self,
         content_type: impl Into<String>,
-        aad: Option<serde_json::Value>,
+        aad: Option<arkret_core::EncryptedEnvelopeAad>,
         plaintext: &[u8],
     ) -> Result<EncryptedPayload> {
         let content_type = content_type.into();
@@ -1132,7 +1130,7 @@ impl ArkretMlsGroup {
         content_type: impl Into<String>,
         realm_id: &str,
         aead_aad_bytes: &[u8],
-        payload_aad: Option<serde_json::Value>,
+        payload_aad: Option<arkret_core::EncryptedEnvelopeAad>,
         plaintext: &[u8],
     ) -> Result<EncryptedPayload> {
         let nonce_and_ct =

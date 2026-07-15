@@ -6,15 +6,14 @@
 //! - Device message handling
 //! - Filter and subscription support
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    Cursor, DeviceId, Did, Error, Event, EventId, Hlc, NotificationDelta, RealmId, Result,
-    canonical,
+    DeviceId, Did, Error, Event, EventId, Hlc, NotificationDelta, RealmId, Result, canonical,
 };
 
 /// Query parameters for `ak.self.account.stream.subscribe`.
@@ -38,119 +37,6 @@ pub struct SyncRequestBody {
     pub wait_for: Option<WaitForFrontier>,
 }
 
-/// Sync result for a single Realm payload entry.
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncRealm {
-    /// Timeline events
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeline: Option<SyncTimeline>,
-    /// State events
-    #[serde(default)]
-    pub state: Vec<Value>,
-    /// Summary information
-    #[serde(default)]
-    pub summary: Value,
-    /// Ephemeral events
-    #[serde(default)]
-    pub ephemeral: Vec<Value>,
-    /// Unread counts
-    #[serde(default)]
-    pub unread: UnreadCounts,
-    /// R3.1 — typed member roster projection (per
-    /// `account-subscribe-frame.schema.json#/$defs/member_roster_entry`).
-    /// Entries are derived from effective `ak.member.state` plus the
-    /// effective set of `ak.member.identity.update` references; raw
-    /// handle / display fields MUST NOT be carried here.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub members: Vec<crate::models::MemberRosterEntry>,
-    /// R3.1 — SYNC-2: true when `members` is truncated and MUST NOT be
-    /// treated as the complete Realm roster.
-    #[serde(default, skip_serializing_if = "is_false_default")]
-    pub members_limited: bool,
-    /// R3.1 — SYNC-2: optional pagination cursor for continuing member
-    /// roster retrieval. Mirrors
-    /// `account-subscribe-frame.schema.json#/properties/members_next_cursor`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub members_next_cursor: Option<Cursor>,
-}
-
-fn is_false_default(v: &bool) -> bool {
-    !*v
-}
-
-/// Timeline events with pagination.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncTimeline {
-    /// Events in the timeline
-    pub events: Vec<Value>,
-    /// Limited flag (if true, history was limited)
-    pub limited: bool,
-    /// Older-direction cursor for backfill
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prev_cursor: Option<String>,
-}
-
-/// Unread notification counts.
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct UnreadCounts {
-    /// Notification count
-    #[serde(default)]
-    pub notification_count: u64,
-    /// Highlight count
-    #[serde(default)]
-    pub highlight_count: u64,
-}
-
-/// Device list changes.
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DeviceListChanges {
-    /// Changed device lists
-    #[serde(default)]
-    pub changed: Vec<String>,
-    /// Left users
-    #[serde(default)]
-    pub left: Vec<String>,
-}
-
-/// To-device message.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ToDeviceMessage {
-    /// Message type
-    #[serde(rename = "type")]
-    pub message_type: String,
-    /// Sender principal if the server forwards a full `device-message` envelope.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sender_principal_id: Option<Did>,
-    /// Sender device if the server forwards a full `device-message` envelope.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sender_device_id: Option<DeviceId>,
-    /// Recipient principal if the server forwards a full `device-message` envelope.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipient_principal_id: Option<Did>,
-    /// Recipient device if the server forwards a full `device-message` envelope.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipient_device_id: Option<DeviceId>,
-    /// Message send time if known.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sent_at: Option<DateTime<Utc>>,
-    /// Message expiry if known.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
-    /// Message content
-    pub content: Value,
-    /// Device proof if carried by the upstream envelope.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub device_proof: Option<Value>,
-    /// Unsigned service metadata if carried by the upstream envelope.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub unsigned: Option<Value>,
-}
-
 /// Presence status — the closed v1 wire set from
 /// `discovery/profiles-presence.md` §3.2. Receivers MUST treat any
 /// other wire value as a schema violation and drop the update
@@ -164,42 +50,6 @@ pub enum PresenceStatus {
     Idle,
     Dnd,
     Offline,
-}
-
-/// Presence event.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PresenceEvent {
-    /// User ID
-    pub user_id: String,
-    /// Presence status
-    pub presence: PresenceStatus,
-    /// Last active wire value: either an RFC 3339 UTC timestamp or a
-    /// bucketed `<start>/<duration>` interval (profiles-presence.md
-    /// §3.3). Validate with `presence::validate_last_active_at`
-    /// before display — malformed values MUST be dropped, not
-    /// repaired.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_active_at: Option<String>,
-    /// Transient status message override carried by the broadcast
-    /// (falls back to the durable profile `status_message` when
-    /// absent).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub status_message: Option<String>,
-    /// Currently active device
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<String>,
-}
-
-/// Account data.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AccountData {
-    /// Data type
-    #[serde(rename = "type")]
-    pub data_type: String,
-    /// Data content
-    pub content: Value,
 }
 
 /// Sync filter for selective synchronization.
@@ -241,7 +91,7 @@ pub struct SubscriptionConfig {
     pub batch_size: Option<u32>,
     /// Timeline filter
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeline_filter: Option<Value>,
+    pub timeline_filter: Option<TimelineFilter>,
 }
 
 /// Realm subscription.
@@ -319,7 +169,7 @@ pub enum BackfillDirection {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BackfillOutcome {
     /// Events in reverse chronological order
-    pub events: Vec<Value>,
+    pub events: Vec<Event>,
     /// Count of total events available
     pub total_count: u64,
     /// Next cursor for continued backfill
@@ -486,7 +336,10 @@ fn normalized_subscription_config(subscriptions: &SubscriptionConfig) -> Result<
         object.insert("batch_size".to_owned(), serde_json::json!(batch_size));
     }
     if let Some(timeline_filter) = &subscriptions.timeline_filter {
-        object.insert("timeline_filter".to_owned(), timeline_filter.clone());
+        object.insert(
+            "timeline_filter".to_owned(),
+            serde_json::to_value(timeline_filter)?,
+        );
     }
     Ok(Value::Object(object))
 }
@@ -645,18 +498,6 @@ pub enum MembershipBucket {
     Left,
 }
 
-/// A sync update assigned to one membership bucket.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct BucketedRealmUpdate {
-    /// Bucket name.
-    pub bucket: MembershipBucket,
-    /// Updated Realm ID.
-    pub realm_id: RealmId,
-    /// Raw update payload.
-    pub update: SyncRealm,
-}
-
 /// Reason a timeline gap exists locally.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -707,9 +548,9 @@ pub struct LimitedTimelineState {
 
 impl LimitedTimelineState {
     /// Build limited timeline state from a sync timeline section.
-    pub fn from_timeline(realm_id: RealmId, timeline: &SyncTimeline) -> Self {
-        let prev_event_id = timeline.events.first().and_then(event_id_from_value);
-        let next_event_id = timeline.events.last().and_then(event_id_from_value);
+    pub fn from_timeline(realm_id: RealmId, timeline: &crate::models::Timeline) -> Self {
+        let prev_event_id = timeline.events.first().map(|event| event.event_id.clone());
+        let next_event_id = timeline.events.last().map(|event| event.event_id.clone());
         let gap = timeline.limited.then(|| SyncGap {
             realm_id: realm_id.clone(),
             prev_event_id,
@@ -798,155 +639,6 @@ pub struct ToDeviceAck {
     pub acknowledged_at: DateTime<Utc>,
 }
 
-fn event_id_from_value(value: &Value) -> Option<EventId> {
-    serde_json::from_value::<Event>(value.clone())
-        .ok()
-        .map(|event| event.event_id)
-}
-
-/// Project a `Vec<Value>` from the wire `SyncOutcome` into typed
-/// entries (e.g. [`ToDeviceMessage`], [`AccountData`]); items that
-/// fail to parse are dropped silently. Callers that need strict
-/// validation should walk the wire `Vec<Value>` directly.
-pub fn project_typed_vec<T: serde::de::DeserializeOwned>(items: Vec<Value>) -> Vec<T> {
-    items
-        .into_iter()
-        .filter_map(|value| serde_json::from_value(value).ok())
-        .collect()
-}
-
-/// Sync client for managing incremental synchronization.
-pub struct SyncClient {
-    /// Current sync token
-    current_token: Option<String>,
-    /// Device ID
-    _device_id: String,
-    /// Active subscriptions
-    subscriptions: HashMap<RealmId, RealmSubscription>,
-}
-
-impl SyncClient {
-    /// Create a new sync client.
-    pub fn new(device_id: String) -> Self {
-        Self {
-            current_token: None,
-            _device_id: device_id,
-            subscriptions: HashMap::new(),
-        }
-    }
-
-    /// Get the current sync token.
-    pub fn current_token(&self) -> Option<&str> {
-        self.current_token.as_deref()
-    }
-
-    /// Update the sync token from a response.
-    pub fn update_token(&mut self, cursor: String) {
-        self.current_token = Some(cursor);
-    }
-
-    /// Create a sync request with current token.
-    ///
-    /// Presence intent is never part of the subscribe request — the
-    /// account subscribe surface is read-only (client-sync.md).
-    /// Broadcast presence through `POST /_arkret/self/ephemeral`
-    /// instead.
-    pub fn create_request(&self) -> SyncRequestBody {
-        SyncRequestBody {
-            after: self.current_token.clone(),
-            catchup: Some(true),
-            filter: None,
-            subscriptions: None,
-            wait_for: None,
-        }
-    }
-
-    /// Create a sync request with custom options.
-    pub fn create_request_with_options(
-        &self,
-        catchup: Option<bool>,
-        filter: Option<SyncFilter>,
-        subscriptions: Option<SubscriptionConfig>,
-    ) -> SyncRequestBody {
-        SyncRequestBody {
-            after: self.current_token.clone(),
-            catchup,
-            filter,
-            subscriptions,
-            wait_for: None,
-        }
-    }
-
-    /// Process a sync response and extract updates. The response is
-    /// the wire-shape [`crate::models::SyncOutcome`] — per-event
-    /// classes ([`SyncRealm`], [`ToDeviceMessage`], [`AccountData`],
-    /// …) are projected out of the loose `Value` shape on demand so
-    /// the wire layer doesn't have to commit to the typed shape.
-    pub fn process_response(&mut self, response: crate::models::SyncOutcome) -> SyncUpdates {
-        // Update token
-        self.current_token = Some(response.cursor);
-
-        // Extract updates
-        let mut realm_updates = Vec::new();
-        let mut malformed_realms = Vec::new();
-        for (raw_realm_id, raw_sync_realm) in response.realms {
-            let Ok(realm_id) = RealmId::new(raw_realm_id.clone()) else {
-                malformed_realms.push(raw_realm_id);
-                continue;
-            };
-            let sync_realm: SyncRealm = serde_json::from_value(raw_sync_realm).unwrap_or_default();
-            realm_updates.push(RealmUpdate {
-                realm_id,
-                timeline: sync_realm.timeline,
-                state: sync_realm.state,
-                summary: sync_realm.summary,
-            });
-        }
-
-        SyncUpdates {
-            realm_updates,
-            malformed_realms,
-            to_device: project_typed_vec(response.to_device),
-            to_device_ack_token: response.to_device_ack_token,
-            to_device_limited: response.to_device_limited,
-            to_device_next_cursor: response.to_device_next_cursor,
-            to_device_lost: response.to_device_lost.unwrap_or(false),
-            device_lists: serde_json::from_value(response.device_lists).unwrap_or_default(),
-            presence: project_typed_vec(response.presence),
-            account_data: project_typed_vec(response.account_data),
-            notifications: response.notifications.items,
-            partial: response.partial,
-        }
-    }
-
-    /// Subscribe to a Realm.
-    pub fn subscribe(&mut self, subscription: RealmSubscription) {
-        self.subscriptions
-            .insert(subscription.realm_id.clone(), subscription);
-    }
-
-    /// Unsubscribe from a Realm.
-    pub fn unsubscribe(&mut self, realm_id: &RealmId) {
-        self.subscriptions.remove(realm_id);
-    }
-
-    /// Get active subscriptions.
-    pub fn subscriptions(&self) -> Vec<&RealmSubscription> {
-        self.subscriptions.values().collect()
-    }
-
-    /// Reset sync state (e.g., after reconnection).
-    pub fn reset(&mut self) {
-        self.current_token = None;
-    }
-}
-
-impl Default for SyncClient {
-    fn default() -> Self {
-        Self::new("default".to_owned())
-    }
-}
-
 /// Updates extracted from a sync response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SyncUpdates {
@@ -958,7 +650,7 @@ pub struct SyncUpdates {
     /// non-empty value indicates a misbehaving server.
     pub malformed_realms: Vec<String>,
     /// To-device messages
-    pub to_device: Vec<ToDeviceMessage>,
+    pub to_device: Vec<crate::models::DeviceMessageEnvelope>,
     /// Opaque acknowledgement token for the delivered to-device batch.
     ///
     /// Issued by account subscribe when `to_device.messages[]` is non-empty
@@ -973,11 +665,11 @@ pub struct SyncUpdates {
     /// Whether the server reports an unacknowledged to-device queue gap.
     pub to_device_lost: bool,
     /// Device list changes
-    pub device_lists: DeviceListChanges,
+    pub device_lists: crate::models::AccountSubscribeDeviceListChanges,
     /// Presence events
-    pub presence: Vec<PresenceEvent>,
+    pub presence: Vec<Event>,
     /// Account data
-    pub account_data: Vec<AccountData>,
+    pub account_data: Vec<Event>,
     /// Notification deltas
     pub notifications: Vec<NotificationDelta>,
     /// Partial response flag
@@ -988,9 +680,7 @@ pub struct SyncUpdates {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RealmUpdate {
     pub realm_id: RealmId,
-    pub timeline: Option<SyncTimeline>,
-    pub state: Vec<Value>,
-    pub summary: Value,
+    pub entry: crate::models::RealmSyncEntry,
 }
 
 #[cfg(test)]
@@ -1016,84 +706,6 @@ mod tests {
     }
 
     #[test]
-    fn sync_response_deserializes_correctly() {
-        let json = r#"{
-            "cursor": "token456",
-            "realms": {
-                "ak:realm:01904100-0000-7000-8000-9b64700c6ee8": {
-                    "timeline": {
-                        "events": [],
-                        "limited": false
-                    },
-                    "state": [],
-                    "summary": {},
-                    "ephemeral": [],
-                    "unread": {
-                        "notification_count": 0,
-                        "highlight_count": 0
-                    }
-                }
-            },
-            "to_device": [],
-            "device_lists": {
-                "changed": [],
-                "left": []
-            },
-            "presence": [],
-            "account_data": [],
-            "notifications": {"items": []},
-            "partial": false
-        }"#;
-
-        let response: crate::models::SyncOutcome = serde_json::from_str(json).unwrap();
-        assert_eq!(response.cursor, "token456");
-        assert_eq!(response.realms.len(), 1);
-    }
-
-    #[test]
-    fn sync_client_manages_token() {
-        let mut client = SyncClient::new("device1".to_owned());
-        assert!(client.current_token().is_none());
-
-        client.update_token("token123".to_owned());
-        assert_eq!(client.current_token(), Some("token123"));
-
-        let request = client.create_request();
-        assert_eq!(request.after, Some("token123".to_owned()));
-    }
-
-    #[test]
-    fn sync_client_processes_response() {
-        let mut client = SyncClient::new("device1".to_owned());
-
-        let response = crate::models::SyncOutcome {
-            cursor: "token456".to_owned(),
-            realms: BTreeMap::new(),
-            left_realms: Vec::new(),
-            to_device: Vec::new(),
-            to_device_ack_token: Some("ack-token-1".to_owned()),
-            to_device_limited: true,
-            to_device_next_cursor: Some("device-cursor-2".to_owned()),
-            to_device_lost: None,
-            device_lists: Value::Null,
-            account_data: Vec::new(),
-            presence: Vec::new(),
-            notifications: Default::default(),
-            partial: false,
-        };
-
-        let updates = client.process_response(response);
-        assert_eq!(client.current_token(), Some("token456"));
-        assert_eq!(updates.to_device_ack_token.as_deref(), Some("ack-token-1"));
-        assert!(updates.to_device_limited);
-        assert_eq!(
-            updates.to_device_next_cursor.as_deref(),
-            Some("device-cursor-2")
-        );
-        assert!(!updates.to_device_lost);
-    }
-
-    #[test]
     fn backfill_request_serializes_correctly() {
         let request = BackfillRequestBody {
             realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
@@ -1109,7 +721,13 @@ mod tests {
 
     #[test]
     fn sync_semantics_distinguish_initial_and_incremental() {
-        let mut request = SyncClient::new("device1".to_owned()).create_request();
+        let mut request = SyncRequestBody {
+            after: None,
+            catchup: Some(true),
+            filter: None,
+            subscriptions: None,
+            wait_for: None,
+        };
         let initial = SyncSemantics::from_request(&request);
 
         assert_eq!(initial.mode, SyncMode::Initial);
@@ -1323,10 +941,12 @@ mod tests {
             serde_json::json!({"body":"hello"}),
         )
         .unwrap();
-        let timeline = SyncTimeline {
-            events: vec![serde_json::to_value(event).unwrap()],
+        let timeline = crate::models::Timeline {
+            events: vec![event],
             limited: true,
             prev_cursor: Some("backfill-token".to_owned()),
+            preview_only: None,
+            extra: BTreeMap::new(),
         };
 
         let state = LimitedTimelineState::from_timeline(realm_id, &timeline);

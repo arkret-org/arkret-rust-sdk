@@ -18,13 +18,13 @@ use crate::models::{
     BlobRef, ContentBlock, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, Hash,
     InviteCreatePayload, InviteDeliveryTarget, InviteId, MemberDeliveryBinding, MembershipPayload,
     MembershipPayloadState, MessageCreatePayload, MessageId, MessageRedactPayload,
-    MessageRevisePayload, Morph, MorphCreateObject, MorphId, MorphUpdatePayload, NullsOrder,
-    OP_INVITE_CREATE, OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE,
-    OP_MORPH_ARCHIVE, OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_TOMBSTONE,
-    ObjectCreatePayload, ObjectLifecyclePayload, ObjectState, Operation, OperationId,
-    OperationType, Patch, Relation, RelationCreatePayload, RelationId, RelationKind, RelationState,
-    SortDirection, SortSpec, Space, SpaceCreateObject, SpaceObjectTombstonePayload,
-    SpaceParentPayload, SpacePatchPayload, SpaceStateTransitionPayload, Strand, StrandCreateObject,
+    MessageRevisePayload, Morph, MorphId, MorphUpdatePayload, NullsOrder, OP_INVITE_CREATE,
+    OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE,
+    OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_TOMBSTONE,
+    ObjectCreatePayload, ObjectLifecyclePayload, ObjectMetadata, ObjectState, Operation,
+    OperationId, OperationType, Patch, Relation, RelationCreatePayload, RelationId, RelationKind,
+    RelationState, SortDirection, SortSpec, Space, SpaceObjectTombstonePayload, SpaceParentPayload,
+    SpacePatchPayload, SpaceStateTransitionPayload, Strand, StrandCreateObject,
     StrandMoveExpectedPosition, StrandMovePayload, StrandPatchPayload,
     StrandReorderExpectedPosition, StrandReorderPayload,
 };
@@ -100,7 +100,7 @@ pub struct MorphVersion {
     /// Morph title at this version.
     pub title: Option<String>,
     /// Morph content at this version.
-    pub content: Option<Value>,
+    pub content: Option<ContentBlock>,
     /// Morph fields at this version.
     pub fields: BTreeMap<String, Value>,
     /// Morph object state at this version.
@@ -128,7 +128,7 @@ pub struct BatchCreateMorph {
     pub morph_type: String,
     pub title: Option<String>,
     pub summary: Option<String>,
-    pub content: Option<Value>,
+    pub content: Option<ContentBlock>,
     pub fields: BTreeMap<String, Value>,
 }
 
@@ -138,7 +138,7 @@ pub struct BatchUpdateMorph {
     pub morph_id: MorphId,
     pub title: Option<String>,
     pub summary: Option<String>,
-    pub content: Option<Value>,
+    pub content: Option<ContentBlock>,
     pub fields: Option<BTreeMap<String, Value>>,
 }
 
@@ -402,7 +402,7 @@ impl Realm {
     }
 
     /// Create a local message send operation using a structured message content object.
-    pub fn send_message(&self, content: Value) -> Result<Operation> {
+    pub fn send_message(&self, content: ContentBlock) -> Result<Operation> {
         self.base_client.whoami()?;
         let operation_id = OperationId::new(generate_id("ak:operation:"))?;
         let strand_id = StrandId::new(generate_id("ak:strand:"))?;
@@ -419,7 +419,7 @@ impl Realm {
 
     /// Create a local plain-text message send operation.
     pub fn send_text(&self, body: impl Into<String>) -> Result<Operation> {
-        self.send_message(ContentBlock::text(body).to_value()?)
+        self.send_message(ContentBlock::text(body))
     }
 
     /// Create a local message edit operation.

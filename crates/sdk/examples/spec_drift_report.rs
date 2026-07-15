@@ -27,7 +27,7 @@
 
 use std::process::ExitCode;
 
-use arkret::schema_contracts::artifact_drift_report_from_default_location;
+use arkret::schema::artifact_drift_report_from_default_location;
 
 fn main() -> ExitCode {
     let report = match artifact_drift_report_from_default_location() {

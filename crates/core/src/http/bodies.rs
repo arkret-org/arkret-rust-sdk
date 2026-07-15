@@ -11,20 +11,6 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EventsDescribeOutcome {
-    pub service_id: Did,
-    #[serde(default)]
-    pub supported_event_schemas: Vec<String>,
-    #[serde(default)]
-    pub supported_reducer_profiles: Vec<String>,
-    #[serde(default)]
-    pub supported_signatures: Vec<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub limits: Value,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -70,12 +56,12 @@ pub struct EventsSubmitOutcome {
     pub quarantine: Vec<EventId>,
     /// Spec-loose object: `service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome`
     /// declares `actor_frontier` as an unconstrained object.
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub actor_frontier: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor_frontier: Option<BTreeMap<String, Value>>,
     /// Spec-loose object: `service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome`
     /// declares `realm_frontier` as an unconstrained object.
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub realm_frontier: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_frontier: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -88,8 +74,8 @@ pub struct EventView {
     pub event: Event,
     /// Spec-loose object: `service-operation-dtos.schema.json` declares
     /// `visibility` without property constraints.
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub visibility: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub receipts: Vec<Value>,
 }
@@ -308,8 +294,8 @@ pub struct EventsSubscribeFrame {
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<identifiers::Cursor>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub payload: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payload: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reconnect_after_ms: Option<u64>,
 }
@@ -771,17 +757,6 @@ pub struct KeyPackagesRevokeOutcome {
     pub revoked: KeyPackageRefArray,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Failure>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MimiProviderDirectory {
-    #[serde(default)]
-    pub providers: Vec<Value>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub features: Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1344,8 +1319,8 @@ pub struct SessionGrantIntrospectGrant {
     pub proof_kind: Option<SessionGrantProofKind>,
     /// Materialized scope details for `agent_key_proof` sessions. Human session
     /// grants omit this field.
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub scope_details: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope_details: Option<SessionGrantScopeDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub freshness_state: Option<FreshnessState>,
 }
@@ -1481,19 +1456,6 @@ pub struct AccountOidcCallbackOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AdminServerStatusOutcome {
-    pub status: String,
-    pub protocol_version: String,
-    #[serde(default)]
-    pub features: Vec<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub capacity: Value,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub warnings: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AdminAccountStatusRequestBody {
     pub status: String,
     pub moderator: Did,
@@ -1534,17 +1496,6 @@ pub struct AdminRevokeDeviceOutcome {
     pub revoked: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_ref: Option<EventId>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ModerationQueueView {
-    #[serde(default)]
-    pub items: Vec<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<Cursor>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub counts: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1610,16 +1561,6 @@ pub struct AccountSubscribeRequestBody(pub SyncRequestBody);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = SyncOutcome)))]
-pub struct AccountSubscribeOutcome(pub SyncOutcome);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = SyncDescription)))]
-pub struct AccountDescribeOutcome(pub SyncDescription);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectoryDescription)))]
 pub struct DirectoryDescribeOutcome(pub DirectoryDescription);
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1650,8 +1591,3 @@ pub struct MimiReportAbuseOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub routed_to: Vec<Did>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = AppletDescription)))]
-pub struct AppletDescribeOutcome(pub AppletDescription);

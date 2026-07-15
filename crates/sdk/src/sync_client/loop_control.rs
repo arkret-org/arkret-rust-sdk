@@ -122,14 +122,14 @@ pub enum SyncLoopStep {
 /// Minimal transport abstraction used by [`SyncLoop`].
 pub trait SyncTransport {
     /// Execute one sync request.
-    fn sync(&mut self, request: SyncRequestBody) -> Result<SyncOutcome>;
+    fn sync(&mut self, request: SyncRequestBody) -> Result<AccountSubscribeBatch>;
 }
 
 impl<F> SyncTransport for F
 where
-    F: FnMut(SyncRequestBody) -> Result<SyncOutcome>,
+    F: FnMut(SyncRequestBody) -> Result<AccountSubscribeBatch>,
 {
-    fn sync(&mut self, request: SyncRequestBody) -> Result<SyncOutcome> {
+    fn sync(&mut self, request: SyncRequestBody) -> Result<AccountSubscribeBatch> {
         self(request)
     }
 }
@@ -139,15 +139,21 @@ pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 
 /// Async transport abstraction used by [`SyncLoop::step_async`].
 pub trait AsyncSyncTransport {
     /// Execute one async sync request.
-    fn sync_async<'a>(&'a self, request: SyncRequestBody) -> BoxSyncFuture<'a, SyncOutcome>;
+    fn sync_async<'a>(
+        &'a self,
+        request: SyncRequestBody,
+    ) -> BoxSyncFuture<'a, AccountSubscribeBatch>;
 }
 
 impl<F, Fut> AsyncSyncTransport for F
 where
     F: Fn(SyncRequestBody) -> Fut + Send + Sync,
-    Fut: Future<Output = Result<SyncOutcome>> + Send + 'static,
+    Fut: Future<Output = Result<AccountSubscribeBatch>> + Send + 'static,
 {
-    fn sync_async<'a>(&'a self, request: SyncRequestBody) -> BoxSyncFuture<'a, SyncOutcome> {
+    fn sync_async<'a>(
+        &'a self,
+        request: SyncRequestBody,
+    ) -> BoxSyncFuture<'a, AccountSubscribeBatch> {
         Box::pin(self(request))
     }
 }
@@ -180,8 +186,11 @@ pub trait EventsSubscribeTransport {
 // for downstream impls.
 #[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 impl AsyncSyncTransport for crate::Client {
-    fn sync_async<'a>(&'a self, request: SyncRequestBody) -> BoxSyncFuture<'a, SyncOutcome> {
-        Box::pin(async move { self.account_subscribe_once(&request).await })
+    fn sync_async<'a>(
+        &'a self,
+        request: SyncRequestBody,
+    ) -> BoxSyncFuture<'a, AccountSubscribeBatch> {
+        Box::pin(async move { self.account_subscribe_batch(&request).await })
     }
 }
 
@@ -451,26 +460,27 @@ impl SyncLoop {
         }
     }
 
-    fn handle_response(&mut self, response: SyncOutcome) -> SyncLoopStep {
+    fn handle_response(&mut self, batch: AccountSubscribeBatch) -> SyncLoopStep {
         // Snapshot the pre-response cursor so a processing failure leaves
         // the loop positioned to re-fetch the same batch (at-least-once,
         // operations-sync.md): the token and backoff state only advance
         // after `process` succeeds.
-        let cursor = response.cursor.clone();
+        let cursor = batch.cursor.clone();
         if cursor.trim().is_empty() {
             let retry_after = self.backoff.record_failure();
             return SyncLoopStep::Retry {
                 retry_after,
-                error: "account subscribe outcome requires a non-empty cursor".to_owned(),
+                error: "account subscribe batch requires a non-empty cursor".to_owned(),
             };
         }
-        match self.processor.process(response) {
+        match self.processor.process(batch) {
             Ok(updates) => {
                 self.backoff.reset();
                 self.token = Some(cursor);
                 if self.gap_strategy == SyncGapStrategy::ResetTokenOnLimitedTimeline
                     && updates.realm_updates.iter().any(|update| {
                         update
+                            .entry
                             .timeline
                             .as_ref()
                             .is_some_and(|timeline| timeline.limited)

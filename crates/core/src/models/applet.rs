@@ -9,29 +9,14 @@ pub struct AppletPingOutcome {
     pub protocol_version: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AppletDescription {
-    pub applet_id: String,
-    pub service_id: Did,
-    #[serde(default)]
-    pub protocols: Vec<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub namespaces: Value,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub limits: Value,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub auth: Value,
-}
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletTransactionRequestBody {
     pub source_service_id: Did,
     #[serde(default)]
     pub events: Vec<Event>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub ephemeral: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ephemeral: Option<Vec<EphemeralEnvelope>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

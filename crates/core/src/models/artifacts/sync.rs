@@ -67,7 +67,7 @@ pub struct RangeCompletenessAttestation {
     pub event_range: RangeCompletenessAttestationEventRange,
     pub root: Hash,
     pub count: u64,
-    pub observed_at: Value,
+    pub observed_at: DateTime<Utc>,
     pub witness_attestation: RangeCompletenessAttestationWitnessAttestation,
     pub proofs: Vec<Proof>,
 }
@@ -180,6 +180,7 @@ pub struct SnapshotAuthorityBinding {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Snapshot {
     pub id: String,
     pub realm_id: RealmId,
@@ -195,7 +196,7 @@ pub struct Snapshot {
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
     pub authority_binding: SnapshotAuthorityBinding,
-    pub signature: Value,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub signature: PayloadProof,
+    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
+    pub extra: XExtensionMap,
 }

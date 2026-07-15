@@ -10,8 +10,9 @@ pub const STRAND_TRACK_NAME_SYNTHESIS: &str = "synthesis";
 pub const STRAND_TRACK_NAME_DISCUSSION: &str = "discussion";
 
 /// Per-track configuration carried as the value side of the `Strand.tracks` map.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct StrandTrackConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
@@ -23,42 +24,6 @@ pub struct StrandTrackConfig {
     pub template: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub metadata: BTreeMap<String, Value>,
-    /// SDK-local compatibility cache for pre-9dabf26 callers. Not serialized:
-    /// the current wire name is `metadata`.
-    #[serde(skip)]
-    pub fields: BTreeMap<String, Value>,
-}
-
-impl<'de> Deserialize<'de> for StrandTrackConfig {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct StrandTrackConfigWire {
-            #[serde(default)]
-            enabled: Option<bool>,
-            #[serde(default)]
-            is_primary: Option<bool>,
-            #[serde(default)]
-            profile: Option<String>,
-            #[serde(default)]
-            template: Option<String>,
-            #[serde(default)]
-            metadata: BTreeMap<String, Value>,
-        }
-
-        let wire = StrandTrackConfigWire::deserialize(deserializer)?;
-        Ok(Self {
-            enabled: wire.enabled,
-            is_primary: wire.is_primary,
-            profile: wire.profile,
-            template: wire.template,
-            fields: wire.metadata.clone(),
-            metadata: wire.metadata,
-        })
-    }
 }
 
 impl StrandTrackConfig {
@@ -211,6 +176,7 @@ where
 /// Morph object (data-structures.md §7).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Morph {
     pub id: MorphId,
     pub schema: String,
@@ -234,15 +200,18 @@ pub struct Morph {
     pub schema_refs: Vec<String>,
     pub morph_type: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub facets: BTreeMap<String, Value>,
+    pub facets: BTreeMap<String, BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<MorphMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_metadata: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub encrypted_metadata: Option<EncryptedEnvelope>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub content: Option<ContentBlock>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub encrypted_content: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub encrypted_content: Option<EncryptedEnvelope>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -264,14 +233,6 @@ pub struct Morph {
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
-    /// SDK-local compatibility cache only. `morph.schema.json` does not define
-    /// a `labels` field; inbound wire labels remain in `extra` and this field
-    /// is never serialized.
-    #[serde(skip)]
-    pub labels: Vec<String>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
 }
 
 impl Morph {
@@ -302,8 +263,6 @@ impl Morph {
             created_at: now_utc_seconds(),
             updated_by: None,
             updated_at: None,
-            labels: Vec::new(),
-            extra: BTreeMap::new(),
         }
     }
 
@@ -980,7 +939,8 @@ pub struct ErasureReceipt {
     pub erased_classes: Vec<ErasedClass>,
     pub retained_stub_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retained_stub: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub retained_stub: Option<VerificationStub>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub legal_hold_ref: Option<String>,
     pub completed_at: DateTime<Utc>,
@@ -1051,8 +1011,8 @@ impl ErasureReceipt {
         Ok(())
     }
 
-    /// Validate a received receipt against the retained verification stub bytes.
-    pub fn validate_with_retained_stub(&self, retained_stub: &Value) -> Result<()> {
+    /// Validate a received receipt against the retained verification stub.
+    pub fn validate_with_retained_stub(&self, retained_stub: &VerificationStub) -> Result<()> {
         self.validate_minimal()?;
         let retained_stub_digest = Hash::new(canonical::canonical_sha256(retained_stub)?)?;
         if retained_stub_digest != self.retained_stub_digest {
@@ -1078,7 +1038,7 @@ impl ErasureReceipt {
 mod erasure_receipt_tests {
     use super::*;
 
-    fn receipt(stub: &Value) -> ErasureReceipt {
+    fn receipt(stub: &VerificationStub) -> ErasureReceipt {
         let mut receipt = ErasureReceipt {
             receipt_id: "ak:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
             schema: ErasureReceipt::SCHEMA.to_owned(),
@@ -1116,19 +1076,32 @@ mod erasure_receipt_tests {
 
     #[test]
     fn retained_stub_digest_mismatch_fails_closed() {
-        let stub = serde_json::json!({
-            "stub_schema": "ak.schema.erasure_verification_stub.v1",
-            "subject": {"kind": "event", "subject_ref": "ak:event:01970e58-0004-7000-8000-000000000004"},
-            "receipt_id": "ak:receipt:01970e58-0004-7000-8000-000000000010"
-        });
+        let stub = VerificationStub {
+            stub_schema: "ak.schema.erasure_verification_stub.v1".to_owned(),
+            subject: VerificationStubSubject {
+                kind: "event".to_owned(),
+                subject_ref: "ak:event:01970e58-0004-7000-8000-000000000004".to_owned(),
+            },
+            scope: VerificationStubScope {
+                storage_boundary: "canonical_log_minimization".to_owned(),
+                realm_id: None,
+                target_refs: None,
+                retention_policy_id: None,
+                service_scope: None,
+            },
+            event_digest: None,
+            retained_digests: None,
+            seal_inclusion: None,
+            redaction_authorization_ref: None,
+            legal_hold_ref: None,
+            receipt_id: "ak:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
+            completed_at: Utc::now(),
+        };
         let receipt = receipt(&stub);
         assert!(receipt.validate_with_retained_stub(&stub).is_ok());
 
-        let tampered = serde_json::json!({
-            "stub_schema": "ak.schema.erasure_verification_stub.v1",
-            "subject": {"kind": "event", "subject_ref": "ak:event:01970e58-0004-7000-8000-ffffffffffff"},
-            "receipt_id": "ak:receipt:01970e58-0004-7000-8000-000000000010"
-        });
+        let mut tampered = stub.clone();
+        tampered.subject.subject_ref = "ak:event:01970e58-0004-7000-8000-ffffffffffff".to_owned();
         assert!(receipt.validate_with_retained_stub(&tampered).is_err());
     }
 }

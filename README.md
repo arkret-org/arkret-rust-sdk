@@ -160,7 +160,7 @@ The first Arkret crate currently includes:
 - in-memory persistence helpers for event cache, verified state snapshots and account-local records
 - Server description and profile version checks
 - HTTP client methods for the Arkret v1 service HTTP binding behind the `client` feature, including request metadata, retry/backoff and `Retry-After` handling
-- shared contract DTOs that live in `arkret-core` and are re-exported from the umbrella SDK as `arkret::api`, `arkret::identity_api`, `arkret::federation_api` and `arkret::push_gateway_api`
+- shared contract DTOs live in `arkret-core`; the umbrella SDK exposes their canonical modules such as `arkret::identity`, `arkret::federation`, and `arkret::push`
 - framework-independent server handler contracts, endpoint fixture coverage and Salvo OAPI DTO support through `arkret-core`
 - high-level `full-surface` sync loop, membership, devices, receipts,
   media, profile/settings, discovery, E2EE, auth/identity, federation, push,

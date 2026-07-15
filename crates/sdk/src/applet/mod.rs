@@ -4,16 +4,16 @@
 //! `applet-integration.md`).
 
 mod bridge_error;
-mod install;
 mod portal;
 
 pub use arkret_core::applet::*;
 pub use bridge_error::*;
-pub use install::*;
 pub use portal::*;
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use chrono::{DateTime, Duration, Utc};
     use serde_json::{Value, json};
 
@@ -69,7 +69,10 @@ mod tests {
         )
         .with_realm_id(ghost_test_realm())
         .with_accountable_principal_ids(vec![owner.clone()])
-        .with_external_ref(json!({"protocol": "slack", "user_id": "U123"}));
+        .with_external_ref(BTreeMap::from([
+            ("protocol".to_owned(), json!("slack")),
+            ("user_id".to_owned(), json!("U123")),
+        ]));
 
         let profile = request.to_actor_profile().unwrap();
         assert_eq!(profile.actor_kind, ActorKind::Integration);
@@ -256,7 +259,7 @@ mod tests {
         }
 
         let mut changed = transaction.clone();
-        changed.request.ephemeral = json!({"changed": true});
+        changed.request.events.clear();
         let changed_digest =
             crate::Hash::new(crate::canonical::canonical_sha256(&changed.request).unwrap())
                 .unwrap();
@@ -264,35 +267,6 @@ mod tests {
             window.claim(&identity, &changed_digest, "anchor-a"),
             IdempotencyClaim::DuplicateConflict { .. }
         ));
-    }
-
-    #[test]
-    fn applet_endpoint_routes_and_bridge_mappings_cover_queries() {
-        assert_eq!(AppletEndpointRouteSet::arkret_default().routes.len(), 8);
-
-        let mut mappings = BridgeMappingStore::new();
-        mappings.upsert_user(RemoteUserMapping {
-            protocol: "slack".to_owned(),
-            remote_user_id: "U1".to_owned(),
-            actor_id: did("u1"),
-            ghost_actor: Some(did("ghost")),
-            display_name: Some("User One".to_owned()),
-            external_ref: json!({"team": "T1"}),
-        });
-        mappings.upsert_realm(RemoteRealmMapping {
-            protocol: "slack".to_owned(),
-            remote_realm_id: "C1".to_owned(),
-            realm_id: RealmId::new("ak:realm:01904100-0000-7000-8000-f949e0272316").unwrap(),
-            portal_id: Some("portal".to_owned()),
-            title: Some("general".to_owned()),
-            external_ref: Value::Null,
-        });
-
-        assert_eq!(
-            mappings.user("slack", "U1").unwrap().display_name,
-            Some("User One".to_owned())
-        );
-        assert!(mappings.realm("slack", "C1").is_some());
     }
 
     use AppletNamespaceDomain::{Actors, Realms};
@@ -448,7 +422,7 @@ mod tests {
     fn wire_registration_round_trips_through_json() {
         let reg = sample_wire_registration();
         let value = serde_json::to_value(&reg).unwrap();
-        assert_eq!(value["kind"], "ak.applet.registration");
+        assert!(value.get("kind").is_none());
         assert_eq!(value["applet_id"], reg.applet_id);
         assert_eq!(value["service_id"], reg.service_id.as_str());
         assert_eq!(value["controller_id"], reg.controller_id.as_str());
@@ -697,10 +671,12 @@ mod tests {
 
     #[test]
     fn install_plan_digest_excludes_itself_and_effective_scope_round_trips() {
-        let mut plan = InstallPlan {
+        let mut plan = AppletInstallPlan {
             schema: "ak.schema.applet_install_plan.v1".to_owned(),
             plan_id: "plan_1".to_owned(),
-            applet_id: "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
+            applet_id: AppletInstallAppletId::AppletId(
+                AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap(),
+            ),
             package_digest: sample_epoch(),
             registration_epoch: sample_epoch(),
             effective_scope: EffectiveScope::Realm { realm_id: realm() },
@@ -710,25 +686,25 @@ mod tests {
             events_to_submit: vec![],
             capability_constraints: vec![],
             namespace_conflicts: vec![],
-            e2ee_effect: InstallE2eeEffect {
+            e2ee_effect: E2eeEffect {
                 requires_mls_join: false,
                 plaintext_access: "none".to_owned(),
-                authorization_refs: Vec::new(),
+                authorization_refs: None,
             },
-            widget_effect: InstallWidgetEffect {
+            widget_effect: WidgetEffect {
                 allow_widget: false,
                 policy_event_ref: None,
             },
             warnings: vec![],
-            plan_digest: None,
+            plan_digest: sample_epoch(),
         };
         let before = plan.compute_plan_digest().unwrap();
         plan.seal().unwrap();
-        assert_eq!(plan.plan_digest.clone().unwrap(), before);
+        assert_eq!(plan.plan_digest, before);
 
         let value = serde_json::to_value(&plan).unwrap();
         assert_eq!(value["effective_scope"]["kind"], "realm");
-        let back: InstallPlan = serde_json::from_value(value).unwrap();
+        let back: AppletInstallPlan = serde_json::from_value(value).unwrap();
         assert_eq!(back.effective_scope.realm_id(), &realm());
     }
 

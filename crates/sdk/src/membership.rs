@@ -348,7 +348,7 @@ impl MembershipManager {
             invitee,
             invite_delivery_target: None,
             introduction_evidence_digest: None,
-            third_party_id: third_party.map(serde_json::to_value).transpose()?,
+            third_party_id: third_party.cloned(),
             // The in-memory manager does not track the Realm join-rule
             // cell; callers building durable wire invites should snapshot
             // the effective join rule here.

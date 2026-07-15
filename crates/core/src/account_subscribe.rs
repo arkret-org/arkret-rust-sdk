@@ -1,10 +1,8 @@
 //! Incremental folding for `ak.self.account.stream.subscribe` frames.
 
-use serde_json::Value;
-
 use crate::{
     AccountSubscribeFrame, AccountSubscribeFrameKind, Error, Result, StreamTraceValidator,
-    SyncOutcome, SyncRequestBody,
+    SyncRequestBody,
 };
 
 pub const DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS: u64 = 5_000;
@@ -12,13 +10,20 @@ pub const MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS: u64 = 60_000;
 
 #[derive(Clone, Debug)]
 pub enum AccountSubscribeSnapshotResult {
-    Delta(Box<SyncOutcome>),
+    Batch(AccountSubscribeBatch),
     ReconnectAfter {
         reconnect_after_ms: u64,
         reconnect_cursor: Option<String>,
         reason: Option<String>,
         reset_cursor: bool,
     },
+}
+
+/// Validated delta frames collected for one account-subscribe catch-up step.
+#[derive(Clone, Debug)]
+pub struct AccountSubscribeBatch {
+    pub frames: Vec<AccountSubscribeFrame>,
+    pub cursor: String,
 }
 
 #[derive(Clone, Debug)]
@@ -54,7 +59,7 @@ fn clamp_reconnect_after_ms(raw: Option<u64>) -> u64 {
 }
 
 pub struct AccountSubscribeFolder {
-    merged: Option<SyncOutcome>,
+    frames: Vec<AccountSubscribeFrame>,
     done: Option<AccountSubscribeSnapshotResult>,
     trace: StreamTraceValidator,
 }
@@ -63,7 +68,7 @@ impl AccountSubscribeFolder {
     /// Create a folder bound to the exact account-subscribe request context.
     pub fn for_request(request: &SyncRequestBody) -> Self {
         Self {
-            merged: None,
+            frames: Vec::new(),
             done: None,
             trace: StreamTraceValidator::new(
                 request.catchup.unwrap_or(false),
@@ -101,14 +106,8 @@ impl AccountSubscribeFolder {
             AccountSubscribeFrameKind::CatchupComplete => return Ok(true),
             _ => {}
         }
-        if let Some(delta) = SyncOutcome::from_account_subscribe_frame(frame) {
-            self.merged = Some(match self.merged.take() {
-                None => delta,
-                Some(mut accumulated) => {
-                    merge_account_subscribe_delta(&mut accumulated, delta);
-                    accumulated
-                }
-            });
+        if frame.kind == AccountSubscribeFrameKind::Delta {
+            self.frames.push(frame);
         }
         Ok(false)
     }
@@ -118,16 +117,22 @@ impl AccountSubscribeFolder {
         if let Some(done) = self.done {
             return Ok(done);
         }
-        match self.merged {
-            Some(mut response) => {
-                if let Some(cursor) = self.trace.reconnect_cursor() {
-                    response.cursor = cursor.to_owned();
-                }
-                Ok(AccountSubscribeSnapshotResult::Delta(Box::new(response)))
-            }
-            None => Err(Error::Protocol(
+        if self.frames.is_empty() {
+            Err(Error::Protocol(
                 "account subscribe stream ended before a delta frame".to_owned(),
-            )),
+            ))
+        } else {
+            let cursor = self
+                .trace
+                .reconnect_cursor()
+                .ok_or_else(|| Error::Protocol("account subscribe batch has no cursor".to_owned()))?
+                .to_owned();
+            Ok(AccountSubscribeSnapshotResult::Batch(
+                AccountSubscribeBatch {
+                    frames: self.frames,
+                    cursor,
+                },
+            ))
         }
     }
 
@@ -136,70 +141,10 @@ impl AccountSubscribeFolder {
     }
 }
 
-fn merge_account_subscribe_delta(acc: &mut SyncOutcome, next: SyncOutcome) {
-    for (realm_id, incoming) in next.realms {
-        match acc.realms.entry(realm_id) {
-            std::collections::btree_map::Entry::Vacant(slot) => {
-                slot.insert(incoming);
-            }
-            std::collections::btree_map::Entry::Occupied(mut slot) => {
-                merge_realm_delta_value(slot.get_mut(), incoming);
-            }
-        }
-    }
-    acc.cursor = next.cursor;
-    acc.left_realms.extend(next.left_realms);
-    acc.to_device.extend(next.to_device);
-    if next.to_device_ack_token.is_some() {
-        acc.to_device_ack_token = next.to_device_ack_token;
-    }
-    acc.to_device_limited = next.to_device_limited;
-    if next.to_device_next_cursor.is_some() {
-        acc.to_device_next_cursor = next.to_device_next_cursor;
-    }
-    if next.to_device_lost.is_some() {
-        acc.to_device_lost = next.to_device_lost;
-    }
-    acc.account_data.extend(next.account_data);
-    acc.presence.extend(next.presence);
-    if !next.device_lists.is_null() {
-        acc.device_lists = next.device_lists;
-    }
-    acc.notifications.items.extend(next.notifications.items);
-    acc.partial = next.partial;
-}
-
-fn merge_realm_delta_value(current: &mut Value, incoming: Value) {
-    let Value::Object(incoming) = incoming else {
-        *current = incoming;
-        return;
-    };
-    let Value::Object(current_map) = current else {
-        *current = Value::Object(incoming);
-        return;
-    };
-    for (key, value) in incoming {
-        if (key == "timeline" || key == "state")
-            && let Some(Value::Object(existing_section)) = current_map.get_mut(&key)
-            && let Value::Object(mut incoming_section) = value
-        {
-            if let (Some(Value::Array(existing_events)), Some(Value::Array(new_events))) = (
-                existing_section.get_mut("events"),
-                incoming_section.remove("events"),
-            ) {
-                existing_events.extend(new_events);
-            }
-            for (section_key, section_value) in incoming_section {
-                existing_section.insert(section_key, section_value);
-            }
-            continue;
-        }
-        current_map.insert(key, value);
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use serde_json::Value;
+
     use super::*;
     use crate::NotificationDeltaAction;
 
@@ -275,10 +220,11 @@ mod tests {
                 .unwrap()
         );
 
-        let AccountSubscribeSnapshotResult::Delta(outcome) = folder.finish().unwrap() else {
-            panic!("expected folded delta");
+        let AccountSubscribeSnapshotResult::Batch(batch) = folder.finish().unwrap() else {
+            panic!("expected frame batch");
         };
-        assert_eq!(outcome.cursor, "ak:cursor:complete");
+        assert_eq!(batch.cursor, "ak:cursor:complete");
+        assert_eq!(batch.frames.len(), 1);
     }
 
     #[test]
@@ -317,16 +263,16 @@ mod tests {
             })))
             .unwrap();
 
-        let AccountSubscribeSnapshotResult::Delta(outcome) = folder.finish().unwrap() else {
-            panic!("expected folded delta");
+        let AccountSubscribeSnapshotResult::Batch(batch) = folder.finish().unwrap() else {
+            panic!("expected frame batch");
         };
-        assert_eq!(outcome.notifications.items.len(), 2);
+        assert_eq!(batch.frames.len(), 2);
         assert_eq!(
-            outcome.notifications.items[0].action,
+            batch.frames[0].notifications.as_ref().unwrap().items[0].action,
             NotificationDeltaAction::Add
         );
         assert_eq!(
-            outcome.notifications.items[1].action,
+            batch.frames[1].notifications.as_ref().unwrap().items[0].action,
             NotificationDeltaAction::Remove
         );
     }

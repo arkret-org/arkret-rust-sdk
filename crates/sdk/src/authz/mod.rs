@@ -19,7 +19,6 @@ mod approval;
 pub mod delegation;
 mod engine;
 mod grants;
-mod protocol;
 #[cfg(test)]
 mod tests;
 
@@ -27,4 +26,3 @@ pub use approval::*;
 pub use arkret_core::authz::*;
 pub use engine::*;
 pub use grants::*;
-pub use protocol::*;

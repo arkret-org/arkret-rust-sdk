@@ -95,8 +95,9 @@ pub mod stream_trace;
 pub mod sync;
 
 pub use account_subscribe::{
-    AccountSubscribeFolder, AccountSubscribeReconnectAfter, AccountSubscribeSnapshotResult,
-    DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS, MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
+    AccountSubscribeBatch, AccountSubscribeFolder, AccountSubscribeReconnectAfter,
+    AccountSubscribeSnapshotResult, DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
+    MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
 };
 pub use admin_signer::{AdminKeyStore, SessionGrantIntrospection, admin_scopes};
 pub use agent::{
@@ -194,21 +195,13 @@ pub use stream_trace::{
     StreamTraceValidator,
 };
 pub use sync::{
-    AccountData, BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody,
-    BucketedRealmUpdate, DeviceListChanges, LimitedTimelineState, MembershipBucket, PresenceEvent,
-    PresenceStatus, RealmSubscription, RealmUpdate, SubscriptionConfig, SyncClient, SyncFilter,
-    SyncGap, SyncGapReason, SyncMode, SyncRealm, SyncRequestBody, SyncSemantics,
-    SyncStreamPosition, SyncTimeline, SyncTokenBinding, SyncUpdates, TimelineFilter,
-    TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage, WaitForFrontier,
-    sync_filter_digest,
+    BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody, LimitedTimelineState,
+    MembershipBucket, PresenceStatus, RealmSubscription, RealmUpdate, SubscriptionConfig,
+    SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncRequestBody, SyncSemantics,
+    SyncStreamPosition, SyncTokenBinding, SyncUpdates, TimelineFilter, TimelineOrderKey,
+    ToDeviceAck, ToDeviceAckStatus, WaitForFrontier, sync_filter_digest,
 };
 
 #[cfg(test)]
 #[path = "schema/tests.rs"]
 mod schema_compat_tests;
-// `SyncOutcome` is the wire-shape projection in [`models::api`]; the typed
-// per-event helpers above (SyncRealm, ToDeviceMessage, AccountData,
-// PresenceEvent, DeviceListChanges, UnreadCounts,
-// SyncTimeline) are typed views that consumers parse per-field from the
-// loose `BTreeMap<String, Value>` / `Vec<Value>` carried by the wire
-// type. `pub use models::*;` re-exports `SyncOutcome` at the crate root.

@@ -39,88 +39,9 @@ impl<T: Serialize> ObjectCreatePayload<T> {
     }
 }
 
-/// Current wire object carried by `ak.space.create`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SpaceCreateObject {
-    pub id: SpaceId,
-    pub schema: String,
-    pub realm_id: RealmId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub default_realm_id: Option<RealmId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<CircleId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub default_scope_circle_id: Option<CircleId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub child_scope_policy: Option<ChildScopePolicy>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_space_id: Option<SpaceId>,
-    pub kind: String,
-    pub title: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub summary: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub rank: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub schema_refs: Vec<String>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fields: BTreeMap<String, Value>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub labels: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub avatar_blob_ref: Option<BlobRef>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub state: Option<SpaceState>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub state_changed_at: Option<DateTime<Utc>>,
-    pub created_by: Did,
-    pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_by: Option<Did>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<DateTime<Utc>>,
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
-}
-
-impl SpaceCreateObject {
-    pub fn new(
-        id: SpaceId,
-        realm_id: RealmId,
-        kind: impl Into<String>,
-        title: impl Into<String>,
-        created_by: Did,
-    ) -> Self {
-        Self {
-            id,
-            schema: SPACE_SCHEMA.to_owned(),
-            realm_id,
-            default_realm_id: None,
-            scope_circle_id: None,
-            default_scope_circle_id: None,
-            child_scope_policy: None,
-            parent_space_id: None,
-            kind: kind.into(),
-            title: title.into(),
-            summary: None,
-            rank: None,
-            schema_refs: Vec::new(),
-            fields: BTreeMap::new(),
-            labels: Vec::new(),
-            avatar_blob_ref: None,
-            state: None,
-            state_changed_at: None,
-            created_by,
-            created_at: now_utc_seconds(),
-            updated_by: None,
-            updated_at: None,
-            extra: BTreeMap::new(),
-        }
-    }
-}
-
 /// Current wire object carried by `ak.strand.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct StrandCreateObject {
     pub id: StrandId,
     pub schema: String,
@@ -130,11 +51,11 @@ pub struct StrandCreateObject {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<StrandMetadata>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub encrypted_metadata: Option<Value>,
+    pub encrypted_metadata: Option<EncryptedEnvelope>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<Value>,
+    pub content: Option<ContentBlock>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub encrypted_content: Option<Value>,
+    pub encrypted_content: Option<EncryptedEnvelope>,
     #[serde(default)]
     pub tracks: BTreeMap<String, StrandTrackConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -146,8 +67,6 @@ pub struct StrandCreateObject {
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
 }
 
 impl StrandCreateObject {
@@ -168,7 +87,6 @@ impl StrandCreateObject {
             created_at: now_utc_seconds(),
             updated_by: None,
             updated_at: None,
-            extra: BTreeMap::new(),
         }
     }
 
@@ -189,11 +107,6 @@ impl StrandCreateObject {
 
     pub fn with_track(mut self, name: impl Into<String>, track: StrandTrackConfig) -> Self {
         self.tracks.insert(name.into(), track);
-        self
-    }
-
-    pub fn with_extra(mut self, key: impl Into<String>, value: Value) -> Self {
-        self.extra.insert(key.into(), value);
         self
     }
 }

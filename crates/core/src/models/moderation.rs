@@ -1,5 +1,19 @@
 use super::*;
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ModerationEvidencePackage {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encryption: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub recipients: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ciphertext_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plaintext_digest: Option<Hash>,
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extensions: BTreeMap<String, Value>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ModerationReportRequestBody {
@@ -13,10 +27,12 @@ pub struct ModerationReportRequestBody {
     pub reporter: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub evidence_package: Value,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub franking_proof: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub evidence_package: Option<ModerationEvidencePackage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub franking_proof: Option<FrankingProof>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

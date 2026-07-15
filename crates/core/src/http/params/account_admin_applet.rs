@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::*;
 
@@ -335,8 +334,8 @@ pub struct AppletThirdPartyUsersParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
     pub protocol: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query, style = DeepObject)))]
-    pub external_ids: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
+    pub external_ids: Option<Vec<String>>,
 
     #[serde(
         default,
@@ -363,8 +362,8 @@ pub struct AppletThirdPartyLocationsParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
     pub protocol: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query, style = DeepObject)))]
-    pub external_ids: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
+    pub external_ids: Option<Vec<String>>,
 
     #[serde(
         default,

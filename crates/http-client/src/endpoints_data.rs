@@ -3,7 +3,7 @@
 use arkret_core::{
     BackupId, BlobMetadata, BlobPresignOutcome, BlobPresignRequestBody, BlobRef,
     BlobUploadMetadata, BlobUploadOutcome, DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody,
-    DeviceMessagesGetOutcome, DeviceMessagesPutOutcome, DeviceMessagesPutRequestBody, Error,
+    DeviceMessagesGetOutcome, DeviceMessagesSendOutcome, DeviceMessagesSendRequestBody, Error,
     KeyBackup, KeyBackupSummary, KeyBackupsListQuery, KeyPackagesClaimOutcome,
     KeyPackagesClaimRequestBody, KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody,
     KeyPackagesRevokeOutcome, KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome,
@@ -568,8 +568,8 @@ impl Client {
     pub async fn send_device_messages(
         &self,
         idempotency_key: &str,
-        request: &DeviceMessagesPutRequestBody,
-    ) -> Result<DeviceMessagesPutOutcome> {
+        request: &DeviceMessagesSendRequestBody,
+    ) -> Result<DeviceMessagesSendOutcome> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options("/_arkret/self/device_messages", request, &options)
             .await

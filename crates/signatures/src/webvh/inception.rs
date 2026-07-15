@@ -29,6 +29,8 @@
 //! (sodmin / inkson) and servers (soland / coauth) can all share one
 //! implementation with no drift.
 
+use std::collections::BTreeMap;
+
 use arkret_core::{
     Did, DidOperationSubmitRequestBody, decode_base58btc, decode_ed25519_multibase,
     encode_base58btc,
@@ -589,17 +591,28 @@ fn did_submit_body(
 ) -> Result<DidOperationSubmitRequestBody, WebvhInceptionError> {
     let typed_did = Did::new(did.to_owned())
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
+    let Value::Object(operation) = operation else {
+        return Err(WebvhInceptionError::Canonical(
+            "did:webvh operation must be a JSON object".to_owned(),
+        ));
+    };
     Ok(DidOperationSubmitRequestBody {
         did: typed_did,
         did_method: "did:webvh".to_owned(),
         seq: Some(seq),
         prev_event_digest: None,
-        operation,
-        policy_context: json!({
-            "provider_id": "soland.protocol",
-            "profile": "ak.identity.webvh.provider.v1",
-            "local_id": local_id,
-        }),
+        operation: operation.into_iter().collect(),
+        policy_context: Some(BTreeMap::from([
+            (
+                "provider_id".to_owned(),
+                Value::String("soland.protocol".to_owned()),
+            ),
+            (
+                "profile".to_owned(),
+                Value::String("ak.identity.webvh.provider.v1".to_owned()),
+            ),
+            ("local_id".to_owned(), Value::String(local_id.to_owned())),
+        ])),
         proofs: Vec::new(),
     })
 }
