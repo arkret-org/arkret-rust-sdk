@@ -23,7 +23,7 @@ mod tests {
     use super::*;
     use crate::events::kinds::IDENTITY_ACCOUNTABILITY_GRANT;
     use crate::models::AppletTransactionOutcome;
-    use crate::{ActorKind, ActorProfileId, AppletId, Did, Hlc, PayloadProof, RealmId};
+    use crate::{ActorKind, ActorProfileId, AppletId, Did, Hlc, PayloadProof, Proof, RealmId};
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
