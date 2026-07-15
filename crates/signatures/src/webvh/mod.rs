@@ -8,10 +8,11 @@
 pub mod inception;
 
 pub use inception::{
-    PreparedInception, PreparedPrincipalInception, PrincipalDidDocumentProfile,
-    PrincipalEnrollmentDelegation, PrincipalInceptionInput, ServiceInceptionInput,
-    SubmittedInception, SuppliedPrincipalInceptionInput, WebvhInceptionError,
-    prepare_principal_inception, prepare_service_inception,
+    PreparedInception, PreparedPrincipalInception, PreparedPrincipalRotation,
+    PrincipalDidDocumentProfile, PrincipalEnrollmentDelegation, PrincipalInceptionInput,
+    PrincipalRotationInput, ServiceInceptionInput, SubmittedInception,
+    SuppliedPrincipalInceptionInput, WebvhInceptionError, prepare_principal_inception,
+    prepare_principal_rotation, prepare_service_inception,
     prepare_service_inception_with_did_key_seed, prepare_supplied_principal_inception,
     validate_principal_did_document_profile, webvh_next_key_hash,
 };

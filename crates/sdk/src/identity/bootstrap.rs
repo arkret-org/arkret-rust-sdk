@@ -141,7 +141,7 @@ pub fn validate_self_principal_bootstrap_unit(create: &Event, authorize: &Event)
         || authorize.realm_id != create.realm_id
         || authorize.actor_id != create.actor_id
         || authorize.actor_seq != 1
-        || !authorize.prev_refs.is_empty()
+        || authorize.prev_refs != vec![create.event_id.clone()]
         || authorize.event_id == create.event_id
         || authorize.seal_ref.is_some()
         || authorize.auth_context.is_some()
@@ -337,6 +337,78 @@ fn payload_map<T: serde::Serialize>(payload: &T) -> Result<BTreeMap<String, Valu
 mod tests {
     use super::*;
 
+    fn attach_fixture_proof(event: &mut Event, verification_method: &str) {
+        let digest = arkret_core::Hash::new(event.event_digest().unwrap()).unwrap();
+        event.proofs = vec![arkret_core::Proof {
+            kind: arkret_core::proof_kind::DETACHED_JWS.to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: verification_method.to_owned(),
+            event_digest: digest,
+            created_at: event.created_at,
+            domain: None,
+            audience: None,
+            jws: "fixture.signature".to_owned(),
+        }];
+    }
+
+    fn bootstrap_unit() -> (Event, Event) {
+        let mut create = build_self_principal_pcr_create(input()).unwrap();
+        attach_fixture_proof(
+            &mut create,
+            "did:key:z6MkvMW3tjuvW6PqYiX8dLRNwZWyGhxe3biRDjA4ZPiBaFaJ#z6MkvMW3tjuvW6PqYiX8dLRNwZWyGhxe3biRDjA4ZPiBaFaJ",
+        );
+
+        let authority =
+            Did::new("did:key:z6MkgZb469vbyZCg3L7kx1PbQuUD4NToPpcy1utdLxUUfpsh").unwrap();
+        let authorization_ref =
+            arkret_core::NonEmptyString::new(format!("{}#enrollment-authority", create.actor_id))
+                .unwrap();
+        let payload = arkret_core::DeviceAuthorizePayload {
+            principal_id: create.actor_id.clone(),
+            device_id: arkret_core::DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001")
+                .unwrap(),
+            device_public_key: arkret_core::NonEmptyString::new("z6MkDeviceKey").unwrap(),
+            hpke_key: arkret_core::NonEmptyString::new("z6LSDeviceHpkeKey").unwrap(),
+            algorithms: vec![
+                arkret_core::NonEmptyString::new("ak.hpke_x25519_aead_chacha20poly1305.v1")
+                    .unwrap(),
+            ],
+            device_key_algorithm: Some(arkret_core::NonEmptyString::new("EdDSA").unwrap()),
+            authorized_by: arkret_core::DeviceOrPrincipalRef::Did(authority.clone()),
+            scopes: None,
+            not_before: create.created_at,
+            expires_at: None,
+            device_signature: None,
+            proof: None,
+            cross_signing_binding: None,
+            enrollment_authority_binding: Some(arkret_core::DeviceEnrollmentAuthorityBinding {
+                kind: arkret_core::DeviceEnrollmentAuthorityBindingKind::ServiceAttested,
+                authority_did: authority.clone(),
+                authorization_ref: authorization_ref.clone(),
+            }),
+            recovery_session_id: None,
+        };
+        let mut authorize = Event::new(
+            kinds::DEVICE_AUTHORIZE,
+            create.realm_id.clone(),
+            create.actor_id.clone(),
+            1,
+            Hlc::new("01970e589d21-0005-a13f9c2e").unwrap(),
+            serde_json::to_value(payload).unwrap(),
+        )
+        .unwrap();
+        authorize.event_id = EventId::new("ak:event:01904100-0000-7000-8000-000000000002").unwrap();
+        authorize.created_at = create.created_at;
+        authorize.prev_refs = vec![create.event_id.clone()];
+        authorize.executed_by = Some(authority.clone());
+        authorize.authorization_ref = Some(authorization_ref.to_string());
+        attach_fixture_proof(
+            &mut authorize,
+            &format!("{authority}#z6MkgZb469vbyZCg3L7kx1PbQuUD4NToPpcy1utdLxUUfpsh"),
+        );
+        (create, authorize)
+    }
+
     fn input() -> SelfPrincipalPcrCreateInput {
         let principal_id = Did::new("did:webvh:z6mkfixture:users.example:alice").unwrap();
         SelfPrincipalPcrCreateInput {
@@ -385,5 +457,26 @@ mod tests {
             tree_size: 1,
         });
         assert!(build_self_principal_pcr_create(indirect).is_err());
+    }
+
+    #[test]
+    fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
+        let (create, authorize) = bootstrap_unit();
+        validate_self_principal_bootstrap_unit(&create, &authorize).unwrap();
+        let request =
+            self_principal_bootstrap_submit_request(create.clone(), authorize.clone()).unwrap();
+        assert!(request.event.is_none());
+        assert_eq!(request.events.len(), 2);
+
+        let mut missing = authorize.clone();
+        missing.prev_refs.clear();
+        assert!(validate_self_principal_bootstrap_unit(&create, &missing).is_err());
+
+        let mut unrelated = authorize;
+        unrelated.prev_refs = vec![
+            create.event_id.clone(),
+            EventId::new("ak:event:01904100-0000-7000-8000-000000000099").unwrap(),
+        ];
+        assert!(validate_self_principal_bootstrap_unit(&create, &unrelated).is_err());
     }
 }

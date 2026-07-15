@@ -209,6 +209,61 @@ fn webvh_accepts_valid_signed_log_with_key_rotation() {
 }
 
 #[test]
+fn canonical_principal_builders_produce_a_verified_rotation_chain() {
+    use arkret_signatures::webvh::{
+        PrincipalEnrollmentDelegation, PrincipalInceptionInput, PrincipalRotationInput,
+        prepare_principal_inception, prepare_principal_rotation,
+    };
+    use chrono::{DateTime, Utc};
+
+    let root_seed = [7u8; 32];
+    let current_seed = [9u8; 32];
+    let next_seed = [11u8; 32];
+    let current_key = vector_update_key(&SigningKey::from_bytes(&current_seed));
+    let next_key = vector_update_key(&SigningKey::from_bytes(&next_seed));
+    let authority_key = vector_update_key(&SigningKey::from_bytes(&[13u8; 32]));
+    let authority_did = format!("did:key:{authority_key}");
+    let endpoint = "https://starid.local/".parse().unwrap();
+    let inception = prepare_principal_inception(&PrincipalInceptionInput {
+        principal_endpoint: &endpoint,
+        local_id: "alice",
+        also_known_as: &[],
+        version_time: DateTime::parse_from_rfc3339("2026-05-06T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc),
+        root_seed: &root_seed,
+        next_root_public_key_multibase: &current_key,
+        enrollment: PrincipalEnrollmentDelegation::ExternalAuthority {
+            authority_did: &authority_did,
+        },
+    })
+    .unwrap();
+    let rotation = prepare_principal_rotation(&PrincipalRotationInput {
+        did: &inception.did,
+        local_id: &inception.local_id,
+        previous_entry: &inception.log_entry,
+        version_time: DateTime::parse_from_rfc3339("2026-05-07T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc),
+        current_root_seed: &current_seed,
+        next_root_public_key_multibase: &next_key,
+        state: &inception.log_entry["state"],
+    })
+    .unwrap();
+    let did = Did::new(inception.did.clone()).unwrap();
+    let entries = vec![inception.log_entry.clone(), rotation.log_entry.clone()];
+
+    let verified = verify_did_webvh_v1_log(&did, &entries).unwrap();
+    assert_eq!(verified.head_version_id, rotation.version_id);
+    assert_eq!(verified.active_update_keys, vec![current_key]);
+
+    let mut previous_key_proof = rotation.log_entry;
+    previous_key_proof["proof"][0]["verificationMethod"] =
+        json!(inception.root_verification_method);
+    assert!(verify_did_webvh_v1_log(&did, &[inception.log_entry, previous_key_proof]).is_err());
+}
+
+#[test]
 fn webvh_rejects_forged_proof_signature() {
     let key1 = SigningKey::from_bytes(&[7u8; 32]);
     let key2 = SigningKey::from_bytes(&[9u8; 32]);
