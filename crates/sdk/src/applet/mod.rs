@@ -262,7 +262,7 @@ mod tests {
         }
 
         let mut changed = transaction.clone();
-        changed.request.events.clear();
+        changed.request.source_service_id = did("svc-other");
         let changed_digest =
             crate::Hash::new(crate::canonical::canonical_sha256(&changed.request).unwrap())
                 .unwrap();

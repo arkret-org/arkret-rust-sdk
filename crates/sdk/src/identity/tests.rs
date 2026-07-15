@@ -69,7 +69,7 @@ fn vector_sign_entry(mut entry: Value, signing_key: &SigningKey) -> Value {
     let proof_config = json!({
         "type": "DataIntegrityProof",
         "cryptosuite": "eddsa-jcs-2022",
-        "proofPurpose": "authentication",
+        "proofPurpose": "assertionMethod",
         "verificationMethod": vm,
     });
     let doc = entry.clone();
@@ -100,13 +100,19 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
     let host = "starid.local:users:alice";
     let update1 = vector_update_key(key1);
     let update2 = vector_update_key(key2);
+    let update2_commitment = arkret_signatures::webvh::webvh_next_key_hash(&update2).unwrap();
 
     // --- entry 1: derive SCID from the placeholder form ------------------
     let prelim_state = json!({ "id": "did:webvh:{SCID}:starid.local:users:alice" });
     let prelim_entry1 = json!({
         "versionId": "{SCID}",
         "versionTime": "2026-05-06T00:00:00Z",
-        "parameters": { "method": "did:webvh:1.0", "scid": "{SCID}", "updateKeys": [update1] },
+        "parameters": {
+            "method": "did:webvh:1.0",
+            "scid": "{SCID}",
+            "updateKeys": [update1],
+            "nextKeyHashes": [update2_commitment]
+        },
         "state": prelim_state,
     });
     let scid = vector_derive_scid(&prelim_entry1);
@@ -117,7 +123,12 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
     let mut entry1_body = json!({
         "versionId": scid,
         "versionTime": "2026-05-06T00:00:00Z",
-        "parameters": { "method": "did:webvh:1.0", "scid": scid, "updateKeys": [update1] },
+        "parameters": {
+            "method": "did:webvh:1.0",
+            "scid": scid,
+            "updateKeys": [update1],
+            "nextKeyHashes": [update2_commitment]
+        },
         "state": state1,
     });
     let hash1 = vector_multihash(&entry1_body);
@@ -128,12 +139,17 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
         .insert("versionId".to_owned(), json!(version1));
     let entry1 = vector_sign_entry(entry1_body, key1);
 
-    // --- entry 2: rotates updateKeys to key2, signed by key1 (authorized
-    // by the previous version's updateKeys) ------------------------------
+    // --- entry 2: activates key2 after key1 committed its nextKeyHash.
+    // The controller proof is signed by the current key2, never key1. -----
     let mut entry2_body = json!({
         "versionId": version1,
         "versionTime": "2026-05-07T00:00:00Z",
-        "parameters": { "prevVersionId": version1, "scid": scid, "updateKeys": [update2] },
+        "parameters": {
+            "method": "did:webvh:1.0",
+            "prevVersionId": version1,
+            "scid": scid,
+            "updateKeys": [update2]
+        },
         "state": state1,
     });
     let hash2 = vector_multihash(&entry2_body);
@@ -142,7 +158,7 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
         .as_object_mut()
         .unwrap()
         .insert("versionId".to_owned(), json!(version2));
-    let entry2 = vector_sign_entry(entry2_body, key1);
+    let entry2 = vector_sign_entry(entry2_body, key2);
 
     let body = format!(
         "{}\n{}\n",

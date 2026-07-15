@@ -690,13 +690,16 @@ fn message_revision_redaction_and_reaction_converge() {
             "strand_id": "ak:strand:01904100-0000-7000-8000-1fb50799ad50",
             "message_id": "m1",
             "track_name": "discussion",
-            "content": { "body": "hello" }
+            "content": { "kind": "ak.content.text", "body": "hello" }
         }),
     );
     let mut revise = event(
         "ak.message.revise",
         2,
-        json!({ "target_message_id": "m1", "content": { "body": "edited" } }),
+        json!({
+            "target_message_id": "m1",
+            "content": { "kind": "ak.content.text", "body": "edited" }
+        }),
     );
     revise.prev_refs.push(base.event_id.clone());
     let mut reaction_add = event(
