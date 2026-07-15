@@ -24,6 +24,8 @@ pub enum IdentityRecoveryKdfError {
     RootGenerationOverflow,
     #[error("identity recovery HKDF expansion failed")]
     HkdfExpand,
+    #[error("identity recovery HPKE derivation disagrees with the RFC 9180 implementation")]
+    HpkeDerivationMismatch,
 }
 
 /// Secret and public outputs for root generation `root_generation` and its
@@ -125,9 +127,16 @@ pub fn derive_identity_recovery_key_material(
     let (backup_private_key, backup_public_key) =
         <BackupKem as Kem>::derive_keypair(&backup_hpke_ikm);
     let backup_private_key_bytes = backup_private_key.to_bytes();
-    let backup_hpke_serialized_private_key = backup_private_key_bytes[..]
+    let hpke_derived_private_key: [u8; 32] = backup_private_key_bytes[..]
         .try_into()
         .expect("X25519 private keys are exactly 32 bytes");
+    if hpke_derived_private_key != backup_hpke_derived_private_key {
+        return Err(IdentityRecoveryKdfError::HpkeDerivationMismatch);
+    }
+    let mut backup_hpke_serialized_private_key = backup_hpke_derived_private_key;
+    backup_hpke_serialized_private_key[0] &= 248;
+    backup_hpke_serialized_private_key[31] &= 127;
+    backup_hpke_serialized_private_key[31] |= 64;
     let backup_public_key_bytes = backup_public_key.to_bytes();
     let backup_hpke_public_key: [u8; 32] = backup_public_key_bytes[..]
         .try_into()
