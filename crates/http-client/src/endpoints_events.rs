@@ -520,7 +520,9 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(target_arch = "wasm32"))]
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    #[cfg(not(target_arch = "wasm32"))]
     use tokio::net::TcpListener;
     use url::Url;
 

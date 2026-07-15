@@ -24,8 +24,10 @@ use std::time::Duration;
 
 use arkret_core::Result;
 use arkret_signatures::http_signature::Ed25519SigningKey;
+use reqwest::Method;
+#[cfg(any(not(target_arch = "wasm32"), test))]
+use reqwest::StatusCode;
 use reqwest::header::{HeaderMap, RETRY_AFTER};
-use reqwest::{Method, StatusCode};
 use url::Url;
 
 mod builder;
@@ -340,12 +342,12 @@ impl RetryConfig {
         self
     }
 
-    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    #[cfg(any(not(target_arch = "wasm32"), test))]
     pub(crate) fn should_retry_status(&self, status: StatusCode) -> bool {
         self.retry_statuses.contains(&status.as_u16())
     }
 
-    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    #[cfg(any(not(target_arch = "wasm32"), test))]
     pub(crate) fn retry_delay(&self, attempt: usize) -> Duration {
         if self.base_delay.is_zero() {
             return Duration::ZERO;
@@ -370,7 +372,7 @@ impl RetryConfig {
     /// A server-directed `Retry-After` is authoritative: it is **not**
     /// truncated by `max_delay` and gets no jitter (api-conventions.md §9:
     /// clients MUST prefer the server instruction).
-    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    #[cfg(any(not(target_arch = "wasm32"), test))]
     pub(crate) fn retry_delay_from_headers(&self, headers: &HeaderMap, attempt: usize) -> Duration {
         if self.respect_retry_after
             && let Some(retry_after_ms) = retry_after_ms(headers)
@@ -383,7 +385,7 @@ impl RetryConfig {
 
 /// Add 0–20% random jitter to `delay` (api-conventions.md §9). Falls back to
 /// the unjittered delay if the OS randomness source fails.
-#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+#[cfg(any(not(target_arch = "wasm32"), test))]
 fn apply_jitter(delay: Duration) -> Duration {
     let mut bytes = [0u8; 4];
     if getrandom::fill(&mut bytes).is_err() {

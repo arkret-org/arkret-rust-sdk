@@ -34,7 +34,6 @@ arkret-core = {workspace = true,features = ["client"]}
 arkret-signatures = {workspace = true,features = ["protocol"]}
 arkret-state = {workspace = true}
 futures-util = {workspace = true,default-features = false,features = ["std"]}
-getrandom = {workspace = true}
 reqwest = {workspace = true,features = ["json", "gzip", "http2", "multipart", "stream"]}
 serde = {workspace = true}
 serde_json = {workspace = true}
@@ -43,8 +42,14 @@ tokio-util = {workspace = true,default-features = false,features = ["codec"]}
 tracing = {workspace = true,optional = true}
 url = {workspace = true,features = ["serde"]}
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+getrandom = {workspace = true}
+
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = {workspace = true,features = ["macros", "rt", "net", "io-util"]}
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+getrandom = {workspace = true}
 
 [lints]
 workspace = true

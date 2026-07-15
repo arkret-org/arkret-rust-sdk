@@ -70,24 +70,6 @@ fn read_vectors<T: for<'de> Deserialize<'de>>(name: &str) -> T {
 }
 
 #[test]
-#[ignore]
-fn _dump_canonical_vectors_helper() {
-    use arkret_signatures::EventProofBuilder;
-    let suite: CanonicalVectors = read_vectors("canonical_json.json");
-    let builder = EventProofBuilder::new();
-    for v in suite.vectors {
-        let bytes = builder.canonical_bytes(&v.value).unwrap();
-        let hash = builder.payload_digest(&v.value).unwrap();
-        println!(
-            "name={} canonical={} hash={}",
-            v.name,
-            String::from_utf8(bytes).unwrap(),
-            hash.as_str()
-        );
-    }
-}
-
-#[test]
 fn canonical_json_vectors_match_event_proof_builder() {
     use arkret_signatures::EventProofBuilder;
     let suite: CanonicalVectors = read_vectors("canonical_json.json");
@@ -117,53 +99,6 @@ fn canonical_json_vectors_match_event_proof_builder() {
             v.payload_digest,
             "vector '{}' payload_digest drift",
             v.name
-        );
-    }
-}
-
-#[cfg(feature = "signer")]
-#[test]
-#[ignore]
-fn _dump_ed25519_vectors_helper() {
-    use arkret_signatures::proof::{Ed25519DetachedJwsSigner, EventProofBuilder, EventSigner};
-    let cases = [
-        (
-            "seed_one_all_ones_with_object",
-            [1u8; 32],
-            serde_json::json!({"hello": "world"}),
-        ),
-        (
-            "seed_two_event_envelope_subset",
-            [2u8; 32],
-            serde_json::json!({
-                "actor_id": "did:web:alice.example",
-                "kind": "ak.message.posted.v1",
-                "payload": {"text": "hi"}
-            }),
-        ),
-        (
-            "seed_three_integer_array",
-            [3u8; 32],
-            serde_json::json!({"nums": [10, 20, 30]}),
-        ),
-    ];
-    let builder = EventProofBuilder::new();
-    for (name, seed, value) in cases {
-        let signer = Ed25519DetachedJwsSigner::from_seed(seed, "did:web:test.example#key-1");
-        let pubkey = signer.verifying_key().to_bytes();
-        let bytes = builder.canonical_bytes(&value).unwrap();
-        let hash = builder.payload_digest(&value).unwrap();
-        let sig = signer.sign(&bytes).unwrap();
-        let jws = signer.sign_detached_jws(&bytes);
-        println!(
-            "name={} seed_hex={} public_hex={} canonical={} hash={} sig_hex={} jws={}",
-            name,
-            hex_encode(&seed),
-            hex_encode(&pubkey),
-            String::from_utf8(bytes).unwrap(),
-            hash.as_str(),
-            hex_encode(&sig),
-            jws,
         );
     }
 }
