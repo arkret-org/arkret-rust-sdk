@@ -66,8 +66,7 @@ impl Realm {
         }
         strand_metadata.fields = fields;
 
-        let mut object =
-            StrandCreateObject::new(strand_id, self.realm_id()?, session_meta.user_id.clone());
+        let mut object = StrandCreateObject::new(strand_id, self.realm_id()?, session_meta.user_id);
         object.metadata = Some(strand_metadata);
         object.tracks = tracks;
 

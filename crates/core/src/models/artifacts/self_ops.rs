@@ -194,8 +194,6 @@ pub struct KeyViewProof {
     pub audit_path: Vec<KeyViewAuditPathItem>,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/list-handles-for-subject-response.schema.json`.
-
 /// Counterpart for `spec/v1/artifacts/schemas/read-cursor-operations.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]

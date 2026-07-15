@@ -218,7 +218,7 @@ impl ProfileValidator {
     /// fixed by the spec and not configurable here — see [`Self::permitted_roles`]
     /// for the resolution rule.
     pub fn new(service_type: ServiceType) -> Self {
-        let permitted_roles = Self::permitted_roles(service_type.clone());
+        let permitted_roles = Self::permitted_roles(service_type);
         Self {
             service_type,
             permitted_roles,
@@ -338,7 +338,7 @@ impl ProfileValidator {
                         // is never the actual surface so we replay it as-is
                         // — callers reading the error compare against
                         // `service_type.as_str()` for diagnostics only.
-                        service_type: self.service_type.clone(),
+                        service_type: self.service_type,
                         permitted_roles: self.permitted_roles.clone(),
                     })
                 }

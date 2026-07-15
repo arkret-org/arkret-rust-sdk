@@ -65,7 +65,7 @@ impl Realm {
             self.realm_id()?,
             kind,
             title,
-            session_meta.user_id.clone(),
+            session_meta.user_id,
         );
 
         if let Some(parent_space_id) = metadata.parent_space_id {

@@ -402,7 +402,7 @@ fn validate_poll_content_block(block: &Value) -> ContentBlockValidationResult<()
             .poll
             .question
             .as_ref()
-            .is_some_and(|question| content_block_has_text_value(question));
+            .is_some_and(content_block_has_text_value);
     if !has_question || poll.poll.answers.len() < 2 {
         return Err(ContentBlockValidationError::new(
             "poll content block requires question and at least two options",

@@ -539,7 +539,7 @@ impl ArkretMlsGroup {
                 super::AuthorLeaf {
                     leaf_index: member.index.u32(),
                     credential,
-                    signature_key: member.signature_key.clone(),
+                    signature_key: member.signature_key,
                 }
             })
             .collect()

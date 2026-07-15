@@ -568,10 +568,8 @@ fn parse_fixed_offset(value: &str) -> Option<FixedOffset> {
     };
     let (sign, rest) = if let Some(rest) = without_utc.strip_prefix('+') {
         (1, rest)
-    } else if let Some(rest) = without_utc.strip_prefix('-') {
-        (-1, rest)
     } else {
-        return None;
+        (-1, without_utc.strip_prefix('-')?)
     };
 
     let (hours, minutes) = if let Some((hours, minutes)) = rest.split_once(':') {

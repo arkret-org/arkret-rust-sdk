@@ -611,7 +611,7 @@ impl ServiceRegistrationEnsureRequestBody {
     }
 
     pub fn registration_key(&self) -> Result<ServiceRegistrationKey> {
-        ServiceRegistrationKey::new(self.service_type.clone(), self.public_base.clone())
+        ServiceRegistrationKey::new(self.service_type, self.public_base.clone())
     }
 
     pub fn validate(&self) -> Result<()> {

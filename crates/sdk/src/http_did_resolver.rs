@@ -50,6 +50,8 @@ struct CacheEntry {
     fetched_at: DateTime<Utc>,
 }
 
+type InflightResolution<T> = Arc<OnceCell<std::result::Result<T, String>>>;
+
 /// Last externally visible resolver health signal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HttpDidResolverHealthSignal {
@@ -67,7 +69,7 @@ pub enum HttpDidResolverHealthSignal {
 /// Errors are stored as their display string (the error type is not
 /// `Clone`) and rehydrated as [`Error::Protocol`] for the waiters.
 struct SingleFlight<T> {
-    inflight: Mutex<BTreeMap<Did, Arc<OnceCell<std::result::Result<T, String>>>>>,
+    inflight: Mutex<BTreeMap<Did, InflightResolution<T>>>,
 }
 
 impl<T: Clone> SingleFlight<T> {

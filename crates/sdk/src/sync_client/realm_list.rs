@@ -361,7 +361,7 @@ impl RealmListService {
         {
             entry.last_event_id = Some(event.event_id.clone());
             entry.last_activity = Some(TimelineOrderKey::from_event(
-                &event,
+                event,
                 event.prev_refs.len() as u64,
             ));
         }

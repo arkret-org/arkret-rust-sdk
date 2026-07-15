@@ -119,9 +119,9 @@ impl Lattice for Fsm {
                 bottom.move_ids = vec![entry.move_id.clone()];
                 bottom.details = Some(bottom_details([
                     ("current", current.clone().unwrap_or(Value::Null)),
-                    ("from", from.clone()),
+                    ("from", from),
                     ("reason", json!("same_from_different_to")),
-                    ("to", to.clone()),
+                    ("to", to),
                 ]));
                 return CellState::Bottom(bottom);
             }
@@ -137,8 +137,8 @@ impl Lattice for Fsm {
                 bottom.details = Some(bottom_details([
                     ("current", cur.clone()),
                     ("expected_from", cur.clone()),
-                    ("from", from.clone()),
-                    ("to", to.clone()),
+                    ("from", from),
+                    ("to", to),
                 ]));
                 return CellState::Bottom(bottom);
             }

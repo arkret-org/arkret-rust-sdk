@@ -568,12 +568,9 @@ mod salvo_router {
             verify_inbound_transaction(&verification_service, &parts)
         })
         .await;
-        let verified = match verified {
-            Ok(Ok(verified)) => verified,
-            Ok(Err(_)) | Err(_) => {
-                render_invalid_signature(res);
-                return;
-            }
+        let Ok(Ok(verified)) = verified else {
+            render_invalid_signature(res);
+            return;
         };
 
         let identity = IdempotencyIdentity::applet_transaction(

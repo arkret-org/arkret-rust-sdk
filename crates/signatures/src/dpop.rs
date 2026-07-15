@@ -99,7 +99,7 @@ pub fn build_dpop_proof(request: &DpopProofRequest, signing_key: &SigningKey) ->
 
     let header = json!({
         "alg": DPOP_PROOF_ALG,
-        "jwk": public_jwk.clone(),
+        "jwk": public_jwk,
         "typ": DPOP_PROOF_TYP,
     });
     let mut claims = serde_json::Map::new();

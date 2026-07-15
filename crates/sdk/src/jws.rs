@@ -166,9 +166,9 @@ pub fn sign_jws_ed25519(
 
 /// Verify a detached Ed25519 JWS against `canonical_bytes`.
 ///
-/// Returns `Ok(())` on successful verification (shape valid + DID resolves
-/// + signature checks against `canonical_bytes`); a typed [`JwsVerifyError`]
-/// otherwise.
+/// Returns `Ok(())` when the shape is valid, the DID resolves, and the
+/// signature checks against `canonical_bytes`; otherwise returns a typed
+/// [`JwsVerifyError`].
 ///
 /// All error paths are uniform — any deviation from spec rejects with a
 /// typed reason (callers map to `schema_violation` 4xx, never 5xx).

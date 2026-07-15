@@ -592,7 +592,7 @@ pub fn build_key_backup_envelope(
         aead,
         key_commitment: Some(format!(
             "sha256:{}",
-            sha256_hex(&commitment_digest(&kek.key, backup_class))
+            sha256_hex(commitment_digest(&kek.key, backup_class))
         )),
         // Symmetric passphrase_kdf path: the HPKE-suite selector applies only to
         // recipient_method=recovery_public_key, so it is omitted here.
@@ -612,7 +612,7 @@ pub fn build_key_backup_envelope(
             backup_class,
             backup_version: backup_version.to_owned(),
             created_at,
-            item_types: binding.item_types.clone(),
+            item_types: binding.item_types,
             managed_principal_bindings: Vec::new(),
             recipient_method: None,
             recipient_key_ref: None,
@@ -658,7 +658,7 @@ pub fn build_key_backup_envelope(
         domain_separation,
         contents,
         ciphertext: ciphertext.ciphertext_b64.clone(),
-        ciphertext_digest: ciphertext.digest_sha256.clone(),
+        ciphertext_digest: ciphertext.digest_sha256,
         plaintext_commitment: None,
         auth_data: None,
         retention: None,
@@ -755,7 +755,7 @@ fn key_backup_supersedes_digest(predecessor: &KeyBackup) -> Result<String> {
 /// directly in another domain). Public for conformance KAT verification.
 pub fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_class: BackupClass) -> Vec<u8> {
     let mut commitment_key = derive_subkey(root, backup_class.hkdf_info("commitment").as_bytes());
-    let digest = arkret_canonical::canonical::sha256_bytes(&commitment_key).to_vec();
+    let digest = arkret_canonical::canonical::sha256_bytes(commitment_key).to_vec();
     commitment_key.zeroize();
     digest
 }

@@ -232,10 +232,9 @@ impl Realm {
                         .payload
                         .get("content")
                         .or_else(|| patch.and_then(|p| p.get("content")))
+                        && let Ok(next_content) = serde_json::from_value(next_content.clone())
                     {
-                        if let Ok(next_content) = serde_json::from_value(next_content.clone()) {
-                            content = Some(next_content);
-                        }
+                        content = Some(next_content);
                     }
                     if let Some(next_fields) = event
                         .payload

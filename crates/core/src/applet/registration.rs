@@ -811,12 +811,12 @@ impl AppletRegistrationEpochTranscript {
     }
 }
 
-fn sort_unique_strings(context: &str, values: &mut Vec<String>) -> Result<()> {
+fn sort_unique_strings(context: &str, values: &mut [String]) -> Result<()> {
     values.sort_by(|left, right| left.as_bytes().cmp(right.as_bytes()));
     reject_duplicate_adjacent_by(context, values, |left, right| left == right)
 }
 
-fn sort_namespace_entries(context: &str, values: &mut Vec<AppletNamespaceEntry>) -> Result<()> {
+fn sort_namespace_entries(context: &str, values: &mut [AppletNamespaceEntry]) -> Result<()> {
     values.sort_by(|left, right| {
         (left.pattern.as_bytes(), left.exclusive).cmp(&(right.pattern.as_bytes(), right.exclusive))
     });

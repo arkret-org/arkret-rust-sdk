@@ -130,7 +130,7 @@ pub fn seal_account_data_value_with_nonce(
         schema: ACCOUNT_DATA_ENCRYPTED_VALUE_SCHEMA.to_owned(),
         version: ACCOUNT_DATA_ENCRYPTED_VALUE_VERSION.to_owned(),
         aead_profile: ACCOUNT_DATA_AEAD_PROFILE.to_owned(),
-        key_ref: crate::canonical::sha256_digest(&key),
+        key_ref: crate::canonical::sha256_digest(key),
         nonce: B64.encode(nonce),
         ciphertext: B64.encode(&ciphertext),
         aad,
@@ -192,7 +192,7 @@ pub fn open_account_data_value(
 ) -> Result<Value> {
     validate_account_data_encrypted_value(value, expected_actor_id, expected_data_type)?;
     let key = derive_account_data_value_key(account_secret, expected_actor_id, expected_data_type)?;
-    if value.key_ref != crate::canonical::sha256_digest(&key) {
+    if value.key_ref != crate::canonical::sha256_digest(key) {
         return Err(protocol_error("account-data key_ref mismatch"));
     }
     let nonce = B64

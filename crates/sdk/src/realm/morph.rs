@@ -19,12 +19,7 @@ impl Realm {
         let morph_id = MorphId::new(generate_id("ak:morph:"))?;
         let operation_id = OperationId::new(generate_id("ak:operation:"))?;
 
-        let mut object = Morph::new(
-            morph_id,
-            self.realm_id()?,
-            morph_type,
-            session_meta.user_id.clone(),
-        );
+        let mut object = Morph::new(morph_id, self.realm_id()?, morph_type, session_meta.user_id);
 
         if let Some(title) = title {
             object = object.with_metadata_title(title);

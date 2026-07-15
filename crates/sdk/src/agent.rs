@@ -77,7 +77,7 @@ pub struct RuntimeKeyRequestBuilder<'a> {
 
 impl<'a> RuntimeKeyRequestBuilder<'a> {
     pub fn new(signing_key: &'a SigningKey, bootstrap: AgentPairingBootstrap) -> Self {
-        let key_digest = arkret_canonical::sha256_digest(&signing_key.verifying_key().to_bytes());
+        let key_digest = arkret_canonical::sha256_digest(signing_key.verifying_key().to_bytes());
         let key_suffix = key_digest
             .as_str()
             .strip_prefix("sha256:")
