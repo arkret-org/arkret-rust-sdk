@@ -137,7 +137,7 @@ pub struct View {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub layout: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub collection: Option<CollectionViewConfig>,
+    pub collection: Option<CollectionConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeline: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -159,7 +159,7 @@ pub struct View {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct CollectionViewConfig {
+pub struct CollectionConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub item_object_types: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -175,7 +175,7 @@ pub struct CollectionViewConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub count_policy: Option<CollectionCountPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub grouping: Option<QueryCollectionGrouping>,
+    pub grouping: Option<CollectionGrouping>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page_size: Option<u32>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
@@ -235,7 +235,7 @@ pub enum CollectionWipLimitEnforcement {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct QueryCollectionGrouping {
+pub struct CollectionGrouping {
     pub mode: CollectionGroupingMode,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub field: Option<String>,

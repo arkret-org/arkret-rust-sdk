@@ -5,61 +5,6 @@ use super::*;
 /// Counterpart for `spec/v1/artifacts/schemas/space.schema.json#/$defs/metadata_encryption_floor`.
 pub type MetadataEncryptionFloor = String;
 
-/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/collection_config`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CollectionConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub item_object_types: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub item_facets: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub item_render: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub item_order_by: Option<Vec<SortSpec>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_fields: Option<Vec<BTreeMap<String, Value>>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub selection_policy: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub count_policy: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub grouping: Option<ViewCollectionGrouping>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub page_size: Option<u64>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
-/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/collection_grouping`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ViewCollectionGrouping {
-    pub mode: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub field: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub lanes: Option<Vec<BTreeMap<String, Value>>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub board_space_id: Option<SpaceId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub container_relation_kind: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub item_relation_kind: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub start_field: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub end_field: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rows_by: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub columns_by: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hidden_count_policy: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub wip_limit_enforcement: Option<String>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
-}
-
 /// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/query`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QueryValue {

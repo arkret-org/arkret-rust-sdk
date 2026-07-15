@@ -144,7 +144,7 @@ fn view_supports_renderer_and_facet_config_facades() {
         query: request,
         visible_fields: Vec::new(),
         layout: None,
-        collection: Some(CollectionViewConfig {
+        collection: Some(CollectionConfig {
             item_facets: vec![Facet::Stateful, Facet::Rankable],
             item_render: Some(CollectionItemRender::Card),
             ..Default::default()

@@ -6,6 +6,11 @@
       "reason": "Conformance vectors are test inputs, not an Arkret wire DTO."
     },
     {
+      "rust_field": "crates/core/src/models/admin.rs::AdminDevice.payload",
+      "classification": "internal_or_fixture",
+      "reason": "Product-admin device payload is an internal Soland/Sodmin projection and has no Arkret protocol wire schema."
+    },
+    {
       "rust_field": "crates/schema/src/artifacts.rs::SpecArtifactBundle.schema_registry",
       "classification": "internal_or_fixture",
       "reason": "The schema catalog stores raw embedded artifact documents."
@@ -759,30 +764,6 @@
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
     },
     {
-      "rust_field": "crates/core/src/models/artifacts/view.rs::CollectionConfig.display_fields",
-      "spec_pointer": "view.schema.json#/$defs/collection_config/properties/display_fields",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/view.rs::CollectionConfig.extra",
-      "spec_pointer": "view.schema.json#/$defs/collection_config/additionalProperties",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/view.rs::CollectionGrouping.extra",
-      "spec_pointer": "view.schema.json#/$defs/collection_grouping/additionalProperties",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
-      "rust_field": "crates/core/src/models/artifacts/view.rs::CollectionGrouping.lanes",
-      "spec_pointer": "view.schema.json#/$defs/collection_grouping/properties/lanes",
-      "classification": "open_json",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary."
-    },
-    {
       "rust_field": "crates/core/src/models/artifacts/view.rs::QueryValue.extra",
       "spec_pointer": "view.schema.json#/$defs/query/additionalProperties",
       "classification": "open_json",
@@ -1330,13 +1311,13 @@
       "reason": "Collection grouping lanes are intentionally application-defined JSON."
     },
     {
-      "rust_field": "crates/core/src/models/queries.rs::CollectionViewConfig.display_fields",
+      "rust_field": "crates/core/src/models/queries.rs::CollectionConfig.display_fields",
       "spec_pointer": "view.schema.json#/$defs/collection_config/properties/display_fields",
       "classification": "open_json",
       "reason": "Collection display fields are intentionally application-defined JSON."
     },
     {
-      "rust_field": "crates/core/src/models/queries.rs::CollectionViewConfig.extra",
+      "rust_field": "crates/core/src/models/queries.rs::CollectionConfig.extra",
       "spec_pointer": "view.schema.json#/$defs/collection_config",
       "classification": "open_json",
       "reason": "The Spec collection configuration explicitly permits extension properties."
